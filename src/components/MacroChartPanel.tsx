@@ -6,6 +6,7 @@ import type { EChartsType } from "echarts";
 import ReactECharts from "echarts-for-react";
 import type { MacroChartSlice } from "@/lib/macroChartOption";
 import { macroPayloadToChartOption } from "@/lib/macroChartOption";
+import type { MacroSeriesVisualConfigMap } from "@/lib/macroChartOption";
 
 export type MacroChartPanelProps = {
   slice: MacroChartSlice | null;
@@ -17,6 +18,7 @@ export type MacroChartPanelProps = {
    * 例：`min(72vh, 880px)` 或 `clamp(28rem, 65vh, 52rem)`
    */
   chartAreaHeight?: string;
+  seriesVisualMap?: MacroSeriesVisualConfigMap;
   /** 多图联动：由 MacroMultiChartGrid 注册实例并同步 axisPointer */
   cursorLink?: {
     slotIndex: number;
@@ -30,6 +32,7 @@ export function MacroChartPanel({
   emptyHint,
   className,
   chartAreaHeight,
+  seriesVisualMap,
   cursorLink,
 }: MacroChartPanelProps) {
   /** 避免 cursorLink 对象引用每帧变化导致反复 cleanup→unregister→无限 setState */
@@ -62,7 +65,7 @@ export function MacroChartPanel({
     );
   }
 
-  const opt = macroPayloadToChartOption(slice, { compact });
+  const opt = macroPayloadToChartOption(slice, { compact, seriesVisualMap });
 
   const chartBoxStyle: CSSProperties | undefined = chartAreaHeight
     ? { width: "100%", height: chartAreaHeight, minHeight: chartAreaHeight }

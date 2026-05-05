@@ -31,8 +31,8 @@ function extractDataZoomRange(params: unknown): { start: number; end: number } |
 }
 
 /**
- * 图表下方时间范围导航：dataZoom 滑块 + 全量时间轴预览；拖动两端或平移选中区。
- * 父组件根据 rangePct 自行切片各序列数据。
+ * 图表下方时间范围导航：dataZoom 滑块 + 上方全量时间轴折线预览。
+ * 滑块内不绘制数据阴影（仅选区与拖柄）；父组件根据 rangePct 自行切片各序列数据。
  */
 export function MacroTimeRangeNavigator({
   categories,
@@ -106,18 +106,29 @@ export function MacroTimeRangeNavigator({
           xAxisIndex: 0,
           start: rangePct.start,
           end: rangePct.end,
-          height: 22,
-          bottom: 4,
+          height: 36,
+          bottom: 6,
           borderColor: "#334155",
           backgroundColor: "rgba(15,23,42,0.6)",
           fillerColor: "rgba(16,185,129,0.28)",
           borderRadius: 2,
+          /** 不在滑块轨道内绘制序列缩略线，仅保留时间范围选择 */
+          showDataShadow: false,
+          dataBackground: {
+            lineStyle: { opacity: 0 },
+            areaStyle: { opacity: 0 },
+          },
+          selectedDataBackground: {
+            lineStyle: { opacity: 0 },
+            areaStyle: { opacity: 0 },
+          },
           handleStyle: {
             color: "#f8fafc",
             borderColor: "#64748b",
           },
-          moveHandleSize: 5,
+          moveHandleSize: 6,
           emphasis: {
+            handleLabel: { show: false },
             handleStyle: { borderColor: "#34d399" },
           },
           textStyle: { color: "#64748b", fontSize: 10 },
@@ -135,7 +146,7 @@ export function MacroTimeRangeNavigator({
   return (
     <div
       className={`shrink-0 ${className ?? ""}`}
-      style={{ minHeight: 88, height: 88, width: "100%" }}
+      style={{ minHeight: 100, height: 100, width: "100%" }}
     >
       <ReactECharts
         option={option}

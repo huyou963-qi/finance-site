@@ -3,34 +3,39 @@
 import { useMemo, useState } from "react";
 import {
   DEFAULT_UNIFIED_SERIES_KEYS,
-  getUnifiedCatalogGroups,
   MACRO_MAX_SERIES,
+  type UnifiedCatalogGroup,
 } from "@/lib/data/macroCatalog";
-import type { MacroSlotAssignment } from "@/lib/macroPartition";
 
 export type UnifiedMacroSidebarProps = {
   selectedKeys: Set<string>;
   onChange: (keys: Set<string>) => void;
   disabled?: boolean;
-  layoutMode?: 1 | 2 | 3 | 4;
-  slotAssignment: MacroSlotAssignment;
-  onSlotAssignmentChange: (key: string, slotIndex: number | null) => void;
+  /** 来自 `/api/data/fmp-catalog`（当前返回 FRED 目录）；null 表示加载中 */
+  catalogGroups: UnifiedCatalogGroup[] | null;
+  catalogError?: string | null;
 };
 
 export function UnifiedMacroSidebar({
   selectedKeys,
   onChange,
   disabled,
-  layoutMode = 1,
-  slotAssignment,
-  onSlotAssignmentChange,
+  catalogGroups,
+  catalogError,
 }: UnifiedMacroSidebarProps) {
   const count = selectedKeys.size;
   const [searchQuery, setSearchQuery] = useState("");
+  const [copiedSeriesId, setCopiedSeriesId] = useState<string | null>(null);
+  const [toastText, setToastText] = useState<string | null>(null);
 
-  const catalogGroups = useMemo(() => getUnifiedCatalogGroups(), []);
+  const defaultOpenCategories = new Set([
+    "增长与景气",
+    "通胀与价格",
+    "就业与劳动力",
+  ]);
 
   const filteredBlocks = useMemo(() => {
+    if (!catalogGroups) return [];
     const q = searchQuery.trim().toLowerCase();
     if (!q) return catalogGroups;
     return catalogGroups
@@ -46,19 +51,10 @@ export function UnifiedMacroSidebar({
       .filter((g) => g.items.length > 0);
   }, [catalogGroups, searchQuery]);
 
-  function resolvedSlot(key: string): number | null {
-    const cap = Math.max(0, layoutMode - 1);
-    const s = slotAssignment[key];
-    if (s === null) return null;
-    if (s === undefined || Number.isNaN(s)) return 0;
-    return Math.min(cap, Math.max(0, s));
-  }
-
   function toggle(key: string) {
     if (disabled) return;
     const next = new Set(selectedKeys);
     if (next.has(key)) {
-      if (next.size <= 1) return;
       next.delete(key);
     } else {
       if (next.size >= MACRO_MAX_SERIES) return;
@@ -72,8 +68,25 @@ export function UnifiedMacroSidebar({
     onChange(new Set(DEFAULT_UNIFIED_SERIES_KEYS));
   }
 
+  async function copySeriesId(seriesId: string) {
+    try {
+      await navigator.clipboard.writeText(seriesId);
+      setCopiedSeriesId(seriesId);
+      setToastText(`已复制 ${seriesId}`);
+      window.setTimeout(() => {
+        setCopiedSeriesId((prev) => (prev === seriesId ? null : prev));
+      }, 1200);
+      window.setTimeout(() => {
+        setToastText((prev) => (prev?.includes(seriesId) ? null : prev));
+      }, 1400);
+    } catch {
+      setToastText("复制失败：当前环境不支持剪贴板权限");
+      window.setTimeout(() => setToastText(null), 1800);
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="relative flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
         <span>
           已选 <span className="text-slate-300">{count}</span> / {MACRO_MAX_SERIES}
@@ -89,22 +102,33 @@ export function UnifiedMacroSidebar({
       </div>
 
       <label className="flex flex-col gap-1 text-xs text-slate-500">
-        <span className="text-slate-400">搜索经济体 / 指标</span>
+        <span className="text-slate-400">搜索指标</span>
         <input
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="例如：通胀、非农、日本…"
+          placeholder="例如：GDP、失业、利率、零售…"
           disabled={disabled}
           className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none disabled:opacity-40"
         />
       </label>
 
       <div className="max-h-[min(62vh,680px)] overflow-y-auto pr-1">
+        {catalogError ? (
+          <p className="rounded-md border border-amber-900/50 bg-amber-950/20 px-2 py-2 text-[11px] leading-relaxed text-amber-100/90">
+            指标目录加载失败：{catalogError}
+          </p>
+        ) : null}
+        {!catalogGroups && !catalogError ? (
+          <p className="py-6 text-center text-xs text-slate-500">正在加载 FRED 指标目录…</p>
+        ) : null}
         <ul className="space-y-2">
           {filteredBlocks.map((block) => (
-            <li key={block.name}>
-              <details className="group rounded-md border border-slate-800/90 bg-slate-900/50 open:border-slate-700">
+            <li key={`${block.name}:${searchQuery.trim().length > 0 ? "q" : "nq"}`}>
+              <details
+                open={searchQuery.trim().length > 0 || defaultOpenCategories.has(block.name)}
+                className="group rounded-md border border-slate-800/90 bg-slate-900/50 open:border-slate-700"
+              >
                 <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-slate-200 marker:content-none [&::-webkit-details-marker]:hidden">
                   <span className="flex items-center justify-between gap-2">
                     <span>{block.name}</span>
@@ -115,8 +139,9 @@ export function UnifiedMacroSidebar({
                   </span>
                 </summary>
                 <ul className="space-y-1 border-t border-slate-800/80 px-2 py-2">
-                  {block.items.map(({ key, label }) => {
+                  {block.items.map(({ key, label, frequency }) => {
                     const checked = selectedKeys.has(key);
+                    const seriesId = key.startsWith("fred:") ? key.slice(5) : key;
                     return (
                       <li key={key}>
                         <div
@@ -133,26 +158,23 @@ export function UnifiedMacroSidebar({
                               onChange={() => toggle(key)}
                             />
                             <span className="text-slate-300">{label}</span>
-                          </label>
-                          {checked ? (
-                            <select
-                              value={resolvedSlot(key) === null ? -1 : resolvedSlot(key)!}
+                            <button
+                              type="button"
                               disabled={disabled}
-                              onChange={(e) => {
-                                const v = Number(e.target.value);
-                                onSlotAssignmentChange(key, v === -1 ? null : v);
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                copySeriesId(seriesId).catch(() => {});
                               }}
-                              className="shrink-0 rounded border border-slate-600 bg-slate-950 px-1.5 py-0.5 text-[11px] text-slate-300"
-                              title="显示在哪张图"
+                              className="shrink-0 rounded border border-slate-700 px-1 py-0 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
+                              title={`复制 ${seriesId}`}
                             >
-                              <option value={-1}>待选集</option>
-                              {Array.from({ length: layoutMode }, (_, i) => (
-                                <option key={i} value={i}>
-                                  图 {i + 1}
-                                </option>
-                              ))}
-                            </select>
-                          ) : null}
+                              {copiedSeriesId === seriesId ? "已复制" : seriesId}
+                            </button>
+                            <span className="shrink-0 rounded border border-slate-700 px-1 py-0 text-[10px] text-slate-400">
+                              {frequency}
+                            </span>
+                          </label>
                         </div>
                       </li>
                     );
@@ -162,10 +184,15 @@ export function UnifiedMacroSidebar({
             </li>
           ))}
         </ul>
-        {filteredBlocks.length === 0 ? (
+        {catalogGroups && !catalogError && filteredBlocks.length === 0 ? (
           <p className="py-4 text-center text-xs text-slate-500">无匹配项，请调整搜索词</p>
         ) : null}
       </div>
+      {toastText ? (
+        <div className="pointer-events-none absolute right-2 bottom-2 z-20 rounded-md border border-slate-700 bg-slate-900/95 px-2 py-1 text-xs text-slate-100 shadow">
+          {toastText}
+        </div>
+      ) : null}
     </div>
   );
 }

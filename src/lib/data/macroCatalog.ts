@@ -1,5 +1,14 @@
 /** 左侧目录：常见经济体（世界银行 API 使用 ISO 3166-1 alpha-2） */
 
+import {
+  fredDisplayLabel,
+  serializeUnifiedKeysForAllowlist,
+  type UnifiedCatalogGroup,
+  type UnifiedCatalogItem,
+} from "./fredCatalog";
+
+export type { UnifiedCatalogItem, UnifiedCatalogGroup } from "./fredCatalog";
+
 export type MacroCountry = { code: string; name: string };
 
 export type MacroIndicator = {
@@ -212,75 +221,57 @@ export function indicatorLabel(indicatorId: string): string {
   return MACRO_INDICATORS.find((i) => i.id === indicatorId)?.label ?? indicatorId;
 }
 
-// —— 统一宏观（世界银行 + 美国高频序列合并为一套 UI，密钥仅服务端使用）——
-
-export type UnifiedCatalogItem = { key: string; label: string };
-
-export type UnifiedCatalogGroup = { name: string; items: UnifiedCatalogItem[] };
-
-/** 按国家分组；美国组内在世行指标后附加 FRED 列表（年度对齐时由服务端将 FRED 聚合为历年值） */
-export function getUnifiedCatalogGroups(): UnifiedCatalogGroup[] {
-  return MACRO_COUNTRIES.map((c) => {
-    const wbItems: UnifiedCatalogItem[] = MACRO_INDICATORS.map((ind) => ({
-      key: `wb:${selectionKey(c.code, ind.id)}`,
-      label: ind.shortLabel,
-    }));
-    const fredItems: UnifiedCatalogItem[] =
-      c.code === "US"
-        ? FRED_SERIES_OPTIONS.map((opt) => ({
-            key: `fred:${opt.id}`,
-            label: opt.name.replace(/^美国\s*/, "").trim() || opt.name,
-          }))
-        : [];
-    return { name: c.name, items: [...wbItems, ...fredItems] };
-  });
-}
-
-export const UNIFIED_KEY_SET: Set<string> = new Set(
-  getUnifiedCatalogGroups().flatMap((g) => g.items.map((i) => i.key)),
-);
+// —— 统一宏观（FRED；目录见 `fredCatalog` + `/api/data/fmp-catalog`）——
 
 export const DEFAULT_UNIFIED_SERIES_KEYS: string[] = [
-  "wb:US:FP.CPI.TOTL.ZG",
-  "wb:CN:FP.CPI.TOTL.ZG",
+  "fred:GDPC1",
+  "fred:CPIAUCSL",
   "fred:UNRATE",
 ];
 
-/** 图例与工具提示用显示名（不标注具体提供方） */
+const FRED_SERIES_KEY_RE = /^fred:[A-Z0-9._-]{1,40}$/;
+
+/** 兼容旧调用：无 allowlist 时仅按 fred: 键格式去重（服务端应以 catalog allowlist 为准） */
+export function getUnifiedCatalogGroups() {
+  const cat: UnifiedCatalogItem[] = [
+    { key: "fred:GDPC1", label: "美国实际 GDP（季调，十亿美元）", frequency: "季度" },
+    { key: "fred:CPIAUCSL", label: "CPI（全部城市消费者）", frequency: "月" },
+    { key: "fred:UNRATE", label: "失业率（%）", frequency: "月" },
+  ];
+  const groups: UnifiedCatalogGroup[] = [{ name: "核心指标", items: cat }];
+  return groups;
+}
+
+/** 图例与工具提示用显示名 */
 export function unifiedSeriesDisplayName(key: string): string {
-  if (key.startsWith("wb:")) {
-    const p = parseSelectionKey(key.slice(3));
-    if (p) return `${countryName(p.country)} · ${indicatorLabel(p.indicator)}`;
-  }
   if (key.startsWith("fred:")) {
-    const id = key.slice(5).toUpperCase();
-    const raw = fredSeriesLabel(id);
-    return `美国 · ${raw.replace(/^美国\s*/, "").trim()}`;
+    const name = key.slice(4);
+    return `美国 · ${fredDisplayLabel(name)}`;
   }
   return key;
 }
 
+/** @deprecated 服务端请用 `parseUnifiedSeriesQueryWithAllowlist` */
 export function parseUnifiedSeriesQuery(raw: string | null): string[] {
   const trimmed = raw?.trim() ?? "";
   if (!trimmed) return [...DEFAULT_UNIFIED_SERIES_KEYS];
-
   const seen = new Set<string>();
   const out: string[] = [];
   for (const part of trimmed.split(",")) {
     const k = part.trim();
-    if (!k || !UNIFIED_KEY_SET.has(k) || seen.has(k)) continue;
+    if (!k || !FRED_SERIES_KEY_RE.test(k) || seen.has(k)) continue;
     seen.add(k);
     out.push(k);
     if (out.length >= MACRO_MAX_SERIES) break;
   }
-
   return out.length > 0 ? out : [...DEFAULT_UNIFIED_SERIES_KEYS];
 }
 
-export function serializeUnifiedKeys(keys: Iterable<string>): string {
-  return [
-    ...new Set(
-      [...keys].filter((k) => typeof k === "string" && UNIFIED_KEY_SET.has(k.trim())),
-    ),
-  ].join(",");
+export function serializeUnifiedKeys(keys: Iterable<string>, allowlist?: Set<string> | null): string {
+  if (allowlist && allowlist.size > 0) {
+    return serializeUnifiedKeysForAllowlist(keys, allowlist);
+  }
+  return [...new Set([...keys].map((k) => k.trim()).filter((k) => FRED_SERIES_KEY_RE.test(k)))]
+    .slice(0, MACRO_MAX_SERIES)
+    .join(",");
 }

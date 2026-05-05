@@ -7,6 +7,7 @@ import { MacroChartPanel } from "@/components/MacroChartPanel";
 import { MacroTimeRangeNavigator } from "@/components/MacroTimeRangeNavigator";
 import { partitionMacroSeries, type MacroSlotAssignment } from "@/lib/macroPartition";
 import type { MacroChartSlice } from "@/lib/macroChartOption";
+import type { MacroSeriesVisualConfigMap } from "@/lib/macroChartOption";
 import { indicesFromDataZoomPct } from "@/lib/timeRangeSlice";
 import { dataIndexFromConvert } from "@/lib/timeCursor";
 
@@ -14,6 +15,7 @@ export type MacroMultiChartGridProps = {
   payload: MacroPayload;
   layoutMode: 1 | 2 | 3 | 4;
   slotAssignment: MacroSlotAssignment;
+  seriesVisualMap?: MacroSeriesVisualConfigMap;
   /** 单图模式 ECharts 容器高度（CSS）；默认填满父级（宏观页父级为一屏高度链） */
   singleChartHeight?: string;
 };
@@ -26,6 +28,7 @@ export function MacroMultiChartGrid({
   payload,
   layoutMode,
   slotAssignment,
+  seriesVisualMap,
   singleChartHeight,
 }: MacroMultiChartGridProps) {
   const buckets = useMemo(
@@ -198,6 +201,7 @@ export function MacroMultiChartGrid({
           <MacroChartPanel
             slice={sliceForSlot(0)}
             compact={false}
+            seriesVisualMap={seriesVisualMap}
             chartAreaHeight={singleChartHeight ?? "100%"}
             className="h-full min-h-0 w-full"
           />
@@ -227,6 +231,7 @@ export function MacroMultiChartGrid({
               <MacroChartPanel
                 slice={slice}
                 compact={compact}
+                seriesVisualMap={seriesVisualMap}
                 className="h-full min-h-0"
                 cursorLink={
                   slice

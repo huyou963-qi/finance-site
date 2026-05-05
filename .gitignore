@@ -32,6 +32,9 @@ yarn-error.log*
 .env
 .env*.local
 
+# local runtime data (PostgreSQL is canonical; mail fallback log lives here)
+/.data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -1,0 +1,162 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "mds"]
+}
+
+// ─── public：应用账户与用户态 JSON（Prisma 管理）────────────────────────────
+
+model User {
+  id               String    @id
+  username         String    @unique
+  email            String?
+  emailVerifiedAt  DateTime?
+  passHash         String
+  passSalt         String
+  role             String
+  createdAt        DateTime
+
+  sessions              Session[]
+  assetTemplateState    UserAssetTemplateState?
+  macroChartPrefsRow    UserMacroChartPrefs?
+
+  @@schema("public")
+}
+
+model Session {
+  token     String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime
+  expiresAt DateTime
+
+  @@index([userId])
+  @@schema("public")
+}
+
+model PendingRegistration {
+  token     String   @id
+  username  String
+  email     String
+  passHash  String
+  passSalt  String
+  createdAt DateTime
+  expiresAt DateTime
+
+  @@index([email])
+  @@schema("public")
+}
+
+/// Full `TemplateState` JSON (version 1 + templates + activeTemplateId)
+model UserAssetTemplateState {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state  Json
+
+  @@schema("public")
+}
+
+/// Full `MacroChartPrefs` JSON
+model UserMacroChartPrefs {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prefs  Json
+
+  @@schema("public")
+}
+
+// ─── mds：统一金融数据目录（宏观 / 资产 / 行情），与厂商无关 ─────────────────
+
+enum InstrumentKind {
+  MACRO_SERIES
+  CRYPTO_SPOT
+  EQUITY
+  INDEX_SPOT
+  FX
+  COMMODITY
+  OTHER
+
+  @@schema("mds")
+}
+
+/// 宏观或业务主题分类树（自洽编码，不绑定外部终端）。
+model MacroCategory {
+  id        String          @id @default(uuid()) @db.Uuid
+  /// 稳定业务编码，API / 配置引用（非外部厂商 ID）
+  code      String          @unique @db.VarChar(48)
+  name      String
+  parentId  String?         @map("parent_id") @db.Uuid
+  parent    MacroCategory?  @relation("MacroCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  MacroCategory[] @relation("MacroCategoryTree")
+  sortOrder Int             @default(0) @map("sort_order")
+  metadata  Json?
+
+  instruments Instrument[]
+
+  @@index([parentId])
+  @@schema("mds")
+}
+
+/// 统一「序列 / 标的」：宏观序列、交易品种等；主引用为 `id` 与 `code`。
+model Instrument {
+  id           String       @id @default(uuid()) @db.Uuid
+  code         String       @unique @db.VarChar(48)
+  kind         InstrumentKind
+  name         String
+  shortName    String?      @map("short_name")
+  description  String?
+  freqLabel    String?      @map("freq_label")
+  unit         String?
+  categoryId   String?      @map("category_id") @db.Uuid
+  category     MacroCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  fredSeriesId String?      @unique @map("fred_series_id") @db.VarChar(64)
+  exchange     String?      @db.VarChar(32)
+  tickerSymbol String?      @map("ticker_symbol") @db.VarChar(64)
+  externalRefs Json?        @map("external_refs")
+  metadata     Json?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  macroPoints MacroObservation[]
+  bars        Bar[]
+
+  @@index([kind])
+  @@index([categoryId])
+  @@index([exchange, tickerSymbol])
+  @@schema("mds")
+}
+
+/// 宏观等指标型观测（窄表）；历史宽表可经 ETL 写入此处。
+model MacroObservation {
+  id           String     @id @default(uuid()) @db.Uuid
+  instrumentId String     @map("instrument_id") @db.Uuid
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  obsDate      DateTime   @map("obs_date") @db.Date
+  value        Float
+
+  @@unique([instrumentId, obsDate])
+  @@index([instrumentId, obsDate])
+  @@schema("mds")
+}
+
+model Bar {
+  id           String     @id @default(uuid()) @db.Uuid
+  instrumentId String     @map("instrument_id") @db.Uuid
+  instrument   Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  timeframe    String     @db.VarChar(16)
+  openedAt     DateTime   @map("opened_at")
+  open         Float
+  high         Float
+  low          Float
+  close        Float
+  volume       Float      @default(0)
+
+  @@unique([instrumentId, timeframe, openedAt])
+  @@index([instrumentId, timeframe, openedAt])
+  @@schema("mds")
+}

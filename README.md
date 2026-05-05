@@ -48,11 +48,12 @@ npm run dev
 
 | 类型 | 来源 | 本项目用法 |
 |------|------|------------|
-| 宏观（免密钥） | [世界银行开放数据 API](https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation) | `/api/data/macro?source=worldbank` — 中美 CPI 通胀（年 %） |
+| 宏观（默认，需密钥） | [Financial Modeling Prep — Economics Indicators](https://site.financialmodelingprep.com/developer/docs/stable/economics-indicators) | 环境变量 **`FMP_API_KEY`**；`/macro` 走 `?source=unified` |
+| 宏观（免密钥） | [世界银行开放数据 API](https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation) | `/api/data/macro?source=worldbank` |
 | 宏观（需密钥） | [FRED](https://fred.stlouisfed.org/) | `.env.local` 配 `FRED_API_KEY`，`/api/data/macro?source=fred&series=CPIAUCSL` |
 | 行情（免密钥） | [Binance 现货公开 K 线](https://binance-docs.github.io/apidocs/spot/en/#kline-candlestick-data) | `/api/data/klines?symbol=BTCUSDT&interval=1d` |
 
-其它常见选项（可自行接 Route Handler）：**Alpha Vantage**、**Twelve Data**（有免费额度）、**Frankfurter**（汇率，免密钥）、**IMF/OECD**（多为 SDMX/批量）、**Polygon / Finnhub**（限制更多）。股票/指数还可考虑交易所或数据商的合规授权。
+其它常见选项（可自行接 Route Handler）：**Alpha Vantage**、**Twelve Data**（有免费额度）、**Frankfurter**（汇率，免密钥）、**IMF/OECD**（多为 SDMX/批量）、**Massive**、**Finnhub**（限制更多）。股票/指数还可考虑交易所或数据商的合规授权。
 
 ### 自建数据库 vs 直接调 API：怎么选？
 
@@ -65,10 +66,12 @@ npm run dev
 
 ## 数据与密钥策略
 
-1. 复制 `.env.example` 为 `.env.local`，按需填入 `FRED_API_KEY`、自定义上游等（**勿提交** `.env.local`）。
+1. 本地用 `.env.local` 配置密钥等（参考 `.env.example`，**勿提交** `.env.local`）。
 
 2. **内置数据路由（推荐）**  
-   - `GET /api/data/macro?source=worldbank|fred` — 服务端拉取并缓存宏观序列。  
+   - `GET /api/data/macro?source=unified` — 宏观页默认；走 **FMP**。  
+   - `GET /api/data/fmp-catalog` — 返回 FMP 指标分组目录与 `allowlistKeys`（侧栏与序列白名单）。  
+   - `GET /api/data/macro?source=worldbank|fred` — 仍可直接拉世行 / FRED。  
    - `GET /api/data/klines?symbol=BTCUSDT&interval=1d` — 服务端转发 Binance 公开接口。  
 
 3. **通用代理示例**：`GET /api/proxy-example?path=...`  

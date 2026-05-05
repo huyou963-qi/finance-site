@@ -5,7 +5,14 @@
   --foreground: #e2e8f0;
 }
 
+/* 让 flex-1 / min-h-0 能一路传到行情页，否则主区域高度随内容收缩，底部会空一大块 */
+html {
+  height: 100%;
+  min-height: 100dvh;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);
+  min-height: 100dvh;
 }

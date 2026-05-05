@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteHeaderNav } from "@/components/SiteHeaderNav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,24 +14,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
-      <body className="min-h-screen antialiased">
-        <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-          <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-            <Link href="/" className="font-semibold tracking-tight text-slate-100">
+    <html lang="zh-CN" className="h-full">
+      <body className="flex h-full min-h-0 flex-col antialiased">
+        <header className="shrink-0 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+          <div className="flex w-full flex-wrap items-center gap-5 px-4 py-2 lg:px-6">
+            <Link
+              href="/macro"
+              className="shrink-0 font-semibold tracking-tight text-slate-100 hover:text-white"
+            >
               Finance site
             </Link>
-            <nav className="flex gap-4 text-sm text-slate-400">
-              <Link href="/macro" className="hover:text-slate-100">
-                宏观
-              </Link>
-              <Link href="/markets" className="hover:text-slate-100">
-                K 线
-              </Link>
-            </nav>
+            <SiteHeaderNav />
           </div>
         </header>
-        <main className="w-full py-8">{children}</main>
+        <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pt-1 pb-3">
+          {children}
+        </main>
       </body>
     </html>
   );

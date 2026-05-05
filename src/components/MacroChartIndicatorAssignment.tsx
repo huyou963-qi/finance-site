@@ -3,6 +3,11 @@
 import { useState, type DragEvent } from "react";
 import { unifiedSeriesDisplayName } from "@/lib/data/macroCatalog";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
+import type {
+  MacroSeriesAxis,
+  MacroSeriesChartType,
+  MacroSeriesVisualConfigMap,
+} from "@/lib/macroChartOption";
 
 const DRAG_TYPE = "application/x-finance-macro-key";
 
@@ -11,7 +16,23 @@ export type MacroChartIndicatorAssignmentProps = {
   selectedKeys: Set<string>;
   slotAssignment: MacroSlotAssignment;
   onAssign: (key: string, slot: number | null) => void;
+  seriesVisualMap: MacroSeriesVisualConfigMap;
+  onUpdateSeriesVisual: (
+    key: string,
+    patch: { axis?: MacroSeriesAxis; chartType?: MacroSeriesChartType },
+  ) => void;
 };
+
+const CHART_TYPES: Array<{ value: MacroSeriesChartType; label: string }> = [
+  { value: "line", label: "折线" },
+  { value: "dashedLine", label: "虚线" },
+  { value: "area", label: "面积" },
+  { value: "stackArea", label: "堆叠面积" },
+  { value: "stepLine", label: "阶梯线" },
+  { value: "bar", label: "柱状" },
+  { value: "stackBar", label: "堆叠柱状" },
+  { value: "scatter", label: "散点" },
+];
 
 /** 图形属性 · 指标选择：按图槽位与「待选集」拖拽分配 */
 export function MacroChartIndicatorAssignment({
@@ -19,6 +40,8 @@ export function MacroChartIndicatorAssignment({
   selectedKeys,
   slotAssignment,
   onAssign,
+  seriesVisualMap,
+  onUpdateSeriesVisual,
 }: MacroChartIndicatorAssignmentProps) {
   const [dragOver, setDragOver] = useState<{ kind: "slot"; slot: number } | { kind: "pool" } | null>(
     null,
@@ -107,23 +130,137 @@ export function MacroChartIndicatorAssignment({
                 : "border-slate-800 bg-slate-900/40"
             }`}
           >
-            <div className="mb-1.5 text-[11px] font-medium text-slate-400">图 {slot + 1}</div>
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[11px] font-medium text-slate-400">图 {slot + 1}</div>
+              {bySlot[slot].length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bySlot[slot].forEach((k) =>
+                        onUpdateSeriesVisual(k, { axis: "right" }),
+                      );
+                    }}
+                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                  >
+                    一键右轴
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bySlot[slot].forEach((k) =>
+                        onUpdateSeriesVisual(k, { axis: "left" }),
+                      );
+                    }}
+                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                  >
+                    一键左轴
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bySlot[slot].forEach((k) =>
+                        onUpdateSeriesVisual(k, { axis: "left", chartType: "line" }),
+                      );
+                    }}
+                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                  >
+                    一键重置轴
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bySlot[slot].forEach((k) =>
+                        onUpdateSeriesVisual(k, { chartType: "stackArea" }),
+                      );
+                    }}
+                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                  >
+                    一键堆叠面积
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bySlot[slot].forEach((k) =>
+                        onUpdateSeriesVisual(k, { chartType: "stackBar" }),
+                      );
+                    }}
+                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                  >
+                    一键堆叠柱状
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      bySlot[slot].forEach((k) =>
+                        onUpdateSeriesVisual(k, { chartType: "line" }),
+                      );
+                    }}
+                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
+                  >
+                    取消堆叠
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <div className="flex min-h-[36px] flex-wrap gap-1.5">
               {bySlot[slot].length === 0 ? (
                 <span className="text-[11px] text-slate-600">拖入指标…</span>
               ) : (
-                bySlot[slot].map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    draggable
-                    onDragStart={startDrag(key)}
-                    className="cursor-grab rounded border border-slate-600 bg-slate-950 px-2 py-1 text-left text-[11px] text-slate-200 active:cursor-grabbing"
-                    title={key}
-                  >
-                    {unifiedSeriesDisplayName(key)}
-                  </button>
-                ))
+                bySlot[slot].map((key) => {
+                  const cfg = seriesVisualMap[key] ?? {};
+                  return (
+                    <div
+                      key={key}
+                      className="rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-200"
+                      title={key}
+                    >
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={startDrag(key)}
+                        className="cursor-grab text-left text-[11px] text-slate-200 active:cursor-grabbing"
+                      >
+                        {unifiedSeriesDisplayName(key)}
+                      </button>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
+                          轴
+                          <select
+                            value={cfg.axis ?? "left"}
+                            onChange={(e) =>
+                              onUpdateSeriesVisual(key, {
+                                axis: e.target.value as MacroSeriesAxis,
+                              })
+                            }
+                            className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                          >
+                            <option value="left">左轴</option>
+                            <option value="right">右轴</option>
+                          </select>
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
+                          图形
+                          <select
+                            value={cfg.chartType ?? "line"}
+                            onChange={(e) =>
+                              onUpdateSeriesVisual(key, {
+                                chartType: e.target.value as MacroSeriesChartType,
+                              })
+                            }
+                            className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                          >
+                            {CHART_TYPES.map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

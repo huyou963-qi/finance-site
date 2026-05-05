@@ -1,0 +1,3 @@
+-- 确认 mds 中数据完整、应用已改用 mds 后，再执行：删除一次性导入的 schema `h`（含宽表）。
+-- 执行前请自行备份数据库。
+-- DROP SCHEMA IF EXISTS h CASCADE;

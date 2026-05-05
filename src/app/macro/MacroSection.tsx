@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MacroChartIndicatorAssignment } from "@/components/MacroChartIndicatorAssignment";
 import { MacroMultiChartGrid } from "@/components/MacroMultiChartGrid";
 import { UnifiedMacroSidebar } from "@/components/UnifiedMacroSidebar";
@@ -9,8 +10,14 @@ import {
   DEFAULT_UNIFIED_SERIES_KEYS,
   serializeUnifiedKeys,
   unifiedSeriesDisplayName,
+  type UnifiedCatalogGroup,
 } from "@/lib/data/macroCatalog";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
+import type {
+  MacroSeriesAxis,
+  MacroSeriesChartType,
+  MacroSeriesVisualConfigMap,
+} from "@/lib/macroChartOption";
 import { buildMacroDemoSeries } from "@/lib/sampleSeries";
 
 type MainTab = "selected" | "charts";
@@ -18,7 +25,69 @@ type MainTab = "selected" | "charts";
 const CHART_SETTINGS_MIN_PX = 200;
 const CHART_SETTINGS_MAX_FRAC = 0.65;
 
+type MacroChartPrefs = {
+  version: 1;
+  layoutMode: 1 | 2 | 3 | 4;
+  selectedKeys: string[];
+  slotAssignment: MacroSlotAssignment;
+  seriesVisualMap: MacroSeriesVisualConfigMap;
+};
+
+function parseDateLabelToUtcMs(label: string): number | null {
+  if (/^\d{4}$/.test(label)) return Date.UTC(Number(label), 0, 1);
+  if (/^\d{4}-\d{2}$/.test(label)) {
+    const y = Number(label.slice(0, 4));
+    const m = Number(label.slice(5, 7)) - 1;
+    return Date.UTC(y, m, 1);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(label)) {
+    const y = Number(label.slice(0, 4));
+    const m = Number(label.slice(5, 7)) - 1;
+    const d = Number(label.slice(8, 10));
+    return Date.UTC(y, m, d);
+  }
+  return null;
+}
+
+function inferFrequencyFromLabels(labels: string[]): "日" | "周" | "月" | "季度" | "年" {
+  if (labels.length < 2) return "月";
+  const stamps = labels
+    .map(parseDateLabelToUtcMs)
+    .filter((v): v is number => v !== null)
+    .sort((a, b) => a - b);
+  if (stamps.length < 2) return "月";
+  const days: number[] = [];
+  for (let i = 1; i < stamps.length; i++) {
+    days.push((stamps[i] - stamps[i - 1]) / 86_400_000);
+  }
+  if (days.length === 0) return "月";
+  const median = days[Math.floor(days.length / 2)];
+  if (median <= 2) return "日";
+  if (median <= 10) return "周";
+  if (median <= 45) return "月";
+  if (median <= 135) return "季度";
+  return "年";
+}
+
+function seriesRange(categories: string[], values: (number | null)[]): string {
+  let first = -1;
+  let last = -1;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v !== null && Number.isFinite(v)) {
+      if (first < 0) first = i;
+      last = i;
+    }
+  }
+  if (first < 0 || last < 0) return "-";
+  const start = categories[first] ?? "-";
+  const end = categories[last] ?? "-";
+  return `${start} ~ ${end}`;
+}
+
 export function MacroSection() {
+  const searchParams = useSearchParams();
+
   const [mainTab, setMainTab] = useState<MainTab>("selected");
   const [layoutMode, setLayoutMode] = useState<1 | 2 | 3 | 4>(1);
 
@@ -31,14 +100,183 @@ export function MacroSection() {
     () => new Set(DEFAULT_UNIFIED_SERIES_KEYS),
   );
   const [slotAssignment, setSlotAssignment] = useState<MacroSlotAssignment>({});
+  const [seriesVisualMap, setSeriesVisualMap] = useState<MacroSeriesVisualConfigMap>({});
 
   const [payload, setPayload] = useState<MacroPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestedQuery, setRequestedQuery] = useState<string | null>(null);
+  /** URL `?mds=` 或程序化加载本地库序列时使用 */
+  const [requestedMdsInstruments, setRequestedMdsInstruments] = useState<string | null>(null);
+  const [extractedSet, setExtractedSet] = useState<Set<string>>(new Set());
+
+  const [catalogGroups, setCatalogGroups] = useState<UnifiedCatalogGroup[] | null>(null);
+  const [catalogAllowlist, setCatalogAllowlist] = useState<Set<string> | null>(null);
+  const [catalogLoadError, setCatalogLoadError] = useState<string | null>(null);
+  const [prefsHydrated, setPrefsHydrated] = useState(false);
+  const saveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tools/macro-chart-prefs", { cache: "no-store" })
+      .then(async (r) => {
+        if (r.status === 401) return { prefs: null as MacroChartPrefs | null };
+        const j = (await r.json().catch(() => ({}))) as { prefs?: MacroChartPrefs | null };
+        return { prefs: j.prefs ?? null };
+      })
+      .then(({ prefs }) => {
+        if (cancelled) return;
+        if (prefs) {
+          if ([1, 2, 3, 4].includes(prefs.layoutMode)) setLayoutMode(prefs.layoutMode);
+          if (Array.isArray(prefs.selectedKeys) && prefs.selectedKeys.length > 0) {
+            setSelectedKeys(new Set(prefs.selectedKeys));
+          }
+          if (prefs.slotAssignment && typeof prefs.slotAssignment === "object") {
+            setSlotAssignment(prefs.slotAssignment);
+          }
+          if (prefs.seriesVisualMap && typeof prefs.seriesVisualMap === "object") {
+            setSeriesVisualMap(prefs.seriesVisualMap);
+          }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPrefsHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!prefsHydrated) return;
+    const prefs: MacroChartPrefs = {
+      version: 1,
+      layoutMode,
+      selectedKeys: [...selectedKeys],
+      slotAssignment,
+      seriesVisualMap,
+    };
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      fetch("/api/tools/macro-chart-prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prefs }),
+      }).catch(() => {});
+    }, 450);
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [prefsHydrated, layoutMode, selectedKeys, slotAssignment, seriesVisualMap]);
+
+  const onSelectedKeysChange = useCallback(
+    (next: Set<string>) => {
+      setSlotAssignment((prev) => {
+        const n: MacroSlotAssignment = { ...prev };
+        for (const key of next) {
+          if (!selectedKeys.has(key)) {
+            n[key] = n[key] ?? null;
+          }
+        }
+        for (const k of Object.keys(n)) {
+          if (!next.has(k)) delete n[k];
+        }
+        return n;
+      });
+      setSelectedKeys(next);
+      setSeriesVisualMap((prev) => {
+        const out: MacroSeriesVisualConfigMap = {};
+        for (const key of next) {
+          if (prev[key]) out[key] = prev[key];
+        }
+        return out;
+      });
+    },
+    [selectedKeys],
+  );
+
+  const updateSeriesVisual = useCallback(
+    (
+      key: string,
+      patch: { axis?: MacroSeriesAxis; chartType?: MacroSeriesChartType },
+    ) => {
+      setSeriesVisualMap((prev) => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          ...patch,
+        },
+      }));
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/data/fmp-catalog")
+      .then(async (r) => {
+        const j = (await r.json().catch(() => ({}))) as {
+          groups?: UnifiedCatalogGroup[];
+          allowlistKeys?: string[];
+          error?: string;
+        };
+        if (!r.ok) throw new Error(j.error ?? `${r.status}`);
+        return j;
+      })
+      .then((j) => {
+        if (cancelled) return;
+        if (Array.isArray(j.groups) && Array.isArray(j.allowlistKeys)) {
+          setCatalogGroups(j.groups);
+          setCatalogAllowlist(new Set(j.allowlistKeys));
+          setCatalogLoadError(null);
+        } else {
+          throw new Error("目录响应格式异常");
+        }
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setCatalogGroups(null);
+        setCatalogAllowlist(null);
+        setCatalogLoadError(e instanceof Error ? e.message : "加载失败");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!catalogAllowlist) return;
+    const kept = [...selectedKeys].filter((k) => catalogAllowlist.has(k));
+    const unchanged =
+      kept.length === selectedKeys.size && kept.every((k) => selectedKeys.has(k));
+    if (unchanged) return;
+    const defaults = DEFAULT_UNIFIED_SERIES_KEYS.filter((k) => catalogAllowlist.has(k));
+    const fallback = defaults.length > 0 ? defaults : [...catalogAllowlist].slice(0, 3);
+    const next = kept.length > 0 ? new Set(kept) : new Set(fallback);
+    onSelectedKeysChange(next);
+  }, [catalogAllowlist, selectedKeys, onSelectedKeysChange]);
+
+  useEffect(() => {
+    const raw = searchParams.get("mds");
+    if (raw?.trim()) {
+      setRequestedMdsInstruments(raw.trim());
+      setRequestedQuery(null);
+    } else {
+      setRequestedMdsInstruments(null);
+    }
+  }, [searchParams]);
 
   const seriesQuery = useMemo(() => {
-    return serializeUnifiedKeys(selectedKeys);
-  }, [selectedKeys]);
+    return serializeUnifiedKeys(selectedKeys, catalogAllowlist);
+  }, [selectedKeys, catalogAllowlist]);
+
+  const extractedAssignment = useMemo(() => {
+    const out: MacroSlotAssignment = {};
+    for (const key of extractedSet) {
+      out[key] = slotAssignment[key] ?? null;
+    }
+    return out;
+  }, [extractedSet, slotAssignment]);
 
   const resolvedAssignment = useMemo(() => {
     const cap = Math.max(0, layoutMode - 1);
@@ -56,32 +294,20 @@ export function MacroSection() {
     return out;
   }, [selectedKeys, layoutMode, slotAssignment]);
 
-  const onSelectedKeysChange = useCallback(
-    (next: Set<string>) => {
-      setSlotAssignment((prev) => {
-        const n: MacroSlotAssignment = { ...prev };
-        for (const key of next) {
-          if (!selectedKeys.has(key)) {
-            n[key] = n[key] ?? null;
-          }
-        }
-        for (const k of Object.keys(n)) {
-          if (!next.has(k)) delete n[k];
-        }
-        return n;
-      });
-      setSelectedKeys(next);
-    },
-    [selectedKeys],
-  );
-
   useEffect(() => {
+    const mdsRaw = requestedMdsInstruments?.trim();
+    const unifiedRaw = requestedQuery?.trim();
+    if (!mdsRaw && !unifiedRaw) return;
+
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    const q = encodeURIComponent(seriesQuery);
-    fetch(`/api/data/macro?source=unified&series=${q}`)
+    const url = mdsRaw
+      ? `/api/data/macro?source=mds&instruments=${encodeURIComponent(mdsRaw)}`
+      : `/api/data/macro?source=unified&series=${encodeURIComponent(unifiedRaw!)}`;
+
+    fetch(url)
       .then(async (r) => {
         if (!r.ok) {
           const j = (await r.json().catch(() => ({}))) as { error?: string };
@@ -90,14 +316,28 @@ export function MacroSection() {
         return r.json() as Promise<MacroPayload>;
       })
       .then((data) => {
-        if (!cancelled) setPayload(data);
+        if (cancelled) return;
+        setPayload(data);
+        if (data.source === "mds") {
+          const keys = data.series.map((s) => s.key).filter(Boolean) as string[];
+          if (keys.length > 0) setExtractedSet(new Set(keys));
+        }
       })
       .catch((e) => {
         if (cancelled) return;
+        if (mdsRaw) {
+          setPayload(null);
+          setError(
+            e instanceof Error
+              ? e.message
+              : "无法加载本地宏观数据",
+          );
+          return;
+        }
         const demo = buildMacroDemoSeries();
         setPayload({
           title: "演示数据（离线）",
-          source: "unified",
+          source: "fmp",
           categories: demo.categories,
           series: [
             {
@@ -119,7 +359,7 @@ export function MacroSection() {
         setError(
           e instanceof Error
             ? e.message
-            : "无法加载数据（请检查网络及本机是否已配置所需 API 密钥）",
+            : "无法加载数据（请检查网络或上游服务）",
         );
       })
       .finally(() => {
@@ -129,7 +369,33 @@ export function MacroSection() {
     return () => {
       cancelled = true;
     };
-  }, [seriesQuery]);
+  }, [requestedMdsInstruments, requestedQuery]);
+
+  function handleExtractData() {
+    if (!seriesQuery) {
+      setError("请先选择至少一个指标");
+      setPayload(null);
+      setRequestedQuery(null);
+      setRequestedMdsInstruments(null);
+      setExtractedSet(new Set());
+      return;
+    }
+    setRequestedMdsInstruments(null);
+    const extractedKeys = new Set(
+      seriesQuery
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    setExtractedSet(extractedKeys);
+    setRequestedQuery(seriesQuery);
+  }
+
+  function removeSelectedKey(key: string) {
+    const next = new Set(selectedKeys);
+    next.delete(key);
+    onSelectedKeysChange(next);
+  }
 
   function assignSlot(key: string, slotIndex: number | null) {
     setSlotAssignment((prev) => ({ ...prev, [key]: slotIndex }));
@@ -152,19 +418,85 @@ export function MacroSection() {
     });
   }, [layoutMode]);
 
+  const catalogMetaByKey = useMemo(() => {
+    const m = new Map<string, { frequency: string }>();
+    if (!catalogGroups) return m;
+    for (const g of catalogGroups) {
+      for (const item of g.items) {
+        m.set(item.key, { frequency: item.frequency });
+      }
+    }
+    return m;
+  }, [catalogGroups]);
+
+  const extractedMetaByKey = useMemo(() => {
+    const m = new Map<string, { frequency: string; range: string }>();
+    if (!payload) return m;
+    for (const s of payload.series) {
+      if (!s.key) continue;
+      const validLabels = payload.categories.filter((_, idx) => {
+        const v = s.data[idx];
+        return v !== null && Number.isFinite(v);
+      });
+      m.set(s.key, {
+        frequency: inferFrequencyFromLabels(validLabels),
+        range: seriesRange(payload.categories, s.data),
+      });
+    }
+    return m;
+  }, [payload]);
+
   const selectedRows = useMemo(() => {
     return [...selectedKeys]
       .sort((a, b) => a.localeCompare(b))
-      .map((key) => {
-        const slot = resolvedAssignment[key];
-        return {
-          key,
-          label: unifiedSeriesDisplayName(key),
-          slotLabel: slot === null ? ("pool" as const) : ("chart" as const),
-          slotIndex: slot === null || slot === undefined ? 0 : slot,
-        };
-      });
-  }, [selectedKeys, resolvedAssignment]);
+      .map((key) => ({
+        key,
+        label: unifiedSeriesDisplayName(key),
+        frequency:
+          extractedMetaByKey.get(key)?.frequency ??
+          catalogMetaByKey.get(key)?.frequency ??
+          "-",
+        range: extractedMetaByKey.get(key)?.range ?? "-",
+      }));
+  }, [selectedKeys, catalogMetaByKey, extractedMetaByKey]);
+
+  const extractedKeyOrder = useMemo(() => {
+    if (payload?.source === "mds" && payload.series.length > 0) {
+      return payload.series.map((s) => s.key).filter(Boolean) as string[];
+    }
+    return requestedQuery
+      ? requestedQuery
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+  }, [payload, requestedQuery]);
+
+  const seriesDisplayLabelByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!payload?.series) return m;
+    for (const s of payload.series) {
+      if (s.key) m.set(s.key, s.name);
+    }
+    return m;
+  }, [payload]);
+
+  const tableColumns = useMemo(() => {
+    const order = extractedKeyOrder.length > 0 ? extractedKeyOrder : [...extractedSet];
+    return order.map((key) => ({
+      key,
+      label: seriesDisplayLabelByKey.get(key) ?? unifiedSeriesDisplayName(key),
+    }));
+  }, [extractedKeyOrder, extractedSet, seriesDisplayLabelByKey]);
+
+  const tableValueByKey = useMemo(() => {
+    const m = new Map<string, (number | null)[]>();
+    if (!payload) return m;
+    for (const s of payload.series) {
+      if (s.key) m.set(s.key, s.data);
+    }
+    return m;
+  }, [payload]);
 
   useLayoutEffect(() => {
     if (!chartSettingsOpen || chartSettingsWidthPx !== null || !chartSplitRowRef.current) return;
@@ -213,7 +545,15 @@ export function MacroSection() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0">
-      <div className="flex shrink-0 flex-wrap gap-2 border-b border-slate-800/80 px-4 pb-2 pt-2 lg:px-6">
+      <div className="flex shrink-0 flex-wrap gap-2 border-b border-slate-800/80 px-4 pb-1.5 pt-1 lg:px-6">
+        <button
+          type="button"
+          onClick={handleExtractData}
+          disabled={loading || selectedKeys.size === 0}
+          className="rounded-md border border-emerald-700/80 bg-emerald-950/45 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          提取数据
+        </button>
         <button
           type="button"
           onClick={() => setMainTab("selected")}
@@ -244,9 +584,8 @@ export function MacroSection() {
             <UnifiedMacroSidebar
               selectedKeys={selectedKeys}
               onChange={onSelectedKeysChange}
-              layoutMode={layoutMode}
-              slotAssignment={resolvedAssignment}
-              onSlotAssignmentChange={assignSlot}
+              catalogGroups={catalogGroups}
+              catalogError={catalogLoadError}
             />
           </div>
         </aside>
@@ -261,50 +600,91 @@ export function MacroSection() {
                 <p className="text-sm text-slate-500">暂无已选指标。</p>
               ) : (
                 <ul className="divide-y divide-slate-800/90 rounded-lg border border-slate-800/90 bg-slate-950/60">
-                  {selectedRows.map(({ key, label, slotLabel, slotIndex }) => (
+                  {selectedRows.map(({ key, label, frequency, range }) => (
                     <li
                       key={key}
                       title={key}
                       className="flex flex-wrap items-start justify-between gap-2 px-3 py-2.5 text-sm"
                     >
-                      <span className="text-slate-200">{label}</span>
-                      {slotLabel === "chart" ? (
-                        <span className="shrink-0 rounded border border-slate-700 px-1.5 py-0 text-[11px] text-slate-400">
-                          图 {slotIndex + 1}
-                        </span>
-                      ) : slotLabel === "pool" ? (
-                        <span className="shrink-0 rounded border border-amber-900/60 px-1.5 py-0 text-[11px] text-amber-200/80">
-                          待选集
-                        </span>
-                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-slate-200">{label}</div>
+                        <div className="mt-1 text-[11px] text-slate-500">
+                          频率：{frequency}　时间范围：{range}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSelectedKey(key)}
+                        className="shrink-0 rounded border border-rose-900/70 px-2 py-0.5 text-[11px] text-rose-200/90 hover:border-rose-700"
+                      >
+                        删除
+                      </button>
                     </li>
                   ))}
                 </ul>
               )}
+              {payload ? (
+                <section className="mt-2 rounded-lg border border-slate-800/80 bg-slate-950/60">
+                  <div className="border-b border-slate-800/80 px-3 py-2 text-xs text-slate-400">
+                    提取结果（表格）
+                  </div>
+                  <div className="max-h-[28vh] overflow-auto">
+                    <table className="min-w-full border-collapse text-xs">
+                      <thead className="sticky top-0 bg-slate-900/95 text-slate-300">
+                        <tr>
+                          <th className="border-b border-r border-slate-800 px-2 py-1 text-left font-medium">
+                            时间
+                          </th>
+                          {tableColumns.map((c) => (
+                            <th
+                              key={c.key}
+                              className="border-b border-r border-slate-800 px-2 py-1 text-left font-medium"
+                            >
+                              {c.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payload.categories.map((time, idx) => (
+                          <tr key={`${time}-${idx}`} className="odd:bg-slate-950 even:bg-slate-900/35">
+                            <td className="whitespace-nowrap border-b border-r border-slate-800 px-2 py-1 text-slate-400">
+                              {time}
+                            </td>
+                            {tableColumns.map((c) => (
+                              <td
+                                key={`${c.key}-${idx}`}
+                                className="whitespace-nowrap border-b border-r border-slate-800 px-2 py-1 text-slate-200"
+                              >
+                                {tableValueByKey.get(c.key)?.[idx] ?? ""}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : null}
             </section>
           ) : (
             <section className="flex min-h-0 flex-1 flex-col gap-2">
               <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800/80 pb-3">
-                <span className="text-xs font-medium text-slate-500">图表布局</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {([1, 2, 3, 4] as const).map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setLayoutMode(n)}
-                      className={`rounded-md border px-2.5 py-1 text-xs transition ${
-                        layoutMode === n
-                          ? "border-emerald-600 bg-emerald-950/50 text-emerald-100"
-                          : "border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
-                      }`}
-                    >
-                      {n === 1 && "单图"}
-                      {n === 2 && "2 图（上下）"}
-                      {n === 3 && "3 图（纵向）"}
-                      {n === 4 && "4 图（田字）"}
-                    </button>
-                  ))}
-                </div>
+                <label className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+                  <span className="shrink-0">图表布局</span>
+                  <select
+                    value={layoutMode}
+                    onChange={(e) =>
+                      setLayoutMode(Number(e.target.value) as 1 | 2 | 3 | 4)
+                    }
+                    className="min-w-[10rem] rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600/40"
+                  >
+                    <option value={1}>单图</option>
+                    <option value={2}>2 图（上下）</option>
+                    <option value={3}>3 图（纵向）</option>
+                    <option value={4}>4 图（田字）</option>
+                  </select>
+                </label>
               </div>
 
               {loading ? (
@@ -331,7 +711,8 @@ export function MacroSection() {
                         key={`macro-grid-${layoutMode}`}
                         payload={payload}
                         layoutMode={layoutMode}
-                        slotAssignment={resolvedAssignment}
+                        slotAssignment={extractedAssignment}
+                        seriesVisualMap={seriesVisualMap}
                       />
                     </div>
 
@@ -370,13 +751,15 @@ export function MacroSection() {
                               selectedKeys={selectedKeys}
                               slotAssignment={resolvedAssignment}
                               onAssign={assignSlot}
+                              seriesVisualMap={seriesVisualMap}
+                              onUpdateSeriesVisual={updateSeriesVisual}
                             />
                             <div className="mt-4 border-t border-slate-800 pt-4">
                               <p className="mb-2 leading-relaxed text-slate-500">
-                                此处可扩展：线型、颜色、坐标轴、图例与 tooltip 等（对接 ECharts option）。
+                                常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点；并支持任意序列切到右轴，便于不同量级对比。
                               </p>
-                              <div className="rounded-md border border-dashed border-slate-700/90 p-3 text-slate-600">
-                                占位：后续可把折线平滑、标记点、Y 轴范围等配置项放在这里。
+                              <div className="rounded-md border border-slate-700/90 bg-slate-900/50 p-3 text-slate-500">
+                                建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。
                               </div>
                             </div>
                           </div>
