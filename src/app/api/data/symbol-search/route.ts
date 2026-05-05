@@ -46,7 +46,11 @@ function extractQuotes(raw: unknown, maxItems = 50): SymbolSearchItem[] {
   return out;
 }
 
-/** GET /api/data/symbol-search?q=aapl （已配置 MASSIVE_API_KEY 时优先 Massive，否则 Yahoo） */
+/**
+ * GET /api/data/symbol-search?q=aapl
+ * 联想顺序（固定）：① 已配置 MASSIVE_API_KEY 时先调 Massive reference/tickers；
+ * ② 无结果或异常时再调 Yahoo；③ 未配置 Key 时仅 Yahoo。
+ */
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 1) {
@@ -64,7 +68,7 @@ export async function GET(req: NextRequest) {
         results = rankSymbolSearchHits(q, poly).slice(0, 20);
       }
     } catch {
-      /* 再试 Yahoo */
+      /* Massive 失败则落入下方 Yahoo */
     }
   }
 

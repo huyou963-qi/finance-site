@@ -20,10 +20,22 @@ function fmtVolZh(v: number): string {
 
 type Props = {
   stats: KlineRangeStatsResult;
+  /** 如「区间统计」「区间统计2」 */
+  title: string;
+  /** 标题与边框强调色（与 K 线区间两端竖线一致） */
+  accentColor: string;
+  /** 未手动拖动时，相对默认位置的纵向错位（多区间错开弹窗） */
+  stackOffsetPx?: number;
   onClose: () => void;
 };
 
-export function KlineRangeStatsPanel({ stats, onClose }: Props) {
+export function KlineRangeStatsPanel({
+  stats,
+  title,
+  accentColor,
+  stackOffsetPx = 0,
+  onClose,
+}: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
@@ -76,18 +88,32 @@ export function KlineRangeStatsPanel({ stats, onClose }: Props) {
   return (
     <div
       ref={panelRef}
-      className={`pointer-events-auto fixed z-[100] w-[min(96vw,420px)] rounded-lg border border-[#3d4454] bg-[#1a1f2e]/98 px-4 py-3 shadow-2xl backdrop-blur-sm ${
-        pos ? "" : "left-1/2 top-[22%] -translate-x-1/2"
+      className={`pointer-events-auto fixed z-[100] w-[min(96vw,420px)] rounded-lg border bg-[#1a1f2e]/98 px-4 py-3 shadow-2xl backdrop-blur-sm ${
+        pos ? "" : "left-1/2 -translate-x-1/2"
       }`}
-      style={pos ? { left: pos.left, top: pos.top } : undefined}
+      style={
+        pos
+          ? { left: pos.left, top: pos.top, borderColor: `${accentColor}66` }
+          : {
+              left: "50%",
+              top: stackOffsetPx
+                ? `calc(22% + ${stackOffsetPx}px)`
+                : "22%",
+              transform: "translate(-50%, 0)",
+              borderColor: `${accentColor}66`,
+            }
+      }
       role="dialog"
-      aria-label="区间统计"
+      aria-label={title}
     >
       <div
-        className="mb-3 flex cursor-move touch-none select-none items-start justify-between gap-2 border-b border-[#2b2f3a] pb-2"
+        className="mb-3 flex cursor-move touch-none select-none items-start justify-between gap-2 border-b pb-2"
+        style={{ borderColor: `${accentColor}44` }}
         onPointerDown={handleDragStart}
       >
-        <h3 className="text-sm font-semibold text-slate-100">区间统计</h3>
+        <h3 className="text-sm font-semibold" style={{ color: accentColor }}>
+          {title}
+        </h3>
         <button
           type="button"
           onClick={onClose}
