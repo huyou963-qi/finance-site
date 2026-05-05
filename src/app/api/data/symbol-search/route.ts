@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import YahooFinance from "yahoo-finance2";
-import { searchMassiveTickers } from "@/lib/data/massiveSymbolSearch";
+import {
+  lookupMassiveTickerBySymbol,
+  searchMassiveTickers,
+} from "@/lib/data/massiveSymbolSearch";
 import {
   symbolSearchErrorForUser,
 } from "@/lib/data/symbolSearchUserMessage";
@@ -63,9 +66,25 @@ export async function GET(req: NextRequest) {
 
   if (massiveKey) {
     try {
-      const poly = await searchMassiveTickers(q);
-      if (poly.length > 0) {
-        results = rankSymbolSearchHits(q, poly).slice(0, 20);
+      const tickerLike = /^[A-Za-z][A-Za-z0-9.\-]{0,14}$/.test(q.trim());
+      const [poly, exactHit] = await Promise.all([
+        searchMassiveTickers(q),
+        tickerLike ? lookupMassiveTickerBySymbol(q.trim()) : Promise.resolve(null),
+      ]);
+      const seen = new Set<string>();
+      const merged: SymbolSearchItem[] = [];
+      if (exactHit) {
+        merged.push(exactHit);
+        seen.add(exactHit.symbol);
+      }
+      for (const it of poly) {
+        if (!seen.has(it.symbol)) {
+          seen.add(it.symbol);
+          merged.push(it);
+        }
+      }
+      if (merged.length > 0) {
+        results = rankSymbolSearchHits(q, merged).slice(0, 20);
       }
     } catch {
       /* Massive 失败则落入下方 Yahoo */

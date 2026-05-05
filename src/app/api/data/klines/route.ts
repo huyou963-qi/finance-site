@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchBinanceSpotKlines } from "@/lib/data/binance";
+import { fetchIbkrKlines } from "@/lib/data/ibkrKlines";
 import { fetchMassiveKlines } from "@/lib/data/massiveKlines";
 import { fetchYahooKlines } from "@/lib/data/yahooKlines";
 
@@ -7,12 +8,12 @@ import { fetchYahooKlines } from "@/lib/data/yahooKlines";
  * GET /api/data/klines?source=binance&symbol=BTCUSDT&interval=1d&limit=300
  * GET /api/data/klines?source=yahoo&symbol=AAPL&interval=1d&limit=300
  * GET /api/data/klines?source=massive&symbol=AAPL&interval=1d&limit=300  （需 MASSIVE_API_KEY）
+ * GET /api/data/klines?source=ibkr&symbol=AAPL&interval=1d&limit=300  （TWS/IB Gateway 或 IBKR_BRIDGE_URL）
  */
 export async function GET(req: NextRequest) {
   const source = (req.nextUrl.searchParams.get("source") ?? "binance").toLowerCase();
   const symbol = req.nextUrl.searchParams.get("symbol") ?? "";
-  const defaultSymbol =
-    source === "binance" ? "BTCUSDT" : source === "massive" ? "AAPL" : "AAPL";
+  const defaultSymbol = source === "binance" ? "BTCUSDT" : "AAPL";
   const sym = symbol.trim() || defaultSymbol;
   const interval = req.nextUrl.searchParams.get("interval") ?? "1d";
   const limit = Number(req.nextUrl.searchParams.get("limit") ?? "300");
@@ -42,8 +43,14 @@ export async function GET(req: NextRequest) {
       const payload = await fetchBinanceSpotKlines(sym, interval, limit);
       return NextResponse.json(payload);
     }
+    if (source === "ibkr") {
+      const payload = await fetchIbkrKlines(sym, interval, limit);
+      return NextResponse.json(payload);
+    }
     return NextResponse.json(
-      { error: `未知 source：${source}（支持 binance、yahoo、massive）` },
+      {
+        error: `未知 source：${source}（支持 binance、yahoo、massive、ibkr）`,
+      },
       { status: 400 },
     );
   } catch (e) {

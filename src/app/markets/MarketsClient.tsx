@@ -39,7 +39,7 @@ function displayNameForSymbol(sym: string): string | undefined {
 }
 
 export function MarketsClient() {
-  const dataSource = "massive" as const;
+  const dataSource = "ibkr" as const;
   const [symbol, setSymbol] = useState("");
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [query, setQuery] = useState("");

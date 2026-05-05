@@ -19,7 +19,7 @@ export type MacroPayload = {
 
 /** K 线 API 响应 */
 export type KlinePayload = {
-  source: "binance" | "yahoo" | "massive";
+  source: "binance" | "yahoo" | "massive" | "ibkr";
   symbol: string;
   interval: string;
   candles: CandlestickData[];

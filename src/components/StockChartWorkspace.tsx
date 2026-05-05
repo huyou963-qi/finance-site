@@ -21,15 +21,21 @@ import {
   computeRangeOverlayPx,
   type KlineRangeStatsResult,
 } from "@/lib/chart/klineRangeStats";
+import {
+  pickDrawingAt,
+  type DrawingHitTarget,
+} from "@/lib/chart/drawingHitTest";
 import type { KlinePayload } from "@/lib/data/types";
 import {
   bollinger,
   kdj,
   macd,
   rsi,
+  sma,
 } from "@/lib/chart/technicalIndicators";
 import {
   ChartDrawingOverlay,
+  type DrawingDraftPreview,
   type SvgOverlayShape,
 } from "@/components/chart/ChartDrawingOverlay";
 import type { RangeStatWireSegment } from "@/lib/klinePageSyncChannel";
@@ -37,7 +43,7 @@ import type { RangeStatWireSegment } from "@/lib/klinePageSyncChannel";
 export type StockChartWorkspaceProps = {
   symbol: string;
   interval: string;
-  source: "binance" | "yahoo" | "massive";
+  source: "binance" | "yahoo" | "massive" | "ibkr";
   /** 占满父级剩余高度（行情页全屏用） */
   fillHeight?: boolean;
   /** 数据源说明（如 attribution），供顶栏展示 */
@@ -82,12 +88,16 @@ type DrawingTool =
   | "vline"
   | "rect"
   | "fib"
+  | "channel"
   | "text";
 
 /** 单个副图：成交量或振荡指标之一 */
 type SubPaneContent = "volume" | "kdj" | "macd" | "rsi";
 
-type PersistedDrawing =
+/** 主图价格叠加（与副图指标无关） */
+type MainOverlayKind = "none" | "ma" | "boll";
+
+export type PersistedDrawing =
   | { id: string; kind: "hline"; price: number }
   | {
       id: string;
@@ -110,6 +120,140 @@ function syntheticVolumes(candles: CandlestickData[]): number[] {
 }
 
 type SubPaneScaleKey = "a" | "b";
+
+/** 副图顶栏高度（px）；scaleMargins 同步预留，避免压在成交量柱/指标线上 */
+const SUB_PANE_TOOLBAR_PX = 26;
+
+/**
+ * 顶栏 top 写入 chart 容器 CSS 变量，与测量同一时刻生效。
+ * 若只用 React `style={{ top: n }}`，setState 可能晚于绘制提交，拖分界时副图2 顶栏会慢一拍，点按钮再渲染才对齐。
+ */
+function writeToolbarTopCssVars(
+  area: HTMLElement,
+  slot1: { top: number } | null,
+  slot2: { top: number } | null,
+): void {
+  if (slot1) {
+    area.style.setProperty("--kline-sp1-top", `${slot1.top}px`);
+  } else {
+    area.style.removeProperty("--kline-sp1-top");
+  }
+  if (slot2) {
+    area.style.setProperty("--kline-sp2-top", `${slot2.top}px`);
+  } else {
+    area.style.removeProperty("--kline-sp2-top");
+  }
+}
+
+/** 按当前 pane 高度把顶栏换算进 scaleMargins，使绘制区始终在该条带之下 */
+function applySubPaneToolbarScaleMargins(
+  chart: IChartApi,
+  toolbarPx: number,
+  subPane1: { visible: boolean; content: SubPaneContent },
+  subPane2: { visible: boolean; content: SubPaneContent },
+): void {
+  const panes = chart.panes();
+  if (panes.length <= 1) return;
+
+  const toolbarFrac = (paneIdx: number, rowMul = 1) =>
+    Math.min(
+      0.82,
+      (toolbarPx * rowMul) / Math.max(panes[paneIdx]?.getHeight() ?? 100, 8),
+    );
+
+  const applyOscRight = (paneIdx: number, baseTop: number, rowMul = 1) => {
+    const t = Math.max(baseTop, toolbarFrac(paneIdx, rowMul));
+    chart.priceScale("right", paneIdx).applyOptions({
+      scaleMargins: { top: t, bottom: 0 },
+    });
+  };
+
+  const v1 = subPane1.visible;
+  const v2 = subPane2.visible;
+
+  if (panes.length === 2) {
+    const idx = 1;
+    /** 仅一块副图 pane 时顶栏叠两行（隐藏槽位仍占位），预留双倍顶边 */
+    const tf = toolbarFrac(idx, 2);
+    if (v1) {
+      const c = subPane1.content;
+      if (c === "volume") {
+        chart.priceScale("vol_a", idx).applyOptions({
+          scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+        });
+      } else if (c === "macd") {
+        const t = Math.max(0.3, tf);
+        chart.priceScale("macd_a", idx).applyOptions({
+          scaleMargins: { top: t, bottom: 0 },
+        });
+        chart.priceScale("right", idx).applyOptions({
+          scaleMargins: { top: t, bottom: 0 },
+        });
+      } else {
+        applyOscRight(idx, 0.12, 2);
+      }
+    } else if (v2) {
+      const c = subPane2.content;
+      if (c === "volume") {
+        chart.priceScale("vol_b", idx).applyOptions({
+          scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+        });
+      } else if (c === "macd") {
+        const t = Math.max(0.3, tf);
+        chart.priceScale("macd_b", idx).applyOptions({
+          scaleMargins: { top: t, bottom: 0 },
+        });
+        chart.priceScale("right", idx).applyOptions({
+          scaleMargins: { top: t, bottom: 0 },
+        });
+      } else {
+        applyOscRight(idx, 0.12, 2);
+      }
+    }
+    return;
+  }
+
+  if (v1) {
+    const idx = 1;
+    const tf = toolbarFrac(idx);
+    const c = subPane1.content;
+    if (c === "volume") {
+      chart.priceScale("vol_a", idx).applyOptions({
+        scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+      });
+    } else if (c === "macd") {
+      const t = Math.max(0.3, tf);
+      chart.priceScale("macd_a", idx).applyOptions({
+        scaleMargins: { top: t, bottom: 0 },
+      });
+      chart.priceScale("right", idx).applyOptions({
+        scaleMargins: { top: t, bottom: 0 },
+      });
+    } else {
+      applyOscRight(idx, 0.12);
+    }
+  }
+  if (v2) {
+    const idx = 2;
+    const tf = toolbarFrac(idx);
+    const c = subPane2.content;
+    if (c === "volume") {
+      chart.priceScale("vol_b", idx).applyOptions({
+        scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+      });
+    } else if (c === "macd") {
+      const t = Math.max(0.3, tf);
+      chart.priceScale("macd_b", idx).applyOptions({
+        scaleMargins: { top: t, bottom: 0 },
+      });
+      chart.priceScale("right", idx).applyOptions({
+        scaleMargins: { top: t, bottom: 0 },
+      });
+    } else {
+      applyOscRight(idx, 0.12);
+    }
+  }
+}
 
 function appendSubPaneSeries(
   chart: IChartApi,
@@ -379,8 +523,9 @@ export function StockChartWorkspace({
   const nativeHandlesRef = useRef<{
     userPriceLines: IPriceLine[];
     userTrendLines: ISeriesApi<"Line", Time>[];
-    bollLines: ISeriesApi<"Line", Time>[];
-  }>({ userPriceLines: [], userTrendLines: [], bollLines: [] });
+    /** BOLL 或 MA 等主图均线句柄（图表重建时清空） */
+    overlayLines: ISeriesApi<"Line", Time>[];
+  }>({ userPriceLines: [], userTrendLines: [], overlayLines: [] });
 
   const [payload, setPayload] = useState<KlinePayload | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -388,7 +533,7 @@ export function StockChartWorkspace({
   const [loading, setLoading] = useState(false);
   const [tool, setTool] = useState<DrawingTool>("cursor");
   const toolRef = useRef<DrawingTool>("cursor");
-  const [showBoll, setShowBoll] = useState(true);
+  const [mainOverlay, setMainOverlay] = useState<MainOverlayKind>("boll");
   /** 两个副图可独立选成交量/指标、可单独关闭 */
   const [subPane1, setSubPane1] = useState<{
     visible: boolean;
@@ -399,7 +544,14 @@ export function StockChartWorkspace({
     content: SubPaneContent;
   }>({ visible: true, content: "kdj" });
   const [drawings, setDrawings] = useState<PersistedDrawing[]>([]);
+  const drawingsRef = useRef(drawings);
+  drawingsRef.current = drawings;
+  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(
+    null,
+  );
   const [overlaySize, setOverlaySize] = useState({ w: 0, h: 0 });
+  const overlaySizeRef = useRef(overlaySize);
+  overlaySizeRef.current = overlaySize;
   /** 供底部时间范围条绑定同一 chart 实例（ref 变化不会触发 render） */
   const [chartApi, setChartApi] = useState<IChartApi | null>(null);
   const [crosshairOhlcv, setCrosshairOhlcv] = useState<CrosshairOhlcv | null>(
@@ -423,10 +575,16 @@ export function StockChartWorkspace({
     sep01: number;
     sep12?: number;
   } | null>(null);
+  /** 各副图槽位顶栏的像素位置（相对 chart 容器），与 pane DOM 一致 */
+  const [subPaneToolbarGeom, setSubPaneToolbarGeom] = useState<{
+    slot1: { top: number; height: number } | null;
+    slot2: { top: number; height: number } | null;
+  }>({ slot1: null, slot2: null });
   const rangeDragRef = useRef<{ start: number; cur: number } | null>(null);
-  const trendDraftRef = useRef<{ t: Time; p: number } | null>(null);
-  const rectDraftRef = useRef<{ t: Time; p: number } | null>(null);
-  const fibDraftRef = useRef<{ t: Time; p: number } | null>(null);
+  /** 多点画线草稿 + 十字跟随预览（虚线辅助） */
+  const [plotDraft, setPlotDraft] = useState<DrawingDraftPreview | null>(null);
+  const [drawToolMenuOpen, setDrawToolMenuOpen] = useState(false);
+  const drawToolMenuRef = useRef<HTMLDivElement>(null);
 
   const pageSyncEnabledRef = useRef(false);
   const suppressVisibleRangeBroadcastRef = useRef(false);
@@ -450,6 +608,16 @@ export function StockChartWorkspace({
   useEffect(() => {
     toolRef.current = tool;
   }, [tool]);
+
+  useEffect(() => {
+    if (!drawToolMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (drawToolMenuRef.current?.contains(e.target as Node)) return;
+      setDrawToolMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [drawToolMenuOpen]);
 
   useEffect(() => {
     onAttributionChange?.(hint);
@@ -514,10 +682,12 @@ export function StockChartWorkspace({
   useEffect(() => {
     if (!symbol.trim()) {
       setDrawings([]);
+      setSelectedDrawingId(null);
       return;
     }
     const key = storageKey(source, symbol, interval);
     setDrawings(parsePersisted(typeof window !== "undefined" ? localStorage.getItem(key) : null));
+    setSelectedDrawingId(null);
   }, [source, symbol, interval]);
 
   useEffect(() => {
@@ -560,26 +730,102 @@ export function StockChartWorkspace({
     const p0el = panes[0]?.getHTMLElement();
     if (!p0el) return;
     const r0 = p0el.getBoundingClientRect();
+
     setMainPaneClip({
       top: r0.top - ar.top,
       height: r0.height,
     });
+
+    let slot1Geom: { top: number; height: number } | null = null;
+    let slot2Geom: { top: number; height: number } | null = null;
+
+    /** 双副图均隐藏：仅剩主图，两行指标条叠在主图底边下方（仍可点「显示」） */
     if (panes.length === 1) {
+      const belowMain = r0.bottom - ar.top;
+      slot1Geom = {
+        top: belowMain,
+        height: SUB_PANE_TOOLBAR_PX,
+      };
+      slot2Geom = {
+        top: belowMain + SUB_PANE_TOOLBAR_PX,
+        height: SUB_PANE_TOOLBAR_PX,
+      };
+      writeToolbarTopCssVars(area, slot1Geom, slot2Geom);
       setSplitterY(null);
+      setSubPaneToolbarGeom({ slot1: slot1Geom, slot2: slot2Geom });
       return;
     }
+
+    /** 与分界条一致：用上一窗格底边作为下一窗格顶边，避免 r2.top 比 r1.bottom 晚一帧导致副图2 顶栏滞后 */
+    const sep01Px = r0.bottom - ar.top;
+
     if (panes.length === 2) {
-      setSplitterY({ sep01: r0.bottom - ar.top });
+      setSplitterY({ sep01: sep01Px });
+      const p1 = panes[1];
+      const hel1 = p1?.getHTMLElement();
+      if (hel1) {
+        const r1 = hel1.getBoundingClientRect();
+        const h1 = p1.getHeight();
+        const hPx = h1 || r1.height;
+        const p1Top = r1.top - ar.top;
+        /** 只有一块副图 pane：两行顶栏垂直叠放，隐藏的槽仍保留按钮（「隐藏」→「显示」） */
+        slot1Geom = { top: p1Top, height: hPx };
+        slot2Geom = {
+          top: p1Top + SUB_PANE_TOOLBAR_PX,
+          height: hPx,
+        };
+      }
+      writeToolbarTopCssVars(area, slot1Geom, slot2Geom);
+      setSubPaneToolbarGeom({ slot1: slot1Geom, slot2: slot2Geom });
+      applySubPaneToolbarScaleMargins(chart, SUB_PANE_TOOLBAR_PX, subPane1, subPane2);
       return;
     }
+
     const p1el = panes[1]?.getHTMLElement();
-    if (!p1el) return;
+    if (!p1el) {
+      writeToolbarTopCssVars(area, null, null);
+      return;
+    }
     const r1 = p1el.getBoundingClientRect();
+    const p1Top = r1.top - ar.top;
+    const h1Px = panes[1]!.getHeight();
+    /**
+     * 副图1 底边 = 顶边 + 库返回高度。拖「主图↔副图1」分界时 DOM 的 r1.bottom 常比 stretch 晚一帧，
+     * 若用 r1.bottom 算 sep12，会出现「另一条线」对应的副图2 顶栏不同步；getHeight() 与 setStretchFactor 一致。
+     */
+    const sep12Px = p1Top + h1Px;
     setSplitterY({
-      sep01: r0.bottom - ar.top,
-      sep12: r1.bottom - ar.top,
+      sep01: sep01Px,
+      sep12: sep12Px,
     });
-  }, []);
+    slot1Geom = { top: p1Top, height: h1Px || r1.height };
+    if (panes[2]) {
+      const h2 = panes[2].getHeight();
+      const r2 = panes[2].getHTMLElement()?.getBoundingClientRect();
+      slot2Geom = {
+        top: sep12Px,
+        height: h2 || (r2?.height ?? 0),
+      };
+    }
+    writeToolbarTopCssVars(area, slot1Geom, slot2Geom);
+    setSubPaneToolbarGeom({ slot1: slot1Geom, slot2: slot2Geom });
+    applySubPaneToolbarScaleMargins(chart, SUB_PANE_TOOLBAR_PX, subPane1, subPane2);
+  }, [subPane1, subPane2]);
+
+  /**
+   * setStretchFactor 后 DOM 晚一帧才稳定，双 rAF 再量。
+   * 用递增 generation：拖动时连续调用不会丢最后一次（避免「排队中则跳过」导致副图2 顶栏不跟分界）。
+   */
+  const layoutMetricsGenRef = useRef(0);
+  const schedulePaneLayoutMetrics = useCallback(() => {
+    const gen = ++layoutMetricsGenRef.current;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (gen !== layoutMetricsGenRef.current) return;
+        syncPaneLayoutMetrics();
+      });
+    });
+  }, [syncPaneLayoutMetrics]);
 
   const clearAllRangeStats = useCallback(() => {
     setRangeEntries([]);
@@ -765,7 +1011,13 @@ export function StockChartWorkspace({
           p[1]!.setStretchFactor(n1);
           p[2]!.setStretchFactor(n2);
         }
-        syncPaneLayoutMetrics();
+        schedulePaneLayoutMetrics();
+        // 拖分界后再双 rAF 量一次，与 lightweight-charts pane 布局提交对齐
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            syncPaneLayoutMetrics();
+          });
+        });
       };
 
       const onUp = () => {
@@ -777,13 +1029,18 @@ export function StockChartWorkspace({
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
-        syncPaneLayoutMetrics();
+        schedulePaneLayoutMetrics();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            syncPaneLayoutMetrics();
+          });
+        });
       };
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [syncPaneLayoutMetrics],
+    [schedulePaneLayoutMetrics, syncPaneLayoutMetrics],
   );
 
   const handleRangePointerDown = useCallback(
@@ -807,6 +1064,29 @@ export function StockChartWorkspace({
       const rect = wrap.getBoundingClientRect();
       const x = e.clientX - rect.left;
       if (x < 0 || x > rect.width) return;
+      const y = e.clientY - rect.top;
+      const p0h = chart.panes()[0]?.getHeight() ?? 0;
+      const se = candleRef.current;
+      /** 点在已画线附近时不拦截：否则 preventDefault 会阻断图表 click → 无法选中画线 */
+      if (
+        se &&
+        y >= 0 &&
+        y <= p0h &&
+        x >= 0 &&
+        x <= rect.width
+      ) {
+        const chartW = overlaySizeRef.current.w || rect.width;
+        const hit = pickDrawingAt(
+          x,
+          y,
+          drawingsRef.current as DrawingHitTarget[],
+          chart,
+          se,
+          chartW,
+          p0h,
+        );
+        if (hit) return;
+      }
       e.preventDefault();
       e.stopPropagation();
       rangeDragRef.current = { start: x, cur: x };
@@ -869,11 +1149,31 @@ export function StockChartWorkspace({
 
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") clearAllRangeStats();
+      const el = ev.target;
+      if (
+        el instanceof HTMLElement &&
+        el.closest("input, textarea, select, [contenteditable=true]")
+      ) {
+        return;
+      }
+      if (ev.key === "Escape") {
+        clearAllRangeStats();
+        setPlotDraft(null);
+        setSelectedDrawingId(null);
+        return;
+      }
+      if (ev.key === "Delete" || ev.key === "Backspace") {
+        const sid = selectedDrawingId;
+        if (sid) {
+          ev.preventDefault();
+          setDrawings((prev) => prev.filter((d) => d.id !== sid));
+          setSelectedDrawingId(null);
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [clearAllRangeStats]);
+  }, [clearAllRangeStats, selectedDrawingId]);
 
   const svgShapes = useMemo(
     () => drawings.filter((d) => d.kind !== "hline" && d.kind !== "trend") as SvgOverlayShape[],
@@ -896,11 +1196,12 @@ export function StockChartWorkspace({
       clearUserNativeOnly(chart, candle);
       const h = nativeHandlesRef.current;
       for (const d of drawings) {
+        const sel = d.id === selectedDrawingId;
         if (d.kind === "hline") {
           const pl = candle.createPriceLine({
             price: d.price,
-            color: "#f472b6",
-            lineWidth: 1,
+            color: sel ? "#fda4af" : "#f472b6",
+            lineWidth: sel ? 2 : 1,
             title: "",
           });
           h.userPriceLines.push(pl);
@@ -909,8 +1210,8 @@ export function StockChartWorkspace({
           const s = chart.addSeries(
             LineSeries,
             {
-              color: "#fb923c",
-              lineWidth: 2,
+              color: sel ? "#fdba74" : "#fb923c",
+              lineWidth: sel ? 3 : 2,
               priceLineVisible: false,
               lastValueVisible: false,
             },
@@ -928,7 +1229,7 @@ export function StockChartWorkspace({
         }
       }
     },
-    [drawings, clearUserNativeOnly],
+    [drawings, selectedDrawingId, clearUserNativeOnly],
   );
 
   useEffect(() => {
@@ -945,6 +1246,16 @@ export function StockChartWorkspace({
         textColor: "#d1d4dc",
         /** 隐藏主图左下角 TradingView / lightweight-charts 圆形徽标（许可证允许在页面其它位置保留归属说明） */
         attributionLogo: false,
+        /**
+         * 关闭库内置窗格分隔条拖动。否则副图1/2 之间会出现第二条「灰线」，
+         * 拖的是库的 stretch，不会走我们的同步逻辑，副图2 指标条会错位；
+         * 高度调节仅保留：主↔副图1 青边条、副图2 顶栏琥珀条。
+         */
+        panes: {
+          enableResize: false,
+          separatorColor: "#2b2f3a",
+          separatorHoverColor: "rgba(71, 80, 101, 0.25)",
+        },
       },
       grid: {
         vertLines: { color: "#2b2f3a" },
@@ -993,7 +1304,7 @@ export function StockChartWorkspace({
     candle.setData(candles);
     candleRef.current = candle;
 
-    if (showBoll && candles.length >= 20) {
+    if (mainOverlay === "boll" && candles.length >= 20) {
       const { mid, upper, lower } = bollinger(candles);
       const h = nativeHandlesRef.current;
       const midS = chart.addSeries(
@@ -1014,7 +1325,33 @@ export function StockChartWorkspace({
       midS.setData(mid);
       upS.setData(upper);
       loS.setData(lower);
-      h.bollLines.push(midS, upS, loS);
+      h.overlayLines.push(midS, upS, loS);
+    }
+
+    if (mainOverlay === "ma" && candles.length >= 5) {
+      const h = nativeHandlesRef.current;
+      const maSpec = [
+        { period: 5, color: "#fbbf24" },
+        { period: 10, color: "#38bdf8" },
+        { period: 20, color: "#c084fc" },
+      ] as const;
+      for (const { period, color } of maSpec) {
+        if (candles.length < period) continue;
+        const data = sma(candles, period);
+        if (!data.length) continue;
+        const s = chart.addSeries(
+          LineSeries,
+          {
+            color,
+            lineWidth: 1,
+            priceLineVisible: false,
+            lastValueVisible: false,
+          },
+          0,
+        );
+        s.setData(data);
+        h.overlayLines.push(s);
+      }
     }
 
     let subPaneIdx = 1;
@@ -1050,25 +1387,50 @@ export function StockChartWorkspace({
       const h = Math.max(400, area.clientHeight);
       cr.resize(w, h);
       setOverlaySize({ w, h });
-      requestAnimationFrame(() => {
-        syncPaneLayoutMetrics();
-      });
+      schedulePaneLayoutMetrics();
     });
     ro.observe(box ?? el);
-    setOverlaySize({ w: cw, h: ch });
-    requestAnimationFrame(() => {
-      syncPaneLayoutMetrics();
+
+    const paneResizeRo = new ResizeObserver(() => {
+      schedulePaneLayoutMetrics();
     });
+    for (const pane of chart.panes()) {
+      const hel = pane.getHTMLElement();
+      if (hel) paneResizeRo.observe(hel);
+    }
+
+    setOverlaySize({ w: cw, h: ch });
+    schedulePaneLayoutMetrics();
 
     const clickHandler: Parameters<IChartApi["subscribeClick"]>[0] = (param) => {
       const tcur = toolRef.current;
-      if (tcur === "cursor" || (param.paneIndex ?? 0) !== 0) return;
-      if (!param.point || param.time === undefined) return;
+      if ((param.paneIndex ?? 0) !== 0) return;
+      if (!param.point) return;
+      const p0h = chart.panes()[0]?.getHeight() ?? 0;
+      if (param.point.y < 0 || param.point.y > p0h) return;
       const se = candleRef.current;
       if (!se) return;
+
+      if (tcur === "cursor") {
+        const w = overlaySizeRef.current.w;
+        const hit = pickDrawingAt(
+          param.point.x,
+          param.point.y,
+          drawingsRef.current as DrawingHitTarget[],
+          chart,
+          se,
+          w,
+          p0h,
+        );
+        setSelectedDrawingId(hit);
+        return;
+      }
+
+      if (param.time === undefined) return;
       const price = se.coordinateToPrice(param.point.y);
       if (price === null) return;
       const tm = param.time as UTCTimestamp;
+      setSelectedDrawingId(null);
 
       if (tcur === "hline") {
         const id = crypto.randomUUID();
@@ -1077,24 +1439,29 @@ export function StockChartWorkspace({
       }
 
       if (tcur === "trend") {
-        const prev = trendDraftRef.current;
-        if (!prev) {
-          trendDraftRef.current = { t: tm, p: price };
-          return;
-        }
-        const id = crypto.randomUUID();
-        setDrawings((prevD) => [
-          ...prevD,
-          {
-            id,
-            kind: "trend",
-            t1: prev.t as number,
-            p1: prev.p,
-            t2: tm as number,
-            p2: price,
-          },
-        ]);
-        trendDraftRef.current = null;
+        setPlotDraft((prev) => {
+          if (!prev || prev.tool !== "trend") {
+            return {
+              tool: "trend",
+              placed: [{ t: tm, p: price }],
+              hover: null,
+            };
+          }
+          const p0 = prev.placed[0]!;
+          const id = crypto.randomUUID();
+          setDrawings((prevD) => [
+            ...prevD,
+            {
+              id,
+              kind: "trend",
+              t1: p0.t as number,
+              p1: p0.p,
+              t2: tm as number,
+              p2: price,
+            },
+          ]);
+          return null;
+        });
         return;
       }
 
@@ -1108,48 +1475,99 @@ export function StockChartWorkspace({
       }
 
       if (tcur === "rect") {
-        const prev = rectDraftRef.current;
-        if (!prev) {
-          rectDraftRef.current = { t: tm, p: price };
-          return;
-        }
-        const id = crypto.randomUUID();
-        setDrawings((prevD) => [
-          ...prevD,
-          {
-            id,
-            kind: "rect",
-            t1: prev.t as UTCTimestamp,
-            p1: prev.p,
-            t2: tm,
-            p2: price,
-            color: "rgba(168,85,247,0.9)",
-          },
-        ]);
-        rectDraftRef.current = null;
+        setPlotDraft((prev) => {
+          if (!prev || prev.tool !== "rect") {
+            return {
+              tool: "rect",
+              placed: [{ t: tm, p: price }],
+              hover: null,
+            };
+          }
+          const p0 = prev.placed[0]!;
+          const id = crypto.randomUUID();
+          setDrawings((prevD) => [
+            ...prevD,
+            {
+              id,
+              kind: "rect",
+              t1: p0.t as UTCTimestamp,
+              p1: p0.p,
+              t2: tm,
+              p2: price,
+              color: "rgba(168,85,247,0.9)",
+            },
+          ]);
+          return null;
+        });
         return;
       }
 
       if (tcur === "fib") {
-        const prev = fibDraftRef.current;
-        if (!prev) {
-          fibDraftRef.current = { t: tm, p: price };
-          return;
-        }
-        const id = crypto.randomUUID();
-        setDrawings((prevD) => [
-          ...prevD,
-          {
-            id,
-            kind: "fib",
-            t1: prev.t as UTCTimestamp,
-            p1: prev.p,
-            t2: tm,
-            p2: price,
-            color: "#f97316",
-          },
-        ]);
-        fibDraftRef.current = null;
+        setPlotDraft((prev) => {
+          if (!prev || prev.tool !== "fib") {
+            return {
+              tool: "fib",
+              placed: [{ t: tm, p: price }],
+              hover: null,
+            };
+          }
+          const p0 = prev.placed[0]!;
+          const id = crypto.randomUUID();
+          setDrawings((prevD) => [
+            ...prevD,
+            {
+              id,
+              kind: "fib",
+              t1: p0.t as UTCTimestamp,
+              p1: p0.p,
+              t2: tm,
+              p2: price,
+              color: "#f97316",
+            },
+          ]);
+          return null;
+        });
+        return;
+      }
+
+      if (tcur === "channel") {
+        setPlotDraft((prev) => {
+          if (!prev || prev.tool !== "channel") {
+            return {
+              tool: "channel",
+              placed: [{ t: tm, p: price }],
+              hover: null,
+            };
+          }
+          if (prev.placed.length === 1) {
+            return {
+              ...prev,
+              placed: [...prev.placed, { t: tm, p: price }],
+              hover: null,
+            };
+          }
+          if (prev.placed.length === 2) {
+            const p0 = prev.placed[0]!;
+            const p1 = prev.placed[1]!;
+            const id = crypto.randomUUID();
+            setDrawings((prevD) => [
+              ...prevD,
+              {
+                id,
+                kind: "channel",
+                t1: p0.t as UTCTimestamp,
+                p1: p0.p,
+                t2: p1.t as UTCTimestamp,
+                p2: p1.p,
+                t3: tm as UTCTimestamp,
+                p3: price,
+                color: "#eab308",
+              },
+            ]);
+            return null;
+          }
+          return prev;
+        });
         return;
       }
 
@@ -1179,6 +1597,7 @@ export function StockChartWorkspace({
       const se = candleRef.current;
       if (!se || param.point === undefined) {
         setCrosshairOhlcv(null);
+        setPlotDraft((p) => (p ? { ...p, hover: null } : p));
         if (
           pageSyncEnabledRef.current &&
           !suppressCrosshairBroadcastRef.current
@@ -1190,6 +1609,7 @@ export function StockChartWorkspace({
       const t = param.time;
       if (t === undefined) {
         setCrosshairOhlcv(null);
+        setPlotDraft((p) => (p ? { ...p, hover: null } : p));
         if (
           pageSyncEnabledRef.current &&
           !suppressCrosshairBroadcastRef.current
@@ -1206,6 +1626,7 @@ export function StockChartWorkspace({
       }
       if (!bar || typeof bar.open !== "number") {
         setCrosshairOhlcv(null);
+        setPlotDraft((p) => (p ? { ...p, hover: null } : p));
         if (
           pageSyncEnabledRef.current &&
           !suppressCrosshairBroadcastRef.current
@@ -1225,6 +1646,36 @@ export function StockChartWorkspace({
         close: bar.close,
         volume: vol,
         cursorX: param.point.x,
+      });
+      setPlotDraft((prev) => {
+        if (
+          !prev ||
+          (prev.tool !== "trend" &&
+            prev.tool !== "rect" &&
+            prev.tool !== "fib" &&
+            prev.tool !== "channel")
+        ) {
+          return prev;
+        }
+        if ((param.paneIndex ?? 0) !== 0) {
+          return { ...prev, hover: null };
+        }
+        const ph =
+          chartRef.current?.panes()[0]?.getHeight() ?? null;
+        if (
+          ph !== null &&
+          (param.point.y < 0 || param.point.y > ph)
+        ) {
+          return { ...prev, hover: null };
+        }
+        const hp = se.coordinateToPrice(param.point.y);
+        if (hp === null || param.time === undefined) {
+          return { ...prev, hover: null };
+        }
+        return {
+          ...prev,
+          hover: { t: param.time as UTCTimestamp, p: hp },
+        };
       });
       if (
         pageSyncEnabledRef.current &&
@@ -1262,6 +1713,7 @@ export function StockChartWorkspace({
     chart.timeScale().subscribeVisibleLogicalRangeChange(logicalRangeHandler);
 
     return () => {
+      layoutMetricsGenRef.current += 1;
       setCrosshairOhlcv(null);
       setChartApi(null);
       chart.unsubscribeClick(clickHandler);
@@ -1271,26 +1723,27 @@ export function StockChartWorkspace({
       );
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(logicalRangeHandler);
       ro.disconnect();
+      paneResizeRo.disconnect();
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
       nativeHandlesRef.current = {
         userPriceLines: [],
         userTrendLines: [],
-        bollLines: [],
+        overlayLines: [],
       };
     };
   }, [
     loading,
     candles,
     volumes,
-    showBoll,
+    mainOverlay,
     subPane1.visible,
     subPane1.content,
     subPane2.visible,
     subPane2.content,
     interval,
-    syncPaneLayoutMetrics,
+    schedulePaneLayoutMetrics,
   ]);
 
   useEffect(() => {
@@ -1474,9 +1927,8 @@ export function StockChartWorkspace({
   ]);
 
   const handleClearDrawings = () => {
-    trendDraftRef.current = null;
-    rectDraftRef.current = null;
-    fibDraftRef.current = null;
+    setPlotDraft(null);
+    setSelectedDrawingId(null);
     setDrawings([]);
   };
 
@@ -1487,6 +1939,7 @@ export function StockChartWorkspace({
     { id: "vline", label: "垂直" },
     { id: "rect", label: "矩形" },
     { id: "fib", label: "斐波" },
+    { id: "channel", label: "平行通道" },
     { id: "text", label: "文本" },
   ];
 
@@ -1554,29 +2007,78 @@ export function StockChartWorkspace({
 
   return (
     <div
-      className={`overflow-hidden rounded-lg border border-[#2b2f3a] bg-[#131722] ${fillHeight ? "flex h-full min-h-0 flex-1 flex-col" : ""}`}
+      className={`flex flex-col overflow-hidden rounded-lg border border-[#2b2f3a] bg-[#131722] ${fillHeight ? "h-full min-h-0 flex-1" : ""}`}
     >
-      <div className="flex w-full flex-wrap items-center justify-end gap-1 border-b border-[#2b2f3a] px-2 py-1.5">
-        <span className="mr-1 text-[11px] text-slate-500">画线</span>
-        {tools.map((x) => (
-          <button
-            key={x.id}
-            type="button"
-            onClick={() => {
-              setTool(x.id);
-              trendDraftRef.current = null;
-              rectDraftRef.current = null;
-              fibDraftRef.current = null;
-            }}
-            className={`rounded px-2 py-1 text-[11px] ${
-              tool === x.id
-                ? "bg-emerald-900/80 text-emerald-100"
-                : "bg-slate-800/80 text-slate-400 hover:bg-slate-700"
-            }`}
+      <div className="flex w-full flex-wrap items-center gap-2 border-b border-[#2b2f3a] px-2 py-1.5">
+        <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+          <span className="shrink-0 text-slate-500">主图叠加</span>
+          <select
+            value={mainOverlay}
+            onChange={(e) =>
+              setMainOverlay(e.target.value as MainOverlayKind)
+            }
+            className="max-w-[11rem] cursor-pointer rounded border border-slate-600 bg-[#1e293b] px-2 py-1 text-[11px] text-slate-200 outline-none hover:border-slate-500 focus:border-emerald-600/70"
+            aria-label="主图叠加指标"
           >
-            {x.label}
+            <option value="none">无</option>
+            <option value="ma">MA (5 / 10 / 20)</option>
+            <option value="boll">BOLL (20, 2)</option>
+          </select>
+        </label>
+        <div ref={drawToolMenuRef} className="relative flex items-center">
+          <button
+            type="button"
+            onClick={() => setDrawToolMenuOpen((o) => !o)}
+            className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
+              drawToolMenuOpen
+                ? "bg-slate-700 text-slate-100"
+                : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+            }`}
+            aria-expanded={drawToolMenuOpen}
+            aria-haspopup="menu"
+          >
+            <span className="text-slate-500">画图工具</span>
+            <span
+              className={
+                tool === "cursor"
+                  ? "text-slate-400"
+                  : "font-medium text-emerald-200/95"
+              }
+            >
+              {tools.find((x) => x.id === tool)?.label ?? "十字"}
+            </span>
+            <span className="text-[10px] text-slate-500" aria-hidden>
+              ▾
+            </span>
           </button>
-        ))}
+          {drawToolMenuOpen ? (
+            <div
+              role="menu"
+              className="absolute left-0 top-[calc(100%+6px)] z-[100] min-w-[11rem] rounded-md border border-[#2b2f3a] bg-[#131722] py-1 shadow-xl"
+            >
+              {tools.map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTool(x.id);
+                    setPlotDraft(null);
+                    setSelectedDrawingId(null);
+                    setDrawToolMenuOpen(false);
+                  }}
+                  className={`flex w-full px-3 py-1.5 text-left text-[11px] hover:bg-slate-800 ${
+                    tool === x.id
+                      ? "bg-emerald-950/55 text-emerald-100"
+                      : "text-slate-300"
+                  }`}
+                >
+                  {x.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={handleClearDrawings}
@@ -1584,15 +2086,11 @@ export function StockChartWorkspace({
         >
           清除画线
         </button>
-        <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-400">
-          <input
-            type="checkbox"
-            checked={showBoll}
-            onChange={(e) => setShowBoll(e.target.checked)}
-            className="rounded border-slate-600"
-          />
-          BOLL(20,2)
-        </label>
+        {selectedDrawingId ? (
+          <span className="text-[11px] text-slate-500" title="按 Delete 或 Backspace 删除">
+            已选中 · Delete 删除
+          </span>
+        ) : null}
       </div>
 
       <div
@@ -1612,13 +2110,112 @@ export function StockChartWorkspace({
               : "h-full w-full min-h-[520px]"
           }
         />
-        <div className="pointer-events-none absolute inset-0 z-10">
+        {subPaneToolbarGeom.slot1 ? (
+          <div
+            className={`pointer-events-auto absolute left-0 right-0 z-[25] flex flex-wrap items-center gap-1 border-b border-[#2b2f3a]/90 bg-[#131722]/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
+            style={{
+              top: "var(--kline-sp1-top, 0px)",
+              height: SUB_PANE_TOOLBAR_PX,
+            }}
+          >
+            {subModeTabs.map((x) => (
+              <button
+                key={`s1-${x.id}`}
+                type="button"
+                onClick={() => setSubPane1((s) => ({ ...s, content: x.id }))}
+                className={`rounded px-2 py-0.5 text-[10px] leading-none ${
+                  subPane1.content === x.id
+                    ? "bg-indigo-950/90 text-indigo-100"
+                    : "bg-slate-800/70 text-slate-400 hover:bg-slate-700"
+                }`}
+              >
+                {x.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              title={subPane1.visible ? "隐藏此副图" : "显示此副图"}
+              onClick={() =>
+                setSubPane1((s) => ({ ...s, visible: !s.visible }))
+              }
+              className={`rounded px-1.5 py-0.5 text-[10px] leading-none ${
+                subPane1.visible
+                  ? "border border-slate-600 text-slate-400 hover:bg-slate-800"
+                  : "bg-emerald-900/50 text-emerald-200 hover:bg-emerald-900/70"
+              }`}
+            >
+              {subPane1.visible ? "隐藏" : "显示"}
+            </button>
+          </div>
+        ) : null}
+        {subPaneToolbarGeom.slot2 ? (
+          <div
+            className={`pointer-events-auto absolute left-0 right-0 z-[26] flex flex-col overflow-hidden border-b border-[#2b2f3a]/90 bg-[#131722]/95 backdrop-blur-[2px] ${subPane2.visible ? "" : "opacity-90"}`}
+            style={{
+              top: "var(--kline-sp2-top, 0px)",
+              height: SUB_PANE_TOOLBAR_PX,
+            }}
+          >
+            {splitterY?.sep12 != null ? (
+              <div
+                role="separator"
+                aria-orientation="horizontal"
+                title="上下拖动：调节副图1与副图2高度（仅顶部窄条）"
+                className="relative z-[30] shrink-0 cursor-ns-resize touch-none border-b border-amber-500/45 bg-gradient-to-b from-amber-500/20 to-transparent hover:from-amber-500/35"
+                style={{ height: 7 }}
+                onPointerDown={attachPaneSplitterDrag("12")}
+              />
+            ) : null}
+            <div className="flex min-h-0 flex-1 flex-wrap items-center gap-1 px-2 py-px">
+              {subModeTabs.map((x) => (
+                <button
+                  key={`s2-${x.id}`}
+                  type="button"
+                  onClick={() => setSubPane2((s) => ({ ...s, content: x.id }))}
+                  className={`rounded px-2 py-0.5 text-[10px] leading-none ${
+                    subPane2.content === x.id
+                      ? "bg-indigo-950/90 text-indigo-100"
+                      : "bg-slate-800/70 text-slate-400 hover:bg-slate-700"
+                  }`}
+                >
+                  {x.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                title={subPane2.visible ? "隐藏此副图" : "显示此副图"}
+                onClick={() =>
+                  setSubPane2((s) => ({ ...s, visible: !s.visible }))
+                }
+                className={`rounded px-1.5 py-0.5 text-[10px] leading-none ${
+                  subPane2.visible
+                    ? "border border-slate-600 text-slate-400 hover:bg-slate-800"
+                    : "bg-emerald-900/50 text-emerald-200 hover:bg-emerald-900/70"
+                }`}
+              >
+                {subPane2.visible ? "隐藏" : "显示"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        <div
+          className="pointer-events-none absolute left-0 right-0 z-10 overflow-hidden"
+          style={{
+            top: mainPaneClip?.top ?? 0,
+            height: mainPaneClip?.height ?? "100%",
+          }}
+        >
           <ChartDrawingOverlay
             chart={chartRef.current}
             candleSeries={candleRef.current}
             shapes={svgShapes}
             width={overlaySize.w}
-            height={overlaySize.h}
+            height={Math.max(
+              1,
+              mainPaneClip?.height ?? overlaySize.h,
+            )}
+            draftPreview={plotDraft}
+            selectedShapeId={selectedDrawingId}
           />
         </div>
         {crosshairOhlcv && overlaySize.w > 0 ? (
@@ -1744,137 +2341,15 @@ export function StockChartWorkspace({
             />
           </div>
         ) : null}
-        {splitterY && (subPane1.visible || subPane2.visible) ? (
-          <>
-            {/* 第一个副图窗格上方的指标切换（仅 sub1 / 或仅 sub2 时也在此边界） */}
-            <div
-              className="pointer-events-auto absolute left-0 right-0 z-[17] flex flex-wrap items-center gap-1 border-b border-[#2b2f3a]/90 bg-[#131722]/95 px-1.5 shadow-sm backdrop-blur-[1px]"
-              style={{
-                top: Math.max(0, splitterY.sep01 - 22),
-                height: 22,
-              }}
-            >
-              {subPane1.visible ? (
-                <>
-                  {subModeTabs.map((x) => (
-                    <button
-                      key={x.id}
-                      type="button"
-                      onClick={() =>
-                        setSubPane1((s) => ({ ...s, content: x.id }))
-                      }
-                      className={`rounded px-2 py-0.5 text-[10px] leading-none ${
-                        subPane1.content === x.id
-                          ? "bg-indigo-950/90 text-indigo-100"
-                          : "bg-slate-800/70 text-slate-400 hover:bg-slate-700"
-                      }`}
-                    >
-                      {x.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    title="隐藏此副图"
-                    onClick={() =>
-                      setSubPane1((s) => ({ ...s, visible: false }))
-                    }
-                    className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] leading-none text-slate-400 hover:bg-slate-800"
-                  >
-                    隐藏
-                  </button>
-                </>
-              ) : (
-                <>
-                  {subModeTabs.map((x) => (
-                    <button
-                      key={x.id}
-                      type="button"
-                      onClick={() =>
-                        setSubPane2((s) => ({ ...s, content: x.id }))
-                      }
-                      className={`rounded px-2 py-0.5 text-[10px] leading-none ${
-                        subPane2.content === x.id
-                          ? "bg-indigo-950/90 text-indigo-100"
-                          : "bg-slate-800/70 text-slate-400 hover:bg-slate-700"
-                      }`}
-                    >
-                      {x.label}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    title="隐藏此副图"
-                    onClick={() =>
-                      setSubPane2((s) => ({ ...s, visible: false }))
-                    }
-                    className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] leading-none text-slate-400 hover:bg-slate-800"
-                  >
-                    隐藏
-                  </button>
-                </>
-              )}
-            </div>
-            {splitterY.sep12 != null &&
-            subPane1.visible &&
-            subPane2.visible ? (
-              <div
-                className="pointer-events-auto absolute left-0 right-0 z-[17] flex flex-wrap items-center gap-1 border-b border-[#2b2f3a]/90 bg-[#131722]/95 px-1.5 shadow-sm backdrop-blur-[1px]"
-                style={{
-                  top: Math.max(0, splitterY.sep12 - 22),
-                  height: 22,
-                }}
-              >
-                {subModeTabs.map((x) => (
-                  <button
-                    key={x.id}
-                    type="button"
-                    onClick={() =>
-                      setSubPane2((s) => ({ ...s, content: x.id }))
-                    }
-                    className={`rounded px-2 py-0.5 text-[10px] leading-none ${
-                      subPane2.content === x.id
-                        ? "bg-indigo-950/90 text-indigo-100"
-                        : "bg-slate-800/70 text-slate-400 hover:bg-slate-700"
-                    }`}
-                  >
-                    {x.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  title="隐藏此副图"
-                  onClick={() =>
-                    setSubPane2((s) => ({ ...s, visible: false }))
-                  }
-                  className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] leading-none text-slate-400 hover:bg-slate-800"
-                >
-                  隐藏
-                </button>
-              </div>
-            ) : null}
-          </>
-        ) : null}
         {splitterY ? (
-          <>
-            <div
-              role="separator"
-              aria-orientation="horizontal"
-              title="上下拖动：调节主图与下一窗格高度"
-              className="pointer-events-auto absolute left-0 right-0 z-[18] h-3 -translate-y-1/2 cursor-ns-resize touch-none hover:bg-slate-500/30"
-              style={{ top: splitterY.sep01 }}
-              onPointerDown={attachPaneSplitterDrag("01")}
-            />
-            {splitterY.sep12 != null ? (
-              <div
-                role="separator"
-                aria-orientation="horizontal"
-                title="上下拖动：调节两副图区域高度"
-                className="pointer-events-auto absolute left-0 right-0 z-[18] h-3 -translate-y-1/2 cursor-ns-resize touch-none hover:bg-slate-500/30"
-                style={{ top: splitterY.sep12 }}
-                onPointerDown={attachPaneSplitterDrag("12")}
-              />
-            ) : null}
-          </>
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            title="上下拖动：调节主图与副图1高度（靠左青边）"
+            className="pointer-events-auto absolute left-0 right-0 z-[18] h-3 -translate-y-1/2 cursor-ns-resize touch-none border-l-4 border-emerald-500/55 hover:bg-slate-500/30"
+            style={{ top: splitterY.sep01 }}
+            onPointerDown={attachPaneSplitterDrag("01")}
+          />
         ) : null}
       </div>
 
@@ -1890,33 +2365,6 @@ export function StockChartWorkspace({
       ))}
 
       <ChartTimeRangeBrush chart={chartApi} candles={candles} />
-
-      {!subPane1.visible || !subPane2.visible ? (
-        <div className="flex flex-wrap items-center justify-end gap-1 border-t border-[#2b2f3a] px-2 py-1">
-          {!subPane1.visible ? (
-            <button
-              type="button"
-              onClick={() =>
-                setSubPane1((s) => ({ ...s, visible: true }))
-              }
-              className="rounded bg-emerald-900/40 px-2 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-900/60"
-            >
-              显示上方副图
-            </button>
-          ) : null}
-          {!subPane2.visible ? (
-            <button
-              type="button"
-              onClick={() =>
-                setSubPane2((s) => ({ ...s, visible: true }))
-              }
-              className="rounded bg-emerald-900/40 px-2 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-900/60"
-            >
-              显示下方副图
-            </button>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -27,6 +27,23 @@ export function bollinger(
   return { mid, upper, lower };
 }
 
+/** 简单算术均线（SMA） */
+export function sma(
+  candles: CandlestickData[],
+  period: number,
+): LineData[] {
+  const out: LineData[] = [];
+  const closes = candles.map((c) => c.close);
+  const n = closes.length;
+  for (let i = 0; i < n; i++) {
+    if (i < period - 1) continue;
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean = slice.reduce((a, b) => a + b, 0) / period;
+    out.push({ time: candles[i].time as TimeT, value: mean });
+  }
+  return out;
+}
+
 /** 常见 KDJ(9,3,3)：RSV + 平滑 K、D；J = 3K - 2D */
 export function kdj(
   candles: CandlestickData[],
