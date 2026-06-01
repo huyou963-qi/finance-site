@@ -1,0 +1,16 @@
+# finance-site 可选 Python 工具链（全局 pip 安装，非运行 Next 所必需）
+# 用途：Excel 宏观/K 线样例、数据库脚本、HTTP/环境变量调试
+
+# 项目根目录 10Y.xlsx / SPX.xlsx / XAU.xlsx
+openpyxl>=3.1,<4
+pandas>=2.2,<3
+
+# 与 .env.local 中 DATABASE_URL / MYSQL_* 一致的库访问
+psycopg2-binary>=2.9,<3
+PyMySQL>=1.1,<2
+
+# 读取 .env.local
+python-dotenv>=1.0,<2
+
+# 调试 FRED / FMP / IBKR 等 HTTP API
+requests>=2.31,<3

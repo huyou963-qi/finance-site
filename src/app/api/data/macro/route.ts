@@ -12,7 +12,7 @@ import { fetchMdsMacroFromRequest } from "@/lib/data/mdsMacro";
 /**
  * GET /api/data/macro?source=worldbank&series=US:FP.CPI.TOTL.ZG,CN:NY.GDP.MKTP.KD.ZG
  * GET /api/data/macro?source=fred&series=CPIAUCSL,UNRATE,FEDFUNDS
- * GET /api/data/macro?source=unified&series=fred:GDPC1,fred:CPIAUCSL
+ * GET /api/data/macro?source=unified&series=fred:GDPC1,wb:CN:FP.CPI.TOTL.ZG
  * GET /api/data/macro?source=mds&instruments=<uuid>[,uuid...]  本地 mds.MacroObservation
  */
 export async function GET(req: NextRequest) {

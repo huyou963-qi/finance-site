@@ -1,0 +1,32 @@
+name: Bug 报告
+description: 功能异常或构建失败
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 实际发生了什么？期望是什么？
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. npm run dev
+        2. 打开 /macro
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      placeholder: "Windows 11 / Node 20 / Chrome"
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或截图
+      description: 终端报错、浏览器控制台等

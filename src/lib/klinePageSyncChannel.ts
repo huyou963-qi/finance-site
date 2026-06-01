@@ -1,3 +1,5 @@
+import { randomUUID } from "@/lib/randomId";
+
 /** 跨标签页 K 线「页面同步」广播（同源 BroadcastChannel） */
 export const KLINE_PAGE_SYNC_CHANNEL = "finance-site-kline-sync-v1";
 
@@ -50,7 +52,7 @@ let tabIdMemo: string | null = null;
 export function getOrCreateKlineSyncTabId(): string {
   if (typeof window === "undefined") return "ssr";
   if (!tabIdMemo) {
-    tabIdMemo = crypto.randomUUID();
+    tabIdMemo = randomUUID();
   }
   return tabIdMemo;
 }

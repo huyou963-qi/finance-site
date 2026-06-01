@@ -164,12 +164,6 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
 
   return (
     <div className="border-t border-[#2b2f3a] px-2 py-2">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-500">时间范围</span>
-        <span className="text-[10px] text-slate-600">
-          拖动琥珀色区域或两侧竖条；点击下方缩略走势可快速平移窗口
-        </span>
-      </div>
       <div
         ref={trackRef}
         className="relative h-10 w-full cursor-pointer rounded bg-[#1e222d]"

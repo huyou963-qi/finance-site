@@ -1,30 +1,46 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   CandlestickSeries,
   createChart,
+  createSeriesMarkers,
   CrosshairMode,
   HistogramSeries,
+  isBusinessDay,
   LineSeries,
   type CandlestickData,
+  type LineData,
   type IChartApi,
+  type ISeriesMarkersPluginApi,
   type IPriceLine,
   type ISeriesApi,
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
+import {
+  EXECUTION_MARKER_PLUGIN_OPTIONS,
+  executionTradesToSeriesMarkers,
+  type ChartExecutionTrade,
+} from "@/lib/chart/executionMarkers";
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
 import { KlineRangeStatsPanel } from "@/components/chart/KlineRangeStatsPanel";
 import {
   computeKlineRangeStats,
   computeRangeOverlayPx,
+  computeVisibleRangeExtrema,
   type KlineRangeStatsResult,
 } from "@/lib/chart/klineRangeStats";
 import {
   pickDrawingAt,
   type DrawingHitTarget,
 } from "@/lib/chart/drawingHitTest";
+import {
+  klineDebugLog,
+  logCandleSeriesReport,
+} from "@/lib/data/klineDebug";
+import { isIbkrContinuousFutChartSymbol, mergeKlinePayload } from "@/lib/data/klineMerge";
 import type { KlinePayload } from "@/lib/data/types";
 import {
   bollinger,
@@ -34,16 +50,61 @@ import {
   sma,
 } from "@/lib/chart/technicalIndicators";
 import {
+  peLineFromQuarterlyPe,
+  ttmPeLineFromCandles,
+  type QuarterlyPePoint,
+  type TtmEpsPoint,
+} from "@/lib/data/ttmPeSeries";
+import {
   ChartDrawingOverlay,
   type DrawingDraftPreview,
   type SvgOverlayShape,
+  type VisibleExtremaOverlay,
 } from "@/components/chart/ChartDrawingOverlay";
 import type { RangeStatWireSegment } from "@/lib/klinePageSyncChannel";
+import {
+  applyKlinePriceAdjustment,
+  type PriceAdjustmentMode,
+} from "@/lib/data/klineAdjustment";
+import {
+  barMsForInterval,
+  isKlineInterval,
+  KLINE_PAGE_SIZE,
+  klineExclusiveCutBeforeOldest,
+  type KlineInterval,
+} from "@/lib/data/klineShared";
+import { randomUUID } from "@/lib/randomId";
+
+/** 首屏与每次向左追加的条数（与 /api/data/klines?limit= 一致） */
+const KLINE_INITIAL_LIMIT = KLINE_PAGE_SIZE;
+
+/**
+ * 将 lightweight-charts 横轴 `Time`（UTCTimestamp / BusinessDay / ISO 串）统一为 Unix 秒。
+ * 日/周 K 的 `getVisibleRange().from` 常为 BusinessDay，若用 `typeof === "number"` 判断会永远为 false，导致向左预取历史从不触发。
+ */
+function horzTimeToUnixSec(t: Time): number | null {
+  if (typeof t === "number" && Number.isFinite(t)) return t;
+  if (typeof t === "string") {
+    const ms = Date.parse(t);
+    return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+  }
+  if (isBusinessDay(t)) {
+    return Math.floor(Date.UTC(t.year, t.month - 1, t.day) / 1000);
+  }
+  return null;
+}
+
+/** 可见逻辑索引左缘小于等于该值时尝试加载更早 K 线（与柱数无关，略放大以减少漏触发） */
+const LOGICAL_PREFETCH_EDGE = 240;
 
 export type StockChartWorkspaceProps = {
   symbol: string;
   interval: string;
-  source: "binance" | "yahoo" | "massive" | "ibkr";
+  source: "binance" | "ibkr" | "auto";
+  /** K 线价格复权（默认前复权；见 GET /api/data/klines?adjust=） */
+  priceAdjustment?: PriceAdjustmentMode;
+  /** IB 成交标注（与会话 K 线柱时间对齐，多条成交多点标注） */
+  executionTrades?: ChartExecutionTrade[];
   /** 占满父级剩余高度（行情页全屏用） */
   fillHeight?: boolean;
   /** 数据源说明（如 attribution），供顶栏展示 */
@@ -79,6 +140,8 @@ export type StockChartWorkspaceProps = {
   onLocalVisibleTimeRange?: (from: number, to: number) => void;
   /** 本图十字锚定的柱时间 */
   onLocalCrosshairTime?: (time: UTCTimestamp | null) => void;
+  /** 若设置则将「主图叠加 / 区间统计 / 画图工具 / 清除画线」挂载到该 DOM 节点（如行情页顶栏） */
+  toolbarPortalEl?: HTMLElement | null;
 };
 
 type DrawingTool =
@@ -92,7 +155,7 @@ type DrawingTool =
   | "text";
 
 /** 单个副图：成交量或振荡指标之一 */
-type SubPaneContent = "volume" | "kdj" | "macd" | "rsi";
+type SubPaneContent = "volume" | "kdj" | "macd" | "rsi" | "ttmpe";
 
 /** 主图价格叠加（与副图指标无关） */
 type MainOverlayKind = "none" | "ma" | "boll";
@@ -109,8 +172,13 @@ export type PersistedDrawing =
     }
   | SvgOverlayShape;
 
-function storageKey(source: string, symbol: string, interval: string) {
-  return `kline-drawings-v1:${source}:${symbol}:${interval}`;
+function storageKey(
+  source: string,
+  symbol: string,
+  interval: string,
+  adjustment: PriceAdjustmentMode,
+) {
+  return `kline-drawings-v1:${source}:${symbol}:${interval}:${adjustment}`;
 }
 
 function syntheticVolumes(candles: CandlestickData[]): number[] {
@@ -123,6 +191,11 @@ type SubPaneScaleKey = "a" | "b";
 
 /** 副图顶栏高度（px）；scaleMargins 同步预留，避免压在成交量柱/指标线上 */
 const SUB_PANE_TOOLBAR_PX = 26;
+
+/** 主图底时间轴高度预留（副轴全隐藏时指标条下移，避免挡住年份刻度） */
+const KLINE_TIME_SCALE_RESERVE_PX = 30;
+
+const KLINE_CHART_TEXT_COLOR = "#ffffff";
 
 /**
  * 顶栏 top 写入 chart 容器 CSS 变量，与测量同一时刻生效。
@@ -179,7 +252,7 @@ function applySubPaneToolbarScaleMargins(
       const c = subPane1.content;
       if (c === "volume") {
         chart.priceScale("vol_a", idx).applyOptions({
-          scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+          scaleMargins: { top: tf, bottom: 0 },
         });
       } else if (c === "macd") {
         const t = Math.max(0.3, tf);
@@ -196,7 +269,7 @@ function applySubPaneToolbarScaleMargins(
       const c = subPane2.content;
       if (c === "volume") {
         chart.priceScale("vol_b", idx).applyOptions({
-          scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+          scaleMargins: { top: tf, bottom: 0 },
         });
       } else if (c === "macd") {
         const t = Math.max(0.3, tf);
@@ -219,7 +292,7 @@ function applySubPaneToolbarScaleMargins(
     const c = subPane1.content;
     if (c === "volume") {
       chart.priceScale("vol_a", idx).applyOptions({
-        scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+        scaleMargins: { top: tf, bottom: 0 },
       });
     } else if (c === "macd") {
       const t = Math.max(0.3, tf);
@@ -239,7 +312,7 @@ function applySubPaneToolbarScaleMargins(
     const c = subPane2.content;
     if (c === "volume") {
       chart.priceScale("vol_b", idx).applyOptions({
-        scaleMargins: { top: Math.max(0.75, tf), bottom: 0 },
+        scaleMargins: { top: tf, bottom: 0 },
       });
     } else if (c === "macd") {
       const t = Math.max(0.3, tf);
@@ -255,6 +328,13 @@ function applySubPaneToolbarScaleMargins(
   }
 }
 
+type SubPaneSeriesApi = ISeriesApi<"Line" | "Histogram", Time>;
+
+function subPaneSeriesCount(content: SubPaneContent): number {
+  if (content === "kdj" || content === "macd") return 3;
+  return 1;
+}
+
 function appendSubPaneSeries(
   chart: IChartApi,
   candles: CandlestickData[],
@@ -262,8 +342,9 @@ function appendSubPaneSeries(
   paneIndex: number,
   content: SubPaneContent,
   scaleKey: SubPaneScaleKey,
-): void {
-  if (!candles.length) return;
+  ttmPeLine: LineData[],
+): SubPaneSeriesApi[] {
+  if (!candles.length) return [];
   if (content === "volume") {
     const histData = candles.map((c, i) => ({
       time: c.time,
@@ -281,10 +362,10 @@ function appendSubPaneSeries(
       paneIndex,
     );
     chart.priceScale(sid, paneIndex).applyOptions({
-      scaleMargins: { top: 0.75, bottom: 0 },
+      scaleMargins: { top: 0.14, bottom: 0 },
     });
     vol.setData(histData);
-    return;
+    return [vol];
   }
   if (content === "kdj") {
     const { k, d, j } = kdj(candles);
@@ -306,7 +387,7 @@ function appendSubPaneSeries(
     ks.setData(k);
     ds.setData(d);
     js.setData(j);
-    return;
+    return [ks, ds, js];
   }
   if (content === "macd") {
     const { dif, dea, hist } = macd(candles);
@@ -332,7 +413,7 @@ function appendSubPaneSeries(
     difs.setData(dif);
     deas.setData(dea);
     hi.setData(hist);
-    return;
+    return [difs, deas, hi];
   }
   if (content === "rsi") {
     const r = rsi(candles);
@@ -342,6 +423,63 @@ function appendSubPaneSeries(
       paneIndex,
     );
     rs.setData(r);
+    return [rs];
+  }
+  if (content === "ttmpe") {
+    const rs = chart.addSeries(
+      LineSeries,
+      {
+        color: "#22d3ee",
+        lineWidth: 1,
+        priceLineVisible: false,
+        lastValueVisible: true,
+      },
+      paneIndex,
+    );
+    if (ttmPeLine.length) rs.setData(ttmPeLine);
+    return [rs];
+  }
+  return [];
+}
+
+function updateSubPaneSeriesData(
+  apis: SubPaneSeriesApi[],
+  content: SubPaneContent,
+  candles: CandlestickData[],
+  volumes: number[],
+  ttmPeLine: LineData[],
+): void {
+  if (!apis.length || !candles.length) return;
+  if (content === "volume" && apis[0]) {
+    const histData = candles.map((c, i) => ({
+      time: c.time,
+      value: volumes[i] ?? 0,
+      color:
+        c.close >= c.open ? "rgba(38,166,154,0.65)" : "rgba(239,83,80,0.65)",
+    }));
+    apis[0].setData(histData);
+    return;
+  }
+  if (content === "kdj" && apis.length >= 3) {
+    const { k, d, j } = kdj(candles);
+    apis[0]!.setData(k);
+    apis[1]!.setData(d);
+    apis[2]!.setData(j);
+    return;
+  }
+  if (content === "macd" && apis.length >= 3) {
+    const { dif, dea, hist } = macd(candles);
+    apis[0]!.setData(dif);
+    apis[1]!.setData(dea);
+    apis[2]!.setData(hist);
+    return;
+  }
+  if (content === "rsi" && apis[0]) {
+    apis[0].setData(rsi(candles));
+    return;
+  }
+  if (content === "ttmpe" && apis[0]) {
+    apis[0].setData(ttmPeLine);
   }
 }
 
@@ -368,16 +506,32 @@ type CrosshairOhlcv = {
   cursorX: number;
 };
 
+/** 十字光标 / 时间轴统一日期：YYYY/MM/DD（UTC 日历日） */
+function formatYyyyMmDdUtc(sec: number): string {
+  const d = new Date(sec * 1000);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
 function formatBarTimeLabel(t: Time, intervalRaw: string): string {
-  if (typeof t !== "number") return String(t);
-  const d = new Date(t * 1000);
-  const daysZh = ["日", "一", "二", "三", "四", "五", "六"];
-  const week = "周" + daysZh[d.getDay()];
+  const sec = horzTimeToUnixSec(t);
+  if (sec == null) return String(t);
   const iv = intervalRaw;
   if (iv === "15m" || iv === "1h" || iv === "4h") {
-    return `${d.toLocaleString("zh-CN", { hour12: false })} ${week}`;
+    const d = new Date(sec * 1000);
+    const h = String(d.getUTCHours()).padStart(2, "0");
+    const mi = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${formatYyyyMmDdUtc(sec)} ${h}:${mi}`;
   }
-  return `${d.toLocaleDateString("zh-CN")} ${week}`;
+  return formatYyyyMmDdUtc(sec);
+}
+
+function chartTimeFormatter(t: Time): string {
+  const sec = horzTimeToUnixSec(t);
+  if (sec == null) return "";
+  return formatYyyyMmDdUtc(sec);
 }
 
 function fmtPriceCompact(x: number): string {
@@ -482,7 +636,7 @@ function wireSpecsToRangeEntries(
     );
     if (!stats) continue;
     out.push({
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       color: s.color,
       i0: m.i0,
       i1: m.i1,
@@ -500,6 +654,8 @@ export function StockChartWorkspace({
   symbol,
   interval,
   source,
+  priceAdjustment = "forward",
+  executionTrades = [],
   fillHeight = false,
   onAttributionChange,
   onKlineLoadSuccess,
@@ -515,19 +671,29 @@ export function StockChartWorkspace({
   onRangeSpecsBroadcast,
   onLocalVisibleTimeRange,
   onLocalCrosshairTime,
+  toolbarPortalEl = null,
 }: StockChartWorkspaceProps) {
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+  const execMarkersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(
+    null,
+  );
   const nativeHandlesRef = useRef<{
     userPriceLines: IPriceLine[];
     userTrendLines: ISeriesApi<"Line", Time>[];
     /** BOLL 或 MA 等主图均线句柄（图表重建时清空） */
     overlayLines: ISeriesApi<"Line", Time>[];
-  }>({ userPriceLines: [], userTrendLines: [], overlayLines: [] });
+    /** 副图序列（appendSubPaneSeries 顺序），用于追加历史后刷新指标 */
+    subPaneSeries: SubPaneSeriesApi[];
+  }>({ userPriceLines: [], userTrendLines: [], overlayLines: [], subPaneSeries: [] });
 
   const [payload, setPayload] = useState<KlinePayload | null>(null);
+  const payloadRef = useRef<KlinePayload | null>(null);
+  payloadRef.current = payload;
+  const historyExhaustedRef = useRef(true);
+  const loadingOlderRef = useRef(false);
   const [hint, setHint] = useState<string | null>(null);
   const [klineError, setKlineError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -543,6 +709,9 @@ export function StockChartWorkspace({
     visible: boolean;
     content: SubPaneContent;
   }>({ visible: true, content: "kdj" });
+  const [ttmEpsTimeline, setTtmEpsTimeline] = useState<TtmEpsPoint[]>([]);
+  const [quarterlyPe, setQuarterlyPe] = useState<QuarterlyPePoint[]>([]);
+  const [ttmPeError, setTtmPeError] = useState<string | null>(null);
   const [drawings, setDrawings] = useState<PersistedDrawing[]>([]);
   const drawingsRef = useRef(drawings);
   drawingsRef.current = drawings;
@@ -564,6 +733,8 @@ export function StockChartWorkspace({
   } | null>(null);
   /** 多条区间统计；标题按顺序为「区间统计」「区间统计2」… */
   const [rangeEntries, setRangeEntries] = useState<RangeStatEntry[]>([]);
+  /** 关闭时不响应拖拽划定区间，并隐藏区间叠层与统计面板（数据保留，再次开启可恢复） */
+  const [rangeStatsEnabled, setRangeStatsEnabled] = useState(true);
   /** 横向缩放/平移后强制重算区间像素位置 */
   const [overlayLayoutTick, setOverlayLayoutTick] = useState(0);
   /** 主图 pane 在行情区内的位置，用于区间选区竖向裁剪 + 分隔条定位 */
@@ -636,8 +807,10 @@ export function StockChartWorkspace({
       setPayload(null);
       setHint(null);
       setKlineError(null);
+      historyExhaustedRef.current = true;
       return;
     }
+    historyExhaustedRef.current = false;
     setLoading(true);
     setPayload(null);
     setHint(null);
@@ -646,12 +819,28 @@ export function StockChartWorkspace({
       source,
       symbol,
       interval,
-      limit: "400",
+      limit: String(KLINE_INITIAL_LIMIT),
+      adjust: priceAdjustment,
     });
     fetch(`/api/data/klines?${qs.toString()}`)
       .then(async (r) => {
         if (!r.ok) {
-          const j = (await r.json().catch(() => ({}))) as { error?: string };
+          const j = (await r.json().catch(() => ({}))) as {
+            error?: string;
+            klineDebugTrace?: Array<{
+              scope: string;
+              phase: string;
+              payload: Record<string, unknown>;
+              at: string;
+            }>;
+          };
+          if (j.klineDebugTrace?.length) {
+            klineDebugLog("client", "initial_load.server_trace", {
+              symbol,
+              source,
+              trace: j.klineDebugTrace,
+            });
+          }
           throw new Error(j.error ?? `${r.status}`);
         }
         return r.json() as Promise<KlinePayload>;
@@ -661,10 +850,36 @@ export function StockChartWorkspace({
         setPayload(p);
         setHint(p.attribution ?? null);
         setKlineError(null);
+        /**
+         * 首屏柱数 < limit 时常仍有更早历史（仅窗口内凑不满一页）；勿仅因 hasMoreOlder:false 锁死。
+         */
+        if (p.candles.length === 0) {
+          historyExhaustedRef.current = true;
+        } else if (p.candles.length < KLINE_INITIAL_LIMIT) {
+          historyExhaustedRef.current = false;
+        } else if (p.hasMoreOlder === false) {
+          historyExhaustedRef.current = true;
+        } else {
+          historyExhaustedRef.current = false;
+        }
+        logCandleSeriesReport("client", "initial_load", p.candles, interval, {
+          symbol,
+          source,
+          adjust: priceAdjustment,
+          payloadSource: p.source,
+          hasMoreOlder: p.hasMoreOlder,
+          historyExhausted: historyExhaustedRef.current,
+        });
         onKlineLoadSuccessRef.current?.();
       })
       .catch((e) => {
         if (cancelled) return;
+        klineDebugLog("client", "initial_load.error", {
+          symbol,
+          source,
+          interval,
+          message: e instanceof Error ? e.message : String(e),
+        });
         setPayload(null);
         setHint(null);
         setKlineError(
@@ -677,7 +892,7 @@ export function StockChartWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [symbol, interval, source]);
+  }, [symbol, interval, source, priceAdjustment]);
 
   useEffect(() => {
     if (!symbol.trim()) {
@@ -685,25 +900,77 @@ export function StockChartWorkspace({
       setSelectedDrawingId(null);
       return;
     }
-    const key = storageKey(source, symbol, interval);
+    const key = storageKey(source, symbol, interval, priceAdjustment);
     setDrawings(parsePersisted(typeof window !== "undefined" ? localStorage.getItem(key) : null));
     setSelectedDrawingId(null);
-  }, [source, symbol, interval]);
+  }, [source, symbol, interval, priceAdjustment]);
 
   useEffect(() => {
     if (!symbol.trim()) return;
-    const key = storageKey(source, symbol, interval);
+    const key = storageKey(source, symbol, interval, priceAdjustment);
     try {
       localStorage.setItem(key, JSON.stringify(drawings));
     } catch {
       /* ignore */
     }
-  }, [drawings, source, symbol, interval]);
+  }, [drawings, source, symbol, interval, priceAdjustment]);
 
-  const candles = useMemo(
-    () => payload?.candles ?? [],
-    [payload?.candles],
-  );
+  const candles = useMemo(() => {
+    const raw = payload?.candles ?? [];
+    return applyKlinePriceAdjustment(raw, priceAdjustment, {
+      symbol,
+      interval,
+      klineSource: source,
+    });
+  }, [payload?.candles, priceAdjustment, symbol, interval, source]);
+
+  const needsTtmPe =
+    subPane1.content === "ttmpe" || subPane2.content === "ttmpe";
+
+  useEffect(() => {
+    if (!symbol.trim() || !needsTtmPe) {
+      setTtmEpsTimeline([]);
+      setQuarterlyPe([]);
+      setTtmPeError(null);
+      return;
+    }
+    let cancelled = false;
+    setTtmPeError(null);
+    fetch(`/api/data/ttm-pe?symbol=${encodeURIComponent(symbol.trim())}`)
+      .then(async (r) => {
+        const j = (await r.json().catch(() => ({}))) as {
+          error?: string;
+          ttmTimeline?: TtmEpsPoint[];
+          quarterlyPe?: QuarterlyPePoint[];
+        };
+        if (!r.ok) throw new Error(j.error ?? `${r.status}`);
+        return j;
+      })
+      .then((j) => {
+        if (cancelled) return;
+        setTtmEpsTimeline(j.ttmTimeline ?? []);
+        setQuarterlyPe(j.quarterlyPe ?? []);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setTtmEpsTimeline([]);
+        setQuarterlyPe([]);
+        setTtmPeError(
+          e instanceof Error ? e.message : "TTM PE 数据加载失败",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol, needsTtmPe]);
+
+  const ttmPeLine = useMemo(() => {
+    if (quarterlyPe.length) {
+      return peLineFromQuarterlyPe(candles, quarterlyPe);
+    }
+    return ttmPeLineFromCandles(candles, ttmEpsTimeline);
+  }, [candles, ttmEpsTimeline, quarterlyPe]);
+
   const volumes = useMemo(() => {
     const c = payload?.candles ?? [];
     if (payload?.volumes && payload.volumes.length === c.length) {
@@ -712,14 +979,278 @@ export function StockChartWorkspace({
     return c.length ? syntheticVolumes(c) : [];
   }, [payload?.candles, payload?.volumes]);
 
+  /** 当前屏幕可见 K 线区间内的最高/最低（随缩放平移更新） */
+  const visibleExtremaOverlay = useMemo((): VisibleExtremaOverlay | null => {
+    void overlayLayoutTick;
+    const chart = chartRef.current;
+    if (loading || !chart || candles.length === 0) return null;
+    const ext = computeVisibleRangeExtrema(candles, chart);
+    if (!ext) return null;
+    return {
+      high: {
+        t: ext.high.time as UTCTimestamp,
+        price: ext.high.price,
+        text: `高 ${fmtPriceCompact(ext.high.price)}`,
+      },
+      low: {
+        t: ext.low.time as UTCTimestamp,
+        price: ext.low.price,
+        text: `低 ${fmtPriceCompact(ext.low.price)}`,
+      },
+    };
+  }, [candles, loading, overlayLayoutTick]);
+
+  const loadMoreHistory = useCallback(async () => {
+    if (
+      source === "ibkr" &&
+      isIbkrContinuousFutChartSymbol(symbol.trim())
+    ) {
+      historyExhaustedRef.current = true;
+      klineDebugLog("client", "loadMore.skip", {
+        reason: "ibkr_contfut_no_pagination",
+        symbol: symbol.trim(),
+      });
+      return;
+    }
+    if (loading || loadingOlderRef.current) {
+      klineDebugLog("client",  "loadMore.skip", {
+        reason: loading ? "main_loading" : "older_in_flight",
+        loading,
+        loadingOlder: loadingOlderRef.current,
+      });
+      return;
+    }
+    if (historyExhaustedRef.current) {
+      klineDebugLog("client",  "loadMore.skip", { reason: "history_exhausted" });
+      return;
+    }
+    const p = payloadRef.current;
+    if (!p?.candles.length) {
+      klineDebugLog("client",  "loadMore.skip", { reason: "no_payload_candles" });
+      return;
+    }
+    if (p.hasMoreOlder === false) {
+      historyExhaustedRef.current = true;
+      klineDebugLog("client",  "loadMore.skip", {
+        reason: "payload_hasMoreOlder_false",
+        hasMoreOlder: p.hasMoreOlder,
+      });
+      return;
+    }
+    if (
+      p.hasMoreOlder === undefined &&
+      p.candles.length < KLINE_INITIAL_LIMIT
+    ) {
+      historyExhaustedRef.current = true;
+      klineDebugLog("client",  "loadMore.skip", {
+        reason: "short_first_page_undefined_older",
+        n: p.candles.length,
+        KLINE_INITIAL_LIMIT,
+      });
+      return;
+    }
+    /** 最早柱时间；日线 before 用「该 UTC 日次日 0 点」作 cut，避免漏掉楔内下一交易日 */
+    const oldestBarSec = p.candles[0]!.time as number;
+    const beforeCut = klineExclusiveCutBeforeOldest(oldestBarSec, interval);
+    loadingOlderRef.current = true;
+    const qs = new URLSearchParams({
+      source,
+      symbol,
+      interval,
+      limit: String(KLINE_PAGE_SIZE),
+      before: String(beforeCut),
+      adjust: priceAdjustment,
+    });
+    const url = `/api/data/klines?${qs.toString()}`;
+    klineDebugLog("client", "loadMore.fetch", {
+      url,
+      oldestBarSec,
+      oldestBarIso: new Date(oldestBarSec * 1000).toISOString(),
+      beforeCutSec: beforeCut,
+      beforeCutIso: new Date(beforeCut * 1000).toISOString(),
+      source,
+      symbol,
+      interval,
+      hasMoreOlder: p.hasMoreOlder,
+      loadedBars: p.candles.length,
+    });
+    try {
+      const r = await fetch(url);
+      if (!r.ok) {
+        const errText = await r.text().catch(() => "");
+        klineDebugLog("client", "loadMore.response_error", {
+          status: r.status,
+          bodySlice: errText.slice(0, 300),
+        });
+        return;
+      }
+      const chunk = (await r.json()) as KlinePayload;
+      logCandleSeriesReport("client", "loadMore.chunk", chunk.candles, interval, {
+        chunkSource: chunk.source,
+        chunkHasMoreOlder: chunk.hasMoreOlder,
+        beforeCutSec: beforeCut,
+      });
+      if (!chunk.candles?.length) {
+        historyExhaustedRef.current = true;
+        klineDebugLog("client", "loadMore.empty_chunk", {
+          chunkHasMoreOlder: chunk.hasMoreOlder,
+          beforeCutSec: beforeCut,
+        });
+        return;
+      }
+      setPayload((prev) => {
+        if (!prev) return chunk;
+        const beforeLen = prev.candles.length;
+        const merged = mergeKlinePayload(prev, chunk, {
+          interval,
+          beforeSec: beforeCut,
+        });
+        /** 向左追加未增加任何柱（时间全部重叠）时视为已无更早数据，防止 IB 等源误判导致死循环 */
+        if (merged.candles.length === beforeLen) {
+          historyExhaustedRef.current = true;
+          klineDebugLog("client", "loadMore.merge_no_growth", {
+            beforeLen,
+            chunkBars: chunk.candles.length,
+            beforeCutSec: beforeCut,
+          });
+        } else {
+          logCandleSeriesReport("client", "loadMore.merged", merged.candles, interval, {
+            beforeLen,
+            afterLen: merged.candles.length,
+            chunkBars: chunk.candles.length,
+            chunkHasMoreOlder: chunk.hasMoreOlder,
+            mergedHasMoreOlder: merged.hasMoreOlder,
+          });
+          klineDebugLog("client", "loadMore.merge_ok", {
+            beforeLen,
+            afterLen: merged.candles.length,
+            chunkBars: chunk.candles.length,
+          });
+        }
+        return merged;
+      });
+      if (chunk.hasMoreOlder === false) historyExhaustedRef.current = true;
+    } catch (e) {
+      klineDebugLog("client", "loadMore.fetch_throw", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      loadingOlderRef.current = false;
+    }
+  }, [loading, source, symbol, interval, priceAdjustment]);
+
+  const loadMoreHistoryRef = useRef<() => void>(() => {});
+  loadMoreHistoryRef.current = () => {
+    void loadMoreHistory();
+  };
+
   const candlesRef = useRef(candles);
   const volumesRef = useRef(volumes);
+  const executionTradesRef = useRef(executionTrades);
   const intervalRef = useRef(interval);
+  const symbolRefForLog = useRef(symbol);
+  const sourceRefForLog = useRef(source);
   const rangeEntriesRef = useRef(rangeEntries);
   candlesRef.current = candles;
   volumesRef.current = volumes;
+  executionTradesRef.current = executionTrades;
   intervalRef.current = interval;
+  symbolRefForLog.current = symbol;
+  sourceRefForLog.current = source;
   rangeEntriesRef.current = rangeEntries;
+
+  useEffect(() => {
+    if (loading) return;
+    const plugin = execMarkersPluginRef.current;
+    if (!plugin || candles.length === 0) return;
+    plugin.setMarkers(
+      executionTradesToSeriesMarkers(executionTrades, candles),
+    );
+  }, [loading, candles, executionTrades]);
+
+  /** 追加历史后刷新序列数据，避免整图重建导致可见区间丢失 */
+  useEffect(() => {
+    if (loading) return;
+    const chart = chartRef.current;
+    const candle = candleRef.current;
+    if (!chart || !candle || candles.length === 0) return;
+
+    const vr = chart.timeScale().getVisibleRange();
+    const lr = chart.timeScale().getVisibleLogicalRange();
+
+    logCandleSeriesReport("client", "chart.setData", candles, interval, {
+      symbol: symbolRefForLog.current,
+      source: sourceRefForLog.current,
+      visibleFromSec:
+        vr != null ? horzTimeToUnixSec(vr.from as Time) : null,
+      visibleToSec:
+        vr != null ? horzTimeToUnixSec(vr.to as Time) : null,
+      logicalFrom: lr?.from,
+      logicalTo: lr?.to,
+    });
+
+    candle.setData(candles);
+
+    const h = nativeHandlesRef.current;
+    if (mainOverlay === "boll" && candles.length >= 20 && h.overlayLines.length >= 3) {
+      const { mid, upper, lower } = bollinger(candles);
+      h.overlayLines[0]!.setData(mid);
+      h.overlayLines[1]!.setData(upper);
+      h.overlayLines[2]!.setData(lower);
+    } else if (mainOverlay === "ma" && candles.length >= 5) {
+      const maPeriods = [5, 10, 20] as const;
+      let oi = 0;
+      for (const period of maPeriods) {
+        if (candles.length < period) continue;
+        const data = sma(candles, period);
+        if (!data.length) continue;
+        h.overlayLines[oi]?.setData(data);
+        oi++;
+      }
+    }
+
+    const subs = h.subPaneSeries;
+    let idx = 0;
+    if (subPane1.visible) {
+      const n = subPaneSeriesCount(subPane1.content);
+      updateSubPaneSeriesData(
+        subs.slice(idx, idx + n),
+        subPane1.content,
+        candles,
+        volumes,
+        ttmPeLine,
+      );
+      idx += n;
+    }
+    if (subPane2.visible) {
+      const n = subPaneSeriesCount(subPane2.content);
+      updateSubPaneSeriesData(
+        subs.slice(idx, idx + n),
+        subPane2.content,
+        candles,
+        volumes,
+        ttmPeLine,
+      );
+    }
+
+    if (vr) {
+      chart.timeScale().setVisibleRange({
+        from: vr.from,
+        to: vr.to,
+      });
+    }
+  }, [
+    candles,
+    volumes,
+    loading,
+    interval,
+    mainOverlay,
+    subPane1.visible,
+    subPane1.content,
+    subPane2.visible,
+    subPane2.content,
+    ttmPeLine,
+  ]);
 
   const syncPaneLayoutMetrics = useCallback(() => {
     const area = chartAreaRef.current;
@@ -739,15 +1270,16 @@ export function StockChartWorkspace({
     let slot1Geom: { top: number; height: number } | null = null;
     let slot2Geom: { top: number; height: number } | null = null;
 
-    /** 双副图均隐藏：仅剩主图，两行指标条叠在主图底边下方（仍可点「显示」） */
+    /** 双副图均隐藏：指标条放在时间轴下方，避免半透明顶栏压住年份刻度 */
     if (panes.length === 1) {
       const belowMain = r0.bottom - ar.top;
+      const toolTop = belowMain + KLINE_TIME_SCALE_RESERVE_PX;
       slot1Geom = {
-        top: belowMain,
+        top: toolTop,
         height: SUB_PANE_TOOLBAR_PX,
       };
       slot2Geom = {
-        top: belowMain + SUB_PANE_TOOLBAR_PX,
+        top: toolTop + SUB_PANE_TOOLBAR_PX,
         height: SUB_PANE_TOOLBAR_PX,
       };
       writeToolbarTopCssVars(area, slot1Geom, slot2Geom);
@@ -865,7 +1397,7 @@ export function StockChartWorkspace({
       return [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           color,
           i0,
           i1,
@@ -878,6 +1410,7 @@ export function StockChartWorkspace({
   const attachRangeEdgeDrag = useCallback(
     (rangeId: string, edge: "left" | "right") =>
       (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!rangeStatsEnabled) return;
         if (tool !== "cursor") return;
         e.preventDefault();
         e.stopPropagation();
@@ -958,7 +1491,7 @@ export function StockChartWorkspace({
         window.addEventListener("pointerup", onUp);
         window.addEventListener("pointercancel", onUp);
       },
-    [tool],
+    [tool, rangeStatsEnabled],
   );
 
   const attachPaneSplitterDrag = useCallback(
@@ -981,8 +1514,8 @@ export function StockChartWorkspace({
       const onMove = (ev: PointerEvent) => {
         const dy = ev.clientY - startY;
         if (boundary === "01") {
-          let n0 = h0 - dy;
-          let n1 = h1 + dy;
+          let n0 = h0 + dy;
+          let n1 = h1 - dy;
           if (n0 < MIN_PANE_PX) {
             n1 -= MIN_PANE_PX - n0;
             n0 = MIN_PANE_PX;
@@ -997,8 +1530,8 @@ export function StockChartWorkspace({
             p[2]!.setStretchFactor(h2);
           }
         } else {
-          let n1 = h1 - dy;
-          let n2 = h2 + dy;
+          let n1 = h1 + dy;
+          let n2 = h2 - dy;
           if (n1 < MIN_PANE_PX) {
             n2 -= MIN_PANE_PX - n1;
             n1 = MIN_PANE_PX;
@@ -1045,8 +1578,14 @@ export function StockChartWorkspace({
 
   const handleRangePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!rangeStatsEnabled) return;
       if (tool !== "cursor") return;
       if (e.button !== 0) return;
+      /**
+       * 不按 Shift：左键拖拽交给图表库平移时间轴（向左可看更早 K 线并触发追加历史）。
+       * 按住 Shift 再拖：划定区间统计（避免 intercept preventDefault 导致无法按住拖拽平移）。
+       */
+      if (!e.shiftKey) return;
       const chart = chartRef.current;
       const wrap = wrapRef.current;
       if (!chart || !wrap) return;
@@ -1140,8 +1679,14 @@ export function StockChartWorkspace({
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [tool, finalizeRangeSelection, rangeEntries.length],
+    [tool, finalizeRangeSelection, rangeEntries.length, rangeStatsEnabled],
   );
+
+  useEffect(() => {
+    if (rangeStatsEnabled) return;
+    setRangeDragPx(null);
+    rangeDragRef.current = null;
+  }, [rangeStatsEnabled]);
 
   useEffect(() => {
     clearAllRangeStats();
@@ -1233,7 +1778,7 @@ export function StockChartWorkspace({
   );
 
   useEffect(() => {
-    if (loading || !candles.length || !wrapRef.current) return;
+    if (loading || !candlesRef.current.length || !wrapRef.current) return;
 
     const el = wrapRef.current;
     const box = chartAreaRef.current;
@@ -1243,7 +1788,7 @@ export function StockChartWorkspace({
     const chart = createChart(el, {
       layout: {
         background: { color: "#131722" },
-        textColor: "#d1d4dc",
+        textColor: KLINE_CHART_TEXT_COLOR,
         /** 隐藏主图左下角 TradingView / lightweight-charts 圆形徽标（许可证允许在页面其它位置保留归属说明） */
         attributionLogo: false,
         /**
@@ -1261,19 +1806,54 @@ export function StockChartWorkspace({
         vertLines: { color: "#2b2f3a" },
         horzLines: { color: "#2b2f3a" },
       },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: "#485065" },
+      localization: {
+        locale: "zh-CN",
+        dateFormat: "yyyy/MM/dd",
+        timeFormatter: chartTimeFormatter,
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: {
+          labelVisible: true,
+          labelBackgroundColor: "#2b2f3a",
+          color: "#758696",
+        },
+        horzLine: {
+          labelBackgroundColor: "#2b2f3a",
+          color: "#758696",
+        },
+      },
+      rightPriceScale: {
+        borderColor: "#485065",
+        textColor: KLINE_CHART_TEXT_COLOR,
+      },
       timeScale: {
         borderColor: "#485065",
         timeVisible: interval !== "1d" && interval !== "1w",
         secondsVisible: false,
+        /**
+         * 勿设 fixLeftEdge：在「整段数据一屏能放下」时库会收紧 min/maxRightOffset，
+         * 水平拖动区间变为 0，表现为完全无法左右平移。
+         * 左侧空白靠接近最早柱时 loadMoreHistory（before=最早柱 unix 秒）补历史。
+         */
       },
       width: cw,
       height: ch,
     });
+    chart.applyOptions({
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
+    });
 
     chartRef.current = chart;
     setChartApi(chart);
+    const initialCandles = candlesRef.current;
+    const initialVolumes = volumesRef.current;
+    const initialExecutionTrades = executionTradesRef.current;
     const nSub =
       (subPane1.visible ? 1 : 0) + (subPane2.visible ? 1 : 0);
     for (let i = 0; i < nSub; i++) {
@@ -1301,11 +1881,20 @@ export function StockChartWorkspace({
       },
       0,
     );
-    candle.setData(candles);
+    candle.setData(initialCandles);
     candleRef.current = candle;
 
-    if (mainOverlay === "boll" && candles.length >= 20) {
-      const { mid, upper, lower } = bollinger(candles);
+    execMarkersPluginRef.current = createSeriesMarkers(
+      candle,
+      executionTradesToSeriesMarkers(initialExecutionTrades, initialCandles),
+      EXECUTION_MARKER_PLUGIN_OPTIONS,
+    );
+
+    nativeHandlesRef.current.overlayLines = [];
+    nativeHandlesRef.current.subPaneSeries = [];
+
+    if (mainOverlay === "boll" && initialCandles.length >= 20) {
+      const { mid, upper, lower } = bollinger(initialCandles);
       const h = nativeHandlesRef.current;
       const midS = chart.addSeries(
         LineSeries,
@@ -1328,7 +1917,7 @@ export function StockChartWorkspace({
       h.overlayLines.push(midS, upS, loS);
     }
 
-    if (mainOverlay === "ma" && candles.length >= 5) {
+    if (mainOverlay === "ma" && initialCandles.length >= 5) {
       const h = nativeHandlesRef.current;
       const maSpec = [
         { period: 5, color: "#fbbf24" },
@@ -1336,8 +1925,8 @@ export function StockChartWorkspace({
         { period: 20, color: "#c084fc" },
       ] as const;
       for (const { period, color } of maSpec) {
-        if (candles.length < period) continue;
-        const data = sma(candles, period);
+        if (initialCandles.length < period) continue;
+        const data = sma(initialCandles, period);
         if (!data.length) continue;
         const s = chart.addSeries(
           LineSeries,
@@ -1354,28 +1943,36 @@ export function StockChartWorkspace({
       }
     }
 
+    const subPaneApis: SubPaneSeriesApi[] = [];
     let subPaneIdx = 1;
     if (subPane1.visible) {
-      appendSubPaneSeries(
-        chart,
-        candles,
-        volumes,
-        subPaneIdx,
-        subPane1.content,
-        "a",
+      subPaneApis.push(
+        ...appendSubPaneSeries(
+          chart,
+          initialCandles,
+          initialVolumes,
+          subPaneIdx,
+          subPane1.content,
+          "a",
+          ttmPeLine,
+        ),
       );
       subPaneIdx++;
     }
     if (subPane2.visible) {
-      appendSubPaneSeries(
-        chart,
-        candles,
-        volumes,
-        subPaneIdx,
-        subPane2.content,
-        "b",
+      subPaneApis.push(
+        ...appendSubPaneSeries(
+          chart,
+          initialCandles,
+          initialVolumes,
+          subPaneIdx,
+          subPane2.content,
+          "b",
+          ttmPeLine,
+        ),
       );
     }
+    nativeHandlesRef.current.subPaneSeries = subPaneApis;
 
     chart.timeScale().fitContent();
 
@@ -1433,7 +2030,7 @@ export function StockChartWorkspace({
       setSelectedDrawingId(null);
 
       if (tcur === "hline") {
-        const id = crypto.randomUUID();
+        const id = randomUUID();
         setDrawings((prev) => [...prev, { id, kind: "hline", price }]);
         return;
       }
@@ -1448,7 +2045,7 @@ export function StockChartWorkspace({
             };
           }
           const p0 = prev.placed[0]!;
-          const id = crypto.randomUUID();
+          const id = randomUUID();
           setDrawings((prevD) => [
             ...prevD,
             {
@@ -1466,7 +2063,7 @@ export function StockChartWorkspace({
       }
 
       if (tcur === "vline") {
-        const id = crypto.randomUUID();
+        const id = randomUUID();
         setDrawings((prev) => [
           ...prev,
           { id, kind: "vline", t: tm, color: "#22d3ee" },
@@ -1484,7 +2081,7 @@ export function StockChartWorkspace({
             };
           }
           const p0 = prev.placed[0]!;
-          const id = crypto.randomUUID();
+          const id = randomUUID();
           setDrawings((prevD) => [
             ...prevD,
             {
@@ -1512,7 +2109,7 @@ export function StockChartWorkspace({
             };
           }
           const p0 = prev.placed[0]!;
-          const id = crypto.randomUUID();
+          const id = randomUUID();
           setDrawings((prevD) => [
             ...prevD,
             {
@@ -1549,7 +2146,7 @@ export function StockChartWorkspace({
           if (prev.placed.length === 2) {
             const p0 = prev.placed[0]!;
             const p1 = prev.placed[1]!;
-            const id = crypto.randomUUID();
+            const id = randomUUID();
             setDrawings((prevD) => [
               ...prevD,
               {
@@ -1574,7 +2171,7 @@ export function StockChartWorkspace({
       if (tcur === "text") {
         const label = window.prompt("标注文字", "备注");
         if (!label?.trim()) return;
-        const id = crypto.randomUUID();
+        const id = randomUUID();
         setDrawings((prev) => [
           ...prev,
           {
@@ -1657,18 +2254,19 @@ export function StockChartWorkspace({
         ) {
           return prev;
         }
+        const pt = param.point;
+        if (!pt) {
+          return prev;
+        }
         if ((param.paneIndex ?? 0) !== 0) {
           return { ...prev, hover: null };
         }
         const ph =
           chartRef.current?.panes()[0]?.getHeight() ?? null;
-        if (
-          ph !== null &&
-          (param.point.y < 0 || param.point.y > ph)
-        ) {
+        if (ph !== null && (pt.y < 0 || pt.y > ph)) {
           return { ...prev, hover: null };
         }
-        const hp = se.coordinateToPrice(param.point.y);
+        const hp = se.coordinateToPrice(pt.y);
         if (hp === null || param.time === undefined) {
           return { ...prev, hover: null };
         }
@@ -1687,9 +2285,77 @@ export function StockChartWorkspace({
     };
     chart.subscribeCrosshairMove(crosshairHandler);
 
+    /**
+     * 向左预取必须在 chart 创建 **同一 effect** 内注册：否则单独 effect 若在 createChart 之前执行，
+     * chartRef 尚为 null 会整段跳过，且可能不再重跑，导致拖动画布从不发 klines 请求。
+     */
+    let prefetchOlderTimer: number | null = null;
+    const schedulePrefetchOlderBars = () => {
+      if (prefetchOlderTimer != null) window.clearTimeout(prefetchOlderTimer);
+      prefetchOlderTimer = window.setTimeout(() => {
+        prefetchOlderTimer = null;
+        if (historyExhaustedRef.current) {
+          klineDebugLog("client", "prefetch.skip", { reason: "history_exhausted" });
+          return;
+        }
+        const lr = chart.timeScale().getVisibleLogicalRange();
+        const tr = chart.timeScale().getVisibleRange();
+        const c = candlesRef.current;
+        if (!c.length) {
+          klineDebugLog("client", "prefetch.skip", { reason: "no_candles_ref" });
+          return;
+        }
+        const oldestSec = c[0]!.time as number;
+        const iv: KlineInterval = isKlineInterval(intervalRef.current)
+          ? intervalRef.current
+          : "1d";
+        const barSec = barMsForInterval(iv) / 1000;
+        const n = c.length;
+        /** 不超过柱数；且与 LOGICAL_PREFETCH_EDGE 取 min，避免 n 较小时阈值大于 n−1 导致「始终满足」狂触发 */
+        const threshold = Math.min(
+          LOGICAL_PREFETCH_EDGE,
+          Math.max(48, Math.floor(n * 0.35)),
+        );
+        let logicalNeed = Boolean(lr && lr.from <= threshold);
+        let timeNeed = false;
+        let fromSec: number | null = null;
+        if (tr) {
+          fromSec = horzTimeToUnixSec(tr.from as Time);
+          if (fromSec != null) {
+            timeNeed = fromSec <= oldestSec + barSec * 120;
+          }
+        }
+        const need = logicalNeed || timeNeed;
+        klineDebugLog("client", "prefetch.eval", {
+          symbol: symbolRefForLog.current,
+          source: sourceRefForLog.current,
+          interval: intervalRef.current,
+          n,
+          threshold,
+          logicalNeed,
+          lrFrom: lr?.from,
+          lrTo: lr?.to,
+          timeNeed,
+          visibleFromSec: fromSec,
+          visibleFromIso:
+            fromSec != null
+              ? new Date(fromSec * 1000).toISOString()
+              : null,
+          oldestSec,
+          oldestIso: new Date(oldestSec * 1000).toISOString(),
+          timeBandSec: barSec * 120,
+          need,
+        });
+        if (!need) return;
+        klineDebugLog("client", "prefetch.fire_loadMore", {});
+        loadMoreHistoryRef.current();
+      }, 150);
+    };
+
     const visibleTimeRangeHandler = (
       tr: { from: Time; to: Time } | null,
     ) => {
+      schedulePrefetchOlderBars();
       setOverlaySize((s) => ({ ...s }));
       setOverlayLayoutTick((t) => t + 1);
       if (
@@ -1698,21 +2364,22 @@ export function StockChartWorkspace({
       ) {
         return;
       }
-      if (!tr || typeof tr.from !== "number" || typeof tr.to !== "number") {
-        return;
-      }
-      onLocalVisibleTimeRangeRef.current?.(
-        tr.from as number,
-        tr.to as number,
-      );
+      if (!tr) return;
+      const fromSec = horzTimeToUnixSec(tr.from);
+      const toSec = horzTimeToUnixSec(tr.to);
+      if (fromSec == null || toSec == null) return;
+      onLocalVisibleTimeRangeRef.current?.(fromSec, toSec);
     };
     const logicalRangeHandler = () => {
+      schedulePrefetchOlderBars();
       setOverlayLayoutTick((t) => t + 1);
     };
     chart.timeScale().subscribeVisibleTimeRangeChange(visibleTimeRangeHandler);
     chart.timeScale().subscribeVisibleLogicalRangeChange(logicalRangeHandler);
+    queueMicrotask(() => schedulePrefetchOlderBars());
 
     return () => {
+      if (prefetchOlderTimer != null) window.clearTimeout(prefetchOlderTimer);
       layoutMetricsGenRef.current += 1;
       setCrosshairOhlcv(null);
       setChartApi(null);
@@ -1727,16 +2394,18 @@ export function StockChartWorkspace({
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
+      execMarkersPluginRef.current = null;
       nativeHandlesRef.current = {
         userPriceLines: [],
         userTrendLines: [],
         overlayLines: [],
+        subPaneSeries: [],
       };
     };
   }, [
     loading,
-    candles,
-    volumes,
+    symbol,
+    source,
     mainOverlay,
     subPane1.visible,
     subPane1.content,
@@ -1744,6 +2413,7 @@ export function StockChartWorkspace({
     subPane2.content,
     interval,
     schedulePaneLayoutMetrics,
+    ttmPeLine,
   ]);
 
   useEffect(() => {
@@ -1765,16 +2435,19 @@ export function StockChartWorkspace({
     const chart = chartRef.current;
     if (!chart) return;
     const vr = chart.timeScale().getVisibleRange();
-    if (!vr || typeof vr.from !== "number" || typeof vr.to !== "number") {
-      return;
-    }
-    const wire = serializeRangeEntriesToWire(
-      rangeEntriesRef.current,
-      candlesRef.current,
-    );
+    if (!vr) return;
+    const vf = horzTimeToUnixSec(vr.from);
+    const vt = horzTimeToUnixSec(vr.to);
+    if (vf == null || vt == null) return;
+    const wire = rangeStatsEnabled
+      ? serializeRangeEntriesToWire(
+          rangeEntriesRef.current,
+          candlesRef.current,
+        )
+      : [];
     onPageSyncLeaderSnapshot?.({
       interval: intervalRef.current,
-      visible: { from: vr.from as number, to: vr.to as number },
+      visible: { from: vf, to: vt },
       rangeStats: wire,
     });
   }, [
@@ -1782,12 +2455,21 @@ export function StockChartWorkspace({
     pageSyncEnabled,
     loading,
     onPageSyncLeaderSnapshot,
+    rangeStatsEnabled,
   ]);
 
   /** 区间统计变化 → 跨标签广播（防抖，避免拖边时刷屏） */
   useEffect(() => {
     if (!pageSyncEnabled) return;
     if (!onRangeSpecsBroadcastRef.current) return;
+    if (!rangeStatsEnabled) {
+      if (rangeBroadcastTimerRef.current !== null) {
+        clearTimeout(rangeBroadcastTimerRef.current);
+        rangeBroadcastTimerRef.current = null;
+      }
+      onRangeSpecsBroadcastRef.current([]);
+      return;
+    }
     if (suppressRangeSpecsBroadcastRef.current) return;
     if (!candlesRef.current.length) return;
     if (rangeBroadcastTimerRef.current !== null) {
@@ -1808,7 +2490,7 @@ export function StockChartWorkspace({
         rangeBroadcastTimerRef.current = null;
       }
     };
-  }, [rangeEntries, pageSyncEnabled]);
+  }, [rangeEntries, pageSyncEnabled, rangeStatsEnabled]);
 
   /** 应用其它标签页传来的可见时间区间 */
   useEffect(() => {
@@ -1906,6 +2588,7 @@ export function StockChartWorkspace({
   useEffect(() => {
     if (!pageSyncEnabled) return;
     if (!remoteRangeSpecsVersion) return;
+    if (!rangeStatsEnabled) return;
     const c = candlesRef.current;
     const v = volumesRef.current;
     if (!c.length || loading) return;
@@ -1924,6 +2607,7 @@ export function StockChartWorkspace({
     symbol,
     interval,
     pageSyncEnabled,
+    rangeStatsEnabled,
   ]);
 
   const handleClearDrawings = () => {
@@ -1948,6 +2632,7 @@ export function StockChartWorkspace({
     { id: "kdj", label: "KDJ" },
     { id: "macd", label: "MACD" },
     { id: "rsi", label: "RSI" },
+    { id: "ttmpe", label: "TTM PE" },
   ];
 
   if (!symbol.trim()) {
@@ -1981,11 +2666,7 @@ export function StockChartWorkspace({
           {klineError}
         </p>
         <p className="max-w-lg text-left text-[11px] leading-relaxed text-slate-500">
-          K 线默认使用 Massive（需在服务端配置{" "}
-          <code className="rounded bg-slate-800 px-1 text-slate-300">
-            MASSIVE_API_KEY
-          </code>
-          ）。若仍失败，请核对密钥与网络；旧版 Yahoo 接口不稳定，不建议依赖。
+          source=auto / ibkr 为 IB Trades 价；前/后复权在合并全序列后按拆股跳变处理（Binance 现货无复权）。
         </p>
       </div>
     );
@@ -2005,93 +2686,121 @@ export function StockChartWorkspace({
     );
   }
 
+  const chartToolbar = (
+    <>
+      <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <span className="shrink-0 text-slate-500">主图叠加</span>
+        <select
+          value={mainOverlay}
+          onChange={(e) => setMainOverlay(e.target.value as MainOverlayKind)}
+          className="max-w-[11rem] cursor-pointer rounded border border-slate-600 bg-[#1e293b] px-2 py-1 text-[11px] text-slate-200 outline-none hover:border-slate-500 focus:border-emerald-600/70"
+          aria-label="主图叠加指标"
+        >
+          <option value="none">无</option>
+          <option value="ma">MA (5 / 10 / 20)</option>
+          <option value="boll">BOLL (20, 2)</option>
+        </select>
+      </label>
+      <button
+        type="button"
+        onClick={() => setRangeStatsEnabled((v) => !v)}
+        aria-pressed={rangeStatsEnabled}
+        title={
+          rangeStatsEnabled
+            ? "关闭区间统计并隐藏面板。开启时：不按 Shift 左键拖拽可左右平移查看更早 K 线；按住 Shift 在主图拖拽划定区间"
+            : "开启后在十字模式下：不按 Shift 左键拖拽平移；按住 Shift 拖拽划定区间统计"
+        }
+        className={`rounded px-2 py-1 text-[11px] transition-colors ${
+          rangeStatsEnabled
+            ? "bg-emerald-950/55 text-emerald-100 ring-1 ring-emerald-600/45 hover:bg-emerald-950/75"
+            : "bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+        }`}
+      >
+        区间统计
+      </button>
+      <div ref={drawToolMenuRef} className="relative flex items-center">
+        <button
+          type="button"
+          onClick={() => setDrawToolMenuOpen((o) => !o)}
+          className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
+            drawToolMenuOpen
+              ? "bg-slate-700 text-slate-100"
+              : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+          }`}
+          aria-expanded={drawToolMenuOpen}
+          aria-haspopup="menu"
+        >
+          <span className="text-slate-500">画图工具</span>
+          <span
+            className={
+              tool === "cursor"
+                ? "text-slate-400"
+                : "font-medium text-emerald-200/95"
+            }
+          >
+            {tools.find((x) => x.id === tool)?.label ?? "十字"}
+          </span>
+          <span className="text-[10px] text-slate-500" aria-hidden>
+            ▾
+          </span>
+        </button>
+        {drawToolMenuOpen ? (
+          <div
+            role="menu"
+            className="absolute left-0 top-[calc(100%+6px)] z-[100] min-w-[11rem] rounded-md border border-[#2b2f3a] bg-[#131722] py-1 shadow-xl"
+          >
+            {tools.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setTool(x.id);
+                  setPlotDraft(null);
+                  setSelectedDrawingId(null);
+                  setDrawToolMenuOpen(false);
+                }}
+                className={`flex w-full px-3 py-1.5 text-left text-[11px] hover:bg-slate-800 ${
+                  tool === x.id
+                    ? "bg-emerald-950/55 text-emerald-100"
+                    : "text-slate-300"
+                }`}
+              >
+                {x.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        onClick={handleClearDrawings}
+        className="rounded border border-rose-900/60 px-2 py-1 text-[11px] text-rose-200/90 hover:bg-rose-950/50"
+      >
+        消除所有画线
+      </button>
+      {selectedDrawingId ? (
+        <span
+          className="text-[11px] text-slate-500"
+          title="按 Delete 或 Backspace 删除"
+        >
+          已选中 · Delete 删除
+        </span>
+      ) : null}
+    </>
+  );
+
   return (
     <div
       className={`flex flex-col overflow-hidden rounded-lg border border-[#2b2f3a] bg-[#131722] ${fillHeight ? "h-full min-h-0 flex-1" : ""}`}
     >
-      <div className="flex w-full flex-wrap items-center gap-2 border-b border-[#2b2f3a] px-2 py-1.5">
-        <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
-          <span className="shrink-0 text-slate-500">主图叠加</span>
-          <select
-            value={mainOverlay}
-            onChange={(e) =>
-              setMainOverlay(e.target.value as MainOverlayKind)
-            }
-            className="max-w-[11rem] cursor-pointer rounded border border-slate-600 bg-[#1e293b] px-2 py-1 text-[11px] text-slate-200 outline-none hover:border-slate-500 focus:border-emerald-600/70"
-            aria-label="主图叠加指标"
-          >
-            <option value="none">无</option>
-            <option value="ma">MA (5 / 10 / 20)</option>
-            <option value="boll">BOLL (20, 2)</option>
-          </select>
-        </label>
-        <div ref={drawToolMenuRef} className="relative flex items-center">
-          <button
-            type="button"
-            onClick={() => setDrawToolMenuOpen((o) => !o)}
-            className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
-              drawToolMenuOpen
-                ? "bg-slate-700 text-slate-100"
-                : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
-            }`}
-            aria-expanded={drawToolMenuOpen}
-            aria-haspopup="menu"
-          >
-            <span className="text-slate-500">画图工具</span>
-            <span
-              className={
-                tool === "cursor"
-                  ? "text-slate-400"
-                  : "font-medium text-emerald-200/95"
-              }
-            >
-              {tools.find((x) => x.id === tool)?.label ?? "十字"}
-            </span>
-            <span className="text-[10px] text-slate-500" aria-hidden>
-              ▾
-            </span>
-          </button>
-          {drawToolMenuOpen ? (
-            <div
-              role="menu"
-              className="absolute left-0 top-[calc(100%+6px)] z-[100] min-w-[11rem] rounded-md border border-[#2b2f3a] bg-[#131722] py-1 shadow-xl"
-            >
-              {tools.map((x) => (
-                <button
-                  key={x.id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setTool(x.id);
-                    setPlotDraft(null);
-                    setSelectedDrawingId(null);
-                    setDrawToolMenuOpen(false);
-                  }}
-                  className={`flex w-full px-3 py-1.5 text-left text-[11px] hover:bg-slate-800 ${
-                    tool === x.id
-                      ? "bg-emerald-950/55 text-emerald-100"
-                      : "text-slate-300"
-                  }`}
-                >
-                  {x.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+      {toolbarPortalEl ? (
+        createPortal(chartToolbar, toolbarPortalEl)
+      ) : (
+        <div className="flex w-full flex-wrap items-center gap-2 border-b border-[#2b2f3a] px-2 py-1.5">
+          {chartToolbar}
         </div>
-        <button
-          type="button"
-          onClick={handleClearDrawings}
-          className="rounded border border-rose-900/60 px-2 py-1 text-[11px] text-rose-200/90 hover:bg-rose-950/50"
-        >
-          清除画线
-        </button>
-        {selectedDrawingId ? (
-          <span className="text-[11px] text-slate-500" title="按 Delete 或 Backspace 删除">
-            已选中 · Delete 删除
-          </span>
-        ) : null}
-      </div>
+      )}
 
       <div
         ref={chartAreaRef}
@@ -2146,6 +2855,11 @@ export function StockChartWorkspace({
             >
               {subPane1.visible ? "隐藏" : "显示"}
             </button>
+            {subPane1.content === "ttmpe" && ttmPeError ? (
+              <span className="truncate text-[10px] text-amber-300/90" title={ttmPeError}>
+                {ttmPeError}
+              </span>
+            ) : null}
           </div>
         ) : null}
         {subPaneToolbarGeom.slot2 ? (
@@ -2195,6 +2909,14 @@ export function StockChartWorkspace({
               >
                 {subPane2.visible ? "隐藏" : "显示"}
               </button>
+              {subPane2.content === "ttmpe" && ttmPeError ? (
+                <span
+                  className="truncate text-[10px] text-amber-300/90"
+                  title={ttmPeError}
+                >
+                  {ttmPeError}
+                </span>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -2216,6 +2938,7 @@ export function StockChartWorkspace({
             )}
             draftPreview={plotDraft}
             selectedShapeId={selectedDrawingId}
+            visibleExtrema={visibleExtremaOverlay}
           />
         </div>
         {crosshairOhlcv && overlaySize.w > 0 ? (
@@ -2226,7 +2949,7 @@ export function StockChartWorkspace({
                 : "left-2"
             }`}
           >
-            <div className="mb-1.5 border-b border-slate-600/50 pb-1 text-center text-slate-100">
+            <div className="mb-1.5 border-b border-slate-600/50 pb-1 text-center font-mono text-white">
               {crosshairOhlcv.timeLabel}
             </div>
             {(() => {
@@ -2275,7 +2998,9 @@ export function StockChartWorkspace({
             })()}
           </div>
         ) : null}
-        {tool === "cursor" && rangeEntries.length > 0
+        {tool === "cursor" &&
+        rangeStatsEnabled &&
+        rangeEntries.length > 0
           ? rangeEntries.map((r, idx) => {
               void overlayLayoutTick;
               const chart = chartRef.current;
@@ -2304,6 +3029,10 @@ export function StockChartWorkspace({
                   <div
                     role="slider"
                     aria-label={`区间${idx + 1}起点`}
+                    aria-orientation="horizontal"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.max(0, candles.length - 1)}
+                    aria-valuenow={r.i0}
                     title="拖动调整区间起点"
                     className="pointer-events-auto absolute top-0 bottom-0 z-[19] w-2.5 -translate-x-1/2 cursor-ew-resize touch-none hover:bg-white/10"
                     style={{ left: px.left }}
@@ -2312,6 +3041,10 @@ export function StockChartWorkspace({
                   <div
                     role="slider"
                     aria-label={`区间${idx + 1}终点`}
+                    aria-orientation="horizontal"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.max(0, candles.length - 1)}
+                    aria-valuenow={r.i1}
                     title="拖动调整区间终点"
                     className="pointer-events-auto absolute top-0 bottom-0 z-[19] w-2.5 -translate-x-1/2 cursor-ew-resize touch-none hover:bg-white/10"
                     style={{ left: px.left + px.width }}
@@ -2321,7 +3054,7 @@ export function StockChartWorkspace({
               );
             })
           : null}
-        {tool === "cursor" && rangeDragPx ? (
+        {tool === "cursor" && rangeStatsEnabled && rangeDragPx ? (
           <div
             className="pointer-events-none absolute left-0 right-0 z-[12]"
             style={{
@@ -2353,16 +3086,18 @@ export function StockChartWorkspace({
         ) : null}
       </div>
 
-      {rangeEntries.map((r, idx) => (
-        <KlineRangeStatsPanel
-          key={r.id}
-          stats={r.stats}
-          title={rangePanelTitle(idx)}
-          accentColor={r.color}
-          stackOffsetPx={idx * 28}
-          onClose={() => removeRangeEntry(r.id)}
-        />
-      ))}
+      {rangeStatsEnabled
+        ? rangeEntries.map((r, idx) => (
+            <KlineRangeStatsPanel
+              key={r.id}
+              stats={r.stats}
+              title={rangePanelTitle(idx)}
+              accentColor={r.color}
+              stackOffsetPx={idx * 28}
+              onClose={() => removeRangeEntry(r.id)}
+            />
+          ))
+        : null}
 
       <ChartTimeRangeBrush chart={chartApi} candles={candles} />
     </div>

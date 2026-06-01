@@ -2,12 +2,18 @@
 
 import {
   fredDisplayLabel,
+  macroCountryName,
   serializeUnifiedKeysForAllowlist,
   type UnifiedCatalogGroup,
   type UnifiedCatalogItem,
+  worldBankIndicatorLabel,
 } from "./fredCatalog";
+import { CHINA_OVERVIEW_BY_CODE } from "./chinaOverviewLayout";
+import { JAPAN_OVERVIEW_BY_CODE } from "./japanOverviewLayout";
+import { US_OVERVIEW_BY_CODE } from "./usOverviewLayout";
 
 export type { UnifiedCatalogItem, UnifiedCatalogGroup } from "./fredCatalog";
+export type { UnifiedCatalogCountry } from "./fredCatalog";
 
 export type MacroCountry = { code: string; name: string };
 
@@ -160,7 +166,7 @@ export const ISO2_TO_ISO3: Record<string, string> = {
   MX: "MEX",
 };
 
-export const MACRO_MAX_SERIES = 16;
+export const MACRO_MAX_SERIES = 60;
 
 export type MacroSelection = { country: string; indicator: string };
 
@@ -234,9 +240,30 @@ const FRED_SERIES_KEY_RE = /^fred:[A-Z0-9._-]{1,40}$/;
 /** 兼容旧调用：无 allowlist 时仅按 fred: 键格式去重（服务端应以 catalog allowlist 为准） */
 export function getUnifiedCatalogGroups() {
   const cat: UnifiedCatalogItem[] = [
-    { key: "fred:GDPC1", label: "美国实际 GDP（季调，十亿美元）", frequency: "季度" },
-    { key: "fred:CPIAUCSL", label: "CPI（全部城市消费者）", frequency: "月" },
-    { key: "fred:UNRATE", label: "失业率（%）", frequency: "月" },
+    {
+      key: "fred:GDPC1",
+      label: "美国实际 GDP（季调，十亿美元）",
+      frequency: "季度",
+      provider: "fred",
+      countryCode: "US",
+      categoryName: "国民经济核算",
+    },
+    {
+      key: "fred:CPIAUCSL",
+      label: "CPI（全部城市消费者）",
+      frequency: "月",
+      provider: "fred",
+      countryCode: "US",
+      categoryName: "价格指数",
+    },
+    {
+      key: "fred:UNRATE",
+      label: "失业率（%）",
+      frequency: "月",
+      provider: "fred",
+      countryCode: "US",
+      categoryName: "就业与工资",
+    },
   ];
   const groups: UnifiedCatalogGroup[] = [{ name: "核心指标", items: cat }];
   return groups;
@@ -247,6 +274,80 @@ export function unifiedSeriesDisplayName(key: string): string {
   if (key.startsWith("fred:")) {
     const name = key.slice(4);
     return `美国 · ${fredDisplayLabel(name)}`;
+  }
+  if (key.startsWith("wb:")) {
+    const parts = key.split(":");
+    if (parts.length >= 3) {
+      const country = parts[1]?.toUpperCase() ?? "";
+      const indicatorId = parts.slice(2).join(":");
+        return `${macroCountryName(country)} · ${worldBankIndicatorLabel(indicatorId)}`;
+    }
+  }
+  if (key.startsWith("mds:debtcap_")) {
+    const raw = key.slice(4);
+    const parts = raw.split("_");
+    if (parts.length >= 4) {
+      const country = parts[1]?.toUpperCase() ?? "";
+      const metric =
+        raw.includes("_debt_service_")
+          ? "偿债率"
+          : raw.includes("_leverage_nominal_")
+            ? "杠杆率(按名义价值计)"
+            : "杠杆率";
+      const sector =
+        raw.endsWith("_household")
+          ? "居民部门"
+          : raw.endsWith("_non_financial_corporate")
+            ? "非金融企业部门"
+            : raw.endsWith("_private_non_financial")
+              ? "私营非金融部门"
+              : raw.endsWith("_government")
+                ? "政府部门"
+                : "";
+      return `${macroCountryName(country)} · ${metric}${sector ? ` · ${sector}` : ""}`;
+    }
+  }
+  if (key.startsWith("mds:usov_")) {
+    const raw = key.slice(4);
+    const def = US_OVERVIEW_BY_CODE.get(raw);
+    if (def) {
+      return `美国 · ${def.catalogCategory} · ${def.displayName}`;
+    }
+    const panel = /^usov_c(\d+)_/i.exec(raw)?.[1] ?? "";
+    const slug = raw.replace(/^usov_c\d+_/i, "");
+    const pretty = slug
+      .replace(/_/g, " ")
+      .replace(/\b([a-z])/g, (s) => s.toUpperCase())
+      .trim();
+    return `美国 · US Overview${panel ? ` · 图${panel}` : ""} · ${pretty || raw}`;
+  }
+  if (key.startsWith("mds:chov_")) {
+    const raw = key.slice(4);
+    const def = CHINA_OVERVIEW_BY_CODE.get(raw);
+    if (def) {
+      return `中国 · ${def.catalogCategory} · ${def.displayName}`;
+    }
+    const panel = /^chov_c(\d+)_/i.exec(raw)?.[1] ?? "";
+    const slug = raw.replace(/^chov_c\d+_/i, "");
+    const pretty = slug
+      .replace(/_/g, " ")
+      .replace(/\b([a-z])/g, (s) => s.toUpperCase())
+      .trim();
+    return `中国 · China Overview${panel ? ` · 图${panel}` : ""} · ${pretty || raw}`;
+  }
+  if (key.startsWith("mds:jpov_")) {
+    const raw = key.slice(4);
+    const def = JAPAN_OVERVIEW_BY_CODE.get(raw);
+    if (def) {
+      return `日本 · ${def.catalogCategory} · ${def.displayName}`;
+    }
+    const panel = /^jpov_c(\d+)_/i.exec(raw)?.[1] ?? "";
+    const slug = raw.replace(/^jpov_c\d+_/i, "");
+    const pretty = slug
+      .replace(/_/g, " ")
+      .replace(/\b([a-z])/g, (s) => s.toUpperCase())
+      .trim();
+    return `日本 · Japan Overview${panel ? ` · 图${panel}` : ""} · ${pretty || raw}`;
   }
   return key;
 }

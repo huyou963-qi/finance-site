@@ -1,0 +1,32 @@
+---
+description: 宏观图表、模板与 ECharts 相关约定
+globs: src/app/macro/**,src/components/Macro*,src/lib/macro*,src/lib/data/macro*,src/lib/data/*Overview*
+alwaysApply: false
+---
+
+# 宏观图表模块
+
+## 核心文件
+
+- `src/app/macro/MacroSection.tsx` — 主页面（较大，新功能优先拆子组件）
+- `src/lib/macroChartOption.ts` — ECharts option 构建
+- `src/lib/data/macroChartPrefs.ts` — 用户/系统模板偏好持久化
+- `src/lib/data/unifiedMacro.ts`、`macroCatalog.ts` — 序列目录与拉数
+- `*OverviewLayout.ts` — 内置系统模板布局（US/China/Japan 等）
+
+## 系统模板 vs 用户模板
+
+- **系统内置模板**文件夹为全局配置，存 `SystemMacroChartPrefs`；**仅 admin** 可 PUT 修改
+- 用户自定义模板存 `UserMacroChartPrefs`，每人独立
+- API：`GET/PUT /api/tools/macro-chart-prefs`
+
+## ECharts 注意
+
+- 类型用 `echarts` 官方类型；formatter 参数兼容 `CallbackDataParams`（勿用过窄的自定义类型）
+- 跨页同步用 `macroPageSyncChannel.ts`；ID 用 `randomId()` 而非裸 `crypto.randomUUID()`（HTTP 非安全上下文兼容）
+
+## 新增指标/模板
+
+1. 确认 series id 与 DB `mds` 一致
+2. 更新 catalog / layout 常量
+3. 如需导入历史数据，加对应 `scripts/import-*-xlsx.ts` 并在 PR 说明

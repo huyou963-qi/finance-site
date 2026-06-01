@@ -70,6 +70,15 @@ model UserMacroChartPrefs {
   @@schema("public")
 }
 
+/// 系统内置宏观模板覆盖（管理员保存）；全局单例 id=default
+model SystemMacroChartPrefs {
+  id        String   @id @default("default")
+  prefs     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@schema("public")
+}
+
 // ─── mds：统一金融数据目录（宏观 / 资产 / 行情），与厂商无关 ─────────────────
 
 enum InstrumentKind {

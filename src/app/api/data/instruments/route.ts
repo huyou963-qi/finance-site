@@ -17,6 +17,15 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
   const kindParam = url.searchParams.get("kind")?.trim();
+  const codesParam = url.searchParams.get("codes")?.trim() ?? "";
+  const codes = [
+    ...new Set(
+      codesParam
+        .split(/[,，\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 300);
   const limit = Math.min(500, Math.max(1, Number(url.searchParams.get("limit")) || 100));
 
   const kind =
@@ -26,6 +35,7 @@ export async function GET(request: NextRequest) {
 
   const where = {
     ...(kind ? { kind } : {}),
+    ...(codes.length > 0 ? { code: { in: codes } } : {}),
     ...(q
       ? {
           OR: [
@@ -41,7 +51,7 @@ export async function GET(request: NextRequest) {
     const [items, total] = await prisma.$transaction([
       prisma.instrument.findMany({
         where,
-        take: limit,
+        take: codes.length > 0 ? Math.max(codes.length, limit) : limit,
         orderBy: { name: "asc" },
         select: {
           id: true,
@@ -56,6 +66,7 @@ export async function GET(request: NextRequest) {
           fredSeriesId: true,
           exchange: true,
           tickerSymbol: true,
+          metadata: true,
           updatedAt: true,
         },
       }),

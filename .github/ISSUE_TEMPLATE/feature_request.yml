@@ -1,0 +1,29 @@
+name: 功能需求
+description: 新功能或改进建议
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 背景 / 问题
+      description: 要解决什么业务问题？
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: 期望方案
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 可能涉及的模块
+      options:
+        - label: 宏观 /macro
+        - label: K 线 /markets
+        - label: 数据库 / Prisma
+        - label: 认证 / 用户
+        - label: IBKR 集成
+        - label: 其他工具页

@@ -1,0 +1,20 @@
+# CODEOWNERS — 合并 PR 时自动请求 Review（可选）
+# 用法：取消注释并把 @github-username 换成团队成员 GitHub 账号
+# 文档：https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# 默认（仓库维护者）
+# *       @your-admin
+
+# 宏观模块
+# /src/app/macro/           @macro-owner
+# /src/components/Macro*    @macro-owner
+# /src/lib/macro*           @macro-owner
+
+# K 线与 IBKR
+# /src/app/markets/         @markets-owner
+# /src/lib/data/ibkr*       @markets-owner
+# /src/lib/data/providers/  @markets-owner
+
+# 数据库与脚本（migration 变更务必有人审）
+# /prisma/                  @db-owner
+# /scripts/                 @db-owner

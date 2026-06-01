@@ -6,7 +6,7 @@ export type MacroSlotAssignment = Record<string, number | null>;
 /** 将序列按 slot（0..layoutMode-1）分组；assignment[k]===null 的序列不分入任何图（单图亦同） */
 export function partitionMacroSeries(
   payload: MacroPayload,
-  layoutMode: 1 | 2 | 3 | 4,
+  layoutMode: 1 | 2 | 3 | 4 | 5 | 6,
   assignment: MacroSlotAssignment,
 ): MacroSeriesItem[][] {
   const n = layoutMode;

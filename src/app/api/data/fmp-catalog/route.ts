@@ -3,12 +3,13 @@ import { getFredCatalogCached } from "@/lib/data/fredCatalog";
 
 /**
  * GET /api/data/fmp-catalog
- * 返回分组后的 FRED 指标目录及全量 fred: 键，供侧栏与序列序列化校验。
+ * 返回统一宏观目录（国家 → 分类 → 指标）及 allowlist 键。
  */
 export async function GET() {
   try {
-    const { groups, allowlist } = await getFredCatalogCached();
+    const { countries, groups, allowlist } = await getFredCatalogCached();
     return NextResponse.json({
+      countries,
       groups,
       allowlistKeys: [...allowlist],
     });

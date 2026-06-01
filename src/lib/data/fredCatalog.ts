@@ -1,85 +1,283 @@
 /**
- * FRED 宏观指标目录：静态精选清单，按主题分组，供侧栏选择与服务端校验。
+ * 统一宏观指标目录：
+ * - 顶层按国家组织（主要经济体）；
+ * - 国家下按主题分类；
+ * - 指标键采用 `provider:...` 形式，便于后续接入更多数据源。
  */
+import { InstrumentKind } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
+export type UnifiedCatalogFrequency = "日" | "周" | "月" | "季度" | "年";
+export type UnifiedCatalogProvider = "fred" | "wb" | "mds";
 
 export type UnifiedCatalogItem = {
   key: string;
   label: string;
-  /** 更新频率：日 / 周 / 月 / 季度 / 年 */
-  frequency: "日" | "周" | "月" | "季度" | "年";
+  frequency: UnifiedCatalogFrequency;
+  provider: UnifiedCatalogProvider;
+  countryCode: string;
+  categoryName: string;
 };
+
 export type UnifiedCatalogGroup = { name: string; items: UnifiedCatalogItem[] };
 
-const FRED_ITEMS: Array<{
+export type UnifiedCatalogCountry = {
+  code: string;
+  name: string;
+  categories: UnifiedCatalogGroup[];
+};
+
+type CountryDef = { code: string; name: string };
+
+export const MACRO_MAJOR_COUNTRIES: readonly CountryDef[] = [
+  { code: "CN", name: "中国" },
+  { code: "US", name: "美国" },
+  { code: "JP", name: "日本" },
+  { code: "DE", name: "德国" },
+  { code: "GB", name: "英国" },
+  { code: "FR", name: "法国" },
+  { code: "IN", name: "印度" },
+  { code: "BR", name: "巴西" },
+  { code: "KR", name: "韩国" },
+  { code: "CA", name: "加拿大" },
+  { code: "AU", name: "澳大利亚" },
+  { code: "MX", name: "墨西哥" },
+  { code: "ID", name: "印度尼西亚" },
+  { code: "SA", name: "沙特阿拉伯" },
+  { code: "ZA", name: "南非" },
+] as const;
+
+const COUNTRY_NAME_BY_CODE = new Map(MACRO_MAJOR_COUNTRIES.map((x) => [x.code, x.name]));
+
+type FredDef = {
   id: string;
   label: string;
   category: string;
-  frequency: UnifiedCatalogItem["frequency"];
-}> = [
-  // 增长与景气
-  { id: "GDPC1", label: "美国实际 GDP（季调，十亿美元）", category: "增长与景气", frequency: "季度" },
-  { id: "GDP", label: "美国名义 GDP（季调，十亿美元）", category: "增长与景气", frequency: "季度" },
-  { id: "A191RL1Q225SBEA", label: "美国实际 GDP 环比年化（%）", category: "增长与景气", frequency: "季度" },
-  { id: "INDPRO", label: "工业生产指数（2017=100）", category: "增长与景气", frequency: "月" },
-  { id: "USREC", label: "NBER 衰退指标（0/1）", category: "增长与景气", frequency: "月" },
-  { id: "CFNAI", label: "芝加哥联储全国活动指数", category: "增长与景气", frequency: "月" },
+  frequency: UnifiedCatalogFrequency;
+};
 
-  // 就业与劳动力
-  { id: "UNRATE", label: "失业率（%）", category: "就业与劳动力", frequency: "月" },
-  { id: "PAYEMS", label: "非农就业人数（千人）", category: "就业与劳动力", frequency: "月" },
-  { id: "CIVPART", label: "劳动参与率（%）", category: "就业与劳动力", frequency: "月" },
-  { id: "ICSA", label: "首次申请失业救济人数", category: "就业与劳动力", frequency: "周" },
-  { id: "AHETPI", label: "私人部门平均时薪（同比，%）", category: "就业与劳动力", frequency: "月" },
-  { id: "JTSJOL", label: "职位空缺数（千人）", category: "就业与劳动力", frequency: "月" },
+const FRED_US_ITEMS: readonly FredDef[] = [
+  { id: "GDPC1", label: "实际 GDP（季调，十亿美元）", category: "国民经济核算", frequency: "季度" },
+  { id: "GDP", label: "名义 GDP（季调，十亿美元）", category: "国民经济核算", frequency: "季度" },
+  { id: "A191RL1Q225SBEA", label: "实际 GDP 环比年化（%）", category: "国民经济核算", frequency: "季度" },
+  { id: "INDPRO", label: "工业生产指数（2017=100）", category: "工业", frequency: "月" },
+  { id: "CPIAUCSL", label: "CPI（全部城市消费者）", category: "价格指数", frequency: "月" },
+  { id: "CPILFESL", label: "核心 CPI（剔除食物与能源）", category: "价格指数", frequency: "月" },
+  { id: "PCEPI", label: "PCE 价格指数", category: "价格指数", frequency: "月" },
+  { id: "UNRATE", label: "失业率（%）", category: "就业与工资", frequency: "月" },
+  { id: "PAYEMS", label: "非农就业人数（千人）", category: "就业与工资", frequency: "月" },
+  { id: "AHETPI", label: "私人部门平均时薪同比（%）", category: "就业与工资", frequency: "月" },
+  { id: "FEDFUNDS", label: "联邦基金有效利率（%）", category: "银行与货币", frequency: "月" },
+  { id: "M2SL", label: "M2 货币供应量（十亿美元）", category: "银行与货币", frequency: "月" },
+  { id: "WALCL", label: "美联储总资产（百万美元）", category: "银行与货币", frequency: "周" },
+  { id: "GS10", label: "10 年期美债收益率（%）", category: "利率与债券", frequency: "月" },
+  { id: "GS2", label: "2 年期美债收益率（%）", category: "利率与债券", frequency: "月" },
+  { id: "T10Y2Y", label: "10Y-2Y 国债期限利差（%）", category: "利率与债券", frequency: "日" },
+  { id: "BAMLH0A0HYM2", label: "美国高收益债 OAS（%）", category: "利率与债券", frequency: "日" },
+  { id: "DTWEXBGS", label: "美元名义广义指数", category: "对外贸易与汇率", frequency: "日" },
+  { id: "DEXUSEU", label: "美元/欧元汇率", category: "对外贸易与汇率", frequency: "日" },
+  { id: "DEXJPUS", label: "日元/美元汇率", category: "对外贸易与汇率", frequency: "日" },
+  { id: "RSAFS", label: "零售销售总额（百万美元）", category: "国内贸易与消费", frequency: "月" },
+  { id: "PCEC96", label: "实际个人消费支出（十亿美元）", category: "国内贸易与消费", frequency: "月" },
+  { id: "HOUST", label: "新屋开工（年化套数）", category: "固定资产与地产", frequency: "月" },
+  { id: "CSUSHPINSA", label: "标普/Case-Shiller 房价指数", category: "固定资产与地产", frequency: "月" },
+  { id: "UMCSENT", label: "密歇根大学消费者信心指数", category: "景气调查", frequency: "月" },
+  { id: "CFNAI", label: "芝加哥联储全国活动指数", category: "景气调查", frequency: "月" },
+  { id: "USREC", label: "NBER 衰退指标（0/1）", category: "综合", frequency: "月" },
+  { id: "VIXCLS", label: "VIX 波动率指数", category: "证券市场", frequency: "日" },
+] as const;
 
-  // 通胀与价格
-  { id: "CPIAUCSL", label: "CPI（全部城市消费者）", category: "通胀与价格", frequency: "月" },
-  { id: "CPILFESL", label: "核心 CPI（剔除食物与能源）", category: "通胀与价格", frequency: "月" },
-  { id: "PCEPI", label: "PCE 价格指数", category: "通胀与价格", frequency: "月" },
-  { id: "PCEPILFE", label: "核心 PCE 价格指数", category: "通胀与价格", frequency: "月" },
-  { id: "PPIACO", label: "PPI（所有商品）", category: "通胀与价格", frequency: "月" },
-  { id: "T5YIE", label: "5 年盈亏平衡通胀率（%）", category: "通胀与价格", frequency: "日" },
+type WorldBankIndicatorDef = {
+  id: string;
+  label: string;
+  category: string;
+  frequency: UnifiedCatalogFrequency;
+};
 
-  // 利率与货币条件
-  { id: "FEDFUNDS", label: "联邦基金有效利率（%）", category: "利率与货币条件", frequency: "月" },
-  { id: "SOFR", label: "SOFR（担保隔夜融资利率，%）", category: "利率与货币条件", frequency: "日" },
-  { id: "DFF", label: "联邦基金有效利率（日度，%）", category: "利率与货币条件", frequency: "日" },
-  { id: "M2SL", label: "M2 货币供应量（十亿美元）", category: "利率与货币条件", frequency: "月" },
-  { id: "WALCL", label: "美联储总资产（百万美元）", category: "利率与货币条件", frequency: "周" },
-  { id: "RRPONTSYD", label: "隔夜逆回购使用量（百万美元）", category: "利率与货币条件", frequency: "日" },
+const WORLD_BANK_INDICATORS: readonly WorldBankIndicatorDef[] = [
+  { id: "NY.GDP.MKTP.KD.ZG", label: "GDP 增速（年 %）", category: "国民经济核算", frequency: "年" },
+  { id: "NY.GDP.PCAP.KD.ZG", label: "人均 GDP 增速（年 %）", category: "国民经济核算", frequency: "年" },
+  { id: "NV.IND.TOTL.ZS", label: "工业增加值占 GDP（%）", category: "工业", frequency: "年" },
+  { id: "FP.CPI.TOTL.ZG", label: "CPI 通胀（年 %）", category: "价格指数", frequency: "年" },
+  { id: "SL.UEM.TOTL.ZS", label: "失业率（%）", category: "就业与工资", frequency: "年" },
+  { id: "SL.TLF.CACT.ZS", label: "劳动参与率（%）", category: "就业与工资", frequency: "年" },
+  { id: "FM.LBL.BMNY.GD.ZS", label: "广义货币占 GDP（%）", category: "银行与货币", frequency: "年" },
+  { id: "FS.AST.DOMS.GD.ZS", label: "银行部门国内信贷占 GDP（%）", category: "银行与货币", frequency: "年" },
+  { id: "FR.INR.RINR", label: "实际利率（%）", category: "利率与债券", frequency: "年" },
+  { id: "CM.MKT.LCAP.GD.ZS", label: "股票市值占 GDP（%）", category: "证券市场", frequency: "年" },
+  { id: "NE.TRD.GNFS.ZS", label: "贸易总额占 GDP（%）", category: "对外贸易及投资", frequency: "年" },
+  { id: "BX.KLT.DINV.WD.GD.ZS", label: "FDI 净流入占 GDP（%）", category: "对外贸易及投资", frequency: "年" },
+  { id: "NE.EXP.GNFS.ZS", label: "出口占 GDP（%）", category: "对外贸易及投资", frequency: "年" },
+  { id: "NE.GDI.FTOT.ZS", label: "固定资本形成占 GDP（%）", category: "固定资产投资", frequency: "年" },
+  { id: "GC.BAL.CASH.GD.ZS", label: "财政现金收支差额占 GDP（%）", category: "财政", frequency: "年" },
+  { id: "GC.DOD.TOTL.GD.ZS", label: "政府债务占 GDP（%）", category: "财政", frequency: "年" },
+  { id: "SP.POP.GROW", label: "人口增速（年 %）", category: "人口与资源", frequency: "年" },
+  { id: "SP.DYN.LE00.IN", label: "预期寿命（岁）", category: "人口与资源", frequency: "年" },
+] as const;
 
-  // 利率曲线与信用
-  { id: "GS10", label: "10 年期美债收益率（%）", category: "利率曲线与信用", frequency: "月" },
-  { id: "GS2", label: "2 年期美债收益率（%）", category: "利率曲线与信用", frequency: "月" },
-  { id: "TB3MS", label: "3 个月国债收益率（%）", category: "利率曲线与信用", frequency: "月" },
-  { id: "T10Y2Y", label: "10Y-2Y 国债期限利差（%）", category: "利率曲线与信用", frequency: "日" },
-  { id: "T10Y3M", label: "10Y-3M 国债期限利差（%）", category: "利率曲线与信用", frequency: "日" },
-  { id: "BAMLH0A0HYM2", label: "美国高收益债 OAS（%）", category: "利率曲线与信用", frequency: "日" },
+const WORLD_BANK_LABEL_BY_ID = new Map(WORLD_BANK_INDICATORS.map((x) => [x.id, x.label]));
+const FRED_LABEL_BY_ID = new Map(FRED_US_ITEMS.map((x) => [x.id, x.label]));
 
-  // 消费与房地产
-  { id: "PCE", label: "个人消费支出（十亿美元）", category: "消费与房地产", frequency: "月" },
-  { id: "PCEC96", label: "实际个人消费支出（十亿美元）", category: "消费与房地产", frequency: "月" },
-  { id: "RSAFS", label: "零售销售总额（百万美元）", category: "消费与房地产", frequency: "月" },
-  { id: "UMCSENT", label: "密歇根大学消费者信心指数", category: "消费与房地产", frequency: "月" },
-  { id: "HOUST", label: "新屋开工（年化套数）", category: "消费与房地产", frequency: "月" },
-  { id: "CSUSHPINSA", label: "标普/Case-Shiller 房价指数（美国）", category: "消费与房地产", frequency: "月" },
+function buildCountryFromRows(
+  country: CountryDef,
+  rows: readonly (FredDef | WorldBankIndicatorDef)[],
+  provider: UnifiedCatalogProvider,
+): UnifiedCatalogCountry {
+  const byCategory = new Map<string, UnifiedCatalogItem[]>();
+  for (const row of rows) {
+    const key =
+      provider === "fred" ? `fred:${row.id}` : `wb:${country.code}:${row.id}`;
+    const items = byCategory.get(row.category) ?? [];
+    items.push({
+      key,
+      label: row.label,
+      frequency: row.frequency,
+      provider,
+      countryCode: country.code,
+      categoryName: row.category,
+    });
+    byCategory.set(row.category, items);
+  }
+  const categories = [...byCategory.entries()].map(([name, items]) => ({
+    name,
+    items: items.sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
+  }));
+  return {
+    code: country.code,
+    name: country.name,
+    categories: categories.sort((a, b) => a.name.localeCompare(b.name, "zh-CN")),
+  };
+}
 
-  // 外汇与金融市场
-  { id: "DTWEXBGS", label: "美元名义广义指数", category: "外汇与金融市场", frequency: "日" },
-  { id: "DEXUSEU", label: "美元/欧元汇率", category: "外汇与金融市场", frequency: "日" },
-  { id: "DEXJPUS", label: "日元/美元汇率", category: "外汇与金融市场", frequency: "日" },
-  { id: "DCOILWTICO", label: "WTI 原油现货价（美元/桶）", category: "外汇与金融市场", frequency: "日" },
-  { id: "GOLDAMGBD228NLBM", label: "伦敦金下午定盘价（美元/盎司）", category: "外汇与金融市场", frequency: "日" },
-  { id: "VIXCLS", label: "VIX 波动率指数", category: "外汇与金融市场", frequency: "日" },
-];
+function buildCountries(): UnifiedCatalogCountry[] {
+  return MACRO_MAJOR_COUNTRIES.map((country) => {
+    if (country.code === "US") {
+      return buildCountryFromRows(country, FRED_US_ITEMS, "fred");
+    }
+    return buildCountryFromRows(country, WORLD_BANK_INDICATORS, "wb");
+  });
+}
 
-const FRED_LABEL_BY_ID = new Map(FRED_ITEMS.map((x) => [x.id, x.label]));
+function normalizeFrequency(v: string | null | undefined): UnifiedCatalogFrequency {
+  const t = (v ?? "").trim();
+  if (t === "日" || t === "周" || t === "月" || t === "季度" || t === "年") return t;
+  if (/day/i.test(t)) return "日";
+  if (/week/i.test(t)) return "周";
+  if (/quarter/i.test(t)) return "季度";
+  if (/year/i.test(t)) return "年";
+  return "月";
+}
 
-export const FRED_CATALOG_MACRO_MAX = 20;
+async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
+  const rows = await prisma.instrument.findMany({
+    where: {
+      kind: InstrumentKind.MACRO_SERIES,
+      OR: [
+        { code: { startsWith: "debtcap_" } },
+        { code: { startsWith: "usov_" } },
+        { code: { startsWith: "chov_" } },
+        { code: { startsWith: "jpov_" } },
+      ],
+    },
+    orderBy: { name: "asc" },
+    select: {
+      code: true,
+      name: true,
+      freqLabel: true,
+      metadata: true,
+    },
+  });
+  const byCountry = new Map<string, Map<string, UnifiedCatalogItem[]>>();
+  for (const row of rows) {
+    const md = row.metadata && typeof row.metadata === "object"
+      ? (row.metadata as Record<string, unknown>)
+      : {};
+    const countryCodeRaw = typeof md.countryCode === "string" ? md.countryCode : "";
+    const countryCode = countryCodeRaw.trim().toUpperCase();
+    if (!countryCode) continue;
+    const categoryName =
+      typeof md.catalogCategory === "string" && md.catalogCategory.trim()
+        ? md.catalogCategory.trim()
+        : "偿债能力";
+    const label =
+      typeof md.displayName === "string" && md.displayName.trim()
+        ? md.displayName.trim()
+        : row.name;
+    const countryMap = byCountry.get(countryCode) ?? new Map<string, UnifiedCatalogItem[]>();
+    const categoryItems = countryMap.get(categoryName) ?? [];
+    categoryItems.push({
+      key: `mds:${row.code}`,
+      label,
+      frequency: normalizeFrequency(row.freqLabel),
+      provider: "mds",
+      countryCode,
+      categoryName,
+    });
+    countryMap.set(categoryName, categoryItems);
+    byCountry.set(countryCode, countryMap);
+  }
+
+  const out: UnifiedCatalogCountry[] = [];
+  for (const [countryCode, catMap] of byCountry.entries()) {
+    out.push({
+      code: countryCode,
+      name: macroCountryName(countryCode),
+      categories: [...catMap.entries()]
+        .map(([name, items]) => ({
+          name,
+          items: items.sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "zh-CN")),
+    });
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+  return out;
+}
+
+function mergeCountryCatalog(
+  base: UnifiedCatalogCountry[],
+  extra: UnifiedCatalogCountry[],
+): UnifiedCatalogCountry[] {
+  const map = new Map<string, UnifiedCatalogCountry>();
+  for (const c of base) {
+    map.set(c.code, {
+      code: c.code,
+      name: c.name,
+      categories: c.categories.map((x) => ({ name: x.name, items: [...x.items] })),
+    });
+  }
+  for (const c of extra) {
+    const exist = map.get(c.code);
+    if (!exist) {
+      map.set(c.code, c);
+      continue;
+    }
+    const catMap = new Map<string, UnifiedCatalogItem[]>(
+      exist.categories.map((x) => [x.name, [...x.items]]),
+    );
+    for (const cat of c.categories) {
+      const arr = catMap.get(cat.name) ?? [];
+      arr.push(...cat.items);
+      catMap.set(cat.name, arr);
+    }
+    exist.categories = [...catMap.entries()]
+      .map(([name, items]) => ({
+        name,
+        items: [...new Map(items.map((i) => [i.key, i])).values()].sort((a, b) =>
+          a.label.localeCompare(b.label, "zh-CN"),
+        ),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+  }
+  return [...map.values()];
+}
+
+export const FRED_CATALOG_MACRO_MAX = 60;
 
 type CatalogCache = {
+  countries: UnifiedCatalogCountry[];
   groups: UnifiedCatalogGroup[];
   allowlist: Set<string>;
   builtAt: number;
@@ -87,32 +285,38 @@ type CatalogCache = {
 
 let catalogCache: CatalogCache | null = null;
 
-function buildGroups(): UnifiedCatalogGroup[] {
-  const byCat = new Map<string, UnifiedCatalogItem[]>();
-  for (const row of FRED_ITEMS) {
-    const items = byCat.get(row.category) ?? [];
-    items.push({
-      key: `fred:${row.id}`,
-      label: row.label,
-      frequency: row.frequency,
-    });
-    byCat.set(row.category, items);
-  }
-  return [...byCat.entries()].map(([name, items]) => ({
-    name,
-    items: items.sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
-  }));
-}
-
 export function fredDisplayLabel(id: string): string {
   return FRED_LABEL_BY_ID.get(id.toUpperCase()) ?? id;
 }
 
+export function worldBankIndicatorLabel(indicatorId: string): string {
+  return WORLD_BANK_LABEL_BY_ID.get(indicatorId) ?? indicatorId;
+}
+
+export function macroCountryName(countryCode: string): string {
+  return COUNTRY_NAME_BY_CODE.get(countryCode.toUpperCase()) ?? countryCode.toUpperCase();
+}
+
 export async function getFredCatalogCached(): Promise<CatalogCache> {
   if (catalogCache && Date.now() - catalogCache.builtAt < CACHE_TTL_MS) return catalogCache;
-  const groups = buildGroups();
-  const allowlist = new Set(FRED_ITEMS.map((x) => `fred:${x.id}`));
-  catalogCache = { groups, allowlist, builtAt: Date.now() };
+  const staticCountries = buildCountries();
+  const mdsCountries = await loadMdsCatalog();
+  const countries = mergeCountryCatalog(staticCountries, mdsCountries);
+  const groups = countries.flatMap((country) =>
+    country.categories.map((category) => ({
+      name: `${country.name} / ${category.name}`,
+      items: category.items,
+    })),
+  );
+  const allowlist = new Set<string>();
+  for (const country of countries) {
+    for (const category of country.categories) {
+      for (const item of category.items) {
+        allowlist.add(item.key);
+      }
+    }
+  }
+  catalogCache = { countries, groups, allowlist, builtAt: Date.now() };
   return catalogCache;
 }
 
@@ -129,7 +333,9 @@ export function parseUnifiedSeriesQueryWithAllowlist(
     allowlist.has(k),
   );
   const defaultKeys =
-    fallback.length > 0 ? fallback : [...allowlist].slice(0, 3).sort((a, b) => a.localeCompare(b));
+    fallback.length > 0
+      ? fallback
+      : [...allowlist].slice(0, 3).sort((a, b) => a.localeCompare(b));
 
   if (!trimmed) return defaultKeys.length > 0 ? defaultKeys : ["fred:GDPC1"];
 

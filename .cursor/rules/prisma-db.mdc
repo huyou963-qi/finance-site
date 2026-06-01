@@ -1,0 +1,36 @@
+---
+description: Prisma schema、migration 与数据脚本约定
+globs: prisma/**,scripts/**
+alwaysApply: false
+---
+
+# 数据库与 Prisma
+
+## Schema
+
+- PostgreSQL，多 schema：`public`（用户/偏好 JSON）、`mds`（宏观序列与观测）
+- 模型定义在 `prisma/schema.prisma`；**团队同时只允许一人改 schema 并提交 migration**
+
+## Migration 流程
+
+```bash
+# 开发环境改 schema 后
+npm run db:migrate:dev
+
+# 拉取他人 migration 后
+npm run db:migrate
+```
+
+- migration 文件必须提交到 Git，**不要**手改已合并的 migration
+- PR 描述里写清：是否需要跑 migrate、是否有破坏性变更
+
+## 数据脚本（`scripts/`）
+
+- 导入 xlsx / ETL 脚本用 `tsx` + `dotenv -e .env.local`
+- 新脚本在 `package.json` 加 `db:*` 命名命令，并在 `AGENTS.md` 或 PR 说明用法
+- 布局常量（如 `*OverviewLayout.ts`）与 DB series id 保持一致
+
+## 构建
+
+- 生产构建走 `scripts/prisma-generate-retry.mjs`，schema 未变时跳过 generate 避免 Windows 文件锁
+- CI 使用 dummy `DATABASE_URL` 仅用于 `prisma generate`

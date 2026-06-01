@@ -1,21 +1,131 @@
 import type { Prisma } from "@prisma/client";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
-import type { MacroSeriesVisualConfigMap } from "@/lib/macroChartOption";
+import type { MacroChartDisplayConfig, MacroSeriesVisualConfigMap } from "@/lib/macroChartOption";
+import { DEFAULT_MACRO_CHART_DISPLAY_CONFIG } from "@/lib/macroChartOption";
+import type {
+  MacroChartTemplate,
+  MacroDerivedCalc,
+  MacroFrequencyAdjust,
+  MacroResampleMethod,
+  MacroSeriesCalcConfig,
+  MacroSeriesCalcOp,
+  MacroSeriesCalcConfigMap,
+  MacroTemplateFolder,
+  MacroTemplateFolderScope,
+  MacroUnitAdjust,
+} from "@/lib/data/macroPresetTemplates";
 import { prisma } from "@/lib/prisma";
 
 export type MacroChartPrefs = {
-  version: 1;
-  layoutMode: 1 | 2 | 3 | 4;
+  version: 2;
+  layoutMode: 1 | 2 | 3 | 4 | 5 | 6;
   selectedKeys: string[];
   slotAssignment: MacroSlotAssignment;
   seriesVisualMap: MacroSeriesVisualConfigMap;
+  displayConfig: MacroChartDisplayConfig;
+  seriesCalcConfigMap: MacroSeriesCalcConfigMap;
+  derivedCalcs: MacroDerivedCalc[];
+  templates?: MacroChartTemplate[];
+  /** 仅保存 scope=user 的个人模板文件夹 */
+  templateFolders?: MacroTemplateFolder[];
+  activeTemplateId?: string | null;
 };
+
+/** 管理员覆盖的系统内置模板配置（按 template id 索引） */
+export type BuiltinTemplateOverride = {
+  name?: string;
+  description?: string;
+  selectedKeys: string[];
+  layoutMode: 1 | 2 | 3 | 4 | 5 | 6;
+  slotAssignment: MacroSlotAssignment;
+  seriesVisualMap: MacroSeriesVisualConfigMap;
+  displayConfig?: MacroChartDisplayConfig;
+  seriesCalcConfigMap?: MacroSeriesCalcConfigMap;
+  derivedCalcs?: MacroDerivedCalc[];
+  updatedAtIso?: string;
+};
+
+export type SystemMacroChartPrefsPayload = {
+  version: 1;
+  builtinTemplateOverrides: Record<string, BuiltinTemplateOverride>;
+  /** 全局系统模板文件夹（所有用户可见） */
+  builtinTemplateFolders?: MacroTemplateFolder[];
+  /** 全局系统模板 → 文件夹映射 */
+  builtinTemplateFolderIds?: Record<string, string | null>;
+};
+
+const SERIES_OPS = new Set<MacroSeriesCalcOp>(["none", "pctChange", "yoy", "diff", "cumsum"]);
+const FREQ_OPS = new Set<MacroFrequencyAdjust>(["keep", "month", "quarter", "year"]);
+const UNIT_OPS = new Set<MacroUnitAdjust>(["keep", "x0.01", "x100"]);
+const RESAMPLE_METHODS = new Set<MacroResampleMethod>(["avg", "start", "end"]);
+const DERIVED_OPS = new Set<MacroDerivedCalc["op"]>([
+  "add",
+  "sub",
+  "mul",
+  "div",
+  "ratio",
+  "spread",
+]);
+const FOLDER_SCOPES = new Set<MacroTemplateFolderScope>(["builtin", "user"]);
+
+function sanitizeTemplateFolders(input: unknown): MacroTemplateFolder[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const x = row as Record<string, unknown>;
+      const id = String(x.id ?? "").trim();
+      const name = String(x.name ?? "").trim();
+      const scope = String(x.scope ?? "").trim() as MacroTemplateFolderScope;
+      if (!id || !name || !FOLDER_SCOPES.has(scope)) return null;
+      return { id, name, scope } as MacroTemplateFolder;
+    })
+    .filter((x): x is MacroTemplateFolder => Boolean(x))
+    .slice(0, 40);
+}
+
+function sanitizeBuiltinTemplateFolderIds(input: unknown): Record<string, string | null> {
+  if (!input || typeof input !== "object") return {};
+  const out: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    const key = k.trim();
+    if (!key) continue;
+    if (v === null || v === undefined || v === "") {
+      out[key] = null;
+    } else {
+      const id = String(v).trim();
+      out[key] = id || null;
+    }
+  }
+  return out;
+}
+
+function sanitizeSeriesCalcConfigMap(input: unknown): MacroSeriesCalcConfigMap {
+  if (!input || typeof input !== "object") return {};
+  const out: MacroSeriesCalcConfigMap = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    if (!k.trim() || !v || typeof v !== "object") continue;
+    const row = v as Record<string, unknown>;
+    const op = String(row.op ?? "").trim() as MacroSeriesCalcOp;
+    const frequency = String(row.frequency ?? "").trim() as MacroFrequencyAdjust;
+    const unit = String(row.unit ?? "").trim() as MacroUnitAdjust;
+    const resampleMethod = String(row.resampleMethod ?? "").trim() as MacroResampleMethod;
+    const cfg: MacroSeriesCalcConfig = {
+      op: SERIES_OPS.has(op) ? op : "none",
+      frequency: FREQ_OPS.has(frequency) ? frequency : "keep",
+      unit: UNIT_OPS.has(unit) ? unit : "keep",
+      resampleMethod: RESAMPLE_METHODS.has(resampleMethod) ? resampleMethod : "end",
+    };
+    out[k] = cfg;
+  }
+  return out;
+}
 
 function sanitize(input: unknown): MacroChartPrefs | null {
   if (!input || typeof input !== "object") return null;
   const o = input as Record<string, unknown>;
   const lm = Number(o.layoutMode);
-  const layoutMode = lm === 1 || lm === 2 || lm === 3 || lm === 4 ? lm : 1;
+  const layoutMode = lm === 1 || lm === 2 || lm === 3 || lm === 4 || lm === 5 || lm === 6 ? lm : 1;
   const selectedKeys = Array.isArray(o.selectedKeys)
     ? o.selectedKeys.map((x) => String(x).trim()).filter(Boolean)
     : [];
@@ -27,12 +137,234 @@ function sanitize(input: unknown): MacroChartPrefs | null {
     o.seriesVisualMap && typeof o.seriesVisualMap === "object"
       ? (o.seriesVisualMap as MacroSeriesVisualConfigMap)
       : {};
+  const displayConfig = {
+    ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+    ...(o.displayConfig && typeof o.displayConfig === "object"
+      ? (o.displayConfig as Partial<MacroChartDisplayConfig>)
+      : {}),
+  };
+  const seriesCalcConfigMap = sanitizeSeriesCalcConfigMap(o.seriesCalcConfigMap);
+  const derivedCalcs = Array.isArray(o.derivedCalcs)
+    ? o.derivedCalcs
+        .map((row) => {
+          if (!row || typeof row !== "object") return null;
+          const x = row as Record<string, unknown>;
+          const id = String(x.id ?? "").trim();
+          const leftKey = String(x.leftKey ?? "").trim();
+          const rightKey = String(x.rightKey ?? "").trim();
+          const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
+          const name = String(x.name ?? "").trim();
+          if (!id || !leftKey || !rightKey || !name || !DERIVED_OPS.has(op)) return null;
+          return { id, leftKey, rightKey, op, name } as MacroDerivedCalc;
+        })
+        .filter((x): x is MacroDerivedCalc => Boolean(x))
+        .slice(0, 60)
+    : [];
+  const templates = Array.isArray(o.templates)
+    ? o.templates
+        .map((row) => {
+          if (!row || typeof row !== "object") return null;
+          const t = row as Record<string, unknown>;
+          const id = String(t.id ?? "").trim();
+          const name = String(t.name ?? "").trim();
+          if (!id || !name) return null;
+          const lm = Number(t.layoutMode);
+          const layoutMode =
+            lm === 1 || lm === 2 || lm === 3 || lm === 4 || lm === 5 || lm === 6 ? lm : 1;
+          const selectedKeys = Array.isArray(t.selectedKeys)
+            ? t.selectedKeys.map((x) => String(x).trim()).filter(Boolean)
+            : [];
+          const slotAssignment =
+            t.slotAssignment && typeof t.slotAssignment === "object"
+              ? (t.slotAssignment as MacroSlotAssignment)
+              : {};
+          const seriesVisualMap =
+            t.seriesVisualMap && typeof t.seriesVisualMap === "object"
+              ? (t.seriesVisualMap as MacroSeriesVisualConfigMap)
+              : {};
+          const displayConfig = {
+            ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+            ...(t.displayConfig && typeof t.displayConfig === "object"
+              ? (t.displayConfig as Partial<MacroChartDisplayConfig>)
+              : {}),
+          };
+          const seriesCalcConfigMap = sanitizeSeriesCalcConfigMap(t.seriesCalcConfigMap);
+          const derivedCalcs = Array.isArray(t.derivedCalcs)
+            ? t.derivedCalcs
+                .map((row) => {
+                  if (!row || typeof row !== "object") return null;
+                  const x = row as Record<string, unknown>;
+                  const id = String(x.id ?? "").trim();
+                  const leftKey = String(x.leftKey ?? "").trim();
+                  const rightKey = String(x.rightKey ?? "").trim();
+                  const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
+                  const name = String(x.name ?? "").trim();
+                  if (!id || !leftKey || !rightKey || !name || !DERIVED_OPS.has(op)) return null;
+                  return { id, leftKey, rightKey, op, name } as MacroDerivedCalc;
+                })
+                .filter((x): x is MacroDerivedCalc => Boolean(x))
+                .slice(0, 60)
+            : [];
+          const createdAtIso = String(t.createdAtIso ?? "").trim() || new Date().toISOString();
+          const description =
+            typeof t.description === "string" && t.description.trim()
+              ? t.description.trim()
+              : undefined;
+          const folderIdRaw = t.folderId;
+          const folderId =
+            folderIdRaw === null || folderIdRaw === undefined || folderIdRaw === ""
+              ? undefined
+              : String(folderIdRaw).trim() || undefined;
+          return {
+            id,
+            name,
+            description,
+            selectedKeys,
+            layoutMode,
+            slotAssignment,
+            seriesVisualMap,
+            displayConfig,
+            seriesCalcConfigMap,
+            derivedCalcs,
+            createdAtIso,
+            folderId,
+          } as MacroChartTemplate;
+        })
+        .filter((x): x is MacroChartTemplate => Boolean(x))
+        .slice(0, 30)
+    : [];
+  const activeTemplateId =
+    typeof o.activeTemplateId === "string" && o.activeTemplateId.trim()
+      ? o.activeTemplateId.trim()
+      : null;
+  const templateFolders = sanitizeTemplateFolders(o.templateFolders).filter(
+    (f) => f.scope === "user",
+  );
   return {
-    version: 1,
+    version: 2,
     layoutMode,
     selectedKeys,
     slotAssignment,
     seriesVisualMap,
+    displayConfig,
+    seriesCalcConfigMap,
+    derivedCalcs,
+    templates,
+    templateFolders,
+    activeTemplateId,
+  };
+}
+
+function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverride | null {
+  if (!input || typeof input !== "object") return null;
+  const o = input as Record<string, unknown>;
+  const lm = Number(o.layoutMode);
+  const layoutMode = lm === 1 || lm === 2 || lm === 3 || lm === 4 || lm === 5 || lm === 6 ? lm : 1;
+  const selectedKeys = Array.isArray(o.selectedKeys)
+    ? o.selectedKeys.map((x) => String(x).trim()).filter(Boolean)
+    : [];
+  if (selectedKeys.length === 0) return null;
+  const slotAssignment =
+    o.slotAssignment && typeof o.slotAssignment === "object"
+      ? (o.slotAssignment as MacroSlotAssignment)
+      : {};
+  const seriesVisualMap =
+    o.seriesVisualMap && typeof o.seriesVisualMap === "object"
+      ? (o.seriesVisualMap as MacroSeriesVisualConfigMap)
+      : {};
+  const displayConfig =
+    o.displayConfig && typeof o.displayConfig === "object"
+      ? {
+          ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+          ...(o.displayConfig as Partial<MacroChartDisplayConfig>),
+        }
+      : undefined;
+  const name = typeof o.name === "string" && o.name.trim() ? o.name.trim() : undefined;
+  const description =
+    typeof o.description === "string" && o.description.trim() ? o.description.trim() : undefined;
+  const updatedAtIso =
+    typeof o.updatedAtIso === "string" && o.updatedAtIso.trim()
+      ? o.updatedAtIso.trim()
+      : undefined;
+  return {
+    name,
+    description,
+    selectedKeys,
+    layoutMode,
+    slotAssignment,
+    seriesVisualMap,
+    displayConfig,
+    seriesCalcConfigMap: sanitizeSeriesCalcConfigMap(o.seriesCalcConfigMap),
+    derivedCalcs: Array.isArray(o.derivedCalcs)
+      ? o.derivedCalcs
+          .map((row) => {
+            if (!row || typeof row !== "object") return null;
+            const x = row as Record<string, unknown>;
+            const id = String(x.id ?? "").trim();
+            const leftKey = String(x.leftKey ?? "").trim();
+            const rightKey = String(x.rightKey ?? "").trim();
+            const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
+            const dname = String(x.name ?? "").trim();
+            if (!id || !leftKey || !rightKey || !dname || !DERIVED_OPS.has(op)) return null;
+            return { id, leftKey, rightKey, op, name: dname } as MacroDerivedCalc;
+          })
+          .filter((x): x is MacroDerivedCalc => Boolean(x))
+          .slice(0, 60)
+      : undefined,
+    updatedAtIso,
+  };
+}
+
+function sanitizeSystemMacroChartPrefs(input: unknown): SystemMacroChartPrefsPayload {
+  const out: Record<string, BuiltinTemplateOverride> = {};
+  if (!input || typeof input !== "object") {
+    return {
+      version: 1,
+      builtinTemplateOverrides: out,
+      builtinTemplateFolders: [],
+      builtinTemplateFolderIds: {},
+    };
+  }
+  const o = input as Record<string, unknown>;
+  const raw =
+    o.builtinTemplateOverrides && typeof o.builtinTemplateOverrides === "object"
+      ? (o.builtinTemplateOverrides as Record<string, unknown>)
+      : {};
+  for (const [id, row] of Object.entries(raw)) {
+    const key = id.trim();
+    if (!key) continue;
+    const parsed = sanitizeBuiltinTemplateOverride(row);
+    if (parsed) out[key] = parsed;
+  }
+  const builtinTemplateFolders = sanitizeTemplateFolders(o.builtinTemplateFolders).filter(
+    (f) => f.scope === "builtin",
+  );
+  const builtinTemplateFolderIds = sanitizeBuiltinTemplateFolderIds(o.builtinTemplateFolderIds);
+  return {
+    version: 1,
+    builtinTemplateOverrides: out,
+    builtinTemplateFolders,
+    builtinTemplateFolderIds,
+  };
+}
+
+export function mergeBuiltinTemplateOverride(
+  base: MacroChartTemplate,
+  override: BuiltinTemplateOverride | undefined,
+): MacroChartTemplate {
+  if (!override) return base;
+  return {
+    ...base,
+    name: override.name?.trim() || base.name,
+    description: override.description ?? base.description,
+    selectedKeys: [...override.selectedKeys],
+    layoutMode: override.layoutMode,
+    slotAssignment: { ...override.slotAssignment },
+    seriesVisualMap: { ...override.seriesVisualMap },
+    displayConfig: override.displayConfig ?? base.displayConfig,
+    seriesCalcConfigMap: override.seriesCalcConfigMap ?? base.seriesCalcConfigMap,
+    derivedCalcs: override.derivedCalcs ?? base.derivedCalcs,
+    builtIn: true,
   };
 }
 
@@ -59,4 +391,65 @@ export async function saveMacroChartPrefsForUser(
     update: { prefs: json },
   });
   return prefs;
+}
+
+export async function loadSystemMacroChartPrefs(): Promise<SystemMacroChartPrefsPayload> {
+  const row = await prisma.systemMacroChartPrefs.findUnique({ where: { id: "default" } });
+  if (!row) {
+    return {
+      version: 1,
+      builtinTemplateOverrides: {},
+      builtinTemplateFolders: [],
+      builtinTemplateFolderIds: {},
+    };
+  }
+  return sanitizeSystemMacroChartPrefs(row.prefs as unknown);
+}
+
+export async function saveSystemMacroChartPrefs(
+  patch: Partial<SystemMacroChartPrefsPayload>,
+): Promise<SystemMacroChartPrefsPayload> {
+  const current = await loadSystemMacroChartPrefs();
+  const merged = sanitizeSystemMacroChartPrefs({
+    version: 1,
+    builtinTemplateOverrides:
+      patch.builtinTemplateOverrides ?? current.builtinTemplateOverrides,
+    builtinTemplateFolders: patch.builtinTemplateFolders ?? current.builtinTemplateFolders,
+    builtinTemplateFolderIds:
+      patch.builtinTemplateFolderIds ?? current.builtinTemplateFolderIds,
+  });
+  const json = merged as unknown as Prisma.InputJsonValue;
+  await prisma.systemMacroChartPrefs.upsert({
+    where: { id: "default" },
+    create: { id: "default", prefs: json },
+    update: { prefs: json },
+  });
+  return merged;
+}
+
+export async function loadBuiltinTemplateOverrides(): Promise<
+  Record<string, BuiltinTemplateOverride>
+> {
+  const parsed = await loadSystemMacroChartPrefs();
+  return parsed.builtinTemplateOverrides;
+}
+
+export async function saveBuiltinTemplateOverrides(
+  input: unknown,
+): Promise<Record<string, BuiltinTemplateOverride>> {
+  if (input && typeof input === "object" && "builtinTemplateOverrides" in input) {
+    const merged = await saveSystemMacroChartPrefs(input as Partial<SystemMacroChartPrefsPayload>);
+    return merged.builtinTemplateOverrides;
+  }
+  const overrides: Record<string, BuiltinTemplateOverride> = {};
+  if (input && typeof input === "object") {
+    for (const [id, row] of Object.entries(input as Record<string, unknown>)) {
+      const key = id.trim();
+      if (!key) continue;
+      const parsed = sanitizeBuiltinTemplateOverride(row);
+      if (parsed) overrides[key] = parsed;
+    }
+  }
+  const merged = await saveSystemMacroChartPrefs({ builtinTemplateOverrides: overrides });
+  return merged.builtinTemplateOverrides;
 }

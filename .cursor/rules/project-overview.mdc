@@ -1,0 +1,44 @@
+---
+description: finance-site 项目总则与协作约定
+alwaysApply: true
+---
+
+# finance-site 项目总则
+
+## 技术栈
+
+- **Next.js 15** App Router + **React 19** + **TypeScript**
+- **Prisma** + **PostgreSQL**（`public` 用户态 + `mds` 宏观数据 schema）
+- **ECharts**（宏观）+ **Lightweight Charts**（K 线）
+- 包管理：**npm**；Node **20 LTS**（见 `.nvmrc`）
+
+## 目录速查
+
+| 路径 | 职责 |
+|------|------|
+| `src/app/` | 页面与 Route Handler（`api/`） |
+| `src/components/` | 可复用 UI（宏观、K 线、图表） |
+| `src/lib/data/` | 数据源、Provider、宏观/K 线业务逻辑 |
+| `src/lib/` | 图表 option、auth、工具函数 |
+| `prisma/` | schema 与 migration（**同一时间只改一人**） |
+| `scripts/` | 数据导入、ETL、一次性脚本 |
+
+## 编码原则
+
+1. **最小改动**：只改任务相关文件，不顺手重构
+2. **密钥不进前端**：API Key 仅 `.env.local` + 服务端 Route Handler
+3. **中文 UI**：用户可见文案用中文
+4. **改完可构建**：提交前本地 `npm run build` 通过
+5. **不提交**：`.env.local`、`.data/`、`node_modules/`
+
+## Git 协作（3–5 人）
+
+- `main` 受保护，**禁止直接 push**；功能走 `feature/<模块>-<简述>` 分支 + PR
+- 改 `prisma/schema.prisma` 前在 PR/Issue 里声明，合并后他人需 `npm run db:migrate`
+- 大文件（如 `MacroSection.tsx`）优先拆组件再并行开发
+- 详细流程见 `CONTRIBUTING.md`；AI 上下文见 `AGENTS.md`
+
+## Windows 构建注意
+
+- 构建前停止 `npm run dev` / `npm run start`，避免 Prisma EPERM 锁 DLL
+- 若 schema 已改需强制 generate：`PRISMA_FORCE_GENERATE=1 npm run build`

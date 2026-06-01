@@ -302,7 +302,7 @@ export function MarketsToolsClient() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-50">资产区间回报统计工具</h1>
+        <h1 className="text-xl font-semibold text-slate-50">K线区间统计</h1>
         <p className="mt-1 text-sm text-slate-400">
           使用本地 Excel（10Y、SPX、XAU）日线数据，统计任意两个日期区间的回报：Close→Close 与
           Low→High。多条统计会保存在当前<strong className="text-slate-300">模板</strong>

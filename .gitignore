@@ -35,6 +35,12 @@ yarn-error.log*
 # local runtime data (PostgreSQL is canonical; mail fallback log lives here)
 /.data/
 
+# IB Client Portal Gateway（本机安装目录，勿提交）
+/clientportal.gw/
+
+# 本地 Flex 成交导出样例
+/trade_record.htm
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

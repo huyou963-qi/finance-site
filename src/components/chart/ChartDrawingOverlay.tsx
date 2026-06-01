@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { ISeriesApi, IChartApi, Time } from "lightweight-charts";
 import type { UTCTimestamp } from "lightweight-charts";
 
@@ -110,6 +111,11 @@ function clipInfiniteLinePx(
   );
 }
 
+export type VisibleExtremaOverlay = {
+  high: { t: UTCTimestamp; price: number; text: string };
+  low: { t: UTCTimestamp; price: number; text: string };
+};
+
 type Props = {
   chart: IChartApi | null;
   candleSeries: ISeriesApi<"Candlestick", Time> | null;
@@ -119,7 +125,55 @@ type Props = {
   draftPreview?: DrawingDraftPreview | null;
   /** 选中高亮（与 PersistedDrawing.id 一致） */
   selectedShapeId?: string | null;
+  /** 当前屏幕可见区间内的最高/最低标注 */
+  visibleExtrema?: VisibleExtremaOverlay | null;
 };
+
+function renderExtremaMarker(
+  pt: { x: number; y: number },
+  text: string,
+  kind: "high" | "low",
+  paneHeight: number,
+  peerX: number | null,
+): ReactNode {
+  const isHigh = kind === "high";
+  const stroke = isHigh ? "#fb7185" : "#34d399";
+  const nearTop = pt.y < 24;
+  const nearBottom = pt.y > paneHeight - 24;
+  const labelAbove = isHigh ? !nearTop : nearBottom;
+  const textY = labelAbove ? pt.y - 10 : pt.y + 18;
+  let textX = pt.x;
+  if (peerX != null && Math.abs(pt.x - peerX) < 10) {
+    textX += isHigh ? -42 : 42;
+  }
+  return (
+    <g key={kind}>
+      <line
+        x1={pt.x}
+        y1={pt.y}
+        x2={pt.x}
+        y2={labelAbove ? pt.y - 6 : pt.y + 6}
+        stroke={stroke}
+        strokeWidth={1.5}
+        strokeOpacity={0.9}
+      />
+      <circle cx={pt.x} cy={pt.y} r={3.5} fill={stroke} stroke="#131722" strokeWidth={1} />
+      <text
+        x={textX}
+        y={textY}
+        fill={stroke}
+        fontSize={11}
+        fontWeight={600}
+        textAnchor="middle"
+        paintOrder="stroke"
+        stroke="#131722"
+        strokeWidth={3}
+      >
+        {text}
+      </text>
+    </g>
+  );
+}
 
 export function ChartDrawingOverlay({
   chart,
@@ -129,6 +183,7 @@ export function ChartDrawingOverlay({
   height,
   draftPreview,
   selectedShapeId = null,
+  visibleExtrema = null,
 }: Props) {
   if (!chart || !candleSeries || width <= 0) return null;
 
@@ -417,6 +472,36 @@ export function ChartDrawingOverlay({
     }
   }
 
+  const extremaNodes: ReactNode[] = [];
+  if (visibleExtrema) {
+    const hiPt = project(visibleExtrema.high.t, visibleExtrema.high.price);
+    const loPt = project(visibleExtrema.low.t, visibleExtrema.low.price);
+    const peerHiX = hiPt?.x ?? null;
+    const peerLoX = loPt?.x ?? null;
+    if (hiPt) {
+      extremaNodes.push(
+        renderExtremaMarker(
+          hiPt,
+          visibleExtrema.high.text,
+          "high",
+          height,
+          peerLoX,
+        ),
+      );
+    }
+    if (loPt) {
+      extremaNodes.push(
+        renderExtremaMarker(
+          loPt,
+          visibleExtrema.low.text,
+          "low",
+          height,
+          peerHiX,
+        ),
+      );
+    }
+  }
+
   return (
     <svg
       className="pointer-events-none absolute left-0 top-0 z-10"
@@ -426,6 +511,7 @@ export function ChartDrawingOverlay({
       {rects}
       {lines}
       {draftNodes}
+      {extremaNodes}
     </svg>
   );
 }

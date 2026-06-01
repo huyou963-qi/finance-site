@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 贡献指南（仓库内 CONTRIBUTING.md）
+    url: https://docs.github.com/en/get-started/quickstart/contributing-to-projects
+    about: 克隆仓库后请阅读根目录 CONTRIBUTING.md 了解本项目的分支与 PR 流程

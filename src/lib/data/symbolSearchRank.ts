@@ -57,7 +57,7 @@ function symbolAffinity(symbol: string, qu: string): number {
 
 /**
  * 对联想结果重排：优先精确/前缀 ticker，再考虑名称整词匹配，弱子串匹配垫底。
- * 解决输入 META 时 Yahoo 把「*METALS*」名称匹配排在真正的 META 之前、且截断列表丢失 META 的问题。
+ * 使名称子串（如误命中 metals）不会压过更相关的 ticker 命中。
  */
 export function rankSymbolSearchHits(
   q: string,

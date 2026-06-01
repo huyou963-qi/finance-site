@@ -1,4 +1,80 @@
-import type { CandlestickData, IChartApi } from "lightweight-charts";
+import { isBusinessDay, type CandlestickData, type IChartApi, type Time } from "lightweight-charts";
+
+function horzTimeToUnixSec(t: Time): number | null {
+  if (typeof t === "number" && Number.isFinite(t)) return t;
+  if (typeof t === "string") {
+    const ms = Date.parse(t);
+    return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+  }
+  if (isBusinessDay(t)) {
+    return Math.floor(Date.UTC(t.year, t.month - 1, t.day) / 1000);
+  }
+  return null;
+}
+
+/** 当前屏幕可见 K 线区间内的最高/最低柱 */
+export type VisibleRangeExtrema = {
+  high: { time: CandlestickData["time"]; price: number };
+  low: { time: CandlestickData["time"]; price: number };
+};
+
+function visibleBarIndexBounds(
+  candles: CandlestickData[],
+  chart: IChartApi,
+): { i0: number; i1: number } | null {
+  const n = candles.length;
+  if (!n) return null;
+
+  const lr = chart.timeScale().getVisibleLogicalRange();
+  if (lr) {
+    let i0 = Math.ceil(lr.from);
+    let i1 = Math.floor(lr.to);
+    i0 = Math.max(0, Math.min(n - 1, i0));
+    i1 = Math.max(0, Math.min(n - 1, i1));
+    if (i0 > i1) return null;
+    return { i0, i1 };
+  }
+
+  const vr = chart.timeScale().getVisibleRange();
+  if (!vr) return null;
+  const fromSec = horzTimeToUnixSec(vr.from);
+  const toSec = horzTimeToUnixSec(vr.to);
+  if (fromSec == null || toSec == null) return null;
+  const lo = Math.min(fromSec, toSec);
+  const hi = Math.max(fromSec, toSec);
+  let i0 = n;
+  let i1 = -1;
+  for (let i = 0; i < n; i++) {
+    const ts = horzTimeToUnixSec(candles[i]!.time as Time);
+    if (ts == null) continue;
+    if (ts < lo || ts > hi) continue;
+    if (i < i0) i0 = i;
+    if (i > i1) i1 = i;
+  }
+  if (i1 < i0) return null;
+  return { i0, i1 };
+}
+
+/** 在可见时间/逻辑区间内找最高价柱与最低价柱（含端点） */
+export function computeVisibleRangeExtrema(
+  candles: CandlestickData[],
+  chart: IChartApi,
+): VisibleRangeExtrema | null {
+  const bounds = visibleBarIndexBounds(candles, chart);
+  if (!bounds) return null;
+  const { i0, i1 } = bounds;
+  let highIdx = i0;
+  let lowIdx = i0;
+  for (let i = i0; i <= i1; i++) {
+    const c = candles[i]!;
+    if (c.high > candles[highIdx]!.high) highIdx = i;
+    if (c.low < candles[lowIdx]!.low) lowIdx = i;
+  }
+  return {
+    high: { time: candles[highIdx]!.time, price: candles[highIdx]!.high },
+    low: { time: candles[lowIdx]!.time, price: candles[lowIdx]!.low },
+  };
+}
 
 export type KlineRangeStatsResult = {
   startLabel: string;

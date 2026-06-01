@@ -7,6 +7,7 @@ export async function fetchBinanceSpotKlines(
   symbolRaw: string,
   intervalRaw: string,
   limitRaw: number,
+  options?: { beforeTimeSec?: number },
 ): Promise<KlinePayload> {
   const symbol = symbolRaw.trim().toUpperCase();
   if (!/^[A-Z0-9]{6,20}$/.test(symbol)) {
@@ -20,7 +21,11 @@ export async function fetchBinanceSpotKlines(
 
   const limit = clampKlineLimit(limitRaw);
 
-  const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${limit}`;
+  let url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${limit}`;
+  if (options?.beforeTimeSec != null) {
+    const endMs = Math.floor(options.beforeTimeSec * 1000);
+    url += `&endTime=${endMs}`;
+  }
 
   const res = await fetch(url, { next: { revalidate: 120 } });
 
@@ -54,12 +59,15 @@ export async function fetchBinanceSpotKlines(
     volumes.push(vol);
   }
 
+  const hasMoreOlder = candles.length > 0 && candles.length >= limit;
+
   return {
     source: "binance",
     symbol,
     interval,
     candles,
     volumes,
+    hasMoreOlder,
     attribution: "Binance 公开行情接口（演示用途；生产请评估合规与条款）",
   };
 }

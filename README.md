@@ -28,6 +28,16 @@
 
 可选：若宏观/清洗数据用 Python，另装 **Python 3**；本仓库前端不强制。
 
+## 团队协作
+
+多人开发（GitHub + Cursor AI）请参阅：
+
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — 分支、PR、Review、数据库协调
+- [AGENTS.md](./AGENTS.md) — 架构说明（给 AI / 新人 `@` 引用）
+- `.cursor/rules/` — 提交到 Git 的 Cursor 项目规则
+
+首次 clone 后：`npm install` → 配置 `.env.local` → `npm run db:migrate` → `npm run dev`。
+
 ## 安装与启动
 
 ```bash

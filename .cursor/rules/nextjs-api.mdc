@@ -1,0 +1,31 @@
+---
+description: Next.js App Router 与 API Route 约定
+globs: src/app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Next.js / API 约定
+
+## 页面
+
+- 客户端组件顶部 `"use client"`；使用 `useSearchParams()` 的页面必须在 `page.tsx` 用 `<Suspense>` 包裹（参考 `src/app/macro/page.tsx`）
+- 页面尽量薄：复杂逻辑放 `src/lib/` 或 `*Client.tsx`
+
+## Route Handler（`src/app/api/**/route.ts`）
+
+- 密钥从 `process.env` 读取，**不要**暴露给客户端
+- 对外部 API 使用 `fetch` + 合理 `revalidate` / 错误处理
+- 返回 `NextResponse.json()`；401/403/501 语义明确
+- 宏观数据入口：`/api/data/macro`、`/api/data/macro-observations`、`/api/data/fmp-catalog`
+- K 线入口：`/api/data/klines`（Provider 注册在 `src/lib/data/providers/`）
+
+## 认证
+
+- Session 逻辑在 `src/lib/auth.ts`；管理接口需校验 admin role
+- 不要绕过 session 校验新增敏感写接口
+
+## 新增 API 检查清单
+
+- [ ] 密钥仅服务端
+- [ ] 错误信息对用户友好、对日志足够详细
+- [ ] 若影响构建，确认无仅 dev 可用的硬依赖

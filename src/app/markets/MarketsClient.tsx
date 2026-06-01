@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ChartExecutionTrade } from "@/lib/chart/executionMarkers";
 import { StockChartWorkspace } from "@/components/StockChartWorkspace";
 import {
   isKlineInterval,
@@ -13,8 +14,15 @@ import {
   type KlineSyncMessage,
   type RangeStatWireSegment,
 } from "@/lib/klinePageSyncChannel";
+import { FlexTradesImportButton } from "@/components/FlexTradesImportButton";
+import { IbkrPortfolioPanel } from "@/components/IbkrPortfolioPanel";
+import {
+  loadFlexTradesFromStorage,
+  mergeChartExecutionTrades,
+} from "@/lib/chart/flexExecutionImport";
+import type { PriceAdjustmentMode } from "@/lib/data/klineAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
-import { normalizeYahooSymbol } from "@/lib/data/yahooSymbol";
+import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 
 type SymbolHit = {
   symbol: string;
@@ -38,12 +46,17 @@ function displayNameForSymbol(sym: string): string | undefined {
   return undefined;
 }
 
+/** 与 GET /api/data/klines?source= 及 StockChartWorkspace 一致 */
+type KlineChartSource = "auto" | "ibkr";
+
 export function MarketsClient() {
-  const dataSource = "ibkr" as const;
+  const [klineSource, setKlineSource] = useState<KlineChartSource>("ibkr");
   const [symbol, setSymbol] = useState("");
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [interval, setKlineInterval] = useState<KlineInterval>("1d");
+  const [priceAdjustment, setPriceAdjustment] =
+    useState<PriceAdjustmentMode>("forward");
   const [hits, setHits] = useState<SymbolHit[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -63,11 +76,30 @@ export function MarketsClient() {
     RangeStatWireSegment[]
   >([]);
   const [remoteRangeSpecsVer, setRemoteRangeSpecsVer] = useState(0);
+  const [gatewayTrades, setGatewayTrades] = useState<ChartExecutionTrade[]>([]);
+  const [flexTrades, setFlexTrades] = useState<ChartExecutionTrade[]>([]);
+  const [portfolioTrades, setPortfolioTrades] =
+    useState<ChartExecutionTrade[]>([]);
+
+  const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
+
+  useEffect(() => {
+    setFlexTrades(loadFlexTradesFromStorage());
+  }, [tabId]);
+
+  const executionTrades = useMemo(
+    () =>
+      mergeChartExecutionTrades(symbol.trim(), {
+        gateway: gatewayTrades,
+        flex: flexTrades,
+        portfolio: portfolioTrades,
+      }),
+    [symbol, gatewayTrades, flexTrades, portfolioTrades],
+  );
 
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const reqIdRef = useRef(0);
-  const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
   const bcRef = useRef<BroadcastChannel | null>(null);
   const pageSyncRef = useRef(false);
 
@@ -81,13 +113,70 @@ export function MarketsClient() {
     setRemoteRangeSpecsVer(0);
   }, [symbol]);
 
+  /**
+   * IBKR：当前图表标的在 Gateway 最近 ≤7 日内的成交 → K 线箭头标注。
+   * 无需先点组合持仓；未登录 Gateway 时静默为空。
+   */
+  useEffect(() => {
+    const sym = symbol.trim();
+    if (!sym) {
+      setGatewayTrades([]);
+      return;
+    }
+    let cancelled = false;
+    const tid = window.setTimeout(() => {
+      fetch(
+        `/api/ibkr/trades?${new URLSearchParams({
+          symbol: sym,
+          days: "7",
+        }).toString()}`,
+        { cache: "no-store" },
+      )
+        .then(async (r) => {
+          const j = (await r.json()) as {
+            trades?: {
+              executionId?: string;
+              side: string;
+              tradeTimeSec: number;
+              size: number;
+              price: number;
+            }[];
+            error?: string;
+          };
+          if (cancelled) return;
+          if (!r.ok) {
+            setGatewayTrades([]);
+            return;
+          }
+          const list = j.trades ?? [];
+          setGatewayTrades(
+            list.map((t) => ({
+              tradeTimeSec: t.tradeTimeSec,
+              price: t.price,
+              size: t.size,
+              side: t.side,
+              source: "gateway" as const,
+              dedupeKey: t.executionId,
+            })),
+          );
+        })
+        .catch(() => {
+          if (!cancelled) setGatewayTrades([]);
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(tid);
+    };
+  }, [symbol]);
+
   useEffect(() => {
     bcRef.current = new BroadcastChannel(KLINE_PAGE_SYNC_CHANNEL);
     return () => {
       bcRef.current?.close();
       bcRef.current = null;
     };
-  }, []);
+  }, [tabId]);
 
   useEffect(() => {
     const bc = bcRef.current;
@@ -131,7 +220,7 @@ export function MarketsClient() {
     };
     bc.addEventListener("message", onMsg);
     return () => bc.removeEventListener("message", onMsg);
-  }, []);
+  }, [tabId]);
 
   const onLeaderSnapshot = useCallback(
     (p: {
@@ -181,7 +270,7 @@ export function MarketsClient() {
       to,
     };
     bc.postMessage(msg);
-  }, []);
+  }, [tabId]);
 
   const onLocalCrosshairTime = useCallback((time: number | null) => {
     const bc = bcRef.current;
@@ -193,7 +282,7 @@ export function MarketsClient() {
       time,
     };
     bc.postMessage(msg);
-  }, []);
+  }, [tabId]);
 
   const pickInterval = (iv: KlineInterval) => {
     setKlineInterval(iv);
@@ -229,7 +318,7 @@ export function MarketsClient() {
       return;
     }
 
-    /** 已选定标的且输入与当前代码一致时不再打联想接口（避免 Massive 无联想命中→Yahoo 失败的红字，与 K 线是否正常无关） */
+    /** 已选定标的且输入与当前代码一致时不再打联想（与 K 线加载无关，减少无效请求） */
     if (symbol.trim() && q === symbol.trim()) {
       setSearchLoading(false);
       setSearchError(null);
@@ -283,13 +372,18 @@ export function MarketsClient() {
   }, []);
 
   const commitSymbol = (raw: string, name?: string) => {
-    const s = normalizeYahooSymbol(raw);
+    const s = normalizeTickerSymbol(raw);
     if (!s) return;
+    // 丢弃仍在路上的 symbol-search 响应，否则会再次 setOpen(true) + 空列表 →「无匹配」盖住图表
+    reqIdRef.current += 1;
+    setPortfolioTrades([]);
     setSymbol(s);
     setQuery(s);
     setPickedName(name ?? displayNameForSymbol(s));
     setOpen(false);
     setHits([]);
+    setSearchError(null);
+    setSearchLoading(false);
   };
 
   useEffect(() => {
@@ -298,13 +392,28 @@ export function MarketsClient() {
 
   const showPanel = open && query.trim().length > 0;
 
+  const [chartToolbarMount, setChartToolbarMount] =
+    useState<HTMLDivElement | null>(null);
+
   return (
     <div
       ref={rootRef}
-      className="flex h-full min-h-0 w-full flex-1 flex-col gap-2 overflow-hidden px-1 lg:px-2"
+      className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
     >
-      <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 py-0">
-        <div className="relative min-h-[26px] min-w-[100px] max-w-md flex-1">
+      <IbkrPortfolioPanel
+        activeChartSymbol={symbol}
+        chartExecutionTrades={executionTrades}
+        flexTradesImportSlot={
+          <FlexTradesImportButton onImported={setFlexTrades} />
+        }
+        onExecutionTradesChange={setPortfolioTrades}
+        onPickSymbol={(s) => {
+          commitSymbol(s);
+        }}
+      />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+      <div className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
+        <div className="relative min-h-[26px] min-w-[100px] max-w-[12rem] flex-1">
           <span className="sr-only">代码</span>
           <input
             ref={inputRef}
@@ -379,29 +488,72 @@ export function MarketsClient() {
           ) : null}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-1">
-          {KLINE_INTERVALS.map((iv) => (
-            <button
-              key={iv}
-              type="button"
-              onClick={() => pickInterval(iv)}
-              className={`h-[22px] shrink-0 rounded px-1.5 py-0 text-[10px] font-medium leading-none transition ${
-                interval === iv
-                  ? "bg-amber-600/90 text-white shadow"
-                  : "border border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500 hover:text-slate-200"
-              }`}
-            >
-              {INTERVAL_LABEL[iv]}
-            </button>
-          ))}
-        </div>
+        <div
+          ref={setChartToolbarMount}
+          className="flex min-w-0 shrink-0 flex-wrap items-center gap-2"
+          aria-label="主图与画线工具"
+        />
 
-        <label className="ml-2 flex shrink-0 cursor-pointer items-center gap-1 text-[9px] text-slate-400">
+        <label className="flex shrink-0 items-center text-[9px] text-slate-400">
+          <select
+            value={interval}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (isKlineInterval(v)) pickInterval(v);
+            }}
+            title="K 线周期"
+            aria-label="K 线周期"
+            className="h-[22px] min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-slate-900 px-1.5 py-0 text-[10px] font-medium leading-none text-slate-100 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+          >
+            {KLINE_INTERVALS.map((iv) => (
+              <option key={iv} value={iv}>
+                {INTERVAL_LABEL[iv]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex max-w-[8.5rem] shrink-0 items-center text-[9px] text-slate-400">
+          <select
+            value={klineSource}
+            onChange={(e) =>
+              setKlineSource(e.target.value as KlineChartSource)
+            }
+            title="K 线数据源：自动与 IBKR 均只请求 Interactive Brokers。"
+            aria-label="K 线数据源"
+            className="h-[22px] min-w-0 max-w-full cursor-pointer truncate rounded border border-slate-700 bg-slate-900 px-1 py-0 text-[10px] leading-none text-slate-200 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+          >
+            <option value="auto">数据源·自动（仅IB）</option>
+            <option value="ibkr">数据源·IBKR</option>
+          </select>
+        </label>
+
+        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-slate-400">
+          <select
+            value={priceAdjustment}
+            onChange={(e) =>
+                setPriceAdjustment(e.target.value as PriceAdjustmentMode)
+              }
+              title="前复权：历史价按拆股/除权跳变对齐最新尺度（如 IBKR 2025-06-18 拆股）；IB 仅 Trades 价，不含现金分红平滑。"
+              aria-label="K 线价格复权"
+              className="h-[22px] max-w-[5.5rem] rounded border border-slate-700 bg-slate-900 px-1 py-0 font-mono text-[10px] text-slate-200 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+          >
+            <option value="forward">前复权</option>
+            <option value="backward">后复权</option>
+            <option value="none">不复权</option>
+          </select>
+        </label>
+
+        <label
+          className="ml-2 flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-slate-400"
+          title="多屏幕多页面时间与光标的同步"
+        >
           <input
             type="checkbox"
             checked={pageSync}
             onChange={(e) => handlePageSyncChange(e.target.checked)}
             className="h-3 w-3 shrink-0 rounded border-slate-600"
+            aria-label="页面同步：多屏幕多页面时间与光标的同步"
           />
           页面同步
         </label>
@@ -415,7 +567,7 @@ export function MarketsClient() {
           ) : null}
         </div>
 
-        <div className="ml-auto flex min-w-0 shrink-0 flex-col items-end gap-0 text-right sm:flex-row sm:items-baseline sm:gap-1.5">
+        <div className="ml-auto flex min-w-0 shrink-0 flex-wrap items-end justify-end gap-x-2 gap-y-1 text-right sm:items-baseline">
           {symbol ? (
             <>
               <span className="font-mono text-[10px] font-semibold leading-none text-slate-100">
@@ -440,10 +592,12 @@ export function MarketsClient() {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <StockChartWorkspace
-          key={`${dataSource}-${symbol || "none"}-${interval}`}
-          source={dataSource}
+          key={`${klineSource}-${symbol || "none"}-${interval}-${priceAdjustment}`}
+          source={klineSource}
           symbol={symbol}
           interval={interval}
+          priceAdjustment={priceAdjustment}
+          executionTrades={executionTrades}
           fillHeight
           onAttributionChange={setDataHint}
           onKlineLoadSuccess={onKlineLoadSuccess}
@@ -459,7 +613,9 @@ export function MarketsClient() {
           onRangeSpecsBroadcast={onRangeSpecsBroadcast}
           onLocalVisibleTimeRange={onLocalVisibleTimeRange}
           onLocalCrosshairTime={onLocalCrosshairTime}
+          toolbarPortalEl={chartToolbarMount}
         />
+      </div>
       </div>
     </div>
   );
