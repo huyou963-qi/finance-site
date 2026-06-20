@@ -136,8 +136,10 @@ export type StockChartWorkspaceProps = {
   remoteRangeSpecsVersion?: number;
   /** 本图区间统计变化时广播（页面同步开启） */
   onRangeSpecsBroadcast?: (ranges: RangeStatWireSegment[]) => void;
-  /** 本图可见区间变化（用户缩放/平移） */
+  /** 本图可见区间变化（用户缩放/平移；页面同步开启时广播） */
   onLocalVisibleTimeRange?: (from: number, to: number) => void;
+  /** 本图可见区间变化（始终回调，供事件列表等） */
+  onVisibleTimeRangeChange?: (from: number, to: number) => void;
   /** 本图十字锚定的柱时间 */
   onLocalCrosshairTime?: (time: UTCTimestamp | null) => void;
   /** 若设置则将「主图叠加 / 区间统计 / 画图工具 / 清除画线」挂载到该 DOM 节点（如行情页顶栏） */
@@ -670,6 +672,7 @@ export function StockChartWorkspace({
   remoteRangeSpecsVersion = 0,
   onRangeSpecsBroadcast,
   onLocalVisibleTimeRange,
+  onVisibleTimeRangeChange,
   onLocalCrosshairTime,
   toolbarPortalEl = null,
 }: StockChartWorkspaceProps) {
@@ -766,9 +769,11 @@ export function StockChartWorkspace({
   > | null>(null);
   const onRangeSpecsBroadcastRef = useRef(onRangeSpecsBroadcast);
   const onLocalVisibleTimeRangeRef = useRef(onLocalVisibleTimeRange);
+  const onVisibleTimeRangeChangeRef = useRef(onVisibleTimeRangeChange);
   const onLocalCrosshairTimeRef = useRef(onLocalCrosshairTime);
   onRangeSpecsBroadcastRef.current = onRangeSpecsBroadcast;
   onLocalVisibleTimeRangeRef.current = onLocalVisibleTimeRange;
+  onVisibleTimeRangeChangeRef.current = onVisibleTimeRangeChange;
   onLocalCrosshairTimeRef.current = onLocalCrosshairTime;
   const onKlineLoadSuccessRef = useRef(onKlineLoadSuccess);
   onKlineLoadSuccessRef.current = onKlineLoadSuccess;
@@ -2358,16 +2363,17 @@ export function StockChartWorkspace({
       schedulePrefetchOlderBars();
       setOverlaySize((s) => ({ ...s }));
       setOverlayLayoutTick((t) => t + 1);
+      if (!tr) return;
+      const fromSec = horzTimeToUnixSec(tr.from);
+      const toSec = horzTimeToUnixSec(tr.to);
+      if (fromSec == null || toSec == null) return;
+      onVisibleTimeRangeChangeRef.current?.(fromSec, toSec);
       if (
         !pageSyncEnabledRef.current ||
         suppressVisibleRangeBroadcastRef.current
       ) {
         return;
       }
-      if (!tr) return;
-      const fromSec = horzTimeToUnixSec(tr.from);
-      const toSec = horzTimeToUnixSec(tr.to);
-      if (fromSec == null || toSec == null) return;
       onLocalVisibleTimeRangeRef.current?.(fromSec, toSec);
     };
     const logicalRangeHandler = () => {

@@ -60,8 +60,14 @@ export async function fetchUnifiedMacro(
   selectionKeys: string[],
   allowlist?: Set<string>,
 ): Promise<MacroPayload> {
-  const keys = [...new Set(selectionKeys)].filter((k) => {
-    if (allowlist && allowlist.size > 0) return allowlist.has(k);
+  const keys = selectionKeys.filter((k) => {
+    if (allowlist && allowlist.size > 0) {
+      if (k.startsWith("fred:")) {
+        const base = k.slice(5).split("::")[0]?.trim();
+        if (base && allowlist.has(`fred:${base}`)) return true;
+      }
+      return allowlist.has(k);
+    }
     return k.startsWith("fred:") || k.startsWith("wb:") || k.startsWith("mds:");
   });
 
@@ -70,7 +76,7 @@ export async function fetchUnifiedMacro(
   const mdsCodes = new Set<string>();
   for (const key of keys) {
     if (key.startsWith("fred:")) {
-      const id = key.slice(5).trim();
+      const id = key.slice(5).split("::")[0]?.trim();
       if (id) fredIds.add(id);
       continue;
     }
@@ -96,13 +102,25 @@ export async function fetchUnifiedMacro(
 
   if (fredIds.size > 0) {
     const payload = await fetchFredSeriesMultiple([...fredIds]);
+    const seriesByFredId = new Map<string, (typeof payload.series)[number]>();
+    for (const s of payload.series) {
+      const m = /\(([A-Z0-9._-]+)\)\s*$/.exec(s.name);
+      const id = m?.[1];
+      if (id) seriesByFredId.set(id, { ...s, key: `fred:${id}` });
+    }
+    const virtualFredKeys = keys.filter((k) => k.startsWith("fred:"));
+    const expandedSeries = virtualFredKeys
+      .map((virtualKey) => {
+        const baseId = virtualKey.slice(5).split("::")[0]?.trim();
+        if (!baseId) return null;
+        const base = seriesByFredId.get(baseId);
+        if (!base) return null;
+        return { ...base, key: virtualKey };
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
     parts.push({
       categories: payload.categories,
-      series: payload.series.map((s) => {
-        const m = /\(([A-Z0-9._-]+)\)\s*$/.exec(s.name);
-        const id = m?.[1];
-        return { ...s, key: id ? `fred:${id}` : s.key };
-      }),
+      series: expandedSeries.length > 0 ? expandedSeries : payload.series,
       attribution: "FRED（St. Louis Fed）",
     });
   }

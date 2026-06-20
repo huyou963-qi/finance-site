@@ -15,15 +15,20 @@ model User {
   id               String    @id
   username         String    @unique
   email            String?
+  phone            String?   @unique
   emailVerifiedAt  DateTime?
   passHash         String
   passSalt         String
   role             String
+  /// standard=普通用户，pro=付费 Pro 用户
+  plan             String    @default("standard")
   createdAt        DateTime
 
   sessions              Session[]
   assetTemplateState    UserAssetTemplateState?
   macroChartPrefsRow    UserMacroChartPrefs?
+  bookmarkState         UserBookmarkState?
+  marketEventsCreated   MarketEvent[]
 
   @@schema("public")
 }
@@ -43,12 +48,14 @@ model PendingRegistration {
   token     String   @id
   username  String
   email     String
+  phone     String
   passHash  String
   passSalt  String
   createdAt DateTime
   expiresAt DateTime
 
   @@index([email])
+  @@index([phone])
   @@schema("public")
 }
 
@@ -70,12 +77,63 @@ model UserMacroChartPrefs {
   @@schema("public")
 }
 
+/// Full `BookmarkState` JSON（常用链接 / 收藏夹）
+model UserBookmarkState {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state  Json
+
+  @@schema("public")
+}
+
 /// 系统内置宏观模板覆盖（管理员保存）；全局单例 id=default
 model SystemMacroChartPrefs {
   id        String   @id @default("default")
   prefs     Json
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@schema("public")
+}
+
+enum EventImportance {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@schema("public")
+}
+
+enum EventDatePrecision {
+  DATE
+  DATETIME
+
+  @@schema("public")
+}
+
+/// 宏观/行情联动事件记录
+model MarketEvent {
+  id            String             @id @default(uuid())
+  title         String?            @db.VarChar(256)
+  content       String             @db.Text
+  occurredAt    DateTime           @map("occurred_at")
+  datePrecision EventDatePrecision @default(DATE) @map("date_precision")
+  importance    EventImportance    @default(MEDIUM)
+  eventType     String?            @map("event_type") @db.VarChar(64)
+  countries     String[]           @default([])
+  industries    String[]           @default([])
+  assets        String[]           @default([])
+  macroKeys     String[]           @default([]) @map("macro_keys")
+  sourceUrl     String?            @map("source_url") @db.VarChar(512)
+  isPublic      Boolean            @default(true) @map("is_public")
+  createdById   String             @map("created_by_id")
+  createdBy     User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([importance])
+  @@map("market_event")
   @@schema("public")
 }
 
@@ -131,8 +189,9 @@ model Instrument {
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
 
-  macroPoints MacroObservation[]
-  bars        Bar[]
+  macroPoints      MacroObservation[]
+  bars             Bar[]
+  dataSubscription DataSubscription?
 
   @@index([kind])
   @@index([categoryId])
@@ -167,5 +226,140 @@ model Bar {
 
   @@unique([instrumentId, timeframe, openedAt])
   @@index([instrumentId, timeframe, openedAt])
+  @@schema("mds")
+}
+
+// ─── mds：按计划更新的数据订阅（多国统计机构 → 数据源 → 序列）────────────────
+
+/// 国家统计/央行等发布机构（业务主体，与具体 API 连接器解耦）。
+model StatisticalAgency {
+  id          String   @id @db.VarChar(48)
+  countryCode String   @map("country_code") @db.VarChar(2)
+  nameZh      String   @map("name_zh") @db.VarChar(128)
+  nameEn      String?  @map("name_en") @db.VarChar(128)
+  websiteUrl  String?  @map("website_url") @db.VarChar(512)
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sources DataSource[]
+
+  @@index([countryCode])
+  @@map("statistical_agency")
+  @@schema("mds")
+}
+
+enum SourceAdapterKind {
+  FRED_API
+  WORLD_BANK_API
+  REST_API
+  BULK_FILE
+  MANUAL
+
+  @@schema("mds")
+}
+
+enum DataFetchMethod {
+  API
+  BULK_DOWNLOAD
+  MANUAL
+
+  @@schema("mds")
+}
+
+enum DataGranularity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+  IRREGULAR
+
+  @@schema("mds")
+}
+
+/// 技术数据源（API / 文件等），可挂接到 StatisticalAgency。
+model DataSource {
+  id          String            @id @db.VarChar(48)
+  agencyId    String?           @map("agency_id") @db.VarChar(48)
+  agency      StatisticalAgency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  name        String            @db.VarChar(128)
+  adapterKind SourceAdapterKind @map("adapter_kind")
+  baseUrl     String?           @map("base_url") @db.VarChar(512)
+  termsUrl    String?           @map("terms_url") @db.VarChar(512)
+  /// 如 { "requestsPerMinute": 60, "minIntervalMs": 500 }
+  rateLimit   Json?             @map("rate_limit")
+  metadata    Json?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  subscriptions DataSubscription[]
+
+  @@index([agencyId])
+  @@map("data_source")
+  @@schema("mds")
+}
+
+/// 单条 Instrument 的更新订阅：官方序列键、粒度、发布规则、下次运行时间。
+model DataSubscription {
+  id              String          @id @default(uuid()) @db.Uuid
+  instrumentId    String          @unique @map("instrument_id") @db.Uuid
+  instrument      Instrument      @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  sourceId        String          @map("source_id") @db.VarChar(48)
+  source          DataSource      @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  /// 源内序列标识，如 FRED series_id、世行 indicator id
+  sourceSeriesKey String          @map("source_series_key") @db.VarChar(128)
+  fetchMethod     DataFetchMethod @map("fetch_method")
+  granularity     DataGranularity
+  timezone        String          @default("UTC") @db.VarChar(64)
+  /// ReleaseRule JSON，见 src/lib/data/scheduler/releaseRule.ts
+  releaseRule     Json            @map("release_rule")
+  /// 增量拉取时向前覆盖的月数（宏观修订）
+  revisionLookback Int            @default(3) @map("revision_lookback")
+  nextRunAt       DateTime?       @map("next_run_at")
+  lastSuccessAt   DateTime?       @map("last_success_at")
+  lastObsDate     DateTime?       @map("last_obs_date") @db.Date
+  enabled         Boolean         @default(true)
+  priority        Int             @default(0)
+  retryCount      Int             @default(0) @map("retry_count")
+  lastError       String?         @map("last_error") @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  fetchRuns FetchRun[]
+
+  @@index([sourceId])
+  @@index([enabled, nextRunAt])
+  @@map("data_subscription")
+  @@schema("mds")
+}
+
+enum FetchRunStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+  SKIPPED
+
+  @@schema("mds")
+}
+
+/// 单次拉取执行日志。
+model FetchRun {
+  id             String         @id @default(uuid()) @db.Uuid
+  subscriptionId String         @map("subscription_id") @db.Uuid
+  subscription   DataSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  startedAt      DateTime       @map("started_at")
+  finishedAt     DateTime?      @map("finished_at")
+  status         FetchRunStatus
+  rowsUpserted   Int            @default(0) @map("rows_upserted")
+  rowsSkipped    Int            @default(0) @map("rows_skipped")
+  error          String?        @db.Text
+  /// 源端最新 obs 与库内 lastObsDate 相差天数（粗算滞后）
+  sourceLagDays  Int?           @map("source_lag_days")
+  metadata       Json?
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@index([subscriptionId, startedAt])
+  @@map("fetch_run")
   @@schema("mds")
 }

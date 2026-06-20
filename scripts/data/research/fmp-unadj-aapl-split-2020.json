@@ -1,0 +1,45 @@
+[
+  {
+    "date": "2020-09-02",
+    "adjOpen": 137.59,
+    "adjHigh": 137.98,
+    "adjLow": 127,
+    "adjClose": 131.4,
+    "volume": 200119000,
+    "_note": "FMP stable/non-split-adjusted; fields named adj* but values are NOT split-adjusted"
+  },
+  {
+    "date": "2020-09-01",
+    "adjOpen": 132.76,
+    "adjHigh": 134.8,
+    "adjLow": 130.53,
+    "adjClose": 134.18,
+    "volume": 152470142
+  },
+  {
+    "date": "2020-08-31",
+    "adjOpen": 127.58,
+    "adjHigh": 131,
+    "adjLow": 126,
+    "adjClose": 129.04,
+    "volume": 225702700,
+    "_note": "AAPL 4:1 split ex-date"
+  },
+  {
+    "date": "2020-08-28",
+    "adjOpen": 504.04,
+    "adjHigh": 505.76,
+    "adjLow": 498.32,
+    "adjClose": 499.24,
+    "volume": 46907500,
+    "_note": "Pre-split nominal scale; 499.24/129.04 ≈ 3.87 (4:1)"
+  },
+  {
+    "date": "2020-08-27",
+    "adjOpen": 508.56,
+    "adjHigh": 509.96,
+    "adjLow": 495.32,
+    "adjClose": 500.04,
+    "volume": 38888100
+  }
+]

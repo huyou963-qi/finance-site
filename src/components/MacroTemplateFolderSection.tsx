@@ -155,17 +155,17 @@ export function MacroTemplateFolderSection({
         draggable={!disabled}
         onDragStart={(e) => handleTemplateDragStart(tpl, e)}
         onDragEnd={handleTemplateDragEnd}
-        className={`flex aspect-square w-full max-w-[7.25rem] cursor-grab flex-col rounded border border-slate-800/90 bg-slate-900/45 p-1.5 active:cursor-grabbing hover:border-slate-600/90 ${
+        className={`flex min-h-[8.75rem] w-full max-w-[7.25rem] cursor-grab flex-col rounded border border-slate-800/90 bg-slate-900/45 p-1.5 active:cursor-grabbing hover:border-slate-600/90 ${
           draggingTemplateId === tpl.id ? "opacity-45 ring-1 ring-cyan-500/40" : ""
         }`}
         title={templateTileTitle(tpl)}
       >
-        <div className="min-h-0 flex-1">
-          <div className="line-clamp-4 text-[11px] font-medium leading-snug text-slate-200">
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="line-clamp-3 text-[11px] font-medium leading-snug text-slate-200">
             {tpl.name}
           </div>
         </div>
-        <div className="mt-1 flex shrink-0 flex-col gap-0.5">
+        <div className="mt-1.5 shrink-0">
           <div className="flex flex-col gap-0.5 [&_button]:w-full [&_button]:px-1 [&_button]:py-0.5 [&_button]:text-[10px] [&_button]:leading-tight">
             {renderActions(tpl)}
           </div>

@@ -5,13 +5,22 @@ import { unifiedSeriesDisplayName } from "@/lib/data/macroCatalog";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
   MacroChartDisplayConfig,
+  MacroChartSlotMode,
   MacroSeriesAxis,
   MacroSeriesChartType,
   MacroSeriesVisualConfig,
   MacroSeriesVisualConfigMap,
 } from "@/lib/macroChartOption";
+import {
+  DEFAULT_SEASONAL_YEAR_COUNT,
+  resolveSlotSeasonalYearCount,
+} from "@/lib/macroChartOption";
+import { MacroChartAxisSettings } from "@/components/MacroChartAxisSettings";
+import type { MacroPayload } from "@/lib/data/types";
 
 const DRAG_TYPE = "application/x-finance-macro-key";
+
+export type MacroChartPropsTab = "global" | "single" | "axis";
 
 export type MacroChartIndicatorAssignmentProps = {
   layoutMode: 1 | 2 | 3 | 4 | 5 | 6;
@@ -26,6 +35,11 @@ export type MacroChartIndicatorAssignmentProps = {
   ) => void;
   displayConfig: MacroChartDisplayConfig;
   onUpdateDisplayConfig: (patch: Partial<MacroChartDisplayConfig>) => void;
+  /** 数据中的可选年份（饼图） */
+  availableYears?: string[];
+  /** 轴设置页：用于按图槽计算自动范围 */
+  chartPayload?: MacroPayload | null;
+  tab: MacroChartPropsTab;
 };
 
 const CHART_TYPES: Array<{ value: MacroSeriesChartType; label: string }> = [
@@ -50,6 +64,9 @@ export function MacroChartIndicatorAssignment({
   onUpdateSeriesVisual,
   displayConfig,
   onUpdateDisplayConfig,
+  availableYears = [],
+  chartPayload = null,
+  tab,
 }: MacroChartIndicatorAssignmentProps) {
   const [dragOver, setDragOver] = useState<{ kind: "slot"; slot: number } | { kind: "pool" } | null>(
     null,
@@ -100,7 +117,14 @@ export function MacroChartIndicatorAssignment({
         const key = e.dataTransfer.getData(DRAG_TYPE);
         if (!key || !selectedKeys.has(key)) return;
         if (dropTarget.kind === "slot") {
-          onAssign(key, dropTarget.slot);
+          const slot = dropTarget.slot;
+          if (slotMode(slot) === "seasonal") {
+            const existing = bySlot[slot];
+            for (const k of existing) {
+              if (k !== key) onAssign(k, null);
+            }
+          }
+          onAssign(key, slot);
         } else {
           onAssign(key, null);
         }
@@ -132,8 +156,93 @@ export function MacroChartIndicatorAssignment({
     return unifiedSeriesDisplayName(key);
   }
 
+  function slotMode(slot: number): MacroChartSlotMode {
+    return displayConfig.slotModes?.[slot] ?? "timeSeries";
+  }
+
+  function ensureSeasonalSingleIndicator(slot: number, keepKey?: string) {
+    for (const k of bySlot[slot]) {
+      if (k !== keepKey) onAssign(k, null);
+    }
+  }
+
+  function setSlotMode(slot: number, mode: MacroChartSlotMode) {
+    if (mode === "seasonal") {
+      ensureSeasonalSingleIndicator(slot, bySlot[slot][0]);
+    }
+    const nextModes = { ...displayConfig.slotModes, [slot]: mode };
+    const patch: Partial<MacroChartDisplayConfig> = { slotModes: nextModes };
+    if (mode === "pie" && availableYears.length > 0) {
+      const currentYear = displayConfig.slotPieYears?.[slot];
+      if (!currentYear || !availableYears.includes(currentYear)) {
+        patch.slotPieYears = {
+          ...displayConfig.slotPieYears,
+          [slot]: availableYears[0],
+        };
+      }
+    }
+    if (mode === "seasonal" && displayConfig.slotSeasonalYearCount?.[slot] === undefined) {
+      patch.slotSeasonalYearCount = {
+        ...displayConfig.slotSeasonalYearCount,
+        [slot]: DEFAULT_SEASONAL_YEAR_COUNT,
+      };
+    }
+    onUpdateDisplayConfig(patch);
+  }
+
+  function setSlotSeasonalYearCount(slot: number, count: number) {
+    onUpdateDisplayConfig({
+      slotSeasonalYearCount: {
+        ...displayConfig.slotSeasonalYearCount,
+        [slot]: Math.max(2, Math.min(15, Math.floor(count))),
+      },
+    });
+  }
+
+  function setSlotPieYear(slot: number, year: string) {
+    onUpdateDisplayConfig({
+      slotPieYears: { ...displayConfig.slotPieYears, [slot]: year },
+    });
+  }
+
+  function slotShowTitle(slot: number): boolean {
+    return displayConfig.slotShowTitles?.[slot] ?? true;
+  }
+
+  function setSlotShowTitle(slot: number, show: boolean) {
+    onUpdateDisplayConfig({
+      slotShowTitles: { ...displayConfig.slotShowTitles, [slot]: show },
+    });
+  }
+
+  function setSlotTitle(slot: number, text: string) {
+    onUpdateDisplayConfig({
+      slotTitles: { ...displayConfig.slotTitles, [slot]: text },
+    });
+  }
+
+  const ctrlSelect =
+    "shrink-0 rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[11px] text-slate-200";
+  const ctrlNum =
+    "w-10 shrink-0 rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-center text-[11px] text-slate-200";
+
   return (
     <div className="flex flex-col gap-3">
+      {tab === "axis" ? (
+        chartPayload ? (
+          <MacroChartAxisSettings
+            layoutMode={layoutMode}
+            payload={chartPayload}
+            slotAssignment={slotAssignment}
+            seriesVisualMap={seriesVisualMap}
+            displayConfig={displayConfig}
+            onUpdateDisplayConfig={onUpdateDisplayConfig}
+          />
+        ) : (
+          <p className="text-[11px] text-slate-500">暂无图表数据，无法设置坐标轴范围。</p>
+        )
+      ) : tab === "global" ? (
+        <>
       <div className="rounded-lg border border-slate-800 bg-slate-900/35 px-2 py-2">
         <div className="mb-1 text-[11px] font-medium text-slate-400">图例与交互</div>
         <div className="grid grid-cols-2 gap-2 text-[11px]">
@@ -333,123 +442,119 @@ export function MacroChartIndicatorAssignment({
           </label>
         </div>
       </div>
-
-      <div>
-        <h4 className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-          指标选择
-        </h4>
-        <p className="text-[11px] leading-relaxed text-slate-500">
-          单图时为「图 1」与「待选集」；多图为各子图与「待选集」。拖到图上即绘制在该图；拖到待选集则不绘制（仍参与数据请求）。
-        </p>
-      </div>
-
+        </>
+      ) : (
+        <>
       <div className="flex flex-col gap-2">
         {Array.from({ length: layoutMode }, (_, slot) => (
           <div
             key={slot}
             {...dragProps({ kind: "slot", slot })}
-            className={`rounded-lg border px-2 py-2 transition-colors ${
+            className={`rounded-md border px-2 py-1.5 transition-colors ${
               dropActive({ kind: "slot", slot })
                 ? "border-emerald-500 bg-emerald-950/30"
                 : "border-slate-800 bg-slate-900/40"
             }`}
           >
-            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-              <div className="text-[11px] font-medium text-slate-400">图 {slot + 1}</div>
-              {bySlot[slot].length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      bySlot[slot].forEach((k) =>
-                        onUpdateSeriesVisual(k, { axis: "right" }),
-                      );
-                    }}
-                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
-                  >
-                    一键右轴
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      bySlot[slot].forEach((k) =>
-                        onUpdateSeriesVisual(k, { axis: "left" }),
-                      );
-                    }}
-                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
-                  >
-                    一键左轴
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      bySlot[slot].forEach((k) =>
-                        onUpdateSeriesVisual(k, { axis: "left", chartType: "line" }),
-                      );
-                    }}
-                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
-                  >
-                    一键重置轴
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      bySlot[slot].forEach((k) =>
-                        onUpdateSeriesVisual(k, { chartType: "stackArea" }),
-                      );
-                    }}
-                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
-                  >
-                    一键堆叠面积
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      bySlot[slot].forEach((k) =>
-                        onUpdateSeriesVisual(k, { chartType: "stackBar" }),
-                      );
-                    }}
-                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
-                  >
-                    一键堆叠柱状
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      bySlot[slot].forEach((k) =>
-                        onUpdateSeriesVisual(k, { chartType: "line" }),
-                      );
-                    }}
-                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100"
-                  >
-                    取消堆叠
-                  </button>
-                </div>
+            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={slotShowTitle(slot)}
+                onChange={(e) => setSlotShowTitle(slot, e.target.checked)}
+                className="accent-emerald-600"
+                title="在图表上显示名称"
+              />
+              <input
+                type="text"
+                value={displayConfig.slotTitles?.[slot] ?? ""}
+                onChange={(e) => setSlotTitle(slot, e.target.value)}
+                disabled={!slotShowTitle(slot)}
+                placeholder={`图 ${slot + 1}`}
+                className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[11px] text-slate-300 placeholder:text-slate-600 disabled:opacity-40"
+              />
+              <select
+                value={slotMode(slot)}
+                onChange={(e) => setSlotMode(slot, e.target.value as MacroChartSlotMode)}
+                className={ctrlSelect}
+                title="展示类型"
+              >
+                <option value="timeSeries">时序</option>
+                <option value="seasonal">季节图</option>
+                <option value="pie">饼图</option>
+              </select>
+              {slotMode(slot) === "seasonal" ? (
+                <label className="flex shrink-0 items-center gap-0.5 text-[10px] text-slate-500" title="展示近几年">
+                  近
+                  <input
+                    type="number"
+                    min={2}
+                    max={15}
+                    value={resolveSlotSeasonalYearCount(displayConfig.slotSeasonalYearCount, slot)}
+                    onChange={(e) =>
+                      setSlotSeasonalYearCount(
+                        slot,
+                        parseIntSafe(e.target.value, DEFAULT_SEASONAL_YEAR_COUNT),
+                      )
+                    }
+                    className={`${ctrlNum} w-10`}
+                  />
+                  年
+                </label>
+              ) : null}
+              {slotMode(slot) === "pie" ? (
+                <select
+                  value={displayConfig.slotPieYears?.[slot] ?? availableYears[0] ?? ""}
+                  onChange={(e) => setSlotPieYear(slot, e.target.value)}
+                  disabled={availableYears.length === 0}
+                  className={`${ctrlSelect} w-14`}
+                  title="数据年份"
+                >
+                  {availableYears.length === 0 ? (
+                    <option value="">—</option>
+                  ) : (
+                    availableYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))
+                  )}
+                </select>
               ) : null}
             </div>
-            <div className="flex min-h-[36px] flex-wrap gap-1.5">
+            <div className="flex min-h-[28px] flex-col gap-1">
               {bySlot[slot].length === 0 ? (
                 <span className="text-[11px] text-slate-600">拖入指标…</span>
               ) : (
                 bySlot[slot].map((key) => {
                   const cfg = seriesVisualMap[key] ?? {};
+                  const isPieSlot = slotMode(slot) === "pie";
+                  const isSeasonalSlot = slotMode(slot) === "seasonal";
+                  const isAltSlot = isPieSlot || isSeasonalSlot;
                   return (
                     <div
                       key={key}
-                      className="rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-200"
+                      className="flex items-center gap-1 rounded border border-slate-700/80 bg-slate-950/80 px-1 py-0.5"
                       title={key}
                     >
                       <button
                         type="button"
                         draggable
                         onDragStart={startDrag(key)}
-                        className="cursor-grab text-left text-[11px] text-slate-200 active:cursor-grabbing"
+                        className="min-w-0 flex-1 cursor-grab truncate text-left text-[11px] text-slate-300 active:cursor-grabbing"
                       >
                         {displayNameForKey(key)}
                       </button>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
-                          轴
+                      <input
+                        type="color"
+                        value={cfg.color ?? "#64748b"}
+                        onChange={(e) =>
+                          onUpdateSeriesVisual(key, { color: e.target.value })
+                        }
+                        title="颜色"
+                        className="h-5 w-6 shrink-0 cursor-pointer rounded border border-slate-700 bg-slate-900 p-0"
+                      />
+                      {!isAltSlot ? (
+                        <>
                           <select
                             value={cfg.axis ?? "left"}
                             onChange={(e) =>
@@ -457,14 +562,12 @@ export function MacroChartIndicatorAssignment({
                                 axis: e.target.value as MacroSeriesAxis,
                               })
                             }
-                            className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                            className={`${ctrlSelect} w-11`}
+                            title="坐标轴"
                           >
-                            <option value="left">左轴</option>
-                            <option value="right">右轴</option>
+                            <option value="left">左</option>
+                            <option value="right">右</option>
                           </select>
-                        </label>
-                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
-                          图形
                           <select
                             value={cfg.chartType ?? "line"}
                             onChange={(e) =>
@@ -472,7 +575,8 @@ export function MacroChartIndicatorAssignment({
                                 chartType: e.target.value as MacroSeriesChartType,
                               })
                             }
-                            className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                            className={`${ctrlSelect} max-w-[5rem]`}
+                            title="图形类型"
                           >
                             {CHART_TYPES.map((t) => (
                               <option key={t.value} value={t.value}>
@@ -480,9 +584,6 @@ export function MacroChartIndicatorAssignment({
                               </option>
                             ))}
                           </select>
-                        </label>
-                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
-                          线宽
                           <input
                             type="number"
                             min={1}
@@ -494,11 +595,9 @@ export function MacroChartIndicatorAssignment({
                                 lineWidth: parseFloatSafe(e.target.value, displayConfig.lineWidth),
                               })
                             }
-                            className="w-12 rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                            className={ctrlNum}
+                            title="线宽"
                           />
-                        </label>
-                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
-                          透明
                           <input
                             type="number"
                             min={0.1}
@@ -507,35 +606,17 @@ export function MacroChartIndicatorAssignment({
                             value={cfg.opacity ?? 1}
                             onChange={(e) =>
                               onUpdateSeriesVisual(key, {
-                                opacity: Math.max(0.1, Math.min(1, parseFloatSafe(e.target.value, 1))),
+                                opacity: Math.max(
+                                  0.1,
+                                  Math.min(1, parseFloatSafe(e.target.value, 1)),
+                                ),
                               })
                             }
-                            className="w-12 rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                            className={ctrlNum}
+                            title="透明度"
                           />
-                        </label>
-                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
-                          平滑
-                          <input
-                            type="checkbox"
-                            checked={cfg.smooth ?? displayConfig.lineSmooth}
-                            onChange={(e) =>
-                              onUpdateSeriesVisual(key, { smooth: e.target.checked })
-                            }
-                            className="accent-emerald-600"
-                          />
-                        </label>
-                        <label className="flex items-center gap-1 text-[10px] text-slate-400">
-                          点
-                          <input
-                            type="checkbox"
-                            checked={cfg.showSymbol ?? displayConfig.showSymbols}
-                            onChange={(e) =>
-                              onUpdateSeriesVisual(key, { showSymbol: e.target.checked })
-                            }
-                            className="accent-emerald-600"
-                          />
-                        </label>
-                      </div>
+                        </>
+                      ) : null}
                     </div>
                   );
                 })
@@ -547,17 +628,19 @@ export function MacroChartIndicatorAssignment({
 
       <div
         {...dragProps({ kind: "pool" })}
-        className={`rounded-lg border border-dashed px-2 py-3 transition-colors ${
+        className={`rounded-md border border-dashed px-2 py-2 transition-colors ${
           dropActive({ kind: "pool" })
             ? "border-amber-500 bg-amber-950/25"
             : "border-slate-700 bg-slate-950/50"
         }`}
       >
-        <div className="mb-1.5 text-[11px] font-medium text-slate-400">待选集</div>
-        <p className="mb-2 text-[10px] leading-relaxed text-slate-600">
-          已勾选、但未指定到任一图的指标放在此处。
-        </p>
-        <div className="flex min-h-[36px] flex-wrap gap-1.5">
+        <div className="mb-1.5 flex items-start justify-between gap-2">
+          <span className="shrink-0 text-[11px] font-medium text-slate-500">待选集</span>
+          <p className="min-w-0 flex-1 text-right text-[11px] leading-relaxed text-slate-600">
+            拖指标到各图绘制；拖到待选集则不绘制。
+          </p>
+        </div>
+        <div className="flex min-h-[24px] flex-wrap gap-1">
           {pool.length === 0 ? (
             <span className="text-[11px] text-slate-600">无</span>
           ) : (
@@ -567,7 +650,7 @@ export function MacroChartIndicatorAssignment({
                 type="button"
                 draggable
                 onDragStart={startDrag(key)}
-                className="cursor-grab rounded border border-slate-600 bg-slate-950 px-2 py-1 text-left text-[11px] text-slate-200 active:cursor-grabbing"
+                className="cursor-grab rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-left text-[11px] text-slate-300 active:cursor-grabbing"
                 title={key}
               >
                 {displayNameForKey(key)}
@@ -576,6 +659,8 @@ export function MacroChartIndicatorAssignment({
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

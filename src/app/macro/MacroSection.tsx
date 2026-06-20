@@ -3,27 +3,58 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { MacroChartIndicatorAssignment } from "@/components/MacroChartIndicatorAssignment";
+import {
+  MacroChartIndicatorAssignment,
+  type MacroChartPropsTab,
+} from "@/components/MacroChartIndicatorAssignment";
 import { MacroTemplateFolderSection } from "@/components/MacroTemplateFolderSection";
 import { MacroChartDrawingToolbar } from "@/components/MacroChartDrawingToolbar";
 import { MacroMultiChartGrid } from "@/components/MacroMultiChartGrid";
-import type { MacroDrawing, MacroDrawingTool } from "@/lib/macroChartDrawing";
+import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
+import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
+import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
+import type {
+  MacroDrawing,
+  MacroDrawingStyle,
+  MacroDrawingTool,
+} from "@/lib/macroChartDrawing";
+import {
+  DEFAULT_MACRO_DRAWING_STYLE,
+  patchDrawing,
+} from "@/lib/macroChartDrawing";
+import {
+  contextDateFromTimeLabel,
+  extractCountriesFromMacroKeys,
+} from "@/lib/data/marketEvents";
+import { SelectedIndicatorsList } from "@/components/SelectedIndicatorsList";
 import { UnifiedMacroSidebar } from "@/components/UnifiedMacroSidebar";
 import type { MacroPayload } from "@/lib/data/types";
 import {
+  capSelectedKeys,
   DEFAULT_UNIFIED_SERIES_KEYS,
   MACRO_MAX_SERIES,
+  resolveMacroSeriesLabel,
   serializeUnifiedKeys,
-  unifiedSeriesDisplayName,
   type UnifiedCatalogCountry,
 } from "@/lib/data/macroCatalog";
+import {
+  fredCatalogBaseKey,
+  fredInstrumentCodeFromKey,
+  unifiedKeyInAllowlist,
+} from "@/lib/data/fredCatalog";
 import type { BuiltinTemplateOverride, MacroChartPrefs } from "@/lib/data/macroChartPrefs";
 import { mergeBuiltinTemplateOverride } from "@/lib/data/macroChartPrefs";
 import {
   BUILTIN_DEBT_CAPACITY_TEMPLATE,
   BUILTIN_CHINA_OVERVIEW_TEMPLATE,
+  BUILTIN_GOLD_ANALYSIS_TEMPLATE,
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
+  BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+  BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
+  BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
+  BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
   BUILTIN_US_OVERVIEW_TEMPLATE,
+  HARDCODED_BUILTIN_TEMPLATE_IDS,
   resolveBuiltinTemplate,
   type MacroDerivedCalc,
   type MacroDerivedCalcOp,
@@ -36,6 +67,8 @@ import {
   type MacroTemplateFolder,
   type MacroUnitAdjust,
 } from "@/lib/data/macroPresetTemplates";
+import { CPI_VIRTUAL_KEY_LABELS } from "@/lib/data/cpiAnalysisLayout";
+import { LABOR_VIRTUAL_KEY_LABELS } from "@/lib/data/laborAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -43,18 +76,81 @@ import type {
   MacroSeriesVisualConfig,
   MacroSeriesVisualConfigMap,
 } from "@/lib/macroChartOption";
-import { DEFAULT_MACRO_CHART_DISPLAY_CONFIG } from "@/lib/macroChartOption";
+import {
+  DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+  extractYearsFromCategories,
+} from "@/lib/macroChartOption";
 import { buildMacroDemoSeries } from "@/lib/sampleSeries";
 import {
   getOrCreateMacroSyncTabId,
   MACRO_PAGE_SYNC_CHANNEL,
   type MacroSyncMessage,
 } from "@/lib/macroPageSyncChannel";
+import {
+  buildMacroExportMatrix,
+  downloadMacroCsv,
+  downloadMacroXlsx,
+  macroExportFilename,
+} from "@/lib/macroDataExport";
+import {
+  buildMacroSeriesCalcSuffix,
+  decorateMacroSeriesDisplayName,
+  effectiveMacroSeriesUnit,
+} from "@/lib/macroSeriesDisplayName";
+import { formatMacroDisplayNumber } from "@/lib/formatMacroValue";
+import {
+  compareMacroPeriodLabels,
+  formatMacroPeriodDisplay,
+  macroAlignPeriodKey,
+  macroPeriodKeyFromDateLabel,
+  sortMacroPeriodLabels,
+} from "@/lib/macroPeriodLabel";
+import {
+  createDividerItem,
+  keysFromListItems,
+  listItemsFromKeys,
+  listItemsFromTemplate,
+  setFromListItems,
+  syncListWithKeys,
+  type MacroSelectedListItem,
+} from "@/lib/macroSelectedList";
 
 type MainTab = "selected" | "charts" | "templates";
 
+type ChartSidePanelTab = "settings" | "events" | "intro";
+
+const INTRO_WORKSPACE_TEMPLATE_ID = "__workspace__";
+
+const INTRO_DESCRIPTION_MAX_LEN = 8000;
+
+function buildBuiltinOverrideFromTemplate(
+  tpl: MacroChartTemplate,
+  patch: Partial<BuiltinTemplateOverride> = {},
+): BuiltinTemplateOverride {
+  return {
+    name: tpl.name,
+    description: tpl.description,
+    selectedKeys: [...tpl.selectedKeys],
+    selectedListItems: tpl.selectedListItems,
+    layoutMode: tpl.layoutMode,
+    slotAssignment: { ...tpl.slotAssignment },
+    seriesVisualMap: { ...tpl.seriesVisualMap },
+    displayConfig: tpl.displayConfig,
+    seriesCalcConfigMap: tpl.seriesCalcConfigMap,
+    derivedCalcs: tpl.derivedCalcs,
+    chartIntroNotes: tpl.chartIntroNotes,
+    indicatorIntroNotes: tpl.indicatorIntroNotes,
+    updatedAtIso: new Date().toISOString(),
+    ...patch,
+  };
+}
+
 const CHART_SETTINGS_MIN_PX = 200;
 const CHART_SETTINGS_MAX_FRAC = 0.65;
+
+const SIDEBAR_DEFAULT_PX = 320;
+const SIDEBAR_MIN_PX = 200;
+const SIDEBAR_MAX_PX = 520;
 
 type MdsIndicatorAttrs = {
   country: string;
@@ -218,64 +314,6 @@ function applySeriesOp(values: (number | null)[], op: MacroSeriesCalcOp): (numbe
   });
 }
 
-function periodLabelFromDateLabel(label: string, target: MacroFrequencyAdjust): string {
-  const ms = parseDateLabelToUtcMs(label);
-  if (ms == null) return label;
-  const d = new Date(ms);
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth() + 1;
-  if (target === "year") return `${y}`;
-  if (target === "quarter") return `${y}-Q${Math.floor((m - 1) / 3) + 1}`;
-  return `${y}-${String(m).padStart(2, "0")}`;
-}
-
-function toSortTimestamp(label: string): number {
-  const q = /^(\d{4})-Q([1-4])$/i.exec(label);
-  if (q) return Date.UTC(Number(q[1]), (Number(q[2]) - 1) * 3, 1);
-  const ms = parseDateLabelToUtcMs(label);
-  if (ms != null) return ms;
-  return Number.NaN;
-}
-
-function compareLabelsChrono(a: string, b: string): number {
-  const ta = toSortTimestamp(a);
-  const tb = toSortTimestamp(b);
-  if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
-  if (Number.isFinite(ta)) return -1;
-  if (Number.isFinite(tb)) return 1;
-  return a.localeCompare(b, "zh-CN");
-}
-
-function sortLabelsChrono(labels: string[]): string[] {
-  return [...labels].sort(compareLabelsChrono);
-}
-
-/** 估算文本在 12px 表格中的显示宽度（CJK 计 2 单位，其余 1 单位） */
-function estimateTableTextWidthUnits(text: string): number {
-  let units = 0;
-  for (const ch of text) {
-    units += /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch) ? 2 : 1;
-  }
-  return units;
-}
-
-function tableCellDisplayText(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "";
-  return String(value);
-}
-
-function tableColumnWidthPx(units: number, minPx = 72, maxPx = 360): number {
-  const px = Math.ceil(units * 6.5) + 16;
-  return Math.min(maxPx, Math.max(minPx, px));
-}
-
-type SeriesWorking = {
-  key: string;
-  name: string;
-  categories: string[];
-  data: (number | null)[];
-};
-
 function resampleSeries(
   categories: string[],
   data: (number | null)[],
@@ -287,12 +325,12 @@ function resampleSeries(
   for (let i = 0; i < categories.length; i++) {
     const v = data[i];
     if (v == null || !Number.isFinite(v)) continue;
-    const bucket = periodLabelFromDateLabel(categories[i]!, target);
+    const bucket = macroPeriodKeyFromDateLabel(categories[i]!, target);
     const arr = buckets.get(bucket) ?? [];
     arr.push(v);
     buckets.set(bucket, arr);
   }
-  const outCats = sortLabelsChrono([...buckets.keys()]);
+  const outCats = sortMacroPeriodLabels([...buckets.keys()]);
   return {
     categories: outCats,
     data: outCats.map((x) => {
@@ -308,6 +346,57 @@ function resampleSeries(
   };
 }
 
+function seriesToAlignedValueMap(
+  categories: string[],
+  data: (number | null)[],
+): Map<string, number | null> {
+  const m = new Map<string, number | null>();
+  for (let i = 0; i < categories.length; i++) {
+    const v = data[i];
+    if (v == null || !Number.isFinite(v)) continue;
+    m.set(macroAlignPeriodKey(categories[i]!), v);
+  }
+  return m;
+}
+
+function collectAlignedPeriodKeys(seriesList: SeriesWorking[]): string[] {
+  const keys = new Set<string>();
+  for (const s of seriesList) {
+    for (let i = 0; i < s.categories.length; i++) {
+      const v = s.data[i];
+      if (v == null || !Number.isFinite(v)) continue;
+      keys.add(macroAlignPeriodKey(s.categories[i]!));
+    }
+  }
+  return sortMacroPeriodLabels([...keys]);
+}
+
+/** 估算文本在 12px 表格中的显示宽度（CJK 计 2 单位，其余 1 单位） */
+function estimateTableTextWidthUnits(text: string): number {
+  let units = 0;
+  for (const ch of text) {
+    units += /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]/.test(ch) ? 2 : 1;
+  }
+  return units;
+}
+
+function tableCellDisplayText(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "";
+  return formatMacroDisplayNumber(value);
+}
+
+function tableColumnWidthPx(units: number, minPx = 72, maxPx = 360): number {
+  const px = Math.ceil(units * 6.5) + 16;
+  return Math.min(maxPx, Math.max(minPx, px));
+}
+
+type SeriesWorking = {
+  key: string;
+  name: string;
+  categories: string[];
+  data: (number | null)[];
+};
+
 function deriveSeries(
   left: SeriesWorking,
   right: SeriesWorking,
@@ -315,12 +404,12 @@ function deriveSeries(
   name: string,
   key: string,
 ): SeriesWorking {
-  const cats = sortLabelsChrono([...new Set([...left.categories, ...right.categories])]);
-  const lm = new Map(left.categories.map((c, i) => [c, left.data[i] ?? null]));
-  const rm = new Map(right.categories.map((c, i) => [c, right.data[i] ?? null]));
+  const leftMap = seriesToAlignedValueMap(left.categories, left.data);
+  const rightMap = seriesToAlignedValueMap(right.categories, right.data);
+  const cats = collectAlignedPeriodKeys([left, right]);
   const vals = cats.map((c) => {
-    const a = lm.get(c) ?? null;
-    const b = rm.get(c) ?? null;
+    const a = leftMap.get(c) ?? null;
+    const b = rightMap.get(c) ?? null;
     if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) return null;
     if (op === "add") return a + b;
     if (op === "sub" || op === "spread") return a - b;
@@ -337,25 +426,122 @@ export function MacroSection() {
   const [mainTab, setMainTab] = useState<MainTab>("selected");
   const [layoutMode, setLayoutMode] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [macroDrawTool, setMacroDrawTool] = useState<MacroDrawingTool>("cursor");
+  const [macroDrawStyle, setMacroDrawStyle] = useState<MacroDrawingStyle>(
+    DEFAULT_MACRO_DRAWING_STYLE,
+  );
   const [macroDrawingsBySlot, setMacroDrawingsBySlot] = useState<
     Record<number, MacroDrawing[]>
   >({});
+  const [selectedDrawingBySlot, setSelectedDrawingBySlot] = useState<
+    Record<number, string | null>
+  >({});
+  const [activeDrawSlot, setActiveDrawSlot] = useState(0);
 
   const onMacroDrawingsChange = useCallback((slotIndex: number, drawings: MacroDrawing[]) => {
     setMacroDrawingsBySlot((prev) => ({ ...prev, [slotIndex]: drawings }));
   }, []);
 
-  const clearMacroDrawings = useCallback(() => {
-    setMacroDrawingsBySlot({});
+  const onMacroSelectDrawing = useCallback((slotIndex: number, id: string | null) => {
+    setActiveDrawSlot(slotIndex);
+    setSelectedDrawingBySlot((prev) => ({ ...prev, [slotIndex]: id }));
   }, []);
 
-  /** 图表分页：右侧「图形属性」面板，默认折叠；展开宽度可拖拽调节 */
+  const onMacroDrawInteraction = useCallback((slotIndex: number) => {
+    setActiveDrawSlot(slotIndex);
+  }, []);
+
+  const selectedMacroDrawing = useMemo(() => {
+    const id = selectedDrawingBySlot[activeDrawSlot];
+    if (!id) return null;
+    return (macroDrawingsBySlot[activeDrawSlot] ?? []).find((d) => d.id === id) ?? null;
+  }, [selectedDrawingBySlot, activeDrawSlot, macroDrawingsBySlot]);
+
+  const onMacroSelectedStyleChange = useCallback(
+    (patch: Partial<MacroDrawingStyle>) => {
+      const id = selectedDrawingBySlot[activeDrawSlot];
+      if (!id) return;
+      const drawings = macroDrawingsBySlot[activeDrawSlot] ?? [];
+      onMacroDrawingsChange(
+        activeDrawSlot,
+        patchDrawing(drawings, id, { style: patch } as Partial<MacroDrawing>),
+      );
+    },
+    [selectedDrawingBySlot, activeDrawSlot, macroDrawingsBySlot, onMacroDrawingsChange],
+  );
+
+  const onMacroSelectedTextChange = useCallback(
+    (text: string) => {
+      const id = selectedDrawingBySlot[activeDrawSlot];
+      if (!id) return;
+      const drawings = macroDrawingsBySlot[activeDrawSlot] ?? [];
+      onMacroDrawingsChange(
+        activeDrawSlot,
+        patchDrawing(drawings, id, { text } as Partial<MacroDrawing>),
+      );
+    },
+    [selectedDrawingBySlot, activeDrawSlot, macroDrawingsBySlot, onMacroDrawingsChange],
+  );
+
+  const deleteSelectedMacroDrawing = useCallback(() => {
+    const id = selectedDrawingBySlot[activeDrawSlot];
+    if (!id) return;
+    const drawings = macroDrawingsBySlot[activeDrawSlot] ?? [];
+    onMacroDrawingsChange(
+      activeDrawSlot,
+      drawings.filter((d) => d.id !== id),
+    );
+    setSelectedDrawingBySlot((prev) => ({ ...prev, [activeDrawSlot]: null }));
+  }, [selectedDrawingBySlot, activeDrawSlot, macroDrawingsBySlot, onMacroDrawingsChange]);
+
+  const clearMacroDrawings = useCallback(() => {
+    setMacroDrawingsBySlot({});
+    setSelectedDrawingBySlot({});
+  }, []);
+
+  useEffect(() => {
+    if (mainTab !== "charts") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      if (!selectedDrawingBySlot[activeDrawSlot]) return;
+      deleteSelectedMacroDrawing();
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mainTab, activeDrawSlot, selectedDrawingBySlot, deleteSelectedMacroDrawing]);
+
+  /** 图表页右侧：图形设置 / 事件记录 */
   const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
+  const [chartSidePanelTab, setChartSidePanelTab] = useState<ChartSidePanelTab>("settings");
+  const [chartPropsTab, setChartPropsTab] = useState<MacroChartPropsTab>("global");
   const [chartSettingsWidthPx, setChartSettingsWidthPx] = useState<number | null>(null);
   const chartSplitRowRef = useRef<HTMLDivElement | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidthPx, setSidebarWidthPx] = useState<number | null>(null);
+  const macroLayoutRowRef = useRef<HTMLDivElement | null>(null);
+  const [macroCrosshairTimeLabel, setMacroCrosshairTimeLabel] = useState<string | null>(null);
+  const [macroVisibleFromLabel, setMacroVisibleFromLabel] = useState<string | null>(null);
+  const [macroVisibleToLabel, setMacroVisibleToLabel] = useState<string | null>(null);
 
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
-    () => new Set(DEFAULT_UNIFIED_SERIES_KEYS),
+  const [selectedListItems, setSelectedListItems] = useState<MacroSelectedListItem[]>(() =>
+    listItemsFromKeys(DEFAULT_UNIFIED_SERIES_KEYS),
+  );
+  const selectedKeys = useMemo(
+    () => setFromListItems(selectedListItems),
+    [selectedListItems],
+  );
+  const orderedSelectedKeys = useMemo(
+    () => keysFromListItems(selectedListItems),
+    [selectedListItems],
   );
   const [slotAssignment, setSlotAssignment] = useState<MacroSlotAssignment>({});
   const [seriesVisualMap, setSeriesVisualMap] = useState<MacroSeriesVisualConfigMap>({});
@@ -370,6 +556,9 @@ export function MacroSection() {
   >({});
   const [newTemplateFolderId, setNewTemplateFolderId] = useState<string>("");
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [templateIndicatorNotes, setTemplateIndicatorNotes] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const [newTemplateName, setNewTemplateName] = useState("");
   const [seriesCalcConfigMap, setSeriesCalcConfigMap] = useState<MacroSeriesCalcConfigMap>({});
   const [derivedCalcs, setDerivedCalcs] = useState<MacroDerivedCalc[]>([]);
@@ -386,6 +575,8 @@ export function MacroSection() {
   const [builtinTemplateOverrides, setBuiltinTemplateOverrides] = useState<
     Record<string, BuiltinTemplateOverride>
   >({});
+  const [customBuiltinTemplates, setCustomBuiltinTemplates] = useState<MacroChartTemplate[]>([]);
+  const [hiddenBuiltinTemplateIds, setHiddenBuiltinTemplateIds] = useState<string[]>([]);
   const [pageSyncEnabled, setPageSyncEnabled] = useState(false);
   const [remoteCrosshairTimeLabel, setRemoteCrosshairTimeLabel] = useState<string | null>(null);
   const [remoteCrosshairVersion, setRemoteCrosshairVersion] = useState(0);
@@ -404,7 +595,7 @@ export function MacroSection() {
   /** URL `?mds=` 或程序化加载本地库序列时使用 */
   const [requestedMdsInstruments, setRequestedMdsInstruments] = useState<string | null>(null);
   const [extractedSet, setExtractedSet] = useState<Set<string>>(new Set());
-  const [tableTimeSort, setTableTimeSort] = useState<"asc" | "desc">("asc");
+  const [tableTimeSort, setTableTimeSort] = useState<"asc" | "desc">("desc");
   const [sidebarLocateKey, setSidebarLocateKey] = useState<string | null>(null);
 
   const [catalogCountries, setCatalogCountries] = useState<UnifiedCatalogCountry[] | null>(null);
@@ -413,6 +604,12 @@ export function MacroSection() {
   const [mdsAttrsByKey, setMdsAttrsByKey] = useState<Map<string, MdsIndicatorAttrs>>(new Map());
   const [prefsHydrated, setPrefsHydrated] = useState(false);
   const saveTimerRef = useRef<number | null>(null);
+  const introDescSaveTimerRef = useRef<number | null>(null);
+  const introDescPendingSaveRef = useRef<
+    | { kind: "hardcoded"; overrides: Record<string, BuiltinTemplateOverride> }
+    | { kind: "custom"; templates: MacroChartTemplate[] }
+    | null
+  >(null);
   const tabId = useMemo(() => getOrCreateMacroSyncTabId(), []);
   const syncChannelRef = useRef<BroadcastChannel | null>(null);
   const pageSyncEnabledRef = useRef(false);
@@ -495,12 +692,33 @@ export function MacroSection() {
 
   useEffect(() => {
     let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) return false;
+        const j = (await r.json().catch(() => ({}))) as { user?: { role?: string } };
+        return String(j.user?.role ?? "").trim().toLowerCase() === "admin";
+      })
+      .then((admin) => {
+        if (!cancelled) setIsAdmin(admin);
+      })
+      .catch(() => {
+        /* 保留 macro-chart-prefs 或其他来源已设置的 admin 状态 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     fetch("/api/tools/macro-chart-prefs", { cache: "no-store" })
       .then(async (r) => {
         if (r.status === 401)
           return {
             prefs: null as MacroChartPrefs | null,
             builtinTemplateOverrides: {} as Record<string, BuiltinTemplateOverride>,
+            customBuiltinTemplates: [] as MacroChartTemplate[],
+            hiddenBuiltinTemplateIds: [] as string[],
             builtinTemplateFolders: [] as MacroTemplateFolder[],
             builtinTemplateFolderIds: {} as Record<string, string | null>,
             isAdmin: false,
@@ -508,6 +726,8 @@ export function MacroSection() {
         const j = (await r.json().catch(() => ({}))) as {
           prefs?: MacroChartPrefs | null;
           builtinTemplateOverrides?: Record<string, BuiltinTemplateOverride>;
+          customBuiltinTemplates?: MacroChartTemplate[];
+          hiddenBuiltinTemplateIds?: string[];
           builtinTemplateFolders?: MacroTemplateFolder[];
           builtinTemplateFolderIds?: Record<string, string | null>;
           user?: { role?: string };
@@ -515,28 +735,38 @@ export function MacroSection() {
         return {
           prefs: j.prefs ?? null,
           builtinTemplateOverrides: j.builtinTemplateOverrides ?? {},
+          customBuiltinTemplates: j.customBuiltinTemplates ?? [],
+          hiddenBuiltinTemplateIds: j.hiddenBuiltinTemplateIds ?? [],
           builtinTemplateFolders: j.builtinTemplateFolders ?? [],
           builtinTemplateFolderIds: j.builtinTemplateFolderIds ?? {},
-          isAdmin: j.user?.role === "admin",
+          isAdmin: String(j.user?.role ?? "").trim().toLowerCase() === "admin",
         };
       })
       .then(
         ({
           prefs,
           builtinTemplateOverrides: overrides,
+          customBuiltinTemplates: customBuiltins,
+          hiddenBuiltinTemplateIds: hiddenIds,
           builtinTemplateFolders,
           builtinTemplateFolderIds: systemFolderIds,
-          isAdmin: admin,
+          isAdmin: adminFromPrefs,
         }) => {
         if (cancelled) return;
-        setIsAdmin(admin);
+        if (adminFromPrefs) setIsAdmin(true);
         setBuiltinTemplateOverrides(overrides);
+        setCustomBuiltinTemplates(customBuiltins);
+        setHiddenBuiltinTemplateIds(hiddenIds);
         setSystemBuiltinFolders(builtinTemplateFolders);
         setBuiltinTemplateFolderIds(systemFolderIds);
         if (prefs) {
           if ([1, 2, 3, 4, 5, 6].includes(prefs.layoutMode)) setLayoutMode(prefs.layoutMode);
-          if (Array.isArray(prefs.selectedKeys) && prefs.selectedKeys.length > 0) {
-            setSelectedKeys(new Set(prefs.selectedKeys));
+          if (Array.isArray(prefs.selectedListItems) && prefs.selectedListItems.length > 0) {
+            setSelectedListItems(prefs.selectedListItems);
+          } else if (Array.isArray(prefs.selectedKeys) && prefs.selectedKeys.length > 0) {
+            setSelectedListItems(
+              listItemsFromKeys(prefs.selectedKeys.slice(0, MACRO_MAX_SERIES)),
+            );
           }
           if (prefs.slotAssignment && typeof prefs.slotAssignment === "object") {
             setSlotAssignment(prefs.slotAssignment);
@@ -565,6 +795,9 @@ export function MacroSection() {
           if (typeof prefs.activeTemplateId === "string" && prefs.activeTemplateId.trim()) {
             setActiveTemplateId(prefs.activeTemplateId.trim());
           }
+          if (prefs.templateIndicatorNotes && typeof prefs.templateIndicatorNotes === "object") {
+            setTemplateIndicatorNotes(prefs.templateIndicatorNotes);
+          }
         }
       })
       .finally(() => {
@@ -580,7 +813,8 @@ export function MacroSection() {
     const prefs: MacroChartPrefs = {
       version: 2,
       layoutMode,
-      selectedKeys: [...selectedKeys],
+      selectedKeys: orderedSelectedKeys,
+      selectedListItems,
       slotAssignment,
       seriesVisualMap,
       displayConfig,
@@ -589,6 +823,7 @@ export function MacroSection() {
       templates: savedTemplates,
       templateFolders,
       activeTemplateId,
+      templateIndicatorNotes,
     };
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(() => {
@@ -604,7 +839,8 @@ export function MacroSection() {
   }, [
     prefsHydrated,
     layoutMode,
-    selectedKeys,
+    orderedSelectedKeys,
+    selectedListItems,
     slotAssignment,
     seriesVisualMap,
     displayConfig,
@@ -613,30 +849,36 @@ export function MacroSection() {
     savedTemplates,
     templateFolders,
     activeTemplateId,
+    templateIndicatorNotes,
   ]);
 
   const onSelectedKeysChange = useCallback(
     (next: Set<string>) => {
+      const capped = capSelectedKeys(selectedKeys, next);
+      const truncated = capped.size < next.size;
       setSlotAssignment((prev) => {
         const n: MacroSlotAssignment = { ...prev };
-        for (const key of next) {
+        for (const key of capped) {
           if (!selectedKeys.has(key)) {
             n[key] = n[key] ?? null;
           }
         }
         for (const k of Object.keys(n)) {
-          if (!next.has(k)) delete n[k];
+          if (!capped.has(k)) delete n[k];
         }
         return n;
       });
-      setSelectedKeys(next);
+      setSelectedListItems((prev) => syncListWithKeys(prev, capped));
       setSeriesVisualMap((prev) => {
         const out: MacroSeriesVisualConfigMap = {};
-        for (const key of next) {
+        for (const key of capped) {
           if (prev[key]) out[key] = prev[key];
         }
         return out;
       });
+      if (truncated) {
+        window.alert(`最多只能选择 ${MACRO_MAX_SERIES} 个指标`);
+      }
     },
     [selectedKeys],
   );
@@ -663,9 +905,36 @@ export function MacroSection() {
       BUILTIN_US_OVERVIEW_TEMPLATE,
       BUILTIN_CHINA_OVERVIEW_TEMPLATE,
       BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
+      BUILTIN_GOLD_ANALYSIS_TEMPLATE,
+      BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
+      BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+      BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
+      BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
     ];
-    return base.map((tpl) => mergeBuiltinTemplateOverride(tpl, builtinTemplateOverrides[tpl.id]));
-  }, [builtinTemplateOverrides]);
+    const hidden = new Set(hiddenBuiltinTemplateIds);
+    const hardcoded = base
+      .map((tpl) => mergeBuiltinTemplateOverride(tpl, builtinTemplateOverrides[tpl.id]))
+      .filter((tpl) => !hidden.has(tpl.id));
+    return [...hardcoded, ...customBuiltinTemplates];
+  }, [builtinTemplateOverrides, customBuiltinTemplates, hiddenBuiltinTemplateIds]);
+
+  const hiddenHardcodedBuiltinTemplates = useMemo(() => {
+    const hidden = new Set(hiddenBuiltinTemplateIds);
+    const base = [
+      BUILTIN_DEBT_CAPACITY_TEMPLATE,
+      BUILTIN_US_OVERVIEW_TEMPLATE,
+      BUILTIN_CHINA_OVERVIEW_TEMPLATE,
+      BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
+      BUILTIN_GOLD_ANALYSIS_TEMPLATE,
+      BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
+      BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+      BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
+      BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
+    ];
+    return base
+      .filter((tpl) => hidden.has(tpl.id))
+      .map((tpl) => mergeBuiltinTemplateOverride(tpl, builtinTemplateOverrides[tpl.id]));
+  }, [builtinTemplateOverrides, hiddenBuiltinTemplateIds]);
 
   const allTemplates = useMemo<MacroChartTemplate[]>(
     () => [...builtInTemplates, ...savedTemplates],
@@ -690,6 +959,26 @@ export function MacroSection() {
     return m;
   }, [catalogCountries]);
 
+  const macroSeriesLabelByKey = useMemo(() => {
+    const m = new Map<string, string>([...CPI_VIRTUAL_KEY_LABELS, ...LABOR_VIRTUAL_KEY_LABELS]);
+    for (const [k, v] of catalogLabelByKey) {
+      if (!m.has(k)) m.set(k, v);
+    }
+    for (const d of derivedCalcs) {
+      m.set(`calc:${d.id}`, d.name);
+    }
+    return m;
+  }, [catalogLabelByKey, derivedCalcs]);
+
+  const resolveSeriesLabel = useCallback(
+    (key: string, extractLabels?: ReadonlyMap<string, string>) =>
+      resolveMacroSeriesLabel(key, {
+        catalogLabelByKey,
+        overrides: extractLabels ?? macroSeriesLabelByKey,
+      }),
+    [catalogLabelByKey, macroSeriesLabelByKey],
+  );
+
   const resolveTemplateConfig = useCallback(
     (tpl: MacroChartTemplate): MacroChartTemplate =>
       resolveBuiltinTemplate(tpl, catalogAllowlist, catalogLabelByKey),
@@ -699,9 +988,16 @@ export function MacroSection() {
   const applyTemplate = useCallback(
     (tpl: MacroChartTemplate) => {
       const resolvedTpl = resolveTemplateConfig(tpl);
-      const templateKeys = resolvedTpl.selectedKeys;
+      const templateKeys = resolvedTpl.selectedKeys.slice(0, MACRO_MAX_SERIES);
+      if (resolvedTpl.selectedKeys.length > MACRO_MAX_SERIES) {
+        window.alert(
+          `模板包含 ${resolvedTpl.selectedKeys.length} 个指标，已截断为最多 ${MACRO_MAX_SERIES} 个`,
+        );
+      }
       setLayoutMode(resolvedTpl.layoutMode);
-      setSelectedKeys(new Set(templateKeys));
+      setSelectedListItems(
+        listItemsFromTemplate(templateKeys, resolvedTpl.selectedListItems),
+      );
       setSlotAssignment({ ...resolvedTpl.slotAssignment });
       setSeriesVisualMap({ ...resolvedTpl.seriesVisualMap });
       setDisplayConfig({
@@ -922,74 +1218,268 @@ export function MacroSection() {
     [],
   );
 
-  const saveBuiltinTemplateOverride = useCallback(
-    async (nameInput?: string) => {
-      if (!isAdmin || !activeTemplate?.builtIn) return;
-      const trimmed = (nameInput ?? activeTemplate.name).trim();
+  const persistSystemTemplateData = useCallback(
+    async (patch: {
+      builtinTemplateOverrides?: Record<string, BuiltinTemplateOverride>;
+      customBuiltinTemplates?: MacroChartTemplate[];
+      hiddenBuiltinTemplateIds?: string[];
+      builtinTemplateFolderIds?: Record<string, string | null>;
+    }) => {
+      if (!isAdmin) {
+        throw new Error("仅管理员可修改系统模板");
+      }
+      const res = await fetch("/api/tools/macro-chart-prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemMacroChartPrefs: {
+            version: 1,
+            ...patch,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error ?? `保存系统模板失败 (${res.status})`);
+      }
+      const j = (await res.json()) as {
+        builtinTemplateOverrides?: Record<string, BuiltinTemplateOverride>;
+        customBuiltinTemplates?: MacroChartTemplate[];
+        hiddenBuiltinTemplateIds?: string[];
+        builtinTemplateFolderIds?: Record<string, string | null>;
+      };
+      if (j.builtinTemplateOverrides !== undefined) {
+        setBuiltinTemplateOverrides(j.builtinTemplateOverrides);
+      }
+      if (j.customBuiltinTemplates !== undefined) {
+        setCustomBuiltinTemplates(j.customBuiltinTemplates);
+      }
+      if (j.hiddenBuiltinTemplateIds !== undefined) {
+        setHiddenBuiltinTemplateIds(j.hiddenBuiltinTemplateIds);
+      }
+      if (j.builtinTemplateFolderIds !== undefined) {
+        setBuiltinTemplateFolderIds(j.builtinTemplateFolderIds);
+      }
+    },
+    [isAdmin],
+  );
+
+  const saveCurrentAsSystemTemplate = useCallback(
+    async (nameInput: string, folderId?: string | null) => {
+      if (!isAdmin) return;
+      const trimmed = nameInput.trim();
       if (!trimmed) return;
-      const override: BuiltinTemplateOverride = {
+
+      const validFolderId =
+        folderId && systemBuiltinFolders.some((f) => f.id === folderId) ? folderId : null;
+
+      const templatePayload = {
         name: trimmed,
-        description: activeTemplate.description,
-        selectedKeys: [...selectedKeys],
+        selectedKeys: [...orderedSelectedKeys],
+        selectedListItems: selectedListItems.map((i) =>
+          i.type === "divider"
+            ? { type: "divider" as const, id: i.id, ...(i.label ? { label: i.label } : {}) }
+            : { type: "series" as const, key: i.key },
+        ),
         layoutMode,
         slotAssignment: { ...slotAssignment },
         seriesVisualMap: { ...seriesVisualMap },
         displayConfig: { ...displayConfig },
         seriesCalcConfigMap: { ...seriesCalcConfigMap },
         derivedCalcs: [...derivedCalcs],
-        updatedAtIso: new Date().toISOString(),
+        createdAtIso: new Date().toISOString(),
+        builtIn: true as const,
       };
-      const next = { ...builtinTemplateOverrides, [activeTemplate.id]: override };
-      await persistBuiltinTemplateOverrides(next);
-      setActiveTemplateId(activeTemplate.id);
+
+      const nameMatchHardcoded = builtInTemplates.find(
+        (t) => t.name.trim() === trimmed && HARDCODED_BUILTIN_TEMPLATE_IDS.has(t.id),
+      );
+      const nameMatchCustom = customBuiltinTemplates.find((t) => t.name.trim() === trimmed);
+
+      let targetId: string | null = null;
+      if (activeTemplate?.builtIn && HARDCODED_BUILTIN_TEMPLATE_IDS.has(activeTemplate.id)) {
+        targetId = activeTemplate.id;
+      } else if (
+        activeTemplate?.builtIn &&
+        activeTemplate.id.startsWith("builtin-custom-")
+      ) {
+        targetId = activeTemplate.id;
+      } else if (nameMatchHardcoded) {
+        targetId = nameMatchHardcoded.id;
+      } else if (nameMatchCustom) {
+        targetId = nameMatchCustom.id;
+      }
+
+      const isSameTemplate = activeTemplate?.id === targetId;
+      if (
+        targetId &&
+        !isSameTemplate &&
+        !window.confirm(`已存在同名系统模板「${trimmed}」，是否覆盖？`)
+      ) {
+        return;
+      }
+
+      const nextFolderIds = { ...builtinTemplateFolderIds };
+
+      if (targetId && HARDCODED_BUILTIN_TEMPLATE_IDS.has(targetId)) {
+        const override: BuiltinTemplateOverride = {
+          name: trimmed,
+          description: activeTemplate?.description,
+          selectedKeys: templatePayload.selectedKeys,
+          selectedListItems: templatePayload.selectedListItems,
+          layoutMode: templatePayload.layoutMode,
+          slotAssignment: templatePayload.slotAssignment,
+          seriesVisualMap: templatePayload.seriesVisualMap,
+          displayConfig: templatePayload.displayConfig,
+          seriesCalcConfigMap: templatePayload.seriesCalcConfigMap,
+          derivedCalcs: templatePayload.derivedCalcs,
+          updatedAtIso: new Date().toISOString(),
+        };
+        nextFolderIds[targetId] = validFolderId;
+        await persistSystemTemplateData({
+          builtinTemplateOverrides: { ...builtinTemplateOverrides, [targetId]: override },
+          builtinTemplateFolderIds: nextFolderIds,
+        });
+        setActiveTemplateId(targetId);
+        setMainTab("templates");
+        return;
+      }
+
+      let nextCustom: MacroChartTemplate[];
+      if (targetId?.startsWith("builtin-custom-")) {
+        nextCustom = customBuiltinTemplates.map((t) =>
+          t.id === targetId
+            ? {
+                ...t,
+                ...templatePayload,
+                id: targetId,
+                description: t.description,
+              }
+            : t,
+        );
+      } else {
+        const id = `builtin-custom-${Date.now().toString(36)}`;
+        nextCustom = [
+          {
+            id,
+            ...templatePayload,
+          },
+          ...customBuiltinTemplates,
+        ].slice(0, 30);
+        targetId = id;
+      }
+
+      nextFolderIds[targetId] = validFolderId;
+      await persistSystemTemplateData({
+        customBuiltinTemplates: nextCustom,
+        builtinTemplateFolderIds: nextFolderIds,
+      });
+      setActiveTemplateId(targetId);
       setMainTab("templates");
     },
     [
-      activeTemplate,
+      activeTemplate?.builtIn,
+      activeTemplate?.description,
+      activeTemplate?.id,
+      builtinTemplateFolderIds,
       builtinTemplateOverrides,
+      builtInTemplates,
+      customBuiltinTemplates,
       derivedCalcs,
       displayConfig,
       isAdmin,
       layoutMode,
-      persistBuiltinTemplateOverrides,
-      selectedKeys,
+      orderedSelectedKeys,
+      persistSystemTemplateData,
+      selectedListItems,
       seriesCalcConfigMap,
       seriesVisualMap,
       slotAssignment,
+      systemBuiltinFolders,
     ],
   );
 
   const saveCurrentAsTemplate = useCallback((nameInput?: string, folderId?: string | null) => {
     const trimmed = (nameInput ?? window.prompt("模板名称", activeTemplate?.name ?? "") ?? "").trim();
     if (!trimmed) return;
-    const id = `tpl-${Date.now().toString(36)}`;
+
+    const existing = savedTemplates.find((t) => t.name.trim() === trimmed);
     const validFolderId =
       folderId && userFolders.some((f) => f.id === folderId) ? folderId : null;
-    const next: MacroChartTemplate = {
-      id,
+    const introId = activeTemplateId ?? INTRO_WORKSPACE_TEMPLATE_ID;
+    const mergedIntroForSave = {
+      ...(activeTemplate?.indicatorIntroNotes ?? {}),
+      ...(templateIndicatorNotes[introId] ?? {}),
+    };
+    const indicatorIntroNotes: Record<string, string> = {};
+    for (const key of orderedSelectedKeys) {
+      const text = mergedIntroForSave[key]?.trim();
+      if (text) indicatorIntroNotes[key] = text;
+    }
+    const payload = {
       name: trimmed,
-      selectedKeys: [...selectedKeys],
+      selectedKeys: [...orderedSelectedKeys],
+      selectedListItems: selectedListItems.map((i) =>
+        i.type === "divider"
+          ? { type: "divider" as const, id: i.id, ...(i.label ? { label: i.label } : {}) }
+          : { type: "series" as const, key: i.key },
+      ),
       layoutMode,
       slotAssignment: { ...slotAssignment },
       seriesVisualMap: { ...seriesVisualMap },
       displayConfig: { ...displayConfig },
       seriesCalcConfigMap: { ...seriesCalcConfigMap },
       derivedCalcs: [...derivedCalcs],
+      ...(Object.keys(indicatorIntroNotes).length > 0 ? { indicatorIntroNotes } : {}),
       createdAtIso: new Date().toISOString(),
+    };
+
+    if (existing) {
+      const isSameTemplate = activeTemplate?.id === existing.id && !activeTemplate.builtIn;
+      if (!isSameTemplate && !window.confirm(`已存在同名模板「${trimmed}」，是否覆盖？`)) {
+        return;
+      }
+      setSavedTemplates((prev) =>
+        prev.map((x) =>
+          x.id === existing.id
+            ? {
+                ...x,
+                ...payload,
+                folderId: validFolderId ?? x.folderId ?? null,
+              }
+            : x,
+        ),
+      );
+      setActiveTemplateId(existing.id);
+      setNewTemplateName("");
+      return;
+    }
+
+    const id = `tpl-${Date.now().toString(36)}`;
+    const next: MacroChartTemplate = {
+      id,
+      ...payload,
       folderId: validFolderId,
     };
     setSavedTemplates((prev) => [next, ...prev].slice(0, 30));
     setActiveTemplateId(id);
     setNewTemplateName("");
   }, [
+    activeTemplate?.id,
+    activeTemplate?.builtIn,
+    activeTemplate?.indicatorIntroNotes,
     activeTemplate?.name,
+    activeTemplateId,
     derivedCalcs,
     displayConfig,
     layoutMode,
-    selectedKeys,
+    orderedSelectedKeys,
+    savedTemplates,
+    selectedListItems,
     seriesCalcConfigMap,
     seriesVisualMap,
     slotAssignment,
+    templateIndicatorNotes,
     userFolders,
   ]);
 
@@ -998,7 +1488,7 @@ export function MacroSection() {
     setActiveTemplateId(null);
     setNewTemplateName("");
     setLayoutMode(1);
-    setSelectedKeys(new Set());
+    setSelectedListItems([]);
     setSlotAssignment({});
     setSeriesVisualMap({});
     setDisplayConfig({ ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG });
@@ -1018,26 +1508,46 @@ export function MacroSection() {
     setMainTab("selected");
   }, []);
 
-  const quickSaveTemplateToMine = useCallback(() => {
-    if (isAdmin && activeTemplate?.builtIn) {
-      setTemplateSaveMode("builtin");
-      setTemplateNameDraft(activeTemplate.name);
-    } else {
-      setTemplateSaveMode("user");
+  const openSaveTemplateDialog = useCallback(
+    (opts?: { defaultMode?: "user" | "builtin"; defaultName?: string }) => {
+      const defaultMode =
+        opts?.defaultMode ?? (isAdmin && activeTemplate?.builtIn ? "builtin" : "user");
+      setTemplateSaveMode(defaultMode);
       const defaultName =
+        opts?.defaultName?.trim() ||
         newTemplateName.trim() ||
-        (!activeTemplate?.builtIn && activeTemplate?.name ? activeTemplate.name : "我的新模板");
+        (activeTemplate?.name ? activeTemplate.name : defaultMode === "builtin" ? "系统新模板" : "我的新模板");
       setTemplateNameDraft(defaultName);
-    }
-    setTemplateNameDialogOpen(true);
-  }, [activeTemplate?.builtIn, activeTemplate?.name, isAdmin, newTemplateName]);
+      if (defaultMode === "builtin" && activeTemplate?.builtIn) {
+        setNewTemplateFolderId(builtinTemplateFolderIds[activeTemplate.id] ?? "");
+      } else if (defaultMode === "user" && activeTemplate && !activeTemplate.builtIn) {
+        setNewTemplateFolderId(activeTemplate.folderId ?? "");
+      } else {
+        setNewTemplateFolderId("");
+      }
+      setTemplateNameDialogOpen(true);
+    },
+    [
+      activeTemplate,
+      builtinTemplateFolderIds,
+      isAdmin,
+      newTemplateName,
+    ],
+  );
+
+  const quickSaveTemplateToMine = useCallback(() => {
+    openSaveTemplateDialog();
+  }, [openSaveTemplateDialog]);
 
   const confirmSaveTemplateByDialog = useCallback(async () => {
     const trimmed = templateNameDraft.trim();
     if (!trimmed) return;
-    if (templateSaveMode === "builtin" && isAdmin && activeTemplate?.builtIn) {
+    if (templateSaveMode === "builtin" && isAdmin) {
       try {
-        await saveBuiltinTemplateOverride(trimmed);
+        await saveCurrentAsSystemTemplate(
+          trimmed,
+          newTemplateFolderId.trim() ? newTemplateFolderId.trim() : null,
+        );
         setTemplateNameDialogOpen(false);
         setTemplateNameDraft("");
       } catch (e) {
@@ -1053,10 +1563,9 @@ export function MacroSection() {
     setTemplateNameDraft("");
     setMainTab("templates");
   }, [
-    activeTemplate?.builtIn,
     isAdmin,
     newTemplateFolderId,
-    saveBuiltinTemplateOverride,
+    saveCurrentAsSystemTemplate,
     saveCurrentAsTemplate,
     templateNameDraft,
     templateSaveMode,
@@ -1067,12 +1576,88 @@ export function MacroSection() {
     setTemplateNameDraft("");
   }, []);
 
+  const deleteSystemTemplate = useCallback(
+    async (tpl: MacroChartTemplate) => {
+      if (!tpl.builtIn) return;
+      if (!isAdmin) {
+        window.alert("仅管理员可删除系统模板");
+        return;
+      }
+      const isHardcoded = HARDCODED_BUILTIN_TEMPLATE_IDS.has(tpl.id);
+      const msg = isHardcoded
+        ? `从系统模板列表中移除「${tpl.name}」？（内置模板将从全员列表隐藏，管理员覆盖配置一并清除）`
+        : `删除系统模板「${tpl.name}」？删除后所有用户将无法再加载。`;
+      if (!window.confirm(msg)) return;
+
+      const nextFolderIds = { ...builtinTemplateFolderIds };
+      delete nextFolderIds[tpl.id];
+
+      try {
+        if (tpl.id.startsWith("builtin-custom-")) {
+          const nextCustom = customBuiltinTemplates.filter((t) => t.id !== tpl.id);
+          setCustomBuiltinTemplates(nextCustom);
+          setBuiltinTemplateFolderIds(nextFolderIds);
+          await persistSystemTemplateData({
+            customBuiltinTemplates: nextCustom,
+            builtinTemplateFolderIds: nextFolderIds,
+          });
+        } else {
+          const nextOverrides = { ...builtinTemplateOverrides };
+          delete nextOverrides[tpl.id];
+          const nextHidden = [...new Set([...hiddenBuiltinTemplateIds, tpl.id])];
+          setBuiltinTemplateOverrides(nextOverrides);
+          setHiddenBuiltinTemplateIds(nextHidden);
+          setBuiltinTemplateFolderIds(nextFolderIds);
+          await persistSystemTemplateData({
+            builtinTemplateOverrides: nextOverrides,
+            hiddenBuiltinTemplateIds: nextHidden,
+            builtinTemplateFolderIds: nextFolderIds,
+          });
+        }
+        if (activeTemplateId === tpl.id) setActiveTemplateId(null);
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : "删除系统模板失败");
+      }
+    },
+    [
+      activeTemplateId,
+      builtinTemplateFolderIds,
+      builtinTemplateOverrides,
+      customBuiltinTemplates,
+      hiddenBuiltinTemplateIds,
+      isAdmin,
+      persistSystemTemplateData,
+    ],
+  );
+
   const deleteActiveTemplate = useCallback(() => {
-    if (!activeTemplate || activeTemplate.builtIn) return;
+    if (!activeTemplate) return;
+    if (activeTemplate.builtIn) {
+      void deleteSystemTemplate(activeTemplate);
+      return;
+    }
     if (!window.confirm(`删除模板「${activeTemplate.name}」？`)) return;
     setSavedTemplates((prev) => prev.filter((x) => x.id !== activeTemplate.id));
     setActiveTemplateId(null);
-  }, [activeTemplate]);
+  }, [activeTemplate, deleteSystemTemplate]);
+
+  const restoreSystemTemplate = useCallback(
+    async (templateId: string) => {
+      if (!isAdmin) {
+        window.alert("仅管理员可恢复系统模板");
+        return;
+      }
+      const nextHidden = hiddenBuiltinTemplateIds.filter((id) => id !== templateId);
+      setHiddenBuiltinTemplateIds(nextHidden);
+      try {
+        await persistSystemTemplateData({ hiddenBuiltinTemplateIds: nextHidden });
+      } catch (e) {
+        setHiddenBuiltinTemplateIds(hiddenBuiltinTemplateIds);
+        window.alert(e instanceof Error ? e.message : "恢复系统模板失败");
+      }
+    },
+    [hiddenBuiltinTemplateIds, isAdmin, persistSystemTemplateData],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1109,7 +1694,7 @@ export function MacroSection() {
 
   useEffect(() => {
     if (!catalogAllowlist) return;
-    const kept = [...selectedKeys].filter((k) => catalogAllowlist.has(k));
+    const kept = orderedSelectedKeys.filter((k) => unifiedKeyInAllowlist(k, catalogAllowlist));
     const unchanged =
       kept.length === selectedKeys.size && kept.every((k) => selectedKeys.has(k));
     if (unchanged) return;
@@ -1117,7 +1702,7 @@ export function MacroSection() {
     const fallback = defaults.length > 0 ? defaults : [...catalogAllowlist].slice(0, 3);
     const next = kept.length > 0 ? new Set(kept) : new Set(fallback);
     onSelectedKeysChange(next);
-  }, [catalogAllowlist, selectedKeys, onSelectedKeysChange]);
+  }, [catalogAllowlist, onSelectedKeysChange, orderedSelectedKeys, selectedKeys]);
 
   useEffect(() => {
     const raw = searchParams.get("mds");
@@ -1130,16 +1715,16 @@ export function MacroSection() {
   }, [searchParams]);
 
   const seriesQuery = useMemo(() => {
-    return serializeUnifiedKeys(selectedKeys, catalogAllowlist);
-  }, [selectedKeys, catalogAllowlist]);
+    return serializeUnifiedKeys(orderedSelectedKeys, catalogAllowlist);
+  }, [orderedSelectedKeys, catalogAllowlist]);
 
   const selectedKeyOptions = useMemo(
     () =>
-      [...selectedKeys].sort((a, b) => a.localeCompare(b)).map((key) => ({
+      orderedSelectedKeys.map((key) => ({
         key,
-        label: catalogLabelByKey.get(key) ?? unifiedSeriesDisplayName(key),
+        label: resolveSeriesLabel(key),
       })),
-    [catalogLabelByKey, selectedKeys],
+    [orderedSelectedKeys, resolveSeriesLabel],
   );
 
   useEffect(() => {
@@ -1170,6 +1755,14 @@ export function MacroSection() {
 
   const rawPayload = payload;
 
+  const mdsUnitByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const [k, attrs] of mdsAttrsByKey) {
+      if (attrs.unit && attrs.unit !== "-") m.set(k, attrs.unit);
+    }
+    return m;
+  }, [mdsAttrsByKey]);
+
   const displayPayload = useMemo<MacroPayload | null>(() => {
     if (!rawPayload) return null;
 
@@ -1179,45 +1772,31 @@ export function MacroSection() {
         if (!key) return null;
         const cfg = { ...DEFAULT_SERIES_CALC_CONFIG, ...(seriesCalcConfigMap[key] ?? {}) };
         const scaled = s.data.map((v) => applyUnitAdjust(v, cfg.unit));
-        const transformed = applySeriesOp(scaled, cfg.op);
-        const sampled = resampleSeries(
-          rawPayload.categories,
-          transformed,
-          cfg.frequency,
-          cfg.resampleMethod,
-        );
-        const label = catalogLabelByKey.get(key) ?? s.name;
-        const suffix: string[] = [];
-        if (cfg.op !== "none") {
-          suffix.push(
-            cfg.op === "pctChange"
-              ? "环比%"
-              : cfg.op === "yoy"
-                ? "同比%"
-                : cfg.op === "diff"
-                  ? "差分"
-                  : "累计",
-          );
-        }
+        // 先重采样再算 YoY/环比：unified 拉取会把日频（WTI）与月频（CPI）并到同一
+        // 时间轴；若在日频轴上 idx-12 做同比，1986 年后 WTI 插入日点后会全部失效。
+        let outCategories = rawPayload.categories;
+        let outValues = scaled;
         if (cfg.frequency !== "keep") {
-          const freqLabel =
-            cfg.frequency === "month" ? "月频" : cfg.frequency === "quarter" ? "季频" : "年频";
-          const methodLabel =
-            cfg.resampleMethod === "avg"
-              ? "平均"
-              : cfg.resampleMethod === "start"
-                ? "期初"
-                : "期末";
-          suffix.push(`${freqLabel}-${methodLabel}`);
+          const sampled = resampleSeries(
+            outCategories,
+            outValues,
+            cfg.frequency,
+            cfg.resampleMethod,
+          );
+          outCategories = sampled.categories;
+          outValues = sampled.data;
         }
-        if (cfg.unit !== "keep") {
-          suffix.push(cfg.unit === "x0.01" ? "x0.01" : "x100");
-        }
+        const transformed = applySeriesOp(outValues, cfg.op);
+        const label = catalogLabelByKey.get(key) ?? resolveSeriesLabel(key) ?? s.name;
+        const suffix = buildMacroSeriesCalcSuffix(cfg);
+        const baseName = suffix ? `${label}（${suffix}）` : label;
+        const unit = effectiveMacroSeriesUnit(key, cfg, mdsUnitByKey);
+        const axis = seriesVisualMap[key]?.axis;
         return {
           key,
-          name: suffix.length > 0 ? `${label}（${suffix.join(" · ")}）` : label,
-          categories: sampled.categories,
-          data: sampled.data,
+          name: decorateMacroSeriesDisplayName(baseName, { unit, axis }),
+          categories: outCategories,
+          data: transformed,
         } as SeriesWorking;
       })
       .filter((x): x is SeriesWorking => Boolean(x));
@@ -1233,15 +1812,19 @@ export function MacroSection() {
       const right = byKey.get(calc.rightKey);
       if (!left || !right) continue;
       const key = `calc:${calc.id}`;
-      derivedSeries.push(deriveSeries(left, right, calc.op, calc.name, key));
+      derivedSeries.push(
+        deriveSeries(left, right, calc.op, calc.name, key),
+      );
+      const derived = derivedSeries[derivedSeries.length - 1]!;
+      derived.name = decorateMacroSeriesDisplayName(calc.name, {
+        axis: seriesVisualMap[key]?.axis,
+      });
     }
 
     const allSeries = [...work, ...derivedSeries];
-    const allCategories = sortLabelsChrono(
-      [...new Set(allSeries.flatMap((s) => s.categories))].filter(Boolean),
-    );
+    const allCategories = collectAlignedPeriodKeys(allSeries);
     const finalSeries = allSeries.map((s) => {
-      const m = new Map(s.categories.map((c, i) => [c, s.data[i] ?? null]));
+      const m = seriesToAlignedValueMap(s.categories, s.data);
       return {
         key: s.key,
         name: s.name,
@@ -1253,7 +1836,20 @@ export function MacroSection() {
       categories: allCategories,
       series: finalSeries,
     };
-  }, [catalogLabelByKey, derivedCalcs, rawPayload, seriesCalcConfigMap]);
+  }, [
+    catalogLabelByKey,
+    derivedCalcs,
+    mdsUnitByKey,
+    rawPayload,
+    resolveSeriesLabel,
+    seriesCalcConfigMap,
+    seriesVisualMap,
+  ]);
+
+  const chartAvailableYears = useMemo(
+    () => extractYearsFromCategories(displayPayload?.categories ?? []),
+    [displayPayload?.categories],
+  );
 
   const extractedAssignment = useMemo(() => {
     const out: MacroSlotAssignment = {};
@@ -1504,7 +2100,11 @@ export function MacroSection() {
       .filter((k) => k.startsWith("mds:"))
       .map((k) => k.slice(4))
       .filter(Boolean);
-    if (mdsCodes.length === 0) {
+    const fredCodes = [...selectedKeys]
+      .map((k) => fredInstrumentCodeFromKey(k))
+      .filter((c): c is string => Boolean(c));
+    const instrumentCodes = [...new Set([...mdsCodes, ...fredCodes])];
+    if (instrumentCodes.length === 0) {
       setMdsAttrsByKey(new Map());
       return;
     }
@@ -1512,8 +2112,8 @@ export function MacroSection() {
     let cancelled = false;
     const params = new URLSearchParams({
       kind: "MACRO_SERIES",
-      limit: String(Math.max(100, mdsCodes.length + 20)),
-      codes: mdsCodes.join(","),
+      limit: String(Math.max(100, instrumentCodes.length + 20)),
+      codes: instrumentCodes.join(","),
     });
     fetch(`/api/data/instruments?${params.toString()}`, { cache: "no-store" })
       .then(async (r) => {
@@ -1561,14 +2161,19 @@ export function MacroSection() {
               : typeof metadata.freqLabel === "string" && metadata.freqLabel.trim()
                 ? metadata.freqLabel.trim()
                 : "-";
-          next.set(`mds:${code}`, {
+          const attrs: MdsIndicatorAttrs = {
             country: countryNameZh || countryNameByCode(countryCode),
             unit,
             frequency,
             source,
             updatedAt: fmtIsoDate(updatedAt),
             range: mdsRangeTextFromMetadata(metadata),
-          });
+          };
+          next.set(`mds:${code}`, attrs);
+          if (code.startsWith("sched_fred_")) {
+            const fredId = code.slice("sched_fred_".length);
+            if (fredId) next.set(`fred:${fredId}`, attrs);
+          }
         }
         setMdsAttrsByKey(next);
       })
@@ -1611,24 +2216,58 @@ export function MacroSection() {
     return m;
   }, [displayPayload]);
 
-  const selectedRows = useMemo(() => {
-    return [...selectedKeys]
-      .sort((a, b) => a.localeCompare(b))
-      .map((key) => {
-        const mdsAttrs = mdsAttrsByKey.get(key);
-        const extracted = extractedMetaByKey.get(key);
-        return {
-          key,
-          label: catalogLabelByKey.get(key) ?? unifiedSeriesDisplayName(key),
-          frequency: extracted?.frequency ?? mdsAttrs?.frequency ?? catalogMetaByKey.get(key)?.frequency ?? "-",
-          range: extracted?.range ?? mdsAttrs?.range ?? "-",
-          unit: mdsAttrs?.unit ?? "-",
-          country: mdsAttrs?.country ?? "-",
-          updatedAt: mdsAttrs?.updatedAt ?? "-",
-          source: mdsAttrs?.source ?? "-",
-        };
+  const seriesDisplayLabelByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    if (!displayPayload?.series) return m;
+    for (const s of displayPayload.series) {
+      if (s.key) m.set(s.key, s.name);
+    }
+    return m;
+  }, [displayPayload]);
+
+  const selectedRowByKey = useMemo(() => {
+    const m = new Map<
+      string,
+      {
+        key: string;
+        label: string;
+        frequency: string;
+        range: string;
+        unit: string;
+        country: string;
+        updatedAt: string;
+        source: string;
+      }
+    >();
+    for (const key of orderedSelectedKeys) {
+      const attrLookupKey = key.startsWith("fred:") ? fredCatalogBaseKey(key) : key;
+      const mdsAttrs = mdsAttrsByKey.get(key) ?? mdsAttrsByKey.get(attrLookupKey);
+      const extracted = extractedMetaByKey.get(key);
+      m.set(key, {
+        key,
+        label: resolveSeriesLabel(key, seriesDisplayLabelByKey),
+        frequency:
+          extracted?.frequency ??
+          mdsAttrs?.frequency ??
+          catalogMetaByKey.get(attrLookupKey)?.frequency ??
+          catalogMetaByKey.get(key)?.frequency ??
+          "-",
+        range: extracted?.range ?? mdsAttrs?.range ?? "-",
+        unit: mdsAttrs?.unit ?? "-",
+        country: mdsAttrs?.country ?? "-",
+        updatedAt: mdsAttrs?.updatedAt ?? "-",
+        source: mdsAttrs?.source ?? "-",
       });
-  }, [selectedKeys, catalogLabelByKey, catalogMetaByKey, extractedMetaByKey, mdsAttrsByKey]);
+    }
+    return m;
+  }, [
+    orderedSelectedKeys,
+    catalogMetaByKey,
+    extractedMetaByKey,
+    mdsAttrsByKey,
+    resolveSeriesLabel,
+    seriesDisplayLabelByKey,
+  ]);
 
   const derivedKeySet = useMemo(
     () => new Set(derivedCalcs.map((x) => `calc:${x.id}`)),
@@ -1666,38 +2305,241 @@ export function MacroSection() {
     if (displayPayload?.series.length) {
       return displayPayload.series.map((s) => s.key).filter(Boolean) as string[];
     }
-    return requestedQuery
-      ? requestedQuery
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [];
-  }, [displayPayload, requestedQuery]);
-
-  const seriesDisplayLabelByKey = useMemo(() => {
-    const m = new Map<string, string>();
-    if (!displayPayload?.series) return m;
-    for (const s of displayPayload.series) {
-      if (s.key) m.set(s.key, s.name);
+    if (requestedQuery) {
+      return requestedQuery
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
-    return m;
-  }, [displayPayload]);
+    return orderedSelectedKeys;
+  }, [displayPayload, orderedSelectedKeys, requestedQuery]);
+
+  const macroEventContextDate = useMemo(
+    () => contextDateFromTimeLabel(macroCrosshairTimeLabel),
+    [macroCrosshairTimeLabel],
+  );
+
+  const macroEventRangeFrom = useMemo(
+    () => contextDateFromTimeLabel(macroVisibleFromLabel),
+    [macroVisibleFromLabel],
+  );
+
+  const macroEventRangeTo = useMemo(
+    () => contextDateFromTimeLabel(macroVisibleToLabel),
+    [macroVisibleToLabel],
+  );
+
+  const macroEventContextCountries = useMemo(
+    () => extractCountriesFromMacroKeys(orderedSelectedKeys),
+    [orderedSelectedKeys],
+  );
+
+  const macroEventContextMacroKeys = useMemo(
+    () => orderedSelectedKeys.slice(0, 12),
+    [orderedSelectedKeys],
+  );
+
+  const onMacroCrosshairTimeLabel = useCallback((timeLabel: string | null) => {
+    setMacroCrosshairTimeLabel(timeLabel);
+  }, []);
+
+  const onMacroVisibleRangeLabels = useCallback(
+    (payload: { fromLabel: string | null; toLabel: string | null }) => {
+      setMacroVisibleFromLabel(payload.fromLabel);
+      setMacroVisibleToLabel(payload.toLabel);
+    },
+    [],
+  );
 
   const chartSettingsLabelByKey = useMemo(() => {
-    const m = new Map<string, string>(catalogLabelByKey);
-    for (const [k, v] of seriesDisplayLabelByKey) {
-      m.set(k, v);
+    const m = new Map<string, string>();
+    for (const key of chartPropertyKeys) {
+      const cfg = { ...DEFAULT_SERIES_CALC_CONFIG, ...(seriesCalcConfigMap[key] ?? {}) };
+      let base = macroSeriesLabelByKey.get(key) ?? resolveSeriesLabel(key, macroSeriesLabelByKey);
+      if (key.startsWith("calc:")) {
+        const calcId = key.slice(5);
+        const calc = derivedCalcs.find((c) => c.id === calcId);
+        if (calc) base = calc.name;
+      } else if (rawPayload) {
+        const rawSeries = rawPayload.series.find((s) => s.key === key);
+        if (rawSeries) {
+          const label = catalogLabelByKey.get(key) ?? resolveSeriesLabel(key) ?? rawSeries.name;
+          const suffix = buildMacroSeriesCalcSuffix(cfg);
+          base = suffix ? `${label}（${suffix}）` : label;
+        }
+      }
+      const unit = effectiveMacroSeriesUnit(key, cfg, mdsUnitByKey);
+      const axis = seriesVisualMap[key]?.axis;
+      m.set(key, decorateMacroSeriesDisplayName(base, { unit, axis }));
     }
     return m;
-  }, [catalogLabelByKey, seriesDisplayLabelByKey]);
+  }, [
+    catalogLabelByKey,
+    chartPropertyKeys,
+    derivedCalcs,
+    macroSeriesLabelByKey,
+    mdsUnitByKey,
+    rawPayload,
+    resolveSeriesLabel,
+    seriesCalcConfigMap,
+    seriesVisualMap,
+  ]);
+
+  const introTemplateId = activeTemplateId ?? INTRO_WORKSPACE_TEMPLATE_ID;
+
+  const introTemplateMeta = useMemo(() => {
+    if (!activeTemplate) {
+      return {
+        name: null as string | null,
+        description: null as string | null,
+        keys: orderedSelectedKeys,
+      };
+    }
+    const resolved = resolveTemplateConfig(activeTemplate);
+    return {
+      name: resolved.name,
+      description: resolved.description ?? null,
+      keys: resolved.selectedKeys.length > 0 ? resolved.selectedKeys : orderedSelectedKeys,
+    };
+  }, [activeTemplate, orderedSelectedKeys, resolveTemplateConfig]);
+
+  const introIndicators = useMemo(
+    () =>
+      introTemplateMeta.keys.map((key) => ({
+        key,
+        label: resolveSeriesLabel(key, chartSettingsLabelByKey),
+      })),
+    [chartSettingsLabelByKey, introTemplateMeta.keys, resolveSeriesLabel],
+  );
+
+  const introChartSections = useMemo(() => {
+    if (!activeTemplate) return null;
+    const resolved = resolveTemplateConfig(activeTemplate);
+    const chartIntro = resolved.chartIntroNotes;
+    if (!chartIntro || Object.keys(chartIntro).length === 0) return null;
+    const slotTitles = resolved.displayConfig?.slotTitles ?? {};
+    const slots = Object.keys(chartIntro)
+      .map((k) => Number(k))
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => a - b);
+    return slots.map((slot) => ({
+      slotKey: String(slot),
+      title: slotTitles[slot] ?? `图 ${slot + 1}`,
+    }));
+  }, [activeTemplate, resolveTemplateConfig]);
+
+  const mergedIntroNotes = useMemo(() => {
+    const user = templateIndicatorNotes[introTemplateId] ?? {};
+    if (activeTemplate) {
+      const resolved = resolveTemplateConfig(activeTemplate);
+      if (resolved.chartIntroNotes && Object.keys(resolved.chartIntroNotes).length > 0) {
+        return { ...resolved.chartIntroNotes, ...user };
+      }
+      const base = resolved.indicatorIntroNotes ?? {};
+      return { ...base, ...user };
+    }
+    return { ...user };
+  }, [
+    activeTemplate,
+    introTemplateId,
+    resolveTemplateConfig,
+    templateIndicatorNotes,
+  ]);
+
+  const onIntroNoteChange = useCallback(
+    (key: string, text: string) => {
+      setTemplateIndicatorNotes((prev) => {
+        const row = { ...(prev[introTemplateId] ?? {}) };
+        const trimmed = text.trim();
+        if (trimmed) row[key] = text.slice(0, 8000);
+        else delete row[key];
+        if (Object.keys(row).length === 0) {
+          if (!(introTemplateId in prev)) return prev;
+          const next = { ...prev };
+          delete next[introTemplateId];
+          return next;
+        }
+        return { ...prev, [introTemplateId]: row };
+      });
+    },
+    [introTemplateId],
+  );
+
+  const flushIntroDescriptionSave = useCallback(async () => {
+    if (!isAdmin) return;
+    const pending = introDescPendingSaveRef.current;
+    if (!pending) return;
+    introDescPendingSaveRef.current = null;
+    try {
+      if (pending.kind === "hardcoded") {
+        await persistBuiltinTemplateOverrides(pending.overrides);
+      } else {
+        await persistSystemTemplateData({ customBuiltinTemplates: pending.templates });
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "保存总介绍失败");
+    }
+  }, [isAdmin, persistBuiltinTemplateOverrides, persistSystemTemplateData]);
+
+  const onIntroDescriptionChange = useCallback(
+    (text: string) => {
+      if (!isAdmin || !activeTemplate?.builtIn) return;
+      const templateId = activeTemplate.id;
+      const trimmed = text.trim();
+      const nextDescription = trimmed
+        ? text.slice(0, INTRO_DESCRIPTION_MAX_LEN)
+        : undefined;
+
+      if (HARDCODED_BUILTIN_TEMPLATE_IDS.has(templateId)) {
+        setBuiltinTemplateOverrides((prev) => {
+          const base =
+            prev[templateId] ?? buildBuiltinOverrideFromTemplate(activeTemplate);
+          const merged: BuiltinTemplateOverride = {
+            ...base,
+            description: nextDescription,
+            updatedAtIso: new Date().toISOString(),
+          };
+          const next = { ...prev, [templateId]: merged };
+          introDescPendingSaveRef.current = { kind: "hardcoded", overrides: next };
+          return next;
+        });
+      } else if (templateId.startsWith("builtin-custom-")) {
+        setCustomBuiltinTemplates((prev) => {
+          const next = prev.map((t) =>
+            t.id === templateId ? { ...t, description: nextDescription } : t,
+          );
+          introDescPendingSaveRef.current = { kind: "custom", templates: next };
+          return next;
+        });
+      } else {
+        return;
+      }
+
+      if (introDescSaveTimerRef.current) window.clearTimeout(introDescSaveTimerRef.current);
+      introDescSaveTimerRef.current = window.setTimeout(() => {
+        void flushIntroDescriptionSave();
+      }, 450);
+    },
+    [activeTemplate, flushIntroDescriptionSave, isAdmin],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (introDescSaveTimerRef.current) {
+        window.clearTimeout(introDescSaveTimerRef.current);
+        introDescSaveTimerRef.current = null;
+      }
+      void flushIntroDescriptionSave();
+    };
+  }, [activeTemplateId, flushIntroDescriptionSave]);
 
   const tableColumns = useMemo(() => {
     const order = extractedKeyOrder.length > 0 ? extractedKeyOrder : [...extractedSet];
     return order.map((key) => ({
       key,
-      label: seriesDisplayLabelByKey.get(key) ?? unifiedSeriesDisplayName(key),
+      label: resolveSeriesLabel(key, chartSettingsLabelByKey),
     }));
-  }, [extractedKeyOrder, extractedSet, seriesDisplayLabelByKey]);
+  }, [chartSettingsLabelByKey, extractedKeyOrder, extractedSet, resolveSeriesLabel]);
 
   const tableValueByKey = useMemo(() => {
     const m = new Map<string, (number | null)[]>();
@@ -1713,11 +2555,16 @@ export function MacroSection() {
     const categories = displayPayload.categories;
     const indices = categories.map((_, i) => i);
     indices.sort((ia, ib) => {
-      const cmp = compareLabelsChrono(categories[ia]!, categories[ib]!);
+      const cmp = compareMacroPeriodLabels(categories[ia]!, categories[ib]!);
       return tableTimeSort === "asc" ? cmp : -cmp;
     });
-    return indices;
-  }, [displayPayload, tableTimeSort]);
+    return indices.filter((idx) =>
+      tableColumns.some((col) => {
+        const v = tableValueByKey.get(col.key)?.[idx];
+        return v != null && Number.isFinite(v);
+      }),
+    );
+  }, [displayPayload, tableColumns, tableTimeSort, tableValueByKey]);
 
   const tableColumnWidths = useMemo(() => {
     if (!displayPayload) {
@@ -1727,7 +2574,10 @@ export function MacroSection() {
     const timeHeaderUnits = estimateTableTextWidthUnits("时间 ↓");
     let timeDataUnits = 0;
     for (const cat of displayPayload.categories) {
-      timeDataUnits = Math.max(timeDataUnits, estimateTableTextWidthUnits(cat));
+      timeDataUnits = Math.max(
+        timeDataUnits,
+        estimateTableTextWidthUnits(formatMacroPeriodDisplay(cat)),
+      );
     }
     const time = tableColumnWidthPx(Math.max(timeHeaderUnits, timeDataUnits), 80, 120);
 
@@ -1756,6 +2606,58 @@ export function MacroSection() {
       setChartSettingsWidthPx(Math.round(w * (1 / 3)));
     }
   }, [chartSettingsOpen, chartSettingsWidthPx]);
+
+  const exportExtractedData = useCallback(
+    (format: "csv" | "xlsx") => {
+      if (!displayPayload) return;
+      const matrix = buildMacroExportMatrix(
+        displayPayload.categories,
+        tableColumns,
+        tableValueByKey,
+        sortedTableRowIndices,
+      );
+      const filename = macroExportFilename(format);
+      if (format === "csv") {
+        downloadMacroCsv(matrix, filename);
+        return;
+      }
+      void downloadMacroXlsx(matrix, filename);
+    },
+    [displayPayload, sortedTableRowIndices, tableColumns, tableValueByKey],
+  );
+
+  const startSidebarResize = useCallback(
+    (downEvent: React.MouseEvent) => {
+      downEvent.preventDefault();
+      const row = macroLayoutRowRef.current;
+      if (!row) return;
+      const startX = downEvent.clientX;
+      const startW = sidebarWidthPx ?? SIDEBAR_DEFAULT_PX;
+
+      const onMove = (ev: MouseEvent) => {
+        const delta = ev.clientX - startX;
+        const next = Math.min(SIDEBAR_MAX_PX, Math.max(SIDEBAR_MIN_PX, startW + delta));
+        setSidebarWidthPx(next);
+      };
+
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.removeProperty("cursor");
+        document.body.style.removeProperty("user-select");
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+
+      if (sidebarWidthPx === null) {
+        setSidebarWidthPx(startW);
+      }
+    },
+    [sidebarWidthPx],
+  );
 
   const startChartSettingsResize = useCallback(
     (downEvent: React.MouseEvent) => {
@@ -1797,145 +2699,135 @@ export function MacroSection() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 lg:min-h-full">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800/80 px-4 pb-1.5 pt-1 lg:px-6">
-        <button
-          type="button"
-          onClick={handleExtractData}
-          disabled={loading || selectedKeys.size === 0}
-          className="rounded-md border border-emerald-700/80 bg-emerald-950/45 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          提取数据
-        </button>
-        <div
-          className="flex shrink-0 items-center gap-1 rounded-md border border-slate-700/90 bg-slate-950/50 p-0.5"
-          role="tablist"
-          aria-label="功能模块"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mainTab === "selected"}
-            onClick={() => setMainTab("selected")}
-            className={`rounded-md border px-3 py-1.5 text-sm font-semibold tracking-wide transition ${
-              mainTab === "selected"
-                ? "border-emerald-600 bg-emerald-950/50 text-emerald-100"
-                : "border-transparent bg-transparent text-slate-200 hover:border-slate-600 hover:bg-slate-900/40"
-            }`}
-          >
-            已选指标
-          </button>
-          <span className="h-5 w-px shrink-0 bg-slate-700/90" aria-hidden />
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mainTab === "charts"}
-            onClick={() => setMainTab("charts")}
-            className={`rounded-md border px-3 py-1.5 text-sm font-semibold tracking-wide transition ${
-              mainTab === "charts"
-                ? "border-emerald-600 bg-emerald-950/50 text-emerald-100"
-                : "border-transparent bg-transparent text-slate-200 hover:border-slate-600 hover:bg-slate-900/40"
-            }`}
-          >
-            图表
-          </button>
-          <span className="h-5 w-px shrink-0 bg-slate-700/90" aria-hidden />
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mainTab === "templates"}
-            onClick={() => setMainTab("templates")}
-            className={`rounded-md border px-3 py-1.5 text-sm font-semibold tracking-wide transition ${
-              mainTab === "templates"
-                ? "border-emerald-600 bg-emerald-950/50 text-emerald-100"
-                : "border-transparent bg-transparent text-slate-200 hover:border-slate-600 hover:bg-slate-900/40"
-            }`}
-          >
-            模板库
-          </button>
-          <span className="h-5 w-px shrink-0 bg-slate-700/90" aria-hidden />
-          <button
-            type="button"
-            onClick={createNewTemplateDraft}
-            className="rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:border-slate-600 hover:bg-slate-900/60"
-            title="清空当前配置并新建模板草稿"
-          >
-            新建模板
-          </button>
-          <button
-            type="button"
-            onClick={quickSaveTemplateToMine}
-            className="rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-700/60 hover:bg-cyan-950/25"
-            title={
-              isAdmin && activeTemplate?.builtIn
-                ? "将当前配置更新保存到系统模板"
-                : "命名后保存到我的模板"
-            }
-          >
-            {isAdmin && activeTemplate?.builtIn ? "更新系统模板" : "保存模板"}
-          </button>
-        </div>
+        <MacroMainToolbar
+          mainTab={mainTab}
+          onMainTabChange={setMainTab}
+          onExtractData={handleExtractData}
+          extractDisabled={loading || selectedKeys.size === 0}
+          onCreateTemplate={createNewTemplateDraft}
+          onSaveTemplate={quickSaveTemplateToMine}
+          isAdmin={isAdmin}
+          canDeleteActiveTemplate={Boolean(activeTemplate && (activeTemplate.builtIn ? isAdmin : true))}
+          onDeleteActiveTemplate={deleteActiveTemplate}
+        />
         {mainTab === "charts" ? (
-          <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+          <>
+            <span
+              className="hidden h-5 w-px shrink-0 bg-slate-700/90 sm:block"
+              aria-hidden
+            />
             <MacroChartDrawingToolbar
               tool={macroDrawTool}
               onToolChange={setMacroDrawTool}
               onClear={clearMacroDrawings}
+              drawStyle={macroDrawStyle}
+              onDrawStyleChange={(patch) =>
+                setMacroDrawStyle((prev) => ({ ...prev, ...patch }))
+              }
+              selectedDrawing={selectedMacroDrawing}
+              onSelectedStyleChange={onMacroSelectedStyleChange}
+              onSelectedTextChange={onMacroSelectedTextChange}
+              onDeleteSelected={deleteSelectedMacroDrawing}
             />
-            <label className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
-              <span className="shrink-0">图表布局</span>
-              <select
-                value={layoutMode}
-                onChange={(e) =>
-                  setLayoutMode(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)
-                }
-                className="min-w-[10rem] rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600/40"
-              >
-                <option value={1}>单图</option>
-                <option value={2}>2 图（上下）</option>
-                <option value={3}>3 图（纵向）</option>
-                <option value={4}>4 图（田字）</option>
-                <option value={5}>5 图（2x3）</option>
-                <option value={6}>6 图（2x3）</option>
-              </select>
+          <label className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+            <span className="shrink-0">图表布局</span>
+            <select
+              value={layoutMode}
+              onChange={(e) =>
+                setLayoutMode(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)
+              }
+              className="min-w-[10rem] rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600/40"
+            >
+              <option value={1}>单图</option>
+              <option value={2}>2 图（上下）</option>
+              <option value={3}>3 图（纵向）</option>
+              <option value={4}>4 图（田字）</option>
+              <option value={5}>5 图（2x3）</option>
+              <option value={6}>6 图（2x3）</option>
+            </select>
+          </label>
+          <div className="group relative shrink-0">
+            <label className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-700 bg-slate-950/45 px-2 py-1.5 text-xs text-slate-300 hover:border-slate-500">
+              <input
+                type="checkbox"
+                checked={pageSyncEnabled}
+                onChange={(e) => setPageSyncEnabled(e.target.checked)}
+                className="h-3 w-3 shrink-0 rounded border-slate-600"
+                aria-label="页面同步"
+                aria-describedby="macro-page-sync-tip"
+              />
+              页面同步
             </label>
-            <div className="group relative shrink-0">
-              <label
-                className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-700 bg-slate-950/45 px-2 py-1.5 text-xs text-slate-300 hover:border-slate-500"
-              >
-                <input
-                  type="checkbox"
-                  checked={pageSyncEnabled}
-                  onChange={(e) => setPageSyncEnabled(e.target.checked)}
-                  className="h-3 w-3 shrink-0 rounded border-slate-600"
-                  aria-label="页面同步"
-                  aria-describedby="macro-page-sync-tip"
-                />
-                页面同步
-              </label>
-              <div
-                id="macro-page-sync-tip"
-                role="tooltip"
-                className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 hidden w-max max-w-[14rem] rounded-md border border-slate-600 bg-slate-900 px-2.5 py-1.5 text-[11px] leading-snug text-slate-200 shadow-lg group-hover:block"
-              >
-                多显示器多窗口时，数据同步展示。
-              </div>
+            <div
+              id="macro-page-sync-tip"
+              role="tooltip"
+              className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 hidden w-max max-w-[14rem] rounded-md border border-slate-600 bg-slate-900 px-2.5 py-1.5 text-[11px] leading-snug text-slate-200 shadow-lg group-hover:block"
+            >
+              多显示器多窗口时，数据同步展示。
             </div>
           </div>
+          </>
         ) : null}
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-slate-800/80 lg:flex-row lg:items-stretch lg:border-t-0">
-        <aside className="flex max-h-[40vh] min-h-0 shrink-0 flex-col overflow-hidden border-slate-800 bg-slate-950/70 lg:max-h-none lg:min-h-0 lg:w-[min(100%,320px)] lg:border-r lg:border-t-0 xl:w-[340px]">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3 lg:px-4 lg:py-4">
-            <UnifiedMacroSidebar
-              selectedKeys={selectedKeys}
-              onChange={onSelectedKeysChange}
-              catalogCountries={catalogCountries}
-              catalogError={catalogLoadError}
-              locateKey={sidebarLocateKey}
-              onLocateKeyHandled={() => setSidebarLocateKey(null)}
-            />
-          </div>
-        </aside>
+      <div
+        ref={macroLayoutRowRef}
+        className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-slate-800/80 lg:flex-row lg:items-stretch lg:border-t-0"
+      >
+        {sidebarCollapsed ? (
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(false)}
+            className="hidden w-9 shrink-0 flex-col items-center justify-center gap-0.5 border-r border-slate-800 bg-slate-950/90 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200 lg:flex"
+            title="展开指标树"
+          >
+            <span>指</span>
+            <span>标</span>
+            <span>树</span>
+          </button>
+        ) : (
+          <>
+            <aside
+              className="flex max-h-[40vh] min-h-0 w-full shrink-0 flex-col overflow-hidden border-slate-800 bg-slate-950/70 lg:max-h-none lg:min-h-0 lg:w-auto lg:border-r lg:border-t-0"
+              style={{
+                flex: "0 0 auto",
+                width: `min(100%, ${sidebarWidthPx ?? SIDEBAR_DEFAULT_PX}px)`,
+                maxWidth: SIDEBAR_MAX_PX,
+              }}
+            >
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/80 px-3 py-1.5 lg:px-4">
+                <span className="text-xs font-medium text-slate-400">指标目录</span>
+                <button
+                  type="button"
+                  onClick={() => setSidebarCollapsed(true)}
+                  className="hidden rounded border border-slate-700/80 px-1.5 py-0.5 text-[10px] text-slate-400 transition hover:border-slate-500 hover:text-slate-200 lg:inline-block"
+                  title="折叠指标树"
+                >
+                  折叠
+                </button>
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3 lg:px-4 lg:py-4">
+                <UnifiedMacroSidebar
+                  selectedKeys={selectedKeys}
+                  onChange={onSelectedKeysChange}
+                  catalogCountries={catalogCountries}
+                  catalogError={catalogLoadError}
+                  locateKey={sidebarLocateKey}
+                  onLocateKeyHandled={() => setSidebarLocateKey(null)}
+                />
+              </div>
+            </aside>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              title="拖拽调节指标树宽度"
+              onMouseDown={startSidebarResize}
+              className="group hidden w-1.5 shrink-0 cursor-col-resize border-x border-slate-800 bg-slate-900/90 hover:bg-emerald-950/80 lg:block"
+            >
+              <span className="mx-auto block h-full w-px bg-slate-600 group-hover:bg-emerald-500" />
+            </div>
+          </>
+        )}
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-950/40 px-3 py-3 lg:min-h-0 lg:px-6 lg:py-4">
           {mainTab === "selected" ? (
@@ -2139,69 +3031,63 @@ export function MacroSection() {
               </div>
 
               <div className="flex min-h-0 flex-[1_1_50%] flex-col border-b border-slate-800/80">
-                <div className="shrink-0 border-b border-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-500">
-                  已选指标
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-500">
+                  <span>
+                    已选指标
+                    <span className="ml-2 font-normal text-slate-600">
+                      {selectedKeys.size}/{MACRO_MAX_SERIES}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={selectedListItems.length === 0}
+                    onClick={() =>
+                      setSelectedListItems((prev) => [
+                        ...prev,
+                        createDividerItem(),
+                      ])
+                    }
+                    className="rounded border border-cyan-800/60 px-1.5 py-0 text-[10px] font-normal text-cyan-300/90 hover:border-cyan-500 disabled:opacity-40"
+                    title="在列表末尾添加分割线"
+                  >
+                    添加分割线
+                  </button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto rounded-t-lg border border-b-0 border-slate-800/90 bg-slate-950/60">
-                  {selectedRows.length === 0 ? (
-                    <p className="px-2 py-3 text-xs text-slate-500">暂无已选指标。</p>
-                  ) : (
-                    <ul className="divide-y divide-slate-800/80">
-                      {selectedRows.map(
-                        ({ key, label, frequency, range, unit, country, updatedAt, source }) => {
-                        const rangeText = range !== "-" ? range : "—";
-                        return (
-                        <li
-                          key={key}
-                          title={`${key}\n国家：${country}\n单位：${unit}\n更新时间：${updatedAt}\n频率：${frequency}\n来源：${source}\n范围：${rangeText}\n双击定位到左侧指标树`}
-                          className="flex cursor-pointer items-center gap-2 px-2 py-1 hover:bg-slate-900/50"
-                          onDoubleClick={(e) => {
-                            if ((e.target as HTMLElement).closest("button, a")) return;
-                            locateIndicatorInSidebar(key);
-                          }}
-                        >
-                          <span className="min-w-0 max-w-[42%] shrink truncate text-xs text-slate-300">
-                            {label}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-right text-[10px] leading-tight text-slate-500 tabular-nums">
-                            <span className="text-slate-600">国家</span>：{country}
-                            <span className="mx-1.5 text-slate-700">|</span>
-                            <span className="text-slate-600">单位</span>：{unit}
-                            <span className="mx-1.5 text-slate-700">|</span>
-                            <span className="text-slate-600">更新时间</span>：{updatedAt}
-                            <span className="mx-1.5 text-slate-700">|</span>
-                            <span className="text-slate-600">频率</span>：{frequency}
-                            <span className="mx-1.5 text-slate-700">|</span>
-                            <span className="text-slate-600">来源</span>：{source}
-                            <span className="mx-1.5 text-slate-700">|</span>
-                            <span className="text-slate-600">范围</span>：{rangeText}
-                          </span>
-                          <Link
-                            href={`/tools/statistical-analysis?series=${encodeURIComponent(key)}&label=${encodeURIComponent(label)}`}
-                            className="shrink-0 rounded border border-cyan-800/70 px-1.5 py-0 text-[10px] text-cyan-200/90 hover:border-cyan-600"
-                            title="跳转到统计分析页面"
-                          >
-                            统计分析
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => removeSelectedKey(key)}
-                            className="shrink-0 rounded border border-rose-900/70 px-1.5 py-0 text-[10px] text-rose-200/90 hover:border-rose-700"
-                          >
-                            删除
-                          </button>
-                        </li>
-                        );
-                      },
-                      )}
-                    </ul>
-                  )}
+                  <SelectedIndicatorsList
+                    items={selectedListItems}
+                    rowByKey={selectedRowByKey}
+                    onChange={setSelectedListItems}
+                    onRemoveKey={removeSelectedKey}
+                    onLocateKey={locateIndicatorInSidebar}
+                  />
                 </div>
               </div>
 
               <div className="flex min-h-0 flex-[1_1_50%] flex-col">
-                <div className="shrink-0 border-b border-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-500">
-                  提取数据
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-500">
+                  <span>提取数据</span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-normal text-slate-600">导出</span>
+                    <button
+                      type="button"
+                      disabled={!displayPayload}
+                      onClick={() => exportExtractedData("csv")}
+                      title="导出为 CSV"
+                      className="rounded border border-slate-700 px-1.5 py-0 text-[10px] font-normal text-slate-300 hover:border-cyan-700 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      CSV
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!displayPayload}
+                      onClick={() => exportExtractedData("xlsx")}
+                      title="导出为 Excel"
+                      className="rounded border border-slate-700 px-1.5 py-0 text-[10px] font-normal text-slate-300 hover:border-cyan-700 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      XLSX
+                    </button>
+                  </div>
                 </div>
                 <div
                   className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-slate-800/90 bg-slate-950/60"
@@ -2209,7 +3095,7 @@ export function MacroSection() {
                 >
                   {displayPayload ? (
                     <div className="h-full overflow-auto">
-                      <table className="w-max max-w-none border-collapse text-xs table-fixed">
+                      <table className="w-max max-w-none border-separate border-spacing-0 text-xs table-fixed">
                         <colgroup>
                           <col style={{ width: tableColumnWidths.time }} />
                           {tableColumns.map((c) => (
@@ -2222,8 +3108,11 @@ export function MacroSection() {
                         <thead className="sticky top-0 z-[1] bg-slate-900/95 text-slate-300">
                           <tr>
                             <th
-                              className="border-b border-r border-slate-800 px-2 py-1 text-left font-medium"
-                              style={{ width: tableColumnWidths.time }}
+                              className="sticky left-0 z-[3] border-b border-r border-slate-800 bg-slate-900 px-2 py-1 text-left font-medium"
+                              style={{
+                                width: tableColumnWidths.time,
+                                minWidth: tableColumnWidths.time,
+                              }}
                             >
                               <button
                                 type="button"
@@ -2264,15 +3153,20 @@ export function MacroSection() {
                           </tr>
                         </thead>
                         <tbody>
-                          {sortedTableRowIndices.map((idx) => {
+                          {sortedTableRowIndices.map((idx, rowIdx) => {
                             const time = displayPayload.categories[idx]!;
+                            const stickyTimeBg =
+                              rowIdx % 2 === 0 ? "bg-slate-950" : "bg-slate-900/35";
                             return (
                             <tr
                               key={`${time}-${idx}`}
                               className="odd:bg-slate-950 even:bg-slate-900/35"
                             >
-                              <td className="whitespace-nowrap border-b border-r border-slate-800 px-2 py-0.5 text-slate-400 tabular-nums">
-                                {time}
+                              <td
+                                className={`sticky left-0 z-[1] whitespace-nowrap border-b border-r border-slate-800 px-2 py-0.5 text-slate-400 tabular-nums ${stickyTimeBg}`}
+                                style={{ minWidth: tableColumnWidths.time }}
+                              >
+                                {formatMacroPeriodDisplay(time)}
                               </td>
                               {tableColumns.map((c) => (
                                 <td
@@ -2329,8 +3223,14 @@ export function MacroSection() {
                         remoteVisibleRangeVersion={remoteVisibleRangeVersion}
                         onLocalVisibleRange={onLocalVisibleRange}
                         drawTool={macroDrawTool}
+                        drawStyle={macroDrawStyle}
                         drawingsBySlot={macroDrawingsBySlot}
+                        selectedDrawingBySlot={selectedDrawingBySlot}
                         onDrawingsChange={onMacroDrawingsChange}
+                        onSelectDrawing={onMacroSelectDrawing}
+                        onDrawInteraction={onMacroDrawInteraction}
+                        onCrosshairTimeLabel={onMacroCrosshairTimeLabel}
+                        onVisibleRangeLabels={onMacroVisibleRangeLabels}
                       />
                     </div>
 
@@ -2353,17 +3253,98 @@ export function MacroSection() {
                               : { flex: "0 0 33%", minWidth: CHART_SETTINGS_MIN_PX }
                           }
                         >
-                          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 px-3 py-2">
-                            <h3 className="text-sm font-medium text-slate-200">图形属性</h3>
-                            <button
-                              type="button"
-                              onClick={() => setChartSettingsOpen(false)}
-                              className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
-                            >
-                              收起
-                            </button>
+                          <div className="flex shrink-0 flex-col gap-2 border-b border-slate-800 px-2 py-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex min-w-0 flex-1 gap-0.5 rounded-md border border-slate-700/90 bg-slate-950/50 p-0.5">
+                                {(
+                                  [
+                                    { id: "settings" as const, label: "图形设置" },
+                                    { id: "events" as const, label: "事件记录" },
+                                    { id: "intro" as const, label: "模板介绍" },
+                                  ] as const
+                                ).map(({ id, label }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setChartSidePanelTab(id)}
+                                    className={`flex-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                                      chartSidePanelTab === id
+                                        ? "bg-emerald-950/60 text-emerald-100 ring-1 ring-emerald-700/80"
+                                        : "text-slate-400 hover:bg-slate-900/60 hover:text-slate-200"
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setChartSettingsOpen(false)}
+                                className="shrink-0 rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                              >
+                                收起
+                              </button>
+                            </div>
+                            {chartSidePanelTab === "settings" ? (
+                              <div className="flex min-w-0 gap-0.5 rounded-md border border-slate-700/90 bg-slate-950/50 p-0.5">
+                                {(
+                                  [
+                                    { id: "global" as const, label: "全图设置" },
+                                    { id: "single" as const, label: "单图设置" },
+                                    { id: "axis" as const, label: "轴设置" },
+                                  ] as const
+                                ).map(({ id, label }) => (
+                                  <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setChartPropsTab(id)}
+                                    className={`flex-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
+                                      chartPropsTab === id
+                                        ? "bg-slate-800 text-slate-100 ring-1 ring-slate-600/80"
+                                        : "text-slate-500 hover:bg-slate-900/60 hover:text-slate-300"
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
-                          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-xs text-slate-400">
+                          <div
+                            className={`min-h-0 flex-1 text-xs text-slate-400 ${
+                              chartSidePanelTab === "events" || chartSidePanelTab === "intro"
+                                ? "flex flex-col overflow-hidden px-2 py-2"
+                                : "overflow-y-auto px-2 py-2"
+                            }`}
+                          >
+                            {chartSidePanelTab === "events" ? (
+                              <EventChartSidePanel
+                                variant="embedded"
+                                rangeFrom={macroEventRangeFrom}
+                                rangeTo={macroEventRangeTo}
+                                trackDate={macroEventContextDate}
+                                contextCountries={macroEventContextCountries}
+                                contextMacroKeys={macroEventContextMacroKeys}
+                                className="h-full min-h-[12rem]"
+                              />
+                            ) : chartSidePanelTab === "intro" ? (
+                              <MacroTemplateIntroPanel
+                                templateName={introTemplateMeta.name}
+                                templateDescription={introTemplateMeta.description}
+                                chartSections={introChartSections ?? undefined}
+                                indicators={introChartSections ? [] : introIndicators}
+                                notes={mergedIntroNotes}
+                                onNoteChange={onIntroNoteChange}
+                                onDescriptionChange={
+                                  isAdmin && activeTemplate?.builtIn
+                                    ? onIntroDescriptionChange
+                                    : undefined
+                                }
+                                editable={isAdmin}
+                                className="h-full min-h-[12rem]"
+                              />
+                            ) : (
+                              <>
                             <MacroChartIndicatorAssignment
                               layoutMode={layoutMode}
                               selectedKeys={chartPropertyKeys}
@@ -2376,30 +3357,68 @@ export function MacroSection() {
                               onUpdateDisplayConfig={(patch) =>
                                 setDisplayConfig((prev) => ({ ...prev, ...patch }))
                               }
+                              availableYears={chartAvailableYears}
+                              chartPayload={displayPayload}
+                              tab={chartPropsTab}
                             />
-                            <div className="mt-4 border-t border-slate-800 pt-4">
-                              <p className="mb-2 leading-relaxed text-slate-500">
-                                常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点；并支持任意序列切到右轴，便于不同量级对比。
-                              </p>
-                              <div className="rounded-md border border-slate-700/90 bg-slate-900/50 p-3 text-slate-500">
-                                建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。
+                            {chartPropsTab === "global" ? (
+                              <div className="mt-3 border-t border-slate-800 pt-3">
+                                <p className="mb-2 text-[10px] leading-relaxed text-slate-500">
+                                  常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图；季节图仅支持单指标（月度/季度），默认近 5 年并叠加前 N-1 年均值线；饼图可切换数据年份；并支持任意序列切到右轴。
+                                </p>
+                                <div className="rounded-md border border-slate-700/90 bg-slate-900/50 p-2 text-[10px] text-slate-500">
+                                  建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。
+                                </div>
                               </div>
-                            </div>
+                            ) : null}
+                              </>
+                            )}
                           </div>
                         </aside>
                       </>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setChartSettingsOpen(true)}
-                        className="flex w-10 shrink-0 flex-col items-center justify-center gap-1 border-l border-slate-800 bg-slate-950/90 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
-                        title="展开图形属性"
-                      >
-                        <span>图</span>
-                        <span>形</span>
-                        <span>属</span>
-                        <span>性</span>
-                      </button>
+                      <div className="flex w-10 shrink-0 flex-col border-l border-slate-800 bg-slate-950/90">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setChartSidePanelTab("settings");
+                            setChartSettingsOpen(true);
+                          }}
+                          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+                          title="展开图形设置"
+                        >
+                          <span>图</span>
+                          <span>形</span>
+                          <span>设</span>
+                          <span>置</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setChartSidePanelTab("events");
+                            setChartSettingsOpen(true);
+                          }}
+                          className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-slate-800 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+                          title="展开事件记录"
+                        >
+                          <span>事</span>
+                          <span>件</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setChartSidePanelTab("intro");
+                            setChartSettingsOpen(true);
+                          }}
+                          className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-slate-800 py-2 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+                          title="展开模板介绍"
+                        >
+                          <span>模</span>
+                          <span>板</span>
+                          <span>介</span>
+                          <span>绍</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2414,9 +3433,13 @@ export function MacroSection() {
               <div className="rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-medium text-slate-200">系统模板</h3>
-                  {!isAdmin ? (
+                  {isAdmin ? (
+                    <span className="text-[10px] text-slate-500">
+                      管理员可删除；代码内置模板删除后为全员隐藏，可下方恢复
+                    </span>
+                  ) : (
                     <span className="text-[10px] text-slate-600">文件夹由管理员统一维护</span>
-                  ) : null}
+                  )}
                 </div>
                 <MacroTemplateFolderSection
                   templates={builtInTemplates}
@@ -2429,16 +3452,48 @@ export function MacroSection() {
                   disabled={loading || !isAdmin}
                   emptyText="暂无系统模板。"
                   renderActions={(tpl) => (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => applyTemplateAndExtract(tpl)}
-                      className="rounded border border-emerald-700/80 bg-emerald-950/35 text-emerald-100 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      加载
-                    </button>
+                    <div className="flex w-full flex-col gap-0.5">
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => applyTemplateAndExtract(tpl)}
+                        className="w-full rounded border border-emerald-700/80 bg-emerald-950/35 text-emerald-100 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        加载
+                      </button>
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => deleteSystemTemplate(tpl)}
+                          className="w-full rounded border border-rose-900/70 px-1.5 py-0.5 text-[10px] text-rose-200/90 hover:border-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          删除
+                        </button>
+                      ) : null}
+                    </div>
                   )}
                 />
+                {isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
+                  <div className="mt-3 rounded border border-slate-800/80 bg-slate-950/40 px-2 py-2">
+                    <p className="text-[10px] font-medium text-slate-400">已隐藏的内置系统模板</p>
+                    <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                      {hiddenHardcodedBuiltinTemplates.map((tpl) => (
+                        <li key={tpl.id}>
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => restoreSystemTemplate(tpl.id)}
+                            className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-emerald-700 hover:text-emerald-200 disabled:opacity-40"
+                            title={`恢复「${tpl.name}」到系统模板列表`}
+                          >
+                            恢复「{tpl.name}」
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
 
               <div className="rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
@@ -2454,10 +3509,15 @@ export function MacroSection() {
                   <button
                     type="button"
                     onClick={() =>
-                      saveCurrentAsTemplate(
-                        newTemplateName,
-                        newTemplateFolderId.trim() ? newTemplateFolderId.trim() : null,
-                      )
+                      isAdmin
+                        ? openSaveTemplateDialog({
+                            defaultMode: "user",
+                            defaultName: newTemplateName,
+                          })
+                        : saveCurrentAsTemplate(
+                            newTemplateName,
+                            newTemplateFolderId.trim() ? newTemplateFolderId.trim() : null,
+                          )
                     }
                     className="rounded border border-cyan-700/80 bg-cyan-950/35 px-2 py-0.5 text-[10px] font-medium text-cyan-100 hover:border-cyan-500"
                   >
@@ -2495,7 +3555,16 @@ export function MacroSection() {
                                   x.id === tpl.id
                                     ? {
                                         ...x,
-                                        selectedKeys: [...selectedKeys],
+                                        selectedKeys: [...orderedSelectedKeys],
+                                        selectedListItems: selectedListItems.map((i) =>
+                                          i.type === "divider"
+                                            ? {
+                                                type: "divider" as const,
+                                                id: i.id,
+                                                ...(i.label ? { label: i.label } : {}),
+                                              }
+                                            : { type: "series" as const, key: i.key },
+                                        ),
                                         layoutMode,
                                         slotAssignment: { ...slotAssignment },
                                         seriesVisualMap: { ...seriesVisualMap },
@@ -2539,16 +3608,50 @@ export function MacroSection() {
       {templateNameDialogOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4">
           <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-2xl">
-            <h3 className="text-sm font-medium text-slate-100">
-              {templateSaveMode === "builtin" && isAdmin && activeTemplate?.builtIn
-                ? "更新系统模板"
-                : "保存模板"}
-            </h3>
+            <h3 className="text-sm font-medium text-slate-100">保存模板</h3>
             <p className="mt-1 text-xs text-slate-400">
-              {templateSaveMode === "builtin" && isAdmin && activeTemplate?.builtIn
-                ? `将当前图表配置写回系统模板「${activeTemplate.name}」，对所有用户生效。`
-                : "请输入模板名称后点击确认。"}
+              {templateSaveMode === "builtin" && isAdmin
+                ? "保存为系统模板后，所有用户均可在「系统模板」中加载。"
+                : "保存为我的模板，仅自己可见。"}
             </p>
+            {isAdmin ? (
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-300">
+                <label className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="template-save-mode"
+                    checked={templateSaveMode === "user"}
+                    onChange={() => {
+                      setTemplateSaveMode("user");
+                      if (activeTemplate && !activeTemplate.builtIn) {
+                        setNewTemplateFolderId(activeTemplate.folderId ?? "");
+                      } else {
+                        setNewTemplateFolderId("");
+                      }
+                    }}
+                    className="h-3 w-3 border-slate-600"
+                  />
+                  我的模板
+                </label>
+                <label className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="template-save-mode"
+                    checked={templateSaveMode === "builtin"}
+                    onChange={() => {
+                      setTemplateSaveMode("builtin");
+                      if (activeTemplate?.builtIn) {
+                        setNewTemplateFolderId(builtinTemplateFolderIds[activeTemplate.id] ?? "");
+                      } else {
+                        setNewTemplateFolderId("");
+                      }
+                    }}
+                    className="h-3 w-3 border-slate-600"
+                  />
+                  系统模板
+                </label>
+              </div>
+            ) : null}
             <form
               className="mt-3 flex flex-col gap-3"
               onSubmit={(e) => {
@@ -2570,10 +3673,9 @@ export function MacroSection() {
                   value={newTemplateFolderId}
                   onChange={(e) => setNewTemplateFolderId(e.target.value)}
                   className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200"
-                  disabled={templateSaveMode === "builtin"}
                 >
                   <option value="">未分类</option>
-                  {userFolders.map((f) => (
+                  {(templateSaveMode === "builtin" ? builtinFolders : userFolders).map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name}
                     </option>
@@ -2593,9 +3695,7 @@ export function MacroSection() {
                   disabled={!templateNameDraft.trim()}
                   className="rounded border border-cyan-700/80 bg-cyan-950/35 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {templateSaveMode === "builtin" && isAdmin && activeTemplate?.builtIn
-                    ? "确认更新"
-                    : "确认保存"}
+                  {templateSaveMode === "builtin" && isAdmin ? "保存为系统模板" : "保存为我的模板"}
                 </button>
               </div>
             </form>

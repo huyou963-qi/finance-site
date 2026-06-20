@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CommonLinksMenu } from "@/components/CommonLinksMenu";
 
 const linkBase =
   "rounded-md px-2.5 py-1 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60";
@@ -26,9 +27,12 @@ export function SiteHeaderNav() {
 
   const dashboardActive = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const macroActive = pathname === "/macro" || pathname === "/";
+  const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
   const toolsActive = isToolPath(pathname);
   const authActive = pathname === "/auth" || pathname.startsWith("/auth/");
-  const adminActive = pathname === "/admin/users" || pathname.startsWith("/admin/users/");
+  const adminUsersActive = pathname === "/admin/users" || pathname.startsWith("/admin/users/");
+  const adminDataActive =
+    pathname === "/admin/data-catalog" || pathname.startsWith("/admin/data-catalog/");
   const marketsActive =
     (pathname === "/markets" || pathname.startsWith("/markets/")) && !toolsActive;
 
@@ -61,7 +65,7 @@ export function SiteHeaderNav() {
   };
 
   return (
-    <nav className="flex items-center gap-1">
+    <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
       <Link
         href="/dashboard"
         className={`${linkBase} ${
@@ -93,7 +97,18 @@ export function SiteHeaderNav() {
         }`}
         aria-current={marketsActive ? "page" : undefined}
       >
-        K 线
+        行情
+      </Link>
+      <Link
+        href="/events"
+        className={`${linkBase} ${
+          eventsActive
+            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
+            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+        }`}
+        aria-current={eventsActive ? "page" : undefined}
+      >
+        事件
       </Link>
       <div ref={toolsRef} className="relative">
         <button
@@ -140,18 +155,32 @@ export function SiteHeaderNav() {
           </div>
         ) : null}
       </div>
+      <CommonLinksMenu me={me} />
       {me?.role === "admin" ? (
-        <Link
-          href="/admin/users"
-          className={`${linkBase} ${
-            adminActive
-              ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-              : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
-          }`}
-          aria-current={adminActive ? "page" : undefined}
-        >
-          管理员
-        </Link>
+        <>
+          <Link
+            href="/admin/data-catalog"
+            className={`${linkBase} ${
+              adminDataActive
+                ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
+                : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+            }`}
+            aria-current={adminDataActive ? "page" : undefined}
+          >
+            数据目录
+          </Link>
+          <Link
+            href="/admin/users"
+            className={`${linkBase} ${
+              adminUsersActive
+                ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
+                : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+            }`}
+            aria-current={adminUsersActive ? "page" : undefined}
+          >
+            用户
+          </Link>
+        </>
       ) : null}
       <Link
         href="/auth"

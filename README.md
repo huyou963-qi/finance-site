@@ -97,3 +97,6 @@ npm run dev
 | `npm run build` | 生产构建 |
 | `npm run start` | 启动生产服务器 |
 | `npm run lint` | ESLint |
+| `npm run data:seed-p0` | 种子：统计机构 + FRED 试点订阅 |
+| `npm run data:worker` | 按计划拉取到期宏观数据 |
+| `npm run data:sync-one -- <code>` | 强制同步单条序列 |

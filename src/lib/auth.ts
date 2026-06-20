@@ -3,11 +3,28 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export type Role = "admin" | "user";
+export type UserPlan = "standard" | "pro";
+
+export const USER_PLAN_LABELS: Record<UserPlan, string> = {
+  standard: "普通用户",
+  pro: "Pro 用户",
+};
+
+function parseUserPlan(raw: string | null | undefined): UserPlan {
+  return raw === "pro" ? "pro" : "standard";
+}
+
+function validateUserPlan(plan: string): UserPlan {
+  const p = plan.trim().toLowerCase();
+  if (p === "pro" || p === "standard") return p;
+  throw new Error("会员类型不合法");
+}
 
 export type UserRecord = {
   id: string;
   username: string;
   email?: string;
+  phone?: string;
   emailVerifiedAt?: string;
   passHash: string;
   passSalt: string;
@@ -92,16 +109,66 @@ function validateEmail(email: string) {
   return e;
 }
 
+function validatePhone(phone: string) {
+  let p = phone.trim().replace(/[\s-]/g, "");
+  if (p.startsWith("+86")) p = p.slice(3);
+  else if (p.startsWith("86") && p.length === 13) p = p.slice(2);
+  if (!/^1[3-9]\d{9}$/.test(p)) {
+    throw new Error("手机号格式不正确，请填写11位中国大陆手机号");
+  }
+  return p;
+}
+
+function parseOptionalEmail(
+  emailRaw: string | undefined | null,
+  options?: { required?: boolean },
+): string | null {
+  const trimmed = (emailRaw ?? "").trim();
+  if (!trimmed) {
+    if (options?.required) throw new Error("请填写邮箱");
+    return null;
+  }
+  return validateEmail(trimmed);
+}
+
+function parseOptionalPhone(
+  phoneRaw: string | undefined | null,
+  options?: { required?: boolean },
+): string | null {
+  const trimmed = (phoneRaw ?? "").trim();
+  if (!trimmed) {
+    if (options?.required) throw new Error("请填写手机号");
+    return null;
+  }
+  return validatePhone(trimmed);
+}
+
+function phoneRequiredForUser(user: { role: Role }): boolean {
+  return user.role !== "admin";
+}
+
 export async function registerUser(
   usernameRaw: string,
   passwordRaw: string,
   role: Role = "user",
-  emailRaw?: string,
+  emailRaw: string,
+  phoneRaw: string,
   emailVerifiedAt?: string,
-): Promise<{ id: string; username: string; role: Role; email?: string }> {
+  planRaw: UserPlan = "standard",
+): Promise<{
+  id: string;
+  username: string;
+  role: Role;
+  plan: UserPlan;
+  email: string;
+  phone: string;
+}> {
   const username = validateUsername(usernameRaw);
   const password = validatePassword(passwordRaw);
-  const email = emailRaw ? validateEmail(emailRaw) : undefined;
+  const isAdmin = role === "admin";
+  const email = parseOptionalEmail(emailRaw, { required: !isAdmin });
+  const phone = parseOptionalPhone(phoneRaw, { required: !isAdmin });
+  const plan = validateUserPlan(planRaw);
   await ensureAdminSeed();
 
   const existsName = await prisma.user.findFirst({
@@ -114,16 +181,23 @@ export async function registerUser(
     if (existsEmail) throw new Error("邮箱已被注册");
   }
 
+  if (phone) {
+    const existsPhone = await prisma.user.findFirst({ where: { phone } });
+    if (existsPhone) throw new Error("手机号已被注册");
+  }
+
   const salt = crypto.randomBytes(16).toString("hex");
   const user = await prisma.user.create({
     data: {
       id: uid(),
       username,
-      email: email ?? null,
+      email,
+      phone,
       emailVerifiedAt: emailVerifiedAt ? new Date(emailVerifiedAt) : null,
       passHash: hashPassword(password, salt),
       passSalt: salt,
       role,
+      plan,
       createdAt: new Date(),
     },
   });
@@ -132,7 +206,9 @@ export async function registerUser(
     id: user.id,
     username: user.username,
     role: user.role as Role,
-    email: user.email ?? undefined,
+    plan: parseUserPlan(user.plan),
+    email: user.email ?? "",
+    phone: user.phone ?? "",
   };
 }
 
@@ -140,10 +216,18 @@ export async function requestRegistrationVerification(
   usernameRaw: string,
   passwordRaw: string,
   emailRaw: string,
-): Promise<{ token: string; expiresAt: string; username: string; email: string }> {
+  phoneRaw: string,
+): Promise<{
+  token: string;
+  expiresAt: string;
+  username: string;
+  email: string;
+  phone: string;
+}> {
   const username = validateUsername(usernameRaw);
   const password = validatePassword(passwordRaw);
   const email = validateEmail(emailRaw);
+  const phone = validatePhone(phoneRaw);
 
   await ensureAdminSeed();
 
@@ -154,6 +238,9 @@ export async function requestRegistrationVerification(
 
   const existsEmail = await prisma.user.findFirst({ where: { email } });
   if (existsEmail) throw new Error("邮箱已被注册");
+
+  const existsPhone = await prisma.user.findFirst({ where: { phone } });
+  if (existsPhone) throw new Error("手机号已被注册");
 
   await prisma.pendingRegistration.deleteMany({
     where: {
@@ -166,6 +253,7 @@ export async function requestRegistrationVerification(
       OR: [
         { username: { equals: username, mode: "insensitive" } },
         { email: { equals: email, mode: "insensitive" } },
+        { phone },
       ],
     },
   });
@@ -180,6 +268,7 @@ export async function requestRegistrationVerification(
       token,
       username,
       email,
+      phone,
       passHash: hashPassword(password, salt),
       passSalt: salt,
       createdAt: new Date(),
@@ -187,12 +276,12 @@ export async function requestRegistrationVerification(
     },
   });
 
-  return { token, expiresAt: expiresAt.toISOString(), username, email };
+  return { token, expiresAt: expiresAt.toISOString(), username, email, phone };
 }
 
 export async function verifyRegistrationToken(
   token: string,
-): Promise<{ id: string; username: string; role: Role; email?: string }> {
+): Promise<{ id: string; username: string; role: Role; plan: UserPlan; email: string; phone: string }> {
   const t = token.trim();
   if (!/^[a-f0-9]{64}$/i.test(t)) {
     throw new Error("验证链接无效");
@@ -225,16 +314,24 @@ export async function verifyRegistrationToken(
     throw new Error("邮箱已被注册，请更换后重试");
   }
 
+  const existsPhone = await prisma.user.findFirst({ where: { phone: row.phone } });
+  if (existsPhone) {
+    await prisma.pendingRegistration.delete({ where: { token: t } });
+    throw new Error("手机号已被注册，请更换后重试");
+  }
+
   const user = await prisma.$transaction(async (tx) => {
     const u = await tx.user.create({
       data: {
         id: uid(),
         username: row.username,
         email: row.email,
+        phone: row.phone,
         emailVerifiedAt: new Date(),
         passHash: row.passHash,
         passSalt: row.passSalt,
         role: "user",
+        plan: "standard",
         createdAt: new Date(),
       },
     });
@@ -246,7 +343,9 @@ export async function verifyRegistrationToken(
     id: user.id,
     username: user.username,
     role: user.role as Role,
-    email: user.email ?? undefined,
+    plan: parseUserPlan(user.plan),
+    email: user.email!,
+    phone: user.phone!,
   };
 }
 
@@ -317,10 +416,142 @@ export async function listUsers() {
     id: u.id,
     username: u.username,
     email: u.email ?? "",
+    phone: u.phone ?? "",
     emailVerifiedAt: u.emailVerifiedAt ? u.emailVerifiedAt.toISOString() : "",
     role: u.role,
+    plan: parseUserPlan(u.plan),
     createdAt: u.createdAt.toISOString(),
   }));
+}
+
+export async function getUserProfile(userId: string) {
+  await ensureAdminSeed();
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("用户不存在");
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email ?? "",
+    phone: user.phone ?? "",
+    emailVerifiedAt: user.emailVerifiedAt ? user.emailVerifiedAt.toISOString() : "",
+    role: user.role as Role,
+    plan: parseUserPlan(user.plan),
+    createdAt: user.createdAt.toISOString(),
+  };
+}
+
+export async function updateUserAccount(
+  userId: string,
+  patch: {
+    email?: string;
+    phone?: string;
+    password?: string;
+    role?: Role;
+    plan?: UserPlan;
+  },
+  options?: { currentPassword?: string; byAdmin?: boolean },
+) {
+  await ensureAdminSeed();
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("用户不存在");
+
+  const data: {
+    email?: string | null;
+    phone?: string | null;
+    passHash?: string;
+    passSalt?: string;
+    role?: string;
+    plan?: string;
+    emailVerifiedAt?: Date | null;
+  } = {};
+
+  if (patch.email !== undefined) {
+    const email = parseOptionalEmail(patch.email, {
+      required: phoneRequiredForUser(user as { role: Role }),
+    });
+    if (email) {
+      const existsEmail = await prisma.user.findFirst({
+        where: { email, NOT: { id: userId } },
+      });
+      if (existsEmail) throw new Error("邮箱已被注册");
+      data.email = email;
+      if (email !== (user.email ?? "")) {
+        data.emailVerifiedAt = options?.byAdmin ? new Date() : null;
+      }
+    } else {
+      data.email = null;
+      data.emailVerifiedAt = null;
+    }
+  }
+
+  if (patch.phone !== undefined) {
+    const phone = parseOptionalPhone(patch.phone, {
+      required: phoneRequiredForUser(user as { role: Role }),
+    });
+    if (phone) {
+      const existsPhone = await prisma.user.findFirst({
+        where: { phone, NOT: { id: userId } },
+      });
+      if (existsPhone) throw new Error("手机号已被注册");
+      data.phone = phone;
+    } else {
+      data.phone = null;
+    }
+  }
+
+  if (patch.password !== undefined && patch.password.trim()) {
+    const password = validatePassword(patch.password);
+    if (!options?.byAdmin) {
+      const current = options?.currentPassword ?? "";
+      if (!current) throw new Error("修改密码需提供当前密码");
+      const passHash = hashPassword(current, user.passSalt);
+      if (!safeEqHex(passHash, user.passHash)) {
+        throw new Error("当前密码不正确");
+      }
+    }
+    const salt = crypto.randomBytes(16).toString("hex");
+    data.passSalt = salt;
+    data.passHash = hashPassword(password, salt);
+  }
+
+  if (patch.role !== undefined) {
+    if (!options?.byAdmin) throw new Error("无权修改角色");
+    if (patch.role !== "admin" && patch.role !== "user") {
+      throw new Error("角色不合法");
+    }
+    data.role = patch.role;
+  }
+
+  if (patch.plan !== undefined) {
+    if (!options?.byAdmin) throw new Error("无权修改会员类型");
+    data.plan = validateUserPlan(patch.plan);
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new Error("没有可更新的字段");
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data,
+  });
+
+  return {
+    id: updated.id,
+    username: updated.username,
+    email: updated.email ?? "",
+    phone: updated.phone ?? "",
+    emailVerifiedAt: updated.emailVerifiedAt ? updated.emailVerifiedAt.toISOString() : "",
+    role: updated.role as Role,
+    plan: parseUserPlan(updated.plan),
+    createdAt: updated.createdAt.toISOString(),
+  };
+}
+
+/** 是否 Pro 会员（管理员始终视为拥有全部能力） */
+export function userHasProAccess(user: { role: Role; plan?: UserPlan | string | null }): boolean {
+  if (user.role === "admin") return true;
+  return parseUserPlan(user.plan) === "pro";
 }
 
 export function getSessionToken(req: NextRequest): string | null {

@@ -37,6 +37,7 @@ export const MACRO_MAJOR_COUNTRIES: readonly CountryDef[] = [
   { code: "JP", name: "日本" },
   { code: "DE", name: "德国" },
   { code: "GB", name: "英国" },
+  { code: "CH", name: "瑞士" },
   { code: "FR", name: "法国" },
   { code: "IN", name: "印度" },
   { code: "BR", name: "巴西" },
@@ -63,12 +64,44 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "GDP", label: "名义 GDP（季调，十亿美元）", category: "国民经济核算", frequency: "季度" },
   { id: "A191RL1Q225SBEA", label: "实际 GDP 环比年化（%）", category: "国民经济核算", frequency: "季度" },
   { id: "INDPRO", label: "工业生产指数（2017=100）", category: "工业", frequency: "月" },
-  { id: "CPIAUCSL", label: "CPI（全部城市消费者）", category: "价格指数", frequency: "月" },
-  { id: "CPILFESL", label: "核心 CPI（剔除食物与能源）", category: "价格指数", frequency: "月" },
-  { id: "PCEPI", label: "PCE 价格指数", category: "价格指数", frequency: "月" },
-  { id: "UNRATE", label: "失业率（%）", category: "就业与工资", frequency: "月" },
+  { id: "CPIAUCSL", label: "CPI（全部城市消费者）", category: "CPI 综合", frequency: "月" },
+  { id: "CPILFESL", label: "核心 CPI（剔除食物与能源）", category: "CPI 综合", frequency: "月" },
+  { id: "CPIENGSL", label: "CPI 能源", category: "CPI 综合", frequency: "月" },
+  { id: "CPIFABSL", label: "CPI 食品与饮料", category: "CPI 综合", frequency: "月" },
+  { id: "CUSR0000SAH1", label: "CPI 住房（Shelter）", category: "CPI 住房", frequency: "月" },
+  { id: "CUSR0000SEHA", label: "CPI 主要住所租金", category: "CPI 住房", frequency: "月" },
+  { id: "CUSR0000SEHC", label: "CPI 业主等价租金（OER）", category: "CPI 住房", frequency: "月" },
+  { id: "CUSR0000SACL1E", label: "CPI 核心商品（除食品能源）", category: "CPI 核心商品", frequency: "月" },
+  { id: "CUSR0000SASLE", label: "CPI 核心服务（除能源服务）", category: "CPI 核心服务", frequency: "月" },
+  { id: "CUSR0000SETA02", label: "CPI 二手车与卡车", category: "CPI 分项", frequency: "月" },
+  { id: "CUSR0000SETA01", label: "CPI 新车", category: "CPI 分项", frequency: "月" },
+  { id: "CPIMEDSL", label: "CPI 医疗（聚合）", category: "CPI 分项", frequency: "月" },
+  { id: "PCEPI", label: "PCE 价格指数", category: "通胀驱动因子", frequency: "月" },
+  { id: "PCEPILFE", label: "核心 PCE", category: "通胀驱动因子", frequency: "月" },
+  { id: "PPIFIS", label: "PPI 最终需求", category: "通胀驱动因子", frequency: "月" },
+  { id: "CES0500000003", label: "平均时薪（全体私营）", category: "就业与工资", frequency: "月" },
+  { id: "T5YIE", label: "5Y 盈亏平衡通胀", category: "通胀驱动因子", frequency: "日" },
+  { id: "T10YIE", label: "10Y 盈亏平衡通胀", category: "通胀驱动因子", frequency: "日" },
+  { id: "DCOILWTICO", label: "WTI 原油现货", category: "通胀驱动因子", frequency: "日" },
+  { id: "UNRATE", label: "失业率（U-3，季调）", category: "就业与工资", frequency: "月" },
   { id: "PAYEMS", label: "非农就业人数（千人）", category: "就业与工资", frequency: "月" },
-  { id: "AHETPI", label: "私人部门平均时薪同比（%）", category: "就业与工资", frequency: "月" },
+  { id: "U6RATE", label: "U-6 广义失业率", category: "就业与工资", frequency: "月" },
+  { id: "CIVPART", label: "劳动参与率", category: "就业与工资", frequency: "月" },
+  { id: "LNS11300060", label: "25–54 岁劳动参与率", category: "就业与工资", frequency: "月" },
+  { id: "AHETPI", label: "生产与非监督岗位平均时薪", category: "就业与工资", frequency: "月" },
+  { id: "EMRATIO", label: "就业人口比", category: "就业与工资", frequency: "月" },
+  { id: "UNEMPLOY", label: "失业人数（千人）", category: "就业与工资", frequency: "月" },
+  { id: "UEMPMEAN", label: "平均失业周数", category: "领先与深度", frequency: "月" },
+  { id: "AWHNONAG", label: "平均周工时（生产与非监督）", category: "就业与工资", frequency: "月" },
+  { id: "JTSJOR", label: "岗位空缺率（非农）", category: "劳动力流动", frequency: "月" },
+  { id: "JTSQUR", label: "离职率（非农）", category: "劳动力流动", frequency: "月" },
+  { id: "JTSHIR", label: "雇佣率（非农）", category: "劳动力流动", frequency: "月" },
+  { id: "JTSJOL", label: "岗位空缺人数（非农，千人）", category: "劳动力流动", frequency: "月" },
+  { id: "ICSA", label: "初请失业金人数", category: "领先与深度", frequency: "周" },
+  { id: "CCSA", label: "续请失业金人数", category: "领先与深度", frequency: "周" },
+  { id: "USPRIV", label: "私营部门非农就业（千人）", category: "就业结构", frequency: "月" },
+  { id: "USGOVT", label: "政府部门就业（千人）", category: "就业结构", frequency: "月" },
+  { id: "MANEMP", label: "制造业就业（千人）", category: "就业结构", frequency: "月" },
   { id: "FEDFUNDS", label: "联邦基金有效利率（%）", category: "银行与货币", frequency: "月" },
   { id: "M2SL", label: "M2 货币供应量（十亿美元）", category: "银行与货币", frequency: "月" },
   { id: "WALCL", label: "美联储总资产（百万美元）", category: "银行与货币", frequency: "周" },
@@ -116,6 +149,23 @@ const WORLD_BANK_INDICATORS: readonly WorldBankIndicatorDef[] = [
   { id: "SP.POP.GROW", label: "人口增速（年 %）", category: "人口与资源", frequency: "年" },
   { id: "SP.DYN.LE00.IN", label: "预期寿命（岁）", category: "人口与资源", frequency: "年" },
 ] as const;
+
+/** Phase 3：非美国家 × 18 世行指标（用于 bulk seed） */
+export function listWorldBankSeedTargets(): {
+  countryCode: string;
+  indicatorId: string;
+  label: string;
+  category: string;
+}[] {
+  return MACRO_MAJOR_COUNTRIES.filter((c) => c.code !== "US").flatMap((c) =>
+    WORLD_BANK_INDICATORS.map((ind) => ({
+      countryCode: c.code,
+      indicatorId: ind.id,
+      label: ind.label,
+      category: ind.category,
+    })),
+  );
+}
 
 const WORLD_BANK_LABEL_BY_ID = new Map(WORLD_BANK_INDICATORS.map((x) => [x.id, x.label]));
 const FRED_LABEL_BY_ID = new Map(FRED_US_ITEMS.map((x) => [x.id, x.label]));
@@ -179,6 +229,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
         { code: { startsWith: "usov_" } },
         { code: { startsWith: "chov_" } },
         { code: { startsWith: "jpov_" } },
+        { code: { startsWith: "goldov_" } },
       ],
     },
     orderBy: { name: "asc" },
@@ -274,7 +325,7 @@ function mergeCountryCatalog(
   return [...map.values()];
 }
 
-export const FRED_CATALOG_MACRO_MAX = 60;
+export const FRED_CATALOG_MACRO_MAX = 30;
 
 type CatalogCache = {
   countries: UnifiedCatalogCountry[];
@@ -324,6 +375,27 @@ export function clearFredCatalogCache(): void {
   catalogCache = null;
 }
 
+export function fredCatalogBaseKey(key: string): string {
+  if (!key.startsWith("fred:")) return key;
+  const rest = key.slice(5);
+  const base = rest.split("::")[0]?.trim();
+  return base ? `fred:${base}` : key;
+}
+
+/** `fred:CPIAUCSL` / `fred:CPIAUCSL::yoy` → `sched_fred_CPIAUCSL` */
+export function fredInstrumentCodeFromKey(key: string): string | null {
+  if (!key.startsWith("fred:")) return null;
+  const rest = key.slice(5);
+  const fredId = rest.split("::")[0]?.trim().toUpperCase();
+  return fredId ? `sched_fred_${fredId}` : null;
+}
+
+export function unifiedKeyInAllowlist(key: string, allowlist: Set<string>): boolean {
+  if (allowlist.has(key)) return true;
+  if (key.startsWith("fred:")) return allowlist.has(fredCatalogBaseKey(key));
+  return false;
+}
+
 export function parseUnifiedSeriesQueryWithAllowlist(
   raw: string | null,
   allowlist: Set<string>,
@@ -343,7 +415,7 @@ export function parseUnifiedSeriesQueryWithAllowlist(
   const out: string[] = [];
   for (const part of trimmed.split(",")) {
     const k = part.trim();
-    if (!k || !allowlist.has(k) || seen.has(k)) continue;
+    if (!k || !unifiedKeyInAllowlist(k, allowlist) || seen.has(k)) continue;
     seen.add(k);
     out.push(k);
     if (out.length >= FRED_CATALOG_MACRO_MAX) break;
@@ -360,7 +432,7 @@ export function serializeUnifiedKeysForAllowlist(
     ...new Set(
       [...keys]
         .map((k) => k.trim())
-        .filter((k) => allowlist.has(k)),
+        .filter((k) => unifiedKeyInAllowlist(k, allowlist) || k.startsWith("mds:")),
     ),
   ]
     .slice(0, FRED_CATALOG_MACRO_MAX)

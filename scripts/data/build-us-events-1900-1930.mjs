@@ -1,0 +1,361 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const events = [
+  {
+    seedKey: "us-1900-gold-standard-act",
+    title: "1900年《金本位法》",
+    occurredAt: "1900-03-14",
+    importance: "MEDIUM",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["金融"],
+    content:
+      "【事件概述】\n1900年3月14日美国通过《金本位法》(Gold Standard Act)，正式将美元与黄金固定兑换，结束长期的双金属制争论。\n\n【政策/历史背景】\n19世纪末银本位派与金本位派激烈博弈；1893年恐慌后金本位支持者占上风，旨在稳定币值、吸引国际资本。\n\n【主要影响】\n强化美元信用，便利贸易融资，但亦限制货币政策灵活性，农业区对紧缩货币不满持续。\n\n【宏观/市场关联】\n固定汇率环境下，国际收支与黄金流动约束国内信贷；现代对应可关注实际利率与贸易余额。",
+    sourceUrl: "https://www.federalreservehistory.org/essays/gold-standard",
+  },
+  {
+    seedKey: "us-1901-mckinley-assassination",
+    title: "麦金利遇刺与进步时代加速",
+    occurredAt: "1901-09-06",
+    importance: "MEDIUM",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["金融", "制造业"],
+    content:
+      "【事件概述】\n1901年9月6日总统麦金利遇刺，9月14日身亡；副总统西奥多·罗斯福继任，进步时代监管议程显著加速。\n\n【政策/历史背景】\n麦金利代表亲大企业、高关税路线；罗斯福主张更强反垄断与劳工保护，权力交接改变政策节奏。\n\n【主要影响】\n后续反垄断诉讼、自然资源保护、消费者保护立法环境改善，大企业面临更高政治风险。\n\n【宏观/市场关联】\n政策不确定性短期上升，但长期有利于竞争与透明；工业组合估值受监管预期压制。",
+    sourceUrl:
+      "https://www.loc.gov/collections/theodore-roosevelt-films/articles-and-essays/theodore-roosevelt-and-the-progressive-era/",
+  },
+  {
+    seedKey: "us-1902-northern-securities",
+    title: "北方证券反垄断案",
+    occurredAt: "1902-02-19",
+    importance: "MEDIUM",
+    eventType: "监管",
+    countries: ["US"],
+    industries: ["交通运输", "金融"],
+    content:
+      "【事件概述】\n1902年罗斯福政府依据《谢尔曼法》起诉北方证券(Northern Securities)铁路托拉斯，1904年最高法院维持解散。\n\n【政策/历史背景】\n铁路并购形成跨区垄断，公众与中小货主反对；政府首次对大型工业托拉斯采取强硬司法行动。\n\n【主要影响】\n确立联邦积极反垄断姿态，铁路与钢铁等行业重组预期改变。\n\n【宏观/市场关联】\n降低行业集中度可能压价运价、影响铁路股盈利；竞争加剧有利于下游制造业成本。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1903-panama-canal-treaty",
+    title: "巴拿马运河条约与运河开工",
+    occurredAt: "1903-11-18",
+    importance: "HIGH",
+    eventType: "地缘",
+    countries: ["US", "PA"],
+    industries: ["交通运输"],
+    content:
+      "【事件概述】\n1903年11月18日美巴签订《海-布诺-瓦里亚条约》，美国获得运河区控制权，1904年开工，1914年通航。\n\n【政策/历史背景】\n美国需缩短大西洋—太平洋航线以强化海军与贸易；哥伦比亚参议院拒批运河条约后，美国支持巴拿马独立再签约。\n\n【主要影响】\n降低航运成本，强化美国对加勒比与太平洋投射能力，拉美「金元外交」争议上升。\n\n【宏观/市场关联】\n贸易运输成本下降利好大宗商品与制造业出口；军工与基建支出拉动相关产业。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1906-pure-food-drug",
+    title: "《纯净食品与药品法》",
+    occurredAt: "1906-06-30",
+    importance: "MEDIUM",
+    eventType: "监管",
+    countries: ["US"],
+    industries: ["消费", "医药"],
+    content:
+      "【事件概述】\n1906年6月30日签署《纯净食品与药品法》及《肉类检验法》，建立联邦食品药物监管框架。\n\n【政策/历史背景】\nUpton Sinclair《屠场》等曝光推动公众压力；此前掺假与标签欺诈缺乏联邦执法。\n\n【主要影响】\n合规成本上升，劣质厂商出清，消费者信心改善，现代 FDA 前身诞生。\n\n【宏观/市场关联】\n短期食品医药企业成本曲线抬升，长期品牌企业受益。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1907-panic",
+    title: "1907年银行恐慌",
+    occurredAt: "1907-10-01",
+    importance: "CRITICAL",
+    eventType: "市场异动",
+    countries: ["US"],
+    industries: ["金融"],
+    content:
+      "【事件概述】\n1907年10月纽约信托公司与尼克伯克信托公司挤兑，流动性枯竭，J.P. Morgan 牵头私人救助，市场剧烈波动。\n\n【政策/历史背景】\n缺乏最后贷款人，季节性与投机清算叠加；1906年旧金山地震后资金外流亦加剧紧张。\n\n【主要影响】\n信贷收缩、工业产出下滑，直接推动1913年《联邦储备法》立法。\n\n【宏观/市场关联】\n典型流动性危机：短端利率飙升、股市下跌、银行信贷乘数坍塌。",
+    sourceUrl: "https://www.federalreservehistory.org/essays/panic-of-1907",
+  },
+  {
+    seedKey: "us-1913-income-tax-amendment",
+    title: "第十六修正案与联邦所得税",
+    occurredAt: "1913-02-03",
+    importance: "HIGH",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["金融"],
+    content:
+      "【事件概述】\n1913年2月3日第十六修正案生效，国会随后通过1913年《收入法》，确立永久联邦所得税。\n\n【政策/历史背景】\n1895年最高法院曾判联邦所得税违宪；进步派要求富人承担更多财政负担，关税收入不足以支撑支出扩张。\n\n【主要影响】\n联邦财政能力增强，再分配工具出现，与关税政策形成互补。\n\n【宏观/市场关联】\n边际税率影响储蓄与投资；一战期间所得税大幅扩张。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1913-federal-reserve-act",
+    title: "《联邦储备法》与美联储成立",
+    occurredAt: "1913-12-23",
+    importance: "CRITICAL",
+    eventType: "央行决议",
+    countries: ["US"],
+    industries: ["金融"],
+    content:
+      "【事件概述】\n1913年12月23日威尔逊签署《联邦储备法》，1914年美联储开始运作，美国终于有了中央银行体系。\n\n【政策/历史背景】\n1907年恐慌暴露缺乏 lender of last resort；银行家、农民与进步派在区域储备银行结构上妥协。\n\n【主要影响】\n改善支付清算与弹性货币供给，为20世纪美国金融稳定提供制度基础。\n\n【宏观/市场关联】\n现代货币政策、贴现窗口、公开市场操作均源于此。",
+    sourceUrl: "https://www.federalreservehistory.org/essays/creation-of-the-fed",
+  },
+  {
+    seedKey: "us-1914-ww1-outbreak",
+    title: "第一次世界大战爆发与美国中立",
+    occurredAt: "1914-07-28",
+    importance: "HIGH",
+    eventType: "地缘",
+    countries: ["US", "GB", "DE", "FR"],
+    industries: ["能源", "制造业"],
+    content:
+      "【事件概述】\n1914年7月28日奥匈对塞尔维亚宣战，欧洲大战爆发；美国初期宣布中立，但贸易与金融迅速向协约国倾斜。\n\n【政策/历史背景】\n孤立主义传统与欧裔族群分歧；美国成为协约国物资与信贷重要来源。\n\n【主要影响】\n出口与工业订单激增，1914–1916年美国由债务国转向主要债权国之一。\n\n【宏观/市场关联】\n战争需求拉动工业产出与物价；美元与纽约金融市场国际地位上升。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1914-clayton-act",
+    title: "《克莱顿反垄断法》",
+    occurredAt: "1914-10-15",
+    importance: "MEDIUM",
+    eventType: "监管",
+    countries: ["US"],
+    industries: ["制造业", "金融"],
+    content:
+      "【事件概述】\n1914年10月15日《克莱顿法》签署，细化反垄断规则并限制互锁董事等。\n\n【政策/历史背景】\n与1914年《联邦贸易委员会法》配套，进步时代完善竞争政策工具箱。\n\n【主要影响】\n并购与价格歧视面临更明确法律约束，企业合规成本上升。\n\n【宏观/市场关联】\n行业结构变化影响长期利润率与集中度。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1915-ftc-created",
+    title: "联邦贸易委员会成立",
+    occurredAt: "1915-03-16",
+    importance: "MEDIUM",
+    eventType: "监管",
+    countries: ["US"],
+    industries: ["消费", "制造业"],
+    content:
+      "【事件概述】\n1914年FTC法案签署后，1915年3月联邦贸易委员会(FTC)开始运作，负责不公平竞争执法。\n\n【政策/历史背景】\n.business 游说与进步派折中，设立独立委员会而非仅依赖司法部诉讼。\n\n【主要影响】\n广告、定价与并购审查常态化，消费保护增强。\n\n【宏观/市场关联】\n监管执法周期影响行业盈利预期。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1917-us-enters-ww1",
+    title: "美国对德宣战",
+    occurredAt: "1917-04-06",
+    importance: "CRITICAL",
+    eventType: "地缘",
+    countries: ["US", "DE"],
+    industries: ["制造业", "能源", "交通运输"],
+    content:
+      "【事件概述】\n1917年4月6日美国对德宣战，全面卷入第一次世界大战。\n\n【政策/历史背景】\n无限制潜艇战、齐默尔曼电报与贷款利益使中立难以为继。\n\n【主要影响】\n军费与物资需求暴增，政府管制物价与生产，通胀压力上升。\n\n【宏观/市场关联】\n战争财政依赖所得税与 Liberty Bonds；工业产出与就业短期扩张。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1918-spanish-flu",
+    title: "1918年西班牙流感在美国暴发",
+    occurredAt: "1918-03-01",
+    importance: "HIGH",
+    eventType: "自然灾害",
+    countries: ["US"],
+    industries: ["医药", "消费"],
+    content:
+      "【事件概述】\n1918年春起美国多地暴发致命流感，1918–1919年三波疫情造成数十万死亡。\n\n【政策/历史背景】\n战时动员与人口流动加速传播；公共卫生体系薄弱。\n\n【主要影响】\n劳动力损失、服务业停摆，部分城市实施隔离。\n\n【宏观/市场关联】\n典型供给与需求双重冲击。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1918-armistice",
+    title: "一战停战与美国战后秩序",
+    occurredAt: "1918-11-11",
+    importance: "HIGH",
+    eventType: "地缘",
+    countries: ["US", "GB", "FR", "DE"],
+    industries: ["制造业"],
+    content:
+      "【事件概述】\n1918年11月11日协约国与德国停战，美国以胜利者身份主导巴黎和会谈判。\n\n【政策/历史背景】\n威尔逊十四点与民族自决理想；国内孤立主义与移民族群政治影响和会结果。\n\n【主要影响】\n军费削减、复员失业与通胀回落开始。\n\n【宏观/市场关联】\n战后需求切换引发1920–21调整。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1919-prohibition",
+    title: "禁酒第十八修正案生效",
+    occurredAt: "1919-01-16",
+    importance: "HIGH",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["消费", "农业"],
+    content:
+      "【事件概述】\n1919年1月16日第十八修正案批准，1920年起全国禁酒，直至1933年废除。\n\n【政策/历史背景】\n禁酒运动、战时节约与道德改革合流；忽视执法成本与黑市经济。\n\n【主要影响】\n合法酒业消失，走私与有组织犯罪扩张。\n\n【宏观/市场关联】\n税收流失、地下经济膨胀。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1919-versailles-rejected",
+    title: "参议院否决《凡尔赛条约》",
+    occurredAt: "1919-11-19",
+    importance: "HIGH",
+    eventType: "地缘",
+    countries: ["US", "GB", "FR", "DE"],
+    industries: ["金融"],
+    content:
+      "【事件概述】\n1919年11月19日美国参议院否决批准《凡尔赛条约》，美国未加入国际联盟。\n\n【政策/历史背景】\n孤立主义与对欧洲安全承诺的反对；威尔逊政治动员失败。\n\n【主要影响】\n美国退回单边外交，影响1920年代国际债务与赔偿安排。\n\n【宏观/市场关联】\n不确定的国际秩序不利于长期跨境投资。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1920-postwar-recession",
+    title: "1920–1921战后衰退",
+    occurredAt: "1920-01-01",
+    importance: "HIGH",
+    eventType: "市场异动",
+    countries: ["US"],
+    industries: ["制造业", "金融"],
+    content:
+      "【事件概述】\n1920–1921年美国经历严重但短暂的战后衰退，失业率高企，物价自战时通胀快速回落。\n\n【政策/历史背景】\n战时订单消失、联储与财政部紧缩应对通胀。\n\n【主要影响】\n快速出清后1922年起进入「咆哮的二十年代」扩张。\n\n【宏观/市场关联】\n罕见的高通胀后硬着陆案例。",
+    sourceUrl: "https://www.federalreservehistory.org/essays/recession-of-1920-21",
+  },
+  {
+    seedKey: "us-1921-budget-accounting-act",
+    title: "《预算与会计法》",
+    occurredAt: "1921-06-10",
+    importance: "MEDIUM",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["金融"],
+    content:
+      "【事件概述】\n1921年6月10日《预算与会计法》建立联邦预算局，规范联邦预算编制。\n\n【政策/历史背景】\n战时支出膨胀后需要财政透明与国会监督。\n\n【主要影响】\n财政纪律框架改善，赤字与债务讨论制度化。\n\n【宏观/市场关联】\n财政立场影响国债供给与利率。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1922-fordney-mccumber-tariff",
+    title: "1922年福特尼-麦坎伯关税法",
+    occurredAt: "1922-09-21",
+    importance: "MEDIUM",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["制造业", "农业"],
+    content:
+      "【事件概述】\n1922年9月21日签署福特尼-麦坎伯关税法，大幅提高进口关税保护本国工业与农业。\n\n【政策/历史背景】\n欧洲战后倾销担忧；共和党保护主义与农业州选票联盟。\n\n【主要影响】\n进口价格上升，保护部分产业利润，但引发贸易伙伴报复风险累积。\n\n【宏观/市场关联】\n关税抬升国内价格、影响贸易条件。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1924-immigration-act",
+    title: "1924年《移民法》与国籍配额",
+    occurredAt: "1924-05-26",
+    importance: "MEDIUM",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["消费", "制造业"],
+    content:
+      "【事件概述】\n1924年5月26日《移民法》建立基于国籍的严格配额，大幅限制东欧与亚洲移民。\n\n【政策/历史背景】\n一战后本土主义与劳工保护；种族与宗教偏见影响政策设计。\n\n【主要影响】\n劳动力供给结构改变，长期影响人口增长与产业人力成本。\n\n【宏观/市场关联】\n移民流量影响潜在GDP与工资。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1928-agricultural-depression",
+    title: "1920年代持续农业萧条",
+    occurredAt: "1928-01-01",
+    importance: "MEDIUM",
+    eventType: "市场异动",
+    countries: ["US"],
+    industries: ["农业", "金融"],
+    content:
+      "【事件概述】\n整个1920年代美国农业部门长期低迷，农产品价格低于成本，农场抵押违约累积，与城市繁荣形成对比。\n\n【政策/历史背景】\n战后欧洲需求恢复缓慢、全球产量竞争。\n\n【主要影响】\n农村银行脆弱，政治压力推动后续农业救济与关税升级。\n\n【宏观/市场关联】\n农场债务与地区银行风险是大萧条传导渠道之一。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1929-stock-crash",
+    title: "1929年股市崩盘",
+    occurredAt: "1929-10-29",
+    importance: "CRITICAL",
+    eventType: "市场异动",
+    countries: ["US"],
+    industries: ["金融", "消费"],
+    content:
+      "【事件概述】\n1929年10月24日与10月29日纽约股市暴跌，标志着大萧条序幕。\n\n【政策/历史背景】\n1920年代信贷扩张、保证金交易与乐观估值；1929年9月联储加息触发逆转。\n\n【主要影响】\n财富效应崩溃，消费与投资骤降，银行资产质量恶化。\n\n【宏观/市场关联】\n经典资产价格泡沫破裂。",
+    sourceUrl: "https://www.federalreservehistory.org/essays/stock-market-crash-of-1929",
+  },
+  {
+    seedKey: "us-1930-smoot-hawley",
+    title: "1930年斯姆特-霍利关税法",
+    occurredAt: "1930-06-17",
+    importance: "CRITICAL",
+    eventType: "政策",
+    countries: ["US", "GB", "DE", "FR"],
+    industries: ["制造业", "农业"],
+    content:
+      "【事件概述】\n1930年6月17日胡佛签署斯姆特-霍利关税法，对数千种进口品大幅加税，引发全球报复性关税。\n\n【政策/历史背景】\n农业州与保护主义国会议员推动；试图以关税保护就业，忽视1930年已恶化的国际需求。\n\n【主要影响】\n世界贸易量急剧收缩，出口导向产业受重创，大萧条国际化加深。\n\n【宏观/市场关联】\n贸易政策冲击通过出口、价格与预期渠道放大衰退。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1930-banking-crisis",
+    title: "1930年银行倒闭潮开端",
+    occurredAt: "1930-11-01",
+    importance: "HIGH",
+    eventType: "市场异动",
+    countries: ["US"],
+    industries: ["金融", "农业"],
+    content:
+      "【事件概述】\n1930年11月起美国出现第一波严重银行倒闭潮，公众信心动摇，信贷进一步收缩。\n\n【政策/历史背景】\n1929年崩盘后资产价格下跌、农场与房地产抵押违约；分散的银行体系缺乏存款保险。\n\n【主要影响】\n货币乘数下降，实际GDP加速下滑。\n\n【宏观/市场关联】\n金融加速器：资产价格→银行净值→信贷→总需求负反馈。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1904-roosevelt-corollary",
+    title: "罗斯福推论与加勒比干预",
+    occurredAt: "1904-12-06",
+    importance: "MEDIUM",
+    eventType: "地缘",
+    countries: ["US"],
+    industries: ["能源", "金融"],
+    content:
+      "【事件概述】\n1904年12月6日罗斯福在国情咨文中提出「推论」，宣称美国有权干预西半球国家以阻止欧洲催收债务。\n\n【政策/历史背景】\n门罗主义延伸；委内瑞拉债务危机与德国炮舰威胁推动美国更积极角色。\n\n【主要影响】\n强化美国对拉美金融与政治影响力。\n\n【宏观/市场关联】\n政治风险溢价影响拉美债券与美国银行海外敞口。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1916-adamson-act",
+    title: "1916年《亚当森法》八小时工作制",
+    occurredAt: "1916-09-03",
+    importance: "LOW",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["交通运输", "制造业"],
+    content:
+      "【事件概述】\n1916年9月《亚当森法》为铁路工人建立八小时工作制与加班费，避免全国性罢工。\n\n【政策/历史背景】\n一战前运输瓶颈与劳工组织力量上升。\n\n【主要影响】\n劳工标准提高，铁路成本上升。\n\n【宏观/市场关联】\n劳动成本是通胀与利润率关键变量。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1927-mississippi-flood",
+    title: "1927年密西西比大洪水",
+    occurredAt: "1927-04-21",
+    importance: "MEDIUM",
+    eventType: "自然灾害",
+    countries: ["US"],
+    industries: ["农业", "交通运输"],
+    content:
+      "【事件概述】\n1927年4–5月密西西比河特大洪水淹没数百万英亩农田，数十万人流离失所。\n\n【政策/历史背景】\n堤防建设与排水开发过度；种族与阶级因素在救援中凸显。\n\n【主要影响】\n农业产出损失，南部信贷体系受压，推动1928年《洪水控制法》。\n\n【宏观/市场关联】\n区域性供给冲击推高部分农产品价格。",
+    sourceUrl: null,
+  },
+  {
+    seedKey: "us-1929-hoover-measures",
+    title: "胡佛政府1930年反衰退措施",
+    occurredAt: "1930-12-02",
+    importance: "MEDIUM",
+    eventType: "政策",
+    countries: ["US"],
+    industries: ["制造业", "金融"],
+    content:
+      "【事件概述】\n1930年胡佛政府推动公共工程与有限财政扩张，但总体仍强调平衡预算。\n\n【政策/历史背景】\n传统财政正统与地方救济为主；缺乏存款保险与大规模赤字支出工具。\n\n【主要影响】\n政策力度不足以抵消私营部门去杠杆，失业率持续攀升。\n\n【宏观/市场关联】\n说明单纯关税与零散刺激无法应对深度通缩。",
+    sourceUrl: null,
+  },
+];
+
+const out = {
+  version: 1,
+  description: "美国 1900–1930 重要事件（自动生成种子）",
+  events: events.map((e) => ({
+    ...e,
+    datePrecision: "DATE",
+    assets: [],
+    macroKeys: [],
+    isPublic: true,
+  })),
+};
+
+const target = path.join(__dirname, "market-events-us-1900-1930.json");
+fs.writeFileSync(target, JSON.stringify(out, null, 2), "utf8");
+console.log(`Wrote ${out.events.length} events → ${target}`);

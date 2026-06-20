@@ -1,0 +1,28 @@
+[
+  {
+    "date": "2024-06-11",
+    "adjOpen": 121.77,
+    "adjHigh": 122.87,
+    "adjLow": 118.74,
+    "adjClose": 120.91,
+    "volume": 222551200
+  },
+  {
+    "date": "2024-06-10",
+    "adjOpen": 120.37,
+    "adjHigh": 123.1,
+    "adjLow": 117.01,
+    "adjClose": 121.79,
+    "volume": 314162650,
+    "_note": "NVDA 10:1 split ex-date"
+  },
+  {
+    "date": "2024-06-07",
+    "adjOpen": 1197.7,
+    "adjHigh": 1216.9,
+    "adjLow": 1180.2,
+    "adjClose": 1208.9,
+    "volume": 41238600,
+    "_note": "Pre-split; 1208.9/121.79 ≈ 9.93 (10:1)"
+  }
+]

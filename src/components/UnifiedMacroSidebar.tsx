@@ -226,13 +226,24 @@ export function UnifiedMacroSidebar({
       .filter((country) => country.categories.length > 0);
   }, [catalogCountries, searchQuery]);
 
+  const [limitHint, setLimitHint] = useState(false);
+
+  useEffect(() => {
+    if (!limitHint) return;
+    const timer = window.setTimeout(() => setLimitHint(false), 2800);
+    return () => window.clearTimeout(timer);
+  }, [limitHint]);
+
   function toggle(key: string) {
     if (disabled) return;
     const next = new Set(selectedKeys);
     if (next.has(key)) {
       next.delete(key);
     } else {
-      if (next.size >= MACRO_MAX_SERIES) return;
+      if (next.size >= MACRO_MAX_SERIES) {
+        setLimitHint(true);
+        return;
+      }
       next.add(key);
     }
     onChange(next);
@@ -248,6 +259,9 @@ export function UnifiedMacroSidebar({
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
         <span>
           已选 <span className="text-slate-300">{count}</span> / {MACRO_MAX_SERIES}
+          {limitHint ? (
+            <span className="ml-2 text-amber-300/90">已达上限</span>
+          ) : null}
         </span>
         <button
           type="button"
@@ -340,7 +354,9 @@ export function UnifiedMacroSidebar({
                                               type="checkbox"
                                               className="mt-0.5 shrink-0 accent-emerald-600"
                                               checked={checked}
-                                              disabled={disabled}
+                                              disabled={
+                                                disabled || (!checked && count >= MACRO_MAX_SERIES)
+                                              }
                                               onChange={() => toggle(key)}
                                             />
                                             <span className="text-[11px] leading-snug text-slate-300">

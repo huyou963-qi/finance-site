@@ -22,8 +22,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       prefs,
       builtinTemplateOverrides: systemMacroChartPrefs.builtinTemplateOverrides,
+      customBuiltinTemplates: systemMacroChartPrefs.customBuiltinTemplates ?? [],
       builtinTemplateFolders: systemMacroChartPrefs.builtinTemplateFolders ?? [],
       builtinTemplateFolderIds: systemMacroChartPrefs.builtinTemplateFolderIds ?? {},
+      hiddenBuiltinTemplateIds: systemMacroChartPrefs.hiddenBuiltinTemplateIds ?? [],
       user: { username: user.username, role: user.role },
     });
   } catch (e) {
@@ -44,7 +46,7 @@ export async function PUT(req: NextRequest) {
 
     let systemMacroChartPrefs = await loadSystemMacroChartPrefs();
 
-    if (user.role === "admin") {
+    if (user.role === "admin" || String(user.role).trim().toLowerCase() === "admin") {
       if (body.systemMacroChartPrefs !== undefined) {
         systemMacroChartPrefs = await saveSystemMacroChartPrefs(body.systemMacroChartPrefs);
       } else if (body.builtinTemplateOverrides !== undefined) {
@@ -68,8 +70,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({
       prefs,
       builtinTemplateOverrides: systemMacroChartPrefs.builtinTemplateOverrides,
+      customBuiltinTemplates: systemMacroChartPrefs.customBuiltinTemplates ?? [],
       builtinTemplateFolders: systemMacroChartPrefs.builtinTemplateFolders ?? [],
       builtinTemplateFolderIds: systemMacroChartPrefs.builtinTemplateFolderIds ?? {},
+      hiddenBuiltinTemplateIds: systemMacroChartPrefs.hiddenBuiltinTemplateIds ?? [],
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "未知错误";

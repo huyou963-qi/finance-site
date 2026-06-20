@@ -1,14 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { AccountProfileClient } from "./AccountProfileClient";
 
 export function AuthClient() {
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((r) => setLoggedIn(r.ok))
+      .catch(() => setLoggedIn(false));
+  }, []);
 
   const submit = async () => {
     setLoading(true);
@@ -17,7 +26,7 @@ export function AuthClient() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, email }),
+        body: JSON.stringify({ username, password, email, phone }),
       });
       const payload = (await res.json()) as { error?: string; message?: string };
       if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
@@ -36,6 +45,14 @@ export function AuthClient() {
       setLoading(false);
     }
   };
+
+  if (loggedIn === null) {
+    return <p className="text-sm text-slate-400">加载中…</p>;
+  }
+
+  if (loggedIn) {
+    return <AccountProfileClient />;
+  }
 
   return (
     <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
@@ -79,15 +96,29 @@ export function AuthClient() {
           />
         </label>
         {mode === "register" ? (
-          <label className="text-sm text-slate-300">
-            邮箱
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
-            />
-          </label>
+          <>
+            <label className="text-sm text-slate-300">
+              邮箱
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+                required
+              />
+            </label>
+            <label className="text-sm text-slate-300">
+              手机号
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="11位中国大陆手机号"
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+                required
+              />
+            </label>
+          </>
         ) : null}
         <label className="text-sm text-slate-300">
           密码
@@ -105,7 +136,7 @@ export function AuthClient() {
             loading ||
             !username.trim() ||
             !password ||
-            (mode === "register" && !email.trim())
+            (mode === "register" && (!email.trim() || !phone.trim()))
           }
           className="rounded-md border border-emerald-700 bg-emerald-900/50 px-3 py-2 text-sm text-emerald-100 disabled:opacity-50"
         >

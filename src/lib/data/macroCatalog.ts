@@ -166,7 +166,23 @@ export const ISO2_TO_ISO3: Record<string, string> = {
   MX: "MEX",
 };
 
-export const MACRO_MAX_SERIES = 60;
+/** 单页「已选指标」上限 */
+export const MACRO_MAX_SERIES = 30;
+
+/** 在保留既有选中项的前提下，将新集合限制在 {@link MACRO_MAX_SERIES} 以内 */
+export function capSelectedKeys(prev: Set<string>, next: Set<string>): Set<string> {
+  if (next.size <= MACRO_MAX_SERIES) return next;
+  const out = new Set<string>();
+  for (const k of prev) {
+    if (next.has(k)) out.add(k);
+  }
+  for (const k of next) {
+    if (out.has(k)) continue;
+    if (out.size >= MACRO_MAX_SERIES) break;
+    out.add(k);
+  }
+  return out;
+}
 
 export type MacroSelection = { country: string; indicator: string };
 
@@ -270,10 +286,61 @@ export function getUnifiedCatalogGroups() {
 }
 
 /** 图例与工具提示用显示名 */
+const FRED_VARIANT_LABEL_SUFFIX: Record<string, string> = {
+  yoy: "同比",
+  mom: "环比",
+  avg: "（月均）",
+  level: "",
+};
+
+export function resolveMacroSeriesLabel(
+  key: string,
+  opts?: {
+    catalogLabelByKey?: ReadonlyMap<string, string>;
+    overrides?: ReadonlyMap<string, string>;
+  },
+): string {
+  const overrides = opts?.overrides;
+  const catalog = opts?.catalogLabelByKey;
+
+  const override = overrides?.get(key)?.trim();
+  if (override) return override;
+
+  const direct = catalog?.get(key)?.trim();
+  if (direct) return direct;
+
+  if (key.startsWith("calc:")) {
+    return key.slice(5).replace(/-/g, " ");
+  }
+
+  if (key.startsWith("fred:")) {
+    const rest = key.slice(5);
+    const sep = rest.indexOf("::");
+    if (sep >= 0) {
+      const fredId = rest.slice(0, sep);
+      const variant = rest.slice(sep + 2);
+      const baseKey = `fred:${fredId}`;
+      const baseLabel = catalog?.get(baseKey)?.trim() ?? fredDisplayLabel(fredId);
+      const suffix = FRED_VARIANT_LABEL_SUFFIX[variant];
+      if (suffix !== undefined) {
+        if (!suffix || baseLabel.includes(suffix)) return baseLabel;
+        return `${baseLabel}${suffix}`;
+      }
+      return `${baseLabel}（${variant}）`;
+    }
+    return `美国 · ${fredDisplayLabel(rest)}`;
+  }
+
+  return unifiedSeriesDisplayName(key);
+}
+
 export function unifiedSeriesDisplayName(key: string): string {
   if (key.startsWith("fred:")) {
-    const name = key.slice(4);
-    return `美国 · ${fredDisplayLabel(name)}`;
+    const rest = key.slice(5);
+    if (rest.includes("::")) {
+      return resolveMacroSeriesLabel(key);
+    }
+    return `美国 · ${fredDisplayLabel(rest)}`;
   }
   if (key.startsWith("wb:")) {
     const parts = key.split(":");
@@ -372,7 +439,33 @@ export function serializeUnifiedKeys(keys: Iterable<string>, allowlist?: Set<str
   if (allowlist && allowlist.size > 0) {
     return serializeUnifiedKeysForAllowlist(keys, allowlist);
   }
-  return [...new Set([...keys].map((k) => k.trim()).filter((k) => FRED_SERIES_KEY_RE.test(k)))]
+  return [...new Set([...keys].map((k) => k.trim()).filter(Boolean))]
     .slice(0, MACRO_MAX_SERIES)
     .join(",");
+}
+
+/** 从模板/已选键构建 unified 或 mds 提取 query */
+export function buildExtractQueryFromKeys(
+  keys: string[],
+  allowlist: Set<string> | null,
+): string | null {
+  const trimmed = keys.map((k) => k.trim()).filter(Boolean);
+  if (trimmed.length === 0) return null;
+
+  const mdsKeys = trimmed.filter((k) => k.startsWith("mds:"));
+  const unifiedKeys = trimmed.filter((k) => k.startsWith("fred:") || k.startsWith("wb:"));
+
+  if (mdsKeys.length > 0) {
+    const mdsQ = allowlist
+      ? mdsKeys.filter((k) => allowlist.has(k)).join(",")
+      : mdsKeys.join(",");
+    if (mdsQ) return mdsQ;
+  }
+
+  if (unifiedKeys.length > 0) {
+    const q = serializeUnifiedKeys(unifiedKeys, allowlist);
+    if (q) return q;
+  }
+
+  return null;
 }

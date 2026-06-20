@@ -8,7 +8,7 @@ loadEnvConfig(process.cwd());
 
 const prisma = new PrismaClient();
 
-const DEFAULT_XLSX_PATH = "C:/Users/Administrator/Desktop/国家偿债能力.xlsx";
+const DEFAULT_XLSX_PATH = "C:/Users/Administrator/Desktop/模板/国家偿债能力.xlsx";
 const SOURCE_TAG = "debt-capacity-xlsx";
 const SHEET_NAME = "美国_杠杆率_居民部门";
 
@@ -43,14 +43,45 @@ function fallbackCode(prefix: string, text: string): string {
   return `${prefix}_${md5}`;
 }
 
+function ymToUtcDate(y: number, month: number): Date | null {
+  if (!Number.isFinite(y) || y < 1900 || month < 1 || month > 12) return null;
+  return new Date(Date.UTC(y, month - 1, 1, 0, 0, 0));
+}
+
+/**
+ * 解析周期到「该月 1 号 UTC」。只提取年+月、时区无关，永不因日级换算跨月：
+ * 支持 2024-03 / 2024-03-31 / 2024/3 / 2024/3/31 / 2024.03 / 2024年3月[31日] / 2024Q1(=季末月) / Excel 序列号。
+ * 这样季度数据（3/6/9/12）不会被错误地挪到 4/7/10/1。
+ */
 function parsePeriodToDate(period: string): Date | null {
   const s = period.trim();
-  const m = /^(\d{4})-(\d{2})$/.exec(s);
-  if (!m) return null;
-  const y = Number(m[1]);
-  const month = Number(m[2]);
-  if (month < 1 || month > 12) return null;
-  return new Date(Date.UTC(y, month - 1, 1, 0, 0, 0));
+  if (!s) return null;
+
+  // 年-月[-日] / 年/月[/日] / 年.月[.日]：忽略「日」，只取年月
+  let m = /^(\d{4})[-/.](\d{1,2})(?:[-/.]\d{1,2})?$/.exec(s);
+  if (m) return ymToUtcDate(Number(m[1]), Number(m[2]));
+
+  // 2024年3月 / 2024年3月31日
+  m = /^(\d{4})\s*年\s*(\d{1,2})\s*月/.exec(s);
+  if (m) return ymToUtcDate(Number(m[1]), Number(m[2]));
+
+  // 2024Q1 / 2024-Q1 / 2024 Q1 → 季末月 3/6/9/12
+  m = /^(\d{4})[-/\s]*Q\s*([1-4])$/i.exec(s);
+  if (m) return ymToUtcDate(Number(m[1]), Number(m[2]) * 3);
+
+  // 纯数字 → Excel 日期序列号，用 SSF 做时区无关解析
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const serial = Number(s);
+    const ssf = (
+      XLSX as unknown as {
+        SSF?: { parse_date_code?: (n: number) => { y: number; m: number; d: number } | null };
+      }
+    ).SSF;
+    const dc = ssf?.parse_date_code?.(serial);
+    if (dc && dc.y) return ymToUtcDate(dc.y, dc.m);
+  }
+
+  return null;
 }
 
 function parseNumber(raw: unknown): number | null {
@@ -98,6 +129,7 @@ async function main() {
   const rootCategoryId = await upsertCategory("macro_country", "国家宏观", null, 0);
   let importedSeries = 0;
   let importedPoints = 0;
+  const monthHistogram: Record<string, number> = {};
 
   for (let col = 1; col < header.length; col++) {
     const h = (header[col] ?? "").trim();
@@ -191,6 +223,8 @@ async function main() {
       const value = parseNumber(rows[r]?.[col]);
       if (value == null) continue;
       points.push({ obsDate, value });
+      const mm = String(obsDate.getUTCMonth() + 1).padStart(2, "0");
+      monthHistogram[mm] = (monthHistogram[mm] ?? 0) + 1;
     }
     points.sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime());
 
@@ -215,6 +249,7 @@ async function main() {
   console.info(
     `[done] workbook=${path.basename(xlsxPath)} sheet=${sheetName} series=${importedSeries} points=${importedPoints}`,
   );
+  console.info(`[months] 导入数据的月份分布（应仅含 03/06/09/12）：`, monthHistogram);
 }
 
 main()

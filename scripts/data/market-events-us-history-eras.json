@@ -1,0 +1,2303 @@
+{
+  "version": 2,
+  "description": "美国历史经济时代时间线（1776—今）",
+  "timeline": {
+    "country": "US",
+    "anchorStart": "1776-07-04",
+    "anchorEnd": "present"
+  },
+  "eras": [
+    {
+      "seedKey": "us-era-founding",
+      "tag": "建国宪政",
+      "title": "建国与宪政秩序",
+      "dateFrom": "1776-07-04",
+      "dateTo": "1815-12-31",
+      "cyclePhase": "混合",
+      "defaultExpanded": true,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/History_of_the_United_States_(1776%E2%80%931789)",
+      "eraSummary": "【阶段概览】\n独立战争至1815年，美国从殖民地变为联邦共和国，建立汉密尔顿式国家信用与早期银行体系，在扩张与战争扰动中摸索财政—货币秩序。\n\n【繁荣动力】\n独立后领土与人口扩张；农业与海运出口；汉密尔顿三报告（国债、关税、第一银行）重建信用；1790年代商业复苏与纽约金融中心萌芽。\n\n【萧条/危机成因】\n独立战争恶性通胀与大陆券贬值；1797年恐慌与银行收缩；1807年禁运打击贸易；1812战争财政压力与1814年首都陷落。\n\n【制度与结构】\n宪法与权利法案；联邦与州权分权；第一/第二银行争议；金/银复本位争论；早期关税保护体系。\n\n【Wikipedia 延伸阅读】\n英文条目 History of the U.S. (1776–1789) 涵盖建国财政与宪政实验。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/United_States_Declaration_of_Independence",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1776-independence",
+          "title": "独立宣言与建国",
+          "occurredAt": "1776-07-04",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1776年7月4日大陆会议通过独立宣言，美国脱离英国，开启独立战争与国家建构。\n\n【历史背景】\n殖民地税与代表权争端；大陆会议寻求国际承认与战争融资。\n\n【主要影响】\n战争动员与通胀融资需求；为1787宪法与联邦财政奠基。\n\n【宏观/市场关联】\n大陆券贬值与战时物价波动。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Constitution_of_the_United_States",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1787-constitution",
+          "title": "美国宪法制定",
+          "occurredAt": "1787-09-17",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1787年费城制宪会议通过联邦宪法，确立三权分立与联邦—州分权框架。\n\n【历史背景】\n邦联条例下财政与贸易无力；精英推动更强中央政府。\n\n【主要影响】\n稳定产权与合同执行预期，便利长期资本形成。\n\n【宏观/市场关联】\n国家信用与国债市场发展的制度前提。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/First_Report_on_the_Public_Credit",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1790-hamilton-report-public-credit",
+          "title": "汉密尔顿《公共信用报告》",
+          "occurredAt": "1790-01-14",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1790年汉密尔顿向国会提交首份《公共信用报告》，提出联邦承担州债、建立偿债基金。\n\n【历史背景】\n独立战争债务沉重；需重建国家信用吸引内外资。\n\n【主要影响】\n联邦财政能力增强，国债市场起步，纽约金融中心受益。\n\n【宏观/市场关联】\n长期利率与财政可持续性预期改善。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/First_Bank_of_the_United_States",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1791-first-bank",
+          "title": "第一合众国银行成立",
+          "occurredAt": "1791-02-25",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1791年国会特许第一合众国银行，作为准中央银行处理联邦财政与货币发行。\n\n【历史背景】\n汉密尔顿金融计划核心；杰斐逊派反对联邦扩权。\n\n【主要影响】\n改善支付清算与货币统一，1811年特许到期未续。\n\n【宏观/市场关联】\n早期央行职能与信贷周期管理实验。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/New_York_Stock_Exchange",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1792-nyse-founded",
+          "title": "纽约证券交易所前身成立",
+          "occurredAt": "1792-05-17",
+          "importance": "MEDIUM",
+          "eventType": "市场异动",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1792年《梧桐树协议》标志纽约证券商组织化交易，后演变为纽交所。\n\n【历史背景】\n联邦债券与银行股票交易需求上升。\n\n【主要影响】\n美国资本市场基础设施形成。\n\n【宏观/市场关联】\n股权与国债二级市场流动性。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Embargo_Act_of_1807",
+          "countries": [
+            "US",
+            "GB"
+          ],
+          "seedKey": "us-1807-embargo-act",
+          "title": "1807年禁运法",
+          "occurredAt": "1807-12-22",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "交通运输",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1807年杰斐逊签署禁运法，禁止对英法等国贸易，以回应海上封锁。\n\n【历史背景】\n拿破仑战争与英国强征水手；美国中立贸易受挤压。\n\n【主要影响】\n新英格兰海运业重创，走私泛滥，推动本土制造业替代进口。\n\n【宏观/市场关联】\n贸易量骤降与区域衰退。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/War_of_1812",
+          "countries": [
+            "US",
+            "GB"
+          ],
+          "seedKey": "us-1812-war",
+          "title": "1812年美英战争",
+          "occurredAt": "1812-06-18",
+          "importance": "CRITICAL",
+          "eventType": "战争",
+          "industries": [
+            "制造业",
+            "金融"
+          ],
+          "content": "【事件概述】\n1812年美国对英宣战，1814年华盛顿陷落，1815年根特和约结束战争。\n\n【历史背景】\n贸易限制、西部扩张与印第安盟友冲突；战争鹰派主导国会。\n\n【主要影响】\n国债上升、新英格兰反对声大；制造业短暂保护性繁荣。\n\n【宏观/市场关联】\n战争财政与通胀压力。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-market-revolution",
+      "tag": "市场革命",
+      "title": "市场革命与杰克逊民主",
+      "dateFrom": "1815-01-01",
+      "dateTo": "1860-12-31",
+      "cyclePhase": "繁荣",
+      "defaultExpanded": true,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Market_revolution",
+      "eraSummary": "【阶段概览】\n1815—1860年「市场革命」：运河、铁路、工厂制与西部开发重塑美国经济地理，杰克逊时代民主与反银行民粹改变政治—金融关系。\n\n【繁荣动力】\n交通革命降低运费；工厂制与纺织业；1840s—50s铁路与电报投资潮；移民劳动力；棉花—制造业出口链。\n\n【萧条/危机成因】\n1819、1837、1857三次恐慌；杰克逊废除第二银行后「自由银行」碎片化；奴隶制与关税政治撕裂；1857全球商品价格下跌。\n\n【制度与结构】\n自由银行法；独立国库实验；电报与统一国内市场；关税（1828/1846）保护工业。\n\n【Wikipedia 延伸阅读】\nMarket Revolution 条目系统阐述交通—工厂—金融联动。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1819",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1819-panic",
+          "title": "1819年恐慌",
+          "occurredAt": "1819-01-01",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "农业"
+          ],
+          "content": "【事件概述】\n1819年美国首次全国范围金融恐慌，土地价格崩溃、银行倒闭、失业上升。\n\n【历史背景】\n战后信贷扩张与土地投机；第二银行收紧信贷触发去杠杆。\n\n【主要影响】\n推动对第二银行与土地政策的政治反弹。\n\n【宏观/市场关联】\n典型土地—银行联动危机。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Bank_War",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1832-jackson-veto-second-bank",
+          "title": "杰克逊否决第二银行续 charter",
+          "occurredAt": "1832-07-10",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1832年杰克逊否决第二合众国银行续期法案，1836年银行特许到期。\n\n【历史背景】\n杰克逊将银行视为精英特权机构；1832年选举成为银行战争公投。\n\n【主要影响】\n分散银行体系，1837年前信贷扩张与后续恐慌。\n\n【宏观/市场关联】\n央行缺位下州银行券泛滥。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1837",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1837-panic",
+          "title": "1837年恐慌",
+          "occurredAt": "1837-05-10",
+          "importance": "CRITICAL",
+          "eventType": "市场异动",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1837年5月纽约银行暂停金属兑付，蔓延全国，深度衰退持续至1840年代初。\n\n【历史背景】\n1836年《独立国库法》与英国信贷收紧；土地投机破裂。\n\n【主要影响】\n失业与破产广泛，推动自由银行法与政治重组。\n\n【宏观/市场关联】\n无中央银行下的系统性流动性危机。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Walker_tariff",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1846-tariff",
+          "title": "1846年沃克关税法",
+          "occurredAt": "1846-07-30",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "制造业",
+            "农业"
+          ],
+          "content": "【事件概述】\n1846年沃克关税法降低平均关税，偏向自由贸易，反映民主党政策。\n\n【历史背景】\n1844年选举与工业—农业联盟变化。\n\n【主要影响】\n进口品价格下降，消费者受益；保护主义者反弹为1857后关税上升埋伏笔。\n\n【宏观/市场关联】\n贸易条件与收入分配。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/California_Gold_Rush",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1848-gold-rush",
+          "title": "加利福尼亚淘金热",
+          "occurredAt": "1848-01-24",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "原材料",
+            "金融"
+          ],
+          "content": "【事件概述】\n1848年发现金矿引发1849淘金热，人口与资本涌入加州。\n\n【历史背景】\n美墨战争后领土扩张；交通与通信仍落后。\n\n【主要影响】\n货币供给增加、旧金山金融中心兴起、铁路需求上升。\n\n【宏观/市场关联】\n黄金流入与1850年代通胀倾向。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1857",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1857-panic",
+          "title": "1857年恐慌",
+          "occurredAt": "1857-08-24",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "交通运输"
+          ],
+          "content": "【事件概述】\n1857年8月俄亥俄人寿公司倒闭触发恐慌，铁路与银行受损，1858年深度衰退。\n\n【历史背景】\n1850年代铁路投资过热；国际谷物价格下跌。\n\n【主要影响】\n北方工业相对恢复，南方棉花依赖加深区域分化。\n\n【宏观/市场关联】\n全球商品周期传导。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-civil-war",
+      "tag": "内战重建",
+      "title": "内战与重建",
+      "dateFrom": "1861-04-12",
+      "dateTo": "1877-03-31",
+      "cyclePhase": "战争动员",
+      "defaultExpanded": true,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/American_Civil_War",
+      "eraSummary": "【阶段概览】\n1861—1877年内战与重建：北方工业化与战争动员，南方毁灭性冲击，绿背货币与国民银行法重塑货币体系，1873恐慌开启镀金时代前奏。\n\n【繁荣动力】\n北方军工与铁路需求；宅地法与太平洋铁路法推动西部开发；战争技术扩散至民用产业。\n\n【萧条/危机成因】\n南方经济崩溃；绿背通胀与战后紧缩；重建失败与种族政治；1873年恐慌起点。\n\n【制度与结构】\n国家银行法；绿背与金本位恢复路径；宅地法；重建修正案与联邦权力扩张。\n\n【Wikipedia 延伸阅读】\nAmerican Civil War 及 Reconstruction era 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Battle_of_Fort_Sumter",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1861-civil-war-begins",
+          "title": "内战爆发",
+          "occurredAt": "1861-04-12",
+          "importance": "CRITICAL",
+          "eventType": "战争",
+          "industries": [
+            "制造业",
+            "金融"
+          ],
+          "content": "【事件概述】\n1861年4月南军炮击萨姆特堡，内战全面爆发。\n\n【历史背景】\n奴隶制扩张与州权争端不可调和。\n\n【主要影响】\n北方动员工业与铁路，南方出口收入崩溃。\n\n【宏观/市场关联】\n战争财政与绿背发行。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/United_States_Note",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1862-greenbacks",
+          "title": "1862年法定纸币（绿背）发行",
+          "occurredAt": "1862-02-25",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1862年《法定货币法》授权不可兑换黄金的绿背纸币，为战争融资。\n\n【历史背景】\n金属货币流出、税收不足。\n\n【主要影响】\n通胀与货币争论延续至1870年代。\n\n【宏观/市场关联】\n财政货币化与物价上升。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/National_Bank_Act",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1863-national-banking-act",
+          "title": "1863年《国家银行法》",
+          "occurredAt": "1863-02-25",
+          "importance": "HIGH",
+          "eventType": "监管",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1863/1864年国家银行法建立统一银行券发行与联邦监管框架。\n\n【历史背景】\n州银行券混乱与战争融资需求。\n\n【主要影响】\n为1913年前货币体系提供骨架。\n\n【宏观/市场关联】\n银行密度与信贷地域分布。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Conclusion_of_the_American_Civil_War",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1865-civil-war-ends",
+          "title": "内战结束与重建开始",
+          "occurredAt": "1865-04-09",
+          "importance": "CRITICAL",
+          "eventType": "战争",
+          "industries": [
+            "制造业",
+            "农业"
+          ],
+          "content": "【事件概述】\n1865年4月李将军投降，内战结束；重建时期南方经济重组。\n\n【历史背景】\n北方工业优势确立；奴隶制废除改变劳动力市场。\n\n【主要影响】\n南方资本毁灭；全国单一市场强化。\n\n【宏观/市场关联】\n战后紧缩与1873恐慌前扩张。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1873",
+          "countries": [
+            "US",
+            "DE"
+          ],
+          "seedKey": "us-1873-panic",
+          "title": "1873年恐慌",
+          "occurredAt": "1873-09-18",
+          "importance": "CRITICAL",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "交通运输"
+          ],
+          "content": "【事件概述】\n1873年9月杰伊·库克公司倒闭触发长期萧条，直至1870年代末。\n\n【历史背景】\n铁路过度投资；1873年德国危机外溢。\n\n【主要影响】\n1877铁路大罢工；政治反弹推动监管与劳工法讨论。\n\n【宏观/市场关联】\n长期通缩与失业。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-gilded-age",
+      "tag": "镀金时代",
+      "title": "镀金时代与第二次工业革命",
+      "dateFrom": "1877-01-01",
+      "dateTo": "1893-06-30",
+      "cyclePhase": "繁荣",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Gilded_Age",
+      "eraSummary": "【阶段概览】\n1877—1893年镀金时代：铁路网、钢铁石油电力巨头崛起，1879年金兑付恢复，1893大恐慌终结本阶段繁荣。\n\n【繁荣动力】\n横贯大陆铁路；贝塞默炼钢与石油精炼；电力与电话；移民劳动力；1879恢复金兑付稳定预期。\n\n【萧条/危机成因】\n垄断与政治腐败；劳工冲突（1877铁路大罢工）；1893大恐慌与1896白银辩论；过度铁路投资。\n\n【制度与结构】\n金本位恢复；谢尔曼反垄断法萌芽；州际商务委员会；移民潮改变劳动力供给。\n\n【Wikipedia 延伸阅读】\nGilded Age 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Coinage_Act_of_1873",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1879-gold-resumption",
+          "title": "1879年恢复金兑付",
+          "occurredAt": "1879-01-01",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1879年美国按1875年《恢复法》恢复绿背对金兑付，回到事实金本位。\n\n【历史背景】\n1873年后通货紧缩痛苦；金银派政治斗争。\n\n【主要影响】\n稳定美元信用，便利国际资本流入。\n\n【宏观/市场关联】\n实际利率与黄金流动。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Sherman_Antitrust_Act",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1890-sherman-antitrust",
+          "title": "1890年《谢尔曼反垄断法》",
+          "occurredAt": "1890-07-02",
+          "importance": "HIGH",
+          "eventType": "监管",
+          "industries": [
+            "制造业",
+            "交通运输"
+          ],
+          "content": "【事件概述】\n1890年《谢尔曼法》禁止限制贸易的垄断与共谋，奠定联邦反垄断框架。\n\n【历史背景】\n铁路托拉斯与标准石油引发公众反弹。\n\n【主要影响】\n大企业面临司法风险，合规与游说成本上升。\n\n【宏观/市场关联】\n行业集中度与长期竞争格局。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1893",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1893-panic",
+          "title": "1893年大恐慌",
+          "occurredAt": "1893-05-05",
+          "importance": "CRITICAL",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "交通运输"
+          ],
+          "content": "【事件概述】\n1893年5月铁路公司破产引发银行挤兑，失业率飙升，1896年白银辩论达峰。\n\n【历史背景】\n铁路投资泡沫；1890年《谢尔曼购银法》金银政策扰动。\n\n【主要影响】\n终结镀金时代繁荣，推动进步主义监管议程。\n\n【宏观/市场关联】\n深度衰退与政治重组。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-progressive",
+      "tag": "进步主义",
+      "title": "进步主义与帝国扩张",
+      "dateFrom": "1893-07-01",
+      "dateTo": "1914-07-27",
+      "cyclePhase": "转型",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Progressive_Era",
+      "eraSummary": "【阶段概览】\n1893—1914进步主义：企业整合与电气/汽车革命并行，1907恐慌推动联储成立，1913所得税与反垄断强化联邦监管。\n\n【繁荣动力】\n企业整合与规模经济；电气/汽车产业化；出口与金本位稳定期；巴拿马运河改善航运。\n\n【萧条/危机成因】\n1907银行恐慌；托拉斯反弹；缺乏最后贷款人直至1913；农业长期相对萧条。\n\n【制度与结构】\n联储成立；联邦所得税；FTC与反垄断诉讼；美西战争与海外扩张。\n\n【Wikipedia 延伸阅读】\nProgressive Era 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/gold-standard",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1900-gold-standard-act",
+          "title": "1900年《金本位法》",
+          "occurredAt": "1900-03-14",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1900年3月14日美国通过《金本位法》(Gold Standard Act)，正式将美元与黄金固定兑换，结束长期的双金属制争论。\n\n【政策/历史背景】\n19世纪末银本位派与金本位派激烈博弈；1893年恐慌后金本位支持者占上风，旨在稳定币值、吸引国际资本。\n\n【主要影响】\n强化美元信用，便利贸易融资，但亦限制货币政策灵活性，农业区对紧缩货币不满持续。\n\n【宏观/市场关联】\n固定汇率环境下，国际收支与黄金流动约束国内信贷；现代对应可关注实际利率与贸易余额。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.loc.gov/collections/theodore-roosevelt-films/articles-and-essays/theodore-roosevelt-and-the-progressive-era/",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1901-mckinley-assassination",
+          "title": "麦金利遇刺与进步时代加速",
+          "occurredAt": "1901-09-06",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "金融",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1901年9月6日总统麦金利遇刺，9月14日身亡；副总统西奥多·罗斯福继任，进步时代监管议程显著加速。\n\n【政策/历史背景】\n麦金利代表亲大企业、高关税路线；罗斯福主张更强反垄断与劳工保护，权力交接改变政策节奏。\n\n【主要影响】\n后续反垄断诉讼、自然资源保护、消费者保护立法环境改善，大企业面临更高政治风险。\n\n【宏观/市场关联】\n政策不确定性短期上升，但长期有利于竞争与透明；工业组合估值受监管预期压制。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1902-northern-securities",
+          "title": "北方证券反垄断案",
+          "occurredAt": "1902-02-19",
+          "importance": "MEDIUM",
+          "eventType": "监管",
+          "industries": [
+            "交通运输",
+            "金融"
+          ],
+          "content": "【事件概述】\n1902年罗斯福政府依据《谢尔曼法》起诉北方证券(Northern Securities)铁路托拉斯，1904年最高法院维持解散。\n\n【政策/历史背景】\n铁路并购形成跨区垄断，公众与中小货主反对；政府首次对大型工业托拉斯采取强硬司法行动。\n\n【主要影响】\n确立联邦积极反垄断姿态，铁路与钢铁等行业重组预期改变。\n\n【宏观/市场关联】\n降低行业集中度可能压价运价、影响铁路股盈利；竞争加剧有利于下游制造业成本。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "PA"
+          ],
+          "seedKey": "us-1903-panama-canal-treaty",
+          "title": "巴拿马运河条约与运河开工",
+          "occurredAt": "1903-11-18",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "交通运输"
+          ],
+          "content": "【事件概述】\n1903年11月18日美巴签订《海-布诺-瓦里亚条约》，美国获得运河区控制权，1904年开工，1914年通航。\n\n【政策/历史背景】\n美国需缩短大西洋—太平洋航线以强化海军与贸易；哥伦比亚参议院拒批运河条约后，美国支持巴拿马独立再签约。\n\n【主要影响】\n降低航运成本，强化美国对加勒比与太平洋投射能力，拉美「金元外交」争议上升。\n\n【宏观/市场关联】\n贸易运输成本下降利好大宗商品与制造业出口；军工与基建支出拉动相关产业。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1904-roosevelt-corollary",
+          "title": "罗斯福推论与加勒比干预",
+          "occurredAt": "1904-12-06",
+          "importance": "MEDIUM",
+          "eventType": "地缘",
+          "industries": [
+            "能源",
+            "金融"
+          ],
+          "content": "【事件概述】\n1904年12月6日罗斯福在国情咨文中提出「推论」，宣称美国有权干预西半球国家以阻止欧洲催收债务。\n\n【政策/历史背景】\n门罗主义延伸；委内瑞拉债务危机与德国炮舰威胁推动美国更积极角色。\n\n【主要影响】\n强化美国对拉美金融与政治影响力。\n\n【宏观/市场关联】\n政治风险溢价影响拉美债券与美国银行海外敞口。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1906-pure-food-drug",
+          "title": "《纯净食品与药品法》",
+          "occurredAt": "1906-06-30",
+          "importance": "MEDIUM",
+          "eventType": "监管",
+          "industries": [
+            "消费",
+            "医药"
+          ],
+          "content": "【事件概述】\n1906年6月30日签署《纯净食品与药品法》及《肉类检验法》，建立联邦食品药物监管框架。\n\n【政策/历史背景】\nUpton Sinclair《屠场》等曝光推动公众压力；此前掺假与标签欺诈缺乏联邦执法。\n\n【主要影响】\n合规成本上升，劣质厂商出清，消费者信心改善，现代 FDA 前身诞生。\n\n【宏观/市场关联】\n短期食品医药企业成本曲线抬升，长期品牌企业受益。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/panic-of-1907",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1907-panic",
+          "title": "1907年银行恐慌",
+          "occurredAt": "1907-10-01",
+          "importance": "CRITICAL",
+          "eventType": "市场异动",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1907年10月纽约信托公司与尼克伯克信托公司挤兑，流动性枯竭，J.P. Morgan 牵头私人救助，市场剧烈波动。\n\n【政策/历史背景】\n缺乏最后贷款人，季节性与投机清算叠加；1906年旧金山地震后资金外流亦加剧紧张。\n\n【主要影响】\n信贷收缩、工业产出下滑，直接推动1913年《联邦储备法》立法。\n\n【宏观/市场关联】\n典型流动性危机：短端利率飙升、股市下跌、银行信贷乘数坍塌。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1913-income-tax-amendment",
+          "title": "第十六修正案与联邦所得税",
+          "occurredAt": "1913-02-03",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1913年2月3日第十六修正案生效，国会随后通过1913年《收入法》，确立永久联邦所得税。\n\n【政策/历史背景】\n1895年最高法院曾判联邦所得税违宪；进步派要求富人承担更多财政负担，关税收入不足以支撑支出扩张。\n\n【主要影响】\n联邦财政能力增强，再分配工具出现，与关税政策形成互补。\n\n【宏观/市场关联】\n边际税率影响储蓄与投资；一战期间所得税大幅扩张。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/creation-of-the-fed",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1913-federal-reserve-act",
+          "title": "《联邦储备法》与美联储成立",
+          "occurredAt": "1913-12-23",
+          "importance": "CRITICAL",
+          "eventType": "央行决议",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1913年12月23日威尔逊签署《联邦储备法》，1914年美联储开始运作，美国终于有了中央银行体系。\n\n【政策/历史背景】\n1907年恐慌暴露缺乏 lender of last resort；银行家、农民与进步派在区域储备银行结构上妥协。\n\n【主要影响】\n改善支付清算与弹性货币供给，为20世纪美国金融稳定提供制度基础。\n\n【宏观/市场关联】\n现代货币政策、贴现窗口、公开市场操作均源于此。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-roaring-twenties",
+      "tag": "咆哮二十年代",
+      "title": "一战与咆哮的二十年代",
+      "dateFrom": "1914-07-28",
+      "dateTo": "1929-10-29",
+      "cyclePhase": "繁荣",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Roaring_Twenties",
+      "eraSummary": "【阶段概览】\n1914—1929：一战参战与1920—21硬着陆后，柯立芝减税与信贷扩张推动1920年代股市繁荣，1929年崩盘终结本阶段。\n\n【繁荣动力】\n战时产能→和平转换；1922—29消费信贷与汽车普及；柯立芝减税；联储1920s宽松倾向。\n\n【萧条/危机成因】\n1920—21严重衰退；农业持续萧条；杠杆与保证金交易；1929年10月崩盘。\n\n【制度与结构】\n战时价格管制与复员；禁酒与地下经济；关税（1922/1930前奏）；金本位国际体系。\n\n【Wikipedia 延伸阅读】\nRoaring Twenties 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "GB",
+            "DE",
+            "FR"
+          ],
+          "seedKey": "us-1914-ww1-outbreak",
+          "title": "第一次世界大战爆发与美国中立",
+          "occurredAt": "1914-07-28",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "能源",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1914年7月28日奥匈对塞尔维亚宣战，欧洲大战爆发；美国初期宣布中立，但贸易与金融迅速向协约国倾斜。\n\n【政策/历史背景】\n孤立主义传统与欧裔族群分歧；美国成为协约国物资与信贷重要来源。\n\n【主要影响】\n出口与工业订单激增，1914–1916年美国由债务国转向主要债权国之一。\n\n【宏观/市场关联】\n战争需求拉动工业产出与物价；美元与纽约金融市场国际地位上升。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1914-clayton-act",
+          "title": "《克莱顿反垄断法》",
+          "occurredAt": "1914-10-15",
+          "importance": "MEDIUM",
+          "eventType": "监管",
+          "industries": [
+            "制造业",
+            "金融"
+          ],
+          "content": "【事件概述】\n1914年10月15日《克莱顿法》签署，细化反垄断规则并限制互锁董事等。\n\n【政策/历史背景】\n与1914年《联邦贸易委员会法》配套，进步时代完善竞争政策工具箱。\n\n【主要影响】\n并购与价格歧视面临更明确法律约束，企业合规成本上升。\n\n【宏观/市场关联】\n行业结构变化影响长期利润率与集中度。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1915-ftc-created",
+          "title": "联邦贸易委员会成立",
+          "occurredAt": "1915-03-16",
+          "importance": "MEDIUM",
+          "eventType": "监管",
+          "industries": [
+            "消费",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1914年FTC法案签署后，1915年3月联邦贸易委员会(FTC)开始运作，负责不公平竞争执法。\n\n【政策/历史背景】\n.business 游说与进步派折中，设立独立委员会而非仅依赖司法部诉讼。\n\n【主要影响】\n广告、定价与并购审查常态化，消费保护增强。\n\n【宏观/市场关联】\n监管执法周期影响行业盈利预期。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1916-adamson-act",
+          "title": "1916年《亚当森法》八小时工作制",
+          "occurredAt": "1916-09-03",
+          "importance": "LOW",
+          "eventType": "政策",
+          "industries": [
+            "交通运输",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1916年9月《亚当森法》为铁路工人建立八小时工作制与加班费，避免全国性罢工。\n\n【政策/历史背景】\n一战前运输瓶颈与劳工组织力量上升。\n\n【主要影响】\n劳工标准提高，铁路成本上升。\n\n【宏观/市场关联】\n劳动成本是通胀与利润率关键变量。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "DE"
+          ],
+          "seedKey": "us-1917-us-enters-ww1",
+          "title": "美国对德宣战",
+          "occurredAt": "1917-04-06",
+          "importance": "CRITICAL",
+          "eventType": "地缘",
+          "industries": [
+            "制造业",
+            "能源",
+            "交通运输"
+          ],
+          "content": "【事件概述】\n1917年4月6日美国对德宣战，全面卷入第一次世界大战。\n\n【政策/历史背景】\n无限制潜艇战、齐默尔曼电报与贷款利益使中立难以为继。\n\n【主要影响】\n军费与物资需求暴增，政府管制物价与生产，通胀压力上升。\n\n【宏观/市场关联】\n战争财政依赖所得税与 Liberty Bonds；工业产出与就业短期扩张。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1918-spanish-flu",
+          "title": "1918年西班牙流感在美国暴发",
+          "occurredAt": "1918-03-01",
+          "importance": "HIGH",
+          "eventType": "自然灾害",
+          "industries": [
+            "医药",
+            "消费"
+          ],
+          "content": "【事件概述】\n1918年春起美国多地暴发致命流感，1918–1919年三波疫情造成数十万死亡。\n\n【政策/历史背景】\n战时动员与人口流动加速传播；公共卫生体系薄弱。\n\n【主要影响】\n劳动力损失、服务业停摆，部分城市实施隔离。\n\n【宏观/市场关联】\n典型供给与需求双重冲击。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "GB",
+            "FR",
+            "DE"
+          ],
+          "seedKey": "us-1918-armistice",
+          "title": "一战停战与美国战后秩序",
+          "occurredAt": "1918-11-11",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "制造业"
+          ],
+          "content": "【事件概述】\n1918年11月11日协约国与德国停战，美国以胜利者身份主导巴黎和会谈判。\n\n【政策/历史背景】\n威尔逊十四点与民族自决理想；国内孤立主义与移民族群政治影响和会结果。\n\n【主要影响】\n军费削减、复员失业与通胀回落开始。\n\n【宏观/市场关联】\n战后需求切换引发1920–21调整。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1919-prohibition",
+          "title": "禁酒第十八修正案生效",
+          "occurredAt": "1919-01-16",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "消费",
+            "农业"
+          ],
+          "content": "【事件概述】\n1919年1月16日第十八修正案批准，1920年起全国禁酒，直至1933年废除。\n\n【政策/历史背景】\n禁酒运动、战时节约与道德改革合流；忽视执法成本与黑市经济。\n\n【主要影响】\n合法酒业消失，走私与有组织犯罪扩张。\n\n【宏观/市场关联】\n税收流失、地下经济膨胀。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "GB",
+            "FR",
+            "DE"
+          ],
+          "seedKey": "us-1919-versailles-rejected",
+          "title": "参议院否决《凡尔赛条约》",
+          "occurredAt": "1919-11-19",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1919年11月19日美国参议院否决批准《凡尔赛条约》，美国未加入国际联盟。\n\n【政策/历史背景】\n孤立主义与对欧洲安全承诺的反对；威尔逊政治动员失败。\n\n【主要影响】\n美国退回单边外交，影响1920年代国际债务与赔偿安排。\n\n【宏观/市场关联】\n不确定的国际秩序不利于长期跨境投资。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/recession-of-1920-21",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1920-postwar-recession",
+          "title": "1920–1921战后衰退",
+          "occurredAt": "1920-01-01",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "制造业",
+            "金融"
+          ],
+          "content": "【事件概述】\n1920–1921年美国经历严重但短暂的战后衰退，失业率高企，物价自战时通胀快速回落。\n\n【政策/历史背景】\n战时订单消失、联储与财政部紧缩应对通胀。\n\n【主要影响】\n快速出清后1922年起进入「咆哮的二十年代」扩张。\n\n【宏观/市场关联】\n罕见的高通胀后硬着陆案例。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1921-budget-accounting-act",
+          "title": "《预算与会计法》",
+          "occurredAt": "1921-06-10",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1921年6月10日《预算与会计法》建立联邦预算局，规范联邦预算编制。\n\n【政策/历史背景】\n战时支出膨胀后需要财政透明与国会监督。\n\n【主要影响】\n财政纪律框架改善，赤字与债务讨论制度化。\n\n【宏观/市场关联】\n财政立场影响国债供给与利率。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1922-fordney-mccumber-tariff",
+          "title": "1922年福特尼-麦坎伯关税法",
+          "occurredAt": "1922-09-21",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "制造业",
+            "农业"
+          ],
+          "content": "【事件概述】\n1922年9月21日签署福特尼-麦坎伯关税法，大幅提高进口关税保护本国工业与农业。\n\n【政策/历史背景】\n欧洲战后倾销担忧；共和党保护主义与农业州选票联盟。\n\n【主要影响】\n进口价格上升，保护部分产业利润，但引发贸易伙伴报复风险累积。\n\n【宏观/市场关联】\n关税抬升国内价格、影响贸易条件。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1924-immigration-act",
+          "title": "1924年《移民法》与国籍配额",
+          "occurredAt": "1924-05-26",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "消费",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1924年5月26日《移民法》建立基于国籍的严格配额，大幅限制东欧与亚洲移民。\n\n【政策/历史背景】\n一战后本土主义与劳工保护；种族与宗教偏见影响政策设计。\n\n【主要影响】\n劳动力供给结构改变，长期影响人口增长与产业人力成本。\n\n【宏观/市场关联】\n移民流量影响潜在GDP与工资。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1927-mississippi-flood",
+          "title": "1927年密西西比大洪水",
+          "occurredAt": "1927-04-21",
+          "importance": "MEDIUM",
+          "eventType": "自然灾害",
+          "industries": [
+            "农业",
+            "交通运输"
+          ],
+          "content": "【事件概述】\n1927年4–5月密西西比河特大洪水淹没数百万英亩农田，数十万人流离失所。\n\n【政策/历史背景】\n堤防建设与排水开发过度；种族与阶级因素在救援中凸显。\n\n【主要影响】\n农业产出损失，南部信贷体系受压，推动1928年《洪水控制法》。\n\n【宏观/市场关联】\n区域性供给冲击推高部分农产品价格。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1928-agricultural-depression",
+          "title": "1920年代持续农业萧条",
+          "occurredAt": "1928-01-01",
+          "importance": "MEDIUM",
+          "eventType": "市场异动",
+          "industries": [
+            "农业",
+            "金融"
+          ],
+          "content": "【事件概述】\n整个1920年代美国农业部门长期低迷，农产品价格低于成本，农场抵押违约累积，与城市繁荣形成对比。\n\n【政策/历史背景】\n战后欧洲需求恢复缓慢、全球产量竞争。\n\n【主要影响】\n农村银行脆弱，政治压力推动后续农业救济与关税升级。\n\n【宏观/市场关联】\n农场债务与地区银行风险是大萧条传导渠道之一。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/stock-market-crash-of-1929",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1929-stock-crash",
+          "title": "1929年股市崩盘",
+          "occurredAt": "1929-10-29",
+          "importance": "CRITICAL",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "消费"
+          ],
+          "content": "【事件概述】\n1929年10月24日与10月29日纽约股市暴跌，标志着大萧条序幕。\n\n【政策/历史背景】\n1920年代信贷扩张、保证金交易与乐观估值；1929年9月联储加息触发逆转。\n\n【主要影响】\n财富效应崩溃，消费与投资骤降，银行资产质量恶化。\n\n【宏观/市场关联】\n经典资产价格泡沫破裂。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-great-depression",
+      "tag": "大萧条",
+      "title": "大萧条",
+      "dateFrom": "1929-10-01",
+      "dateTo": "1939-08-31",
+      "cyclePhase": "萧条",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Great_Depression_in_the_United_States",
+      "eraSummary": "【阶段概览】\n1929—1939大萧条：崩盘、银行挤兑、贸易崩溃与1937二次衰退；新政重塑监管与社保体系，1933—37局部复苏。\n\n【繁荣动力】\n1933—37新政刺激与银行重组带来局部复苏（非全面繁荣）。\n\n【萧条/危机成因】\n1929崩盘与财富效应崩溃；金本位约束；1930斯姆特-霍利关税；1937财政/货币过早紧缩。\n\n【制度与结构】\n新政立法（银行、证券、社保、劳工）；脱离金本位；FDIC与SEC；联邦支出角色扩大。\n\n【Wikipedia 延伸阅读】\nGreat Depression in the U.S. 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "GB",
+            "DE",
+            "FR"
+          ],
+          "seedKey": "us-1930-smoot-hawley",
+          "title": "1930年斯姆特-霍利关税法",
+          "occurredAt": "1930-06-17",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "制造业",
+            "农业"
+          ],
+          "content": "【事件概述】\n1930年6月17日胡佛签署斯姆特-霍利关税法，对数千种进口品大幅加税，引发全球报复性关税。\n\n【政策/历史背景】\n农业州与保护主义国会议员推动；试图以关税保护就业，忽视1930年已恶化的国际需求。\n\n【主要影响】\n世界贸易量急剧收缩，出口导向产业受重创，大萧条国际化加深。\n\n【宏观/市场关联】\n贸易政策冲击通过出口、价格与预期渠道放大衰退。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1930-banking-crisis",
+          "title": "1930年银行倒闭潮开端",
+          "occurredAt": "1930-11-01",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "农业"
+          ],
+          "content": "【事件概述】\n1930年11月起美国出现第一波严重银行倒闭潮，公众信心动摇，信贷进一步收缩。\n\n【政策/历史背景】\n1929年崩盘后资产价格下跌、农场与房地产抵押违约；分散的银行体系缺乏存款保险。\n\n【主要影响】\n货币乘数下降，实际GDP加速下滑。\n\n【宏观/市场关联】\n金融加速器：资产价格→银行净值→信贷→总需求负反馈。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1929-hoover-measures",
+          "title": "胡佛政府1930年反衰退措施",
+          "occurredAt": "1930-12-02",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "制造业",
+            "金融"
+          ],
+          "content": "【事件概述】\n1930年胡佛政府推动公共工程与有限财政扩张，但总体仍强调平衡预算。\n\n【政策/历史背景】\n传统财政正统与地方救济为主；缺乏存款保险与大规模赤字支出工具。\n\n【主要影响】\n政策力度不足以抵消私营部门去杠杆，失业率持续攀升。\n\n【宏观/市场关联】\n说明单纯关税与零散刺激无法应对深度通缩。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:INDPRO"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1933-emergency-banking-act",
+          "title": "1933年《紧急银行法》与银行假日",
+          "occurredAt": "1933-03-09",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1933年3月罗斯福上任后宣布全国「银行假日」，国会迅速通过《紧急银行法》(Emergency Banking Act)，授权联储审查并重启偿付能力足够的银行。\n\n【政策/历史背景】\n大萧条期间数千家银行倒闭，公众挤兑蔓延；胡佛时期缺乏统一存款保险与系统性处置工具，新政以恢复支付体系为首要任务。\n\n【主要影响】\n约四分之三银行在数周内重新开业，存款回流、货币流通速度回升，为后续新政立法赢得政治窗口。\n\n【宏观/市场关联】\n金融稳定是复苏前提；工业产出(INDPRO)与货币信贷随后触底反弹，股市1933年起大幅修复。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/glass-steagall-act",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1933-glass-steagall",
+          "title": "1933年《格拉斯-斯蒂格尔法》",
+          "occurredAt": "1933-06-16",
+          "importance": "CRITICAL",
+          "eventType": "监管",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1933年《银行法》即格拉斯-斯蒂格尔法，强制商业银行与投行业务分离，并建立联邦存款保险(FDIC)制度雏形。\n\n【政策/历史背景】\n1929–33年银行混业经营与证券投机被认为加剧危机；公众要求隔离存款与高风险交易，保护中小储户。\n\n【主要影响】\n重塑美国金融架构达半世纪，降低存款银行从事投机的道德风险，但亦限制规模经济与全球竞争力。\n\n【宏观/市场关联】\n金融稳定预期改善，长期降低系统性银行挤兑概率；1999年废除后混业再集中，与2008年影子银行风险形成对照。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:CPIAUCSL"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1934-gold-reserve-act",
+          "title": "1934年《黄金储备法》与美元贬值",
+          "occurredAt": "1934-01-31",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1934年《黄金储备法》将美元官方金价从20.67美元/盎司上调至35美元，实质贬值约40%，并扩大财政部与联储黄金操作权限。\n\n【政策/历史背景】\n1933年已禁止私人持金；持续通缩与金本位约束下，政府希望通过提高金价刺激物价与出口竞争力。\n\n【主要影响】\n缓解通缩压力，增加货币供给，农业与矿业受益，但引发贸易伙伴对「以邻为壑」贬值的警惕。\n\n【宏观/市场关联】\nCPI触底后温和回升；实际债务负担下降，有利于债务人密集型经济。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1934-securities-exchange-act",
+          "title": "1934年《证券交易法》与SEC成立",
+          "occurredAt": "1934-06-06",
+          "importance": "HIGH",
+          "eventType": "监管",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1934年《证券交易法》创立美国证券交易委员会(SEC)，规范信息披露、内幕交易与市场操纵，延续1933年《证券法》注册要求。\n\n【政策/历史背景】\n1920年代池子操纵与虚假财报摧毁投资者信任；新政以透明度与联邦执法重建公众参与股市意愿。\n\n【主要影响】\n奠定现代资本市场监管框架，提高公司治理成本但改善长期融资效率。\n\n【宏观/市场关联】\n信息披露降低估值噪音，有利于风险定价；与后续共同基金、养老金入市相辅相成。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:UNRATE"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1935-social-security-act",
+          "title": "1935年《社会保障法》",
+          "occurredAt": "1935-08-14",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "金融",
+            "消费"
+          ],
+          "content": "【事件概述】\n1935年《社会保障法》建立联邦老年保险、失业救济与援助项目，标志美国福利国家核心制度诞生。\n\n【政策/历史背景】\n大萧条失业率居高不下，地方救济不堪重负；劳工与城市进步派推动全国性安全网，企业部分接受以换取社会稳定。\n\n【主要影响】\n形成持续 payroll 税与承诺支出，影响长期财政与劳动力供给激励；后续Medicare等扩展强化刚性支出。\n\n【宏观/市场关联】\n自动稳定器功能：衰退期转移支付支撑消费；长期关注财政可持续性、收益率曲线与养老资产需求。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:INDPRO",
+            "fred:UNRATE"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1937-recession-within-depression",
+          "title": "1937–38年「衰退中的衰退」",
+          "occurredAt": "1937-05-01",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "制造业",
+            "金融"
+          ],
+          "content": "【事件概述】\n1937年5月起工业产出与就业再度大幅下滑，1938年失业率回升至约19%，史称「衰退中的衰退」。\n\n【政策/历史背景】\n联储1936–37年提高准备金率、财政部1937年平衡预算削减赤字；同时《社会保障法》开始征税，叠加工资与物价管制余波。\n\n【主要影响】\n证明复苏仍脆弱，促使1938年重新财政扩张，联储政策转向宽松。\n\n【宏观/市场关联】\nINDPRO二次探底；教训：紧缩财政货币过早会扼杀复苏，对现代「退出刺激」时机有镜鉴意义。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-ww2",
+      "tag": "二战动员",
+      "title": "二战动员",
+      "dateFrom": "1939-09-01",
+      "dateTo": "1945-09-02",
+      "cyclePhase": "战争动员",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/United_States_home_front_during_World_War_II",
+      "eraSummary": "【阶段概览】\n1939—1945二战：租借法案与国防工业动员实现充分就业，价格管制与配给抑制通胀，1944布雷顿森林规划战后秩序。\n\n【繁荣动力】\n国防工业全速运转；女性与少数族裔进入劳动力；技术扩散（雷达、合成橡胶等）。\n\n【萧条/危机成因】\n配给与资源重分配；战后复员与需求切换隐忧；战时通胀压力被管制压制。\n\n【制度与结构】\n战时生产委员会；价格与工资管制；布雷顿森林与IMF/世界银行；1944年GI Bill立法基础。\n\n【Wikipedia 延伸阅读】\nU.S. home front during WWII 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:INDPRO"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "JP"
+          ],
+          "seedKey": "us-1941-pearl-harbor",
+          "title": "1941年珍珠港事件与美国参战",
+          "occurredAt": "1941-12-07",
+          "importance": "CRITICAL",
+          "eventType": "地缘",
+          "industries": [
+            "制造业",
+            "能源"
+          ],
+          "content": "【事件概述】\n1941年12月7日日本偷袭珍珠港，12月8日美国对日宣战，随后全面卷入二战。\n\n【政策/历史背景】\n1940–41年《租借法案》已实质支援盟国；孤立主义在国内仍强，珍珠港一举改变战争与财政格局。\n\n【主要影响】\n军事动员拉动工业产能、就业与研发（雷达、核能），女性与少数族裔大量进入工厂。\n\n【宏观/市场关联】\n战争经济终结大萧条剩余失业；工业产出飙升，但民用消费受配给与价格管制约束。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/bretton-woods-created",
+          "countries": [
+            "US",
+            "GB"
+          ],
+          "seedKey": "us-1944-bretton-woods",
+          "title": "1944年布雷顿森林体系",
+          "occurredAt": "1944-07-22",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1944年7月44国签署布雷顿森林协定，确立美元与黄金挂钩、他国货币与美元挂钩的固定汇率秩序，并创建IMF与世界银行。\n\n【政策/历史背景】\n美国持有全球大部分黄金与工业产能，欲避免一战后贸易与货币混乱重演；英国衰落，美元取得中心货币地位。\n\n【主要影响】\n战后贸易扩张与跨国投资加速，美国输出安全与流动性；1971年尼克松冲击后体系瓦解。\n\n【宏观/市场关联】\n固定汇率下资本流动受控，美国经常账户与通胀外溢全球；现代对应美元周期与新兴市场资本流动。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:UNRATE",
+            "fred:CPIAUCSL"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1945-wwii-end",
+          "title": "1945年二战结束与复员",
+          "occurredAt": "1945-08-15",
+          "importance": "CRITICAL",
+          "eventType": "地缘",
+          "industries": [
+            "制造业",
+            "消费"
+          ],
+          "content": "【事件概述】\n1945年8月日本投降，二战结束；数百万军人复员，战时生产转向民用。\n\n【政策/历史背景】\n《退伍军人法案》(GI Bill) 等已布局教育与住房需求；业界担心复员潮引发大规模失业。\n\n【主要影响】\n短期调整阵痛后，消费与住房建设繁荣，美国确立战后经济霸权；军工复合体与全球基地网络定型。\n\n【宏观/市场关联】\n1946年短暂通胀飙升后进入1950年代高增长低波动；失业率快速下降，开启婴儿潮与 suburban 消费。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-golden-age",
+      "tag": "战后黄金年代",
+      "title": "战后秩序与黄金年代",
+      "dateFrom": "1945-09-03",
+      "dateTo": "1973-10-16",
+      "cyclePhase": "繁荣",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Post%E2%80%93World_War_II_economic_expansion",
+      "eraSummary": "【阶段概览】\n1945—1973战后扩张：布雷顿森林美元体系、婴儿潮、郊区建设与制造业巅峰；1971尼克松冲击与1973石油危机终结本阶段。\n\n【繁荣动力】\nGI Bill与高等教育扩张；州际高速与汽车社会；1960s制造业全盛；美元作为储备货币的低融资成本。\n\n【萧条/危机成因】\n朝鲜/越南战争财政负担；1971关闭黄金窗口；1973第一次石油禁运与滞胀开端。\n\n【制度与结构】\n布雷顿森林→尼克松冲击；民权与劳动力市场变化；跨国公司与全球化起步。\n\n【Wikipedia 延伸阅读】\nPost–WWII economic expansion 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "DE",
+            "FR",
+            "GB"
+          ],
+          "seedKey": "us-1947-marshall-plan",
+          "title": "1947年马歇尔计划",
+          "occurredAt": "1947-06-05",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "制造业"
+          ],
+          "content": "【事件概述】\n1947年6月国务卿马歇尔提出对欧重建援助，1948–52年实施，总额约130亿美元（当时币值）。\n\n【政策/历史背景】\n西欧战后废墟、共产主义势力扩张；美国以援助绑定贸易、美元结算与冷战同盟。\n\n【主要影响】\n加速欧洲复苏，扩大美国出口与金融影响力；强化美元国际地位与跨国供应链雏形。\n\n【宏观/市场关联】\n美国工业产能找到外需；现代对应对外援助、地缘经济工具与全球需求周期。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:INDPRO"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "KR",
+            "CN"
+          ],
+          "seedKey": "us-1950-korean-war",
+          "title": "1950年朝鲜战争爆发",
+          "occurredAt": "1950-06-25",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "制造业",
+            "能源"
+          ],
+          "content": "【事件概述】\n1950年6月25日朝鲜战争爆发，美国主导联合国军介入，战争持续至1953年停战。\n\n【政策/历史背景】\n冷战首次热战；杜鲁门政府担心「多米诺」效应，同时以国防开支维持1950年衰退后的就业。\n\n【主要影响】\n国防预算长期抬升，军工、钢铁、运输订单激增；通胀压力在1951年前后上升。\n\n【宏观/市场关联】\n工业产出与金属价格上行；促使1951年财政部—联储协议，为独立货币政策铺路。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/treasury-fed-accord",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1951-treasury-fed-accord",
+          "title": "1951年财政部—联储协议",
+          "occurredAt": "1951-03-04",
+          "importance": "HIGH",
+          "eventType": "央行决议",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1951年3月《财政部—联邦储备协议》(Treasury-Fed Accord) 结束二战以来联储为压低国债收益率而钉住利率的做法，恢复独立货币政策空间。\n\n【政策/历史背景】\n朝鲜战争通胀升温，联储希望加息而财政部需廉价融资；杜鲁门与联储主席马丁博弈后妥协。\n\n【主要影响】\n确立现代美联储相对财政部的独立定价国债能力，为后续反通胀信誉奠基。\n\n【宏观/市场关联】\n联邦基金利率与长债收益率可反映通胀预期；是理解沃尔克时代与2022加息历史渊源的关键节点。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1956-interstate-highway-act",
+          "title": "1956年州际高速公路法",
+          "occurredAt": "1956-06-29",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "交通运输",
+            "制造业",
+            "房地产"
+          ],
+          "content": "【事件概述】\n1956年《联邦援助公路法》启动州际高速公路系统，以汽油税融资，艾森豪威尔推动全国物流网络。\n\n【政策/历史背景】\n冷战动员需要快速运输；郊区化与汽车文化兴起，铁路客运衰落。\n\n【主要影响】\n降低货运成本，重塑零售（连锁、仓储）、汽车与石油需求；郊区房地产繁荣。\n\n【宏观/市场关联】\n基建乘数拉动水泥、钢铁；长期改变消费地理与劳动力市场匹配效率。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1964-civil-rights-act",
+          "title": "1964年《民权法》",
+          "occurredAt": "1964-07-02",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "消费",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1964年《民权法》禁止在就业、公共场所与联邦项目中的种族歧视，是美国民权运动核心立法。\n\n【政策/历史背景】\n南方种族隔离与全国抗议；肯尼迪遇刺后约翰逊以政治资本推动立法。\n\n【主要影响】\n劳动力市场与消费市场准入扩大，长期提升人力资本配置效率；短期部分南方企业调整成本。\n\n【宏观/市场关联】\n扩大有效劳动力供给与消费市场；社会稳定有利于长期投资预期。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:UNRATE"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "VN"
+          ],
+          "seedKey": "us-1964-gulf-of-tonkin",
+          "title": "1964年《东京湾决议》与越战升级",
+          "occurredAt": "1964-08-07",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "制造业",
+            "能源"
+          ],
+          "content": "【事件概述】\n1964年8月国会通过《东京湾决议》，授权总统在东南亚扩大军事行动，越战美国地面部队随后大幅增加。\n\n【政策/历史背景】\n冷战遏制战略与国内反共共识；约翰逊「伟大社会」与战争「双轨」财政扩张。\n\n【主要影响】\n国防开支占GDP上升，1960年代末财政赤字与通胀压力累积；社会分裂加深。\n\n【宏观/市场关联】\n「枪炮与黄油」困境：充分就业下越战推高需求，为1970年代滞胀埋下伏笔。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1965-immigration-act",
+          "title": "1965年《移民与国籍法》",
+          "occurredAt": "1965-10-03",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "消费",
+            "科技"
+          ],
+          "content": "【事件概述】\n1965年哈特-塞勒《移民与国籍法》废除1920年代国籍配额，建立家庭团聚与技能优先框架，改变美国人口结构。\n\n【政策/历史背景】\n冷战形象与国内民权逻辑；农业与科技产业需要更多劳动力。\n\n【主要影响】\n此后数十年移民来源从欧洲转向拉美与亚洲，影响劳动力增长、创新与政治经济格局。\n\n【宏观/市场关联】\n移民是美国潜在GDP与劳动供给关键变量；与1980年后科技业人才链、消费人口红利相关。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/nixon-shock",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1971-nixon-shock",
+          "title": "1971年尼克松冲击与美元脱钩",
+          "occurredAt": "1971-08-15",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1971年8月15日尼克松宣布暂停美元兑黄金，征收进口附加税，布雷顿森林固定汇率体系实质终结。\n\n【政策/历史背景】\n越战与「伟大社会」财政赤字、贸易逆差扩大，黄金储备外流；美国无法同时兼顾独立货币政策、固定汇率与资本流动。\n\n【主要影响】\n进入浮动汇率时代，美元霸权从黄金背书转向石油与美债深度；1973年后通胀波动加剧。\n\n【宏观/市场关联】\n汇率与大宗商品定价机制重塑；FEDFUNDS政策空间扩大，但进口通胀传导更直接。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-stagflation",
+      "tag": "滞胀时代",
+      "title": "滞胀与沃尔克紧缩",
+      "dateFrom": "1973-10-17",
+      "dateTo": "1982-11-30",
+      "cyclePhase": "萧条",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Stagflation_in_the_United_States",
+      "eraSummary": "【阶段概览】\n1973—1982滞胀：两次石油冲击、双位通胀、1974—75与1980—82衰退；沃尔克联储以高利率重塑通胀预期。\n\n【繁荣动力】\n能源州与国防工业局部景气；1980年代前技术投资萌芽。\n\n【萧条/危机成因】\n石油价格冲击；工资—物价螺旋；1980年货币控制法与沃尔克紧缩；1982拉美债务危机外溢。\n\n【制度与结构】\n联储独立性强化；浮动汇率；1981里根减税与放松管制议程启动。\n\n【Wikipedia 延伸阅读】\nStagflation in the U.S. 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:CPIAUCSL"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "SA"
+          ],
+          "seedKey": "us-1973-oil-embargo",
+          "title": "1973年石油危机与OPEC禁运",
+          "occurredAt": "1973-10-17",
+          "importance": "CRITICAL",
+          "eventType": "地缘",
+          "industries": [
+            "能源",
+            "交通运输",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1973年10月OPEC对支持以色列的国家实施石油禁运，油价数个月内暴涨约四倍，引发滞胀。\n\n【政策/历史背景】\n第四次中东战争；美国石油进口依赖上升，价格管制与配给失败加剧短缺。\n\n【主要影响】\nCPI飙升、工业成本上升、日本与欧洲同步衰退；推动节能、战略石油储备与能源外交。\n\n【宏观/市场关联】\n供给冲击推高名义GDP与通胀预期；联储在就业与物价间两难，为沃尔克铁腕紧缩铺垫。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS",
+            "fred:CPIAUCSL",
+            "fred:UNRATE"
+          ],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/great-inflation",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1979-volcker-shock",
+          "title": "1979年沃尔克紧缩与抗通胀",
+          "occurredAt": "1979-10-06",
+          "importance": "CRITICAL",
+          "eventType": "央行决议",
+          "industries": [
+            "金融",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1979年10月联储主席沃尔克宣布以控制货币总量为重点，联邦基金利率随后升至20%以上，刻意制造衰退以打破通胀预期。\n\n【政策/历史背景】\n1970年代两次石油冲击与财政扩张使核心通胀根深蒂固；公众对联储信誉丧失。\n\n【主要影响】\n1981–82年严重衰退，失业率超10%，但CPI从两位数回落至1980年代中期个位数。\n\n【宏观/市场关联】\n确立「联储独立抗通胀」范式；长债收益率与美元走强，拉美债务危机与储贷危机部分由此触发。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1980-depository-deregulation",
+          "title": "1980年《存款机构放松管制法》",
+          "occurredAt": "1980-03-31",
+          "importance": "HIGH",
+          "eventType": "监管",
+          "industries": [
+            "金融",
+            "房地产"
+          ],
+          "content": "【事件概述】\n1980年《存款机构放松管制与货币控制法》逐步取消存款利率上限(Reg Q)、扩大联储准备金管辖，为金融创新与竞争松绑。\n\n【政策/历史背景】\n高通胀环境下储户逃离受管制存款；储蓄机构与银行「争储」压力，里根时代 deregulation 思潮。\n\n【主要影响】\n货币市场基金与影子银行扩张，1980年代储贷危机(S&L)风险累积；信贷可得性提高。\n\n【宏观/市场关联】\n利率市场化使FEDFUNDS传导更直接；与1999混业立法共同塑造2008前金融结构。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1981-reagan-tax-cuts",
+          "title": "1981年里根减税与供给侧议程",
+          "occurredAt": "1981-08-13",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融",
+            "消费"
+          ],
+          "content": "【事件概述】\n1981年《经济恢复税法》(ERTA) 大幅削减个人所得税最高边际税率，并加速折旧，标志里根供给侧与国防扩张组合。\n\n【政策/历史背景】\n沃尔克衰退后失业率仍高；保守派认为高税负抑制投资，同时增加国防开支对抗苏联。\n\n【主要影响】\n1980年代财政赤字长期化，国债规模上升；高收入与企业投资受益，不平等扩大争议持续。\n\n【宏观/市场关联】\n财政刺激叠加货币紧缩后的复苏；长债供给增加，1980年代牛市与1987年调整并存。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-neoliberal-boom",
+      "tag": "新自由主义繁荣",
+      "title": "里根—克林顿长扩张",
+      "dateFrom": "1982-12-01",
+      "dateTo": "2000-03-10",
+      "cyclePhase": "繁荣",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Great_Moderation",
+      "eraSummary": "【阶段概览】\n1982—2000长扩张：降息、金融化、IT革命与全球化；1987与1998危机被政策化解，2000 dot-com破裂终结本阶段。\n\n【繁荣动力】\n沃尔克后低通胀锚；金融创新与信贷扩张；IT/互联网投资潮；1990s财政盈余与全球化分工。\n\n【萧条/危机成因】\n1987股灾；S&L危机遗留；1998 LTCM；2000年纳斯达克泡沫破裂。\n\n【制度与结构】\n格拉斯-斯蒂格尔废除（1999）；NAFTA与WTO；广场/卢浮宫协议塑造汇率协作。\n\n【Wikipedia 延伸阅读】\nGreat Moderation 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "JP",
+            "DE",
+            "GB",
+            "FR"
+          ],
+          "seedKey": "us-1985-plaza-accord",
+          "title": "1985年广场协议",
+          "occurredAt": "1985-09-22",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1985年9月G5在纽约广场饭店达成协议，联合干预外汇市场，促使美元相对马克、日元大幅贬值。\n\n【政策/历史背景】\n1980年代初高利率推升美元，美国贸易逆差扩大，国会保护主义压力上升；日本出口激增。\n\n【主要影响】\n美国出口改善，日本被迫宽松并催生资产泡沫；1987年《卢浮宫协议》试图稳定美元。\n\n【宏观/市场关联】\n汇率成为贸易再平衡工具；日本1980年代末股市楼市泡沫与1990失落十年与此密切相关。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [
+            "SPY"
+          ],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1987-black-monday",
+          "title": "1987年黑色星期一股灾",
+          "occurredAt": "1987-10-19",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1987年10月19日道琼斯指数单日下跌约22.6%，全球连锁抛售，程序交易与组合保险被指放大波动。\n\n【政策/历史背景】\n广场协议后美元走弱、利率上行预期；1987年8月格林斯潘接任联储主席，市场处于高估值。\n\n【主要影响】\n联储迅速提供流动性并声明「就绪承担央行责任」，避免信贷紧缩；促成协调熔断与监管关注衍生品。\n\n【宏观/市场关联】\n验证央行在危机中「最后贷款人」角色；实体经济未陷入衰退，但波动率监管长期影响交易结构。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "DE",
+            "RU"
+          ],
+          "seedKey": "us-1989-berlin-wall-fall",
+          "title": "1989年柏林墙倒塌与冷战结束",
+          "occurredAt": "1989-11-09",
+          "importance": "MEDIUM",
+          "eventType": "地缘",
+          "industries": [
+            "制造业",
+            "能源"
+          ],
+          "content": "【事件概述】\n1989年11月柏林墙开放，1990–91年苏联解体，冷战结束，美国成为唯一超级大国。\n\n【政策/历史背景】\n里根—戈尔巴乔夫外交与东欧变革；美国「和平红利」讨论即削减国防、扩大民用投资。\n\n【主要影响】\n1990年代国防开支占GDP下降，东欧市场开放；但「和平红利」部分被海湾战争与911后反恐开支抵消。\n\n【宏观/市场关联】\n全球贸易一体化加速，1990年代低通胀繁荣与美元资产偏好上升。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:CPIAUCSL"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "SA",
+            "IQ"
+          ],
+          "seedKey": "us-1990-gulf-war",
+          "title": "1990–91年海湾战争",
+          "occurredAt": "1990-08-02",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "能源",
+            "制造业"
+          ],
+          "content": "【事件概述】\n1990年8月伊拉克入侵科威特，1991年1–2月以美国为首联军发动「沙漠风暴」，短暂推升油价后快速回落。\n\n【政策/历史背景】\n中东石油供应安全；美国建立海湾军事存在，制裁与联盟外交并重。\n\n【主要影响】\n短期油价冲击引发1990年衰退，战争结束后能源价格回落；军工订单增加但规模小于越战。\n\n【宏观/市场关联】\n供给冲击型衰退与联储降息组合；1991年复苏开启1990年代扩张周期。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "RU"
+          ],
+          "seedKey": "us-1991-soviet-collapse",
+          "title": "1991年苏联解体",
+          "occurredAt": "1991-12-26",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "能源",
+            "金融"
+          ],
+          "content": "【事件概述】\n1991年12月苏联正式解体，美国主导的单极秩序与全球化加速。\n\n【政策/历史背景】\n里根时期军备竞赛与经济压力；戈尔巴乔夫改革失败，独联体成立。\n\n【主要影响】\n俄罗斯等原苏联国家休克疗法与资产价格剧烈调整；美国跨国公司进入新市场，国防工业转型。\n\n【宏观/市场关联】\n1990年代大宗商品供给增加、通胀下行；美元与美债作为「安全资产」地位强化。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "MX",
+            "CA"
+          ],
+          "seedKey": "us-1994-nafta",
+          "title": "1994年NAFTA生效",
+          "occurredAt": "1994-01-01",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "制造业",
+            "农业"
+          ],
+          "content": "【事件概述】\n1994年1月《北美自由贸易协定》(NAFTA) 生效，美墨加逐步取消多数关税，整合供应链。\n\n【政策/历史背景】\n1980–90年代外包与just-in-time生产；克林顿政府以增长与地缘稳定换取劳工团体妥协。\n\n【主要影响】\n美国制造业部分岗位向墨西哥转移，汽车与农业贸易激增；2020年被USMCA取代但供应链逻辑延续。\n\n【宏观/市场关联】\n贸易扩张压低制成品价格，贡献1990年代低通胀；与后续对华贸易形成全球分工双极。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "RU"
+          ],
+          "seedKey": "us-1998-ltcm-crisis",
+          "title": "1998年LTCM危机与联储协调",
+          "occurredAt": "1998-09-23",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1998年9月长期资本管理公司(LTCM)因俄债危机与利差交易崩溃濒临破产，纽约联储组织14家大银行救助。\n\n【政策/历史背景】\n高杠杆相对价值策略与亚洲金融危机外溢；衍生品网络高度关联，担心系统性传染。\n\n【主要影响】\n确立「太大而不能倒」私人协调救助模式；推动衍生品中央清算讨论，但杠杆监管仍不足。\n\n【宏观/市场关联】\n格林斯潘连续降息对冲；与2008年相比显示危机前预警被忽视。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-1999-gramm-leach-bliley",
+          "title": "1999年《格雷姆-里奇-比利法》废除混业限制",
+          "occurredAt": "1999-11-12",
+          "importance": "HIGH",
+          "eventType": "监管",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n1999年《金融服务现代化法》废除格拉斯-斯蒂格尔核心条款，允许商业银行、投行与保险混业经营。\n\n【政策/历史背景】\n花旗与旅行者合并等市场已突破法律；华尔街游说认为全球竞争需要规模。\n\n【主要影响】\n催生巨型金融控股公司，风险跨表传递；2008年贝尔斯登、雷曼、AIG等暴露混业与影子银行风险。\n\n【宏观/市场关联】\n金融部门GDP占比上升，利润周期与信贷周期同步放大；2010年Dodd-Frank部分回摆。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [
+            "SPY"
+          ],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2000-dot-com-bust",
+          "title": "2000年互联网泡沫破裂",
+          "occurredAt": "2000-03-10",
+          "importance": "CRITICAL",
+          "eventType": "市场异动",
+          "industries": [
+            "科技",
+            "金融"
+          ],
+          "content": "【事件概述】\n2000年3月纳斯达克见顶后暴跌，电信与dot-com企业大量破产，2000–02年股市蒸发数万亿美元市值。\n\n【政策/历史背景】\n1990年代低利率、Y2K投资与「新经济」叙事；IPO狂热与盈余管理，资本开支过剩。\n\n【主要影响】\nIT投资周期逆转，失业率上升但房地产与消费仍具韧性，2001年轻衰退。\n\n【宏观/市场关联】\n联储2001年快速降息；科技估值与资本开支周期对宏观的拉动显著弱于2008住房危机。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-gfc",
+      "tag": "金融危机时代",
+      "title": "房地产泡沫与全球金融危机",
+      "dateFrom": "2000-03-11",
+      "dateTo": "2009-06-30",
+      "cyclePhase": "萧条",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/2008_financial_crisis",
+      "eraSummary": "【阶段概览】\n2000—2009：反恐战争财政、2003—07住房信贷周期、2008年雷曼倒闭与大衰退；政策以TARP与刺激应对。\n\n【繁荣动力】\n2003—07低利率与住房/信贷驱动消费；金融工程与影子银行扩张。\n\n【萧条/危机成因】\n9/11冲击与战争成本；次贷危机与杠杆去化；2008系统性银行危机；2007—09大衰退。\n\n【制度与结构】\n联储零利率与QE前奏；Dodd-Frank立法讨论起点；GSE与影子银行监管反思。\n\n【Wikipedia 延伸阅读】\n2008 financial crisis 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2001-911-attacks",
+          "title": "2001年9·11恐怖袭击",
+          "occurredAt": "2001-09-11",
+          "importance": "CRITICAL",
+          "eventType": "地缘",
+          "industries": [
+            "交通运输",
+            "金融",
+            "能源"
+          ],
+          "content": "【事件概述】\n2001年9月11日基地组织袭击纽约与华盛顿，世贸中心倒塌，航空停飞，市场休市四日。\n\n【政策/历史背景】\n冷战后非国家恐怖主义上升；美国安全架构与中东政策转向反恐优先。\n\n【主要影响】\n国防与国土安全开支长期上升，阿富汗与伊拉克战争；航空、保险、再保险遭受巨大损失。\n\n【宏观/市场关联】\n联储紧急降息与流动性注入；油价与黄金短期跳升，但2001–02衰退主因仍是dot-com余波。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:CPIAUCSL"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "IQ"
+          ],
+          "seedKey": "us-2003-iraq-war",
+          "title": "2003年伊拉克战争",
+          "occurredAt": "2003-03-20",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "能源",
+            "制造业"
+          ],
+          "content": "【事件概述】\n2003年3月美国领衔联军入侵伊拉克，推翻萨达姆政权，战争与占领持续多年。\n\n【政策/历史背景】\n911后「先发制人」与大规模杀伤性武器指控；石油地缘与中东民主化叙事。\n\n【主要影响】\n国防与重建支出增加，油价波动；中东不稳定与长期财政负担，社会争议深刻。\n\n【宏观/市场关联】\n2003–08年油价上行周期部分与中东供应风险相关；财政赤字与石油美元循环影响全球资产定价。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [
+            "SPY"
+          ],
+          "macroKeys": [
+            "fred:UNRATE",
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "GB"
+          ],
+          "seedKey": "us-2008-lehman-bankruptcy",
+          "title": "2008年雷曼兄弟破产",
+          "occurredAt": "2008-09-15",
+          "importance": "CRITICAL",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "房地产"
+          ],
+          "content": "【事件概述】\n2008年9月15日雷曼兄弟申请破产，CDS与货币市场基金遭挤兑，全球信贷冻结，金融危机达顶峰。\n\n【政策/历史背景】\n次贷、证券化与影子银行杠杆；贝尔斯登已获救助，政府未安排雷曼有序处置，市场恐慌失控。\n\n【主要影响】\n美国失业率升至10%附近，GDP大幅收缩；欧洲银行暴露，全球贸易崩溃。\n\n【宏观/市场关联】\nFEDFUNDS降至零附近并启动非常规工具；UNRATE飙升，成为大萧条以来最严重衰退。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2008-tarp",
+          "title": "2008年TARP与系统性救助",
+          "occurredAt": "2008-10-03",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n2008年10月国会通过7000亿美元《紧急经济稳定法》(TARP)，财政部对银行、AIG、汽车业实施资本注入与资产购买。\n\n【政策/历史背景】\n雷曼后信贷市场失灵；两党在选举年前妥协，公众对「救助华尔街」强烈反弹。\n\n【主要影响】\n稳定银行体系，多数资金日后回收；道德风险争议延续，催生茶党与金融监管改革压力。\n\n【宏观/市场关联】\n与联储流动性工具配合，金融条件指数逐步修复；为2010年Dodd-Frank与压力测试奠基。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": "https://www.federalreservehistory.org/essays/great-recession-and-its-aftermath",
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2008-qe1",
+          "title": "2008年美联储启动QE1",
+          "occurredAt": "2008-11-25",
+          "importance": "CRITICAL",
+          "eventType": "央行决议",
+          "industries": [
+            "金融",
+            "房地产"
+          ],
+          "content": "【事件概述】\n2008年11月联储宣布首次大规模购买机构MBS等资产(QE1)，联邦基金利率已接近零下限，转向资产负债表扩张。\n\n【政策/历史背景】\n零利率下限(ELB)下传统降息空间耗尽；抵押贷款利率与金融条件需额外支撑。\n\n【主要影响】\n开启全球央行非常规货币政策时代，2010–14年多轮QE与2013缩减恐慌；资产价格与财富效应显著。\n\n【宏观/市场关联】\n长端收益率与风险溢价被压低；与2022年QT形成历史性逆转对照。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:UNRATE"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2009-arpa-stimulus",
+          "title": "2009年《美国复苏与再投资法》",
+          "occurredAt": "2009-02-17",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "制造业",
+            "消费"
+          ],
+          "content": "【事件概述】\n2009年2月奥巴马签署7870亿美元刺激法案(ARRA)，含减税、基建、医疗与州政府援助。\n\n【政策/历史背景】\n2008–09衰退深度超预期；凯恩斯式财政扩张与政治对「规模是否足够」争论并存。\n\n【主要影响】\n据CBO估算减缓失业率上升、支撑2009–10年复苏；部分项目延迟执行，政治遗产分化。\n\n【宏观/市场关联】\n财政乘数与自动稳定器；与联储QE共同构成双宽松，2010年后复苏 uneven。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-qe",
+      "tag": "QE时代",
+      "title": "量化宽松与低利率",
+      "dateFrom": "2009-07-01",
+      "dateTo": "2019-12-31",
+      "cyclePhase": "混合",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Quantitative_easing",
+      "eraSummary": "【阶段概览】\n2009—2019：三轮QE、taper与2015加息正常化；科技巨头与页岩革命并行，2017税改与贸易战扰动。\n\n【繁荣动力】\n超长低利率与QE支撑资产价格；页岩革命改善能源贸易平衡；FAANG与平台经济。\n\n【萧条/危机成因】\n2011债务上限僵局；2013 taper tantrum；2015—16制造业衰退；贸易战关税不确定性。\n\n【制度与结构】\n联储资产负债表扩张；宏观审慎与压力测试；产业政策回归前夜。\n\n【Wikipedia 延伸阅读】\nQuantitative easing 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2010-dodd-frank",
+          "title": "2010年《多德-弗兰克法》",
+          "occurredAt": "2010-07-21",
+          "importance": "HIGH",
+          "eventType": "监管",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n2010年《多德-弗兰克华尔街改革法》建立系统性风险监管、沃尔克规则、消费者金融保护局(CFPB)与压力测试框架。\n\n【政策/历史背景】\n2008危机后公众要求收紧；行业游说削弱部分条款，但资本与流动性要求显著提高。\n\n【主要影响】\n大型银行杠杆下降、合规成本上升；非银机构与资本市场部分承担影子银行功能。\n\n【宏观/市场关联】\n金融稳定增强但信贷分配结构变化；2018年后部分条款放松，2023年SVB暴露监管执行问题。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [
+            "SPY"
+          ],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2011-debt-ceiling-crisis",
+          "title": "2011年债务上限危机与标普降级",
+          "occurredAt": "2011-08-02",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n2011年8月两党在债务上限最后关头达成《预算控制法》，标普首次下调美国主权信用评级至AA+，8月市场剧烈波动。\n\n【政策/历史背景】\n金融危机后财政赤字扩大；茶党要求削减开支，奥巴马政府坚持避免违约。\n\n【主要影响】\n自动减支(sequestration)机制，国防与国内项目长期受限；国债仍被视为安全资产但政治风险溢价上升。\n\n【宏观/市场关联】\n2011年8月标普500回调约17%；显示财政政治化对风险资产与美元避险属性的复杂影响。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2013-taper-tantrum",
+          "title": "2013年缩减恐慌(Taper Tantrum)",
+          "occurredAt": "2013-05-22",
+          "importance": "HIGH",
+          "eventType": "央行决议",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n2013年5月主席伯南克国会证词暗示可能放缓资产购买，全球债市收益率飙升、新兴市场资本外流，史称「缩减恐慌」。\n\n【政策/历史背景】\nQE3后联储资产负债表逾3万亿美元；市场高度依赖前瞻指引，对退出时机极度敏感。\n\n【主要影响】\n迫使联储更谨慎沟通；2014年实际缩减启动时市场已部分定价。\n\n【宏观/市场关联】\n美元走强、EM货币贬值；验证全球金融周期由美国利率主导。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "SA"
+          ],
+          "seedKey": "us-2014-shale-revolution",
+          "title": "2014年页岩油革命与OPEC价格战",
+          "occurredAt": "2014-11-27",
+          "importance": "MEDIUM",
+          "eventType": "市场异动",
+          "industries": [
+            "能源",
+            "制造业"
+          ],
+          "content": "【事件概述】\n2014年11月OPEC维持产量引发油价暴跌，美国页岩油产量此前数年激增，美国由净进口国向能源出口国转变。\n\n【政策/历史背景】\n水力压裂与水平钻井技术成熟；2000年代高油价吸引资本开支，物流与管道建设跟进。\n\n【主要影响】\n能源贸易逆差缩小，制造业成本优势部分恢复；页岩企业高杠杆在2015–16违约潮中暴露。\n\n【宏观/市场关联】\n油价下跌压低CPI，给联储2015年加息提供空间；地缘上削弱部分石油美元约束。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2015-fed-liftoff",
+          "title": "2015年美联储首次加息",
+          "occurredAt": "2015-12-16",
+          "importance": "HIGH",
+          "eventType": "央行决议",
+          "industries": [
+            "金融"
+          ],
+          "content": "【事件概述】\n2015年12月FOMC将联邦基金目标区间上调25基点，为2006年以来首次加息，结束零利率时代。\n\n【政策/历史背景】\n失业率降至5%附近，核心通胀仍低于2%目标；对「过早收紧扼杀复苏」与「过晚引发金融失衡」的两难。\n\n【主要影响】\n2016–18年缓慢加息周期，美元走强，新兴市场承压；2019年7月后转向预防式降息。\n\n【宏观/市场关联】\nFEDFUNDS正常化路径成为全球资产定价锚；与2022年快速加息形成节奏对比。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2017-tax-cuts-jobs-act",
+          "title": "2017年《减税与就业法》",
+          "occurredAt": "2017-12-22",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "金融",
+            "消费",
+            "制造业"
+          ],
+          "content": "【事件概述】\n2017年12月特朗普签署TCJA，将企业税从35%降至21%，并调整个人所得税与海外利润回流规则。\n\n【政策/历史背景】\n共和党控制国会，承诺刺激投资与就业；批评者指结构性赤字上升、受益偏向企业与高收入者。\n\n【主要影响】\n2018年企业盈利跳升、回购增加；财政赤字扩大，2020年疫情前经济已处周期后期。\n\n【宏观/市场关联】\n fiscal impulse 叠加联储加息，2018年Q4市场波动；长期关注债务可持续性。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "CN"
+          ],
+          "seedKey": "us-2018-china-trade-war",
+          "title": "2018年中美贸易战升级",
+          "occurredAt": "2018-07-06",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "制造业",
+            "科技",
+            "农业"
+          ],
+          "content": "【事件概述】\n2018年7月美国对340亿美元中国商品加征25%关税，中方对等反制，贸易战逐步覆盖数千亿美元商品与科技制裁。\n\n【政策/历史背景】\n美国指责知识产权强制转让与巨额逆差；「脱钩」与供应链安全讨论上升，两党对华强硬共识扩大。\n\n【主要影响】\n全球供应链重组，制造业回流有限、向越南墨西哥转移；农业补贴与关税收入政治化。\n\n【宏观/市场关联】\n关税推高部分进口品价格，2019年制造业PMI走弱；2018–19年联储降息部分对冲贸易不确定性。"
+        }
+      ]
+    },
+    {
+      "seedKey": "us-era-post-covid",
+      "tag": "疫情后时代",
+      "title": "疫情、财政刺激与通胀再抬头",
+      "dateFrom": "2020-01-01",
+      "dateTo": "present",
+      "cyclePhase": "混合",
+      "defaultExpanded": false,
+      "wikipediaUrl": "https://en.wikipedia.org/wiki/Economic_impact_of_the_COVID-19_pandemic_in_the_United_States",
+      "eraSummary": "【阶段概览】\n2020—今：疫情断崖、史无前例财政/货币刺激、2022—23通胀与快速加息、2023区域银行压力与AI/产业政策新周期。\n\n【繁荣动力】\n2020—21财政转移与货币宽松；2021复苏；2023— AI资本开支与CHIPS/IRA产业政策。\n\n【萧条/危机成因】\n2020 Q2经济断崖；2022—23通胀与联储紧缩；2023 SVB等区域银行压力；供应链扰动。\n\n【制度与结构】\nCARES/ARPA大规模转移；通胀削减法与芯片法；联储QT与利率正常化实验。\n\n【Wikipedia 延伸阅读】\nCOVID-19 economic impact (U.S.) 条目。",
+      "events": [
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS",
+            "fred:UNRATE"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2020-covid-pandemic-fed",
+          "title": "2020年新冠疫情与联储紧急降息",
+          "occurredAt": "2020-03-15",
+          "importance": "CRITICAL",
+          "eventType": "央行决议",
+          "industries": [
+            "金融",
+            "消费",
+            "医药"
+          ],
+          "content": "【事件概述】\n2020年3月新冠疫情全球蔓延，3月15日联储紧急将利率降至0–0.25%并重启无限量QE，3月23日承诺购买公司债。\n\n【政策/历史背景】\n封锁措施导致经济活动骤停；2008年工具箱迅速激活，与财政部协同。\n\n【主要影响】\n金融条件在数周内稳定，但实体部门经历1940年代以来最大单月失业冲击。\n\n【宏观/市场关联】\nFEDFUNDS归零与资产负债表扩张；股市V型反弹与实体经济K型分化并存。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:UNRATE"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2020-cares-act",
+          "title": "2020年《CARES法案》财政刺激",
+          "occurredAt": "2020-03-27",
+          "importance": "CRITICAL",
+          "eventType": "政策",
+          "industries": [
+            "消费",
+            "金融"
+          ],
+          "content": "【事件概述】\n2020年3月27日《CARES法案》签署，约2.2万亿美元，含直接支付给家庭、扩大失业救济、小企业PPP贷款与航空业救助。\n\n【政策/历史背景】\n疫情封锁导致收入断崖；两党罕见快速通过大规模赤字支出，避免1929式需求崩溃。\n\n【主要影响】\n家庭储蓄率飙升、消费随后反弹；财政赤字占GDP创二战后新高，为2021–22通胀埋下部分种子。\n\n【宏观/市场关联】\n财政货币双宽松史无前例；UNRATE短期见顶后快速回落，但劳动力参与率恢复缓慢。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2021-infrastructure-investment-jobs",
+          "title": "2021年《基础设施投资与就业法》",
+          "occurredAt": "2021-11-15",
+          "importance": "MEDIUM",
+          "eventType": "政策",
+          "industries": [
+            "交通运输",
+            "制造业",
+            "能源"
+          ],
+          "content": "【事件概述】\n2021年11月拜登签署1.2万亿美元基础设施法案，重点投向道路、桥梁、宽带、电网与公共交通。\n\n【政策/历史背景】\n疫情后「重建更好」议程中与更大型社会支出法案拆分；两党在传统基建上达成妥协。\n\n【主要影响】\n多年期联邦支出承诺，建材与工程订单预期上升；与《通胀削减法》共同构成产业政策组合。\n\n【宏观/市场关联】\n基建支出滞后于立法，2022–25年逐步落地；对工业产出与就业拉动在加息周期中部分对冲。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:CPIAUCSL"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "RU",
+            "UA"
+          ],
+          "seedKey": "us-2022-russia-sanctions-ukraine",
+          "title": "2022年俄乌冲突与对俄制裁",
+          "occurredAt": "2022-02-24",
+          "importance": "HIGH",
+          "eventType": "地缘",
+          "industries": [
+            "能源",
+            "金融",
+            "制造业"
+          ],
+          "content": "【事件概述】\n2022年2月24日俄罗斯全面入侵乌克兰，美国牵头对俄金融、能源、科技出口实施多轮制裁，并大规模军援乌克兰。\n\n【政策/历史背景】\n北约东扩与欧洲安全架构争议；美国将能源安全与盟友团结置于优先，冻结央行储备等工具创新。\n\n【主要影响】\n欧洲能源危机、全球粮食与化肥价格波动；美国液化天然气出口激增，国防工业订单上升。\n\n【宏观/市场关联】\n2022年能源价格推高CPI，与本土过热需求叠加；制裁与供应链重组长期影响全球化成本。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS",
+            "fred:CPIAUCSL"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2022-fed-hiking-cycle",
+          "title": "2022年美联储激进加息周期",
+          "occurredAt": "2022-03-16",
+          "importance": "CRITICAL",
+          "eventType": "央行决议",
+          "industries": [
+            "金融",
+            "房地产"
+          ],
+          "content": "【事件概述】\n2022年3月起FOMC连续加息，至2023年7月联邦基金目标区间升至5.25–5.50%，并伴随QT缩表。\n\n【政策/历史背景】\n通胀持续超预期；鲍威尔承认低估价格压力，以1980年代沃尔克叙事重建抗通胀信誉。\n\n【主要影响】\n30年抵押贷款利率一度超7%，银行未实现债券损失暴露；2023年区域银行危机与商业地产压力。\n\n【宏观/市场关联】\nFEDFUNDS快速上升压低通胀但增加硬着陆风险；_yield curve_倒挂与衰退预期交易活跃。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:CPIAUCSL",
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2022-inflation-surge",
+          "title": "2021–22年美国通胀飙升",
+          "occurredAt": "2022-06-10",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "消费",
+            "金融",
+            "房地产"
+          ],
+          "content": "【事件概述】\n2021–22年CPI同比升至40年高位，2022年6月公布数据达约9.1%，核心商品与服务广泛涨价。\n\n【政策/历史背景】\n疫情财政转移、供应链瓶颈、能源冲击与劳动力短缺共振；联储2021年称通胀「暂时性」后于2022年激进转向。\n\n【主要影响】\n实际工资对多数工人下降，低收入家庭承压；政治对联储与财政政策问责上升。\n\n【宏观/市场关联】\nCPIAUCSL与通胀预期脱锚风险驱动2022–23年最快加息周期之一；房地产与成长股估值承压。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US",
+            "CN"
+          ],
+          "seedKey": "us-2022-chips-act",
+          "title": "2022年《芯片与科学法》(CHIPS Act)",
+          "occurredAt": "2022-08-09",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "科技",
+            "制造业"
+          ],
+          "content": "【事件概述】\n2022年8月《芯片与科学法》签署，提供约520亿美元补贴与25%投资税收抵免，吸引先进半导体本土制造。\n\n【政策/历史背景】\n新冠暴露供应链脆弱、对华科技竞争；英特尔、台积电、三星等宣布美国建厂计划。\n\n【主要影响】\n产业政策回归，补贴竞争与地缘政治绑定；劳动力与许可瓶颈可能延迟投产。\n\n【宏观/市场关联】\n资本开支与制造业就业长期受益；与通胀削减法共同定义拜登时代「新产业政策」。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2022-inflation-reduction-act",
+          "title": "2022年《通胀削减法》",
+          "occurredAt": "2022-08-16",
+          "importance": "HIGH",
+          "eventType": "政策",
+          "industries": [
+            "能源",
+            "医药",
+            "制造业"
+          ],
+          "content": "【事件概述】\n2022年8月《通胀削减法》(IRA) 签署，约7400亿美元（十年）用于气候、医保与税收，含电动车与清洁能源税收抵免。\n\n【政策/历史背景】\n「重建更好」缩小版；通过预算调和绕过 filibuster，名称强调通胀但CBO估计长期赤字影响有限。\n\n【主要影响】\n加速美国绿色投资与本土制造要求；药企 Medicare 药价谈判改变行业盈利预期。\n\n【宏观/市场关联】\n能源转型资本开支与就业；与CHIPS Act构成美国再工业化政策组合，影响长期通胀与供应链。"
+        },
+        {
+          "datePrecision": "DATE",
+          "assets": [],
+          "macroKeys": [
+            "fred:FEDFUNDS"
+          ],
+          "isPublic": true,
+          "sourceUrl": null,
+          "countries": [
+            "US"
+          ],
+          "seedKey": "us-2023-svb-collapse",
+          "title": "2023年硅谷银行倒闭与区域银行危机",
+          "occurredAt": "2023-03-10",
+          "importance": "HIGH",
+          "eventType": "市场异动",
+          "industries": [
+            "金融",
+            "科技"
+          ],
+          "content": "【事件概述】\n2023年3月10日硅谷银行(SVB)因利率上升下债券账面损失与存款挤兑被FDIC接管，Signature等银行相继关闭。\n\n【政策/历史背景】\n2020–21年科技存款激增买长债；2022–23快速加息使未实现损失巨大，监管对利率风险关注不足。\n\n【主要影响】\n联储与FDIC扩大担保稳定中小银行；信贷标准收紧，区域性银行股价重挫。\n\n【宏观/市场关联】\n显示QT与加息尾部风险；BTFP等工具避免系统性传染，但「软着陆」辩论升温。"
+        }
+      ]
+    }
+  ]
+}

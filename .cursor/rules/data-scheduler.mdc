@@ -1,0 +1,49 @@
+---
+description: 宏观数据按计划更新（DataSubscription / Worker）
+globs: src/lib/data/scheduler/**,scripts/data-worker/**,prisma/schema.prisma
+alwaysApply: false
+---
+
+# 数据调度（P0+）
+
+## 模型（mds schema）
+
+- `StatisticalAgency` — 国家统计机构（CN 统计局、US BLS、JP 总务省等）
+- `DataSource` — 技术连接器（`fred`、`worldbank`…）+ `SourceAdapterKind`
+- `DataSubscription` — 一条 `Instrument` 的更新计划（`releaseRule` JSON、`nextRunAt`）
+- `FetchRun` — 每次拉取日志
+
+## 命令
+
+- `npm run data:seed-p0` — 种子机构 + 10 条 FRED 试点订阅
+- `npm run data:seed-phase2` — FRED 扩展、usov、BIS debtcap、WB 试点
+- `npm run data:seed-phase3-wb` — World Bank 14 国 × 18 指标全量
+- `npm run data:verify-phase3` — Phase 3 自检
+- `npm run data:seed-phase4` — chov/jpov xlsx + legacy m_ 订阅
+- `npm run data:verify-phase4` — Phase 4 自检
+- `npm run data:seed-phase5` — usov 补全 + 可选 e-Stat
+- `npm run data:verify-phase5` — Phase 5 自检
+- `npm run data:seed-cpi` — 美国 CPI 分析框架 FRED 订阅（见 `docs/DATA_SCHEDULER_CPI.md`）
+- `npm run data:verify-cpi` — CPI 自检（`--db`）
+- `npm run data:worker` — 跑到期的订阅（`nextRunAt <= now`）
+- `npm run data:sync-calendar` — 从 [Investing 经济日历](https://www.investing.com/economic-calendar) 同步下一发布时间到 `nextRunAt`
+- `npm run data:verify-phase1` — Phase 1 自检（`--fetch` / `--db`）
+- `npm run data:sync-one -- sched_fred_CPIAUCSL` — 强制单条
+
+详细步骤：`docs/DATA_SCHEDULER_PHASE1.md`
+
+## 经济日历调度
+
+- `releaseRule.type = economic_calendar`：发布时刻 + `releaseDelayMinutes` 触发拉取
+- 映射表：`src/lib/data/scheduler/investingEventMap.ts`（FRED id → 日历关键词）
+- 若主接口 403：`.env.local` 设置 `INVESTING_CALENDAR_COOKIE`（浏览器登录 investing.com 后复制）或 `INVESTING_CALENDAR_API_BASE` 代理 URL
+- 建议 cron：每小时 `data:sync-calendar`，每分钟 `data:worker`
+
+## 扩展新源
+
+1. 在 `StatisticalAgency` / `DataSource` 登记机构与适配器
+2. 实现 `src/lib/data/scheduler/adapters/*`
+3. 在 `runSubscription.ts` 的 `switch(adapterKind)` 分支调用
+4. `releaseRule` 用 `releaseRule.ts` 中的类型
+
+勿把 API Key 写入 `releaseRule` 或种子脚本。

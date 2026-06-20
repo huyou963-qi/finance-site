@@ -1,0 +1,34 @@
+[
+  {
+    "date": "2024-11-12",
+    "adjOpen": 224.55,
+    "adjHigh": 225.59,
+    "adjLow": 223.36,
+    "adjClose": 224.23,
+    "volume": 40398300
+  },
+  {
+    "date": "2024-11-11",
+    "adjOpen": 225,
+    "adjHigh": 225.7,
+    "adjLow": 221.5,
+    "adjClose": 224.23,
+    "volume": 42005602
+  },
+  {
+    "date": "2024-11-08",
+    "adjOpen": 227.17,
+    "adjHigh": 228.66,
+    "adjLow": 226.41,
+    "adjClose": 226.96,
+    "volume": 38328824
+  },
+  {
+    "date": "2024-11-07",
+    "adjOpen": 224.63,
+    "adjHigh": 227.88,
+    "adjLow": 224.57,
+    "adjClose": 227.48,
+    "volume": 42137700
+  }
+]

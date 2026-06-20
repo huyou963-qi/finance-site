@@ -26,12 +26,19 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       username?: string;
       password?: string;
+      email?: string;
+      phone?: string;
       role?: "admin" | "user";
+      plan?: "standard" | "pro";
     };
     const user = await registerUser(
       body.username ?? "",
       body.password ?? "",
       body.role === "admin" ? "admin" : "user",
+      body.email ?? "",
+      body.phone ?? "",
+      undefined,
+      body.plan === "pro" ? "pro" : "standard",
     );
     return NextResponse.json({ user });
   } catch (e) {

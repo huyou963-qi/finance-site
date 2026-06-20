@@ -23,6 +23,8 @@ import {
 import type { PriceAdjustmentMode } from "@/lib/data/klineAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
+import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
+import { unixSecToContextDate } from "@/lib/data/marketEvents";
 
 type SymbolHit = {
   symbol: string;
@@ -80,6 +82,10 @@ export function MarketsClient() {
   const [flexTrades, setFlexTrades] = useState<ChartExecutionTrade[]>([]);
   const [portfolioTrades, setPortfolioTrades] =
     useState<ChartExecutionTrade[]>([]);
+  const [eventContextDate, setEventContextDate] = useState<string | null>(null);
+  const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
+  const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
+  const chartSplitRowRef = useRef<HTMLDivElement | null>(null);
 
   const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
 
@@ -111,6 +117,9 @@ export function MarketsClient() {
   useEffect(() => {
     setRemoteRangeSpecs([]);
     setRemoteRangeSpecsVer(0);
+    setEventRangeFromSec(null);
+    setEventRangeToSec(null);
+    setEventContextDate(null);
   }, [symbol]);
 
   /**
@@ -272,7 +281,15 @@ export function MarketsClient() {
     bc.postMessage(msg);
   }, [tabId]);
 
+  const onVisibleTimeRangeChange = useCallback((from: number, to: number) => {
+    setEventRangeFromSec(from);
+    setEventRangeToSec(to);
+  }, []);
+
   const onLocalCrosshairTime = useCallback((time: number | null) => {
+    if (time != null) {
+      setEventContextDate(unixSecToContextDate(time));
+    }
     const bc = bcRef.current;
     if (!bc || !pageSyncRef.current) return;
     const msg: KlineSyncMessage = {
@@ -283,6 +300,26 @@ export function MarketsClient() {
     };
     bc.postMessage(msg);
   }, [tabId]);
+
+  const eventRangeFrom = useMemo(
+    () => (eventRangeFromSec != null ? unixSecToContextDate(eventRangeFromSec) : null),
+    [eventRangeFromSec],
+  );
+
+  const eventRangeTo = useMemo(
+    () => (eventRangeToSec != null ? unixSecToContextDate(eventRangeToSec) : null),
+    [eventRangeToSec],
+  );
+
+  const chartLinkedEventProps = useMemo(
+    () => ({
+      rangeFrom: eventRangeFrom,
+      rangeTo: eventRangeTo,
+      trackDate: eventContextDate,
+      contextAssets: symbol.trim() ? [symbol.trim()] : [],
+    }),
+    [eventRangeFrom, eventRangeTo, eventContextDate, symbol],
+  );
 
   const pickInterval = (iv: KlineInterval) => {
     setKlineInterval(iv);
@@ -590,30 +627,42 @@ export function MarketsClient() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <StockChartWorkspace
-          key={`${klineSource}-${symbol || "none"}-${interval}-${priceAdjustment}`}
-          source={klineSource}
-          symbol={symbol}
-          interval={interval}
-          priceAdjustment={priceAdjustment}
-          executionTrades={executionTrades}
-          fillHeight
-          onAttributionChange={setDataHint}
-          onKlineLoadSuccess={onKlineLoadSuccess}
-          pageSyncEnabled={pageSync}
-          pageSyncLeadNonce={syncLeadNonce}
-          onPageSyncLeaderSnapshot={onLeaderSnapshot}
-          remoteVisibleTimeRange={remoteVisible}
-          remoteVisibleTimeRangeVersion={remoteVisibleVer}
-          remoteCrosshairTime={remoteCrosshair}
-          remoteCrosshairVersion={remoteCrosshairVer}
-          remoteRangeSpecs={remoteRangeSpecs}
-          remoteRangeSpecsVersion={remoteRangeSpecsVer}
-          onRangeSpecsBroadcast={onRangeSpecsBroadcast}
-          onLocalVisibleTimeRange={onLocalVisibleTimeRange}
-          onLocalCrosshairTime={onLocalCrosshairTime}
-          toolbarPortalEl={chartToolbarMount}
+      <div
+        ref={chartSplitRowRef}
+        className="flex min-h-0 min-w-0 flex-1 flex-row items-stretch overflow-hidden"
+      >
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <StockChartWorkspace
+            key={`${klineSource}-${symbol || "none"}-${interval}-${priceAdjustment}`}
+            source={klineSource}
+            symbol={symbol}
+            interval={interval}
+            priceAdjustment={priceAdjustment}
+            executionTrades={executionTrades}
+            fillHeight
+            onAttributionChange={setDataHint}
+            onKlineLoadSuccess={onKlineLoadSuccess}
+            pageSyncEnabled={pageSync}
+            pageSyncLeadNonce={syncLeadNonce}
+            onPageSyncLeaderSnapshot={onLeaderSnapshot}
+            remoteVisibleTimeRange={remoteVisible}
+            remoteVisibleTimeRangeVersion={remoteVisibleVer}
+            remoteCrosshairTime={remoteCrosshair}
+            remoteCrosshairVersion={remoteCrosshairVer}
+            remoteRangeSpecs={remoteRangeSpecs}
+            remoteRangeSpecsVersion={remoteRangeSpecsVer}
+            onRangeSpecsBroadcast={onRangeSpecsBroadcast}
+            onLocalVisibleTimeRange={onLocalVisibleTimeRange}
+            onVisibleTimeRangeChange={onVisibleTimeRangeChange}
+            onLocalCrosshairTime={onLocalCrosshairTime}
+            toolbarPortalEl={chartToolbarMount}
+          />
+        </div>
+
+        <EventChartSidePanel
+          variant="docked"
+          splitRowRef={chartSplitRowRef}
+          {...chartLinkedEventProps}
         />
       </div>
       </div>

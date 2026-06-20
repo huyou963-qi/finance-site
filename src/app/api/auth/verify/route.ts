@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const user = await verifyRegistrationToken(body.token ?? "");
     return NextResponse.json({
       ok: true,
-      user: { username: user.username, email: user.email ?? "" },
+      user: { username: user.username, email: user.email, phone: user.phone },
       message: "邮箱确认成功，账号已激活，请登录",
     });
   } catch (e) {

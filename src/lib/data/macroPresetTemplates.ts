@@ -1,4 +1,5 @@
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
+import type { MacroSelectedListItem } from "@/lib/macroSelectedList";
 import type {
   MacroChartDisplayConfig,
   MacroSeriesChartType,
@@ -23,12 +24,43 @@ import {
   usOverviewCodeFromMdsKey,
   usOverviewMdsKey,
 } from "@/lib/data/usOverviewLayout";
+import {
+  GOLD_ANALYSIS_SERIES,
+  goldAnalysisMdsKey,
+} from "@/lib/data/goldAnalysisLayout";
+import {
+  BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+  BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
+  BUILTIN_US_CPI_TEMPLATE_IDS,
+  BUILTIN_US_CPI_TEMPLATES,
+} from "@/lib/data/cpiAnalysisLayout";
+import {
+  BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
+  BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
+  BUILTIN_US_LABOR_TEMPLATE_IDS,
+  BUILTIN_US_LABOR_TEMPLATES,
+} from "@/lib/data/laborAnalysisLayout";
+
+export {
+  BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+  BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
+  BUILTIN_US_CPI_TEMPLATES,
+  BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
+  BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
+  BUILTIN_US_LABOR_TEMPLATES,
+};
 
 export type MacroChartTemplate = {
   id: string;
   name: string;
   description?: string;
+  /** 各指标解读说明（indicatorKey → 文本） */
+  indicatorIntroNotes?: Record<string, string>;
+  /** 各图位解读说明（slotIndex 字符串 "0"… → 文本；与 displayConfig.slotTitles 对应） */
+  chartIntroNotes?: Record<string, string>;
   selectedKeys: string[];
+  /** 已选指标列表（含分割线），顺序即展示与提取顺序 */
+  selectedListItems?: MacroSelectedListItem[];
   layoutMode: 1 | 2 | 3 | 4 | 5 | 6;
   slotAssignment: MacroSlotAssignment;
   seriesVisualMap: MacroSeriesVisualConfigMap;
@@ -71,6 +103,19 @@ export type MacroDerivedCalc = {
   rightKey: string;
   op: MacroDerivedCalcOp;
   name: string;
+};
+
+/** 代码内置系统模板文件夹（DB 无配置时合并） */
+export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
+  { id: "folder-builtin-us-cpi", name: "美国通胀分析", scope: "builtin" },
+  { id: "folder-builtin-us-labor", name: "美国就业市场", scope: "builtin" },
+];
+
+export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> = {
+  "builtin-us-cpi-overview": "folder-builtin-us-cpi",
+  "builtin-us-cpi-drivers": "folder-builtin-us-cpi",
+  "builtin-us-labor-overview": "folder-builtin-us-labor",
+  "builtin-us-labor-drivers": "folder-builtin-us-labor",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -161,6 +206,58 @@ export const BUILTIN_DEBT_CAPACITY_TEMPLATE: MacroChartTemplate = {
     showSymbols: false,
   },
   createdAtIso: "2026-05-27T00:00:00.000Z",
+  builtIn: true,
+};
+
+/** 黄金分析模板：金价/美元、利率与通胀、管理基金持仓、COMEX 库存、ETF、全球储备 */
+function buildGoldAnalysisSelectedKeys(): string[] {
+  return GOLD_ANALYSIS_SERIES.map((row) => goldAnalysisMdsKey(row.code));
+}
+
+function buildGoldAnalysisSlotAssignment(): MacroSlotAssignment {
+  const out: MacroSlotAssignment = {};
+  for (const row of GOLD_ANALYSIS_SERIES) {
+    out[goldAnalysisMdsKey(row.code)] = row.panel == null ? null : row.panel - 1;
+  }
+  return out;
+}
+
+function buildGoldAnalysisVisualMap(): MacroSeriesVisualConfigMap {
+  const out: MacroSeriesVisualConfigMap = {};
+  for (const row of GOLD_ANALYSIS_SERIES) {
+    out[goldAnalysisMdsKey(row.code)] = {
+      axis: row.axis,
+      chartType: row.chartType,
+      color: row.color,
+      showEndLabel: true,
+      ...(row.stackGroup ? { stackGroup: row.stackGroup } : {}),
+    };
+  }
+  return out;
+}
+
+export const BUILTIN_GOLD_ANALYSIS_TEMPLATE: MacroChartTemplate = {
+  id: "builtin-gold-analysis",
+  name: "黄金分析",
+  description:
+    "由 黄金期货头寸.xlsx 导入的 28 项黄金市场指标：金价/美元、利率与通胀、管理基金持仓、COMEX 库存、黄金 ETF 与全球储备。",
+  selectedKeys: buildGoldAnalysisSelectedKeys(),
+  layoutMode: 6,
+  slotAssignment: buildGoldAnalysisSlotAssignment(),
+  seriesVisualMap: buildGoldAnalysisVisualMap(),
+  displayConfig: {
+    ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+    legendPosition: "bottom",
+    xLabelRotate: 24,
+    xLabelFontSize: 10,
+    yLabelFontSize: 10,
+    lineWidth: 1.6,
+    barMaxWidth: 14,
+    showSymbols: false,
+    lineSmooth: false,
+    areaOpacity: 0.25,
+  },
+  createdAtIso: "2026-06-06T00:00:00.000Z",
   builtIn: true,
 };
 
@@ -321,6 +418,17 @@ const BUILTIN_OVERVIEW_TEMPLATE_IDS = new Set([
   BUILTIN_US_OVERVIEW_TEMPLATE.id,
   BUILTIN_CHINA_OVERVIEW_TEMPLATE.id,
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE.id,
+]);
+
+/** 代码内置的系统模板 id（管理员覆盖配置存于 SystemMacroChartPrefs） */
+export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
+  BUILTIN_DEBT_CAPACITY_TEMPLATE.id,
+  BUILTIN_US_OVERVIEW_TEMPLATE.id,
+  BUILTIN_CHINA_OVERVIEW_TEMPLATE.id,
+  BUILTIN_JAPAN_OVERVIEW_TEMPLATE.id,
+  BUILTIN_GOLD_ANALYSIS_TEMPLATE.id,
+  ...BUILTIN_US_CPI_TEMPLATE_IDS,
+  ...BUILTIN_US_LABOR_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

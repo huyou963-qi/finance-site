@@ -8,11 +8,13 @@ export async function POST(req: NextRequest) {
       username?: string;
       password?: string;
       email?: string;
+      phone?: string;
     };
     const pending = await requestRegistrationVerification(
       body.username ?? "",
       body.password ?? "",
       body.email ?? "",
+      body.phone ?? "",
     );
     const verifyUrl = buildVerifyUrl(pending.token);
     const result = await sendRegisterVerifyEmail(pending.email, verifyUrl);

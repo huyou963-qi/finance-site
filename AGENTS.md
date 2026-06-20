@@ -57,6 +57,35 @@ finance-site/
 
 可选：`FRED_API_KEY`、`IBKR_*`、`SMTP_*`。详见 `.env.example` 注释。
 
+## 按计划更新宏观数据（P0）
+
+| 表 | 说明 |
+|----|------|
+| `mds.statistical_agency` | 各国统计机构 |
+| `mds.data_source` | FRED / 世行等连接器 |
+| `mds.data_subscription` | 序列更新计划 + `next_run_at` |
+| `mds.fetch_run` | 拉取日志 |
+
+```bash
+npm run db:migrate          # 先应用 migration
+npm run data:seed-p0        # 机构 + 10 条 FRED 试点
+npm run data:sync-calendar  # Investing 经济日历 → nextRunAt
+npm run data:worker         # 跑到期订阅（需 FRED_API_KEY）
+npm run data:verify-phase1  # Phase 1 自检（加 --fetch --db）
+npm run data:seed-phase2    # Phase 2：FRED 扩展 + usov + BIS debtcap + WB 试点
+npm run data:verify-phase2  # Phase 2 自检（加 --live --db）
+npm run data:probe-sources         # 探测获取方式 → metadata.fetchAcquisition
+npm run data:probe-sources -- --scope=overview   # 仅 overview/debtcap/fred
+```
+
+Phase 1 跑通步骤与 cron 示例见 [docs/DATA_SCHEDULER_PHASE1.md](./docs/DATA_SCHEDULER_PHASE1.md)。  
+Phase 2 扩展订阅见 [docs/DATA_SCHEDULER_PHASE2.md](./docs/DATA_SCHEDULER_PHASE2.md)。  
+Phase 3 管理端调度与 WB 全量见 [docs/DATA_SCHEDULER_PHASE3.md](./docs/DATA_SCHEDULER_PHASE3.md)。  
+Phase 4 Overview 重导、滞后告警、日历映射见 [docs/DATA_SCHEDULER_PHASE4.md](./docs/DATA_SCHEDULER_PHASE4.md)。  
+Phase 5 usov 补全、e-Stat、Slack 告警见 [docs/DATA_SCHEDULER_PHASE5.md](./docs/DATA_SCHEDULER_PHASE5.md)。
+
+Windows 计划任务建议：每小时 `data:sync-calendar`，每 5 分钟 `data:worker`。
+
 ## 常用命令
 
 ```bash
