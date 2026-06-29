@@ -1,6 +1,7 @@
 import type { DataGranularity } from "@prisma/client";
+import { calendarWindowDays } from "./tradingEconomicsCalendar/client";
 
-/** Investing 日历匹配快照（写入 releaseRule.calendarMatch） */
+/** Investing 日历匹配快照（写入 releaseRule.calendarMatch） — 现源为 TradingEconomics */
 export type CalendarMatchSnapshot = {
   eventId: string;
   title: string;
@@ -22,6 +23,15 @@ export type CalendarSyncMeta = {
   syncedAt: string;
 };
 
+/** 最近一次确认：本地观测已追上源端（源端本身可能仍滞后） */
+export type SourceSyncSnapshot = {
+  status: "current";
+  verifiedAt: string;
+  localObsDate?: string;
+  sourceLatestObsDate?: string;
+  fetchStatus?: string;
+};
+
 /** 发布/探测规则（存于 DataSubscription.releaseRule JSON） */
 export type ReleaseRule =
   | {
@@ -40,6 +50,8 @@ export type ReleaseRule =
     }
   | {
       type: "economic_calendar";
+      /** 日历提供方（唯一：TradingEconomics） */
+      calendarProvider?: "tradingeconomics";
       /** 发布后持续探测间隔（小时），直至抓到新数据或下一日历事件 */
       postReleaseProbeHours: number;
       /** 相对发布时刻的延迟（分钟），避免源端尚未入库 */
@@ -48,6 +60,7 @@ export type ReleaseRule =
       fallback?: ReleaseRule;
       calendarMatch?: CalendarMatchSnapshot;
       calendarSync?: CalendarSyncMeta;
+      sourceSync?: SourceSyncSnapshot;
     }
   | {
       type: "manual";
@@ -108,13 +121,30 @@ export function parseReleaseRule(raw: unknown): ReleaseRule {
             syncedAt: String(cs.syncedAt),
           }
         : undefined;
+    const ss = r.sourceSync as Record<string, unknown> | undefined;
+    const sourceSync: SourceSyncSnapshot | undefined =
+      ss && ss.status === "current" && typeof ss.verifiedAt === "string"
+        ? {
+            status: "current",
+            verifiedAt: String(ss.verifiedAt),
+            localObsDate:
+              ss.localObsDate != null ? String(ss.localObsDate) : undefined,
+            sourceLatestObsDate:
+              ss.sourceLatestObsDate != null
+                ? String(ss.sourceLatestObsDate)
+                : undefined,
+            fetchStatus: ss.fetchStatus != null ? String(ss.fetchStatus) : undefined,
+          }
+        : undefined;
     return {
       type: "economic_calendar",
+      calendarProvider: "tradingeconomics",
       postReleaseProbeHours: Number(r.postReleaseProbeHours) || 2,
       releaseDelayMinutes: Number(r.releaseDelayMinutes) || 3,
       fallback,
       calendarMatch,
       calendarSync,
+      sourceSync,
     };
   }
   if (r.type === "calendar_monthly") {
@@ -218,7 +248,7 @@ export function summarizeReleaseRule(rule: ReleaseRule): string {
       return `经济日历未同步（403/网络），回退：${summarizeReleaseRule(rule.fallback ?? { type: "probe_interval", intervalHours: 12 })}`;
     }
     if (sync?.status === "no_match") {
-      return "经济日历：窗口内无匹配发布";
+      return `经济日历：未来 ${calendarWindowDays()} 天窗口内无匹配发布（等待 sync-calendar）`;
     }
     return "经济日历（待 sync-calendar）";
   }
@@ -252,6 +282,7 @@ export function defaultEconomicCalendarRule(
     granularity === "DAILY" ? 4 : granularity === "MONTHLY" ? 2 : 6;
   return {
     type: "economic_calendar",
+    calendarProvider: "tradingeconomics",
     postReleaseProbeHours: post,
     releaseDelayMinutes: 3,
     fallback: defaultReleaseRuleForGranularity(granularity),

@@ -40,11 +40,31 @@ import {
   BUILTIN_US_LABOR_TEMPLATE_IDS,
   BUILTIN_US_LABOR_TEMPLATES,
 } from "@/lib/data/laborAnalysisLayout";
+import {
+  BUILTIN_US_FISCAL_HIGHFREQ_TEMPLATE,
+  BUILTIN_US_FISCAL_OVERVIEW_TEMPLATE,
+  BUILTIN_US_FISCAL_STRUCTURE_TEMPLATE,
+  BUILTIN_US_FISCAL_TEMPLATE_IDS,
+  BUILTIN_US_FISCAL_TEMPLATES,
+} from "@/lib/data/fiscalAnalysisLayout";
+import {
+  BUILTIN_US_ECON_DEMAND_TEMPLATE,
+  BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
+  BUILTIN_US_ECON_TEMPLATE_IDS,
+  BUILTIN_US_ECON_TEMPLATES,
+} from "@/lib/data/overviewAnalysisLayout";
 
 export {
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
   BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_TEMPLATES,
+  BUILTIN_US_ECON_DEMAND_TEMPLATE,
+  BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
+  BUILTIN_US_ECON_TEMPLATES,
+  BUILTIN_US_FISCAL_HIGHFREQ_TEMPLATE,
+  BUILTIN_US_FISCAL_OVERVIEW_TEMPLATE,
+  BUILTIN_US_FISCAL_STRUCTURE_TEMPLATE,
+  BUILTIN_US_FISCAL_TEMPLATES,
   BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
   BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
   BUILTIN_US_LABOR_TEMPLATES,
@@ -107,15 +127,22 @@ export type MacroDerivedCalc = {
 
 /** 代码内置系统模板文件夹（DB 无配置时合并） */
 export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
+  { id: "folder-builtin-us-economy", name: "美国经济 Overview", scope: "builtin" },
   { id: "folder-builtin-us-cpi", name: "美国通胀分析", scope: "builtin" },
   { id: "folder-builtin-us-labor", name: "美国就业市场", scope: "builtin" },
+  { id: "folder-builtin-us-fiscal", name: "美国财政分析", scope: "builtin" },
 ];
 
 export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> = {
+  "builtin-us-econ-overview": "folder-builtin-us-economy",
+  "builtin-us-econ-demand": "folder-builtin-us-economy",
   "builtin-us-cpi-overview": "folder-builtin-us-cpi",
   "builtin-us-cpi-drivers": "folder-builtin-us-cpi",
   "builtin-us-labor-overview": "folder-builtin-us-labor",
   "builtin-us-labor-drivers": "folder-builtin-us-labor",
+  "builtin-us-fiscal-overview": "folder-builtin-us-fiscal",
+  "builtin-us-fiscal-structure": "folder-builtin-us-fiscal",
+  "builtin-us-fiscal-highfreq": "folder-builtin-us-fiscal",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -429,6 +456,8 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   BUILTIN_GOLD_ANALYSIS_TEMPLATE.id,
   ...BUILTIN_US_CPI_TEMPLATE_IDS,
   ...BUILTIN_US_LABOR_TEMPLATE_IDS,
+  ...BUILTIN_US_ECON_TEMPLATE_IDS,
+  ...BUILTIN_US_FISCAL_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

@@ -39,7 +39,7 @@ async function main() {
         orderBy: [{ priority: "desc" }, { nextRunAt: "asc" }],
         include: {
           source: true,
-          instrument: { select: { id: true, code: true, name: true } },
+          instrument: { select: { id: true, code: true, name: true, metadata: true } },
         },
       });
       subs = all;

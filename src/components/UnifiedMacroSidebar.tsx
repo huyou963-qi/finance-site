@@ -6,23 +6,34 @@ import {
   MACRO_MAX_SERIES,
   type UnifiedCatalogCountry,
 } from "@/lib/data/macroCatalog";
+import {
+  CPI_SUBGROUP,
+  PRICE_INDEX_CATEGORY,
+  categoryTreeKey,
+  filterUnifiedCatalogCountry,
+  findIndicatorPath,
+} from "@/lib/data/catalogTree";
 
 const DEFAULT_OPEN_COUNTRY_CODES = new Set(["CN", "US"]);
 const DEFAULT_OPEN_CATEGORY_NAMES = new Set([
   "国民经济核算",
   "价格指数",
   "就业与工资",
+  "CFTC数据",
 ]);
 
-function categoryCompositeKey(countryCode: string, categoryName: string): string {
-  return `${countryCode}:${categoryName}`;
+function categoryCompositeKey(countryCode: string, categoryName: string, subgroupName?: string | null) {
+  return categoryTreeKey(countryCode, categoryName, subgroupName);
 }
 
 function buildDefaultOpenCategories(): Set<string> {
   const out = new Set<string>();
   for (const countryCode of DEFAULT_OPEN_COUNTRY_CODES) {
     for (const categoryName of DEFAULT_OPEN_CATEGORY_NAMES) {
-      out.add(categoryCompositeKey(countryCode, categoryName));
+      out.add(categoryTreeKey(countryCode, categoryName));
+      if (categoryName === PRICE_INDEX_CATEGORY) {
+        out.add(categoryTreeKey(countryCode, categoryName, CPI_SUBGROUP));
+      }
     }
   }
   return out;
@@ -31,15 +42,8 @@ function buildDefaultOpenCategories(): Set<string> {
 function findIndicatorInCatalog(
   catalogCountries: UnifiedCatalogCountry[],
   key: string,
-): { countryCode: string; categoryName: string } | null {
-  for (const country of catalogCountries) {
-    for (const category of country.categories) {
-      if (category.items.some((item) => item.key === key)) {
-        return { countryCode: country.code, categoryName: category.name };
-      }
-    }
-  }
-  return null;
+): { countryCode: string; categoryName: string; subgroupName: string | null } | null {
+  return findIndicatorPath(catalogCountries, key);
 }
 
 function ExpandToggle({
@@ -82,13 +86,15 @@ function TreeSectionHeader({
   onToggle: () => void;
   label: string;
   disabled?: boolean;
-  level: "country" | "category";
+  level: "country" | "category" | "subgroup";
   children: ReactNode;
 }) {
   const levelClass =
     level === "country"
       ? "text-sm font-semibold text-slate-100"
-      : "text-xs font-medium text-slate-300";
+      : level === "category"
+        ? "text-xs font-medium text-slate-300"
+        : "text-[11px] font-medium text-slate-400";
 
   return (
     <div
@@ -104,6 +110,51 @@ function TreeSectionHeader({
         {children}
       </button>
     </div>
+  );
+}
+
+function IndicatorPickRow({
+  itemKey,
+  label,
+  frequency,
+  checked,
+  highlighted,
+  disabled,
+  atLimit,
+  onToggle,
+}: {
+  itemKey: string;
+  label: string;
+  frequency: string;
+  checked: boolean;
+  highlighted: boolean;
+  disabled?: boolean;
+  atLimit: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <li key={itemKey}>
+      <div
+        data-indicator-key={itemKey}
+        className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition ${
+          disabled ? "opacity-40" : "hover:bg-slate-900/90"
+        } ${highlighted ? "bg-cyan-950/45 ring-1 ring-cyan-500/50" : ""}`}
+      >
+        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-1.5">
+          <input
+            type="checkbox"
+            className="mt-0.5 shrink-0 accent-emerald-600"
+            checked={checked}
+            disabled={disabled || (!checked && atLimit)}
+            onChange={onToggle}
+          />
+          <span className="text-[11px] leading-snug text-slate-300">{label}</span>
+          <span className="shrink-0 rounded border border-slate-700/90 px-1 py-0 text-[9px] text-slate-500">
+            {frequency}
+          </span>
+        </label>
+      </div>
+    </li>
   );
 }
 
@@ -146,8 +197,12 @@ export function UnifiedMacroSidebar({
     });
   }
 
-  function toggleCategory(countryCode: string, categoryName: string) {
-    const composite = categoryCompositeKey(countryCode, categoryName);
+  function toggleCategory(
+    countryCode: string,
+    categoryName: string,
+    subgroupName?: string | null,
+  ) {
+    const composite = categoryCompositeKey(countryCode, categoryName, subgroupName);
     setOpenCategories((prev) => {
       const next = new Set(prev);
       if (next.has(composite)) next.delete(composite);
@@ -160,8 +215,14 @@ export function UnifiedMacroSidebar({
     return isSearchMode || openCountries.has(code);
   }
 
-  function isCategoryOpen(countryCode: string, categoryName: string) {
-    return isSearchMode || openCategories.has(categoryCompositeKey(countryCode, categoryName));
+  function isCategoryOpen(
+    countryCode: string,
+    categoryName: string,
+    subgroupName?: string | null,
+  ) {
+    return (
+      isSearchMode || openCategories.has(categoryCompositeKey(countryCode, categoryName, subgroupName))
+    );
   }
 
   useEffect(() => {
@@ -178,6 +239,9 @@ export function UnifiedMacroSidebar({
       setOpenCategories((prev) => {
         const next = new Set(prev);
         next.add(categoryCompositeKey(path.countryCode, path.categoryName));
+        if (path.subgroupName) {
+          next.add(categoryCompositeKey(path.countryCode, path.categoryName, path.subgroupName));
+        }
         return next;
       });
     }
@@ -200,29 +264,10 @@ export function UnifiedMacroSidebar({
 
   const filteredCountries = useMemo(() => {
     if (!catalogCountries) return [];
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     if (!q) return catalogCountries;
-
     return catalogCountries
-      .map((country) => {
-        const matchCountry =
-          country.name.toLowerCase().includes(q) ||
-          country.code.toLowerCase().includes(q);
-        const categories = country.categories
-          .map((category) => {
-            const matchCategory = category.name.toLowerCase().includes(q);
-            const items = category.items.filter(
-              (item) =>
-                matchCountry ||
-                matchCategory ||
-                item.label.toLowerCase().includes(q) ||
-                item.key.toLowerCase().includes(q),
-            );
-            return { ...category, items };
-          })
-          .filter((category) => category.items.length > 0);
-        return { ...country, categories };
-      })
+      .map((country) => filterUnifiedCatalogCountry(country, q))
       .filter((country) => country.categories.length > 0);
   }, [catalogCountries, searchQuery]);
 
@@ -334,38 +379,63 @@ export function UnifiedMacroSidebar({
                               </TreeSectionHeader>
                               {categoryOpen ? (
                                 <ul className="space-y-0.5 border-t border-slate-800/70 py-1.5 pl-7 pr-2">
-                                  {category.items.map(({ key, label, frequency }) => {
-                                    const checked = selectedKeys.has(key);
-                                    const highlighted = highlightKey === key;
+                                  {category.items.map(({ key, label, frequency }) => (
+                                    <IndicatorPickRow
+                                      key={key}
+                                      itemKey={key}
+                                      label={label}
+                                      frequency={frequency}
+                                      checked={selectedKeys.has(key)}
+                                      highlighted={highlightKey === key}
+                                      disabled={disabled}
+                                      atLimit={count >= MACRO_MAX_SERIES}
+                                      onToggle={() => toggle(key)}
+                                    />
+                                  ))}
+                                  {(category.subgroups ?? []).map((subgroup) => {
+                                    const sgOpen = isCategoryOpen(
+                                      country.code,
+                                      category.name,
+                                      subgroup.name,
+                                    );
                                     return (
-                                      <li key={key}>
-                                        <div
-                                          data-indicator-key={key}
-                                          className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition ${
-                                            disabled ? "opacity-40" : "hover:bg-slate-900/90"
-                                          } ${
-                                            highlighted
-                                              ? "bg-cyan-950/45 ring-1 ring-cyan-500/50"
-                                              : ""
-                                          }`}
-                                        >
-                                          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-1.5">
-                                            <input
-                                              type="checkbox"
-                                              className="mt-0.5 shrink-0 accent-emerald-600"
-                                              checked={checked}
-                                              disabled={
-                                                disabled || (!checked && count >= MACRO_MAX_SERIES)
-                                              }
-                                              onChange={() => toggle(key)}
-                                            />
-                                            <span className="text-[11px] leading-snug text-slate-300">
-                                              {label}
-                                            </span>
-                                            <span className="shrink-0 rounded border border-slate-700/90 px-1 py-0 text-[9px] text-slate-500">
-                                              {frequency}
-                                            </span>
-                                          </label>
+                                      <li
+                                        key={`${country.code}:${category.name}:${subgroup.name}`}
+                                        className="list-none"
+                                      >
+                                        <div className="mt-1 rounded border border-slate-800/60 bg-slate-950/30">
+                                          <TreeSectionHeader
+                                            level="subgroup"
+                                            open={sgOpen}
+                                            onToggle={() =>
+                                              toggleCategory(
+                                                country.code,
+                                                category.name,
+                                                subgroup.name,
+                                              )
+                                            }
+                                            label={subgroup.name}
+                                            disabled={disabled}
+                                          >
+                                            {subgroup.name}
+                                          </TreeSectionHeader>
+                                          {sgOpen ? (
+                                            <ul className="space-y-0.5 border-t border-slate-800/60 py-1 pl-5 pr-1">
+                                              {subgroup.items.map(({ key, label, frequency }) => (
+                                                <IndicatorPickRow
+                                                  key={key}
+                                                  itemKey={key}
+                                                  label={label}
+                                                  frequency={frequency}
+                                                  checked={selectedKeys.has(key)}
+                                                  highlighted={highlightKey === key}
+                                                  disabled={disabled}
+                                                  atLimit={count >= MACRO_MAX_SERIES}
+                                                  onToggle={() => toggle(key)}
+                                                />
+                                              ))}
+                                            </ul>
+                                          ) : null}
                                         </div>
                                       </li>
                                     );

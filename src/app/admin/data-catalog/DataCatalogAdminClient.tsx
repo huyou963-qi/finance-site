@@ -1,6 +1,8 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useRouter } from "next/navigation";
+import { CatalogTreeEditor } from "./CatalogTreeEditor";
 import type {
   AdminCatalogCountry,
   AdminCatalogIndicator,
@@ -103,76 +105,28 @@ function SchedulerToolbar({
 
   return (
     <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-      <div className="text-sm font-medium text-slate-200">调度操作</div>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className={btn} disabled={!!busy} onClick={() => run("sync_calendar")}>
-          {busy === "sync_calendar" ? "同步中…" : "刷新经济日历"}
-        </button>
-        <button type="button" className={btn} disabled={!!busy} onClick={() => run("run_worker")}>
-          {busy === "run_worker" ? "运行中…" : "跑到期任务"}
-        </button>
-        <button type="button" className={btn} disabled={!!busy} onClick={() => run("run_worker_bis")}>
-          {busy === "run_worker_bis" ? "运行中…" : "跑 BIS 订阅"}
-        </button>
-        <button type="button" className={btn} disabled={!!busy} onClick={() => run("probe_overview")}>
-          {busy === "probe_overview" ? "探测中…" : "探测 overview"}
-        </button>
-        <button type="button" className={btn} disabled={!!busy} onClick={onShowRuns}>
-          最近拉取日志
-        </button>
-        <button type="button" className={btn} disabled={!!busy} onClick={onShowCalendar}>
-          日历映射
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={btn}
-          disabled={!!busy}
-          onClick={() => run("run_worker_overview")}
-        >
-          {busy === "run_worker_overview" ? "运行中…" : "跑 Overview xlsx"}
-        </button>
-        <button
-          type="button"
-          className={btn}
-          disabled={!!busy}
-          onClick={() => run("reimport_overview_cn")}
-        >
-          {busy === "reimport_overview_cn" ? "重导中…" : "重导中国 xlsx"}
-        </button>
-        <button
-          type="button"
-          className={btn}
-          disabled={!!busy}
-          onClick={() => run("reimport_overview_jp")}
-        >
-          {busy === "reimport_overview_jp" ? "重导中…" : "重导日本 xlsx"}
-        </button>
-        <button
-          type="button"
-          className={btn}
-          disabled={!!busy}
-          onClick={() => run("run_worker_estat")}
-        >
-          {busy === "run_worker_estat" ? "运行中…" : "跑 e-Stat 试点"}
-        </button>
-        <button
-          type="button"
-          className={btn}
-          disabled={!!busy}
-          onClick={() => run("check_lag_alerts", { dryRun: true })}
-        >
-          {busy === "check_lag_alerts" ? "检测中…" : "滞后检测"}
-        </button>
-        <button
-          type="button"
-          className={btn}
-          disabled={!!busy}
-          onClick={() => run("check_lag_alerts", { dryRun: false, force: true })}
-        >
-          发送告警
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="shrink-0 text-sm font-medium text-slate-200">调度操作</div>
+        <div className="flex min-w-0 flex-1 flex-wrap justify-end gap-2">
+          <button type="button" className={btn} disabled={!!busy} onClick={() => run("sync_calendar")}>
+            {busy === "sync_calendar" ? "同步中…" : "同步 TE 日历"}
+          </button>
+          <button type="button" className={btn} disabled={!!busy} onClick={() => run("sync_all_stale")}>
+            {busy === "sync_all_stale" ? "更新中…" : "一键更新未更新指标"}
+          </button>
+          <button type="button" className={btn} disabled={!!busy} onClick={() => run("run_worker")}>
+            {busy === "run_worker" ? "运行中…" : "跑到期任务"}
+          </button>
+          <button type="button" className={btn} disabled={!!busy} onClick={() => run("probe_overview")}>
+            {busy === "probe_overview" ? "探测中…" : "探测数据源"}
+          </button>
+          <button type="button" className={btn} disabled={!!busy} onClick={onShowRuns}>
+            最近拉取日志
+          </button>
+          <button type="button" className={btn} disabled={!!busy} onClick={onShowCalendar}>
+            日历映射
+          </button>
+        </div>
       </div>
       {msg ? <p className="text-xs text-slate-400">{msg}</p> : null}
     </div>
@@ -227,7 +181,7 @@ function CalendarMappingPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-xs">
       <div className="mb-2 flex items-center justify-between">
-        <span className="font-medium text-slate-200">Investing 日历映射（覆盖内置）</span>
+        <span className="font-medium text-slate-200">TradingEconomics 日历映射（覆盖内置）</span>
         <button type="button" className="text-slate-500 hover:text-slate-300" onClick={onClose}>
           关闭
         </button>
@@ -287,15 +241,27 @@ function CalendarMappingPanel({ onClose }: { onClose: () => void }) {
 }
 
 function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
-  if (!row.inDatabase || !row.fetchAcquisitionStatus) {
-    return <span className="text-slate-500">未探测</span>;
+  if (!row.networkAcquisitionConfirmed) {
+    return (
+      <div>
+        <span className="text-amber-400">待确定</span>
+        <div className="mt-0.5 text-slate-500">
+          {!row.inDatabase
+            ? "目录项尚未入库，须先入库并确认网络获取方式"
+            : "须确认网络获取方式（FRED / BIS / REST 等）并探测通过"}
+        </div>
+        {row.fetchAcquisitionMessage ? (
+          <div className="mt-0.5 text-slate-600" title={row.fetchAcquisitionMessage}>
+            {row.fetchAcquisitionMessage}
+          </div>
+        ) : null}
+      </div>
+    );
   }
-  const ok = row.fetchAcquisitionStatus === "known";
+
   return (
     <div>
-      <span className={ok ? "text-emerald-400" : "text-amber-400"}>
-        {ok ? "已确认获取" : "待确定"}
-      </span>
+      <span className="text-emerald-400">已确认获取</span>
       {row.fetchAcquisitionMethod ? (
         <div className="mt-0.5 font-medium text-slate-300">{row.fetchAcquisitionMethod}</div>
       ) : null}
@@ -315,9 +281,7 @@ function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
         </div>
       ) : null}
       {row.fetchAcquisitionProbedAt ? (
-        <div className="mt-0.5 text-slate-600">
-          探测 {formatDate(row.fetchAcquisitionProbedAt)}
-        </div>
+        <div className="mt-0.5 text-slate-600">探测 {formatDate(row.fetchAcquisitionProbedAt)}</div>
       ) : null}
     </div>
   );
@@ -399,65 +363,99 @@ function SyncOneButton({ code, onDone }: { code: string; onDone: () => void }) {
 }
 
 function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefresh: () => void }) {
+  const router = useRouter();
+
+  const openInMacro = (e: MouseEvent<HTMLTableRowElement>) => {
+    if ((e.target as HTMLElement).closest("button, a")) return;
+    router.push(`/macro?key=${encodeURIComponent(row.key)}&replace=1`);
+  };
+
   return (
-    <tr className="border-b border-slate-900/80 align-top hover:bg-slate-900/40">
-      <td className="px-3 py-2">
-        <div className="font-medium text-slate-100">{row.label}</div>
-        <div className="mt-0.5 font-mono text-[11px] text-slate-500">{row.key}</div>
+    <tr
+      className="cursor-pointer border-b border-slate-900/80 align-top text-xs hover:bg-slate-900/40"
+      title="双击在宏观页查看"
+      onDoubleClick={openInMacro}
+    >
+      <td className="py-1.5 pl-12 pr-3">
+        <div className="text-xs text-slate-200">{row.label}</div>
+        <div className="mt-0.5 font-mono text-[10px] text-slate-500">{row.key}</div>
         {row.instrumentCode ? (
-          <div className="font-mono text-[11px] text-slate-600">{row.instrumentCode}</div>
+          <div className="font-mono text-[10px] text-slate-600">{row.instrumentCode}</div>
+        ) : null}
+        {row.releasePackageLabelZh ? (
+          <div className="mt-0.5 text-[10px] text-sky-500">发布包：{row.releasePackageLabelZh}</div>
         ) : null}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-slate-300">{row.frequency}</td>
-      <td className="px-3 py-2 text-sm text-slate-200">
+      <td className="whitespace-nowrap px-3 py-1.5 text-slate-400">{row.frequency}</td>
+      <td className="px-3 py-1.5 text-slate-300">
         {row.dbSource ?? <span className="text-slate-500">—</span>}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-1.5">
         <SourceLinks row={row} />
       </td>
-      <td className="px-3 py-2 text-xs">
+      <td className="px-3 py-1.5">
         <AcquisitionCell row={row} />
       </td>
-      <td className="whitespace-nowrap px-3 py-2 tabular-nums text-slate-200">
+      <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-slate-300">
         {formatValue(row.latestValue, row.unit)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-slate-300">
+      <td className="whitespace-nowrap px-3 py-1.5 text-slate-400">
         {formatDate(row.latestObsDate)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-slate-300">
-        {row.hasScheduledUpdates ? formatDateTime(row.nextRunAt) : "—"}
+      <td className="whitespace-nowrap px-3 py-1.5 text-slate-400">
+        {row.networkAcquisitionConfirmed ? formatDateTime(row.nextRunAt) : "—"}
       </td>
-      <td className="px-3 py-2 text-xs text-slate-400">
-        <div>{row.releaseRuleSummary ?? "未配置订阅"}</div>
-        {row.calendarReleaseAt ? (
-          <div className="mt-1 text-slate-500">
-            日历发布 {formatDateTime(row.calendarReleaseAt)}
-            {row.calendarEventTitle ? (
-              <span className="block truncate" title={row.calendarEventTitle}>
-                {row.calendarEventTitle}
-              </span>
+      <td className="px-3 py-1.5 text-slate-500">
+        {row.networkAcquisitionConfirmed ? (
+          <>
+            <div>{row.releaseRuleSummary ?? "—"}</div>
+            {row.calendarReleaseAt ? (
+              <div className="mt-1 text-slate-500">
+                日历发布 {formatDateTime(row.calendarReleaseAt)}
+                {row.calendarEventTitle ? (
+                  <span className="block truncate" title={row.calendarEventTitle}>
+                    {row.calendarEventTitle}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
+            {row.calendarSyncStatus ? (
+              <CalendarSyncBadge status={row.calendarSyncStatus} />
+            ) : null}
+          </>
+        ) : (
+          "—"
+        )}
+      </td>
+      <td className="px-3 py-1.5">
+        {!row.networkAcquisitionConfirmed ? (
+          <span className="text-amber-400">待确定</span>
+        ) : row.isStale ? (
+          <span className="text-red-400">未更新</span>
+        ) : row.updateStatus === "source_current" ? (
+          <span className="text-slate-400">源端暂无新值</span>
+        ) : row.updateStatus === "on_schedule" ? (
+          <span className="text-emerald-400">等待下次更新</span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        )}
+        {row.networkAcquisitionConfirmed && row.staleReason ? (
+          <div
+            className={`mt-0.5 ${
+              row.updateStatus === "source_current" ? "text-slate-500" : "text-red-400/90"
+            }`}
+            title={row.staleReason}
+          >
+            {row.staleReason}
           </div>
         ) : null}
-        {row.calendarSyncStatus ? (
-          <CalendarSyncBadge status={row.calendarSyncStatus} />
-        ) : null}
-      </td>
-      <td className="px-3 py-2 text-xs">
-        {!row.inDatabase ? (
-          <span className="text-amber-500/90">未入库</span>
-        ) : row.hasScheduledUpdates ? (
-          <span className="text-emerald-400">已订阅</span>
-        ) : (
-          <span className="text-slate-500">无定时</span>
-        )}
-        {row.lastError ? (
+        {row.networkAcquisitionConfirmed && row.lastError ? (
           <div className="mt-1 truncate text-red-400" title={row.lastError}>
             {row.lastError}
           </div>
         ) : null}
-        <FetchRunBadge row={row} />
-        {row.hasScheduledUpdates && row.instrumentCode ? (
+        {row.networkAcquisitionConfirmed ? <FetchRunBadge row={row} /> : null}
+        {row.networkAcquisitionConfirmed && row.instrumentCode ? (
           <SyncOneButton code={row.instrumentCode} onDone={onRefresh} />
         ) : null}
       </td>
@@ -467,144 +465,284 @@ function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefres
 
 const COL_COUNT = 10;
 
-function CatalogTableHeader() {
+type SortKey =
+  | "label"
+  | "frequency"
+  | "dbSource"
+  | "sourceLink"
+  | "acquisition"
+  | "latestValue"
+  | "latestObsDate"
+  | "nextRunAt"
+  | "releasePlan"
+  | "status";
+
+type SortDir = "asc" | "desc";
+
+const SORT_COLUMNS: { key: SortKey; label: string }[] = [
+  { key: "label", label: "指标" },
+  { key: "frequency", label: "频度" },
+  { key: "dbSource", label: "库内来源" },
+  { key: "sourceLink", label: "数据源链接" },
+  { key: "acquisition", label: "获取方式" },
+  { key: "latestValue", label: "最新值" },
+  { key: "latestObsDate", label: "最新日期" },
+  { key: "nextRunAt", label: "下次更新" },
+  { key: "releasePlan", label: "更新计划" },
+  { key: "status", label: "状态" },
+];
+
+function acquisitionSortKey(row: AdminCatalogIndicator): string {
+  if (row.networkAcquisitionConfirmed) {
+    return `0${row.fetchAcquisitionMethod ?? "已确认"}`;
+  }
+  return "1待确定";
+}
+
+function statusSortKey(row: AdminCatalogIndicator): string {
+  if (!row.networkAcquisitionConfirmed) return "0待确定";
+  if (row.isStale) return "3未更新";
+  if (row.updateStatus === "source_current") return "2源端暂无新值";
+  if (row.updateStatus === "on_schedule") return "1等待下次更新";
+  return "4";
+}
+
+function sourceLinkSortKey(row: AdminCatalogIndicator): string {
+  return (row.agencyName ?? row.sourceName ?? row.sourcePageUrl ?? row.apiSourceUrl ?? "").toLowerCase();
+}
+
+function compareNullableString(a: string | null | undefined, b: string | null | undefined): number {
+  const sa = (a ?? "").toLowerCase();
+  const sb = (b ?? "").toLowerCase();
+  if (!sa && !sb) return 0;
+  if (!sa) return 1;
+  if (!sb) return -1;
+  return sa.localeCompare(sb, "zh-CN");
+}
+
+function compareNullableNumber(a: number | null, b: number | null): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return a - b;
+}
+
+function compareNullableDate(a: string | null, b: string | null): number {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b);
+}
+
+function compareIndicators(a: AdminCatalogIndicator, b: AdminCatalogIndicator, key: SortKey): number {
+  switch (key) {
+    case "label":
+      return compareNullableString(a.label, b.label);
+    case "frequency":
+      return compareNullableString(a.frequency, b.frequency);
+    case "dbSource":
+      return compareNullableString(a.dbSource, b.dbSource);
+    case "sourceLink":
+      return compareNullableString(sourceLinkSortKey(a), sourceLinkSortKey(b));
+    case "acquisition":
+      return compareNullableString(acquisitionSortKey(a), acquisitionSortKey(b));
+    case "latestValue":
+      return compareNullableNumber(a.latestValue, b.latestValue);
+    case "latestObsDate":
+      return compareNullableDate(a.latestObsDate, b.latestObsDate);
+    case "nextRunAt":
+      return compareNullableDate(a.nextRunAt, b.nextRunAt);
+    case "releasePlan":
+      return compareNullableString(a.releaseRuleSummary, b.releaseRuleSummary);
+    case "status":
+      return compareNullableString(statusSortKey(a), statusSortKey(b));
+    default:
+      return 0;
+  }
+}
+
+function sortIndicators(
+  rows: AdminCatalogIndicator[],
+  key: SortKey,
+  dir: SortDir,
+): AdminCatalogIndicator[] {
+  const mul = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => compareIndicators(a, b, key) * mul);
+}
+
+function categoryExpandKey(countryCode: string, categoryName: string): string {
+  return `category:${countryCode}:${categoryName}`;
+}
+
+function subgroupExpandKey(countryCode: string, categoryName: string, subgroupName: string): string {
+  return `subgroup:${countryCode}:${categoryName}:${subgroupName}`;
+}
+
+function categoryIndicatorCount(cat: AdminCatalogCountry["categories"][number]): number {
+  const sub = (cat.subgroups ?? []).reduce((n, sg) => n + sg.indicators.length, 0);
+  return cat.indicators.length + sub;
+}
+
+function countryIndicatorCount(country: AdminCatalogCountry): number {
+  return country.categories.reduce((n, cat) => n + categoryIndicatorCount(cat), 0);
+}
+
+function CatalogTableHeader({
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
   return (
-    <thead className="sticky top-0 z-10 bg-slate-950 text-xs text-slate-500">
+    <thead className="sticky top-0 z-20 bg-slate-950 text-xs text-slate-500 shadow-[0_1px_0_0_rgb(51_65_85)]">
       <tr className="border-b border-slate-700">
-        <th className="px-3 py-2 text-left font-medium">指标</th>
-        <th className="px-3 py-2 text-left font-medium">频度</th>
-        <th className="px-3 py-2 text-left font-medium">库内来源</th>
-        <th className="px-3 py-2 text-left font-medium">数据源链接</th>
-        <th className="px-3 py-2 text-left font-medium">获取方式</th>
-        <th className="px-3 py-2 text-left font-medium">最新值</th>
-        <th className="px-3 py-2 text-left font-medium">最新日期</th>
-        <th className="px-3 py-2 text-left font-medium">下次更新</th>
-        <th className="px-3 py-2 text-left font-medium">更新计划</th>
-        <th className="px-3 py-2 text-left font-medium">状态</th>
+        {SORT_COLUMNS.map((col) => {
+          const active = sortKey === col.key;
+          return (
+            <th key={col.key} className="px-3 py-2 text-left font-medium">
+              <button
+                type="button"
+                onClick={() => onSort(col.key)}
+                className={`inline-flex items-center gap-1 hover:text-slate-200 ${
+                  active ? "text-slate-200" : ""
+                }`}
+              >
+                {col.label}
+                <span className="text-[10px] text-slate-600">
+                  {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+                </span>
+              </button>
+            </th>
+          );
+        })}
       </tr>
     </thead>
   );
 }
 
-function CpiCategoryBadge({ categoryName }: { categoryName: string }) {
-  if (categoryName.startsWith("CPI")) {
-    return (
-      <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-normal text-cyan-400/90">
-        BLS/FRED 月更
-      </span>
-    );
-  }
-  if (categoryName.startsWith("通胀驱动")) {
-    return (
-      <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-normal text-amber-400/90">
-        驱动因子
-      </span>
-    );
-  }
-  return null;
-}
-
-function CpiSchedulerInfoCard({
-  open,
-  onToggle,
-  cpiCalendarWarning,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  cpiCalendarWarning: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/80">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-slate-900/50"
-      >
-        <span className="text-sm font-medium text-slate-100">美国 CPI 数据更新机制</span>
-        <span className="text-xs text-slate-500">{open ? "▾" : "▸"}</span>
-      </button>
-      {open ? (
-        <div className="border-t border-slate-800 px-4 py-3 text-xs leading-relaxed text-slate-400">
-          <p>
-            BLS 通常于每月中旬 8:30 ET 发布<strong className="font-normal text-slate-300">上月</strong>
-            CPI；Headline、Core 及全部分项与 FRED 同步更新。本系统通过 Investing 经济日历对齐{" "}
-            <code className="text-slate-300">nextRunAt</code>，由{" "}
-            <code className="text-slate-300">data:worker</code> 在发布窗口拉取 FRED 观测值。
-          </p>
-          <p className="mt-2">
-            运维建议：每小时 <code className="text-slate-300">npm run data:sync-calendar</code>，每
-            1–5 分钟 <code className="text-slate-300">npm run data:worker</code>。日频序列（WTI、盈亏平衡通胀）走固定间隔探测。
-          </p>
-          <p className="mt-2">
-            详见仓库文档{" "}
-            <code className="text-slate-300">docs/DATA_SCHEDULER_CPI.md</code> 与{" "}
-            <code className="text-slate-300">docs/US_CPI_ANALYSIS.md</code>。
-          </p>
-          {cpiCalendarWarning ? (
-            <p className="mt-2 text-amber-400">
-              部分 CPI 订阅日历未对齐（403 或未匹配）。请配置 INVESTING_CALENDAR_COOKIE 后运行 sync-calendar。
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function CountryCatalogTable({
-  country,
+function UnifiedCatalogTable({
+  countries,
   expanded,
-  onToggleCategory,
+  onToggle,
   onRefresh,
+  sortKey,
+  sortDir,
+  onSort,
 }: {
-  country: AdminCatalogCountry;
+  countries: AdminCatalogCountry[];
   expanded: Record<string, boolean>;
-  onToggleCategory: (key: string) => void;
+  onToggle: (key: string) => void;
   onRefresh: () => void;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
 }) {
   return (
-    <div className="overflow-x-auto border-t border-slate-800">
+    <div className="max-h-[min(72vh,900px)] overflow-auto rounded-lg border border-slate-800 bg-slate-950/50">
       <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
         <colgroup>
-          <col className="w-[24%]" />
+          <col className="w-[22%]" />
           <col className="w-[5%]" />
-          <col className="w-[9%]" />
+          <col className="w-[8%]" />
           <col className="w-[10%]" />
-          <col className="w-[17%]" />
+          <col className="w-[14%]" />
           <col className="w-[8%]" />
           <col className="w-[8%]" />
           <col className="w-[9%]" />
           <col className="w-[10%]" />
           <col className="w-[8%]" />
         </colgroup>
-        <CatalogTableHeader />
+        <CatalogTableHeader sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
         <tbody>
-          {country.categories.map((cat) => {
-            const catKey = `${country.code}:${cat.name}`;
-            const catOpen = expanded[catKey] !== false;
+          {countries.map((country) => {
+            const countryKey = `country:${country.code}`;
+            const countryOpen = expanded[countryKey] !== false;
+            const totalCount = countryIndicatorCount(country);
             return (
-              <Fragment key={catKey}>
-                <tr className="bg-slate-900/30">
+              <Fragment key={country.code}>
+                <tr className="bg-slate-900/60">
                   <td colSpan={COL_COUNT} className="p-0">
                     <button
                       type="button"
-                      onClick={() => onToggleCategory(catKey)}
-                      className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-slate-900/50"
+                      onClick={() => onToggle(countryKey)}
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-slate-900/80"
                     >
-                      <span className="text-sm font-medium text-slate-200">
-                        {cat.name}
-                        <CpiCategoryBadge categoryName={cat.name} />
+                      <span className="font-medium text-slate-100">
+                        {country.name}
+                        <span className="ml-2 text-sm font-normal text-slate-500">{country.code}</span>
                       </span>
-                      <span className="text-xs text-slate-500">
-                        {cat.indicators.length} 项 {catOpen ? "▾" : "▸"}
+                      <span className="text-sm text-slate-500">
+                        {totalCount} 项 {countryOpen ? "▾" : "▸"}
                       </span>
                     </button>
                   </td>
                 </tr>
-                {catOpen
-                  ? cat.indicators.map((row) => (
-                      <IndicatorRow key={row.key} row={row} onRefresh={onRefresh} />
-                    ))
+                {countryOpen
+                  ? country.categories.map((cat) => {
+                      const catKey = categoryExpandKey(country.code, cat.name);
+                      const catOpen = expanded[catKey] !== false;
+                      const catCount = categoryIndicatorCount(cat);
+                      if (catCount === 0) return null;
+                      return (
+                        <Fragment key={catKey}>
+                          <tr className="bg-slate-900/35">
+                            <td colSpan={COL_COUNT} className="p-0">
+                              <button
+                                type="button"
+                                onClick={() => onToggle(catKey)}
+                                className="flex w-full items-center justify-between py-2 pl-8 pr-4 text-left hover:bg-slate-900/50"
+                              >
+                                <span className="text-sm font-medium text-slate-300">{cat.name}</span>
+                                <span className="text-xs text-slate-500">
+                                  {catCount} 项 {catOpen ? "▾" : "▸"}
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+                          {catOpen ? (
+                            <>
+                              {cat.indicators.length > 0
+                                ? sortIndicators(cat.indicators, sortKey, sortDir).map((row) => (
+                                    <IndicatorRow key={row.key} row={row} onRefresh={onRefresh} />
+                                  ))
+                                : null}
+                              {(cat.subgroups ?? []).map((sg) => {
+                                const sgKey = subgroupExpandKey(country.code, cat.name, sg.name);
+                                const sgOpen = expanded[sgKey] !== false;
+                                const indicators = sortIndicators(sg.indicators, sortKey, sortDir);
+                                if (!indicators.length) return null;
+                                return (
+                                  <Fragment key={sgKey}>
+                                    <tr className="bg-slate-900/20">
+                                      <td colSpan={COL_COUNT} className="p-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => onToggle(sgKey)}
+                                          className="flex w-full items-center justify-between py-1.5 pl-12 pr-4 text-left hover:bg-slate-900/40"
+                                        >
+                                          <span className="text-xs font-medium text-slate-400">{sg.name}</span>
+                                          <span className="text-xs text-slate-500">
+                                            {indicators.length} 项 {sgOpen ? "▾" : "▸"}
+                                          </span>
+                                        </button>
+                                      </td>
+                                    </tr>
+                                    {sgOpen
+                                      ? indicators.map((row) => (
+                                          <IndicatorRow key={row.key} row={row} onRefresh={onRefresh} />
+                                        ))
+                                      : null}
+                                  </Fragment>
+                                );
+                              })}
+                            </>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })
                   : null}
               </Fragment>
             );
@@ -615,35 +753,103 @@ function CountryCatalogTable({
   );
 }
 
+function DataSchedulerInfoCard({
+  open,
+  onToggle,
+  calendarWarning,
+  staleCount,
+  sourceCurrentCount,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  calendarWarning: boolean;
+  staleCount: number;
+  sourceCurrentCount: number;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/80">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-slate-900/50"
+      >
+        <span className="text-sm font-medium text-slate-100">数据更新机制（通用）</span>
+        <span className="text-xs text-slate-500">{open ? "▾" : "▸"}</span>
+      </button>
+      {open ? (
+        <div className="border-t border-slate-800 px-4 py-3 text-xs leading-relaxed text-slate-400">
+          <ol className="list-decimal space-y-2 pl-4">
+            <li>
+              <strong className="font-normal text-slate-300">待确定</strong>：尚未确认网络获取方式（含<strong className="font-normal text-slate-300">仅目录未入库</strong>、Excel 历史导入、未探测等）。此时<strong className="font-normal text-slate-300">下次更新 / 更新计划</strong>为空；<strong className="font-normal text-slate-300">状态</strong>亦显示待确定。
+            </li>
+            <li>
+              <strong className="font-normal text-emerald-400/90">已确认获取</strong> 后才会出现下次更新、更新计划，以及等待下次更新 / 未更新 / 源端暂无新值等调度状态。
+            </li>
+          </ol>
+          <p className="mt-3">
+            计划任务建议：每小时 <code className="text-slate-300">npm run data:sync-calendar</code>，每 1–5 分钟{" "}
+            <code className="text-slate-300">npm run data:worker</code>。
+          </p>
+          <p className="mt-2">
+            Excel 导入：
+            <code className="text-slate-300">
+              npm run db:import-macro-xlsx -- --file=路径.xlsx --preset=debtcap
+            </code>
+            （指标树：国家宏观 → 国家 → 主题 → 指标 → 子维度）
+          </p>
+          {staleCount > 0 ? (
+            <p className="mt-2 text-red-400/90">当前有 {staleCount} 条指标未更新（到期且本地尚未确认同步）。</p>
+          ) : null}
+          {sourceCurrentCount > 0 ? (
+            <p className="mt-2 text-slate-500">
+              另有 {sourceCurrentCount} 条已同步至源端最新，源端尚未发布更晚数据。
+            </p>
+          ) : null}
+          {calendarWarning ? (
+            <p className="mt-2 text-amber-400">
+              部分订阅 TE 日历未对齐。可配置 TE_CALENDAR_COOKIE 后点「同步 TE 日历」。
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
 export function DataCatalogAdminClient() {
+  const [viewMode, setViewMode] = useState<"table" | "tree">("table");
   const [data, setData] = useState<AdminDataCatalogPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [onlySubscribed, setOnlySubscribed] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
+  const [onlyStale, setOnlyStale] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [sortKey, setSortKey] = useState<SortKey>("label");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [fetchRuns, setFetchRuns] = useState<
     { instrumentCode: string; status: string; startedAt: string; rowsUpserted: number; error: string | null }[]
   >([]);
   const [showRuns, setShowRuns] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [cpiInfoOpen, setCpiInfoOpen] = useState(true);
+  const [schedulerInfoOpen, setSchedulerInfoOpen] = useState(false);
 
-  const cpiCalendarWarning = useMemo(() => {
+  const calendarWarning = useMemo(() => {
     if (!data) return false;
-    const us = data.countries.find((c) => c.code === "US");
-    if (!us) return false;
-    return us.categories.some((cat) => {
-      if (!cat.name.startsWith("CPI") && !cat.name.startsWith("通胀驱动")) return false;
-      return cat.indicators.some(
-        (i) =>
-          i.hasScheduledUpdates &&
-          i.calendarSyncStatus != null &&
-          i.calendarSyncStatus !== "matched" &&
-          i.calendarSyncStatus !== "probe_only",
-      );
-    });
+    return data.countries.some((c) =>
+      c.categories.some((cat) =>
+        cat.indicators.some(
+          (i) =>
+            i.networkAcquisitionConfirmed &&
+            i.hasScheduledUpdates &&
+            i.calendarSyncStatus != null &&
+            i.calendarSyncStatus !== "matched" &&
+            i.calendarSyncStatus !== "probe_only",
+        ),
+      ),
+    );
   }, [data]);
 
   const load = useCallback(async () => {
@@ -655,8 +861,26 @@ export function DataCatalogAdminClient() {
       if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
       setData(payload);
       const init: Record<string, boolean> = {};
+      const defaultOpenCategories = new Set([
+        "国民经济核算",
+        "价格指数",
+        "就业与工资",
+        "采购经理人指数",
+      ]);
       for (const c of payload.countries) {
-        init[`country:${c.code}`] = true;
+        init[`country:${c.code}`] = c.code === "CN" || c.code === "US";
+        for (const cat of c.categories) {
+          const catKey = categoryExpandKey(c.code, cat.name);
+          init[catKey] =
+            (c.code === "CN" || c.code === "US") && defaultOpenCategories.has(cat.name);
+          for (const sg of cat.subgroups ?? []) {
+            const sgKey = subgroupExpandKey(c.code, cat.name, sg.name);
+            init[sgKey] =
+              (c.code === "CN" || c.code === "US") &&
+              cat.name === "价格指数" &&
+              sg.name === "CPI";
+          }
+        }
       }
       setExpanded(init);
     } catch (e) {
@@ -674,12 +898,24 @@ export function DataCatalogAdminClient() {
     if (!data) return [];
     const needle = q.trim().toLowerCase();
     return data.countries
-      .map((country) => filterCountry(country, needle, onlySubscribed, onlyPending))
+      .map((country) => filterCountry(country, needle, onlySubscribed, onlyPending, onlyStale))
       .filter((c) => c.categories.length > 0);
-  }, [data, q, onlySubscribed, onlyPending]);
+  }, [data, q, onlySubscribed, onlyPending, onlyStale]);
 
   const toggle = (key: string) => {
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+    setExpanded((prev) => {
+      const open = prev[key] !== false;
+      return { ...prev, [key]: !open };
+    });
+  };
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
 
   const loadFetchRuns = useCallback(async () => {
@@ -691,37 +927,63 @@ export function DataCatalogAdminClient() {
 
   return (
     <div className="w-full min-w-0 space-y-4 px-4 py-4 lg:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-50">数据更新目录</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            按宏观侧栏相同的国家 / 主题分类展示指标，含官方数据源、最新观测与计划更新时间。
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1">
+          <h1 className="shrink-0 text-xl font-semibold text-slate-50">数据更新目录</h1>
+          {data ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
+              <span>指标 {data.stats.totalIndicators}</span>
+              <span>已入库 {data.stats.inDatabase}</span>
+              <span>已订阅 {data.stats.withSubscription}</span>
+              <span>有最新值 {data.stats.withLatestValue}</span>
+              <span className="text-emerald-500/90">已确认获取 {data.stats.fetchKnown}</span>
+              <span className="text-amber-500/90">待确定 {data.stats.fetchPending}</span>
+              <span className="text-red-400/90">未更新 {data.stats.staleCount}</span>
+              <span className="text-slate-500">源端暂无新值 {data.stats.sourceCurrentCount}</span>
+              <span className="text-emerald-500/80">可自动更新 {data.stats.readyCount}</span>
+              <span className="text-slate-600">更新于 {formatDateTime(data.builtAt)}</span>
+            </div>
+          ) : null}
         </div>
         <button
           type="button"
           onClick={() => load()}
           disabled={loading}
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          className="shrink-0 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
         >
           {loading ? "刷新中…" : "刷新"}
         </button>
       </div>
 
-      {data ? (
-        <div className="flex flex-wrap gap-4 text-sm text-slate-400">
-          <span>指标 {data.stats.totalIndicators}</span>
-          <span>已入库 {data.stats.inDatabase}</span>
-          <span>已订阅 {data.stats.withSubscription}</span>
-          <span>有最新值 {data.stats.withLatestValue}</span>
-          <span className="text-emerald-500/90">已确认获取 {data.stats.fetchKnown}</span>
-          <span className="text-amber-500/90">待确定 {data.stats.fetchPending}</span>
-          <span className="text-slate-600">
-            更新于 {formatDateTime(data.builtAt)}
-          </span>
-        </div>
-      ) : null}
+      <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => setViewMode("table")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            viewMode === "table"
+              ? "bg-slate-800 text-slate-100"
+              : "text-slate-500 hover:bg-slate-900 hover:text-slate-300"
+          }`}
+        >
+          数据列表
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode("tree")}
+          className={`rounded-md px-3 py-1.5 text-sm ${
+            viewMode === "tree"
+              ? "bg-slate-800 text-slate-100"
+              : "text-slate-500 hover:bg-slate-900 hover:text-slate-300"
+          }`}
+        >
+          编辑目录树
+        </button>
+      </div>
 
+      {viewMode === "tree" ? <CatalogTreeEditor onSaved={() => load()} /> : null}
+
+      {viewMode === "table" ? (
+        <>
       <SchedulerToolbar
         onDone={() => load()}
         onShowRuns={() => loadFetchRuns()}
@@ -730,10 +992,12 @@ export function DataCatalogAdminClient() {
 
       {showCalendar ? <CalendarMappingPanel onClose={() => setShowCalendar(false)} /> : null}
 
-      <CpiSchedulerInfoCard
-        open={cpiInfoOpen}
-        onToggle={() => setCpiInfoOpen((v) => !v)}
-        cpiCalendarWarning={cpiCalendarWarning}
+      <DataSchedulerInfoCard
+        open={schedulerInfoOpen}
+        onToggle={() => setSchedulerInfoOpen((v) => !v)}
+        calendarWarning={calendarWarning}
+        staleCount={data?.stats.staleCount ?? 0}
+        sourceCurrentCount={data?.stats.sourceCurrentCount ?? 0}
       />
 
       {showRuns ? (
@@ -782,12 +1046,23 @@ export function DataCatalogAdminClient() {
           />
           仅显示获取待确定
         </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-400">
+          <input
+            type="checkbox"
+            checked={onlyStale}
+            onChange={(e) => setOnlyStale(e.target.checked)}
+            className="rounded border-slate-600"
+          />
+          仅显示未更新
+        </label>
       </div>
 
       <p className="text-xs text-slate-500">
-        批量探测：<code className="text-slate-400">npm run data:probe-sources</code>
-        ；对齐发布时间：<code className="text-slate-400">npm run data:sync-calendar</code>
-        ；到期拉取：<code className="text-slate-400">npm run data:worker</code>
+        命令行：探测 <code className="text-slate-400">npm run data:probe-sources</code>
+        · TE 日历 <code className="text-slate-400">npm run data:sync-calendar</code>
+        · 未更新 <code className="text-slate-400">npm run data:sync-all-stale</code>
+        · worker <code className="text-slate-400">npm run data:worker</code>
+        · Excel 历史 <code className="text-slate-400">npm run db:import-macro-xlsx</code>
       </p>
 
       {error ? (
@@ -800,44 +1075,22 @@ export function DataCatalogAdminClient() {
         <p className="text-sm text-slate-500">加载中…</p>
       ) : null}
 
-      <div className="space-y-3">
-        {filteredCountries.map((country) => {
-          const countryKey = `country:${country.code}`;
-          const countryOpen = expanded[countryKey] !== false;
-          const count = country.categories.reduce((n, c) => n + c.indicators.length, 0);
-          return (
-            <section
-              key={country.code}
-              className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950/50"
-            >
-              <button
-                type="button"
-                onClick={() => toggle(countryKey)}
-                className="flex w-full items-center justify-between px-3 py-2.5 text-left hover:bg-slate-900/50"
-              >
-                <span className="font-medium text-slate-100">
-                  {country.name}
-                  <span className="ml-2 text-sm font-normal text-slate-500">{country.code}</span>
-                </span>
-                <span className="text-sm text-slate-500">
-                  {count} 项 {countryOpen ? "▾" : "▸"}
-                </span>
-              </button>
-              {countryOpen ? (
-                <CountryCatalogTable
-                  country={country}
-                  expanded={expanded}
-                  onToggleCategory={toggle}
-                  onRefresh={() => load()}
-                />
-              ) : null}
-            </section>
-          );
-        })}
-      </div>
+      {filteredCountries.length > 0 ? (
+        <UnifiedCatalogTable
+          countries={filteredCountries}
+          expanded={expanded}
+          onToggle={toggle}
+          onRefresh={() => load()}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+        />
+      ) : null}
 
       {!loading && filteredCountries.length === 0 && !error ? (
         <p className="text-sm text-slate-500">无匹配指标</p>
+      ) : null}
+        </>
       ) : null}
     </div>
   );
@@ -848,28 +1101,41 @@ function filterCountry(
   needle: string,
   onlySubscribed: boolean,
   onlyPending: boolean,
+  onlyStale: boolean,
 ): AdminCatalogCountry {
+  const filterRows = (rows: AdminCatalogIndicator[]) => {
+    let indicators = rows;
+    if (onlySubscribed) {
+      indicators = indicators.filter((i) => i.networkAcquisitionConfirmed && i.hasScheduledUpdates);
+    }
+    if (onlyStale) {
+      indicators = indicators.filter((i) => i.isStale);
+    }
+    if (onlyPending) {
+      indicators = indicators.filter((i) => !i.networkAcquisitionConfirmed);
+    }
+    if (needle) {
+      indicators = indicators.filter(
+        (i) =>
+          i.label.toLowerCase().includes(needle) ||
+          i.key.toLowerCase().includes(needle) ||
+          (i.instrumentCode?.toLowerCase().includes(needle) ?? false) ||
+          i.categoryName.toLowerCase().includes(needle),
+      );
+    }
+    return indicators;
+  };
+
   const categories = country.categories
     .map((cat) => {
-      let indicators = cat.indicators;
-      if (onlySubscribed) {
-        indicators = indicators.filter((i) => i.hasScheduledUpdates);
-      }
-      if (onlyPending) {
-        indicators = indicators.filter(
-          (i) => i.fetchAcquisitionStatus === "pending" || (!i.fetchAcquisitionStatus && i.inDatabase),
-        );
-      }
-      if (needle) {
-        indicators = indicators.filter(
-          (i) =>
-            i.label.toLowerCase().includes(needle) ||
-            i.key.toLowerCase().includes(needle) ||
-            (i.instrumentCode?.toLowerCase().includes(needle) ?? false),
-        );
-      }
-      return { ...cat, indicators };
+      const indicators = filterRows(cat.indicators);
+      const subgroups = (cat.subgroups ?? [])
+        .map((sg) => ({ ...sg, indicators: filterRows(sg.indicators) }))
+        .filter((sg) => sg.indicators.length > 0);
+      return { ...cat, indicators, subgroups: subgroups.length ? subgroups : undefined };
     })
-    .filter((c) => c.indicators.length > 0);
+    .filter(
+      (c) => c.indicators.length > 0 || (c.subgroups?.some((sg) => sg.indicators.length > 0) ?? false),
+    );
   return { ...country, categories };
 }

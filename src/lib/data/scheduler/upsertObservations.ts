@@ -44,7 +44,7 @@ export function maxObsDate(points: ObservationPoint[]): Date | null {
   return points.reduce((a, b) => (a.obsDate > b.obsDate ? a : b)).obsDate;
 }
 
-/** 按 revisionLookback 月截断增量起点 */
+/** 按 revisionLookback 月截断增量起点（写入库的下界） */
 export function observationStartDate(
   lastObsDate: Date | null,
   revisionLookbackMonths: number,
@@ -58,4 +58,29 @@ export function observationStartDate(
     ),
   );
   return d.toISOString().slice(0, 10);
+}
+
+/** YoY 同比需多拉水平值窗口，否则增量切片算不出去年同期 */
+const YOY_FETCH_EXTRA_MONTHS = 14;
+
+export function observationWindowForFetch(
+  lastObsDate: Date | null,
+  revisionLookbackMonths: number,
+  options?: { yoyTransform?: boolean },
+): { fetchStart: string; persistStart: string } {
+  const persistStart = observationStartDate(lastObsDate, revisionLookbackMonths);
+  if (!options?.yoyTransform) {
+    return { fetchStart: persistStart, persistStart };
+  }
+  const d = new Date(`${persistStart}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() - YOY_FETCH_EXTRA_MONTHS);
+  return { fetchStart: d.toISOString().slice(0, 10), persistStart };
+}
+
+export function filterPointsFrom(
+  points: ObservationPoint[],
+  persistStart: string,
+): ObservationPoint[] {
+  const min = new Date(`${persistStart}T00:00:00Z`).getTime();
+  return points.filter((p) => p.obsDate.getTime() >= min);
 }

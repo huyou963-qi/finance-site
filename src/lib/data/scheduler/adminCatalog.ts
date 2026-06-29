@@ -6,7 +6,24 @@ import {
   type UnifiedCatalogItem,
 } from "@/lib/data/fredCatalog";
 import { readFetchAcquisition } from "./fetchAcquisition";
+import {
+  acquisitionStatusLabel,
+  isExcelBootstrap,
+  isNetworkAcquisitionConfirmed,
+  needsNetworkSource,
+  resolveAcquisitionStatus,
+  resolveUpdateStatus,
+  updateStatusLabel,
+  updateStatusReason,
+  type AcquisitionStatus,
+  type UpdateStatus,
+} from "./catalogAcquisition";
 import { parseReleaseRule, summarizeReleaseRule } from "./releaseRule";
+import {
+  effectiveReleaseRule,
+  loadPackageMapByInstrumentId,
+  type PackageByInstrument,
+} from "./releasePackageStore";
 
 export type AdminCatalogIndicator = {
   key: string;
@@ -47,11 +64,29 @@ export type AdminCatalogIndicator = {
   lastFetchStatus: string | null;
   lastFetchAt: string | null;
   lastFetchUpserted: number | null;
+  acquisitionStatus: AcquisitionStatus | null;
+  acquisitionStatusLabel: string | null;
+  updateStatus: UpdateStatus | null;
+  updateStatusLabel: string | null;
+  /** 兼容：仅 updateStatus === stale */
+  isStale: boolean;
+  staleReason: string | null;
+  calendarProvider: string | null;
+  /** 曾用 Excel 一次性导入历史 */
+  excelBootstrap: boolean;
+  /** 网络获取已确认；为 false 时不展示/不参与调度列 */
+  networkAcquisitionConfirmed: boolean;
+  /** @deprecated 使用 !networkAcquisitionConfirmed */
+  needsNetworkSource: boolean;
+  /** 发布包 ID（Phase B） */
+  releasePackageId: string | null;
+  releasePackageLabelZh: string | null;
 };
 
 export type AdminCatalogCategory = {
   name: string;
   indicators: AdminCatalogIndicator[];
+  subgroups?: Array<{ name: string; indicators: AdminCatalogIndicator[] }>;
 };
 
 export type AdminCatalogCountry = {
@@ -70,6 +105,9 @@ export type AdminDataCatalogPayload = {
     withLatestValue: number;
     fetchKnown: number;
     fetchPending: number;
+    staleCount: number;
+    readyCount: number;
+    sourceCurrentCount: number;
   };
 };
 
@@ -138,11 +176,13 @@ type InstRow = {
     lastObsDate: Date | null;
     lastError: string | null;
     releaseRule: unknown;
+    sourceSeriesKey: string;
     source: {
       id: string;
       name: string;
       baseUrl: string | null;
       termsUrl: string | null;
+      adapterKind: string;
       agency: { nameZh: string; websiteUrl: string | null } | null;
     };
   } | null;
@@ -171,13 +211,32 @@ function enrichIndicator(
   latestByInstrument: Map<string, { value: number; obsDate: Date }>,
   latestFetchByInstrument: Map<
     string,
-    { status: string; startedAt: Date; rowsUpserted: number; error: string | null }
+    {
+      status: string;
+      startedAt: Date;
+      rowsUpserted: number;
+      error: string | null;
+      sourceLagDays: number | null;
+    }
   >,
+  packageByInstrument: Map<string, PackageByInstrument>,
 ): AdminCatalogIndicator {
   const defaults = defaultSourceForProvider(item);
   const sub = inst?.dataSubscription ?? null;
   const latest = inst ? latestByInstrument.get(inst.id) : undefined;
-  const rule = sub ? parseReleaseRule(sub.releaseRule) : null;
+  const pkgInfo = inst ? packageByInstrument.get(inst.id) : undefined;
+  const rule = sub
+    ? effectiveReleaseRule(
+        sub.releaseRule,
+        pkgInfo
+          ? {
+              releaseTemplate: pkgInfo.releaseTemplate,
+              scheduleState: pkgInfo.scheduleState,
+            }
+          : null,
+      )
+    : null;
+  const scheduleNextRunAt = pkgInfo?.nextRunAt ?? sub?.nextRunAt ?? null;
 
   const md =
     inst?.metadata && typeof inst.metadata === "object"
@@ -203,6 +262,52 @@ function enrichIndicator(
     rule?.type === "economic_calendar" ? rule.calendarSync : undefined;
   const lastFetch = inst ? latestFetchByInstrument.get(inst.id) : undefined;
 
+  const excelBootstrap = inst ? isExcelBootstrap(inst.metadata) : false;
+
+  const acquisitionStatus: AcquisitionStatus | null = inst
+    ? resolveAcquisitionStatus({
+        subscriptionEnabled: sub?.enabled ?? false,
+        adapterKind: (sub?.source.adapterKind as import("@prisma/client").SourceAdapterKind) ?? null,
+        sourceSeriesKey: sub?.sourceSeriesKey ?? null,
+        metadata: inst.metadata,
+      })
+    : null;
+
+  const needsNetwork = inst
+    ? needsNetworkSource({ metadata: inst.metadata, acquisitionStatus })
+    : false;
+
+  const networkConfirmed = isNetworkAcquisitionConfirmed({
+    inDatabase: Boolean(inst),
+    acquisitionStatus,
+    fetchAcquisitionStatus: fa?.status ?? null,
+  });
+
+  const sourceSync = rule?.type === "economic_calendar" ? rule.sourceSync : undefined;
+
+  const updateStatus =
+    networkConfirmed && sub && acquisitionStatus
+      ? resolveUpdateStatus({
+          acquisitionStatus,
+          subscriptionEnabled: sub.enabled,
+          nextRunAt: scheduleNextRunAt,
+          lastSuccessAt: sub.lastSuccessAt,
+          lastFetchStatus: lastFetch?.status ?? null,
+          lastFetchAt: lastFetch?.startedAt ?? null,
+          lastFetchUpserted: lastFetch?.rowsUpserted ?? null,
+          sourceLagDays: lastFetch?.sourceLagDays ?? null,
+          sourceSync: sourceSync ?? null,
+          calendarReleaseAt: calendarMatch?.releaseAt ?? null,
+        })
+      : null;
+
+  const latestObsIso = isoDate(latest?.obsDate ?? sub?.lastObsDate);
+
+  const calendarProvider =
+    rule?.type === "economic_calendar"
+      ? rule.calendarProvider ?? "tradingeconomics"
+      : null;
+
   return {
     key: item.key,
     label: item.label,
@@ -224,24 +329,49 @@ function enrichIndicator(
     latestValue: latest?.value ?? null,
     latestObsDate: isoDate(latest?.obsDate ?? sub?.lastObsDate),
     unit: inst?.unit ?? null,
-    nextRunAt: isoDateTime(sub?.nextRunAt),
-    releaseRuleSummary: rule ? summarizeReleaseRule(rule) : null,
-    calendarReleaseAt: calendarMatch?.releaseAt ?? null,
-    calendarEventTitle: calendarMatch?.title ?? null,
-    calendarSyncStatus: calendarSync?.status ?? null,
-    subscriptionEnabled: sub?.enabled ?? null,
-    lastSuccessAt: isoDateTime(sub?.lastSuccessAt),
-    lastError: sub?.lastError ?? null,
+    nextRunAt: networkConfirmed ? isoDateTime(scheduleNextRunAt) : null,
+    releaseRuleSummary: networkConfirmed && rule ? summarizeReleaseRule(rule) : null,
+    calendarReleaseAt: networkConfirmed ? (calendarMatch?.releaseAt ?? null) : null,
+    calendarEventTitle: networkConfirmed ? (calendarMatch?.title ?? null) : null,
+    calendarSyncStatus: networkConfirmed ? (calendarSync?.status ?? null) : null,
+    subscriptionEnabled: networkConfirmed ? (sub?.enabled ?? null) : null,
+    lastSuccessAt: networkConfirmed ? isoDateTime(sub?.lastSuccessAt) : null,
+    lastError: networkConfirmed ? (sub?.lastError ?? null) : null,
     inDatabase: Boolean(inst),
-    hasScheduledUpdates: Boolean(sub?.enabled),
+    hasScheduledUpdates: networkConfirmed && Boolean(sub?.enabled),
     fetchAcquisitionStatus: fa?.status ?? null,
     fetchAcquisitionMethod: fa?.methodLabel ?? fa?.method ?? null,
     fetchAcquisitionMessage: fa?.message ?? fa?.error ?? null,
     fetchAcquisitionProbedAt: fa?.probedAt ?? null,
     fetchAcquisitionFetchUrl: fa?.fetchUrl ?? null,
-    lastFetchStatus: lastFetch?.status ?? null,
-    lastFetchAt: isoDateTime(lastFetch?.startedAt),
-    lastFetchUpserted: lastFetch?.rowsUpserted ?? null,
+    lastFetchStatus: networkConfirmed ? (lastFetch?.status ?? null) : null,
+    lastFetchAt: networkConfirmed ? isoDateTime(lastFetch?.startedAt) : null,
+    lastFetchUpserted: networkConfirmed ? (lastFetch?.rowsUpserted ?? null) : null,
+    acquisitionStatus: networkConfirmed ? acquisitionStatus : null,
+    acquisitionStatusLabel:
+      networkConfirmed && acquisitionStatus
+        ? acquisitionStatusLabel(acquisitionStatus, { excelBootstrap })
+        : null,
+    updateStatus,
+    updateStatusLabel: networkConfirmed && updateStatus ? updateStatusLabel(updateStatus) : null,
+    isStale: networkConfirmed && updateStatus === "stale",
+    staleReason:
+      networkConfirmed &&
+      updateStatus &&
+      (updateStatus === "stale" || updateStatus === "source_current")
+        ? updateStatusReason({
+            status: updateStatus,
+            nextRunAt: scheduleNextRunAt,
+            latestObsDate: latestObsIso,
+            sourceSync: sourceSync ?? null,
+          })
+        : null,
+    calendarProvider: networkConfirmed ? calendarProvider : null,
+    excelBootstrap,
+    networkAcquisitionConfirmed: networkConfirmed,
+    needsNetworkSource: needsNetwork,
+    releasePackageId: pkgInfo?.packageId ?? null,
+    releasePackageLabelZh: pkgInfo?.labelZh ?? null,
   };
 }
 
@@ -261,7 +391,10 @@ async function loadLatestObservations(
       value
     FROM mds."MacroObservation"
     WHERE instrument_id IN (${Prisma.join(instrumentIds.map((id) => Prisma.sql`${id}::uuid`))})
-    ORDER BY instrument_id, obs_date DESC
+    ORDER BY instrument_id,
+      date_trunc('month', obs_date) DESC,
+      CASE WHEN EXTRACT(DAY FROM obs_date) = 1 THEN 0 ELSE 1 END,
+      obs_date DESC
   `;
 
   for (const r of rows) {
@@ -274,11 +407,17 @@ async function loadLatestFetchRunsByInstrument(
   prisma: PrismaClient,
   instrumentIds: string[],
 ): Promise<
-  Map<string, { status: string; startedAt: Date; rowsUpserted: number; error: string | null }>
+  Map<string, { status: string; startedAt: Date; rowsUpserted: number; error: string | null; sourceLagDays: number | null }>
 > {
   const map = new Map<
     string,
-    { status: string; startedAt: Date; rowsUpserted: number; error: string | null }
+    {
+      status: string;
+      startedAt: Date;
+      rowsUpserted: number;
+      error: string | null;
+      sourceLagDays: number | null;
+    }
   >();
   if (instrumentIds.length === 0) return map;
 
@@ -289,6 +428,7 @@ async function loadLatestFetchRunsByInstrument(
       started_at: Date;
       rows_upserted: number;
       error: string | null;
+      source_lag_days: number | null;
     }[]
   >`
     SELECT DISTINCT ON (ds.instrument_id)
@@ -296,7 +436,8 @@ async function loadLatestFetchRunsByInstrument(
       fr.status::text AS status,
       fr.started_at,
       fr.rows_upserted,
-      fr.error
+      fr.error,
+      fr.source_lag_days
     FROM mds.fetch_run fr
     INNER JOIN mds.data_subscription ds ON ds.id = fr.subscription_id
     WHERE ds.instrument_id IN (${Prisma.join(instrumentIds.map((id) => Prisma.sql`${id}::uuid`))})
@@ -309,6 +450,7 @@ async function loadLatestFetchRunsByInstrument(
       startedAt: r.started_at,
       rowsUpserted: r.rows_upserted,
       error: r.error,
+      sourceLagDays: r.source_lag_days,
     });
   }
   return map;
@@ -336,12 +478,14 @@ export async function buildAdminDataCatalog(
           lastObsDate: true,
           lastError: true,
           releaseRule: true,
+          sourceSeriesKey: true,
           source: {
             select: {
               id: true,
               name: true,
               baseUrl: true,
               termsUrl: true,
+              adapterKind: true,
               agency: { select: { nameZh: true, websiteUrl: true } },
             },
           },
@@ -364,9 +508,10 @@ export async function buildAdminDataCatalog(
     prisma,
     instruments.map((i) => i.id),
   );
+  const packageByInstrument = await loadPackageMapByInstrumentId(prisma);
 
   const countries: AdminCatalogCountry[] = catalog.countries.map((c) =>
-    mapCountry(c, byCode, byFred, latestByInstrument, latestFetchByInstrument),
+    mapCountry(c, byCode, byFred, latestByInstrument, latestFetchByInstrument, packageByInstrument),
   );
 
   let totalIndicators = 0;
@@ -375,16 +520,25 @@ export async function buildAdminDataCatalog(
   let withLatestValue = 0;
   let fetchKnown = 0;
   let fetchPending = 0;
+  let staleCount = 0;
+  let readyCount = 0;
+  let sourceCurrentCount = 0;
 
   for (const country of countries) {
     for (const cat of country.categories) {
       for (const ind of cat.indicators) {
         totalIndicators += 1;
         if (ind.inDatabase) inDatabase += 1;
-        if (ind.hasScheduledUpdates) withSubscription += 1;
+        if (ind.networkAcquisitionConfirmed) {
+          fetchKnown += 1;
+          if (ind.hasScheduledUpdates) withSubscription += 1;
+          if (ind.isStale) staleCount += 1;
+          if (ind.updateStatus === "source_current") sourceCurrentCount += 1;
+          if (ind.acquisitionStatus === "ready") readyCount += 1;
+        } else {
+          fetchPending += 1;
+        }
         if (ind.latestValue != null) withLatestValue += 1;
-        if (ind.fetchAcquisitionStatus === "known") fetchKnown += 1;
-        if (ind.fetchAcquisitionStatus === "pending") fetchPending += 1;
       }
     }
   }
@@ -399,6 +553,9 @@ export async function buildAdminDataCatalog(
       withLatestValue,
       fetchKnown,
       fetchPending,
+      staleCount,
+      readyCount,
+      sourceCurrentCount,
     },
   };
 }
@@ -410,8 +567,9 @@ function mapCountry(
   latestByInstrument: Map<string, { value: number; obsDate: Date }>,
   latestFetchByInstrument: Map<
     string,
-    { status: string; startedAt: Date; rowsUpserted: number; error: string | null }
+    { status: string; startedAt: Date; rowsUpserted: number; error: string | null; sourceLagDays: number | null }
   >,
+  packageByInstrument: Map<string, PackageByInstrument>,
 ): AdminCatalogCountry {
   return {
     code: country.code,
@@ -426,8 +584,23 @@ function mapCountry(
           resolveInstrumentForKey(item.key, byCode, byFred),
           latestByInstrument,
           latestFetchByInstrument,
+          packageByInstrument,
         ),
       ),
+      subgroups: (cat.subgroups ?? []).map((sg) => ({
+        name: sg.name,
+        indicators: sg.items.map((item) =>
+          enrichIndicator(
+            item,
+            country.code,
+            `${cat.name} / ${sg.name}`,
+            resolveInstrumentForKey(item.key, byCode, byFred),
+            latestByInstrument,
+            latestFetchByInstrument,
+            packageByInstrument,
+          ),
+        ),
+      })),
     })),
   };
 }

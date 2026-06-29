@@ -11,8 +11,10 @@ import {
 import { CHINA_OVERVIEW_BY_CODE } from "./chinaOverviewLayout";
 import { JAPAN_OVERVIEW_BY_CODE } from "./japanOverviewLayout";
 import { US_OVERVIEW_BY_CODE } from "./usOverviewLayout";
+import { cotCatalogLabel } from "./cot/cotCatalog";
+import { COT_PRODUCT_BY_SLUG } from "./cot/cotProductCatalog";
 
-export type { UnifiedCatalogItem, UnifiedCatalogGroup } from "./fredCatalog";
+export type { UnifiedCatalogItem, UnifiedCatalogGroup, UnifiedCatalogSubgroup } from "./fredCatalog";
 export type { UnifiedCatalogCountry } from "./fredCatalog";
 
 export type MacroCountry = { code: string; name: string };
@@ -403,7 +405,7 @@ export function unifiedSeriesDisplayName(key: string): string {
     return `中国 · China Overview${panel ? ` · 图${panel}` : ""} · ${pretty || raw}`;
   }
   if (key.startsWith("mds:jpov_")) {
-    const raw = key.slice(4);
+    const raw = key.slice(4).split("::")[0] ?? "";
     const def = JAPAN_OVERVIEW_BY_CODE.get(raw);
     if (def) {
       return `日本 · ${def.catalogCategory} · ${def.displayName}`;
@@ -415,6 +417,22 @@ export function unifiedSeriesDisplayName(key: string): string {
       .replace(/\b([a-z])/g, (s) => s.toUpperCase())
       .trim();
     return `日本 · Japan Overview${panel ? ` · 图${panel}` : ""} · ${pretty || raw}`;
+  }
+  if (key.startsWith("mds:treasury_") || key.startsWith("mds:fiscal_")) {
+    const raw = key.slice(4).split("::")[0] ?? key.slice(4);
+    return `美国 · 财政 · ${raw.replace(/^treasury_|^fiscal_/i, "").replace(/_/g, " ")}`;
+  }
+  if (key.startsWith("mds:cot_mm_")) {
+    const raw = key.slice(4).split("::")[0] ?? key.slice(4);
+    const m = /^cot_mm_(.+)_(long|short)$/.exec(raw);
+    if (m) {
+      const product = COT_PRODUCT_BY_SLUG.get(m[1]!);
+      const metric = m[2] as "long" | "short";
+      if (product && (metric === "long" || metric === "short")) {
+        return `美国 · CFTC数据 · ${cotCatalogLabel(product.label, metric)}`;
+      }
+    }
+    return `美国 · CFTC数据 · ${raw.replace(/^cot_mm_/, "").replace(/_/g, " ")}`;
   }
   return key;
 }

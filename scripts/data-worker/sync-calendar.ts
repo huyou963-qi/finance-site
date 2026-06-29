@@ -1,5 +1,5 @@
 /**
- * 从 Investing.com 经济日历同步各订阅的下一次发布时间 → nextRunAt
+ * 从 TradingEconomics 经济日历同步各订阅的下一次发布时间 → nextRunAt
  *
  * npm run data:sync-calendar
  * npm run data:sync-calendar -- --dry-run
@@ -9,7 +9,7 @@ import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
 import {
   filterEventsForDebug,
-  syncSubscriptionsFromInvestingCalendar,
+  syncSubscriptionsFromTradingEconomicsCalendar,
 } from "../../src/lib/data/scheduler/applyCalendarSchedules";
 
 loadEnvConfig(process.cwd());
@@ -46,8 +46,8 @@ async function main() {
     subscriptionIds = [sub.id];
   }
 
-  console.log(`[data:sync-calendar] 拉取经济日历${dryRun ? "（dry-run）" : ""}…`);
-  const result = await syncSubscriptionsFromInvestingCalendar(prisma, {
+  console.log(`[data:sync-calendar] 拉取 TradingEconomics 日历${dryRun ? "（dry-run）" : ""}…`);
+  const result = await syncSubscriptionsFromTradingEconomicsCalendar(prisma, {
     subscriptionIds,
     dryRun,
   });
@@ -58,9 +58,9 @@ async function main() {
   if (result.warning) console.warn(`  ⚠ ${result.warning}`);
 
   if (result.eventsFetched > 0 && argFlag("verbose")) {
-    const events = await import("../../src/lib/data/scheduler/investingCalendar/client").then(
+    const events = await import("../../src/lib/data/scheduler/tradingEconomicsCalendar/client").then(
       (m) =>
-        m.fetchInvestingEconomicCalendar(m.defaultCalendarWindow()).then((r) =>
+        m.fetchTradingEconomicsCalendar(m.defaultCalendarWindow()).then((r) =>
           filterEventsForDebug(r.events, 15),
         ),
     );
@@ -70,8 +70,11 @@ async function main() {
   for (const row of result.rows) {
     const mark = row.matched ? "✓" : "·";
     const when = row.nextRunAt?.toISOString() ?? "—";
+    const name = row.packageLabelZh ?? row.instrumentCode;
+    const members =
+      row.memberCount != null && row.memberCount > 0 ? ` · ${row.memberCount} 指标` : "";
     const extra = row.eventTitle ? ` ← ${row.eventTitle}` : row.message ? ` (${row.message})` : "";
-    console.log(`  ${mark} ${row.instrumentCode} nextRunAt=${when}${extra}`);
+    console.log(`  ${mark} ${name}${members} nextRunAt=${when}${extra}`);
   }
 
   const calendarEligible = result.rows.filter((r) => r.syncStatus !== "probe_only");
@@ -81,7 +84,7 @@ async function main() {
   );
   if (result.fetchFailed) {
     console.warn(
-      "  日历拉取失败，economic_calendar 订阅已回退间隔探测。请配置 INVESTING_CALENDAR_COOKIE",
+      "  TE 日历拉取失败，economic_calendar 订阅已回退间隔探测。可检查网络或配置 TE_CALENDAR_COOKIE",
     );
   }
   if (!dryRun && matched === 0 && result.eventsFetched === 0 && calendarEligible.length > 0) {

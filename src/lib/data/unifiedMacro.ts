@@ -81,7 +81,7 @@ export async function fetchUnifiedMacro(
       continue;
     }
     if (key.startsWith("mds:")) {
-      const code = key.slice(4).trim();
+      const code = key.slice(4).split("::")[0]?.trim();
       if (code) mdsCodes.add(code);
       continue;
     }
@@ -170,24 +170,32 @@ export async function fetchUnifiedMacro(
         byInst.set(o.instrumentId, m);
       }
       const categories = [...dateSet].sort();
+      const codeByInst = new Map(insts.map((i) => [i.code, i]));
+      const virtualMdsKeys = keys.filter((k) => k.startsWith("mds:"));
       parts.push({
         categories,
-        series: insts.map((inst) => {
-          const m = byInst.get(inst.id) ?? new Map();
-          const md =
-            inst.metadata && typeof inst.metadata === "object"
-              ? (inst.metadata as Record<string, unknown>)
-              : {};
-          const displayName =
-            typeof md.displayName === "string" && md.displayName.trim()
-              ? md.displayName.trim()
-              : inst.shortName?.trim() || inst.name;
-          return {
-            name: displayName,
-            key: `mds:${inst.code}`,
-            data: categories.map((d) => (m.has(d) ? (m.get(d) ?? null) : null)),
-          };
-        }),
+        series: virtualMdsKeys
+          .map((virtualKey) => {
+            const code = virtualKey.slice(4).split("::")[0]?.trim();
+            if (!code) return null;
+            const inst = codeByInst.get(code);
+            if (!inst) return null;
+            const m = byInst.get(inst.id) ?? new Map();
+            const md =
+              inst.metadata && typeof inst.metadata === "object"
+                ? (inst.metadata as Record<string, unknown>)
+                : {};
+            const displayName =
+              typeof md.displayName === "string" && md.displayName.trim()
+                ? md.displayName.trim()
+                : inst.shortName?.trim() || inst.name;
+            return {
+              name: displayName,
+              key: virtualKey,
+              data: categories.map((d) => (m.has(d) ? (m.get(d) ?? null) : null)),
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => Boolean(x)),
         attribution: "本机 PostgreSQL mds.MacroObservation",
       });
     }

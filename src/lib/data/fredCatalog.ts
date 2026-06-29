@@ -6,6 +6,15 @@
  */
 import { InstrumentKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { buildCotCatalogCountry } from "@/lib/data/cot/cotCatalog";
+import {
+  consolidatePriceIndexCpi,
+  mergeCatalogGroups,
+} from "@/lib/data/catalogTree";
+import {
+  applyCatalogLayout,
+  loadMacroCatalogLayout,
+} from "@/lib/data/catalogLayout";
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -21,7 +30,17 @@ export type UnifiedCatalogItem = {
   categoryName: string;
 };
 
-export type UnifiedCatalogGroup = { name: string; items: UnifiedCatalogItem[] };
+export type UnifiedCatalogSubgroup = {
+  name: string;
+  items: UnifiedCatalogItem[];
+};
+
+export type UnifiedCatalogGroup = {
+  name: string;
+  items: UnifiedCatalogItem[];
+  /** 分类下子层，如 价格指数 → CPI */
+  subgroups?: UnifiedCatalogSubgroup[];
+};
 
 export type UnifiedCatalogCountry = {
   code: string;
@@ -103,6 +122,7 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "USGOVT", label: "政府部门就业（千人）", category: "就业结构", frequency: "月" },
   { id: "MANEMP", label: "制造业就业（千人）", category: "就业结构", frequency: "月" },
   { id: "FEDFUNDS", label: "联邦基金有效利率（%）", category: "银行与货币", frequency: "月" },
+  { id: "DFEDTARU", label: "联邦基金目标利率上限（%）", category: "银行与货币", frequency: "日" },
   { id: "M2SL", label: "M2 货币供应量（十亿美元）", category: "银行与货币", frequency: "月" },
   { id: "WALCL", label: "美联储总资产（百万美元）", category: "银行与货币", frequency: "周" },
   { id: "GS10", label: "10 年期美债收益率（%）", category: "利率与债券", frequency: "月" },
@@ -115,6 +135,15 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "RSAFS", label: "零售销售总额（百万美元）", category: "国内贸易与消费", frequency: "月" },
   { id: "PCEC96", label: "实际个人消费支出（十亿美元）", category: "国内贸易与消费", frequency: "月" },
   { id: "HOUST", label: "新屋开工（年化套数）", category: "固定资产与地产", frequency: "月" },
+  { id: "PNFIC1", label: "实际私人固定投资（十亿美元）", category: "固定资产投资", frequency: "季度" },
+  { id: "EXPGSC1", label: "实际出口（十亿美元）", category: "对外贸易及投资", frequency: "季度" },
+  { id: "IMPGSC1", label: "实际进口（十亿美元）", category: "对外贸易及投资", frequency: "季度" },
+  { id: "GCEC1", label: "实际政府消费支出（十亿美元）", category: "财政", frequency: "季度" },
+  { id: "FYFSGDA188S", label: "联邦赤字/GDP（%）", category: "财政", frequency: "季度" },
+  { id: "GFDEGDQ188S", label: "联邦公共债务/GDP（%）", category: "财政", frequency: "季度" },
+  { id: "GFDEBTN", label: "联邦公共债务总额（百万美元）", category: "财政", frequency: "季度" },
+  { id: "FYOIGDA188S", label: "联邦利息支出/GDP（%）", category: "财政", frequency: "年" },
+  { id: "A091RC1Q027SBEA", label: "联邦利息支出 NIPA（十亿美元，季调年化）", category: "财政", frequency: "季度" },
   { id: "CSUSHPINSA", label: "标普/Case-Shiller 房价指数", category: "固定资产与地产", frequency: "月" },
   { id: "UMCSENT", label: "密歇根大学消费者信心指数", category: "景气调查", frequency: "月" },
   { id: "CFNAI", label: "芝加哥联储全国活动指数", category: "景气调查", frequency: "月" },
@@ -230,6 +259,11 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
         { code: { startsWith: "chov_" } },
         { code: { startsWith: "jpov_" } },
         { code: { startsWith: "goldov_" } },
+        { code: { startsWith: "ism_" } },
+        { code: { startsWith: "ism_svc_" } },
+        { code: { startsWith: "treasury_" } },
+        { code: { startsWith: "fiscal_" } },
+        { metadata: { path: ["bootstrap"], equals: "excel" } },
       ],
     },
     orderBy: { name: "asc" },
@@ -242,6 +276,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
   });
   const byCountry = new Map<string, Map<string, UnifiedCatalogItem[]>>();
   for (const row of rows) {
+    if (row.code.startsWith("cot_mm_")) continue;
     const md = row.metadata && typeof row.metadata === "object"
       ? (row.metadata as Record<string, unknown>)
       : {};
@@ -296,7 +331,11 @@ function mergeCountryCatalog(
     map.set(c.code, {
       code: c.code,
       name: c.name,
-      categories: c.categories.map((x) => ({ name: x.name, items: [...x.items] })),
+      categories: c.categories.map((x) => ({
+        name: x.name,
+        items: [...x.items],
+        subgroups: x.subgroups?.map((sg) => ({ name: sg.name, items: [...sg.items] })),
+      })),
     });
   }
   for (const c of extra) {
@@ -305,20 +344,28 @@ function mergeCountryCatalog(
       map.set(c.code, c);
       continue;
     }
-    const catMap = new Map<string, UnifiedCatalogItem[]>(
-      exist.categories.map((x) => [x.name, [...x.items]]),
+    const catMap = new Map<string, UnifiedCatalogGroup>(
+      exist.categories.map((x) => [x.name, { name: x.name, items: [...x.items], subgroups: x.subgroups ? [...x.subgroups] : undefined }]),
     );
     for (const cat of c.categories) {
-      const arr = catMap.get(cat.name) ?? [];
-      arr.push(...cat.items);
-      catMap.set(cat.name, arr);
+      const prev = catMap.get(cat.name);
+      if (prev) {
+        catMap.set(cat.name, mergeCatalogGroups(prev, cat));
+      } else {
+        catMap.set(cat.name, {
+          name: cat.name,
+          items: [...cat.items],
+          subgroups: cat.subgroups ? [...cat.subgroups] : undefined,
+        });
+      }
     }
-    exist.categories = [...catMap.entries()]
-      .map(([name, items]) => ({
-        name,
-        items: [...new Map(items.map((i) => [i.key, i])).values()].sort((a, b) =>
+    exist.categories = [...catMap.values()]
+      .map((g) => ({
+        name: g.name,
+        items: [...new Map(g.items.map((i) => [i.key, i])).values()].sort((a, b) =>
           a.label.localeCompare(b.label, "zh-CN"),
         ),
+        subgroups: g.subgroups,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
   }
@@ -348,22 +395,42 @@ export function macroCountryName(countryCode: string): string {
   return COUNTRY_NAME_BY_CODE.get(countryCode.toUpperCase()) ?? countryCode.toUpperCase();
 }
 
-export async function getFredCatalogCached(): Promise<CatalogCache> {
-  if (catalogCache && Date.now() - catalogCache.builtAt < CACHE_TTL_MS) return catalogCache;
+export async function buildBaseCatalogCountries(): Promise<UnifiedCatalogCountry[]> {
   const staticCountries = buildCountries();
   const mdsCountries = await loadMdsCatalog();
-  const countries = mergeCountryCatalog(staticCountries, mdsCountries);
+  const withMds = mergeCountryCatalog(staticCountries, mdsCountries);
+  const withCot = mergeCountryCatalog(withMds, [buildCotCatalogCountry()]);
+  return withCot.map((c) => consolidatePriceIndexCpi(c));
+}
+
+export async function getFredCatalogCached(): Promise<CatalogCache> {
+  if (catalogCache && Date.now() - catalogCache.builtAt < CACHE_TTL_MS) return catalogCache;
+  const baseCountries = await buildBaseCatalogCountries();
+  const layout = await loadMacroCatalogLayout();
+  const countries = layout ? applyCatalogLayout(baseCountries, layout) : baseCountries;
   const groups = countries.flatMap((country) =>
-    country.categories.map((category) => ({
-      name: `${country.name} / ${category.name}`,
-      items: category.items,
-    })),
+    country.categories.flatMap((category) => {
+      const direct = {
+        name: `${country.name} / ${category.name}`,
+        items: category.items,
+      };
+      const sub = (category.subgroups ?? []).map((sg) => ({
+        name: `${country.name} / ${category.name} / ${sg.name}`,
+        items: sg.items,
+      }));
+      return [direct, ...sub].filter((g) => g.items.length > 0);
+    }),
   );
   const allowlist = new Set<string>();
   for (const country of countries) {
     for (const category of country.categories) {
       for (const item of category.items) {
         allowlist.add(item.key);
+      }
+      for (const sg of category.subgroups ?? []) {
+        for (const item of sg.items) {
+          allowlist.add(item.key);
+        }
       }
     }
   }

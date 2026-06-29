@@ -84,6 +84,15 @@ Phase 3 管理端调度与 WB 全量见 [docs/DATA_SCHEDULER_PHASE3.md](./docs/D
 Phase 4 Overview 重导、滞后告警、日历映射见 [docs/DATA_SCHEDULER_PHASE4.md](./docs/DATA_SCHEDULER_PHASE4.md)。  
 Phase 5 usov 补全、e-Stat、Slack 告警见 [docs/DATA_SCHEDULER_PHASE5.md](./docs/DATA_SCHEDULER_PHASE5.md)。
 
+**发布包（Phase B）**：经济日历按官方发布包对齐，而非逐指标匹配。
+
+```bash
+npm run data:seed-release-packages   # 写入 mds.release_package + 成员链接
+npm run data:sync-calendar           # 包级日历匹配 → fan-out nextRunAt
+```
+
+管理端 `GET /api/admin/data-scheduler/release-packages` 查看包状态；指标目录行显示「发布包」列。
+
 Windows 计划任务建议：每小时 `data:sync-calendar`，每 5 分钟 `data:worker`。
 
 ## 常用命令
@@ -100,6 +109,10 @@ npm run db:studio        # Prisma Studio
 ```
 
 数据导入示例（需 DB 与 xlsx）：`npm run db:import-japan-overview-xlsx` 等，见 `package.json` 的 `db:*` 脚本。
+
+**统一布局宏观 Excel**（列头 `国家:指标:子维度`）：见 [.cursor/prompts/macro-xlsx-import.md](./.cursor/prompts/macro-xlsx-import.md)。流程：`db:import-macro-xlsx --dry-run` → 加 preset → 正式导入 → `db:verify-macro-import`。
+
+**TradingEconomics 指标页自动更新**（给定 URL，HTML 抓取 + 日历调度）：见 [.cursor/prompts/te-indicator-scrape.md](./.cursor/prompts/te-indicator-scrape.md)。范本：`data:seed-ism-te` → `data:sync-ism-te` → `data:sync-calendar`。
 
 ## 模块分工建议（3–5 人）
 

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { syncSubscriptionsFromInvestingCalendar } from "./applyCalendarSchedules";
+import { syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSchedules";
 import { runLagAlerts } from "./lagAlerts";
 import {
   loadInstrumentsForProbe,
@@ -10,9 +10,11 @@ import {
   listDueSubscriptions,
   runDataSubscription,
 } from "./runSubscription";
+import { syncAllStaleSubscriptions } from "./syncAllStale";
 
 export type SchedulerActionName =
   | "sync_calendar"
+  | "sync_all_stale"
   | "run_worker"
   | "run_worker_bis"
   | "run_worker_overview"
@@ -37,19 +39,40 @@ export async function executeSchedulerAction(
 ): Promise<SchedulerActionResult> {
   switch (action) {
     case "sync_calendar": {
-      const result = await syncSubscriptionsFromInvestingCalendar(prisma, {
+      const result = await syncSubscriptionsFromTradingEconomicsCalendar(prisma, {
         dryRun: false,
       });
       const matched = result.rows.filter((r) => r.matched).length;
       return {
         action,
         ok: !result.fetchFailed || matched > 0,
-        message: `日历事件 ${result.eventsFetched} 条，对齐 ${matched}/${result.rows.length}`,
+        message: `TE 日历 ${result.eventsFetched} 条，对齐 ${matched}/${result.rows.length}`,
         details: {
           source: result.source,
           warning: result.warning,
           matched,
           total: result.rows.length,
+        },
+      };
+    }
+    case "sync_all_stale": {
+      const result = await syncAllStaleSubscriptions(prisma, {
+        limit: options?.limit ?? 100,
+        dryRun: options?.dryRun ?? false,
+      });
+      return {
+        action,
+        ok: result.failed === 0,
+        message: result.dryRun
+          ? `未更新 ${result.totalStale} 条（dry-run）`
+          : `未更新指标：尝试 ${result.attempted}，成功 ${result.success}，失败 ${result.failed}，仍过期 ${result.stillStale}`,
+        details: {
+          totalStale: result.totalStale,
+          attempted: result.attempted,
+          success: result.success,
+          failed: result.failed,
+          stillStale: result.stillStale,
+          details: result.details.slice(0, 20),
         },
       };
     }
@@ -76,7 +99,7 @@ export async function executeSchedulerAction(
             orderBy: [{ priority: "desc" }, { nextRunAt: "asc" }],
             include: {
               source: true,
-              instrument: { select: { id: true, code: true, name: true } },
+              instrument: { select: { id: true, code: true, name: true, metadata: true } },
             },
           });
         } else {
@@ -90,7 +113,7 @@ export async function executeSchedulerAction(
           orderBy: [{ priority: "desc" }, { nextRunAt: "asc" }],
           include: {
             source: true,
-            instrument: { select: { id: true, code: true, name: true } },
+            instrument: { select: { id: true, code: true, name: true, metadata: true } },
           },
         });
       }
@@ -121,7 +144,7 @@ export async function executeSchedulerAction(
         orderBy: { instrument: { code: "asc" } },
         include: {
           source: true,
-          instrument: { select: { id: true, code: true, name: true } },
+          instrument: { select: { id: true, code: true, name: true, metadata: true } },
         },
       });
       let ok = 0;
@@ -202,7 +225,15 @@ export async function executeSchedulerAction(
         where: { instrumentId: inst.id },
         include: {
           source: true,
-          instrument: { select: { id: true, code: true, name: true } },
+          instrument: { select: { id: true, code: true, name: true, metadata: true } },
+          releasePackage: {
+            select: {
+              id: true,
+              releaseTemplate: true,
+              scheduleState: true,
+              nextRunAt: true,
+            },
+          },
         },
       });
       if (!sub) return { action, ok: false, message: `${code} 无订阅` };

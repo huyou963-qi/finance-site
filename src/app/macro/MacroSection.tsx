@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   MacroChartIndicatorAssignment,
@@ -51,6 +51,11 @@ import {
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
   BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
+  BUILTIN_US_ECON_DEMAND_TEMPLATE,
+  BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
+  BUILTIN_US_FISCAL_HIGHFREQ_TEMPLATE,
+  BUILTIN_US_FISCAL_OVERVIEW_TEMPLATE,
+  BUILTIN_US_FISCAL_STRUCTURE_TEMPLATE,
   BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
   BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
   BUILTIN_US_OVERVIEW_TEMPLATE,
@@ -68,7 +73,9 @@ import {
   type MacroUnitAdjust,
 } from "@/lib/data/macroPresetTemplates";
 import { CPI_VIRTUAL_KEY_LABELS } from "@/lib/data/cpiAnalysisLayout";
+import { FISCAL_VIRTUAL_KEY_LABELS } from "@/lib/data/fiscalAnalysisLayout";
 import { LABOR_VIRTUAL_KEY_LABELS } from "@/lib/data/laborAnalysisLayout";
+import { OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/overviewAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -420,7 +427,16 @@ function deriveSeries(
   return { key, name, categories: cats, data: vals };
 }
 
+function readMacroReplaceKey(): string | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("replace") !== "1") return null;
+  const key = params.get("key")?.trim();
+  return key || null;
+}
+
 export function MacroSection() {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [mainTab, setMainTab] = useState<MainTab>("selected");
@@ -532,9 +548,11 @@ export function MacroSection() {
   const [macroVisibleFromLabel, setMacroVisibleFromLabel] = useState<string | null>(null);
   const [macroVisibleToLabel, setMacroVisibleToLabel] = useState<string | null>(null);
 
-  const [selectedListItems, setSelectedListItems] = useState<MacroSelectedListItem[]>(() =>
-    listItemsFromKeys(DEFAULT_UNIFIED_SERIES_KEYS),
-  );
+  const [selectedListItems, setSelectedListItems] = useState<MacroSelectedListItem[]>(() => {
+    const replaceKey = readMacroReplaceKey();
+    if (replaceKey) return listItemsFromKeys([replaceKey]);
+    return listItemsFromKeys(DEFAULT_UNIFIED_SERIES_KEYS);
+  });
   const selectedKeys = useMemo(
     () => setFromListItems(selectedListItems),
     [selectedListItems],
@@ -761,12 +779,15 @@ export function MacroSection() {
         setBuiltinTemplateFolderIds(systemFolderIds);
         if (prefs) {
           if ([1, 2, 3, 4, 5, 6].includes(prefs.layoutMode)) setLayoutMode(prefs.layoutMode);
-          if (Array.isArray(prefs.selectedListItems) && prefs.selectedListItems.length > 0) {
-            setSelectedListItems(prefs.selectedListItems);
-          } else if (Array.isArray(prefs.selectedKeys) && prefs.selectedKeys.length > 0) {
-            setSelectedListItems(
-              listItemsFromKeys(prefs.selectedKeys.slice(0, MACRO_MAX_SERIES)),
-            );
+          const replaceKey = readMacroReplaceKey();
+          if (!replaceKey) {
+            if (Array.isArray(prefs.selectedListItems) && prefs.selectedListItems.length > 0) {
+              setSelectedListItems(prefs.selectedListItems);
+            } else if (Array.isArray(prefs.selectedKeys) && prefs.selectedKeys.length > 0) {
+              setSelectedListItems(
+                listItemsFromKeys(prefs.selectedKeys.slice(0, MACRO_MAX_SERIES)),
+              );
+            }
           }
           if (prefs.slotAssignment && typeof prefs.slotAssignment === "object") {
             setSlotAssignment(prefs.slotAssignment);
@@ -807,6 +828,21 @@ export function MacroSection() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!prefsHydrated) return;
+    const key = searchParams.get("key")?.trim();
+    if (!key || searchParams.get("replace") !== "1") return;
+
+    setSelectedListItems(listItemsFromKeys([key]));
+    setSlotAssignment({ [key]: null });
+    setSeriesVisualMap((prev) => (prev[key] ? { [key]: prev[key] } : {}));
+    setSeriesCalcConfigMap((prev) => (prev[key] ? { [key]: prev[key] } : {}));
+    setDerivedCalcs([]);
+    setActiveTemplateId(null);
+    setMainTab("selected");
+    router.replace("/macro", { scroll: false });
+  }, [prefsHydrated, router, searchParams]);
 
   useEffect(() => {
     if (!prefsHydrated) return;
@@ -906,10 +942,15 @@ export function MacroSection() {
       BUILTIN_CHINA_OVERVIEW_TEMPLATE,
       BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
       BUILTIN_GOLD_ANALYSIS_TEMPLATE,
+      BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
+      BUILTIN_US_ECON_DEMAND_TEMPLATE,
       BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
       BUILTIN_US_CPI_DRIVERS_TEMPLATE,
       BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
       BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
+      BUILTIN_US_FISCAL_OVERVIEW_TEMPLATE,
+      BUILTIN_US_FISCAL_STRUCTURE_TEMPLATE,
+      BUILTIN_US_FISCAL_HIGHFREQ_TEMPLATE,
     ];
     const hidden = new Set(hiddenBuiltinTemplateIds);
     const hardcoded = base
@@ -926,10 +967,15 @@ export function MacroSection() {
       BUILTIN_CHINA_OVERVIEW_TEMPLATE,
       BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
       BUILTIN_GOLD_ANALYSIS_TEMPLATE,
+      BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
+      BUILTIN_US_ECON_DEMAND_TEMPLATE,
       BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
       BUILTIN_US_CPI_DRIVERS_TEMPLATE,
       BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
       BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
+      BUILTIN_US_FISCAL_OVERVIEW_TEMPLATE,
+      BUILTIN_US_FISCAL_STRUCTURE_TEMPLATE,
+      BUILTIN_US_FISCAL_HIGHFREQ_TEMPLATE,
     ];
     return base
       .filter((tpl) => hidden.has(tpl.id))
@@ -960,7 +1006,12 @@ export function MacroSection() {
   }, [catalogCountries]);
 
   const macroSeriesLabelByKey = useMemo(() => {
-    const m = new Map<string, string>([...CPI_VIRTUAL_KEY_LABELS, ...LABOR_VIRTUAL_KEY_LABELS]);
+    const m = new Map<string, string>([
+      ...CPI_VIRTUAL_KEY_LABELS,
+      ...FISCAL_VIRTUAL_KEY_LABELS,
+      ...LABOR_VIRTUAL_KEY_LABELS,
+      ...OVERVIEW_VIRTUAL_KEY_LABELS,
+    ]);
     for (const [k, v] of catalogLabelByKey) {
       if (!m.has(k)) m.set(k, v);
     }

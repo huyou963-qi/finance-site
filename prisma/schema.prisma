@@ -95,6 +95,17 @@ model SystemMacroChartPrefs {
   @@schema("public")
 }
 
+/// 宏观指标目录树布局（管理员编辑）；全局单例 id=default
+model MacroCatalogLayout {
+  id        String   @id @default("default")
+  layout    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("macro_catalog_layout")
+  @@schema("public")
+}
+
 enum EventImportance {
   LOW
   MEDIUM
@@ -175,6 +186,8 @@ model Instrument {
   code         String       @unique @db.VarChar(48)
   kind         InstrumentKind
   name         String
+  /// Excel「指标英文名称」或人工维护的英文展示名
+  nameEn       String?      @map("name_en")
   shortName    String?      @map("short_name")
   description  String?
   freqLabel    String?      @map("freq_label")
@@ -192,6 +205,7 @@ model Instrument {
   macroPoints      MacroObservation[]
   bars             Bar[]
   dataSubscription DataSubscription?
+  releasePackageMembers ReleasePackageMember[]
 
   @@index([kind])
   @@index([categoryId])
@@ -243,6 +257,8 @@ model StatisticalAgency {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   sources DataSource[]
+
+  releasePackages ReleasePackage[]
 
   @@index([countryCode])
   @@map("statistical_agency")
@@ -323,6 +339,8 @@ model DataSubscription {
   priority        Int             @default(0)
   retryCount      Int             @default(0) @map("retry_count")
   lastError       String?         @map("last_error") @db.Text
+  releasePackageId String?        @map("release_package_id") @db.VarChar(64)
+  releasePackage   ReleasePackage? @relation(fields: [releasePackageId], references: [id], onDelete: SetNull)
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
@@ -330,7 +348,55 @@ model DataSubscription {
 
   @@index([sourceId])
   @@index([enabled, nextRunAt])
+  @@index([releasePackageId])
   @@map("data_subscription")
+  @@schema("mds")
+}
+
+/// 按官方发布包（报告）对齐经济日历；包内指标共享 scheduleState / nextRunAt。
+model ReleasePackage {
+  id              String          @id @db.VarChar(64)
+  labelZh         String          @map("label_zh") @db.VarChar(128)
+  labelEn         String?         @map("label_en") @db.VarChar(128)
+  countryCode     String          @map("country_code") @db.VarChar(2)
+  agencyId        String?         @map("agency_id") @db.VarChar(48)
+  agency          StatisticalAgency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  granularity     DataGranularity
+  /// CalendarMatchSpec JSON
+  calendarSpec    Json            @map("calendar_spec")
+  /// economic_calendar 模板（不含 calendarMatch / calendarSync）
+  releaseTemplate Json            @map("release_template")
+  /// ReleasePackageScheduleState JSON
+  scheduleState   Json?           @map("schedule_state")
+  nextRunAt       DateTime?       @map("next_run_at")
+  enabled         Boolean         @default(true)
+  sortOrder       Int             @default(0) @map("sort_order")
+  metadata        Json?
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  members       ReleasePackageMember[]
+  subscriptions DataSubscription[]
+
+  @@index([countryCode])
+  @@index([enabled, nextRunAt])
+  @@map("release_package")
+  @@schema("mds")
+}
+
+/// Instrument ↔ ReleasePackage（每仪器最多归属一个包）
+model ReleasePackageMember {
+  id           String         @id @default(uuid()) @db.Uuid
+  packageId    String         @map("package_id") @db.VarChar(64)
+  package      ReleasePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  instrumentId String         @map("instrument_id") @db.Uuid
+  instrument   Instrument     @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@unique([packageId, instrumentId])
+  @@unique([instrumentId])
+  @@index([packageId])
+  @@map("release_package_member")
   @@schema("mds")
 }
 

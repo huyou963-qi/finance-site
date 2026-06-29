@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 const ALLOWED: SchedulerActionName[] = [
   "sync_calendar",
+  "sync_all_stale",
   "run_worker",
   "run_worker_bis",
   "run_worker_overview",

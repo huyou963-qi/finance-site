@@ -214,19 +214,14 @@ function probeXlsxReimport(meta: Record<string, unknown>): ProbeOutcome | null {
   const cfg = XLSX_IMPORT_BY_SOURCE_TAG[tag];
   if (!cfg) return null;
   const exists = existsSync(cfg.defaultPath);
-  if (!exists) {
-    return pending({
-      method: "xlsx_reimport",
-      methodLabel: "Excel 模板再导入",
-      message: `模板文件不存在：${cfg.defaultPath}`,
-      error: "xlsx_missing",
-      agencyHint: agencyText(meta),
-    });
-  }
-  return known({
+  return pending({
     method: "xlsx_reimport",
     methodLabel: "Excel 模板再导入",
-    message: `已确认可通过 ${cfg.script} 从本地 xlsx 更新`,
+    message: exists
+      ? `检测到本地模板 ${cfg.script}；Excel 不可替代网络自动源，须确认 FRED/BIS/REST 等`
+      : `模板文件不存在：${cfg.defaultPath}`,
+    error: exists ? "xlsx_not_network_source" : "xlsx_missing",
+    agencyHint: agencyText(meta),
   });
 }
 
@@ -345,8 +340,9 @@ export async function probeInstrumentAcquisition(
     }
   }
 
-  // 5) Excel 模板再导入（优先于 FRED 搜索，避免中文名搜索失败）
-  const xlsx = probeXlsxReimport(meta);
+  // 5) Excel 模板再导入 — metadata.bootstrap=excel 仅历史补救，不算持续获取方式
+  const xlsx =
+    meta.bootstrap === "excel" ? null : probeXlsxReimport(meta);
   if (xlsx) {
     if (xlsx.status === "known") return xlsx;
     if (xlsx.status === "pending" && !inst.code.startsWith("usov_")) return xlsx;
@@ -421,6 +417,16 @@ export async function probeInstrumentAcquisition(
       officialUrl: official,
       agencyHint: agency,
       message: "尚未确认在线获取方式",
+    });
+  }
+
+  if (meta.bootstrap === "excel") {
+    return pending({
+      method: "excel_bootstrap",
+      methodLabel: "Excel 历史导入",
+      agencyHint: dbSource ?? undefined,
+      message:
+        "已导入历史观测；持续更新须人工或 AI 确认网络源（FRED/BIS/REST 等）并配置订阅",
     });
   }
 

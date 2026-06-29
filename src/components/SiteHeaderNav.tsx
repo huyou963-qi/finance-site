@@ -11,6 +11,7 @@ const linkBase =
 const TOOL_LINKS = [
   { href: "/markets-tools", label: "K线区间统计" },
   { href: "/tools/statistical-analysis", label: "统计分析" },
+  { href: "/tools/futures-positions", label: "期货持仓报告" },
 ] as const;
 
 function isToolPath(pathname: string): boolean {

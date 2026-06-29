@@ -1,12 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import {
-  INVESTING_CALENDAR_BY_FRED,
-  type CalendarMatchSpec,
-} from "./investingEventMap";
+import { TE_CALENDAR_BY_FRED, type CalendarMatchSpec } from "./teEventMap";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
-const OVERRIDES_FILE = path.join(DATA_DIR, "calendar-mapping-overrides.json");
+const OVERRIDES_FILE = path.join(DATA_DIR, "te-calendar-mapping-overrides.json");
+const LEGACY_OVERRIDES_FILE = path.join(DATA_DIR, "calendar-mapping-overrides.json");
 
 export type CalendarMappingEntry = CalendarMatchSpec & {
   updatedAt?: string;
@@ -15,13 +13,16 @@ export type CalendarMappingEntry = CalendarMatchSpec & {
 export type CalendarMappingOverrides = Record<string, CalendarMappingEntry>;
 
 async function readOverridesFile(): Promise<CalendarMappingOverrides> {
-  try {
-    const raw = await fs.readFile(OVERRIDES_FILE, "utf8");
-    const parsed = JSON.parse(raw) as CalendarMappingOverrides;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
+  for (const file of [OVERRIDES_FILE, LEGACY_OVERRIDES_FILE]) {
+    try {
+      const raw = await fs.readFile(file, "utf8");
+      const parsed = JSON.parse(raw) as CalendarMappingOverrides;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      // try next
+    }
   }
+  return {};
 }
 
 async function writeOverridesFile(data: CalendarMappingOverrides): Promise<void> {
@@ -36,7 +37,7 @@ export async function listCalendarMappings(): Promise<{
 }> {
   const overrides = await readOverridesFile();
   const merged: Record<string, CalendarMatchSpec> = {
-    ...INVESTING_CALENDAR_BY_FRED,
+    ...TE_CALENDAR_BY_FRED,
   };
   for (const [key, spec] of Object.entries(overrides)) {
     merged[key] = {
@@ -46,7 +47,7 @@ export async function listCalendarMappings(): Promise<{
       eventId: spec.eventId,
     };
   }
-  return { builtIn: INVESTING_CALENDAR_BY_FRED, overrides, merged };
+  return { builtIn: TE_CALENDAR_BY_FRED, overrides, merged };
 }
 
 export async function getCalendarSpecOverride(key: string): Promise<CalendarMatchSpec | null> {
