@@ -100,6 +100,14 @@ export async function executeSchedulerAction(
             include: {
               source: true,
               instrument: { select: { id: true, code: true, name: true, metadata: true } },
+              releasePackage: {
+                select: {
+                  id: true,
+                  releaseTemplate: true,
+                  scheduleState: true,
+                  nextRunAt: true,
+                },
+              },
             },
           });
         } else {
@@ -114,6 +122,14 @@ export async function executeSchedulerAction(
           include: {
             source: true,
             instrument: { select: { id: true, code: true, name: true, metadata: true } },
+            releasePackage: {
+              select: {
+                id: true,
+                releaseTemplate: true,
+                scheduleState: true,
+                nextRunAt: true,
+              },
+            },
           },
         });
       }
@@ -145,6 +161,14 @@ export async function executeSchedulerAction(
         include: {
           source: true,
           instrument: { select: { id: true, code: true, name: true, metadata: true } },
+          releasePackage: {
+            select: {
+              id: true,
+              releaseTemplate: true,
+              scheduleState: true,
+              nextRunAt: true,
+            },
+          },
         },
       });
       let ok = 0;

@@ -752,12 +752,14 @@ export function macroPayloadToChartOption(
               backgroundColor: "#334155",
               fontSize: compact ? 10 : 12,
               padding: compact ? [2, 4] : [3, 6],
-              formatter: (params: { value?: string | number }) => {
+              formatter: (params) => {
                 const v = params.value;
                 if (typeof v === "number") return formatMacroDisplayNumber(v);
                 if (typeof v === "string" && /^-?\d/.test(v.trim())) {
                   return formatMacroDisplayValue(v);
                 }
+                if (v instanceof Date) return v.toISOString();
+                if (Array.isArray(v)) return v.map(String).join(", ");
                 return v == null ? "" : String(v);
               },
             },
