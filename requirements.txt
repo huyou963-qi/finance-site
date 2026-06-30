@@ -1,7 +1,8 @@
 # finance-site 可选 Python 工具链（全局 pip 安装，非运行 Next 所必需）
 # 用途：Excel 宏观/K 线样例、数据库脚本、HTTP/环境变量调试
 
-# 项目根目录 10Y.xlsx / SPX.xlsx / XAU.xlsx
+# 区间回报工具（/markets-tools）一次性导入：10Y.xlsx / SPX.xlsx / XAU.xlsx → mds.bar
+# npm run db:import-asset-return-xlsx
 openpyxl>=3.1,<4
 pandas>=2.2,<3
 

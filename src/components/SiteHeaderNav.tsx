@@ -29,6 +29,7 @@ export function SiteHeaderNav() {
   const dashboardActive = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   const macroActive = pathname === "/macro" || pathname === "/";
   const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
+  const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
   const toolsActive = isToolPath(pathname);
   const authActive = pathname === "/auth" || pathname.startsWith("/auth/");
   const adminUsersActive = pathname === "/admin/users" || pathname.startsWith("/admin/users/");
@@ -110,6 +111,17 @@ export function SiteHeaderNav() {
         aria-current={eventsActive ? "page" : undefined}
       >
         事件
+      </Link>
+      <Link
+        href="/weekly"
+        className={`${linkBase} ${
+          weeklyActive
+            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
+            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+        }`}
+        aria-current={weeklyActive ? "page" : undefined}
+      >
+        AI周度观察
       </Link>
       <div ref={toolsRef} className="relative">
         <button

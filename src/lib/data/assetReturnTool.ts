@@ -1,15 +1,14 @@
-import path from "node:path";
-import fs from "node:fs";
-import { read, utils, SSF } from "xlsx";
+import { prisma } from "@/lib/prisma";
+import {
+  ALL_ASSET_CODES,
+  ASSET_RETURN_DEFS,
+  ASSET_RETURN_TIMEFRAME,
+  type AssetCode,
+} from "./assetReturnCatalog";
+import type { AssetBar } from "./assetReturnXlsx";
 
-export type AssetCode = "10Y" | "SPX" | "XAU";
-
-export type AssetBar = {
-  date: string;
-  low: number;
-  high: number;
-  close: number;
-};
+export type { AssetCode } from "./assetReturnCatalog";
+export type { AssetBar };
 
 export type AssetWindowReturn = {
   asset: AssetCode;
@@ -29,137 +28,62 @@ type AssetHistory = {
   bars: AssetBar[];
 };
 
-const ASSET_FILES: Record<AssetCode, string> = {
-  "10Y": "10Y.xlsx",
-  SPX: "SPX.xlsx",
-  XAU: "XAU.xlsx",
-};
-
 let cachedHistories: AssetHistory[] | null = null;
+let cachePromise: Promise<AssetHistory[]> | null = null;
 
-function resolveAssetFilePath(fileName: string): string {
-  const envDir = process.env.ASSET_DATA_DIR?.trim();
-  const cwd = process.cwd();
-  const candidates = [
-    envDir ? path.join(envDir, fileName) : null,
-    path.join(cwd, fileName),
-    path.join(cwd, "data", fileName),
-    path.join(cwd, "assets", fileName),
-    path.resolve(cwd, "..", fileName),
-    path.resolve(cwd, "..", "finance-site", fileName),
-  ].filter((v): v is string => Boolean(v));
-
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
-
-  throw new Error(
-    `Cannot access file ${path.join(cwd, fileName)}. Tried: ${candidates.join(" | ")}. ` +
-      `Place the Excel files in project root, or set ASSET_DATA_DIR.`,
-  );
+function dateToUtc(date: string): Date {
+  return new Date(`${date}T00:00:00.000Z`);
 }
 
-function normalizeHeader(input: unknown): string {
-  return String(input ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/[_-]/g, "");
-}
-
-function parseExcelDate(raw: unknown): string | null {
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
-    return raw.toISOString().slice(0, 10);
-  }
-  if (typeof raw === "number") {
-    const parsed = SSF.parse_date_code(raw);
-    if (parsed) {
-      const y = String(parsed.y).padStart(4, "0");
-      const m = String(parsed.m).padStart(2, "0");
-      const d = String(parsed.d).padStart(2, "0");
-      return `${y}-${m}-${d}`;
-    }
-  }
-  if (typeof raw === "string") {
-    const v = raw.trim().slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-    const fromSlash = v.replace(/\//g, "-");
-    if (/^\d{4}-\d{2}-\d{2}$/.test(fromSlash)) return fromSlash;
-  }
-  return null;
-}
-
-function parseNumber(raw: unknown): number | null {
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
-  if (typeof raw === "string") {
-    const n = Number.parseFloat(raw.replace(/,/g, "").trim());
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-function detectColumns(headers: unknown[]) {
-  const normalized = headers.map((h) => normalizeHeader(h));
-  const findBy = (...names: string[]) => {
-    for (const n of names) {
-      const idx = normalized.indexOf(n);
-      if (idx >= 0) return idx;
-    }
-    return -1;
-  };
-
-  const date = findBy("date", "日期", "tradingdate", "time");
-  const high = findBy("high", "最高", "最高价");
-  const low = findBy("low", "最低", "最低价");
-  const close = findBy("close", "收盘", "收盘价", "adjclose", "adjustedclose");
-
-  return {
-    date: date >= 0 ? date : 0,
-    high: high >= 0 ? high : 2,
-    low: low >= 0 ? low : 3,
-    close: close >= 0 ? close : 4,
-  };
-}
-
-function loadOneAsset(asset: AssetCode): AssetHistory {
-  const filePath = resolveAssetFilePath(ASSET_FILES[asset]);
-  const raw = fs.readFileSync(filePath);
-  const wb = read(raw, { type: "buffer", cellDates: true });
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) {
-    throw new Error(`${asset} 数据为空：未找到工作表`);
-  }
-
-  const rows = utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], {
-    header: 1,
-    raw: true,
-    blankrows: false,
+async function loadOneAssetFromDb(asset: AssetCode): Promise<AssetHistory> {
+  const def = ASSET_RETURN_DEFS[asset];
+  const instrument = await prisma.instrument.findUnique({
+    where: { code: def.instrumentCode },
+    select: { id: true },
   });
-  if (rows.length < 2) {
-    throw new Error(`${asset} 数据为空：行数不足`);
+  if (!instrument) {
+    throw new Error(
+      `数据库未导入 ${asset} 行情（instrument ${def.instrumentCode}）。` +
+        `请在项目根目录放置 ${def.xlsxFile} 后运行：npm run db:import-asset-return-xlsx`,
+    );
   }
 
-  const { date, high, low, close } = detectColumns(rows[0] ?? []);
-  const bars: AssetBar[] = [];
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i] ?? [];
-    const d = parseExcelDate(row[date]);
-    const h = parseNumber(row[high]);
-    const l = parseNumber(row[low]);
-    const c = parseNumber(row[close]);
-    if (!d || h == null || l == null || c == null) continue;
-    bars.push({ date: d, high: h, low: l, close: c });
+  const rows = await prisma.bar.findMany({
+    where: {
+      instrumentId: instrument.id,
+      timeframe: ASSET_RETURN_TIMEFRAME,
+    },
+    orderBy: { openedAt: "asc" },
+    select: {
+      openedAt: true,
+      high: true,
+      low: true,
+      close: true,
+    },
+  });
+
+  if (rows.length === 0) {
+    throw new Error(
+      `${asset} 在数据库中无日 K 数据。请运行：npm run db:import-asset-return-xlsx`,
+    );
   }
 
-  bars.sort((a, b) => a.date.localeCompare(b.date));
+  const bars = rows.map((row) => ({
+    date: row.openedAt.toISOString().slice(0, 10),
+    high: row.high,
+    low: row.low,
+    close: row.close,
+  }));
+
   return { asset, bars };
 }
 
-function loadHistories(): AssetHistory[] {
+async function loadHistories(): Promise<AssetHistory[]> {
   if (cachedHistories) return cachedHistories;
-  cachedHistories = (Object.keys(ASSET_FILES) as AssetCode[]).map((asset) =>
-    loadOneAsset(asset),
-  );
+  if (!cachePromise) {
+    cachePromise = Promise.all(ALL_ASSET_CODES.map((asset) => loadOneAssetFromDb(asset)));
+  }
+  cachedHistories = await cachePromise;
   return cachedHistories;
 }
 
@@ -192,8 +116,9 @@ function pickWindow(
   };
 }
 
-export function listAssetMeta() {
-  return loadHistories().map((h) => ({
+export async function listAssetMeta() {
+  const histories = await loadHistories();
+  return histories.map((h) => ({
     asset: h.asset,
     firstDate: h.bars[0]?.date ?? "",
     lastDate: h.bars[h.bars.length - 1]?.date ?? "",
@@ -201,12 +126,12 @@ export function listAssetMeta() {
   }));
 }
 
-export function calcAssetReturns(
+export async function calcAssetReturns(
   startDate: string,
   endDate: string,
   assets: AssetCode[],
-): AssetWindowReturn[] {
-  const histories = loadHistories();
+): Promise<AssetWindowReturn[]> {
+  const histories = await loadHistories();
   const pickedAssets = new Set<AssetCode>(assets);
 
   return histories
@@ -236,4 +161,16 @@ export function calcAssetReturns(
       };
     })
     .filter((x): x is AssetWindowReturn => x !== null);
+}
+
+/** 供导入脚本写入 Bar 表 */
+export function assetBarToDbRow(bar: AssetBar) {
+  return {
+    openedAt: dateToUtc(bar.date),
+    open: bar.close,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    volume: 0,
+  };
 }

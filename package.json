@@ -29,6 +29,7 @@
     "db:import-china-overview-xlsx": "dotenv -e .env.local -- tsx scripts/import-china-overview-xlsx.ts",
     "db:import-japan-overview-xlsx": "dotenv -e .env.local -- tsx scripts/import-japan-overview-xlsx.ts",
     "db:import-gold-analysis-xlsx": "dotenv -e .env.local -- tsx scripts/import-gold-analysis-xlsx.ts",
+    "db:import-asset-return-xlsx": "dotenv -e .env.local -- tsx scripts/import-asset-return-xlsx.ts",
     "db:backfill-china-overview-attrs": "dotenv -e .env.local -- tsx scripts/backfill-china-overview-attrs-from-xlsx.ts",
     "db:backfill-japan-overview-attrs": "dotenv -e .env.local -- tsx scripts/backfill-japan-overview-attrs-from-xlsx.ts",
     "db:studio": "dotenv -e .env.local -- prisma studio",
@@ -81,6 +82,8 @@
     "pg": "^8.20.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "undici": "^6.21.0",
     "xlsx": "^0.18.5"
   },

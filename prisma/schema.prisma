@@ -148,6 +148,20 @@ model MarketEvent {
   @@schema("public")
 }
 
+/// AI 周度市场观察（Automation ingest + 站内阅读）
+model WeeklyReport {
+  id           String   @id @default(uuid())
+  weekEnding   DateTime @unique @map("week_ending") @db.Date
+  meta         Json
+  bodyMarkdown String   @map("body_markdown") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([weekEnding(sort: Desc)])
+  @@map("weekly_report")
+  @@schema("public")
+}
+
 // ─── mds：统一金融数据目录（宏观 / 资产 / 行情），与厂商无关 ─────────────────
 
 enum InstrumentKind {

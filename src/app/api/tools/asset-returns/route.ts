@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const end = req.nextUrl.searchParams.get("end") ?? "";
     const assetsRaw = req.nextUrl.searchParams.get("assets") ?? "";
 
-    const meta = listAssetMeta();
+    const meta = await listAssetMeta();
 
     if (!start || !end) {
       return NextResponse.json({
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     }
     const pickedAssets = assetSet.size > 0 ? [...assetSet] : ALL_ASSETS;
 
-    const rows = calcAssetReturns(start, end, pickedAssets);
+    const rows = await calcAssetReturns(start, end, pickedAssets);
     return NextResponse.json({
       assets: meta,
       defaults: { start, end, pickedAssets },
