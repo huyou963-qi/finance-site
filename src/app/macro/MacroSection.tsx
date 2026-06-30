@@ -2749,7 +2749,7 @@ export function MacroSection() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 lg:min-h-full">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-800/80 px-4 pb-1.5 pt-1 lg:px-6">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-fs-border px-4 pb-1.5 pt-1 lg:px-6">
         <MacroMainToolbar
           mainTab={mainTab}
           onMainTabChange={setMainTab}
@@ -2764,7 +2764,7 @@ export function MacroSection() {
         {mainTab === "charts" ? (
           <>
             <span
-              className="hidden h-5 w-px shrink-0 bg-slate-700/90 sm:block"
+              className="hidden h-5 w-px shrink-0 bg-fs-border/90 sm:block"
               aria-hidden
             />
             <MacroChartDrawingToolbar
@@ -2780,14 +2780,14 @@ export function MacroSection() {
               onSelectedTextChange={onMacroSelectedTextChange}
               onDeleteSelected={deleteSelectedMacroDrawing}
             />
-          <label className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+          <label className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-medium text-fs-muted">
             <span className="shrink-0">图表布局</span>
             <select
               value={layoutMode}
               onChange={(e) =>
                 setLayoutMode(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)
               }
-              className="min-w-[10rem] rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600/40"
+              className="min-w-[10rem] rounded-md border border-fs-border bg-fs-bg px-2 py-1.5 text-xs text-fs-text focus:border-fs-accent focus:outline-none focus:ring-1 focus:ring-fs-accent/30"
             >
               <option value={1}>单图</option>
               <option value={2}>2 图（上下）</option>
@@ -2798,12 +2798,12 @@ export function MacroSection() {
             </select>
           </label>
           <div className="group relative shrink-0">
-            <label className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-700 bg-slate-950/45 px-2 py-1.5 text-xs text-slate-300 hover:border-slate-500">
+            <label className="flex cursor-pointer items-center gap-1 rounded-md border border-fs-border bg-fs-bg/45 px-2 py-1.5 text-xs text-fs-secondary hover:border-fs-border">
               <input
                 type="checkbox"
                 checked={pageSyncEnabled}
                 onChange={(e) => setPageSyncEnabled(e.target.checked)}
-                className="h-3 w-3 shrink-0 rounded border-slate-600"
+                className="h-3 w-3 shrink-0 rounded border-fs-border"
                 aria-label="页面同步"
                 aria-describedby="macro-page-sync-tip"
               />
@@ -2812,7 +2812,7 @@ export function MacroSection() {
             <div
               id="macro-page-sync-tip"
               role="tooltip"
-              className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 hidden w-max max-w-[14rem] rounded-md border border-slate-600 bg-slate-900 px-2.5 py-1.5 text-[11px] leading-snug text-slate-200 shadow-lg group-hover:block"
+              className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 hidden w-max max-w-[14rem] rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-[11px] leading-snug text-fs-text shadow-lg group-hover:block"
             >
               多显示器多窗口时，数据同步展示。
             </div>
@@ -2823,13 +2823,13 @@ export function MacroSection() {
 
       <div
         ref={macroLayoutRowRef}
-        className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-slate-800/80 lg:flex-row lg:items-stretch lg:border-t-0"
+        className="flex min-h-0 min-w-0 flex-1 flex-col border-t border-fs-border lg:flex-row lg:items-stretch lg:border-t-0"
       >
         {sidebarCollapsed ? (
           <button
             type="button"
             onClick={() => setSidebarCollapsed(false)}
-            className="hidden w-9 shrink-0 flex-col items-center justify-center gap-0.5 border-r border-slate-800 bg-slate-950/90 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200 lg:flex"
+            className="hidden w-9 shrink-0 flex-col items-center justify-center gap-0.5 border-r border-fs-border bg-fs-bg/90 py-3 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text lg:flex"
             title="展开指标树"
           >
             <span>指</span>
@@ -2839,19 +2839,19 @@ export function MacroSection() {
         ) : (
           <>
             <aside
-              className="flex max-h-[40vh] min-h-0 w-full shrink-0 flex-col overflow-hidden border-slate-800 bg-slate-950/70 lg:max-h-none lg:min-h-0 lg:w-auto lg:border-r lg:border-t-0"
+              className="flex max-h-[40vh] min-h-0 w-full shrink-0 flex-col overflow-hidden border-fs-border bg-fs-elevated lg:max-h-none lg:min-h-0 lg:w-auto lg:border-r lg:border-t-0"
               style={{
                 flex: "0 0 auto",
                 width: `min(100%, ${sidebarWidthPx ?? SIDEBAR_DEFAULT_PX}px)`,
                 maxWidth: SIDEBAR_MAX_PX,
               }}
             >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/80 px-3 py-1.5 lg:px-4">
-                <span className="text-xs font-medium text-slate-400">指标目录</span>
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-3 py-1.5 lg:px-4">
+                <span className="text-xs font-medium text-fs-muted">指标目录</span>
                 <button
                   type="button"
                   onClick={() => setSidebarCollapsed(true)}
-                  className="hidden rounded border border-slate-700/80 px-1.5 py-0.5 text-[10px] text-slate-400 transition hover:border-slate-500 hover:text-slate-200 lg:inline-block"
+                  className="hidden rounded border border-fs-border/80 px-1.5 py-0.5 text-[10px] text-fs-muted transition hover:border-fs-border hover:text-fs-text lg:inline-block"
                   title="折叠指标树"
                 >
                   折叠
@@ -2873,28 +2873,28 @@ export function MacroSection() {
               aria-orientation="vertical"
               title="拖拽调节指标树宽度"
               onMouseDown={startSidebarResize}
-              className="group hidden w-1.5 shrink-0 cursor-col-resize border-x border-slate-800 bg-slate-900/90 hover:bg-emerald-950/80 lg:block"
+              className="group hidden w-1.5 shrink-0 cursor-col-resize border-x border-fs-border bg-fs-elevated/90 hover:bg-fs-accent-soft lg:block"
             >
-              <span className="mx-auto block h-full w-px bg-slate-600 group-hover:bg-emerald-500" />
+              <span className="mx-auto block h-full w-px bg-fs-border group-hover:bg-fs-accent" />
             </div>
           </>
         )}
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-slate-950/40 px-3 py-3 lg:min-h-0 lg:px-6 lg:py-4">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-fs-bg/40 px-3 py-3 lg:min-h-0 lg:px-6 lg:py-4">
           {mainTab === "selected" ? (
             <section className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden">
-              <div className="shrink-0 border-b border-slate-800/80 pb-2">
-                <div className="rounded-md border border-slate-800/90 bg-slate-950/50 px-2 py-1.5">
+              <div className="shrink-0 border-b border-fs-border pb-2">
+                <div className="rounded-md border border-fs-border/90 bg-fs-elevated px-2 py-1.5">
                   <div className="flex flex-wrap items-end gap-x-2 gap-y-1 text-[11px]">
-                    <span className="shrink-0 self-center text-[10px] font-medium text-slate-500">
+                    <span className="shrink-0 self-center text-[10px] font-medium text-fs-muted">
                       单指标
                     </span>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       指标
                       <select
                         value={calcTargetKey}
                         onChange={(e) => setCalcTargetKey(e.target.value)}
-                        className="ml-1 max-w-[9rem] rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         {selectedKeyOptions.map((x) => (
                           <option key={x.key} value={x.key}>
@@ -2903,14 +2903,14 @@ export function MacroSection() {
                         ))}
                       </select>
                     </label>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       运算
                       <select
                         value={calcDraft.op}
                         onChange={(e) =>
                           setCalcDraft((prev) => ({ ...prev, op: e.target.value as MacroSeriesCalcOp }))
                         }
-                        className="ml-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         <option value="none">原始</option>
                         <option value="pctChange">环比%</option>
@@ -2919,7 +2919,7 @@ export function MacroSection() {
                         <option value="cumsum">累计</option>
                       </select>
                     </label>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       频率
                       <select
                         value={calcDraft.frequency}
@@ -2929,7 +2929,7 @@ export function MacroSection() {
                             frequency: e.target.value as MacroFrequencyAdjust,
                           }))
                         }
-                        className="ml-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         <option value="keep">原始</option>
                         <option value="month">月</option>
@@ -2937,7 +2937,7 @@ export function MacroSection() {
                         <option value="year">年</option>
                       </select>
                     </label>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       变频
                       <select
                         value={calcDraft.resampleMethod}
@@ -2947,21 +2947,21 @@ export function MacroSection() {
                             resampleMethod: e.target.value as MacroResampleMethod,
                           }))
                         }
-                        className="ml-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         <option value="avg">平均</option>
                         <option value="start">期初</option>
                         <option value="end">期末</option>
                       </select>
                     </label>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       单位
                       <select
                         value={calcDraft.unit}
                         onChange={(e) =>
                           setCalcDraft((prev) => ({ ...prev, unit: e.target.value as MacroUnitAdjust }))
                         }
-                        className="ml-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         <option value="keep">原始</option>
                         <option value="x0.01">x0.01</option>
@@ -2971,32 +2971,32 @@ export function MacroSection() {
                     <button
                       type="button"
                       onClick={applyCalcConfigToKey}
-                      className="rounded border border-cyan-700/80 bg-cyan-950/35 px-2 py-0.5 text-[11px] text-cyan-100 hover:border-cyan-500"
+                      className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[11px] font-medium text-fs-accent-text hover:border-fs-accent"
                     >
                       应用
                     </button>
                     <button
                       type="button"
                       onClick={() => calcTargetKey && resetCalcConfigForKey(calcTargetKey)}
-                      className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-300 hover:border-slate-500"
+                      className="rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-secondary hover:border-fs-border"
                     >
                       重置
                     </button>
 
                     <span
-                      className="mx-0.5 hidden h-6 w-px shrink-0 self-center bg-slate-700/80 sm:inline-block"
+                      className="mx-0.5 hidden h-6 w-px shrink-0 self-center bg-fs-border/80 sm:inline-block"
                       aria-hidden
                     />
 
-                    <span className="shrink-0 self-center text-[10px] font-medium text-slate-500">
+                    <span className="shrink-0 self-center text-[10px] font-medium text-fs-muted">
                       指标间
                     </span>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       左
                       <select
                         value={derivedLeftKey}
                         onChange={(e) => setDerivedLeftKey(e.target.value)}
-                        className="ml-1 max-w-[9rem] rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         {selectedKeyOptions.map((x) => (
                           <option key={`l-${x.key}`} value={x.key}>
@@ -3005,12 +3005,12 @@ export function MacroSection() {
                         ))}
                       </select>
                     </label>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       运算
                       <select
                         value={derivedOp}
                         onChange={(e) => setDerivedOp(e.target.value as MacroDerivedCalcOp)}
-                        className="ml-1 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         <option value="ratio">A/B</option>
                         <option value="spread">A-B</option>
@@ -3020,12 +3020,12 @@ export function MacroSection() {
                         <option value="div">A÷B</option>
                       </select>
                     </label>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       右
                       <select
                         value={derivedRightKey}
                         onChange={(e) => setDerivedRightKey(e.target.value)}
-                        className="ml-1 max-w-[9rem] rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100"
+                        className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
                       >
                         {selectedKeyOptions.map((x) => (
                           <option key={`r-${x.key}`} value={x.key}>
@@ -3034,43 +3034,43 @@ export function MacroSection() {
                         ))}
                       </select>
                     </label>
-                    <label className="text-slate-500">
+                    <label className="text-fs-muted">
                       名称
                       <input
                         type="text"
                         value={derivedName}
                         onChange={(e) => setDerivedName(e.target.value)}
                         placeholder="自动"
-                        className="ml-1 w-24 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-100 placeholder:text-slate-600"
+                        className="ml-1 w-24 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary"
                       />
                     </label>
                     <button
                       type="button"
                       onClick={addDerivedCalc}
-                      className="rounded border border-emerald-700/80 bg-emerald-950/35 px-2 py-0.5 text-[11px] text-emerald-100 hover:border-emerald-500"
+                      className="rounded border border-fs-accent/30 bg-fs-accent-soft px-2 py-0.5 text-[11px] text-fs-accent-text hover:border-fs-accent"
                     >
                       添加
                     </button>
                   </div>
                   {derivedCalcs.length > 0 ? (
-                    <ul className="mt-1 flex flex-wrap gap-1 border-t border-slate-800/70 pt-1">
+                    <ul className="mt-1 flex flex-wrap gap-1 border-t border-fs-border/70 pt-1">
                       {derivedCalcs.map((x) => (
                         <li
                           key={x.id}
-                          className="flex items-center gap-1 rounded border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-300"
+                          className="flex items-center gap-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[10px] text-fs-secondary"
                         >
                           <span>{x.name}</span>
                           <button
                             type="button"
                             onClick={() => renameDerivedCalc(x.id)}
-                            className="rounded border border-slate-700 px-1 text-[10px] text-slate-300 hover:border-slate-500"
+                            className="rounded border border-fs-border px-1 text-[10px] text-fs-secondary hover:border-fs-border"
                           >
                             改名
                           </button>
                           <button
                             type="button"
                             onClick={() => removeDerivedCalc(x.id)}
-                            className="rounded border border-rose-900/70 px-1 text-[10px] text-rose-200/90 hover:border-rose-700"
+                            className="rounded border border-fs-negative/50 bg-white px-1 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
                           >
                             删
                           </button>
@@ -3081,11 +3081,11 @@ export function MacroSection() {
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-[1_1_50%] flex-col border-b border-slate-800/80">
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-500">
+              <div className="flex min-h-0 flex-[1_1_50%] flex-col border-b border-fs-border">
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
                   <span>
                     已选指标
-                    <span className="ml-2 font-normal text-slate-600">
+                    <span className="ml-2 font-normal text-fs-secondary">
                       {selectedKeys.size}/{MACRO_MAX_SERIES}
                     </span>
                   </span>
@@ -3098,13 +3098,13 @@ export function MacroSection() {
                         createDividerItem(),
                       ])
                     }
-                    className="rounded border border-cyan-800/60 px-1.5 py-0 text-[10px] font-normal text-cyan-300/90 hover:border-cyan-500 disabled:opacity-40"
+                    className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:opacity-40"
                     title="在列表末尾添加分割线"
                   >
                     添加分割线
                   </button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto rounded-t-lg border border-b-0 border-slate-800/90 bg-slate-950/60">
+                <div className="min-h-0 flex-1 overflow-y-auto rounded-t-lg border border-b-0 border-fs-border/90 bg-fs-bg/60">
                   <SelectedIndicatorsList
                     items={selectedListItems}
                     rowByKey={selectedRowByKey}
@@ -3116,16 +3116,16 @@ export function MacroSection() {
               </div>
 
               <div className="flex min-h-0 flex-[1_1_50%] flex-col">
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-500">
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
                   <span>提取数据</span>
                   <div className="flex items-center gap-1">
-                    <span className="font-normal text-slate-600">导出</span>
+                    <span className="font-normal text-fs-secondary">导出</span>
                     <button
                       type="button"
                       disabled={!displayPayload}
                       onClick={() => exportExtractedData("csv")}
                       title="导出为 CSV"
-                      className="rounded border border-slate-700 px-1.5 py-0 text-[10px] font-normal text-slate-300 hover:border-cyan-700 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       CSV
                     </button>
@@ -3134,14 +3134,14 @@ export function MacroSection() {
                       disabled={!displayPayload}
                       onClick={() => exportExtractedData("xlsx")}
                       title="导出为 Excel"
-                      className="rounded border border-slate-700 px-1.5 py-0 text-[10px] font-normal text-slate-300 hover:border-cyan-700 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       XLSX
                     </button>
                   </div>
                 </div>
                 <div
-                  className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-slate-800/90 bg-slate-950/60"
+                  className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-fs-border/90 bg-fs-bg/60"
                   suppressHydrationWarning
                 >
                   {displayPayload ? (
@@ -3156,10 +3156,10 @@ export function MacroSection() {
                             />
                           ))}
                         </colgroup>
-                        <thead className="sticky top-0 z-[1] bg-slate-900/95 text-slate-300">
+                        <thead className="sticky top-0 z-[1] bg-fs-elevated/95 text-fs-secondary">
                           <tr>
                             <th
-                              className="sticky left-0 z-[3] border-b border-r border-slate-800 bg-slate-900 px-2 py-1 text-left font-medium"
+                              className="sticky left-0 z-[3] border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium"
                               style={{
                                 width: tableColumnWidths.time,
                                 minWidth: tableColumnWidths.time,
@@ -3170,7 +3170,7 @@ export function MacroSection() {
                                 onClick={() =>
                                   setTableTimeSort((prev) => (prev === "asc" ? "desc" : "asc"))
                                 }
-                                className="inline-flex items-center gap-1 text-slate-300 hover:text-cyan-200"
+                                className="inline-flex items-center gap-1 text-fs-secondary hover:text-fs-accent-text"
                                 title={
                                   tableTimeSort === "asc"
                                     ? "按时间升序，点击切换为降序"
@@ -3184,7 +3184,7 @@ export function MacroSection() {
                               >
                                 时间
                                 <span
-                                  className="text-[10px] text-cyan-400/90"
+                                  className="text-[10px] text-fs-accent-text"
                                   aria-hidden
                                 >
                                   {tableTimeSort === "asc" ? "↑" : "↓"}
@@ -3194,7 +3194,7 @@ export function MacroSection() {
                             {tableColumns.map((c) => (
                               <th
                                 key={c.key}
-                                className="border-b border-r border-slate-800 px-2 py-1 text-left font-medium whitespace-nowrap"
+                                className="border-b border-r border-fs-border px-2 py-1 text-left font-medium whitespace-nowrap"
                                 style={{ width: tableColumnWidths.columns.get(c.key) }}
                                 title={c.label}
                               >
@@ -3207,14 +3207,14 @@ export function MacroSection() {
                           {sortedTableRowIndices.map((idx, rowIdx) => {
                             const time = displayPayload.categories[idx]!;
                             const stickyTimeBg =
-                              rowIdx % 2 === 0 ? "bg-slate-950" : "bg-slate-900/35";
+                              rowIdx % 2 === 0 ? "bg-fs-bg" : "bg-fs-elevated/35";
                             return (
                             <tr
                               key={`${time}-${idx}`}
-                              className="odd:bg-slate-950 even:bg-slate-900/35"
+                              className="odd:bg-fs-bg even:bg-fs-elevated/35"
                             >
                               <td
-                                className={`sticky left-0 z-[1] whitespace-nowrap border-b border-r border-slate-800 px-2 py-0.5 text-slate-400 tabular-nums ${stickyTimeBg}`}
+                                className={`sticky left-0 z-[1] whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-muted tabular-nums ${stickyTimeBg}`}
                                 style={{ minWidth: tableColumnWidths.time }}
                               >
                                 {formatMacroPeriodDisplay(time)}
@@ -3222,7 +3222,7 @@ export function MacroSection() {
                               {tableColumns.map((c) => (
                                 <td
                                   key={`${c.key}-${idx}`}
-                                  className="whitespace-nowrap border-b border-r border-slate-800 px-2 py-0.5 text-slate-200 tabular-nums"
+                                  className="whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-text tabular-nums"
                                 >
                                   {tableCellDisplayText(tableValueByKey.get(c.key)?.[idx])}
                                 </td>
@@ -3234,7 +3234,7 @@ export function MacroSection() {
                       </table>
                     </div>
                   ) : (
-                    <p className="px-3 py-6 text-center text-xs text-slate-500">
+                    <p className="px-3 py-6 text-center text-xs text-fs-muted">
                       点击「提取数据」后，各指标数值将显示在此处。
                     </p>
                   )}
@@ -3244,7 +3244,7 @@ export function MacroSection() {
           ) : mainTab === "charts" ? (
             <section className="flex min-h-0 flex-1 flex-col gap-2">
               {loading ? (
-                <div className="flex min-h-[200px] flex-1 items-center justify-center text-sm text-slate-500">
+                <div className="flex min-h-[200px] flex-1 items-center justify-center text-sm text-fs-muted">
                   正在加载…
                 </div>
               ) : displayPayload ? (
@@ -3292,21 +3292,21 @@ export function MacroSection() {
                           aria-orientation="vertical"
                           title="拖拽调节宽度"
                           onMouseDown={startChartSettingsResize}
-                          className="group w-1.5 shrink-0 cursor-col-resize border-x border-slate-800 bg-slate-900/90 hover:bg-emerald-950/80"
+                          className="group w-1.5 shrink-0 cursor-col-resize border-x border-fs-border bg-fs-elevated/90 hover:bg-fs-accent-soft"
                         >
-                          <span className="mx-auto block h-full w-px bg-slate-600 group-hover:bg-emerald-500" />
+                          <span className="mx-auto block h-full w-px bg-fs-border group-hover:bg-fs-accent" />
                         </div>
                         <aside
-                          className="max-w-[65%] flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-slate-950/85"
+                          className="max-w-[65%] flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-fs-border bg-fs-bg/85"
                           style={
                             chartSettingsWidthPx !== null
                               ? { width: chartSettingsWidthPx, flex: "0 0 auto" }
                               : { flex: "0 0 33%", minWidth: CHART_SETTINGS_MIN_PX }
                           }
                         >
-                          <div className="flex shrink-0 flex-col gap-2 border-b border-slate-800 px-2 py-1.5">
+                          <div className="flex shrink-0 flex-col gap-2 border-b border-fs-border px-2 py-1.5">
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex min-w-0 flex-1 gap-0.5 rounded-md border border-slate-700/90 bg-slate-950/50 p-0.5">
+                              <div className="flex min-w-0 flex-1 gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5">
                                 {(
                                   [
                                     { id: "settings" as const, label: "图形设置" },
@@ -3320,8 +3320,8 @@ export function MacroSection() {
                                     onClick={() => setChartSidePanelTab(id)}
                                     className={`flex-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
                                       chartSidePanelTab === id
-                                        ? "bg-emerald-950/60 text-emerald-100 ring-1 ring-emerald-700/80"
-                                        : "text-slate-400 hover:bg-slate-900/60 hover:text-slate-200"
+                                        ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+                                        : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                                     }`}
                                   >
                                     {label}
@@ -3331,13 +3331,13 @@ export function MacroSection() {
                               <button
                                 type="button"
                                 onClick={() => setChartSettingsOpen(false)}
-                                className="shrink-0 rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                                className="shrink-0 rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-muted hover:border-fs-border hover:text-fs-text"
                               >
                                 收起
                               </button>
                             </div>
                             {chartSidePanelTab === "settings" ? (
-                              <div className="flex min-w-0 gap-0.5 rounded-md border border-slate-700/90 bg-slate-950/50 p-0.5">
+                              <div className="flex min-w-0 gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5">
                                 {(
                                   [
                                     { id: "global" as const, label: "全图设置" },
@@ -3351,8 +3351,8 @@ export function MacroSection() {
                                     onClick={() => setChartPropsTab(id)}
                                     className={`flex-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
                                       chartPropsTab === id
-                                        ? "bg-slate-800 text-slate-100 ring-1 ring-slate-600/80"
-                                        : "text-slate-500 hover:bg-slate-900/60 hover:text-slate-300"
+                                        ? "bg-fs-elevated text-fs-text ring-1 ring-fs-border"
+                                        : "text-fs-muted hover:bg-fs-elevated hover:text-fs-secondary"
                                     }`}
                                   >
                                     {label}
@@ -3362,7 +3362,7 @@ export function MacroSection() {
                             ) : null}
                           </div>
                           <div
-                            className={`min-h-0 flex-1 text-xs text-slate-400 ${
+                            className={`min-h-0 flex-1 text-xs text-fs-muted ${
                               chartSidePanelTab === "events" || chartSidePanelTab === "intro"
                                 ? "flex flex-col overflow-hidden px-2 py-2"
                                 : "overflow-y-auto px-2 py-2"
@@ -3413,11 +3413,11 @@ export function MacroSection() {
                               tab={chartPropsTab}
                             />
                             {chartPropsTab === "global" ? (
-                              <div className="mt-3 border-t border-slate-800 pt-3">
-                                <p className="mb-2 text-[10px] leading-relaxed text-slate-500">
+                              <div className="mt-3 border-t border-fs-border pt-3">
+                                <p className="mb-2 text-[10px] leading-relaxed text-fs-muted">
                                   常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图；季节图仅支持单指标（月度/季度），默认近 5 年并叠加前 N-1 年均值线；饼图可切换数据年份；并支持任意序列切到右轴。
                                 </p>
-                                <div className="rounded-md border border-slate-700/90 bg-slate-900/50 p-2 text-[10px] text-slate-500">
+                                <div className="rounded-md border border-fs-border/90 bg-fs-elevated/80 p-2 text-[10px] text-fs-muted">
                                   建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。
                                 </div>
                               </div>
@@ -3428,14 +3428,14 @@ export function MacroSection() {
                         </aside>
                       </>
                     ) : (
-                      <div className="flex w-10 shrink-0 flex-col border-l border-slate-800 bg-slate-950/90">
+                      <div className="flex w-10 shrink-0 flex-col border-l border-fs-border bg-fs-bg/90">
                         <button
                           type="button"
                           onClick={() => {
                             setChartSidePanelTab("settings");
                             setChartSettingsOpen(true);
                           }}
-                          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+                          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text"
                           title="展开图形设置"
                         >
                           <span>图</span>
@@ -3449,7 +3449,7 @@ export function MacroSection() {
                             setChartSidePanelTab("events");
                             setChartSettingsOpen(true);
                           }}
-                          className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-slate-800 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+                          className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-fs-border py-3 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text"
                           title="展开事件记录"
                         >
                           <span>事</span>
@@ -3461,7 +3461,7 @@ export function MacroSection() {
                             setChartSidePanelTab("intro");
                             setChartSettingsOpen(true);
                           }}
-                          className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-slate-800 py-2 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+                          className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-fs-border py-2 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text"
                           title="展开模板介绍"
                         >
                           <span>模</span>
@@ -3474,22 +3474,22 @@ export function MacroSection() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">
+                <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-fs-border p-8 text-center text-sm text-fs-muted">
                   暂无数据
                 </div>
               )}
             </section>
           ) : (
             <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-              <div className="rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
+              <div className="rounded-lg border border-fs-border/90 bg-fs-bg/60 p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-medium text-slate-200">系统模板</h3>
+                  <h3 className="text-sm font-medium text-fs-text">系统模板</h3>
                   {isAdmin ? (
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[10px] text-fs-muted">
                       管理员可删除；代码内置模板删除后为全员隐藏，可下方恢复
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-600">文件夹由管理员统一维护</span>
+                    <span className="text-[10px] text-fs-secondary">文件夹由管理员统一维护</span>
                   )}
                 </div>
                 <MacroTemplateFolderSection
@@ -3508,7 +3508,7 @@ export function MacroSection() {
                         type="button"
                         disabled={loading}
                         onClick={() => applyTemplateAndExtract(tpl)}
-                        className="w-full rounded border border-emerald-700/80 bg-emerald-950/35 text-emerald-100 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="w-full rounded border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         加载
                       </button>
@@ -3517,7 +3517,7 @@ export function MacroSection() {
                           type="button"
                           disabled={loading}
                           onClick={() => deleteSystemTemplate(tpl)}
-                          className="w-full rounded border border-rose-900/70 px-1.5 py-0.5 text-[10px] text-rose-200/90 hover:border-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="w-full rounded border border-fs-negative/50 bg-white px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           删除
                         </button>
@@ -3526,8 +3526,8 @@ export function MacroSection() {
                   )}
                 />
                 {isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
-                  <div className="mt-3 rounded border border-slate-800/80 bg-slate-950/40 px-2 py-2">
-                    <p className="text-[10px] font-medium text-slate-400">已隐藏的内置系统模板</p>
+                  <div className="mt-3 rounded border border-fs-border bg-fs-bg/40 px-2 py-2">
+                    <p className="text-[10px] font-medium text-fs-muted">已隐藏的内置系统模板</p>
                     <ul className="mt-1.5 flex flex-wrap gap-1.5">
                       {hiddenHardcodedBuiltinTemplates.map((tpl) => (
                         <li key={tpl.id}>
@@ -3535,7 +3535,7 @@ export function MacroSection() {
                             type="button"
                             disabled={loading}
                             onClick={() => restoreSystemTemplate(tpl.id)}
-                            className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-emerald-700 hover:text-emerald-200 disabled:opacity-40"
+                            className="rounded border border-fs-border px-2 py-0.5 text-[10px] text-fs-secondary hover:border-fs-accent/40 hover:text-fs-accent-text disabled:opacity-40"
                             title={`恢复「${tpl.name}」到系统模板列表`}
                           >
                             恢复「{tpl.name}」
@@ -3547,15 +3547,15 @@ export function MacroSection() {
                 ) : null}
               </div>
 
-              <div className="rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
-                <h3 className="text-sm font-medium text-slate-200">我的模板</h3>
+              <div className="rounded-lg border border-fs-border/90 bg-fs-bg/60 p-3">
+                <h3 className="text-sm font-medium text-fs-text">我的模板</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <input
                     type="text"
                     value={newTemplateName}
                     onChange={(e) => setNewTemplateName(e.target.value)}
                     placeholder="模板名称"
-                    className="min-w-[10rem] flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-slate-100 placeholder:text-slate-600 focus:border-emerald-600 focus:outline-none"
+                    className="min-w-[10rem] flex-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-fs-accent focus:outline-none"
                   />
                   <button
                     type="button"
@@ -3570,7 +3570,7 @@ export function MacroSection() {
                             newTemplateFolderId.trim() ? newTemplateFolderId.trim() : null,
                           )
                     }
-                    className="rounded border border-cyan-700/80 bg-cyan-950/35 px-2 py-0.5 text-[10px] font-medium text-cyan-100 hover:border-cyan-500"
+                    className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent"
                   >
                     保存当前配置
                   </button>
@@ -3591,7 +3591,7 @@ export function MacroSection() {
                         type="button"
                         disabled={loading}
                         onClick={() => applyTemplateAndExtract(tpl)}
-                        className="rounded border border-emerald-700/80 bg-emerald-950/35 text-emerald-100 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         加载
                       </button>
@@ -3629,7 +3629,7 @@ export function MacroSection() {
                               );
                             }
                           }}
-                          className="flex-1 rounded border border-slate-700 text-slate-300 hover:border-slate-500"
+                          className="flex-1 rounded border border-fs-border text-fs-secondary hover:border-fs-border"
                         >
                           覆盖
                         </button>
@@ -3642,7 +3642,7 @@ export function MacroSection() {
                               setActiveTemplateId((prev) => (prev === tpl.id ? null : prev));
                             }
                           }}
-                          className="flex-1 rounded border border-rose-900/70 text-rose-200/90 hover:border-rose-700"
+                          className="flex-1 rounded border border-fs-negative/50 bg-white font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
                         >
                           删除
                         </button>
@@ -3657,16 +3657,16 @@ export function MacroSection() {
       </div>
 
       {templateNameDialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-2xl">
-            <h3 className="text-sm font-medium text-slate-100">保存模板</h3>
-            <p className="mt-1 text-xs text-slate-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-fs-bg/75 px-4">
+          <div className="w-full max-w-md rounded-lg border border-fs-border bg-fs-elevated p-4 shadow-2xl">
+            <h3 className="text-sm font-medium text-fs-text">保存模板</h3>
+            <p className="mt-1 text-xs text-fs-muted">
               {templateSaveMode === "builtin" && isAdmin
                 ? "保存为系统模板后，所有用户均可在「系统模板」中加载。"
                 : "保存为我的模板，仅自己可见。"}
             </p>
             {isAdmin ? (
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-300">
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-fs-secondary">
                 <label className="flex cursor-pointer items-center gap-1.5">
                   <input
                     type="radio"
@@ -3680,7 +3680,7 @@ export function MacroSection() {
                         setNewTemplateFolderId("");
                       }
                     }}
-                    className="h-3 w-3 border-slate-600"
+                    className="h-3 w-3 border-fs-border"
                   />
                   我的模板
                 </label>
@@ -3697,7 +3697,7 @@ export function MacroSection() {
                         setNewTemplateFolderId("");
                       }
                     }}
-                    className="h-3 w-3 border-slate-600"
+                    className="h-3 w-3 border-fs-border"
                   />
                   系统模板
                 </label>
@@ -3716,14 +3716,14 @@ export function MacroSection() {
                 onChange={(e) => setTemplateNameDraft(e.target.value)}
                 placeholder="例如：美国总览-利率通胀版"
                 autoFocus
-                className="rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-600 focus:outline-none"
+                className="rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-sm text-fs-text placeholder:text-fs-muted focus:border-fs-accent focus:outline-none"
               />
-              <label className="flex items-center gap-2 text-xs text-slate-400">
+              <label className="flex items-center gap-2 text-xs text-fs-muted">
                 <span className="shrink-0">保存到文件夹</span>
                 <select
                   value={newTemplateFolderId}
                   onChange={(e) => setNewTemplateFolderId(e.target.value)}
-                  className="min-w-0 flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200"
+                  className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-xs text-fs-text"
                 >
                   <option value="">未分类</option>
                   {(templateSaveMode === "builtin" ? builtinFolders : userFolders).map((f) => (
@@ -3737,14 +3737,14 @@ export function MacroSection() {
                 <button
                   type="button"
                   onClick={cancelSaveTemplateDialog}
-                  className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:border-slate-500"
+                  className="rounded border border-fs-border px-3 py-1.5 text-xs text-fs-secondary hover:border-fs-border"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
                   disabled={!templateNameDraft.trim()}
-                  className="rounded border border-cyan-700/80 bg-cyan-950/35 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded border border-fs-accent/50 bg-fs-accent-soft px-3 py-1.5 text-xs font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {templateSaveMode === "builtin" && isAdmin ? "保存为系统模板" : "保存为我的模板"}
                 </button>

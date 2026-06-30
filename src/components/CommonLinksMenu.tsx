@@ -11,7 +11,7 @@ import {
 } from "@/lib/data/userBookmarks";
 
 const linkBase =
-  "rounded-md px-2.5 py-1 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60";
+  "rounded-md px-2.5 py-1 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-fs-accent/50";
 
 type Me = { username: string; role: "admin" | "user" } | null;
 
@@ -234,7 +234,7 @@ export function CommonLinksMenu({ me }: { me: Me }) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`${linkBase} text-slate-400 hover:bg-slate-900/80 hover:text-slate-100`}
+        className={`${linkBase} text-fs-muted hover:bg-fs-elevated hover:text-fs-text`}
       >
         常用链接
         <span className="ml-0.5 text-[10px] opacity-70" aria-hidden>
@@ -244,14 +244,14 @@ export function CommonLinksMenu({ me }: { me: Me }) {
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 top-full z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] rounded-md border border-slate-700 bg-slate-900 py-1 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] rounded-md border border-fs-border bg-fs-elevated py-1 shadow-lg"
         >
           {!me ? (
-            <div className="px-3 py-3 text-sm text-slate-400">
+            <div className="px-3 py-3 text-sm text-fs-muted">
               <p className="mb-2">登录后可保存个人常用链接，并按文件夹归类。</p>
               <Link
                 href="/auth"
-                className="text-emerald-400 hover:text-emerald-300"
+                className="text-fs-accent-text hover:text-fs-accent-text"
                 onClick={() => setOpen(false)}
               >
                 去登录 →
@@ -259,8 +259,8 @@ export function CommonLinksMenu({ me }: { me: Me }) {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-2 border-b border-slate-800 px-3 py-1.5">
-                <span className="text-[11px] text-slate-500">我的收藏夹</span>
+              <div className="flex items-center justify-between gap-2 border-b border-fs-border px-3 py-1.5">
+                <span className="text-[11px] text-fs-muted">我的收藏夹</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -269,8 +269,8 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                   }}
                   className={`rounded px-1.5 py-0.5 text-[11px] transition ${
                     editMode
-                      ? "bg-emerald-950/60 text-emerald-200 ring-1 ring-emerald-700/70"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30"
+                      : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                   }`}
                 >
                   {editMode ? "完成" : "管理"}
@@ -279,9 +279,9 @@ export function CommonLinksMenu({ me }: { me: Me }) {
 
               <div className="max-h-[min(24rem,60vh)] overflow-y-auto px-1 py-1">
                 {loading ? (
-                  <p className="px-2 py-2 text-sm text-slate-500">加载中…</p>
+                  <p className="px-2 py-2 text-sm text-fs-muted">加载中…</p>
                 ) : folders.length === 0 && rootLinks.length === 0 ? (
-                  <p className="px-2 py-2 text-sm text-slate-500">暂无链接，点击下方添加。</p>
+                  <p className="px-2 py-2 text-sm text-fs-muted">暂无链接，点击下方添加。</p>
                 ) : (
                   <>
                     {folders.map((folder) => {
@@ -289,7 +289,7 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                       return (
                         <div key={folder.id} className="mb-1">
                           <div className="flex items-center gap-1 px-2 py-0.5">
-                            <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-slate-400">
+                            <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-fs-muted">
                               {folder.name}
                             </span>
                             {editMode ? (
@@ -298,7 +298,7 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                                   type="button"
                                   title="重命名文件夹"
                                   onClick={() => openEditFolder(folder)}
-                                  className="rounded px-1 text-[10px] text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+                                  className="rounded px-1 text-[10px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                                 >
                                   改
                                 </button>
@@ -314,7 +314,7 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                                   type="button"
                                   title="在此文件夹添加链接"
                                   onClick={() => openAddLink(folder.id)}
-                                  className="rounded px-1 text-[10px] text-emerald-500/90 hover:bg-emerald-950/40 hover:text-emerald-300"
+                                  className="rounded px-1 text-[10px] text-fs-accent/90 hover:bg-fs-accent-soft hover:text-fs-accent-text"
                                 >
                                   +
                                 </button>
@@ -322,7 +322,7 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                             ) : null}
                           </div>
                           {folderLinks.length === 0 ? (
-                            <p className="px-3 py-0.5 text-[11px] text-slate-600">（空）</p>
+                            <p className="px-3 py-0.5 text-[11px] text-fs-secondary">（空）</p>
                           ) : (
                             folderLinks.map((link) => (
                               <BookmarkRow
@@ -341,7 +341,7 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                     {rootLinks.length > 0 ? (
                       <div className="mb-1">
                         {folders.length > 0 ? (
-                          <div className="px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                          <div className="px-2 py-0.5 text-[11px] font-medium text-fs-muted">
                             未分类
                           </div>
                         ) : null}
@@ -362,8 +362,8 @@ export function CommonLinksMenu({ me }: { me: Me }) {
               </div>
 
               {formKind ? (
-                <div className="border-t border-slate-800 px-3 py-2">
-                  <div className="mb-1.5 text-[11px] font-medium text-slate-400">
+                <div className="border-t border-fs-border px-3 py-2">
+                  <div className="mb-1.5 text-[11px] font-medium text-fs-muted">
                     {formKind === "folder"
                       ? editingFolderId
                         ? "重命名文件夹"
@@ -377,7 +377,7 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder={formKind === "folder" ? "文件夹名称" : "链接标题"}
-                    className="mb-1.5 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-200 placeholder:text-slate-600"
+                    className="mb-1.5 w-full rounded border border-fs-border bg-fs-bg px-2 py-1 text-sm text-fs-text placeholder:text-fs-secondary"
                   />
                   {formKind === "link" ? (
                     <>
@@ -386,14 +386,14 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                         value={formUrl}
                         onChange={(e) => setFormUrl(e.target.value)}
                         placeholder="https:// 或 /macro"
-                        className="mb-1.5 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-200 placeholder:text-slate-600"
+                        className="mb-1.5 w-full rounded border border-fs-border bg-fs-bg px-2 py-1 text-sm text-fs-text placeholder:text-fs-secondary"
                       />
                       <select
                         value={formFolderId ?? ""}
                         onChange={(e) =>
                           setFormFolderId(e.target.value ? e.target.value : null)
                         }
-                        className="mb-1.5 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-200"
+                        className="mb-1.5 w-full rounded border border-fs-border bg-fs-bg px-2 py-1 text-sm text-fs-text"
                       >
                         <option value="">未分类</option>
                         {folders.map((f) => (
@@ -409,32 +409,32 @@ export function CommonLinksMenu({ me }: { me: Me }) {
                       type="button"
                       onClick={() => submitForm().catch(() => {})}
                       disabled={saving}
-                      className="rounded bg-emerald-800/80 px-2 py-0.5 text-xs text-emerald-50 hover:bg-emerald-700/80 disabled:opacity-50"
+                      className="rounded bg-fs-accent px-2 py-0.5 text-xs text-white hover:bg-fs-accent disabled:opacity-50"
                     >
                       保存
                     </button>
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-400 hover:text-slate-200"
+                      className="rounded border border-fs-border px-2 py-0.5 text-xs text-fs-muted hover:text-fs-text"
                     >
                       取消
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-1 border-t border-slate-800 px-2 py-1.5">
+                <div className="flex flex-wrap gap-1 border-t border-fs-border px-2 py-1.5">
                   <button
                     type="button"
                     onClick={() => openAddLink(null)}
-                    className="rounded px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
+                    className="rounded px-2 py-0.5 text-[11px] text-fs-secondary hover:bg-fs-elevated"
                   >
                     + 链接
                   </button>
                   <button
                     type="button"
                     onClick={openAddFolder}
-                    className="rounded px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
+                    className="rounded px-2 py-0.5 text-[11px] text-fs-secondary hover:bg-fs-elevated"
                   >
                     + 文件夹
                   </button>
@@ -442,11 +442,11 @@ export function CommonLinksMenu({ me }: { me: Me }) {
               )}
 
               {error ? (
-                <p className="border-t border-slate-800 px-3 py-1.5 text-[11px] text-rose-400">
+                <p className="border-t border-fs-border px-3 py-1.5 text-[11px] text-rose-400">
                   {error}
                 </p>
               ) : saving ? (
-                <p className="border-t border-slate-800 px-3 py-1 text-[11px] text-slate-600">
+                <p className="border-t border-fs-border px-3 py-1 text-[11px] text-fs-secondary">
                   保存中…
                 </p>
               ) : null}
@@ -473,12 +473,12 @@ function BookmarkRow({
 }) {
   const external = /^https?:\/\//i.test(link.url);
   const className =
-    "flex min-w-0 flex-1 items-center rounded px-2 py-1 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white";
+    "flex min-w-0 flex-1 items-center rounded px-2 py-1 text-sm text-fs-text transition hover:bg-fs-elevated hover:text-fs-text";
 
   return (
     <div className="flex items-center gap-0.5 pr-1">
       {editMode ? (
-        <span className={`${className} cursor-default hover:bg-transparent hover:text-slate-200`}>
+        <span className={`${className} cursor-default hover:bg-transparent hover:text-fs-text`}>
           <span className="truncate">{link.title}</span>
         </span>
       ) : external ? (
@@ -510,7 +510,7 @@ function BookmarkRow({
             type="button"
             title="编辑"
             onClick={onEdit}
-            className="rounded px-1 text-[10px] text-slate-500 hover:bg-slate-800 hover:text-slate-200"
+            className="rounded px-1 text-[10px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
           >
             改
           </button>

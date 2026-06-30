@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { CommonLinksMenu } from "@/components/CommonLinksMenu";
 
 const linkBase =
-  "rounded-md px-2.5 py-1 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60";
+  "rounded-md px-2.5 py-1 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-fs-accent/50";
 
 const TOOL_LINKS = [
   { href: "/markets-tools", label: "K线区间统计" },
@@ -66,117 +66,127 @@ export function SiteHeaderNav() {
     window.location.href = "/auth";
   };
 
+  const isAdmin = me?.role === "admin";
+
   return (
     <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-      <Link
-        href="/dashboard"
-        className={`${linkBase} ${
-          dashboardActive
-            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
-        }`}
-        aria-current={dashboardActive ? "page" : undefined}
-      >
-        Dashboard
-      </Link>
+      {isAdmin ? (
+        <Link
+          href="/dashboard"
+          className={`${linkBase} ${
+            dashboardActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={dashboardActive ? "page" : undefined}
+        >
+          Dashboard
+        </Link>
+      ) : null}
       <Link
         href="/macro"
         className={`${linkBase} ${
           macroActive
-            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+            ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+            : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
         }`}
         aria-current={macroActive ? "page" : undefined}
       >
         宏观
       </Link>
-      <Link
-        href="/markets"
-        className={`${linkBase} ${
-          marketsActive
-            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
-        }`}
-        aria-current={marketsActive ? "page" : undefined}
-      >
-        行情
-      </Link>
-      <Link
-        href="/events"
-        className={`${linkBase} ${
-          eventsActive
-            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
-        }`}
-        aria-current={eventsActive ? "page" : undefined}
-      >
-        事件
-      </Link>
+      {isAdmin ? (
+        <Link
+          href="/markets"
+          className={`${linkBase} ${
+            marketsActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={marketsActive ? "page" : undefined}
+        >
+          行情
+        </Link>
+      ) : null}
+      {isAdmin ? (
+        <Link
+          href="/events"
+          className={`${linkBase} ${
+            eventsActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={eventsActive ? "page" : undefined}
+        >
+          事件
+        </Link>
+      ) : null}
       <Link
         href="/weekly"
         className={`${linkBase} ${
           weeklyActive
-            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+            ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+            : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
         }`}
         aria-current={weeklyActive ? "page" : undefined}
       >
         AI周度观察
       </Link>
-      <div ref={toolsRef} className="relative">
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={toolsOpen}
-          onClick={() => setToolsOpen((v) => !v)}
-          className={`${linkBase} ${
-            toolsActive
-              ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-              : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
-          }`}
-        >
-          工具
-          <span className="ml-0.5 text-[10px] opacity-70" aria-hidden>
-            ▾
-          </span>
-        </button>
-        {toolsOpen ? (
-          <div
-            role="menu"
-            className="absolute left-0 top-full z-50 mt-1 min-w-[9.5rem] rounded-md border border-slate-700 bg-slate-900 py-1 shadow-lg"
+      {isAdmin ? (
+        <div ref={toolsRef} className="relative">
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={toolsOpen}
+            onClick={() => setToolsOpen((v) => !v)}
+            className={`${linkBase} ${
+              toolsActive
+                ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+                : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+            }`}
           >
-            {TOOL_LINKS.map((item) => {
-              const active =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  role="menuitem"
-                  className={`block px-3 py-1.5 text-sm transition ${
-                    active
-                      ? "bg-emerald-950/50 text-emerald-100"
-                      : "text-slate-200 hover:bg-slate-800 hover:text-white"
-                  }`}
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => setToolsOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-      <CommonLinksMenu me={me} />
-      {me?.role === "admin" ? (
+            工具
+            <span className="ml-0.5 text-[10px] opacity-70" aria-hidden>
+              ▾
+            </span>
+          </button>
+          {toolsOpen ? (
+            <div
+              role="menu"
+              className="absolute left-0 top-full z-50 mt-1 min-w-[9.5rem] rounded-md border border-fs-border bg-fs-elevated py-1 shadow-lg"
+            >
+              {TOOL_LINKS.map((item) => {
+                const active =
+                  pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    role="menuitem"
+                    className={`block px-3 py-1.5 text-sm transition ${
+                      active
+                        ? "bg-fs-accent-soft text-fs-accent-text"
+                        : "text-fs-text hover:bg-fs-elevated hover:text-fs-text"
+                    }`}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => setToolsOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {isAdmin ? <CommonLinksMenu me={me} /> : null}
+      {isAdmin ? (
         <>
           <Link
             href="/admin/data-catalog"
             className={`${linkBase} ${
               adminDataActive
-                ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-                : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+                ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+                : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
             }`}
             aria-current={adminDataActive ? "page" : undefined}
           >
@@ -186,8 +196,8 @@ export function SiteHeaderNav() {
             href="/admin/users"
             className={`${linkBase} ${
               adminUsersActive
-                ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-                : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+                ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+                : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
             }`}
             aria-current={adminUsersActive ? "page" : undefined}
           >
@@ -199,8 +209,8 @@ export function SiteHeaderNav() {
         href="/auth"
         className={`${linkBase} ${
           authActive
-            ? "bg-emerald-950/70 text-emerald-100 ring-1 ring-emerald-700/80"
-            : "text-slate-400 hover:bg-slate-900/80 hover:text-slate-100"
+            ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+            : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
         }`}
         aria-current={authActive ? "page" : undefined}
       >
@@ -210,7 +220,7 @@ export function SiteHeaderNav() {
         <button
           type="button"
           onClick={() => doLogout().catch(() => {})}
-          className={`${linkBase} text-slate-400 hover:bg-slate-900/80 hover:text-slate-100`}
+          className={`${linkBase} text-fs-muted hover:bg-fs-elevated hover:text-fs-text`}
         >
           退出
         </button>

@@ -1,6 +1,7 @@
 import type { EChartsOption } from "echarts";
 import type { MacroPayload } from "@/lib/data/types";
 import { formatMacroDisplayNumber, formatMacroDisplayValue, normalizeMacroAxisExtent } from "@/lib/formatMacroValue";
+import { CHART, SITE } from "@/lib/siteTheme";
 
 export type MacroChartSlice = Pick<MacroPayload, "categories" | "series"> & {
   title?: string;
@@ -146,7 +147,7 @@ function resolveAppliedAxisExtent(
 
 function macroValueAxisLabel(fontSize: number) {
   return {
-    color: "#94a3b8",
+    color: CHART.muted,
     fontSize,
     formatter: (value: number) => formatMacroDisplayValue(value),
   };
@@ -404,7 +405,7 @@ export function macroSliceToSeasonalChartOption(
   const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
   const compact = opts?.compact ?? false;
   const cfg = visualMap[series0.key ?? series0.name] ?? {};
-  const baseColor = cfg.color ?? "#64748b";
+  const baseColor = cfg.color ?? CHART.seriesDefault;
   const lineWidth = Math.max(0.5, cfg.lineWidth ?? display.lineWidth);
 
   const chartSeries: NonNullable<EChartsOption["series"]> = selectedYears.map((year, yi) => {
@@ -468,14 +469,14 @@ export function macroSliceToSeasonalChartOption(
           text: titleText,
           left: "center",
           textStyle: {
-            color: "#cbd5e1",
+            color: CHART.text,
             fontSize: compact ? 11 : 13,
             fontWeight: "normal",
           },
         }
       : undefined,
     backgroundColor: "transparent",
-    textStyle: { color: "#cbd5e1", fontSize: compact ? 11 : 12 },
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
     tooltip: display.showTooltip
       ? {
           trigger: "axis",
@@ -487,7 +488,7 @@ export function macroSliceToSeasonalChartOption(
       ? {
           type: chartSeries.length > 6 ? "scroll" : "plain",
           data: chartSeries.map((s) => (typeof s === "object" && s && "name" in s ? String(s.name) : "")),
-          textStyle: { color: "#94a3b8", fontSize: compact ? 10 : 11 },
+          textStyle: { color: CHART.muted, fontSize: compact ? 10 : 11 },
           ...(display.legendPosition === "top"
             ? { top: compact ? 2 : 4 }
             : { bottom: compact ? 2 : 4 }),
@@ -505,12 +506,12 @@ export function macroSliceToSeasonalChartOption(
       type: "category",
       data: periodLabels,
       boundaryGap: false,
-      axisLabel: { color: "#94a3b8", fontSize: display.xLabelFontSize },
+      axisLabel: { color: CHART.muted, fontSize: display.xLabelFontSize },
     },
     yAxis: {
       type: "value",
       ...(leftExtent ? { min: leftExtent.min, max: leftExtent.max, scale: true } : { scale: true }),
-      splitLine: display.showGridLines ? { lineStyle: { color: "#1e293b" } } : { show: false },
+      splitLine: display.showGridLines ? { lineStyle: { color: CHART.grid } } : { show: false },
       axisLabel: macroValueAxisLabel(display.yLabelFontSize),
     },
     series: chartSeries,
@@ -558,14 +559,14 @@ export function macroSliceToPieChartOption(
           text: titleText,
           left: "center",
           textStyle: {
-            color: "#cbd5e1",
+            color: CHART.text,
             fontSize: compact ? 11 : 13,
             fontWeight: "normal",
           },
         }
       : undefined,
     backgroundColor: "transparent",
-    textStyle: { color: "#cbd5e1", fontSize: compact ? 11 : 12 },
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
     tooltip: display.showTooltip
       ? {
           trigger: "item",
@@ -587,7 +588,7 @@ export function macroSliceToPieChartOption(
           orient: "vertical",
           left: compact ? 4 : 8,
           top: "middle",
-          textStyle: { color: "#94a3b8", fontSize: compact ? 10 : 11 },
+          textStyle: { color: CHART.muted, fontSize: compact ? 10 : 11 },
         }
       : { show: false },
     series: [
@@ -599,7 +600,7 @@ export function macroSliceToPieChartOption(
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 4,
-          borderColor: "#0f172a",
+          borderColor: SITE.bg,
           borderWidth: 1,
         },
         label: {
@@ -692,7 +693,7 @@ export function macroPayloadToChartOption(
       type: "value",
       position: "left",
       ...(leftApplied ? { min: leftApplied.min, max: leftApplied.max, scale: true } : {}),
-      splitLine: display.showGridLines ? { lineStyle: { color: "#1e293b" } } : { show: false },
+      splitLine: display.showGridLines ? { lineStyle: { color: CHART.grid } } : { show: false },
       axisLabel: macroValueAxisLabel(display.yLabelFontSize),
     },
     ...(hasRightAxis
@@ -713,9 +714,9 @@ export function macroPayloadToChartOption(
     return {
       show: true,
       formatter: (params: { value?: unknown }) => formatMacroDisplayValue(params?.value),
-      color: cfg.color ?? "#e2e8f0",
-      backgroundColor: "#0f172a",
-      borderColor: cfg.color ?? "#64748b",
+      color: cfg.color ?? CHART.text,
+      backgroundColor: CHART.endLabelBg,
+      borderColor: cfg.color ?? CHART.seriesDefault,
       borderWidth: 1,
       padding: [1, 4, 1, 4],
       borderRadius: 2,
@@ -728,14 +729,14 @@ export function macroPayloadToChartOption(
           text: slice.title,
           left: "center",
           textStyle: {
-            color: "#cbd5e1",
+            color: CHART.text,
             fontSize: titleSize,
             fontWeight: "normal",
           },
         }
       : undefined,
     backgroundColor: "transparent",
-    textStyle: { color: "#cbd5e1", fontSize: compact ? 11 : 12 },
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
     tooltip: display.showTooltip
       ? {
           trigger: "axis",
@@ -746,10 +747,10 @@ export function macroPayloadToChartOption(
           valueFormatter: (value) => formatMacroDisplayValue(value),
           axisPointer: {
             type: "cross",
-            crossStyle: { color: "#64748b", width: 1 },
+            crossStyle: { color: CHART.crosshair, width: 1 },
             label: {
-              color: "#e2e8f0",
-              backgroundColor: "#334155",
+              color: CHART.tooltipText,
+              backgroundColor: CHART.tooltipBg,
               fontSize: compact ? 10 : 12,
               padding: compact ? [2, 4] : [3, 6],
               formatter: (params) => {
@@ -770,7 +771,7 @@ export function macroPayloadToChartOption(
       show: display.showLegend,
       type: many ? "scroll" : "plain",
       data: slice.series.map((s) => s.name),
-      textStyle: { color: "#94a3b8", fontSize: legendSize },
+      textStyle: { color: CHART.muted, fontSize: legendSize },
       ...(display.legendPosition === "top"
         ? { top: compact ? 2 : 4 }
         : { bottom: compact ? 2 : 4 }),
@@ -790,7 +791,7 @@ export function macroPayloadToChartOption(
       data: slice.categories,
       boundaryGap: hasBarSeries,
       axisLabel: {
-        color: "#94a3b8",
+        color: CHART.muted,
         rotate: dailyAxis ? Math.max(display.xLabelRotate, compact ? 24 : 30) : display.xLabelRotate,
         fontSize: display.xLabelFontSize,
         margin: dailyAxis ? 10 : 8,

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { ISeriesApi, IChartApi, Time } from "lightweight-charts";
 import type { UTCTimestamp } from "lightweight-charts";
+import { SITE } from "@/lib/siteTheme";
 
 /** 使用 SVG 叠加的图形（竖线、矩形、斐波那契、文本） */
 export type SvgOverlayShape =
@@ -157,7 +158,7 @@ function renderExtremaMarker(
         strokeWidth={1.5}
         strokeOpacity={0.9}
       />
-      <circle cx={pt.x} cy={pt.y} r={3.5} fill={stroke} stroke="#131722" strokeWidth={1} />
+      <circle cx={pt.x} cy={pt.y} r={3.5} fill={stroke} stroke={SITE.bg} strokeWidth={1} />
       <text
         x={textX}
         y={textY}
@@ -166,7 +167,7 @@ function renderExtremaMarker(
         fontWeight={600}
         textAnchor="middle"
         paintOrder="stroke"
-        stroke="#131722"
+        stroke={SITE.bg}
         strokeWidth={3}
       >
         {text}

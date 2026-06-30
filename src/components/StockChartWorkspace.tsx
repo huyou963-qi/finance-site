@@ -74,6 +74,7 @@ import {
   type KlineInterval,
 } from "@/lib/data/klineShared";
 import { randomUUID } from "@/lib/randomId";
+import { KLINE, SITE } from "@/lib/siteTheme";
 
 /** 首屏与每次向左追加的条数（与 /api/data/klines?limit= 一致） */
 const KLINE_INITIAL_LIMIT = KLINE_PAGE_SIZE;
@@ -197,7 +198,7 @@ const SUB_PANE_TOOLBAR_PX = 26;
 /** 主图底时间轴高度预留（副轴全隐藏时指标条下移，避免挡住年份刻度） */
 const KLINE_TIME_SCALE_RESERVE_PX = 30;
 
-const KLINE_CHART_TEXT_COLOR = "#ffffff";
+const KLINE_CHART_TEXT_COLOR = KLINE.text;
 
 /**
  * 顶栏 top 写入 chart 容器 CSS 变量，与测量同一时刻生效。
@@ -1792,7 +1793,7 @@ export function StockChartWorkspace({
     el.replaceChildren();
     const chart = createChart(el, {
       layout: {
-        background: { color: "#131722" },
+        background: { color: KLINE.background },
         textColor: KLINE_CHART_TEXT_COLOR,
         /** 隐藏主图左下角 TradingView / lightweight-charts 圆形徽标（许可证允许在页面其它位置保留归属说明） */
         attributionLogo: false,
@@ -1803,13 +1804,13 @@ export function StockChartWorkspace({
          */
         panes: {
           enableResize: false,
-          separatorColor: "#2b2f3a",
-          separatorHoverColor: "rgba(71, 80, 101, 0.25)",
+          separatorColor: KLINE.border,
+          separatorHoverColor: "rgba(107, 107, 107, 0.25)",
         },
       },
       grid: {
-        vertLines: { color: "#2b2f3a" },
-        horzLines: { color: "#2b2f3a" },
+        vertLines: { color: KLINE.grid },
+        horzLines: { color: KLINE.grid },
       },
       localization: {
         locale: "zh-CN",
@@ -1820,16 +1821,16 @@ export function StockChartWorkspace({
         mode: CrosshairMode.Normal,
         vertLine: {
           labelVisible: true,
-          labelBackgroundColor: "#2b2f3a",
-          color: "#758696",
+          labelBackgroundColor: SITE.elevated,
+          color: SITE.muted,
         },
         horzLine: {
-          labelBackgroundColor: "#2b2f3a",
-          color: "#758696",
+          labelBackgroundColor: SITE.elevated,
+          color: SITE.muted,
         },
       },
       rightPriceScale: {
-        borderColor: "#485065",
+        borderColor: KLINE.border,
         textColor: KLINE_CHART_TEXT_COLOR,
       },
       timeScale: {
@@ -1878,11 +1879,11 @@ export function StockChartWorkspace({
     const candle = chart.addSeries(
       CandlestickSeries,
       {
-        upColor: "#26a69a",
-        downColor: "#ef5350",
+        upColor: KLINE.up,
+        downColor: KLINE.down,
         borderVisible: false,
-        wickUpColor: "#26a69a",
-        wickDownColor: "#ef5350",
+        wickUpColor: KLINE.up,
+        wickDownColor: KLINE.down,
       },
       0,
     );
@@ -2646,12 +2647,12 @@ export function StockChartWorkspace({
       <div
         className={
           fillHeight
-            ? "flex min-h-[50dvh] flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#2b2f3a] bg-[#131722]/80 px-6 text-center"
-            : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-[#2b2f3a] bg-[#131722]/80 px-6 text-center"
+            ? "flex min-h-[50dvh] flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-fs-border bg-fs-elevated px-6 text-center"
+            : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-fs-border bg-fs-elevated px-6 text-center"
         }
       >
-        <p className="text-sm text-slate-400">尚未选择标的</p>
-        <p className="max-w-md text-xs leading-relaxed text-slate-600">
+        <p className="text-sm text-fs-muted">尚未选择标的</p>
+        <p className="max-w-md text-xs leading-relaxed text-fs-secondary">
           在上方输入框输入代码或公司名称，从联想列表中选择；也可输入完整代码后按 Enter 加载 K 线。
         </p>
       </div>
@@ -2663,15 +2664,15 @@ export function StockChartWorkspace({
       <div
         className={
           fillHeight
-            ? "flex min-h-[50dvh] flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-rose-900/50 bg-[#131722] px-6 py-8 text-center"
-            : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-rose-900/50 bg-[#131722] px-6 py-8 text-center"
+            ? "flex min-h-[50dvh] flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-rose-900/50 bg-fs-bg px-6 py-8 text-center"
+            : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-rose-900/50 bg-fs-bg px-6 py-8 text-center"
         }
       >
         <p className="text-sm font-medium text-rose-200">行情接口失败</p>
         <p className="max-w-lg whitespace-pre-wrap font-mono text-xs leading-relaxed text-rose-100/90">
           {klineError}
         </p>
-        <p className="max-w-lg text-left text-[11px] leading-relaxed text-slate-500">
+        <p className="max-w-lg text-left text-[11px] leading-relaxed text-fs-muted">
           source=auto / ibkr 为 IB Trades 价；前/后复权在合并全序列后按拆股跳变处理（Binance 现货无复权）。
         </p>
       </div>
@@ -2683,8 +2684,8 @@ export function StockChartWorkspace({
       <div
         className={
           fillHeight
-            ? "flex min-h-[50dvh] flex-1 items-center justify-center text-sm text-slate-500"
-            : "flex h-[560px] items-center justify-center text-sm text-slate-500"
+            ? "flex min-h-[50dvh] flex-1 items-center justify-center text-sm text-fs-muted"
+            : "flex h-[560px] items-center justify-center text-sm text-fs-muted"
         }
       >
         正在加载行情…
@@ -2694,12 +2695,12 @@ export function StockChartWorkspace({
 
   const chartToolbar = (
     <>
-      <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
-        <span className="shrink-0 text-slate-500">主图叠加</span>
+      <label className="flex items-center gap-1.5 text-[11px] text-fs-muted">
+        <span className="shrink-0 text-fs-muted">主图叠加</span>
         <select
           value={mainOverlay}
           onChange={(e) => setMainOverlay(e.target.value as MainOverlayKind)}
-          className="max-w-[11rem] cursor-pointer rounded border border-slate-600 bg-[#1e293b] px-2 py-1 text-[11px] text-slate-200 outline-none hover:border-slate-500 focus:border-emerald-600/70"
+          className="max-w-[11rem] cursor-pointer rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-text outline-none hover:border-fs-border focus:border-fs-accent/70"
           aria-label="主图叠加指标"
         >
           <option value="none">无</option>
@@ -2718,8 +2719,8 @@ export function StockChartWorkspace({
         }
         className={`rounded px-2 py-1 text-[11px] transition-colors ${
           rangeStatsEnabled
-            ? "bg-emerald-950/55 text-emerald-100 ring-1 ring-emerald-600/45 hover:bg-emerald-950/75"
-            : "bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+            ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30 hover:bg-fs-accent-soft"
+            : "bg-fs-elevated text-fs-muted hover:bg-fs-border hover:text-fs-text"
         }`}
       >
         区间统计
@@ -2730,30 +2731,30 @@ export function StockChartWorkspace({
           onClick={() => setDrawToolMenuOpen((o) => !o)}
           className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
             drawToolMenuOpen
-              ? "bg-slate-700 text-slate-100"
-              : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+              ? "bg-fs-border text-fs-text"
+              : "bg-fs-elevated text-fs-secondary hover:bg-fs-border"
           }`}
           aria-expanded={drawToolMenuOpen}
           aria-haspopup="menu"
         >
-          <span className="text-slate-500">画图工具</span>
+          <span className="text-fs-muted">画图工具</span>
           <span
             className={
               tool === "cursor"
-                ? "text-slate-400"
-                : "font-medium text-emerald-200/95"
+                ? "text-fs-muted"
+                : "font-medium text-fs-accent-text/95"
             }
           >
             {tools.find((x) => x.id === tool)?.label ?? "十字"}
           </span>
-          <span className="text-[10px] text-slate-500" aria-hidden>
+          <span className="text-[10px] text-fs-muted" aria-hidden>
             ▾
           </span>
         </button>
         {drawToolMenuOpen ? (
           <div
             role="menu"
-            className="absolute left-0 top-[calc(100%+6px)] z-[100] min-w-[11rem] rounded-md border border-[#2b2f3a] bg-[#131722] py-1 shadow-xl"
+            className="absolute left-0 top-[calc(100%+6px)] z-[100] min-w-[11rem] rounded-md border border-fs-border bg-fs-bg py-1 shadow-xl"
           >
             {tools.map((x) => (
               <button
@@ -2766,10 +2767,10 @@ export function StockChartWorkspace({
                   setSelectedDrawingId(null);
                   setDrawToolMenuOpen(false);
                 }}
-                className={`flex w-full px-3 py-1.5 text-left text-[11px] hover:bg-slate-800 ${
+                className={`flex w-full px-3 py-1.5 text-left text-[11px] hover:bg-fs-elevated ${
                   tool === x.id
-                    ? "bg-emerald-950/55 text-emerald-100"
-                    : "text-slate-300"
+                    ? "bg-fs-accent-soft text-fs-accent-text"
+                    : "text-fs-secondary"
                 }`}
               >
                 {x.label}
@@ -2787,7 +2788,7 @@ export function StockChartWorkspace({
       </button>
       {selectedDrawingId ? (
         <span
-          className="text-[11px] text-slate-500"
+          className="text-[11px] text-fs-muted"
           title="按 Delete 或 Backspace 删除"
         >
           已选中 · Delete 删除
@@ -2798,12 +2799,12 @@ export function StockChartWorkspace({
 
   return (
     <div
-      className={`flex flex-col overflow-hidden rounded-lg border border-[#2b2f3a] bg-[#131722] ${fillHeight ? "h-full min-h-0 flex-1" : ""}`}
+      className={`flex flex-col overflow-hidden rounded-lg border border-fs-border bg-fs-bg ${fillHeight ? "h-full min-h-0 flex-1" : ""}`}
     >
       {toolbarPortalEl ? (
         createPortal(chartToolbar, toolbarPortalEl)
       ) : (
-        <div className="flex w-full flex-wrap items-center gap-2 border-b border-[#2b2f3a] px-2 py-1.5">
+        <div className="flex w-full flex-wrap items-center gap-2 border-b border-fs-border px-2 py-1.5">
           {chartToolbar}
         </div>
       )}
@@ -2827,7 +2828,7 @@ export function StockChartWorkspace({
         />
         {subPaneToolbarGeom.slot1 ? (
           <div
-            className={`pointer-events-auto absolute left-0 right-0 z-[25] flex flex-wrap items-center gap-1 border-b border-[#2b2f3a]/90 bg-[#131722]/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
+            className={`pointer-events-auto absolute left-0 right-0 z-[25] flex flex-wrap items-center gap-1 border-b border-fs-border bg-white/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
             style={{
               top: "var(--kline-sp1-top, 0px)",
               height: SUB_PANE_TOOLBAR_PX,
@@ -2841,7 +2842,7 @@ export function StockChartWorkspace({
                 className={`rounded px-2 py-0.5 text-[10px] leading-none ${
                   subPane1.content === x.id
                     ? "bg-indigo-950/90 text-indigo-100"
-                    : "bg-slate-800/70 text-slate-400 hover:bg-slate-700"
+                    : "bg-fs-elevated text-fs-muted hover:bg-fs-border"
                 }`}
               >
                 {x.label}
@@ -2855,8 +2856,8 @@ export function StockChartWorkspace({
               }
               className={`rounded px-1.5 py-0.5 text-[10px] leading-none ${
                 subPane1.visible
-                  ? "border border-slate-600 text-slate-400 hover:bg-slate-800"
-                  : "bg-emerald-900/50 text-emerald-200 hover:bg-emerald-900/70"
+                  ? "border border-fs-border text-fs-muted hover:bg-fs-elevated"
+                  : "bg-fs-accent-soft text-fs-accent-text hover:bg-fs-accent-soft"
               }`}
             >
               {subPane1.visible ? "隐藏" : "显示"}
@@ -2870,7 +2871,7 @@ export function StockChartWorkspace({
         ) : null}
         {subPaneToolbarGeom.slot2 ? (
           <div
-            className={`pointer-events-auto absolute left-0 right-0 z-[26] flex flex-col overflow-hidden border-b border-[#2b2f3a]/90 bg-[#131722]/95 backdrop-blur-[2px] ${subPane2.visible ? "" : "opacity-90"}`}
+            className={`pointer-events-auto absolute left-0 right-0 z-[26] flex flex-col overflow-hidden border-b border-fs-border bg-white/95 backdrop-blur-[2px] ${subPane2.visible ? "" : "opacity-90"}`}
             style={{
               top: "var(--kline-sp2-top, 0px)",
               height: SUB_PANE_TOOLBAR_PX,
@@ -2895,7 +2896,7 @@ export function StockChartWorkspace({
                   className={`rounded px-2 py-0.5 text-[10px] leading-none ${
                     subPane2.content === x.id
                       ? "bg-indigo-950/90 text-indigo-100"
-                      : "bg-slate-800/70 text-slate-400 hover:bg-slate-700"
+                      : "bg-fs-elevated text-fs-muted hover:bg-fs-border"
                   }`}
                 >
                   {x.label}
@@ -2909,8 +2910,8 @@ export function StockChartWorkspace({
                 }
                 className={`rounded px-1.5 py-0.5 text-[10px] leading-none ${
                   subPane2.visible
-                    ? "border border-slate-600 text-slate-400 hover:bg-slate-800"
-                    : "bg-emerald-900/50 text-emerald-200 hover:bg-emerald-900/70"
+                    ? "border border-fs-border text-fs-muted hover:bg-fs-elevated"
+                    : "bg-fs-accent-soft text-fs-accent-text hover:bg-fs-accent-soft"
                 }`}
               >
                 {subPane2.visible ? "隐藏" : "显示"}
@@ -2949,13 +2950,13 @@ export function StockChartWorkspace({
         </div>
         {crosshairOhlcv && overlaySize.w > 0 ? (
           <div
-            className={`pointer-events-none absolute top-2 z-[20] w-[min(92vw,220px)] rounded border border-slate-500/80 bg-black/80 px-2.5 py-2 text-[11px] leading-snug shadow-lg backdrop-blur-sm ${
+            className={`pointer-events-none absolute top-2 z-[20] w-[min(92vw,220px)] rounded border border-fs-border bg-white/95 px-2.5 py-2 text-[11px] leading-snug text-fs-text shadow-lg backdrop-blur-sm ${
               crosshairOhlcv.cursorX < overlaySize.w / 2
                 ? "right-2"
                 : "left-2"
             }`}
           >
-            <div className="mb-1.5 border-b border-slate-600/50 pb-1 text-center font-mono text-white">
+            <div className="mb-1.5 border-b border-fs-border pb-1 text-center font-mono text-fs-text">
               {crosshairOhlcv.timeLabel}
             </div>
             {(() => {
@@ -2964,38 +2965,38 @@ export function StockChartWorkspace({
               const pct =
                 ch.open !== 0 ? (delta / ch.open) * 100 : 0;
               const upA = delta >= 0;
-              const dCls = upA ? "text-rose-400" : "text-emerald-400";
+              const dCls = upA ? "text-rose-400" : "text-fs-accent-text";
               return (
-                <div className="grid grid-cols-[2.5rem_1fr] gap-x-2 gap-y-0.5 text-slate-200">
-                  <span className="text-slate-500">开盘</span>
-                  <span className="text-right font-mono text-slate-100">
+                <div className="grid grid-cols-[2.5rem_1fr] gap-x-2 gap-y-0.5 text-fs-text">
+                  <span className="text-fs-muted">开盘</span>
+                  <span className="text-right font-mono text-fs-text">
                     {fmtPriceCompact(ch.open)}
                   </span>
-                  <span className="text-slate-500">最高</span>
+                  <span className="text-fs-muted">最高</span>
                   <span className="text-right font-mono text-rose-300">
                     {fmtPriceCompact(ch.high)}
                   </span>
-                  <span className="text-slate-500">最低</span>
-                  <span className="text-right font-mono text-emerald-300">
+                  <span className="text-fs-muted">最低</span>
+                  <span className="text-right font-mono text-fs-accent-text">
                     {fmtPriceCompact(ch.low)}
                   </span>
-                  <span className="text-slate-500">收盘</span>
+                  <span className="text-fs-muted">收盘</span>
                   <span className={`text-right font-mono ${dCls}`}>
                     {fmtPriceCompact(ch.close)}
                   </span>
-                  <span className="text-slate-500">涨跌额</span>
+                  <span className="text-fs-muted">涨跌额</span>
                   <span className={`text-right font-mono ${dCls}`}>
                     {ch.open !== 0
                       ? `${delta >= 0 ? "+" : ""}${fmtPriceCompact(delta)}`
                       : "—"}
                   </span>
-                  <span className="text-slate-500">涨跌幅</span>
+                  <span className="text-fs-muted">涨跌幅</span>
                   <span className={`text-right font-mono ${dCls}`}>
                     {ch.open !== 0
                       ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`
                       : "—"}
                   </span>
-                  <span className="text-slate-500">成交量</span>
+                  <span className="text-fs-muted">成交量</span>
                   <span className="text-right font-mono text-amber-200/95">
                     {fmtVolumeZh(ch.volume)}
                   </span>
@@ -3085,7 +3086,7 @@ export function StockChartWorkspace({
             role="separator"
             aria-orientation="horizontal"
             title="上下拖动：调节主图与副图1高度（靠左青边）"
-            className="pointer-events-auto absolute left-0 right-0 z-[18] h-3 -translate-y-1/2 cursor-ns-resize touch-none border-l-4 border-emerald-500/55 hover:bg-slate-500/30"
+            className="pointer-events-auto absolute left-0 right-0 z-[18] h-3 -translate-y-1/2 cursor-ns-resize touch-none border-l-4 border-fs-accent/55 hover:bg-fs-border/60"
             style={{ top: splitterY.sep01 }}
             onPointerDown={attachPaneSplitterDrag("01")}
           />

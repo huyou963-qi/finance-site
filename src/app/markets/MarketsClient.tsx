@@ -475,15 +475,15 @@ export function MarketsClient() {
               if (e.key === "Escape") setOpen(false);
             }}
             placeholder="输入代码或公司名，实时联想"
-            className="h-[26px] w-full rounded border border-slate-700 bg-slate-900 py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-slate-100 placeholder:text-slate-500 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+            className="h-[26px] w-full rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
           />
           {showPanel ? (
-            <ul className="absolute left-0 right-0 top-full z-50 mt-0.5 max-h-72 overflow-auto rounded border border-slate-600 bg-slate-900 py-0.5 shadow-xl">
+            <ul className="absolute left-0 right-0 top-full z-50 mt-0.5 max-h-72 overflow-auto rounded border border-fs-border bg-fs-elevated py-0.5 shadow-xl">
               {searchLoading ? (
-                <li className="px-2 py-1 text-[10px] text-slate-500">搜索中…</li>
+                <li className="px-2 py-1 text-[10px] text-fs-muted">搜索中…</li>
               ) : null}
               {searchError ? (
                 <li className="px-2 py-1 text-[10px] text-rose-300">
@@ -494,7 +494,7 @@ export function MarketsClient() {
               !searchError &&
               hits.length === 0 &&
               query.trim().length > 0 ? (
-                <li className="px-2 py-1 text-[10px] text-slate-500">
+                <li className="px-2 py-1 text-[10px] text-fs-muted">
                   无匹配标的，请换个关键词或选下列交易所常用写法（如 AAPL、MSFT）
                 </li>
               ) : null}
@@ -502,20 +502,20 @@ export function MarketsClient() {
                 <li key={`${h.symbol}-${idx}`}>
                   <button
                     type="button"
-                    className="flex w-full flex-col items-start gap-0 px-2 py-1 text-left text-[10px] hover:bg-slate-800"
+                    className="flex w-full flex-col items-start gap-0 px-2 py-1 text-left text-[10px] hover:bg-fs-elevated"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => commitSymbol(h.symbol, h.name)}
                   >
                     <span className="font-mono text-amber-200/90">
                       {h.symbol}
                     </span>
-                    <span className="line-clamp-2 text-[9px] text-slate-400">
-                      <span className="text-slate-300">{h.name}</span>
+                    <span className="line-clamp-2 text-[9px] text-fs-muted">
+                      <span className="text-fs-secondary">{h.name}</span>
                       {h.exchange ? (
-                        <span className="text-slate-500"> · {h.exchange}</span>
+                        <span className="text-fs-muted"> · {h.exchange}</span>
                       ) : null}
                       {h.type ? (
-                        <span className="text-slate-600"> · {h.type}</span>
+                        <span className="text-fs-secondary"> · {h.type}</span>
                       ) : null}
                     </span>
                   </button>
@@ -531,7 +531,7 @@ export function MarketsClient() {
           aria-label="主图与画线工具"
         />
 
-        <label className="flex shrink-0 items-center text-[9px] text-slate-400">
+        <label className="flex shrink-0 items-center text-[9px] text-fs-muted">
           <select
             value={interval}
             onChange={(e) => {
@@ -540,7 +540,7 @@ export function MarketsClient() {
             }}
             title="K 线周期"
             aria-label="K 线周期"
-            className="h-[22px] min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-slate-900 px-1.5 py-0 text-[10px] font-medium leading-none text-slate-100 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+            className="h-[22px] min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           >
             {KLINE_INTERVALS.map((iv) => (
               <option key={iv} value={iv}>
@@ -550,7 +550,7 @@ export function MarketsClient() {
           </select>
         </label>
 
-        <label className="flex max-w-[8.5rem] shrink-0 items-center text-[9px] text-slate-400">
+        <label className="flex max-w-[8.5rem] shrink-0 items-center text-[9px] text-fs-muted">
           <select
             value={klineSource}
             onChange={(e) =>
@@ -558,14 +558,14 @@ export function MarketsClient() {
             }
             title="K 线数据源：自动与 IBKR 均只请求 Interactive Brokers。"
             aria-label="K 线数据源"
-            className="h-[22px] min-w-0 max-w-full cursor-pointer truncate rounded border border-slate-700 bg-slate-900 px-1 py-0 text-[10px] leading-none text-slate-200 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+            className="h-[22px] min-w-0 max-w-full cursor-pointer truncate rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[10px] leading-none text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
           >
             <option value="auto">数据源·自动（仅IB）</option>
             <option value="ibkr">数据源·IBKR</option>
           </select>
         </label>
 
-        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-slate-400">
+        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
           <select
             value={priceAdjustment}
             onChange={(e) =>
@@ -573,7 +573,7 @@ export function MarketsClient() {
               }
               title="前复权：历史价按拆股/除权跳变对齐最新尺度（如 IBKR 2025-06-18 拆股）；IB 仅 Trades 价，不含现金分红平滑。"
               aria-label="K 线价格复权"
-              className="h-[22px] max-w-[5.5rem] rounded border border-slate-700 bg-slate-900 px-1 py-0 font-mono text-[10px] text-slate-200 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+              className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
           >
             <option value="forward">前复权</option>
             <option value="backward">后复权</option>
@@ -582,21 +582,21 @@ export function MarketsClient() {
         </label>
 
         <label
-          className="ml-2 flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-slate-400"
+          className="ml-2 flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted"
           title="多屏幕多页面时间与光标的同步"
         >
           <input
             type="checkbox"
             checked={pageSync}
             onChange={(e) => handlePageSyncChange(e.target.checked)}
-            className="h-3 w-3 shrink-0 rounded border-slate-600"
+            className="h-3 w-3 shrink-0 rounded border-fs-border"
             aria-label="页面同步：多屏幕多页面时间与光标的同步"
           />
           页面同步
         </label>
 
         <div
-          className="min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-slate-500 sm:text-[9px]"
+          className="min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-fs-muted sm:text-[9px]"
           title={dataHint ?? undefined}
         >
           {dataHint ? (
@@ -607,20 +607,20 @@ export function MarketsClient() {
         <div className="ml-auto flex min-w-0 shrink-0 flex-wrap items-end justify-end gap-x-2 gap-y-1 text-right sm:items-baseline">
           {symbol ? (
             <>
-              <span className="font-mono text-[10px] font-semibold leading-none text-slate-100">
+              <span className="font-mono text-[10px] font-semibold leading-none text-fs-text">
                 {symbol}
               </span>
               {pickedName ? (
-                <span className="max-w-[min(40vw,220px)] truncate text-[10px] leading-none text-slate-500">
+                <span className="max-w-[min(40vw,220px)] truncate text-[10px] leading-none text-fs-muted">
                   {pickedName}
                 </span>
               ) : null}
-              <span className="rounded bg-slate-800 px-1 py-0 font-mono text-[9px] leading-none text-slate-400">
+              <span className="rounded bg-fs-elevated px-1 py-0 font-mono text-[9px] leading-none text-fs-muted">
                 {INTERVAL_LABEL[interval]}
               </span>
             </>
           ) : (
-            <span className="text-[10px] leading-none text-slate-600">
+            <span className="text-[10px] leading-none text-fs-secondary">
               选择标的后显示
             </span>
           )}

@@ -138,8 +138,8 @@ export function EventsClient() {
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-3 px-4 py-4 lg:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">事件记录器</h1>
-          <p className="text-xs text-slate-500">
+          <h1 className="text-lg font-semibold text-fs-text">事件记录器</h1>
+          <p className="text-xs text-fs-muted">
             美国历史经济时代时间线（1776—今）：可折叠时代阶段与阶段内重要事件，支持 Wikipedia 延伸阅读。
           </p>
         </div>
@@ -150,47 +150,47 @@ export function EventsClient() {
               setEditEvent(null);
               setFormOpen(true);
             }}
-            className="rounded border border-emerald-700 bg-emerald-950/40 px-3 py-1.5 text-xs text-emerald-100 hover:border-emerald-500"
+            className="rounded border border-fs-accent/40 bg-fs-accent-soft px-3 py-1.5 text-xs text-fs-accent-text hover:border-fs-accent"
           >
             新建事件
           </button>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-[11px]">
-        <label className="text-slate-500">
+      <div className="flex flex-wrap gap-2 rounded-lg border border-fs-border bg-fs-elevated p-2 text-[11px]">
+        <label className="text-fs-muted">
           搜索
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="ml-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
             placeholder="标题或内容"
           />
         </label>
-        <label className="text-slate-500">
+        <label className="text-fs-muted">
           起
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="ml-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           />
         </label>
-        <label className="text-slate-500">
+        <label className="text-fs-muted">
           止
           <input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="ml-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           />
         </label>
-        <label className="text-slate-500">
+        <label className="text-fs-muted">
           国家
           <select
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            className="ml-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           >
             <option value="">全部</option>
             {MACRO_COUNTRIES.map((c) => (
@@ -200,12 +200,12 @@ export function EventsClient() {
             ))}
           </select>
         </label>
-        <label className="text-slate-500">
+        <label className="text-fs-muted">
           重要性
           <select
             value={importance}
             onChange={(e) => setImportance(e.target.value as EventImportance | "")}
-            className="ml-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           >
             <option value="">全部</option>
             {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
@@ -218,7 +218,7 @@ export function EventsClient() {
         <button
           type="button"
           onClick={() => void load()}
-          className="self-end rounded border border-slate-600 px-2 py-1 text-slate-300 hover:bg-slate-900"
+          className="self-end rounded border border-fs-border px-2 py-1 text-fs-secondary hover:bg-fs-elevated"
         >
           筛选
         </button>
@@ -230,11 +230,11 @@ export function EventsClient() {
         </p>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-fs-border bg-fs-bg/40 px-3 py-3">
         {loading ? (
-          <p className="p-6 text-center text-sm text-slate-500">加载中…</p>
+          <p className="p-6 text-center text-sm text-fs-muted">加载中…</p>
         ) : !hasVisible ? (
-          <p className="p-6 text-center text-sm text-slate-500">暂无匹配事件</p>
+          <p className="p-6 text-center text-sm text-fs-muted">暂无匹配事件</p>
         ) : (
           <EventTimelineView
             key={`${q}-${from}-${to}-${country}-${importance}`}
@@ -248,7 +248,7 @@ export function EventsClient() {
           />
         )}
       </div>
-      <p className="text-[10px] text-slate-600">
+      <p className="text-[10px] text-fs-secondary">
         共 {total} 条
         {timelineModel.hasEraStructure
           ? ` · ${timelineModel.groups.length} 个时代阶段`

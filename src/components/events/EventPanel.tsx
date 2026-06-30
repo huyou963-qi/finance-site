@@ -325,7 +325,7 @@ export function EventPanel({
 
   const shellClass = embedded
     ? `flex min-h-0 flex-col overflow-hidden ${className}`
-    : `flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-800/90 bg-slate-950/60 ${className}`;
+    : `flex min-h-0 flex-col overflow-hidden rounded-lg border border-fs-border/90 bg-fs-bg/60 ${className}`;
 
   const rangeHint =
     useRangeMode && rangeFrom && rangeTo
@@ -343,25 +343,25 @@ export function EventPanel({
   return (
     <section className={shellClass}>
       <div
-        className={`flex shrink-0 flex-col gap-1.5 ${embedded ? "pb-2" : "border-b border-slate-800/80 px-2 py-1.5"}`}
+        className={`flex shrink-0 flex-col gap-1.5 ${embedded ? "pb-2" : "border-b border-fs-border px-2 py-1.5"}`}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-slate-400">
+            <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted">
               <input
                 type="checkbox"
                 checked={eventTracking}
                 onChange={(e) => setEventTracking(e.target.checked)}
-                className="h-3 w-3 shrink-0 rounded border-slate-600 accent-cyan-600"
+                className="h-3 w-3 shrink-0 rounded border-fs-border accent-cyan-600"
                 aria-label="事件追踪：十字线移动时滚动到最近事件"
               />
               事件追踪
             </label>
             <div className="min-w-0 flex-1">
               {!embedded ? (
-                <h3 className="text-[11px] font-semibold text-slate-200">事件记录</h3>
+                <h3 className="text-[11px] font-semibold text-fs-text">事件记录</h3>
               ) : null}
-              <p className={`truncate text-[10px] text-slate-500 ${embedded ? "" : "mt-0"}`}>
+              <p className={`truncate text-[10px] text-fs-muted ${embedded ? "" : "mt-0"}`}>
                 {rangeHint}
                 {eventTracking ? (
                   <span className="ml-1 text-[9px] text-cyan-500/80">· 十字线联动</span>
@@ -377,14 +377,14 @@ export function EventPanel({
                   setEditEvent(null);
                   setFormOpen(true);
                 }}
-                className="rounded border border-emerald-800/60 px-1.5 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-950/40"
+                className="rounded border border-fs-accent/30 px-1.5 py-0.5 text-[10px] text-fs-accent-text hover:bg-fs-accent-soft"
               >
                 新建
               </button>
             ) : null}
             <Link
               href="/events"
-              className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-slate-200"
+              className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
             >
               全部
             </Link>
@@ -402,17 +402,17 @@ export function EventPanel({
         className={`min-h-0 flex-1 overflow-y-auto ${embedded ? "" : "px-2 py-2"} ${compact ? "max-h-48" : ""}`}
       >
         {loading ? (
-          <p className="py-4 text-center text-[11px] text-slate-500">加载中…</p>
+          <p className="py-4 text-center text-[11px] text-fs-muted">加载中…</p>
         ) : authHint ? (
-          <p className="py-4 text-center text-[11px] text-slate-500">{authHint}</p>
+          <p className="py-4 text-center text-[11px] text-fs-muted">{authHint}</p>
         ) : error ? (
           <p className="py-4 text-center text-[11px] text-rose-300">{error}</p>
         ) : !listUrl ? (
-          <p className="py-4 text-center text-[11px] text-slate-600">
+          <p className="py-4 text-center text-[11px] text-fs-secondary">
             {useRangeMode ? "暂无时间轴范围" : "移动图表十字线以加载事件"}
           </p>
         ) : !hasVisibleTimeline ? (
-          <p className="py-4 text-center text-[11px] text-slate-500">
+          <p className="py-4 text-center text-[11px] text-fs-muted">
             {filtersActive
               ? "无匹配事件，请调整筛选条件"
               : `该时段无事件${isAdmin ? "，可点击「新建」添加" : ""}`}

@@ -28,7 +28,7 @@ export type MacroTemplateIntroPanelProps = {
 const NOTE_MAX_LEN = 8000;
 
 const introFieldClass =
-  "w-full rounded border border-slate-700/90 bg-slate-950/80 px-2 py-1.5 text-[11px] leading-relaxed text-slate-200";
+  "w-full rounded border border-fs-border/90 bg-white/95 px-2 py-1.5 text-[11px] leading-relaxed text-fs-text";
 
 function IntroTextField({
   value,
@@ -50,7 +50,7 @@ function IntroTextField({
         onChange={(e) => onChange?.(e.target.value.slice(0, NOTE_MAX_LEN))}
         rows={rows}
         placeholder={placeholder}
-        className={`${introFieldClass} resize-y placeholder:text-slate-500 focus:border-emerald-700/80 focus:outline-none focus:ring-1 focus:ring-emerald-800/60`}
+        className={`${introFieldClass} resize-y placeholder:text-fs-muted focus:border-fs-accent/30 focus:outline-none focus:ring-1 focus:ring-fs-accent/30`}
       />
     );
   }
@@ -61,7 +61,7 @@ function IntroTextField({
       readOnly
       tabIndex={-1}
       rows={rows}
-      className={`${introFieldClass} cursor-default resize-none border-slate-800/80 text-slate-200 focus:outline-none`}
+      className={`${introFieldClass} cursor-default resize-none border-fs-border text-fs-text focus:outline-none`}
     />
   );
 }
@@ -84,8 +84,8 @@ export function MacroTemplateIntroPanel({
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col gap-2 ${className}`}>
-      <div className="shrink-0 rounded-md border border-slate-800/90 bg-slate-900/40 px-2 py-1.5">
-        <p className="text-[11px] font-medium text-slate-200">
+      <div className="shrink-0 rounded-md border border-fs-border/90 bg-fs-elevated/40 px-2 py-1.5">
+        <p className="text-[11px] font-medium text-fs-text">
           {templateName?.trim() || "当前工作区"}
         </p>
         {showDescriptionField ? (
@@ -99,7 +99,7 @@ export function MacroTemplateIntroPanel({
             />
           </div>
         ) : (
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+          <p className="mt-1 text-[11px] leading-relaxed text-fs-muted">
             {editable
               ? "记录各图如何解读、关注哪些拐点与联动关系。内容会自动保存到您的账号。"
               : "以下为模板内置分析思路。"}
@@ -112,10 +112,10 @@ export function MacroTemplateIntroPanel({
           {chartSections!.map(({ slotKey, title }, idx) => (
             <div
               key={slotKey}
-              className="rounded-md border border-slate-800/90 bg-slate-900/30 p-2"
+              className="rounded-md border border-fs-border/90 bg-fs-elevated/30 p-2"
             >
               <div className="mb-1.5 min-w-0">
-                <p className="text-[11px] font-medium text-slate-200">
+                <p className="text-[11px] font-medium text-fs-text">
                   图 {idx + 1} · {title}
                 </p>
               </div>
@@ -130,7 +130,7 @@ export function MacroTemplateIntroPanel({
           ))}
         </div>
       ) : indicators.length === 0 ? (
-        <p className="px-1 py-4 text-center text-[11px] text-slate-400">
+        <p className="px-1 py-4 text-center text-[11px] text-fs-muted">
           请先加载模板或选择指标后再编写介绍。
         </p>
       ) : (
@@ -138,11 +138,11 @@ export function MacroTemplateIntroPanel({
           {indicators.map(({ key, label }) => (
             <div
               key={key}
-              className="rounded-md border border-slate-800/90 bg-slate-900/30 p-2"
+              className="rounded-md border border-fs-border/90 bg-fs-elevated/30 p-2"
             >
               <div className="mb-1.5 min-w-0">
-                <p className="truncate text-[11px] font-medium text-slate-200">{label}</p>
-                <p className="truncate font-mono text-[9px] text-slate-500">{key}</p>
+                <p className="truncate text-[11px] font-medium text-fs-text">{label}</p>
+                <p className="truncate font-mono text-[9px] text-fs-muted">{key}</p>
               </div>
               <IntroTextField
                 value={notes[key] ?? ""}

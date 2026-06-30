@@ -47,7 +47,7 @@ export function AuthClient() {
   };
 
   if (loggedIn === null) {
-    return <p className="text-sm text-slate-400">加载中…</p>;
+    return <p className="text-sm text-fs-muted">加载中…</p>;
   }
 
   if (loggedIn) {
@@ -55,10 +55,10 @@ export function AuthClient() {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+    <div className="space-y-4 rounded-lg border border-fs-border bg-fs-bg/60 p-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-50">账户登录 / 注册</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-xl font-semibold text-fs-text">账户登录 / 注册</h1>
+        <p className="mt-1 text-sm text-fs-muted">
           默认管理员：`admin`，默认密码：`admin123456`（建议登录后改成你自己的管理账号策略）。
         </p>
       </div>
@@ -68,8 +68,8 @@ export function AuthClient() {
           onClick={() => setMode("login")}
           className={`rounded-md px-3 py-1.5 text-sm ${
             mode === "login"
-              ? "bg-emerald-950 text-emerald-100 ring-1 ring-emerald-700"
-              : "bg-slate-900 text-slate-300"
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30"
+              : "bg-fs-elevated text-fs-secondary"
           }`}
         >
           登录
@@ -79,54 +79,54 @@ export function AuthClient() {
           onClick={() => setMode("register")}
           className={`rounded-md px-3 py-1.5 text-sm ${
             mode === "register"
-              ? "bg-emerald-950 text-emerald-100 ring-1 ring-emerald-700"
-              : "bg-slate-900 text-slate-300"
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30"
+              : "bg-fs-elevated text-fs-secondary"
           }`}
         >
           注册
         </button>
       </div>
       <div className="grid gap-3">
-        <label className="text-sm text-slate-300">
+        <label className="text-sm text-fs-secondary">
           用户名
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+            className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
           />
         </label>
         {mode === "register" ? (
           <>
-            <label className="text-sm text-slate-300">
+            <label className="text-sm text-fs-secondary">
               邮箱
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+                className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
                 required
               />
             </label>
-            <label className="text-sm text-slate-300">
+            <label className="text-sm text-fs-secondary">
               手机号
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="11位中国大陆手机号"
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+                className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
                 required
               />
             </label>
           </>
         ) : null}
-        <label className="text-sm text-slate-300">
+        <label className="text-sm text-fs-secondary">
           密码
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+            className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
           />
         </label>
         <button
@@ -138,12 +138,12 @@ export function AuthClient() {
             !password ||
             (mode === "register" && (!email.trim() || !phone.trim()))
           }
-          className="rounded-md border border-emerald-700 bg-emerald-900/50 px-3 py-2 text-sm text-emerald-100 disabled:opacity-50"
+          className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-3 py-2 text-sm text-fs-accent-text disabled:opacity-50"
         >
           {loading ? "提交中..." : mode === "login" ? "登录" : "注册"}
         </button>
       </div>
-      {hint ? <p className="text-sm text-slate-300">{hint}</p> : null}
+      {hint ? <p className="text-sm text-fs-secondary">{hint}</p> : null}
     </div>
   );
 }

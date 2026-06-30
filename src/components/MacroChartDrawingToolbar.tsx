@@ -46,11 +46,11 @@ export function MacroChartDrawingToolbar({
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1">
       <div
-        className="flex flex-wrap items-center gap-0.5 rounded-md border border-slate-700/90 bg-slate-950/50 p-0.5"
+        className="flex flex-wrap items-center gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5"
         role="toolbar"
         aria-label="作图工具"
       >
-        <span className="shrink-0 px-1.5 text-[10px] font-medium text-slate-500">作图</span>
+        <span className="shrink-0 px-1.5 text-[10px] font-medium text-fs-muted">作图</span>
         {MACRO_DRAWING_TOOLS.map((t) => (
           <button
             key={t.id}
@@ -59,40 +59,40 @@ export function MacroChartDrawingToolbar({
             onClick={() => onToolChange(t.id)}
             className={`rounded px-2 py-1 text-[11px] transition ${
               tool === t.id
-                ? "bg-emerald-950/55 font-medium text-emerald-100 ring-1 ring-emerald-600/45"
-                : "text-slate-300 hover:bg-slate-900/70 hover:text-slate-100"
+                ? "bg-fs-accent-soft font-medium text-fs-accent-text ring-1 ring-fs-accent/30"
+                : "text-fs-secondary hover:bg-fs-elevated hover:text-fs-text"
             }`}
           >
             {t.label}
           </button>
         ))}
-        <span className="mx-0.5 h-4 w-px shrink-0 bg-slate-700/90" aria-hidden />
+        <span className="mx-0.5 h-4 w-px shrink-0 bg-fs-border/90" aria-hidden />
         <button
           type="button"
           onClick={onClear}
-          className="rounded px-2 py-1 text-[11px] text-slate-400 transition hover:bg-slate-900/70 hover:text-rose-200"
+          className="rounded px-2 py-1 text-[11px] text-fs-muted transition hover:bg-fs-elevated hover:text-rose-200"
           title="清除当前所有子图标注"
         >
           清除
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 rounded-md border border-slate-700/90 bg-slate-950/50 px-1.5 py-0.5">
-        <span className="text-[10px] text-slate-500">
+      <div className="flex flex-wrap items-center gap-1 rounded-md border border-fs-border/90 bg-fs-elevated px-1.5 py-0.5">
+        <span className="text-[10px] text-fs-muted">
           {selectedDrawing ? "选中样式" : "默认样式"}
         </span>
         {showLineControls ? (
           <>
-            <label className="flex items-center gap-0.5 text-[10px] text-slate-500" title="线条颜色">
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted" title="线条颜色">
               线色
               <input
                 type="color"
                 value={activeStyle.color}
                 onChange={(e) => styleTarget({ color: e.target.value })}
-                className="h-5 w-6 cursor-pointer rounded border border-slate-700 bg-slate-900 p-0"
+                className="h-5 w-6 cursor-pointer rounded border border-fs-border bg-fs-elevated p-0"
               />
             </label>
-            <label className="flex items-center gap-0.5 text-[10px] text-slate-500">
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
               粗细
               <input
                 type="number"
@@ -105,7 +105,7 @@ export function MacroChartDrawingToolbar({
                     lineWidth: Math.max(0.5, Math.min(6, Number.parseFloat(e.target.value) || 1.5)),
                   })
                 }
-                className="w-10 rounded border border-slate-700 bg-slate-900 px-0.5 text-center text-[10px] text-slate-200"
+                className="w-10 rounded border border-fs-border bg-fs-elevated px-0.5 text-center text-[10px] text-fs-text"
               />
             </label>
             <select
@@ -113,7 +113,7 @@ export function MacroChartDrawingToolbar({
               onChange={(e) =>
                 styleTarget({ lineStyle: e.target.value as MacroDrawingStyle["lineStyle"] })
               }
-              className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+              className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
               title="线条风格"
             >
               {LINE_STYLES.map((s) => (
@@ -126,16 +126,16 @@ export function MacroChartDrawingToolbar({
         ) : null}
         {isText || tool === "text" ? (
           <>
-            <label className="flex items-center gap-0.5 text-[10px] text-slate-500">
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
               字色
               <input
                 type="color"
                 value={activeStyle.textColor}
                 onChange={(e) => styleTarget({ textColor: e.target.value })}
-                className="h-5 w-6 cursor-pointer rounded border border-slate-700 bg-slate-900 p-0"
+                className="h-5 w-6 cursor-pointer rounded border border-fs-border bg-fs-elevated p-0"
               />
             </label>
-            <label className="flex items-center gap-0.5 text-[10px] text-slate-500">
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
               字号
               <input
                 type="number"
@@ -147,13 +147,13 @@ export function MacroChartDrawingToolbar({
                     fontSize: Math.max(8, Math.min(24, Number.parseInt(e.target.value, 10) || 11)),
                   })
                 }
-                className="w-10 rounded border border-slate-700 bg-slate-900 px-0.5 text-center text-[10px] text-slate-200"
+                className="w-10 rounded border border-fs-border bg-fs-elevated px-0.5 text-center text-[10px] text-fs-text"
               />
             </label>
           </>
         ) : null}
         {!selectedDrawing && !showLineControls && tool !== "text" ? (
-          <span className="text-[10px] text-slate-600">选中文本或切到文本工具</span>
+          <span className="text-[10px] text-fs-secondary">选中文本或切到文本工具</span>
         ) : null}
       </div>
 
@@ -165,10 +165,10 @@ export function MacroChartDrawingToolbar({
               type="text"
               value={selectedDrawing.text}
               onChange={(e) => onSelectedTextChange(e.target.value)}
-              className="min-w-[6rem] max-w-[12rem] rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-200"
+              className="min-w-[6rem] max-w-[12rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[10px] text-fs-text"
             />
           ) : (
-            <span className="text-[10px] text-slate-400">
+            <span className="text-[10px] text-fs-muted">
               {selectedDrawing.kind === "hline"
                 ? "水平线"
                 : selectedDrawing.kind === "vline"
@@ -186,10 +186,10 @@ export function MacroChartDrawingToolbar({
           >
             删除
           </button>
-          <span className="text-[10px] text-slate-600">Del</span>
+          <span className="text-[10px] text-fs-secondary">Del</span>
         </div>
       ) : (
-        <span className="text-[10px] text-slate-600">十字模式下点击可选中并拖动</span>
+        <span className="text-[10px] text-fs-secondary">十字模式下点击可选中并拖动</span>
       )}
     </div>
   );

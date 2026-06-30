@@ -177,7 +177,7 @@ function DropZone({
           className={`rounded border border-dashed px-2 py-1.5 text-xs ${
             dragOverIndex === 0
               ? "border-cyan-500/60 bg-cyan-950/30 text-cyan-200/80"
-              : "border-slate-700 text-slate-600"
+              : "border-fs-border text-fs-secondary"
           }`}
         >
           {label}（拖入指标）
@@ -206,14 +206,14 @@ function DropZone({
             className={`flex cursor-grab items-center gap-2 rounded border px-2 py-1 text-xs active:cursor-grabbing ${
               dragOverIndex === index
                 ? "border-cyan-500/60 bg-cyan-950/40"
-                : "border-slate-800 bg-slate-900/60 hover:border-slate-600"
+                : "border-fs-border bg-fs-elevated hover:border-fs-border"
             }`}
           >
-            <span className="shrink-0 text-slate-600">⠿</span>
-            <span className="min-w-0 flex-1 truncate text-slate-200">
+            <span className="shrink-0 text-fs-secondary">⠿</span>
+            <span className="min-w-0 flex-1 truncate text-fs-text">
               {itemLabels[key] ?? key}
             </span>
-            <span className="shrink-0 font-mono text-[10px] text-slate-600">{key}</span>
+            <span className="shrink-0 font-mono text-[10px] text-fs-secondary">{key}</span>
           </div>
         ))
       )}
@@ -260,10 +260,10 @@ function CategoryBlock({
   const [nameDraft, setNameDraft] = useState(category.name);
 
   const btn =
-    "rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200";
+    "rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text";
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+    <div className="rounded-lg border border-fs-border bg-fs-elevated p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         {editingName ? (
           <input
@@ -282,7 +282,7 @@ function CategoryBlock({
                 setEditingName(false);
               }
             }}
-            className="min-w-[120px] rounded border border-slate-600 bg-slate-900 px-2 py-0.5 text-sm text-slate-100"
+            className="min-w-[120px] rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-sm text-fs-text"
           />
         ) : (
           <button
@@ -291,13 +291,13 @@ function CategoryBlock({
               setNameDraft(category.name);
               setEditingName(true);
             }}
-            className="text-sm font-medium text-slate-200 hover:text-white"
+            className="text-sm font-medium text-fs-text hover:text-fs-text"
             title="点击修改分类名"
           >
             {category.name}
           </button>
         )}
-        <span className="text-xs text-slate-600">
+        <span className="text-xs text-fs-secondary">
           {category.itemKeys.length +
             category.subgroups.reduce((n, sg) => n + sg.itemKeys.length, 0)}{" "}
           项
@@ -313,7 +313,7 @@ function CategoryBlock({
       </div>
 
       <div className="mb-3">
-        <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-600">分类下指标</div>
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-fs-secondary">分类下指标</div>
         <DropZone
           label="此分类"
           keys={category.itemKeys}
@@ -361,10 +361,10 @@ function SubgroupBlock({
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(subgroup.name);
   const btn =
-    "rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800 hover:text-slate-200";
+    "rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text";
 
   return (
-    <div className="mb-2 ml-3 border-l-2 border-slate-800 pl-3">
+    <div className="mb-2 ml-3 border-l-2 border-fs-border pl-3">
       <div className="mb-1 flex flex-wrap items-center gap-2">
         {editingName ? (
           <input
@@ -383,7 +383,7 @@ function SubgroupBlock({
                 setEditingName(false);
               }
             }}
-            className="min-w-[100px] rounded border border-slate-600 bg-slate-900 px-2 py-0.5 text-xs text-slate-100"
+            className="min-w-[100px] rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-xs text-fs-text"
           />
         ) : (
           <button
@@ -392,7 +392,7 @@ function SubgroupBlock({
               setNameDraft(subgroup.name);
               setEditingName(true);
             }}
-            className="text-xs font-medium text-slate-400 hover:text-slate-200"
+            className="text-xs font-medium text-fs-muted hover:text-fs-text"
             title="点击修改子层名"
           >
             {subgroup.name}
@@ -643,18 +643,18 @@ export function CatalogTreeEditor({ onSaved }: { onSaved?: () => void }) {
   };
 
   const btn =
-    "rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50";
+    "rounded-md border border-fs-border bg-fs-elevated px-3 py-1.5 text-sm text-fs-text hover:bg-fs-elevated disabled:opacity-50";
 
   if (loading && !layout) {
-    return <p className="text-sm text-slate-500">加载目录布局…</p>;
+    return <p className="text-sm text-fs-muted">加载目录布局…</p>;
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+    <div className="space-y-3 rounded-lg border border-fs-border bg-fs-bg/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-medium text-slate-100">编辑目录树</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <h2 className="text-sm font-medium text-fs-text">编辑目录树</h2>
+          <p className="mt-0.5 text-xs text-fs-muted">
             拖动指标调整层级与顺序；宏观页目录只读，与此处保存的布局一致。
             {data?.isCustom ? (
               <span className="text-cyan-500/80">
@@ -691,15 +691,15 @@ export function CatalogTreeEditor({ onSaved }: { onSaved?: () => void }) {
           {error}
         </div>
       ) : null}
-      {msg ? <p className="text-xs text-emerald-400/90">{msg}</p> : null}
+      {msg ? <p className="text-xs text-fs-accent-text/90">{msg}</p> : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-slate-400">
+        <label className="flex items-center gap-2 text-sm text-fs-muted">
           国家
           <select
             value={countryFilter}
             onChange={(e) => setCountryFilter(e.target.value)}
-            className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+            className="rounded border border-fs-border bg-fs-bg px-2 py-1 text-sm text-fs-text"
           >
             {countryOptions.map((code) => (
               <option key={code} value={code}>
@@ -731,7 +731,7 @@ export function CatalogTreeEditor({ onSaved }: { onSaved?: () => void }) {
           ))}
         </div>
       ) : (
-        <p className="text-sm text-slate-500">无国家数据</p>
+        <p className="text-sm text-fs-muted">无国家数据</p>
       )}
     </div>
   );

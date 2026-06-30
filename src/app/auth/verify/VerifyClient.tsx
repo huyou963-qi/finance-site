@@ -34,13 +34,13 @@ export function VerifyClient() {
   }, [token]);
 
   return (
-    <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-      <h1 className="text-xl font-semibold text-slate-50">邮箱确认</h1>
-      <p className="text-sm text-slate-300">
+    <div className="space-y-3 rounded-lg border border-fs-border bg-fs-bg/60 p-4">
+      <h1 className="text-xl font-semibold text-fs-text">邮箱确认</h1>
+      <p className="text-sm text-fs-secondary">
         {status === "loading" ? "正在验证链接…" : msg || "处理中"}
       </p>
       {status === "ok" ? (
-        <a className="text-sm text-emerald-300 underline" href="/auth">
+        <a className="text-sm text-fs-accent-text underline" href="/auth">
           去登录
         </a>
       ) : null}

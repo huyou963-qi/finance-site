@@ -93,7 +93,7 @@ export function FlexTradesImportButton({
         onClick={pickFile}
         disabled={busy}
         title="导入 IBKR 成交记录：Flex XML、简易 CSV，或账户报表「交易确认」HTML（.htm），可与 Gateway 最近成交叠加在 K 线上"
-        className="shrink-0 rounded border border-slate-600 bg-slate-900 px-1 py-px text-[8px] leading-tight text-slate-300 hover:border-slate-500 hover:bg-slate-800 disabled:opacity-50 whitespace-nowrap"
+        className="shrink-0 rounded border border-fs-border bg-fs-elevated px-1 py-px text-[8px] leading-tight text-fs-secondary hover:border-fs-border hover:bg-fs-elevated disabled:opacity-50 whitespace-nowrap"
       >
         {busy ? "…" : "IB导入"}
       </button>
@@ -101,7 +101,7 @@ export function FlexTradesImportButton({
         type="button"
         onClick={clearImported}
         title="清除本机已导入的 IB 成交记录（Flex / 报表 HTML）"
-        className="shrink-0 rounded px-0.5 py-px text-[8px] text-slate-500 hover:text-slate-300"
+        className="shrink-0 rounded px-0.5 py-px text-[8px] text-fs-muted hover:text-fs-secondary"
       >
         清除
       </button>

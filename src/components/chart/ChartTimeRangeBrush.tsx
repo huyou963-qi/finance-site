@@ -163,7 +163,7 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
   const pathD = pts.join(" ");
 
   return (
-    <div className="border-t border-[#2b2f3a] px-2 py-2">
+    <div className="border-t border-fs-border px-2 py-2">
       <div
         ref={trackRef}
         className="relative h-10 w-full cursor-pointer rounded bg-[#1e222d]"
@@ -171,7 +171,7 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
         role="presentation"
       >
         <svg
-          className="pointer-events-none absolute inset-0 h-full w-full text-slate-700"
+          className="pointer-events-none absolute inset-0 h-full w-full text-fs-secondary"
           preserveAspectRatio="none"
           viewBox="0 0 100 100"
         >

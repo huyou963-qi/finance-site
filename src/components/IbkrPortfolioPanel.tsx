@@ -118,8 +118,8 @@ function fmtMoney(n: number | undefined): string {
 }
 
 function signedColor(n: number | undefined): string {
-  if (n == null || Number.isNaN(n) || n === 0) return "text-slate-300";
-  return n > 0 ? "text-emerald-400" : "text-rose-400";
+  if (n == null || Number.isNaN(n) || n === 0) return "text-fs-secondary";
+  return n > 0 ? "text-fs-accent-text" : "text-rose-400";
 }
 
 /** Cushion：网关多为 0–1 小数表示比例 */
@@ -601,28 +601,28 @@ export function IbkrPortfolioPanel({
     "rounded px-1.5 py-px text-[10px] font-medium leading-tight transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500/80";
   const tabBtnActive = "bg-amber-600/90 text-white shadow-sm";
   const tabBtnIdle =
-    "text-slate-500 hover:bg-slate-800/80 hover:text-slate-300";
+    "text-fs-muted hover:bg-fs-elevated hover:text-fs-secondary";
 
   const panePad = "px-1.5 py-1";
-  const secTitle = "text-[11px] font-semibold leading-none text-slate-100";
-  const hintText = "text-[9px] leading-snug text-slate-600";
+  const secTitle = "text-[11px] font-semibold leading-none text-fs-text";
+  const hintText = "text-[9px] leading-snug text-fs-secondary";
   const tableWrap = "w-full min-w-0 border-collapse text-left text-[10px] leading-tight";
   const thCell =
-    "py-0.5 pr-1 text-[9px] font-normal text-slate-500 whitespace-nowrap";
+    "py-0.5 pr-1 text-[9px] font-normal text-fs-muted whitespace-nowrap";
   const tdNum =
-    "py-0.5 pr-1 text-right font-mono text-[10px] tabular-nums leading-tight text-slate-200 whitespace-nowrap";
+    "py-0.5 pr-1 text-right font-mono text-[10px] tabular-nums leading-tight text-fs-text whitespace-nowrap";
   const tdSym = "w-[1%] max-w-[9.5rem] py-0.5 pr-1 align-top";
   const symBtn =
     "block w-full max-w-[9.5rem] truncate text-left font-mono text-[10px] leading-tight text-amber-200/90 hover:underline";
-  const exLine = "block truncate text-[8px] leading-tight text-slate-600";
+  const exLine = "block truncate text-[8px] leading-tight text-fs-secondary";
 
   const horizSplitClass = (active: boolean) =>
-    `flex h-1.5 shrink-0 cursor-row-resize touch-none select-none items-center justify-center border-y border-slate-800/90 bg-slate-900/85 hover:bg-slate-800/90 ${
-      active ? "bg-slate-700/90" : ""
+    `flex h-1.5 shrink-0 cursor-row-resize touch-none select-none items-center justify-center border-y border-fs-border/90 bg-fs-elevated/85 hover:bg-fs-elevated/90 ${
+      active ? "bg-fs-border/90" : ""
     }`;
 
   return (
-    <div className="flex h-full min-h-0 shrink-0 flex-row border-r border-slate-700/90 bg-slate-950/98">
+    <div className="flex h-full min-h-0 shrink-0 flex-row border-r border-fs-border/90 bg-fs-bg/98">
       <div
         className={`flex min-h-0 flex-col overflow-hidden ${
           dragging ? "" : "transition-[width] duration-200 ease-out"
@@ -647,7 +647,7 @@ export function IbkrPortfolioPanel({
             >
               <div className="mb-1 flex shrink-0 flex-wrap items-center gap-1">
                   <div
-                    className="inline-flex rounded-md border border-slate-800/90 bg-slate-900/55 p-px"
+                    className="inline-flex rounded-md border border-fs-border/90 bg-fs-elevated/55 p-px"
                     role="tablist"
                     aria-label="持仓与自选"
                   >
@@ -689,8 +689,8 @@ export function IbkrPortfolioPanel({
                   ) : (
                     <div className="min-h-0 flex-1 overflow-auto">
                       <table className={tableWrap}>
-                        <thead className="sticky top-0 z-10 bg-slate-950/95 shadow-sm">
-                          <tr className="border-b border-slate-800">
+                        <thead className="sticky top-0 z-10 bg-fs-bg/95 shadow-sm">
+                          <tr className="border-b border-fs-border">
                             <th className={`${thCell} max-w-[9.5rem] text-left`}>
                               产品
                             </th>
@@ -705,7 +705,7 @@ export function IbkrPortfolioPanel({
                           {acc.positions.map((p, idx) => (
                             <tr
                               key={`${p.symbol || p.instrumentLine}-${p.conid ?? idx}`}
-                              className="border-b border-slate-800/60 hover:bg-slate-900/80"
+                              className="border-b border-fs-border hover:bg-fs-elevated"
                             >
                               <td className={tdSym}>
                                 <button
@@ -770,7 +770,7 @@ export function IbkrPortfolioPanel({
                         className={`max-w-[120px] shrink-0 truncate rounded border px-1 py-px text-[8px] leading-tight transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-amber-500/80 ${
                           i === watchlistIdx
                             ? "border-amber-600/70 bg-amber-950/50 text-amber-100"
-                            : "border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-600 hover:text-slate-200"
+                            : "border-fs-border bg-fs-elevated/80 text-fs-muted hover:border-fs-border hover:text-fs-text"
                         }`}
                       >
                         {wl.name}
@@ -786,8 +786,8 @@ export function IbkrPortfolioPanel({
                   ) : (
                     <div className="min-h-0 flex-1 overflow-auto">
                       <table className={tableWrap}>
-                        <thead className="sticky top-0 z-10 bg-slate-950/95 shadow-sm">
-                          <tr className="border-b border-slate-800">
+                        <thead className="sticky top-0 z-10 bg-fs-bg/95 shadow-sm">
+                          <tr className="border-b border-fs-border">
                             <th className={`${thCell} max-w-[9.5rem] text-left`}>
                               合约
                             </th>
@@ -800,7 +800,7 @@ export function IbkrPortfolioPanel({
                           {activeWatchlist.symbols.map((row, idx) => (
                             <tr
                               key={`wl-${activeWatchlist.id}-${row.conid ?? `i-${idx}`}`}
-                              className="border-b border-slate-800/60 hover:bg-slate-900/80"
+                              className="border-b border-fs-border hover:bg-fs-elevated"
                             >
                               <td className={tdSym}>
                                 <button
@@ -821,7 +821,7 @@ export function IbkrPortfolioPanel({
                                     {row.productCode}
                                   </span>
                                   {row.contractLabel ? (
-                                    <span className="mt-px block truncate text-[9px] font-normal text-slate-400">
+                                    <span className="mt-px block truncate text-[9px] font-normal text-fs-muted">
                                       {row.contractLabel}
                                     </span>
                                   ) : null}
@@ -858,14 +858,14 @@ export function IbkrPortfolioPanel({
               className={horizSplitClass(topSplitDragging)}
             >
               <span
-                className="pointer-events-none h-px w-10 rounded-full bg-slate-600"
+                className="pointer-events-none h-px w-10 rounded-full bg-fs-border"
                 aria-hidden
               />
             </div>
 
             {/* 中：交易记录 */}
             <div
-              className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-slate-950/40 ${panePad} ${
+              className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-fs-bg/40 ${panePad} ${
                 midSplitDragging
                   ? ""
                   : "transition-[flex-basis] duration-150 ease-out"
@@ -883,7 +883,7 @@ export function IbkrPortfolioPanel({
                 <div className="min-h-0 flex-1 overflow-auto">
                   {displayTradeRows.length === 0 ? (
                     tradeFocus && tradesLoading ? (
-                      <p className="text-[9px] text-slate-500">加载成交…</p>
+                      <p className="text-[9px] text-fs-muted">加载成交…</p>
                     ) : tradeFocus && tradesErr ? (
                       <p className="text-[9px] text-rose-400/90">{tradesErr}</p>
                     ) : (
@@ -898,13 +898,13 @@ export function IbkrPortfolioPanel({
                         <p className="mb-0.5 truncate font-mono text-[10px] leading-tight text-amber-200/90">
                           {tradeListSymbol}
                           {tradeFocus?.conid != null ? (
-                            <span className="text-[9px] text-slate-500">
+                            <span className="text-[9px] text-fs-muted">
                               {" "}
                               · {tradeFocus.conid}
                             </span>
                           ) : null}
                           {!tradeFocus && chartTradeRows.length > 0 ? (
-                            <span className="text-[9px] text-slate-500">
+                            <span className="text-[9px] text-fs-muted">
                               {" "}
                               · 含导入
                             </span>
@@ -912,7 +912,7 @@ export function IbkrPortfolioPanel({
                         </p>
                       ) : null}
                       {tradeFocus && tradesLoading && gatewayTradeRows.length === 0 ? (
-                        <p className="mb-0.5 text-[9px] text-slate-500">
+                        <p className="mb-0.5 text-[9px] text-fs-muted">
                           Gateway 加载中…
                         </p>
                       ) : null}
@@ -925,8 +925,8 @@ export function IbkrPortfolioPanel({
                         </p>
                       ) : null}
                       <table className={tableWrap}>
-                        <thead className="sticky top-0 z-10 bg-slate-950/95 shadow-sm">
-                          <tr className="border-b border-slate-800">
+                        <thead className="sticky top-0 z-10 bg-fs-bg/95 shadow-sm">
+                          <tr className="border-b border-fs-border">
                             <th className={thCell}>时间</th>
                             <th className={thCell}>向</th>
                             <th className={`${thCell} text-right`}>量</th>
@@ -937,9 +937,9 @@ export function IbkrPortfolioPanel({
                           {displayTradeRows.map((tr) => (
                             <tr
                               key={tr.executionId}
-                              className="border-b border-slate-800/60"
+                              className="border-b border-fs-border"
                             >
-                              <td className="max-w-[6.5rem] truncate py-0.5 pr-1 font-mono text-[10px] tabular-nums leading-tight text-slate-300 whitespace-nowrap">
+                              <td className="max-w-[6.5rem] truncate py-0.5 pr-1 font-mono text-[10px] tabular-nums leading-tight text-fs-secondary whitespace-nowrap">
                                 {tr.tradeTimeSec
                                   ? new Date(
                                       tr.tradeTimeSec * 1000,
@@ -951,7 +951,7 @@ export function IbkrPortfolioPanel({
                                     })
                                   : "—"}
                               </td>
-                              <td className="py-0.5 pr-1 text-[10px] leading-tight text-slate-300 whitespace-nowrap">
+                              <td className="py-0.5 pr-1 text-[10px] leading-tight text-fs-secondary whitespace-nowrap">
                                 {tr.side === "B"
                                   ? "买"
                                   : tr.side === "S"
@@ -980,7 +980,7 @@ export function IbkrPortfolioPanel({
               className={horizSplitClass(midSplitDragging)}
             >
               <span
-                className="pointer-events-none h-px w-10 rounded-full bg-slate-600"
+                className="pointer-events-none h-px w-10 rounded-full bg-fs-border"
                 aria-hidden
               />
             </div>
@@ -1005,7 +1005,7 @@ export function IbkrPortfolioPanel({
                   type="button"
                   onClick={() => load()}
                   disabled={loading}
-                  className="shrink-0 rounded px-1 py-px text-[9px] leading-tight text-amber-500/90 hover:bg-slate-800 disabled:opacity-50"
+                  className="shrink-0 rounded px-1 py-px text-[9px] leading-tight text-amber-500/90 hover:bg-fs-elevated disabled:opacity-50"
                 >
                   {loading ? "…" : "刷新"}
                 </button>
@@ -1027,7 +1027,7 @@ export function IbkrPortfolioPanel({
                       className={`rounded px-1 py-px font-mono text-[8px] leading-tight ${
                         i === accountIdx
                           ? "bg-amber-600/90 text-white"
-                          : "border border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-500"
+                          : "border border-fs-border bg-fs-elevated text-fs-muted hover:border-fs-border"
                       }`}
                     >
                       {a.accountId}
@@ -1037,22 +1037,22 @@ export function IbkrPortfolioPanel({
               ) : null}
 
               {!acc && !fetchErr && !loading ? (
-                <p className="text-[8px] text-slate-500">暂无账户数据</p>
+                <p className="text-[8px] text-fs-muted">暂无账户数据</p>
               ) : null}
 
               {acc ? (
                 <>
                   <div className="mb-1 flex flex-col gap-0.5">
                     <div className="flex min-w-0 items-baseline justify-between gap-1">
-                      <span className="shrink-0 text-[10px] text-slate-400">
+                      <span className="shrink-0 text-[10px] text-fs-muted">
                         净清算
                       </span>
-                      <span className="min-w-0 truncate font-mono text-base font-semibold tabular-nums leading-none text-slate-50">
+                      <span className="min-w-0 truncate font-mono text-base font-semibold tabular-nums leading-none text-fs-text">
                         {fmtMoney(m?.netLiquidation)}
                       </span>
                     </div>
                     <div className="flex min-w-0 items-center justify-between gap-1">
-                      <span className="shrink-0 text-[9px] text-slate-500">
+                      <span className="shrink-0 text-[9px] text-fs-muted">
                         当日盈亏
                       </span>
                       <span
@@ -1062,7 +1062,7 @@ export function IbkrPortfolioPanel({
                       </span>
                     </div>
                     <div className="flex min-w-0 items-center justify-between gap-1">
-                      <span className="shrink-0 text-[9px] text-slate-500">
+                      <span className="shrink-0 text-[9px] text-fs-muted">
                         当日 %
                       </span>
                       <span
@@ -1082,7 +1082,7 @@ export function IbkrPortfolioPanel({
                     <Metric label="SMA 账户" value={m?.sma} />
                     <Metric label="已实现盈亏" value={m?.realizedPnl} signed />
                     <div
-                      className="min-w-0 col-span-2 rounded border border-slate-800/80 bg-slate-900/40 px-1.5 py-1"
+                      className="min-w-0 col-span-2 rounded border border-fs-border bg-fs-elevated/40 px-1.5 py-1"
                       title={
                         m?.maintenanceMargin != null && m?.netLiquidation != null
                           ? `维持保证金 ${fmtMoney(m.maintenanceMargin)} / 净清算 ${fmtMoney(m.netLiquidation)}`
@@ -1090,17 +1090,17 @@ export function IbkrPortfolioPanel({
                       }
                     >
                       <div className="flex min-w-0 items-center justify-between gap-1">
-                        <span className="min-w-0 truncate text-[9px] text-slate-500">
+                        <span className="min-w-0 truncate text-[9px] text-fs-muted">
                           维持保证金
                         </span>
                         <span className="flex shrink-0 items-baseline gap-1 font-mono tabular-nums">
-                          <span className="text-[10px] text-slate-100">
+                          <span className="text-[10px] text-fs-text">
                             {m?.maintenanceMarginToNlPct != null
                               ? `${m.maintenanceMarginToNlPct.toFixed(2)}%`
                               : "—"}
                           </span>
                           {m?.maintenanceMargin != null ? (
-                            <span className="text-[9px] text-slate-500">
+                            <span className="text-[9px] text-fs-muted">
                               {fmtMoney(m.maintenanceMargin)}
                             </span>
                           ) : null}
@@ -1108,12 +1108,12 @@ export function IbkrPortfolioPanel({
                       </div>
                     </div>
                     {m?.cushionFraction != null ? (
-                      <div className="min-w-0 rounded border border-slate-800/80 bg-slate-900/40 px-1.5 py-1">
+                      <div className="min-w-0 rounded border border-fs-border bg-fs-elevated/40 px-1.5 py-1">
                         <div className="flex min-w-0 items-center justify-between gap-1">
-                          <span className="min-w-0 truncate text-[9px] text-slate-500">
+                          <span className="min-w-0 truncate text-[9px] text-fs-muted">
                             Cushion
                           </span>
-                          <span className="shrink-0 font-mono text-[10px] tabular-nums text-slate-100">
+                          <span className="shrink-0 font-mono text-[10px] tabular-nums text-fs-text">
                             {fmtCushionPct(m.cushionFraction)}
                           </span>
                         </div>
@@ -1134,12 +1134,12 @@ export function IbkrPortfolioPanel({
         aria-orientation="vertical"
         aria-label="组合侧栏：左右拖拽调节宽度，单击收起或展开"
         onPointerDown={onResizePointerDown}
-        className={`flex w-2 shrink-0 cursor-col-resize touch-none select-none flex-col items-center justify-center border-r border-slate-800/90 bg-slate-900/90 hover:bg-slate-800/90 ${
-          dragging ? "bg-slate-700/90" : ""
+        className={`flex w-2 shrink-0 cursor-col-resize touch-none select-none flex-col items-center justify-center border-r border-fs-border/90 bg-fs-elevated/90 hover:bg-fs-elevated/90 ${
+          dragging ? "bg-fs-border/90" : ""
         }`}
       >
         <span
-          className="pointer-events-none h-10 w-1 rounded-full bg-slate-600"
+          className="pointer-events-none h-10 w-1 rounded-full bg-fs-border"
           aria-hidden
         />
       </div>
@@ -1157,14 +1157,14 @@ function Metric({
   signed?: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded border border-slate-800/80 bg-slate-900/40 px-1.5 py-1">
+    <div className="min-w-0 rounded border border-fs-border bg-fs-elevated/40 px-1.5 py-1">
       <div className="flex min-w-0 items-center justify-between gap-1">
-        <span className="min-w-0 truncate text-[9px] text-slate-500">
+        <span className="min-w-0 truncate text-[9px] text-fs-muted">
           {label}
         </span>
         <span
           className={`shrink-0 truncate font-mono text-[10px] tabular-nums leading-tight ${
-            signed ? signedColor(value) : "text-slate-100"
+            signed ? signedColor(value) : "text-fs-text"
           }`}
         >
           {fmtMoney(value)}

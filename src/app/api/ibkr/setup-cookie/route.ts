@@ -37,10 +37,10 @@ export async function GET(req: NextRequest) {
   if (isIbkrTwsMode()) return twsModeReject();
   if (!setupAllowed(req)) return deny();
   const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><title>IBKR Gateway Cookie</title>
-<style>body{font-family:system-ui,sans-serif;max-width:42rem;margin:2rem auto;padding:0 1rem;background:#0f172a;color:#e2e8f0}
-label{display:block;margin:.5rem 0 .25rem;color:#94a3b8;font-size:14px}textarea{width:100%;min-height:6rem;background:#1e293b;border:1px solid #334155;color:#e2e8f0;padding:.5rem;font-size:12px}
-button{margin-top:1rem;padding:.5rem 1rem;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer}
-p{font-size:13px;color:#94a3b8;line-height:1.5}</style></head><body>
+<style>body{font-family:system-ui,sans-serif;max-width:42rem;margin:2rem auto;padding:0 1rem;background:#ffffff;color:#37352f}
+label{display:block;margin:.5rem 0 .25rem;color:#6b6b6b;font-size:14px}textarea{width:100%;min-height:6rem;background:#f7f7f5;border:1px solid #e9e9e7;color:#37352f;padding:.5rem;font-size:12px}
+button{margin-top:1rem;padding:.5rem 1rem;background:#2383e2;color:#fff;border:none;border-radius:6px;cursor:pointer}
+p{font-size:13px;color:#6b6b6b;line-height:1.5}</style></head><body>
 <h1>更新 IB Gateway 会话</h1>
 <p>在已登录的 Gateway 页面按 F12 → Network → 点任意 <code>/v1/api/</code> 请求 → Request Headers 里复制整段 <strong>Cookie</strong>，粘贴到下方并提交。会写入 <code>.data/ibkr-cp-cookie.txt</code>（无需重启 dev）。</p>
 <form method="post"><label for="c">Cookie</label><textarea id="c" name="cookie" required placeholder="paste=...; session=..."></textarea><br/><button type="submit">保存</button></form>

@@ -50,10 +50,10 @@ function CalendarSyncBadge({ status }: { status: string }) {
               : "未同步";
   const cls =
     status === "matched"
-      ? "text-emerald-500/90"
+      ? "text-fs-accent/90"
       : status === "fetch_failed" || status === "no_match"
         ? "text-amber-400"
-        : "text-slate-500";
+        : "text-fs-muted";
   return <div className={`mt-1 ${cls}`}>{label}</div>;
 }
 
@@ -61,7 +61,7 @@ function FetchRunBadge({ row }: { row: AdminCatalogIndicator }) {
   if (!row.lastFetchStatus) return null;
   const ok = row.lastFetchStatus === "SUCCESS" || row.lastFetchStatus === "SKIPPED";
   return (
-    <div className={`mt-1 ${ok ? "text-slate-500" : "text-red-400"}`}>
+    <div className={`mt-1 ${ok ? "text-fs-muted" : "text-fs-negative"}`}>
       最近拉取 {row.lastFetchStatus}
       {row.lastFetchAt ? ` · ${formatDateTime(row.lastFetchAt)}` : ""}
       {row.lastFetchUpserted != null ? ` · +${row.lastFetchUpserted}` : ""}
@@ -101,12 +101,12 @@ function SchedulerToolbar({
   };
 
   const btn =
-    "rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50";
+    "rounded border border-fs-border bg-fs-elevated px-2 py-1 text-xs text-fs-text hover:bg-fs-elevated disabled:opacity-50";
 
   return (
-    <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+    <div className="space-y-2 rounded-lg border border-fs-border bg-fs-bg/60 p-3">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="shrink-0 text-sm font-medium text-slate-200">调度操作</div>
+        <div className="shrink-0 text-sm font-medium text-fs-text">调度操作</div>
         <div className="flex min-w-0 flex-1 flex-wrap justify-end gap-2">
           <button type="button" className={btn} disabled={!!busy} onClick={() => run("sync_calendar")}>
             {busy === "sync_calendar" ? "同步中…" : "同步 TE 日历"}
@@ -128,7 +128,7 @@ function SchedulerToolbar({
           </button>
         </div>
       </div>
-      {msg ? <p className="text-xs text-slate-400">{msg}</p> : null}
+      {msg ? <p className="text-xs text-fs-muted">{msg}</p> : null}
     </div>
   );
 }
@@ -179,22 +179,22 @@ function CalendarMappingPanel({ onClose }: { onClose: () => void }) {
   const overrideKeys = data ? Object.keys(data.overrides) : [];
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-xs">
+    <div className="rounded-lg border border-fs-border bg-white/95 p-3 text-xs">
       <div className="mb-2 flex items-center justify-between">
-        <span className="font-medium text-slate-200">TradingEconomics 日历映射（覆盖内置）</span>
-        <button type="button" className="text-slate-500 hover:text-slate-300" onClick={onClose}>
+        <span className="font-medium text-fs-text">TradingEconomics 日历映射（覆盖内置）</span>
+        <button type="button" className="text-fs-muted hover:text-fs-secondary" onClick={onClose}>
           关闭
         </button>
       </div>
-      <p className="mb-2 text-slate-500">
+      <p className="mb-2 text-fs-muted">
         内置 {data ? Object.keys(data.builtIn).length : "…"} 条；覆盖 {overrideKeys.length} 条。保存后
         `npm run data:sync-calendar` 生效。
       </p>
       {overrideKeys.length > 0 ? (
-        <ul className="mb-2 max-h-24 space-y-0.5 overflow-y-auto text-slate-400">
+        <ul className="mb-2 max-h-24 space-y-0.5 overflow-y-auto text-fs-muted">
           {overrideKeys.map((k) => (
             <li key={k}>
-              <span className="font-mono text-slate-500">{k}</span>{" "}
+              <span className="font-mono text-fs-muted">{k}</span>{" "}
               {data!.overrides[k]!.keywords.join(" · ")}
             </li>
           ))}
@@ -202,27 +202,27 @@ function CalendarMappingPanel({ onClose }: { onClose: () => void }) {
       ) : null}
       <div className="grid gap-2 sm:grid-cols-3">
         <label className="block">
-          <span className="text-slate-500">FRED 键</span>
+          <span className="text-fs-muted">FRED 键</span>
           <input
             value={fredKey}
             onChange={(e) => setFredKey(e.target.value)}
-            className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           />
         </label>
         <label className="block">
-          <span className="text-slate-500">国家代码</span>
+          <span className="text-fs-muted">国家代码</span>
           <input
             value={countries}
             onChange={(e) => setCountries(e.target.value)}
-            className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           />
         </label>
         <label className="block sm:col-span-1">
-          <span className="text-slate-500">关键词（逗号分隔）</span>
+          <span className="text-fs-muted">关键词（逗号分隔）</span>
           <input
             value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
-            className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+            className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           />
         </label>
       </div>
@@ -230,12 +230,12 @@ function CalendarMappingPanel({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={save}
-          className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-200 hover:bg-slate-800"
+          className="rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text hover:bg-fs-elevated"
         >
           保存覆盖
         </button>
       </div>
-      {msg ? <p className="mt-2 text-slate-400">{msg}</p> : null}
+      {msg ? <p className="mt-2 text-fs-muted">{msg}</p> : null}
     </div>
   );
 }
@@ -245,13 +245,13 @@ function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
     return (
       <div>
         <span className="text-amber-400">待确定</span>
-        <div className="mt-0.5 text-slate-500">
+        <div className="mt-0.5 text-fs-muted">
           {!row.inDatabase
             ? "目录项尚未入库，须先入库并确认网络获取方式"
             : "须确认网络获取方式（FRED / BIS / REST 等）并探测通过"}
         </div>
         {row.fetchAcquisitionMessage ? (
-          <div className="mt-0.5 text-slate-600" title={row.fetchAcquisitionMessage}>
+          <div className="mt-0.5 text-fs-secondary" title={row.fetchAcquisitionMessage}>
             {row.fetchAcquisitionMessage}
           </div>
         ) : null}
@@ -261,9 +261,9 @@ function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
 
   return (
     <div>
-      <span className="text-emerald-400">已确认获取</span>
+      <span className="text-fs-accent-text">已确认获取</span>
       {row.fetchAcquisitionMethod ? (
-        <div className="mt-0.5 font-medium text-slate-300">{row.fetchAcquisitionMethod}</div>
+        <div className="mt-0.5 font-medium text-fs-secondary">{row.fetchAcquisitionMethod}</div>
       ) : null}
       {row.fetchAcquisitionFetchUrl ? (
         <a
@@ -276,12 +276,12 @@ function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
         </a>
       ) : null}
       {row.fetchAcquisitionMessage ? (
-        <div className="mt-0.5 text-slate-500" title={row.fetchAcquisitionMessage}>
+        <div className="mt-0.5 text-fs-muted" title={row.fetchAcquisitionMessage}>
           {row.fetchAcquisitionMessage}
         </div>
       ) : null}
       {row.fetchAcquisitionProbedAt ? (
-        <div className="mt-0.5 text-slate-600">探测 {formatDate(row.fetchAcquisitionProbedAt)}</div>
+        <div className="mt-0.5 text-fs-secondary">探测 {formatDate(row.fetchAcquisitionProbedAt)}</div>
       ) : null}
     </div>
   );
@@ -290,7 +290,7 @@ function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
 function SourceLinks({ row }: { row: AdminCatalogIndicator }) {
   const primary = row.sourcePageUrl;
   const api = row.apiSourceUrl;
-  if (!primary && !api) return <span className="text-slate-500">—</span>;
+  if (!primary && !api) return <span className="text-fs-muted">—</span>;
   return (
     <div className="flex flex-col gap-0.5 text-xs">
       {primary ? (
@@ -298,7 +298,7 @@ function SourceLinks({ row }: { row: AdminCatalogIndicator }) {
           href={primary}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-emerald-400 hover:text-emerald-300 hover:underline"
+          className="text-fs-accent-text hover:text-fs-accent-text hover:underline"
         >
           官方 / 发布页
         </a>
@@ -314,13 +314,13 @@ function SourceLinks({ row }: { row: AdminCatalogIndicator }) {
         </a>
       ) : null}
       {row.agencyName ? (
-        <span className="text-slate-500">
+        <span className="text-fs-muted">
           {row.agencyWebsiteUrl ? (
             <a
               href={row.agencyWebsiteUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-slate-300 hover:underline"
+              className="hover:text-fs-secondary hover:underline"
             >
               {row.agencyName}
             </a>
@@ -330,7 +330,7 @@ function SourceLinks({ row }: { row: AdminCatalogIndicator }) {
         </span>
       ) : null}
       {row.sourceName ? (
-        <span className="text-slate-600">{row.sourceName}</span>
+        <span className="text-fs-secondary">{row.sourceName}</span>
       ) : null}
     </div>
   );
@@ -372,23 +372,23 @@ function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefres
 
   return (
     <tr
-      className="cursor-pointer border-b border-slate-900/80 align-top text-xs hover:bg-slate-900/40"
+      className="cursor-pointer border-b border-fs-border align-top text-xs hover:bg-fs-elevated/40"
       title="双击在宏观页查看"
       onDoubleClick={openInMacro}
     >
       <td className="py-1.5 pl-12 pr-3">
-        <div className="text-xs text-slate-200">{row.label}</div>
-        <div className="mt-0.5 font-mono text-[10px] text-slate-500">{row.key}</div>
+        <div className="text-xs text-fs-text">{row.label}</div>
+        <div className="mt-0.5 font-mono text-[10px] text-fs-muted">{row.key}</div>
         {row.instrumentCode ? (
-          <div className="font-mono text-[10px] text-slate-600">{row.instrumentCode}</div>
+          <div className="font-mono text-[10px] text-fs-secondary">{row.instrumentCode}</div>
         ) : null}
         {row.releasePackageLabelZh ? (
           <div className="mt-0.5 text-[10px] text-sky-500">发布包：{row.releasePackageLabelZh}</div>
         ) : null}
       </td>
-      <td className="whitespace-nowrap px-3 py-1.5 text-slate-400">{row.frequency}</td>
-      <td className="px-3 py-1.5 text-slate-300">
-        {row.dbSource ?? <span className="text-slate-500">—</span>}
+      <td className="whitespace-nowrap px-3 py-1.5 text-fs-muted">{row.frequency}</td>
+      <td className="px-3 py-1.5 text-fs-secondary">
+        {row.dbSource ?? <span className="text-fs-muted">—</span>}
       </td>
       <td className="px-3 py-1.5">
         <SourceLinks row={row} />
@@ -396,21 +396,21 @@ function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefres
       <td className="px-3 py-1.5">
         <AcquisitionCell row={row} />
       </td>
-      <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-slate-300">
+      <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-fs-secondary">
         {formatValue(row.latestValue, row.unit)}
       </td>
-      <td className="whitespace-nowrap px-3 py-1.5 text-slate-400">
+      <td className="whitespace-nowrap px-3 py-1.5 text-fs-muted">
         {formatDate(row.latestObsDate)}
       </td>
-      <td className="whitespace-nowrap px-3 py-1.5 text-slate-400">
+      <td className="whitespace-nowrap px-3 py-1.5 text-fs-muted">
         {row.networkAcquisitionConfirmed ? formatDateTime(row.nextRunAt) : "—"}
       </td>
-      <td className="px-3 py-1.5 text-slate-500">
+      <td className="px-3 py-1.5 text-fs-muted">
         {row.networkAcquisitionConfirmed ? (
           <>
             <div>{row.releaseRuleSummary ?? "—"}</div>
             {row.calendarReleaseAt ? (
-              <div className="mt-1 text-slate-500">
+              <div className="mt-1 text-fs-muted">
                 日历发布 {formatDateTime(row.calendarReleaseAt)}
                 {row.calendarEventTitle ? (
                   <span className="block truncate" title={row.calendarEventTitle}>
@@ -431,18 +431,18 @@ function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefres
         {!row.networkAcquisitionConfirmed ? (
           <span className="text-amber-400">待确定</span>
         ) : row.isStale ? (
-          <span className="text-red-400">未更新</span>
+          <span className="text-fs-negative">未更新</span>
         ) : row.updateStatus === "source_current" ? (
-          <span className="text-slate-400">源端暂无新值</span>
+          <span className="text-fs-muted">源端暂无新值</span>
         ) : row.updateStatus === "on_schedule" ? (
-          <span className="text-emerald-400">等待下次更新</span>
+          <span className="text-fs-accent-text">等待下次更新</span>
         ) : (
-          <span className="text-slate-500">—</span>
+          <span className="text-fs-muted">—</span>
         )}
         {row.networkAcquisitionConfirmed && row.staleReason ? (
           <div
             className={`mt-0.5 ${
-              row.updateStatus === "source_current" ? "text-slate-500" : "text-red-400/90"
+              row.updateStatus === "source_current" ? "text-fs-muted" : "text-fs-negative/90"
             }`}
             title={row.staleReason}
           >
@@ -450,7 +450,7 @@ function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefres
           </div>
         ) : null}
         {row.networkAcquisitionConfirmed && row.lastError ? (
-          <div className="mt-1 truncate text-red-400" title={row.lastError}>
+          <div className="mt-1 truncate text-fs-negative" title={row.lastError}>
             {row.lastError}
           </div>
         ) : null}
@@ -597,8 +597,8 @@ function CatalogTableHeader({
   onSort: (key: SortKey) => void;
 }) {
   return (
-    <thead className="sticky top-0 z-20 bg-slate-950 text-xs text-slate-500 shadow-[0_1px_0_0_rgb(51_65_85)]">
-      <tr className="border-b border-slate-700">
+    <thead className="sticky top-0 z-20 bg-fs-bg text-xs text-fs-muted shadow-[0_1px_0_0_rgb(51_65_85)]">
+      <tr className="border-b border-fs-border">
         {SORT_COLUMNS.map((col) => {
           const active = sortKey === col.key;
           return (
@@ -606,12 +606,12 @@ function CatalogTableHeader({
               <button
                 type="button"
                 onClick={() => onSort(col.key)}
-                className={`inline-flex items-center gap-1 hover:text-slate-200 ${
-                  active ? "text-slate-200" : ""
+                className={`inline-flex items-center gap-1 hover:text-fs-text ${
+                  active ? "text-fs-text" : ""
                 }`}
               >
                 {col.label}
-                <span className="text-[10px] text-slate-600">
+                <span className="text-[10px] text-fs-secondary">
                   {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
                 </span>
               </button>
@@ -641,7 +641,7 @@ function UnifiedCatalogTable({
   onSort: (key: SortKey) => void;
 }) {
   return (
-    <div className="max-h-[min(72vh,900px)] overflow-auto rounded-lg border border-slate-800 bg-slate-950/50">
+    <div className="max-h-[min(72vh,900px)] overflow-auto rounded-lg border border-fs-border bg-fs-elevated">
       <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
         <colgroup>
           <col className="w-[22%]" />
@@ -663,18 +663,18 @@ function UnifiedCatalogTable({
             const totalCount = countryIndicatorCount(country);
             return (
               <Fragment key={country.code}>
-                <tr className="bg-slate-900/60">
+                <tr className="bg-fs-elevated">
                   <td colSpan={COL_COUNT} className="p-0">
                     <button
                       type="button"
                       onClick={() => onToggle(countryKey)}
-                      className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-slate-900/80"
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-fs-elevated"
                     >
-                      <span className="font-medium text-slate-100">
+                      <span className="font-medium text-fs-text">
                         {country.name}
-                        <span className="ml-2 text-sm font-normal text-slate-500">{country.code}</span>
+                        <span className="ml-2 text-sm font-normal text-fs-muted">{country.code}</span>
                       </span>
-                      <span className="text-sm text-slate-500">
+                      <span className="text-sm text-fs-muted">
                         {totalCount} 项 {countryOpen ? "▾" : "▸"}
                       </span>
                     </button>
@@ -688,15 +688,15 @@ function UnifiedCatalogTable({
                       if (catCount === 0) return null;
                       return (
                         <Fragment key={catKey}>
-                          <tr className="bg-slate-900/35">
+                          <tr className="bg-fs-elevated/35">
                             <td colSpan={COL_COUNT} className="p-0">
                               <button
                                 type="button"
                                 onClick={() => onToggle(catKey)}
-                                className="flex w-full items-center justify-between py-2 pl-8 pr-4 text-left hover:bg-slate-900/50"
+                                className="flex w-full items-center justify-between py-2 pl-8 pr-4 text-left hover:bg-fs-elevated/80"
                               >
-                                <span className="text-sm font-medium text-slate-300">{cat.name}</span>
-                                <span className="text-xs text-slate-500">
+                                <span className="text-sm font-medium text-fs-secondary">{cat.name}</span>
+                                <span className="text-xs text-fs-muted">
                                   {catCount} 项 {catOpen ? "▾" : "▸"}
                                 </span>
                               </button>
@@ -716,15 +716,15 @@ function UnifiedCatalogTable({
                                 if (!indicators.length) return null;
                                 return (
                                   <Fragment key={sgKey}>
-                                    <tr className="bg-slate-900/20">
+                                    <tr className="bg-fs-elevated/20">
                                       <td colSpan={COL_COUNT} className="p-0">
                                         <button
                                           type="button"
                                           onClick={() => onToggle(sgKey)}
-                                          className="flex w-full items-center justify-between py-1.5 pl-12 pr-4 text-left hover:bg-slate-900/40"
+                                          className="flex w-full items-center justify-between py-1.5 pl-12 pr-4 text-left hover:bg-fs-elevated/40"
                                         >
-                                          <span className="text-xs font-medium text-slate-400">{sg.name}</span>
-                                          <span className="text-xs text-slate-500">
+                                          <span className="text-xs font-medium text-fs-muted">{sg.name}</span>
+                                          <span className="text-xs text-fs-muted">
                                             {indicators.length} 项 {sgOpen ? "▾" : "▸"}
                                           </span>
                                         </button>
@@ -767,41 +767,41 @@ function DataSchedulerInfoCard({
   sourceCurrentCount: number;
 }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/80">
+    <div className="rounded-lg border border-fs-border bg-white/95">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-slate-900/50"
+        className="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-fs-elevated/80"
       >
-        <span className="text-sm font-medium text-slate-100">数据更新机制（通用）</span>
-        <span className="text-xs text-slate-500">{open ? "▾" : "▸"}</span>
+        <span className="text-sm font-medium text-fs-text">数据更新机制（通用）</span>
+        <span className="text-xs text-fs-muted">{open ? "▾" : "▸"}</span>
       </button>
       {open ? (
-        <div className="border-t border-slate-800 px-4 py-3 text-xs leading-relaxed text-slate-400">
+        <div className="border-t border-fs-border px-4 py-3 text-xs leading-relaxed text-fs-muted">
           <ol className="list-decimal space-y-2 pl-4">
             <li>
-              <strong className="font-normal text-slate-300">待确定</strong>：尚未确认网络获取方式（含<strong className="font-normal text-slate-300">仅目录未入库</strong>、Excel 历史导入、未探测等）。此时<strong className="font-normal text-slate-300">下次更新 / 更新计划</strong>为空；<strong className="font-normal text-slate-300">状态</strong>亦显示待确定。
+              <strong className="font-normal text-fs-secondary">待确定</strong>：尚未确认网络获取方式（含<strong className="font-normal text-fs-secondary">仅目录未入库</strong>、Excel 历史导入、未探测等）。此时<strong className="font-normal text-fs-secondary">下次更新 / 更新计划</strong>为空；<strong className="font-normal text-fs-secondary">状态</strong>亦显示待确定。
             </li>
             <li>
-              <strong className="font-normal text-emerald-400/90">已确认获取</strong> 后才会出现下次更新、更新计划，以及等待下次更新 / 未更新 / 源端暂无新值等调度状态。
+              <strong className="font-normal text-fs-accent-text/90">已确认获取</strong> 后才会出现下次更新、更新计划，以及等待下次更新 / 未更新 / 源端暂无新值等调度状态。
             </li>
           </ol>
           <p className="mt-3">
-            计划任务建议：每小时 <code className="text-slate-300">npm run data:sync-calendar</code>，每 1–5 分钟{" "}
-            <code className="text-slate-300">npm run data:worker</code>。
+            计划任务建议：每小时 <code className="text-fs-secondary">npm run data:sync-calendar</code>，每 1–5 分钟{" "}
+            <code className="text-fs-secondary">npm run data:worker</code>。
           </p>
           <p className="mt-2">
             Excel 导入：
-            <code className="text-slate-300">
+            <code className="text-fs-secondary">
               npm run db:import-macro-xlsx -- --file=路径.xlsx --preset=debtcap
             </code>
             （指标树：国家宏观 → 国家 → 主题 → 指标 → 子维度）
           </p>
           {staleCount > 0 ? (
-            <p className="mt-2 text-red-400/90">当前有 {staleCount} 条指标未更新（到期且本地尚未确认同步）。</p>
+            <p className="mt-2 text-fs-negative/90">当前有 {staleCount} 条指标未更新（到期且本地尚未确认同步）。</p>
           ) : null}
           {sourceCurrentCount > 0 ? (
-            <p className="mt-2 text-slate-500">
+            <p className="mt-2 text-fs-muted">
               另有 {sourceCurrentCount} 条已同步至源端最新，源端尚未发布更晚数据。
             </p>
           ) : null}
@@ -929,19 +929,19 @@ export function DataCatalogAdminClient() {
     <div className="w-full min-w-0 space-y-4 px-4 py-4 lg:px-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1">
-          <h1 className="shrink-0 text-xl font-semibold text-slate-50">数据更新目录</h1>
+          <h1 className="shrink-0 text-xl font-semibold text-fs-text">数据更新目录</h1>
           {data ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fs-muted">
               <span>指标 {data.stats.totalIndicators}</span>
               <span>已入库 {data.stats.inDatabase}</span>
               <span>已订阅 {data.stats.withSubscription}</span>
               <span>有最新值 {data.stats.withLatestValue}</span>
-              <span className="text-emerald-500/90">已确认获取 {data.stats.fetchKnown}</span>
+              <span className="text-fs-accent/90">已确认获取 {data.stats.fetchKnown}</span>
               <span className="text-amber-500/90">待确定 {data.stats.fetchPending}</span>
-              <span className="text-red-400/90">未更新 {data.stats.staleCount}</span>
-              <span className="text-slate-500">源端暂无新值 {data.stats.sourceCurrentCount}</span>
-              <span className="text-emerald-500/80">可自动更新 {data.stats.readyCount}</span>
-              <span className="text-slate-600">更新于 {formatDateTime(data.builtAt)}</span>
+              <span className="text-fs-negative/90">未更新 {data.stats.staleCount}</span>
+              <span className="text-fs-muted">源端暂无新值 {data.stats.sourceCurrentCount}</span>
+              <span className="text-fs-accent/80">可自动更新 {data.stats.readyCount}</span>
+              <span className="text-fs-secondary">更新于 {formatDateTime(data.builtAt)}</span>
             </div>
           ) : null}
         </div>
@@ -949,20 +949,20 @@ export function DataCatalogAdminClient() {
           type="button"
           onClick={() => load()}
           disabled={loading}
-          className="shrink-0 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+          className="shrink-0 rounded-md border border-fs-border bg-fs-elevated px-3 py-1.5 text-sm text-fs-text hover:bg-fs-elevated disabled:opacity-50"
         >
           {loading ? "刷新中…" : "刷新"}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-2">
+      <div className="flex flex-wrap gap-2 border-b border-fs-border pb-2">
         <button
           type="button"
           onClick={() => setViewMode("table")}
           className={`rounded-md px-3 py-1.5 text-sm ${
             viewMode === "table"
-              ? "bg-slate-800 text-slate-100"
-              : "text-slate-500 hover:bg-slate-900 hover:text-slate-300"
+              ? "bg-fs-elevated text-fs-text"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-secondary"
           }`}
         >
           数据列表
@@ -972,8 +972,8 @@ export function DataCatalogAdminClient() {
           onClick={() => setViewMode("tree")}
           className={`rounded-md px-3 py-1.5 text-sm ${
             viewMode === "tree"
-              ? "bg-slate-800 text-slate-100"
-              : "text-slate-500 hover:bg-slate-900 hover:text-slate-300"
+              ? "bg-fs-elevated text-fs-text"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-secondary"
           }`}
         >
           编辑目录树
@@ -1001,19 +1001,19 @@ export function DataCatalogAdminClient() {
       />
 
       {showRuns ? (
-        <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-xs">
+        <div className="rounded-lg border border-fs-border bg-white/95 p-3 text-xs">
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-medium text-slate-200">最近拉取日志</span>
-            <button type="button" className="text-slate-500 hover:text-slate-300" onClick={() => setShowRuns(false)}>
+            <span className="font-medium text-fs-text">最近拉取日志</span>
+            <button type="button" className="text-fs-muted hover:text-fs-secondary" onClick={() => setShowRuns(false)}>
               关闭
             </button>
           </div>
-          <ul className="max-h-64 space-y-1 overflow-y-auto text-slate-400">
+          <ul className="max-h-64 space-y-1 overflow-y-auto text-fs-muted">
             {fetchRuns.map((r) => (
               <li key={`${r.instrumentCode}-${r.startedAt}`}>
-                <span className="font-mono text-slate-500">{r.instrumentCode}</span>{" "}
+                <span className="font-mono text-fs-muted">{r.instrumentCode}</span>{" "}
                 {r.status} +{r.rowsUpserted} · {formatDateTime(r.startedAt)}
-                {r.error ? <span className="text-red-400"> · {r.error}</span> : null}
+                {r.error ? <span className="text-fs-negative"> · {r.error}</span> : null}
               </li>
             ))}
           </ul>
@@ -1026,43 +1026,43 @@ export function DataCatalogAdminClient() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="搜索指标名、代码、fred:/mds: 键…"
-          className="min-w-[240px] flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-600"
+          className="min-w-[240px] flex-1 rounded-md border border-fs-border bg-fs-bg px-3 py-1.5 text-sm text-fs-text placeholder:text-fs-secondary"
         />
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-400">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-fs-muted">
           <input
             type="checkbox"
             checked={onlySubscribed}
             onChange={(e) => setOnlySubscribed(e.target.checked)}
-            className="rounded border-slate-600"
+            className="rounded border-fs-border"
           />
           仅显示已订阅
         </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-400">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-fs-muted">
           <input
             type="checkbox"
             checked={onlyPending}
             onChange={(e) => setOnlyPending(e.target.checked)}
-            className="rounded border-slate-600"
+            className="rounded border-fs-border"
           />
           仅显示获取待确定
         </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-400">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-fs-muted">
           <input
             type="checkbox"
             checked={onlyStale}
             onChange={(e) => setOnlyStale(e.target.checked)}
-            className="rounded border-slate-600"
+            className="rounded border-fs-border"
           />
           仅显示未更新
         </label>
       </div>
 
-      <p className="text-xs text-slate-500">
-        命令行：探测 <code className="text-slate-400">npm run data:probe-sources</code>
-        · TE 日历 <code className="text-slate-400">npm run data:sync-calendar</code>
-        · 未更新 <code className="text-slate-400">npm run data:sync-all-stale</code>
-        · worker <code className="text-slate-400">npm run data:worker</code>
-        · Excel 历史 <code className="text-slate-400">npm run db:import-macro-xlsx</code>
+      <p className="text-xs text-fs-muted">
+        命令行：探测 <code className="text-fs-muted">npm run data:probe-sources</code>
+        · TE 日历 <code className="text-fs-muted">npm run data:sync-calendar</code>
+        · 未更新 <code className="text-fs-muted">npm run data:sync-all-stale</code>
+        · worker <code className="text-fs-muted">npm run data:worker</code>
+        · Excel 历史 <code className="text-fs-muted">npm run db:import-macro-xlsx</code>
       </p>
 
       {error ? (
@@ -1072,7 +1072,7 @@ export function DataCatalogAdminClient() {
       ) : null}
 
       {loading && !data ? (
-        <p className="text-sm text-slate-500">加载中…</p>
+        <p className="text-sm text-fs-muted">加载中…</p>
       ) : null}
 
       {filteredCountries.length > 0 ? (
@@ -1088,7 +1088,7 @@ export function DataCatalogAdminClient() {
       ) : null}
 
       {!loading && filteredCountries.length === 0 && !error ? (
-        <p className="text-sm text-slate-500">无匹配指标</p>
+        <p className="text-sm text-fs-muted">无匹配指标</p>
       ) : null}
         </>
       ) : null}

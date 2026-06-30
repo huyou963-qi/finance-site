@@ -30,19 +30,19 @@ export function TagInput({
   );
 
   return (
-    <label className="block text-[11px] text-slate-400">
+    <label className="block text-[11px] text-fs-muted">
       {label}
-      <div className="mt-0.5 rounded border border-slate-700 bg-slate-900 px-1.5 py-1">
+      <div className="mt-0.5 rounded border border-fs-border bg-fs-elevated px-1.5 py-1">
         <div className="mb-1 flex flex-wrap gap-1">
           {values.map((v) => (
             <span
               key={v}
-              className="inline-flex items-center gap-0.5 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-200"
+              className="inline-flex items-center gap-0.5 rounded bg-fs-elevated px-1.5 py-0.5 text-[10px] text-fs-text"
             >
               {v}
               <button
                 type="button"
-                className="text-slate-500 hover:text-rose-300"
+                className="text-fs-muted hover:text-rose-300"
                 onClick={() => onChange(values.filter((x) => x !== v))}
                 aria-label={`移除 ${v}`}
               >
@@ -68,7 +68,7 @@ export function TagInput({
             if (draft.trim()) add(draft);
           }}
           placeholder={placeholder}
-          className="w-full bg-transparent text-[11px] text-slate-100 outline-none placeholder:text-slate-600"
+          className="w-full bg-transparent text-[11px] text-fs-text outline-none placeholder:text-fs-secondary"
         />
         {suggestions?.length ? (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -80,7 +80,7 @@ export function TagInput({
                   key={s}
                   type="button"
                   onClick={() => add(s)}
-                  className="rounded border border-slate-700/80 px-1 py-0 text-[10px] text-slate-500 hover:border-slate-500 hover:text-slate-300"
+                  className="rounded border border-fs-border/80 px-1 py-0 text-[10px] text-fs-muted hover:border-fs-border hover:text-fs-secondary"
                 >
                   + {s}
                 </button>

@@ -302,23 +302,23 @@ export function MarketsToolsClient() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-50">K线区间统计</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-xl font-semibold text-fs-text">K线区间统计</h1>
+        <p className="mt-1 text-sm text-fs-muted">
           使用本地 Excel（10Y、SPX、XAU）日线数据，统计任意两个日期区间的回报：Close→Close 与
-          Low→High。多条统计会保存在当前<strong className="text-slate-300">模板</strong>
+          Low→High。多条统计会保存在当前<strong className="text-fs-secondary">模板</strong>
           中，刷新页面后仍可打开继续查看。
         </p>
       </div>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+      <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-slate-400">
+          <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-fs-muted">
             当前模板
             <select
               value={activeTemplateId}
               onChange={(e) => setActiveTemplateId(e.target.value)}
               disabled={!hydrated || templates.length === 0}
-              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
             >
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -327,21 +327,21 @@ export function MarketsToolsClient() {
               ))}
             </select>
           </label>
-          <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-slate-400">
+          <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-fs-muted">
             模板名称
             <input
               type="text"
               value={activeTemplate?.name ?? ""}
               disabled={!activeTemplate}
               onChange={(e) => patchActiveTemplate((t) => ({ ...t, name: e.target.value }))}
-              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
             />
           </label>
           <button
             type="button"
             disabled={!hydrated}
             onClick={newTemplate}
-            className="rounded-md border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
+            className="rounded-md border border-fs-border bg-fs-elevated px-3 py-1.5 text-sm text-fs-text hover:bg-fs-elevated"
           >
             新建模板
           </button>
@@ -355,32 +355,32 @@ export function MarketsToolsClient() {
           </button>
         </div>
         {activeTemplate ? (
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-fs-muted">
             本模板已自动保存到服务端文件。上次更新：{activeTemplate.updatedAt.slice(0, 19).replace("T", " ")}
           </p>
         ) : null}
       </section>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+      <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-fs-muted">
             起始日期
             <input
               type="date"
               value={start}
               onChange={(e) => setStart(e.target.value)}
               disabled={!activeTemplate}
-              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-400">
+          <label className="flex flex-col gap-1 text-xs text-fs-muted">
             结束日期
             <input
               type="date"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
               disabled={!activeTemplate}
-              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+              className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
             />
           </label>
           <div className="flex flex-wrap gap-2 pt-1">
@@ -391,8 +391,8 @@ export function MarketsToolsClient() {
                   key={asset.key}
                   className={`cursor-pointer rounded-md border px-2 py-1 text-xs ${
                     checked
-                      ? "border-emerald-700 bg-emerald-950/60 text-emerald-100"
-                      : "border-slate-700 bg-slate-900 text-slate-300"
+                      ? "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
+                      : "border-fs-border bg-fs-elevated text-fs-secondary"
                   }`}
                 >
                   <input
@@ -415,12 +415,12 @@ export function MarketsToolsClient() {
             type="button"
             disabled={!start || !end || pickedAssets.length === 0 || loading || !activeTemplate}
             onClick={() => calculateAndAppendRun().catch(() => {})}
-            className="rounded-md border border-emerald-700 bg-emerald-900/50 px-3 py-1.5 text-sm text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-3 py-1.5 text-sm text-fs-accent-text disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? "计算中..." : "计算区间回报"}
           </button>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-fs-muted">
           非交易日会自动映射到起始日后的首个交易日与结束日前的最后交易日。
         </p>
       </section>
@@ -429,7 +429,7 @@ export function MarketsToolsClient() {
 
       <section className="space-y-4">
         {runs.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-4 text-sm text-slate-400">
+          <div className="rounded-lg border border-dashed border-fs-border bg-fs-bg/40 p-4 text-sm text-fs-muted">
             当前模板尚无统计结果，点击上方「计算区间回报」后会追加到本模板并自动保存。
           </div>
         ) : null}
@@ -445,10 +445,10 @@ export function MarketsToolsClient() {
 
           return (
             <div key={run.id} className="space-y-3">
-              {idx > 0 ? <div className="h-px w-full bg-slate-800" /> : null}
-              <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+              {idx > 0 ? <div className="h-px w-full bg-fs-elevated" /> : null}
+              <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs text-fs-muted">
                     统计时间：{run.createdAt} ｜ 查询区间：{run.request.start} ~ {run.request.end}
                     ｜ 资产：{run.request.assets.join(", ")}
                   </div>
@@ -464,17 +464,17 @@ export function MarketsToolsClient() {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                    <h2 className="text-sm font-medium text-slate-200">Close→Close 最优资产</h2>
-                    <p className="mt-2 text-lg font-semibold text-emerald-300">
+                  <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+                    <h2 className="text-sm font-medium text-fs-text">Close→Close 最优资产</h2>
+                    <p className="mt-2 text-lg font-semibold text-fs-accent-text">
                       {bestCloseToClose
                         ? `${bestCloseToClose.asset} · ${fmtPct(bestCloseToClose.closeToCloseReturn)}`
                         : "-"}
                     </p>
                   </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                    <h2 className="text-sm font-medium text-slate-200">Low→High 最优资产</h2>
-                    <p className="mt-2 text-lg font-semibold text-emerald-300">
+                  <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+                    <h2 className="text-sm font-medium text-fs-text">Low→High 最优资产</h2>
+                    <p className="mt-2 text-lg font-semibold text-fs-accent-text">
                       {bestLowToHigh
                         ? `${bestLowToHigh.asset} · ${fmtPct(bestLowToHigh.lowToHighReturn)}`
                         : "-"}
@@ -484,7 +484,7 @@ export function MarketsToolsClient() {
 
                 <div className="mt-3 overflow-auto">
                   <table className="min-w-full text-xs md:text-sm">
-                    <thead className="bg-slate-900/80 text-slate-300">
+                    <thead className="bg-fs-elevated text-fs-secondary">
                       <tr>
                         <th className="px-2 py-2 text-left">资产</th>
                         <th className="px-2 py-2 text-left">实际起止</th>
@@ -499,7 +499,7 @@ export function MarketsToolsClient() {
                     </thead>
                     <tbody>
                       {run.rows.map((r) => (
-                        <tr key={`${run.id}-${r.asset}`} className="border-t border-slate-800 text-slate-200">
+                        <tr key={`${run.id}-${r.asset}`} className="border-t border-fs-border text-fs-text">
                           <td className="px-2 py-2">{r.asset}</td>
                           <td className="px-2 py-2">
                             {r.startDate} ~ {r.endDate}
@@ -522,7 +522,7 @@ export function MarketsToolsClient() {
         })}
       </section>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+      <section className="rounded-lg border border-fs-border bg-fs-bg/40 p-3 text-xs text-fs-muted">
         <p>数据覆盖：</p>
         <div className="mt-1 flex flex-wrap gap-3">
           {assetsMeta.map((m) => (

@@ -80,17 +80,17 @@ export function EventContentPopover({
   return createPortal(
     <div
       role="tooltip"
-      className="overflow-y-auto rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-[11px] leading-relaxed text-slate-200 shadow-xl ring-1 ring-slate-700/80"
+      className="overflow-y-auto rounded-lg border border-fs-border bg-fs-elevated px-3 py-2.5 text-[11px] leading-relaxed text-fs-text shadow-xl ring-1 ring-fs-border"
       style={popoverStyle(anchor)}
       onMouseEnter={cancelHide}
       onMouseLeave={scheduleHide}
     >
       {title ? (
-        <p className="mb-1.5 border-b border-slate-700/80 pb-1.5 text-xs font-semibold text-slate-100">
+        <p className="mb-1.5 border-b border-fs-border/80 pb-1.5 text-xs font-semibold text-fs-text">
           {title}
         </p>
       ) : null}
-      <div className="whitespace-pre-wrap break-words text-slate-300">{content}</div>
+      <div className="whitespace-pre-wrap break-words text-fs-secondary">{content}</div>
     </div>,
     document.body,
   );

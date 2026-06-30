@@ -158,7 +158,7 @@ export function MacroTimeRangeNavigator({
       <div className="flex h-full flex-col pl-[52px] pr-5">
         <div
           ref={trackRef}
-          className="relative mt-1 h-[18px] w-full cursor-pointer rounded border border-slate-700/80 bg-slate-900/60"
+          className="relative mt-1 h-[18px] w-full cursor-pointer rounded border border-fs-border/80 bg-fs-elevated"
           onPointerDown={(e) => {
             if (e.target !== e.currentTarget) return;
             const pct = xToPct(e.clientX);
@@ -168,7 +168,7 @@ export function MacroTimeRangeNavigator({
           role="presentation"
         >
           <div
-            className="absolute inset-y-0 border-x border-emerald-600/60 bg-emerald-500/25"
+            className="absolute inset-y-0 border-x border-fs-accent/60 bg-fs-accent-soft"
             style={{ left: `${leftPct}%`, width: `${wPct}%` }}
             onPointerDown={(e) => {
               e.preventDefault();
@@ -179,7 +179,7 @@ export function MacroTimeRangeNavigator({
           <button
             type="button"
             aria-label="拖动左边界"
-            className="absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-slate-100 p-0 hover:bg-emerald-200"
+            className="absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-elevated p-0 hover:bg-fs-accent-soft"
             style={{ left: `${leftPct}%` }}
             onPointerDown={(e) => {
               e.preventDefault();
@@ -190,7 +190,7 @@ export function MacroTimeRangeNavigator({
           <button
             type="button"
             aria-label="拖动右边界"
-            className="absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-slate-100 p-0 hover:bg-emerald-200"
+            className="absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-elevated p-0 hover:bg-fs-accent-soft"
             style={{ left: `${rightPct}%` }}
             onPointerDown={(e) => {
               e.preventDefault();
@@ -199,7 +199,7 @@ export function MacroTimeRangeNavigator({
             }}
           />
         </div>
-        <div className="relative mt-0.5 h-[18px] w-full text-[10px] text-slate-500">
+        <div className="relative mt-0.5 h-[18px] w-full text-[10px] text-fs-muted">
           {labelTicks.map((t, i) => {
             const isFirst = i === 0;
             const isLast = i === labelTicks.length - 1;

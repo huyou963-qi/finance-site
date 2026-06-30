@@ -65,22 +65,22 @@ function EraSection({
   return (
     <li className="relative pl-4">
       <span
-        className="absolute left-0 top-3 h-[calc(100%-0.5rem)] w-px border-l border-dotted border-slate-600/80"
+        className="absolute left-0 top-3 h-[calc(100%-0.5rem)] w-px border-l border-dotted border-fs-border/80"
         aria-hidden
       />
       <span
-        className="absolute left-[-3px] top-3 h-1.5 w-1.5 rounded-full bg-cyan-500/80 ring-2 ring-slate-950"
+        className="absolute left-[-3px] top-3 h-1.5 w-1.5 rounded-full bg-cyan-500/80 ring-2 ring-fs-bg"
         aria-hidden
       />
 
-      <div className="rounded-md border border-slate-700/90 bg-slate-900/45">
+      <div className="rounded-md border border-fs-border/90 bg-fs-elevated/45">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex w-full items-start gap-2 px-2 py-2 text-left hover:bg-slate-900/60"
+          className="flex w-full items-start gap-2 px-2 py-2 text-left hover:bg-fs-elevated"
           aria-expanded={expanded}
         >
-          <span className="mt-0.5 shrink-0 text-[10px] text-slate-500">{expanded ? "▾" : "▸"}</span>
+          <span className="mt-0.5 shrink-0 text-[10px] text-fs-muted">{expanded ? "▾" : "▸"}</span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="text-[10px] tabular-nums text-cyan-400/95">{dateRange}</span>
@@ -90,9 +90,9 @@ function EraSection({
                 </span>
               ) : null}
               {phase ? (
-                <span className="text-[9px] text-slate-500">{phase}</span>
+                <span className="text-[9px] text-fs-muted">{phase}</span>
               ) : null}
-              <span className="text-[10px] text-slate-500">
+              <span className="text-[10px] text-fs-muted">
                 {children.length} 条事件
               </span>
               {era.sourceUrl ? (
@@ -107,11 +107,11 @@ function EraSection({
                 </a>
               ) : null}
             </div>
-            <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-100">
+            <p className="mt-0.5 text-[11px] font-medium leading-snug text-fs-text">
               {era.title ?? tag}
             </p>
             {!expanded ? (
-              <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-slate-400">
+              <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-fs-muted">
                 {eraPreviewSummary(era.content)}
               </p>
             ) : null}
@@ -119,16 +119,16 @@ function EraSection({
         </button>
 
         {expanded ? (
-          <div className="border-t border-slate-800/80 px-2 pb-2 pt-1.5">
+          <div className="border-t border-fs-border px-2 pb-2 pt-1.5">
             <button
               type="button"
               onClick={() => setSummaryOpen((v) => !v)}
-              className="mb-1.5 text-[10px] text-slate-500 hover:text-slate-300"
+              className="mb-1.5 text-[10px] text-fs-muted hover:text-fs-secondary"
             >
               {summaryOpen ? "收起阶段分析 ▴" : "展开阶段分析 ▾"}
             </button>
             {summaryOpen ? (
-              <pre className="mb-2 max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-slate-800/80 bg-slate-950/60 p-2 text-[10px] leading-relaxed text-slate-300">
+              <pre className="mb-2 max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-fs-border bg-fs-bg/60 p-2 text-[10px] leading-relaxed text-fs-secondary">
                 {fullSummary}
               </pre>
             ) : null}
@@ -200,7 +200,7 @@ export function EventTimelineView({
       ))}
       {model.orphans.length > 0 ? (
         <li className="pt-2">
-          <p className="mb-1.5 px-1 text-[10px] font-medium text-slate-500">未归类事件</p>
+          <p className="mb-1.5 px-1 text-[10px] font-medium text-fs-muted">未归类事件</p>
           <ul className="space-y-1.5">
             {model.orphans.map((ev) => (
               <EventListRow

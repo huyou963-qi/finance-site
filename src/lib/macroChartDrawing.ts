@@ -1,6 +1,7 @@
 import type { EChartsType } from "echarts";
 import type { GraphicComponentOption } from "echarts";
 import { dataIndexFromConvert } from "@/lib/timeCursor";
+import { CHART, SITE } from "@/lib/siteTheme";
 
 export type MacroDrawingTool = "cursor" | "hline" | "vline" | "trend" | "rect" | "text";
 
@@ -16,11 +17,11 @@ export type MacroDrawingStyle = {
 };
 
 export const DEFAULT_MACRO_DRAWING_STYLE: MacroDrawingStyle = {
-  color: "#fbbf24",
+  color: "#f59e0b",
   lineWidth: 1.5,
   lineStyle: "solid",
   fontSize: 11,
-  textColor: "#e2e8f0",
+  textColor: CHART.text,
   fillOpacity: 0.12,
 };
 
@@ -69,7 +70,7 @@ export const MACRO_DRAWING_TOOLS: { id: MacroDrawingTool; label: string; title: 
   { id: "text", label: "文本", title: "文本标注" },
 ];
 
-const SELECT_STROKE = "#38bdf8";
+const SELECT_STROKE = SITE.accent;
 
 export type MacroPointerData = {
   category: string;
@@ -573,7 +574,7 @@ export function buildMacroChartGraphics(
           text: d.text,
           fill: selected ? SELECT_STROKE : style.textColor,
           fontSize: style.fontSize,
-          backgroundColor: "rgba(15, 23, 42, 0.85)",
+          backgroundColor: "rgba(255, 255, 255, 0.92)",
           padding: [2, 4],
           borderRadius: 2,
         },

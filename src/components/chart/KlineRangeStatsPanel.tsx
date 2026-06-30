@@ -39,9 +39,9 @@ export function KlineRangeStatsPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
-  const upCls = "text-emerald-400";
+  const upCls = "text-fs-accent-text";
   const downCls = "text-rose-400";
-  const neuCls = "text-slate-200";
+  const neuCls = "text-fs-text";
 
   const changeCls = stats.changePct >= 0 ? upCls : downCls;
 
@@ -118,23 +118,23 @@ export function KlineRangeStatsPanel({
           type="button"
           onClick={onClose}
           onPointerDown={(e) => e.stopPropagation()}
-          className="cursor-pointer rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-800 hover:text-slate-300"
+          className="cursor-pointer rounded px-2 py-0.5 text-xs text-fs-muted hover:bg-fs-elevated hover:text-fs-secondary"
         >
           关闭
         </button>
       </div>
 
-      <div className="mb-3 grid gap-1 text-[11px] text-slate-400">
+      <div className="mb-3 grid gap-1 text-[11px] text-fs-muted">
         <div className="flex flex-wrap gap-x-4 gap-y-1">
           <span>
-            开始：<span className="text-slate-200">{stats.startLabel}</span>
+            开始：<span className="text-fs-text">{stats.startLabel}</span>
           </span>
           <span>
-            结束：<span className="text-slate-200">{stats.endLabel}</span>
+            结束：<span className="text-fs-text">{stats.endLabel}</span>
           </span>
         </div>
         <div>
-          K 线根数：<span className="font-mono text-slate-200">{stats.count}</span>
+          K 线根数：<span className="font-mono text-fs-text">{stats.count}</span>
         </div>
       </div>
 
@@ -157,11 +157,11 @@ export function KlineRangeStatsPanel({
         <Cell label="阳线" value={`${stats.upBars} 根`} valueClass={upCls} />
         <Cell label="阴线" value={`${stats.downBars} 根`} valueClass={downCls} />
 
-        <Cell label="平盘" value={`${stats.flatBars} 根`} valueClass="text-slate-400" />
+        <Cell label="平盘" value={`${stats.flatBars} 根`} valueClass="text-fs-muted" />
         <Cell label="成交量合计" value={fmtVolZh(stats.totalVolume)} valueClass="text-amber-200/90" />
       </div>
 
-      <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
+      <p className="mt-3 text-[10px] leading-relaxed text-fs-secondary">
         涨跌幅按首根开盘价与末根收盘价计算；振幅为 (区间最高 − 区间最低) / 区间最低；成交量为区间内各柱之和（无数据时可能为估算）。
       </p>
     </div>
@@ -179,7 +179,7 @@ function Cell({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-slate-500">{label}</div>
+      <div className="text-fs-muted">{label}</div>
       <div className={`truncate font-mono text-xs ${valueClass}`}>{value}</div>
     </div>
   );

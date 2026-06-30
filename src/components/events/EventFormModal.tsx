@@ -141,54 +141,54 @@ export function EventFormModal({
       <div
         role="dialog"
         aria-modal
-        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-fs-border bg-fs-bg shadow-xl"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-2">
-          <h2 className="text-sm font-semibold text-slate-100">{title}</h2>
-          <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-200">
+        <div className="flex shrink-0 items-center justify-between border-b border-fs-border px-4 py-2">
+          <h2 className="text-sm font-semibold text-fs-text">{title}</h2>
+          <button type="button" onClick={onClose} className="text-fs-muted hover:text-fs-text">
             ✕
           </button>
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3 text-[11px]">
-          <label className="block text-slate-400">
+          <label className="block text-fs-muted">
             标题（可选）
             <input
               value={form.title}
               onChange={(e) => patch({ title: e.target.value })}
-              className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+              className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
             />
           </label>
-          <label className="block text-slate-400">
+          <label className="block text-fs-muted">
             事件内容 *
             <textarea
               value={form.content}
               onChange={(e) => patch({ content: e.target.value })}
               rows={4}
-              className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+              className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
             />
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-slate-400">
+            <label className="block text-fs-muted">
               时间精度
               <select
                 value={form.datePrecision}
                 onChange={(e) =>
                   patch({ datePrecision: e.target.value as EventDatePrecision })
                 }
-                className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
               >
                 <option value="DATE">仅日期</option>
                 <option value="DATETIME">日期+时间</option>
               </select>
             </label>
-            <label className="block text-slate-400">
+            <label className="block text-fs-muted">
               重要性
               <select
                 value={form.importance}
                 onChange={(e) =>
                   patch({ importance: e.target.value as EventImportance })
                 }
-                className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
               >
                 {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
                   <option key={k} value={k}>
@@ -199,32 +199,32 @@ export function EventFormModal({
             </label>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-slate-400">
+            <label className="block text-fs-muted">
               发生日期 *
               <input
                 type="date"
                 value={form.occurredAt}
                 onChange={(e) => patch({ occurredAt: e.target.value })}
-                className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
               />
             </label>
             {form.datePrecision === "DATETIME" ? (
-              <label className="block text-slate-400">
+              <label className="block text-fs-muted">
                 时间 (UTC)
                 <input
                   type="time"
                   value={form.occurredTime}
                   onChange={(e) => patch({ occurredTime: e.target.value })}
-                  className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                  className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
                 />
               </label>
             ) : (
-              <label className="block text-slate-400">
+              <label className="block text-fs-muted">
                 事件类型
                 <select
                   value={form.eventType}
                   onChange={(e) => patch({ eventType: e.target.value })}
-                  className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+                  className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
                 >
                   <option value="">—</option>
                   {EVENT_TYPE_SUGGESTIONS.map((t) => (
@@ -263,21 +263,21 @@ export function EventFormModal({
             onChange={(macroKeys) => patch({ macroKeys })}
             placeholder="如 fred:CPIAUCSL"
           />
-          <label className="block text-slate-400">
+          <label className="block text-fs-muted">
             来源链接
             <input
               value={form.sourceUrl}
               onChange={(e) => patch({ sourceUrl: e.target.value })}
-              className="mt-0.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100"
+              className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
             />
           </label>
           {error ? <p className="text-rose-300">{error}</p> : null}
         </div>
-        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-800 px-4 py-2">
+        <div className="flex shrink-0 justify-end gap-2 border-t border-fs-border px-4 py-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-700 px-3 py-1 text-slate-300 hover:bg-slate-900"
+            className="rounded border border-fs-border px-3 py-1 text-fs-secondary hover:bg-fs-elevated"
           >
             取消
           </button>
@@ -285,7 +285,7 @@ export function EventFormModal({
             type="button"
             disabled={saving}
             onClick={() => void submit()}
-            className="rounded border border-emerald-700 bg-emerald-950/50 px-3 py-1 text-emerald-100 hover:border-emerald-500 disabled:opacity-50"
+            className="rounded border border-fs-accent/40 bg-fs-accent-soft/50 px-3 py-1 text-fs-accent-text hover:border-fs-accent disabled:opacity-50"
           >
             {saving ? "保存中…" : "保存"}
           </button>

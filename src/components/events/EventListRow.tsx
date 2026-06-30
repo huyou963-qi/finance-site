@@ -67,7 +67,7 @@ export function EventListRow({
     <li
       ref={rowRef}
       data-event-id={event.id}
-      className={`${nested ? "ml-4 border-l border-dotted border-slate-700/80 pl-2" : ""} ${
+      className={`${nested ? "ml-4 border-l border-dotted border-fs-border/80 pl-2" : ""} ${
         highlighted ? "scroll-mt-1 scroll-mb-1" : ""
       }`}
     >
@@ -76,7 +76,7 @@ export function EventListRow({
         className={`rounded border px-2 py-1.5 transition ${
           highlighted
             ? "border-cyan-600/70 bg-cyan-950/25 ring-1 ring-cyan-500/50"
-            : "border-slate-800/90 bg-slate-950/50 hover:border-slate-700/90"
+            : "border-fs-border/90 bg-fs-elevated hover:border-fs-border/90"
         }`}
         onMouseEnter={showPopover}
         onMouseLeave={schedulePopoverHide}
@@ -89,12 +89,12 @@ export function EventListRow({
               </time>
               <EventImportanceBadge importance={event.importance} />
               {event.eventType ? (
-                <span className="text-[10px] text-slate-500">{event.eventType}</span>
+                <span className="text-[10px] text-fs-muted">{event.eventType}</span>
               ) : null}
               {tags.map((t) => (
                 <span
                   key={`${event.id}-${t}`}
-                  className="rounded bg-slate-900 px-1 py-0 text-[9px] text-slate-500"
+                  className="rounded bg-fs-elevated px-1 py-0 text-[9px] text-fs-muted"
                 >
                   {t}
                 </span>
@@ -113,9 +113,9 @@ export function EventListRow({
               ) : null}
             </div>
             {event.title ? (
-              <p className="mt-0.5 text-[11px] font-medium text-slate-100">{event.title}</p>
+              <p className="mt-0.5 text-[11px] font-medium text-fs-text">{event.title}</p>
             ) : null}
-            <p className="mt-0.5 line-clamp-3 text-[11px] leading-snug text-slate-300">
+            <p className="mt-0.5 line-clamp-3 text-[11px] leading-snug text-fs-secondary">
               {preview}
             </p>
           </div>
@@ -124,14 +124,14 @@ export function EventListRow({
               <button
                 type="button"
                 onClick={() => onEdit(event)}
-                className="text-[10px] text-slate-500 hover:text-slate-200"
+                className="text-[10px] text-fs-muted hover:text-fs-text"
               >
                 编辑
               </button>
               <button
                 type="button"
                 onClick={() => onDelete(event.id)}
-                className="text-[10px] text-slate-500 hover:text-rose-300"
+                className="text-[10px] text-fs-muted hover:text-rose-300"
               >
                 删除
               </button>

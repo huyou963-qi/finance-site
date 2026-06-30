@@ -113,66 +113,66 @@ export function AdminUsersClient() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-50">管理员：用户管理</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-xl font-semibold text-fs-text">管理员：用户管理</h1>
+        <p className="mt-1 text-sm text-fs-muted">
           可创建用户，或编辑邮箱、手机号、密码、管理员角色与会员类型。
         </p>
       </div>
-      <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+      <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-fs-secondary">
             用户名
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 block rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+              className="mt-1 block rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-fs-secondary">
             邮箱{role === "admin" ? "（选填）" : ""}
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+              className="mt-1 block rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-fs-secondary">
             手机号{role === "admin" ? "（选填）" : ""}
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder={role === "admin" ? "可选" : "11位手机号"}
-              className="mt-1 block rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+              className="mt-1 block rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-fs-secondary">
             密码
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+              className="mt-1 block rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
             />
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-fs-secondary">
             管理员角色
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as "admin" | "user")}
-              className="mt-1 block rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+              className="mt-1 block rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
             >
               <option value="user">普通权限</option>
               <option value="admin">管理员</option>
             </select>
           </label>
-          <label className="text-sm text-slate-300">
+          <label className="text-sm text-fs-secondary">
             会员类型
             <select
               value={plan}
               onChange={(e) => setPlan(e.target.value as UserPlan)}
-              className="mt-1 block rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-slate-100"
+              className="mt-1 block rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
             >
               <option value="standard">普通用户</option>
               <option value="pro">Pro 用户</option>
@@ -186,17 +186,17 @@ export function AdminUsersClient() {
               !password ||
               (role !== "admin" && (!email.trim() || !phone.trim()))
             }
-            className="rounded-md border border-emerald-700 bg-emerald-900/50 px-3 py-1.5 text-sm text-emerald-100 disabled:opacity-50"
+            className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-3 py-1.5 text-sm text-fs-accent-text disabled:opacity-50"
           >
             创建用户
           </button>
         </div>
       </section>
-      {hint ? <p className="text-sm text-slate-300">{hint}</p> : null}
-      <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+      {hint ? <p className="text-sm text-fs-secondary">{hint}</p> : null}
+      <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-2">
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-900/70 text-slate-300">
+            <thead className="bg-fs-elevated text-fs-secondary">
               <tr>
                 <th className="px-2 py-2 text-left">用户名</th>
                 <th className="px-2 py-2 text-left">邮箱</th>
@@ -209,7 +209,7 @@ export function AdminUsersClient() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-t border-slate-800 text-slate-100">
+                <tr key={u.id} className="border-t border-fs-border text-fs-text">
                   <td className="px-2 py-2">{u.username}</td>
                   <td className="px-2 py-2">{u.email || "—"}</td>
                   <td className="px-2 py-2">{u.phone || "—"}</td>
@@ -220,7 +220,7 @@ export function AdminUsersClient() {
                     <button
                       type="button"
                       onClick={() => openEdit(u)}
-                      className="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-300 hover:border-slate-500"
+                      className="rounded border border-fs-border px-2 py-0.5 text-xs text-fs-secondary hover:border-fs-border"
                     >
                       编辑
                     </button>
@@ -233,59 +233,59 @@ export function AdminUsersClient() {
       </section>
 
       {editing ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 px-4">
-          <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-4 shadow-2xl">
-            <h3 className="text-sm font-medium text-slate-100">编辑用户：{editing.username}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-fs-bg/75 px-4">
+          <div className="w-full max-w-md rounded-lg border border-fs-border bg-fs-elevated p-4 shadow-2xl">
+            <h3 className="text-sm font-medium text-fs-text">编辑用户：{editing.username}</h3>
             <div className="mt-3 grid gap-3">
-              <label className="text-sm text-slate-300">
+              <label className="text-sm text-fs-secondary">
                 邮箱{editDraft.role === "admin" ? "（选填）" : ""}
                 <input
                   type="email"
                   value={editDraft.email}
                   onChange={(e) => setEditDraft((d) => ({ ...d, email: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100"
+                  className="mt-1 w-full rounded-md border border-fs-border bg-fs-bg px-2 py-1.5 text-fs-text"
                 />
               </label>
-              <label className="text-sm text-slate-300">
+              <label className="text-sm text-fs-secondary">
                 手机号{editDraft.role === "admin" ? "（选填）" : ""}
                 <input
                   type="tel"
                   value={editDraft.phone}
                   onChange={(e) => setEditDraft((d) => ({ ...d, phone: e.target.value }))}
                   placeholder={editDraft.role === "admin" ? "可选" : "11位手机号"}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100"
+                  className="mt-1 w-full rounded-md border border-fs-border bg-fs-bg px-2 py-1.5 text-fs-text"
                 />
               </label>
-              <label className="text-sm text-slate-300">
+              <label className="text-sm text-fs-secondary">
                 新密码（留空不修改）
                 <input
                   type="password"
                   value={editDraft.password}
                   onChange={(e) => setEditDraft((d) => ({ ...d, password: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100"
+                  className="mt-1 w-full rounded-md border border-fs-border bg-fs-bg px-2 py-1.5 text-fs-text"
                 />
               </label>
-              <label className="text-sm text-slate-300">
+              <label className="text-sm text-fs-secondary">
                 管理员角色
                 <select
                   value={editDraft.role}
                   onChange={(e) =>
                     setEditDraft((d) => ({ ...d, role: e.target.value as "admin" | "user" }))
                   }
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100"
+                  className="mt-1 w-full rounded-md border border-fs-border bg-fs-bg px-2 py-1.5 text-fs-text"
                 >
                   <option value="user">普通权限</option>
                   <option value="admin">管理员</option>
                 </select>
               </label>
-              <label className="text-sm text-slate-300">
+              <label className="text-sm text-fs-secondary">
                 会员类型
                 <select
                   value={editDraft.plan}
                   onChange={(e) =>
                     setEditDraft((d) => ({ ...d, plan: e.target.value as UserPlan }))
                   }
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-slate-100"
+                  className="mt-1 w-full rounded-md border border-fs-border bg-fs-bg px-2 py-1.5 text-fs-text"
                 >
                   <option value="standard">普通用户</option>
                   <option value="pro">Pro 用户</option>
@@ -296,7 +296,7 @@ export function AdminUsersClient() {
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded border border-slate-700 px-3 py-1.5 text-xs text-slate-300"
+                className="rounded border border-fs-border px-3 py-1.5 text-xs text-fs-secondary"
               >
                 取消
               </button>
@@ -308,7 +308,7 @@ export function AdminUsersClient() {
                     (!editDraft.email.trim() || !editDraft.phone.trim()))
                 }
                 onClick={() => saveEdit().catch(() => {})}
-                className="rounded border border-emerald-700 bg-emerald-900/50 px-3 py-1.5 text-xs text-emerald-100 disabled:opacity-50"
+                className="rounded border border-fs-accent/40 bg-fs-accent-soft px-3 py-1.5 text-xs text-fs-accent-text disabled:opacity-50"
               >
                 {saving ? "保存中…" : "保存"}
               </button>

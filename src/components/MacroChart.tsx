@@ -71,7 +71,7 @@ export function MacroChart({
   if (loading || !payload) {
     return (
       <div
-        className="flex w-full items-center justify-center text-sm text-slate-500"
+        className="flex w-full items-center justify-center text-sm text-fs-muted"
         style={{ minHeight: chartHeight }}
       >
         正在加载宏观数据…
@@ -91,7 +91,7 @@ export function MacroChart({
   return (
     <div className="flex w-full min-w-0 flex-col gap-2">
       {payload.attribution ? (
-        <p className="shrink-0 text-xs leading-relaxed text-slate-500">{payload.attribution}</p>
+        <p className="shrink-0 text-xs leading-relaxed text-fs-muted">{payload.attribution}</p>
       ) : null}
       <div className="w-full min-w-0" style={{ height: chartHeight }}>
         <ReactECharts option={opt} style={{ height: "100%", width: "100%" }} />

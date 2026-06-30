@@ -123,11 +123,11 @@ function DockedEventSidePanel({
 
   if (!open) {
     return (
-      <div className="flex w-9 shrink-0 flex-col border-l border-slate-800 bg-slate-950/90">
+      <div className="flex w-9 shrink-0 flex-col border-l border-fs-border bg-fs-bg/90">
         <button
           type="button"
           onClick={() => setOpenPersist(true)}
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[11px] leading-tight text-slate-400 transition hover:bg-slate-900 hover:text-slate-200"
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text"
           title="展开事件记录"
         >
           <span>事</span>
@@ -144,24 +144,24 @@ function DockedEventSidePanel({
         aria-orientation="vertical"
         title="拖拽调节事件面板宽度"
         onMouseDown={startResize}
-        className="group w-1.5 shrink-0 cursor-col-resize border-x border-slate-800 bg-slate-900/90 hover:bg-cyan-950/80"
+        className="group w-1.5 shrink-0 cursor-col-resize border-x border-fs-border bg-fs-elevated/90 hover:bg-cyan-950/80"
       >
-        <span className="mx-auto block h-full w-px bg-slate-600 group-hover:bg-cyan-500" />
+        <span className="mx-auto block h-full w-px bg-fs-border group-hover:bg-cyan-500" />
       </div>
       <aside
-        className={`flex max-w-[50%] min-h-0 shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-slate-950/85 ${className}`}
+        className={`flex max-w-[50%] min-h-0 shrink-0 flex-col overflow-hidden border-l border-fs-border bg-fs-bg/85 ${className}`}
         style={
           widthPx !== null
             ? { width: widthPx, flex: "0 0 auto" }
             : { flex: "0 0 28%", minWidth: DOCKED_MIN_PX }
         }
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 px-2 py-1.5">
-          <h3 className="text-[11px] font-semibold text-slate-200">事件记录</h3>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1.5">
+          <h3 className="text-[11px] font-semibold text-fs-text">事件记录</h3>
           <button
             type="button"
             onClick={() => setOpenPersist(false)}
-            className="shrink-0 rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+            className="shrink-0 rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-muted hover:border-fs-border hover:text-fs-text"
             title="收起事件面板"
           >
             收起

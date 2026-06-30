@@ -5,7 +5,7 @@ export default function FuturesPositionsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+        <div className="flex flex-1 items-center justify-center text-sm text-fs-muted">
           加载中…
         </div>
       }

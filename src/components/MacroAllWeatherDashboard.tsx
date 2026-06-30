@@ -144,9 +144,9 @@ const QUADRANT_META: Record<
   goldilocks: {
     title: "增长上行 + 通胀下行",
     subtitle: "黄金时期 / 低通胀繁荣",
-    border: "border-emerald-700/70",
-    bg: "bg-emerald-950/20",
-    text: "text-emerald-100",
+    border: "border-fs-accent/40/70",
+    bg: "bg-fs-accent-soft",
+    text: "text-fs-accent-text",
   },
   reflation: {
     title: "增长上行 + 通胀上行",
@@ -177,10 +177,10 @@ function fmtPct(v: number | null): string {
 }
 
 function pctColor(v: number | null): string {
-  if (v == null || !Number.isFinite(v)) return "text-slate-500";
-  if (v > 0) return "text-emerald-300";
+  if (v == null || !Number.isFinite(v)) return "text-fs-muted";
+  if (v > 0) return "text-fs-accent-text";
   if (v < 0) return "text-rose-300";
-  return "text-slate-300";
+  return "text-fs-secondary";
 }
 
 function closeFromCandle(candle: unknown): number | null {
@@ -336,8 +336,8 @@ function consistencyScore(econ: QuadrantId | null, market: QuadrantId | null): n
 }
 
 function consistencyTone(v: number | null): string {
-  if (v == null) return "text-slate-500";
-  if (v >= 80) return "text-emerald-300";
+  if (v == null) return "text-fs-muted";
+  if (v >= 80) return "text-fs-accent-text";
   if (v >= 50) return "text-amber-300";
   return "text-rose-300";
 }
@@ -478,18 +478,18 @@ export function MacroAllWeatherDashboard() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pr-1">
-      <div className="rounded-md border border-slate-800 bg-slate-950/50 p-2.5">
+      <div className="rounded-md border border-fs-border bg-fs-elevated p-2.5">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div>
-            <div className="text-xs font-semibold text-slate-200">All Weather Dashboard</div>
-            <p className="mt-0.5 text-[10px] leading-snug text-slate-500">Ray Dalio All Weather 象限。</p>
+            <div className="text-xs font-semibold text-fs-text">All Weather Dashboard</div>
+            <p className="mt-0.5 text-[10px] leading-snug text-fs-muted">Ray Dalio All Weather 象限。</p>
           </div>
-          {loadingMacro ? <span className="text-[10px] text-slate-500">加载中…</span> : null}
+          {loadingMacro ? <span className="text-[10px] text-fs-muted">加载中…</span> : null}
         </div>
-        <div className="mb-2 rounded border border-slate-800/90 bg-slate-900/35 p-1.5">
+        <div className="mb-2 rounded border border-fs-border/90 bg-fs-elevated/35 p-1.5">
           <div className="mb-1 flex items-center justify-between">
-            <div className="text-[10px] font-medium text-slate-300">维度指标配置</div>
-            <label className="flex items-center gap-1 text-[10px] text-slate-400">
+            <div className="text-[10px] font-medium text-fs-secondary">维度指标配置</div>
+            <label className="flex items-center gap-1 text-[10px] text-fs-muted">
               <input
                 type="checkbox"
                 checked={useSmooth3m}
@@ -500,33 +500,33 @@ export function MacroAllWeatherDashboard() {
             </label>
           </div>
           <div className="mt-1 grid grid-cols-1 gap-1.5">
-            <div className="rounded border border-slate-800 bg-slate-950/45 p-1.5">
+            <div className="rounded border border-fs-border bg-fs-bg/45 p-1.5">
               <div className="mb-1 flex items-center justify-between text-[10px]">
-                <span className="font-medium text-slate-300">增长维度（{growthSelectedKeys.length}）</span>
+                <span className="font-medium text-fs-secondary">增长维度（{growthSelectedKeys.length}）</span>
                 <button
                   type="button"
                   onClick={() => setGrowthSelectedKeys([...DEFAULT_GROWTH_KEYS])}
-                  className="rounded border border-slate-700 px-1.5 py-0 text-slate-400 hover:border-slate-500"
+                  className="rounded border border-fs-border px-1.5 py-0 text-fs-muted hover:border-fs-border"
                 >
                   默认
                 </button>
               </div>
               <div className="space-y-1">
                 {GROWTH_INDICATORS.map((item) => (
-                  <div key={item.key} className="flex items-start gap-1 text-[10px] text-slate-400">
+                  <div key={item.key} className="flex items-start gap-1 text-[10px] text-fs-muted">
                     <input
                       type="checkbox"
                       checked={growthSelectedKeys.includes(item.key)}
                       onChange={() =>
                         toggleSelected(growthSelectedKeys, setGrowthSelectedKeys, item.key)
                       }
-                      className="mt-0.5 h-3 w-3 accent-emerald-600"
+                      className="mt-0.5 h-3 w-3 accent-fs-accent"
                     />
                     <span className="min-w-0">
-                      <span className="block truncate text-slate-200">{item.label}</span>
-                      <span className="block truncate text-slate-500">{item.meaning}</span>
+                      <span className="block truncate text-fs-text">{item.label}</span>
+                      <span className="block truncate text-fs-muted">{item.meaning}</span>
                     </span>
-                    <label className="ml-auto flex items-center gap-1 text-slate-500">
+                    <label className="ml-auto flex items-center gap-1 text-fs-muted">
                       权重
                       <input
                         type="number"
@@ -535,27 +535,27 @@ export function MacroAllWeatherDashboard() {
                         max={5}
                         step={0.1}
                         onChange={(e) => updateWeight(setGrowthWeights, item.key, e.target.value)}
-                        className="w-14 rounded border border-slate-700 bg-slate-900 px-1 py-0 text-right text-[10px] text-slate-200"
+                        className="w-14 rounded border border-fs-border bg-fs-elevated px-1 py-0 text-right text-[10px] text-fs-text"
                       />
                     </label>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="rounded border border-slate-800 bg-slate-950/45 p-1.5">
+            <div className="rounded border border-fs-border bg-fs-bg/45 p-1.5">
               <div className="mb-1 flex items-center justify-between text-[10px]">
-                <span className="font-medium text-slate-300">通胀维度（{inflationSelectedKeys.length}）</span>
+                <span className="font-medium text-fs-secondary">通胀维度（{inflationSelectedKeys.length}）</span>
                 <button
                   type="button"
                   onClick={() => setInflationSelectedKeys([...DEFAULT_INFLATION_KEYS])}
-                  className="rounded border border-slate-700 px-1.5 py-0 text-slate-400 hover:border-slate-500"
+                  className="rounded border border-fs-border px-1.5 py-0 text-fs-muted hover:border-fs-border"
                 >
                   默认
                 </button>
               </div>
               <div className="space-y-1">
                 {INFLATION_INDICATORS.map((item) => (
-                  <div key={item.key} className="flex items-start gap-1 text-[10px] text-slate-400">
+                  <div key={item.key} className="flex items-start gap-1 text-[10px] text-fs-muted">
                     <input
                       type="checkbox"
                       checked={inflationSelectedKeys.includes(item.key)}
@@ -565,10 +565,10 @@ export function MacroAllWeatherDashboard() {
                       className="mt-0.5 h-3 w-3 accent-cyan-600"
                     />
                     <span className="min-w-0">
-                      <span className="block truncate text-slate-200">{item.label}</span>
-                      <span className="block truncate text-slate-500">{item.meaning}</span>
+                      <span className="block truncate text-fs-text">{item.label}</span>
+                      <span className="block truncate text-fs-muted">{item.meaning}</span>
                     </span>
-                    <label className="ml-auto flex items-center gap-1 text-slate-500">
+                    <label className="ml-auto flex items-center gap-1 text-fs-muted">
                       权重
                       <input
                         type="number"
@@ -577,7 +577,7 @@ export function MacroAllWeatherDashboard() {
                         max={5}
                         step={0.1}
                         onChange={(e) => updateWeight(setInflationWeights, item.key, e.target.value)}
-                        className="w-14 rounded border border-slate-700 bg-slate-900 px-1 py-0 text-right text-[10px] text-slate-200"
+                        className="w-14 rounded border border-fs-border bg-fs-elevated px-1 py-0 text-right text-[10px] text-fs-text"
                       />
                     </label>
                   </div>
@@ -598,16 +598,16 @@ export function MacroAllWeatherDashboard() {
                 className={`rounded border px-2 py-1.5 transition ${
                   active
                     ? `${meta.border} ${meta.bg} shadow-[0_0_0_1px_rgba(16,185,129,0.28)]`
-                    : "border-slate-800 bg-slate-900/35"
+                    : "border-fs-border bg-fs-elevated/35"
                 }`}
               >
-                <div className={`text-[11px] font-semibold ${active ? meta.text : "text-slate-200"}`}>
+                <div className={`text-[11px] font-semibold ${active ? meta.text : "text-fs-text"}`}>
                   {meta.title}
                 </div>
-                <div className="mt-0.5 text-[10px] text-slate-500">{meta.subtitle}</div>
+                <div className="mt-0.5 text-[10px] text-fs-muted">{meta.subtitle}</div>
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {active ? (
-                    <span className="rounded border border-emerald-600/70 bg-emerald-950/40 px-1 py-0 text-[9px] text-emerald-200">
+                    <span className="rounded border border-fs-accent/40 bg-fs-accent-soft px-1 py-0 text-[9px] text-fs-accent-text">
                       当前经济
                     </span>
                   ) : null}
@@ -623,26 +623,26 @@ export function MacroAllWeatherDashboard() {
         </div>
 
         <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
-          <div className="rounded border border-slate-800 bg-slate-900/30 px-2 py-1.5">
-            <div className="text-slate-500">增长预期差（均值）</div>
+          <div className="rounded border border-fs-border bg-fs-elevated/30 px-2 py-1.5">
+            <div className="text-fs-muted">增长预期差（均值）</div>
             <div className={`mt-0.5 text-xs font-semibold ${pctColor(growthScore)}`}>
               {fmtPct(growthScore)}
             </div>
           </div>
-          <div className="rounded border border-slate-800 bg-slate-900/30 px-2 py-1.5">
-            <div className="text-slate-500">通胀预期差（均值）</div>
+          <div className="rounded border border-fs-border bg-fs-elevated/30 px-2 py-1.5">
+            <div className="text-fs-muted">通胀预期差（均值）</div>
             <div className={`mt-0.5 text-xs font-semibold ${pctColor(inflationScore)}`}>
               {fmtPct(inflationScore)}
             </div>
           </div>
         </div>
-        <div className="mt-2 rounded border border-slate-800 bg-slate-900/30 px-2 py-1.5 text-[10px]">
-          <div className="text-slate-500">经济象限 vs 市场隐含象限 一致性</div>
+        <div className="mt-2 rounded border border-fs-border bg-fs-elevated/30 px-2 py-1.5 text-[10px]">
+          <div className="text-fs-muted">经济象限 vs 市场隐含象限 一致性</div>
           <div className="mt-0.5 flex items-center justify-between">
             <span className={`text-xs font-semibold ${consistencyTone(econMarketConsistency)}`}>
               {econMarketConsistency == null ? "-" : `${econMarketConsistency.toFixed(0)} / 100`}
             </span>
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[10px] text-fs-muted">
               {econMarketConsistency == null
                 ? "数据不足"
                 : econMarketConsistency >= 80
@@ -655,37 +655,37 @@ export function MacroAllWeatherDashboard() {
         </div>
       </div>
 
-      <div className="rounded-md border border-slate-800 bg-slate-950/50 p-2.5">
-        <div className="mb-1 text-xs font-semibold text-slate-200">增长维度明细（预期差 = 当前同比 - 24月均值）</div>
+      <div className="rounded-md border border-fs-border bg-fs-elevated p-2.5">
+        <div className="mb-1 text-xs font-semibold text-fs-text">增长维度明细（预期差 = 当前同比 - 24月均值）</div>
         <div className="overflow-auto">
           <table className="min-w-full border-collapse text-[10px]">
-            <thead className="bg-slate-900/80 text-slate-400">
+            <thead className="bg-fs-elevated text-fs-muted">
               <tr>
-                <th className="border border-slate-800 px-1.5 py-1 text-left">指标</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">当前同比</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">24月均值</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">预期差</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">权重</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-left">领先/同步</th>
+                <th className="border border-fs-border px-1.5 py-1 text-left">指标</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">当前同比</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">24月均值</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">预期差</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">权重</th>
+                <th className="border border-fs-border px-1.5 py-1 text-left">领先/同步</th>
               </tr>
             </thead>
             <tbody>
               {growthDetails.map((row) => (
-                <tr key={row.key} className="odd:bg-slate-950 even:bg-slate-900/30">
-                  <td className="border border-slate-800 px-1.5 py-1 text-slate-200">{row.label}</td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.latestYoy)}`}>
+                <tr key={row.key} className="odd:bg-fs-bg even:bg-fs-elevated/30">
+                  <td className="border border-fs-border px-1.5 py-1 text-fs-text">{row.label}</td>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.latestYoy)}`}>
                     {fmtPct(row.latestYoy)}
                   </td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.baselineYoy)}`}>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.baselineYoy)}`}>
                     {fmtPct(row.baselineYoy)}
                   </td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.surprise)}`}>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.surprise)}`}>
                     {fmtPct(row.surprise)}
                   </td>
-                  <td className="border border-slate-800 px-1.5 py-1 text-right text-slate-300">
+                  <td className="border border-fs-border px-1.5 py-1 text-right text-fs-secondary">
                     {row.weight.toFixed(1)}
                   </td>
-                  <td className="border border-slate-800 px-1.5 py-1 text-slate-400">{row.timing}</td>
+                  <td className="border border-fs-border px-1.5 py-1 text-fs-muted">{row.timing}</td>
                 </tr>
               ))}
             </tbody>
@@ -693,37 +693,37 @@ export function MacroAllWeatherDashboard() {
         </div>
       </div>
 
-      <div className="rounded-md border border-slate-800 bg-slate-950/50 p-2.5">
-        <div className="mb-1 text-xs font-semibold text-slate-200">通胀维度明细（预期差 = 当前同比 - 24月均值）</div>
+      <div className="rounded-md border border-fs-border bg-fs-elevated p-2.5">
+        <div className="mb-1 text-xs font-semibold text-fs-text">通胀维度明细（预期差 = 当前同比 - 24月均值）</div>
         <div className="overflow-auto">
           <table className="min-w-full border-collapse text-[10px]">
-            <thead className="bg-slate-900/80 text-slate-400">
+            <thead className="bg-fs-elevated text-fs-muted">
               <tr>
-                <th className="border border-slate-800 px-1.5 py-1 text-left">指标</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">当前同比</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">24月均值</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">预期差</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">权重</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-left">领先/同步</th>
+                <th className="border border-fs-border px-1.5 py-1 text-left">指标</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">当前同比</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">24月均值</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">预期差</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">权重</th>
+                <th className="border border-fs-border px-1.5 py-1 text-left">领先/同步</th>
               </tr>
             </thead>
             <tbody>
               {inflationDetails.map((row) => (
-                <tr key={row.key} className="odd:bg-slate-950 even:bg-slate-900/30">
-                  <td className="border border-slate-800 px-1.5 py-1 text-slate-200">{row.label}</td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.latestYoy)}`}>
+                <tr key={row.key} className="odd:bg-fs-bg even:bg-fs-elevated/30">
+                  <td className="border border-fs-border px-1.5 py-1 text-fs-text">{row.label}</td>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.latestYoy)}`}>
                     {fmtPct(row.latestYoy)}
                   </td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.baselineYoy)}`}>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.baselineYoy)}`}>
                     {fmtPct(row.baselineYoy)}
                   </td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.surprise)}`}>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.surprise)}`}>
                     {fmtPct(row.surprise)}
                   </td>
-                  <td className="border border-slate-800 px-1.5 py-1 text-right text-slate-300">
+                  <td className="border border-fs-border px-1.5 py-1 text-right text-fs-secondary">
                     {row.weight.toFixed(1)}
                   </td>
-                  <td className="border border-slate-800 px-1.5 py-1 text-slate-400">{row.timing}</td>
+                  <td className="border border-fs-border px-1.5 py-1 text-fs-muted">{row.timing}</td>
                 </tr>
               ))}
             </tbody>
@@ -731,39 +731,39 @@ export function MacroAllWeatherDashboard() {
         </div>
       </div>
 
-      <div className="min-h-0 rounded-md border border-slate-800 bg-slate-950/50 p-2.5">
+      <div className="min-h-0 rounded-md border border-fs-border bg-fs-elevated p-2.5">
         <div className="mb-1.5 flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-200">大类资产短周期表现</div>
-          {loadingAssets ? <span className="text-[10px] text-slate-500">更新中…</span> : null}
+          <div className="text-xs font-semibold text-fs-text">大类资产短周期表现</div>
+          {loadingAssets ? <span className="text-[10px] text-fs-muted">更新中…</span> : null}
         </div>
         <div className="overflow-auto">
           <table className="min-w-full border-collapse text-[10px]">
-            <thead className="bg-slate-900/80 text-slate-400">
+            <thead className="bg-fs-elevated text-fs-muted">
               <tr>
-                <th className="border border-slate-800 px-1.5 py-1 text-left">资产</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">当日</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">近1周</th>
-                <th className="border border-slate-800 px-1.5 py-1 text-right">近1月</th>
+                <th className="border border-fs-border px-1.5 py-1 text-left">资产</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">当日</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">近1周</th>
+                <th className="border border-fs-border px-1.5 py-1 text-right">近1月</th>
               </tr>
             </thead>
             <tbody>
               {assetRows.map((row) => (
-                <tr key={row.id} className="odd:bg-slate-950 even:bg-slate-900/30">
-                  <td className="border border-slate-800 px-1.5 py-1 text-slate-200">{row.name}</td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.d1)}`}>
+                <tr key={row.id} className="odd:bg-fs-bg even:bg-fs-elevated/30">
+                  <td className="border border-fs-border px-1.5 py-1 text-fs-text">{row.name}</td>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.d1)}`}>
                     {fmtPct(row.d1)}
                   </td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.w1)}`}>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.w1)}`}>
                     {fmtPct(row.w1)}
                   </td>
-                  <td className={`border border-slate-800 px-1.5 py-1 text-right ${pctColor(row.m1)}`}>
+                  <td className={`border border-fs-border px-1.5 py-1 text-right ${pctColor(row.m1)}`}>
                     {fmtPct(row.m1)}
                   </td>
                 </tr>
               ))}
               {assetRows.length === 0 && !loadingAssets ? (
                 <tr>
-                  <td colSpan={4} className="border border-slate-800 px-2 py-3 text-center text-slate-500">
+                  <td colSpan={4} className="border border-fs-border px-2 py-3 text-center text-fs-muted">
                     暂无资产行情数据
                   </td>
                 </tr>

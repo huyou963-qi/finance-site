@@ -377,7 +377,7 @@ export function MacroChartPanel({
   if (!slice?.series?.length) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col items-center justify-center rounded-lg border border-dashed border-slate-700/90 bg-slate-950/40 px-2 text-center text-[11px] leading-relaxed text-slate-500 ${className ?? ""}`}
+        className={`flex h-full min-h-0 flex-col items-center justify-center rounded-lg border border-dashed border-fs-border/90 bg-fs-bg/40 px-2 text-center text-[11px] leading-relaxed text-fs-muted ${className ?? ""}`}
       >
         {emptyHint ?? (
           <>
@@ -393,7 +393,7 @@ export function MacroChartPanel({
   if (!opt) {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col items-center justify-center rounded-lg border border-dashed border-slate-700/90 bg-slate-950/40 px-2 text-center text-[11px] leading-relaxed text-slate-500 ${className ?? ""}`}
+        className={`flex h-full min-h-0 flex-col items-center justify-center rounded-lg border border-dashed border-fs-border/90 bg-fs-bg/40 px-2 text-center text-[11px] leading-relaxed text-fs-muted ${className ?? ""}`}
       >
         {isPie && pieYear
           ? `${pieYear} 年暂无可用数据，请换一年份或检查指标数值`

@@ -403,15 +403,15 @@ export function StatisticalAnalysisClient() {
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:items-start">
         <aside className="flex w-full shrink-0 flex-col gap-3 lg:sticky lg:top-4 lg:w-[min(100%,320px)] xl:w-[340px]">
           <div>
-            <h1 className="text-xl font-semibold text-slate-50">统计分析</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <h1 className="text-xl font-semibold text-fs-text">统计分析</h1>
+            <p className="mt-1 text-sm text-fs-muted">
               面向宏观序列的完整分析工作台：支持样本筛选、预处理、描述统计与相关性矩阵。
             </p>
           </div>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+          <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
             <div className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-xs text-slate-400">
+              <label className="flex flex-col gap-1 text-xs text-fs-muted">
                 指标
                 <textarea
                   value={seriesEditing ? seriesInput : seriesDisplayInput}
@@ -425,43 +425,43 @@ export function StatisticalAnalysisClient() {
                       ? "编辑指标代码（fred:/wb:/mds:，逗号分隔）"
                       : parsedSeries.join(", ")
                   }
-                  className={`rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 ${
+                  className={`rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text ${
                     seriesEditing ? "" : "cursor-text"
                   }`}
                   placeholder="例如：mds:debtcap_us_leverage_household,fred:UNRATE"
                 />
-                <span className="text-[10px] text-slate-500">
+                <span className="text-[10px] text-fs-muted">
                   {seriesEditing
                     ? "正在编辑代码；失焦后显示指标名"
                     : "点击可编辑代码（fred:/wb:/mds:，逗号分隔）"}
                 </span>
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1 text-xs text-slate-400">
+                <label className="flex flex-col gap-1 text-xs text-fs-muted">
                   起始日期
                   <input
                     type="date"
                     value={start}
                     onChange={(e) => setStart(e.target.value)}
-                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                    className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs text-slate-400">
+                <label className="flex flex-col gap-1 text-xs text-fs-muted">
                   结束日期
                   <input
                     type="date"
                     value={end}
                     onChange={(e) => setEnd(e.target.value)}
-                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                    className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
                   />
                 </label>
               </div>
-              <label className="flex flex-col gap-1 text-xs text-slate-400">
+              <label className="flex flex-col gap-1 text-xs text-fs-muted">
                 预处理
                 <select
                   value={mode}
                   onChange={(e) => setMode(e.target.value as PreprocessMode)}
-                  className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
+                  className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
                 >
                   <option value="none">原始值</option>
                   <option value="zscore">Z-Score 标准化</option>
@@ -473,11 +473,11 @@ export function StatisticalAnalysisClient() {
                 type="button"
                 onClick={() => runAnalysis().catch(() => {})}
                 disabled={loading}
-                className="w-full rounded-md border border-emerald-700 bg-emerald-950/45 px-3 py-2 text-sm text-emerald-100 disabled:opacity-50"
+                className="w-full rounded-md border border-fs-accent/40 bg-fs-accent-soft px-3 py-2 text-sm text-fs-accent-text disabled:opacity-50"
               >
                 {loading ? "分析中..." : "运行分析"}
               </button>
-              <span className="text-xs text-slate-500">当前指标数：{parsedSeries.length}</span>
+              <span className="text-xs text-fs-muted">当前指标数：{parsedSeries.length}</span>
             </div>
             {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
           </section>
@@ -487,56 +487,56 @@ export function StatisticalAnalysisClient() {
           {processed ? (
             <>
           <section className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="text-xs text-slate-500">样本点（日期）</div>
-              <div className="mt-1 text-lg font-semibold text-slate-100">
+            <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+              <div className="text-xs text-fs-muted">样本点（日期）</div>
+              <div className="mt-1 text-lg font-semibold text-fs-text">
                 {processed.categories.length}
               </div>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="text-xs text-slate-500">分析序列数</div>
-              <div className="mt-1 text-lg font-semibold text-slate-100">
+            <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+              <div className="text-xs text-fs-muted">分析序列数</div>
+              <div className="mt-1 text-lg font-semibold text-fs-text">
                 {processed.series.length}
               </div>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-              <div className="text-xs text-slate-500">样本区间</div>
-              <div className="mt-1 text-sm text-slate-100">
+            <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+              <div className="text-xs text-fs-muted">样本区间</div>
+              <div className="mt-1 text-sm text-fs-text">
                 {processed.categories[0] ?? "-"} ~{" "}
                 {processed.categories[processed.categories.length - 1] ?? "-"}
               </div>
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-            <h2 className="mb-2 text-sm font-medium text-slate-200">描述统计</h2>
+          <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+            <h2 className="mb-2 text-sm font-medium text-fs-text">描述统计</h2>
             <div className="overflow-auto">
               <table className="min-w-full border-collapse text-xs">
-                <thead className="bg-slate-900/80 text-slate-300">
+                <thead className="bg-fs-elevated text-fs-secondary">
                   <tr>
-                    <th className="border border-slate-800 px-2 py-1 text-left">序列</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">有效</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">缺失</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">最小</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">中位数</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">均值</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">标准差</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">最大</th>
-                    <th className="border border-slate-800 px-2 py-1 text-right">最新</th>
+                    <th className="border border-fs-border px-2 py-1 text-left">序列</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">有效</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">缺失</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">最小</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">中位数</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">均值</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">标准差</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">最大</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">最新</th>
                   </tr>
                 </thead>
                 <tbody>
                   {statsRows.map((r) => (
-                    <tr key={r.key} className="odd:bg-slate-950 even:bg-slate-900/30">
-                      <td className="border border-slate-800 px-2 py-1 text-slate-200">{r.name}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{r.count}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{r.missing}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{fmt(r.min)}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{fmt(r.p50)}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{fmt(r.mean)}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{fmt(r.std)}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{fmt(r.max)}</td>
-                      <td className="border border-slate-800 px-2 py-1 text-right">{fmt(r.last)}</td>
+                    <tr key={r.key} className="odd:bg-fs-bg even:bg-fs-elevated/30">
+                      <td className="border border-fs-border px-2 py-1 text-fs-text">{r.name}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{r.count}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{r.missing}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{fmt(r.min)}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{fmt(r.p50)}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{fmt(r.mean)}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{fmt(r.std)}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{fmt(r.max)}</td>
+                      <td className="border border-fs-border px-2 py-1 text-right">{fmt(r.last)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -544,23 +544,23 @@ export function StatisticalAnalysisClient() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-            <h2 className="mb-1 text-sm font-medium text-slate-200">分布柱状图（自适应分箱）</h2>
-            <p className="mb-3 text-xs text-slate-500">
+          <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+            <h2 className="mb-1 text-sm font-medium text-fs-text">分布柱状图（自适应分箱）</h2>
+            <p className="mb-3 text-xs text-fs-muted">
               step 按每个指标数据自动计算：优先 IQR（Freedman–Diaconis），样本离散度不足时回退 Sturges。
             </p>
             <div className="space-y-3">
               {histograms.map((h) => (
-                <div key={h.key} className="rounded border border-slate-800/80 bg-slate-900/35 p-2">
+                <div key={h.key} className="rounded border border-fs-border bg-fs-elevated/35 p-2">
                   <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-                    <span className="text-slate-200">{h.name}</span>
-                    <span className="rounded border border-slate-700 px-1 py-0 text-[10px] text-slate-400">
+                    <span className="text-fs-text">{h.name}</span>
+                    <span className="rounded border border-fs-border px-1 py-0 text-[10px] text-fs-muted">
                       step={fmt(h.step, 6)}
                     </span>
-                    <span className="text-slate-500">
+                    <span className="text-fs-muted">
                       区间 {fmt(h.min)} ~ {fmt(h.max)}，样本 {h.total}
                     </span>
-                    <span className="text-slate-500">
+                    <span className="text-fs-muted">
                       均值 {fmt(h.mean)}，标准差 {fmt(h.std)}
                     </span>
                   </div>
@@ -753,15 +753,15 @@ export function StatisticalAnalysisClient() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-            <h2 className="mb-2 text-sm font-medium text-slate-200">相关性矩阵（Pearson）</h2>
+          <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
+            <h2 className="mb-2 text-sm font-medium text-fs-text">相关性矩阵（Pearson）</h2>
             <div className="overflow-auto">
               <table className="min-w-full border-collapse text-xs">
-                <thead className="bg-slate-900/80 text-slate-300">
+                <thead className="bg-fs-elevated text-fs-secondary">
                   <tr>
-                    <th className="border border-slate-800 px-2 py-1 text-left">序列</th>
+                    <th className="border border-fs-border px-2 py-1 text-left">序列</th>
                     {processed.series.map((s) => (
-                      <th key={s.key ?? s.name} className="border border-slate-800 px-2 py-1 text-right">
+                      <th key={s.key ?? s.name} className="border border-fs-border px-2 py-1 text-right">
                         {s.name}
                       </th>
                     ))}
@@ -769,8 +769,8 @@ export function StatisticalAnalysisClient() {
                 </thead>
                 <tbody>
                   {processed.series.map((s, i) => (
-                    <tr key={s.key ?? s.name} className="odd:bg-slate-950 even:bg-slate-900/30">
-                      <td className="border border-slate-800 px-2 py-1 text-slate-200">{s.name}</td>
+                    <tr key={s.key ?? s.name} className="odd:bg-fs-bg even:bg-fs-elevated/30">
+                      <td className="border border-fs-border px-2 py-1 text-fs-text">{s.name}</td>
                       {corrMatrix[i]?.map((v, j) => {
                         const abs = v == null ? 0 : Math.min(1, Math.abs(v));
                         const bg =
@@ -782,7 +782,7 @@ export function StatisticalAnalysisClient() {
                         return (
                           <td
                             key={`${i}-${j}`}
-                            className="border border-slate-800 px-2 py-1 text-right text-slate-100"
+                            className="border border-fs-border px-2 py-1 text-right text-fs-text"
                             style={{ backgroundColor: bg }}
                           >
                             {v == null ? "-" : v.toFixed(3)}
@@ -797,8 +797,8 @@ export function StatisticalAnalysisClient() {
           </section>
             </>
           ) : (
-            <section className="rounded-lg border border-dashed border-slate-800 bg-slate-950/30 p-8 text-center">
-              <p className="text-sm text-slate-400">配置左侧指标与日期范围，点击「运行分析」查看统计结果。</p>
+            <section className="rounded-lg border border-dashed border-fs-border bg-fs-bg/30 p-8 text-center">
+              <p className="text-sm text-fs-muted">配置左侧指标与日期范围，点击「运行分析」查看统计结果。</p>
             </section>
           )}
         </div>

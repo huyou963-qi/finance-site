@@ -67,7 +67,7 @@ function ExpandToggle({
         e.stopPropagation();
         onToggle();
       }}
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-600/90 bg-slate-800/90 text-[13px] leading-none font-medium text-slate-300 hover:border-slate-500 hover:bg-slate-700/90 hover:text-slate-100 disabled:opacity-40"
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-fs-border/90 bg-fs-elevated/90 text-[13px] leading-none font-medium text-fs-secondary hover:border-fs-border hover:bg-fs-border/90 hover:text-fs-text disabled:opacity-40"
     >
       {open ? "−" : "+"}
     </button>
@@ -91,10 +91,10 @@ function TreeSectionHeader({
 }) {
   const levelClass =
     level === "country"
-      ? "text-sm font-semibold text-slate-100"
+      ? "text-sm font-semibold text-fs-text"
       : level === "category"
-        ? "text-xs font-medium text-slate-300"
-        : "text-[11px] font-medium text-slate-400";
+        ? "text-xs font-medium text-fs-secondary"
+        : "text-[11px] font-medium text-fs-muted";
 
   return (
     <div
@@ -105,7 +105,7 @@ function TreeSectionHeader({
         type="button"
         disabled={disabled}
         onClick={onToggle}
-        className={`min-w-0 flex-1 truncate text-left ${levelClass} hover:text-white disabled:opacity-40`}
+        className={`min-w-0 flex-1 truncate text-left ${levelClass} hover:text-fs-text disabled:opacity-40`}
       >
         {children}
       </button>
@@ -137,19 +137,19 @@ function IndicatorPickRow({
       <div
         data-indicator-key={itemKey}
         className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition ${
-          disabled ? "opacity-40" : "hover:bg-slate-900/90"
+          disabled ? "opacity-40" : "hover:bg-fs-elevated/90"
         } ${highlighted ? "bg-cyan-950/45 ring-1 ring-cyan-500/50" : ""}`}
       >
         <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-1.5">
           <input
             type="checkbox"
-            className="mt-0.5 shrink-0 accent-emerald-600"
+            className="mt-0.5 shrink-0 accent-fs-accent"
             checked={checked}
             disabled={disabled || (!checked && atLimit)}
             onChange={onToggle}
           />
-          <span className="text-[11px] leading-snug text-slate-300">{label}</span>
-          <span className="shrink-0 rounded border border-slate-700/90 px-1 py-0 text-[9px] text-slate-500">
+          <span className="text-[11px] leading-snug text-fs-secondary">{label}</span>
+          <span className="shrink-0 rounded border border-fs-border/90 px-1 py-0 text-[9px] text-fs-muted">
             {frequency}
           </span>
         </label>
@@ -301,9 +301,9 @@ export function UnifiedMacroSidebar({
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col gap-3">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-fs-muted">
         <span>
-          已选 <span className="text-slate-300">{count}</span> / {MACRO_MAX_SERIES}
+          已选 <span className="text-fs-secondary">{count}</span> / {MACRO_MAX_SERIES}
           {limitHint ? (
             <span className="ml-2 text-amber-300/90">已达上限</span>
           ) : null}
@@ -312,13 +312,13 @@ export function UnifiedMacroSidebar({
           type="button"
           onClick={resetDefault}
           disabled={disabled}
-          className="rounded border border-slate-700 px-2 py-0.5 text-slate-400 hover:border-slate-500 hover:text-slate-200 disabled:opacity-40"
+          className="rounded border border-fs-border px-2 py-0.5 text-fs-muted hover:border-fs-border hover:text-fs-text disabled:opacity-40"
         >
           恢复默认
         </button>
       </div>
 
-      <label className="block shrink-0 text-xs text-slate-500">
+      <label className="block shrink-0 text-xs text-fs-muted">
         <input
           type="search"
           value={searchQuery}
@@ -326,7 +326,7 @@ export function UnifiedMacroSidebar({
           placeholder="例如：中国、GDP、通胀、利率、贸易…"
           disabled={disabled}
           aria-label="搜索指标"
-          className="w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-100 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none disabled:opacity-40"
+          className="w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text placeholder:text-fs-secondary focus:border-fs-border focus:outline-none disabled:opacity-40"
         />
       </label>
 
@@ -337,7 +337,7 @@ export function UnifiedMacroSidebar({
           </p>
         ) : null}
         {!catalogCountries && !catalogError ? (
-          <p className="py-6 text-center text-xs text-slate-500">正在加载宏观指标目录…</p>
+          <p className="py-6 text-center text-xs text-fs-muted">正在加载宏观指标目录…</p>
         ) : null}
         <ul className="space-y-2">
           {filteredCountries.map((country) => {
@@ -345,8 +345,8 @@ export function UnifiedMacroSidebar({
             return (
               <li key={country.code}>
                 <div
-                  className={`rounded-md border bg-slate-900/50 ${
-                    countryOpen ? "border-slate-700" : "border-slate-800/90"
+                  className={`rounded-md border bg-fs-elevated/80 ${
+                    countryOpen ? "border-fs-border" : "border-fs-border/90"
                   }`}
                 >
                   <TreeSectionHeader
@@ -357,17 +357,17 @@ export function UnifiedMacroSidebar({
                     disabled={disabled}
                   >
                     {country.name}
-                    <span className="ml-2 text-[11px] font-normal text-slate-500">
+                    <span className="ml-2 text-[11px] font-normal text-fs-muted">
                       {country.code}
                     </span>
                   </TreeSectionHeader>
                   {countryOpen ? (
-                    <ul className="space-y-1 border-t border-slate-800/80 px-2 pb-2 pt-1">
+                    <ul className="space-y-1 border-t border-fs-border px-2 pb-2 pt-1">
                       {country.categories.map((category) => {
                         const categoryOpen = isCategoryOpen(country.code, category.name);
                         return (
                           <li key={`${country.code}:${category.name}`}>
-                            <div className="rounded border border-slate-800/80 bg-slate-950/45">
+                            <div className="rounded border border-fs-border bg-fs-bg/45">
                               <TreeSectionHeader
                                 level="category"
                                 open={categoryOpen}
@@ -378,7 +378,7 @@ export function UnifiedMacroSidebar({
                                 {category.name}
                               </TreeSectionHeader>
                               {categoryOpen ? (
-                                <ul className="space-y-0.5 border-t border-slate-800/70 py-1.5 pl-7 pr-2">
+                                <ul className="space-y-0.5 border-t border-fs-border/70 py-1.5 pl-7 pr-2">
                                   {category.items.map(({ key, label, frequency }) => (
                                     <IndicatorPickRow
                                       key={key}
@@ -403,7 +403,7 @@ export function UnifiedMacroSidebar({
                                         key={`${country.code}:${category.name}:${subgroup.name}`}
                                         className="list-none"
                                       >
-                                        <div className="mt-1 rounded border border-slate-800/60 bg-slate-950/30">
+                                        <div className="mt-1 rounded border border-fs-border bg-fs-bg/30">
                                           <TreeSectionHeader
                                             level="subgroup"
                                             open={sgOpen}
@@ -420,7 +420,7 @@ export function UnifiedMacroSidebar({
                                             {subgroup.name}
                                           </TreeSectionHeader>
                                           {sgOpen ? (
-                                            <ul className="space-y-0.5 border-t border-slate-800/60 py-1 pl-5 pr-1">
+                                            <ul className="space-y-0.5 border-t border-fs-border py-1 pl-5 pr-1">
                                               {subgroup.items.map(({ key, label, frequency }) => (
                                                 <IndicatorPickRow
                                                   key={key}
@@ -454,7 +454,7 @@ export function UnifiedMacroSidebar({
           })}
         </ul>
         {catalogCountries && !catalogError && filteredCountries.length === 0 ? (
-          <p className="py-4 text-center text-xs text-slate-500">无匹配项，请调整搜索词</p>
+          <p className="py-4 text-center text-xs text-fs-muted">无匹配项，请调整搜索词</p>
         ) : null}
       </div>
     </div>

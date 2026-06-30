@@ -6,7 +6,7 @@ export default function MacroPage() {
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden lg:min-h-full">
       <Suspense
         fallback={
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+          <div className="flex flex-1 items-center justify-center text-sm text-fs-muted">
             加载中…
           </div>
         }

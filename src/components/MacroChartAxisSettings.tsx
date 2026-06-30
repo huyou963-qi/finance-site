@@ -111,13 +111,13 @@ export function MacroChartAxisSettings({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] leading-relaxed text-slate-500">
+        <p className="text-[11px] leading-relaxed text-fs-muted">
           为每副图单独设置左右 Y 轴范围；自动模式随当前图内数据缩放。
         </p>
         <button
           type="button"
           onClick={setAllAuto}
-          className="shrink-0 rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+          className="shrink-0 rounded border border-fs-border px-2 py-0.5 text-[10px] text-fs-muted hover:border-fs-border hover:text-fs-text"
         >
           全部自动
         </button>
@@ -135,10 +135,10 @@ export function MacroChartAxisSettings({
           return (
             <div
               key={slot}
-              className="rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1.5"
+              className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
             >
-              <div className="text-[11px] font-medium text-slate-400">{title}</div>
-              <p className="mt-0.5 text-[10px] text-slate-600">饼图无 Y 轴范围设置</p>
+              <div className="text-[11px] font-medium text-fs-muted">{title}</div>
+              <p className="mt-0.5 text-[10px] text-fs-secondary">饼图无 Y 轴范围设置</p>
             </div>
           );
         }
@@ -147,10 +147,10 @@ export function MacroChartAxisSettings({
           return (
             <div
               key={slot}
-              className="rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1.5"
+              className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
             >
-              <div className="text-[11px] font-medium text-slate-400">{title}</div>
-              <p className="mt-0.5 text-[10px] text-slate-600">暂无指标</p>
+              <div className="text-[11px] font-medium text-fs-muted">{title}</div>
+              <p className="mt-0.5 text-[10px] text-fs-secondary">暂无指标</p>
             </div>
           );
         }
@@ -162,9 +162,9 @@ export function MacroChartAxisSettings({
         return (
           <div
             key={slot}
-            className="rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1.5"
+            className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
           >
-            <div className="mb-1.5 text-[11px] font-medium text-slate-300">{title}</div>
+            <div className="mb-1.5 text-[11px] font-medium text-fs-secondary">{title}</div>
             <AxisSideRow
               fieldId={`${slot}-left`}
               label="左轴"
@@ -228,7 +228,7 @@ function AxisSideRow({
 
   if (disabled) {
     return (
-      <div className="mb-1 flex items-center gap-2 text-[10px] text-slate-600 last:mb-0">
+      <div className="mb-1 flex items-center gap-2 text-[10px] text-fs-secondary last:mb-0">
         <span className="w-7 shrink-0">{label}</span>
         <span>{disabledHint ?? "不可用"}</span>
       </div>
@@ -236,32 +236,32 @@ function AxisSideRow({
   }
 
   const inputCls =
-    "w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-center text-[10px] text-slate-200 disabled:opacity-40";
+    "w-16 rounded border border-fs-border bg-fs-bg px-1 py-0.5 text-center text-[10px] text-fs-text disabled:opacity-40";
 
   return (
     <div className="mb-1.5 flex flex-wrap items-center gap-1.5 last:mb-0">
-      <span className="w-7 shrink-0 text-[10px] text-slate-500">{label}</span>
-      <label className="flex items-center gap-0.5 text-[10px] text-slate-400">
+      <span className="w-7 shrink-0 text-[10px] text-fs-muted">{label}</span>
+      <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
         <input
           type="radio"
           name={`axis-mode-${fieldId}`}
           checked={mode === "auto"}
           onChange={() => onModeChange("auto")}
-          className="accent-emerald-600"
+          className="accent-fs-accent"
         />
         自动
       </label>
-      <label className="flex items-center gap-0.5 text-[10px] text-slate-400">
+      <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
         <input
           type="radio"
           name={`axis-mode-${fieldId}`}
           checked={mode === "manual"}
           onChange={() => onModeChange("manual")}
-          className="accent-emerald-600"
+          className="accent-fs-accent"
         />
         手动
       </label>
-      <span className="text-[10px] text-slate-600">最小</span>
+      <span className="text-[10px] text-fs-secondary">最小</span>
       <input
         type="number"
         step="any"
@@ -270,7 +270,7 @@ function AxisSideRow({
         onChange={(e) => onMinChange(parseNumInput(e.target.value))}
         className={inputCls}
       />
-      <span className="text-[10px] text-slate-600">最大</span>
+      <span className="text-[10px] text-fs-secondary">最大</span>
       <input
         type="number"
         step="any"
@@ -282,7 +282,7 @@ function AxisSideRow({
       <button
         type="button"
         onClick={onAutoFill}
-        className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+        className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:border-fs-border hover:text-fs-text"
         title="按当前图内数据计算并填入最小/最大"
       >
         按数据填入

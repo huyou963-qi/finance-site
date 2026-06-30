@@ -112,7 +112,7 @@ export function EventPanelFilters({
         value={filters.searchQ}
         onChange={(e) => patch({ searchQ: e.target.value })}
         placeholder="搜索标题或内容…"
-        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-600 focus:border-cyan-700 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
+        className="w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-cyan-700 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
         aria-label="搜索事件"
       />
       <div className="flex min-w-0 flex-wrap items-center gap-1">
@@ -122,7 +122,7 @@ export function EventPanelFilters({
           className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] transition ${
             expanded || hasActiveEventPanelFilters(filters)
               ? "border-cyan-800/60 bg-cyan-950/30 text-cyan-200"
-              : "border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+              : "border-fs-border text-fs-muted hover:border-fs-border hover:text-fs-text"
           }`}
         >
           标签筛选
@@ -130,12 +130,12 @@ export function EventPanelFilters({
         {tagChips.map((chip) => (
           <span
             key={chip.id}
-            className="inline-flex max-w-full items-center gap-0.5 rounded border border-slate-700 bg-slate-800/80 px-1 py-0 text-[10px] text-slate-200"
+            className="inline-flex max-w-full items-center gap-0.5 rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[10px] text-fs-text"
           >
             <span className="truncate">{chip.label}</span>
             <button
               type="button"
-              className="shrink-0 text-slate-500 hover:text-rose-300"
+              className="shrink-0 text-fs-muted hover:text-rose-300"
               onClick={chip.onRemove}
               aria-label={`移除 ${chip.label}`}
             >
@@ -147,23 +147,23 @@ export function EventPanelFilters({
           <button
             type="button"
             onClick={() => onChange({ ...EMPTY_EVENT_PANEL_FILTERS })}
-            className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-500 hover:text-slate-200"
+            className="shrink-0 rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
           >
             清除
           </button>
         ) : null}
       </div>
       {expanded ? (
-        <div className="space-y-1.5 rounded border border-slate-800/80 bg-slate-950/40 p-1.5">
+        <div className="space-y-1.5 rounded border border-fs-border bg-fs-bg/40 p-1.5">
           <div className="flex flex-wrap gap-1">
-            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-slate-500">
+            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-fs-muted">
               重要性
               <select
                 value={filters.importance}
                 onChange={(e) =>
                   patch({ importance: e.target.value as EventImportance | "" })
                 }
-                className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
               >
                 <option value="">全部</option>
                 {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
@@ -173,12 +173,12 @@ export function EventPanelFilters({
                 ))}
               </select>
             </label>
-            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-slate-500">
+            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-fs-muted">
               类型
               <select
                 value={filters.eventType}
                 onChange={(e) => patch({ eventType: e.target.value })}
-                className="rounded border border-slate-700 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-200"
+                className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
               >
                 <option value="">全部</option>
                 {EVENT_TYPE_SUGGESTIONS.map((t) => (

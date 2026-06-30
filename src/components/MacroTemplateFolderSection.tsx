@@ -46,7 +46,7 @@ function FolderToggle({
       aria-expanded={open}
       aria-label={open ? `折叠${label}` : `展开${label}`}
       onClick={onToggle}
-      className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-600/80 bg-slate-800/90 text-[11px] leading-none text-slate-300 hover:border-slate-500 hover:bg-slate-700/90 hover:text-slate-100"
+      className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-fs-border/80 bg-fs-elevated/90 text-[11px] leading-none text-fs-secondary hover:border-fs-border hover:bg-fs-border/90 hover:text-fs-text"
     >
       {open ? "−" : "+"}
     </button>
@@ -155,13 +155,13 @@ export function MacroTemplateFolderSection({
         draggable={!disabled}
         onDragStart={(e) => handleTemplateDragStart(tpl, e)}
         onDragEnd={handleTemplateDragEnd}
-        className={`flex min-h-[8.75rem] w-full max-w-[7.25rem] cursor-grab flex-col rounded border border-slate-800/90 bg-slate-900/45 p-1.5 active:cursor-grabbing hover:border-slate-600/90 ${
+        className={`flex min-h-[8.75rem] w-full max-w-[7.25rem] cursor-grab flex-col rounded border border-fs-border/90 bg-fs-elevated/45 p-1.5 active:cursor-grabbing hover:border-fs-border/90 ${
           draggingTemplateId === tpl.id ? "opacity-45 ring-1 ring-cyan-500/40" : ""
         }`}
         title={templateTileTitle(tpl)}
       >
         <div className="min-h-0 flex-1 overflow-hidden">
-          <div className="line-clamp-3 text-[11px] font-medium leading-snug text-slate-200">
+          <div className="line-clamp-3 text-[11px] font-medium leading-snug text-fs-text">
             {tpl.name}
           </div>
         </div>
@@ -188,11 +188,11 @@ export function MacroTemplateFolderSection({
     if (!open) return null;
 
     return (
-      <div className="relative border-t border-slate-800/70">
+      <div className="relative border-t border-fs-border/70">
         {groupTemplates.length > 0 ? (
           renderTemplateGrid(groupTemplates)
         ) : (
-          <p className="px-2 py-1.5 text-[10px] text-slate-600">
+          <p className="px-2 py-1.5 text-[10px] text-fs-secondary">
             {draggingTemplateId ? "拖入模板以归类" : "文件夹为空"}
           </p>
         )}
@@ -216,8 +216,8 @@ export function MacroTemplateFolderSection({
     const label = folder?.name ?? "未分类";
     const isDropTarget = dropTargetKey === key;
 
-    const folderShellClass = `rounded border bg-slate-950/30 ${
-      isDropTarget ? "border-cyan-500/60 bg-cyan-950/15" : "border-slate-800/70"
+    const folderShellClass = `rounded border bg-fs-bg/30 ${
+      isDropTarget ? "border-cyan-500/60 bg-cyan-950/15" : "border-fs-border/70"
     }`;
 
     return (
@@ -232,12 +232,12 @@ export function MacroTemplateFolderSection({
           <FolderToggle open={open} onToggle={() => toggleFolder(key)} label={label} />
           <span
             className={`min-w-0 truncate text-[11px] font-medium ${
-              folder ? "flex-1 text-slate-300" : "text-slate-400"
+              folder ? "flex-1 text-fs-secondary" : "text-fs-muted"
             }`}
           >
             {label}
           </span>
-          <span className="text-[10px] text-slate-600">({groupTemplates.length})</span>
+          <span className="text-[10px] text-fs-secondary">({groupTemplates.length})</span>
           {folder ? (
             <>
               <button
@@ -248,7 +248,7 @@ export function MacroTemplateFolderSection({
                   if (!name || name === folder.name) return;
                   onRenameFolder(folder.id, name);
                 }}
-                className="rounded border border-slate-700 px-1 py-0 text-[9px] text-slate-400 hover:border-slate-500 hover:text-slate-200 disabled:opacity-40"
+                className="rounded border border-fs-border px-1 py-0 text-[9px] text-fs-muted hover:border-fs-border hover:text-fs-text disabled:opacity-40"
               >
                 重命名
               </button>
@@ -281,7 +281,7 @@ export function MacroTemplateFolderSection({
   };
 
   if (templates.length === 0 && folders.length === 0) {
-    return <p className="mt-2 text-xs text-slate-500">{emptyText}</p>;
+    return <p className="mt-2 text-xs text-fs-muted">{emptyText}</p>;
   }
 
   return (
@@ -291,11 +291,11 @@ export function MacroTemplateFolderSection({
           type="button"
           disabled={disabled}
           onClick={handleCreateFolder}
-          className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-slate-500 hover:text-slate-100 disabled:opacity-40"
+          className="rounded border border-fs-border px-2 py-0.5 text-[10px] text-fs-secondary hover:border-fs-border hover:text-fs-text disabled:opacity-40"
         >
           新建文件夹
         </button>
-        <span className="text-[10px] text-slate-600">
+        <span className="text-[10px] text-fs-secondary">
           {disabled ? "仅可查看文件夹归类" : "拖动模板到文件夹以归类"}
         </span>
       </div>
