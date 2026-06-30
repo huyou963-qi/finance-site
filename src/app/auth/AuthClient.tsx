@@ -58,9 +58,6 @@ export function AuthClient() {
     <div className="space-y-4 rounded-lg border border-fs-border bg-fs-bg/60 p-4">
       <div>
         <h1 className="text-xl font-semibold text-fs-text">账户登录 / 注册</h1>
-        <p className="mt-1 text-sm text-fs-muted">
-          默认管理员：`admin`，默认密码：`admin123456`（建议登录后改成你自己的管理账号策略）。
-        </p>
       </div>
       <div className="flex gap-2">
         <button
