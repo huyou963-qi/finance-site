@@ -601,6 +601,7 @@ export function MacroMultiChartGrid({
     remoteCrosshairTimeLabel,
     remoteCrosshairVersion,
     slotModeFor,
+    isAltSlotMode,
   ]);
 
   useEffect(() => {

@@ -110,7 +110,10 @@ export function MacroChartPanel({
   onSelectDrawingRef.current = onSelectDrawing;
   onInteractionRef.current = onInteraction;
 
-  const categories = slice?.categories ?? [];
+  const categories = useMemo(
+    () => slice?.categories ?? [],
+    [slice?.categories],
+  );
 
   useEffect(() => {
     return () => {
