@@ -44,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# deploy artifacts
+deploy.tar.gz
+next-build.tar.gz

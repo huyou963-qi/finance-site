@@ -1,0 +1,75 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          # prisma generate / next build 不需要真实数据库，占位即可
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+        run: npm run build
+
+      - name: Pack release tarball
+        run: node scripts/deploy-pack.mjs
+
+      - name: Upload artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-tarball
+          path: deploy.tar.gz
+          retention-days: 7
+
+      - name: Copy tarball to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: deploy.tar.gz
+          target: ${{ secrets.DEPLOY_PATH }}
+
+      - name: Extract and restart on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP_DIR="${{ secrets.DEPLOY_PATH }}"
+            cd "$APP_DIR"
+            pm2 stop finance-site || true
+            tar -xzf deploy.tar.gz
+            rm -f deploy.tar.gz
+            npm ci --omit=dev
+            pm2 restart finance-site || pm2 start npm --name finance-site -- run start
+            pm2 save
+            sleep 3
+            curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
