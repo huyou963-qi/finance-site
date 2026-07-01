@@ -27,7 +27,7 @@ export function SiteHeaderNav() {
   const toolsRef = useRef<HTMLDivElement>(null);
 
   const dashboardActive = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
-  const macroActive = pathname === "/macro" || pathname === "/";
+  const macroActive = pathname === "/macro";
   const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
   const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
   const toolsActive = isToolPath(pathname);

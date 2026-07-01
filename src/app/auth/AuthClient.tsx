@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  AuthPageShell,
+  authInputClass,
+} from "@/components/auth/AuthPageShell";
 import { AccountProfileClient } from "./AccountProfileClient";
 
 export function AuthClient() {
@@ -21,6 +25,7 @@ export function AuthClient() {
 
   const submit = async () => {
     setLoading(true);
+    setHint(null);
     try {
       const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const res = await fetch(endpoint, {
@@ -36,7 +41,7 @@ export function AuthClient() {
           : (payload.message ?? "注册请求已提交，请查收邮箱并点击确认链接"),
       );
       if (mode === "login") {
-        window.location.href = "/markets-tools";
+        window.location.href = "/";
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "未知错误";
@@ -47,7 +52,11 @@ export function AuthClient() {
   };
 
   if (loggedIn === null) {
-    return <p className="text-sm text-fs-muted">加载中…</p>;
+    return (
+      <AuthPageShell>
+        <p className="text-sm text-fs-muted">加载中…</p>
+      </AuthPageShell>
+    );
   }
 
   if (loggedIn) {
@@ -55,92 +64,120 @@ export function AuthClient() {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-fs-border bg-fs-bg/60 p-4">
-      <div>
-        <h1 className="text-xl font-semibold text-fs-text">账户登录 / 注册</h1>
+    <AuthPageShell>
+      <h1 className="text-xl font-semibold text-fs-text">
+        {mode === "login" ? "欢迎回来" : "创建账户"}
+      </h1>
+      <p className="mt-1 text-sm text-fs-muted">
+        {mode === "login" ? "使用用户名与密码登录 Finova" : "填写信息并完成邮箱验证"}
+      </p>
+
+      <div
+        className="mt-6 grid grid-cols-2 gap-1 rounded-lg border border-fs-border bg-fs-bg p-1"
+        role="tablist"
+        aria-label="登录或注册"
+      >
+        {(
+          [
+            { id: "login" as const, label: "登录" },
+            { id: "register" as const, label: "注册" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={mode === tab.id}
+            onClick={() => {
+              setMode(tab.id);
+              setHint(null);
+            }}
+            className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+              mode === tab.id
+                ? "bg-white text-fs-text shadow-sm ring-1 ring-fs-border"
+                : "text-fs-muted hover:text-fs-secondary"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMode("login")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            mode === "login"
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30"
-              : "bg-fs-elevated text-fs-secondary"
-          }`}
-        >
-          登录
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("register")}
-          className={`rounded-md px-3 py-1.5 text-sm ${
-            mode === "register"
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30"
-              : "bg-fs-elevated text-fs-secondary"
-          }`}
-        >
-          注册
-        </button>
-      </div>
-      <div className="grid gap-3">
-        <label className="text-sm text-fs-secondary">
+
+      <form
+        className="mt-6 space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit().catch(() => {});
+        }}
+      >
+        <label className="block text-sm text-fs-secondary">
           用户名
           <input
+            type="text"
+            autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
+            placeholder="请输入用户名"
+            className={authInputClass}
           />
         </label>
+
         {mode === "register" ? (
           <>
-            <label className="text-sm text-fs-secondary">
+            <label className="block text-sm text-fs-secondary">
               邮箱
               <input
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
+                placeholder="name@example.com"
+                className={authInputClass}
                 required
               />
             </label>
-            <label className="text-sm text-fs-secondary">
+            <label className="block text-sm text-fs-secondary">
               手机号
               <input
                 type="tel"
+                autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="11位中国大陆手机号"
-                className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
+                placeholder="11 位中国大陆手机号"
+                className={authInputClass}
                 required
               />
             </label>
           </>
         ) : null}
-        <label className="text-sm text-fs-secondary">
+
+        <label className="block text-sm text-fs-secondary">
           密码
           <input
             type="password"
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-fs-text"
+            placeholder={mode === "login" ? "请输入密码" : "至少 8 位，含字母与数字"}
+            className={authInputClass}
           />
         </label>
+
         <button
-          type="button"
-          onClick={() => submit().catch(() => {})}
+          type="submit"
           disabled={
             loading ||
             !username.trim() ||
             !password ||
             (mode === "register" && (!email.trim() || !phone.trim()))
           }
-          className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-3 py-2 text-sm text-fs-accent-text disabled:opacity-50"
+          className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
         >
-          {loading ? "提交中..." : mode === "login" ? "登录" : "注册"}
+          {loading ? "提交中…" : mode === "login" ? "登录" : "注册并发送验证邮件"}
         </button>
-      </div>
-      {hint ? <p className="text-sm text-fs-secondary">{hint}</p> : null}
-    </div>
+      </form>
+
+      {hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
+    </AuthPageShell>
   );
 }

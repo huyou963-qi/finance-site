@@ -1,6 +1,9 @@
-import { redirect } from "next/navigation";
+import { HomeLanding } from "@/components/home/HomeLanding";
 
-/** 首页默认进入宏观 */
 export default function Home() {
-  redirect("/macro");
+  return (
+    <div className="-mt-1 -mb-3 flex min-h-full flex-1 flex-col w-full px-6 pb-10 pt-3 md:px-10 md:pb-14 md:pt-4 lg:px-14 xl:px-20">
+      <HomeLanding />
+    </div>
+  );
 }

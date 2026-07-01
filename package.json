@@ -7,7 +7,7 @@
     "dev:turbo": "next dev --turbopack",
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true});\"",
     "build": "node scripts/prisma-generate-retry.mjs && next build",
-    "start": "next start",
+    "start": "node scripts/ensure-next-build.mjs && next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:generate": "dotenv -e .env.local -- prisma generate",
