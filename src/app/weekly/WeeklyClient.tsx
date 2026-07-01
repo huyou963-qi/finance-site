@@ -25,6 +25,8 @@ function WeeklyClientInner() {
   const [detail, setDetail] = useState<WeeklyReportDetail | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectReport = useCallback(
@@ -35,7 +37,7 @@ function WeeklyClientInner() {
     [router],
   );
 
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (): Promise<WeeklyReportListItem[]> => {
     setListLoading(true);
     setError(null);
     try {
@@ -44,7 +46,7 @@ function WeeklyClientInner() {
         setError("请先登录后查看 AI周度观察");
         setList([]);
         setTotal(0);
-        return;
+        return [];
       }
       const j = (await r.json()) as {
         reports?: WeeklyReportListItem[];
@@ -55,8 +57,10 @@ function WeeklyClientInner() {
       const reports = j.reports ?? [];
       setList(reports);
       setTotal(j.total ?? reports.length);
+      return reports;
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
+      return [];
     } finally {
       setListLoading(false);
     }
@@ -65,6 +69,42 @@ function WeeklyClientInner() {
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) return null;
+        return (await r.json()) as { user?: { role: "admin" | "user" } };
+      })
+      .then((j) => setIsAdmin(j?.user?.role === "admin"))
+      .catch(() => setIsAdmin(false));
+  }, []);
+
+  const deleteSelected = useCallback(async () => {
+    if (!selectedId || !detail) return;
+    const label = detail.meta.weekEnding;
+    if (!window.confirm(`确定删除 ${label} 这期周报？此操作不可恢复。`)) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/weekly-reports/${selectedId}`, { method: "DELETE" });
+      const j = (await r.json()) as { error?: string };
+      if (r.status === 403) throw new Error("无管理员权限");
+      if (!r.ok) throw new Error(j.error ?? "删除失败");
+      const remaining = await loadList();
+      if (remaining.length > 0) {
+        selectReport(remaining[0]!.id);
+      } else {
+        setSelectedId(null);
+        setDetail(null);
+        router.replace("/weekly", { scroll: false });
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "删除失败");
+    } finally {
+      setDeleting(false);
+    }
+  }, [selectedId, detail, loadList, selectReport, router]);
 
   useEffect(() => {
     if (list.length === 0) {
@@ -148,10 +188,21 @@ function WeeklyClientInner() {
                   <span className="rounded bg-fs-elevated px-2 py-0.5 text-xs text-fs-secondary">
                     {activeMeta.scope}
                   </span>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => void deleteSelected()}
+                      disabled={deleting}
+                      className="ml-auto rounded-md border border-fs-negative/40 px-2.5 py-1 text-xs font-medium text-fs-negative hover:bg-fs-negative/10 disabled:opacity-50"
+                    >
+                      {deleting ? "删除中…" : "删除本期"}
+                    </button>
+                  ) : null}
                 </div>
                 <p className="text-sm text-fs-muted">
                   {activeMeta.title} · 生成 {activeMeta.generatedAt}
                 </p>
+                {error ? <p className="mt-2 text-sm text-fs-negative">{error}</p> : null}
 
                 <div className="mt-4 rounded-lg border border-fs-border bg-fs-elevated/80 px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm">

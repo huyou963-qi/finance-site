@@ -150,6 +150,13 @@ export async function getWeeklyReportById(id: string): Promise<WeeklyReportDetai
   };
 }
 
+export async function deleteWeeklyReport(id: string): Promise<boolean> {
+  const existing = await prisma.weeklyReport.findUnique({ where: { id } });
+  if (!existing) return false;
+  await prisma.weeklyReport.delete({ where: { id } });
+  return true;
+}
+
 export async function upsertWeeklyReport(input: {
   meta: WeeklyReportMeta;
   bodyMarkdown: string;

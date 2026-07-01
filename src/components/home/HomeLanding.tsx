@@ -63,7 +63,7 @@ export function HomeLanding() {
         </nav>
       </header>
 
-      <section className="flex flex-1 flex-col justify-center pb-10 pt-6 md:pb-16 md:pt-8 lg:pb-20">
+      <section className="pt-6 md:pt-8 pb-4 md:pb-6">
         <FinovaWordmark size="hero" className="mb-6 md:mb-8" />
         <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-fs-text md:text-5xl lg:text-6xl">
           全球资本市场的
@@ -90,7 +90,7 @@ export function HomeLanding() {
         </div>
       </section>
 
-      <div className="shrink-0 space-y-6 pb-2 md:space-y-8">
+      <div className="shrink-0 space-y-6 pb-2 md:space-y-8 mt-2 md:mt-3">
         <div className="grid gap-4 sm:grid-cols-3">
           {[
             { label: "宏观序列", value: "2,400+" },
