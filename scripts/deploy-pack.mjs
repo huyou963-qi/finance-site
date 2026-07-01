@@ -5,23 +5,26 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 
-const paths = [
+const required = [
   ".next",
   "package.json",
   "package-lock.json",
   "prisma",
-  "public",
   "next.config.ts",
   "scripts/ensure-next-build.mjs",
   "scripts/prisma-generate-retry.mjs",
 ];
 
-for (const p of paths) {
+const optional = ["public"];
+
+for (const p of required) {
   if (!fs.existsSync(p)) {
-    console.error(`[deploy-pack] missing: ${p}`);
+    console.error(`[deploy-pack] missing required: ${p}`);
     process.exit(1);
   }
 }
+
+const paths = [...required, ...optional.filter((p) => fs.existsSync(p))];
 
 if (fs.existsSync("deploy.tar.gz")) fs.unlinkSync("deploy.tar.gz");
 
