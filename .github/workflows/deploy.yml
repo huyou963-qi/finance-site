@@ -12,7 +12,7 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       DEPLOY_USER: root
       DEPLOY_PATH: /opt/finance-site
@@ -79,11 +79,11 @@ jobs:
           set -euo pipefail
           cd "${DEPLOY_PATH}"
           pm2 stop finance-site || true
+          rm -rf .next node_modules
           tar -xzf deploy.tar.gz
           rm -f deploy.tar.gz
-          npm ci --omit=dev
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start
           pm2 save
-          sleep 3
+          sleep 5
           curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
           EOF

@@ -7,6 +7,7 @@ import fs from "node:fs";
 
 const required = [
   ".next",
+  "node_modules",
   "package.json",
   "package-lock.json",
   "prisma",
