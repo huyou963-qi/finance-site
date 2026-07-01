@@ -13,6 +13,10 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      DEPLOY_USER: root
+      DEPLOY_PATH: /opt/finance-site
+      DEPLOY_PORT: "22"
 
     steps:
       - name: Checkout
@@ -47,23 +51,23 @@ jobs:
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
+          username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT }}
+          port: ${{ env.DEPLOY_PORT }}
           source: deploy.tar.gz
-          target: ${{ secrets.DEPLOY_PATH }}
+          target: ${{ env.DEPLOY_PATH }}
 
       - name: Extract and restart on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
+          username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT }}
+          port: ${{ env.DEPLOY_PORT }}
           script_stop: true
           script: |
             set -euo pipefail
-            APP_DIR="${{ secrets.DEPLOY_PATH }}"
+            APP_DIR="${{ env.DEPLOY_PATH }}"
             cd "$APP_DIR"
             pm2 stop finance-site || true
             tar -xzf deploy.tar.gz
