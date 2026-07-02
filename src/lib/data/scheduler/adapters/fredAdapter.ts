@@ -1,5 +1,6 @@
 import type { DataGranularity } from "@prisma/client";
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
+import { getFredRateLimiter, type FredRateLimiter } from "../fredRateLimiter";
 
 function parseFredDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -10,6 +11,7 @@ export async function fetchFredIncremental(
   seriesId: string,
   apiKey: string,
   observationStart: string,
+  rateLimiter?: FredRateLimiter,
 ): Promise<FetchIncrementalResult> {
   const url =
     `https://api.stlouisfed.org/fred/series/observations` +
@@ -18,12 +20,12 @@ export async function fetchFredIncremental(
     `&file_type=json` +
     `&observation_start=${encodeURIComponent(observationStart)}`;
 
-  const res = await fetch(url);
+  const limiter = rateLimiter ?? getFredRateLimiter();
+  const res = await limiter.fetch(url);
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`FRED HTTP ${res.status}: ${text.slice(0, 300)}`);
   }
-
   const json: unknown = await res.json();
   const observations = (json as { observations?: { date: string; value: string }[] })
     ?.observations;

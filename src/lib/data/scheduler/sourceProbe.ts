@@ -10,7 +10,8 @@ import {
   XLSX_IMPORT_BY_SOURCE_TAG,
 } from "./agencyRegistry";
 import { probeBisForDebtcapInstrument } from "./bisProbe";
-import { USOV_FRED_SERIES_BY_CODE } from "./usovFredMap";
+import type { FredRateLimiter } from "./fredRateLimiter";
+import { mergedUsovFredMap } from "./usovFredMap";
 
 export type InstrumentProbeInput = {
   id: string;
@@ -90,12 +91,18 @@ async function probeFredSeries(
   apiKey: string,
   method: string,
   methodLabel: string,
+  rateLimiter?: FredRateLimiter,
 ): Promise<ProbeOutcome> {
   const start = new Date();
   start.setUTCMonth(start.getUTCMonth() - 6);
   const observationStart = start.toISOString().slice(0, 10);
   try {
-    const result = await fetchFredIncremental(seriesId, apiKey, observationStart);
+    const result = await fetchFredIncremental(
+      seriesId,
+      apiKey,
+      observationStart,
+      rateLimiter,
+    );
     if (result.points.length === 0) {
       return pending({
         method,
@@ -128,6 +135,7 @@ async function probeFredSeries(
 async function probeFredSearch(
   searchText: string,
   apiKey: string,
+  rateLimiter?: FredRateLimiter,
 ): Promise<ProbeOutcome | null> {
   const q = searchText.trim().slice(0, 80);
   if (!q) return null;
@@ -138,7 +146,8 @@ async function probeFredSearch(
     `&api_key=${encodeURIComponent(apiKey)}` +
     `&file_type=json`;
   try {
-    const res = await fetch(url);
+    const limiter = rateLimiter;
+    const res = limiter ? await limiter.fetch(url) : await fetch(url);
     if (!res.ok) return null;
     const json = (await res.json()) as {
       seriess?: { id?: string; title?: string }[];
@@ -152,7 +161,13 @@ async function probeFredSearch(
         error: "fred_search_empty",
       });
     }
-    return probeFredSeries(hit, apiKey, "fred_search", `FRED 搜索命中 ${hit}`);
+    return probeFredSeries(
+      hit,
+      apiKey,
+      "fred_search",
+      `FRED 搜索命中 ${hit}`,
+      rateLimiter,
+    );
   } catch {
     return null;
   }
@@ -253,14 +268,13 @@ function dbSourceLabel(meta: Record<string, unknown>): string | null {
 
 export async function probeInstrumentAcquisition(
   inst: InstrumentProbeInput,
-  options: { fredApiKey?: string; sleepMs?: number },
+  options: { fredApiKey?: string; fredRateLimiter?: FredRateLimiter },
 ): Promise<ProbeOutcome> {
   const meta = md(inst.metadata);
   const agency = agencyText(meta);
   const countryCode = String(meta.countryCode ?? meta.region ?? "").trim().toUpperCase();
   const label = displayLabel(meta, inst);
-
-  if (options.sleepMs) await sleep(options.sleepMs);
+  const fredLimiter = options.fredRateLimiter;
 
   const dbSource = dbSourceLabel(meta);
 
@@ -311,15 +325,16 @@ export async function probeInstrumentAcquisition(
       options.fredApiKey,
       "subscription_fred",
       "FRED 定时订阅 API",
+      fredLimiter,
     );
   }
 
-  // 2) fredSeriesId / sched_fred_*
+  const usovFredMap = mergedUsovFredMap();
   const fredFromCode = inst.code.match(/^sched_fred_(.+)$/i)?.[1]?.toUpperCase();
-  const fredFromUsov = USOV_FRED_SERIES_BY_CODE[inst.code];
+  const fredFromUsov = usovFredMap[inst.code];
   const fredId = inst.fredSeriesId?.toUpperCase() ?? fredFromCode ?? fredFromUsov;
   if (fredId && options.fredApiKey) {
-    return probeFredSeries(fredId, options.fredApiKey, "fred_api", "FRED API");
+    return probeFredSeries(fredId, options.fredApiKey, "fred_api", "FRED API", fredLimiter);
   }
 
   // 4) 元数据中的 URL
@@ -363,8 +378,7 @@ export async function probeInstrumentAcquisition(
       countryCode === "US" ||
       inst.code.startsWith("usov_"))
   ) {
-    if (options.sleepMs) await sleep(options.sleepMs);
-    const searched = await probeFredSearch(label, options.fredApiKey);
+    const searched = await probeFredSearch(label, options.fredApiKey, fredLimiter);
     if (searched) return searched;
   }
 
@@ -436,10 +450,6 @@ export async function probeInstrumentAcquisition(
     message: "缺少来源机构与获取路径信息",
     error: "no_source_metadata",
   });
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function loadInstrumentsForProbe(

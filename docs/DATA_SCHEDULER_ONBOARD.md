@@ -10,7 +10,7 @@
 | 2 | **签约**：`DataSubscription` + `DataSource` | 同上 seed，或 `scripts/data-worker/seed-*.ts` |
 | 3 | **发布包**：挂到官方发布包（多序列共用日历） | 编辑 `src/lib/data/scheduler/releasePackageCatalog.ts` → `npm run data:seed-release-packages` |
 | 4 | **日历**：TE 经济日历对齐 `nextRunAt` | `npm run data:sync-calendar`（需 `TE_CALENDAR_COOKIE` 时见 Phase 4 文档） |
-| 5 | **获取确认**：probe 或显式标 `known` | `npm run data:probe-sources`（或 TE 模板 seed 预标 known） |
+| 5 | **获取确认**：probe 或显式标 `known` | `npm run data:probe-sources`（支持 `--skip-known`、`--prefix`、`--fred-sleep-ms=600`；TE 模板 seed 预标 known） |
 | 6 | **验证**：拉取 + 管理端目录 | `npm run data:worker` 或管理端「立即同步发布包」 |
 
 > **新指标日历规则只改 `releasePackageCatalog.ts`**，不要往 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 加项（遗留 fallback，发布包优先）。

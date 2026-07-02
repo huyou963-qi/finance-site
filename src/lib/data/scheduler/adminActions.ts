@@ -3,8 +3,6 @@ import { syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSc
 import { runLagAlerts } from "./lagAlerts";
 import {
   loadInstrumentsForProbe,
-  probeInstrumentAcquisition,
-  saveProbeResult,
 } from "./sourceProbe";
 import {
   listDueSubscriptions,
@@ -237,22 +235,22 @@ export async function executeSchedulerAction(
           r.code.startsWith("sched_fred_"),
       );
       const fredKey = process.env.FRED_API_KEY?.trim();
-      let known = 0;
-      let pending = 0;
-      for (const inst of instruments.slice(0, 120)) {
-        const outcome = await probeInstrumentAcquisition(inst, {
-          fredApiKey: fredKey,
-          sleepMs: 200,
-        });
-        await saveProbeResult(prisma, inst.id, inst.metadata, outcome);
-        if (outcome.status === "known") known++;
-        else pending++;
-      }
+      const { runProbeBatch } = await import("@/lib/data/scheduler/probeRunner");
+      const result = await runProbeBatch(prisma, instruments, {
+        fredApiKey: fredKey,
+        fredSleepMs: 600,
+        skipKnown: false,
+      });
       return {
         action,
         ok: true,
-        message: `探测 ${Math.min(instruments.length, 120)} 条：known ${known}，pending ${pending}`,
-        details: { probed: Math.min(instruments.length, 120), known, pending },
+        message: `探测 ${result.total} 条（跳过 ${result.skipped}）：known ${result.known}，pending ${result.pending}`,
+        details: {
+          probed: result.total,
+          skipped: result.skipped,
+          known: result.known,
+          pending: result.pending,
+        },
       };
     }
     case "sync_one": {
