@@ -9,6 +9,161 @@ import type {
   AdminDataCatalogPayload,
 } from "@/lib/data/scheduler/adminCatalog";
 
+type SyncMemberDetail = {
+  instrumentCode: string;
+  instrumentName?: string;
+  status: string;
+  rowsUpserted: number;
+  error?: string;
+};
+
+type SyncActionDetails = {
+  releasePackageId?: string;
+  releasePackageLabelZh?: string;
+  packageSyncId?: string;
+  succeeded?: SyncMemberDetail[];
+  failed?: SyncMemberDetail[];
+  failedRows?: SyncMemberDetail[];
+  skipped?: SyncMemberDetail[];
+  logs?: string[];
+  details?: Array<{
+    instrumentCode: string;
+    instrumentName?: string;
+    status: string;
+    rowsUpserted: number;
+    error?: string;
+    releasePackageLabelZh?: string | null;
+  }>;
+};
+
+type SyncReport = {
+  ok: boolean;
+  message: string;
+  action: string;
+  details?: SyncActionDetails;
+};
+
+function pickPackageSyncLeaderCode(codes: string[]): string | null {
+  if (!codes.length) return null;
+  const headline = codes.find((c) => c.includes("_headline"));
+  if (headline) return headline;
+  return [...codes].sort((a, b) => a.localeCompare(b))[0] ?? null;
+}
+
+function collectAllIndicators(countries: AdminCatalogCountry[]): AdminCatalogIndicator[] {
+  const out: AdminCatalogIndicator[] = [];
+  for (const country of countries) {
+    for (const cat of country.categories) {
+      out.push(...cat.indicators);
+      for (const sg of cat.subgroups ?? []) out.push(...sg.indicators);
+    }
+  }
+  return out;
+}
+
+function buildPackageSyncLeaders(indicators: AdminCatalogIndicator[]): Set<string> {
+  const byPkg = new Map<string, string[]>();
+  for (const row of indicators) {
+    if (!row.releasePackageId || !row.instrumentCode || !row.networkAcquisitionConfirmed) continue;
+    const list = byPkg.get(row.releasePackageId) ?? [];
+    list.push(row.instrumentCode);
+    byPkg.set(row.releasePackageId, list);
+  }
+  const leaders = new Set<string>();
+  for (const codes of byPkg.values()) {
+    const leader = pickPackageSyncLeaderCode(codes);
+    if (leader) leaders.add(leader);
+  }
+  return leaders;
+}
+
+function SyncReportPanel({ report, onClose }: { report: SyncReport; onClose: () => void }) {
+  const d = report.details;
+  const succeeded =
+    d?.succeeded ??
+    (d?.details?.filter((x) => x.status === "success" || x.status === "partial") ?? []);
+  const failed = d?.failed ?? d?.failedRows ?? (d?.details?.filter((x) => x.status === "failed") ?? []);
+  const skipped = d?.skipped ?? (d?.details?.filter((x) => x.status === "skipped") ?? []);
+  const logs = d?.logs ?? [];
+
+  return (
+    <div className="rounded-lg border border-fs-border bg-fs-elevated/80 p-3 text-xs">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div>
+          <div className={`font-medium ${report.ok ? "text-fs-accent-text" : "text-fs-negative"}`}>
+            {report.message}
+          </div>
+          {d?.releasePackageLabelZh ? (
+            <div className="mt-1 text-fs-muted">发布包：{d.releasePackageLabelZh}</div>
+          ) : null}
+          {d?.packageSyncId ? (
+            <div className="mt-0.5 font-mono text-[10px] text-fs-secondary">
+              同步批次 {d.packageSyncId}
+            </div>
+          ) : null}
+        </div>
+        <button type="button" className="shrink-0 text-fs-muted hover:text-fs-secondary" onClick={onClose}>
+          关闭
+        </button>
+      </div>
+
+      {succeeded.length > 0 ? (
+        <div className="mb-2">
+          <div className="mb-1 font-medium text-fs-accent-text">已更新（{succeeded.length}）</div>
+          <ul className="max-h-40 space-y-0.5 overflow-y-auto text-fs-muted">
+            {succeeded.map((row) => (
+              <li key={row.instrumentCode}>
+                <span className="font-mono text-fs-secondary">{row.instrumentCode}</span>
+                {row.instrumentName ? ` · ${row.instrumentName}` : ""} · +{row.rowsUpserted}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {failed.length > 0 ? (
+        <div className="mb-2">
+          <div className="mb-1 font-medium text-fs-negative">失败（{failed.length}）</div>
+          <ul className="max-h-40 space-y-0.5 overflow-y-auto">
+            {failed.map((row) => (
+              <li key={row.instrumentCode} className="text-fs-negative/90">
+                <span className="font-mono">{row.instrumentCode}</span>
+                {row.instrumentName ? ` · ${row.instrumentName}` : ""}
+                {row.error ? ` · ${row.error}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {skipped.length > 0 ? (
+        <div className="mb-2">
+          <div className="mb-1 font-medium text-fs-muted">跳过（{skipped.length}）</div>
+          <ul className="max-h-32 space-y-0.5 overflow-y-auto text-fs-muted">
+            {skipped.map((row) => (
+              <li key={row.instrumentCode}>
+                <span className="font-mono">{row.instrumentCode}</span>
+                {row.error ? ` · ${row.error}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {logs.length > 0 ? (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-fs-muted hover:text-fs-secondary">
+            完整日志（{logs.length} 行）
+          </summary>
+          <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-fs-bg p-2 font-mono text-[10px] text-fs-muted">
+            {logs.join("\n")}
+          </pre>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 function formatValue(value: number | null, unit: string | null): string {
   if (value == null || !Number.isFinite(value)) return "—";
   const abs = Math.abs(value);
@@ -73,10 +228,12 @@ function SchedulerToolbar({
   onDone,
   onShowRuns,
   onShowCalendar,
+  onReport,
 }: {
   onDone: () => void;
   onShowRuns: () => void;
   onShowCalendar: () => void;
+  onReport: (report: SyncReport) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -90,8 +247,21 @@ function SchedulerToolbar({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, force: action.startsWith("run_worker"), ...extra }),
       });
-      const data = (await res.json()) as { message?: string; error?: string };
-      setMsg(data.message ?? data.error ?? (res.ok ? "完成" : "失败"));
+      const data = (await res.json()) as SyncReport & { error?: string; details?: SyncActionDetails };
+      const report: SyncReport = {
+        action,
+        ok: res.ok,
+        message: data.message ?? data.error ?? (res.ok ? "完成" : "失败"),
+        details: data.details,
+      };
+      setMsg(report.message);
+      if (
+        action === "sync_all_stale" ||
+        action === "sync_one" ||
+        action === "sync_package"
+      ) {
+        onReport(report);
+      }
       if (res.ok) onDone();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "请求失败");
@@ -336,33 +506,68 @@ function SourceLinks({ row }: { row: AdminCatalogIndicator }) {
   );
 }
 
-function SyncOneButton({ code, onDone }: { code: string; onDone: () => void }) {
+function SyncPackageButton({
+  instrumentCode,
+  releasePackageId,
+  releasePackageLabelZh,
+  onDone,
+  onReport,
+}: {
+  instrumentCode: string;
+  releasePackageId?: string | null;
+  releasePackageLabelZh?: string | null;
+  onDone: () => void;
+  onReport: (report: SyncReport) => void;
+}) {
   const [busy, setBusy] = useState(false);
+  const isPackage = Boolean(releasePackageId);
   return (
     <button
       type="button"
       disabled={busy}
       className="mt-1 block text-sky-400 hover:underline disabled:opacity-50"
+      title={isPackage ? `同步发布包：${releasePackageLabelZh ?? releasePackageId}` : undefined}
       onClick={async () => {
         setBusy(true);
         try {
-          await fetch("/api/admin/data-scheduler/actions", {
+          const res = await fetch("/api/admin/data-scheduler/actions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "sync_one", instrumentCode: code }),
+            body: JSON.stringify({
+              action: isPackage ? "sync_package" : "sync_one",
+              instrumentCode,
+              releasePackageId: releasePackageId ?? undefined,
+            }),
           });
-          onDone();
+          const data = (await res.json()) as SyncReport & { error?: string; details?: SyncActionDetails };
+          onReport({
+            action: isPackage ? "sync_package" : "sync_one",
+            ok: res.ok,
+            message: data.message ?? data.error ?? (res.ok ? "完成" : "失败"),
+            details: data.details,
+          });
+          if (res.ok) onDone();
         } finally {
           setBusy(false);
         }
       }}
     >
-      {busy ? "同步中…" : "立即同步"}
+      {busy ? "同步中…" : isPackage ? "立即同步发布包" : "立即同步"}
     </button>
   );
 }
 
-function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefresh: () => void }) {
+function IndicatorRow({
+  row,
+  onRefresh,
+  showSyncButton,
+  onSyncReport,
+}: {
+  row: AdminCatalogIndicator;
+  onRefresh: () => void;
+  showSyncButton: boolean;
+  onSyncReport: (report: SyncReport) => void;
+}) {
   const router = useRouter();
 
   const openInMacro = (e: MouseEvent<HTMLTableRowElement>) => {
@@ -455,8 +660,16 @@ function IndicatorRow({ row, onRefresh }: { row: AdminCatalogIndicator; onRefres
           </div>
         ) : null}
         {row.networkAcquisitionConfirmed ? <FetchRunBadge row={row} /> : null}
-        {row.networkAcquisitionConfirmed && row.instrumentCode ? (
-          <SyncOneButton code={row.instrumentCode} onDone={onRefresh} />
+        {row.networkAcquisitionConfirmed && row.instrumentCode && showSyncButton ? (
+          <SyncPackageButton
+            instrumentCode={row.instrumentCode}
+            releasePackageId={row.releasePackageId}
+            releasePackageLabelZh={row.releasePackageLabelZh}
+            onDone={onRefresh}
+            onReport={onSyncReport}
+          />
+        ) : row.networkAcquisitionConfirmed && row.instrumentCode && row.releasePackageId ? (
+          <div className="mt-1 text-[10px] text-fs-muted">随发布包同步</div>
         ) : null}
       </td>
     </tr>
@@ -631,6 +844,8 @@ function UnifiedCatalogTable({
   sortKey,
   sortDir,
   onSort,
+  packageSyncLeaders,
+  onSyncReport,
 }: {
   countries: AdminCatalogCountry[];
   expanded: Record<string, boolean>;
@@ -639,6 +854,8 @@ function UnifiedCatalogTable({
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
+  packageSyncLeaders: Set<string>;
+  onSyncReport: (report: SyncReport) => void;
 }) {
   return (
     <div className="max-h-[min(72vh,900px)] overflow-auto rounded-lg border border-fs-border bg-fs-elevated">
@@ -706,7 +923,17 @@ function UnifiedCatalogTable({
                             <>
                               {cat.indicators.length > 0
                                 ? sortIndicators(cat.indicators, sortKey, sortDir).map((row) => (
-                                    <IndicatorRow key={row.key} row={row} onRefresh={onRefresh} />
+                                    <IndicatorRow
+                                      key={row.key}
+                                      row={row}
+                                      onRefresh={onRefresh}
+                                      showSyncButton={
+                                        !row.instrumentCode ||
+                                        !row.releasePackageId ||
+                                        packageSyncLeaders.has(row.instrumentCode)
+                                      }
+                                      onSyncReport={onSyncReport}
+                                    />
                                   ))
                                 : null}
                               {(cat.subgroups ?? []).map((sg) => {
@@ -732,7 +959,17 @@ function UnifiedCatalogTable({
                                     </tr>
                                     {sgOpen
                                       ? indicators.map((row) => (
-                                          <IndicatorRow key={row.key} row={row} onRefresh={onRefresh} />
+                                          <IndicatorRow
+                                            key={row.key}
+                                            row={row}
+                                            onRefresh={onRefresh}
+                                            showSyncButton={
+                                              !row.instrumentCode ||
+                                              !row.releasePackageId ||
+                                              packageSyncLeaders.has(row.instrumentCode)
+                                            }
+                                            onSyncReport={onSyncReport}
+                                          />
                                         ))
                                       : null}
                                   </Fragment>
@@ -835,6 +1072,7 @@ export function DataCatalogAdminClient() {
   const [showRuns, setShowRuns] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [schedulerInfoOpen, setSchedulerInfoOpen] = useState(false);
+  const [syncReport, setSyncReport] = useState<SyncReport | null>(null);
 
   const calendarWarning = useMemo(() => {
     if (!data) return false;
@@ -901,6 +1139,11 @@ export function DataCatalogAdminClient() {
       .map((country) => filterCountry(country, needle, onlySubscribed, onlyPending, onlyStale))
       .filter((c) => c.categories.length > 0);
   }, [data, q, onlySubscribed, onlyPending, onlyStale]);
+
+  const packageSyncLeaders = useMemo(
+    () => buildPackageSyncLeaders(collectAllIndicators(filteredCountries)),
+    [filteredCountries],
+  );
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
@@ -988,7 +1231,12 @@ export function DataCatalogAdminClient() {
         onDone={() => load()}
         onShowRuns={() => loadFetchRuns()}
         onShowCalendar={() => setShowCalendar((v) => !v)}
+        onReport={setSyncReport}
       />
+
+      {syncReport ? (
+        <SyncReportPanel report={syncReport} onClose={() => setSyncReport(null)} />
+      ) : null}
 
       {showCalendar ? <CalendarMappingPanel onClose={() => setShowCalendar(false)} /> : null}
 
@@ -1084,6 +1332,8 @@ export function DataCatalogAdminClient() {
           sortKey={sortKey}
           sortDir={sortDir}
           onSort={handleSort}
+          packageSyncLeaders={packageSyncLeaders}
+          onSyncReport={setSyncReport}
         />
       ) : null}
 

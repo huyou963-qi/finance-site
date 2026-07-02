@@ -43,6 +43,7 @@ export type SubscriptionWithRelations = DataSubscription & {
   instrument: { id: string; code: string; name: string; metadata?: unknown };
   releasePackage?: {
     id: string;
+    labelZh?: string;
     releaseTemplate: unknown;
     scheduleState: unknown;
     nextRunAt: Date | null;

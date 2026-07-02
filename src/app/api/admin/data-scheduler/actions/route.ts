@@ -18,6 +18,7 @@ const ALLOWED: SchedulerActionName[] = [
   "probe_overview",
   "check_lag_alerts",
   "sync_one",
+  "sync_package",
 ];
 
 /** POST /api/admin/data-scheduler/actions */
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       action?: string;
       instrumentCode?: string;
+      releasePackageId?: string;
       limit?: number;
       force?: boolean;
       dryRun?: boolean;
@@ -37,6 +39,7 @@ export async function POST(req: NextRequest) {
     }
     const result = await executeSchedulerAction(prisma, action, {
       instrumentCode: body.instrumentCode,
+      releasePackageId: body.releasePackageId,
       limit: body.limit,
       dryRun: body.dryRun,
       force: body.force ?? (action.startsWith("run_worker") || action.startsWith("reimport_overview")),

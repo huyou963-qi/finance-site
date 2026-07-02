@@ -8,6 +8,7 @@ import {
 } from "./catalogAcquisition";
 import { parseReleaseRule } from "./releaseRule";
 import { runDataSubscription, type SubscriptionWithRelations } from "./runSubscription";
+import { syncReleasePackage } from "./syncReleasePackage";
 
 async function loadLatestFetchRunsByInstrument(
   prisma: PrismaClient,
@@ -62,10 +63,14 @@ async function loadLatestFetchRunsByInstrument(
 }
 export type SyncAllStaleDetail = {
   instrumentCode: string;
+  instrumentName?: string;
   status: string;
   rowsUpserted: number;
   error?: string;
   acquisitionStatus: AcquisitionStatus;
+  releasePackageId?: string | null;
+  releasePackageLabelZh?: string | null;
+  packageSyncId?: string;
 };
 
 export type SyncAllStaleResult = {
@@ -77,6 +82,9 @@ export type SyncAllStaleResult = {
   stillStale: number;
   dryRun: boolean;
   details: SyncAllStaleDetail[];
+  packagesAttempted: number;
+  packagesFailed: number;
+  logs: string[];
 };
 
 export async function listStaleSubscriptions(
@@ -91,6 +99,15 @@ export async function listStaleSubscriptions(
       source: true,
       instrument: {
         select: { id: true, code: true, name: true, metadata: true },
+      },
+      releasePackage: {
+        select: {
+          id: true,
+          labelZh: true,
+          releaseTemplate: true,
+          scheduleState: true,
+          nextRunAt: true,
+        },
       },
     },
   });
@@ -144,10 +161,95 @@ export async function syncAllStaleSubscriptions(
 
   const staleSubs = await listStaleSubscriptions(prisma, limit, now);
   const details: SyncAllStaleDetail[] = [];
+  const logs: string[] = [];
   let success = 0;
   let failed = 0;
+  let packagesAttempted = 0;
+  let packagesFailed = 0;
+
+  type SyncUnit =
+    | { kind: "package"; packageId: string; subs: SubscriptionWithRelations[] }
+    | { kind: "single"; sub: SubscriptionWithRelations };
+
+  const packageGroups = new Map<string, SubscriptionWithRelations[]>();
+  const units: SyncUnit[] = [];
 
   for (const sub of staleSubs) {
+    if (sub.releasePackageId) {
+      const group = packageGroups.get(sub.releasePackageId) ?? [];
+      group.push(sub);
+      packageGroups.set(sub.releasePackageId, group);
+    } else {
+      units.push({ kind: "single", sub });
+    }
+  }
+  for (const [packageId, subs] of packageGroups) {
+    units.push({ kind: "package", packageId, subs });
+  }
+
+  for (const unit of units) {
+    if (unit.kind === "package") {
+      const acquisitionStatus = resolveAcquisitionStatus({
+        subscriptionEnabled: unit.subs[0]!.enabled,
+        adapterKind: unit.subs[0]!.source.adapterKind,
+        sourceSeriesKey: unit.subs[0]!.sourceSeriesKey,
+        metadata: unit.subs[0]!.instrument.metadata,
+      });
+
+      if (dryRun) {
+        for (const sub of unit.subs) {
+          details.push({
+            instrumentCode: sub.instrument.code,
+            instrumentName: sub.instrument.name,
+            status: "dry_run",
+            rowsUpserted: 0,
+            acquisitionStatus,
+            releasePackageId: unit.packageId,
+            releasePackageLabelZh: sub.releasePackage?.labelZh ?? null,
+          });
+        }
+        continue;
+      }
+
+      packagesAttempted += 1;
+      const pkgResult = await syncReleasePackage(prisma, {
+        releasePackageId: unit.packageId,
+        force: true,
+      });
+      logs.push(...pkgResult.logs);
+
+      const pushMember = (
+        member: (typeof pkgResult.succeeded)[number],
+        bucket: "success" | "failed" | "skipped",
+      ) => {
+        const status =
+          bucket === "failed" ? "failed" : bucket === "skipped" ? "skipped" : member.status;
+        details.push({
+          instrumentCode: member.instrumentCode,
+          instrumentName: member.instrumentName,
+          status,
+          rowsUpserted: member.rowsUpserted,
+          error: member.error,
+          acquisitionStatus,
+          releasePackageId: pkgResult.releasePackageId,
+          releasePackageLabelZh: pkgResult.releasePackageLabelZh,
+          packageSyncId: pkgResult.packageSyncId,
+        });
+      };
+
+      for (const m of pkgResult.succeeded) pushMember(m, "success");
+      for (const m of pkgResult.failed) pushMember(m, "failed");
+      for (const m of pkgResult.skipped) pushMember(m, "skipped");
+
+      if (pkgResult.failed.length > 0) {
+        packagesFailed += 1;
+        failed += pkgResult.failed.length;
+      }
+      success += pkgResult.succeeded.length;
+      continue;
+    }
+
+    const sub = unit.sub;
     const acquisitionStatus = resolveAcquisitionStatus({
       subscriptionEnabled: sub.enabled,
       adapterKind: sub.source.adapterKind,
@@ -158,6 +260,7 @@ export async function syncAllStaleSubscriptions(
     if (dryRun) {
       details.push({
         instrumentCode: sub.instrument.code,
+        instrumentName: sub.instrument.name,
         status: "dry_run",
         rowsUpserted: 0,
         acquisitionStatus,
@@ -166,10 +269,14 @@ export async function syncAllStaleSubscriptions(
     }
 
     const r = await runDataSubscription(prisma, sub, { force: true });
+    logs.push(
+      `[single] ${sub.instrument.code} ${r.status}${r.error ? ` | ${r.error}` : ""} (+${r.rowsUpserted})`,
+    );
     if (r.status === "failed") {
       failed += 1;
       details.push({
         instrumentCode: sub.instrument.code,
+        instrumentName: sub.instrument.name,
         status: r.status,
         rowsUpserted: r.rowsUpserted,
         error: r.error,
@@ -184,6 +291,7 @@ export async function syncAllStaleSubscriptions(
     success += 1;
     details.push({
       instrumentCode: sub.instrument.code,
+      instrumentName: sub.instrument.name,
       status: r.status,
       rowsUpserted: r.rowsUpserted,
       acquisitionStatus,
@@ -203,5 +311,8 @@ export async function syncAllStaleSubscriptions(
     stillStale,
     dryRun,
     details,
+    packagesAttempted,
+    packagesFailed,
+    logs,
   };
 }

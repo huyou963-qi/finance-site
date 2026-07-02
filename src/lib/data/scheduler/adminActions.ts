@@ -11,6 +11,7 @@ import {
   runDataSubscription,
 } from "./runSubscription";
 import { syncAllStaleSubscriptions } from "./syncAllStale";
+import { syncReleasePackage } from "./syncReleasePackage";
 
 export type SchedulerActionName =
   | "sync_calendar"
@@ -23,7 +24,8 @@ export type SchedulerActionName =
   | "reimport_overview_jp"
   | "probe_overview"
   | "check_lag_alerts"
-  | "sync_one";
+  | "sync_one"
+  | "sync_package";
 
 export type SchedulerActionResult = {
   action: SchedulerActionName;
@@ -35,7 +37,13 @@ export type SchedulerActionResult = {
 export async function executeSchedulerAction(
   prisma: PrismaClient,
   action: SchedulerActionName,
-  options?: { instrumentCode?: string; limit?: number; force?: boolean; dryRun?: boolean },
+  options?: {
+    instrumentCode?: string;
+    releasePackageId?: string;
+    limit?: number;
+    force?: boolean;
+    dryRun?: boolean;
+  },
 ): Promise<SchedulerActionResult> {
   switch (action) {
     case "sync_calendar": {
@@ -60,19 +68,28 @@ export async function executeSchedulerAction(
         limit: options?.limit ?? 100,
         dryRun: options?.dryRun ?? false,
       });
+      const succeeded = result.details.filter(
+        (d) => d.status === "success" || d.status === "partial",
+      );
+      const failedRows = result.details.filter((d) => d.status === "failed");
       return {
         action,
         ok: result.failed === 0,
         message: result.dryRun
           ? `未更新 ${result.totalStale} 条（dry-run）`
-          : `未更新指标：尝试 ${result.attempted}，成功 ${result.success}，失败 ${result.failed}，仍过期 ${result.stillStale}`,
+          : `未更新指标：覆盖 ${result.totalStale} 条，成功 ${result.success}，失败 ${result.failed}，仍过期 ${result.stillStale}（发布包 ${result.packagesAttempted}，失败包 ${result.packagesFailed}）`,
         details: {
           totalStale: result.totalStale,
           attempted: result.attempted,
           success: result.success,
           failed: result.failed,
           stillStale: result.stillStale,
-          details: result.details.slice(0, 20),
+          packagesAttempted: result.packagesAttempted,
+          packagesFailed: result.packagesFailed,
+          succeeded,
+          failedRows,
+          details: result.details,
+          logs: result.logs,
         },
       };
     }
@@ -247,6 +264,30 @@ export async function executeSchedulerAction(
       if (!inst) return { action, ok: false, message: `未找到 ${code}` };
       const sub = await prisma.dataSubscription.findUnique({
         where: { instrumentId: inst.id },
+        select: { releasePackageId: true },
+      });
+      if (!sub) return { action, ok: false, message: `${code} 无订阅` };
+
+      if (sub.releasePackageId) {
+        const pkgResult = await syncReleasePackage(prisma, { instrumentCode: code, force: true });
+        return {
+          action,
+          ok: pkgResult.ok,
+          message: pkgResult.message,
+          details: {
+            releasePackageId: pkgResult.releasePackageId,
+            releasePackageLabelZh: pkgResult.releasePackageLabelZh,
+            packageSyncId: pkgResult.packageSyncId,
+            succeeded: pkgResult.succeeded,
+            failed: pkgResult.failed,
+            skipped: pkgResult.skipped,
+            logs: pkgResult.logs,
+          },
+        };
+      }
+
+      const fullSub = await prisma.dataSubscription.findUnique({
+        where: { instrumentId: inst.id },
         include: {
           source: true,
           instrument: { select: { id: true, code: true, name: true, metadata: true } },
@@ -260,8 +301,8 @@ export async function executeSchedulerAction(
           },
         },
       });
-      if (!sub) return { action, ok: false, message: `${code} 无订阅` };
-      const r = await runDataSubscription(prisma, sub, { force: true });
+      if (!fullSub) return { action, ok: false, message: `${code} 无订阅` };
+      const r = await runDataSubscription(prisma, fullSub, { force: true });
       return {
         action,
         ok: r.status !== "failed",
@@ -269,7 +310,54 @@ export async function executeSchedulerAction(
           r.status === "failed"
             ? r.error ?? "失败"
             : `${code} ${r.status} (+${r.rowsUpserted} 条)`,
-        details: { status: r.status, rowsUpserted: r.rowsUpserted },
+        details: {
+          status: r.status,
+          rowsUpserted: r.rowsUpserted,
+          succeeded:
+            r.status !== "failed"
+              ? [{ instrumentCode: code, instrumentName: inst.name, status: r.status, rowsUpserted: r.rowsUpserted }]
+              : [],
+          failed:
+            r.status === "failed"
+              ? [
+                  {
+                    instrumentCode: code,
+                    instrumentName: inst.name,
+                    status: "failed",
+                    rowsUpserted: r.rowsUpserted,
+                    error: r.error,
+                  },
+                ]
+              : [],
+          skipped: [],
+          logs: [`[single] ${code} ${r.status}${r.error ? ` | ${r.error}` : ""}`],
+        },
+      };
+    }
+    case "sync_package": {
+      const releasePackageId = options?.releasePackageId?.trim();
+      const instrumentCode = options?.instrumentCode?.trim();
+      if (!releasePackageId && !instrumentCode) {
+        return { action, ok: false, message: "缺少 releasePackageId 或 instrumentCode" };
+      }
+      const pkgResult = await syncReleasePackage(prisma, {
+        releasePackageId,
+        instrumentCode,
+        force: true,
+      });
+      return {
+        action,
+        ok: pkgResult.ok,
+        message: pkgResult.message,
+        details: {
+          releasePackageId: pkgResult.releasePackageId,
+          releasePackageLabelZh: pkgResult.releasePackageLabelZh,
+          packageSyncId: pkgResult.packageSyncId,
+          succeeded: pkgResult.succeeded,
+          failed: pkgResult.failed,
+          skipped: pkgResult.skipped,
+          logs: pkgResult.logs,
+        },
       };
     }
     default:
