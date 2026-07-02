@@ -72,9 +72,25 @@ export function sortMacroPeriodLabels(labels: string[]): string[] {
   return [...labels].sort(compareMacroPeriodLabels);
 }
 
-/** 表格/图轴展示：月频锚点显示为 YYYY-MM */
-export function formatMacroPeriodDisplay(label: string): string {
+/** 时间轴含日频（同月存在 2 号及以后）时，1 号也应显示完整 YYYY-MM-DD */
+export function isDailyMacroPeriodAxis(categories: string[]): boolean {
+  return categories.some((c) => {
+    const aligned = macroAlignPeriodKey(c.trim());
+    const m = /^(\d{4}-\d{2})-(\d{2})$/.exec(aligned);
+    return m != null && Number(m[2]) > 1;
+  });
+}
+
+/**
+ * 表格/图轴展示：月频锚点显示为 YYYY-MM；日频轴保留完整日期（含每月 1 号）。
+ * 传入 `categories` 时可自动区分日频与月频锚点。
+ */
+export function formatMacroPeriodDisplay(
+  label: string,
+  categories?: string[],
+): string {
   const aligned = macroAlignPeriodKey(label);
+  if (categories && isDailyMacroPeriodAxis(categories)) return aligned;
   const monthAnchor = /^(\d{4})-(\d{2})-01$/.exec(aligned);
   if (monthAnchor) return `${monthAnchor[1]}-${monthAnchor[2]}`;
   return aligned;

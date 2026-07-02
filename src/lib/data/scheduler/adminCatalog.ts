@@ -561,6 +561,8 @@ async function loadLatestObservations(
   const map = new Map<string, { value: number; obsDate: Date }>();
   if (instrumentIds.length === 0) return map;
 
+  // 取各 instrument 真实最新观测日（按 obs_date DESC）。
+  // 旧逻辑在同月内优先 day=1，会导致日频序列（如 HY OAS）同步后仍显示月初值。
   const rows = await prisma.$queryRaw<
     { instrument_id: string; obs_date: Date; value: number }[]
   >`
@@ -570,10 +572,7 @@ async function loadLatestObservations(
       value
     FROM mds."MacroObservation"
     WHERE instrument_id IN (${Prisma.join(instrumentIds.map((id) => Prisma.sql`${id}::uuid`))})
-    ORDER BY instrument_id,
-      date_trunc('month', obs_date) DESC,
-      CASE WHEN EXTRACT(DAY FROM obs_date) = 1 THEN 0 ELSE 1 END,
-      obs_date DESC
+    ORDER BY instrument_id, obs_date DESC
   `;
 
   for (const r of rows) {

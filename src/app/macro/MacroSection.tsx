@@ -2627,7 +2627,9 @@ export function MacroSection() {
     for (const cat of displayPayload.categories) {
       timeDataUnits = Math.max(
         timeDataUnits,
-        estimateTableTextWidthUnits(formatMacroPeriodDisplay(cat)),
+        estimateTableTextWidthUnits(
+          formatMacroPeriodDisplay(cat, displayPayload.categories),
+        ),
       );
     }
     const time = tableColumnWidthPx(Math.max(timeHeaderUnits, timeDataUnits), 80, 120);
@@ -3156,10 +3158,10 @@ export function MacroSection() {
                             />
                           ))}
                         </colgroup>
-                        <thead className="sticky top-0 z-[1] bg-fs-elevated/95 text-fs-secondary">
+                        <thead className="sticky top-0 z-10 bg-fs-elevated text-fs-secondary">
                           <tr>
                             <th
-                              className="sticky left-0 z-[3] border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium"
+                              className="sticky left-0 z-20 border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium"
                               style={{
                                 width: tableColumnWidths.time,
                                 minWidth: tableColumnWidths.time,
@@ -3194,7 +3196,7 @@ export function MacroSection() {
                             {tableColumns.map((c) => (
                               <th
                                 key={c.key}
-                                className="border-b border-r border-fs-border px-2 py-1 text-left font-medium whitespace-nowrap"
+                                className="border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium whitespace-nowrap"
                                 style={{ width: tableColumnWidths.columns.get(c.key) }}
                                 title={c.label}
                               >
@@ -3214,10 +3216,13 @@ export function MacroSection() {
                               className="odd:bg-fs-bg even:bg-fs-elevated/35"
                             >
                               <td
-                                className={`sticky left-0 z-[1] whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-muted tabular-nums ${stickyTimeBg}`}
+                                className={`sticky left-0 z-[5] whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-muted tabular-nums ${stickyTimeBg}`}
                                 style={{ minWidth: tableColumnWidths.time }}
                               >
-                                {formatMacroPeriodDisplay(time)}
+                                {formatMacroPeriodDisplay(
+                                  time,
+                                  displayPayload.categories,
+                                )}
                               </td>
                               {tableColumns.map((c) => (
                                 <td

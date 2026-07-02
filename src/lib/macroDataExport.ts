@@ -11,7 +11,7 @@ export function buildMacroExportMatrix(
 ): (string | number | null)[][] {
   const header: (string | number | null)[] = ["时间", ...columns.map((c) => c.label)];
   const rows = rowIndices.map((idx) => {
-    const time = formatMacroPeriodDisplay(categories[idx] ?? "");
+    const time = formatMacroPeriodDisplay(categories[idx] ?? "", categories);
     const values = columns.map((col) => {
       const v = valueByKey.get(col.key)?.[idx];
       if (v == null || !Number.isFinite(v)) return null;
