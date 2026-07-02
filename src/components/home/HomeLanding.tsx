@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FinovaWordmark } from "@/components/brand/FinovaWordmark";
+import { UserAccountMenu } from "@/components/UserAccountMenu";
 
 function MiniChart({ className }: { className?: string }) {
   return (
@@ -54,12 +55,7 @@ export function HomeLanding() {
           <Link href="/weekly" className={navLink}>
             AI周度观察
           </Link>
-          <Link
-            href="/auth"
-            className="rounded-md bg-fs-accent px-3 py-1.5 text-sm font-medium text-white"
-          >
-            {me ? `账户:${me.username}` : "登录"}
-          </Link>
+          <UserAccountMenu />
         </nav>
       </header>
 

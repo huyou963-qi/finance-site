@@ -197,18 +197,19 @@ export function AccountProfileClient() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={
-            loading || (profile.role !== "admin" && (!email.trim() || !phone.trim()))
-          }
-          className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
-        >
-          {loading ? "保存中…" : "保存修改"}
-        </button>
+        <div className="sticky bottom-0 z-10 -mx-8 border-t border-fs-border/80 bg-white/95 px-8 py-4 backdrop-blur-sm lg:-mx-10 lg:px-10">
+          <button
+            type="submit"
+            disabled={
+              loading || (profile.role !== "admin" && (!email.trim() || !phone.trim()))
+            }
+            className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
+          >
+            {loading ? "保存中…" : "保存修改"}
+          </button>
+          {hint ? <p className="mt-3 text-sm text-fs-secondary">{hint}</p> : null}
+        </div>
       </form>
-
-      {hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
     </AuthPageShell>
   );
 }

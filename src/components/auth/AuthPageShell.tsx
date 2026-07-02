@@ -17,7 +17,7 @@ function MiniSparkline({ className }: { className?: string }) {
 
 function AuthBrandAside() {
   return (
-    <aside className="flex flex-col justify-between border-b border-fs-border bg-fs-elevated p-8 lg:col-span-2 lg:border-b-0 lg:border-r">
+    <aside className="flex min-h-0 flex-col justify-between border-b border-fs-border bg-fs-elevated p-8 lg:col-span-2 lg:overflow-y-auto lg:border-b-0 lg:border-r">
       <div>
         <Link href="/">
           <FinovaWordmark size="md" />
@@ -48,11 +48,13 @@ function AuthBrandAside() {
 
 export function AuthPageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-[calc(100dvh-3.5rem)] flex-col items-center justify-center px-4 py-12 md:py-16 lg:px-8">
-      <div className="w-full max-w-4xl overflow-hidden rounded-xl border border-fs-border bg-white shadow-sm">
-        <div className="grid lg:grid-cols-5">
+    <div className="flex w-full justify-center px-4 py-6 sm:py-8 lg:px-8">
+      <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-fs-border bg-white shadow-sm lg:max-h-[calc(100dvh-5rem)]">
+        <div className="grid min-h-0 flex-1 lg:grid-cols-5">
           <AuthBrandAside />
-          <div className="p-8 lg:col-span-3 lg:p-10">{children}</div>
+          <div className="min-h-0 overflow-y-auto overscroll-y-contain p-8 lg:col-span-3 lg:p-10">
+            {children}
+          </div>
         </div>
       </div>
     </div>
