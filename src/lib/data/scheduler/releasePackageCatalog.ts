@@ -84,7 +84,11 @@ const EMPLOYMENT_FRED_IDS = fredIdsFromLabor(
 
 const JOLTS_FRED_IDS = ["JTSJOR", "JTSQUR", "JTSHIR", "JTSJOL"];
 
-/** 内置美国发布包目录（seed → mds.release_package） */
+/** 内置美国发布包目录（seed → mds.release_package）
+ *
+ * **新指标日历**：只在本文件对应包的 `calendar` 字段维护关键词；
+ * 勿在 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 新增项。
+ */
 export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   pkg("us.bls.cpi", "美国 CPI", {
     agencyId: "us-bls",
@@ -385,4 +389,25 @@ export function findPackageForInstrument(
     if (instrumentMatchesPackageMember(inst, def.members)) return def;
   }
   return null;
+}
+
+/** 从发布包目录生成 FRED series_id → 日历规则（包级配置优先于 teEventMap 遗留表） */
+export function buildFredCalendarMapFromPackages(
+  catalog: readonly ReleasePackageDef[] = RELEASE_PACKAGE_CATALOG,
+): Record<string, CalendarMatchSpec> {
+  const map: Record<string, CalendarMatchSpec> = {};
+  for (const def of catalog) {
+    for (const fredId of def.members.fredSeriesIds ?? []) {
+      map[fredId.toUpperCase()] = def.calendar;
+    }
+  }
+  return map;
+}
+
+/** 按仪器代码 / FRED ID 解析发布包日历（新指标应只维护 releasePackageCatalog） */
+export function calendarSpecForInstrument(
+  inst: { code: string; fredSeriesId: string | null },
+  catalog: readonly ReleasePackageDef[] = RELEASE_PACKAGE_CATALOG,
+): CalendarMatchSpec | null {
+  return findPackageForInstrument(inst, catalog)?.calendar ?? null;
 }

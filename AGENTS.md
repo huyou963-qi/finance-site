@@ -91,7 +91,10 @@ npm run data:seed-release-packages   # 写入 mds.release_package + 成员链接
 npm run data:sync-calendar           # 包级日历匹配 → fan-out nextRunAt
 ```
 
-管理端 `GET /api/admin/data-scheduler/release-packages` 查看包状态；指标目录行显示「发布包」列。
+管理端 `GET /api/admin/data-scheduler/release-packages` 查看包状态；指标目录行显示「发布包」列。  
+**新指标接入六步清单**见 [docs/DATA_SCHEDULER_ONBOARD.md](./docs/DATA_SCHEDULER_ONBOARD.md)。  
+日历与发布包配置以 `src/lib/data/scheduler/releasePackageCatalog.ts` 为准（`teEventMap.ts` 中 `TE_CALENDAR_BY_FRED` 仅遗留 fallback）。  
+统一 seed/verify：`npm run data:seed -- --catalog=cpi`、`npm run data:verify -- --catalog=phase1`；日历覆盖入库：`npm run data:import-calendar-overrides`。
 
 Windows 计划任务建议：每小时 `data:sync-calendar`，每 5 分钟 `data:worker`。
 

@@ -346,7 +346,7 @@ async function syncSequentialPackage(
 
   for (const sub of subs) {
     logs.push(`[run] ${sub.instrument.code} 开始`);
-    const r = await runDataSubscription(prisma, sub, { force });
+    const r = await runDataSubscription(prisma, sub, { force, skipCalendarRefresh: true });
     const detail: PackageMemberSyncDetail = {
       instrumentCode: sub.instrument.code,
       instrumentName: sub.instrument.name,

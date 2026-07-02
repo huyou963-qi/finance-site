@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { allItemsInGroup } from "@/lib/data/catalogTree";
+import { sortByCatalogCountryCode } from "@/lib/data/catalogCountryOrder";
 import { randomUUID } from "@/lib/randomId";
 import type { UnifiedCatalogCountry, UnifiedCatalogGroup, UnifiedCatalogItem } from "./fredCatalog";
 
@@ -77,6 +78,13 @@ export function sanitizeCatalogLayoutDocument(input: unknown): CatalogLayoutDocu
   return { version: CATALOG_LAYOUT_VERSION, countries };
 }
 
+export function sortCatalogLayoutDocument(layout: CatalogLayoutDocument): CatalogLayoutDocument {
+  return {
+    ...layout,
+    countries: sortByCatalogCountryCode(layout.countries, (c) => c.countryCode),
+  };
+}
+
 function collectItemsByCountry(
   base: UnifiedCatalogCountry[],
 ): Map<string, Map<string, UnifiedCatalogItem>> {
@@ -120,7 +128,7 @@ function pruneEmptyGroups(countries: UnifiedCatalogCountry[]): UnifiedCatalogCou
 
 /** 从当前目录树导出可编辑布局（保留顺序） */
 export function exportCatalogLayout(countries: UnifiedCatalogCountry[]): CatalogLayoutDocument {
-  return {
+  return sortCatalogLayoutDocument({
     version: CATALOG_LAYOUT_VERSION,
     countries: countries.map((country) => ({
       countryCode: country.code,
@@ -135,7 +143,7 @@ export function exportCatalogLayout(countries: UnifiedCatalogCountry[]): Catalog
         })),
       })),
     })),
-  };
+  });
 }
 
 /** 将布局叠加到默认目录树；未出现在布局中的新指标归入「未分配」 */
@@ -221,13 +229,14 @@ export function applyCatalogLayout(
     });
   }
 
-  return pruneEmptyGroups(result);
+  return sortByCatalogCountryCode(pruneEmptyGroups(result), (c) => c.code);
 }
 
 export async function loadMacroCatalogLayout(): Promise<CatalogLayoutDocument | null> {
   const row = await prisma.macroCatalogLayout.findUnique({ where: { id: "default" } });
   if (!row) return null;
-  return sanitizeCatalogLayoutDocument(row.layout);
+  const doc = sanitizeCatalogLayoutDocument(row.layout);
+  return doc ? sortCatalogLayoutDocument(doc) : null;
 }
 
 export async function saveMacroCatalogLayout(
@@ -236,20 +245,21 @@ export async function saveMacroCatalogLayout(
 ): Promise<CatalogLayoutDocument> {
   const sanitized = sanitizeCatalogLayoutDocument(layout);
   if (!sanitized) throw new Error("布局格式无效");
+  const sorted = sortCatalogLayoutDocument(sanitized);
 
   await prisma.macroCatalogLayout.upsert({
     where: { id: "default" },
     create: {
       id: "default",
-      layout: sanitized as object,
+      layout: sorted as object,
       updatedBy: updatedBy ?? null,
     },
     update: {
-      layout: sanitized as object,
+      layout: sorted as object,
       updatedBy: updatedBy ?? null,
     },
   });
-  return sanitized;
+  return sorted;
 }
 
 export async function deleteMacroCatalogLayout(): Promise<void> {

@@ -106,6 +106,18 @@ model MacroCatalogLayout {
   @@schema("public")
 }
 
+/// 数据调度：经济日历关键词覆盖（FRED 键或发布包 id）；优先于代码内置表与 `.data/*.json`
+model DataSchedulerCalendarOverride {
+  key       String   @id @db.VarChar(80)
+  /// `fred` | `package`
+  kind      String   @default("fred") @db.VarChar(16)
+  spec      Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("data_scheduler_calendar_override")
+  @@schema("public")
+}
+
 enum EventImportance {
   LOW
   MEDIUM

@@ -28,6 +28,7 @@ import {
   type ReleaseRule,
 } from "./releaseRule";
 import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
+import { refreshCalendarOverrideCache } from "./calendarOverrideCache";
 import type { ReleasePackageScheduleState } from "./releasePackageTypes";
 
 export type CalendarSyncRow = {
@@ -346,6 +347,8 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
   prisma: PrismaClient,
   options?: { subscriptionIds?: string[]; dryRun?: boolean },
 ): Promise<CalendarSyncResult> {
+  await refreshCalendarOverrideCache(prisma);
+
   const subs = await prisma.dataSubscription.findMany({
     where: {
       enabled: true,

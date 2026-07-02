@@ -1,6 +1,7 @@
 # 美国经济 Overview — 数据调度
 
-与 [US_OVERVIEW_ANALYSIS.md](./US_OVERVIEW_ANALYSIS.md) 及 `.cursor/prompts/us-overview-analysis-framework.md` 配套。
+与 [US_OVERVIEW_ANALYSIS.md](./US_OVERVIEW_ANALYSIS.md) 及 `.cursor/prompts/us-overview-analysis-framework.md` 配套。  
+新指标接入总清单见 [DATA_SCHEDULER_ONBOARD.md](./DATA_SCHEDULER_ONBOARD.md)。
 
 ## 数据源概览
 
@@ -18,12 +19,11 @@ npm run data:seed-overview
 # ISM（若尚未配置 TE）
 npm run data:seed-ism-te
 npm run data:seed-ism-svc-te
+npm run data:seed-release-packages
 
-# 拉数 + 日历
-npm run data:worker
+# 日历 + 拉取
 npm run data:sync-calendar
-npm run data:sync-ism-te
-npm run data:sync-ism-svc-te
+npm run data:worker
 
 # 自检
 npm run data:verify-overview -- --db
@@ -39,16 +39,23 @@ npm run data:verify-overview -- --db
 
 ## ISM PMI
 
-| 仪器 | Provider | 同步脚本 |
-|------|----------|----------|
-| `ism_us_ism_headline` | `tradingeconomics_ism` | `data:sync-ism-te` |
-| `ism_svc_us_svc_headline` | `tradingeconomics_ism_svc` | `data:sync-ism-svc-te` |
+| 仪器 | Provider | 发布包 | 生产同步 |
+|------|----------|--------|----------|
+| `ism_us_ism_*` | `tradingeconomics_ism` | `us.ism.manufacturing` | 管理端「立即同步发布包」/ `data:worker` / `sync_package` |
+| `ism_svc_us_svc_*` | `tradingeconomics_ism_svc` | `us.ism.services` | 同上 |
 
-日历：`teEventMap.ts` → `TE_CALENDAR_ISM_MANUFACTURING` / `TE_CALENDAR_ISM_SERVICES`。
+日历：在 `releasePackageCatalog.ts` 中 `us.ism.manufacturing` / `us.ism.services` 的 `calendar` 字段维护（**不要**再改 `teEventMap.ts` 的 ISM 常量）。
+
+本地调试 HTML 解析（非生产）：
+
+```powershell
+npm run data:sync-ism-te -- --fixture=.data/te-ism-sample.html
+npm run data:sync-ism-svc-te -- --fixture=.data/te-ism-svc-sample.html
+```
 
 ## 计划任务建议
 
-与 Phase 1 一致：每 5 分钟 `data:worker`；每小时 `data:sync-calendar`。ISM TE 可与 worker 到期订阅一并跑，或发布日前手动 `sync-ism-te` / `sync-ism-svc-te`。
+与 Phase 1 一致：每 5 分钟 `data:worker`；每小时 `data:sync-calendar`。ISM 与包内其他序列一样，由 worker 或管理端包级同步触发，无需单独 cron `sync-ism-te`。
 
 ## 无效 / TBD
 

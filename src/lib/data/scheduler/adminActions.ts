@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSchedules";
 import { runLagAlerts } from "./lagAlerts";
 import {
@@ -367,12 +367,36 @@ export async function executeSchedulerAction(
 
 export async function listRecentFetchRuns(
   prisma: PrismaClient,
-  options?: { instrumentCode?: string; limit?: number },
+  options?: {
+    instrumentCode?: string;
+    releasePackageId?: string;
+    packageSyncId?: string;
+    limit?: number;
+  },
 ) {
   const limit = options?.limit ?? 20;
-  const where = options?.instrumentCode
-    ? { subscription: { instrument: { code: options.instrumentCode } } }
-    : {};
+  const and: Prisma.FetchRunWhereInput[] = [];
+
+  if (options?.instrumentCode?.trim()) {
+    and.push({
+      subscription: { instrument: { code: options.instrumentCode.trim() } },
+    });
+  }
+  if (options?.releasePackageId?.trim()) {
+    and.push({
+      subscription: { releasePackageId: options.releasePackageId.trim() },
+    });
+  }
+  if (options?.packageSyncId?.trim()) {
+    and.push({
+      metadata: {
+        path: ["packageSyncId"],
+        equals: options.packageSyncId.trim(),
+      },
+    });
+  }
+
+  const where: Prisma.FetchRunWhereInput = and.length ? { AND: and } : {};
 
   const rows = await prisma.fetchRun.findMany({
     where,
@@ -382,22 +406,37 @@ export async function listRecentFetchRuns(
       subscription: {
         include: {
           instrument: { select: { code: true, name: true } },
+          releasePackage: { select: { id: true, labelZh: true } },
         },
       },
     },
   });
 
-  return rows.map((r) => ({
-    id: r.id,
-    instrumentCode: r.subscription.instrument.code,
-    instrumentName: r.subscription.instrument.name,
-    sourceId: r.subscription.sourceId,
-    startedAt: r.startedAt.toISOString(),
-    finishedAt: r.finishedAt?.toISOString() ?? null,
-    status: r.status,
-    rowsUpserted: r.rowsUpserted,
-    rowsSkipped: r.rowsSkipped,
-    error: r.error,
-    sourceLagDays: r.sourceLagDays,
-  }));
+  return rows.map((r) => {
+    const meta =
+      r.metadata && typeof r.metadata === "object"
+        ? (r.metadata as Record<string, unknown>)
+        : null;
+    const packageSyncId =
+      typeof meta?.packageSyncId === "string" ? meta.packageSyncId : null;
+    const batchSync = meta?.batchSync === true;
+
+    return {
+      id: r.id,
+      instrumentCode: r.subscription.instrument.code,
+      instrumentName: r.subscription.instrument.name,
+      sourceId: r.subscription.sourceId,
+      releasePackageId: r.subscription.releasePackageId,
+      releasePackageLabelZh: r.subscription.releasePackage?.labelZh ?? null,
+      packageSyncId,
+      batchSync,
+      startedAt: r.startedAt.toISOString(),
+      finishedAt: r.finishedAt?.toISOString() ?? null,
+      status: r.status,
+      rowsUpserted: r.rowsUpserted,
+      rowsSkipped: r.rowsSkipped,
+      error: r.error,
+      sourceLagDays: r.sourceLagDays,
+    };
+  });
 }

@@ -24,6 +24,7 @@ import {
   loadPackageMapByInstrumentId,
   type PackageByInstrument,
 } from "./releasePackageStore";
+import { sortByCatalogCountryCode } from "@/lib/data/catalogCountryOrder";
 
 export type AdminCatalogIndicator = {
   key: string;
@@ -108,8 +109,13 @@ export type AdminDataCatalogPayload = {
     staleCount: number;
     readyCount: number;
     sourceCurrentCount: number;
+    /** 在 mds 中但不在 FMP 统一目录树中的指标数 */
+    dbOnlyCount: number;
   };
 };
+
+/** 管理端：仅存在于数据库、未出现在 FMP 统一目录的指标归入此类 */
+export const DB_ONLY_CATALOG_CATEGORY = "仅数据库（未在 FMP 统一目录）";
 
 function isoDate(d: Date | null | undefined): string | null {
   if (!d) return null;
@@ -201,6 +207,179 @@ function resolveInstrumentForKey(
     return byFred.get(fredId) ?? byCode.get(`sched_fred_${fredId}`);
   }
   return undefined;
+}
+
+function inferCountryCodeForInstrument(inst: InstRow): string {
+  const md =
+    inst.metadata && typeof inst.metadata === "object"
+      ? (inst.metadata as Record<string, unknown>)
+      : null;
+  const fromMeta = md?.countryCode ?? md?.country;
+  if (typeof fromMeta === "string" && fromMeta.trim()) {
+    return fromMeta.trim().toUpperCase().slice(0, 2);
+  }
+  if (inst.code.startsWith("chov_")) return "CN";
+  if (inst.code.startsWith("jpov_")) return "JP";
+  if (
+    inst.code.startsWith("ism_") ||
+    inst.code.startsWith("sched_fred_") ||
+    inst.code.startsWith("usov_") ||
+    inst.code.startsWith("debtcap_")
+  ) {
+    return "US";
+  }
+  return "OT";
+}
+
+function syntheticCatalogItem(inst: InstRow, countryCode: string): UnifiedCatalogItem {
+  const fred = inst.fredSeriesId?.trim();
+  return {
+    key: fred ? `fred:${fred}` : `mds:${inst.code}`,
+    label: inst.name,
+    frequency: "月",
+    provider: fred ? "fred" : "mds",
+    countryCode,
+    categoryName: DB_ONLY_CATALOG_CATEGORY,
+  };
+}
+
+function collectMatchedInstrumentIds(
+  catalog: { countries: UnifiedCatalogCountry[] },
+  byCode: Map<string, InstRow>,
+  byFred: Map<string, InstRow>,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const country of catalog.countries) {
+    for (const cat of country.categories) {
+      for (const item of cat.items) {
+        const inst = resolveInstrumentForKey(item.key, byCode, byFred);
+        if (inst) ids.add(inst.id);
+      }
+      for (const sg of cat.subgroups ?? []) {
+        for (const item of sg.items) {
+          const inst = resolveInstrumentForKey(item.key, byCode, byFred);
+          if (inst) ids.add(inst.id);
+        }
+      }
+    }
+  }
+  return ids;
+}
+
+function appendDbOnlyCategories(
+  countries: AdminCatalogCountry[],
+  orphans: InstRow[],
+  latestByInstrument: Map<string, { value: number; obsDate: Date }>,
+  latestFetchByInstrument: Map<
+    string,
+    { status: string; startedAt: Date; rowsUpserted: number; error: string | null; sourceLagDays: number | null }
+  >,
+  packageByInstrument: Map<string, PackageByInstrument>,
+): AdminCatalogCountry[] {
+  if (orphans.length === 0) return countries;
+
+  const byCountry = new Map<string, InstRow[]>();
+  for (const inst of orphans) {
+    const cc = inferCountryCodeForInstrument(inst);
+    const list = byCountry.get(cc) ?? [];
+    list.push(inst);
+    byCountry.set(cc, list);
+  }
+
+  const countryMap = new Map(countries.map((c) => [c.code, { ...c, categories: [...c.categories] }]));
+
+  for (const [cc, insts] of byCountry) {
+    const indicators = [...insts]
+      .sort((a, b) => a.code.localeCompare(b.code))
+      .map((inst) =>
+        enrichIndicator(
+          syntheticCatalogItem(inst, cc),
+          cc,
+          DB_ONLY_CATALOG_CATEGORY,
+          inst,
+          latestByInstrument,
+          latestFetchByInstrument,
+          packageByInstrument,
+        ),
+      );
+
+    const existing = countryMap.get(cc);
+    if (existing) {
+      existing.categories.push({ name: DB_ONLY_CATALOG_CATEGORY, indicators });
+      countryMap.set(cc, existing);
+    } else {
+      countryMap.set(cc, {
+        code: cc,
+        name: cc === "OT" ? "其他" : macroCountryName(cc) || cc,
+        categories: [{ name: DB_ONLY_CATALOG_CATEGORY, indicators }],
+      });
+    }
+  }
+
+  return sortByCatalogCountryCode([...countryMap.values()], (c) => c.code);
+}
+
+function countIndicatorsInCountries(countries: AdminCatalogCountry[]): {
+  totalIndicators: number;
+  inDatabase: number;
+  withSubscription: number;
+  withLatestValue: number;
+  fetchKnown: number;
+  fetchPending: number;
+  staleCount: number;
+  readyCount: number;
+  sourceCurrentCount: number;
+  dbOnlyCount: number;
+} {
+  let totalIndicators = 0;
+  let inDatabase = 0;
+  let withSubscription = 0;
+  let withLatestValue = 0;
+  let fetchKnown = 0;
+  let fetchPending = 0;
+  let staleCount = 0;
+  let readyCount = 0;
+  let sourceCurrentCount = 0;
+  let dbOnlyCount = 0;
+
+  const walk = (ind: AdminCatalogIndicator, isDbOnly: boolean) => {
+    totalIndicators += 1;
+    if (isDbOnly) dbOnlyCount += 1;
+    if (ind.inDatabase) inDatabase += 1;
+    if (ind.networkAcquisitionConfirmed) {
+      fetchKnown += 1;
+      if (ind.hasScheduledUpdates) withSubscription += 1;
+      if (ind.isStale) staleCount += 1;
+      if (ind.updateStatus === "source_current") sourceCurrentCount += 1;
+      if (ind.acquisitionStatus === "ready") readyCount += 1;
+    } else {
+      fetchPending += 1;
+    }
+    if (ind.latestValue != null) withLatestValue += 1;
+  };
+
+  for (const country of countries) {
+    for (const cat of country.categories) {
+      const isDbOnly = cat.name === DB_ONLY_CATALOG_CATEGORY;
+      for (const ind of cat.indicators) walk(ind, isDbOnly);
+      for (const sg of cat.subgroups ?? []) {
+        for (const ind of sg.indicators) walk(ind, isDbOnly);
+      }
+    }
+  }
+
+  return {
+    totalIndicators,
+    inDatabase,
+    withSubscription,
+    withLatestValue,
+    fetchKnown,
+    fetchPending,
+    staleCount,
+    readyCount,
+    sourceCurrentCount,
+    dbOnlyCount,
+  };
 }
 
 function enrichIndicator(
@@ -510,53 +689,27 @@ export async function buildAdminDataCatalog(
   );
   const packageByInstrument = await loadPackageMapByInstrumentId(prisma);
 
-  const countries: AdminCatalogCountry[] = catalog.countries.map((c) =>
+  const matchedIds = collectMatchedInstrumentIds(catalog, byCode, byFred);
+  const dbOnlyInstruments = instruments.filter((i) => !matchedIds.has(i.id));
+
+  let countries: AdminCatalogCountry[] = catalog.countries.map((c) =>
     mapCountry(c, byCode, byFred, latestByInstrument, latestFetchByInstrument, packageByInstrument),
   );
 
-  let totalIndicators = 0;
-  let inDatabase = 0;
-  let withSubscription = 0;
-  let withLatestValue = 0;
-  let fetchKnown = 0;
-  let fetchPending = 0;
-  let staleCount = 0;
-  let readyCount = 0;
-  let sourceCurrentCount = 0;
+  countries = appendDbOnlyCategories(
+    countries,
+    dbOnlyInstruments,
+    latestByInstrument,
+    latestFetchByInstrument,
+    packageByInstrument,
+  );
 
-  for (const country of countries) {
-    for (const cat of country.categories) {
-      for (const ind of cat.indicators) {
-        totalIndicators += 1;
-        if (ind.inDatabase) inDatabase += 1;
-        if (ind.networkAcquisitionConfirmed) {
-          fetchKnown += 1;
-          if (ind.hasScheduledUpdates) withSubscription += 1;
-          if (ind.isStale) staleCount += 1;
-          if (ind.updateStatus === "source_current") sourceCurrentCount += 1;
-          if (ind.acquisitionStatus === "ready") readyCount += 1;
-        } else {
-          fetchPending += 1;
-        }
-        if (ind.latestValue != null) withLatestValue += 1;
-      }
-    }
-  }
+  const stats = countIndicatorsInCountries(countries);
 
   return {
     builtAt: new Date().toISOString(),
-    countries,
-    stats: {
-      totalIndicators,
-      inDatabase,
-      withSubscription,
-      withLatestValue,
-      fetchKnown,
-      fetchPending,
-      staleCount,
-      readyCount,
-      sourceCurrentCount,
-    },
+    countries: sortByCatalogCountryCode(countries, (c) => c.code),
+    stats,
   };
 }
 

@@ -1,7 +1,9 @@
 /**
  * 从 TradingEconomics ISM 服务业页抓取 5 条序列并写入 mds
  *
- * npm run data:sync-ism-svc-te
+ * @deprecated 生产环境请用 data:worker / 管理端「立即同步发布包」/ sync_package。
+ * 本脚本仅用于本地 fixture 调试：
+ *
  * npm run data:sync-ism-svc-te -- --fixture=.data/te-ism-svc-sample.html
  */
 import { loadEnvConfig } from "@next/env";

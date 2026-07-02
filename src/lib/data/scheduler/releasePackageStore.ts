@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { PrismaClient } from "@prisma/client";
 import type { CalendarMatchSpec } from "./teEventMap";
+import { getCachedPackageCalendarOverrides } from "./calendarOverrideCache";
 import {
   parseReleaseRule,
   type CalendarMatchSnapshot,
@@ -85,6 +86,8 @@ export function parsePackageReleaseTemplate(
 }
 
 function readPackageOverrides(): Record<string, CalendarMatchSpec> {
+  const cached = getCachedPackageCalendarOverrides();
+  if (Object.keys(cached).length > 0) return cached;
   try {
     const raw = fs.readFileSync(OVERRIDES_FILE, "utf8");
     const parsed = JSON.parse(raw) as Record<

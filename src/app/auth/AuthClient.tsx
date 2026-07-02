@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AuthPageShell,
   authInputClass,
@@ -8,6 +9,7 @@ import {
 import { AccountProfileClient } from "./AccountProfileClient";
 
 export function AuthClient() {
+  const searchParams = useSearchParams();
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
@@ -22,6 +24,12 @@ export function AuthClient() {
       .then((r) => setLoggedIn(r.ok))
       .catch(() => setLoggedIn(false));
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("register") === "1" || searchParams.get("mode") === "register") {
+      setMode("register");
+    }
+  }, [searchParams]);
 
   const submit = async () => {
     setLoading(true);

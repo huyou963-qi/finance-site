@@ -51,8 +51,8 @@ export type UnifiedCatalogCountry = {
 type CountryDef = { code: string; name: string };
 
 export const MACRO_MAJOR_COUNTRIES: readonly CountryDef[] = [
-  { code: "CN", name: "中国" },
   { code: "US", name: "美国" },
+  { code: "CN", name: "中国" },
   { code: "JP", name: "日本" },
   { code: "DE", name: "德国" },
   { code: "GB", name: "英国" },

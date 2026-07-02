@@ -2,6 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import type { EconomicCalendarEvent } from "./economicCalendar/types";
 import { teCountrySlugsForCodes } from "./tradingEconomicsCalendar/countries";
+import { applyFredOverridesToMap, getCachedFredCalendarOverrides } from "./calendarOverrideCache";
+import {
+  buildFredCalendarMapFromPackages,
+  calendarSpecForInstrument,
+} from "./releasePackageCatalog";
 
 /** 匹配 TradingEconomics 日历事件：关键词 + 国家 + 可选排除词 */
 export type CalendarMatchSpec = {
@@ -12,7 +17,10 @@ export type CalendarMatchSpec = {
   eventId?: string;
 };
 
-/** FRED series_id / 仪器 code → 日历匹配规则 */
+/** FRED series_id / 仪器 code → 日历匹配规则
+ * @deprecated 新指标请只在 releasePackageCatalog.ts 维护发布包 calendar；
+ * 此表仅作未挂发布包订阅的遗留 fallback，运行时以 buildFredCalendarMapFromPackages() 为准覆盖同键项。
+ */
 export const TE_CALENDAR_BY_FRED: Record<string, CalendarMatchSpec> = {
   CPIAUCSL: {
     countryCodes: ["US"],
@@ -257,7 +265,7 @@ export const TE_CALENDAR_BY_FRED: Record<string, CalendarMatchSpec> = {
   },
 };
 
-/** ism_us_ism_* → TE 日历「ISM Manufacturing PMI」headline（分项共用同一发布日） */
+/** @deprecated 使用 releasePackageCatalog 中 us.ism.manufacturing 的 calendar */
 export const TE_CALENDAR_ISM_MANUFACTURING: CalendarMatchSpec = {
   countryCodes: ["US"],
   keywords: ["ism manufacturing pmi", "ism manufacturing index"],
@@ -271,7 +279,7 @@ export const TE_CALENDAR_ISM_MANUFACTURING: CalendarMatchSpec = {
   ],
 };
 
-/** ism_svc_us_svc_* → TE 日历「ISM Services PMI」headline（分项共用同一发布日） */
+/** @deprecated 使用 releasePackageCatalog 中 us.ism.services 的 calendar */
 export const TE_CALENDAR_ISM_SERVICES: CalendarMatchSpec = {
   countryCodes: ["US"],
   keywords: [
@@ -286,9 +294,14 @@ export const TE_CALENDAR_ISM_SERVICES: CalendarMatchSpec = {
 const OVERRIDES_FILE = path.join(process.cwd(), ".data", "te-calendar-mapping-overrides.json");
 const LEGACY_OVERRIDES_FILE = path.join(process.cwd(), ".data", "calendar-mapping-overrides.json");
 
-/** 合并内置规则与 `.data/te-calendar-mapping-overrides.json`（同步读，供 worker 使用） */
+/** 合并遗留 FRED 表、发布包目录与日历覆盖（DB 缓存优先，无缓存时读 `.data` 文件） */
 export function mergedTeCalendarByFred(): Record<string, CalendarMatchSpec> {
-  const merged: Record<string, CalendarMatchSpec> = { ...TE_CALENDAR_BY_FRED };
+  const fromPackages = buildFredCalendarMapFromPackages();
+  let merged: Record<string, CalendarMatchSpec> = { ...TE_CALENDAR_BY_FRED, ...fromPackages };
+  merged = applyFredOverridesToMap(merged);
+  if (Object.keys(getCachedFredCalendarOverrides()).length > 0) {
+    return merged;
+  }
   try {
     const raw = fs.readFileSync(OVERRIDES_FILE, "utf8");
     const parsed = JSON.parse(raw) as Record<string, CalendarMatchSpec & { updatedAt?: string }>;
@@ -336,11 +349,17 @@ export function subscriptionUsesCalendarSync(
   return Boolean(spec && spec.keywords.length > 0);
 }
 
-/** sched_fred_* / usov_* code 后缀映射 */
+/** sched_fred_* / usov_* code 后缀映射；优先 releasePackageCatalog */
 export function calendarSpecForSubscription(
   sourceSeriesKey: string,
   instrumentCode: string,
 ): CalendarMatchSpec | null {
+  const fromPackage = calendarSpecForInstrument({
+    code: instrumentCode,
+    fredSeriesId: sourceSeriesKey,
+  });
+  if (fromPackage) return fromPackage;
+
   const map = mergedTeCalendarByFred();
   const fred = map[sourceSeriesKey];
   if (fred) return fred;
@@ -354,22 +373,14 @@ export function calendarSpecForSubscription(
   if (usov?.[1]) {
     const tail = usov[1];
     if (tail.includes("cpi")) {
-      return TE_CALENDAR_BY_FRED.CPIAUCSL;
+      return map.CPIAUCSL ?? null;
     }
     if (tail.includes("unrate") || tail.includes("unemployment")) {
-      return TE_CALENDAR_BY_FRED.UNRATE;
+      return map.UNRATE ?? null;
     }
     if (tail.includes("nfp")) {
-      return TE_CALENDAR_BY_FRED.PAYEMS;
+      return map.PAYEMS ?? null;
     }
-  }
-
-  if (instrumentCode.startsWith("ism_us_ism_")) {
-    return TE_CALENDAR_ISM_MANUFACTURING;
-  }
-
-  if (instrumentCode.startsWith("ism_svc_us_svc_")) {
-    return TE_CALENDAR_ISM_SERVICES;
   }
 
   return null;

@@ -1,18 +1,11 @@
 import {
   FetchRunStatus,
-  SourceAdapterKind,
   type DataSubscription,
   type DataSource,
   type PrismaClient,
 } from "@prisma/client";
-import { fetchBisIncremental } from "./adapters/bisAdapter";
-import { fetchFredIncremental } from "./adapters/fredAdapter";
-import {
-  fetchOverviewIncremental,
-  overviewTemplateForInstrument,
-} from "./adapters/overviewXlsxAdapter";
-import { fetchWorldBankIncremental } from "./adapters/worldbankAdapter";
 import { scheduleAfterSuccessfulFetch, syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSchedules";
+import { fetchSubscriptionIncremental } from "./fetchSubscriptionIncremental";
 import {
   computeBackoffRunAt,
   computeNextRunAt,
@@ -23,9 +16,6 @@ import {
   applyFredTransform,
   fredTransformForInstrument,
 } from "./fredTransform";
-import { fetchFredCompositeIncremental } from "./fredComposite";
-import { fiscalCompositeSpec } from "./fiscalCompositeFred";
-import { usovCompositeSpec } from "./usovCompositeFred";
 import type { SubscriptionRunResult } from "./types";
 import {
   filterPointsFrom,
@@ -54,15 +44,10 @@ function diffDays(a: Date, b: Date): number {
   return Math.round((a.getTime() - b.getTime()) / 86_400_000);
 }
 
-function minIntervalMs(source: DataSource): number {
-  const rl = source.rateLimit as { minIntervalMs?: number } | null;
-  return typeof rl?.minIntervalMs === "number" ? rl.minIntervalMs : 500;
-}
-
 export async function runDataSubscription(
   prisma: PrismaClient,
   sub: SubscriptionWithRelations,
-  options?: { force?: boolean },
+  options?: { force?: boolean; skipCalendarRefresh?: boolean },
 ): Promise<SubscriptionRunResult> {
   const now = new Date();
   if (!sub.enabled) {
@@ -129,7 +114,6 @@ export async function runDataSubscription(
   }
 
   try {
-    let fetchResult;
     const transform = fredTransformForInstrument(sub.instrument.code);
     const { fetchStart, persistStart } = observationWindowForFetch(
       sub.lastObsDate,
@@ -137,83 +121,7 @@ export async function runDataSubscription(
       { yoyTransform: transform === "yoy_pct" },
     );
 
-    if (sub.source.adapterKind === SourceAdapterKind.FRED_API) {
-      const apiKey = process.env.FRED_API_KEY?.trim();
-      if (!apiKey) throw new Error("未配置 FRED_API_KEY");
-      await sleep(minIntervalMs(sub.source));
-      const composite =
-        usovCompositeSpec(sub.instrument.code) ?? fiscalCompositeSpec(sub.instrument.code);
-      if (composite) {
-        fetchResult = await fetchFredCompositeIncremental(composite, apiKey, fetchStart);
-      } else {
-        fetchResult = await fetchFredIncremental(
-          sub.sourceSeriesKey,
-          apiKey,
-          fetchStart,
-        );
-      }
-    } else if (sub.source.adapterKind === SourceAdapterKind.REST_API) {
-      await sleep(minIntervalMs(sub.source));
-      const scrape =
-        sub.instrument.metadata &&
-        typeof sub.instrument.metadata === "object" &&
-        (sub.instrument.metadata as Record<string, unknown>).scrape;
-      if (scrape && typeof scrape === "object") {
-        const scrapeObj = scrape as Record<string, unknown>;
-        if (scrapeObj.provider === "tradingeconomics_ism") {
-          const { fetchTradingEconomicsIsmIncremental } = await import(
-            "./adapters/tradingEconomicsIsmAdapter"
-          );
-          fetchResult = await fetchTradingEconomicsIsmIncremental(
-            sub.instrument.metadata,
-            sub.instrument.code,
-            fetchStart,
-          );
-        } else if (scrapeObj.provider === "tradingeconomics_ism_svc") {
-          const { fetchTradingEconomicsIsmSvcIncremental } = await import(
-            "./adapters/tradingEconomicsIsmSvcAdapter"
-          );
-          fetchResult = await fetchTradingEconomicsIsmSvcIncremental(
-            sub.instrument.metadata,
-            sub.instrument.code,
-            fetchStart,
-          );
-        } else {
-          const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
-          fetchResult = await fetchWebScrapeIncremental(
-            sub.instrument.metadata,
-            sub.instrument.code,
-            fetchStart,
-          );
-        }
-      } else if (sub.sourceId === "estat-jp") {
-        const { fetchEStatIncremental } = await import("./adapters/eStatAdapter");
-        fetchResult = await fetchEStatIncremental(sub.sourceSeriesKey, fetchStart);
-      } else if (sub.sourceId === "treasury-fiscal-data") {
-        const { fetchTreasuryFiscalIncremental } = await import(
-          "./adapters/treasuryFiscalDataAdapter"
-        );
-        fetchResult = await fetchTreasuryFiscalIncremental(sub.sourceSeriesKey, fetchStart);
-      } else if (sub.sourceId === "cftc-cot") {
-        const { fetchCftcCotIncremental } = await import("./adapters/cftcCotAdapter");
-        fetchResult = await fetchCftcCotIncremental(sub.instrument.metadata, fetchStart);
-      } else {
-        fetchResult = await fetchBisIncremental(sub.sourceSeriesKey, fetchStart);
-      }
-    } else if (sub.source.adapterKind === SourceAdapterKind.WORLD_BANK_API) {
-      await sleep(minIntervalMs(sub.source));
-      fetchResult = await fetchWorldBankIncremental(sub.sourceSeriesKey, fetchStart);
-    } else if (sub.source.adapterKind === SourceAdapterKind.BULK_FILE) {
-      const template = overviewTemplateForInstrument(sub.instrument.code);
-      if (!template) {
-        throw new Error(`BULK_FILE 未识别仪器 ${sub.instrument.code}`);
-      }
-      fetchResult = fetchOverviewIncremental(template, sub.instrument.code, fetchStart);
-    } else if (sub.source.adapterKind === SourceAdapterKind.MANUAL) {
-      throw new Error("MANUAL 订阅需人工更新或通过 sync_one --force 跳过");
-    } else {
-      throw new Error(`尚未实现适配器：${sub.source.adapterKind}`);
-    }
+    let fetchResult = await fetchSubscriptionIncremental(sub, fetchStart);
 
     if (transform !== "none") {
       fetchResult = {
@@ -280,7 +188,7 @@ export async function runDataSubscription(
       rule.type === "economic_calendar" &&
       (hadNewData || status === FetchRunStatus.SUCCESS || sourceCaughtUp);
 
-    if (shouldRefreshCalendar) {
+    if (shouldRefreshCalendar && !options?.skipCalendarRefresh) {
       if (releaseRuleChanged) {
         if (sub.releasePackageId) {
           const scheduleState = parsePackageScheduleState(sub.releasePackage?.scheduleState);
@@ -400,11 +308,6 @@ export async function runDataSubscription(
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-/** 查询到期订阅（含关联；仅获取方式已确认者） */
 export async function listDueSubscriptions(
   prisma: PrismaClient,
   limit: number,
