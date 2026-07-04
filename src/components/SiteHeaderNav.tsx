@@ -27,7 +27,8 @@ export function SiteHeaderNav() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
 
-  const dashboardActive = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const macroFrameworkActive =
+    pathname === "/macro/framework" || pathname.startsWith("/macro/framework/");
   const macroActive = pathname === "/macro";
   const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
   const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
@@ -63,19 +64,17 @@ export function SiteHeaderNav() {
   return (
     <nav className="flex min-w-0 flex-1 items-center gap-1">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-        {isAdmin ? (
-          <Link
-            href="/dashboard"
-            className={`${linkBase} ${
-              dashboardActive
-                ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-                : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-            }`}
-            aria-current={dashboardActive ? "page" : undefined}
-          >
-            Dashboard
-          </Link>
-        ) : null}
+        <Link
+          href="/macro/framework"
+          className={`${linkBase} ${
+            macroFrameworkActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={macroFrameworkActive ? "page" : undefined}
+        >
+          宏观框架
+        </Link>
         <Link
           href="/macro"
           className={`${linkBase} ${
@@ -85,7 +84,7 @@ export function SiteHeaderNav() {
           }`}
           aria-current={macroActive ? "page" : undefined}
         >
-          宏观
+          宏观数据
         </Link>
         {isAdmin ? (
           <Link
