@@ -36,6 +36,7 @@
     "data:seed-p0": "dotenv -e .env.local -- tsx scripts/data-worker/seed-p0.ts",
     "data:seed": "dotenv -e .env.local -- tsx scripts/data-worker/run-seed-catalog.ts",
     "data:verify": "dotenv -e .env.local -- tsx scripts/data-worker/run-verify-catalog.ts",
+    "data:apply": "dotenv -e .env.local -- tsx scripts/data-worker/apply-all.ts",
     "data:import-calendar-overrides": "dotenv -e .env.local -- tsx scripts/data-worker/import-calendar-overrides.ts",
     "data:worker": "dotenv -e .env.local -- tsx scripts/data-worker/run-once.ts",
     "data:sync-one": "dotenv -e .env.local -- tsx scripts/data-worker/sync-one.ts",

@@ -96,6 +96,8 @@ npm run data:sync-calendar           # 包级日历匹配 → fan-out nextRunAt
 日历与发布包配置以 `src/lib/data/scheduler/releasePackageCatalog.ts` 为准（`teEventMap.ts` 中 `TE_CALENDAR_BY_FRED` 仅遗留 fallback）。  
 统一 seed/verify：`npm run data:seed -- --catalog=cpi`、`npm run data:verify -- --catalog=phase1`；日历覆盖入库：`npm run data:import-calendar-overrides`。
 
+**部署落库**：`npm run data:apply`（幂等编排：migrate + 全 catalog seed + 发布包 + 目录布局 + 日历 + 各域自检；读 registry，新维度自动纳入）。开发库是缓存不是事实来源，云端跑此命令即从 git 代码 + FRED 重建 DB，观测由 worker 自动回填。详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)。
+
 Windows 计划任务建议：每小时 `data:sync-calendar`，每 5 分钟 `data:worker`。
 
 ## 常用命令

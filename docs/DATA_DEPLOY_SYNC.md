@@ -1,0 +1,65 @@
+# 宏观数据改动如何同步到云服务器
+
+> 场景：每次（含 AI agent 会话）新增分析模板后，数据库多了指标、订阅、发布包、目录分类、历史观测等一系列东西，如何把这些同步到部署的云服务器。
+
+## 核心认知：开发库是缓存，不是事实来源
+
+一次会话的产出其实是 **5 类不同的东西**，存在不同地方、同步方式不同：
+
+| 改动 | 真正存在哪 | 同步方式 |
+|------|-----------|----------|
+| 内置模板 / 图表定义 / 分析文档 | **代码（git）**——模板硬编码在 `.ts`，不在 DB（`SystemMacroChartPrefs` 只存管理员覆盖项） | 现有 `git→build→deploy` 已全自动，零额外操作 |
+| Prisma schema（如新增表） | migrations（git） | `npm run db:migrate`（= `prisma migrate deploy`） |
+| 指标 / 订阅 / 发布包 / 元数据 | DB，但**完全由 git 的 seed catalog 决定** | `npm run data:seed`（幂等 upsert）+ `data:seed-release-packages` |
+| 目录分类布局 | DB（`MacroCatalogLayout`） | `npm run data:sync-catalog-layout` |
+| 历史观测值（几万行/序列） | DB，**来自 FRED** | 已运行的 `data:worker` 按 `nextRunAt` 自动全量回填 |
+
+**关键**：开发库本身是靠跑这些 git 脚本生成的——它是缓存。事实来源是 **git 的 catalog 代码 + FRED**。所以云服务器只要跑同样的脚本，两边就**由构造而一致**：不需要 `pg_dump`/restore、不会有主键冲突、不会漂移。
+
+**观测值自愈**：新指标 seed 时写入 `nextRunAt`；服务器已运行的 worker（每 5 分钟）下一轮捡起，`runDataSubscription` 对无 `lastObsDate` 的新订阅做 1950→今全量回填。所以观测**自动灌满，无需任何手动步骤或数据传输**。
+
+## 一条命令：`data:apply`
+
+`scripts/data-worker/apply-all.ts` 把整套后置 DB 操作按正确顺序串成一条幂等命令：
+
+```
+db:migrate                 # schema 迁移（前向非交互）
+→ data:seed（遍历 SEED_CATALOG_REGISTRY 所有 catalog）  # 指标+订阅+发布规则
+→ data:seed-release-packages                            # 发布包（在指标之后）
+→ data:sync-catalog-layout --prefix=fred:               # 目录分类归位
+→ data:sync-calendar                                    # 日历型包 → nextRunAt
+→ data:verify（遍历各域自检，排除噪音 verify-catalog）  # 门禁
+```
+
+它读 registry，所以**以后每加一个维度（housing、cycle-risk…）自动纳入，部署脚本一个字不用改**。
+
+```bash
+npm run data:apply                    # 全量落库
+npm run data:apply -- --dry-run       # 只打印计划
+npm run data:apply -- --only=monetary # 限定某域（包/布局/日历仍全局幂等执行）
+npm run data:apply -- --backfill      # 额外触发 sync-all-stale 立即拉观测（否则等 worker）
+npm run data:apply -- --skip-migrate --skip-verify  # 按需跳过
+```
+
+全部步骤幂等，可在每次部署后无脑重复执行。门禁步骤（•）失败即中止；自检类（◦）记录失败但跑完，末尾以非零退出让部署流水线感知。
+
+## 挂进部署流水线（待启用）
+
+`.github/workflows/deploy.yml` 的 ssh 块目前只解压代码 + pm2 重启，**不碰数据库**。建议在解压后加两行：
+
+```bash
+tar -xzf deploy.tar.gz
+npm run db:migrate            # 有 schema 变更才动，无变更是 no-op
+npm run data:apply --         # 幂等落库；观测随后由 worker 灌满
+pm2 restart finance-site
+```
+
+从此 `git push` → CI 部署 → 生产库自动落库 → worker 几分钟内灌满历史数据，全链路零手动。
+
+**前置条件**：服务器 `.env.local` 需有 `DATABASE_URL` + `FRED_API_KEY`（现有 worker 本就依赖）。
+
+## 为什么不用 pg_dump / DB 同步
+
+下策：开发库与生产库耦合、主键/序列冲突、无幂等、易漂移、还要处理增量。`data:apply` 从代码重建是上策——架构本就为此设计（seed 全是 upsert，`sync-catalog-layout` 只追加不覆盖管理员手工分类）。
+
+**例外**：若未来某指标**只能网页抓取且无法从源头重拉**（Agent C 场景中源站不留历史），那类观测才可能需要一次性 `pg_dump` 迁移——属例外，不是主路径。

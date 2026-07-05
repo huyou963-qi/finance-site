@@ -12,8 +12,10 @@ const required = [
   "package-lock.json",
   "prisma",
   "next.config.ts",
-  "scripts/ensure-next-build.mjs",
-  "scripts/prisma-generate-retry.mjs",
+  // tsx 数据脚本（data:apply / data:seed / data:worker …）在服务器运行需要 TS 源码 + 路径别名
+  "tsconfig.json",
+  "src",
+  "scripts",
 ];
 
 const optional = ["public"];
