@@ -48,3 +48,7 @@ next-env.d.ts
 # deploy artifacts
 deploy.tar.gz
 next-build.tar.gz
+
+# Claude Code / 预览工具本地配置（非项目代码）
+.claude/
+.cursor/.claude/

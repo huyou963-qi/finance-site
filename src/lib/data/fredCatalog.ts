@@ -129,6 +129,18 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "GS2", label: "2 年期美债收益率（%）", category: "利率与债券", frequency: "月" },
   { id: "T10Y2Y", label: "10Y-2Y 国债期限利差（%）", category: "利率与债券", frequency: "日" },
   { id: "BAMLH0A0HYM2", label: "美国高收益债 OAS（%）", category: "利率与债券", frequency: "日" },
+  { id: "DGS2", label: "2Y 国债收益率（日，%）", category: "利率与债券", frequency: "日" },
+  { id: "DGS10", label: "10Y 国债收益率（日，%）", category: "利率与债券", frequency: "日" },
+  { id: "DFII10", label: "10Y TIPS 实际收益率（%）", category: "利率与债券", frequency: "日" },
+  { id: "T10Y3M", label: "10Y-3M 国债利差（%）", category: "利率与债券", frequency: "日" },
+  { id: "BAMLC0A0CM", label: "投资级公司债 OAS（%）", category: "利率与债券", frequency: "日" },
+  { id: "EFFR", label: "有效联邦基金利率（%）", category: "银行与货币", frequency: "日" },
+  { id: "RRPONTSYD", label: "ON RRP 隔夜逆回购余额（十亿美元）", category: "银行与货币", frequency: "日" },
+  { id: "NFCI", label: "Chicago Fed 全国金融条件指数", category: "银行与货币", frequency: "周" },
+  { id: "DRTSCILM", label: "SLOOS 工商贷款收紧净比例（大中企业，%）", category: "银行与货币", frequency: "季度" },
+  { id: "BUSLOANS", label: "工商业贷款存量（十亿美元）", category: "银行与货币", frequency: "月" },
+  { id: "DRCCLACBS", label: "信用卡拖欠率（%）", category: "银行与货币", frequency: "季度" },
+  { id: "DRBLACBS", label: "工商业贷款拖欠率（%）", category: "银行与货币", frequency: "季度" },
   { id: "DTWEXBGS", label: "美元名义广义指数", category: "对外贸易与汇率", frequency: "日" },
   { id: "DEXUSEU", label: "美元/欧元汇率", category: "对外贸易与汇率", frequency: "日" },
   { id: "DEXJPUS", label: "日元/美元汇率", category: "对外贸易与汇率", frequency: "日" },
@@ -239,7 +251,7 @@ function buildCountries(): UnifiedCatalogCountry[] {
   });
 }
 
-function normalizeFrequency(v: string | null | undefined): UnifiedCatalogFrequency {
+export function normalizeFrequency(v: string | null | undefined): UnifiedCatalogFrequency {
   const t = (v ?? "").trim();
   if (t === "日" || t === "周" || t === "月" || t === "季度" || t === "年") return t;
   if (/day/i.test(t)) return "日";

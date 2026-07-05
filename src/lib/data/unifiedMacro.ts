@@ -1,9 +1,15 @@
 import type { MacroPayload } from "./types";
 import { InstrumentKind } from "@prisma/client";
 import { fetchFredSeriesMultiple } from "./fred";
+import { fetchFredSeriesMultipleDbFirst } from "./fredDbFirst";
 import { fetchWorldBankSeries } from "./worldbank";
 import { indicatorLabel, selectionKey, type MacroSelection } from "./macroCatalog";
 import { prisma } from "@/lib/prisma";
+
+/** 内置模板的 fred: 序列默认优先读本地库（缺失才实时）；MACRO_FRED_DB_FIRST=0 回退纯实时 */
+function fredDbFirstEnabled(): boolean {
+  return process.env.MACRO_FRED_DB_FIRST !== "0";
+}
 
 type UnifiedSourcePayload = Pick<MacroPayload, "categories" | "series" | "attribution">;
 
@@ -101,7 +107,9 @@ export async function fetchUnifiedMacro(
   const parts: UnifiedSourcePayload[] = [];
 
   if (fredIds.size > 0) {
-    const payload = await fetchFredSeriesMultiple([...fredIds]);
+    const payload = fredDbFirstEnabled()
+      ? await fetchFredSeriesMultipleDbFirst([...fredIds])
+      : await fetchFredSeriesMultiple([...fredIds]);
     const seriesByFredId = new Map<string, (typeof payload.series)[number]>();
     for (const s of payload.series) {
       const m = /\(([A-Z0-9._-]+)\)\s*$/.exec(s.name);

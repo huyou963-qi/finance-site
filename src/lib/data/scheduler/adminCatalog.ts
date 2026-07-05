@@ -2,6 +2,7 @@ import { InstrumentKind, Prisma, type PrismaClient } from "@prisma/client";
 import {
   getFredCatalogCached,
   macroCountryName,
+  normalizeFrequency,
   type UnifiedCatalogCountry,
   type UnifiedCatalogItem,
 } from "@/lib/data/fredCatalog";
@@ -173,6 +174,7 @@ type InstRow = {
   code: string;
   name: string;
   unit: string | null;
+  freqLabel: string | null;
   fredSeriesId: string | null;
   metadata: unknown;
   dataSubscription: {
@@ -231,12 +233,23 @@ function inferCountryCodeForInstrument(inst: InstRow): string {
   return "OT";
 }
 
+function syntheticCatalogItemFrequency(inst: InstRow) {
+  if (inst.freqLabel?.trim()) return normalizeFrequency(inst.freqLabel);
+  const md =
+    inst.metadata && typeof inst.metadata === "object" && !Array.isArray(inst.metadata)
+      ? (inst.metadata as Record<string, unknown>)
+      : null;
+  const fromMeta = md?.freqLabel;
+  if (typeof fromMeta === "string" && fromMeta.trim()) return normalizeFrequency(fromMeta);
+  return "月" as const;
+}
+
 function syntheticCatalogItem(inst: InstRow, countryCode: string): UnifiedCatalogItem {
   const fred = inst.fredSeriesId?.trim();
   return {
     key: fred ? `fred:${fred}` : `mds:${inst.code}`,
     label: inst.name,
-    frequency: "月",
+    frequency: syntheticCatalogItemFrequency(inst),
     provider: fred ? "fred" : "mds",
     countryCode,
     categoryName: DB_ONLY_CATALOG_CATEGORY,
@@ -646,6 +659,7 @@ export async function buildAdminDataCatalog(
       code: true,
       name: true,
       unit: true,
+      freqLabel: true,
       fredSeriesId: true,
       metadata: true,
       dataSubscription: {

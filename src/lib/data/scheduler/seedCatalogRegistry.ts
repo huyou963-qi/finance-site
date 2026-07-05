@@ -18,6 +18,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   overview: { script: "seed-overview", labelZh: "美国 Overview FRED" },
   fiscal: { script: "seed-fiscal", labelZh: "美国财政数据" },
   cot: { script: "seed-cot", labelZh: "CFTC COT" },
+  monetary: { script: "seed-monetary", labelZh: "美国货币政策与金融条件" },
   "ism-te": { script: "seed-ism-te", labelZh: "ISM 制造业 TE 抓取" },
   "ism-svc-te": { script: "seed-ism-svc-te", labelZh: "ISM 服务业 TE 抓取" },
 };
@@ -34,6 +35,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   overview: { script: "verify-overview", labelZh: "Overview 自检" },
   fiscal: { script: "verify-fiscal", labelZh: "财政自检" },
   cot: { script: "verify-cot", labelZh: "COT 自检" },
+  monetary: { script: "verify-monetary", labelZh: "货币政策与金融条件自检", verifyNeedsDb: true },
 };
 
 export function listSeedCatalogNames(): string[] {

@@ -3,6 +3,7 @@ import path from "node:path";
 import type { EconomicCalendarEvent } from "./economicCalendar/types";
 import { teCountrySlugsForCodes } from "./tradingEconomicsCalendar/countries";
 import { applyFredOverridesToMap, getCachedFredCalendarOverrides } from "./calendarOverrideCache";
+import { PROBE_ONLY_FRED_SERIES } from "./probeOnlySeries";
 import {
   buildFredCalendarMapFromPackages,
   calendarSpecForInstrument,
@@ -334,8 +335,8 @@ export function mergedTeCalendarByFred(): Record<string, CalendarMatchSpec> {
   return merged;
 }
 
-/** 无可靠日历发布时刻的 FRED 序列（日频市场数据等） */
-export const PROBE_ONLY_FRED_SERIES = new Set(["T10Y2Y", "GS10", "T5YIE", "T10YIE"]);
+/** 无可靠日历发布时刻的 FRED 序列（日频市场数据等）；定义移至 probeOnlySeries.ts 以打破循环依赖 */
+export { PROBE_ONLY_FRED_SERIES } from "./probeOnlySeries";
 
 /** 是否应参与 economic_calendar 同步 */
 export function subscriptionUsesCalendarSync(

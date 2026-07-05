@@ -54,6 +54,42 @@ function pkg(
   };
 }
 
+/**
+ * 无固定发布日历的同源同频指标分组（probe_interval 型发布包）。
+ *
+ * 用于没有官方"某日宣布"式发布事件的日/周/季频市场数据（国债收益率、信用利差、
+ * SLOOS 等）——按 FRED 官方 `Release:` 字段分组（同一份官方数据发布批次），
+ * 仅用于管理端分组显示 + 「立即同步发布包」一键批量拉取；每个成员仍按自己的
+ * `probe_interval` 规则独立调度（`parsePackageReleaseTemplate` 故意不识别此类
+ * 模板，详见该函数注释），不会互相覆盖或改变现有拉取行为。
+ */
+function probePkg(
+  id: string,
+  labelZh: string,
+  opts: {
+    labelEn?: string;
+    countryCode?: string;
+    agencyId?: string;
+    granularity: DataGranularity;
+    intervalHours: number;
+    sortOrder?: number;
+    members: ReleasePackageMemberRule;
+  },
+): ReleasePackageDef {
+  return {
+    id,
+    labelZh,
+    labelEn: opts.labelEn,
+    countryCode: opts.countryCode ?? "US",
+    agencyId: opts.agencyId,
+    granularity: opts.granularity,
+    calendar: { countryCodes: [opts.countryCode ?? "US"], keywords: [] },
+    release: { type: "probe_interval", intervalHours: opts.intervalHours },
+    sortOrder: opts.sortOrder ?? 0,
+    members: opts.members,
+  };
+}
+
 const CPI_COMPONENT_FRED_IDS = fredIdsFromCpi(
   (id) =>
     id.startsWith("CUSR") ||
@@ -361,6 +397,71 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     members: {
       fredSeriesIds: ["M2SL"],
     },
+  }),
+
+  // --- 以下为 probe_interval 型分组（无官方发布日历，按 FRED Release: 字段分组） ---
+  probePkg("us.frb.h15_rates", "美国 H.15 精选利率", {
+    labelEn: "H.15 Selected Interest Rates",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 200,
+    members: { fredSeriesIds: ["DGS2", "DFII10", "DGS10"] },
+  }),
+  probePkg("us.frb.interest_rate_spreads", "美国利差（FRED 计算）", {
+    labelEn: "Interest Rate Spreads",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 201,
+    members: { fredSeriesIds: ["T10YIE", "T10Y3M"] },
+  }),
+  probePkg("us.ice.bofa_indices", "ICE BofA 债券利差指数", {
+    labelEn: "ICE BofA Indices",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 202,
+    members: { fredSeriesIds: ["BAMLH0A0HYM2", "BAMLC0A0CM"] },
+  }),
+  probePkg("us.frb.chargeoff_delinquency", "美国银行核销与拖欠率", {
+    labelEn: "Charge-Off and Delinquency Rates on Loans and Leases at Commercial Banks",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 203,
+    members: { fredSeriesIds: ["DRCCLACBS", "DRBLACBS"] },
+  }),
+  probePkg("us.nyfed.effr", "纽约联储：有效联邦基金利率", {
+    labelEn: "Federal Funds Data",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 204,
+    members: { fredSeriesIds: ["EFFR"] },
+  }),
+  probePkg("us.nyfed.rrp", "纽约联储：隔夜逆回购", {
+    labelEn: "Temporary Open Market Operations",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 205,
+    members: { fredSeriesIds: ["RRPONTSYD"] },
+  }),
+  probePkg("us.chicagofed.nfci", "芝加哥联储金融条件指数", {
+    labelEn: "Chicago Fed National Financial Conditions Index",
+    granularity: "WEEKLY",
+    intervalHours: 24,
+    sortOrder: 206,
+    members: { fredSeriesIds: ["NFCI"] },
+  }),
+  probePkg("us.frb.sloos", "美联储高级信贷官意见调查（SLOOS）", {
+    labelEn: "Senior Loan Officer Opinion Survey on Bank Lending Practices",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 207,
+    members: { fredSeriesIds: ["DRTSCILM"] },
+  }),
+  probePkg("us.frb.h8_bank_assets", "美国 H.8 商业银行资产负债", {
+    labelEn: "H.8 Assets and Liabilities of Commercial Banks in the United States",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 208,
+    members: { fredSeriesIds: ["BUSLOANS"] },
   }),
 ] as const;
 

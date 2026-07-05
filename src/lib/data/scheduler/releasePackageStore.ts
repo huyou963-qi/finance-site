@@ -78,6 +78,18 @@ export function parsePackageCalendarSpec(raw: unknown): CalendarMatchSpec | null
   };
 }
 
+/**
+ * 有意只接受 `economic_calendar` 模板：包内成员的实际调度规则由
+ * `effectiveReleaseRule` 决定——只有当此函数返回非 null（即包模板是
+ * `economic_calendar`）时，才会用包级模板覆盖成员自己的 `releaseRule`。
+ *
+ * `probe_interval` 类型的包（同源同频市场数据分组，如 H.15 利率、ICE BofA
+ * 利差）**故意**让此处返回 null：这类包只用于管理端分组展示 + 「立即同步
+ * 发布包」批量拉取，每个成员仍按自己原有的 `probe_interval` 规则独立调度，
+ * 不应被包级规则统一覆盖（会丢失各自的 `sourceSync`/`intervalHours` 差异）。
+ * 若未来某个 probe 类包确认有真实官方发布时刻，应升级为 economic_calendar
+ * 类型，而不是放宽这里的判断。
+ */
 export function parsePackageReleaseTemplate(
   raw: unknown,
 ): Extract<ReleaseRule, { type: "economic_calendar" }> | null {

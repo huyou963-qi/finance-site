@@ -1,12 +1,12 @@
 import type { DataGranularity } from "@prisma/client";
-import { PROBE_ONLY_FRED_SERIES } from "./investingEventMap";
+import { PROBE_ONLY_FRED_SERIES } from "./probeOnlySeries";
 import {
   defaultEconomicCalendarRule,
   defaultReleaseRuleForGranularity,
 } from "./releaseRule";
 
-/** @deprecated 使用 investingEventMap.PROBE_ONLY_FRED_SERIES */
-export { PROBE_ONLY_FRED_SERIES as P0_PROBE_ONLY_FRED } from "./investingEventMap";
+/** @deprecated 使用 probeOnlySeries.PROBE_ONLY_FRED_SERIES */
+export { PROBE_ONLY_FRED_SERIES as P0_PROBE_ONLY_FRED } from "./probeOnlySeries";
 
 /** P0 试点：美国 FRED 序列（官方数据经圣路易斯联储 FRED 聚合） */
 export const P0_FRED_PILOT_SERIES = [

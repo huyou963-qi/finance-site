@@ -23,8 +23,13 @@ export type ReleasePackageDef = {
   agencyId?: string;
   granularity: DataGranularity;
   calendar: CalendarMatchSpec;
-  /** economic_calendar 模板（不含 calendarMatch） */
-  release: Extract<ReleaseRule, { type: "economic_calendar" }>;
+  /**
+   * economic_calendar 模板（不含 calendarMatch），或 probe_interval（无固定发布日历的
+   * 日/周/季频市场数据，如国债收益率、信用利差——仅用于把同源同频指标分组展示 +
+   * 支持管理端「立即同步发布包」一键批量拉取，不参与 `effectiveReleaseRule` 的调度覆盖；
+   * 见 `releasePackageStore.ts` 的 `parsePackageReleaseTemplate` 说明）。
+   */
+  release: ReleaseRule;
   sortOrder?: number;
   members: ReleasePackageMemberRule;
 };
