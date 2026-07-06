@@ -68,6 +68,16 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "nyfed_recession") {
+        const { fetchNyFedRecessionIncremental } = await import(
+          "./adapters/nyFedRecessionAdapter"
+        );
+        return fetchNyFedRecessionIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }

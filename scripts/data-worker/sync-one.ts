@@ -22,7 +22,12 @@ async function main() {
     where: { instrument: { code } },
     include: {
       source: true,
-      instrument: { select: { id: true, code: true, name: true } },
+      // metadata 必选：抓取型 provider（TE/NY Fed 等）的分发依赖 instrument.metadata.scrape，
+      // 缺失会误落到默认适配器（BIS）
+      instrument: { select: { id: true, code: true, name: true, metadata: true } },
+      releasePackage: {
+        select: { id: true, labelZh: true, releaseTemplate: true, scheduleState: true, nextRunAt: true },
+      },
     },
   });
 

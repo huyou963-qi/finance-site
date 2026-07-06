@@ -95,3 +95,14 @@ seed 脚本为每条仪器写入（字段规范见 te-indicator-scrape.md 第三
 - 禁止使用付费 API Key 写入仓库；禁止跳过 fixture 直接写 parser；禁止未 `known` 就参与调度（与 TE 流程三禁令一致）。
 - 请求必须带超时（30s）与限频（`DataSource.rateLimit.minIntervalMs`）；不重试风暴（backoff 由 `releaseRule.computeBackoffRunAt` 处理）。
 - 静默错值是最高级事故：宁可 FAILED 告警，不可写入解析不确定的数值。
+
+## 已跑通范例：NY Fed 衰退概率（C3 · Excel 抓取，2026-07）
+
+首个真实 C3 案例，可直接照抄。模块 `src/lib/data/scheduler/nyFedRecession/`（client + parseRecProb + catalog）+ `adapters/nyFedRecessionAdapter.ts` + seed/sync/verify-nyfed-recession + `fetchSubscriptionIncremental.ts` 加 `scrape.provider === "nyfed_recession"` 分支。
+
+- **源是 Excel 不是 HTML**：官方 `allmonth.xls`（OLE/BIFF），用项目已有的 `xlsx` 库 `XLSX.read(buf,{type:"buffer"})` + `sheet_to_json`。`.xlsx` 后缀不一定是 Excel（NY Fed 的 `Prob_Rec.xlsx` 实为 PDF），**务必看文件头字节**（`D0CF11E0`=OLE / `504B`=xlsx / `%PDF`=PDF）。
+- **Excel 日期用 `XLSX.SSF.parse_date_code(serial)`** 确定性转 {y,m,d}，避开 cellDates 的时区偏移；月频归一到月首 `Date.UTC(y,m-1,1)` 与库内对齐。
+- **单位归一在 parser**：源为分数（0.15），×100 存百分比、unit `%`（这是单位规整非分析变换，可在 parser 做）。
+- **防御**：sheet/列缺失、0 有效点、值越界一律 throw（源改版报错而非静默）。
+- **坑（已修）**：`sync-one.ts` 原 include 未 select `instrument.metadata`，导致抓取型 provider 被误路由到 BIS 兜底。已修（select metadata + releasePackage）。**测抓取型 provider 的 worker 分发，别只信 sync 脚本直调 parser——要走 `sync-one` 或 worker 验证 `fetchSubscriptionIncremental` 分发命中。**
+- **非 FRED 判定**：FRED 的 `RECPROUSM156N` 是 Chauvet-Piger 方法，≠ NY Fed 收益率曲线模型，故 NY Fed 版是真抓取目标。接入前务必确认目标确实不在 FRED/已接 API 源。

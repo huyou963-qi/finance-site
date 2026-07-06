@@ -20,6 +20,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   cot: { script: "seed-cot", labelZh: "CFTC COT" },
   monetary: { script: "seed-monetary", labelZh: "美国货币政策与金融条件" },
   housing: { script: "seed-housing", labelZh: "美国住房与地产" },
+  "nyfed-recession": { script: "seed-nyfed-recession", labelZh: "NY Fed 衰退概率（抓取）" },
   "ism-te": { script: "seed-ism-te", labelZh: "ISM 制造业 TE 抓取" },
   "ism-svc-te": { script: "seed-ism-svc-te", labelZh: "ISM 服务业 TE 抓取" },
 };
@@ -38,6 +39,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   cot: { script: "verify-cot", labelZh: "COT 自检" },
   monetary: { script: "verify-monetary", labelZh: "货币政策与金融条件自检", verifyNeedsDb: true },
   housing: { script: "verify-housing", labelZh: "住房与地产自检", verifyNeedsDb: true },
+  "nyfed-recession": { script: "verify-nyfed-recession", labelZh: "NY Fed 衰退概率自检", verifyNeedsDb: true },
 };
 
 export function listSeedCatalogNames(): string[] {
