@@ -28,16 +28,19 @@ db:migrate                 # schema 迁移（前向非交互）
 → data:seed-release-packages                            # 发布包（在指标之后）
 → data:sync-catalog-layout --prefix=fred:               # 目录分类归位
 → data:sync-calendar                                    # 日历型包 → nextRunAt
+→ data:backfill-empty --limit=150                       # 为「有订阅但零观测」的新指标强制拉历史
 → data:verify（遍历各域自检，排除噪音 verify-catalog）  # 门禁
 ```
+
+**为什么需要 `data:backfill-empty`（而非 sync-all-stale）**：新 seed 的序列 `nextRunAt` 被设到未来（日频=次日），更新状态是 `on_schedule` 而非 `stale`，`sync-all-stale` 碰不到它们，worker 也要等到 `nextRunAt` 才拉。所以部署后若想让**新指标立刻有数据**（图表可见、verify 通过），必须按「观测为空」精准强制拉取。幂等（有数据后不再命中）、稳态零开销、`--limit` 有界避免拖住部署；未处理的剩余项由 worker 补齐。
 
 它读 registry，所以**以后每加一个维度（housing、cycle-risk…）自动纳入，部署脚本一个字不用改**。
 
 ```bash
-npm run data:apply                    # 全量落库
+npm run data:apply                    # 全量落库（含新指标观测回填）
 npm run data:apply -- --dry-run       # 只打印计划
-npm run data:apply -- --only=monetary # 限定某域（包/布局/日历仍全局幂等执行）
-npm run data:apply -- --backfill      # 额外触发 sync-all-stale 立即拉观测（否则等 worker）
+npm run data:apply -- --only=monetary # 限定某域（包/布局/日历/回填仍全局幂等执行）
+npm run data:apply -- --skip-backfill # 只落定义，观测交给 worker（部署更快）
 npm run data:apply -- --skip-migrate --skip-verify  # 按需跳过
 ```
 

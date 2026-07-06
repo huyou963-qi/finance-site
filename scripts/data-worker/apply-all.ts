@@ -9,8 +9,8 @@
  * 用法：
  *   npm run data:apply                      # 全量：migrate + 所有 catalog seed + 包 + 布局 + 日历 + 各域自检
  *   npm run data:apply -- --dry-run         # 只打印执行计划
- *   npm run data:apply -- --only=monetary,cpi   # 仅这些域的 seed/verify（包/布局/日历仍全局幂等执行）
- *   npm run data:apply -- --backfill        # 额外触发 sync-all-stale，立即拉观测（否则等 worker 周期）
+ *   npm run data:apply -- --only=monetary,cpi   # 仅这些域的 seed/verify（包/布局/日历/回填仍全局幂等执行）
+ *   npm run data:apply -- --skip-backfill   # 跳过回填（只落定义，观测交给 worker）
  *   npm run data:apply -- --skip-migrate --skip-verify   # 按需跳过
  *
  * 全部步骤幂等，可在每次部署后无脑重复执行。
@@ -28,8 +28,8 @@ type Flags = {
   skipMigrate: boolean;
   skipLayout: boolean;
   skipCalendar: boolean;
+  skipBackfill: boolean;
   skipVerify: boolean;
-  backfill: boolean;
   continueOnError: boolean;
   only: string[] | null;
 };
@@ -42,8 +42,8 @@ function parseFlags(): Flags {
     skipMigrate: argv.includes("--skip-migrate"),
     skipLayout: argv.includes("--skip-layout"),
     skipCalendar: argv.includes("--skip-calendar"),
+    skipBackfill: argv.includes("--skip-backfill"),
     skipVerify: argv.includes("--skip-verify"),
-    backfill: argv.includes("--backfill"),
     continueOnError: argv.includes("--continue-on-error"),
     only: onlyRaw ? onlyRaw.split(",").map((s) => s.trim()).filter(Boolean) : null,
   };
@@ -94,9 +94,12 @@ function buildPlan(flags: Flags): Step[] {
     steps.push({ label: "sync-calendar", script: "data:sync-calendar", args: [], gating: false });
   }
 
-  // 6) 可选：立即回填观测（否则由已运行的 worker 周期性拉取）
-  if (flags.backfill) {
-    steps.push({ label: "backfill", script: "data:sync-all-stale", args: [], gating: false });
+  // 6) 精准回填：为「有订阅但零观测」的新指标强制拉历史（sync-all-stale 碰不到它们，
+  //    因新序列 nextRunAt 在未来、状态为 on_schedule 非 stale）。幂等、稳态零开销。
+  if (!flags.skipBackfill) {
+    // 上限 150：覆盖单维度增量绰绰有余，又避免 prod 若有大量慢速空序列时拖住部署；
+    // 未处理的剩余项由 worker 与后续部署补齐（幂等）。
+    steps.push({ label: "backfill-empty", script: "data:backfill-empty", args: ["--limit=150"], gating: false });
   }
 
   // 7) 各域自检（门禁）——排除全局 verify-catalog（含 legacy MANUAL 噪音，会误报）
@@ -169,7 +172,7 @@ function main() {
     console.error(`\n[data:apply] 完成但有 ${failed.length} 项自检失败：${failed.map((f) => f.label).join(", ")}`);
     process.exit(1);
   }
-  console.log(`\n[data:apply] 全部 ${results.length} 步通过。观测数据将由 worker 按 nextRunAt 自动回填${flags.backfill ? "（已触发 sync-all-stale 立即拉取）" : ""}。`);
+  console.log(`\n[data:apply] 全部 ${results.length} 步通过${flags.skipBackfill ? "（已跳过回填，观测由 worker 按 nextRunAt 自动补齐）" : "，新指标观测已回填"}。`);
 }
 
 main();
