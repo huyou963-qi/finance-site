@@ -127,21 +127,20 @@ export async function fetchFrameworkIndicatorsFromDb(): Promise<FrameworkIndicat
   const obsByInst = new Map<string, { obsDate: Date; value: number }[]>();
 
   if (instIds.length > 0) {
-    const rows = await prisma.macroObservation.findMany({
-      where: { instrumentId: { in: instIds } },
-      orderBy: [{ instrumentId: "asc" }, { obsDate: "desc" }],
-      select: { instrumentId: true, obsDate: true, value: true },
-    });
-
-    for (const row of rows) {
-      let bucket = obsByInst.get(row.instrumentId);
-      if (!bucket) {
-        bucket = [];
-        obsByInst.set(row.instrumentId, bucket);
-      }
-      if (bucket.length < FRAMEWORK_SPARKLINE_POINTS) {
-        bucket.push({ obsDate: row.obsDate, value: row.value });
-      }
+    // 每个序列只取最近 N 期，避免全历史扫描（数十万行超时）导致页面全 N/A。
+    const batches = await Promise.all(
+      instIds.map((instrumentId) =>
+        prisma.macroObservation.findMany({
+          where: { instrumentId },
+          orderBy: { obsDate: "desc" },
+          take: FRAMEWORK_SPARKLINE_POINTS,
+          select: { obsDate: true, value: true },
+        }),
+      ),
+    );
+    for (let i = 0; i < instIds.length; i++) {
+      const rows = batches[i];
+      if (rows.length > 0) obsByInst.set(instIds[i], rows);
     }
   }
 
