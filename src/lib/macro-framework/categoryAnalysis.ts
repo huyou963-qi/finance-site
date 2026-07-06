@@ -26,7 +26,15 @@ const LOWER_IS_BETTER = new Set([
   "sloos",
 ]);
 
+function hasLivePair(ind: MacroIndicator): ind is MacroIndicator & {
+  value: number;
+  prevValue: number;
+} {
+  return ind.value !== null && ind.prevValue !== null;
+}
+
 function isImproving(ind: MacroIndicator): boolean {
+  if (!hasLivePair(ind)) return false;
   const delta = ind.value - ind.prevValue;
   if (Math.abs(delta) < 0.005) return true;
   const rising = delta > 0;
@@ -43,6 +51,7 @@ function toneLabel(ratio: number): string {
 
 function pickHighlights(items: MacroIndicator[], n = 2): MacroIndicator[] {
   return [...items]
+    .filter(hasLivePair)
     .sort((a, b) => Math.abs(b.value - b.prevValue) - Math.abs(a.value - a.prevValue))
     .slice(0, n);
 }
@@ -53,8 +62,9 @@ function fmtHighlight(ind: MacroIndicator): string {
 }
 
 function groupRatio(items: MacroIndicator[]): number {
-  if (items.length === 0) return 0.5;
-  return items.filter(isImproving).length / items.length;
+  const live = items.filter(hasLivePair);
+  if (live.length === 0) return 0.5;
+  return live.filter(isImproving).length / live.length;
 }
 
 const CATEGORY_OPEN: Record<MatrixCategory, string> = {

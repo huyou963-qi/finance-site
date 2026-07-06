@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { FinovaWordmark } from "@/components/brand/FinovaWordmark";
-import { UserAccountMenu } from "@/components/UserAccountMenu";
 
 function MiniChart({ className }: { className?: string }) {
   return (
@@ -19,46 +17,9 @@ function MiniChart({ className }: { className?: string }) {
   );
 }
 
-type Me = { username: string; role: "admin" | "user" };
-
 export function HomeLanding() {
-  const [me, setMe] = useState<Me | null>(null);
-
-  useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) return null;
-        return (await r.json()) as { user?: Me };
-      })
-      .then((j) => setMe(j?.user ?? null))
-      .catch(() => setMe(null));
-  }, []);
-
-  const navLink = "text-sm text-fs-secondary transition hover:text-fs-text";
-  const isAdmin = me?.role === "admin";
-
   return (
     <div className="flex min-h-full flex-1 flex-col w-full">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="shrink-0">
-          <FinovaWordmark size="sm" />
-        </Link>
-        <nav className="flex flex-wrap items-center gap-4">
-          <Link href="/macro" className={navLink}>
-            宏观
-          </Link>
-          {isAdmin ? (
-            <Link href="/markets" className={navLink}>
-              行情
-            </Link>
-          ) : null}
-          <Link href="/weekly" className={navLink}>
-            AI周度观察
-          </Link>
-          <UserAccountMenu />
-        </nav>
-      </header>
-
       <section className="pt-6 md:pt-8 pb-4 md:pb-6">
         <FinovaWordmark size="hero" className="mb-6 md:mb-8" />
         <h1 className="max-w-3xl text-4xl font-semibold leading-tight text-fs-text md:text-5xl lg:text-6xl">

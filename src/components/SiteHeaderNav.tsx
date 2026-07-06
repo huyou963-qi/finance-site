@@ -99,19 +99,17 @@ export function SiteHeaderNav() {
             行情
           </Link>
         ) : null}
-        {isAdmin ? (
-          <Link
-            href="/events"
-            className={`${linkBase} ${
-              eventsActive
-                ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-                : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-            }`}
-            aria-current={eventsActive ? "page" : undefined}
-          >
-            事件
-          </Link>
-        ) : null}
+        <Link
+          href="/events"
+          className={`${linkBase} ${
+            eventsActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={eventsActive ? "page" : undefined}
+        >
+          时间线
+        </Link>
         <Link
           href="/weekly"
           className={`${linkBase} ${

@@ -1,0 +1,194 @@
+/**
+ * Rebuild event image catalog with URL validation (only HTTP 200 thumbs).
+ * Usage: node scripts/build-event-image-catalog.mjs
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { WIKI_ARTICLE_BY_SEED_KEY } from "./event-wiki-article-map.mjs";
+
+const OUT = "src/lib/data/eventTimelineImageCatalog.ts";
+const PATCH_OUT = "src/lib/data/eventTimelineImagePatch.ts";
+const BATCH = 20;
+
+/** 主词条无图时的备选维基标题 */
+const WIKI_ALTERNATES = {
+  "us-1819-panic": ["Economic history of the United States", "History of the United States (1789–1849)"],
+  "us-1846-tariff": ["Tariff in United States history", "James K. Polk"],
+  "us-1916-adamson-act": ["History of rail transport in the United States"],
+  "us-1947-marshall-plan": ["George Marshall", "Cold War"],
+  "us-1948-marshall-plan": ["George Marshall", "Cold War"],
+  "us-1950-korean-war": ["Korean War"],
+  "us-1973-oil-embargo": ["1973 oil crisis"],
+  "us-1998-ltcm-crisis": ["Long-Term Capital Management"],
+  "us-2019-repo-spike": ["Federal Reserve"],
+};
+
+function wikiTitleFromUrl(url) {
+  if (!url) return null;
+  const m = /wikipedia\.org\/wiki\/([^#?]+)/i.exec(url);
+  if (!m?.[1]) return null;
+  try {
+    return decodeURIComponent(m[1]).replace(/_/g, " ");
+  } catch {
+    return m[1].replace(/_/g, " ");
+  }
+}
+
+function loadLeafEvents() {
+  const dir = "scripts/data";
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json") && f.includes("market-events"));
+  const byKey = new Map();
+  for (const f of files) {
+    const j = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+    for (const e of j.events ?? []) {
+      if (e.eventType === "时代阶段") continue;
+      const m = /\[seed:([^\]]+)\]/.exec(e.content ?? "");
+      const seedKey = m?.[1] ?? e.seedKey;
+      if (!seedKey || byKey.has(seedKey)) continue;
+      byKey.set(seedKey, {
+        seedKey,
+        title: e.title,
+        sourceUrl: e.sourceUrl ?? null,
+        wikiArticle:
+          WIKI_ARTICLE_BY_SEED_KEY[seedKey] ??
+          wikiTitleFromUrl(e.sourceUrl) ??
+          null,
+      });
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.seedKey.localeCompare(b.seedKey));
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchBatchThumbs(articles) {
+  const unique = [...new Set(articles.filter(Boolean))];
+  if (!unique.length) return new Map();
+  const url = new URL("https://en.wikipedia.org/w/api.php");
+  url.searchParams.set("action", "query");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("prop", "pageimages");
+  url.searchParams.set("pithumbsize", "440");
+  url.searchParams.set("titles", unique.join("|"));
+  url.searchParams.set("redirects", "1");
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "finance-site-event-images/1.0" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const out = new Map();
+      for (const p of Object.values(data.query?.pages ?? {})) {
+        if (p.title && p.thumbnail?.source) out.set(p.title, p.thumbnail.source);
+      }
+      return out;
+    } catch (e) {
+      if (attempt === 2) throw e;
+      await sleep(1500 * (attempt + 1));
+    }
+  }
+  return new Map();
+}
+
+async function urlOk(imageUrl) {
+  try {
+    const res = await fetch(imageUrl, {
+      method: "GET",
+      headers: { "User-Agent": "finance-site-event-images/1.0" },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+const events = loadLeafEvents();
+const catalog = {};
+const missing = [];
+
+// 通用兜底：从 NYSE 词条取一张已验证可访问的图
+let genericFallback = null;
+
+for (let i = 0; i < events.length; i += BATCH) {
+  const chunk = events.slice(i, i + BATCH);
+  const articles = chunk.flatMap((e) => [e.wikiArticle, ...(WIKI_ALTERNATES[e.seedKey] ?? [])]);
+  const thumbs = await fetchBatchThumbs(articles);
+
+  for (const ev of chunk) {
+    const candidates = [ev.wikiArticle, ...(WIKI_ALTERNATES[ev.seedKey] ?? [])].filter(Boolean);
+    let url = null;
+    for (const article of candidates) {
+      const hit = thumbs.get(article);
+      if (hit) {
+        url = hit;
+        break;
+      }
+      for (const [title, thumb] of thumbs) {
+        if (title.toLowerCase() === article.toLowerCase()) {
+          url = thumb;
+          break;
+        }
+      }
+      if (url) break;
+    }
+
+    if (url) {
+      catalog[ev.seedKey] = url;
+    } else {
+      missing.push(ev);
+    }
+  }
+  await sleep(300);
+}
+
+if (missing.length) {
+  if (!genericFallback) {
+    const g = await fetchBatchThumbs(["New York Stock Exchange"]);
+    genericFallback = g.get("New York Stock Exchange") ?? null;
+    if (genericFallback && !(await urlOk(genericFallback))) genericFallback = null;
+  }
+  for (const ev of missing) {
+    if (genericFallback) catalog[ev.seedKey] = genericFallback;
+  }
+}
+
+const stillMissing = events.filter((e) => !catalog[e.seedKey]);
+const lines = [
+  "/** Auto-generated by scripts/build-event-image-catalog.mjs — validated HTTP 200 */",
+  `/** Generated: ${new Date().toISOString()} */`,
+  "",
+  "export const EVENT_TIMELINE_IMAGE_BY_SEED_KEY: Record<string, string> = {",
+];
+for (const [k, v] of Object.entries(catalog).sort(([a], [b]) => a.localeCompare(b))) {
+  lines.push(`  ${JSON.stringify(k)}: ${JSON.stringify(v)},`);
+}
+lines.push("};", "");
+
+fs.writeFileSync(OUT, lines.join("\n"));
+fs.writeFileSync(
+  PATCH_OUT,
+  [
+    "/** Legacy patch — merged into catalog; kept empty for imports compatibility */",
+    "export const EVENT_TIMELINE_IMAGE_PATCH: Record<string, string> = {};",
+    "",
+  ].join("\n"),
+);
+fs.writeFileSync(
+  "scripts/data/event-image-catalog-missing.json",
+  JSON.stringify(
+    {
+      stillMissing: stillMissing.map((e) => e.seedKey),
+      count: stillMissing.length,
+      total: events.length,
+    },
+    null,
+    2,
+  ),
+);
+console.log(`Catalog: ${Object.keys(catalog).length}/${events.length}`);
+console.log(`Still missing: ${stillMissing.length}`);
+console.log(`Wrote ${OUT}`);

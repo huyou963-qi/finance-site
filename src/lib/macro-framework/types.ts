@@ -22,9 +22,9 @@ export interface MacroIndicator {
   nameZh: string;
   timing: IndicatorTiming;
   sector: Sector;
-  value: number;
+  value: number | null;
   unit: string;
-  prevValue: number;
+  prevValue: number | null;
   releaseFreq: string;
   asOfDate: string;
   source: string;

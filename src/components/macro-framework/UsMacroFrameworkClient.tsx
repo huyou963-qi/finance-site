@@ -4,8 +4,6 @@ import { Fragment, useMemo, useState } from "react";
 import {
   CALENDAR,
   CONTRADICTION_SIGNALS,
-  IND_BY_ID,
-  INDICATORS,
   MACRO_STATE_BRIEF,
   TIMING_LABEL,
 } from "@/lib/macro-framework/data";
@@ -18,6 +16,7 @@ import {
 } from "@/lib/macro-framework/matrixCategories";
 import { generateAllCategoryBriefs } from "@/lib/macro-framework/categoryAnalysis";
 import type { IndicatorTiming, MacroIndicator } from "@/lib/macro-framework/types";
+import { indicatorsById } from "@/lib/macro-framework/mergeIndicators";
 import { changeArrow, formatValue, sparklinePath, timingAccent } from "@/lib/macro-framework/utils";
 
 const TIMINGS: IndicatorTiming[] = ["leading", "coincident", "lagging"];
@@ -196,16 +195,20 @@ function MatrixIndicatorCard({
         <span className="text-[9px] text-fs-muted">{ind.asOfDate}</span>
       </div>
       <div className="mt-1 pl-2">
-        <svg className="h-6 w-full" viewBox="0 0 80 24" preserveAspectRatio="none">
-          <path
-            d={sparklinePath(ind.sparkline, 80, 24)}
-            fill="none"
-            stroke={accent}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {ind.sparkline.length > 0 ? (
+          <svg className="h-6 w-full" viewBox="0 0 80 24" preserveAspectRatio="none">
+            <path
+              d={sparklinePath(ind.sparkline, 80, 24)}
+              fill="none"
+              stroke={accent}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <div className="flex h-6 items-center text-[9px] text-fs-muted">暂无序列</div>
+        )}
       </div>
     </button>
   );
@@ -245,8 +248,9 @@ function MatrixCell({
   );
 }
 
-export function UsMacroFrameworkClient() {
+export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndicator[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const indById = useMemo(() => indicatorsById(indicators), [indicators]);
 
   const matrix = useMemo(() => {
     const grid: Record<MatrixCategory, Record<IndicatorTiming, MacroIndicator[]>> = {} as Record<
@@ -256,14 +260,14 @@ export function UsMacroFrameworkClient() {
     for (const cat of MATRIX_CATEGORY_ORDER) {
       grid[cat] = { leading: [], coincident: [], lagging: [] };
     }
-    for (const ind of INDICATORS) {
+    for (const ind of indicators) {
       const cat = INDICATOR_MATRIX_CATEGORY[ind.id];
       if (cat && grid[cat]) {
         grid[cat][ind.timing].push(ind);
       }
     }
     return grid;
-  }, []);
+  }, [indicators]);
 
   const categoryBriefs = useMemo(() => {
     const grouped = {} as Record<MatrixCategory, MacroIndicator[]>;
@@ -289,12 +293,23 @@ export function UsMacroFrameworkClient() {
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
           {[
-            { label: "周期阶段", value: "晚期扩张" },
-            { label: "GDPNow", value: "+2.1%", cls: "text-fs-accent-text" },
-            { label: "衰退概率", value: "28%", cls: "text-amber-600" },
-            { label: "扩散指数", value: "62%", cls: "text-fs-accent-text" },
-            { label: "NFCI", value: "+0.32σ", cls: "text-amber-600" },
-            { label: "Core PCE", value: "2.4%", cls: "text-fs-text" },
+            { label: "周期阶段", value: "晚期扩张", cls: "text-fs-text" },
+            {
+              label: "NFCI",
+              value: formatValue(indById.nfci?.value ?? null, indById.nfci?.unit ?? "σ"),
+              cls:
+                indById.nfci?.value != null && indById.nfci.value > 0
+                  ? "text-amber-600"
+                  : "text-fs-text",
+            },
+            {
+              label: "Core PCE",
+              value: formatValue(indById["core-pce"]?.value ?? null, indById["core-pce"]?.unit ?? "YoY%"),
+              cls: "text-fs-text",
+            },
+            { label: "GDPNow", value: "N/A", cls: "text-fs-muted" },
+            { label: "衰退概率", value: "N/A", cls: "text-fs-muted" },
+            { label: "扩散指数", value: "N/A", cls: "text-fs-muted" },
           ].map((s) => (
             <div key={s.label} className="rounded-lg border border-fs-border bg-fs-elevated px-3 py-2">
               <div className={`text-base font-semibold ${s.cls ?? "text-fs-text"}`}>{s.value}</div>
@@ -384,44 +399,50 @@ export function UsMacroFrameworkClient() {
           </div>
         </section>
 
-        {selectedId && IND_BY_ID[selectedId] && (
+        {selectedId && indById[selectedId] && (
           <div className="rounded-lg border border-fs-border bg-fs-elevated/80 p-4 text-sm">
             <div className="font-medium text-fs-text">
-              {IND_BY_ID[selectedId].nameZh}
-              <span className="ml-2 font-normal text-fs-muted">{IND_BY_ID[selectedId].nameEn}</span>
+              {indById[selectedId].nameZh}
+              <span className="ml-2 font-normal text-fs-muted">{indById[selectedId].nameEn}</span>
             </div>
             <div className="mt-2 flex flex-wrap gap-4 text-fs-secondary">
               <span>
                 最新{" "}
                 <strong className="text-fs-text">
-                  {formatValue(IND_BY_ID[selectedId].value, IND_BY_ID[selectedId].unit)}
+                  {formatValue(indById[selectedId].value, indById[selectedId].unit)}
                 </strong>
               </span>
-              <span>{IND_BY_ID[selectedId].asOfDate}</span>
-              <span>{IND_BY_ID[selectedId].source}</span>
-              <span style={{ color: timingAccent(IND_BY_ID[selectedId].timing) }}>
-                {TIMING_LABEL[IND_BY_ID[selectedId].timing]}
+              <span>{indById[selectedId].asOfDate}</span>
+              <span>{indById[selectedId].source}</span>
+              <span style={{ color: timingAccent(indById[selectedId].timing) }}>
+                {TIMING_LABEL[indById[selectedId].timing]}
               </span>
               <span>
                 {MATRIX_CATEGORY_LABEL[INDICATOR_MATRIX_CATEGORY[selectedId] ?? "activity"]}
               </span>
             </div>
-            <p className="mt-2 text-fs-secondary">{IND_BY_ID[selectedId].description}</p>
+            <p className="mt-2 text-fs-secondary">{indById[selectedId].description}</p>
             <div className="mt-3 max-w-md">
               <div className="mb-1 text-[10px] uppercase tracking-wide text-fs-muted">近 6 期走势</div>
-              <svg
-                className="h-16 w-full rounded border border-fs-border bg-white p-2"
-                viewBox="0 0 160 48"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d={sparklinePath(IND_BY_ID[selectedId].sparkline, 160, 48)}
-                  fill="none"
-                  stroke={timingAccent(IND_BY_ID[selectedId].timing)}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                />
-              </svg>
+              {indById[selectedId].sparkline.length > 0 ? (
+                <svg
+                  className="h-16 w-full rounded border border-fs-border bg-white p-2"
+                  viewBox="0 0 160 48"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d={sparklinePath(indById[selectedId].sparkline, 160, 48)}
+                    fill="none"
+                    stroke={timingAccent(indById[selectedId].timing)}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  />
+                </svg>
+              ) : (
+                <div className="rounded border border-fs-border bg-white p-4 text-xs text-fs-muted">
+                  本地库暂无历史观测
+                </div>
+              )}
             </div>
           </div>
         )}

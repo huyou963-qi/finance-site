@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { formatEventOccurredAt } from "@/lib/data/marketEvents";
 import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
-import { EventContentPopover } from "@/components/events/EventContentPopover";
-import {
-  eventDisplayContent,
-  eventPreviewContent,
-} from "@/lib/data/eventContentDisplay";
+import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
+import { EventHoverCard } from "@/components/events/EventHoverCard";
+import { eventPreviewContent } from "@/lib/data/eventContentDisplay";
+
+const HOVER_OPEN_MS = 400;
 
 export type EventListRowProps = {
   event: MarketEventDto;
@@ -33,35 +33,55 @@ export function EventListRow({
 }: EventListRowProps) {
   const articleRef = useRef<HTMLElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [popoverAnchor, setPopoverAnchor] = useState<DOMRect | null>(null);
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const tags = [
     ...event.countries,
     ...event.industries.filter((t) => t !== "时代阶段"),
     ...event.assets.slice(0, compact ? 2 : 4),
   ];
-  const fullContent = eventDisplayContent(event.content);
   const preview = eventPreviewContent(event.content);
 
-  const cancelPopoverHide = () => {
+  const cancelTimers = () => {
     if (hideTimerRef.current) {
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
+    }
   };
 
-  const showPopover = () => {
-    cancelPopoverHide();
-    const el = articleRef.current;
-    if (el) setPopoverAnchor(el.getBoundingClientRect());
+  const dismissHover = () => {
+    setHoverAnchor(null);
   };
 
-  const schedulePopoverHide = () => {
-    cancelPopoverHide();
-    hideTimerRef.current = setTimeout(() => setPopoverAnchor(null), 120);
+  const scheduleHoverHide = () => {
+    cancelTimers();
+    hideTimerRef.current = setTimeout(dismissHover, 250);
   };
 
-  useEffect(() => () => cancelPopoverHide(), []);
+  const scheduleHoverShow = () => {
+    if (drawerOpen) return;
+    cancelTimers();
+    openTimerRef.current = setTimeout(() => {
+      const el = articleRef.current;
+      if (el) setHoverAnchor(el.getBoundingClientRect());
+    }, HOVER_OPEN_MS);
+  };
+
+  const openDrawer = () => {
+    cancelTimers();
+    setHoverAnchor(null);
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => setDrawerOpen(false);
+
+  useEffect(() => () => cancelTimers(), []);
 
   return (
     <li
@@ -73,13 +93,28 @@ export function EventListRow({
     >
       <article
         ref={articleRef}
-        className={`rounded border px-2 py-1.5 transition ${
+        className={`cursor-pointer rounded border px-2 py-1.5 transition ${
           highlighted
             ? "border-cyan-600/70 bg-cyan-950/25 ring-1 ring-cyan-500/50"
-            : "border-fs-border/90 bg-fs-elevated hover:border-fs-border/90"
+            : drawerOpen
+              ? "border-fs-accent/40 bg-fs-accent-soft/20"
+              : "border-fs-border/90 bg-fs-elevated hover:border-fs-accent/30"
         }`}
-        onMouseEnter={showPopover}
-        onMouseLeave={schedulePopoverHide}
+        onMouseEnter={scheduleHoverShow}
+        onMouseLeave={scheduleHoverHide}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("a,button")) return;
+          openDrawer();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openDrawer();
+          }
+        }}
+        tabIndex={0}
+        role="button"
+        aria-label={event.title ? `查看事件：${event.title}` : "查看事件详情"}
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -106,7 +141,7 @@ export function EventListRow({
                   rel="noopener noreferrer"
                   className="text-[10px] text-cyan-500/90 hover:underline"
                   onClick={(e) => e.stopPropagation()}
-                  onMouseEnter={cancelPopoverHide}
+                  onMouseEnter={cancelTimers}
                 >
                   link
                 </a>
@@ -118,19 +153,26 @@ export function EventListRow({
             <p className="mt-0.5 line-clamp-3 text-[11px] leading-snug text-fs-secondary">
               {preview}
             </p>
+            <p className="mt-1 text-[9px] text-fs-muted">悬停预览 · 点击查看全文</p>
           </div>
           {isAdmin ? (
             <div className="flex shrink-0 flex-col gap-0.5">
               <button
                 type="button"
-                onClick={() => onEdit(event)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(event);
+                }}
                 className="text-[10px] text-fs-muted hover:text-fs-text"
               >
                 编辑
               </button>
               <button
                 type="button"
-                onClick={() => onDelete(event.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(event.id);
+                }}
                 className="text-[10px] text-fs-muted hover:text-rose-300"
               >
                 删除
@@ -139,12 +181,15 @@ export function EventListRow({
           ) : null}
         </div>
       </article>
-      <EventContentPopover
-        anchor={popoverAnchor}
-        content={fullContent}
-        title={event.title}
-        onDismiss={() => setPopoverAnchor(null)}
+
+      <EventHoverCard
+        event={event}
+        anchor={hoverAnchor}
+        onDismiss={() => setHoverAnchor(null)}
+        onOpenDetail={openDrawer}
       />
+
+      <EventDetailDrawer event={drawerOpen ? event : null} onClose={closeDrawer} />
     </li>
   );
 }
