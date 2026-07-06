@@ -57,6 +57,14 @@
 | DRTSCILM | SLOOS 工商贷款收紧净比例 | 美国货币政策与金融条件 ② |
 | BUSLOANS | 工商业贷款存量 | 美国货币政策与金融条件 ② |
 | DRCCLACBS / DRBLACBS | 信用卡/工商贷款拖欠率 | 美国货币政策与金融条件 ② |
+| PERMIT / HOUST1F | 建筑许可 / 单户新屋开工 | 美国住房与地产 ①（HOUST1F≠总开工 HOUST） |
+| HSN1F / MSACSR | 新屋销售 / 新屋可售月数 | 美国住房与地产 ① |
+| COMPUTSA | 住房完工 | 美国住房与地产 ① |
+| CSUSHPINSA | Case-Shiller 全国房价 | 美国住房与地产 ②（原 phase2 入库未占槽，2026-07 首次占用） |
+| MORTGAGE30US / MORTGAGE15US | 30Y / 15Y 抵押利率 | 美国住房与地产 ② |
+| RHORUSQ156N | 自有住房率 | 美国住房与地产 ② |
+| DRSFRMACBS | 单户住宅抵押贷款拖欠率 | 美国住房与地产 ② |
+| EXHOSLUSM495S | 成屋销售 | 美国住房与地产（已入库，NAR 许可仅约 1 年，暂不进模板、持续累积） |
 
 ## 非 FRED 序列
 

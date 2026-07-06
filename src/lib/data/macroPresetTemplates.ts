@@ -59,6 +59,12 @@ import {
   BUILTIN_US_MONETARY_TEMPLATE_IDS,
   BUILTIN_US_MONETARY_TEMPLATES,
 } from "@/lib/data/monetaryAnalysisLayout";
+import {
+  BUILTIN_US_HOUSING_ACTIVITY_TEMPLATE,
+  BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
+  BUILTIN_US_HOUSING_TEMPLATE_IDS,
+  BUILTIN_US_HOUSING_TEMPLATES,
+} from "@/lib/data/housingAnalysisLayout";
 
 export {
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -77,6 +83,9 @@ export {
   BUILTIN_US_MONETARY_CONDITIONS_TEMPLATE,
   BUILTIN_US_MONETARY_OVERVIEW_TEMPLATE,
   BUILTIN_US_MONETARY_TEMPLATES,
+  BUILTIN_US_HOUSING_ACTIVITY_TEMPLATE,
+  BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
+  BUILTIN_US_HOUSING_TEMPLATES,
 };
 
 export type MacroChartTemplate = {
@@ -141,6 +150,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
   { id: "folder-builtin-us-labor", name: "美国就业市场", scope: "builtin" },
   { id: "folder-builtin-us-fiscal", name: "美国财政分析", scope: "builtin" },
   { id: "folder-builtin-us-monetary", name: "美国货币政策与金融条件", scope: "builtin" },
+  { id: "folder-builtin-us-housing", name: "美国住房与地产", scope: "builtin" },
 ];
 
 export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> = {
@@ -155,6 +165,8 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-us-fiscal-highfreq": "folder-builtin-us-fiscal",
   "builtin-us-monetary-overview": "folder-builtin-us-monetary",
   "builtin-us-monetary-conditions": "folder-builtin-us-monetary",
+  "builtin-us-housing-activity": "folder-builtin-us-housing",
+  "builtin-us-housing-price-finance": "folder-builtin-us-housing",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -471,6 +483,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_ECON_TEMPLATE_IDS,
   ...BUILTIN_US_FISCAL_TEMPLATE_IDS,
   ...BUILTIN_US_MONETARY_TEMPLATE_IDS,
+  ...BUILTIN_US_HOUSING_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

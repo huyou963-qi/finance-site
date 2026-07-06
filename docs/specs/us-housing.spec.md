@@ -13,9 +13,9 @@
 | 内置文件夹 id | `folder-builtin-us-housing` |
 | 模板 id 前缀 | `builtin-us-housing-` |
 | 分支 | `feature/macro-housing` |
-| 状态 | `draft`（待评审 1） |
+| 状态 | `verified`（Phase 2 首维度闭环完成） |
 | 对应框架页维度 | `investment`（投资与住房） |
-| 评审记录 | 2026-07-05 Agent A 提交评审 1 |
+| 评审记录 | 2026-07-05 Agent A 评审 1；用户批准继续；Agent B 数据接入（11 序列入库、6 发布包=2 现有追加+4 新建）；Agent D 双模板；Agent E 验收通过（build/lint/双模板渲染 verified）。成屋销售 EXHOSLUSM495S 因 NAR 许可仅约 1 年，按降级预案入库累积但暂不进模板。 |
 
 ---
 

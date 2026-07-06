@@ -294,8 +294,32 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["existing"],
     },
     members: {
-      fredSeriesIds: ["HOUST"],
+      // Census「New Residential Construction」一次发布：开工/许可/完工同日历事件
+      fredSeriesIds: ["HOUST", "PERMIT", "HOUST1F", "COMPUTSA"],
     },
+  }),
+  pkg("us.census.new_home_sales", "美国新屋销售", {
+    labelEn: "New Residential Sales",
+    granularity: "MONTHLY",
+    sortOrder: 101,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["new home sales"],
+      excludeKeywords: ["existing", "pending"],
+    },
+    // Census 新屋销售报告同时发布可售月数（MSACSR）
+    members: { fredSeriesIds: ["HSN1F", "MSACSR"] },
+  }),
+  pkg("us.nar.existing_home_sales", "美国成屋销售", {
+    labelEn: "Existing Home Sales",
+    granularity: "MONTHLY",
+    sortOrder: 102,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["existing home sales"],
+      excludeKeywords: ["new", "pending"],
+    },
+    members: { fredSeriesIds: ["EXHOSLUSM495S"] },
   }),
   pkg("us.fed.fomc", "美联储利率决议", {
     granularity: "MONTHLY",
@@ -426,7 +450,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "QUARTERLY",
     intervalHours: 168,
     sortOrder: 203,
-    members: { fredSeriesIds: ["DRCCLACBS", "DRBLACBS"] },
+    // DRSFRMACBS（单户抵押贷款拖欠率）与信用卡/工商拖欠率同属 Fed 同一发布
+    members: { fredSeriesIds: ["DRCCLACBS", "DRBLACBS", "DRSFRMACBS"] },
   }),
   probePkg("us.nyfed.effr", "纽约联储：有效联邦基金利率", {
     labelEn: "Federal Funds Data",
@@ -462,6 +487,20 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 72,
     sortOrder: 208,
     members: { fredSeriesIds: ["BUSLOANS"] },
+  }),
+  probePkg("us.freddiemac.pmms", "Freddie Mac 抵押利率（PMMS）", {
+    labelEn: "Primary Mortgage Market Survey",
+    granularity: "WEEKLY",
+    intervalHours: 24,
+    sortOrder: 210,
+    members: { fredSeriesIds: ["MORTGAGE30US", "MORTGAGE15US"] },
+  }),
+  probePkg("us.census.homeownership", "美国自有住房率", {
+    labelEn: "Housing Vacancies and Homeownership",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 211,
+    members: { fredSeriesIds: ["RHORUSQ156N"] },
   }),
 ] as const;
 

@@ -66,6 +66,8 @@
     "data:sync-catalog-layout": "dotenv -e .env.local -- tsx scripts/data-worker/sync-catalog-layout-new-items.ts",
     "data:seed-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/seed-monetary.ts",
     "data:verify-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/verify-monetary.ts",
+    "data:seed-housing": "dotenv -e .env.local -- tsx scripts/data-worker/seed-housing.ts",
+    "data:verify-housing": "dotenv -e .env.local -- tsx scripts/data-worker/verify-housing.ts",
     "data:seed-labor": "dotenv -e .env.local -- tsx scripts/data-worker/seed-labor.ts",
     "data:verify-labor": "dotenv -e .env.local -- tsx scripts/data-worker/verify-labor.ts",
     "data:seed-overview": "dotenv -e .env.local -- tsx scripts/data-worker/seed-overview.ts",
