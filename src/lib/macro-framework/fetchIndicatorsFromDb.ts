@@ -1,9 +1,17 @@
 import { InstrumentKind } from "@prisma/client";
+import { applyFredTransform } from "@/lib/data/scheduler/fredTransform";
+import type { FredSeriesTransform } from "@/lib/data/scheduler/fredTransform";
 import { prisma } from "@/lib/prisma";
+import { INDICATORS } from "./data";
 import {
   FRAMEWORK_INDICATOR_CATALOG_KEYS,
   FRAMEWORK_SPARKLINE_POINTS,
 } from "./indicatorCatalogKeys";
+import {
+  FRAMEWORK_INDICATOR_TRANSFORMS,
+  isPlausibleFrameworkValue,
+  rawObservationTake,
+} from "./indicatorTransforms";
 
 export type FrameworkIndicatorSnapshot = {
   value: number | null;
@@ -20,6 +28,8 @@ export type FrameworkIndicatorsPayload = {
 type CatalogRef =
   | { kind: "fred"; fredId: string }
   | { kind: "mds"; code: string };
+
+const UNIT_BY_ID = Object.fromEntries(INDICATORS.map((ind) => [ind.id, ind.unit]));
 
 function parseCatalogKey(key: string): CatalogRef | null {
   if (key.startsWith("fred:")) {
@@ -48,22 +58,41 @@ function emptySnapshot(): FrameworkIndicatorSnapshot {
   };
 }
 
+function transformRawPoints(
+  rawDesc: { obsDate: Date; value: number }[],
+  transform: FredSeriesTransform,
+): { obsDate: Date; value: number }[] {
+  const asc = [...rawDesc].reverse();
+  const transformed = applyFredTransform(asc, transform);
+  return [...transformed]
+    .sort((a, b) => b.obsDate.getTime() - a.obsDate.getTime())
+    .slice(0, FRAMEWORK_SPARKLINE_POINTS);
+}
+
 function buildSnapshot(
   points: { obsDate: Date; value: number }[],
+  unit: string,
 ): FrameworkIndicatorSnapshot {
   if (points.length === 0) return emptySnapshot();
 
-  const latest = points[0];
+  const latest = points[0]!;
   const previous = points[1];
   const sparkline = [...points]
     .reverse()
-    .map((p) => p.value);
+    .map((p) => p.value)
+    .filter((v) => isPlausibleFrameworkValue(unit, v));
+
+  const value = isPlausibleFrameworkValue(unit, latest.value) ? latest.value : null;
+  const prevValue =
+    previous && isPlausibleFrameworkValue(unit, previous.value) ? previous.value : null;
+
+  if (value === null) return emptySnapshot();
 
   return {
-    value: latest.value,
-    prevValue: previous?.value ?? null,
+    value,
+    prevValue,
     asOfDate: formatObsDate(latest.obsDate),
-    sparkline,
+    sparkline: sparkline.length > 0 ? sparkline : [],
   };
 }
 
@@ -123,36 +152,31 @@ export async function fetchFrameworkIndicatorsFromDb(): Promise<FrameworkIndicat
     if (instId) indicatorInstId.set(indicatorId, instId);
   }
 
-  const instIds = [...new Set(indicatorInstId.values())];
-  const obsByInst = new Map<string, { obsDate: Date; value: number }[]>();
-
-  if (instIds.length > 0) {
-    // 每个序列只取最近 N 期，避免全历史扫描（数十万行超时）导致页面全 N/A。
-    const batches = await Promise.all(
-      instIds.map((instrumentId) =>
-        prisma.macroObservation.findMany({
-          where: { instrumentId },
-          orderBy: { obsDate: "desc" },
-          take: FRAMEWORK_SPARKLINE_POINTS,
-          select: { obsDate: true, value: true },
-        }),
-      ),
-    );
-    for (let i = 0; i < instIds.length; i++) {
-      const rows = batches[i];
-      if (rows.length > 0) obsByInst.set(instIds[i], rows);
-    }
-  }
-
   const indicators: Record<string, FrameworkIndicatorSnapshot> = {};
-  for (const id of indicatorIds) {
-    const instId = indicatorInstId.get(id);
-    if (!instId) {
-      indicators[id] = emptySnapshot();
-      continue;
-    }
-    indicators[id] = buildSnapshot(obsByInst.get(instId) ?? []);
-  }
+
+  await Promise.all(
+    indicatorIds.map(async (id) => {
+      const instId = indicatorInstId.get(id);
+      if (!instId) {
+        indicators[id] = emptySnapshot();
+        return;
+      }
+
+      const transform = FRAMEWORK_INDICATOR_TRANSFORMS[id] ?? "none";
+      const take = rawObservationTake(id, transform);
+      const unit = UNIT_BY_ID[id] ?? "";
+
+      const raw = await prisma.macroObservation.findMany({
+        where: { instrumentId: instId },
+        orderBy: { obsDate: "desc" },
+        take,
+        select: { obsDate: true, value: true },
+      });
+
+      const points = transform === "none" ? raw : transformRawPoints(raw, transform);
+      indicators[id] = buildSnapshot(points, unit);
+    }),
+  );
 
   return {
     indicators,

@@ -1,6 +1,6 @@
 import type { ObservationPoint } from "./types";
 
-export type FredSeriesTransform = "none" | "yoy_pct";
+export type FredSeriesTransform = "none" | "yoy_pct" | "mom_pct";
 
 /** usov 等 code 后缀 → 同比变换 */
 export function fredTransformForInstrument(code: string): FredSeriesTransform {
@@ -53,10 +53,28 @@ export function applyYoYPercent(points: ObservationPoint[]): ObservationPoint[] 
   return out;
 }
 
+/** 由水平值序列计算环比 %（与上一期对比） */
+export function applyMomPercent(points: ObservationPoint[]): ObservationPoint[] {
+  if (points.length < 2) return [];
+  const sorted = [...points].sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime());
+  const out: ObservationPoint[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]!.value;
+    const cur = sorted[i]!.value;
+    if (prev === 0) continue;
+    out.push({
+      obsDate: sorted[i]!.obsDate,
+      value: ((cur / prev) - 1) * 100,
+    });
+  }
+  return out;
+}
+
 export function applyFredTransform(
   points: ObservationPoint[],
   transform: FredSeriesTransform,
 ): ObservationPoint[] {
   if (transform === "yoy_pct") return applyYoYPercent(points);
+  if (transform === "mom_pct") return applyMomPercent(points);
   return points;
 }

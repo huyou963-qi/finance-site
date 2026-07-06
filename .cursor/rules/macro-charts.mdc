@@ -28,5 +28,6 @@ alwaysApply: false
 ## 新增指标/模板
 
 1. 确认 series id 与 DB `mds` 一致
-2. 更新 catalog / layout 常量
-3. 如需导入历史数据，加对应 `scripts/import-*-xlsx.ts` 并在 PR 说明
+2. **宏观框架页**：核对 `indicatorCatalogKeys` + `indicatorTransforms`（YoY/MoM 须对水平序列做变换，见 `data-accuracy.mdc`）
+3. 更新 catalog / layout 常量
+4. 如需导入历史数据，加对应 `scripts/import-*-xlsx.ts` 并在 PR 说明

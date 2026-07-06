@@ -58,6 +58,14 @@ async function main() {
 
   const payload = await fetchFrameworkIndicatorsFromDb();
   const withValue = Object.values(payload.indicators).filter((s) => s.value !== null);
+  const corePce = payload.indicators["core-pce"];
+  if (corePce?.value != null) {
+    if (corePce.value < 0 || corePce.value > 15) {
+      console.error(`[verify-framework] core-pce YoY implausible: ${corePce.value}%`);
+      process.exit(1);
+    }
+    console.log(`[verify-framework] ✓ core-pce YoY = ${corePce.value.toFixed(2)}%`);
+  }
   const withSpark = Object.values(payload.indicators).filter((s) => s.sparkline.length > 0);
   console.log(
     `[verify-framework] fetch result: value=${withValue.length}/${ids.length} sparkline=${withSpark.length}/${ids.length}`,

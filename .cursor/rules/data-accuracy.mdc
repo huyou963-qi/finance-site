@@ -1,0 +1,46 @@
+---
+description: 宏观数据展示准确性——序列语义、变换与合理性校验
+globs: src/lib/macro-framework/**,src/lib/data/scheduler/fredTransform.ts
+alwaysApply: false
+---
+
+# 宏观数据准确性
+
+## 核心原则
+
+- **展示语义必须与 unit 一致**：卡片写 `YoY%` 就不能直接展示 FRED 指数水平（如 PCEPILFE≈129）。
+- **不确定时显示 N/A**，禁止用占位/猜测数字糊弄用户。
+- **改库读数路径时**，核对 `indicatorCatalogKeys` 的 FRED id 是「水平」还是「已是同比」。
+
+## 宏观框架（`/macro/framework`）
+
+| 卡片 unit | FRED 典型序列 | 变换 |
+|-----------|---------------|------|
+| `YoY%` | CPIAUCSL、PCEPILFE、M2SL 等指数 | `yoy_pct`（`applyYoYPercent`） |
+| `MoM%` | RSXFS、ADEXUS 等水平 | `mom_pct` |
+| `YoY%` 但序列已是同比 | STICKCPIM159SFRBATL | `none`（见 `indicatorTransforms` 覆盖表） |
+| `%` / `指数` / `bp` | UNRATE、INDPRO、DGS10 | `none` |
+
+配置入口：`indicatorCatalogKeys.ts`（序列映射）+ `indicatorTransforms.ts`（变换与合理性）。
+
+## 合理性门禁
+
+`isPlausibleFrameworkValue`：YoY/MoM 绝对值 >50% → 视为无效 → N/A。防止指数被当成 % 展示。
+
+## 验证命令
+
+```bash
+npm run data:verify-framework
+```
+
+人工 spot-check：Core PCE YoY 应在 ~2–4% 量级，绝不是 100%+。
+
+## 反例
+
+```typescript
+// ❌ PCEPILFE 指数 129 直接当 YoY% 展示 → 129.6%
+"core-pce": "fred:PCEPILFE"  // 无 yoy 变换
+
+// ✅ 拉足够历史后 applyYoYPercent
+transform: "yoy_pct"  // → ~2.4%
+```
