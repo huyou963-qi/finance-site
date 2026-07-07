@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiErrorResponse, requireAdmin, requireUser } from "@/lib/api/eventAuth";
+import { apiErrorResponse, requireAdmin } from "@/lib/api/eventAuth";
 import { deleteWeeklyReport, getWeeklyReportById } from "@/lib/data/weeklyReports";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, ctx: RouteCtx) {
   try {
-    await requireUser(req);
     const { id } = await ctx.params;
     const report = await getWeeklyReportById(id);
     if (!report) {

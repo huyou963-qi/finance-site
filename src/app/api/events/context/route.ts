@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiErrorResponse, requireUser } from "@/lib/api/eventAuth";
+import { apiErrorResponse } from "@/lib/api/eventAuth";
 import { queryEventsByContext } from "@/lib/data/marketEvents";
 
 function parseCsv(param: string | null): string[] {
@@ -12,7 +12,6 @@ function parseCsv(param: string | null): string[] {
 
 export async function GET(req: NextRequest) {
   try {
-    await requireUser(req);
     const sp = req.nextUrl.searchParams;
     const date = sp.get("date");
     if (!date) {

@@ -11,8 +11,7 @@ import {
 } from "@/lib/data/marketEventTimeline";
 import {
   eventDisplayContent,
-  eventPreviewContent,
-  extractEventSection,
+  eraPreviewSummary,
 } from "@/lib/data/eventContentDisplay";
 
 export type EventTimelineViewProps = {
@@ -24,17 +23,6 @@ export type EventTimelineViewProps = {
   onDelete: (id: string) => void;
   rowRef?: (id: string, el: HTMLLIElement | null) => void;
 };
-
-function eraPreviewSummary(content: string, maxLen = 220): string {
-  const prosperity = extractEventSection(content, "繁荣动力");
-  const crisis = extractEventSection(content, "萧条/危机成因");
-  const parts = [prosperity, crisis].filter(Boolean);
-  if (parts.length) {
-    const joined = parts.join(" ");
-    return joined.length > maxLen ? `${joined.slice(0, maxLen)}…` : joined;
-  }
-  return eventPreviewContent(content, maxLen);
-}
 
 function EraSection({
   group,
@@ -111,7 +99,7 @@ function EraSection({
               {era.title ?? tag}
             </p>
             {!expanded ? (
-              <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-fs-muted">
+              <p className="mt-1 text-[10px] leading-relaxed text-fs-muted">
                 {eraPreviewSummary(era.content)}
               </p>
             ) : null}

@@ -65,11 +65,11 @@ export function EventTimelineCard({
       onClick={onSelect}
       className={`group relative flex w-full text-left transition-shadow ${
         node.lane === "above" ? "h-full flex-col" : "flex-col-reverse"
-      } ${selected ? "z-20" : "z-10"}`}
+      }`}
       style={{ width: cardW }}
     >
       <div
-        className={`shrink-0 overflow-hidden rounded-lg border bg-white shadow-sm transition ${
+        className={`shrink-0 overflow-hidden rounded-lg border bg-white shadow-sm transition group-hover:shadow-md ${
           selected
             ? "border-fs-accent bg-fs-accent-soft/40 ring-1 ring-fs-accent/25"
             : "border-fs-border group-hover:border-fs-accent/35"

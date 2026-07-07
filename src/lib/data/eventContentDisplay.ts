@@ -74,6 +74,41 @@ export function extractEventSection(
   return body || null;
 }
 
+/** 时代横轴顶栏展示的小节（按顺序） */
+export const ERA_TIMELINE_HEADER_SECTIONS = ["阶段概览", "繁荣动力"] as const;
+
+/** 时代横轴顶栏结构化段落（完整正文，不截断） */
+export function eraTimelineHeaderSections(content: string): EventContentSection[] {
+  const all = parseEventSections(content);
+  const picked: EventContentSection[] = [];
+  for (const key of ERA_TIMELINE_HEADER_SECTIONS) {
+    const hit = all.find((s) => s.title === key);
+    if (hit) picked.push(hit);
+  }
+  if (picked.length > 0) return picked;
+
+  const clean = stripEventSeedMarker(content);
+  if (!clean) return [];
+  return [{ title: "概览", body: clean }];
+}
+
+/** 列表折叠态时代摘要：优先【阶段概览】 */
+export function eraPreviewSummary(content: string, maxLen = 320): string {
+  const phaseOverview = extractEventSection(content, "阶段概览");
+  if (phaseOverview) {
+    return phaseOverview.length > maxLen ? `${phaseOverview.slice(0, maxLen)}…` : phaseOverview;
+  }
+
+  const prosperity = extractEventSection(content, "繁荣动力");
+  const crisis = extractEventSection(content, "萧条/危机成因");
+  const parts = [prosperity, crisis].filter(Boolean);
+  if (parts.length) {
+    const joined = parts.join(" ");
+    return joined.length > maxLen ? `${joined.slice(0, maxLen)}…` : joined;
+  }
+  return eventPreviewContent(content, maxLen);
+}
+
 /** 列表卡片摘要：优先【主要影响】，其次【事件概述】，否则截断全文 */
 export function eventPreviewContent(content: string, maxLen = 160): string {
   const impact = extractEventSection(content, "主要影响");

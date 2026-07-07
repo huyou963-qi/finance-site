@@ -7,7 +7,12 @@ import {
   type TimelineEraGroup,
 } from "@/lib/data/marketEventTimeline";
 import { US_HISTORY_ERA_CATALOG } from "@/lib/data/usHistoryEraCatalog";
-import { eventPreviewContent, extractEventSection } from "@/lib/data/eventContentDisplay";
+import {
+  eraTimelineHeaderSections,
+  eventPreviewContent,
+  extractEventSection,
+  type EventContentSection,
+} from "@/lib/data/eventContentDisplay";
 
 export const TIMELINE_ORIGIN_YEAR = 1776;
 export const TIMELINE_END_YEAR = 2026;
@@ -22,7 +27,9 @@ export type EraBand = {
   color: string;
   /** 顶部介绍条不透明底色 */
   headerBg: string;
+  /** @deprecated 使用 headerSections */
   summary?: string;
+  headerSections?: EventContentSection[];
 };
 
 export type TimelineEventNode = {
@@ -89,7 +96,7 @@ export function buildEraBands(groups: TimelineEraGroup[]): EraBand[] {
         toYear,
         color: ERA_COLORS[i % ERA_COLORS.length],
         headerBg: ERA_HEADER_BGS[i % ERA_HEADER_BGS.length],
-        summary: eventPreviewContent(g.era.content, 120),
+        headerSections: eraTimelineHeaderSections(g.era.content),
       };
     });
   }

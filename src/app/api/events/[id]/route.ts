@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiErrorResponse, requireAdmin, requireUser } from "@/lib/api/eventAuth";
+import { apiErrorResponse, requireAdmin } from "@/lib/api/eventAuth";
 import {
   deleteMarketEvent,
   getMarketEventById,
@@ -11,7 +11,6 @@ type RouteCtx = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, ctx: RouteCtx) {
   try {
-    await requireUser(req);
     const { id } = await ctx.params;
     const event = await getMarketEventById(id);
     if (!event) return NextResponse.json({ error: "事件不存在" }, { status: 404 });

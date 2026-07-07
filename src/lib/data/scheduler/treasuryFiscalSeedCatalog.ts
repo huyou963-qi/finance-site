@@ -49,6 +49,76 @@ function rowFromKey(
 /** Treasury Fiscal Data API — 已验证可拉取的序列 */
 export const TREASURY_FISCAL_SERIES: readonly TreasuryFiscalSeedRow[] = [
   rowFromKey(
+    "us-mts-deficit-fytd",
+    "treasury_mts_m01_deficit_fytd",
+    "mts1:deficit_fytd",
+    "MTS 联邦财年累计赤字（FYTD）",
+    "月",
+    "MONTHLY",
+    "美元",
+    "Treasury MTS Table 1 现金制；FY 10/1 起逐月累加",
+  ),
+  rowFromKey(
+    "us-mts-receipts-fytd",
+    "treasury_mts_m01_receipts_fytd",
+    "mts1:receipts_fytd",
+    "MTS 联邦财年累计收入（FYTD）",
+    "月",
+    "MONTHLY",
+    "美元",
+    "Treasury MTS Table 1 现金制；FY 10/1 起逐月累加",
+  ),
+  rowFromKey(
+    "us-mts-outlays-fytd",
+    "treasury_mts_m01_outlays_fytd",
+    "mts1:outlays_fytd",
+    "MTS 联邦财年累计支出（FYTD）",
+    "月",
+    "MONTHLY",
+    "美元",
+    "Treasury MTS Table 1 现金制；FY 10/1 起逐月累加",
+  ),
+  rowFromKey(
+    "us-receipts-excise-tax",
+    "treasury_mts_m09_rcpt_excise",
+    "mts9:excise",
+    "MTS 消费税（现金，月）",
+    "月",
+    "MONTHLY",
+    "美元",
+    "Treasury MTS Table 9 分项（Excise Taxes）",
+  ),
+  rowFromKey(
+    "us-outlays-defense",
+    "treasury_mts_m09_outlay_defense",
+    "mts9:defense",
+    "MTS 国防支出（现金，月）",
+    "月",
+    "MONTHLY",
+    "美元",
+    "Treasury MTS Table 9 功能分类 National Defense",
+  ),
+  rowFromKey(
+    "us-outlays-social-security",
+    "treasury_mts_m09_outlay_social_security",
+    "mts9:social_security",
+    "MTS 社保支出（现金，月）",
+    "月",
+    "MONTHLY",
+    "美元",
+    "Treasury MTS Table 9 功能分类 Social Security",
+  ),
+  rowFromKey(
+    "us-outlays-medicare",
+    "treasury_mts_m09_outlay_medicare",
+    "mts9:medicare",
+    "MTS 医保支出（现金，月）",
+    "月",
+    "MONTHLY",
+    "美元",
+    "Treasury MTS Table 9 功能分类 Medicare",
+  ),
+  rowFromKey(
     "us-mts-receipts",
     "treasury_mts_m01_receipts",
     "mts1:receipts",
@@ -215,4 +285,9 @@ export function buildTreasuryInstrumentMetadata(
   };
 }
 
-export const TREASURY_FISCAL_PENDING_ROLE_IDS = [] as const;
+export const TREASURY_FISCAL_PENDING_ROLE_IDS = [
+  "us-financial-report-net-operating-cost",
+  "us-financial-report-net-position",
+  "us-financial-report-ss-medicare-pv-gap",
+  "us-financial-report-contingent-liabilities",
+] as const;

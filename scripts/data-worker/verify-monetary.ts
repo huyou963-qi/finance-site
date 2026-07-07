@@ -41,6 +41,13 @@ function obsCutoffIso(granularity: DataGranularity, now = new Date()): string {
  * 故 FRED 起点早于 1950 的序列（BUSLOANS 1947）以 1951 为界。
  */
 const HISTORY_DEPTH_MAX_FIRST_YEAR: Record<string, number> = {
+  WRESBAL: 2002,
+  TREAST: 2002,
+  WLRRAL: 2002,
+  WTREGEN: 2002,
+  SOFR: 2018,
+  IORB: 2021,
+  RRPONTSYAWARD: 2013,
   EFFR: 2001,
   DGS2: 1977,
   DFII10: 2004,
@@ -135,7 +142,7 @@ async function main() {
     }
     console.log(`  ✓ ${pkgOk}/${pkgExpectations.length} 条发布包归属正确`);
 
-    console.log("[verify-monetary] Instrument metadata（仅本维度 seed 的 12 条）");
+    console.log(`[verify-monetary] Instrument metadata（本维度 seed 的 ${MONETARY_FRED_SERIES.length} 条）`);
     let metaOk = 0;
     for (const row of MONETARY_FRED_SERIES) {
       const inst = await prisma.instrument.findUnique({ where: { code: row.code } });

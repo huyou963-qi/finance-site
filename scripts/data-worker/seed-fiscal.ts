@@ -23,6 +23,10 @@ import {
   FISCAL_COMPOSITE_SERIES,
   buildFiscalCompositeInstrumentMetadata,
 } from "../../src/lib/data/scheduler/fiscalCompositeFred";
+import {
+  FISCAL_TREASURY_COMPOSITE_SERIES,
+  buildFiscalTreasuryCompositeInstrumentMetadata,
+} from "../../src/lib/data/scheduler/fiscalTreasuryComposite";
 import { computeNextRunAt, defaultReleaseRuleForGranularity } from "../../src/lib/data/scheduler/releaseRule";
 import { P0_DATA_SOURCE_FRED } from "../../src/lib/data/scheduler/p0SeedCatalog";
 import { runDataSubscription } from "../../src/lib/data/scheduler/runSubscription";
@@ -395,6 +399,73 @@ async function seedFiscalCompositeSeries() {
   }
 }
 
+async function seedFiscalTreasuryCompositeSeries() {
+  for (const row of FISCAL_TREASURY_COMPOSITE_SERIES) {
+    const releaseRule = defaultReleaseRuleForGranularity(row.granularity);
+    const nextRunAt = computeNextRunAt(releaseRule, new Date());
+    const existing = await prisma.instrument.findUnique({ where: { code: row.code } });
+
+    const latestObs = existing
+      ? await prisma.macroObservation.findFirst({
+          where: { instrumentId: existing.id },
+          orderBy: { obsDate: "desc" },
+        })
+      : null;
+
+    const metadata = buildFiscalTreasuryCompositeInstrumentMetadata(row, {
+      dataLastObsDateIso: latestObs?.obsDate.toISOString().slice(0, 10) ?? null,
+      existing:
+        existing?.metadata && typeof existing.metadata === "object"
+          ? (existing.metadata as Record<string, unknown>)
+          : null,
+    });
+
+    const inst = await prisma.instrument.upsert({
+      where: { code: row.code },
+      create: {
+        code: row.code,
+        name: row.name,
+        kind: InstrumentKind.MACRO_SERIES,
+        freqLabel: row.freqLabel,
+        unit: row.unit,
+        metadata: metadata as object,
+      },
+      update: {
+        name: row.name,
+        freqLabel: row.freqLabel,
+        unit: row.unit,
+        metadata: metadata as object,
+      },
+    });
+
+    await prisma.dataSubscription.upsert({
+      where: { instrumentId: inst.id },
+      create: {
+        instrumentId: inst.id,
+        sourceId: TREASURY_DATA_SOURCE.id,
+        sourceSeriesKey: "COMPOSITE",
+        granularity: row.granularity,
+        fetchMethod: DataFetchMethod.API,
+        enabled: true,
+        priority: 48,
+        releaseRule: releaseRule as object,
+        nextRunAt,
+      },
+      update: {
+        sourceId: TREASURY_DATA_SOURCE.id,
+        sourceSeriesKey: "COMPOSITE",
+        granularity: row.granularity,
+        fetchMethod: DataFetchMethod.API,
+        enabled: true,
+        releaseRule: releaseRule as object,
+        nextRunAt,
+      },
+    });
+
+    console.info(`  [treasury-composite] ${row.code} ← ${row.roleId}`);
+  }
+}
+
 async function syncAllFiscalSubscriptions() {
   const codes = [
     ...TREASURY_FISCAL_SERIES.map((r) => r.code),
@@ -403,6 +474,7 @@ async function syncAllFiscalSubscriptions() {
     ),
     ...FISCAL_FRED_YOY_SERIES.map((r) => r.code),
     ...FISCAL_COMPOSITE_SERIES.map((r) => r.code),
+    ...FISCAL_TREASURY_COMPOSITE_SERIES.map((r) => r.code),
   ];
 
   console.info("[data:seed-fiscal] 拉取观测…");
@@ -441,6 +513,7 @@ async function main() {
     console.info("[data:seed-fiscal] FRED YoY / 复合…");
     await seedFiscalFredYoySeries();
     await seedFiscalCompositeSeries();
+    await seedFiscalTreasuryCompositeSeries();
   }
   await syncAllFiscalSubscriptions();
   clearFredCatalogCache();

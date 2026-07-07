@@ -4,6 +4,12 @@ import type { UsovCompositeSpec } from "./usovCompositeFred";
 export const FISCAL_COMPOSITE_FRED: Record<string, UsovCompositeSpec> = {
   /** FYFSGDA188S − FYOIGDA188S：初级赤字占 GDP % */
   fiscal_primary_deficit_gdp: { kind: "spread", a: "FYFSGDA188S", b: "FYOIGDA188S" },
+  /** FYOIGDA188S / FYONGDA188S × 100：利息占净支出 %（年频 OMB 代理） */
+  fiscal_interest_share_outlays_annual: {
+    kind: "ratio",
+    num: "FYOIGDA188S",
+    den: "FYONGDA188S",
+  },
 };
 
 export function fiscalCompositeSpec(instrumentCode: string): UsovCompositeSpec | null {
@@ -31,6 +37,16 @@ export const FISCAL_COMPOSITE_SERIES: readonly FiscalCompositeSeedRow[] = [
     granularity: "ANNUAL",
     unit: "%",
     sourceUpdateNote: "FRED 复合：FYFSGDA188S − FYOIGDA188S（同日期 spread）",
+  },
+  {
+    code: "fiscal_interest_share_outlays_annual",
+    roleId: "us-outlays-net-interest-share-annual",
+    name: "净利息占联邦净支出比例（年）",
+    displayName: "净利息占联邦净支出比例（年）",
+    freqLabel: "年",
+    granularity: "ANNUAL",
+    unit: "比率",
+    sourceUpdateNote: "FRED 复合：FYOIGDA188S / FYONGDA188S（OMB 年频；非 MTS 现金月频）",
   },
 ] as const;
 

@@ -1,6 +1,7 @@
 /** Treasury Fiscal Data API 序列规格 */
 export type TreasuryRowSelector =
   | "mts1_fy_month"
+  | "mts1_fytd_cumulative"
   | "classification_desc"
   | "account_type"
   | "mts9_sum"
@@ -64,6 +65,24 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
     apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
     valueField: "current_month_dfct_sur_amt",
   },
+  "mts1:receipts_fytd": {
+    endpoint: "v1/accounting/mts/mts_table_1",
+    rowSelector: "mts1_fytd_cumulative",
+    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
+    valueField: "current_month_gross_rcpt_amt",
+  },
+  "mts1:outlays_fytd": {
+    endpoint: "v1/accounting/mts/mts_table_1",
+    rowSelector: "mts1_fytd_cumulative",
+    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
+    valueField: "current_month_gross_outly_amt",
+  },
+  "mts1:deficit_fytd": {
+    endpoint: "v1/accounting/mts/mts_table_1",
+    rowSelector: "mts1_fytd_cumulative",
+    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
+    valueField: "current_month_dfct_sur_amt",
+  },
   "mts9:individual_income": {
     endpoint: "v1/accounting/mts/mts_table_9",
     rowSelector: "classification_desc",
@@ -84,6 +103,34 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
     valueField: "current_month_rcpt_outly_amt",
     classificationDesc: "Employment and General Retirement",
     recordTypeCd: "RSG",
+  },
+  "mts9:excise": {
+    endpoint: "v1/accounting/mts/mts_table_9",
+    rowSelector: "classification_desc",
+    valueField: "current_month_rcpt_outly_amt",
+    classificationDesc: "Excise Taxes",
+    recordTypeCd: "RSG",
+  },
+  "mts9:defense": {
+    endpoint: "v1/accounting/mts/mts_table_9",
+    rowSelector: "classification_desc",
+    valueField: "current_month_rcpt_outly_amt",
+    classificationDesc: "National Defense",
+    recordTypeCd: "F",
+  },
+  "mts9:social_security": {
+    endpoint: "v1/accounting/mts/mts_table_9",
+    rowSelector: "classification_desc",
+    valueField: "current_month_rcpt_outly_amt",
+    classificationDesc: "Social Security",
+    recordTypeCd: "F",
+  },
+  "mts9:medicare": {
+    endpoint: "v1/accounting/mts/mts_table_9",
+    rowSelector: "classification_desc",
+    valueField: "current_month_rcpt_outly_amt",
+    classificationDesc: "Medicare",
+    recordTypeCd: "F",
   },
   "mts9:net_interest": {
     endpoint: "v1/accounting/mts/mts_table_9",

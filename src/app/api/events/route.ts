@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { EventImportance } from "@prisma/client";
-import { apiErrorResponse, requireAdmin, requireUser } from "@/lib/api/eventAuth";
+import { apiErrorResponse, requireAdmin } from "@/lib/api/eventAuth";
 import {
   createMarketEvent,
   listMarketEvents,
@@ -17,7 +17,6 @@ function parseCsv(param: string | null): string[] {
 
 export async function GET(req: NextRequest) {
   try {
-    await requireUser(req);
     const sp = req.nextUrl.searchParams;
     const importance = parseCsv(sp.get("importance")) as EventImportance[];
     const result = await listMarketEvents({

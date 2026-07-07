@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiErrorResponse, requireUser } from "@/lib/api/eventAuth";
+import { apiErrorResponse } from "@/lib/api/eventAuth";
 import { requireWeeklyReportIngest } from "@/lib/api/weeklyReportAuth";
 import {
   listWeeklyReports,
@@ -19,7 +19,6 @@ function weeklyApiError(e: unknown) {
 
 export async function GET(req: NextRequest) {
   try {
-    await requireUser(req);
     const sp = req.nextUrl.searchParams;
     const limit = sp.get("limit") ? Number(sp.get("limit")) : undefined;
     const offset = sp.get("offset") ? Number(sp.get("offset")) : undefined;

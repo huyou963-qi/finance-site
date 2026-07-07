@@ -1,6 +1,7 @@
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
 import {
   fetchTreasuryRows,
+  fiscalYearForCalendarDate,
   parseTreasuryAmount,
   parseTreasuryDate,
   selectMts1FyMonthRow,
@@ -66,6 +67,30 @@ function rowsToPointsMts1FyMonth(
     points.push({ obsDate: parseTreasuryDate(recordDate), value });
   }
   return points;
+}
+
+/** MTS Table 1 月值按联邦财年（10 月起）累加为 FYTD */
+function rowsToPointsMts1FytdCumulative(
+  rows: TreasuryRow[],
+  valueField: string,
+): ObservationPoint[] {
+  const monthly = rowsToPointsMts1FyMonth(rows, valueField).sort(
+    (a, b) => a.obsDate.getTime() - b.obsDate.getTime(),
+  );
+  const out: ObservationPoint[] = [];
+  let running = 0;
+  let currentFy: number | null = null;
+  for (const point of monthly) {
+    const iso = point.obsDate.toISOString().slice(0, 10);
+    const fy = fiscalYearForCalendarDate(iso);
+    if (currentFy !== fy) {
+      running = 0;
+      currentFy = fy;
+    }
+    running += point.value;
+    out.push({ obsDate: point.obsDate, value: running });
+  }
+  return out;
 }
 
 function rowsToPointsMts9Sum(
@@ -153,6 +178,8 @@ export async function fetchTreasuryFiscalIncremental(
 
   if (spec.rowSelector === "mts1_fy_month") {
     allPoints = rowsToPointsMts1FyMonth(rows, spec.valueField);
+  } else if (spec.rowSelector === "mts1_fytd_cumulative") {
+    allPoints = rowsToPointsMts1FytdCumulative(rows, spec.valueField);
   } else if (spec.rowSelector === "classification_desc") {
     if (!spec.classificationDesc) {
       throw new Error("classification_desc 序列缺少 classificationDesc");

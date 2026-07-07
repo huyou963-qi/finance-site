@@ -23,7 +23,21 @@ export type MonetaryFredSeedRow = {
 };
 
 function monetaryFredSourceMeta(fredId: string): { source: string; sourceUpdateNote: string } {
-  if (fredId === "EFFR" || fredId === "RRPONTSYD") {
+  if (
+    fredId === "WRESBAL" ||
+    fredId === "TREAST" ||
+    fredId === "WLRRAL" ||
+    fredId === "WTREGEN"
+  ) {
+    return { source: "Fed H.4.1/FRED", sourceUpdateNote: "每周四" };
+  }
+  if (fredId === "SOFR") {
+    return { source: "NY Fed/FRED", sourceUpdateNote: "交易日" };
+  }
+  if (fredId === "IORB") {
+    return { source: "Fed/FRED", sourceUpdateNote: "交易日" };
+  }
+  if (fredId === "EFFR" || fredId === "RRPONTSYD" || fredId === "RRPONTSYAWARD") {
     return { source: "NY Fed/FRED", sourceUpdateNote: "交易日" };
   }
   if (fredId === "DGS2" || fredId === "DGS10" || fredId === "DFII10" || fredId === "T10Y3M") {
@@ -97,10 +111,49 @@ export function buildMonetaryInstrumentMetadata(
   return next;
 }
 
-/** 本维度新 seed 的 12 条 FRED 序列（含所属发布包，按 FRED 官方 Release: 字段分组） */
+/** 本维度新 seed 的 FRED 序列（含所属发布包，按 FRED 官方 Release: 字段分组） */
 export const MONETARY_FRED_SERIES: readonly (MonetaryFredSeedRow & {
   releasePackageId: string;
 })[] = [
+  monetaryFredRow("WRESBAL", "准备金余额", "流动性", "周", "WEEKLY", "百万美元", "us.fed.h41"),
+  monetaryFredRow(
+    "TREAST",
+    "持有国债（证券持有）",
+    "流动性",
+    "周",
+    "WEEKLY",
+    "百万美元",
+    "us.fed.h41",
+  ),
+  monetaryFredRow(
+    "WLRRAL",
+    "逆回购协议余额",
+    "流动性",
+    "周",
+    "WEEKLY",
+    "百万美元",
+    "us.fed.h41",
+  ),
+  monetaryFredRow(
+    "WTREGEN",
+    "美国财政部一般账户（TGA）",
+    "流动性",
+    "周",
+    "WEEKLY",
+    "百万美元",
+    "us.fed.h41",
+  ),
+  monetaryFredRow("SOFR", "担保隔夜融资利率（SOFR）", "货币政策", "日", "DAILY", "%", "us.nyfed.sofr"),
+  monetaryFredRow("IORB", "准备金利率（IORB）", "货币政策", "日", "DAILY", "%", "us.fed.iorb"),
+  monetaryFredRow(
+    "RRPONTSYAWARD",
+    "ON RRP 利率",
+    "货币政策",
+    "日",
+    "DAILY",
+    "%",
+    "us.nyfed.rrp",
+  ),
   monetaryFredRow("EFFR", "有效联邦基金利率", "货币政策", "日", "DAILY", "%", "us.nyfed.effr"),
   monetaryFredRow("DGS2", "2Y 国债收益率", "货币政策", "日", "DAILY", "%", "us.frb.h15_rates"),
   monetaryFredRow("DFII10", "10Y TIPS 实际收益率", "货币政策", "日", "DAILY", "%", "us.frb.h15_rates"),

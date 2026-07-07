@@ -86,6 +86,13 @@ export async function fetchSubscriptionIncremental(
       return fetchEStatIncremental(sub.sourceSeriesKey, fetchStart);
     }
     if (sub.sourceId === "treasury-fiscal-data") {
+      const { fiscalTreasuryCompositeSpec, fetchTreasuryCompositeIncremental } = await import(
+        "./fiscalTreasuryComposite"
+      );
+      const treasuryComposite = fiscalTreasuryCompositeSpec(sub.instrument.code);
+      if (treasuryComposite) {
+        return fetchTreasuryCompositeIncremental(treasuryComposite, fetchStart);
+      }
       const { fetchTreasuryFiscalIncremental } = await import(
         "./adapters/treasuryFiscalDataAdapter"
       );

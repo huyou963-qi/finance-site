@@ -11,6 +11,7 @@ import {
   FISCAL_FRED_SERIES,
   FISCAL_FRED_YOY_SERIES,
 } from "../../src/lib/data/scheduler/fiscalFredSeedCatalog";
+import { FISCAL_TREASURY_COMPOSITE_SERIES } from "../../src/lib/data/scheduler/fiscalTreasuryComposite";
 import {
   TREASURY_FISCAL_PENDING_ROLE_IDS,
   TREASURY_FISCAL_SERIES,
@@ -132,6 +133,9 @@ async function main() {
   for (const row of FISCAL_COMPOSITE_SERIES) {
     console.log(`  · ${row.roleId} → ${row.code} (composite)`);
   }
+  for (const row of FISCAL_TREASURY_COMPOSITE_SERIES) {
+    console.log(`  · ${row.roleId} → ${row.code} (treasury-composite)`);
+  }
 
   if (TREASURY_FISCAL_PENDING_ROLE_IDS.length > 0) {
     console.log("[verify-fiscal] 待人工/后续（未入库）");
@@ -179,6 +183,15 @@ async function main() {
       prisma,
       "FRED 复合观测",
       FISCAL_COMPOSITE_SERIES.map((r) => ({
+        code: r.code,
+        granularity: r.granularity,
+        freqLabel: r.freqLabel,
+      })),
+    );
+    totalErrors += await verifyInstrumentRows(
+      prisma,
+      "Treasury 复合观测",
+      FISCAL_TREASURY_COMPOSITE_SERIES.map((r) => ({
         code: r.code,
         granularity: r.granularity,
         freqLabel: r.freqLabel,

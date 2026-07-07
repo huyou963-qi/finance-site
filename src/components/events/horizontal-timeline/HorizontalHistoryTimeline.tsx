@@ -55,7 +55,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
   );
 
   const canvasH = Math.max(MIN_CANVAS_H, viewportH);
-  const eraHeaderH = Math.min(100, Math.max(72, Math.round(canvasH * 0.13)));
+  const eraHeaderH = Math.min(168, Math.max(96, Math.round(canvasH * 0.2)));
   const axisY = Math.round(canvasH * 0.5);
 
   const pxPerYear = BASE_PX_PER_YEAR * zoom;
@@ -193,10 +193,13 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
 
             if (isAbove) {
               const maxCardH = axisY - AXIS_GAP - eraHeaderH - stagger;
+              const isSelected = selected?.event.id === node.event.id;
               return (
                 <div
                   key={node.event.id}
-                  className="absolute z-10 overflow-hidden"
+                  className={`absolute z-10 overflow-hidden hover:z-[50] ${
+                    isSelected ? "z-[49]" : ""
+                  }`}
                   style={{
                     left: node.x - CARD_HALF_W,
                     bottom: canvasH - (axisY - AXIS_GAP),
@@ -218,10 +221,11 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
               );
             }
 
+            const isSelected = selected?.event.id === node.event.id;
             return (
               <div
                 key={node.event.id}
-                className="absolute z-10"
+                className={`absolute z-10 hover:z-[50] ${isSelected ? "z-[49]" : ""}`}
                 style={{
                   left: node.x - CARD_HALF_W,
                   top: axisY + AXIS_GAP + stagger,
@@ -245,7 +249,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
           {eraBands.map((band) => (
             <div
               key={`era-header-${band.id}`}
-              className="absolute top-0 z-50 border-b border-fs-border/60 px-3 py-2.5 shadow-sm"
+              className="absolute top-0 z-50 flex flex-col overflow-hidden border-b border-fs-border/60 px-3 py-2 shadow-sm"
               style={{
                 left: (band.fromYear - 1776) * pxPerYear,
                 width: (band.toYear - band.fromYear) * pxPerYear,
@@ -253,14 +257,22 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
                 backgroundColor: band.headerBg,
               }}
             >
-              <p className="text-[10px] font-medium uppercase tracking-widest text-fs-muted">
+              <p className="shrink-0 text-[10px] font-medium uppercase tracking-widest text-fs-muted">
                 {band.fromYear}–{band.toYear >= 2020 ? "今" : band.toYear}
               </p>
-              <p className="mt-0.5 text-sm font-semibold text-fs-text">{band.tag}</p>
-              {band.summary && (band.toYear - band.fromYear) * pxPerYear > 200 ? (
-                <p className="mt-1 line-clamp-2 text-[10px] leading-relaxed text-fs-secondary">
-                  {band.summary}
-                </p>
+              <p className="mt-0.5 shrink-0 text-sm font-semibold text-fs-text">{band.tag}</p>
+              {band.headerSections && band.headerSections.length > 0 && (band.toYear - band.fromYear) * pxPerYear > 120 ? (
+                <div className="mt-1 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">
+                  {band.headerSections.map((section) => (
+                    <p
+                      key={section.title}
+                      className="text-[10px] leading-relaxed text-fs-secondary"
+                    >
+                      <span className="font-medium text-fs-text">【{section.title}】</span>
+                      {section.body}
+                    </p>
+                  ))}
+                </div>
               ) : null}
             </div>
           ))}

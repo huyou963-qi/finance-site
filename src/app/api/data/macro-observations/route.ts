@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
-import { getUserByRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 function parseDay(s: string): Date {
@@ -10,14 +9,9 @@ function parseDay(s: string): Date {
 
 /**
  * GET /api/data/macro-observations?instrumentId=&from=&to=&limit=
- * 读取 mds.MacroObservation（登录）。instrumentId 为 Instrument.id（UUID）。
+ * 读取 mds.MacroObservation。instrumentId 为 Instrument.id（UUID）。
  */
 export async function GET(request: NextRequest) {
-  const user = await getUserByRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "请先登录" }, { status: 401 });
-  }
-
   const url = new URL(request.url);
   const instrumentId = url.searchParams.get("instrumentId")?.trim();
   if (!instrumentId) {

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { InstrumentKind } from "@prisma/client";
-import { getUserByRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,11 +8,6 @@ import { prisma } from "@/lib/prisma";
  * 统一标的目录（mds）。业务引用优先使用 id（UUID）或 code（稳定短码）。
  */
 export async function GET(request: NextRequest) {
-  const user = await getUserByRequest(request);
-  if (!user) {
-    return NextResponse.json({ error: "请先登录" }, { status: 401 });
-  }
-
   const url = new URL(request.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
   const kindParam = url.searchParams.get("kind")?.trim();
