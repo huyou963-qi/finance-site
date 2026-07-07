@@ -214,15 +214,16 @@ async function seedFiscalFredSeries() {
         kind: InstrumentKind.MACRO_SERIES,
         freqLabel: row.freqLabel,
         unit: row.unit,
-        // 注意：不设 fredSeriesId —— 部分财政 FRED 序列的 fredId 已被其他域仪器占用
-        // （Instrument.fredSeriesId 有 @unique 约束，存在重复仪器），设置会触发冲突。
-        // 订阅的 sourceSeriesKey 已是正确 FRED id，拉取正常。
+        // 财政直接 FRED 段为原始序列（sched_fred_<id>），持有 fredSeriesId 供 fredDbFirst
+        // 读库优先命中。变换派生仪器（fiscal_fgcec1_yoy）不在本段，见 seedFiscalFredYoySeries。
+        fredSeriesId: row.fredId,
         metadata: metadata as object,
       },
       update: {
         name: row.name,
         freqLabel: row.freqLabel,
         unit: row.unit,
+        fredSeriesId: row.fredId,
         metadata: metadata as object,
       },
     });
@@ -286,9 +287,9 @@ async function seedFiscalFredYoySeries() {
         kind: InstrumentKind.MACRO_SERIES,
         freqLabel: row.freqLabel,
         unit: row.unit,
-        // 注意：不设 fredSeriesId —— 部分财政 FRED 序列的 fredId 已被其他域仪器占用
-        // （Instrument.fredSeriesId 有 @unique 约束，存在重复仪器），设置会触发冲突。
-        // 订阅的 sourceSeriesKey 已是正确 FRED id，拉取正常。
+        // 刻意不设 fredSeriesId —— 本段为 YoY 变换派生仪器（如 fiscal_fgcec1_yoy），其
+        // sourceSeriesKey 与原始序列（sched_fred_FGCEC1）同为 FGCEC1。fredSeriesId 有 @unique，
+        // 且 fredDbFirst 须映射 fredId→原始观测，故 fredSeriesId 只归原始序列，变换仪器保持 null。
         metadata: metadata as object,
       },
       update: {

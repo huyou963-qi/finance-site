@@ -78,12 +78,16 @@ async function main() {
         kind: InstrumentKind.MACRO_SERIES,
         freqLabel: row.freqLabel,
         unit: row.unit,
+        // Overview 序列均为 sched_fred_<id> 原始 FRED 序列（非变换），持有 fredSeriesId
+        // 供 fredDbFirst 读库优先命中；YoY/3mma 等变换仪器（usov_c*）保持 null。
+        fredSeriesId: row.fredId,
         metadata: metadata as object,
       },
       update: {
         name: row.name,
         freqLabel: row.freqLabel,
         unit: row.unit,
+        fredSeriesId: row.fredId,
         metadata: metadata as object,
       },
     });
