@@ -118,7 +118,33 @@ git push
 
 宏观/K 线大文件冲突时，优先保留 **双方功能** 再手动合并 import，不要整文件用一方覆盖。
 
-## 9. 获取帮助
+## 10. 生产部署（阿里云）
+
+生产环境使用 **GitHub Actions + tar**，配置文件：`.github/workflows/deploy.yml`。
+
+```text
+git push main
+  → Actions: build + deploy-pack.mjs → deploy.tar.gz
+  → scp 到服务器 /opt/finance-site/
+  → tar 解压 → db:migrate → data:apply → pm2 restart
+```
+
+**服务器上不需要 `git pull`**。每次解压会覆盖文件；若目录里还有 `.git`，`git status` 会显示大量 modified，**不代表线上没更新**，以 Actions 是否成功为准。
+
+手动排查时：
+
+```bash
+cd /opt/finance-site
+pm2 status
+pm2 logs finance-site --lines 50
+curl -fsS http://127.0.0.1:3000/
+# 仅当 deploy 日志里 data:apply 失败时：
+npm run data:apply
+```
+
+数据落库细节见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)。Secrets：`DEPLOY_HOST`、`DEPLOY_SSH_KEY`（在 GitHub 仓库 Settings）。
+
+## 11. 获取帮助
 
 - 架构与命令：`AGENTS.md`
 - 环境与数据源：`README.md`

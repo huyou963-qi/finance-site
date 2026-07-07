@@ -152,6 +152,24 @@ npm run db:studio        # Prisma Studio
 - 不要在未协调时大改 `MacroSection.tsx` 整体结构
 - 生产部署密钥不要写进仓库（用服务器 `.env.local` 或 GitHub Secrets）
 
+## 生产部署（阿里云 / GitHub Actions）
+
+**代码不走服务器 `git pull`**。`main` push 触发 `.github/workflows/deploy.yml`：
+
+1. GitHub Actions：`npm ci` → `npm run build` → `node scripts/deploy-pack.mjs` → `deploy.tar.gz`
+2. `scp` 到服务器 `/opt/finance-site/`，解压覆盖 `.next`、`node_modules`、`src`、`scripts` 等
+3. 服务器上：`npm run db:migrate` → `npm run data:apply -- --skip-migrate` → `pm2 restart finance-site`
+
+数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)。
+
+| 在服务器上 | 不要做 |
+|-----------|--------|
+| 保留 `.env.local`（`DATABASE_URL`、`FRED_API_KEY` 等） | `git pull` / 在服务器改业务代码 |
+| 看 Actions 日志与 `pm2 logs` | 用 `git status` 判断是否已部署最新版 |
+| deploy 失败时手动 `npm run data:apply` | `pg_dump` 同步开发库 |
+
+若 `/opt/finance-site` 曾有 `git clone`，tar 解压后 `git status` 会一片红，可忽略或删除 `.git`。
+
 ## 部署参考（内网 Windows）
 
 ```bash
