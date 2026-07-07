@@ -214,6 +214,9 @@ async function seedFiscalFredSeries() {
         kind: InstrumentKind.MACRO_SERIES,
         freqLabel: row.freqLabel,
         unit: row.unit,
+        // 注意：不设 fredSeriesId —— 部分财政 FRED 序列的 fredId 已被其他域仪器占用
+        // （Instrument.fredSeriesId 有 @unique 约束，存在重复仪器），设置会触发冲突。
+        // 订阅的 sourceSeriesKey 已是正确 FRED id，拉取正常。
         metadata: metadata as object,
       },
       update: {
@@ -283,6 +286,9 @@ async function seedFiscalFredYoySeries() {
         kind: InstrumentKind.MACRO_SERIES,
         freqLabel: row.freqLabel,
         unit: row.unit,
+        // 注意：不设 fredSeriesId —— 部分财政 FRED 序列的 fredId 已被其他域仪器占用
+        // （Instrument.fredSeriesId 有 @unique 约束，存在重复仪器），设置会触发冲突。
+        // 订阅的 sourceSeriesKey 已是正确 FRED id，拉取正常。
         metadata: metadata as object,
       },
       update: {

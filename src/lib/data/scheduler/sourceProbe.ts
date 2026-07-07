@@ -93,8 +93,11 @@ async function probeFredSeries(
   methodLabel: string,
   rateLimiter?: FredRateLimiter,
 ): Promise<ProbeOutcome> {
+  // probe 只确认「能拉到数据」（可访问性），非新鲜度检查——新鲜度由频率感知的
+  // resolveUpdateStatus 负责。窗口取 30 个月：覆盖年频（合理滞后可达 ~24 月，否则
+  // 年频序列会被 6 个月窗口误判 pending），又能让真正停更 >30 月的死序列返回 0 点保持 pending。
   const start = new Date();
-  start.setUTCMonth(start.getUTCMonth() - 6);
+  start.setUTCMonth(start.getUTCMonth() - 30);
   const observationStart = start.toISOString().slice(0, 10);
   try {
     const result = await fetchFredIncremental(
@@ -108,7 +111,7 @@ async function probeFredSeries(
         method,
         methodLabel,
         officialUrl: `https://fred.stlouisfed.org/series/${seriesId}`,
-        message: "FRED 序列可访问但近 6 个月无新观测",
+        message: "FRED 序列可访问但近 30 个月无观测（疑似停更）",
         error: "no_recent_points",
       });
     }
