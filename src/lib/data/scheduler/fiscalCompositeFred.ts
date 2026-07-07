@@ -1,4 +1,5 @@
 import type { UsovCompositeSpec } from "./usovCompositeFred";
+import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 
 /** 财政 FRED 复合序列（worker 内多序列拉取后计算） */
 export const FISCAL_COMPOSITE_FRED: Record<string, UsovCompositeSpec> = {
@@ -66,7 +67,11 @@ export function buildFiscalCompositeInstrumentMetadata(
     countryCode: "US",
     countryNameZh: "美国",
     displayName: row.displayName,
-    catalogCategory: "财政",
+    catalogCategory: usMetadataCatalogCategory({
+      code: row.code,
+      label: row.displayName,
+      legacyCategory: "财政",
+    }),
     freqLabel: row.freqLabel,
     unit: row.unit,
     catalogKey: `fiscal:${row.code}`,

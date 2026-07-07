@@ -1,4 +1,5 @@
 import type { DataGranularity } from "@prisma/client";
+import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 import {
   defaultEconomicCalendarRule,
   defaultReleaseRuleForGranularity,
@@ -96,7 +97,12 @@ export function buildHousingInstrumentMetadata(
     countryCode: row.countryCode,
     countryNameZh: "美国",
     displayName: row.displayName,
-    catalogCategory: row.category,
+    catalogCategory: usMetadataCatalogCategory({
+      code: row.code,
+      fredId: row.fredId,
+      label: row.displayName,
+      legacyCategory: row.category,
+    }),
     freqLabel: row.freqLabel,
     unit: row.unit,
     catalogKey: `fred:${row.fredId}`,

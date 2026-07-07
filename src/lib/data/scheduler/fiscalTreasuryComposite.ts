@@ -1,4 +1,5 @@
 import { fetchTreasuryFiscalIncremental } from "./adapters/treasuryFiscalDataAdapter";
+import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 import { treasurySourceSeriesKey, TREASURY_FISCAL_SERIES } from "./treasuryFiscalSeedCatalog";
 import type { FetchIncrementalResult, ObservationPoint } from "./types";
 
@@ -178,7 +179,11 @@ export function buildFiscalTreasuryCompositeInstrumentMetadata(
     countryCode: "US",
     countryNameZh: "美国",
     displayName: row.displayName,
-    catalogCategory: "财政",
+    catalogCategory: usMetadataCatalogCategory({
+      code: row.code,
+      label: row.displayName,
+      legacyCategory: "财政",
+    }),
     freqLabel: row.freqLabel,
     unit: row.unit,
     catalogKey: `fiscal:${row.code}`,

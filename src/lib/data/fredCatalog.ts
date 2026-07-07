@@ -15,6 +15,7 @@ import {
   applyCatalogLayout,
   loadMacroCatalogLayout,
 } from "@/lib/data/catalogLayout";
+import { resolveUsCatalogPlacement } from "@/lib/data/usCatalogTaxonomy";
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -242,16 +243,28 @@ function buildCountryFromRows(
   for (const row of rows) {
     const key =
       provider === "fred" ? `fred:${row.id}` : `wb:${country.code}:${row.id}`;
-    const items = byCategory.get(row.category) ?? [];
+    let categoryName = row.category;
+    if (country.code === "US" && provider === "fred") {
+      const placement = resolveUsCatalogPlacement({
+        key,
+        label: row.label,
+        legacyCategory: row.category,
+        fredId: row.id,
+      });
+      if (placement.category !== "未分配") {
+        categoryName = placement.category;
+      }
+    }
+    const items = byCategory.get(categoryName) ?? [];
     items.push({
       key,
       label: row.label,
       frequency: row.frequency,
       provider,
       countryCode: country.code,
-      categoryName: row.category,
+      categoryName,
     });
-    byCategory.set(row.category, items);
+    byCategory.set(categoryName, items);
   }
   const categories = [...byCategory.entries()].map(([name, items]) => ({
     name,
@@ -288,6 +301,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
     where: {
       kind: InstrumentKind.MACRO_SERIES,
       OR: [
+        { code: { startsWith: "sched_fred_" } },
         { code: { startsWith: "debtcap_" } },
         { code: { startsWith: "usov_" } },
         { code: { startsWith: "chov_" } },
@@ -317,7 +331,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
     const countryCodeRaw = typeof md.countryCode === "string" ? md.countryCode : "";
     const countryCode = countryCodeRaw.trim().toUpperCase();
     if (!countryCode) continue;
-    const categoryName =
+    const legacyCategory =
       typeof md.catalogCategory === "string" && md.catalogCategory.trim()
         ? md.catalogCategory.trim()
         : "偿债能力";
@@ -325,6 +339,23 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
       typeof md.displayName === "string" && md.displayName.trim()
         ? md.displayName.trim()
         : row.name;
+    const catalogKey =
+      typeof md.catalogKey === "string" && md.catalogKey.trim() ? md.catalogKey.trim() : "";
+    const fredIdFromMd = catalogKey.startsWith("fred:")
+      ? catalogKey.slice(5).split("::")[0]?.trim()
+      : undefined;
+    let categoryName = legacyCategory;
+    if (countryCode === "US") {
+      const placement = resolveUsCatalogPlacement({
+        key: `mds:${row.code}`,
+        label,
+        legacyCategory,
+        fredId: fredIdFromMd,
+      });
+      if (placement.category !== "未分配") {
+        categoryName = placement.category;
+      }
+    }
     const countryMap = byCountry.get(countryCode) ?? new Map<string, UnifiedCatalogItem[]>();
     const categoryItems = countryMap.get(categoryName) ?? [];
     categoryItems.push({

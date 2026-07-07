@@ -11,7 +11,7 @@
 | 内置模板 / 图表定义 / 分析文档 | **代码（git）**——模板硬编码在 `.ts`，不在 DB（`SystemMacroChartPrefs` 只存管理员覆盖项） | 现有 `git→build→deploy` 已全自动，零额外操作 |
 | Prisma schema（如新增表） | migrations（git） | `npm run db:migrate`（= `prisma migrate deploy`） |
 | 指标 / 订阅 / 发布包 / 元数据 | DB，但**完全由 git 的 seed catalog 决定** | `npm run data:seed`（幂等 upsert）+ `data:seed-release-packages` |
-| 目录分类布局 | DB（`MacroCatalogLayout`） | `npm run data:sync-catalog-layout` |
+| 目录分类布局 | DB（`MacroCatalogLayout`） | `npm run data:rebuild-us-catalog-layout`（`data:apply` 自动执行；仅替换 US，保留他国） |
 | 历史观测值（几万行/序列） | DB，**来自 FRED** | 已运行的 `data:worker` 按 `nextRunAt` 自动全量回填 |
 
 **关键**：开发库本身是靠跑这些 git 脚本生成的——它是缓存。事实来源是 **git 的 catalog 代码 + FRED**。所以云服务器只要跑同样的脚本，两边就**由构造而一致**：不需要 `pg_dump`/restore、不会有主键冲突、不会漂移。
@@ -26,7 +26,7 @@
 db:migrate                 # schema 迁移（前向非交互）
 → data:seed（遍历 SEED_CATALOG_REGISTRY 所有 catalog）  # 指标+订阅+发布规则
 → data:seed-release-packages                            # 发布包（在指标之后）
-→ data:sync-catalog-layout --prefix=fred:               # 目录分类归位
+→ data:rebuild-us-catalog-layout                        # 美国目录 9 大类布局整表重建
 → data:sync-calendar                                    # 日历型包 → nextRunAt
 → data:backfill-empty --limit=150                       # 为「有订阅但零观测」的新指标强制拉历史
 → data:verify（遍历各域自检，排除噪音 verify-catalog）  # 门禁
@@ -46,23 +46,29 @@ npm run data:apply -- --skip-migrate --skip-verify  # 按需跳过
 
 全部步骤幂等，可在每次部署后无脑重复执行。门禁步骤（•）失败即中止；自检类（◦）记录失败但跑完，末尾以非零退出让部署流水线感知。
 
-## 挂进部署流水线（待启用）
+## 已挂进部署流水线
 
-`.github/workflows/deploy.yml` 的 ssh 块目前只解压代码 + pm2 重启，**不碰数据库**。建议在解压后加两行：
+`.github/workflows/deploy.yml` 在 `main` push 后自动：CI 构建 → `deploy.tar.gz` → `scp` 到 `/opt/finance-site` → 解压 → 落库 → `pm2 restart`。
+
+服务器 SSH 块（节选）已包含：
 
 ```bash
 tar -xzf deploy.tar.gz
-npm run db:migrate            # 有 schema 变更才动，无变更是 no-op
-npm run data:apply --         # 幂等落库；观测随后由 worker 灌满
+npm run db:migrate || echo "[deploy] db:migrate 失败…"
+npm run data:apply -- --skip-migrate || echo "[deploy] data:apply 有失败项…"
 pm2 restart finance-site
 ```
 
-从此 `git push` → CI 部署 → 生产库自动落库 → worker 几分钟内灌满历史数据，全链路零手动。
+`data:apply` 传 `--skip-migrate`，因前一步已单独跑过 `db:migrate`。两步失败**只打日志、不阻断重启**（末尾 `curl` 健康检查兜底）；若新指标无数据，请 SSH 查 deploy 日志并手动 `npm run data:apply`。
 
-**前置条件**：服务器 `.env.local` 需有 `DATABASE_URL` + `FRED_API_KEY`（现有 worker 本就依赖）。
+**全链路**：`git push main` → Actions 部署 → 生产库自动落库 → worker 按 `nextRunAt` 灌满剩余观测。
+
+**前置条件**：服务器 `/opt/finance-site/.env.local` 需有 `DATABASE_URL` + `FRED_API_KEY`（worker 依赖）。
+
+**勿在服务器 `git pull`**：生产以 tar 覆盖为准；目录里若有 `.git`，`git status` 会长期显示脏文件，可忽略或 `rm -rf .git`（见 [CONTRIBUTING.md](./CONTRIBUTING.md) §10）。
 
 ## 为什么不用 pg_dump / DB 同步
 
-下策：开发库与生产库耦合、主键/序列冲突、无幂等、易漂移、还要处理增量。`data:apply` 从代码重建是上策——架构本就为此设计（seed 全是 upsert，`sync-catalog-layout` 只追加不覆盖管理员手工分类）。
+下策：开发库与生产库耦合、主键/序列冲突、无幂等、易漂移、还要处理增量。`data:apply` 从代码重建是上策——架构本就为此设计（seed 全是 upsert；美国目录布局由 `rebuild-us-catalog-layout` 按 taxonomy 整表重建，保留他国自定义布局）。
 
 **例外**：若未来某指标**只能网页抓取且无法从源头重拉**（Agent C 场景中源站不留历史），那类观测才可能需要一次性 `pg_dump` 迁移——属例外，不是主路径。

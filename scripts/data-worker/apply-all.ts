@@ -10,6 +10,7 @@
  *   npm run data:apply                      # 全量：migrate + 所有 catalog seed + 包 + 布局 + 日历 + 各域自检
  *   npm run data:apply -- --dry-run         # 只打印执行计划
  *   npm run data:apply -- --only=monetary,cpi   # 仅这些域的 seed/verify（包/布局/日历/回填仍全局幂等执行）
+ *   npm run data:apply -- --skip-layout   # 跳过美国目录布局重建
  *   npm run data:apply -- --skip-backfill   # 跳过回填（只落定义，观测交给 worker）
  *   npm run data:apply -- --skip-migrate --skip-verify   # 按需跳过
  *
@@ -84,9 +85,14 @@ function buildPlan(flags: Flags): Step[] {
     steps.push({ label: "release-packages", script: "data:seed-release-packages", args: [], gating: true });
   }
 
-  // 4) 目录分类布局（把新增 FRED 指标归位到持久化布局；无自定义布局时脚本自跳过）
+  // 4) 美国宏观目录布局整表重建（9 大类 + 子类；保留其他国家布局；fred:/mds: 双轨不去重）
   if (!flags.skipLayout) {
-    steps.push({ label: "catalog-layout", script: "data:sync-catalog-layout", args: ["--prefix=fred:"], gating: true });
+    steps.push({
+      label: "rebuild-us-catalog-layout",
+      script: "data:rebuild-us-catalog-layout",
+      args: [],
+      gating: true,
+    });
   }
 
   // 5) 经济日历对齐（日历型发布包 → nextRunAt）

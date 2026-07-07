@@ -1,4 +1,5 @@
 import type { DataGranularity } from "@prisma/client";
+import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 import { CPI_FRED_SERIES } from "./cpiFredSeedCatalog";
 import { LABOR_FRED_SERIES } from "./laborFredSeedCatalog";
 import { P0_FRED_PILOT_SERIES } from "./p0SeedCatalog";
@@ -89,7 +90,12 @@ export function buildOverviewInstrumentMetadata(
     countryCode: row.countryCode,
     countryNameZh: "美国",
     displayName: row.displayName,
-    catalogCategory: row.category,
+    catalogCategory: usMetadataCatalogCategory({
+      code: row.code,
+      fredId: row.fredId,
+      label: row.displayName,
+      legacyCategory: row.category,
+    }),
     freqLabel: row.freqLabel,
     unit: row.unit,
     catalogKey: `fred:${row.fredId}`,

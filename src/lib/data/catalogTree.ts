@@ -6,6 +6,8 @@ import type {
 } from "./fredCatalog";
 
 export const PRICE_INDEX_CATEGORY = "价格指数";
+/** 美国目录合并 CPI 子层时使用的大类名 */
+export const US_INFLATION_CATEGORY = "通胀与价格";
 export const CPI_SUBGROUP = "CPI";
 
 /** 原 FRED 目录里独立的 CPI 子分类（合并进 价格指数 → CPI） */
@@ -68,8 +70,10 @@ export function countItemsInCountry(country: UnifiedCatalogCountry): number {
   return country.categories.reduce((n, c) => n + allItemsInGroup(c).length, 0);
 }
 
-/** 将 CPI 相关分类并入 价格指数 → CPI */
+/** 将 CPI 相关分类并入 价格指数（非美）或 通胀与价格（美国）→ CPI */
 export function consolidatePriceIndexCpi(country: UnifiedCatalogCountry): UnifiedCatalogCountry {
+  const priceCategory =
+    country.code === "US" ? US_INFLATION_CATEGORY : PRICE_INDEX_CATEGORY;
   const cpiItems: UnifiedCatalogItem[] = [];
   const otherCategories: UnifiedCatalogGroup[] = [];
   let priceIndex: UnifiedCatalogGroup | null = null;
@@ -79,7 +83,7 @@ export function consolidatePriceIndexCpi(country: UnifiedCatalogCountry): Unifie
       cpiItems.push(...allItemsInGroup(cat));
       continue;
     }
-    if (cat.name === PRICE_INDEX_CATEGORY) {
+    if (cat.name === PRICE_INDEX_CATEGORY || cat.name === US_INFLATION_CATEGORY) {
       const direct: UnifiedCatalogItem[] = [];
       const fromSubCpi: UnifiedCatalogItem[] = [];
       for (const item of cat.items) {
@@ -97,7 +101,7 @@ export function consolidatePriceIndexCpi(country: UnifiedCatalogCountry): Unifie
       }
       cpiItems.push(...fromSubCpi);
       priceIndex = {
-        name: PRICE_INDEX_CATEGORY,
+        name: priceCategory,
         items: direct,
         subgroups: (cat.subgroups ?? []).filter((s) => s.name !== CPI_SUBGROUP),
       };
@@ -108,12 +112,12 @@ export function consolidatePriceIndexCpi(country: UnifiedCatalogCountry): Unifie
   }
 
   if (cpiItems.length > 0 || priceIndex) {
-    const base = priceIndex ?? { name: PRICE_INDEX_CATEGORY, items: [] };
+    const base = priceIndex ?? { name: priceCategory, items: [] };
     const subgroups = mergeSubgroups(base.subgroups, [
       { name: CPI_SUBGROUP, items: dedupeItems(cpiItems) },
     ]);
     otherCategories.push({
-      name: PRICE_INDEX_CATEGORY,
+      name: priceCategory,
       items: base.items,
       subgroups,
     });

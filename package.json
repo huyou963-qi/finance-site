@@ -65,6 +65,7 @@
     "data:seed-cpi": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cpi.ts",
     "data:verify-cpi": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cpi.ts",
     "data:sync-catalog-layout": "dotenv -e .env.local -- tsx scripts/data-worker/sync-catalog-layout-new-items.ts",
+    "data:rebuild-us-catalog-layout": "dotenv -e .env.local -- tsx scripts/data-worker/rebuild-us-catalog-layout.ts",
     "data:seed-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/seed-monetary.ts",
     "data:verify-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/verify-monetary.ts",
     "data:seed-housing": "dotenv -e .env.local -- tsx scripts/data-worker/seed-housing.ts",

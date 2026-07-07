@@ -1,5 +1,6 @@
 import type { DataGranularity } from "@prisma/client";
 import { releaseRuleForPilot } from "./p0SeedCatalog";
+import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 
 export type FiscalFredSeedRow = {
   fredId: string;
@@ -176,7 +177,12 @@ export function buildFiscalFredInstrumentMetadata(
     countryCode: "US",
     countryNameZh: "美国",
     displayName: row.displayName,
-    catalogCategory: row.category,
+    catalogCategory: usMetadataCatalogCategory({
+      code: row.code,
+      fredId: row.fredId,
+      label: row.displayName,
+      legacyCategory: row.category,
+    }),
     freqLabel: row.freqLabel,
     unit: row.unit,
     catalogKey: `fred:${row.fredId}`,

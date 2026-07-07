@@ -1,4 +1,5 @@
 import type { DataGranularity } from "@prisma/client";
+import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 
 /**
  * 美国货币政策与金融条件 — FRED 种子目录
@@ -100,7 +101,12 @@ export function buildMonetaryInstrumentMetadata(
     countryCode: row.countryCode,
     countryNameZh: "美国",
     displayName: row.displayName,
-    catalogCategory: row.category,
+    catalogCategory: usMetadataCatalogCategory({
+      code: row.code,
+      fredId: row.fredId,
+      label: row.displayName,
+      legacyCategory: row.category,
+    }),
     freqLabel: row.freqLabel,
     unit: row.unit,
     catalogKey: `fred:${row.fredId}`,

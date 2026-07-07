@@ -1,4 +1,5 @@
 import type { DataGranularity } from "@prisma/client";
+import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 import {
   TREASURY_SOURCE_SPEC_BY_KEY,
   treasurySourceSpecKey,
@@ -266,7 +267,11 @@ export function buildTreasuryInstrumentMetadata(
     countryCode: "US",
     countryNameZh: "美国",
     displayName: row.displayName,
-    catalogCategory: row.category,
+    catalogCategory: usMetadataCatalogCategory({
+      code: row.code,
+      label: row.displayName,
+      legacyCategory: row.category,
+    }),
     freqLabel: row.freqLabel,
     unit: row.unit,
     catalogKey: `treasury:${row.code}`,
