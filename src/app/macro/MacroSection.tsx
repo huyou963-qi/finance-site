@@ -62,6 +62,8 @@ import {
   BUILTIN_US_MONETARY_OVERVIEW_TEMPLATE,
   BUILTIN_US_HOUSING_ACTIVITY_TEMPLATE,
   BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
+  BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
+  BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
   BUILTIN_US_OVERVIEW_TEMPLATE,
   HARDCODED_BUILTIN_TEMPLATE_IDS,
   resolveBuiltinTemplate,
@@ -82,6 +84,7 @@ import { LABOR_VIRTUAL_KEY_LABELS } from "@/lib/data/laborAnalysisLayout";
 import { OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/overviewAnalysisLayout";
 import { MONETARY_VIRTUAL_KEY_LABELS } from "@/lib/data/monetaryAnalysisLayout";
 import { HOUSING_VIRTUAL_KEY_LABELS } from "@/lib/data/housingAnalysisLayout";
+import { CYCLE_RISK_VIRTUAL_KEY_LABELS } from "@/lib/data/cycleRiskAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -961,6 +964,8 @@ export function MacroSection() {
       BUILTIN_US_MONETARY_CONDITIONS_TEMPLATE,
       BUILTIN_US_HOUSING_ACTIVITY_TEMPLATE,
       BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
+      BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
+      BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
     ];
     const hidden = new Set(hiddenBuiltinTemplateIds);
     const hardcoded = base
@@ -990,6 +995,8 @@ export function MacroSection() {
       BUILTIN_US_MONETARY_CONDITIONS_TEMPLATE,
       BUILTIN_US_HOUSING_ACTIVITY_TEMPLATE,
       BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
+      BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
+      BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
     ];
     return base
       .filter((tpl) => hidden.has(tpl.id))
@@ -1027,6 +1034,7 @@ export function MacroSection() {
       ...OVERVIEW_VIRTUAL_KEY_LABELS,
       ...MONETARY_VIRTUAL_KEY_LABELS,
       ...HOUSING_VIRTUAL_KEY_LABELS,
+      ...CYCLE_RISK_VIRTUAL_KEY_LABELS,
     ]);
     for (const [k, v] of catalogLabelByKey) {
       if (!m.has(k)) m.set(k, v);

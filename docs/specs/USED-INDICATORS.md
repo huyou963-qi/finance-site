@@ -65,6 +65,13 @@
 | RHORUSQ156N | 自有住房率 | 美国住房与地产 ② |
 | DRSFRMACBS | 单户住宅抵押贷款拖欠率 | 美国住房与地产 ② |
 | EXHOSLUSM495S | 成屋销售 | 美国住房与地产（已入库，NAR 许可仅约 1 年，暂不进模板、持续累积） |
+| RECPROUSM156N | 平滑衰退概率（Chauvet-Piger） | 美国增长动能与衰退风险 ① |
+| SAHMREALTIME | Sahm 规则实时值 | 美国增长动能与衰退风险 ① |
+| CFNAI | 芝加哥联储全国活动指数 | 美国增长动能与衰退风险 ①（原 phase2 入库未占槽，2026-07 首次占用） |
+| USREC | NBER 衰退标记 | 美国增长动能与衰退风险 ①（原 phase2 入库未占槽，2026-07 首次占用） |
+| W875RX1 / DSPIC96 | 实际个人收入(除转移) / 实际可支配收入 | 美国增长动能与衰退风险 ② |
+| CMRMTSPL | 实际制造与贸易销售 | 美国增长动能与衰退风险 ② |
+| FINSLC1 | 实际最终销售 | 美国增长动能与衰退风险 ② |
 
 ## 非 FRED 序列
 
@@ -76,6 +83,7 @@
 | `fiscal_primary_deficit_gdp`、`fiscal_fgcec1_yoy` | 财政合成序列 | FRED composite | 美国财政 |
 | `ism_us_ism_*`（8 条） | ISM 制造业 PMI 及分项 | TE 抓取 | 未进默认模板（目录自选，Overview L2S） |
 | `ism_svc_us_svc_*` | ISM 非制造业 PMI 及分项 | TE 抓取 | 同上 |
+| `nyfed_us_recession_prob` | NY Fed 衰退概率（12月前瞻） | NY Fed Excel 抓取（Agent C） | 美国增长动能与衰退风险 ① |
 | `debtcap_*` | 四国杠杆/偿债比 | BIS | 四国偿债能力（legacy） |
 | `goldov_*` | 黄金分析序列 | xlsx | 黄金分析（legacy） |
 | `usov_* / chov_* / jpov_*` | 三国 Overview xlsx 序列 | xlsx/FRED composite | US/China/Japan_Overview（legacy） |

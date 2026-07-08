@@ -254,7 +254,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["prelim", "final", "q/q", "annualized"],
     },
     members: {
-      fredSeriesIds: ["GDP", "GDPC1", "A191RL1Q225SBEA"],
+      // GDP 季报同时发布实际最终销售（FINSLC1）
+      fredSeriesIds: ["GDP", "GDPC1", "A191RL1Q225SBEA", "FINSLC1"],
       instrumentCodes: usovCodesForFred("A191RL1Q225SBEA"),
     },
   }),
@@ -585,6 +586,52 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       ],
       instrumentCodes: ["fiscal_primary_deficit_gdp", "fiscal_interest_share_outlays_annual"],
     },
+  }),
+  pkg("us.bea.personal_income", "美国个人收入与支出", {
+    labelEn: "Personal Income and Outlays",
+    granularity: "MONTHLY",
+    sortOrder: 220,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["personal income"],
+      excludeKeywords: ["spending only"],
+    },
+    members: { fredSeriesIds: ["W875RX1", "DSPIC96"] },
+  }),
+  probePkg("us.stlouisfed.recession_prob", "美国平滑衰退概率", {
+    labelEn: "Smoothed U.S. Recession Probabilities",
+    granularity: "MONTHLY",
+    intervalHours: 168,
+    sortOrder: 221,
+    members: { fredSeriesIds: ["RECPROUSM156N"] },
+  }),
+  probePkg("us.stlouisfed.sahm", "美国 Sahm 规则", {
+    labelEn: "Sahm Rule Recession Indicator (Real-time)",
+    granularity: "MONTHLY",
+    intervalHours: 168,
+    sortOrder: 222,
+    members: { fredSeriesIds: ["SAHMREALTIME"] },
+  }),
+  probePkg("us.census.mfg_trade_sales", "美国实际制造与贸易销售", {
+    labelEn: "Real Manufacturing and Trade Industries Sales",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 223,
+    members: { fredSeriesIds: ["CMRMTSPL"] },
+  }),
+  probePkg("us.chicagofed.cfnai", "芝加哥联储全国活动指数", {
+    labelEn: "Chicago Fed National Activity Index",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 224,
+    members: { fredSeriesIds: ["CFNAI"] },
+  }),
+  probePkg("us.nber.recession", "NBER 衰退标记", {
+    labelEn: "NBER Recession Indicators",
+    granularity: "MONTHLY",
+    intervalHours: 168,
+    sortOrder: 225,
+    members: { fredSeriesIds: ["USREC"] },
   }),
 ] as const;
 
