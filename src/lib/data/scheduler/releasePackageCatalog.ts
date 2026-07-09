@@ -254,8 +254,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["prelim", "final", "q/q", "annualized"],
     },
     members: {
-      // GDP 季报同时发布实际最终销售（FINSLC1）
-      fredSeriesIds: ["GDP", "GDPC1", "A191RL1Q225SBEA", "FINSLC1"],
+      // GDP 季报同时发布实际最终销售（FINSLC1）与贸易条件指数
+      fredSeriesIds: ["GDP", "GDPC1", "A191RL1Q225SBEA", "FINSLC1", "W369RG3Q066SBEA"],
       instrumentCodes: usovCodesForFred("A191RL1Q225SBEA"),
     },
   }),
@@ -321,6 +321,30 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["new", "pending"],
     },
     members: { fredSeriesIds: ["EXHOSLUSM495S"] },
+  }),
+  pkg("us.census.international_trade", "美国商品与服务国际贸易", {
+    labelEn: "U.S. International Trade in Goods and Services",
+    granularity: "MONTHLY",
+    sortOrder: 103,
+    calendar: {
+      countryCodes: ["US"],
+      // TE/Investing 常见标题含 balance of trade / trade balance；exclude goods 避开 Advance Goods
+      keywords: ["balance of trade", "trade balance"],
+      excludeKeywords: ["goods"],
+    },
+    members: { fredSeriesIds: ["BOPGSTB", "BOPTEXP", "BOPTIMP"] },
+  }),
+  pkg("us.bls.import_export_prices", "美国进出口价格指数", {
+    labelEn: "U.S. Import and Export Price Indexes",
+    agencyId: "us-bls",
+    granularity: "MONTHLY",
+    sortOrder: 104,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["import prices", "export prices"],
+      excludeKeywords: [],
+    },
+    members: { fredSeriesIds: ["IQ", "IR"] },
   }),
   pkg("us.fed.fomc", "美联储利率决议", {
     granularity: "MONTHLY",
@@ -632,6 +656,29 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 168,
     sortOrder: 225,
     members: { fredSeriesIds: ["USREC"] },
+  }),
+  probePkg("us.frb.h10_fx", "美国 H.10 外汇汇率", {
+    labelEn: "H.10 Foreign Exchange Rates",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 226,
+    members: {
+      fredSeriesIds: ["DTWEXBGS", "DTWEXAFEGS", "DTWEXEMEGS", "DEXUSEU"],
+    },
+  }),
+  probePkg("us.bea.international_transactions", "美国国际交易账户", {
+    labelEn: "U.S. International Transactions",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 227,
+    members: { fredSeriesIds: ["IEABC"] },
+  }),
+  probePkg("us.bea.iip", "美国国际投资头寸", {
+    labelEn: "U.S. International Investment Position",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 228,
+    members: { fredSeriesIds: ["IIPUSNETIQ"] },
   }),
 ] as const;
 

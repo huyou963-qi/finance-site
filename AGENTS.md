@@ -122,6 +122,8 @@ npm run db:studio        # Prisma Studio
 **新增宏观分析维度（拆维度 → 定指标 → 入库调度 → 建模板）**：走 Agent 流水线，见 [.cursor/prompts/macro-dimension-pipeline.md](./.cursor/prompts/macro-dimension-pipeline.md)；Spec 模板与已占用指标清单在 `docs/specs/`。
 首个完成域「美国货币政策与金融条件」：`data:seed-monetary` / `data:verify-monetary`（加 `--db`）；新 FRED 指标目录归类 `data:sync-catalog-layout -- --keys=fred:<ID>,...`；文档 [docs/US_MONETARY_ANALYSIS.md](./docs/US_MONETARY_ANALYSIS.md)。
 
+「美国对外部门与美元」：`data:seed-external-dollar` / `data:verify-external-dollar`（加 `--db`）；文档 [docs/US_EXTERNAL_DOLLAR_ANALYSIS.md](./docs/US_EXTERNAL_DOLLAR_ANALYSIS.md)。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

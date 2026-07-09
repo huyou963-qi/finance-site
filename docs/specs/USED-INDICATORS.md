@@ -72,6 +72,14 @@
 | W875RX1 / DSPIC96 | 实际个人收入(除转移) / 实际可支配收入 | 美国增长动能与衰退风险 ② |
 | CMRMTSPL | 实际制造与贸易销售 | 美国增长动能与衰退风险 ② |
 | FINSLC1 | 实际最终销售 | 美国增长动能与衰退风险 ② |
+| DTWEXBGS | 美元名义广义指数 | 美国对外部门与美元 ①（原 phase2 入库未占槽，2026-07 首次占用） |
+| DTWEXAFEGS / DTWEXEMEGS | AFE / EME 美元指数 | 美国对外部门与美元 ① |
+| BOPGSTB | 商品与服务贸易差额 | 美国对外部门与美元 ① |
+| BOPTEXP / BOPTIMP | 出口/进口（BOP） | 美国对外部门与美元 ①（≠ Overview 的 EXPGSC1/IMPGSC1） |
+| IEABC | 经常账户余额（BOP） | 美国对外部门与美元 ②（≠ NETFI NIPA） |
+| IIPUSNETIQ | 净国际投资头寸 | 美国对外部门与美元 ② |
+| IQ / IR | 出口/进口价格指数 | 美国对外部门与美元 ② |
+| W369RG3Q066SBEA | 贸易条件指数 | 美国对外部门与美元 ② |
 
 ## 非 FRED 序列
 

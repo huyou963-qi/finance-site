@@ -68,9 +68,11 @@ export const FRAMEWORK_INDICATOR_CATALOG_KEYS: Record<string, string> = {
   "ism-export": "fred:NETEXP",
   "usd-broad": "fred:DTWEXBGS",
   "goods-trade": "fred:BOPGSTB",
-  "current-acct": "fred:NETFI",
+  // BOP 经常账户（IEABC）；NETFI 为 NIPA 口径，分析模板用 IEABC
+  "current-acct": "fred:IEABC",
   niip: "fred:IIPUSNETIQ",
-  "terms-trade": "fred:TTEXG",
+  // 原 TTEXG 无效；BEA 贸易条件指数
+  "terms-trade": "fred:W369RG3Q066SBEA",
   // Inflation cross-cut
   supercore: "fred:CUSR0000SASLE",
   "sticky-cpi": "fred:STICKCPIM159SFRBATL",
