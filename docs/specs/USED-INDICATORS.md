@@ -88,6 +88,12 @@
 | IIPUSNETIQ | 净国际投资头寸 | 美国对外部门与美元 ② |
 | IQ / IR | 出口/进口价格指数 | 美国对外部门与美元 ② |
 | W369RG3Q066SBEA | 贸易条件指数 | 美国对外部门与美元 ② |
+| DGORDER / ADXTNO | 耐用品新订单 / 耐用品(除运输) | 美国制造业与库存周期 ① |
+| NEWORDER / AMDMUO | 核心资本品新订单 / 耐用品未完成订单 | 美国制造业与库存周期 ① |
+| IPMAN | 工业生产·制造业(NAICS) | 美国制造业与库存周期 ②（≠INDPRO） |
+| BUSINV / AMTMTI | 总商业库存 / 制造业库存 | 美国制造业与库存周期 ② |
+| ISRATIO / MNFCTRIRSA | 总业务库销比 / 制造业库销比 | 美国制造业与库存周期 ② |
+| MCUMFN | 制造业产能利用率(NAICS) | 美国制造业与库存周期 ②（≠TCU） |
 
 ## 非 FRED 序列
 
@@ -97,8 +103,8 @@
 | `treasury_mts_m09_*`（rcpt_individual/payroll/corporate、outlay_interest、mandatory/discretionary_proxy） | MTS 收支结构 | Treasury FiscalData | 美国财政 ·结构 |
 | `treasury_dts_*`（tga_balance、daily_net_cash）、`treasury_debt_penny_net_weekly` | DTS 高频财政 | Treasury FiscalData | 美国财政 ·高频 |
 | `fiscal_primary_deficit_gdp`、`fiscal_fgcec1_yoy` | 财政合成序列 | FRED composite | 美国财政 |
-| `ism_us_ism_*`（8 条） | ISM 制造业 PMI 及分项 | TE 抓取 | 未进默认模板（目录自选，Overview L2S） |
-| `ism_svc_us_svc_*` | ISM 非制造业 PMI 及分项 | TE 抓取 | 同上 |
+| `ism_us_ism_*`（8 条） | ISM 制造业 PMI 及分项 | TE 抓取 | headline/new_orders/inventories：**美国制造业与库存周期 ①**（首次占槽）；其余分项仍目录自选 |
+| `ism_svc_us_svc_*` | ISM 非制造业 PMI 及分项 | TE 抓取 | 未进默认模板（目录自选，Overview L2S） |
 | `nyfed_us_recession_prob` | NY Fed 衰退概率（12月前瞻） | NY Fed Excel 抓取（Agent C） | 美国增长动能与衰退风险 ① |
 | `debtcap_*` | 四国杠杆/偿债比 | BIS | 四国偿债能力（legacy） |
 | `goldov_*` | 黄金分析序列 | xlsx | 黄金分析（legacy） |
@@ -106,5 +112,5 @@
 
 ## 特别说明
 
-- **ISM 两包已入库但未占用默认图槽**：新维度（如制造业与库存周期）可以把 `ism_us_ism_headline` / `ism_svc_us_svc_headline` 纳入默认模板，不算重复占用 —— 首次占用时把本表状态改为「占用」。
+- **ISM 服务业仍未占默认图槽**；制造业 PMI 的 headline / new_orders / inventories 已于 2026-07 由「美国制造业与库存周期」首次占用默认图槽。
 - legacy xlsx 模板（US/China/Japan_Overview、黄金、偿债）的序列不受零重复原则约束，但新模板应优先用 FRED 标准序列而非 `usov_*` 合成序列。

@@ -8,9 +8,12 @@ import { MacroTimeRangeNavigator } from "@/components/MacroTimeRangeNavigator";
 import { partitionMacroSeries, type MacroSlotAssignment } from "@/lib/macroPartition";
 import type { MacroChartSlice } from "@/lib/macroChartOption";
 import {
+  isAltMacroSlotMode,
   resolveMacroSlotTitle,
   resolveSlotPieYear,
+  resolveSlotRadarYear,
   resolveSlotSeasonalYearCount,
+  resolveSlotWaterfallYear,
   type MacroChartDisplayConfig,
   type MacroChartSlotMode,
   type MacroSeriesVisualConfigMap,
@@ -346,7 +349,7 @@ export function MacroMultiChartGrid({
         seriesLabel: series[0]?.name,
       });
       const mode = slotModeFor(index);
-      if (mode === "pie" || mode === "seasonal") {
+      if (isAltMacroSlotMode(mode)) {
         return {
           categories: payload.categories,
           series: mode === "seasonal" ? series.slice(0, 1) : series,
@@ -383,6 +386,22 @@ export function MacroMultiChartGrid({
     [displayConfig?.slotPieYears, payload.categories, slotModeFor],
   );
 
+  const waterfallYearForSlot = useCallback(
+    (slot: number): string | null => {
+      if (slotModeFor(slot) !== "waterfall") return null;
+      return resolveSlotWaterfallYear(payload.categories, displayConfig?.slotWaterfallYears, slot);
+    },
+    [displayConfig?.slotWaterfallYears, payload.categories, slotModeFor],
+  );
+
+  const radarYearForSlot = useCallback(
+    (slot: number): string | null => {
+      if (slotModeFor(slot) !== "radar") return null;
+      return resolveSlotRadarYear(payload.categories, displayConfig?.slotRadarYears, slot);
+    },
+    [displayConfig?.slotRadarYears, payload.categories, slotModeFor],
+  );
+
   const seasonalYearCountForSlot = useCallback(
     (slot: number): number => {
       if (slotModeFor(slot) !== "seasonal") return 5;
@@ -392,10 +411,7 @@ export function MacroMultiChartGrid({
   );
 
   const isAltSlotMode = useCallback(
-    (slot: number) => {
-      const mode = slotModeFor(slot);
-      return mode === "pie" || mode === "seasonal";
-    },
+    (slot: number) => isAltMacroSlotMode(slotModeFor(slot)),
     [slotModeFor],
   );
 
@@ -661,6 +677,8 @@ export function MacroMultiChartGrid({
             slotMode={slotModeFor(0)}
             slotIndex={0}
             pieYear={pieYearForSlot(0)}
+            waterfallYear={waterfallYearForSlot(0)}
+            radarYear={radarYearForSlot(0)}
             seasonalYearCount={seasonalYearCountForSlot(0)}
             chartAreaHeight={singleChartHeight ?? "100%"}
             className="h-full min-h-0 w-full"
@@ -725,6 +743,8 @@ export function MacroMultiChartGrid({
                 slotMode={mode}
                 slotIndex={i}
                 pieYear={pieYearForSlot(i)}
+                waterfallYear={waterfallYearForSlot(i)}
+                radarYear={radarYearForSlot(i)}
                 seasonalYearCount={seasonalYearCountForSlot(i)}
                 className="h-full min-h-0"
                 drawTool={isAlt ? "cursor" : drawTool}

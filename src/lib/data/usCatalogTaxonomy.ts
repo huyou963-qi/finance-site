@@ -62,8 +62,17 @@ const FRED_PCE_PPI = new Set(["PCEPI", "PCEPILFE", "PPIFIS"]);
 const FRED_INFLATION_EXPECT_ENERGY = new Set(["T5YIE", "T10YIE", "DCOILWTICO"]);
 
 const FRED_NATIONAL_ACCOUNTS = new Set(["GDPC1", "GDP", "A191RL1Q225SBEA", "PNFIC1"]);
-const FRED_INDUSTRIAL = new Set(["INDPRO"]);
-const FRED_CONSUMPTION = new Set(["RSAFS", "PCEC96"]);
+const FRED_INDUSTRIAL = new Set([
+  "INDPRO",
+  "IPMAN",
+  "DGORDER",
+  "ADXTNO",
+  "NEWORDER",
+  "AMDMUO",
+  "AMTMTI",
+  "MCUMFN",
+]);
+const FRED_CONSUMPTION = new Set(["RSAFS", "PCEC96", "BUSINV", "ISRATIO", "MNFCTRIRSA"]);
 const FRED_SENTIMENT = new Set(["UMCSENT", "CFNAI", "USREC"]);
 
 const FRED_LABOR_UNEMP = new Set([

@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "status": 402,
+  "endpoint": "/historical-price-eod/full?symbol=XLK&from=2024-01-01&to=2024-01-31",
+  "body": {
+    "_raw": "Premium Query Parameter: 'Special Endpoint : This value set for 'symbol' is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+  }
+}

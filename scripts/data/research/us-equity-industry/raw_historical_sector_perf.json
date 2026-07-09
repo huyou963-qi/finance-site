@@ -1,0 +1,259 @@
+{
+  "ok": true,
+  "status": 200,
+  "endpoint": "/historical-sector-performance?sector=Technology&from=2024-01-01&to=2024-03-01",
+  "body": [
+    {
+      "date": "2024-03-01",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -0.4723201797330729
+    },
+    {
+      "date": "2024-02-29",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -1.5840158262849644
+    },
+    {
+      "date": "2024-02-28",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 14.861222359091164
+    },
+    {
+      "date": "2024-02-27",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.6145630386323613
+    },
+    {
+      "date": "2024-02-26",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.2396183923180082
+    },
+    {
+      "date": "2024-02-23",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -3.1320275368018757
+    },
+    {
+      "date": "2024-02-22",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 4.905628592984698
+    },
+    {
+      "date": "2024-02-21",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -2.4997271366304594
+    },
+    {
+      "date": "2024-02-20",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -1.4252473845755316
+    },
+    {
+      "date": "2024-02-16",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -0.7439937198753535
+    },
+    {
+      "date": "2024-02-15",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -0.2491974245432739
+    },
+    {
+      "date": "2024-02-14",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.7472966374705818
+    },
+    {
+      "date": "2024-02-13",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -2.341315161641163
+    },
+    {
+      "date": "2024-02-12",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -0.5029116336101708
+    },
+    {
+      "date": "2024-02-09",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 2.2526505488044224
+    },
+    {
+      "date": "2024-02-08",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.073172099367201
+    },
+    {
+      "date": "2024-02-07",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.4080901718394312
+    },
+    {
+      "date": "2024-02-06",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.5566475603572711
+    },
+    {
+      "date": "2024-02-05",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.4872609540378813
+    },
+    {
+      "date": "2024-02-02",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.1354837525030315
+    },
+    {
+      "date": "2024-02-01",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.3264361672207303
+    },
+    {
+      "date": "2024-01-31",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -2.0357644261451346
+    },
+    {
+      "date": "2024-01-30",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -0.9414921903116732
+    },
+    {
+      "date": "2024-01-29",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.0489501746550776
+    },
+    {
+      "date": "2024-01-26",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -1.0474804940332052
+    },
+    {
+      "date": "2024-01-25",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.19677740683272854
+    },
+    {
+      "date": "2024-01-24",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.8318061372623672
+    },
+    {
+      "date": "2024-01-23",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.5206564822363808
+    },
+    {
+      "date": "2024-01-22",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.5085830681964362
+    },
+    {
+      "date": "2024-01-19",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 2.3667676424042923
+    },
+    {
+      "date": "2024-01-18",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 1.995063283342385
+    },
+    {
+      "date": "2024-01-17",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -0.5466518666527129
+    },
+    {
+      "date": "2024-01-16",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.3435512357797113
+    },
+    {
+      "date": "2024-01-12",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.1598441486336904
+    },
+    {
+      "date": "2024-01-11",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.22868546735731127
+    },
+    {
+      "date": "2024-01-10",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.9016357961596629
+    },
+    {
+      "date": "2024-01-09",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.23065148415575992
+    },
+    {
+      "date": "2024-01-08",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 2.719427633594109
+    },
+    {
+      "date": "2024-01-05",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": 0.11203098522038579
+    },
+    {
+      "date": "2024-01-04",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -0.613347222475668
+    },
+    {
+      "date": "2024-01-03",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -1.1293439786770325
+    },
+    {
+      "date": "2024-01-02",
+      "sector": "Technology",
+      "exchange": "NASDAQ",
+      "averageChange": -2.9448429000188834
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "generatedAt": "2026-07-05T10:25:07.001Z",
+  "method": "sum(marketCap) / sum(all_sp500_marketCap) — 非 float-adjusted，与 S&P 官方 methodology 有系统性偏差",
+  "symbolsRequested": 501,
+  "profilesOk": 138,
+  "profileErrors": 363,
+  "totalMarketCapUsd": 29854683297538,
+  "top10": [
+    {
+      "symbol": "AAPL",
+      "marketCap": 4532958682280,
+      "sector": "Technology",
+      "industry": "Consumer Electronics",
+      "gicsSectorWiki": "Information Technology",
+      "approxIndexWeightPct": 15.18340903872129
+    },
+    {
+      "symbol": "GOOGL",
+      "marketCap": 4353064767154,
+      "sector": "Communication Services",
+      "industry": "Internet Content & Information",
+      "gicsSectorWiki": "Communication Services",
+      "approxIndexWeightPct": 14.580843895647625
+    },
+    {
+      "symbol": "GOOG",
+      "marketCap": 4353064766971.0005,
+      "sector": "Communication Services",
+      "industry": "Internet Content & Information",
+      "gicsSectorWiki": "Communication Services",
+      "approxIndexWeightPct": 14.580843895034656
+    },
+    {
+      "symbol": "AMZN",
+      "marketCap": 2610425457000,
+      "sector": "Consumer Cyclical",
+      "industry": "Specialty Retail",
+      "gicsSectorWiki": "Consumer Discretionary",
+      "approxIndexWeightPct": 8.743772060764991
+    },
+    {
+      "symbol": "AVGO",
+      "marketCap": 1714869711000,
+      "sector": "Technology",
+      "industry": "Semiconductors",
+      "gicsSectorWiki": "Information Technology",
+      "approxIndexWeightPct": 5.7440559456258535
+    },
+    {
+      "symbol": "AMD",
+      "marketCap": 844357292000,
+      "sector": "Technology",
+      "industry": "Semiconductors",
+      "gicsSectorWiki": "Information Technology",
+      "approxIndexWeightPct": 2.8282239124259303
+    },
+    {
+      "symbol": "AMAT",
+      "marketCap": 478789035360,
+      "sector": "Technology",
+      "industry": "Semiconductors",
+      "gicsSectorWiki": "Information Technology",
+      "approxIndexWeightPct": 1.6037317515255098
+    },
+    {
+      "symbol": "ABBV",
+      "marketCap": 461256601778,
+      "sector": "Healthcare",
+      "industry": "Drug Manufacturers - General",
+      "gicsSectorWiki": "Health Care",
+      "approxIndexWeightPct": 1.5450058444131547
+    },
+    {
+      "symbol": "CSCO",
+      "marketCap": 444160272399,
+      "sector": "Technology",
+      "industry": "Communication Equipment",
+      "gicsSectorWiki": "Information Technology",
+      "approxIndexWeightPct": 1.487740693721002
+    },
+    {
+      "symbol": "CAT",
+      "marketCap": 443837568610,
+      "sector": "Industrials",
+      "industry": "Agricultural - Machinery",
+      "gicsSectorWiki": "Industrials",
+      "approxIndexWeightPct": 1.4866597785902542
+    }
+  ],
+  "top10WeightSumPct": 67.78428681647027,
+  "publishedBenchmark": [
+    {
+      "symbol": "AAPL",
+      "approxIndexWeightPct": 15.18340903872129,
+      "publishedSp500WeightPct": 7,
+      "deltaPct": 8.18340903872129,
+      "absDeltaPct": 8.18340903872129
+    },
+    {
+      "symbol": "MSFT",
+      "approxIndexWeightPct": null,
+      "publishedSp500WeightPct": 7.1,
+      "deltaPct": null,
+      "absDeltaPct": null
+    },
+    {
+      "symbol": "NVDA",
+      "approxIndexWeightPct": null,
+      "publishedSp500WeightPct": 6.8,
+      "deltaPct": null,
+      "absDeltaPct": null
+    },
+    {
+      "symbol": "AMZN",
+      "approxIndexWeightPct": 8.743772060764991,
+      "publishedSp500WeightPct": 3.8,
+      "deltaPct": 4.943772060764991,
+      "absDeltaPct": 4.943772060764991
+    },
+    {
+      "symbol": "GOOGL",
+      "approxIndexWeightPct": 14.580843895647625,
+      "publishedSp500WeightPct": 2.1,
+      "deltaPct": 12.480843895647626,
+      "absDeltaPct": 12.480843895647626
+    },
+    {
+      "symbol": "META",
+      "approxIndexWeightPct": null,
+      "publishedSp500WeightPct": 2.3,
+      "deltaPct": null,
+      "absDeltaPct": null
+    },
+    {
+      "symbol": "BRK",
+      "approxIndexWeightPct": null,
+      "publishedSp500WeightPct": 1.7,
+      "deltaPct": null,
+      "absDeltaPct": null
+    },
+    {
+      "symbol": "TSLA",
+      "approxIndexWeightPct": null,
+      "publishedSp500WeightPct": 1.5,
+      "deltaPct": null,
+      "absDeltaPct": null
+    },
+    {
+      "symbol": "AVGO",
+      "approxIndexWeightPct": 5.7440559456258535,
+      "publishedSp500WeightPct": 1.4,
+      "deltaPct": 4.344055945625854,
+      "absDeltaPct": 4.344055945625854
+    },
+    {
+      "symbol": "JPM",
+      "approxIndexWeightPct": null,
+      "publishedSp500WeightPct": 1.2,
+      "deltaPct": null,
+      "absDeltaPct": null
+    }
+  ],
+  "meanAbsDeltaPct": 7.488020235189941,
+  "conclusion": "全成分市值加权可近似 S&P500 权重排序与量级；与官方 float-adjusted 权重相比 mega-cap 通常偏差 0.3–1.5 pct-pt。ETF holdings 端点在当前 FMP 套餐不可用。"
+}

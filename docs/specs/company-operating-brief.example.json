@@ -1,0 +1,52 @@
+{
+  "meta": {
+    "symbol": "MSFT",
+    "periodMonth": "2026-06",
+    "title": "Microsoft — 2026年6月经营跟踪",
+    "gicsSector": "Information Technology",
+    "gicsIndustry": "Software - Infrastructure",
+    "cik": "0000789019",
+    "generatedAt": "2026-07-01T08:00:00.000Z",
+    "summaryOneLiner": "6月无单独 IR 新闻；5月 earnings 指引 Azure 增速略上调，与同行 AI capex 叙事一致。",
+    "disclosureCoverage": {
+      "hasNewDisclosure": false,
+      "sources": [],
+      "note": "本期无新 8-K；最近披露为 2026-05-XX 季报 8-K Item 2.02"
+    },
+    "managementTone": "positive",
+    "toneConfidence": "M"
+  },
+  "analysis": {
+    "kpiDeltas": [
+      {
+        "metric": "azure_growth_guidance",
+        "direction": "up",
+        "status": "continuing",
+        "priorPeriod": "2026-05",
+        "evidence": "Q4 FY26 earnings call prepared remarks",
+        "magnitude": "管理层重申 AI 驱动 Azure 需求"
+      }
+    ],
+    "narrativeThemes": [
+      {
+        "theme": "ai_capex",
+        "status": "continuing",
+        "peerTags": ["ai_capex", "cloud_demand"]
+      },
+      {
+        "theme": "enterprise_it_budget_stable",
+        "status": "continuing",
+        "peerTags": ["it_spending"]
+      }
+    ],
+    "riskFlags": [
+      {
+        "risk": "regulatory_antitrust",
+        "severity": "medium",
+        "status": "continuing"
+      }
+    ],
+    "vsPriorQuarter": "相对 5 月季报：无新增 KPI 修正，叙事延续 AI/Cloud 投资周期。"
+  },
+  "bodyMarkdown": "## 概要\n\n2026 年 6 月 Microsoft 投资者关系频道**无新的 press release 或 presentation**。\n\n## 与行业对照\n\n同 GICS Software - Infrastructure  peer（ORCL、CRM 等）6 月普遍维持 **AI capex** 主题，MSFT 叙事**非 outlier**。\n\n## 风险\n\n反垄断与欧盟监管仍为持续风险，未见 6 月新进展。"
+}

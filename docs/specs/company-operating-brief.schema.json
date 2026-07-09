@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-site.local/schemas/company-operating-brief.json",
+  "title": "CompanyOperatingBrief",
+  "description": "单股月度/周期经营状态 AI 分析 ingest 结构（外部 Automation 生成，站内只读存储）",
+  "type": "object",
+  "required": ["meta", "analysis", "bodyMarkdown"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "symbol",
+        "periodMonth",
+        "title",
+        "gicsSector",
+        "gicsIndustry",
+        "generatedAt",
+        "summaryOneLiner",
+        "disclosureCoverage"
+      ],
+      "properties": {
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9.-]{0,9}$",
+          "description": "美股 ticker"
+        },
+        "periodMonth": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}$",
+          "description": "分析覆盖月份 YYYY-MM"
+        },
+        "title": { "type": "string" },
+        "gicsSector": { "type": "string" },
+        "gicsIndustry": { "type": "string" },
+        "cik": { "type": "string" },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "summaryOneLiner": { "type": "string", "maxLength": 280 },
+        "disclosureCoverage": {
+          "type": "object",
+          "required": ["hasNewDisclosure", "sources"],
+          "properties": {
+            "hasNewDisclosure": { "type": "boolean" },
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["type", "publishedAt"],
+                "properties": {
+                  "type": {
+                    "enum": ["ir_press", "ir_presentation", "sec_8k", "sec_10q", "earnings_call", "other"]
+                  },
+                  "publishedAt": { "type": "string", "format": "date" },
+                  "url": { "type": "string", "format": "uri" },
+                  "title": { "type": "string" }
+                }
+              }
+            },
+            "note": {
+              "type": "string",
+              "description": "如无新披露，说明原因"
+            }
+          }
+        },
+        "managementTone": {
+          "enum": ["positive", "neutral", "cautious", "mixed", "unknown"]
+        },
+        "toneConfidence": { "enum": ["H", "M", "L"] }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "required": ["kpiDeltas", "narrativeThemes", "riskFlags"],
+      "properties": {
+        "kpiDeltas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["metric", "direction", "status"],
+            "properties": {
+              "metric": { "type": "string", "description": "如 revenue_guidance, orders, same_store_sales" },
+              "direction": { "enum": ["up", "down", "flat", "unknown"] },
+              "status": { "enum": ["new", "continuing", "reversed", "removed"] },
+              "priorPeriod": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+              "evidence": { "type": "string" },
+              "magnitude": { "type": "string", "description": "定性或定量变化描述" }
+            }
+          }
+        },
+        "narrativeThemes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["theme", "status"],
+            "properties": {
+              "theme": { "type": "string" },
+              "status": { "enum": ["new", "continuing", "fading"] },
+              "peerTags": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "便于行业互证的主题标签，如 demand_softening, ai_capex, inventory_drawdown"
+              }
+            }
+          }
+        },
+        "riskFlags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["risk", "severity"],
+            "properties": {
+              "risk": { "type": "string" },
+              "severity": { "enum": ["low", "medium", "high"] },
+              "status": { "enum": ["new", "continuing", "resolved"] }
+            }
+          }
+        },
+        "vsPriorQuarter": {
+          "type": "string",
+          "description": "与最近季报 MD&A / earnings call 的差异摘要"
+        }
+      }
+    },
+    "bodyMarkdown": {
+      "type": "string",
+      "description": "人类可读完整分析（中文）"
+    }
+  }
+}

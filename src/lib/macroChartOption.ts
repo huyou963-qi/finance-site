@@ -34,9 +34,22 @@ export type MacroSeriesVisualConfig = {
 export type MacroSeriesVisualConfigMap = Record<string, MacroSeriesVisualConfig>;
 
 export type MacroLegendPosition = "bottom" | "top";
-export type MacroChartSlotMode = "timeSeries" | "pie" | "seasonal";
+export type MacroChartSlotMode =
+  | "timeSeries"
+  | "pie"
+  | "seasonal"
+  | "waterfall"
+  | "heatmap"
+  | "xyScatter"
+  | "boxplot"
+  | "radar";
 
 export const DEFAULT_SEASONAL_YEAR_COUNT = 5;
+
+/** 非时序槽位：禁用画线、十字准星联动，并使用全样本（非缩放窗口） */
+export function isAltMacroSlotMode(mode: MacroChartSlotMode): boolean {
+  return mode !== "timeSeries";
+}
 
 export type MacroAxisRangeMode = "auto" | "manual";
 
@@ -70,6 +83,10 @@ export type MacroChartDisplayConfig = {
   slotModes?: Partial<Record<number, MacroChartSlotMode>>;
   /** 饼图各槽使用的年份（如 "2024"） */
   slotPieYears?: Partial<Record<number, string>>;
+  /** 瀑布图各槽使用的年份 */
+  slotWaterfallYears?: Partial<Record<number, string>>;
+  /** 雷达图各槽使用的年份 */
+  slotRadarYears?: Partial<Record<number, string>>;
   /** 季节图各槽展示的近年数量，默认 5 */
   slotSeasonalYearCount?: Partial<Record<number, number>>;
   /** 各图槽自定义标题（留空则用默认「图 N」或单图时的数据标题） */
@@ -212,16 +229,40 @@ export function lastCategoryIndexForYear(categories: string[], year: string): nu
   return last;
 }
 
+export function resolveSlotSnapshotYear(
+  categories: string[],
+  slotYears: Partial<Record<number, string>> | undefined,
+  slot: number,
+): string | null {
+  const years = extractYearsFromCategories(categories);
+  if (years.length === 0) return null;
+  const picked = slotYears?.[slot]?.trim();
+  if (picked && years.includes(picked)) return picked;
+  return years[0] ?? null;
+}
+
 export function resolveSlotPieYear(
   categories: string[],
   slotPieYears: Partial<Record<number, string>> | undefined,
   slot: number,
 ): string | null {
-  const years = extractYearsFromCategories(categories);
-  if (years.length === 0) return null;
-  const picked = slotPieYears?.[slot]?.trim();
-  if (picked && years.includes(picked)) return picked;
-  return years[0] ?? null;
+  return resolveSlotSnapshotYear(categories, slotPieYears, slot);
+}
+
+export function resolveSlotWaterfallYear(
+  categories: string[],
+  slotWaterfallYears: Partial<Record<number, string>> | undefined,
+  slot: number,
+): string | null {
+  return resolveSlotSnapshotYear(categories, slotWaterfallYears, slot);
+}
+
+export function resolveSlotRadarYear(
+  categories: string[],
+  slotRadarYears: Partial<Record<number, string>> | undefined,
+  slot: number,
+): string | null {
+  return resolveSlotSnapshotYear(categories, slotRadarYears, slot);
 }
 
 export function resolveSlotSeasonalYearCount(
@@ -612,6 +653,768 @@ export function macroSliceToPieChartOption(
           label: { fontSize: compact ? 11 : 12, fontWeight: "bold" },
         },
         data,
+      },
+    ],
+  };
+}
+
+function finiteNumbers(data: Array<number | null | undefined>): number[] {
+  const out: number[] = [];
+  for (const v of data) {
+    if (typeof v === "number" && Number.isFinite(v)) out.push(v);
+  }
+  return out;
+}
+
+function quantileSorted(sorted: number[], q: number): number {
+  if (sorted.length === 0) return NaN;
+  if (sorted.length === 1) return sorted[0]!;
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo]!;
+  const w = pos - lo;
+  return sorted[lo]! * (1 - w) + sorted[hi]! * w;
+}
+
+function pearsonCorrelation(xs: number[], ys: number[]): number | null {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 3) return null;
+  let sumX = 0;
+  let sumY = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += xs[i]!;
+    sumY += ys[i]!;
+  }
+  const meanX = sumX / n;
+  const meanY = sumY / n;
+  let num = 0;
+  let denX = 0;
+  let denY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i]! - meanX;
+    const dy = ys[i]! - meanY;
+    num += dx * dy;
+    denX += dx * dx;
+    denY += dy * dy;
+  }
+  const den = Math.sqrt(denX * denY);
+  if (!(den > 0)) return null;
+  const r = num / den;
+  if (!Number.isFinite(r)) return null;
+  return Math.max(-1, Math.min(1, r));
+}
+
+function linearRegression(
+  points: Array<[number, number]>,
+): { slope: number; intercept: number; x0: number; x1: number } | null {
+  if (points.length < 2) return null;
+  let sumX = 0;
+  let sumY = 0;
+  for (const [x, y] of points) {
+    sumX += x;
+    sumY += y;
+  }
+  const n = points.length;
+  const meanX = sumX / n;
+  const meanY = sumY / n;
+  let num = 0;
+  let den = 0;
+  for (const [x, y] of points) {
+    const dx = x - meanX;
+    num += dx * (y - meanY);
+    den += dx * dx;
+  }
+  if (!(den > 0)) return null;
+  const slope = num / den;
+  const intercept = meanY - slope * meanX;
+  let x0 = points[0]![0];
+  let x1 = points[0]![0];
+  for (const [x] of points) {
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+  }
+  if (x0 === x1) return null;
+  return { slope, intercept, x0, x1 };
+}
+
+function seriesColorAt(
+  visualMap: MacroSeriesVisualConfigMap,
+  series: MacroChartSlice["series"][number],
+  fallbackIndex: number,
+): string {
+  const k = series.key ?? series.name;
+  return visualMap[k]?.color ?? SEASONAL_YEAR_COLORS[fallbackIndex % SEASONAL_YEAR_COLORS.length]!;
+}
+
+export function describeWaterfallChartEmptyReason(slice: MacroChartSlice | null | undefined): string {
+  if (!slice?.series?.length) return "瀑布图至少需要 2 个指标（起点 + 增减项）";
+  if (slice.series.length < 2) return "瀑布图至少需要 2 个指标（起点 + 增减项）";
+  return "当前年份暂无可用数据，请换一年份或检查指标数值";
+}
+
+export function describeHeatmapChartEmptyReason(slice: MacroChartSlice | null | undefined): string {
+  if (!slice?.series?.length) return "热力图至少需要 2 个指标";
+  if (slice.series.length < 2) return "热力图至少需要 2 个指标";
+  return "指标之间有效重叠样本不足，无法计算相关矩阵";
+}
+
+export function describeXyScatterChartEmptyReason(slice: MacroChartSlice | null | undefined): string {
+  if (!slice?.series?.length) return "XY 散点需要恰好 2 个指标（第 1 个为 X，第 2 个为 Y）";
+  if (slice.series.length !== 2) return "XY 散点需要恰好 2 个指标（第 1 个为 X，第 2 个为 Y）";
+  return "两指标无共同有效日期，无法绘制散点";
+}
+
+export function describeBoxplotChartEmptyReason(slice: MacroChartSlice | null | undefined): string {
+  if (!slice?.series?.length) return "箱线图至少需要 1 个指标";
+  return "当前指标无有效数值，请换指标或检查数据";
+}
+
+export function describeRadarChartEmptyReason(slice: MacroChartSlice | null | undefined): string {
+  if (!slice?.series?.length) return "雷达图至少需要 3 个指标";
+  if (slice.series.length < 3) return "雷达图至少需要 3 个指标";
+  return "当前年份暂无可用数据，请换一年份或检查指标数值";
+}
+
+/** 瀑布图：槽内顺序为首项起点、中间增减、末项合计（自动汇总） */
+export function macroSliceToWaterfallChartOption(
+  slice: MacroChartSlice,
+  year: string,
+  opts?: {
+    compact?: boolean;
+    seriesVisualMap?: MacroSeriesVisualConfigMap;
+    displayConfig?: MacroChartDisplayConfig;
+  },
+): EChartsOption | null {
+  if (slice.series.length < 2) return null;
+  const idx = lastCategoryIndexForYear(slice.categories, year);
+  if (idx < 0) return null;
+
+  const visualMap = opts?.seriesVisualMap ?? {};
+  const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
+  const compact = opts?.compact ?? false;
+
+  const values: Array<{ name: string; value: number; color?: string }> = [];
+  for (let i = 0; i < slice.series.length; i++) {
+    const s = slice.series[i]!;
+    const raw = s.data[idx];
+    if (typeof raw !== "number" || !Number.isFinite(raw)) continue;
+    values.push({
+      name: s.name,
+      value: raw,
+      color: seriesColorAt(visualMap, s, i),
+    });
+  }
+  if (values.length < 2) return null;
+
+  const n = values.length;
+  const help: number[] = [];
+  const positive: Array<number | "-"> = [];
+  const negative: Array<number | "-"> = [];
+  let running = 0;
+
+  for (let i = 0; i < n; i++) {
+    const v = values[i]!.value;
+    const isLast = i === n - 1;
+    if (i === 0) {
+      help.push(0);
+      if (v >= 0) {
+        positive.push(v);
+        negative.push("-");
+      } else {
+        positive.push("-");
+        negative.push(-v);
+      }
+      running = v;
+    } else if (isLast) {
+      // 末项显示为合计柱（从 0 到累计值），忽略其原始值
+      help.push(0);
+      if (running >= 0) {
+        positive.push(running);
+        negative.push("-");
+      } else {
+        positive.push("-");
+        negative.push(-running);
+      }
+    } else {
+      if (v >= 0) {
+        help.push(running);
+        positive.push(v);
+        negative.push("-");
+        running += v;
+      } else {
+        help.push(running + v);
+        positive.push("-");
+        negative.push(-v);
+        running += v;
+      }
+    }
+  }
+
+  const categories = values.map((v, i) => (i === n - 1 ? `${v.name}（合计）` : v.name));
+  const titleText = slice.title ? `${slice.title}（${year}年）` : undefined;
+
+  return {
+    title: titleText
+      ? {
+          text: titleText,
+          left: "center",
+          textStyle: {
+            color: CHART.text,
+            fontSize: compact ? 11 : 13,
+            fontWeight: "normal",
+          },
+        }
+      : undefined,
+    backgroundColor: "transparent",
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
+    tooltip: display.showTooltip
+      ? {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          textStyle: { fontSize: compact ? 10 : 12 },
+          formatter: (params) => {
+            const list = Array.isArray(params) ? params : [params];
+            const name = (list[0] as { name?: string } | undefined)?.name ?? "";
+            let delta = 0;
+            for (const p of list) {
+              const item = p as { seriesName?: string; value?: number | string };
+              if (item.seriesName === "辅助") continue;
+              const v = typeof item.value === "number" ? item.value : Number(item.value);
+              if (Number.isFinite(v)) delta += item.seriesName === "减少" ? -v : v;
+            }
+            return `${name}<br/>${formatMacroDisplayValue(delta)}`;
+          },
+        }
+      : { show: false },
+    legend: { show: false },
+    grid: {
+      left: compact ? 48 : 60,
+      right: compact ? 20 : 28,
+      top: compact ? 40 : 56,
+      bottom: compact ? 52 : 68,
+    },
+    xAxis: {
+      type: "category",
+      data: categories,
+      axisLabel: {
+        color: CHART.muted,
+        fontSize: display.xLabelFontSize,
+        rotate: display.xLabelRotate,
+        interval: 0,
+      },
+    },
+    yAxis: {
+      type: "value",
+      scale: true,
+      splitLine: display.showGridLines ? { lineStyle: { color: CHART.grid } } : { show: false },
+      axisLabel: macroValueAxisLabel(display.yLabelFontSize),
+    },
+    series: [
+      {
+        name: "辅助",
+        type: "bar",
+        stack: "waterfall",
+        silent: true,
+        itemStyle: { borderColor: "transparent", color: "transparent" },
+        emphasis: { itemStyle: { borderColor: "transparent", color: "transparent" } },
+        data: help,
+      },
+      {
+        name: "增加",
+        type: "bar",
+        stack: "waterfall",
+        barMaxWidth: display.barMaxWidth,
+        itemStyle: { color: "#34d399" },
+        data: positive,
+        label: {
+          show: true,
+          position: "top",
+          color: CHART.muted,
+          fontSize: compact ? 9 : 10,
+          formatter: (p) => {
+            const raw = (p as { value?: unknown }).value;
+            const v = typeof raw === "number" ? raw : Number(raw);
+            return Number.isFinite(v) && v !== 0 ? formatMacroDisplayNumber(v) : "";
+          },
+        },
+      },
+      {
+        name: "减少",
+        type: "bar",
+        stack: "waterfall",
+        barMaxWidth: display.barMaxWidth,
+        itemStyle: { color: "#f87171" },
+        data: negative,
+        label: {
+          show: true,
+          position: "bottom",
+          color: CHART.muted,
+          fontSize: compact ? 9 : 10,
+          formatter: (p) => {
+            const raw = (p as { value?: unknown }).value;
+            const v = typeof raw === "number" ? raw : Number(raw);
+            return Number.isFinite(v) && v !== 0 ? formatMacroDisplayNumber(-v) : "";
+          },
+        },
+      },
+    ] as EChartsOption["series"],
+  };
+}
+
+/** 热力图：槽内指标两两 Pearson 相关矩阵 */
+export function macroSliceToHeatmapChartOption(
+  slice: MacroChartSlice,
+  opts?: {
+    compact?: boolean;
+    seriesVisualMap?: MacroSeriesVisualConfigMap;
+    displayConfig?: MacroChartDisplayConfig;
+  },
+): EChartsOption | null {
+  if (slice.series.length < 2) return null;
+  const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
+  const compact = opts?.compact ?? false;
+  const names = slice.series.map((s) => s.name);
+  const n = names.length;
+  const matrix: number[][] = Array.from({ length: n }, () => Array.from({ length: n }, () => 0));
+  let hasAny = false;
+
+  for (let i = 0; i < n; i++) {
+    matrix[i]![i] = 1;
+    for (let j = i + 1; j < n; j++) {
+      const xs: number[] = [];
+      const ys: number[] = [];
+      const a = slice.series[i]!.data;
+      const b = slice.series[j]!.data;
+      const len = Math.min(a.length, b.length, slice.categories.length);
+      for (let k = 0; k < len; k++) {
+        const xv = a[k];
+        const yv = b[k];
+        if (typeof xv === "number" && Number.isFinite(xv) && typeof yv === "number" && Number.isFinite(yv)) {
+          xs.push(xv);
+          ys.push(yv);
+        }
+      }
+      const r = pearsonCorrelation(xs, ys);
+      if (r == null) {
+        matrix[i]![j] = NaN;
+        matrix[j]![i] = NaN;
+      } else {
+        hasAny = true;
+        matrix[i]![j] = r;
+        matrix[j]![i] = r;
+      }
+    }
+  }
+  if (!hasAny && n > 1) return null;
+
+  const data: Array<[number, number, number]> = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const v = matrix[i]![j]!;
+      if (Number.isFinite(v)) data.push([j, i, Number(v.toFixed(3))]);
+    }
+  }
+  if (data.length === 0) return null;
+
+  const titleText = slice.title?.trim() || undefined;
+
+  return {
+    title: titleText
+      ? {
+          text: titleText,
+          left: "center",
+          textStyle: {
+            color: CHART.text,
+            fontSize: compact ? 11 : 13,
+            fontWeight: "normal",
+          },
+        }
+      : undefined,
+    backgroundColor: "transparent",
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
+    tooltip: display.showTooltip
+      ? {
+          position: "top",
+          textStyle: { fontSize: compact ? 10 : 12 },
+          formatter: (params) => {
+            const p = params as { value?: [number, number, number] };
+            const v = p.value;
+            if (!v) return "";
+            const xName = names[v[0]] ?? "";
+            const yName = names[v[1]] ?? "";
+            return `${yName} × ${xName}<br/>r = ${v[2]}`;
+          },
+        }
+      : { show: false },
+    grid: {
+      left: compact ? 72 : 96,
+      right: compact ? 48 : 64,
+      top: compact ? 44 : 60,
+      bottom: compact ? 56 : 72,
+    },
+    xAxis: {
+      type: "category",
+      data: names,
+      splitArea: { show: true },
+      axisLabel: {
+        color: CHART.muted,
+        fontSize: Math.max(9, display.xLabelFontSize - 1),
+        rotate: 30,
+        interval: 0,
+      },
+    },
+    yAxis: {
+      type: "category",
+      data: names,
+      splitArea: { show: true },
+      axisLabel: {
+        color: CHART.muted,
+        fontSize: Math.max(9, display.yLabelFontSize - 1),
+      },
+    },
+    visualMap: {
+      min: -1,
+      max: 1,
+      calculable: true,
+      orient: "vertical",
+      right: compact ? 4 : 8,
+      top: "middle",
+      textStyle: { color: CHART.muted, fontSize: compact ? 9 : 10 },
+      inRange: {
+        color: ["#3b82f6", "#e2e8f0", "#ef4444"],
+      },
+    },
+    series: [
+      {
+        name: "相关系数",
+        type: "heatmap",
+        data,
+        label: {
+          show: n <= 8,
+          color: CHART.text,
+          fontSize: compact ? 9 : 10,
+        },
+        emphasis: {
+          itemStyle: { shadowBlur: 6, shadowColor: "rgba(0,0,0,0.35)" },
+        },
+      },
+    ],
+  };
+}
+
+/** XY 相关散点：槽内第 1 指标为 X、第 2 为 Y，叠加回归线 */
+export function macroSliceToXyScatterChartOption(
+  slice: MacroChartSlice,
+  opts?: {
+    compact?: boolean;
+    seriesVisualMap?: MacroSeriesVisualConfigMap;
+    displayConfig?: MacroChartDisplayConfig;
+  },
+): EChartsOption | null {
+  if (slice.series.length !== 2) return null;
+  const sx = slice.series[0]!;
+  const sy = slice.series[1]!;
+  const visualMap = opts?.seriesVisualMap ?? {};
+  const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
+  const compact = opts?.compact ?? false;
+
+  const points: Array<[number, number]> = [];
+  const len = Math.min(sx.data.length, sy.data.length, slice.categories.length);
+  for (let i = 0; i < len; i++) {
+    const x = sx.data[i];
+    const y = sy.data[i];
+    if (typeof x === "number" && Number.isFinite(x) && typeof y === "number" && Number.isFinite(y)) {
+      points.push([x, y]);
+    }
+  }
+  if (points.length === 0) return null;
+
+  const color = seriesColorAt(visualMap, sy, 1);
+  const reg = linearRegression(points);
+  const titleText = slice.title?.trim() || undefined;
+  const seriesList: NonNullable<EChartsOption["series"]> = [
+    {
+      name: `${sy.name} vs ${sx.name}`,
+      type: "scatter",
+      symbolSize: Math.max(4, display.symbolSize),
+      itemStyle: { color, opacity: 0.75 },
+      data: points,
+    },
+  ];
+  if (reg) {
+    seriesList.push({
+      name: "回归线",
+      type: "line",
+      showSymbol: false,
+      lineStyle: { color: "#f59e0b", width: 1.6, type: "dashed" },
+      data: [
+        [reg.x0, reg.slope * reg.x0 + reg.intercept],
+        [reg.x1, reg.slope * reg.x1 + reg.intercept],
+      ],
+      tooltip: { show: false },
+    });
+  }
+
+  return {
+    title: titleText
+      ? {
+          text: titleText,
+          left: "center",
+          textStyle: {
+            color: CHART.text,
+            fontSize: compact ? 11 : 13,
+            fontWeight: "normal",
+          },
+        }
+      : undefined,
+    backgroundColor: "transparent",
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
+    tooltip: display.showTooltip
+      ? {
+          trigger: "item",
+          textStyle: { fontSize: compact ? 10 : 12 },
+          formatter: (params) => {
+            const p = params as { seriesType?: string; value?: [number, number] };
+            if (p.seriesType !== "scatter" || !p.value) return "";
+            return `${sx.name}: ${formatMacroDisplayValue(p.value[0])}<br/>${sy.name}: ${formatMacroDisplayValue(p.value[1])}`;
+          },
+        }
+      : { show: false },
+    legend: display.showLegend
+      ? {
+          data: seriesList.map((s) => (typeof s === "object" && s && "name" in s ? String(s.name) : "")),
+          textStyle: { color: CHART.muted, fontSize: compact ? 10 : 11 },
+          ...(display.legendPosition === "top"
+            ? { top: compact ? 2 : 4 }
+            : { bottom: compact ? 2 : 4 }),
+        }
+      : { show: false },
+    grid: {
+      left: compact ? 52 : 64,
+      right: compact ? 24 : 32,
+      top: compact ? 44 : 56,
+      bottom: compact ? 52 : 64,
+    },
+    xAxis: {
+      type: "value",
+      name: sx.name,
+      nameLocation: "middle",
+      nameGap: compact ? 22 : 28,
+      nameTextStyle: { color: CHART.muted, fontSize: compact ? 10 : 11 },
+      scale: true,
+      splitLine: display.showGridLines ? { lineStyle: { color: CHART.grid } } : { show: false },
+      axisLabel: macroValueAxisLabel(display.xLabelFontSize),
+    },
+    yAxis: {
+      type: "value",
+      name: sy.name,
+      nameTextStyle: { color: CHART.muted, fontSize: compact ? 10 : 11 },
+      scale: true,
+      splitLine: display.showGridLines ? { lineStyle: { color: CHART.grid } } : { show: false },
+      axisLabel: macroValueAxisLabel(display.yLabelFontSize),
+    },
+    series: seriesList,
+  };
+}
+
+/** 箱线图：各序列全样本五数概括 */
+export function macroSliceToBoxplotChartOption(
+  slice: MacroChartSlice,
+  opts?: {
+    compact?: boolean;
+    seriesVisualMap?: MacroSeriesVisualConfigMap;
+    displayConfig?: MacroChartDisplayConfig;
+  },
+): EChartsOption | null {
+  if (slice.series.length < 1) return null;
+  const visualMap = opts?.seriesVisualMap ?? {};
+  const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
+  const compact = opts?.compact ?? false;
+
+  const categories: string[] = [];
+  const boxData: number[][] = [];
+  const colors: string[] = [];
+
+  for (let i = 0; i < slice.series.length; i++) {
+    const s = slice.series[i]!;
+    const vals = finiteNumbers(s.data).sort((a, b) => a - b);
+    if (vals.length === 0) continue;
+    const min = vals[0]!;
+    const q1 = quantileSorted(vals, 0.25);
+    const median = quantileSorted(vals, 0.5);
+    const q3 = quantileSorted(vals, 0.75);
+    const max = vals[vals.length - 1]!;
+    categories.push(s.name);
+    boxData.push([min, q1, median, q3, max]);
+    colors.push(seriesColorAt(visualMap, s, i));
+  }
+  if (boxData.length === 0) return null;
+
+  const titleText = slice.title?.trim() || undefined;
+
+  return {
+    title: titleText
+      ? {
+          text: titleText,
+          left: "center",
+          textStyle: {
+            color: CHART.text,
+            fontSize: compact ? 11 : 13,
+            fontWeight: "normal",
+          },
+        }
+      : undefined,
+    backgroundColor: "transparent",
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
+    tooltip: display.showTooltip
+      ? {
+          trigger: "item",
+          textStyle: { fontSize: compact ? 10 : 12 },
+          formatter: (params) => {
+            const p = params as { name?: string; value?: number[] };
+            const v = p.value;
+            if (!v || v.length < 5) return p.name ?? "";
+            return [
+              p.name ?? "",
+              `最小: ${formatMacroDisplayValue(v[0])}`,
+              `Q1: ${formatMacroDisplayValue(v[1])}`,
+              `中位: ${formatMacroDisplayValue(v[2])}`,
+              `Q3: ${formatMacroDisplayValue(v[3])}`,
+              `最大: ${formatMacroDisplayValue(v[4])}`,
+            ].join("<br/>");
+          },
+        }
+      : { show: false },
+    grid: {
+      left: compact ? 48 : 60,
+      right: compact ? 20 : 28,
+      top: compact ? 40 : 56,
+      bottom: compact ? 52 : 68,
+    },
+    xAxis: {
+      type: "category",
+      data: categories,
+      boundaryGap: true,
+      axisLabel: {
+        color: CHART.muted,
+        fontSize: display.xLabelFontSize,
+        rotate: display.xLabelRotate,
+        interval: 0,
+      },
+    },
+    yAxis: {
+      type: "value",
+      scale: true,
+      splitLine: display.showGridLines ? { lineStyle: { color: CHART.grid } } : { show: false },
+      axisLabel: macroValueAxisLabel(display.yLabelFontSize),
+    },
+    series: [
+      {
+        name: "箱线",
+        type: "boxplot",
+        data: boxData.map((row, i) => ({
+          value: row,
+          itemStyle: {
+            color: "transparent",
+            borderColor: colors[i] ?? CHART.seriesDefault,
+            borderWidth: 1.5,
+          },
+        })),
+      },
+    ],
+  };
+}
+
+/** 雷达图：选定年份截面，各轴按序列历史 min-max 归一化到 0–100 */
+export function macroSliceToRadarChartOption(
+  slice: MacroChartSlice,
+  year: string,
+  opts?: {
+    compact?: boolean;
+    seriesVisualMap?: MacroSeriesVisualConfigMap;
+    displayConfig?: MacroChartDisplayConfig;
+  },
+): EChartsOption | null {
+  if (slice.series.length < 3) return null;
+  const idx = lastCategoryIndexForYear(slice.categories, year);
+  if (idx < 0) return null;
+
+  const visualMap = opts?.seriesVisualMap ?? {};
+  const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
+  const compact = opts?.compact ?? false;
+
+  const indicators: Array<{ name: string; max: number }> = [];
+  const values: number[] = [];
+  const usedSeries: MacroChartSlice["series"] = [];
+
+  for (const s of slice.series) {
+    const raw = s.data[idx];
+    if (typeof raw !== "number" || !Number.isFinite(raw)) continue;
+    const hist = finiteNumbers(s.data);
+    if (hist.length === 0) continue;
+    const lo = Math.min(...hist);
+    const hi = Math.max(...hist);
+    const span = hi - lo;
+    const norm = span > 0 ? ((raw - lo) / span) * 100 : 50;
+    indicators.push({ name: s.name, max: 100 });
+    values.push(Number(norm.toFixed(1)));
+    usedSeries.push(s);
+  }
+  if (indicators.length < 3) return null;
+
+  const color = seriesColorAt(visualMap, usedSeries[0]!, 0);
+  const titleText = slice.title ? `${slice.title}（${year}年）` : undefined;
+
+  return {
+    title: titleText
+      ? {
+          text: titleText,
+          left: "center",
+          textStyle: {
+            color: CHART.text,
+            fontSize: compact ? 11 : 13,
+            fontWeight: "normal",
+          },
+        }
+      : undefined,
+    backgroundColor: "transparent",
+    textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
+    tooltip: display.showTooltip
+      ? {
+          trigger: "item",
+          textStyle: { fontSize: compact ? 10 : 12 },
+        }
+      : { show: false },
+    legend: { show: false },
+    radar: {
+      indicator: indicators,
+      center: ["50%", "55%"],
+      radius: compact ? "58%" : "62%",
+      axisName: {
+        color: CHART.muted,
+        fontSize: compact ? 9 : 10,
+      },
+      splitLine: { lineStyle: { color: CHART.grid } },
+      splitArea: {
+        show: true,
+        areaStyle: { color: ["rgba(148,163,184,0.04)", "rgba(148,163,184,0.08)"] },
+      },
+      axisLine: { lineStyle: { color: CHART.grid } },
+    },
+    series: [
+      {
+        name: `${year}年`,
+        type: "radar",
+        data: [
+          {
+            value: values,
+            name: `${year}年`,
+            areaStyle: { color, opacity: 0.2 },
+            lineStyle: { color, width: 1.8 },
+            itemStyle: { color },
+          },
+        ],
       },
     ],
   };

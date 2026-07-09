@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "status": 402,
+  "endpoint": "/sector-performance-snapshot?date=2024-03-01",
+  "body": {
+    "_raw": "Premium Query Parameter: 'Special Endpoint : This value set for 'date' is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+  }
+}

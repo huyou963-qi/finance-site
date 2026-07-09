@@ -1,0 +1,48 @@
+{
+  "count": 501,
+  "bySector": {
+    "Industrials": 81,
+    "Health Care": 59,
+    "Information Technology": 74,
+    "Utilities": 31,
+    "Financials": 75,
+    "Materials": 26,
+    "Consumer Discretionary": 47,
+    "Real Estate": 31,
+    "Communication Services": 23,
+    "Consumer Staples": 33,
+    "Energy": 21
+  },
+  "sample": [
+    {
+      "symbol": "MMM",
+      "name": "3M",
+      "sector": "Industrials",
+      "subIndustry": "Industrial Conglomerates"
+    },
+    {
+      "symbol": "AOS",
+      "name": "A. O. Smith",
+      "sector": "Industrials",
+      "subIndustry": "Building Products"
+    },
+    {
+      "symbol": "ABT",
+      "name": "Abbott Laboratories",
+      "sector": "Health Care",
+      "subIndustry": "Health Care Equipment"
+    },
+    {
+      "symbol": "ABBV",
+      "name": "AbbVie",
+      "sector": "Health Care",
+      "subIndustry": "Biotechnology"
+    },
+    {
+      "symbol": "ACN",
+      "name": "Accenture",
+      "sector": "Information Technology",
+      "subIndustry": "IT Consulting &amp; Other Services"
+    }
+  ]
+}

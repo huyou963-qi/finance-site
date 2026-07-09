@@ -269,7 +269,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["capacity"],
     },
     members: {
-      fredSeriesIds: ["INDPRO"],
+      // G.17 同日发布：总量 INDPRO + 制造业 NAICS IPMAN
+      fredSeriesIds: ["INDPRO", "IPMAN"],
     },
   }),
   pkg("us.bls.retail_sales", "美国零售销售", {
@@ -682,11 +683,49 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 225,
     members: { fredSeriesIds: ["USREC"] },
   }),
+  pkg("us.census.m3", "美国制造商订单与库存（M3）", {
+    labelEn: "Manufacturer's Shipments, Inventories, and Orders (M3)",
+    granularity: "MONTHLY",
+    sortOrder: 229,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["durable goods", "factory orders"],
+      excludeKeywords: ["wholesale", "retail", "inventories to sales"],
+    },
+    members: {
+      fredSeriesIds: ["DGORDER", "ADXTNO", "NEWORDER", "AMDMUO", "AMTMTI"],
+    },
+  }),
+  pkg("us.census.mtis", "美国制造与贸易库存销售（MTIS）", {
+    labelEn: "Manufacturing and Trade Inventories and Sales",
+    granularity: "MONTHLY",
+    sortOrder: 230,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["business inventories", "inventory sales"],
+      excludeKeywords: ["durable goods", "factory orders"],
+    },
+    members: {
+      fredSeriesIds: ["BUSINV", "ISRATIO", "MNFCTRIRSA"],
+    },
+  }),
+  pkg("us.frb.g17_capacity", "美国产能利用率（G.17）", {
+    labelEn: "G.17 Capacity Utilization",
+    agencyId: "us-bls",
+    granularity: "MONTHLY",
+    sortOrder: 231,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["capacity utilization"],
+      excludeKeywords: ["industrial production"],
+    },
+    members: { fredSeriesIds: ["MCUMFN"] },
+  }),
   probePkg("us.frb.h10_fx", "美国 H.10 外汇汇率", {
     labelEn: "H.10 Foreign Exchange Rates",
     granularity: "DAILY",
     intervalHours: 24,
-    sortOrder: 226,
+    sortOrder: 232,
     members: {
       fredSeriesIds: ["DTWEXBGS", "DTWEXAFEGS", "DTWEXEMEGS", "DEXUSEU"],
     },
@@ -695,14 +734,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     labelEn: "U.S. International Transactions",
     granularity: "QUARTERLY",
     intervalHours: 168,
-    sortOrder: 227,
+    sortOrder: 233,
     members: { fredSeriesIds: ["IEABC"] },
   }),
   probePkg("us.bea.iip", "美国国际投资头寸", {
     labelEn: "U.S. International Investment Position",
     granularity: "QUARTERLY",
     intervalHours: 168,
-    sortOrder: 228,
+    sortOrder: 234,
     members: { fredSeriesIds: ["IIPUSNETIQ"] },
   }),
 ] as const;

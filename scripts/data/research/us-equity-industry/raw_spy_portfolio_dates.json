@@ -1,0 +1,6 @@
+{
+  "ok": false,
+  "status": 404,
+  "endpoint": "/etf/portfolio-dates?symbol=SPY",
+  "body": []
+}
