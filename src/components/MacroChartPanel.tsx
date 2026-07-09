@@ -6,10 +6,21 @@ import type { EChartsType } from "echarts";
 import ReactECharts from "echarts-for-react";
 import type { MacroChartSlice } from "@/lib/macroChartOption";
 import {
+  describeBoxplotChartEmptyReason,
+  describeHeatmapChartEmptyReason,
+  describeRadarChartEmptyReason,
   describeSeasonalChartEmptyReason,
+  describeWaterfallChartEmptyReason,
+  describeXyScatterChartEmptyReason,
+  isAltMacroSlotMode,
   macroPayloadToChartOption,
+  macroSliceToBoxplotChartOption,
+  macroSliceToHeatmapChartOption,
   macroSliceToPieChartOption,
+  macroSliceToRadarChartOption,
   macroSliceToSeasonalChartOption,
+  macroSliceToWaterfallChartOption,
+  macroSliceToXyScatterChartOption,
 } from "@/lib/macroChartOption";
 import type {
   MacroChartDisplayConfig,
@@ -48,6 +59,8 @@ export type MacroChartPanelProps = {
   slotMode?: MacroChartSlotMode;
   slotIndex?: number;
   pieYear?: string | null;
+  waterfallYear?: string | null;
+  radarYear?: string | null;
   seasonalYearCount?: number;
   drawTool?: MacroDrawingTool;
   drawStyle?: MacroDrawingStyle;
@@ -73,6 +86,8 @@ export function MacroChartPanel({
   slotMode = "timeSeries",
   slotIndex = 0,
   pieYear = null,
+  waterfallYear = null,
+  radarYear = null,
   seasonalYearCount = 5,
   drawTool = "cursor",
   drawStyle = DEFAULT_MACRO_DRAWING_STYLE,
@@ -133,7 +148,12 @@ export function MacroChartPanel({
 
   const isPie = slotMode === "pie" && Boolean(pieYear);
   const isSeasonal = slotMode === "seasonal";
-  const isAltChart = isPie || isSeasonal;
+  const isWaterfall = slotMode === "waterfall" && Boolean(waterfallYear);
+  const isHeatmap = slotMode === "heatmap";
+  const isXyScatter = slotMode === "xyScatter";
+  const isBoxplot = slotMode === "boxplot";
+  const isRadar = slotMode === "radar" && Boolean(radarYear);
+  const isAltChart = isAltMacroSlotMode(slotMode);
 
   const axisRanges = useMemo(
     () => resolveSlotAxisRanges(displayConfig, slotIndex),
@@ -161,6 +181,42 @@ export function MacroChartPanel({
         axisRanges,
       });
     }
+    if (isWaterfall && waterfallYear) {
+      return macroSliceToWaterfallChartOption(slice, waterfallYear, {
+        compact,
+        seriesVisualMap,
+        displayConfig,
+      });
+    }
+    if (isHeatmap) {
+      return macroSliceToHeatmapChartOption(slice, {
+        compact,
+        seriesVisualMap,
+        displayConfig,
+      });
+    }
+    if (isXyScatter) {
+      return macroSliceToXyScatterChartOption(slice, {
+        compact,
+        seriesVisualMap,
+        displayConfig,
+      });
+    }
+    if (isBoxplot) {
+      return macroSliceToBoxplotChartOption(slice, {
+        compact,
+        seriesVisualMap,
+        displayConfig,
+      });
+    }
+    if (isRadar && radarYear) {
+      return macroSliceToRadarChartOption(slice, radarYear, {
+        compact,
+        seriesVisualMap,
+        displayConfig,
+      });
+    }
+    if (isAltChart) return null;
     return macroPayloadToChartOption(slice, {
       compact,
       seriesVisualMap,
@@ -177,6 +233,14 @@ export function MacroChartPanel({
     pieYear,
     isSeasonal,
     seasonalYearCount,
+    isWaterfall,
+    waterfallYear,
+    isHeatmap,
+    isXyScatter,
+    isBoxplot,
+    isRadar,
+    radarYear,
+    isAltChart,
   ]);
 
   const refreshGraphics = useCallback(() => {
@@ -402,7 +466,17 @@ export function MacroChartPanel({
                 slice ? { ...slice, series: slice.series.slice(0, 1) } : slice,
                 seasonalYearCount,
               )
-            : (emptyHint ?? "暂无可用图表数据")}
+            : isWaterfall
+              ? describeWaterfallChartEmptyReason(slice)
+              : isHeatmap
+                ? describeHeatmapChartEmptyReason(slice)
+                : isXyScatter
+                  ? describeXyScatterChartEmptyReason(slice)
+                  : isBoxplot
+                    ? describeBoxplotChartEmptyReason(slice)
+                    : isRadar
+                      ? describeRadarChartEmptyReason(slice)
+                      : (emptyHint ?? "暂无可用图表数据")}
       </div>
     );
   }

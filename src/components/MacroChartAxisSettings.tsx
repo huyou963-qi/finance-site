@@ -12,6 +12,7 @@ import type {
 } from "@/lib/macroChartOption";
 import {
   computeAxisExtentFromSlice,
+  isAltMacroSlotMode,
   resolveMacroSlotTitle,
 } from "@/lib/macroChartOption";
 
@@ -34,6 +35,15 @@ function parseNumInput(raw: string): number | undefined {
 function slotMode(displayConfig: MacroChartDisplayConfig, slot: number): MacroChartSlotMode {
   return displayConfig.slotModes?.[slot] ?? "timeSeries";
 }
+
+const ALT_AXIS_HINT: Partial<Record<MacroChartSlotMode, string>> = {
+  pie: "饼图无 Y 轴范围设置",
+  waterfall: "瀑布图无传统左右 Y 轴范围设置",
+  heatmap: "热力图无传统左右 Y 轴范围设置",
+  xyScatter: "XY 散点使用数值双轴，暂不支持手动范围",
+  boxplot: "箱线图无传统左右 Y 轴范围设置",
+  radar: "雷达图无传统左右 Y 轴范围设置",
+};
 
 function slotRanges(
   displayConfig: MacroChartDisplayConfig,
@@ -131,14 +141,16 @@ export function MacroChartAxisSettings({
           }) ?? `图 ${slot + 1}`;
         const seriesCount = buckets[slot]?.length ?? 0;
 
-        if (mode === "pie") {
+        if (mode === "pie" || (isAltMacroSlotMode(mode) && mode !== "seasonal")) {
           return (
             <div
               key={slot}
               className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
             >
               <div className="text-[11px] font-medium text-fs-muted">{title}</div>
-              <p className="mt-0.5 text-[10px] text-fs-secondary">饼图无 Y 轴范围设置</p>
+              <p className="mt-0.5 text-[10px] text-fs-secondary">
+                {ALT_AXIS_HINT[mode] ?? "当前图种无 Y 轴范围设置"}
+              </p>
             </div>
           );
         }

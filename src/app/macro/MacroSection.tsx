@@ -64,6 +64,8 @@ import {
   BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
+  BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
+  BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
   BUILTIN_US_OVERVIEW_TEMPLATE,
   HARDCODED_BUILTIN_TEMPLATE_IDS,
   resolveBuiltinTemplate,
@@ -85,6 +87,7 @@ import { OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/overviewAnalysisLayout";
 import { MONETARY_VIRTUAL_KEY_LABELS } from "@/lib/data/monetaryAnalysisLayout";
 import { HOUSING_VIRTUAL_KEY_LABELS } from "@/lib/data/housingAnalysisLayout";
 import { CYCLE_RISK_VIRTUAL_KEY_LABELS } from "@/lib/data/cycleRiskAnalysisLayout";
+import { INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS } from "@/lib/data/industryInventoryAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -966,6 +969,8 @@ export function MacroSection() {
       BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
+      BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
+      BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
     ];
     const hidden = new Set(hiddenBuiltinTemplateIds);
     const hardcoded = base
@@ -997,6 +1002,8 @@ export function MacroSection() {
       BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
+      BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
+      BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
     ];
     return base
       .filter((tpl) => hidden.has(tpl.id))
@@ -1035,6 +1042,7 @@ export function MacroSection() {
       ...MONETARY_VIRTUAL_KEY_LABELS,
       ...HOUSING_VIRTUAL_KEY_LABELS,
       ...CYCLE_RISK_VIRTUAL_KEY_LABELS,
+      ...INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS,
     ]);
     for (const [k, v] of catalogLabelByKey) {
       if (!m.has(k)) m.set(k, v);
@@ -3444,7 +3452,7 @@ export function MacroSection() {
                             {chartPropsTab === "global" ? (
                               <div className="mt-3 border-t border-fs-border pt-3">
                                 <p className="mb-2 text-[10px] leading-relaxed text-fs-muted">
-                                  常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图；季节图仅支持单指标（月度/季度），默认近 5 年并叠加前 N-1 年均值线；饼图可切换数据年份；并支持任意序列切到右轴。
+                                  常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图、瀑布图、热力图、XY散点、箱线图、雷达图。季节图仅支持单指标（月度/季度）；瀑布图按槽内顺序拆解增减（末项为合计）；热力图为指标相关矩阵；XY散点需恰好 2 个指标；雷达图需 ≥3 个指标并按历史区间归一化；饼图/瀑布图/雷达图可切换数据年份；并支持任意序列切到右轴。
                                 </p>
                                 <div className="rounded-md border border-fs-border/90 bg-fs-elevated/80 p-2 text-[10px] text-fs-muted">
                                   建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。

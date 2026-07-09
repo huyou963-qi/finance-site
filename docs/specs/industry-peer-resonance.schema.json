@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://finance-site.local/schemas/industry-peer-resonance.json",
+  "title": "IndustryPeerResonance",
+  "description": "同行业经营叙事互证分析（按 GICS Industry 或自定义 peer group，月度批处理输出）",
+  "type": "object",
+  "required": ["meta", "consensus", "outliers", "bodyMarkdown"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "periodMonth",
+        "peerGroupId",
+        "peerGroupLabel",
+        "gicsIndustry",
+        "gicsSector",
+        "peerCount",
+        "generatedAt"
+      ],
+      "properties": {
+        "periodMonth": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+        "peerGroupId": {
+          "type": "string",
+          "description": "如 gics:Software - Infrastructure 或 custom:cloud_infra_top10"
+        },
+        "peerGroupLabel": { "type": "string" },
+        "gicsIndustry": { "type": "string" },
+        "gicsSector": { "type": "string" },
+        "peerCount": { "type": "integer", "minimum": 1 },
+        "peersAnalyzed": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "generatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "consensus": {
+      "type": "object",
+      "required": ["themes"],
+      "properties": {
+        "themes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["theme", "peerMentionCount", "peerMentionPct", "direction"],
+            "properties": {
+              "theme": { "type": "string" },
+              "peerMentionCount": { "type": "integer" },
+              "peerMentionPct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "direction": {
+                "enum": ["improving", "stable", "deteriorating", "mixed"]
+              },
+              "sampleSymbols": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "macroCrossCheck": {
+                "type": "string",
+                "description": "可选：与 ISM/COT/宏观指标的对照"
+              }
+            }
+          }
+        },
+        "sectorToneDistribution": {
+          "type": "object",
+          "properties": {
+            "positive": { "type": "integer" },
+            "neutral": { "type": "integer" },
+            "cautious": { "type": "integer" },
+            "mixed": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "outliers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["symbol", "outlierType", "summary"],
+        "properties": {
+          "symbol": { "type": "string" },
+          "outlierType": {
+            "enum": ["leading", "lagging", "divergent", "insufficient_data"]
+          },
+          "summary": { "type": "string" },
+          "contrastsWith": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "与哪些 consensus theme 相悖"
+          }
+        }
+      }
+    },
+    "heatmap": {
+      "type": "array",
+      "description": "主题 × 公司矩阵（稀疏表示）",
+      "items": {
+        "type": "object",
+        "required": ["symbol", "theme", "signal"],
+        "properties": {
+          "symbol": { "type": "string" },
+          "theme": { "type": "string" },
+          "signal": { "enum": ["positive", "neutral", "negative", "none"] }
+        }
+      }
+    },
+    "bodyMarkdown": { "type": "string" }
+  }
+}

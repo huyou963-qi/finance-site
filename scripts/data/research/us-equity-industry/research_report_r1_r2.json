@@ -1,0 +1,736 @@
+{
+  "generatedAt": "2026-07-05T10:19:27.915Z",
+  "fmpBase": "https://financialmodelingprep.com/stable",
+  "gicsSectorEtfMap": {
+    "Energy": "XLE",
+    "Materials": "XLB",
+    "Industrials": "XLI",
+    "Consumer Discretionary": "XLY",
+    "Consumer Staples": "XLP",
+    "Health Care": "XLV",
+    "Financials": "XLF",
+    "Information Technology": "XLK",
+    "Communication Services": "XLC",
+    "Utilities": "XLU",
+    "Real Estate": "XLRE"
+  },
+  "endpointSummary": [
+    {
+      "name": "profile",
+      "ok": true,
+      "status": 200,
+      "type": "array",
+      "count": 1,
+      "fields": [
+        "symbol",
+        "price",
+        "marketCap",
+        "beta",
+        "lastDividend",
+        "range",
+        "change",
+        "changePercentage",
+        "volume",
+        "averageVolume",
+        "companyName",
+        "currency",
+        "cik",
+        "isin",
+        "cusip",
+        "exchangeFullName",
+        "exchange",
+        "industry",
+        "website",
+        "description",
+        "ceo",
+        "sector",
+        "country",
+        "fullTimeEmployees",
+        "phone",
+        "address",
+        "city",
+        "state",
+        "zip",
+        "image",
+        "ipoDate",
+        "defaultImage",
+        "isEtf",
+        "isActivelyTrading",
+        "isAdr",
+        "isFund"
+      ],
+      "sample": [
+        {
+          "symbol": "AAPL",
+          "price": 308.63,
+          "marketCap": 4532958682280,
+          "beta": 1.097,
+          "lastDividend": 1.05,
+          "range": "201.5-317.4",
+          "change": 14.25,
+          "changePercentage": 4.84068,
+          "volume": 71897697,
+          "averageVolume": 53938116,
+          "companyName": "Apple Inc.",
+          "currency": "USD",
+          "cik": "0000320193",
+          "isin": "US0378331005",
+          "cusip": "037833100",
+          "exchangeFullName": "NASDAQ Global Select",
+          "exchange": "NASDAQ",
+          "industry": "Consumer Electronics",
+          "website": "https://www.apple.com",
+          "description": "Apple Inc. is a global technology corporation that specializes in the conceptualization, production, and sale of a diverse suite of electronic devices. Its comprehensive hardware lineup features the well-known iPhone smartphones, Mac personal computers, and versatile iPad tablets. The company also supplies a range of wearables, smart home products, and accessories, including AirPods, Apple TV, Apple Watch, items from the Beats brand, and HomePod speakers. Beyond its device offerings, Apple delivers essential support services like AppleCare and robust cloud solutions. It oversees key digital platforms, prominently the App Store, which acts as a central hub for customers to discover and download countless applications and digital content, from e-books and music to videos, games, and podcasts. The company also generates revenue via advertising, leveraging both its proprietary ad platforms and third-party licensing deals. Apple's ecosystem is further bolstered by a wide array of subscription-based services: Apple Arcade for gaming, Apple Fitness+ for personalized wellness, Apple Music for curated audio experiences and on-demand radio, Apple News+ for access to news and magazines, and Apple TV+ for exclusive original video programming. Its financial services portfolio includes the co-branded Apple Card and the mobile payment system, Apple Pay. Additionally, Apple strategically licenses its intellectual property. The company serves a broad clientele that spans individual consumers, small and medium-sized enterprises, as well as institutional clients in the education, corporate, and governmental sectors. Products are distributed through a multi-channel strategy, utilizing Apple's own physical retail locations and online storefronts, a dedicated direct sales team, and collaborations with external partners such as mobile network providers, wholesalers, general retailers, and authorized resellers. The App Store additionally functions as the primary conduit for third-party applications designed for its devices. Founded in 1976, Apple Inc. is headquartered in Cupertino, California.",
+          "ceo": "Timothy D. Cook",
+          "sector": "Technology",
+          "country": "US",
+          "fullTimeEmployees": "166000",
+          "phone": "(408) 996-1010",
+          "address": "One Apple Park Way",
+          "city": "Cupertino",
+          "state": "CA",
+          "zip": "95014",
+          "image": "https://images.financialmodelingprep.com/symbol/AAPL.png",
+          "ipoDate": "1980-12-12",
+          "defaultImage": false,
+          "isEtf": false,
+          "isActivelyTrading": true,
+          "isAdr": false,
+          "isFund": false
+        }
+      ]
+    },
+    {
+      "name": "profile_msft",
+      "ok": true,
+      "status": 200,
+      "type": "array",
+      "count": 1,
+      "fields": [
+        "symbol",
+        "price",
+        "marketCap",
+        "beta",
+        "lastDividend",
+        "range",
+        "change",
+        "changePercentage",
+        "volume",
+        "averageVolume",
+        "companyName",
+        "currency",
+        "cik",
+        "isin",
+        "cusip",
+        "exchangeFullName",
+        "exchange",
+        "industry",
+        "website",
+        "description",
+        "ceo",
+        "sector",
+        "country",
+        "fullTimeEmployees",
+        "phone",
+        "address",
+        "city",
+        "state",
+        "zip",
+        "image",
+        "ipoDate",
+        "defaultImage",
+        "isEtf",
+        "isActivelyTrading",
+        "isAdr",
+        "isFund"
+      ],
+      "sample": [
+        {
+          "symbol": "MSFT",
+          "price": 390.49,
+          "marketCap": 2900727630700,
+          "beta": 1.103,
+          "lastDividend": 3.56,
+          "range": "349.2-555.45",
+          "change": 6.21,
+          "changePercentage": 1.61601,
+          "volume": 40690198,
+          "averageVolume": 39798981,
+          "companyName": "Microsoft Corporation",
+          "currency": "USD",
+          "cik": "0000789019",
+          "isin": "US5949181045",
+          "cusip": "594918104",
+          "exchangeFullName": "NASDAQ Global Select",
+          "exchange": "NASDAQ",
+          "industry": "Software - Infrastructure",
+          "website": "https://www.microsoft.com",
+          "description": "Microsoft Corporation is a prominent global technology firm that invents, markets, and provides ongoing assistance for a diverse range of software, digital services, computing devices, and comprehensive solutions. Its operations are organized into three primary divisions: Productivity and Business Processes, Intelligent Cloud, and More Personal Computing. The Productivity and Business Processes segment delivers crucial tools for both enterprises and individual users. This includes the extensive Office suite (comprising Exchange, SharePoint, Microsoft Teams, Office 365 Security and Compliance, Microsoft Viva, and Skype for Business), along with popular consumer offerings like Skype, Outlook.com, OneDrive, and LinkedIn. It also features Dynamics 365, a suite of integrated cloud and on-premises business applications tailored for organizations. The Intelligent Cloud division focuses on sophisticated infrastructure and platform services. Here, Microsoft licenses key products such as SQL Server, Windows Servers, Visual Studio, System Center, and associated Client Access Licenses. It also includes GitHub, a leading platform for developer collaboration and code hosting; Nuance, offering advanced AI solutions for healthcare and businesses; and Azure, its expansive cloud computing platform. This segment further encompasses enterprise support, Microsoft consulting services, and Nuance professional services, assisting clients with the development, deployment, and management of Microsoft's server and desktop technologies, alongside offering product training and certification. Finally, the More Personal Computing segment covers a broad spectrum of consumer and commercial computing experiences. It generates revenue through Windows operating system licensing, including agreements with original equipment manufacturers (OEMs), non-volume licensing, and various Windows Commercial offerings (such as volume licensing and cloud services), as well as patent licensing and Windows Internet of Things (IoT). This division also supplies its own hardware, including Surface devices, PC accessories, and gaming/entertainment consoles. Its Gaming portfolio features Xbox hardware, content, and subscription services, in addition to video games and royalties from third-party titles. Furthermore, it manages search services like Bing and Microsoft's advertising platforms. Microsoft distributes its extensive product line via numerous channels, including original equipment manufacturers, wholesale distributors, and various resellers, complementing direct sales through digital marketplaces, its own online storefronts, and physical retail outlets. The company, established in 1975, maintains its headquarters in Redmond, Washington.",
+          "ceo": "Satya Nadella",
+          "sector": "Technology",
+          "country": "US",
+          "fullTimeEmployees": "228000",
+          "phone": "425 882 8080",
+          "address": "One Microsoft Way",
+          "city": "Redmond",
+          "state": "WA",
+          "zip": "98052-6399",
+          "image": "https://images.financialmodelingprep.com/symbol/MSFT.png",
+          "ipoDate": "1986-03-13",
+          "defaultImage": false,
+          "isEtf": false,
+          "isActivelyTrading": true,
+          "isAdr": false,
+          "isFund": false
+        }
+      ]
+    },
+    {
+      "name": "sp500_constituent",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "nasdaq_constituent",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "dow_constituent",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "historical_sp500",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "historical_sector_perf",
+      "ok": true,
+      "status": 200,
+      "type": "array",
+      "count": 42,
+      "fields": [
+        "date",
+        "sector",
+        "exchange",
+        "averageChange"
+      ],
+      "sample": [
+        {
+          "date": "2024-03-01",
+          "sector": "Technology",
+          "exchange": "NASDAQ",
+          "averageChange": -0.4723201797330729
+        },
+        {
+          "date": "2024-02-29",
+          "sector": "Technology",
+          "exchange": "NASDAQ",
+          "averageChange": -1.5840158262849644
+        }
+      ]
+    },
+    {
+      "name": "sector_snapshot",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Premium Query Parameter: 'Special Endpoint : This value set for 'date' is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "historical_industry_perf",
+      "ok": true,
+      "status": 200,
+      "type": "array",
+      "count": 42,
+      "fields": [
+        "date",
+        "industry",
+        "exchange",
+        "averageChange"
+      ],
+      "sample": [
+        {
+          "date": "2024-03-01",
+          "industry": "Software - Infrastructure",
+          "exchange": "NASDAQ",
+          "averageChange": 2.592719969555866
+        },
+        {
+          "date": "2024-02-29",
+          "industry": "Software - Infrastructure",
+          "exchange": "NASDAQ",
+          "averageChange": 1.1823555209808683
+        }
+      ]
+    },
+    {
+      "name": "xlk_eod",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Premium Query Parameter: 'Special Endpoint : This value set for 'symbol' is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "spy_eod",
+      "ok": true,
+      "status": 200,
+      "type": "array",
+      "count": 21,
+      "fields": [
+        "symbol",
+        "date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "change",
+        "changePercent",
+        "vwap"
+      ],
+      "sample": [
+        {
+          "symbol": "SPY",
+          "date": "2024-01-31",
+          "open": 488.62,
+          "high": 489.08,
+          "low": 482.86,
+          "close": 482.88,
+          "volume": 126011100,
+          "change": -5.74,
+          "changePercent": -1.17,
+          "vwap": 485.86
+        },
+        {
+          "symbol": "SPY",
+          "date": "2024-01-30",
+          "open": 490.56,
+          "high": 491.62,
+          "low": 490.11,
+          "close": 490.89,
+          "volume": 58618400,
+          "change": 0.33,
+          "changePercent": 0.06727006,
+          "vwap": 490.79
+        }
+      ]
+    },
+    {
+      "name": "spy_holdings",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "xlk_holdings",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "spy_portfolio_dates",
+      "ok": false,
+      "status": 404,
+      "type": "array",
+      "count": 0,
+      "fields": [],
+      "sample": []
+    },
+    {
+      "name": "stock_screener_tech",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "stock_screener_energy",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "available_sectors",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    },
+    {
+      "name": "available_industries",
+      "ok": false,
+      "status": 402,
+      "type": "object",
+      "fields": [
+        "_raw"
+      ],
+      "sample": {
+        "_raw": "Restricted Endpoint: This endpoint is not available under your current subscription please visit our subscription page to upgrade your plan at https://financialmodelingprep.com/"
+      }
+    }
+  ],
+  "legacySummary": [
+    {
+      "name": "v3_sp500",
+      "ok": false,
+      "status": 403,
+      "type": "object",
+      "fields": [
+        "Error Message"
+      ],
+      "sample": {
+        "Error Message": "Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current APIs. "
+      }
+    },
+    {
+      "name": "v3_spy_etf_holder",
+      "ok": false,
+      "status": 403,
+      "type": "object",
+      "fields": [
+        "Error Message"
+      ],
+      "sample": {
+        "Error Message": "Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current APIs. "
+      }
+    },
+    {
+      "name": "v3_xlk_eod",
+      "ok": false,
+      "status": 403,
+      "type": "object",
+      "fields": [
+        "Error Message"
+      ],
+      "sample": {
+        "Error Message": "Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current APIs. "
+      }
+    },
+    {
+      "name": "v3_sector_perf",
+      "ok": false,
+      "status": 403,
+      "type": "object",
+      "fields": [
+        "Error Message"
+      ],
+      "sample": {
+        "Error Message": "Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current APIs. "
+      }
+    }
+  ],
+  "sectorEtfSummary": [
+    {
+      "sector": "Energy",
+      "etf": "XLE",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Materials",
+      "etf": "XLB",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Industrials",
+      "etf": "XLI",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Consumer Discretionary",
+      "etf": "XLY",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Consumer Staples",
+      "etf": "XLP",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Health Care",
+      "etf": "XLV",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Financials",
+      "etf": "XLF",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Information Technology",
+      "etf": "XLK",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Communication Services",
+      "etf": "XLC",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Utilities",
+      "etf": "XLU",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    },
+    {
+      "sector": "Real Estate",
+      "etf": "XLRE",
+      "ok": false,
+      "status": 402,
+      "barCount": 0,
+      "sampleBar": null
+    }
+  ],
+  "wikiSp500Analysis": {
+    "total": 501,
+    "bySector": {
+      "Industrials": 81,
+      "Health Care": 59,
+      "Information Technology": 74,
+      "Utilities": 31,
+      "Financials": 75,
+      "Materials": 26,
+      "Consumer Discretionary": 47,
+      "Real Estate": 31,
+      "Communication Services": 23,
+      "Consumer Staples": 33,
+      "Energy": 21
+    }
+  },
+  "sp500Analysis": {
+    "total": 501,
+    "bySector": {
+      "Industrials": 81,
+      "Health Care": 59,
+      "Information Technology": 74,
+      "Utilities": 31,
+      "Financials": 75,
+      "Materials": 26,
+      "Consumer Discretionary": 47,
+      "Real Estate": 31,
+      "Communication Services": 23,
+      "Consumer Staples": 33,
+      "Energy": 21
+    }
+  },
+  "spyWeightAnalysis": null,
+  "megaCapWeightCompare": null,
+  "megaCapApproxWeightBenchmark": {
+    "reference": {
+      "source": "S&P Dow Jones Indices factsheet (approx Jun 2024, public)",
+      "asOf": "2024-06",
+      "weights": {
+        "AAPL": 7,
+        "MSFT": 7.1,
+        "NVDA": 6.8,
+        "AMZN": 3.8,
+        "GOOGL": 2.1
+      },
+      "note": "Float-adjusted market cap weights; rounded from public factsheet snapshots"
+    },
+    "rows": [
+      {
+        "symbol": "NVDA",
+        "sector": "Technology",
+        "marketCap": 4718977430000,
+        "approxWeightAmongMegaCapsPct": 24.685809907752564,
+        "publishedSp500WeightPct": 6.8,
+        "deltaVsPublishedPct": 17.885809907752563
+      },
+      {
+        "symbol": "AAPL",
+        "sector": "Technology",
+        "marketCap": 4532958682280,
+        "approxWeightAmongMegaCapsPct": 23.712712766770032,
+        "publishedSp500WeightPct": 7,
+        "deltaVsPublishedPct": 16.712712766770032
+      },
+      {
+        "symbol": "GOOGL",
+        "sector": "Communication Services",
+        "marketCap": 4353064767154,
+        "approxWeightAmongMegaCapsPct": 22.771655714000484,
+        "publishedSp500WeightPct": 2.1,
+        "deltaVsPublishedPct": 20.671655714000483
+      },
+      {
+        "symbol": "MSFT",
+        "sector": "Technology",
+        "marketCap": 2900727630700,
+        "approxWeightAmongMegaCapsPct": 15.174221946983476,
+        "publishedSp500WeightPct": 7.1,
+        "deltaVsPublishedPct": 8.074221946983476
+      },
+      {
+        "symbol": "AMZN",
+        "sector": "Consumer Cyclical",
+        "marketCap": 2610425457000,
+        "approxWeightAmongMegaCapsPct": 13.65559966449344,
+        "publishedSp500WeightPct": 3.8,
+        "deltaVsPublishedPct": 9.85559966449344
+      }
+    ],
+    "caveat": "approxWeightAmongMegaCapsPct 仅为 MEGA_CAPS 子集内市值占比，非 S&P500 官方权重；与 published 对照时误差大属预期。全指数权重需 constituents + float-adjusted mcap 或 ETF holdings。"
+  },
+  "planLimits": {
+    "note": "402/limit responses recorded in endpointSummary status fields",
+    "failedEndpoints": [
+      {
+        "name": "sp500_constituent",
+        "status": 402
+      },
+      {
+        "name": "nasdaq_constituent",
+        "status": 402
+      },
+      {
+        "name": "dow_constituent",
+        "status": 402
+      },
+      {
+        "name": "historical_sp500",
+        "status": 402
+      },
+      {
+        "name": "sector_snapshot",
+        "status": 402
+      },
+      {
+        "name": "xlk_eod",
+        "status": 402
+      },
+      {
+        "name": "spy_holdings",
+        "status": 402
+      },
+      {
+        "name": "xlk_holdings",
+        "status": 402
+      },
+      {
+        "name": "spy_portfolio_dates",
+        "status": 404
+      },
+      {
+        "name": "stock_screener_tech",
+        "status": 402
+      },
+      {
+        "name": "stock_screener_energy",
+        "status": 402
+      },
+      {
+        "name": "available_sectors",
+        "status": 402
+      },
+      {
+        "name": "available_industries",
+        "status": 402
+      }
+    ],
+    "workingOnCurrentPlan": [
+      "profile",
+      "profile_msft",
+      "historical_sector_perf",
+      "historical_industry_perf",
+      "spy_eod"
+    ]
+  }
+}

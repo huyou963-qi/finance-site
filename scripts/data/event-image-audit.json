@@ -1,0 +1,685 @@
+{
+  "generatedAt": "2026-07-06T06:29:43.203Z",
+  "noSourceUrl": [
+    {
+      "seedKey": "us-1902-northern-securities",
+      "title": "北方证券反垄断案",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1903-panama-canal-treaty",
+      "title": "巴拿马运河条约与运河开工",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1904-roosevelt-corollary",
+      "title": "罗斯福推论与加勒比干预",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1906-pure-food-drug",
+      "title": "《纯净食品与药品法》",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1913-income-tax-amendment",
+      "title": "第十六修正案与联邦所得税",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1914-clayton-act",
+      "title": "《克莱顿反垄断法》",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1914-ww1-outbreak",
+      "title": "第一次世界大战爆发与美国中立",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1915-ftc-created",
+      "title": "联邦贸易委员会成立",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1916-adamson-act",
+      "title": "1916年《亚当森法》八小时工作制",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1917-us-enters-ww1",
+      "title": "美国对德宣战",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1918-armistice",
+      "title": "一战停战与美国战后秩序",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1918-spanish-flu",
+      "title": "1918年西班牙流感在美国暴发",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1919-prohibition",
+      "title": "禁酒第十八修正案生效",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1919-versailles-rejected",
+      "title": "参议院否决《凡尔赛条约》",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1921-budget-accounting-act",
+      "title": "《预算与会计法》",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1922-fordney-mccumber-tariff",
+      "title": "1922年福特尼-麦坎伯关税法",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1924-immigration-act",
+      "title": "1924年《移民法》与国籍配额",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1927-mississippi-flood",
+      "title": "1927年密西西比大洪水",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1928-agricultural-depression",
+      "title": "1920年代持续农业萧条",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1929-hoover-measures",
+      "title": "胡佛政府1930年反衰退措施",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1930-banking-crisis",
+      "title": "1930年银行倒闭潮开端",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1930-smoot-hawley",
+      "title": "1930年斯姆特-霍利关税法",
+      "sourceUrl": null,
+      "file": "market-events-us-1900-1930.json"
+    },
+    {
+      "seedKey": "us-1933-emergency-banking-act",
+      "title": "1933年《紧急银行法》与银行假日",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1934-gold-reserve-act",
+      "title": "1934年《黄金储备法》与美元贬值",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1934-securities-exchange-act",
+      "title": "1934年《证券交易法》与SEC成立",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1935-social-security-act",
+      "title": "1935年《社会保障法》",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1937-recession-within-depression",
+      "title": "1937–38年「衰退中的衰退」",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1941-pearl-harbor",
+      "title": "1941年珍珠港事件与美国参战",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1945-wwii-end",
+      "title": "1945年二战结束与复员",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1947-marshall-plan",
+      "title": "1947年马歇尔计划",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1947-truman-doctrine",
+      "title": "1947年杜鲁门主义与冷战遏制",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1948-marshall-plan",
+      "title": "1948年马歇尔计划启动",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1950-korean-war",
+      "title": "1950年朝鲜战争爆发",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1956-interstate-highway-act",
+      "title": "1956年州际高速公路法",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1958-recession",
+      "title": "1958年经济衰退",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1962-cuban-missile-crisis",
+      "title": "1962年古巴导弹危机",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1964-civil-rights-act",
+      "title": "1964年《民权法》",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1964-gulf-of-tonkin",
+      "title": "1964年《东京湾决议》与越战升级",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1965-immigration-act",
+      "title": "1965年《移民与国籍法》改革",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1965-vietnam-escalation",
+      "title": "1965年越南战争升级",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1973-oil-embargo",
+      "title": "1973年第一次石油危机",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1974-oil-shock-recession",
+      "title": "1974–75年石油危机衰退",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1980-depository-deregulation",
+      "title": "1980年《存款机构放松管制法》",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1981-reagan-tax-cut",
+      "title": "1981年里根减税与供给学派",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1981-reagan-tax-cuts",
+      "title": "1981年里根减税与供给侧议程",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1982-garn-st-germain",
+      "title": "1982年《 Garn-St Germain 法》放松储贷",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1985-plaza-accord",
+      "title": "1985年广场协议",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1989-berlin-wall",
+      "title": "1989年柏林墙倒塌与冷战结束",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1989-berlin-wall-fall",
+      "title": "1989年柏林墙倒塌与冷战结束",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1990-gulf-war",
+      "title": "1990年海湾战争与石油冲击",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1991-soviet-collapse",
+      "title": "1991年苏联解体",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1991-ussr-dissolution",
+      "title": "1991年苏联解体",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1993-nafta",
+      "title": "1993年NAFTA签署",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-1994-nafta",
+      "title": "1994年NAFTA生效",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-1999-gramm-leach-bliley",
+      "title": "1999年废除 Glass-Steagall",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2000-dot-com-bust",
+      "title": "2000年互联网泡沫破裂",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2000-dotcom-peak",
+      "title": "2000年互联网泡沫破裂",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2001-911-attacks",
+      "title": "2001年9·11恐怖袭击",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2003-iraq-war",
+      "title": "2003年伊拉克战争",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2009-arpa-stimulus",
+      "title": "2009年《美国复苏与再投资法》",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2009-recovery-act",
+      "title": "2009年《美国复苏与再投资法》",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2011-debt-ceiling-crisis",
+      "title": "2011年债务上限危机",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2014-shale-oil-boom",
+      "title": "2014年页岩油革命与油价暴跌",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2014-shale-revolution",
+      "title": "2014年页岩油革命与OPEC价格战",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2017-tax-cuts-jobs-act",
+      "title": "2017年《减税与就业法》",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2018-china-trade-war",
+      "title": "2018年中美贸易战升级",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2019-repo-spike",
+      "title": "2019年9月回购市场流动性危机",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2020-cares-act",
+      "title": "2020年CARES法案财政刺激",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2020-covid-pandemic",
+      "title": "2020年新冠疫情全球大流行",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2020-covid-pandemic-fed",
+      "title": "2020年新冠疫情与联储紧急降息",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2021-arpa-stimulus",
+      "title": "2021年《美国救援计划》",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2021-infrastructure-investment-jobs",
+      "title": "2021年《基础设施投资与就业法》",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2022-fed-hiking-cycle",
+      "title": "2022年联储激进加息周期",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    },
+    {
+      "seedKey": "us-2022-inflation-reduction-act",
+      "title": "2022年《通胀削减法》",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2022-inflation-surge",
+      "title": "2021–22年美国通胀飙升",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2022-russia-sanctions-ukraine",
+      "title": "2022年俄乌冲突与对俄制裁",
+      "sourceUrl": null,
+      "file": "market-events-us-history-timeline.json"
+    },
+    {
+      "seedKey": "us-2022-ukraine-sanctions",
+      "title": "2022年俄乌冲突与对俄制裁",
+      "sourceUrl": null,
+      "file": "market-events-us-1930-present.json"
+    }
+  ],
+  "wikiNoThumb": [
+    {
+      "seedKey": "us-1819-panic",
+      "title": "Panic of 1819",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1819",
+      "wikiTitle": "Panic of 1819"
+    },
+    {
+      "seedKey": "us-1846-tariff",
+      "title": "Walker tariff",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Walker_tariff",
+      "wikiTitle": "Walker tariff"
+    },
+    {
+      "seedKey": "us-1857-panic",
+      "title": "1857年恐慌",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1857",
+      "wikiTitle": "Panic of 1857",
+      "status": 429
+    },
+    {
+      "seedKey": "us-1862-greenbacks",
+      "title": "1862年法定纸币（绿背）发行",
+      "sourceUrl": "https://en.wikipedia.org/wiki/United_States_Note",
+      "wikiTitle": "United States Note",
+      "status": 429
+    },
+    {
+      "seedKey": "us-1863-national-banking-act",
+      "title": "1863年《国家银行法》",
+      "sourceUrl": "https://en.wikipedia.org/wiki/National_Bank_Act",
+      "wikiTitle": "National Bank Act",
+      "status": 429
+    },
+    {
+      "seedKey": "us-1879-gold-resumption",
+      "title": "1879年恢复金兑付",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Coinage_Act_of_1873",
+      "wikiTitle": "Coinage Act of 1873",
+      "status": 429
+    },
+    {
+      "seedKey": "us-1890-sherman-antitrust",
+      "title": "1890年《谢尔曼反垄断法》",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Sherman_Antitrust_Act",
+      "wikiTitle": "Sherman Antitrust Act",
+      "status": 429
+    },
+    {
+      "seedKey": "us-1893-panic",
+      "title": "1893年大恐慌",
+      "sourceUrl": "https://en.wikipedia.org/wiki/Panic_of_1893",
+      "wikiTitle": "Panic of 1893",
+      "status": 429
+    },
+    {
+      "seedKey": "us-1900-gold-standard-act",
+      "title": "1900年《金本位法》",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/gold-standard",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1901-mckinley-assassination",
+      "title": "麦金利遇刺与进步时代加速",
+      "sourceUrl": "https://www.loc.gov/collections/theodore-roosevelt-films/articles-and-essays/theodore-roosevelt-and-the-progressive-era/",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1907-panic",
+      "title": "1907年银行恐慌",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/panic-of-1907",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1913-federal-reserve-act",
+      "title": "《联邦储备法》与美联储成立",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/creation-of-the-fed",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1920-postwar-recession",
+      "title": "1920–1921战后衰退",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/recession-of-1920-21",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1929-stock-crash",
+      "title": "1929年股市崩盘",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/stock-market-crash-of-1929",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1933-emergency-banking",
+      "title": "1933年紧急银行法与银行假日",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/emergency-banking-act-of-1933",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1933-glass-steagall",
+      "title": "1933年《格拉斯-斯蒂格尔法》",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/glass-steagall-act",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1933-sec-established",
+      "title": "1934年SEC成立与证券监管",
+      "sourceUrl": "https://www.sec.gov/about/sec-history",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1935-social-security",
+      "title": "1935年《社会保障法》",
+      "sourceUrl": "https://www.ssa.gov/history/1935act.html",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1937-recession",
+      "title": "1937–38年「罗斯福衰退」",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/great-depression",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1944-bretton-woods",
+      "title": "1944年布雷顿森林体系",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/bretton-woods-created",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1951-treasury-fed-accord",
+      "title": "1951年财政部-联储协议",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/treasury-fed-accord",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1971-nixon-shock",
+      "title": "1971年尼克松关闭黄金窗口",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/nixon-shock",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1979-volcker-appointment",
+      "title": "1979年沃尔克出任联储主席",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/great-inflation",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1979-volcker-shock",
+      "title": "1979年沃尔克紧缩与抗通胀",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/great-inflation",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1987-black-monday",
+      "title": "1987年黑色星期一股灾",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/stock-market-crash-of-1987",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-1998-ltcm-crisis",
+      "title": "1998年LTCM危机与联储协调",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/ltcm",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2008-lehman-bankruptcy",
+      "title": "2008年雷曼兄弟破产",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/great-recession-of-200709",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2008-qe1",
+      "title": "2008年联储启动QE1",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/quantitative-easing",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2008-tarp",
+      "title": "2008年TARP与系统性救助",
+      "sourceUrl": "https://www.treasury.gov/initiatives/financial-stability/TARP-Programs/Pages/default.aspx",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2010-dodd-frank",
+      "title": "2010年《多德-弗兰克法》",
+      "sourceUrl": "https://www.sec.gov/spotlight/dodd-frank.shtml",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2013-taper-tantrum",
+      "title": "2013年Taper Tantrum",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/taper-tantrum",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2015-fed-liftoff",
+      "title": "2015年联储首次加息",
+      "sourceUrl": "https://www.federalreservehistory.org/essays/fed-financial-crisis-response",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2022-chips-act",
+      "title": "2022年《芯片与科学法》",
+      "sourceUrl": "https://www.congress.gov/bill/117th-congress/house-bill/4346",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2023-svb-collapse",
+      "title": "2023年硅谷银行倒闭",
+      "sourceUrl": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20230312a.htm",
+      "wikiTitle": null
+    },
+    {
+      "seedKey": "us-2024-inflation-reduction-act-ira",
+      "title": "2022年《通胀削减法》气候与产业条款",
+      "sourceUrl": "https://www.congress.gov/bill/117th-congress/house-bill/5376",
+      "wikiTitle": null
+    }
+  ]
+}

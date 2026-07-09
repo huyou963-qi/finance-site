@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-07-05T10:26:19.358Z",
+  "method": "Top-20 mega-cap FMP profile marketCap share within sample (NOT full S&P 500 index weight)",
+  "profilesOk": 0,
+  "totalSampleCapUsd": 0,
+  "rows": [],
+  "publishedReference": [
+    {
+      "symbol": "AAPL",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 7,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "MSFT",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 7.1,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "NVDA",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 6.8,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "AMZN",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 3.8,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "GOOGL",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 2.1,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "META",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 2.3,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "BRK-B",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 1.7,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "TSLA",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 1.5,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "AVGO",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 1.4,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    },
+    {
+      "symbol": "JPM",
+      "sampleWeightPct": null,
+      "publishedSp500WeightPct": 1.2,
+      "note": "sampleWeightPct 为 mega-cap 子集内占比；published 为 S&P500 官方近似权重（2024-06）"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import type {
 } from "@/lib/macroChartOption";
 import {
   DEFAULT_SEASONAL_YEAR_COUNT,
+  isAltMacroSlotMode,
   resolveSlotSeasonalYearCount,
 } from "@/lib/macroChartOption";
 import { MacroChartAxisSettings } from "@/components/MacroChartAxisSettings";
@@ -172,13 +173,34 @@ export function MacroChartIndicatorAssignment({
     }
     const nextModes = { ...displayConfig.slotModes, [slot]: mode };
     const patch: Partial<MacroChartDisplayConfig> = { slotModes: nextModes };
-    if (mode === "pie" && availableYears.length > 0) {
-      const currentYear = displayConfig.slotPieYears?.[slot];
-      if (!currentYear || !availableYears.includes(currentYear)) {
-        patch.slotPieYears = {
-          ...displayConfig.slotPieYears,
-          [slot]: availableYears[0],
-        };
+    if (
+      (mode === "pie" || mode === "waterfall" || mode === "radar") &&
+      availableYears.length > 0
+    ) {
+      if (mode === "pie") {
+        const currentYear = displayConfig.slotPieYears?.[slot];
+        if (!currentYear || !availableYears.includes(currentYear)) {
+          patch.slotPieYears = {
+            ...displayConfig.slotPieYears,
+            [slot]: availableYears[0],
+          };
+        }
+      } else if (mode === "waterfall") {
+        const currentYear = displayConfig.slotWaterfallYears?.[slot];
+        if (!currentYear || !availableYears.includes(currentYear)) {
+          patch.slotWaterfallYears = {
+            ...displayConfig.slotWaterfallYears,
+            [slot]: availableYears[0],
+          };
+        }
+      } else if (mode === "radar") {
+        const currentYear = displayConfig.slotRadarYears?.[slot];
+        if (!currentYear || !availableYears.includes(currentYear)) {
+          patch.slotRadarYears = {
+            ...displayConfig.slotRadarYears,
+            [slot]: availableYears[0],
+          };
+        }
       }
     }
     if (mode === "seasonal" && displayConfig.slotSeasonalYearCount?.[slot] === undefined) {
@@ -203,6 +225,28 @@ export function MacroChartIndicatorAssignment({
     onUpdateDisplayConfig({
       slotPieYears: { ...displayConfig.slotPieYears, [slot]: year },
     });
+  }
+
+  function setSlotWaterfallYear(slot: number, year: string) {
+    onUpdateDisplayConfig({
+      slotWaterfallYears: { ...displayConfig.slotWaterfallYears, [slot]: year },
+    });
+  }
+
+  function setSlotRadarYear(slot: number, year: string) {
+    onUpdateDisplayConfig({
+      slotRadarYears: { ...displayConfig.slotRadarYears, [slot]: year },
+    });
+  }
+
+  function slotModeHint(mode: MacroChartSlotMode, count: number): string | null {
+    if (mode === "waterfall" && count < 2) return "瀑布图至少 2 个指标（首项起点，末项合计）";
+    if (mode === "heatmap" && count < 2) return "热力图至少 2 个指标";
+    if (mode === "xyScatter" && count !== 2) return "XY 散点需要恰好 2 个指标（第 1=X，第 2=Y）";
+    if (mode === "boxplot" && count < 1) return "箱线图至少 1 个指标";
+    if (mode === "radar" && count < 3) return "雷达图至少 3 个指标";
+    if (mode === "seasonal" && count > 1) return "季节图仅支持 1 个指标";
+    return null;
   }
 
   function slotShowTitle(slot: number): boolean {
@@ -481,6 +525,11 @@ export function MacroChartIndicatorAssignment({
                 <option value="timeSeries">时序</option>
                 <option value="seasonal">季节图</option>
                 <option value="pie">饼图</option>
+                <option value="waterfall">瀑布图</option>
+                <option value="heatmap">热力图</option>
+                <option value="xyScatter">XY散点</option>
+                <option value="boxplot">箱线图</option>
+                <option value="radar">雷达图</option>
               </select>
               {slotMode(slot) === "seasonal" ? (
                 <label className="flex shrink-0 items-center gap-0.5 text-[10px] text-fs-muted" title="展示近几年">
@@ -520,16 +569,58 @@ export function MacroChartIndicatorAssignment({
                   )}
                 </select>
               ) : null}
+              {slotMode(slot) === "waterfall" ? (
+                <select
+                  value={displayConfig.slotWaterfallYears?.[slot] ?? availableYears[0] ?? ""}
+                  onChange={(e) => setSlotWaterfallYear(slot, e.target.value)}
+                  disabled={availableYears.length === 0}
+                  className={`${ctrlSelect} w-14`}
+                  title="数据年份"
+                >
+                  {availableYears.length === 0 ? (
+                    <option value="">—</option>
+                  ) : (
+                    availableYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))
+                  )}
+                </select>
+              ) : null}
+              {slotMode(slot) === "radar" ? (
+                <select
+                  value={displayConfig.slotRadarYears?.[slot] ?? availableYears[0] ?? ""}
+                  onChange={(e) => setSlotRadarYear(slot, e.target.value)}
+                  disabled={availableYears.length === 0}
+                  className={`${ctrlSelect} w-14`}
+                  title="数据年份"
+                >
+                  {availableYears.length === 0 ? (
+                    <option value="">—</option>
+                  ) : (
+                    availableYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))
+                  )}
+                </select>
+              ) : null}
             </div>
+            {(() => {
+              const hint = slotModeHint(slotMode(slot), bySlot[slot].length);
+              return hint ? (
+                <p className="mb-1 text-[10px] leading-relaxed text-amber-400/90">{hint}</p>
+              ) : null;
+            })()}
             <div className="flex min-h-[28px] flex-col gap-1">
               {bySlot[slot].length === 0 ? (
                 <span className="text-[11px] text-fs-secondary">拖入指标…</span>
               ) : (
                 bySlot[slot].map((key) => {
                   const cfg = seriesVisualMap[key] ?? {};
-                  const isPieSlot = slotMode(slot) === "pie";
-                  const isSeasonalSlot = slotMode(slot) === "seasonal";
-                  const isAltSlot = isPieSlot || isSeasonalSlot;
+                  const isAltSlot = isAltMacroSlotMode(slotMode(slot));
                   return (
                     <div
                       key={key}

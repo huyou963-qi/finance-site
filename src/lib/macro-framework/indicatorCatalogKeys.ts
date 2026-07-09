@@ -6,7 +6,7 @@ export const FRAMEWORK_INDICATOR_CATALOG_KEYS: Record<string, string> = {
   // Corporate leading
   "ism-pmi": "mds:ism_us_ism_headline",
   "ism-orders": "mds:ism_us_ism_new_orders",
-  "durables-ex-trans": "fred:ADEXUS",
+  "durables-ex-trans": "fred:ADXTNO",
   "nonres-construct": "fred:TLNONRES",
   "jobless-claims": "fred:IC4WSA",
   // Corporate coincident

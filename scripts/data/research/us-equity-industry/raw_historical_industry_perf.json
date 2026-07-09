@@ -1,0 +1,259 @@
+{
+  "ok": true,
+  "status": 200,
+  "endpoint": "/historical-industry-performance?industry=Software%20-%20Infrastructure&from=2024-01-01&to=2024-03-01",
+  "body": [
+    {
+      "date": "2024-03-01",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 2.592719969555866
+    },
+    {
+      "date": "2024-02-29",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.1823555209808683
+    },
+    {
+      "date": "2024-02-28",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 3.373132137596227
+    },
+    {
+      "date": "2024-02-27",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.08512298408737326
+    },
+    {
+      "date": "2024-02-26",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.21596500864607768
+    },
+    {
+      "date": "2024-02-23",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.24504915627825255
+    },
+    {
+      "date": "2024-02-22",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 3.238827685979436
+    },
+    {
+      "date": "2024-02-21",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -4.76388168163126
+    },
+    {
+      "date": "2024-02-20",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.9613269872450494
+    },
+    {
+      "date": "2024-02-16",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -1.053223526465157
+    },
+    {
+      "date": "2024-02-15",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.5826666355842651
+    },
+    {
+      "date": "2024-02-14",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.9844854966265455
+    },
+    {
+      "date": "2024-02-13",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -2.9037704856882
+    },
+    {
+      "date": "2024-02-12",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -1.0898713741781156
+    },
+    {
+      "date": "2024-02-09",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 2.959488917360873
+    },
+    {
+      "date": "2024-02-08",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.5291535995443284
+    },
+    {
+      "date": "2024-02-07",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 2.125079875473579
+    },
+    {
+      "date": "2024-02-06",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 3.4525838867853604
+    },
+    {
+      "date": "2024-02-05",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -1.1898456377698838
+    },
+    {
+      "date": "2024-02-02",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.5910130310013704
+    },
+    {
+      "date": "2024-02-01",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.4976494386698211
+    },
+    {
+      "date": "2024-01-31",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -2.5880310914049196
+    },
+    {
+      "date": "2024-01-30",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.30746023825482405
+    },
+    {
+      "date": "2024-01-29",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.3905365795308724
+    },
+    {
+      "date": "2024-01-26",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.2956662716041098
+    },
+    {
+      "date": "2024-01-25",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.5122832116198036
+    },
+    {
+      "date": "2024-01-24",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.7185674820905062
+    },
+    {
+      "date": "2024-01-23",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.41633724803949074
+    },
+    {
+      "date": "2024-01-22",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.12138872226396547
+    },
+    {
+      "date": "2024-01-19",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.3588711769306212
+    },
+    {
+      "date": "2024-01-18",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.892097904751183
+    },
+    {
+      "date": "2024-01-17",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.35464566186794516
+    },
+    {
+      "date": "2024-01-16",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.4769578518986577
+    },
+    {
+      "date": "2024-01-12",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.7331081651607475
+    },
+    {
+      "date": "2024-01-11",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.5452940557813806
+    },
+    {
+      "date": "2024-01-10",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 1.755355066599284
+    },
+    {
+      "date": "2024-01-09",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 0.46192911856610364
+    },
+    {
+      "date": "2024-01-08",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": 2.10572055591141
+    },
+    {
+      "date": "2024-01-05",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.08417435361384051
+    },
+    {
+      "date": "2024-01-04",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.6764815407046508
+    },
+    {
+      "date": "2024-01-03",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -0.4255164055484217
+    },
+    {
+      "date": "2024-01-02",
+      "industry": "Software - Infrastructure",
+      "exchange": "NASDAQ",
+      "averageChange": -1.7297288878946455
+    }
+  ]
+}
