@@ -23,6 +23,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "nyfed-recession": { script: "seed-nyfed-recession", labelZh: "NY Fed 衰退概率（抓取）" },
   "cycle-risk": { script: "seed-cycle-risk", labelZh: "美国增长动能与衰退风险" },
   "consumer-balance": { script: "seed-consumer-balance", labelZh: "美国消费与居民资产负债" },
+  "external-dollar": { script: "seed-external-dollar", labelZh: "美国对外部门与美元" },
   "ism-te": { script: "seed-ism-te", labelZh: "ISM 制造业 TE 抓取" },
   "ism-svc-te": { script: "seed-ism-svc-te", labelZh: "ISM 服务业 TE 抓取" },
 };
@@ -46,6 +47,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "consumer-balance": {
     script: "verify-consumer-balance",
     labelZh: "消费与居民资产负债自检",
+    verifyNeedsDb: true,
+  },
+  "external-dollar": {
+    script: "verify-external-dollar",
+    labelZh: "对外部门与美元自检",
     verifyNeedsDb: true,
   },
 };

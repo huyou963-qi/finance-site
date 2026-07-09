@@ -129,8 +129,25 @@ const FRED_HOUSING_SUPPLY = new Set([
 const FRED_HOUSING_MORTGAGE = new Set(["MORTGAGE30US", "MORTGAGE15US"]);
 const FRED_HOUSING_PRICE = new Set(["CSUSHPINSA", "RHORUSQ156N"]);
 
-const FRED_TRADE = new Set(["EXPGSC1", "IMPGSC1"]);
-const FRED_FX = new Set(["DTWEXBGS", "DEXUSEU", "DEXJPUS"]);
+const FRED_TRADE = new Set([
+  "EXPGSC1",
+  "IMPGSC1",
+  "BOPGSTB",
+  "BOPTEXP",
+  "BOPTIMP",
+  "IEABC",
+  "IIPUSNETIQ",
+  "IQ",
+  "IR",
+  "W369RG3Q066SBEA",
+]);
+const FRED_FX = new Set([
+  "DTWEXBGS",
+  "DTWEXAFEGS",
+  "DTWEXEMEGS",
+  "DEXUSEU",
+  "DEXJPUS",
+]);
 
 function p(category: UsCatalogTopLevel, subgroup: string | null): UsCatalogPlacement {
   return { category, subgroup };

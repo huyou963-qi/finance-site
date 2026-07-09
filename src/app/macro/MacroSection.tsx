@@ -66,6 +66,8 @@ import {
   BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
+  BUILTIN_US_EXTERNAL_DOLLAR_OVERVIEW_TEMPLATE,
+  BUILTIN_US_EXTERNAL_DOLLAR_BALANCE_TEMPLATE,
   BUILTIN_US_OVERVIEW_TEMPLATE,
   HARDCODED_BUILTIN_TEMPLATE_IDS,
   resolveBuiltinTemplate,
@@ -88,6 +90,7 @@ import { MONETARY_VIRTUAL_KEY_LABELS } from "@/lib/data/monetaryAnalysisLayout";
 import { HOUSING_VIRTUAL_KEY_LABELS } from "@/lib/data/housingAnalysisLayout";
 import { CYCLE_RISK_VIRTUAL_KEY_LABELS } from "@/lib/data/cycleRiskAnalysisLayout";
 import { CONSUMER_BALANCE_VIRTUAL_KEY_LABELS } from "@/lib/data/consumerBalanceAnalysisLayout";
+import { EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS } from "@/lib/data/externalDollarAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -971,6 +974,8 @@ export function MacroSection() {
       BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
+      BUILTIN_US_EXTERNAL_DOLLAR_OVERVIEW_TEMPLATE,
+      BUILTIN_US_EXTERNAL_DOLLAR_BALANCE_TEMPLATE,
     ];
     const hidden = new Set(hiddenBuiltinTemplateIds);
     const hardcoded = base
@@ -1004,6 +1009,8 @@ export function MacroSection() {
       BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
+      BUILTIN_US_EXTERNAL_DOLLAR_OVERVIEW_TEMPLATE,
+      BUILTIN_US_EXTERNAL_DOLLAR_BALANCE_TEMPLATE,
     ];
     return base
       .filter((tpl) => hidden.has(tpl.id))
@@ -1043,6 +1050,7 @@ export function MacroSection() {
       ...HOUSING_VIRTUAL_KEY_LABELS,
       ...CYCLE_RISK_VIRTUAL_KEY_LABELS,
       ...CONSUMER_BALANCE_VIRTUAL_KEY_LABELS,
+      ...EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS,
     ]);
     for (const [k, v] of catalogLabelByKey) {
       if (!m.has(k)) m.set(k, v);

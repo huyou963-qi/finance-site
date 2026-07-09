@@ -80,6 +80,14 @@
 | TDSP | 家庭偿债比率 | 美国消费与居民资产负债 ② |
 | TOTALSL / REVOLSL | 总消费信贷 / 循环消费信贷 | 美国消费与居民资产负债 ② |
 | CORCCACBS | 信用卡贷款核销率 | 美国消费与居民资产负债 ②（≠DRCCLACBS 拖欠率） |
+| DTWEXBGS | 美元名义广义指数 | 美国对外部门与美元 ①（原 phase2 入库未占槽，2026-07 首次占用） |
+| DTWEXAFEGS / DTWEXEMEGS | AFE / EME 美元指数 | 美国对外部门与美元 ① |
+| BOPGSTB | 商品与服务贸易差额 | 美国对外部门与美元 ① |
+| BOPTEXP / BOPTIMP | 出口/进口（BOP） | 美国对外部门与美元 ①（≠ Overview 的 EXPGSC1/IMPGSC1） |
+| IEABC | 经常账户余额（BOP） | 美国对外部门与美元 ②（≠ NETFI NIPA） |
+| IIPUSNETIQ | 净国际投资头寸 | 美国对外部门与美元 ② |
+| IQ / IR | 出口/进口价格指数 | 美国对外部门与美元 ② |
+| W369RG3Q066SBEA | 贸易条件指数 | 美国对外部门与美元 ② |
 
 ## 非 FRED 序列
 
