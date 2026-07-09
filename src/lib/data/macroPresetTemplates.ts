@@ -71,6 +71,12 @@ import {
   BUILTIN_US_CYCLE_RISK_TEMPLATE_IDS,
   BUILTIN_US_CYCLE_RISK_TEMPLATES,
 } from "@/lib/data/cycleRiskAnalysisLayout";
+import {
+  BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
+  BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
+  BUILTIN_US_CONSUMER_BALANCE_TEMPLATE_IDS,
+  BUILTIN_US_CONSUMER_BALANCE_TEMPLATES,
+} from "@/lib/data/consumerBalanceAnalysisLayout";
 
 export {
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -95,6 +101,9 @@ export {
   BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_TEMPLATES,
+  BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
+  BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
+  BUILTIN_US_CONSUMER_BALANCE_TEMPLATES,
 };
 
 export type MacroChartTemplate = {
@@ -161,6 +170,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
   { id: "folder-builtin-us-monetary", name: "美国货币政策与金融条件", scope: "builtin" },
   { id: "folder-builtin-us-housing", name: "美国住房与地产", scope: "builtin" },
   { id: "folder-builtin-us-cycle-risk", name: "美国增长动能与衰退风险", scope: "builtin" },
+  { id: "folder-builtin-us-consumer-balance", name: "美国消费与居民资产负债", scope: "builtin" },
 ];
 
 export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> = {
@@ -179,6 +189,8 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-us-housing-price-finance": "folder-builtin-us-housing",
   "builtin-us-cycle-risk-signals": "folder-builtin-us-cycle-risk",
   "builtin-us-cycle-risk-momentum": "folder-builtin-us-cycle-risk",
+  "builtin-us-consumer-balance-spending": "folder-builtin-us-consumer-balance",
+  "builtin-us-consumer-balance-balance-sheet": "folder-builtin-us-consumer-balance",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -497,6 +509,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_MONETARY_TEMPLATE_IDS,
   ...BUILTIN_US_HOUSING_TEMPLATE_IDS,
   ...BUILTIN_US_CYCLE_RISK_TEMPLATE_IDS,
+  ...BUILTIN_US_CONSUMER_BALANCE_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

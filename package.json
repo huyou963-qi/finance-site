@@ -72,6 +72,8 @@
     "data:verify-housing": "dotenv -e .env.local -- tsx scripts/data-worker/verify-housing.ts",
     "data:seed-cycle-risk": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cycle-risk.ts",
     "data:verify-cycle-risk": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cycle-risk.ts",
+    "data:seed-consumer-balance": "dotenv -e .env.local -- tsx scripts/data-worker/seed-consumer-balance.ts",
+    "data:verify-consumer-balance": "dotenv -e .env.local -- tsx scripts/data-worker/verify-consumer-balance.ts",
     "data:seed-nyfed-recession": "dotenv -e .env.local -- tsx scripts/data-worker/seed-nyfed-recession.ts",
     "data:sync-nyfed-recession": "dotenv -e .env.local -- tsx scripts/data-worker/sync-nyfed-recession.ts",
     "data:verify-nyfed-recession": "dotenv -e .env.local -- tsx scripts/data-worker/verify-nyfed-recession.ts",

@@ -282,7 +282,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["core", "control"],
     },
     members: {
-      fredSeriesIds: ["RSAFS"],
+      // RSAFS=含餐饮总额；RSXFS=零售贸易（消费域，口径互补）
+      fredSeriesIds: ["RSAFS", "RSXFS"],
     },
   }),
   pkg("us.bls.housing_starts", "美国新屋开工", {
@@ -451,8 +452,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "QUARTERLY",
     intervalHours: 168,
     sortOrder: 203,
-    // DRSFRMACBS（单户抵押贷款拖欠率）与信用卡/工商拖欠率同属 Fed 同一发布
-    members: { fredSeriesIds: ["DRCCLACBS", "DRBLACBS", "DRSFRMACBS"] },
+    // DRSFRMACBS（单户抵押拖欠）/ CORCCACBS（信用卡核销，消费域）同属 Fed 同一发布
+    members: { fredSeriesIds: ["DRCCLACBS", "DRBLACBS", "DRSFRMACBS", "CORCCACBS"] },
   }),
   probePkg("us.nyfed.effr", "纽约联储：有效联邦基金利率", {
     labelEn: "Federal Funds Data",
@@ -596,7 +597,31 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       keywords: ["personal income"],
       excludeKeywords: ["spending only"],
     },
-    members: { fredSeriesIds: ["W875RX1", "DSPIC96"] },
+    // 消费域追加：实际 PCE 耐用品/服务 + 储蓄率（同 BEA 月报）
+    members: {
+      fredSeriesIds: ["W875RX1", "DSPIC96", "PCEDGC96", "PCESC96", "PSAVERT"],
+    },
+  }),
+  probePkg("us.frb.g19_consumer_credit", "美国 G.19 消费信贷", {
+    labelEn: "G.19 Consumer Credit",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 226,
+    members: { fredSeriesIds: ["TOTALSL", "REVOLSL"] },
+  }),
+  probePkg("us.frb.z1_household", "美国 Z.1 居民部门资产负债", {
+    labelEn: "Z.1 Financial Accounts — Households",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 227,
+    members: { fredSeriesIds: ["TNWBSHNO"] },
+  }),
+  probePkg("us.frb.household_dsr", "美国家庭偿债比率", {
+    labelEn: "Household Debt Service Ratios",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 228,
+    members: { fredSeriesIds: ["TDSP"] },
   }),
   probePkg("us.stlouisfed.recession_prob", "美国平滑衰退概率", {
     labelEn: "Smoothed U.S. Recession Probabilities",
