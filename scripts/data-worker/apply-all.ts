@@ -13,6 +13,7 @@
  *   npm run data:apply -- --skip-layout   # 跳过美国目录布局重建
  *   npm run data:apply -- --skip-backfill   # 跳过回填（只落定义，观测交给 worker）
  *   npm run data:apply -- --skip-migrate --skip-verify   # 按需跳过
+ *   npm run data:apply -- --skip-equity                  # 跳过美股 SP500 seed
  *
  * 全部步骤幂等，可在每次部署后无脑重复执行。
  */
@@ -31,6 +32,7 @@ type Flags = {
   skipCalendar: boolean;
   skipBackfill: boolean;
   skipVerify: boolean;
+  skipEquity: boolean;
   continueOnError: boolean;
   only: string[] | null;
 };
@@ -45,6 +47,7 @@ function parseFlags(): Flags {
     skipCalendar: argv.includes("--skip-calendar"),
     skipBackfill: argv.includes("--skip-backfill"),
     skipVerify: argv.includes("--skip-verify"),
+    skipEquity: argv.includes("--skip-equity"),
     continueOnError: argv.includes("--continue-on-error"),
     only: onlyRaw ? onlyRaw.split(",").map((s) => s.trim()).filter(Boolean) : null,
   };
@@ -66,6 +69,16 @@ function buildPlan(flags: Flags): Step[] {
   // 1) schema 迁移（prisma migrate deploy，前向非交互）
   if (!flags.skipMigrate) {
     steps.push({ label: "migrate", script: "db:migrate", args: [], gating: true });
+  }
+
+  // 1b) 美股行业：S&P 500 成分（Wikipedia，幂等；失败不阻断宏观落库）
+  if (!flags.skipEquity) {
+    steps.push({
+      label: "equity:seed-sp500",
+      script: "equity:seed-sp500",
+      args: [],
+      gating: false,
+    });
   }
 
   // 2) 各 catalog 指标/订阅 seed —— release-packages 必须最后（要链接已存在指标）

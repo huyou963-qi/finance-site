@@ -1,5 +1,10 @@
 import type { EChartsOption } from "echarts";
 import type { MacroPayload } from "@/lib/data/types";
+import {
+  markAreaDataForCategories,
+  NBER_RECESSION_MARK_AREA_STYLE,
+  type NberRecessionBand,
+} from "@/lib/data/nberRecessionBands";
 import { formatMacroDisplayNumber, formatMacroDisplayValue, normalizeMacroAxisExtent } from "@/lib/formatMacroValue";
 import { CHART, SITE } from "@/lib/siteTheme";
 
@@ -79,6 +84,8 @@ export type MacroChartDisplayConfig = {
   barMaxWidth: number;
   symbolSize: number;
   endLabelDecimals: number;
+  /** FRED 风格：叠加美国 NBER 衰退灰带（时序图） */
+  showRecessionShading?: boolean;
   /** 各图槽展示模式，默认时序图 */
   slotModes?: Partial<Record<number, MacroChartSlotMode>>;
   /** 饼图各槽使用的年份（如 "2024"） */
@@ -205,6 +212,7 @@ export const DEFAULT_MACRO_CHART_DISPLAY_CONFIG: MacroChartDisplayConfig = {
   barMaxWidth: 22,
   symbolSize: 7,
   endLabelDecimals: 2,
+  showRecessionShading: false,
 };
 
 export function yearFromCategoryLabel(label: string): string | null {
@@ -1427,11 +1435,17 @@ export function macroPayloadToChartOption(
     seriesVisualMap?: MacroSeriesVisualConfigMap;
     displayConfig?: MacroChartDisplayConfig;
     axisRanges?: MacroSlotAxisRanges;
+    /** NBER 衰退区间；与 displayConfig.showRecessionShading 同时启用时叠加 markArea */
+    recessionBands?: readonly NberRecessionBand[];
   },
 ): EChartsOption {
   const compact = opts?.compact ?? false;
   const visualMap = opts?.seriesVisualMap ?? {};
   const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
+  const recessionMarkAreaData =
+    display.showRecessionShading && opts?.recessionBands?.length
+      ? markAreaDataForCategories(slice.categories, opts.recessionBands)
+      : [];
   const many = slice.series.length >= 5;
   const titleSize = compact ? 11 : 13;
   const legendSize = compact ? 10 : 11;
@@ -1608,7 +1622,7 @@ export function macroPayloadToChartOption(
       },
     },
     yAxis,
-    series: slice.series.map((s) => {
+    series: slice.series.map((s, seriesIndex) => {
       const k = s.key ?? s.name;
       const cfg = visualMap[k] ?? {};
       const chartType = cfg.chartType ?? "line";
@@ -1618,6 +1632,13 @@ export function macroPayloadToChartOption(
       const smooth = display.lineSmooth;
       const symbolSize = Math.max(2, cfg.symbolSize ?? display.symbolSize);
       const opacity = Math.max(0.05, Math.min(1, cfg.opacity ?? 1));
+      const recessionMarkArea =
+        seriesIndex === 0 && recessionMarkAreaData.length > 0
+          ? {
+              ...NBER_RECESSION_MARK_AREA_STYLE,
+              data: recessionMarkAreaData,
+            }
+          : undefined;
 
       if (chartType === "bar") {
         return {
@@ -1627,6 +1648,7 @@ export function macroPayloadToChartOption(
           data: s.data,
           itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
           barMaxWidth: Math.max(6, display.barMaxWidth),
+          ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
       if (chartType === "stackBar") {
@@ -1638,6 +1660,7 @@ export function macroPayloadToChartOption(
           data: s.data,
           itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
           barMaxWidth: Math.max(6, display.barMaxWidth),
+          ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
       if (chartType === "scatter") {
@@ -1648,6 +1671,7 @@ export function macroPayloadToChartOption(
           data: s.data,
           symbolSize,
           itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
+          ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
       if (chartType === "area") {
@@ -1665,6 +1689,7 @@ export function macroPayloadToChartOption(
           endLabel: endLabelFor(cfg),
           clip: false,
           data: s.data,
+          ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
       if (chartType === "stackArea") {
@@ -1683,6 +1708,7 @@ export function macroPayloadToChartOption(
           endLabel: endLabelFor(cfg),
           clip: false,
           data: s.data,
+          ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
       if (chartType === "stepLine") {
@@ -1699,6 +1725,7 @@ export function macroPayloadToChartOption(
           endLabel: endLabelFor(cfg),
           clip: false,
           data: s.data,
+          ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
       if (chartType === "dashedLine") {
@@ -1720,6 +1747,7 @@ export function macroPayloadToChartOption(
           endLabel: endLabelFor(cfg),
           clip: false,
           data: s.data,
+          ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
       return {
@@ -1735,6 +1763,7 @@ export function macroPayloadToChartOption(
         endLabel: endLabelFor(cfg),
         clip: false,
         data: s.data,
+        ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
       };
     }),
   };

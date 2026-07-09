@@ -28,6 +28,7 @@ import type {
   MacroSeriesVisualConfigMap,
 } from "@/lib/macroChartOption";
 import { resolveSlotAxisRanges } from "@/lib/macroChartOption";
+import type { NberRecessionBand } from "@/lib/data/nberRecessionBands";
 import type {
   MacroDrawing,
   MacroDrawingDraft,
@@ -56,6 +57,8 @@ export type MacroChartPanelProps = {
   chartAreaHeight?: string;
   seriesVisualMap?: MacroSeriesVisualConfigMap;
   displayConfig?: MacroChartDisplayConfig;
+  /** NBER 衰退区间（时序图 markArea） */
+  recessionBands?: readonly NberRecessionBand[];
   slotMode?: MacroChartSlotMode;
   slotIndex?: number;
   pieYear?: string | null;
@@ -83,6 +86,7 @@ export function MacroChartPanel({
   chartAreaHeight,
   seriesVisualMap,
   displayConfig,
+  recessionBands,
   slotMode = "timeSeries",
   slotIndex = 0,
   pieYear = null,
@@ -222,6 +226,7 @@ export function MacroChartPanel({
       seriesVisualMap,
       displayConfig,
       axisRanges,
+      recessionBands,
     });
   }, [
     slice,
@@ -229,6 +234,7 @@ export function MacroChartPanel({
     seriesVisualMap,
     displayConfig,
     axisRanges,
+    recessionBands,
     isPie,
     pieYear,
     isSeasonal,

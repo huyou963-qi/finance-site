@@ -174,6 +174,39 @@ model WeeklyReport {
   @@schema("public")
 }
 
+/// 单股月度/周期经营状态 AI 分析（外部 Automation ingest）
+model CompanyOperatingBrief {
+  id           String   @id @default(uuid())
+  symbol       String   @db.VarChar(16)
+  periodMonth  String   @map("period_month") @db.VarChar(7)
+  meta         Json
+  bodyMarkdown String   @map("body_markdown") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([symbol, periodMonth])
+  @@index([periodMonth(sort: Desc)])
+  @@index([symbol])
+  @@map("company_operating_brief")
+  @@schema("public")
+}
+
+/// 同行业经营叙事互证（外部 Automation ingest）
+model IndustryPeerResonance {
+  id           String   @id @default(uuid())
+  peerGroupId  String   @map("peer_group_id") @db.VarChar(128)
+  periodMonth  String   @map("period_month") @db.VarChar(7)
+  payload      Json
+  bodyMarkdown String   @map("body_markdown") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([peerGroupId, periodMonth])
+  @@index([periodMonth(sort: Desc)])
+  @@map("industry_peer_resonance")
+  @@schema("public")
+}
+
 // ─── mds：统一金融数据目录（宏观 / 资产 / 行情），与厂商无关 ─────────────────
 
 enum InstrumentKind {
@@ -453,5 +486,85 @@ model FetchRun {
 
   @@index([subscriptionId, startedAt])
   @@map("fetch_run")
+  @@schema("mds")
+}
+
+/// 美股证券主数据（GICS + 市值缓存）
+model EquitySecurity {
+  id              String    @id @default(uuid()) @db.Uuid
+  symbol          String    @unique @db.VarChar(16)
+  cik             String?   @db.VarChar(16)
+  name            String    @db.VarChar(256)
+  gicsSector      String    @map("gics_sector") @db.VarChar(64)
+  gicsIndustry    String?   @map("gics_industry") @db.VarChar(128)
+  gicsSubIndustry String?   @map("gics_sub_industry") @db.VarChar(128)
+  marketCap       Float?    @map("market_cap")
+  marketCapAsOf   DateTime? @map("market_cap_as_of") @db.Date
+  irUrl           String?   @map("ir_url") @db.VarChar(512)
+  website         String?   @db.VarChar(512)
+  metadata        Json?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([gicsSector])
+  @@index([marketCap(sort: Desc)])
+  @@map("equity_security")
+  @@schema("mds")
+}
+
+/// 指数成分快照（如 SP500）
+model IndexConstituent {
+  id        String   @id @default(uuid()) @db.Uuid
+  indexCode String   @map("index_code") @db.VarChar(32)
+  symbol    String   @db.VarChar(16)
+  asOfDate  DateTime @map("as_of_date") @db.Date
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([indexCode, symbol, asOfDate])
+  @@index([indexCode, asOfDate])
+  @@index([symbol])
+  @@map("index_constituent")
+  @@schema("mds")
+}
+
+/// 个股财报/估值快照（FMP 缓存，供行业聚合）
+model EquityFundamentalSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  symbol      String   @db.VarChar(16)
+  period      String   @db.VarChar(16)
+  revenue     Float?
+  revenueYoY  Float?   @map("revenue_yoy")
+  eps         Float?
+  epsYoY      Float?   @map("eps_yoy")
+  grossMargin Float?   @map("gross_margin")
+  opMargin    Float?   @map("op_margin")
+  pe          Float?
+  asOf        DateTime @map("as_of") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([symbol, period])
+  @@index([symbol])
+  @@index([asOf])
+  @@map("equity_fundamental_snapshot")
+  @@schema("mds")
+}
+
+/// SEC EDGAR 披露索引（供 Automation 取证）
+model SecFiling {
+  id        String   @id @default(uuid()) @db.Uuid
+  cik       String   @db.VarChar(16)
+  symbol    String?  @db.VarChar(16)
+  accession String   @db.VarChar(32)
+  form      String   @db.VarChar(16)
+  filedAt   DateTime @map("filed_at") @db.Date
+  url       String   @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([cik, accession])
+  @@index([symbol, filedAt(sort: Desc)])
+  @@index([cik, filedAt(sort: Desc)])
+  @@index([form])
+  @@map("sec_filing")
   @@schema("mds")
 }

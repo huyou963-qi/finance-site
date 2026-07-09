@@ -24,6 +24,7 @@ import type {
   MacroDrawingTool,
 } from "@/lib/macroChartDrawing";
 import { DEFAULT_MACRO_DRAWING_STYLE } from "@/lib/macroChartDrawing";
+import type { NberRecessionBand } from "@/lib/data/nberRecessionBands";
 import { indicesFromDataZoomPct } from "@/lib/timeRangeSlice";
 import { dataIndexFromConvert } from "@/lib/timeCursor";
 
@@ -33,6 +34,7 @@ export type MacroMultiChartGridProps = {
   slotAssignment: MacroSlotAssignment;
   seriesVisualMap?: MacroSeriesVisualConfigMap;
   displayConfig?: MacroChartDisplayConfig;
+  recessionBands?: readonly NberRecessionBand[];
   pageSyncEnabled?: boolean;
   remoteCrosshairTimeLabel?: string | null;
   remoteCrosshairVersion?: number;
@@ -187,6 +189,7 @@ export function MacroMultiChartGrid({
   slotAssignment,
   seriesVisualMap,
   displayConfig,
+  recessionBands,
   pageSyncEnabled = false,
   remoteCrosshairTimeLabel = null,
   remoteCrosshairVersion = 0,
@@ -674,6 +677,7 @@ export function MacroMultiChartGrid({
             compact={false}
             seriesVisualMap={seriesVisualMap}
             displayConfig={displayConfig}
+            recessionBands={recessionBands}
             slotMode={slotModeFor(0)}
             slotIndex={0}
             pieYear={pieYearForSlot(0)}
@@ -740,6 +744,7 @@ export function MacroMultiChartGrid({
                 compact={compact}
                 seriesVisualMap={seriesVisualMap}
                 displayConfig={displayConfig}
+                recessionBands={recessionBands}
                 slotMode={mode}
                 slotIndex={i}
                 pieYear={pieYearForSlot(i)}

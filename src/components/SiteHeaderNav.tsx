@@ -32,6 +32,8 @@ export function SiteHeaderNav() {
   const macroActive = pathname === "/macro";
   const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
   const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
+  const equityActive =
+    pathname === "/equity/sectors" || pathname.startsWith("/equity/sectors/");
   const toolsActive = isToolPath(pathname);
   const marketsActive =
     (pathname === "/markets" || pathname.startsWith("/markets/")) && !toolsActive;
@@ -99,6 +101,17 @@ export function SiteHeaderNav() {
             行情
           </Link>
         ) : null}
+        <Link
+          href="/equity/sectors"
+          className={`${linkBase} ${
+            equityActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={equityActive ? "page" : undefined}
+        >
+          美股行业
+        </Link>
         <Link
           href="/events"
           className={`${linkBase} ${

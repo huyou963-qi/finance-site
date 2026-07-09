@@ -91,7 +91,12 @@
     "data:seed-cot": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cot.ts",
     "data:sync-cot": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cot.ts -- --sync-only",
     "data:verify-cot": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cot.ts",
-    "data:build-us-history-timeline": "node scripts/data/build-us-history-timeline.mjs"
+    "data:build-us-history-timeline": "node scripts/data/build-us-history-timeline.mjs",
+    "equity:seed-sp500": "dotenv -e .env.local -- tsx scripts/equity/seed-sp500.ts",
+    "equity:sync-profiles": "dotenv -e .env.local -- tsx scripts/equity/sync-profiles.ts",
+    "equity:sync-fundamentals": "dotenv -e .env.local -- tsx scripts/equity/sync-fundamentals.ts",
+    "equity:sync-sec": "dotenv -e .env.local -- tsx scripts/equity/sync-sec.ts",
+    "test:equity": "tsx --test src/lib/equity/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

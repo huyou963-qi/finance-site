@@ -26,6 +26,10 @@ import {
   contextDateFromTimeLabel,
   extractCountriesFromMacroKeys,
 } from "@/lib/data/marketEvents";
+import {
+  usrecSeriesToBands,
+  type NberRecessionBand,
+} from "@/lib/data/nberRecessionBands";
 import { SelectedIndicatorsList } from "@/components/SelectedIndicatorsList";
 import { UnifiedMacroSidebar } from "@/components/UnifiedMacroSidebar";
 import type { MacroPayload } from "@/lib/data/types";
@@ -614,6 +618,7 @@ export function MacroSection() {
   const [customBuiltinTemplates, setCustomBuiltinTemplates] = useState<MacroChartTemplate[]>([]);
   const [hiddenBuiltinTemplateIds, setHiddenBuiltinTemplateIds] = useState<string[]>([]);
   const [pageSyncEnabled, setPageSyncEnabled] = useState(false);
+  const [recessionBands, setRecessionBands] = useState<NberRecessionBand[]>([]);
   const [remoteCrosshairTimeLabel, setRemoteCrosshairTimeLabel] = useState<string | null>(null);
   const [remoteCrosshairVersion, setRemoteCrosshairVersion] = useState(0);
   const [remoteVisibleRange, setRemoteVisibleRange] = useState<{
@@ -2064,6 +2069,38 @@ export function MacroSection() {
     };
   }, [requestedMdsInstruments, requestedQuery]);
 
+  /** 勾选「美国衰退」时拉取 FRED USREC，压成 NBER 区间供时序图 markArea */
+  useEffect(() => {
+    if (!displayConfig.showRecessionShading) return;
+    if (recessionBands.length > 0) return;
+
+    let cancelled = false;
+    fetch("/api/data/macro?source=unified&series=fred:USREC")
+      .then(async (r) => {
+        if (!r.ok) {
+          const j = (await r.json().catch(() => ({}))) as { error?: string };
+          throw new Error(j.error ?? `${r.status}`);
+        }
+        return r.json() as Promise<MacroPayload>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        const series = data.series.find((s) => s.key === "fred:USREC") ?? data.series[0];
+        if (!series) {
+          setRecessionBands([]);
+          return;
+        }
+        setRecessionBands(usrecSeriesToBands(data.categories, series.data));
+      })
+      .catch(() => {
+        if (!cancelled) setRecessionBands([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [displayConfig.showRecessionShading, recessionBands.length]);
+
   function handleExtractData() {
     if (!seriesQuery) {
       setError("请先选择至少一个指标");
@@ -2867,6 +2904,31 @@ export function MacroSection() {
               多显示器多窗口时，数据同步展示。
             </div>
           </div>
+          <div className="group relative shrink-0">
+            <label className="flex cursor-pointer items-center gap-1 rounded-md border border-fs-border bg-fs-bg/45 px-2 py-1.5 text-xs text-fs-secondary hover:border-fs-border">
+              <input
+                type="checkbox"
+                checked={Boolean(displayConfig.showRecessionShading)}
+                onChange={(e) =>
+                  setDisplayConfig((prev) => ({
+                    ...prev,
+                    showRecessionShading: e.target.checked,
+                  }))
+                }
+                className="h-3 w-3 shrink-0 rounded border-fs-border"
+                aria-label="美国衰退"
+                aria-describedby="macro-recession-shading-tip"
+              />
+              美国衰退
+            </label>
+            <div
+              id="macro-recession-shading-tip"
+              role="tooltip"
+              className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 hidden w-max max-w-[14rem] rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-[11px] leading-snug text-fs-text shadow-lg group-hover:block"
+            >
+              叠加 NBER 美国衰退区间（FRED USREC）。
+            </div>
+          </div>
           </>
         ) : null}
       </div>
@@ -3319,6 +3381,9 @@ export function MacroSection() {
                         slotAssignment={extractedAssignment}
                         seriesVisualMap={seriesVisualMap}
                         displayConfig={displayConfig}
+                        recessionBands={
+                          displayConfig.showRecessionShading ? recessionBands : undefined
+                        }
                         pageSyncEnabled={pageSyncEnabled}
                         remoteCrosshairTimeLabel={remoteCrosshairTimeLabel}
                         remoteCrosshairVersion={remoteCrosshairVersion}

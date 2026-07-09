@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-本地/内网部署的金融数据站：**宏观仪表盘**（ECharts + PostgreSQL/FMP/FRED）+ **K 线行情**（Lightweight Charts + Binance/IBKR）+ 用户认证与部分工具页。
+本地/内网部署的金融数据站：**宏观仪表盘**（ECharts + PostgreSQL/FMP/FRED）+ **K 线行情**（Lightweight Charts + Binance/IBKR）+ **美股行业**（GICS Sector ETF / 财报 / 经营叙事）+ 用户认证与部分工具页。
 
 ## 仓库结构
 
@@ -13,14 +13,17 @@ finance-site/
 ├── src/app/              # 页面 + API Route Handlers
 │   ├── macro/            # 宏观主功能（最大模块）
 │   ├── markets/          # K 线
+│   ├── equity/           # 美股行业（GICS）
 │   ├── api/data/         # 宏观、K 线、目录 BFF
+│   ├── api/equity/       # 行业、财报、经营简报 ingest
 │   ├── api/auth/         # 登录注册
 │   ├── api/tools/        # 模板偏好等
 │   └── api/ibkr/         # IB 持仓/成交（可选）
 ├── src/components/       # Macro*、Candlestick*、图表叠加
 ├── src/lib/data/         # 数据层（providers、macro、ibkr）
+├── src/lib/equity/       # GICS / 风格篮子 / 行业收益与财报
 ├── prisma/               # schema + migrations
-├── scripts/              # 导入/ETL（tsx）
+├── scripts/              # 导入/ETL（tsx）；scripts/equity/*
 ├── .cursor/rules/        # 团队共享 Cursor 规则（必跟）
 └── .github/              # PR 模板、CI
 ```
@@ -38,6 +41,12 @@ finance-site/
 1. 浏览器 → `GET /api/data/klines?symbol=...&provider=...`
 2. `src/lib/data/providers/` 注册 Binance / IBKR 等
 3. `MarketsClient` / `StockChartWorkspace` 用 Lightweight Charts
+
+### 美股行业
+
+1. `equity:seed-sp500` → Wikipedia 成分 + GICS → `mds.equity_security`
+2. 浏览器 → `/equity/sectors`；收益 `GET /api/equity/sector-returns`（IBKR Sector ETF）
+3. 财报聚合 / 经营叙事见 [docs/US_EQUITY_SECTOR_ANALYSIS.md](./docs/US_EQUITY_SECTOR_ANALYSIS.md)
 
 ### 用户偏好
 
