@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChartExecutionTrade } from "@/lib/chart/executionMarkers";
 import { StockChartWorkspace } from "@/components/StockChartWorkspace";
 import {
   isKlineInterval,
@@ -14,13 +13,7 @@ import {
   type KlineSyncMessage,
   type RangeStatWireSegment,
 } from "@/lib/klinePageSyncChannel";
-import { FlexTradesImportButton } from "@/components/FlexTradesImportButton";
-import { IbkrPortfolioPanel } from "@/components/IbkrPortfolioPanel";
-import {
-  loadFlexTradesFromStorage,
-  mergeChartExecutionTrades,
-} from "@/lib/chart/flexExecutionImport";
-import type { PriceAdjustmentMode } from "@/lib/data/klineAdjustment";
+import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
@@ -48,11 +41,7 @@ function displayNameForSymbol(sym: string): string | undefined {
   return undefined;
 }
 
-/** 与 GET /api/data/klines?source= 及 StockChartWorkspace 一致 */
-type KlineChartSource = "auto" | "ibkr";
-
 export function MarketsClient() {
-  const [klineSource, setKlineSource] = useState<KlineChartSource>("ibkr");
   const [symbol, setSymbol] = useState("");
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -78,30 +67,12 @@ export function MarketsClient() {
     RangeStatWireSegment[]
   >([]);
   const [remoteRangeSpecsVer, setRemoteRangeSpecsVer] = useState(0);
-  const [gatewayTrades, setGatewayTrades] = useState<ChartExecutionTrade[]>([]);
-  const [flexTrades, setFlexTrades] = useState<ChartExecutionTrade[]>([]);
-  const [portfolioTrades, setPortfolioTrades] =
-    useState<ChartExecutionTrade[]>([]);
   const [eventContextDate, setEventContextDate] = useState<string | null>(null);
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
   const chartSplitRowRef = useRef<HTMLDivElement | null>(null);
 
   const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
-
-  useEffect(() => {
-    setFlexTrades(loadFlexTradesFromStorage());
-  }, [tabId]);
-
-  const executionTrades = useMemo(
-    () =>
-      mergeChartExecutionTrades(symbol.trim(), {
-        gateway: gatewayTrades,
-        flex: flexTrades,
-        portfolio: portfolioTrades,
-      }),
-    [symbol, gatewayTrades, flexTrades, portfolioTrades],
-  );
 
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -120,63 +91,6 @@ export function MarketsClient() {
     setEventRangeFromSec(null);
     setEventRangeToSec(null);
     setEventContextDate(null);
-  }, [symbol]);
-
-  /**
-   * IBKR：当前图表标的在 Gateway 最近 ≤7 日内的成交 → K 线箭头标注。
-   * 无需先点组合持仓；未登录 Gateway 时静默为空。
-   */
-  useEffect(() => {
-    const sym = symbol.trim();
-    if (!sym) {
-      setGatewayTrades([]);
-      return;
-    }
-    let cancelled = false;
-    const tid = window.setTimeout(() => {
-      fetch(
-        `/api/ibkr/trades?${new URLSearchParams({
-          symbol: sym,
-          days: "7",
-        }).toString()}`,
-        { cache: "no-store" },
-      )
-        .then(async (r) => {
-          const j = (await r.json()) as {
-            trades?: {
-              executionId?: string;
-              side: string;
-              tradeTimeSec: number;
-              size: number;
-              price: number;
-            }[];
-            error?: string;
-          };
-          if (cancelled) return;
-          if (!r.ok) {
-            setGatewayTrades([]);
-            return;
-          }
-          const list = j.trades ?? [];
-          setGatewayTrades(
-            list.map((t) => ({
-              tradeTimeSec: t.tradeTimeSec,
-              price: t.price,
-              size: t.size,
-              side: t.side,
-              source: "gateway" as const,
-              dedupeKey: t.executionId,
-            })),
-          );
-        })
-        .catch(() => {
-          if (!cancelled) setGatewayTrades([]);
-        });
-    }, 400);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(tid);
-    };
   }, [symbol]);
 
   useEffect(() => {
@@ -413,7 +327,6 @@ export function MarketsClient() {
     if (!s) return;
     // 丢弃仍在路上的 symbol-search 响应，否则会再次 setOpen(true) + 空列表 →「无匹配」盖住图表
     reqIdRef.current += 1;
-    setPortfolioTrades([]);
     setSymbol(s);
     setQuery(s);
     setPickedName(name ?? displayNameForSymbol(s));
@@ -437,17 +350,6 @@ export function MarketsClient() {
       ref={rootRef}
       className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
     >
-      <IbkrPortfolioPanel
-        activeChartSymbol={symbol}
-        chartExecutionTrades={executionTrades}
-        flexTradesImportSlot={
-          <FlexTradesImportButton onImported={setFlexTrades} />
-        }
-        onExecutionTradesChange={setPortfolioTrades}
-        onPickSymbol={(s) => {
-          commitSymbol(s);
-        }}
-      />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
       <div className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
         <div className="relative min-h-[26px] min-w-[100px] max-w-[12rem] flex-1">
@@ -550,28 +452,13 @@ export function MarketsClient() {
           </select>
         </label>
 
-        <label className="flex max-w-[8.5rem] shrink-0 items-center text-[9px] text-fs-muted">
-          <select
-            value={klineSource}
-            onChange={(e) =>
-              setKlineSource(e.target.value as KlineChartSource)
-            }
-            title="K 线数据源：自动与 IBKR 均只请求 Interactive Brokers。"
-            aria-label="K 线数据源"
-            className="h-[22px] min-w-0 max-w-full cursor-pointer truncate rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[10px] leading-none text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
-          >
-            <option value="auto">数据源·自动（仅IB）</option>
-            <option value="ibkr">数据源·IBKR</option>
-          </select>
-        </label>
-
         <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
           <select
             value={priceAdjustment}
             onChange={(e) =>
                 setPriceAdjustment(e.target.value as PriceAdjustmentMode)
               }
-              title="前复权：历史价按拆股/除权跳变对齐最新尺度（如 IBKR 2025-06-18 拆股）；IB 仅 Trades 价，不含现金分红平滑。"
+              title="前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"
               aria-label="K 线价格复权"
               className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
           >
@@ -633,12 +520,10 @@ export function MarketsClient() {
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <StockChartWorkspace
-            key={`${klineSource}-${symbol || "none"}-${interval}-${priceAdjustment}`}
-            source={klineSource}
+            key={`${symbol || "none"}-${interval}-${priceAdjustment}`}
             symbol={symbol}
             interval={interval}
             priceAdjustment={priceAdjustment}
-            executionTrades={executionTrades}
             fillHeight
             onAttributionChange={setDataHint}
             onKlineLoadSuccess={onKlineLoadSuccess}

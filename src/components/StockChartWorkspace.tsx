@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import {
   CandlestickSeries,
   createChart,
-  createSeriesMarkers,
   CrosshairMode,
   HistogramSeries,
   isBusinessDay,
@@ -13,17 +12,11 @@ import {
   type CandlestickData,
   type LineData,
   type IChartApi,
-  type ISeriesMarkersPluginApi,
   type IPriceLine,
   type ISeriesApi,
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
-import {
-  EXECUTION_MARKER_PLUGIN_OPTIONS,
-  executionTradesToSeriesMarkers,
-  type ChartExecutionTrade,
-} from "@/lib/chart/executionMarkers";
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
 import { KlineRangeStatsPanel } from "@/components/chart/KlineRangeStatsPanel";
 import {
@@ -40,7 +33,7 @@ import {
   klineDebugLog,
   logCandleSeriesReport,
 } from "@/lib/data/klineDebug";
-import { isIbkrContinuousFutChartSymbol, mergeKlinePayload } from "@/lib/data/klineMerge";
+import { mergeKlinePayload } from "@/lib/data/klineMerge";
 import type { KlinePayload } from "@/lib/data/types";
 import {
   bollinger,
@@ -62,10 +55,7 @@ import {
   type VisibleExtremaOverlay,
 } from "@/components/chart/ChartDrawingOverlay";
 import type { RangeStatWireSegment } from "@/lib/klinePageSyncChannel";
-import {
-  applyKlinePriceAdjustment,
-  type PriceAdjustmentMode,
-} from "@/lib/data/klineAdjustment";
+import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import {
   barMsForInterval,
   isKlineInterval,
@@ -101,11 +91,10 @@ const LOGICAL_PREFETCH_EDGE = 240;
 export type StockChartWorkspaceProps = {
   symbol: string;
   interval: string;
-  source: "binance" | "ibkr" | "auto";
+  /** 数据源固定 Yahoo（保留字段以兼容调用方；仅作 localStorage key 前缀） */
+  source?: string;
   /** K 线价格复权（默认前复权；见 GET /api/data/klines?adjust=） */
   priceAdjustment?: PriceAdjustmentMode;
-  /** IB 成交标注（与会话 K 线柱时间对齐，多条成交多点标注） */
-  executionTrades?: ChartExecutionTrade[];
   /** 占满父级剩余高度（行情页全屏用） */
   fillHeight?: boolean;
   /** 数据源说明（如 attribution），供顶栏展示 */
@@ -656,9 +645,8 @@ function rangePanelTitle(index: number): string {
 export function StockChartWorkspace({
   symbol,
   interval,
-  source,
+  source = "yahoo",
   priceAdjustment = "forward",
-  executionTrades = [],
   fillHeight = false,
   onAttributionChange,
   onKlineLoadSuccess,
@@ -681,9 +669,6 @@ export function StockChartWorkspace({
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
-  const execMarkersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(
-    null,
-  );
   const nativeHandlesRef = useRef<{
     userPriceLines: IPriceLine[];
     userTrendLines: ISeriesApi<"Line", Time>[];
@@ -921,14 +906,8 @@ export function StockChartWorkspace({
     }
   }, [drawings, source, symbol, interval, priceAdjustment]);
 
-  const candles = useMemo(() => {
-    const raw = payload?.candles ?? [];
-    return applyKlinePriceAdjustment(raw, priceAdjustment, {
-      symbol,
-      interval,
-      klineSource: source,
-    });
-  }, [payload?.candles, priceAdjustment, symbol, interval, source]);
+  // 服务端已按 adjust= 精确复权（拆股事件 + 分红因子），客户端直接使用
+  const candles = useMemo(() => payload?.candles ?? [], [payload?.candles]);
 
   const needsTtmPe =
     subPane1.content === "ttmpe" || subPane2.content === "ttmpe";
@@ -1007,17 +986,6 @@ export function StockChartWorkspace({
   }, [candles, loading, overlayLayoutTick]);
 
   const loadMoreHistory = useCallback(async () => {
-    if (
-      source === "ibkr" &&
-      isIbkrContinuousFutChartSymbol(symbol.trim())
-    ) {
-      historyExhaustedRef.current = true;
-      klineDebugLog("client", "loadMore.skip", {
-        reason: "ibkr_contfut_no_pagination",
-        symbol: symbol.trim(),
-      });
-      return;
-    }
     if (loading || loadingOlderRef.current) {
       klineDebugLog("client",  "loadMore.skip", {
         reason: loading ? "main_loading" : "older_in_flight",
@@ -1152,27 +1120,16 @@ export function StockChartWorkspace({
 
   const candlesRef = useRef(candles);
   const volumesRef = useRef(volumes);
-  const executionTradesRef = useRef(executionTrades);
   const intervalRef = useRef(interval);
   const symbolRefForLog = useRef(symbol);
   const sourceRefForLog = useRef(source);
   const rangeEntriesRef = useRef(rangeEntries);
   candlesRef.current = candles;
   volumesRef.current = volumes;
-  executionTradesRef.current = executionTrades;
   intervalRef.current = interval;
   symbolRefForLog.current = symbol;
   sourceRefForLog.current = source;
   rangeEntriesRef.current = rangeEntries;
-
-  useEffect(() => {
-    if (loading) return;
-    const plugin = execMarkersPluginRef.current;
-    if (!plugin || candles.length === 0) return;
-    plugin.setMarkers(
-      executionTradesToSeriesMarkers(executionTrades, candles),
-    );
-  }, [loading, candles, executionTrades]);
 
   /** 追加历史后刷新序列数据，避免整图重建导致可见区间丢失 */
   useEffect(() => {
@@ -1859,7 +1816,6 @@ export function StockChartWorkspace({
     setChartApi(chart);
     const initialCandles = candlesRef.current;
     const initialVolumes = volumesRef.current;
-    const initialExecutionTrades = executionTradesRef.current;
     const nSub =
       (subPane1.visible ? 1 : 0) + (subPane2.visible ? 1 : 0);
     for (let i = 0; i < nSub; i++) {
@@ -1889,12 +1845,6 @@ export function StockChartWorkspace({
     );
     candle.setData(initialCandles);
     candleRef.current = candle;
-
-    execMarkersPluginRef.current = createSeriesMarkers(
-      candle,
-      executionTradesToSeriesMarkers(initialExecutionTrades, initialCandles),
-      EXECUTION_MARKER_PLUGIN_OPTIONS,
-    );
 
     nativeHandlesRef.current.overlayLines = [];
     nativeHandlesRef.current.subPaneSeries = [];
@@ -2401,7 +2351,6 @@ export function StockChartWorkspace({
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
-      execMarkersPluginRef.current = null;
       nativeHandlesRef.current = {
         userPriceLines: [],
         userTrendLines: [],
@@ -2673,7 +2622,7 @@ export function StockChartWorkspace({
           {klineError}
         </p>
         <p className="max-w-lg text-left text-[11px] leading-relaxed text-fs-muted">
-          source=auto / ibkr 为 IB Trades 价；前/后复权在合并全序列后按拆股跳变处理（Binance 现货无复权）。
+          行情来自 Yahoo Finance（美股，免密钥）；日/周线由服务端按拆股事件与现金分红精确复权，可能因代码无效或网络波动失败。
         </p>
       </div>
     );

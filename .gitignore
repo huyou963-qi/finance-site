@@ -52,3 +52,7 @@ next-build.tar.gz
 # Claude Code / 预览工具本地配置（非项目代码）
 .claude/
 .cursor/.claude/
+
+# Python bytecode
+__pycache__/
+*.pyc

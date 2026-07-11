@@ -96,11 +96,12 @@
     "equity:sync-profiles": "dotenv -e .env.local -- tsx scripts/equity/sync-profiles.ts",
     "equity:sync-fundamentals": "dotenv -e .env.local -- tsx scripts/equity/sync-fundamentals.ts",
     "equity:sync-sec": "dotenv -e .env.local -- tsx scripts/equity/sync-sec.ts",
+    "equity:sync-prices": "dotenv -e .env.local -- tsx scripts/equity/sync-prices.ts",
+    "equity:verify-gics": "dotenv -e .env.local -- tsx scripts/equity/verify-gics.ts",
     "test:equity": "tsx --test src/lib/equity/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
-    "@stoqey/ib": "^1.5.5",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "lightweight-charts": "^5.0.3",

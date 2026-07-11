@@ -1,8 +1,8 @@
-import type { PriceAdjustmentMode } from "@/lib/data/klineAdjustment";
+import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import type { KlineFetchWindowOptions, KlinePayload } from "@/lib/data/types";
 
 /** 与 GET /api/data/klines?source= 及 KlinePayload.source 对齐的可插拔数据源 id */
-export type KlineProviderId = "binance" | "ibkr";
+export type KlineProviderId = "yahoo";
 
 export type KlineFetchRequest = {
   symbol: string;
@@ -19,9 +19,7 @@ export type KlineProviderCapabilities = {
   supportsExplicitTimeRange: boolean;
   /** 是否支持 before= 向左分页 */
   supportsBeforePagination: boolean;
-  /**
-   * 服务端是否按 adjustment 改写 OHLC；为 false 时路由仍可在 attribution 上提示。
-   */
+  /** 服务端是否按 adjustment 改写 OHLC；为 false 时客户端不得再自行复权 */
   honorsPriceAdjustment: boolean;
   /** adjust≠none 时附加到响应 attribution（可选） */
   adjustmentBehaviorNote?: string;
@@ -33,7 +31,6 @@ export type KlineProviderCapabilities = {
 export interface KlineMarketDataProvider {
   readonly id: KlineProviderId;
   readonly capabilities: KlineProviderCapabilities;
-  /** 当前进程环境下是否可发起请求（如 IB 需 Cookie 或桥） */
   isAvailable(): boolean;
   fetch(req: KlineFetchRequest): Promise<KlinePayload>;
 }

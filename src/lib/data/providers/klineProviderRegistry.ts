@@ -1,5 +1,4 @@
-import { binanceKlineProvider } from "@/lib/data/providers/binanceKlineProvider";
-import { ibkrKlineProvider } from "@/lib/data/providers/ibkrKlineProvider";
+import { yahooKlineProvider } from "@/lib/data/providers/yahooKlineProvider";
 import type {
   KlineFetchRequest,
   KlineMarketDataProvider,
@@ -8,13 +7,10 @@ import type {
 import type { KlineFetchWindowOptions, KlinePayload } from "@/lib/data/types";
 
 const registry = new Map<KlineProviderId, KlineMarketDataProvider>([
-  ["binance", binanceKlineProvider],
-  ["ibkr", ibkrKlineProvider],
+  ["yahoo", yahooKlineProvider],
 ]);
 
-/**
- * 运行时注册或替换提供者（测试或接入额外数据源时可在服务端启动阶段调用）。
- */
+/** 运行时注册或替换提供者（测试或接入额外数据源时可在服务端启动阶段调用） */
 export function registerOrReplaceKlineProvider(
   provider: KlineMarketDataProvider,
 ): void {
@@ -31,9 +27,7 @@ export function listRegisteredKlineProviderIds(): readonly KlineProviderId[] {
   return [...registry.keys()];
 }
 
-/**
- * 校验窗口能力与提供者能力是否一致；返回错误文案，无问题则 null。
- */
+/** 校验窗口能力与提供者能力是否一致；返回错误文案，无问题则 null。 */
 export function validateKlineWindowForProvider(
   provider: KlineMarketDataProvider,
   window: KlineFetchWindowOptions,

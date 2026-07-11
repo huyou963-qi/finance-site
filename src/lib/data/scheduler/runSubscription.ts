@@ -133,11 +133,8 @@ export async function runDataSubscription(
       };
     }
 
-    const { upserted, skipped } = await upsertMacroObservations(
-      prisma,
-      sub.instrumentId,
-      fetchResult.points,
-    );
+    const { upserted, skipped, inserted, changed, latestObsDate, latestValue } =
+      await upsertMacroObservations(prisma, sub.instrumentId, fetchResult.points);
 
     const newMax = maxObsDate(fetchResult.points);
     const lastObs =
@@ -150,13 +147,10 @@ export async function runDataSubscription(
         ? diffDays(fetchResult.sourceLatestObsDate, lastObs)
         : null;
 
-    const noNewData = fetchResult.points.length === 0;
+    // 只有真正写库（新增或修订）才算 SUCCESS；拉到了数据但值全部与库内一致（源端没发新值）
+    // 记为 SKIPPED（无新数据），避免「+N success」掩盖实际没更新的情况。
     const status =
-      upserted > 0
-        ? FetchRunStatus.SUCCESS
-        : noNewData
-          ? FetchRunStatus.SKIPPED
-          : FetchRunStatus.PARTIAL;
+      upserted > 0 ? FetchRunStatus.SUCCESS : FetchRunStatus.SKIPPED;
 
     const hadNewData = upserted > 0;
     const sourceCaughtUp =
@@ -261,6 +255,10 @@ export async function runDataSubscription(
           fetchStart,
           persistStart,
           fetched: fetchResult.points.length,
+          inserted,
+          changed,
+          latestObs: latestObsDate?.toISOString().slice(0, 10) ?? null,
+          latestValue,
         },
       },
     });
@@ -275,6 +273,10 @@ export async function runDataSubscription(
       rowsUpserted: upserted,
       rowsSkipped: skipped + fetchResult.skippedInvalid,
       sourceLagDays,
+      inserted,
+      changed,
+      latestObsDate: latestObsDate?.toISOString().slice(0, 10) ?? null,
+      latestValue,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

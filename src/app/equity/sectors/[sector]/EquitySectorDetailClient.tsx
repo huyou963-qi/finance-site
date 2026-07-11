@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
+import { SectorIndustryTab } from "@/components/equity/SectorIndustryTab";
 import { WeeklyMarkdown } from "@/components/weekly/WeeklyMarkdown";
 
 type Constituent = {
@@ -56,6 +57,7 @@ type ResonanceItem = {
 
 const TABS = [
   { id: "price", label: "走势与成分" },
+  { id: "industries", label: "Industry" },
   { id: "macro", label: "宏观对照" },
   { id: "fundamentals", label: "财报聚合" },
   { id: "narrative", label: "经营叙事" },
@@ -334,14 +336,27 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
               <tbody>
                 {topConstituents.map((c) => (
                   <tr key={c.symbol} className="border-t border-fs-border/60">
-                    <td className="px-3 py-2 font-medium text-fs-text">{c.symbol}</td>
+                    <td className="px-3 py-2 font-medium">
+                      <Link
+                        href={`/equity/stocks/${encodeURIComponent(c.symbol)}`}
+                        className="text-fs-text hover:text-fs-accent-text hover:underline"
+                      >
+                        {c.symbol}
+                      </Link>
+                    </td>
                     <td className="px-3 py-2 text-fs-muted">{c.name}</td>
                     <td className="px-3 py-2 text-fs-muted">{c.gicsIndustry ?? "—"}</td>
                     <td className="px-3 py-2 text-fs-text">{fmtCap(c.marketCap)}</td>
                     <td className="px-3 py-2">
                       <Link
+                        href={`/equity/stocks/${encodeURIComponent(c.symbol)}`}
+                        className="mr-2 text-xs text-fs-accent-text hover:underline"
+                      >
+                        个股
+                      </Link>
+                      <Link
                         href={`/markets?symbol=${encodeURIComponent(c.symbol)}`}
-                        className="text-xs text-fs-accent-text hover:underline"
+                        className="text-xs text-fs-muted hover:text-fs-accent-text hover:underline"
                       >
                         K线
                       </Link>
@@ -352,6 +367,10 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
             </table>
           </section>
         </div>
+      ) : null}
+
+      {tab === "industries" ? (
+        <SectorIndustryTab sectorSlug={sectorSlug} sectorNameZh={nameZh || sectorSlug} />
       ) : null}
 
       {tab === "macro" ? (

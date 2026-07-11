@@ -313,7 +313,18 @@ export async function executeSchedulerAction(
           rowsUpserted: r.rowsUpserted,
           succeeded:
             r.status !== "failed"
-              ? [{ instrumentCode: code, instrumentName: inst.name, status: r.status, rowsUpserted: r.rowsUpserted }]
+              ? [
+                  {
+                    instrumentCode: code,
+                    instrumentName: inst.name,
+                    status: r.status,
+                    rowsUpserted: r.rowsUpserted,
+                    inserted: r.inserted,
+                    changed: r.changed,
+                    latestObsDate: r.latestObsDate ?? null,
+                    latestValue: r.latestValue ?? null,
+                  },
+                ]
               : [],
           failed:
             r.status === "failed"

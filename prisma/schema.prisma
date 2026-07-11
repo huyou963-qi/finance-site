@@ -495,9 +495,11 @@ model EquitySecurity {
   symbol          String    @unique @db.VarChar(16)
   cik             String?   @db.VarChar(16)
   name            String    @db.VarChar(256)
-  gicsSector      String    @map("gics_sector") @db.VarChar(64)
-  gicsIndustry    String?   @map("gics_industry") @db.VarChar(128)
-  gicsSubIndustry String?   @map("gics_sub_industry") @db.VarChar(128)
+  gicsSector        String    @map("gics_sector") @db.VarChar(64)
+  gicsIndustryGroup String?   @map("gics_industry_group") @db.VarChar(128)
+  gicsIndustry      String?   @map("gics_industry") @db.VarChar(128)
+  gicsSubIndustry   String?   @map("gics_sub_industry") @db.VarChar(128)
+  gicsIndustryCode  String?   @map("gics_industry_code") @db.VarChar(16)
   marketCap       Float?    @map("market_cap")
   marketCapAsOf   DateTime? @map("market_cap_as_of") @db.Date
   irUrl           String?   @map("ir_url") @db.VarChar(512)
@@ -507,6 +509,8 @@ model EquitySecurity {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   @@index([gicsSector])
+  @@index([gicsSector, gicsIndustry])
+  @@index([gicsIndustryCode])
   @@index([marketCap(sort: Desc)])
   @@map("equity_security")
   @@schema("mds")
@@ -547,6 +551,63 @@ model EquityFundamentalSnapshot {
   @@index([symbol])
   @@index([asOf])
   @@map("equity_fundamental_snapshot")
+  @@schema("mds")
+}
+
+/// 拆股事件（Yahoo chart events.splits；exDate 当日价格已为拆后刻度）
+model EquitySplit {
+  id          String   @id @default(uuid()) @db.Uuid
+  symbol      String   @db.VarChar(16)
+  exDate      DateTime @map("ex_date") @db.Date
+  /// N 拆 1 → ratio = N（numerator/denominator）
+  ratio       Float
+  numerator   Float
+  denominator Float
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([symbol, exDate])
+  @@index([symbol, exDate])
+  @@map("equity_split")
+  @@schema("mds")
+}
+
+/// 每标的日线覆盖范围与回补状态（取代进程内 TTL Map）
+model EquityPriceCoverage {
+  symbol        String    @id @db.VarChar(16)
+  firstDate     DateTime? @map("first_date") @db.Date
+  lastDate      DateTime? @map("last_date") @db.Date
+  /// 已按 range=max 拉过全量历史（此后只做尾部增量）
+  fullHistory   Boolean   @default(false) @map("full_history")
+  lastCheckedAt DateTime? @map("last_checked_at")
+  /// 远端确认无此标的（如已退市/拼写错误），避免反复打 Yahoo
+  notFound      Boolean   @default(false) @map("not_found")
+  source        String?   @db.VarChar(16)
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("equity_price_coverage")
+  @@schema("mds")
+}
+
+/// 美股个股/ETF 日线（Yahoo 回补缓存）。
+/// OHLCV 为 Yahoo quote 口径：已按拆股回溯调整、未含现金分红；adjClose 含拆股+分红。
+/// 三种复权由 priceAdjustment.ts 结合 EquitySplit 精确还原，不做启发式猜测。
+model EquityDailyBar {
+  id       String   @id @default(uuid()) @db.Uuid
+  symbol   String   @db.VarChar(16)
+  date     DateTime @db.Date
+  open     Float?
+  high     Float?
+  low      Float?
+  close    Float
+  adjClose Float    @map("adj_close")
+  volume   Float?
+  source   String   @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([symbol, date])
+  @@index([symbol, date(sort: Desc)])
+  @@map("equity_daily_bar")
   @@schema("mds")
 }
 

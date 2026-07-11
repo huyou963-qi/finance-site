@@ -4,7 +4,7 @@
 
 ## 项目是什么
 
-本地/内网部署的金融数据站：**宏观仪表盘**（ECharts + PostgreSQL/FMP/FRED）+ **K 线行情**（Lightweight Charts + Binance/IBKR）+ **美股行业**（GICS Sector ETF / 财报 / 经营叙事）+ 用户认证与部分工具页。
+本地/内网部署的金融数据站：**宏观仪表盘**（ECharts + PostgreSQL/FMP/FRED）+ **美股 K 线行情**（Lightweight Charts + Yahoo Finance，全美股日线落库 + 精确复权）+ **美股行业**（GICS Sector ETF / 财报 / 经营叙事）+ 用户认证与部分工具页。
 
 ## 仓库结构
 
@@ -17,10 +17,9 @@ finance-site/
 │   ├── api/data/         # 宏观、K 线、目录 BFF
 │   ├── api/equity/       # 行业、财报、经营简报 ingest
 │   ├── api/auth/         # 登录注册
-│   ├── api/tools/        # 模板偏好等
-│   └── api/ibkr/         # IB 持仓/成交（可选）
+│   └── api/tools/        # 模板偏好等
 ├── src/components/       # Macro*、Candlestick*、图表叠加
-├── src/lib/data/         # 数据层（providers、macro、ibkr）
+├── src/lib/data/         # 数据层（K 线 providers、macro、目录）
 ├── src/lib/equity/       # GICS / 风格篮子 / 行业收益与财报
 ├── prisma/               # schema + migrations
 ├── scripts/              # 导入/ETL（tsx）；scripts/equity/*
@@ -36,16 +35,18 @@ finance-site/
 2. 服务端读 `FMP_API_KEY` / DB `mds` 观测表
 3. `MacroSection` + `macroChartOption.ts` 渲染 ECharts
 
-### K 线
+### K 线（美股，全部落库）
 
-1. 浏览器 → `GET /api/data/klines?symbol=...&provider=...`
-2. `src/lib/data/providers/` 注册 Binance / IBKR 等
-3. `MarketsClient` / `StockChartWorkspace` 用 Lightweight Charts
+1. 浏览器 → `GET /api/data/klines?symbol=AAPL&interval=1d&adjust=forward|backward|none`
+2. `yahooKlineProvider` → `equityPriceStore`：db-first 读 `mds.equity_daily_bar`，缺口回补 Yahoo；日/周线服务端按 `mds.equity_split` + 分红因子**精确复权**（`priceAdjustment.ts`），盘中 15m/1h/4h 实时取
+3. `MarketsClient` / `StockChartWorkspace` 用 Lightweight Charts（客户端不再复权）
+4. 符号联想 `GET /api/data/symbol-search` 走 SEC company_tickers（全美股）
+5. 批量回填：`npm run equity:sync-prices`（详见 [docs/US_EQUITY_KLINE.md](./docs/US_EQUITY_KLINE.md)）
 
 ### 美股行业
 
 1. `equity:seed-sp500` → Wikipedia 成分 + GICS → `mds.equity_security`
-2. 浏览器 → `/equity/sectors`；收益 `GET /api/equity/sector-returns`（IBKR Sector ETF）
+2. 浏览器 → `/equity/sectors`；收益 `GET /api/equity/sector-returns`（Yahoo Finance Sector ETF，可选 Tiingo）
 3. 财报聚合 / 经营叙事见 [docs/US_EQUITY_SECTOR_ANALYSIS.md](./docs/US_EQUITY_SECTOR_ANALYSIS.md)
 
 ### 用户偏好
@@ -140,7 +141,7 @@ npm run db:studio        # Prisma Studio
 | 模块 | 主要路径 | 分支前缀示例 |
 |------|----------|----------------|
 | 宏观 UI/模板 | `src/app/macro/`, `Macro*.tsx` | `feature/macro-*` |
-| K 线 / IBKR | `src/app/markets/`, `ibkr*`, `providers/` | `feature/markets-*` |
+| 美股 K 线 | `src/app/markets/`, `src/lib/data/providers/`, `src/lib/equity/{yahooChart,priceAdjustment,equityPriceStore}` | `feature/markets-*` |
 | 认证/管理 | `src/app/auth/`, `api/auth/` | `feature/auth-*` |
 | 数据/DB | `prisma/`, `scripts/` | `feature/db-*` |
 | 工具页 | `src/app/tools/` | `feature/tools-*` |

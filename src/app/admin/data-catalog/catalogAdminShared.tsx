@@ -9,7 +9,22 @@ type SyncMemberDetail = {
   status: string;
   rowsUpserted: number;
   error?: string;
+  inserted?: number;
+  changed?: number;
+  latestObsDate?: string | null;
+  latestValue?: number | null;
 };
+
+/** 「2026-05 = 1177」摘要，指明写了哪个月的什么值 */
+function obsSummary(row: SyncMemberDetail): string | null {
+  if (!row.latestObsDate) return null;
+  const month = row.latestObsDate.slice(0, 7);
+  const val =
+    row.latestValue != null && Number.isFinite(row.latestValue)
+      ? row.latestValue.toLocaleString("zh-CN", { maximumFractionDigits: 4 })
+      : "—";
+  return `${month} = ${val}`;
+}
 
 type SyncActionDetails = {
   releasePackageId?: string;
@@ -27,6 +42,10 @@ type SyncActionDetails = {
     rowsUpserted: number;
     error?: string;
     releasePackageLabelZh?: string | null;
+    inserted?: number;
+    changed?: number;
+    latestObsDate?: string | null;
+    latestValue?: number | null;
   }>;
 };
 
@@ -104,12 +123,20 @@ export function SyncReportPanel({ report, onClose }: { report: SyncReport; onClo
         <div className="mb-2">
           <div className="mb-1 font-medium text-fs-accent-text">已更新（{succeeded.length}）</div>
           <ul className="max-h-40 space-y-0.5 overflow-y-auto text-fs-muted">
-            {succeeded.map((row) => (
-              <li key={row.instrumentCode}>
-                <span className="font-mono text-fs-secondary">{row.instrumentCode}</span>
-                {row.instrumentName ? ` · ${row.instrumentName}` : ""} · +{row.rowsUpserted}
-              </li>
-            ))}
+            {succeeded.map((row) => {
+              const summary = obsSummary(row);
+              const counts =
+                row.inserted != null || row.changed != null
+                  ? `新增${row.inserted ?? 0} 改${row.changed ?? 0}`
+                  : `+${row.rowsUpserted}`;
+              return (
+                <li key={row.instrumentCode}>
+                  <span className="font-mono text-fs-secondary">{row.instrumentCode}</span>
+                  {row.instrumentName ? ` · ${row.instrumentName}` : ""}
+                  {summary ? ` · ${summary}` : ""} · {counts}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
@@ -136,7 +163,8 @@ export function SyncReportPanel({ report, onClose }: { report: SyncReport; onClo
             {skipped.map((row) => (
               <li key={row.instrumentCode}>
                 <span className="font-mono">{row.instrumentCode}</span>
-                {row.error ? ` · ${row.error}` : ""}
+                {row.instrumentName ? ` · ${row.instrumentName}` : ""}
+                {row.error ? ` · ${row.error}` : row.latestObsDate ? ` · 无新数据 · 最新 ${obsSummary(row)}` : ""}
               </li>
             ))}
           </ul>

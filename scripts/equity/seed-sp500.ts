@@ -4,6 +4,7 @@
  */
 import { prisma } from "../../src/lib/prisma";
 import { normalizeGicsSector } from "../../src/lib/equity/gicsCatalog";
+import { rollupFromSubIndustry } from "../../src/lib/equity/gicsIndustryCatalog";
 import { fetchWikipediaSp500 } from "../../src/lib/equity/wikipediaSp500";
 import { SP500_INDEX_CODE } from "../../src/lib/equity/equitySecurities";
 
@@ -14,7 +15,9 @@ async function main() {
 
   let upserted = 0;
   let skipped = 0;
+  let unmappedSubIndustry = 0;
   const bySector: Record<string, number> = {};
+  const unmappedSamples: string[] = [];
 
   for (const row of rows) {
     const sector = normalizeGicsSector(row.sector);
@@ -25,20 +28,44 @@ async function main() {
     }
     bySector[sector] = (bySector[sector] ?? 0) + 1;
 
+    const rollup = rollupFromSubIndustry(row.subIndustry);
+    if (!rollup) {
+      unmappedSubIndustry += 1;
+      if (unmappedSamples.length < 15) {
+        unmappedSamples.push(`${row.symbol}:${row.subIndustry}`);
+      }
+    } else if (rollup.sector !== sector) {
+      console.warn(
+        `Sector 不一致 ${row.symbol}: wiki=${sector} rollup=${rollup.sector} sub=${row.subIndustry}`,
+      );
+    }
+
+    const gicsPayload = rollup
+      ? {
+          gicsIndustryGroup: rollup.industryGroup,
+          gicsIndustry: rollup.industry,
+          gicsSubIndustry: rollup.subIndustry,
+          gicsIndustryCode: rollup.industryCode,
+        }
+      : {
+          gicsIndustryGroup: null,
+          gicsIndustry: null,
+          gicsSubIndustry: row.subIndustry || null,
+          gicsIndustryCode: null,
+        };
+
     await prisma.equitySecurity.upsert({
       where: { symbol: row.symbol },
       create: {
         symbol: row.symbol,
         name: row.name,
         gicsSector: sector,
-        gicsIndustry: row.subIndustry || null,
-        gicsSubIndustry: row.subIndustry || null,
+        ...gicsPayload,
       },
       update: {
         name: row.name,
         gicsSector: sector,
-        gicsIndustry: row.subIndustry || null,
-        gicsSubIndustry: row.subIndustry || null,
+        ...gicsPayload,
       },
     });
 
@@ -67,6 +94,8 @@ async function main() {
         ok: true,
         upserted,
         skipped,
+        unmappedSubIndustry,
+        unmappedSamples,
         asOf: asOf.toISOString().slice(0, 10),
         bySector,
       },

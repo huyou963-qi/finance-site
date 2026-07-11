@@ -69,7 +69,6 @@ async function main() {
           irUrl: profile.irUrl ?? undefined,
           ...(profile.companyName ? { name: profile.companyName } : {}),
           ...(sectorNorm ? { gicsSector: sectorNorm } : {}),
-          ...(profile.industry ? { gicsIndustry: profile.industry } : {}),
         },
       });
       ok += 1;

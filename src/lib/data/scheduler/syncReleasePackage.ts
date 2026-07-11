@@ -32,6 +32,14 @@ export type PackageMemberSyncDetail = {
   rowsUpserted: number;
   error?: string;
   fetchRunId?: string;
+  /** 新增行数 */
+  inserted?: number;
+  /** 修订（值变化）行数 */
+  changed?: number;
+  /** 本次涉及的最新观测日期 YYYY-MM-DD */
+  latestObsDate?: string | null;
+  /** latestObsDate 对应值 */
+  latestValue?: number | null;
 };
 
 export type SyncReleasePackageResult = {
@@ -252,16 +260,12 @@ async function syncTeBatchPackage(
         continue;
       }
 
-      const { upserted, skipped: rowsSkipped } = await upsertMacroObservations(prisma, sub.instrument.id, [
-        { obsDate: point.obsDate, value: point.value },
-      ]);
+      const { upserted, skipped: rowsSkipped, inserted, changed } =
+        await upsertMacroObservations(prisma, sub.instrument.id, [
+          { obsDate: point.obsDate, value: point.value },
+        ]);
 
-      const status =
-        upserted > 0
-          ? FetchRunStatus.SUCCESS
-          : rowsSkipped > 0
-            ? FetchRunStatus.SKIPPED
-            : FetchRunStatus.SKIPPED;
+      const status = upserted > 0 ? FetchRunStatus.SUCCESS : FetchRunStatus.SKIPPED;
 
       await prisma.dataSubscription.update({
         where: { id: sub.id },
@@ -273,6 +277,7 @@ async function syncTeBatchPackage(
         },
       });
 
+      const obsIso = point.obsDate.toISOString().slice(0, 10);
       await prisma.fetchRun.update({
         where: { id: run.id },
         data: {
@@ -282,26 +287,37 @@ async function syncTeBatchPackage(
           rowsSkipped,
           metadata: packageFetchMetadata(packageSyncId, provider, {
             teLabel,
-            obsDate: point.obsDate.toISOString().slice(0, 10),
+            obsDate: obsIso,
             value: point.value,
+            inserted,
+            changed,
             referenceText: point.referenceText,
           }),
         },
       });
 
       const memberStatus = upserted > 0 ? "success" : "skipped";
+      const counts = `新增${inserted} 改${changed}`;
       const detail: PackageMemberSyncDetail = {
         instrumentCode: sub.instrument.code,
         instrumentName: sub.instrument.name,
         status: memberStatus,
         rowsUpserted: upserted,
         fetchRunId: run.id,
+        inserted,
+        changed,
+        latestObsDate: obsIso,
+        latestValue: point.value,
       };
-      if (memberStatus === "success") succeeded.push(detail);
-      else skipped.push(detail);
-      logs.push(
-        `[ok] ${sub.instrument.code} | ${point.value} | obs=${point.obsDate.toISOString().slice(0, 10)} | +${upserted}`,
-      );
+      if (memberStatus === "success") {
+        succeeded.push(detail);
+        logs.push(
+          `[ok] ${sub.instrument.code} | ${point.value} | obs=${obsIso} | ${counts} (+${upserted})`,
+        );
+      } else {
+        skipped.push({ ...detail, error: `无新数据 · 最新 ${obsIso}=${point.value}` });
+        logs.push(`[skip] ${sub.instrument.code} | 无新数据 · 最新 ${obsIso}=${point.value} | ${counts}`);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await prisma.dataSubscription.update({
@@ -353,17 +369,30 @@ async function syncSequentialPackage(
       status: r.status === "failed" ? "failed" : r.status === "skipped" ? "skipped" : r.status === "partial" ? "partial" : "success",
       rowsUpserted: r.rowsUpserted,
       error: r.error,
+      inserted: r.inserted,
+      changed: r.changed,
+      latestObsDate: r.latestObsDate ?? null,
+      latestValue: r.latestValue ?? null,
     };
+
+    // 值 + 观测月份摘要，便于确认「到底写了哪个月的什么值」
+    const obs = r.latestObsDate ? r.latestObsDate.slice(0, 7) : "—";
+    const val = r.latestValue ?? "—";
+    const counts = `新增${r.inserted ?? 0} 改${r.changed ?? 0}`;
 
     if (r.status === "failed") {
       failed.push(detail);
       logs.push(`[fail] ${sub.instrument.code} | ${r.error ?? "失败"}`);
     } else if (r.status === "skipped") {
-      skipped.push(detail);
-      logs.push(`[skip] ${sub.instrument.code} | ${r.error ?? "跳过"}`);
+      // 拉到数据但源端无新值：明确写出「最新 obs」，不再伪装成 success
+      const reason = r.error ?? `无新数据 · 最新 ${obs}=${val}`;
+      skipped.push({ ...detail, error: reason });
+      logs.push(`[skip] ${sub.instrument.code} | ${reason} | ${counts}`);
     } else {
       succeeded.push(detail);
-      logs.push(`[ok] ${sub.instrument.code} | ${r.status} | +${r.rowsUpserted}`);
+      logs.push(
+        `[ok] ${sub.instrument.code} | ${val} | obs=${obs} | ${counts} (+${r.rowsUpserted})`,
+      );
     }
   }
 

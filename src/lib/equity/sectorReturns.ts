@@ -31,16 +31,71 @@ export function windowStartSec(
   return nowSec - def.days * 86400;
 }
 
-/** 取区间首尾收盘价计算简单收益；不足两点返回 null */
-export function simpleReturn(points: ClosePoint[], fromSec: number): number | null {
-  const sorted = [...points].sort((a, b) => a.time - b.time);
-  const inRange = sorted.filter((p) => p.time >= fromSec);
-  const series = inRange.length >= 2 ? inRange : sorted;
-  if (series.length < 2) return null;
-  const first = series[0]!.close;
-  const last = series[series.length - 1]!.close;
-  if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null;
-  return last / first - 1;
+function sortedCloses(points: ClosePoint[]): ClosePoint[] {
+  return [...points].sort((a, b) => a.time - b.time);
+}
+
+/** 取 >= fromSec 的首个收盘；若无则取全序列第一个 */
+function closeOnOrAfter(sorted: ClosePoint[], fromSec: number): ClosePoint | null {
+  for (const p of sorted) {
+    if (p.time >= fromSec) return p;
+  }
+  return sorted[0] ?? null;
+}
+
+/** 取 <= toSec 的最后一个收盘；若无则取全序列最后一个 */
+function closeOnOrBefore(sorted: ClosePoint[], toSec: number): ClosePoint | null {
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i]!;
+    if (p.time <= toSec) return p;
+  }
+  return sorted[sorted.length - 1] ?? null;
+}
+
+/**
+ * 取区间首尾收盘价计算简单收益。
+ * - 仅 fromSec：从 fromSec 起至序列末
+ * - fromSec + toSec：起止日各自就近交易日收盘
+ */
+export function simpleReturn(
+  points: ClosePoint[],
+  fromSec: number,
+  toSec?: number,
+): number | null {
+  const sorted = sortedCloses(points);
+  if (sorted.length < 2) return null;
+
+  if (toSec == null) {
+    const inRange = sorted.filter((p) => p.time >= fromSec);
+    const series = inRange.length >= 2 ? inRange : sorted;
+    if (series.length < 2) return null;
+    const first = series[0]!.close;
+    const last = series[series.length - 1]!.close;
+    if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null;
+    return last / first - 1;
+  }
+
+  if (toSec < fromSec) return null;
+  const start = closeOnOrAfter(sorted, fromSec);
+  const end = closeOnOrBefore(sorted, toSec);
+  if (!start || !end || end.time < start.time) return null;
+  if (!Number.isFinite(start.close) || !Number.isFinite(end.close) || start.close === 0) {
+    return null;
+  }
+  return end.close / start.close - 1;
+}
+
+/** YYYY-MM-DD → UTC 日初秒 */
+export function dateToUtcSec(date: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date.trim());
+  if (!m) return null;
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+}
+
+/** UTC 秒 → YYYY-MM-DD */
+export function utcSecToDate(sec: number): string {
+  return new Date(sec * 1000).toISOString().slice(0, 10);
 }
 
 /** 归一化净值（起点=100） */
@@ -70,15 +125,15 @@ export type StyleReturnRow = {
   memberCount: number;
 };
 
-export function computeSectorReturns(
+export function computeSectorReturnsForRange(
   closesByEtf: Record<string, ClosePoint[]>,
-  windowId: ReturnWindowId,
+  fromSec: number,
+  toSec?: number,
 ): { sectors: SectorReturnRow[]; styles: StyleReturnRow[]; spyReturn: number | null } {
-  const fromSec = windowStartSec(windowId);
-  const spyReturn = simpleReturn(closesByEtf[BENCHMARK_ETF] ?? [], fromSec);
+  const spyReturn = simpleReturn(closesByEtf[BENCHMARK_ETF] ?? [], fromSec, toSec);
 
   const sectors: SectorReturnRow[] = GICS_SECTOR_DEFS.map((def) => {
-    const abs = simpleReturn(closesByEtf[def.etf] ?? [], fromSec);
+    const abs = simpleReturn(closesByEtf[def.etf] ?? [], fromSec, toSec);
     return {
       sector: def.sector,
       etf: def.etf,
@@ -109,4 +164,11 @@ export function computeSectorReturns(
   });
 
   return { sectors, styles, spyReturn };
+}
+
+export function computeSectorReturns(
+  closesByEtf: Record<string, ClosePoint[]>,
+  windowId: ReturnWindowId,
+): { sectors: SectorReturnRow[]; styles: StyleReturnRow[]; spyReturn: number | null } {
+  return computeSectorReturnsForRange(closesByEtf, windowStartSec(windowId));
 }

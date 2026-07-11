@@ -20,10 +20,20 @@ export type SectorMacroMapping = {
   pending?: boolean;
 };
 
-/** 总览页跨行业周期背景（固定 3–4 个） */
+/**
+ * 总览页「风格轮动」宏观背景（固定 4 个）。
+ *
+ * 依据行业/风格轮动实务常用的「宏观三件套」+ 利率水平：
+ * - ISM PMI：景气扩张/收缩 → 周期 vs 防御
+ * - 10Y−3M 曲线：衰退领先信号 → 曲线倒挂偏防御，陡峭化偏早周期/金融
+ * - 10Y 收益率：贴现率/久期 → 利率上行压制成长（科技/通信）
+ * - HY OAS：风险偏好 → 利差走阔偏防御，收窄偏周期/成长风险资产
+ *
+ * 刻意不用工业生产同比：滞后且与 ISM 信息重叠。
+ */
 export const CYCLE_BACKGROUND_KEYS: readonly SectorMacroKey[] = [
   { key: "mds:ism_us_ism_headline", labelZh: "ISM 制造业 PMI" },
-  { key: "fred:IPMAN::yoy", labelZh: "制造业工业生产 同比" },
+  { key: "fred:T10Y3M::avg", labelZh: "10Y−3M 收益率曲线" },
   { key: "fred:DGS10::avg", labelZh: "10Y 国债收益率" },
   { key: "fred:BAMLH0A0HYM2::avg", labelZh: "美高收益债 OAS" },
 ];

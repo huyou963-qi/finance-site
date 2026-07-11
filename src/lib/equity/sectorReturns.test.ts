@@ -34,6 +34,16 @@ describe("sectorReturns", () => {
     assert.equal(start, Date.UTC(2026, 0, 1) / 1000);
   });
 
+  it("simpleReturn with toSec uses range endpoints", () => {
+    const pts = [
+      { time: 100, close: 100 },
+      { time: 200, close: 110 },
+      { time: 300, close: 120 },
+    ];
+    const r = simpleReturn(pts, 100, 200);
+    assert.ok(r != null && Math.abs(r - 0.1) < 1e-9);
+  });
+
   it("computeSectorReturns aggregates styles", () => {
     const mk = (start: number, end: number) => [
       { time: 1, close: start },
