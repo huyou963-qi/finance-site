@@ -116,6 +116,10 @@ import {
   type MacroSyncMessage,
 } from "@/lib/macroPageSyncChannel";
 import {
+  PAGE_SYNC_CHANNEL,
+  type PageSyncMessage,
+} from "@/lib/pageSyncChannel";
+import {
   buildMacroExportMatrix,
   downloadMacroCsv,
   downloadMacroXlsx,
@@ -653,6 +657,8 @@ export function MacroSection() {
   >(null);
   const tabId = useMemo(() => getOrCreateMacroSyncTabId(), []);
   const syncChannelRef = useRef<BroadcastChannel | null>(null);
+  /** 跨页面桥接通道（宏观↔行情），以归一化日期为货币 */
+  const pageChannelRef = useRef<BroadcastChannel | null>(null);
   const pageSyncEnabledRef = useRef(false);
 
   useEffect(() => {
@@ -666,6 +672,42 @@ export function MacroSection() {
       syncChannelRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    pageChannelRef.current = new BroadcastChannel(PAGE_SYNC_CHANNEL);
+    return () => {
+      pageChannelRef.current?.close();
+      pageChannelRef.current = null;
+    };
+  }, []);
+
+  // 跨页桥接：仅处理来自「非宏观页」（行情页）的消息。收到的 YYYY-MM-DD 直接作为
+  // 时间标签交给 indexForTimeLabel，向下取整到所在类目（月初/季初/年初）。
+  useEffect(() => {
+    const ch = pageChannelRef.current;
+    if (!ch) return;
+    const onMsg = (ev: MessageEvent<PageSyncMessage>) => {
+      const msg = ev.data;
+      if (!msg || msg.v !== 1) return;
+      if (msg.tabId === tabId || msg.kind === "macro") return;
+      if (!pageSyncEnabledRef.current) return;
+      if (msg.type === "crosshair") {
+        setRemoteCrosshairTimeLabel(msg.isoDate);
+        setRemoteCrosshairVersion((v) => v + 1);
+      }
+      if (msg.type === "visible-range") {
+        setRemoteVisibleRange({
+          startPct: 0,
+          endPct: 100,
+          fromLabel: msg.fromIso,
+          toLabel: msg.toIso,
+        });
+        setRemoteVisibleRangeVersion((v) => v + 1);
+      }
+    };
+    ch.addEventListener("message", onMsg);
+    return () => ch.removeEventListener("message", onMsg);
+  }, [tabId]);
 
   useEffect(() => {
     const ch = syncChannelRef.current;
@@ -695,15 +737,29 @@ export function MacroSection() {
 
   const onLocalCrosshairTimeLabel = useCallback(
     (timeLabel: string | null) => {
+      if (!pageSyncEnabledRef.current) return;
       const ch = syncChannelRef.current;
-      if (!ch || !pageSyncEnabledRef.current) return;
-      const msg: MacroSyncMessage = {
-        v: 1,
-        type: "crosshair",
-        tabId,
-        timeLabel,
-      };
-      ch.postMessage(msg);
+      if (ch) {
+        const msg: MacroSyncMessage = {
+          v: 1,
+          type: "crosshair",
+          tabId,
+          timeLabel,
+        };
+        ch.postMessage(msg);
+      }
+      // 跨页：把类目标签折算成归一化日期广播给行情页
+      const page = pageChannelRef.current;
+      if (page) {
+        const pageMsg: PageSyncMessage = {
+          v: 1,
+          type: "crosshair",
+          tabId,
+          kind: "macro",
+          isoDate: contextDateFromTimeLabel(timeLabel),
+        };
+        page.postMessage(pageMsg);
+      }
     },
     [tabId],
   );
@@ -715,18 +771,33 @@ export function MacroSection() {
       fromLabel: string | null;
       toLabel: string | null;
     }) => {
+      if (!pageSyncEnabledRef.current) return;
       const ch = syncChannelRef.current;
-      if (!ch || !pageSyncEnabledRef.current) return;
-      const msg: MacroSyncMessage = {
-        v: 1,
-        type: "visible-range",
-        tabId,
-        startPct: payload.startPct,
-        endPct: payload.endPct,
-        fromLabel: payload.fromLabel,
-        toLabel: payload.toLabel,
-      };
-      ch.postMessage(msg);
+      if (ch) {
+        const msg: MacroSyncMessage = {
+          v: 1,
+          type: "visible-range",
+          tabId,
+          startPct: payload.startPct,
+          endPct: payload.endPct,
+          fromLabel: payload.fromLabel,
+          toLabel: payload.toLabel,
+        };
+        ch.postMessage(msg);
+      }
+      // 跨页：把首尾类目标签折算成归一化日期区间广播给行情页
+      const page = pageChannelRef.current;
+      if (page) {
+        const pageMsg: PageSyncMessage = {
+          v: 1,
+          type: "visible-range",
+          tabId,
+          kind: "macro",
+          fromIso: contextDateFromTimeLabel(payload.fromLabel),
+          toIso: contextDateFromTimeLabel(payload.toLabel),
+        };
+        page.postMessage(pageMsg);
+      }
     },
     [tabId],
   );

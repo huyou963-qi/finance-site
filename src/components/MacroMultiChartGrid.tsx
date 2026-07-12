@@ -633,8 +633,10 @@ export function MacroMultiChartGrid({
     let nextEnd = Math.max(0, Math.min(100, endPct));
     if (nextEnd - nextStart < 1) nextEnd = Math.min(100, nextStart + 1);
 
-    const fromIdx = fromLabel ? payload.categories.findIndex((x) => x === fromLabel) : -1;
-    const toIdx = toLabel ? payload.categories.findIndex((x) => x === toLabel) : -1;
+    // indexForTimeLabel 兼容跨频率：同类页面传来的类目标签精确命中，
+    // 跨页传来的 YYYY-MM-DD 则向下取整到所在类目（周初/月初/季初/年初）
+    const fromIdx = indexForTimeLabel(payload.categories, fromLabel);
+    const toIdx = indexForTimeLabel(payload.categories, toLabel);
     if (fromIdx >= 0 && toIdx >= 0 && toIdx > fromIdx) {
       nextStart = Math.max(0, Math.min(100, (fromIdx / Math.max(1, len - 1)) * 100));
       nextEnd = Math.max(0, Math.min(100, (toIdx / Math.max(1, len - 1)) * 100));

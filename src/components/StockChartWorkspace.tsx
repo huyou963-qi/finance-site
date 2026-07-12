@@ -55,6 +55,7 @@ import {
   type VisibleExtremaOverlay,
 } from "@/components/chart/ChartDrawingOverlay";
 import type { RangeStatWireSegment } from "@/lib/klinePageSyncChannel";
+import { floorBarIndexForTime } from "@/lib/pageSyncChannel";
 import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import {
   barMsForInterval,
@@ -2491,19 +2492,13 @@ export function StockChartWorkspace({
         const cList = candlesRef.current;
         let bar = cList.find((c) => c.time === remoteCrosshairTime);
         if (!bar && cList.length > 0) {
-          let best = cList[0]!;
-          let bestDt = Math.abs(
-            (best.time as number) - remoteCrosshairTime,
+          // 跨频率对齐：取「起始时间 ≤ 目标」的最后一根（即目标所在周期的起点柱，
+          // 日频 3-18 → 周频对应周一、月频对应当月首柱）；若目标早于全部柱则退化到第一根。
+          const idx = floorBarIndexForTime(
+            cList.map((c) => c.time as number),
+            remoteCrosshairTime,
           );
-          for (let i = 1; i < cList.length; i++) {
-            const bi = cList[i]!;
-            const d = Math.abs((bi.time as number) - remoteCrosshairTime);
-            if (d < bestDt) {
-              best = bi;
-              bestDt = d;
-            }
-          }
-          bar = best;
+          bar = cList[idx] ?? cList[0]!;
         }
         if (bar && typeof bar.open === "number") {
           chart.setCrosshairPosition(bar.close, bar.time as Time, candle);

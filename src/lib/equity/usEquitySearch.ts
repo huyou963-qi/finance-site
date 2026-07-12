@@ -5,10 +5,13 @@
 
 import { prisma } from "@/lib/prisma";
 import type { SymbolSearchItem } from "@/lib/data/symbolSearchTypes";
+import { MARKET_INSTRUMENTS } from "@/lib/data/marketInstruments";
 
+// SEC 公平访问策略会拒绝 contact 为 localhost / 明显伪造邮箱的 UA（返回 403），
+// 默认必须给一个可用的真实联系邮箱，否则线上取不到 company_tickers → 联想只剩兜底 ETF。
 const SEC_UA =
   process.env.SEC_EDGAR_USER_AGENT?.trim() ||
-  "finance-site research (contact: admin@localhost)";
+  "finance-site/1.0 (contact: qcb963@gmail.com)";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -79,17 +82,61 @@ const EXTRA_SYMBOLS: SecTicker[] = [
   { symbol: "XLRE", name: "Real Estate Select Sector SPDR Fund", exchange: "NYSE Arca" },
 ];
 
-function scoreHit(q: string, symbol: string, name: string): number {
-  const s = symbol.toUpperCase();
-  const n = name.toUpperCase();
+/** 检索池条目：SEC/本地为纯股票；白名单带 type + 中英文别名 */
+type PoolItem = {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type?: string;
+  aliases?: string[];
+};
+
+function scoreHit(q: string, item: PoolItem): number {
+  const s = item.symbol.toUpperCase();
+  const n = item.name.toUpperCase();
   if (s === q) return 1000;
   if (s.startsWith(q)) return 800 - s.length;
+  // 别名命中（中文关键词如「黄金」「原油」「美债」，或英文/简写）
+  for (const a of item.aliases ?? []) {
+    const A = a.toUpperCase();
+    if (A === q) return 720;
+    if (A.startsWith(q)) return 620 - A.length;
+    if (A.includes(q)) return 420;
+  }
   const nameWords = n.split(/\s+/);
   if (nameWords.some((w) => w === q)) return 600;
   if (n.startsWith(q)) return 500;
   if (s.includes(q)) return 300 - s.length;
   if (n.includes(q)) return 200;
   return -1;
+}
+
+/** 大宗商品 / 外汇 / 债券 / 加密 白名单转为检索池条目 */
+const CURATED_POOL: PoolItem[] = MARKET_INSTRUMENTS.map((m) => ({
+  symbol: m.symbol,
+  name: m.name,
+  exchange: m.exchange,
+  type: m.type,
+  aliases: m.aliases,
+}));
+
+/**
+ * 本地 equity_security（GICS 成分，含 AAPL/MSFT 等）候选。
+ * 作为 SEC 拉取失败时的兜底，保证常见美股即便断网也能被检索到。
+ */
+async function loadLocalCandidates(q: string): Promise<SecTicker[]> {
+  try {
+    const rows = await prisma.equitySecurity.findMany({
+      where: {
+        OR: [{ symbol: { contains: q } }, { name: { contains: q, mode: "insensitive" } }],
+      },
+      select: { symbol: true, name: true },
+      take: 50,
+    });
+    return rows.map((r) => ({ symbol: r.symbol.toUpperCase(), name: r.name, exchange: "US" }));
+  } catch {
+    return [];
+  }
 }
 
 export async function searchUsEquitySymbols(
@@ -105,15 +152,17 @@ export async function searchUsEquitySymbols(
   } catch {
     rows = [];
   }
-  const pool = rows.length ? [...rows, ...EXTRA_SYMBOLS] : EXTRA_SYMBOLS;
 
-  // 本地成分交易所语义（覆盖 SEC exchange 缺失的情况）
+  const local = await loadLocalCandidates(q);
+  // 白名单（商品/外汇/债券）在最前，命中同分时优先于 SEC 同名项（如 TLT 显示为「债券」）
+  const pool: PoolItem[] = [...CURATED_POOL, ...rows, ...local, ...EXTRA_SYMBOLS];
+
   const scored = pool
-    .map((r) => ({ r, score: scoreHit(q, r.symbol, r.name) }))
+    .map((r) => ({ r, score: scoreHit(q, r) }))
     .filter((x) => x.score >= 0)
     .sort((a, b) => b.score - a.score);
 
-  // 按 symbol 去重（EXTRA 覆盖 SEC 重复项）
+  // 按 symbol 去重（池内靠前者胜出，故白名单条目覆盖 SEC 重复项）
   const seen = new Set<string>();
   const out: SymbolSearchItem[] = [];
   for (const { r } of scored) {
@@ -123,7 +172,7 @@ export async function searchUsEquitySymbols(
       symbol: r.symbol,
       name: r.name,
       exchange: r.exchange || "US",
-      type: undefined,
+      type: r.type,
     });
     if (out.length >= limit) break;
   }
@@ -134,6 +183,7 @@ export async function searchUsEquitySymbols(
 export async function isKnownUsSymbol(symbol: string): Promise<boolean> {
   const sym = symbol.trim().toUpperCase();
   if (!sym) return false;
+  if (CURATED_POOL.some((r) => r.symbol === sym)) return true;
   if (EXTRA_SYMBOLS.some((r) => r.symbol === sym)) return true;
   const local = await prisma.equitySecurity.findUnique({ where: { symbol: sym } });
   if (local) return true;

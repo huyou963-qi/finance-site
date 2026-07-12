@@ -13,11 +13,17 @@ import {
   type KlineSyncMessage,
   type RangeStatWireSegment,
 } from "@/lib/klinePageSyncChannel";
+import {
+  PAGE_SYNC_CHANNEL,
+  isoDateToUnixSec,
+  type PageSyncMessage,
+} from "@/lib/pageSyncChannel";
 import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
+import { findMarketInstrument } from "@/lib/data/marketInstruments";
 
 type SymbolHit = {
   symbol: string;
@@ -37,7 +43,10 @@ const INTERVAL_LABEL: Record<KlineInterval, string> = {
 function displayNameForSymbol(sym: string): string | undefined {
   const u = sym.toUpperCase();
   if (u === "AAPL") return "苹果公司";
-  if (u === "XAUUSD" || u === "GC=F" || u === "XAUUSD=X") return "黄金/美元";
+  // 直接输入商品/外汇/债券代码（未走联想）时也给出中文名
+  const instrument = findMarketInstrument(u);
+  if (instrument) return instrument.name;
+  if (u === "XAUUSD" || u === "XAUUSD=X") return "黄金/美元";
   return undefined;
 }
 
@@ -78,6 +87,8 @@ export function MarketsClient() {
   const inputRef = useRef<HTMLInputElement>(null);
   const reqIdRef = useRef(0);
   const bcRef = useRef<BroadcastChannel | null>(null);
+  /** 跨页面桥接通道（行情↔宏观），以归一化日期为货币 */
+  const pageBcRef = useRef<BroadcastChannel | null>(null);
   const pageSyncRef = useRef(false);
 
   useEffect(() => {
@@ -100,6 +111,76 @@ export function MarketsClient() {
       bcRef.current = null;
     };
   }, [tabId]);
+
+  useEffect(() => {
+    pageBcRef.current = new BroadcastChannel(PAGE_SYNC_CHANNEL);
+    return () => {
+      pageBcRef.current?.close();
+      pageBcRef.current = null;
+    };
+  }, [tabId]);
+
+  // 跨页桥接：仅处理来自「非行情页」（宏观页）的消息，把归一化日期折算成 K 线时间。
+  // 同类行情页之间仍走 KLINE_PAGE_SYNC_CHANNEL 保持全保真（区间统计/周期等）。
+  useEffect(() => {
+    const bc = pageBcRef.current;
+    if (!bc) return;
+    const onMsg = (ev: MessageEvent<PageSyncMessage>) => {
+      const msg = ev.data;
+      if (!msg || msg.v !== 1) return;
+      if (msg.tabId === tabId || msg.kind === "kline") return;
+      if (!pageSyncRef.current) return;
+
+      if (msg.type === "crosshair") {
+        // 交给 StockChartWorkspace 按「起始时间 ≤ 目标」向下取整到所在周期起点柱
+        setRemoteCrosshair(isoDateToUnixSec(msg.isoDate));
+        setRemoteCrosshairVer((v) => v + 1);
+        return;
+      }
+      if (msg.type === "visible-range") {
+        const from = isoDateToUnixSec(msg.fromIso);
+        const to = isoDateToUnixSec(msg.toIso);
+        if (from == null || to == null) return;
+        setRemoteVisible({ from: Math.min(from, to), to: Math.max(from, to) });
+        setRemoteVisibleVer((v) => v + 1);
+      }
+    };
+    bc.addEventListener("message", onMsg);
+    return () => bc.removeEventListener("message", onMsg);
+  }, [tabId]);
+
+  const broadcastPageCrosshair = useCallback(
+    (isoDate: string | null) => {
+      const bc = pageBcRef.current;
+      if (!bc || !pageSyncRef.current) return;
+      const msg: PageSyncMessage = {
+        v: 1,
+        type: "crosshair",
+        tabId,
+        kind: "kline",
+        isoDate,
+      };
+      bc.postMessage(msg);
+    },
+    [tabId],
+  );
+
+  const broadcastPageVisibleRange = useCallback(
+    (fromIso: string | null, toIso: string | null) => {
+      const bc = pageBcRef.current;
+      if (!bc || !pageSyncRef.current) return;
+      const msg: PageSyncMessage = {
+        v: 1,
+        type: "visible-range",
+        tabId,
+        kind: "kline",
+        fromIso,
+        toIso,
+      };
+      bc.postMessage(msg);
+    },
+    [tabId],
+  );
 
   useEffect(() => {
     const bc = bcRef.current;
@@ -183,6 +264,7 @@ export function MarketsClient() {
   );
 
   const onLocalVisibleTimeRange = useCallback((from: number, to: number) => {
+    broadcastPageVisibleRange(unixSecToContextDate(from), unixSecToContextDate(to));
     const bc = bcRef.current;
     if (!bc || !pageSyncRef.current) return;
     const msg: KlineSyncMessage = {
@@ -193,7 +275,7 @@ export function MarketsClient() {
       to,
     };
     bc.postMessage(msg);
-  }, [tabId]);
+  }, [tabId, broadcastPageVisibleRange]);
 
   const onVisibleTimeRangeChange = useCallback((from: number, to: number) => {
     setEventRangeFromSec(from);
@@ -204,6 +286,7 @@ export function MarketsClient() {
     if (time != null) {
       setEventContextDate(unixSecToContextDate(time));
     }
+    broadcastPageCrosshair(time != null ? unixSecToContextDate(time) : null);
     const bc = bcRef.current;
     if (!bc || !pageSyncRef.current) return;
     const msg: KlineSyncMessage = {
@@ -213,7 +296,7 @@ export function MarketsClient() {
       time,
     };
     bc.postMessage(msg);
-  }, [tabId]);
+  }, [tabId, broadcastPageCrosshair]);
 
   const eventRangeFrom = useMemo(
     () => (eventRangeFromSec != null ? unixSecToContextDate(eventRangeFromSec) : null),
@@ -397,7 +480,7 @@ export function MarketsClient() {
               hits.length === 0 &&
               query.trim().length > 0 ? (
                 <li className="px-2 py-1 text-[10px] text-fs-muted">
-                  无匹配标的，请换个关键词或选下列交易所常用写法（如 AAPL、MSFT）
+                  无匹配标的，可搜股票（AAPL）、大宗商品（黄金 / 原油）、外汇（欧元 / 美元指数）、债券（美债 / 10年）
                 </li>
               ) : null}
               {hits.map((h, idx) => (
