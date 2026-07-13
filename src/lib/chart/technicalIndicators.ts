@@ -44,16 +44,23 @@ export function sma(
   return out;
 }
 
-/** 常见 KDJ(9,3,3)：RSV + 平滑 K、D；J = 3K - 2D */
+/**
+ * KDJ(n, m1, m2)：n 期 RSV，K 用 m1 平滑，D 用 m2 平滑；J = 3K - 2D。
+ * 默认 (9,3,3)：K = 2/3·K_prev + 1/3·RSV（即 m1=3），D 同理 m2=3。
+ */
 export function kdj(
   candles: CandlestickData[],
   n = 9,
+  m1 = 3,
+  m2 = 3,
 ): { k: LineData[]; d: LineData[]; j: LineData[] } {
   const kOut: LineData[] = [];
   const dOut: LineData[] = [];
   const jOut: LineData[] = [];
   let kPrev = 50;
   let dPrev = 50;
+  const a1 = m1 > 0 ? 1 / m1 : 1 / 3;
+  const a2 = m2 > 0 ? 1 / m2 : 1 / 3;
 
   for (let i = 0; i < candles.length; i++) {
     const from = Math.max(0, i - n + 1);
@@ -63,8 +70,8 @@ export function kdj(
     const c = candles[i].close;
     const denom = high9 - low9;
     const rsv = denom === 0 ? 50 : ((c - low9) / denom) * 100;
-    const k = (2 / 3) * kPrev + (1 / 3) * rsv;
-    const d = (2 / 3) * dPrev + (1 / 3) * k;
+    const k = (1 - a1) * kPrev + a1 * rsv;
+    const d = (1 - a2) * dPrev + a2 * k;
     const j = 3 * k - 2 * d;
     const t = candles[i].time as TimeT;
     kOut.push({ time: t, value: k });
@@ -89,19 +96,22 @@ function ema(values: number[], period: number): number[] {
   return out;
 }
 
-/** MACD：DIF/DEA 线 + 柱（histogram） */
+/** MACD(fast, slow, signal)：DIF = EMA_fast - EMA_slow，DEA = EMA_signal(DIF)，柱 = DIF - DEA */
 export function macd(
   candles: CandlestickData[],
+  fast = 12,
+  slow = 26,
+  signal = 9,
 ): {
   dif: LineData[];
   dea: LineData[];
   hist: { time: UTCTimestamp; value: number; color?: string }[];
 } {
   const closes = candles.map((c) => c.close);
-  const ema12 = ema(closes, 12);
-  const ema26 = ema(closes, 26);
-  const difArr: number[] = closes.map((_, i) => ema12[i] - ema26[i]);
-  const deaArr = ema(difArr, 9);
+  const emaFast = ema(closes, fast);
+  const emaSlow = ema(closes, slow);
+  const difArr: number[] = closes.map((_, i) => emaFast[i] - emaSlow[i]);
+  const deaArr = ema(difArr, signal);
   const dif: LineData[] = [];
   const dea: LineData[] = [];
   const hist: { time: UTCTimestamp; value: number; color?: string }[] = [];

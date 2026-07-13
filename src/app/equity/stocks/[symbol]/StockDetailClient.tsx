@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
+import { StockFundamentalsPanel } from "@/components/equity/StockFundamentalsPanel";
 import { StockPriceChart, type StockPriceBar } from "@/components/equity/StockPriceChart";
 
 type WindowRow = {
@@ -154,6 +155,7 @@ export function StockDetailClient({
       cancelled = true;
     };
   }, [loadProfile, loadRange]);
+
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4">
@@ -338,22 +340,15 @@ export function StockDetailClient({
         </div>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <section className="rounded-md border border-dashed border-fs-border px-3 py-3">
-          <div className="text-sm font-medium text-fs-text">基本面（季度序列 / TTM 估值）</div>
-          <p className="mt-1 text-xs text-fs-muted">
-            Phase 2 交付：逐季营收 / EPS / 利润率 / FCF 与 TTM 估值卡。设计见
-            docs/research/US_EQUITY_STOCK_DRILLDOWN_DESIGN.md。
-          </p>
-        </section>
-        <section className="rounded-md border border-dashed border-fs-border px-3 py-3">
-          <div className="text-sm font-medium text-fs-text">事件与叙事（SEC filings / 经营简报）</div>
-          <p className="mt-1 text-xs text-fs-muted">
-            Phase 3 交付：财报事件时间线与 AI 经营叙事。数据已在库（sec_filing /
-            company-operating-briefs）。
-          </p>
-        </section>
-      </div>
+      <StockFundamentalsPanel symbol={symbol} />
+
+      <section className="rounded-md border border-dashed border-fs-border px-3 py-3">
+        <div className="text-sm font-medium text-fs-text">事件与叙事（SEC filings / 经营简报）</div>
+        <p className="mt-1 text-xs text-fs-muted">
+          Phase 3 交付：财报事件时间线与 AI 经营叙事。数据已在库（sec_filing /
+          company-operating-briefs）。
+        </p>
+      </section>
     </div>
   );
 }

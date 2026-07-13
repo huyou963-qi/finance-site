@@ -111,11 +111,15 @@ function toCandles(bars: readonly AdjustedBar[]): {
   const volumes: number[] = [];
   for (const b of bars) {
     const close = b.close;
+    // 兜底丢弃脏 bar（如盘中周期 Yahoo 节假日占位帧）：close 非正/非有限会污染指标
+    if (!Number.isFinite(close) || close <= 0) continue;
+    const leg = (v: number | null | undefined): number =>
+      v != null && Number.isFinite(v) && v > 0 ? v : close;
     candles.push({
       time: b.time as UTCTimestamp,
-      open: b.open ?? close,
-      high: b.high ?? close,
-      low: b.low ?? close,
+      open: leg(b.open),
+      high: leg(b.high),
+      low: leg(b.low),
       close,
     });
     volumes.push(b.volume ?? 0);

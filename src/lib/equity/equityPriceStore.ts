@@ -14,6 +14,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   adjustDailyBars,
+  sanitizeRawDailyBars,
   type AdjustedBar,
   type PriceAdjustmentMode,
   type RawDailyBar,
@@ -335,7 +336,8 @@ export async function getAdjustedDailyBars(
 
   if (rows.length === 0) return { bars: [], source: null, found: false };
 
-  const raw = rows.map(rowToRaw);
+  const raw = sanitizeRawDailyBars(rows.map(rowToRaw));
+  if (raw.length === 0) return { bars: [], source: null, found: false };
   const adjusted = adjustDailyBars(raw, splitsBySymbol.get(sym) ?? [], query.mode ?? "forward");
 
   let out = adjusted;
@@ -394,8 +396,8 @@ export async function getDailyClosesDbFirst(
   const closes: Record<string, ClosePoint[]> = {};
   const notUsable = [...missing];
   for (const sym of usable) {
-    const raw = rawBySymbol.get(sym);
-    if (!raw || raw.length < 2) {
+    const raw = sanitizeRawDailyBars(rawBySymbol.get(sym) ?? []);
+    if (raw.length < 2) {
       notUsable.push(sym);
       continue;
     }

@@ -3,16 +3,20 @@
  * FMP 当前套餐对 period=quarter 的 ratios/income 常 402，不再作为默认源。
  *
  * Usage:
- *   npm run equity:sync-fundamentals
+ *   npm run equity:sync-fundamentals                     # 年报 FY 快照
  *   npm run equity:sync-fundamentals -- --limit=100
+ *   npm run equity:sync-fundamentals -- --period-type=Q --quarters=12   # 季度三表
+ *   npm run equity:sync-fundamentals -- --period-type=Q --symbols=AAPL,MSFT,JPM
  */
 import { prisma } from "../../src/lib/prisma";
 import {
   extractAnnualFundamentals,
+  extractQuarterlyFundamentals,
   fetchSecCompanyFacts,
   fetchSecTickerCikMap,
   fetchYahooLastClose,
 } from "../../src/lib/equity/secFundamentals";
+import { upsertQuarterlyFundamentals } from "../../src/lib/equity/equityFundamentalsStore";
 
 function argValue(name: string): string | undefined {
   const eq = process.argv.find((a) => a.startsWith(`${name}=`));
@@ -29,13 +33,20 @@ function sleep(ms: number) {
 async function main() {
   const limit = Math.max(1, Number(argValue("--limit") ?? 100) || 100);
   const delayMs = Math.max(120, Number(argValue("--delay-ms") ?? 200) || 200);
+  const periodType = (argValue("--period-type") ?? "FY").toUpperCase();
+  const quarters = Math.max(4, Number(argValue("--quarters") ?? 20) || 20);
+  const symbolsArg = argValue("--symbols");
+  const onlySymbols = symbolsArg
+    ? new Set(symbolsArg.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean))
+    : null;
 
   console.log("Loading SEC ticker→CIK map…");
   const cikMap = await fetchSecTickerCikMap();
 
   const securities = await prisma.equitySecurity.findMany({
+    where: onlySymbols ? { symbol: { in: [...onlySymbols] } } : undefined,
     orderBy: [{ marketCap: "desc" }, { symbol: "asc" }],
-    take: Math.max(limit * 3, 200),
+    take: onlySymbols ? undefined : Math.max(limit * 3, 200),
     select: { symbol: true, cik: true, marketCap: true },
   });
 
@@ -69,6 +80,25 @@ async function main() {
   for (const { symbol, cik } of withCik) {
     try {
       const facts = await fetchSecCompanyFacts(cik);
+
+      if (periodType === "Q") {
+        const rows = extractQuarterlyFundamentals(facts, { maxQuarters: quarters });
+        if (!rows.length) {
+          fail += 1;
+          console.warn(`no quarterly facts: ${symbol}`);
+          await sleep(delayMs);
+          continue;
+        }
+        const n = await upsertQuarterlyFundamentals(symbol, rows);
+        ok += 1;
+        const last = rows[rows.length - 1]!;
+        console.log(
+          `ok ${symbol} Q×${n} latest=${last.period}(${last.fiscalDate}) rev=${last.revenue?.toExponential(2) ?? "n/a"} revYoY=${last.revenueYoY?.toFixed(3) ?? "n/a"}`,
+        );
+        await sleep(delayMs);
+        continue;
+      }
+
       const snap = extractAnnualFundamentals(facts);
       if (!snap) {
         fail += 1;

@@ -531,25 +531,46 @@ model IndexConstituent {
   @@schema("mds")
 }
 
-/// 个股财报/估值快照（FMP 缓存，供行业聚合）
+/// 个股财报快照（主源 SEC EDGAR companyfacts，供行业聚合与个股基本面）。
+/// periodType=FY：年报（period 形如 "2024FY"，另有兼容别名 "TTM"）；
+/// periodType=Q：季度（period 为财报期末所在日历季度，形如 "2025Q1"）。
+/// 三大报表标准化字段：利润表 revenue/grossMargin/opMargin/netIncome/eps，
+/// 资产负债表 totalAssets/totalLiabilities/equity/longTermDebt/cash/sharesOutstanding，
+/// 现金流量表 ocf/capex/dividendsPaid。
 model EquityFundamentalSnapshot {
-  id          String   @id @default(uuid()) @db.Uuid
-  symbol      String   @db.VarChar(16)
-  period      String   @db.VarChar(16)
-  revenue     Float?
-  revenueYoY  Float?   @map("revenue_yoy")
-  eps         Float?
-  epsYoY      Float?   @map("eps_yoy")
-  grossMargin Float?   @map("gross_margin")
-  opMargin    Float?   @map("op_margin")
-  pe          Float?
-  asOf        DateTime @map("as_of") @db.Date
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                String    @id @default(uuid()) @db.Uuid
+  symbol            String    @db.VarChar(16)
+  period            String    @db.VarChar(16)
+  periodType        String    @default("FY") @map("period_type") @db.VarChar(8)
+  revenue           Float?
+  revenueYoY        Float?    @map("revenue_yoy")
+  eps               Float?
+  epsYoY            Float?    @map("eps_yoy")
+  grossMargin       Float?    @map("gross_margin")
+  opMargin          Float?    @map("op_margin")
+  pe                Float?
+  netIncome         Float?    @map("net_income")
+  ocf               Float?
+  capex             Float?
+  totalAssets       Float?    @map("total_assets")
+  totalLiabilities  Float?    @map("total_liabilities")
+  equity            Float?
+  longTermDebt      Float?    @map("long_term_debt")
+  cash              Float?
+  sharesOutstanding Float?    @map("shares_outstanding")
+  dividendsPaid     Float?    @map("dividends_paid")
+  /// 财报期实际截止日（period 是标准化标签，此列保留公司真实财季末）
+  fiscalDate        DateTime? @map("fiscal_date") @db.Date
+  /// 财季位置 1–4（由 10-K 年度期末锚定；年度聚合按 FQ4 分组）
+  fiscalQuarter     Int?      @map("fiscal_quarter") @db.SmallInt
+  asOf              DateTime  @map("as_of") @db.Date
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   @@unique([symbol, period])
   @@index([symbol])
   @@index([asOf])
+  @@index([symbol, periodType, asOf])
   @@map("equity_fundamental_snapshot")
   @@schema("mds")
 }

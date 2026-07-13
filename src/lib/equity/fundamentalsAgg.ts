@@ -6,12 +6,14 @@ import { prisma } from "@/lib/prisma";
 import type { GicsSector } from "@/lib/equity/gicsCatalog";
 import { GICS_SECTOR_DEFS, getSectorDef } from "@/lib/equity/gicsCatalog";
 
-function median(xs: number[]): number | null {
+export function median(xs: number[]): number | null {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
   return s.length % 2 ? s[mid]! : (s[mid - 1]! + s[mid]!) / 2;
 }
+
+export type FundamentalPeriodType = "FY" | "Q";
 
 export type SectorFundamentalsAgg = {
   sector: GicsSector;
@@ -37,6 +39,7 @@ export type SectorFundamentalsAgg = {
 
 export async function aggregateSectorFundamentals(
   sector: GicsSector,
+  periodType: FundamentalPeriodType = "FY",
 ): Promise<SectorFundamentalsAgg> {
   const securities = await prisma.equitySecurity.findMany({
     where: { gicsSector: sector },
@@ -47,7 +50,7 @@ export async function aggregateSectorFundamentals(
 
   const snaps = symbols.length
     ? await prisma.equityFundamentalSnapshot.findMany({
-        where: { symbol: { in: symbols } },
+        where: { symbol: { in: symbols }, periodType },
         orderBy: [{ asOf: "desc" }],
       })
     : [];
@@ -100,4 +103,57 @@ export async function aggregateAllSectorFundamentals(): Promise<
     out.push(rest);
   }
   return out;
+}
+
+export type PeerQuarterMedians = {
+  sampleCount: number;
+  revenueYoYMedian: number | null;
+  grossMarginMedian: number | null;
+  opMarginMedian: number | null;
+  netMarginMedian: number | null;
+};
+
+/** 同侪（industry 成分）最新一季中位数，供个股基本面页横向对比 */
+export async function aggregatePeerQuarterMedians(symbols: string[]): Promise<PeerQuarterMedians> {
+  if (!symbols.length) {
+    return {
+      sampleCount: 0,
+      revenueYoYMedian: null,
+      grossMarginMedian: null,
+      opMarginMedian: null,
+      netMarginMedian: null,
+    };
+  }
+  const rows = await prisma.equityFundamentalSnapshot.findMany({
+    where: { symbol: { in: symbols }, periodType: "Q" },
+    orderBy: [{ asOf: "desc" }],
+    distinct: ["symbol"],
+    select: {
+      symbol: true,
+      revenueYoY: true,
+      grossMargin: true,
+      opMargin: true,
+      netIncome: true,
+      revenue: true,
+    },
+  });
+
+  const finite = (xs: (number | null)[]) =>
+    xs.filter((v): v is number => v != null && Number.isFinite(v));
+
+  return {
+    sampleCount: rows.length,
+    revenueYoYMedian: median(finite(rows.map((r) => r.revenueYoY))),
+    grossMarginMedian: median(finite(rows.map((r) => r.grossMargin))),
+    opMarginMedian: median(finite(rows.map((r) => r.opMargin))),
+    netMarginMedian: median(
+      finite(
+        rows.map((r) =>
+          r.netIncome != null && r.revenue != null && r.revenue !== 0
+            ? r.netIncome / r.revenue
+            : null,
+        ),
+      ),
+    ),
+  };
 }

@@ -57,6 +57,34 @@ export type AdjustedBar = {
 
 const DAY_SEC = 86400;
 
+/**
+ * 过滤/修正脏日线：
+ * - Yahoo 对期货 / 外汇 / 指数（GC=F、CL=F、EURUSD=X、^TNX 等）在**美股节假日**常返回
+ *   O/H/L/C 全为 0 的占位行；这类 0 收盘价会污染 BOLL 均值与标准差、拉低 MA、并让
+ *   「可见区间最低」误判为 0。close 非有限或 ≤0 的整根丢弃。
+ * - close 有效但个别腿（open/high/low）非有限或 ≤0（Yahoo 偶发单腿脏值）时把该腿钳到
+ *   close，避免出现 0 影线毛刺；adjClose 非正时回退为 close（前复权因子退化为 1）。
+ */
+export function sanitizeRawDailyBars(
+  bars: readonly RawDailyBar[],
+): RawDailyBar[] {
+  const out: RawDailyBar[] = [];
+  for (const b of bars) {
+    if (!Number.isFinite(b.close) || b.close <= 0) continue;
+    const fixLeg = (v: number | null): number | null =>
+      v == null || !Number.isFinite(v) || v <= 0 ? b.close : v;
+    out.push({
+      ...b,
+      open: fixLeg(b.open),
+      high: fixLeg(b.high),
+      low: fixLeg(b.low),
+      adjClose:
+        Number.isFinite(b.adjClose) && b.adjClose > 0 ? b.adjClose : b.close,
+    });
+  }
+  return out;
+}
+
 function exDateToUtcSec(exDate: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(exDate.trim());
   if (!m) return null;

@@ -4,6 +4,7 @@ import {
   adjustDailyBars,
   computeSplitFactors,
   parsePriceAdjustmentMode,
+  sanitizeRawDailyBars,
   type RawDailyBar,
   type SplitEvent,
 } from "./priceAdjustment";
@@ -28,6 +29,47 @@ function bar(
     volume,
   };
 }
+
+describe("priceAdjustment/sanitizeRawDailyBars", () => {
+  it("drops all-zero holiday placeholder bars (Yahoo 期货/外汇/指数节假日)", () => {
+    const zero: RawDailyBar = {
+      time: D("2025-05-26"),
+      open: 0,
+      high: 0,
+      low: 0,
+      close: 0,
+      adjClose: 0,
+      volume: 0,
+    };
+    const good = bar("2025-05-27", 3300, 3300);
+    const out = sanitizeRawDailyBars([zero, good]);
+    assert.equal(out.length, 1);
+    assert.equal(out[0]!.close, 3300);
+  });
+
+  it("clamps a single non-positive leg to close, keeps null legs", () => {
+    const dirty: RawDailyBar = {
+      time: D("2025-05-27"),
+      open: 0,
+      high: null,
+      low: -5,
+      close: 100,
+      adjClose: 0,
+      volume: 10,
+    };
+    const [b] = sanitizeRawDailyBars([dirty]);
+    assert.equal(b!.open, 100);
+    assert.equal(b!.high, 100);
+    assert.equal(b!.low, 100);
+    assert.equal(b!.adjClose, 100);
+  });
+
+  it("leaves clean bars untouched", () => {
+    const clean = bar("2025-05-27", 200, 190);
+    const [b] = sanitizeRawDailyBars([clean]);
+    assert.deepEqual(b, clean);
+  });
+});
 
 describe("priceAdjustment/parseMode", () => {
   it("defaults to forward and accepts aliases", () => {

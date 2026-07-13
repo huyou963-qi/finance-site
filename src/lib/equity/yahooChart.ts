@@ -191,16 +191,29 @@ export async function fetchYahooChart(
   for (let i = 0; i < timestamps.length; i++) {
     const t = timestamps[i];
     if (typeof t !== "number" || !Number.isFinite(t)) continue;
-    const close = num(quote.close?.[i]);
-    const adjClose = num(adj[i]) ?? close;
-    if (close == null && adjClose == null) continue;
+    const closeRaw = num(quote.close?.[i]);
+    const adjRaw = num(adj[i]);
+    // 有效价：close 或 adjClose 任一为正。期货/外汇/指数在美股节假日 Yahoo 常返回
+    // O/H/L/C 全 0 的占位行，整根丢弃，避免脏 0 落库污染 BOLL/MA 等指标。
+    const px =
+      closeRaw != null && closeRaw > 0
+        ? closeRaw
+        : adjRaw != null && adjRaw > 0
+          ? adjRaw
+          : null;
+    if (px == null) continue;
+    const close = closeRaw != null && closeRaw > 0 ? closeRaw : px;
+    const adjClose = adjRaw != null && adjRaw > 0 ? adjRaw : close;
+    // 单腿 ≤0 视为脏值，钳到 close；null 保留（下游按 close 兜底）。
+    const leg = (v: number | null): number | null =>
+      v != null && Number.isFinite(v) && v <= 0 ? close : v;
     bars.push({
       time: Math.floor(t),
-      open: num(quote.open?.[i]),
-      high: num(quote.high?.[i]),
-      low: num(quote.low?.[i]),
-      close: close ?? adjClose!,
-      adjClose: adjClose ?? close!,
+      open: leg(num(quote.open?.[i])),
+      high: leg(num(quote.high?.[i])),
+      low: leg(num(quote.low?.[i])),
+      close,
+      adjClose,
       volume: num(quote.volume?.[i]),
     });
   }

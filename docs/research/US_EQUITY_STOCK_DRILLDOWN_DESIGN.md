@@ -2,7 +2,7 @@
 
 > 日期：2026-07-10
 > 依据：[US_EQUITY_INDUSTRY_RESEARCH.md](./US_EQUITY_INDUSTRY_RESEARCH.md)、[US_EQUITY_OPERATING_TRACK_DECISION.md](./US_EQUITY_OPERATING_TRACK_DECISION.md)（Phase R5 方案 C 混合 MVP）
-> 状态：Phase 1（价格持久层 + 个股走势页）已批准实施；Phase 2/3 为设计稿待批准
+> 状态：Phase 1（价格持久层 + 个股走势页）已实施；Phase 2（季度三表标准化基本面 + TTM 估值）已于 2026-07-12 实施；Phase 3 为设计稿待批准
 
 ---
 
@@ -107,7 +107,35 @@
 5. `industryReturns.ts` / `fetchSectorEtfCloses.ts` 切 `getDailyClosesDbFirst`；纯函数不动。
 6. `stockRelative.ts` + 测试；API `prices/relative/profile`；页面 + `StockPriceChart`（蜡烛）+ `StockRelativeChart`（净值线）。
 
-### Phase 2（设计稿）：P2 + P6 + P7 —— 基本面闭环
+### Phase 2（已实施 2026-07-12）：P2 + P6 + P7 —— 基本面闭环
+
+> 实施笔记（相对设计稿的三处强化，均因真实 XBRL 数据坑）：
+> 1. **候选 tag 按序列新鲜度择优**（`pickFlowQuarterSeries`/`pickInstantSeries`）：公司会换 tag
+>    （JPM 的 `Revenues` 2014 后停用 → `RevenuesNetOfInterestExpense`；AAPL 的
+>    `PaymentsOfDividendsCommonStock` 2017 后停用 → `PaymentsOfDividends`），不能按固定优先级取第一个有数据的概念。
+> 2. **营收概念量级择优**：金融公司 `RevenueFromContractWithCustomer` 只含手续费收入，
+>    末端相近的候选取近 4 季量级更大者（总收入口径）。
+> 3. **拆股口径归一**（`scaleFactorsBackward`）：XBRL 历史点是否按最新拆股口径重述取决于
+>    最后披露它的财报，拆股后 EPS/股本序列混杂两种口径（DECK 6:1、NVDA 10:1、WMT 3:1 均在窗口内）。
+>    用隐含股本（|净利/EPS|）后向游走做简单整数因子归一，统一到最新口径后重算 epsYoY。
+> 4. **银行合成营收**：RF/SYF/TFC 无总营收单一 tag，合成 `InterestIncomeExpenseNet + NoninterestIncome`。
+> 5. **XOM 换 CIK**：SEC ticker 映射指向新控股实体 CIK 2115436（无 facts），
+>    `equity_security.cik` 已固定为老实体 0000034088。
+>
+> 覆盖：S&P 501/503（FDXF/HONA 为无财报史的新分拆）；同步命令
+> `npm run equity:sync-fundamentals -- --period-type=Q --quarters=20 --limit=503`（财报季每周跑）。
+>
+> **2026-07-13 二次迭代（Bloomberg FA / Wind F9 标准）**：
+> - 历史深度 12→20 季（提取上限 24），新增 `fiscal_quarter` 列（10-K 年度期末锚定 FQ1–4）。
+> - `fundamentalRatios.ts`：TTM ROE/ROA（平均权益/资产）、杜邦三分解、资产负债率、净债务、
+>   派息率、近 4 季回购率、BVPS/每股 FCF；`aggregateFiscalYears` 按 FQ4 锚定真实财年
+>   （NVDA FY2023=26.97B 与官方一致），无锚定时退化为滚动 4 季。
+> - `valuationHistory.ts`：价格库全历史 × 逐季 TTM EPS/BVPS → ~5 年 PE/PB 历史带与当前分位
+>   （财报可得性按财季末+40 天，避免前视）。
+> - `/stocks/[symbol]/peers`：同业逐行对比（市值=现价×股本、PE/PB/PS/ROE/利润率），
+>   `StockFundamentalsPanel` 三子页签：概览（KPI 条+杜邦图+估值带）/ 报表（季度|年度 ×
+>   数值|同比）/ 同业（可排序、本股高亮）。
+> - 推导 EPS 增加 净利/股本 交叉校验（NVDA FY2023Q4 型跨口径重述污染，偏差>40% 替换）。
 
 - Migration：`EquityFundamentalSnapshot` 加 `periodType VarChar(8) @default("FY")` 与 nullable 列 `netIncome/ocf/capex/totalAssets/totalLiabilities/equity/longTermDebt/cash/sharesOutstanding/dividendsPaid/fiscalDate`，加 `(symbol, periodType, asOf)` 索引。唯一键 `(symbol,period)` 不变——`FY2024` 与 `2025Q1` 天然不冲突。顺带修正模型注释（现标 "FMP 缓存"，实际主源是 SEC）。
 - `extractQuarterlyFundamentals` + `sync-fundamentals --period-type=Q --quarters=12`；`ttm.ts`；`fundamentalsAgg.ts` 季度感知。

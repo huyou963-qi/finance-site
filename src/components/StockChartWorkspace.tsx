@@ -43,6 +43,15 @@ import {
   sma,
 } from "@/lib/chart/technicalIndicators";
 import {
+  DEFAULT_INDICATOR_SETTINGS,
+  loadIndicatorSettings,
+  MA_COLORS,
+  parseMaPeriodsInput,
+  sanitizeIndicatorSettings,
+  saveIndicatorSettings,
+  type IndicatorSettings,
+} from "@/lib/chart/indicatorSettings";
+import {
   peLineFromQuarterlyPe,
   ttmPeLineFromCandles,
   type QuarterlyPePoint,
@@ -150,8 +159,8 @@ type DrawingTool =
 /** 单个副图：成交量或振荡指标之一 */
 type SubPaneContent = "volume" | "kdj" | "macd" | "rsi" | "ttmpe";
 
-/** 主图价格叠加（与副图指标无关） */
-type MainOverlayKind = "none" | "ma" | "boll";
+/** 副图指标参数（KDJ / MACD / RSI 由用户设置面板调节） */
+type SubPaneIndicatorParams = Pick<IndicatorSettings, "kdj" | "macd" | "rsi">;
 
 export type PersistedDrawing =
   | { id: string; kind: "hline"; price: number }
@@ -336,6 +345,7 @@ function appendSubPaneSeries(
   content: SubPaneContent,
   scaleKey: SubPaneScaleKey,
   ttmPeLine: LineData[],
+  params: SubPaneIndicatorParams,
 ): SubPaneSeriesApi[] {
   if (!candles.length) return [];
   if (content === "volume") {
@@ -361,7 +371,7 @@ function appendSubPaneSeries(
     return [vol];
   }
   if (content === "kdj") {
-    const { k, d, j } = kdj(candles);
+    const { k, d, j } = kdj(candles, params.kdj.n, params.kdj.m1, params.kdj.m2);
     const ks = chart.addSeries(
       LineSeries,
       { color: "#fbbf24", lineWidth: 1 },
@@ -383,7 +393,12 @@ function appendSubPaneSeries(
     return [ks, ds, js];
   }
   if (content === "macd") {
-    const { dif, dea, hist } = macd(candles);
+    const { dif, dea, hist } = macd(
+      candles,
+      params.macd.fast,
+      params.macd.slow,
+      params.macd.signal,
+    );
     const sid = `macd_${scaleKey}`;
     const difs = chart.addSeries(
       LineSeries,
@@ -409,7 +424,7 @@ function appendSubPaneSeries(
     return [difs, deas, hi];
   }
   if (content === "rsi") {
-    const r = rsi(candles);
+    const r = rsi(candles, params.rsi.period);
     const rs = chart.addSeries(
       LineSeries,
       { color: "#a78bfa", lineWidth: 1 },
@@ -441,6 +456,7 @@ function updateSubPaneSeriesData(
   candles: CandlestickData[],
   volumes: number[],
   ttmPeLine: LineData[],
+  params: SubPaneIndicatorParams,
 ): void {
   if (!apis.length || !candles.length) return;
   if (content === "volume" && apis[0]) {
@@ -454,21 +470,26 @@ function updateSubPaneSeriesData(
     return;
   }
   if (content === "kdj" && apis.length >= 3) {
-    const { k, d, j } = kdj(candles);
+    const { k, d, j } = kdj(candles, params.kdj.n, params.kdj.m1, params.kdj.m2);
     apis[0]!.setData(k);
     apis[1]!.setData(d);
     apis[2]!.setData(j);
     return;
   }
   if (content === "macd" && apis.length >= 3) {
-    const { dif, dea, hist } = macd(candles);
+    const { dif, dea, hist } = macd(
+      candles,
+      params.macd.fast,
+      params.macd.slow,
+      params.macd.signal,
+    );
     apis[0]!.setData(dif);
     apis[1]!.setData(dea);
     apis[2]!.setData(hist);
     return;
   }
   if (content === "rsi" && apis[0]) {
-    apis[0].setData(rsi(candles));
+    apis[0].setData(rsi(candles, params.rsi.period));
     return;
   }
   if (content === "ttmpe" && apis[0]) {
@@ -643,6 +664,41 @@ function rangePanelTitle(index: number): string {
   return index === 0 ? "区间统计" : `区间统计${index + 1}`;
 }
 
+/** 指标设置弹层内的紧凑数字输入 */
+function IndicatorNumField({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onCommit: (n: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1 text-[11px] text-fs-muted">
+      <span className="shrink-0">{label}</span>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          if (Number.isFinite(n)) onCommit(n);
+        }}
+        className="w-14 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-fs-text outline-none focus:border-fs-accent/70"
+      />
+    </label>
+  );
+}
+
 export function StockChartWorkspace({
   symbol,
   interval,
@@ -673,11 +729,19 @@ export function StockChartWorkspace({
   const nativeHandlesRef = useRef<{
     userPriceLines: IPriceLine[];
     userTrendLines: ISeriesApi<"Line", Time>[];
-    /** BOLL 或 MA 等主图均线句柄（图表重建时清空） */
-    overlayLines: ISeriesApi<"Line", Time>[];
+    /** 主图叠加均线句柄（图表重建时清空）；BOLL 与 MA 可同时存在，分别持有以便增量刷新 */
+    overlayLines: {
+      boll: ISeriesApi<"Line", Time>[];
+      ma: ISeriesApi<"Line", Time>[];
+    };
     /** 副图序列（appendSubPaneSeries 顺序），用于追加历史后刷新指标 */
     subPaneSeries: SubPaneSeriesApi[];
-  }>({ userPriceLines: [], userTrendLines: [], overlayLines: [], subPaneSeries: [] });
+  }>({
+    userPriceLines: [],
+    userTrendLines: [],
+    overlayLines: { boll: [], ma: [] },
+    subPaneSeries: [],
+  });
 
   const [payload, setPayload] = useState<KlinePayload | null>(null);
   const payloadRef = useRef<KlinePayload | null>(null);
@@ -689,7 +753,57 @@ export function StockChartWorkspace({
   const [loading, setLoading] = useState(false);
   const [tool, setTool] = useState<DrawingTool>("cursor");
   const toolRef = useRef<DrawingTool>("cursor");
-  const [mainOverlay, setMainOverlay] = useState<MainOverlayKind>("boll");
+  /**
+   * 技术指标参数（用户级偏好，跨标的共享）。首屏用默认值以保证 SSR/CSR 一致，
+   * 挂载后从 localStorage 覆盖。maOn / bollOn 可同时开启。
+   */
+  const [indicators, setIndicators] = useState<IndicatorSettings>(
+    DEFAULT_INDICATOR_SETTINGS,
+  );
+  useEffect(() => {
+    setIndicators(loadIndicatorSettings());
+  }, []);
+  useEffect(() => {
+    saveIndicatorSettings(indicators);
+  }, [indicators]);
+  const indicatorsRef = useRef(indicators);
+  indicatorsRef.current = indicators;
+  /** 主图叠加结构性签名：开关 + MA 周期列表变化需重建图（增删序列条数） */
+  const overlayStructKey = `${indicators.maOn ? indicators.maPeriods.join("-") : ""}|${
+    indicators.bollOn ? "b" : ""
+  }`;
+  const subParams = useMemo<SubPaneIndicatorParams>(
+    () => ({
+      kdj: indicators.kdj,
+      macd: indicators.macd,
+      rsi: indicators.rsi,
+    }),
+    [indicators.kdj, indicators.macd, indicators.rsi],
+  );
+  /** 主图叠加设置弹层开关 */
+  const [overlayMenuOpen, setOverlayMenuOpen] = useState(false);
+  const overlayMenuRef = useRef<HTMLDivElement>(null);
+  /** MA 周期用文本框自由编辑，失焦/回车时提交（parseMaPeriodsInput 规范化） */
+  const [maPeriodsInput, setMaPeriodsInput] = useState(
+    indicators.maPeriods.join(", "),
+  );
+  useEffect(() => {
+    setMaPeriodsInput(indicators.maPeriods.join(", "));
+  }, [indicators.maPeriods]);
+
+  /** 局部修改指标设置：合并后统一 sanitize，保证周期/乘数取值合法 */
+  const patchIndicators = useCallback(
+    (patch: Partial<IndicatorSettings>) => {
+      setIndicators((s) => sanitizeIndicatorSettings({ ...s, ...patch }));
+    },
+    [],
+  );
+  const commitMaPeriods = useCallback(() => {
+    setIndicators((s) => ({
+      ...s,
+      maPeriods: parseMaPeriodsInput(maPeriodsInput),
+    }));
+  }, [maPeriodsInput]);
   /** 两个副图可独立选成交量/指标、可单独关闭 */
   const [subPane1, setSubPane1] = useState<{
     visible: boolean;
@@ -781,6 +895,16 @@ export function StockChartWorkspace({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [drawToolMenuOpen]);
+
+  useEffect(() => {
+    if (!overlayMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (overlayMenuRef.current?.contains(e.target as Node)) return;
+      setOverlayMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [overlayMenuOpen]);
 
   useEffect(() => {
     onAttributionChange?.(hint);
@@ -1156,21 +1280,28 @@ export function StockChartWorkspace({
     candle.setData(candles);
 
     const h = nativeHandlesRef.current;
-    if (mainOverlay === "boll" && candles.length >= 20 && h.overlayLines.length >= 3) {
-      const { mid, upper, lower } = bollinger(candles);
-      h.overlayLines[0]!.setData(mid);
-      h.overlayLines[1]!.setData(upper);
-      h.overlayLines[2]!.setData(lower);
-    } else if (mainOverlay === "ma" && candles.length >= 5) {
-      const maPeriods = [5, 10, 20] as const;
-      let oi = 0;
-      for (const period of maPeriods) {
-        if (candles.length < period) continue;
+    const ind = indicatorsRef.current;
+    if (
+      ind.bollOn &&
+      candles.length >= ind.boll.period &&
+      h.overlayLines.boll.length >= 3
+    ) {
+      const { mid, upper, lower } = bollinger(
+        candles,
+        ind.boll.period,
+        ind.boll.mult,
+      );
+      h.overlayLines.boll[0]!.setData(mid);
+      h.overlayLines.boll[1]!.setData(upper);
+      h.overlayLines.boll[2]!.setData(lower);
+    }
+    if (ind.maOn) {
+      ind.maPeriods.forEach((period, i) => {
+        if (candles.length < period) return;
         const data = sma(candles, period);
-        if (!data.length) continue;
-        h.overlayLines[oi]?.setData(data);
-        oi++;
-      }
+        if (!data.length) return;
+        h.overlayLines.ma[i]?.setData(data);
+      });
     }
 
     const subs = h.subPaneSeries;
@@ -1183,6 +1314,7 @@ export function StockChartWorkspace({
         candles,
         volumes,
         ttmPeLine,
+        subParams,
       );
       idx += n;
     }
@@ -1194,6 +1326,7 @@ export function StockChartWorkspace({
         candles,
         volumes,
         ttmPeLine,
+        subParams,
       );
     }
 
@@ -1208,7 +1341,12 @@ export function StockChartWorkspace({
     volumes,
     loading,
     interval,
-    mainOverlay,
+    indicators.bollOn,
+    indicators.boll.period,
+    indicators.boll.mult,
+    indicators.maOn,
+    overlayStructKey,
+    subParams,
     subPane1.visible,
     subPane1.content,
     subPane2.visible,
@@ -1847,11 +1985,17 @@ export function StockChartWorkspace({
     candle.setData(initialCandles);
     candleRef.current = candle;
 
-    nativeHandlesRef.current.overlayLines = [];
+    nativeHandlesRef.current.overlayLines = { boll: [], ma: [] };
     nativeHandlesRef.current.subPaneSeries = [];
 
-    if (mainOverlay === "boll" && initialCandles.length >= 20) {
-      const { mid, upper, lower } = bollinger(initialCandles);
+    const ind = indicatorsRef.current;
+
+    if (ind.bollOn && initialCandles.length >= ind.boll.period) {
+      const { mid, upper, lower } = bollinger(
+        initialCandles,
+        ind.boll.period,
+        ind.boll.mult,
+      );
       const h = nativeHandlesRef.current;
       const midS = chart.addSeries(
         LineSeries,
@@ -1871,33 +2015,26 @@ export function StockChartWorkspace({
       midS.setData(mid);
       upS.setData(upper);
       loS.setData(lower);
-      h.overlayLines.push(midS, upS, loS);
+      h.overlayLines.boll.push(midS, upS, loS);
     }
 
-    if (mainOverlay === "ma" && initialCandles.length >= 5) {
+    if (ind.maOn) {
       const h = nativeHandlesRef.current;
-      const maSpec = [
-        { period: 5, color: "#fbbf24" },
-        { period: 10, color: "#38bdf8" },
-        { period: 20, color: "#c084fc" },
-      ] as const;
-      for (const { period, color } of maSpec) {
-        if (initialCandles.length < period) continue;
-        const data = sma(initialCandles, period);
-        if (!data.length) continue;
+      ind.maPeriods.forEach((period, i) => {
         const s = chart.addSeries(
           LineSeries,
           {
-            color,
+            color: MA_COLORS[i % MA_COLORS.length],
             lineWidth: 1,
             priceLineVisible: false,
             lastValueVisible: false,
           },
           0,
         );
-        s.setData(data);
-        h.overlayLines.push(s);
-      }
+        // 数据不足时先建空序列占位，保持句柄下标与 maPeriods 对齐，追加历史后再填充
+        s.setData(initialCandles.length >= period ? sma(initialCandles, period) : []);
+        h.overlayLines.ma.push(s);
+      });
     }
 
     const subPaneApis: SubPaneSeriesApi[] = [];
@@ -1912,6 +2049,7 @@ export function StockChartWorkspace({
           subPane1.content,
           "a",
           ttmPeLine,
+          subParams,
         ),
       );
       subPaneIdx++;
@@ -1926,6 +2064,7 @@ export function StockChartWorkspace({
           subPane2.content,
           "b",
           ttmPeLine,
+          subParams,
         ),
       );
     }
@@ -2355,7 +2494,7 @@ export function StockChartWorkspace({
       nativeHandlesRef.current = {
         userPriceLines: [],
         userTrendLines: [],
-        overlayLines: [],
+        overlayLines: { boll: [], ma: [] },
         subPaneSeries: [],
       };
     };
@@ -2363,7 +2502,8 @@ export function StockChartWorkspace({
     loading,
     symbol,
     source,
-    mainOverlay,
+    overlayStructKey,
+    subParams,
     subPane1.visible,
     subPane1.content,
     subPane2.visible,
@@ -2637,21 +2777,193 @@ export function StockChartWorkspace({
     );
   }
 
+  const overlaySummary = [
+    indicators.maOn ? `MA(${indicators.maPeriods.join("/")})` : null,
+    indicators.bollOn
+      ? `BOLL(${indicators.boll.period},${indicators.boll.mult})`
+      : null,
+  ].filter(Boolean);
+
   const chartToolbar = (
     <>
-      <label className="flex items-center gap-1.5 text-[11px] text-fs-muted">
-        <span className="shrink-0 text-fs-muted">主图叠加</span>
-        <select
-          value={mainOverlay}
-          onChange={(e) => setMainOverlay(e.target.value as MainOverlayKind)}
-          className="max-w-[11rem] cursor-pointer rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-text outline-none hover:border-fs-border focus:border-fs-accent/70"
-          aria-label="主图叠加指标"
+      <div ref={overlayMenuRef} className="relative flex items-center">
+        <button
+          type="button"
+          onClick={() => setOverlayMenuOpen((o) => !o)}
+          className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
+            overlayMenuOpen
+              ? "bg-fs-border text-fs-text"
+              : "bg-fs-elevated text-fs-secondary hover:bg-fs-border"
+          }`}
+          aria-expanded={overlayMenuOpen}
+          aria-haspopup="menu"
+          title="设置主图叠加（MA / BOLL 可同时显示）与各指标参数"
         >
-          <option value="none">无</option>
-          <option value="ma">MA (5 / 10 / 20)</option>
-          <option value="boll">BOLL (20, 2)</option>
-        </select>
-      </label>
+          <span className="text-fs-muted">指标</span>
+          <span
+            className={
+              overlaySummary.length
+                ? "font-medium text-fs-accent-text/95"
+                : "text-fs-muted"
+            }
+          >
+            {overlaySummary.length ? overlaySummary.join(" · ") : "无叠加"}
+          </span>
+          <span className="text-[10px] text-fs-muted" aria-hidden>
+            ▾
+          </span>
+        </button>
+        {overlayMenuOpen ? (
+          <div
+            role="menu"
+            className="absolute left-0 top-[calc(100%+6px)] z-[100] w-[19rem] rounded-md border border-fs-border bg-fs-bg p-3 shadow-xl"
+          >
+            <div className="mb-1 text-[11px] font-medium text-fs-secondary">
+              主图叠加（可同时显示）
+            </div>
+            <label className="flex items-center gap-2 py-1 text-[11px] text-fs-text">
+              <input
+                type="checkbox"
+                checked={indicators.maOn}
+                onChange={(e) => patchIndicators({ maOn: e.target.checked })}
+              />
+              <span className="w-9 shrink-0">MA</span>
+              <input
+                type="text"
+                value={maPeriodsInput}
+                onChange={(e) => setMaPeriodsInput(e.target.value)}
+                onBlur={commitMaPeriods}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    commitMaPeriods();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                placeholder="5, 10, 20"
+                title="均线周期，逗号分隔（最多 6 条）"
+                className="flex-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-fs-text outline-none focus:border-fs-accent/70"
+              />
+            </label>
+            <div className="flex items-center gap-2 py-1 text-[11px] text-fs-text">
+              <input
+                type="checkbox"
+                checked={indicators.bollOn}
+                onChange={(e) => patchIndicators({ bollOn: e.target.checked })}
+              />
+              <span className="w-9 shrink-0">BOLL</span>
+              <IndicatorNumField
+                label="周期"
+                value={indicators.boll.period}
+                min={2}
+                max={250}
+                onCommit={(n) =>
+                  patchIndicators({
+                    boll: { ...indicators.boll, period: n },
+                  })
+                }
+              />
+              <IndicatorNumField
+                label="倍数"
+                value={indicators.boll.mult}
+                min={0.1}
+                max={10}
+                step={0.1}
+                onCommit={(n) =>
+                  patchIndicators({ boll: { ...indicators.boll, mult: n } })
+                }
+              />
+            </div>
+
+            <div className="mb-1 mt-2 border-t border-fs-border pt-2 text-[11px] font-medium text-fs-secondary">
+              副图参数
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-0.5">
+              <span className="w-9 shrink-0 text-[11px] text-fs-text">KDJ</span>
+              <IndicatorNumField
+                label="N"
+                value={indicators.kdj.n}
+                min={1}
+                max={250}
+                onCommit={(n) =>
+                  patchIndicators({ kdj: { ...indicators.kdj, n } })
+                }
+              />
+              <IndicatorNumField
+                label="M1"
+                value={indicators.kdj.m1}
+                min={1}
+                max={50}
+                onCommit={(n) =>
+                  patchIndicators({ kdj: { ...indicators.kdj, m1: n } })
+                }
+              />
+              <IndicatorNumField
+                label="M2"
+                value={indicators.kdj.m2}
+                min={1}
+                max={50}
+                onCommit={(n) =>
+                  patchIndicators({ kdj: { ...indicators.kdj, m2: n } })
+                }
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-0.5">
+              <span className="w-9 shrink-0 text-[11px] text-fs-text">MACD</span>
+              <IndicatorNumField
+                label="快"
+                value={indicators.macd.fast}
+                min={1}
+                max={200}
+                onCommit={(n) =>
+                  patchIndicators({ macd: { ...indicators.macd, fast: n } })
+                }
+              />
+              <IndicatorNumField
+                label="慢"
+                value={indicators.macd.slow}
+                min={2}
+                max={400}
+                onCommit={(n) =>
+                  patchIndicators({ macd: { ...indicators.macd, slow: n } })
+                }
+              />
+              <IndicatorNumField
+                label="信号"
+                value={indicators.macd.signal}
+                min={1}
+                max={100}
+                onCommit={(n) =>
+                  patchIndicators({
+                    macd: { ...indicators.macd, signal: n },
+                  })
+                }
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-0.5">
+              <span className="w-9 shrink-0 text-[11px] text-fs-text">RSI</span>
+              <IndicatorNumField
+                label="周期"
+                value={indicators.rsi.period}
+                min={2}
+                max={250}
+                onCommit={(n) => patchIndicators({ rsi: { period: n } })}
+              />
+            </div>
+
+            <div className="mt-2 flex justify-end border-t border-fs-border pt-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setIndicators({ ...DEFAULT_INDICATOR_SETTINGS })
+                }
+                className="rounded px-2 py-0.5 text-[11px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+              >
+                恢复默认
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
       <button
         type="button"
         onClick={() => setRangeStatsEnabled((v) => !v)}
