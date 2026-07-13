@@ -31,7 +31,10 @@ type SecConcept = {
   units?: Record<string, SecFactPoint[]>;
 };
 
-const SEC_UA = "finance-site equity-fundamentals contact@localhost";
+// SEC 公平访问要求 UA 带真实域名联系邮箱。www.sec.gov/files/* 会拒绝 @localhost（403）；
+// data.sec.gov/* 虽宽松，统一用合规 UA。可用 SEC_USER_AGENT 环境变量覆盖。
+const SEC_UA =
+  process.env.SEC_USER_AGENT?.trim() || "hblook.com equity-fundamentals admin@hblook.com";
 
 function padCik(cik: string): string {
   return cik.replace(/\D/g, "").padStart(10, "0");

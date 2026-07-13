@@ -49,7 +49,9 @@ async function main() {
       const url = `https://data.sec.gov/submissions/CIK${padded}.json`;
       const res = await fetch(url, {
         headers: {
-          "User-Agent": "finance-site equity-sync-sec contact@localhost",
+          // SEC 公平访问要求真实域名联系邮箱（@localhost 会被 403）；可用 SEC_USER_AGENT 覆盖
+          "User-Agent":
+            process.env.SEC_USER_AGENT?.trim() || "hblook.com equity-sync-sec admin@hblook.com",
           Accept: "application/json",
         },
         cache: "no-store",
