@@ -93,7 +93,14 @@ async function fetchFromWikipedia(): Promise<SnapshotRow[]> {
 
 async function main() {
   const refresh = process.argv.includes("--refresh");
+  console.log(`[seed-sp500] START cwd=${process.cwd()} mode=${refresh ? "refresh" : "offline"}`);
+
   const rows = refresh ? await fetchFromWikipedia() : loadSnapshot();
+  console.log(`[seed-sp500] 快照/抓取 ${rows.length} 行`);
+
+  // DB 预检：把连接/schema 问题与文件问题区分开，失败时定位更快
+  const before = await prisma.equitySecurity.count();
+  console.log(`[seed-sp500] DB 预检 OK，upsert 前 equity_security=${before} 行`);
 
   const asOf = new Date();
   asOf.setUTCHours(0, 0, 0, 0);
@@ -157,7 +164,10 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error(e);
+    // 醒目横幅：equity 是 data:apply 第 1 步，报错在长日志顶部，加边框便于定位
+    console.error("\n========== SEED-SP500 FAILED ==========");
+    console.error(e instanceof Error ? (e.stack ?? e.message) : e);
+    console.error("=======================================\n");
     process.exitCode = 1;
   })
   .finally(async () => {
