@@ -9,15 +9,20 @@
  *   npm run equity:seed-sp500                # 离线：读快照播种
  *   npm run equity:seed-sp500 -- --refresh   # 联网：抓 Wikipedia，重写快照 + 播种（需可访问 en.wikipedia.org）
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { prisma } from "../../src/lib/prisma";
 import { normalizeGicsSector } from "../../src/lib/equity/gicsCatalog";
 import { rollupFromSubIndustry } from "../../src/lib/equity/gicsIndustryCatalog";
 import { fetchWikipediaSp500 } from "../../src/lib/equity/wikipediaSp500";
 import { SP500_INDEX_CODE } from "../../src/lib/equity/equitySecurities";
+// 静态导入：由模块解析器相对本文件解析，与 process.cwd() 无关——
+// 服务器上 apply-all 通过 spawn 调用本脚本时 cwd 不保证是项目根，故不能用 cwd 拼路径。
+// 这与 gicsIndustryCatalog 导入 data/gics/*.json 是同一（已在生产验证的）模式。
+import snapshotJson from "../../src/lib/equity/data/sp500-snapshot.json";
 
-const SNAPSHOT_PATH = join(process.cwd(), "src/lib/equity/data/sp500-snapshot.json");
+/** --refresh 重写快照用的落地路径（仅本地手动执行，cwd 即项目根） */
+const SNAPSHOT_WRITE_PATH = join(process.cwd(), "src/lib/equity/data/sp500-snapshot.json");
 
 /** 快照行：GICS 归属已解析，可直接 upsert，无需再 rollup */
 type SnapshotRow = {
@@ -37,10 +42,9 @@ type Snapshot = {
   rows: SnapshotRow[];
 };
 
-/** 从提交的快照读取（离线路径） */
+/** 从提交进 git 的快照读取（离线路径，cwd 无关） */
 function loadSnapshot(): SnapshotRow[] {
-  const raw = readFileSync(SNAPSHOT_PATH, "utf8");
-  const parsed = JSON.parse(raw) as Snapshot;
+  const parsed = snapshotJson as unknown as Snapshot;
   if (!Array.isArray(parsed.rows) || parsed.rows.length < 400) {
     throw new Error(`快照行数异常: ${parsed.rows?.length ?? 0}（期望 ≥400）`);
   }
@@ -82,8 +86,8 @@ async function fetchFromWikipedia(): Promise<SnapshotRow[]> {
     count: out.length,
     rows: out,
   };
-  writeFileSync(SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2) + "\n");
-  console.log(`[refresh] 已重写快照 ${SNAPSHOT_PATH}（${out.length} 行）`);
+  writeFileSync(SNAPSHOT_WRITE_PATH, JSON.stringify(snapshot, null, 2) + "\n");
+  console.log(`[refresh] 已重写快照 ${SNAPSHOT_WRITE_PATH}（${out.length} 行）`);
   return out;
 }
 
