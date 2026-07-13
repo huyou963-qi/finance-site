@@ -16,6 +16,9 @@ const required = [
   "tsconfig.json",
   "src",
   "scripts",
+  // tsx 脚本从源码运行时按文件系统解析 JSON 导入（如 gicsIndustryCatalog → data/gics/*.json）。
+  // next build 会把这些打进 .next 供 App 用，但服务器上的 tsx 脚本读的是源码路径，故必须一并打包。
+  "data",
 ];
 
 const optional = ["public"];
