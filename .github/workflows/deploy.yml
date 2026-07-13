@@ -91,4 +91,7 @@ jobs:
           pm2 save
           sleep 5
           curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
+          # 守卫（fail-hard）：S&P500 未播种会让所有个股页 404（历史事故：Wikipedia 源被墙、seed 静默失败）。
+          # 放在健康检查之后：站点已重启不受影响，仅让"空表"显式使部署变红报警，不再被绿灯掩盖。
+          npm run equity:assert-seeded
           EOF
