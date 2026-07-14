@@ -281,6 +281,8 @@ export function listWorldBankSeedTargets(): {
 
 const WORLD_BANK_LABEL_BY_ID = new Map(WORLD_BANK_INDICATORS.map((x) => [x.id, x.label]));
 const FRED_LABEL_BY_ID = new Map(FRED_US_ITEMS.map((x) => [x.id, x.label]));
+/** 静态 FRED 目录里的序列 id（大写规范化），用于剔除与之重复的 sched_fred_* 本地副本。 */
+const FRED_STATIC_IDS = new Set(FRED_US_ITEMS.map((x) => x.id.toUpperCase()));
 
 function buildCountryFromRows(
   country: CountryDef,
@@ -374,6 +376,13 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
   const byCountry = new Map<string, Map<string, UnifiedCatalogItem[]>>();
   for (const row of rows) {
     if (row.code.startsWith("cot_mm_")) continue;
+    // sched_fred_<ID> 是调度器为 FRED 序列落库的本地副本；若同一 <ID> 已在静态 FRED
+    // 目录（fred:<ID>，含友好中文名，且默认 db-first 读取同一 sched_fred_ 仪器）中，
+    // 则跳过，避免目录里出现「fred:… + mds:sched_fred_…」两条同数据重复项。
+    if (row.code.startsWith("sched_fred_")) {
+      const fredId = row.code.slice("sched_fred_".length).toUpperCase();
+      if (FRED_STATIC_IDS.has(fredId)) continue;
+    }
     const md = row.metadata && typeof row.metadata === "object"
       ? (row.metadata as Record<string, unknown>)
       : {};
