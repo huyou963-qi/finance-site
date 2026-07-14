@@ -3,8 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
+import { StockEventsPanel } from "@/components/equity/StockEventsPanel";
 import { StockFundamentalsPanel } from "@/components/equity/StockFundamentalsPanel";
-import { StockPriceChart, type StockPriceBar } from "@/components/equity/StockPriceChart";
+import {
+  StockPriceChart,
+  type ChartEarningsMark,
+  type StockPriceBar,
+} from "@/components/equity/StockPriceChart";
 
 type WindowRow = {
   id: string;
@@ -87,8 +92,46 @@ export function StockDetailClient({
     excessVsIndustry: number | null;
   } | null>(null);
   const [priceSource, setPriceSource] = useState<string | null>(null);
+  const [earningsMarks, setEarningsMarks] = useState<ChartEarningsMark[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // K 线业绩打点：季报/年报事件（低频，与行情并行加载，失败静默）
+  useEffect(() => {
+    let cancelled = false;
+    fetch(
+      `/api/equity/stocks/${encodeURIComponent(symbol)}/events?types=earnings,annual&limit=40`,
+      { cache: "no-store" },
+    )
+      .then(async (r) => {
+        if (!r.ok) return [];
+        const j = (await r.json()) as {
+          events?: {
+            date: string;
+            titleZh: string;
+            reaction: number | null;
+            metrics: { period: string; revenueYoY: number | null; eps: number | null } | null;
+          }[];
+        };
+        return (j.events ?? []).map((e) => {
+          const parts = [e.metrics?.period ?? e.titleZh];
+          if (e.metrics?.revenueYoY != null)
+            parts.push(`营收 ${fmtPct(e.metrics.revenueYoY)}`);
+          if (e.metrics?.eps != null) parts.push(`EPS ${e.metrics.eps.toFixed(2)}`);
+          if (e.reaction != null) parts.push(`T+1 ${fmtPct(e.reaction)}`);
+          return { date: e.date, labelZh: parts.join(" · ") };
+        });
+      })
+      .then((marks) => {
+        if (!cancelled) setEarningsMarks(marks);
+      })
+      .catch(() => {
+        if (!cancelled) setEarningsMarks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
 
   const loadProfile = useCallback(async () => {
     const r = await fetch(`/api/equity/stocks/${encodeURIComponent(symbol)}/profile`, {
@@ -280,7 +323,7 @@ export function StockDetailClient({
         </div>
         <div className="px-2 py-2">
           {bars.length >= 2 ? (
-            <StockPriceChart bars={bars} />
+            <StockPriceChart bars={bars} earningsMarks={earningsMarks} />
           ) : (
             <div className="flex h-40 items-center justify-center text-sm text-fs-muted">
               {loading ? "加载中…" : "暂无行情数据"}
@@ -342,13 +385,7 @@ export function StockDetailClient({
 
       <StockFundamentalsPanel symbol={symbol} />
 
-      <section className="rounded-md border border-dashed border-fs-border px-3 py-3">
-        <div className="text-sm font-medium text-fs-text">事件与叙事（SEC filings / 经营简报）</div>
-        <p className="mt-1 text-xs text-fs-muted">
-          Phase 3 交付：财报事件时间线与 AI 经营叙事。数据已在库（sec_filing /
-          company-operating-briefs）。
-        </p>
-      </section>
+      <StockEventsPanel symbol={symbol} />
     </div>
   );
 }

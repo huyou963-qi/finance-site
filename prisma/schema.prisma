@@ -641,6 +641,11 @@ model SecFiling {
   form      String   @db.VarChar(16)
   filedAt   DateTime @map("filed_at") @db.Date
   url       String   @db.VarChar(512)
+  /// 8-K item 编号原样存（如 "2.02,9.01"），事件时间线据此分级
+  items     String?  @db.VarChar(64)
+  /// EDGAR 主文档文件名（直链 …/{accessionNoDash}/{primaryDocument}）
+  primaryDocument       String? @map("primary_document") @db.VarChar(256)
+  primaryDocDescription String? @map("primary_doc_description") @db.VarChar(256)
   createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([cik, accession])

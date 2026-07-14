@@ -1,15 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  ValuationGrowthScatter,
+  type ScatterPoint,
+} from "@/components/equity/ValuationGrowthScatter";
 
 type Constituent = {
   symbol: string;
   name: string;
   marketCap: number | null;
   gicsSubIndustry: string | null;
-  returns: { absoluteReturn: number | null; excessVsSpy: number | null } | null;
+  returns: {
+    absoluteReturn: number | null;
+    excessVsSpy: number | null;
+    excessVsIndustry: number | null;
+  } | null;
+  valuation: {
+    latestPeriod: string | null;
+    revenueYoY: number | null;
+    peTtm: number | null;
+    pb: number | null;
+    marketCap: number | null;
+  } | null;
 };
 
 function isoDaysAgo(days: number): string {
@@ -111,6 +126,23 @@ export function IndustryDetailClient({
     void load();
   }, [load]);
 
+  const scatterPoints = useMemo<ScatterPoint[]>(
+    () =>
+      constituents.flatMap((c) =>
+        c.valuation?.revenueYoY != null && c.valuation?.peTtm != null
+          ? [
+              {
+                symbol: c.symbol,
+                revenueYoY: c.valuation.revenueYoY,
+                peTtm: c.valuation.peTtm,
+                marketCap: c.valuation.marketCap ?? c.marketCap,
+              },
+            ]
+          : [],
+      ),
+    [constituents],
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4">
       <div className="text-xs text-fs-muted">
@@ -191,9 +223,11 @@ export function IndustryDetailClient({
         </div>
       ) : null}
 
+      <ValuationGrowthScatter points={scatterPoints} />
+
       <section className="overflow-x-auto rounded-md border border-fs-border">
         <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">
-          成分股
+          成分股（估值为季度口径：最新季 YoY · TTM PE）
         </div>
         <table className="min-w-full text-left text-sm">
           <thead className="text-xs text-fs-muted">
@@ -204,6 +238,10 @@ export function IndustryDetailClient({
               <th className="px-3 py-2 text-right">市值</th>
               <th className="px-3 py-2 text-right">绝对收益</th>
               <th className="px-3 py-2 text-right">相对 SPY</th>
+              <th className="px-3 py-2 text-right">相对行业</th>
+              <th className="px-3 py-2 text-right">营收YoY</th>
+              <th className="px-3 py-2 text-right">TTM PE</th>
+              <th className="px-3 py-2 text-right">PB</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
@@ -220,12 +258,26 @@ export function IndustryDetailClient({
                 </td>
                 <td className="px-3 py-2 text-fs-muted">{c.name}</td>
                 <td className="px-3 py-2 text-fs-muted">{c.gicsSubIndustry ?? "—"}</td>
-                <td className="px-3 py-2 text-right text-fs-text">{fmtCap(c.marketCap)}</td>
+                <td className="px-3 py-2 text-right text-fs-text">
+                  {fmtCap(c.valuation?.marketCap ?? c.marketCap)}
+                </td>
                 <td className={`px-3 py-2 text-right tabular-nums ${pctClass(c.returns?.absoluteReturn)}`}>
                   {loading ? "…" : fmtPct(c.returns?.absoluteReturn)}
                 </td>
                 <td className={`px-3 py-2 text-right tabular-nums ${pctClass(c.returns?.excessVsSpy)}`}>
                   {loading ? "…" : fmtPct(c.returns?.excessVsSpy)}
+                </td>
+                <td className={`px-3 py-2 text-right tabular-nums ${pctClass(c.returns?.excessVsIndustry)}`}>
+                  {loading ? "…" : fmtPct(c.returns?.excessVsIndustry)}
+                </td>
+                <td className={`px-3 py-2 text-right tabular-nums ${pctClass(c.valuation?.revenueYoY)}`}>
+                  {fmtPct(c.valuation?.revenueYoY)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-fs-text">
+                  {c.valuation?.peTtm == null ? "—" : c.valuation.peTtm.toFixed(1)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-fs-text">
+                  {c.valuation?.pb == null ? "—" : c.valuation.pb.toFixed(1)}
                 </td>
                 <td className="px-3 py-2">
                   <Link

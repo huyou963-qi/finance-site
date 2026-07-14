@@ -1,6 +1,9 @@
 /**
  * SEC EDGAR submissions 增量同步（8-K / 10-Q / 10-K）。
- * Usage: npm run equity:sync-sec -- --limit=50
+ * 采集 items（8-K 事件编号）与 primaryDocument（直链正文），供个股事件时间线。
+ * Usage:
+ *   npm run equity:sync-sec -- --limit=50
+ *   npm run equity:sync-sec -- --symbols=AAPL,TSLA --days=750
  */
 import { prisma } from "../../src/lib/prisma";
 
@@ -8,8 +11,9 @@ const FORMS = new Set(["8-K", "10-Q", "10-K", "8-K/A", "10-Q/A", "10-K/A"]);
 
 function argValue(name: string): string | undefined {
   const i = process.argv.indexOf(name);
-  if (i < 0) return undefined;
-  return process.argv[i + 1];
+  if (i >= 0) return process.argv[i + 1];
+  const kv = process.argv.find((a) => a.startsWith(`${name}=`));
+  return kv ? kv.slice(name.length + 1) : undefined;
 }
 
 function sleep(ms: number) {
@@ -21,21 +25,33 @@ function padCik(cik: string): string {
   return digits.padStart(10, "0");
 }
 
-function accessionToUrl(cik: string, accession: string): string {
+/** 有主文档 → 直链正文；否则退回 filing index 页 */
+function filingUrl(cik: string, accession: string, primaryDocument: string | null): string {
   const noDash = accession.replace(/-/g, "");
-  return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${noDash}/${accession}-index.htm`;
+  const base = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${noDash}`;
+  return primaryDocument ? `${base}/${primaryDocument}` : `${base}/${accession}-index.htm`;
 }
 
 async function main() {
   const limit = Math.max(1, Number(argValue("--limit") ?? 50) || 50);
   const delayMs = Math.max(200, Number(argValue("--delay-ms") ?? 250) || 250);
   const lookbackDays = Math.max(30, Number(argValue("--days") ?? 400) || 400);
+  const symbolsArg = argValue("--symbols");
+  const onlySymbols = symbolsArg
+    ? symbolsArg
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+    : null;
   const cutoff = Date.now() - lookbackDays * 86400_000;
 
   const securities = await prisma.equitySecurity.findMany({
-    where: { cik: { not: null } },
+    where: {
+      cik: { not: null },
+      ...(onlySymbols ? { symbol: { in: onlySymbols } } : {}),
+    },
     orderBy: [{ marketCap: "desc" }, { symbol: "asc" }],
-    take: limit,
+    ...(onlySymbols ? {} : { take: limit }),
     select: { symbol: true, cik: true },
   });
 
@@ -63,6 +79,9 @@ async function main() {
             accessionNumber?: string[];
             form?: string[];
             filingDate?: string[];
+            items?: string[];
+            primaryDocument?: string[];
+            primaryDocDescription?: string[];
           };
         };
       };
@@ -70,6 +89,9 @@ async function main() {
       const accessions = recent?.accessionNumber ?? [];
       const forms = recent?.form ?? [];
       const dates = recent?.filingDate ?? [];
+      const itemsArr = recent?.items ?? [];
+      const primaryDocs = recent?.primaryDocument ?? [];
+      const primaryDescs = recent?.primaryDocDescription ?? [];
       const n = Math.min(accessions.length, forms.length, dates.length);
 
       for (let i = 0; i < n; i++) {
@@ -79,6 +101,11 @@ async function main() {
         const filedMs = Date.parse(`${filed}T00:00:00Z`);
         if (!Number.isFinite(filedMs) || filedMs < cutoff) continue;
         const accession = accessions[i]!;
+        const items = itemsArr[i]?.trim().slice(0, 64) || null;
+        const primaryDocument = primaryDocs[i]?.trim().slice(0, 256) || null;
+        const primaryDocDescription = primaryDescs[i]?.trim().slice(0, 256) || null;
+        const filedAt = new Date(`${filed}T00:00:00.000Z`);
+        const docUrl = filingUrl(cik, accession, primaryDocument);
         await prisma.secFiling.upsert({
           where: { cik_accession: { cik: padded, accession } },
           create: {
@@ -86,14 +113,20 @@ async function main() {
             symbol: row.symbol,
             accession,
             form,
-            filedAt: new Date(`${filed}T00:00:00.000Z`),
-            url: accessionToUrl(cik, accession),
+            filedAt,
+            url: docUrl,
+            items,
+            primaryDocument,
+            primaryDocDescription,
           },
           update: {
             symbol: row.symbol,
             form,
-            filedAt: new Date(`${filed}T00:00:00.000Z`),
-            url: accessionToUrl(cik, accession),
+            filedAt,
+            url: docUrl,
+            items,
+            primaryDocument,
+            primaryDocDescription,
           },
         });
         upserted += 1;

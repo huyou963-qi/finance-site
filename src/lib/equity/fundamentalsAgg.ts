@@ -5,6 +5,8 @@
 import { prisma } from "@/lib/prisma";
 import type { GicsSector } from "@/lib/equity/gicsCatalog";
 import { GICS_SECTOR_DEFS, getSectorDef } from "@/lib/equity/gicsCatalog";
+import { getLatestClosesDbOnly } from "@/lib/equity/equityPriceStore";
+import { computeTtm, type QuarterFundamentalRow } from "@/lib/equity/ttm";
 
 export function median(xs: number[]): number | null {
   if (!xs.length) return null;
@@ -18,6 +20,8 @@ export type FundamentalPeriodType = "FY" | "Q";
 export type SectorFundamentalsAgg = {
   sector: GicsSector;
   nameZh: string;
+  /** 实际使用的口径：Q（最新季 YoY/利润率 + TTM PE）或 FY（年报，Q 无数据时的回退） */
+  basis: FundamentalPeriodType;
   sampleCount: number;
   universeCount: number;
   coveragePct: number;
@@ -37,32 +41,123 @@ export type SectorFundamentalsAgg = {
   }[];
 };
 
+type MemberRow = SectorFundamentalsAgg["members"][number];
+
+function finalizeAgg(
+  sector: GicsSector,
+  basis: FundamentalPeriodType,
+  universeCount: number,
+  members: MemberRow[],
+): SectorFundamentalsAgg {
+  const pick = (sel: (m: MemberRow) => number | null) =>
+    median(members.map(sel).filter((v): v is number => v != null && Number.isFinite(v)));
+  const def = getSectorDef(sector);
+  return {
+    sector,
+    nameZh: def.nameZh,
+    basis,
+    sampleCount: members.length,
+    universeCount,
+    coveragePct: universeCount ? members.length / universeCount : 0,
+    revenueYoYMedian: pick((m) => m.revenueYoY),
+    epsYoYMedian: pick((m) => m.epsYoY),
+    grossMarginMedian: pick((m) => m.grossMargin),
+    opMarginMedian: pick((m) => m.opMargin),
+    peMedian: pick((m) => m.pe),
+    members: members.sort((a, b) => a.symbol.localeCompare(b.symbol)),
+  };
+}
+
+/**
+ * 行业基本面聚合。默认季度口径（Bloomberg 惯例）：最新季 YoY/利润率 + TTM PE
+ * （现价×股本 / TTM 净利，价格只读库不触发回补）；该 sector 无任何季度快照时回退 FY。
+ */
 export async function aggregateSectorFundamentals(
   sector: GicsSector,
-  periodType: FundamentalPeriodType = "FY",
+  periodType: FundamentalPeriodType = "Q",
 ): Promise<SectorFundamentalsAgg> {
   const securities = await prisma.equitySecurity.findMany({
     where: { gicsSector: sector },
-    select: { symbol: true },
+    select: { symbol: true, marketCap: true },
   });
   const symbols = securities.map((s) => s.symbol);
   const universeCount = symbols.length;
+  if (!symbols.length) return finalizeAgg(sector, periodType, 0, []);
 
-  const snaps = symbols.length
-    ? await prisma.equityFundamentalSnapshot.findMany({
-        where: { symbol: { in: symbols }, periodType },
-        orderBy: [{ asOf: "desc" }],
-      })
-    : [];
+  if (periodType === "Q") {
+    const snaps = await prisma.equityFundamentalSnapshot.findMany({
+      where: {
+        symbol: { in: symbols },
+        periodType: "Q",
+        // 550 天 ≈ 6 个财季窗口：足够 TTM，又剔除停更股
+        asOf: { gte: new Date(Date.now() - 550 * 86_400_000) },
+      },
+      orderBy: { asOf: "asc" },
+    });
 
-  // 每只股票取最新一条（非 TTM 优先季度，若仅有 TTM 也可用）
+    if (snaps.length) {
+      const rowsBySymbol = new Map<string, typeof snaps>();
+      for (const s of snaps) {
+        const arr = rowsBySymbol.get(s.symbol);
+        if (arr) arr.push(s);
+        else rowsBySymbol.set(s.symbol, [s]);
+      }
+      const closes = await getLatestClosesDbOnly([...rowsBySymbol.keys()]);
+      const cachedMcap = new Map(securities.map((s) => [s.symbol, s.marketCap]));
+
+      const members: MemberRow[] = [];
+      for (const [sym, rows] of rowsBySymbol) {
+        const latest = rows[rows.length - 1]!;
+        const ttmRows: QuarterFundamentalRow[] = rows.map((r) => ({
+          period: r.period,
+          fiscalDate: (r.fiscalDate ?? r.asOf).toISOString().slice(0, 10),
+          revenue: r.revenue,
+          netIncome: r.netIncome,
+          eps: r.eps,
+          ocf: r.ocf,
+          capex: r.capex,
+          dividendsPaid: r.dividendsPaid,
+          totalAssets: r.totalAssets,
+          totalLiabilities: r.totalLiabilities,
+          equity: r.equity,
+          longTermDebt: r.longTermDebt,
+          cash: r.cash,
+          sharesOutstanding: r.sharesOutstanding,
+        }));
+        const ttm = computeTtm(ttmRows);
+        const close = closes.get(sym) ?? null;
+        const mcap =
+          close != null && latest.sharesOutstanding != null && latest.sharesOutstanding > 0
+            ? close * latest.sharesOutstanding
+            : (cachedMcap.get(sym) ?? null);
+        members.push({
+          symbol: sym,
+          revenueYoY: latest.revenueYoY,
+          epsYoY: latest.epsYoY,
+          pe:
+            mcap != null && ttm?.netIncome != null && ttm.netIncome > 0
+              ? mcap / ttm.netIncome
+              : null,
+          grossMargin: latest.grossMargin,
+          opMargin: latest.opMargin,
+          period: latest.period,
+        });
+      }
+      return finalizeAgg(sector, "Q", universeCount, members);
+    }
+    // Q 无数据（如生产尚未跑季度同步）→ 回退 FY，保证表不空
+  }
+
+  const snaps = await prisma.equityFundamentalSnapshot.findMany({
+    where: { symbol: { in: symbols }, periodType: "FY" },
+    orderBy: [{ asOf: "desc" }],
+  });
   const latestBySymbol = new Map<string, (typeof snaps)[number]>();
   for (const row of snaps) {
     if (latestBySymbol.has(row.symbol)) continue;
     latestBySymbol.set(row.symbol, row);
   }
-
-  const members = [...latestBySymbol.values()].map((r) => ({
+  const members: MemberRow[] = [...latestBySymbol.values()].map((r) => ({
     symbol: r.symbol,
     revenueYoY: r.revenueYoY,
     epsYoY: r.epsYoY,
@@ -71,26 +166,7 @@ export async function aggregateSectorFundamentals(
     opMargin: r.opMargin,
     period: r.period,
   }));
-
-  const pick = (sel: (m: (typeof members)[number]) => number | null) =>
-    median(members.map(sel).filter((v): v is number => v != null && Number.isFinite(v)));
-
-  const sampleCount = members.length;
-  const def = getSectorDef(sector);
-
-  return {
-    sector,
-    nameZh: def.nameZh,
-    sampleCount,
-    universeCount,
-    coveragePct: universeCount ? sampleCount / universeCount : 0,
-    revenueYoYMedian: pick((m) => m.revenueYoY),
-    epsYoYMedian: pick((m) => m.epsYoY),
-    grossMarginMedian: pick((m) => m.grossMargin),
-    opMarginMedian: pick((m) => m.opMargin),
-    peMedian: pick((m) => m.pe),
-    members: members.sort((a, b) => a.symbol.localeCompare(b.symbol)),
-  };
+  return finalizeAgg(sector, "FY", universeCount, members);
 }
 
 export async function aggregateAllSectorFundamentals(): Promise<

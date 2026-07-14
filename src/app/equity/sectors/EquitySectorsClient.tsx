@@ -131,6 +131,7 @@ export function EquitySectorsClient() {
     {
       sector: string;
       nameZh: string;
+      basis?: "Q" | "FY";
       revenueYoYMedian: number | null;
       peMedian: number | null;
       coveragePct: number;
@@ -145,6 +146,7 @@ export function EquitySectorsClient() {
           sectors?: {
             sector: string;
             nameZh: string;
+            basis?: "Q" | "FY";
             revenueYoYMedian: number | null;
             peMedian: number | null;
             coveragePct: number;
@@ -232,7 +234,7 @@ export function EquitySectorsClient() {
       {fundRows.length > 0 ? (
         <section className="overflow-x-auto rounded-md border border-fs-border">
           <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium text-fs-text">
-            行业基本面（中位数 · 样本覆盖见备注）
+            行业基本面（中位数 · 季度口径：最新季营收增速 + TTM PE）
           </div>
           <table className="min-w-full text-left text-sm">
             <thead className="bg-fs-elevated/60 text-xs text-fs-muted">
@@ -246,7 +248,14 @@ export function EquitySectorsClient() {
             <tbody>
               {fundRows.map((r) => (
                 <tr key={r.sector} className="border-t border-fs-border/60">
-                  <td className="px-3 py-2 text-fs-text">{r.nameZh}</td>
+                  <td className="px-3 py-2 text-fs-text">
+                    {r.nameZh}
+                    {r.basis === "FY" ? (
+                      <span className="ml-1.5 rounded bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-muted">
+                        年报
+                      </span>
+                    ) : null}
+                  </td>
                   <td className={`px-3 py-2 ${pctClass(r.revenueYoYMedian)}`}>
                     {fmtPct(r.revenueYoYMedian)}
                   </td>

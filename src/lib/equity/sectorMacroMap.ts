@@ -89,12 +89,15 @@ export const SECTOR_MACRO_MAP: Record<GicsSector, SectorMacroMapping> = {
   },
   "Health Care": {
     sector: "Health Care",
+    // 医疗：收入端看医疗通胀（定价）与服务消费，成本端看时薪（人力密集），防御属性对照利率
     keys: [
-      { key: "fred:CFNAI", labelZh: "芝加哥联储全国活动指数" },
+      { key: "fred:CPIMEDSL::yoy", labelZh: "CPI 医疗 同比" },
+      { key: "fred:PCESC96::yoy", labelZh: "实际服务消费 同比" },
+      { key: "fred:AHETPI::yoy", labelZh: "平均时薪 同比（人力成本）" },
       { key: "fred:DGS10::avg", labelZh: "10Y 国债收益率" },
     ],
-    pending: true,
-    noteZh: "医疗行业宏观映射待扩展；暂用跨周期背景指标。",
+    macroTemplateId: "builtin-us-cpi-drivers",
+    noteZh: "医疗通胀高于整体 CPI 时行业定价权占优；时薪走高压缩医院/服务商利润率。",
   },
   Financials: {
     sector: "Financials",
@@ -108,31 +111,39 @@ export const SECTOR_MACRO_MAP: Record<GicsSector, SectorMacroMapping> = {
   },
   "Information Technology": {
     sector: "Information Technology",
+    // 科技：需求端看企业资本开支（核心资本品新订单/私人固定投资），估值端看实际利率与金融条件
     keys: [
+      { key: "fred:NEWORDER::yoy", labelZh: "核心资本品新订单 同比" },
+      { key: "fred:PNFIC1::yoy", labelZh: "实际私人固定投资 同比" },
+      { key: "fred:DFII10::avg", labelZh: "10Y 实际收益率（TIPS）" },
       { key: "fred:NFCI::avg", labelZh: "芝加哥联储金融条件" },
-      { key: "fred:DGS10::avg", labelZh: "10Y 国债收益率" },
-      { key: "fred:CFNAI", labelZh: "芝加哥联储全国活动指数" },
     ],
-    pending: true,
-    noteZh: "科技以财报与估值为主；宏观侧给金融条件与活动背景。",
+    macroTemplateId: "builtin-us-monetary-conditions",
+    noteZh: "成长股久期长，实际利率上行压估值；资本开支周期决定企业 IT 需求。",
   },
   "Communication Services": {
     sector: "Communication Services",
+    // 通信服务双结构：互联网广告/媒体（META/GOOGL/NFLX）顺消费周期，电信（T/VZ）高股息类债券
     keys: [
-      { key: "fred:RSXFS::yoy", labelZh: "零售销售(除汽车) 同比" },
+      { key: "fred:PCEC96::yoy", labelZh: "实际个人消费支出 同比" },
+      { key: "fred:UMCSENT", labelZh: "密歇根消费者信心" },
       { key: "fred:NFCI::avg", labelZh: "芝加哥联储金融条件" },
+      { key: "fred:DGS10::avg", labelZh: "10Y 国债收益率" },
     ],
-    pending: true,
-    noteZh: "通信服务宏观映射待扩展。",
+    macroTemplateId: "builtin-us-consumer-balance-spending",
+    noteZh: "广告预算随消费与信心波动；电信子板块对利率敏感（高股息久期）。",
   },
   Utilities: {
     sector: "Utilities",
+    // 公用事业：类债券（利率+通胀预期定估值），量端看工业生产（电力需求代理），成本端看能源价格
     keys: [
       { key: "fred:DGS10::avg", labelZh: "10Y 国债收益率" },
       { key: "fred:T10YIE::avg", labelZh: "10Y 盈亏平衡通胀" },
+      { key: "fred:INDPRO::yoy", labelZh: "工业生产 同比（电力需求代理）" },
+      { key: "fred:DCOILWTICO::avg", labelZh: "WTI 原油（燃料成本代理）" },
     ],
-    pending: true,
-    noteZh: "公用事业对利率敏感；行业专属宏观待扩展。",
+    macroTemplateId: "builtin-us-monetary-conditions",
+    noteZh: "10Y 收益率是估值主导变量；监管定价下燃料成本传导有时滞。",
   },
   "Real Estate": {
     sector: "Real Estate",

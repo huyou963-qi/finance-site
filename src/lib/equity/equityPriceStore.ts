@@ -409,3 +409,20 @@ export async function getDailyClosesDbFirst(
 
   return { closes, source: "yahoo", missing: [...new Set(notUsable)] };
 }
+
+/**
+ * 只读库的每标的最新收盘价（不触发远端回补）。
+ * 供全市场聚合视图（sectors 首页 500+ 只）低成本现算估值；缺价的 symbol 不在结果里。
+ * 最新一根的原始 close 即当前价（拆股调整只影响历史根），无需走复权管线。
+ */
+export async function getLatestClosesDbOnly(symbols: string[]): Promise<Map<string, number>> {
+  const unique = [...new Set(symbols.map(normalizeSymbol).filter(Boolean))];
+  if (unique.length === 0) return new Map();
+  const rows = await prisma.$queryRaw<{ symbol: string; close: number }[]>`
+    SELECT DISTINCT ON (symbol) symbol, close
+    FROM mds.equity_daily_bar
+    WHERE symbol = ANY(${unique}) AND close > 0
+    ORDER BY symbol, date DESC
+  `;
+  return new Map(rows.map((r) => [r.symbol, Number(r.close)]));
+}

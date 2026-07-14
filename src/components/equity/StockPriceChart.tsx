@@ -6,6 +6,7 @@ import { CandlestickChart, BarChart } from "echarts/charts";
 import {
   DataZoomComponent,
   GridComponent,
+  MarkPointComponent,
   TooltipComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
@@ -15,6 +16,7 @@ echarts.use([
   BarChart,
   DataZoomComponent,
   GridComponent,
+  MarkPointComponent,
   TooltipComponent,
   CanvasRenderer,
 ]);
@@ -28,15 +30,25 @@ export type StockPriceBar = {
   volume: number | null;
 };
 
+/** K 线上的业绩事件打点（Bloomberg 风格 E 标记） */
+export type ChartEarningsMark = {
+  /** 披露日 ISO */
+  date: string;
+  /** hover 文案：如 "2026Q1 · 营收 +15.8% · EPS 0.13" */
+  labelZh: string;
+};
+
 const UP_COLOR = "#3ecf8e";
 const DOWN_COLOR = "#ef6461";
 
 /** 个股日线蜡烛图 + 成交量（数据来自 /api/equity/stocks/[symbol]/prices） */
 export function StockPriceChart({
   bars,
+  earningsMarks = [],
   height = 360,
 }: {
   bars: StockPriceBar[];
+  earningsMarks?: ChartEarningsMark[];
   height?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -57,6 +69,24 @@ export function StockPriceChart({
         opacity: 0.5,
       },
     }));
+
+    // 业绩打点：披露日不是交易日时挂到其后第一根 bar（盘后披露次日反应也在那根上）
+    const dateIndex = new Map(dates.map((d, i) => [d, i]));
+    const markData = earningsMarks.flatMap((m) => {
+      let idx = dateIndex.get(m.date);
+      if (idx == null) {
+        idx = dates.findIndex((d) => d > m.date);
+        if (idx < 0) return [];
+      }
+      const bar = bars[idx]!;
+      return [
+        {
+          name: m.labelZh,
+          coord: [dates[idx]!, bar.high ?? bar.close],
+          value: "E",
+        },
+      ];
+    });
 
     return {
       backgroundColor: "transparent",
@@ -119,6 +149,19 @@ export function StockPriceChart({
             borderColor: UP_COLOR,
             borderColor0: DOWN_COLOR,
           },
+          markPoint: markData.length
+            ? {
+                data: markData,
+                symbol: "pin",
+                symbolSize: 22,
+                symbolOffset: [0, -6],
+                itemStyle: { color: "#3b82f6", opacity: 0.9 },
+                label: { color: "#fff", fontSize: 10, formatter: "E" },
+                tooltip: {
+                  formatter: (p: { name: string }) => p.name,
+                },
+              }
+            : undefined,
         },
         {
           name: "成交量",
@@ -129,7 +172,7 @@ export function StockPriceChart({
         },
       ],
     };
-  }, [bars]);
+  }, [bars, earningsMarks]);
 
   useEffect(() => {
     if (!ref.current) return;
