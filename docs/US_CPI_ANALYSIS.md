@@ -145,3 +145,39 @@
 | T10YIE | 10Y 盈亏平衡通胀 | 2026-06 | 目录 | — |
 
 **勿用**：`CUSR0000SAC` / `SAS`（全商品/全服务）、`CUSR0000SETB01`（汽油非新车）— 已自框架与种子剔除。
+
+---
+
+## 附：CPI 分项季调环比表（BLS Table A 复刻 + 权重列）
+
+路由 `/macro/cpi-subitems`（顶栏「CPI分项」），复刻 BLS「Table A. Percent changes in CPI-U」：
+**分项作行、最近 N 个月的季调环比（MoM %）作列、末列为各分项权重**。用于一眼定位当月通胀由哪些分项驱动。
+
+- **组件**：`src/components/macro/CpiMomMatrixTable.tsx`（客户端，走 `/api/data/macro?source=unified`）
+- **行定义**：`src/lib/data/cpi/cpiMomMatrixCatalog.ts`（`CPI_MOM_MATRIX_ROWS`，含缩进层级与英文行名）
+- **权重快照**：`src/lib/data/cpi/cpi-relative-importance-2025.json`
+  = BLS *Relative importance …, December 2025*（2024 权重，CPI-U，占全部项目 %）。**每年 BLS 更新权重时手动 refresh 此 JSON**。
+- **环比口径**：DB 只存 SA 指数水平，环比在前端由相邻月比值算出（与 `seriesCalcConfigMap` 一致，不预存 MoM）。
+- **上色**：正值（通胀走热）红、负值绿、约 0 灰。
+
+### 新增分项序列（2026-07-14 FRED 校验，最新 obs 2026-06）
+
+| FRED ID（SA） | 行（Table A） | 权重 CPI-U % |
+| --- | --- | --- |
+| CPIUFDSL | Food 食品 | 13.698 |
+| CUSR0000SAF11 | Food at home 家庭食品 | 8.325 |
+| CUSR0000SEFV | Food away from home 外出就餐 | 5.373 |
+| CUSR0000SACE | Energy commodities 能源商品 | 3.120 |
+| CUSR0000SETB01 | Gasoline 汽油（全部类型） | 2.895 |
+| CUSR0000SEHE | Fuel oil 燃油及其他燃料* | 0.140 |
+| CUSR0000SEHF | Energy services 能源服务 | 3.262 |
+| CUSR0000SEHF01 | Electricity 电力 | 2.489 |
+| CUSR0000SEHF02 | Utility (piped) gas 管道燃气服务 | 0.773 |
+| CPIAPPSL | Apparel 服装 | 2.368 |
+| CUSR0000SAM1 | Medical care commodities 医疗护理商品 | 1.489 |
+| CUSR0000SAS4 | Transportation services 交通运输服务 | 6.315 |
+| CUSR0000SAM2 | Medical care services 医疗护理服务 | 6.935 |
+
+\* FRED 无单独「Fuel oil（季调）」序列，采用「Fuel oil and other fuels（SA）」`CUSR0000SEHE`，权重口径随之为 0.140。
+
+其余行（All items / 核心 CPI / 能源 / 核心商品·服务 / 新车 / 二手车 / Shelter）复用已在库序列。

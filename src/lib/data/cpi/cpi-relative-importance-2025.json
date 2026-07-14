@@ -1,0 +1,33 @@
+{
+  "index": "CPI-U",
+  "scope": "U.S. city average",
+  "asOf": "2025-12",
+  "weightBase": "2024 expenditure weights",
+  "source": "U.S. Bureau of Labor Statistics — Relative importance of components in the Consumer Price Indexes: U.S. city average, December 2025, Table 1",
+  "sourceUrl": "https://www.bls.gov/cpi/tables/relative-importance/2025.htm",
+  "fetchedAt": "2026-07-14",
+  "note": "Percent of all items (CPI-U). 手动快照，BLS 每年（通常 1 月随 12 月数据）发布新权重时用 --refresh 更新。fredId 为对应的季调（SA）指数序列。",
+  "weights": {
+    "CPIAUCSL": { "item": "All items", "cpiU": 100.0 },
+    "CPIUFDSL": { "item": "Food", "cpiU": 13.698 },
+    "CUSR0000SAF11": { "item": "Food at home", "cpiU": 8.325 },
+    "CUSR0000SEFV": { "item": "Food away from home", "cpiU": 5.373 },
+    "CPIENGSL": { "item": "Energy", "cpiU": 6.383 },
+    "CUSR0000SACE": { "item": "Energy commodities", "cpiU": 3.12 },
+    "CUSR0000SETB01": { "item": "Gasoline (all types)", "cpiU": 2.895 },
+    "CUSR0000SEHE": { "item": "Fuel oil and other fuels", "cpiU": 0.14 },
+    "CUSR0000SEHF": { "item": "Energy services", "cpiU": 3.262 },
+    "CUSR0000SEHF01": { "item": "Electricity", "cpiU": 2.489 },
+    "CUSR0000SEHF02": { "item": "Utility (piped) gas service", "cpiU": 0.773 },
+    "CPILFESL": { "item": "All items less food and energy", "cpiU": 79.919 },
+    "CUSR0000SACL1E": { "item": "Commodities less food and energy commodities", "cpiU": 19.176 },
+    "CUSR0000SETA01": { "item": "New vehicles", "cpiU": 3.838 },
+    "CUSR0000SETA02": { "item": "Used cars and trucks", "cpiU": 2.759 },
+    "CPIAPPSL": { "item": "Apparel", "cpiU": 2.368 },
+    "CUSR0000SAM1": { "item": "Medical care commodities", "cpiU": 1.489 },
+    "CUSR0000SASLE": { "item": "Services less energy services", "cpiU": 60.744 },
+    "CUSR0000SAH1": { "item": "Shelter", "cpiU": 35.625 },
+    "CUSR0000SAS4": { "item": "Transportation services", "cpiU": 6.315 },
+    "CUSR0000SAM2": { "item": "Medical care services", "cpiU": 6.935 }
+  }
+}

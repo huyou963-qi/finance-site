@@ -254,6 +254,72 @@ export const TE_CALENDAR_BY_FRED: Record<string, CalendarMatchSpec> = {
     keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
     excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
   },
+  // —— CPI 分项环比表（BLS Table A）新增分项：与 CPI 主报同刻发布 ——
+  CPIUFDSL: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SAF11: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SEFV: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SACE: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SETB01: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SEHE: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SEHF: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SEHF01: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SEHF02: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CPIAPPSL: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SAM1: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SAS4: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
+  CUSR0000SAM2: {
+    countryCodes: ["US"],
+    keywords: ["consumer price index", "cpi m/m", "cpi (mom)", "cpi (mm)"],
+    excludeKeywords: ["core", "y/y", "yoy", "ppi", "wage"],
+  },
   PPIFIS: {
     countryCodes: ["US"],
     keywords: ["ppi", "producer price index"],
