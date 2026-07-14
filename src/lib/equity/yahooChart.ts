@@ -126,6 +126,8 @@ async function fetchChart(symbol: string, opts: YahooFetchOpts): Promise<RawChar
   const res = await fetch(url, {
     cache: "no-store",
     headers: { "User-Agent": YAHOO_UA, Accept: "application/json" },
+    // 懒回补同步阻塞页面加载，网络卡住不能无限等——快速失败走既有空态兜底
+    signal: AbortSignal.timeout(10_000),
   });
   const text = await res.text().catch(() => "");
 

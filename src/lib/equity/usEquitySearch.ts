@@ -31,6 +31,7 @@ async function loadSecTickers(): Promise<SecTicker[]> {
     const res = await fetch(url, {
       cache: "no-store",
       headers: { "User-Agent": SEC_UA, Accept: "application/json" },
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`SEC tickers HTTP ${res.status}`);
     const json = (await res.json()) as {

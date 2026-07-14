@@ -99,6 +99,7 @@ export async function fetchSecCompanyFacts(cik: string): Promise<unknown> {
       "User-Agent": SEC_UA,
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) {
     throw new Error(`SEC companyfacts CIK${padded} HTTP ${res.status}`);
@@ -700,6 +701,7 @@ export async function fetchSecTickerCikMap(): Promise<Map<string, string>> {
   const res = await fetch(url, {
     cache: "no-store",
     headers: { "User-Agent": SEC_UA, Accept: "application/json" },
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new Error(`SEC tickers HTTP ${res.status}`);
   const json = (await res.json()) as Record<
@@ -726,6 +728,7 @@ export async function fetchYahooLastClose(symbol: string): Promise<number | null
         "User-Agent": "Mozilla/5.0 (compatible; finance-site/1.0)",
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as {

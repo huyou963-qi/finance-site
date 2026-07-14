@@ -97,6 +97,7 @@ export async function ingestSecFilingsForSymbol(
       Accept: "application/json",
     },
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new Error(`SEC submissions HTTP ${res.status}`);
   const data = (await res.json()) as {

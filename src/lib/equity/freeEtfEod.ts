@@ -70,6 +70,7 @@ async function fetchYahooChart(symbol: string, range: string): Promise<YahooChar
         "Mozilla/5.0 (compatible; finance-site/1.0; +https://localhost)",
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(10_000),
   });
   const text = await res.text().catch(() => "");
   if (!res.ok) {
@@ -168,6 +169,7 @@ export async function fetchTiingoDailyCloses(
       "Content-Type": "application/json",
       Authorization: `Token ${token}`,
     },
+    signal: AbortSignal.timeout(10_000),
   });
   const text = await res.text().catch(() => "");
   if (!res.ok) {

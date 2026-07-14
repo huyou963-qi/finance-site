@@ -20,7 +20,7 @@ export function fmpQuarterlyLimit(): number {
 async function fmpGetJson(endpoint: string, label: string): Promise<unknown> {
   const sep = endpoint.includes("?") ? "&" : "?";
   const url = `${FMP_BASE}${endpoint}${sep}apikey=${fmpKey()}`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
   const text = await res.text().catch(() => "");
   if (!res.ok) {
     throw new Error(`FMP ${label} 失败：HTTP ${res.status} ${text.slice(0, 160)}`);

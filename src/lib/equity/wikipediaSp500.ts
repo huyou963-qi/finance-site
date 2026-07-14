@@ -55,6 +55,7 @@ export async function fetchWikipediaSp500(
           "User-Agent": "finance-site/1.0 (equity sector seed; local)",
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok) throw new Error(`Wikipedia HTTP ${res.status}`);
       const data = (await res.json()) as {
