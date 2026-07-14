@@ -74,8 +74,9 @@ export function StockDetailClient({
 }: {
   symbol: string;
   name: string;
-  sectorSlug: string;
-  sectorNameZh: string;
+  // 全美股未分类成分 sectorSlug/sectorNameZh 为 null
+  sectorSlug: string | null;
+  sectorNameZh: string | null;
   industrySlug: string | null;
   industryName: string | null;
   gicsSubIndustry: string | null;
@@ -207,13 +208,17 @@ export function StockDetailClient({
           美股行业
         </Link>
         <span className="mx-1">/</span>
-        <Link
-          href={`/equity/sectors/${encodeURIComponent(sectorSlug)}`}
-          className="hover:text-fs-accent-text"
-        >
-          {sectorNameZh}
-        </Link>
-        {industrySlug && industryName ? (
+        {sectorSlug && sectorNameZh ? (
+          <Link
+            href={`/equity/sectors/${encodeURIComponent(sectorSlug)}`}
+            className="hover:text-fs-accent-text"
+          >
+            {sectorNameZh}
+          </Link>
+        ) : (
+          <span>未分类</span>
+        )}
+        {sectorSlug && industrySlug && industryName ? (
           <>
             <span className="mx-1">/</span>
             <Link
@@ -235,7 +240,7 @@ export function StockDetailClient({
             <span className="ml-2 text-sm font-normal text-fs-muted">{name}</span>
           </h1>
           <p className="mt-0.5 text-sm text-fs-muted">
-            {gicsSubIndustry ?? industryName ?? sectorNameZh}
+            {gicsSubIndustry ?? industryName ?? sectorNameZh ?? "美股"}
             {marketCap != null ? ` · 市值 ${fmtCap(marketCap)}` : ""}
             {priceSource ? ` · 行情 ${priceSource}` : ""}
           </p>

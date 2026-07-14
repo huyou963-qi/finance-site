@@ -80,7 +80,7 @@ function mapConstituentRow(
   r: {
     symbol: string;
     name: string;
-    gicsSector: string;
+    gicsSector: string | null;
     gicsIndustryGroup: string | null;
     gicsIndustry: string | null;
     gicsSubIndustry: string | null;
@@ -94,9 +94,10 @@ function mapConstituentRow(
   return {
     symbol: r.symbol,
     name: r.name,
-    gicsSector: (isGicsSector(r.gicsSector)
-      ? r.gicsSector
-      : normalizeGicsSector(r.gicsSector) ?? fallbackSector) as GicsSector,
+    // 成分查询恒按具体 gicsSector 过滤，故 r.gicsSector 运行时非空；类型放宽后用 fallbackSector 兜底
+    gicsSector: (r.gicsSector
+      ? (isGicsSector(r.gicsSector) ? r.gicsSector : normalizeGicsSector(r.gicsSector) ?? fallbackSector)
+      : fallbackSector) as GicsSector,
     gicsIndustryGroup: r.gicsIndustryGroup,
     gicsIndustry: r.gicsIndustry,
     gicsSubIndustry: r.gicsSubIndustry,
@@ -108,8 +109,10 @@ function mapConstituentRow(
 }
 
 export async function listSectorSummaries(): Promise<SectorSummary[]> {
+  // 只统计有 GICS 的成分（标普 500）；全宇宙未分类行（gicsSector=null）不进行业浏览计数
   const grouped = await prisma.equitySecurity.groupBy({
     by: ["gicsSector"],
+    where: { gicsSector: { not: null } },
     _count: { _all: true },
   });
   const countMap = new Map(

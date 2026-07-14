@@ -46,9 +46,15 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       to = utcSecToDate(toSec);
     }
 
+    // 未分类成分无 sector ETF；仅拉 SPY + 自身（+ 同业若有）
+    const sectorEtf = stock.sectorDef?.etf ?? null;
     const limit = tradingDayLimitForRange(fromSec);
     const symbols = [
-      ...new Set([stock.symbol, BENCHMARK_ETF, stock.sectorDef.etf, ...stock.peerSymbols]),
+      ...new Set(
+        [stock.symbol, BENCHMARK_ETF, sectorEtf, ...stock.peerSymbols].filter(
+          (s): s is string => !!s,
+        ),
+      ),
     ];
     const { closes, source } = await getDailyClosesDbFirst(symbols, limit);
 
@@ -74,11 +80,13 @@ export async function GET(req: NextRequest, ctx: Ctx) {
             points: industryNav.map((p) => ({ time: p.time, value: p.close })),
           }
         : null,
-      {
-        key: "sectorEtf",
-        name: stock.sectorDef.etf,
-        points: toValuePoints(normalizeNav(clipped[stock.sectorDef.etf] ?? [], fromSec)),
-      },
+      sectorEtf
+        ? {
+            key: "sectorEtf",
+            name: sectorEtf,
+            points: toValuePoints(normalizeNav(clipped[sectorEtf] ?? [], fromSec)),
+          }
+        : null,
       {
         key: "spy",
         name: BENCHMARK_ETF,
@@ -88,7 +96,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
     const returns = computeSymbolReturnsVsBaskets(clipped, [stock.symbol], fromSec, toSec, {
       spyCloses: clipped[BENCHMARK_ETF] ?? null,
-      sectorEtfCloses: clipped[stock.sectorDef.etf] ?? null,
+      sectorEtfCloses: sectorEtf ? clipped[sectorEtf] ?? null : null,
       industryNav,
     })[0]!;
 

@@ -27,9 +27,10 @@ export type StockContext = {
   marketCapAsOf: string | null;
   website: string | null;
   gicsSubIndustry: string | null;
-  sector: GicsSector;
-  sectorDef: GicsSectorDef;
-  sectorSlug: string;
+  /** 全美股宇宙的未分类成分 sector/sectorDef/sectorSlug 均为 null（仅个股页可用） */
+  sector: GicsSector | null;
+  sectorDef: GicsSectorDef | null;
+  sectorSlug: string | null;
   industry: GicsIndustry | null;
   industrySlug: string | null;
   /** 同 Industry 成分（含自身，按市值降序）；无 Industry 归属时为空 */
@@ -47,17 +48,22 @@ export async function loadStockContext(symbolRaw: string): Promise<StockContext 
   if (!symbol) return null;
 
   const row = await prisma.equitySecurity.findUnique({ where: { symbol } });
-  if (!row) return null;
+  if (!row) return null; // 真正未知标的才 404
 
-  const sector = isGicsSector(row.gicsSector)
-    ? row.gicsSector
-    : normalizeGicsSector(row.gicsSector);
-  if (!sector) return null;
+  // 全美股宇宙的未分类成分（gicsSector=null 或无法归一）→ sector 相关全 null，个股页优雅降级；
+  // 只有 row 完全不存在才 404。
+  const sector = row.gicsSector
+    ? isGicsSector(row.gicsSector)
+      ? row.gicsSector
+      : normalizeGicsSector(row.gicsSector)
+    : null;
 
-  const industry = row.gicsIndustryCode ? (getIndustryByCode(row.gicsIndustryCode) ?? null) : null;
-  const peers = industry
-    ? await listConstituentsByIndustry(sector, industry.code, { limit: 600 })
-    : [];
+  const industry =
+    sector && row.gicsIndustryCode ? (getIndustryByCode(row.gicsIndustryCode) ?? null) : null;
+  const peers =
+    sector && industry
+      ? await listConstituentsByIndustry(sector, industry.code, { limit: 600 })
+      : [];
 
   return {
     symbol: row.symbol,
@@ -68,8 +74,8 @@ export async function loadStockContext(symbolRaw: string): Promise<StockContext 
     website: row.website,
     gicsSubIndustry: row.gicsSubIndustry,
     sector,
-    sectorDef: getSectorDef(sector),
-    sectorSlug: sectorSlug(sector),
+    sectorDef: sector ? getSectorDef(sector) : null,
+    sectorSlug: sector ? sectorSlug(sector) : null,
     industry,
     industrySlug: industry ? industrySlug(industry.nameEn) : null,
     peerSymbols: peers.map((p) => p.symbol),

@@ -93,6 +93,7 @@
     "data:verify-cot": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cot.ts",
     "data:build-us-history-timeline": "node scripts/data/build-us-history-timeline.mjs",
     "equity:seed-sp500": "dotenv -e .env.local -- tsx scripts/equity/seed-sp500.ts",
+    "equity:seed-us-universe": "dotenv -e .env.local -- tsx scripts/equity/seed-us-universe.ts",
     "equity:assert-seeded": "dotenv -e .env.local -- tsx scripts/equity/assert-seeded.ts",
     "equity:sync-profiles": "dotenv -e .env.local -- tsx scripts/equity/sync-profiles.ts",
     "equity:sync-fundamentals": "dotenv -e .env.local -- tsx scripts/equity/sync-fundamentals.ts",

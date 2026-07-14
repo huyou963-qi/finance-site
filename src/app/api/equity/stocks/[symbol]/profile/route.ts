@@ -20,8 +20,14 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "未知标的" }, { status: 404 });
     }
 
+    // 未分类成分无 sector ETF
+    const sectorEtf = stock.sectorDef?.etf ?? null;
     const symbols = [
-      ...new Set([stock.symbol, BENCHMARK_ETF, stock.sectorDef.etf, ...stock.peerSymbols]),
+      ...new Set(
+        [stock.symbol, BENCHMARK_ETF, sectorEtf, ...stock.peerSymbols].filter(
+          (s): s is string => !!s,
+        ),
+      ),
     ];
     const { closes, source } = await getDailyClosesDbFirst(symbols, 320);
     const nowSec = Math.floor(Date.now() / 1000);
@@ -34,7 +40,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
           : null;
       const row = computeSymbolReturnsVsBaskets(closes, [stock.symbol], fromSec, nowSec, {
         spyCloses: closes[BENCHMARK_ETF] ?? null,
-        sectorEtfCloses: closes[stock.sectorDef.etf] ?? null,
+        sectorEtfCloses: sectorEtf ? closes[sectorEtf] ?? null : null,
         industryNav,
       })[0]!;
       return {
@@ -57,12 +63,14 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         website: stock.website,
         gicsSubIndustry: stock.gicsSubIndustry,
       },
-      sector: {
-        sector: stock.sector,
-        nameZh: stock.sectorDef.nameZh,
-        slug: stock.sectorSlug,
-        etf: stock.sectorDef.etf,
-      },
+      sector: stock.sectorDef
+        ? {
+            sector: stock.sector,
+            nameZh: stock.sectorDef.nameZh,
+            slug: stock.sectorSlug,
+            etf: stock.sectorDef.etf,
+          }
+        : null,
       industry: stock.industry
         ? {
             code: stock.industry.code,

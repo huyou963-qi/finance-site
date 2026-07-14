@@ -495,7 +495,8 @@ model EquitySecurity {
   symbol          String    @unique @db.VarChar(16)
   cik             String?   @db.VarChar(16)
   name            String    @db.VarChar(256)
-  gicsSector        String    @map("gics_sector") @db.VarChar(64)
+  /// 标普 500 成分带 GICS sector；全美股宇宙其余成分为 null（未分类，仅个股页可用，不进行业浏览树）
+  gicsSector        String?   @map("gics_sector") @db.VarChar(64)
   gicsIndustryGroup String?   @map("gics_industry_group") @db.VarChar(128)
   gicsIndustry      String?   @map("gics_industry") @db.VarChar(128)
   gicsSubIndustry   String?   @map("gics_sub_industry") @db.VarChar(128)

@@ -71,11 +71,18 @@ function buildPlan(flags: Flags): Step[] {
     steps.push({ label: "migrate", script: "db:migrate", args: [], gating: true });
   }
 
-  // 1b) 美股行业：S&P 500 成分（Wikipedia，幂等；失败不阻断宏观落库）
+  // 1b) 美股行业：先 seed S&P 500 成分（带 GICS），再 seed 全美股宇宙（NYSE/Nasdaq/CBOE，
+  //     createMany skipDuplicates 只补未分类新行，不覆盖标普 503 行的 GICS）。均幂等、离线读 git 快照。
   if (!flags.skipEquity) {
     steps.push({
       label: "equity:seed-sp500",
       script: "equity:seed-sp500",
+      args: [],
+      gating: false,
+    });
+    steps.push({
+      label: "equity:seed-us-universe",
+      script: "equity:seed-us-universe",
       args: [],
       gating: false,
     });

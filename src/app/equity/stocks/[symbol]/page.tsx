@@ -22,7 +22,7 @@ export default async function StockDetailPage({ params }: Props) {
         symbol={stock.symbol}
         name={stock.name}
         sectorSlug={stock.sectorSlug}
-        sectorNameZh={stock.sectorDef.nameZh}
+        sectorNameZh={stock.sectorDef?.nameZh ?? null}
         industrySlug={stock.industrySlug}
         industryName={stock.industry?.nameEn ?? null}
         gicsSubIndustry={stock.gicsSubIndustry}
