@@ -2450,9 +2450,16 @@ export function MacroSection() {
       const attrLookupKey = key.startsWith("fred:") ? fredCatalogBaseKey(key) : key;
       const mdsAttrs = mdsAttrsByKey.get(key) ?? mdsAttrsByKey.get(attrLookupKey);
       const extracted = extractedMetaByKey.get(key);
+      // 反映已应用的「运算」变换（环比%/同比%/差分/累计/变频/单位缩放）：
+      // 名称追加后缀、单位换成变换后的有效单位（如 MoM/YoY → %），
+      // 否则列表会一直显示原始「指数」，用的人无法分辨这一列是水平值还是环比/同比率。
+      const cfg = { ...DEFAULT_SERIES_CALC_CONFIG, ...(seriesCalcConfigMap[key] ?? {}) };
+      const baseLabel = resolveSeriesLabel(key, seriesDisplayLabelByKey);
+      const calcSuffix = buildMacroSeriesCalcSuffix(cfg);
+      const effectiveUnit = effectiveMacroSeriesUnit(key, cfg, mdsUnitByKey);
       m.set(key, {
         key,
-        label: resolveSeriesLabel(key, seriesDisplayLabelByKey),
+        label: calcSuffix ? `${baseLabel}（${calcSuffix}）` : baseLabel,
         frequency:
           extracted?.frequency ??
           mdsAttrs?.frequency ??
@@ -2460,7 +2467,7 @@ export function MacroSection() {
           catalogMetaByKey.get(key)?.frequency ??
           "-",
         range: extracted?.range ?? mdsAttrs?.range ?? "-",
-        unit: mdsAttrs?.unit ?? "-",
+        unit: effectiveUnit ?? mdsAttrs?.unit ?? "-",
         country: mdsAttrs?.country ?? "-",
         updatedAt: mdsAttrs?.updatedAt ?? "-",
         source: mdsAttrs?.source ?? "-",
@@ -2472,7 +2479,9 @@ export function MacroSection() {
     catalogMetaByKey,
     extractedMetaByKey,
     mdsAttrsByKey,
+    mdsUnitByKey,
     resolveSeriesLabel,
+    seriesCalcConfigMap,
     seriesDisplayLabelByKey,
   ]);
 
