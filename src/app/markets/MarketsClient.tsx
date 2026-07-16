@@ -282,6 +282,13 @@ export function MarketsClient() {
     setEventRangeToSec(to);
   }, []);
 
+  const onEventMarkerClick = useCallback(
+    (payload: { id: string; time: number; title: string; source: string }) => {
+      setEventContextDate(unixSecToContextDate(payload.time));
+    },
+    [],
+  );
+
   const onLocalCrosshairTime = useCallback((time: number | null) => {
     if (time != null) {
       setEventContextDate(unixSecToContextDate(time));
@@ -623,6 +630,7 @@ export function MarketsClient() {
             onLocalVisibleTimeRange={onLocalVisibleTimeRange}
             onVisibleTimeRangeChange={onVisibleTimeRangeChange}
             onLocalCrosshairTime={onLocalCrosshairTime}
+            onEventMarkerClick={onEventMarkerClick}
             toolbarPortalEl={chartToolbarMount}
           />
         </div>

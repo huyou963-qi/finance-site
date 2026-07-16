@@ -10,6 +10,7 @@ import { buildCotCatalogCountry } from "@/lib/data/cot/cotCatalog";
 import {
   consolidatePriceIndexCpi,
   mergeCatalogGroups,
+  presentUsCpiAsYoy,
 } from "@/lib/data/catalogTree";
 import {
   applyCatalogLayout,
@@ -524,7 +525,10 @@ export async function getFredCatalogCached(): Promise<CatalogCache> {
   if (catalogCache && Date.now() - catalogCache.builtAt < CACHE_TTL_MS) return catalogCache;
   const baseCountries = await buildBaseCatalogCountries();
   const layout = await loadMacroCatalogLayout();
-  const countries = layout ? applyCatalogLayout(baseCountries, layout) : baseCountries;
+  const laidOut = layout ? applyCatalogLayout(baseCountries, layout) : baseCountries;
+  // 收尾：美国 CPI 统一「同比」呈现 + 拆「CPI / CPI 分项」。必须在布局之后，
+  // 否则存量布局按原始基键匹配不到 ::yoy 变体。
+  const countries = presentUsCpiAsYoy(laidOut);
   const groups = countries.flatMap((country) =>
     country.categories.flatMap((category) => {
       const direct = {
@@ -539,14 +543,21 @@ export async function getFredCatalogCached(): Promise<CatalogCache> {
     }),
   );
   const allowlist = new Set<string>();
+  const addToAllowlist = (key: string) => {
+    allowlist.add(key);
+    // 目录若以变体形态（如 fred:CPIAUCSL::yoy）呈现，仍要放行其原始基键
+    // fred:CPIAUCSL，否则请求原始指数（分项环比表、模板 ::mom 等）会被拦截。
+    const base = fredCatalogBaseKey(key);
+    if (base !== key) allowlist.add(base);
+  };
   for (const country of countries) {
     for (const category of country.categories) {
       for (const item of category.items) {
-        allowlist.add(item.key);
+        addToAllowlist(item.key);
       }
       for (const sg of category.subgroups ?? []) {
         for (const item of sg.items) {
-          allowlist.add(item.key);
+          addToAllowlist(item.key);
         }
       }
     }

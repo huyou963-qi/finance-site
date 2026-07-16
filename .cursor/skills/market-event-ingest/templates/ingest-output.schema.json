@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MarketEventIngestRun",
+  "type": "object",
+  "required": ["mode", "events"],
+  "properties": {
+    "mode": { "type": "string", "minLength": 1 },
+    "query": { "type": "object" },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "externalId",
+          "title",
+          "content",
+          "occurredAt",
+          "eventType",
+          "markerLabel"
+        ],
+        "properties": {
+          "externalId": { "type": "string", "minLength": 1 },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "occurredAt": { "type": "string" },
+          "datePrecision": { "enum": ["DATE", "DATETIME"] },
+          "importance": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "scope": { "enum": ["COUNTRY", "INDUSTRY", "COMPANY", "CROSS"] },
+          "eventType": { "type": "string" },
+          "countries": { "type": "array", "items": { "type": "string" } },
+          "industries": { "type": "array", "items": { "type": "string" } },
+          "assets": { "type": "array", "items": { "type": "string" } },
+          "macroKeys": { "type": "array", "items": { "type": "string" } },
+          "persons": { "type": "array", "items": { "type": "string" } },
+          "institutions": { "type": "array", "items": { "type": "string" } },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "markerLabel": { "type": "string", "maxLength": 16 },
+          "sourceUrl": { "type": ["string", "null"] },
+          "payload": { "type": "object" },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["url"],
+              "properties": {
+                "url": { "type": "string" },
+                "note": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": { "type": "string" },
+          "hint": { "type": "string" }
+        }
+      }
+    }
+  }
+}

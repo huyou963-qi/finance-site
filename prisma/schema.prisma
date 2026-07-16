@@ -134,6 +134,15 @@ enum EventDatePrecision {
   @@schema("public")
 }
 
+enum EventScope {
+  COUNTRY
+  INDUSTRY
+  COMPANY
+  CROSS
+
+  @@schema("public")
+}
+
 /// 宏观/行情联动事件记录
 model MarketEvent {
   id            String             @id @default(uuid())
@@ -143,10 +152,18 @@ model MarketEvent {
   datePrecision EventDatePrecision @default(DATE) @map("date_precision")
   importance    EventImportance    @default(MEDIUM)
   eventType     String?            @map("event_type") @db.VarChar(64)
+  scope         EventScope         @default(CROSS)
   countries     String[]           @default([])
   industries    String[]           @default([])
   assets        String[]           @default([])
   macroKeys     String[]           @default([]) @map("macro_keys")
+  persons       String[]           @default([])
+  institutions  String[]           @default([])
+  tags          String[]           @default([])
+  payload       Json?
+  markerLabel   String?            @map("marker_label") @db.VarChar(16)
+  sourceKind    String?            @map("source_kind") @db.VarChar(32)
+  externalId    String?            @map("external_id") @db.VarChar(128)
   sourceUrl     String?            @map("source_url") @db.VarChar(512)
   isPublic      Boolean            @default(true) @map("is_public")
   createdById   String             @map("created_by_id")
@@ -156,6 +173,8 @@ model MarketEvent {
 
   @@index([occurredAt(sort: Desc)])
   @@index([importance])
+  @@index([scope])
+  @@index([sourceKind, externalId])
   @@map("market_event")
   @@schema("public")
 }

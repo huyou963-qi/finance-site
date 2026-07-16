@@ -310,6 +310,32 @@ const DEFAULT_SERIES_CALC_CONFIG: MacroSeriesCalcConfig = {
   resampleMethod: "end",
 };
 
+/**
+ * `fred:<ID>::yoy` / `::mom` 变体键在 **无显式 calc** 时的默认变换。
+ * 目录里以「同比 / 环比」形态呈现的条目（如 CPI 分项）靠此在选中后即算同比，
+ * 而非退回原始指数。模板里显式配置了 calc 的键不受影响（显式优先）。
+ */
+function inferVariantCalc(key: string): Partial<MacroSeriesCalcConfig> | null {
+  if (!key.includes("::")) return null;
+  const variant = key.split("::").pop()?.trim().toLowerCase();
+  if (variant === "yoy") return { op: "yoy", frequency: "month" };
+  if (variant === "mom" || variant === "pct" || variant === "pctchange") {
+    return { op: "pctChange", frequency: "month" };
+  }
+  return null;
+}
+
+function resolveSeriesCalcConfig(
+  key: string,
+  map: MacroSeriesCalcConfigMap,
+): MacroSeriesCalcConfig {
+  const explicit = map[key];
+  if (explicit) return { ...DEFAULT_SERIES_CALC_CONFIG, ...explicit };
+  const inferred = inferVariantCalc(key);
+  if (inferred) return { ...DEFAULT_SERIES_CALC_CONFIG, ...inferred };
+  return { ...DEFAULT_SERIES_CALC_CONFIG };
+}
+
 function applyUnitAdjust(value: number | null, unit: MacroUnitAdjust): number | null {
   if (value == null || !Number.isFinite(value)) return null;
   if (unit === "x0.01") return value * 0.01;
@@ -1945,7 +1971,7 @@ export function MacroSection() {
       .map((s) => {
         const key = s.key?.trim();
         if (!key) return null;
-        const cfg = { ...DEFAULT_SERIES_CALC_CONFIG, ...(seriesCalcConfigMap[key] ?? {}) };
+        const cfg = resolveSeriesCalcConfig(key, seriesCalcConfigMap);
         const scaled = s.data.map((v) => applyUnitAdjust(v, cfg.unit));
         // 先重采样再算 YoY/环比：unified 拉取会把日频（WTI）与月频（CPI）并到同一
         // 时间轴；若在日频轴上 idx-12 做同比，1986 年后 WTI 插入日点后会全部失效。
@@ -2453,7 +2479,7 @@ export function MacroSection() {
       // 反映已应用的「运算」变换（环比%/同比%/差分/累计/变频/单位缩放）：
       // 名称追加后缀、单位换成变换后的有效单位（如 MoM/YoY → %），
       // 否则列表会一直显示原始「指数」，用的人无法分辨这一列是水平值还是环比/同比率。
-      const cfg = { ...DEFAULT_SERIES_CALC_CONFIG, ...(seriesCalcConfigMap[key] ?? {}) };
+      const cfg = resolveSeriesCalcConfig(key, seriesCalcConfigMap);
       const baseLabel = resolveSeriesLabel(key, seriesDisplayLabelByKey);
       const calcSuffix = buildMacroSeriesCalcSuffix(cfg);
       const effectiveUnit = effectiveMacroSeriesUnit(key, cfg, mdsUnitByKey);
@@ -2570,7 +2596,7 @@ export function MacroSection() {
   const chartSettingsLabelByKey = useMemo(() => {
     const m = new Map<string, string>();
     for (const key of chartPropertyKeys) {
-      const cfg = { ...DEFAULT_SERIES_CALC_CONFIG, ...(seriesCalcConfigMap[key] ?? {}) };
+      const cfg = resolveSeriesCalcConfig(key, seriesCalcConfigMap);
       let base = macroSeriesLabelByKey.get(key) ?? resolveSeriesLabel(key, macroSeriesLabelByKey);
       if (key.startsWith("calc:")) {
         const calcId = key.slice(5);

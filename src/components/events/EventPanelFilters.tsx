@@ -1,11 +1,14 @@
 "use client";
 
-import type { EventImportance } from "@/lib/data/marketEvents";
+import type { EventImportance, EventScope } from "@/lib/data/marketEvents";
 import {
   EVENT_IMPORTANCE_LABELS,
   EVENT_TYPE_SUGGESTIONS,
   EVENT_INDUSTRY_SUGGESTIONS,
+  EVENT_SCOPE_LABELS,
+  EVENT_SCOPES,
 } from "@/lib/data/marketEvents";
+import { EVENT_TYPE_LABELS, type EventTypeCode } from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
 
@@ -14,8 +17,11 @@ export type EventPanelFilterState = {
   countries: string[];
   industries: string[];
   assets: string[];
+  persons: string[];
+  institutions: string[];
   importance: EventImportance | "";
   eventType: string;
+  scope: EventScope | "";
 };
 
 export const EMPTY_EVENT_PANEL_FILTERS: EventPanelFilterState = {
@@ -23,8 +29,11 @@ export const EMPTY_EVENT_PANEL_FILTERS: EventPanelFilterState = {
   countries: [],
   industries: [],
   assets: [],
+  persons: [],
+  institutions: [],
   importance: "",
   eventType: "",
+  scope: "",
 };
 
 export function hasActiveEventPanelFilters(f: EventPanelFilterState): boolean {
@@ -33,8 +42,11 @@ export function hasActiveEventPanelFilters(f: EventPanelFilterState): boolean {
       f.countries.length ||
       f.industries.length ||
       f.assets.length ||
+      f.persons.length ||
+      f.institutions.length ||
       f.importance ||
-      f.eventType,
+      f.eventType ||
+      f.scope,
   );
 }
 
@@ -43,6 +55,11 @@ type FilterTagChip = {
   label: string;
   onRemove: () => void;
 };
+
+function typeDisplay(t: string): string {
+  if (t in EVENT_TYPE_LABELS) return EVENT_TYPE_LABELS[t as EventTypeCode];
+  return t;
+}
 
 export function eventPanelFilterTagChips(
   filters: EventPanelFilterState,
@@ -56,10 +73,17 @@ export function eventPanelFilterTagChips(
       onRemove: () => onChange({ ...filters, importance: "" }),
     });
   }
+  if (filters.scope) {
+    chips.push({
+      id: "scope",
+      label: EVENT_SCOPE_LABELS[filters.scope],
+      onRemove: () => onChange({ ...filters, scope: "" }),
+    });
+  }
   if (filters.eventType) {
     chips.push({
       id: `type-${filters.eventType}`,
-      label: filters.eventType,
+      label: typeDisplay(filters.eventType),
       onRemove: () => onChange({ ...filters, eventType: "" }),
     });
   }
@@ -83,7 +107,27 @@ export function eventPanelFilterTagChips(
     chips.push({
       id: `asset-${a}`,
       label: a,
-      onRemove: () => onChange({ ...filters, assets: filters.assets.filter((x) => x !== a) }),
+      onRemove: () =>
+        onChange({ ...filters, assets: filters.assets.filter((x) => x !== a) }),
+    });
+  }
+  for (const p of filters.persons) {
+    chips.push({
+      id: `person-${p}`,
+      label: p,
+      onRemove: () =>
+        onChange({ ...filters, persons: filters.persons.filter((x) => x !== p) }),
+    });
+  }
+  for (const inst of filters.institutions) {
+    chips.push({
+      id: `inst-${inst}`,
+      label: inst,
+      onRemove: () =>
+        onChange({
+          ...filters,
+          institutions: filters.institutions.filter((x) => x !== inst),
+        }),
     });
   }
   return chips;
@@ -174,6 +218,21 @@ export function EventPanelFilters({
               </select>
             </label>
             <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-fs-muted">
+              范围
+              <select
+                value={filters.scope}
+                onChange={(e) => patch({ scope: e.target.value as EventScope | "" })}
+                className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
+              >
+                <option value="">全部</option>
+                {EVENT_SCOPES.map((s) => (
+                  <option key={s} value={s}>
+                    {EVENT_SCOPE_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-fs-muted">
               类型
               <select
                 value={filters.eventType}
@@ -183,7 +242,7 @@ export function EventPanelFilters({
                 <option value="">全部</option>
                 {EVENT_TYPE_SUGGESTIONS.map((t) => (
                   <option key={t} value={t}>
-                    {t}
+                    {typeDisplay(t)}
                   </option>
                 ))}
               </select>
@@ -198,11 +257,11 @@ export function EventPanelFilters({
             uppercase
           />
           <TagInput
-            label="行业"
+            label="行业（GICS）"
             values={filters.industries}
             onChange={(industries) => patch({ industries })}
-            placeholder="金融、能源…"
-            suggestions={EVENT_INDUSTRY_SUGGESTIONS}
+            placeholder="45、金融…"
+            suggestions={[...EVENT_INDUSTRY_SUGGESTIONS]}
           />
           <TagInput
             label="资产"
@@ -210,6 +269,18 @@ export function EventPanelFilters({
             onChange={(assets) => patch({ assets })}
             placeholder="AAPL、GC…"
             uppercase
+          />
+          <TagInput
+            label="人物"
+            values={filters.persons}
+            onChange={(persons) => patch({ persons })}
+            placeholder="Powell…"
+          />
+          <TagInput
+            label="机构"
+            values={filters.institutions}
+            onChange={(institutions) => patch({ institutions })}
+            placeholder="Fed、Goldman…"
           />
         </div>
       ) : null}

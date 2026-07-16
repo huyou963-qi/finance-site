@@ -349,6 +349,77 @@ API：`GET /api/admin/data-catalog` → `buildAdminDataCatalog()`（`adminCatalo
 
 ---
 
+## 十之二、目录归类与呈现层（侧栏指标树如何组装）
+
+> 前面的 §一~§十 讲 **DB 元数据 + 调度**。本节补齐 **前端指标树（`/macro` 左侧「指标目录」）的归类与呈现层**——即静态目录、库内 mds 目录、存量布局、CPI「同比」呈现如何叠成用户看到的树。此层此前无文档，是 2026-07 CPI 目录事故（CPI 只剩指数、同比消失）的根因所在。
+
+### 10b.1 三段式装配（`getFredCatalogCached`）
+
+```
+buildBaseCatalogCountries()                      ← 基础目录
+  = buildCountries()  静态 FRED_US_ITEMS → fred:<ID>（含友好中文名）
+  + loadMdsCatalog()  库内 mds 仪器（usov_/fiscal_/chov_/… → mds:<code>；
+                       **排除 sched_fred_***，它们是 fred:<ID> 的 db-first 副本）
+  + consolidatePriceIndexCpi()  把 CPI 类目并进「通胀与价格 → CPI」子层
+        │
+        ▼
+applyCatalogLayout(base, storedLayout)            ← 存量布局覆盖
+  存量 MacroCatalogLayout（DB id=default，由 agent-b-sync 脚本生成/维护）
+  **按 item.key 精确匹配** 重排；base 中未被布局收录的条目 → 落「未分配」
+        │
+        ▼
+presentUsCpiAsYoy(countries)                      ← 收尾：美国 CPI「同比」呈现
+  从最终结构（含「未分配」）摘出全部美国 CPI 指数条目 →
+  键改 fred:<ID>::yoy、标签补「同比」→ 拆「CPI」（主口径）/「CPI 分项」两个子层
+        │
+        ▼
+allowlist（每条 item.key + 其原始基键 fredCatalogBaseKey）
+```
+
+**关键顺序**：`presentUsCpiAsYoy` **必须在 `applyCatalogLayout` 之后**。存量布局按原始基键 `fred:CPIAUCSL` 匹配；若在 base 阶段就把键改成 `::yoy`，布局认不出而把全部 CPI 丢进「未分配」（已实测复现）。
+
+### 10b.2 归类权威表 `usCatalogTaxonomy.ts`
+
+`resolveUsCatalogPlacement({key,label,legacyCategory,fredId})` → `{category, subgroup}`，优先级：
+
+1. `placementFromFredId(fredId)` — 按 FRED id 集合硬编码（`FRED_CPI`、`FRED_LABOR_*`…）。变体键 `fred:X::yoy` 经 `fredIdFromCatalogKey` 归一到 `X`。
+2. `placementFromMdsCode(code)` — 按 mds code 前缀（`treasury_`、`fiscal_`、`usov_`…）。
+3. `LEGACY_CATEGORY_MAP[legacyCategory]` — 旧分类名兜底。
+4. 否则 `未分配`。
+
+`US_CATALOG_SUBGROUPS` 定义各大类下 **子层顺序**；`buildUsCatalogLayout.ts` 据此重建 `MacroCatalogLayout`。未列入顺序表的子层（如新增「CPI 分项」）**不会被过滤**，按出现顺序追加。
+
+> **已知坑（未在本次修复范围）**：`placementFromMdsCode` 把 **所有 `usov_*`** 一刀切进「利率与信用市场 / 市场情绪」，导致 `usov_c16_cpi_yoy`（CPI:同比）、`usov_c17_core_cpi_yoy`、PCE/PMI/收益率等 US-Overview 概念序列全落「市场情绪」而非各自概念子层。CPI「同比」改由静态 FRED 序列的 `::yoy` 呈现（见 10b.3）后，这两条 usov 副本仍留在「市场情绪」，属历史遗留，另行决定是否收敛。
+
+### 10b.3 变体键与「同比」呈现模型
+
+| 机制 | 位置 | 说明 |
+| --- | --- | --- |
+| **变体键** | `fred:<ID>::yoy` / `::mom` | 与 `fred:<ID>` 指向 **同一原始序列**；`::后缀` 仅作唯一标识与「默认变换」提示 |
+| **基键解析** | `fredCatalogBaseKey` / `fredInstrumentCodeFromKey` | 剥掉 `::后缀` → 原始序列 / `sched_fred_<ID>` 仪器 |
+| **allowlist** | `getFredCatalogCached` | 每条 item.key **额外放行其基键**，保证 `::yoy` 呈现下 **原始指数请求**（CPI 分项环比表、模板 `::mom`）不被拦 |
+| **默认变换推断** | `MacroSection.resolveSeriesCalcConfig` | 选中无显式 calc 的 `::yoy`/`::mom` 键 → 自动套「同比/环比·月频」；模板里显式配置的 calc **优先**，不受影响 |
+| **admin 解析** | `adminCatalog.resolveInstrumentForKey` | 同样剥 `::后缀` 到原始仪器（否则管理页显示「未入库」） |
+
+**美国 CPI 呈现规则**（`catalogTree.presentUsCpiAsYoy`）：
+- 全部 CPI 指数条目以 **同比** 呈现（键 `::yoy`、标签补「同比」）——CPI 的主要消费口径是 YoY。
+- **主口径**（总量/核心/能源/食品/住房/OER/核心商品/核心服务，`CPI_AGGREGATE_IDS`）→ 子层「CPI」。
+- **细分项**（电力/汽油/家庭食品/…）→ 子层「CPI 分项」。
+- 原始指数与环比仍可用：选中后在「运算」下拉改，或用 `/macro/cpi-subitems` 的 CPI 分项环比表（走基键 + 前端算环比）。
+
+### 10b.4 相关文件
+
+| 主题 | 路径 |
+| --- | --- |
+| 三段装配入口 | `src/lib/data/fredCatalog.ts`（`getFredCatalogCached` / `buildBaseCatalogCountries`） |
+| CPI 子层与同比呈现 | `src/lib/data/catalogTree.ts`（`consolidatePriceIndexCpi` / `presentUsCpiAsYoy`） |
+| 归类权威表 | `src/lib/data/usCatalogTaxonomy.ts` |
+| 存量布局应用 | `src/lib/data/catalogLayout.ts`（`applyCatalogLayout` / `loadMacroCatalogLayout`） |
+| 布局重建 | `src/lib/data/buildUsCatalogLayout.ts` |
+| 变换推断/呈现（前端） | `src/app/macro/MacroSection.tsx`（`resolveSeriesCalcConfig`） |
+
+---
+
 ## 十一、当前缺口与演进（设计预留）
 
 | 缺口 | 现状 | 建议 |

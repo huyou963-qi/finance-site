@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { EventDatePrecision, EventImportance, MarketEventDto } from "@/lib/data/marketEvents";
+import type {
+  EventDatePrecision,
+  EventImportance,
+  EventScope,
+  MarketEventDto,
+} from "@/lib/data/marketEvents";
 import {
   EVENT_IMPORTANCE_LABELS,
   EVENT_INDUSTRY_SUGGESTIONS,
+  EVENT_SCOPE_LABELS,
+  EVENT_SCOPES,
   EVENT_TYPE_SUGGESTIONS,
 } from "@/lib/data/marketEvents";
+import { EVENT_TYPE_LABELS, type EventTypeCode } from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
 
@@ -18,10 +26,15 @@ export type EventFormValues = {
   datePrecision: EventDatePrecision;
   importance: EventImportance;
   eventType: string;
+  scope: EventScope;
   countries: string[];
   industries: string[];
   assets: string[];
   macroKeys: string[];
+  persons: string[];
+  institutions: string[];
+  tags: string[];
+  markerLabel: string;
   sourceUrl: string;
 };
 
@@ -34,10 +47,15 @@ export function emptyEventForm(defaultDate?: string): EventFormValues {
     datePrecision: "DATE",
     importance: "MEDIUM",
     eventType: "",
+    scope: "CROSS",
     countries: [],
     industries: [],
     assets: [],
     macroKeys: [],
+    persons: [],
+    institutions: [],
+    tags: [],
+    markerLabel: "",
     sourceUrl: "",
   };
 }
@@ -53,10 +71,15 @@ export function eventToFormValues(event: MarketEventDto): EventFormValues {
     datePrecision: event.datePrecision,
     importance: event.importance,
     eventType: event.eventType ?? "",
+    scope: event.scope ?? "CROSS",
     countries: event.countries,
     industries: event.industries,
     assets: event.assets,
     macroKeys: event.macroKeys,
+    persons: event.persons ?? [],
+    institutions: event.institutions ?? [],
+    tags: event.tags ?? [],
+    markerLabel: event.markerLabel ?? "",
     sourceUrl: event.sourceUrl ?? "",
   };
 }
@@ -73,15 +96,26 @@ export function formValuesToPayload(form: EventFormValues) {
     datePrecision: form.datePrecision,
     importance: form.importance,
     eventType: form.eventType.trim() || null,
+    scope: form.scope,
     countries: form.countries,
     industries: form.industries,
     assets: form.assets,
     macroKeys: form.macroKeys,
+    persons: form.persons,
+    institutions: form.institutions,
+    tags: form.tags,
+    markerLabel: form.markerLabel.trim() || null,
     sourceUrl: form.sourceUrl.trim() || null,
+    sourceKind: "manual",
   };
 }
 
 const COUNTRY_SUGGESTIONS = MACRO_COUNTRIES.map((c) => c.code);
+
+function typeDisplay(t: string): string {
+  if (t in EVENT_TYPE_LABELS) return `${EVENT_TYPE_LABELS[t as EventTypeCode]} (${t})`;
+  return t;
+}
 
 export function EventFormModal({
   open,
@@ -150,6 +184,9 @@ export function EventFormModal({
           </button>
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3 text-[11px]">
+          <p className="text-[10px] text-fs-muted">
+            批量补录请用 AI Skill（market-event-ingest）；本表单用于纠错与少量补漏。
+          </p>
           <label className="block text-fs-muted">
             标题（可选）
             <input
@@ -220,22 +257,63 @@ export function EventFormModal({
               </label>
             ) : (
               <label className="block text-fs-muted">
-                事件类型
+                影响范围
                 <select
-                  value={form.eventType}
-                  onChange={(e) => patch({ eventType: e.target.value })}
+                  value={form.scope}
+                  onChange={(e) => patch({ scope: e.target.value as EventScope })}
                   className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
                 >
-                  <option value="">—</option>
-                  {EVENT_TYPE_SUGGESTIONS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {EVENT_SCOPES.map((s) => (
+                    <option key={s} value={s}>
+                      {EVENT_SCOPE_LABELS[s]}
                     </option>
                   ))}
                 </select>
               </label>
             )}
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-fs-muted">
+              事件类型
+              <select
+                value={form.eventType}
+                onChange={(e) => patch({ eventType: e.target.value })}
+                className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
+              >
+                <option value="">—</option>
+                {EVENT_TYPE_SUGGESTIONS.map((t) => (
+                  <option key={t} value={t}>
+                    {typeDisplay(t)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-fs-muted">
+              图上缩略字
+              <input
+                value={form.markerLabel}
+                onChange={(e) => patch({ markerLabel: e.target.value.slice(0, 16) })}
+                placeholder="如 降息、财报"
+                className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
+              />
+            </label>
+          </div>
+          {form.datePrecision === "DATETIME" ? (
+            <label className="block text-fs-muted">
+              影响范围
+              <select
+                value={form.scope}
+                onChange={(e) => patch({ scope: e.target.value as EventScope })}
+                className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
+              >
+                {EVENT_SCOPES.map((s) => (
+                  <option key={s} value={s}>
+                    {EVENT_SCOPE_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <TagInput
             label="国家标签"
             values={form.countries}
@@ -245,10 +323,10 @@ export function EventFormModal({
             uppercase
           />
           <TagInput
-            label="行业标签"
+            label="行业标签（GICS）"
             values={form.industries}
             onChange={(industries) => patch({ industries })}
-            suggestions={EVENT_INDUSTRY_SUGGESTIONS}
+            suggestions={[...EVENT_INDUSTRY_SUGGESTIONS]}
           />
           <TagInput
             label="资产标签"
@@ -256,6 +334,24 @@ export function EventFormModal({
             onChange={(assets) => patch({ assets })}
             placeholder="如 AAPL、000300.SH"
             uppercase
+          />
+          <TagInput
+            label="人物"
+            values={form.persons}
+            onChange={(persons) => patch({ persons })}
+            placeholder="Powell…"
+          />
+          <TagInput
+            label="机构"
+            values={form.institutions}
+            onChange={(institutions) => patch({ institutions })}
+            placeholder="Fed…"
+          />
+          <TagInput
+            label="自由标签"
+            values={form.tags}
+            onChange={(tags) => patch({ tags })}
+            placeholder="关税、AI…"
           />
           <TagInput
             label="宏观指标 key（可选）"

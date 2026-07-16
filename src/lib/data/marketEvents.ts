@@ -1,8 +1,31 @@
-import type { EventDatePrecision, EventImportance, MarketEvent, Prisma } from "@prisma/client";
+import type {
+  EventDatePrecision,
+  EventImportance,
+  EventScope,
+  MarketEvent,
+  Prisma,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
+import {
+  EVENT_IMPORTANCE_MIN_ORDER,
+  EVENT_INDUSTRY_SUGGESTIONS,
+  EVENT_SCOPE_LABELS,
+  EVENT_SCOPES,
+  EVENT_TYPE_SUGGESTIONS,
+  industriesMatch,
+  normalizeEventType,
+  normalizeIndustryTag,
+  type EventScopeCode,
+} from "@/lib/data/eventTaxonomy";
 
-export type { EventDatePrecision, EventImportance };
+export type { EventDatePrecision, EventImportance, EventScope };
+export {
+  EVENT_INDUSTRY_SUGGESTIONS,
+  EVENT_SCOPE_LABELS,
+  EVENT_SCOPES,
+  EVENT_TYPE_SUGGESTIONS,
+};
 
 export const EVENT_IMPORTANCE_LABELS: Record<EventImportance, string> = {
   LOW: "低",
@@ -18,33 +41,6 @@ export const EVENT_IMPORTANCE_ORDER: Record<EventImportance, number> = {
   LOW: 1,
 };
 
-export const EVENT_TYPE_SUGGESTIONS = [
-  "时代阶段",
-  "政策",
-  "央行决议",
-  "财报",
-  "地缘",
-  "自然灾害",
-  "市场异动",
-  "监管",
-  "战争",
-  "条约",
-  "其他",
-] as const;
-
-export const EVENT_INDUSTRY_SUGGESTIONS = [
-  "制造业",
-  "金融",
-  "能源",
-  "科技",
-  "消费",
-  "房地产",
-  "医药",
-  "原材料",
-  "公用事业",
-  "交通运输",
-] as const;
-
 export type MarketEventDto = {
   id: string;
   title: string | null;
@@ -53,10 +49,18 @@ export type MarketEventDto = {
   datePrecision: EventDatePrecision;
   importance: EventImportance;
   eventType: string | null;
+  scope: EventScope;
   countries: string[];
   industries: string[];
   assets: string[];
   macroKeys: string[];
+  persons: string[];
+  institutions: string[];
+  tags: string[];
+  payload: unknown;
+  markerLabel: string | null;
+  sourceKind: string | null;
+  externalId: string | null;
   sourceUrl: string | null;
   isPublic: boolean;
   createdById: string;
@@ -73,10 +77,18 @@ export type MarketEventInput = {
   datePrecision?: EventDatePrecision;
   importance?: EventImportance;
   eventType?: string | null;
+  scope?: EventScope | EventScopeCode;
   countries?: string[];
   industries?: string[];
   assets?: string[];
   macroKeys?: string[];
+  persons?: string[];
+  institutions?: string[];
+  tags?: string[];
+  payload?: unknown;
+  markerLabel?: string | null;
+  sourceKind?: string | null;
+  externalId?: string | null;
   sourceUrl?: string | null;
   isPublic?: boolean;
 };
@@ -89,6 +101,11 @@ export type ListMarketEventsParams = {
   industries?: string[];
   assets?: string[];
   importance?: EventImportance[];
+  eventTypes?: string[];
+  scopes?: EventScope[];
+  persons?: string[];
+  institutions?: string[];
+  tags?: string[];
   limit?: number;
   offset?: number;
 };
@@ -106,6 +123,7 @@ export type EventContextParams = {
 
 const VALID_IMPORTANCE = new Set<EventImportance>(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 const VALID_PRECISION = new Set<EventDatePrecision>(["DATE", "DATETIME"]);
+const VALID_SCOPE = new Set<string>(EVENT_SCOPES);
 const COUNTRY_CODES = new Set(MACRO_COUNTRIES.map((c) => c.code));
 
 function toDto(
@@ -120,10 +138,18 @@ function toDto(
     datePrecision: row.datePrecision,
     importance: row.importance,
     eventType: row.eventType,
+    scope: row.scope,
     countries: row.countries,
     industries: row.industries,
     assets: row.assets.map(normalizeAssetTag),
     macroKeys: row.macroKeys,
+    persons: row.persons,
+    institutions: row.institutions,
+    tags: row.tags,
+    payload: row.payload,
+    markerLabel: row.markerLabel,
+    sourceKind: row.sourceKind,
+    externalId: row.externalId,
     sourceUrl: row.sourceUrl,
     isPublic: row.isPublic,
     createdById: row.createdById,
@@ -153,6 +179,10 @@ export function normalizeTagList(values: string[] | undefined, upper = false): s
 
 export function normalizeCountries(values: string[] | undefined): string[] {
   return normalizeTagList(values, true).filter((c) => COUNTRY_CODES.has(c));
+}
+
+export function normalizeIndustries(values: string[] | undefined): string[] {
+  return normalizeTagList(values).map(normalizeIndustryTag);
 }
 
 /** 解析宏观/行情上下文日期标签 → UTC 日界中点 */
@@ -221,6 +251,13 @@ function parseOccurredAt(input: string, precision: EventDatePrecision): Date {
   return new Date(ms);
 }
 
+function parseScope(raw: string | undefined | null): EventScope {
+  if (!raw) return "CROSS";
+  const s = raw.trim().toUpperCase();
+  if (!VALID_SCOPE.has(s)) throw new Error("影响范围不合法");
+  return s as EventScope;
+}
+
 function sanitizeEventInput(input: MarketEventInput) {
   const content = input.content?.trim();
   if (!content) throw new Error("请填写事件内容");
@@ -238,17 +275,29 @@ function sanitizeEventInput(input: MarketEventInput) {
   const sourceUrl = input.sourceUrl?.trim() || null;
   if (sourceUrl && sourceUrl.length > 512) throw new Error("来源链接过长");
 
+  const markerLabel = input.markerLabel?.trim().slice(0, 16) || null;
+  const sourceKind = input.sourceKind?.trim().slice(0, 32) || null;
+  const externalId = input.externalId?.trim().slice(0, 128) || null;
+
   return {
     title,
     content,
     occurredAt: parseOccurredAt(input.occurredAt, datePrecision),
     datePrecision,
     importance,
-    eventType: input.eventType?.trim() || null,
+    eventType: normalizeEventType(input.eventType) || null,
+    scope: parseScope(input.scope),
     countries: normalizeCountries(input.countries),
-    industries: normalizeTagList(input.industries),
+    industries: normalizeIndustries(input.industries),
     assets: normalizeTagList(input.assets, true),
     macroKeys: normalizeTagList(input.macroKeys),
+    persons: normalizeTagList(input.persons),
+    institutions: normalizeTagList(input.institutions),
+    tags: normalizeTagList(input.tags),
+    payload: input.payload === undefined ? undefined : (input.payload as Prisma.InputJsonValue),
+    markerLabel,
+    sourceKind,
+    externalId,
     sourceUrl,
     isPublic: input.isPublic ?? true,
   };
@@ -276,7 +325,7 @@ function countryMatch(eventCountries: string[], contextCountries: string[]): boo
 function industryMatch(eventIndustries: string[], contextIndustries: string[]): boolean {
   if (contextIndustries.length === 0) return true;
   if (eventIndustries.length === 0) return true;
-  return intersects(eventIndustries, contextIndustries);
+  return industriesMatch(eventIndustries, contextIndustries);
 }
 
 function macroKeyMatch(eventKeys: string[], contextKeys: string[]): boolean {
@@ -346,7 +395,7 @@ export async function listMarketEvents(params: ListMarketEventsParams): Promise<
     where.countries = { hasSome: normalizeCountries(params.countries) };
   }
   if (params.industries?.length) {
-    where.industries = { hasSome: normalizeTagList(params.industries) };
+    where.industries = { hasSome: normalizeIndustries(params.industries) };
   }
   if (params.assets?.length) {
     where.assets = { hasSome: normalizeTagList(params.assets, true) };
@@ -354,13 +403,28 @@ export async function listMarketEvents(params: ListMarketEventsParams): Promise<
   if (params.importance?.length) {
     where.importance = { in: params.importance.filter((x) => VALID_IMPORTANCE.has(x)) };
   }
+  if (params.eventTypes?.length) {
+    where.eventType = { in: params.eventTypes.map((t) => normalizeEventType(t) ?? t) };
+  }
+  if (params.scopes?.length) {
+    where.scope = { in: params.scopes };
+  }
+  if (params.persons?.length) {
+    where.persons = { hasSome: normalizeTagList(params.persons) };
+  }
+  if (params.institutions?.length) {
+    where.institutions = { hasSome: normalizeTagList(params.institutions) };
+  }
+  if (params.tags?.length) {
+    where.tags = { hasSome: normalizeTagList(params.tags) };
+  }
 
   const limit = Math.min(2000, Math.max(1, params.limit ?? 50));
   const offset = Math.max(0, params.offset ?? 0);
 
   const eraHeaderWhere: Prisma.MarketEventWhereInput = {
     isPublic: true,
-    eventType: "时代阶段",
+    OR: [{ eventType: "时代阶段" }, { eventType: "era" }],
   };
   if (params.countries?.length) {
     eraHeaderWhere.countries = { hasSome: normalizeCountries(params.countries) };
@@ -402,7 +466,7 @@ export async function queryEventsByContext(params: EventContextParams): Promise<
   const ctx = {
     center,
     countries: normalizeCountries(params.countries),
-    industries: normalizeTagList(params.industries),
+    industries: normalizeIndustries(params.industries),
     assets: normalizeTagList(params.assets, true),
     macroKeys: normalizeTagList(params.macroKeys),
   };
@@ -433,7 +497,7 @@ export async function queryEventsByContext(params: EventContextParams): Promise<
 
   const eraHeaderWhere: Prisma.MarketEventWhereInput = {
     isPublic: true,
-    eventType: "时代阶段",
+    OR: [{ eventType: "时代阶段" }, { eventType: "era" }],
   };
   if (ctx.countries.length) {
     eraHeaderWhere.countries = { hasSome: ctx.countries };
@@ -463,14 +527,44 @@ export async function createMarketEvent(
   input: MarketEventInput,
 ): Promise<MarketEventDto> {
   const data = sanitizeEventInput(input);
+  const { payload, ...rest } = data;
   const row = await prisma.marketEvent.create({
     data: {
-      ...data,
+      ...rest,
+      ...(payload !== undefined ? { payload } : {}),
       createdById: userId,
     },
     include: { createdBy: { select: { username: true } } },
   });
   return toDto(row);
+}
+
+/** 按 sourceKind+externalId 幂等写入（Skill / ingest） */
+export async function upsertMarketEventByExternalId(
+  userId: string,
+  input: MarketEventInput,
+): Promise<{ event: MarketEventDto; created: boolean }> {
+  const data = sanitizeEventInput(input);
+  if (!data.sourceKind || !data.externalId) {
+    throw new Error("幂等写入需要 sourceKind 与 externalId");
+  }
+  const existing = await prisma.marketEvent.findFirst({
+    where: { sourceKind: data.sourceKind, externalId: data.externalId },
+  });
+  if (existing) {
+    const { payload, ...rest } = data;
+    const row = await prisma.marketEvent.update({
+      where: { id: existing.id },
+      data: {
+        ...rest,
+        ...(payload !== undefined ? { payload } : {}),
+      },
+      include: { createdBy: { select: { username: true } } },
+    });
+    return { event: toDto(row), created: false };
+  }
+  const event = await createMarketEvent(userId, input);
+  return { event, created: true };
 }
 
 export async function updateMarketEvent(
@@ -491,18 +585,30 @@ export async function updateMarketEvent(
     datePrecision: input.datePrecision ?? existing.datePrecision,
     importance: input.importance ?? existing.importance,
     eventType: input.eventType !== undefined ? input.eventType : existing.eventType,
+    scope: input.scope ?? existing.scope,
     countries: input.countries ?? existing.countries,
     industries: input.industries ?? existing.industries,
     assets: input.assets ?? existing.assets,
     macroKeys: input.macroKeys ?? existing.macroKeys,
+    persons: input.persons ?? existing.persons,
+    institutions: input.institutions ?? existing.institutions,
+    tags: input.tags ?? existing.tags,
+    payload: input.payload !== undefined ? input.payload : existing.payload,
+    markerLabel: input.markerLabel !== undefined ? input.markerLabel : existing.markerLabel,
+    sourceKind: input.sourceKind !== undefined ? input.sourceKind : existing.sourceKind,
+    externalId: input.externalId !== undefined ? input.externalId : existing.externalId,
     sourceUrl: input.sourceUrl !== undefined ? input.sourceUrl : existing.sourceUrl,
     isPublic: input.isPublic ?? existing.isPublic,
   };
 
   const data = sanitizeEventInput(merged);
+  const { payload, ...rest } = data;
   const row = await prisma.marketEvent.update({
     where: { id },
-    data,
+    data: {
+      ...rest,
+      ...(payload !== undefined ? { payload } : {}),
+    },
     include: { createdBy: { select: { username: true } } },
   });
   return toDto(row);
@@ -517,4 +623,12 @@ export function formatEventOccurredAt(dto: MarketEventDto): string {
   const d = new Date(dto.occurredAt);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
+export function meetsMinImportance(
+  importance: EventImportance,
+  min: EventImportance | null | undefined,
+): boolean {
+  if (!min) return true;
+  return EVENT_IMPORTANCE_MIN_ORDER[importance] >= EVENT_IMPORTANCE_MIN_ORDER[min];
 }

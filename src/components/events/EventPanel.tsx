@@ -120,6 +120,7 @@ function eventMatchesFilters(
     if (!hit) return false;
   }
   if (filters.importance && event.importance !== filters.importance) return false;
+  if (filters.scope && event.scope !== filters.scope) return false;
   if (filters.eventType && event.eventType !== filters.eventType) return false;
   if (filters.countries.length) {
     if (!filters.countries.some((c) => event.countries.includes(c))) return false;
@@ -130,6 +131,12 @@ function eventMatchesFilters(
   if (filters.assets.length) {
     const want = new Set(filters.assets.map((a) => a.toUpperCase()));
     if (!event.assets.some((a) => want.has(a.toUpperCase()))) return false;
+  }
+  if (filters.persons?.length) {
+    if (!filters.persons.some((p) => event.persons.includes(p))) return false;
+  }
+  if (filters.institutions?.length) {
+    if (!filters.institutions.some((i) => event.institutions.includes(i))) return false;
   }
   return true;
 }

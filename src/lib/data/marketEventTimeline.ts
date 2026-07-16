@@ -62,7 +62,7 @@ export function parseEventMarkers(content: string): ParsedEventMarkers {
 }
 
 export function isEraHeaderEvent(event: MarketEventDto): boolean {
-  if (event.eventType === ERA_EVENT_TYPE) return true;
+  if (event.eventType === ERA_EVENT_TYPE || event.eventType === "era") return true;
   return parseEventMarkers(event.content).foldable;
 }
 

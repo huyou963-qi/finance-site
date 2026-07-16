@@ -16,6 +16,8 @@
     "db:migrate-from-json": "tsx scripts/migrate-json-to-db.ts",
     "db:seed-market-events": "dotenv -e .env.local -- tsx scripts/seed-market-events.ts",
     "db:patch-market-events-era": "dotenv -e .env.local -- tsx scripts/patch-market-events-era.ts",
+    "events:validate-ingest": "dotenv -e .env.local -- tsx scripts/validate-event-ingest.ts",
+    "events:import-ingest": "dotenv -e .env.local -- tsx scripts/import-event-ingest.ts",
     "db:import-mysql-h": "tsx scripts/migrate-mysql-h-to-pg.ts",
     "db:seed-mds-from-legacy-h": "dotenv -e .env.local -- tsx scripts/seed-mds-from-legacy-h.ts",
     "db:etl-legacy-h-observations": "dotenv -e .env.local -- tsx scripts/etl-legacy-h-wide-to-observations.ts",

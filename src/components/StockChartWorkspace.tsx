@@ -5,19 +5,31 @@ import { createPortal } from "react-dom";
 import {
   CandlestickSeries,
   createChart,
+  createSeriesMarkers,
   CrosshairMode,
   HistogramSeries,
   isBusinessDay,
   LineSeries,
   type CandlestickData,
+  type ISeriesMarkersPluginApi,
   type LineData,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
+  type SeriesMarker,
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
+import { ChartEventMarkersToolbar } from "@/components/chart/ChartEventMarkersToolbar";
+import {
+  DEFAULT_CHART_EVENT_MARKER_PREFS,
+  loadChartEventMarkerPrefs,
+  saveChartEventMarkerPrefs,
+  type ChartEventMarkerPrefs,
+} from "@/lib/chart/chartEventMarkerPrefs";
+import type { ChartEventMarker } from "@/lib/data/chartEventMarkers";
+import { unixSecToContextDate } from "@/lib/data/marketEvents";
 import { KlineRangeStatsPanel } from "@/components/chart/KlineRangeStatsPanel";
 import {
   computeKlineRangeStats,
@@ -144,6 +156,13 @@ export type StockChartWorkspaceProps = {
   onLocalCrosshairTime?: (time: UTCTimestamp | null) => void;
   /** 若设置则将「主图叠加 / 区间统计 / 画图工具 / 清除画线」挂载到该 DOM 节点（如行情页顶栏） */
   toolbarPortalEl?: HTMLElement | null;
+  /** 点击事件标记时回调（用于侧栏定位） */
+  onEventMarkerClick?: (payload: {
+    id: string;
+    time: number;
+    title: string;
+    source: string;
+  }) => void;
 };
 
 type DrawingTool =
@@ -721,11 +740,27 @@ export function StockChartWorkspace({
   onVisibleTimeRangeChange,
   onLocalCrosshairTime,
   toolbarPortalEl = null,
+  onEventMarkerClick,
 }: StockChartWorkspaceProps) {
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+  const eventMarkersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const eventMarkersDataRef = useRef<ChartEventMarker[]>([]);
+  const onEventMarkerClickRef = useRef(onEventMarkerClick);
+  onEventMarkerClickRef.current = onEventMarkerClick;
+  const [eventMarkerPrefs, setEventMarkerPrefs] = useState<ChartEventMarkerPrefs>(
+    DEFAULT_CHART_EVENT_MARKER_PREFS,
+  );
+  /** 可见区间变化时触发事件标记刷新 */
+  const [markerRangeTick, setMarkerRangeTick] = useState(0);
+  useEffect(() => {
+    setEventMarkerPrefs(loadChartEventMarkerPrefs());
+  }, []);
+  useEffect(() => {
+    saveChartEventMarkerPrefs(eventMarkerPrefs);
+  }, [eventMarkerPrefs]);
   const nativeHandlesRef = useRef<{
     userPriceLines: IPriceLine[];
     userTrendLines: ISeriesApi<"Line", Time>[];
@@ -1984,6 +2019,12 @@ export function StockChartWorkspace({
     );
     candle.setData(initialCandles);
     candleRef.current = candle;
+    try {
+      eventMarkersPluginRef.current?.detach();
+    } catch {
+      /* ignore */
+    }
+    eventMarkersPluginRef.current = createSeriesMarkers(candle, []);
 
     nativeHandlesRef.current.overlayLines = { boll: [], ma: [] };
     nativeHandlesRef.current.subPaneSeries = [];
@@ -2105,6 +2146,30 @@ export function StockChartWorkspace({
       if (!se) return;
 
       if (tcur === "cursor") {
+        if (param.time !== undefined) {
+          const clickSec =
+            typeof param.time === "number"
+              ? param.time
+              : Math.floor(
+                  Date.UTC(
+                    (param.time as { year: number }).year,
+                    (param.time as { month: number }).month - 1,
+                    (param.time as { day: number }).day,
+                  ) / 1000,
+                );
+          const day = unixSecToContextDate(clickSec);
+          const hitMarker = eventMarkersDataRef.current.find(
+            (m) => unixSecToContextDate(m.time) === day,
+          );
+          if (hitMarker) {
+            onEventMarkerClickRef.current?.({
+              id: hitMarker.id,
+              time: hitMarker.time,
+              title: hitMarker.title,
+              source: hitMarker.source,
+            });
+          }
+        }
         const w = overlaySizeRef.current.w;
         const hit = pickDrawingAt(
           param.point.x,
@@ -2459,6 +2524,7 @@ export function StockChartWorkspace({
       const toSec = horzTimeToUnixSec(tr.to);
       if (fromSec == null || toSec == null) return;
       onVisibleTimeRangeChangeRef.current?.(fromSec, toSec);
+      setMarkerRangeTick((t) => t + 1);
       if (
         !pageSyncEnabledRef.current ||
         suppressVisibleRangeBroadcastRef.current
@@ -2491,6 +2557,8 @@ export function StockChartWorkspace({
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
+      eventMarkersPluginRef.current = null;
+      eventMarkersDataRef.current = [];
       nativeHandlesRef.current = {
         userPriceLines: [],
         userTrendLines: [],
@@ -2511,6 +2579,113 @@ export function StockChartWorkspace({
     interval,
     schedulePaneLayoutMetrics,
     ttmPeLine,
+  ]);
+
+  /** 可见区间内拉取事件标记并打到主图蜡烛上 */
+  useEffect(() => {
+    if (loading || !symbol.trim()) {
+      eventMarkersPluginRef.current?.setMarkers([]);
+      eventMarkersDataRef.current = [];
+      return;
+    }
+    if (!eventMarkerPrefs.enabled) {
+      eventMarkersPluginRef.current?.setMarkers([]);
+      eventMarkersDataRef.current = [];
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      const chart = chartRef.current;
+      const tr = chart?.timeScale().getVisibleRange();
+      let from: string | undefined;
+      let to: string | undefined;
+      if (tr) {
+        const fromSec =
+          typeof tr.from === "number"
+            ? tr.from
+            : Math.floor(Date.parse(String(tr.from)) / 1000);
+        const toSec =
+          typeof tr.to === "number"
+            ? tr.to
+            : Math.floor(Date.parse(String(tr.to)) / 1000);
+        if (Number.isFinite(fromSec) && Number.isFinite(toSec)) {
+          from = unixSecToContextDate(fromSec as number);
+          to = unixSecToContextDate(toSec as number);
+        }
+      }
+
+      const qs = new URLSearchParams({
+        symbol: symbol.trim().toUpperCase(),
+        expand: eventMarkerPrefs.expand,
+        minImportance: eventMarkerPrefs.minImportance,
+        includeSec: eventMarkerPrefs.includeSec ? "1" : "0",
+        includeMarket: eventMarkerPrefs.includeMarket ? "1" : "0",
+      });
+      if (from) qs.set("from", from);
+      if (to) qs.set("to", to);
+
+      void fetch(`/api/events/chart-markers?${qs}`)
+        .then((r) => r.json())
+        .then((j: { markers?: ChartEventMarker[]; error?: string }) => {
+          if (cancelled) return;
+          const markers = j.markers ?? [];
+          eventMarkersDataRef.current = markers;
+
+          // 同日聚合：只显示第一条，文字用 +N
+          const byDay = new Map<string, ChartEventMarker[]>();
+          for (const m of markers) {
+            const day = unixSecToContextDate(m.time);
+            const list = byDay.get(day) ?? [];
+            list.push(m);
+            byDay.set(day, list);
+          }
+          const seriesMarkers: SeriesMarker<Time>[] = [];
+          for (const [, list] of byDay) {
+            const primary = list[0]!;
+            const extra = list.length - 1;
+            const text = eventMarkerPrefs.showLabel
+              ? extra > 0
+                ? `${primary.label}+${extra}`
+                : primary.label
+              : undefined;
+            seriesMarkers.push({
+              time: primary.time as UTCTimestamp,
+              position: "aboveBar",
+              shape: primary.shape,
+              color: primary.color,
+              text,
+              id: primary.id,
+              size: 1,
+            });
+          }
+          seriesMarkers.sort((a, b) => Number(a.time) - Number(b.time));
+          eventMarkersPluginRef.current?.setMarkers(seriesMarkers);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            eventMarkersPluginRef.current?.setMarkers([]);
+            eventMarkersDataRef.current = [];
+          }
+        });
+    }, 280);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    loading,
+    symbol,
+    interval,
+    payload?.candles?.length,
+    eventMarkerPrefs.enabled,
+    eventMarkerPrefs.includeSec,
+    eventMarkerPrefs.includeMarket,
+    eventMarkerPrefs.minImportance,
+    eventMarkerPrefs.expand,
+    eventMarkerPrefs.showLabel,
+    markerRangeTick,
   ]);
 
   useEffect(() => {
@@ -3050,6 +3225,11 @@ export function StockChartWorkspace({
           已选中 · Delete 删除
         </span>
       ) : null}
+      <ChartEventMarkersToolbar
+        prefs={eventMarkerPrefs}
+        onChange={setEventMarkerPrefs}
+        compact
+      />
     </>
   );
 

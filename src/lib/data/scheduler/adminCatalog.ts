@@ -205,7 +205,8 @@ function resolveInstrumentForKey(
     return byCode.get(key.slice(4));
   }
   if (key.startsWith("fred:")) {
-    const fredId = key.slice(5).toUpperCase();
+    // 变体键（如 fred:CPIAUCSL::yoy）解析到同一原始序列仪器。
+    const fredId = key.slice(5).split("::")[0]!.trim().toUpperCase();
     return byFred.get(fredId) ?? byCode.get(`sched_fred_${fredId}`);
   }
   return undefined;
