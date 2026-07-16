@@ -83,8 +83,9 @@ jobs:
           rm -rf .next node_modules
           tar -xzf deploy.tar.gz
           rm -f deploy.tar.gz
-          # 幂等落库：schema 迁移 + 指标/订阅/发布包/目录布局 + 各域自检（见 docs/DATA_DEPLOY_SYNC.md）。
-          # 非致命：数据步骤失败只告警，不阻断应用重启（末尾健康检查兜底）。观测由 worker 自动回填。
+          # 幂等落库：先把表 owner 对齐为 DATABASE_URL 用户（修 must be owner），再 schema 迁移。
+          # 见 scripts/db-ensure-app-owner.mjs；部署用户为 root，可用 sudo -u postgres psql。
+          npm run db:ensure-owner || echo "[deploy] db:ensure-owner 失败，仍尝试 migrate"
           npm run db:migrate || echo "[deploy] db:migrate 失败，schema 未应用，请查日志"
           npm run data:apply -- --skip-migrate || echo "[deploy] data:apply 有失败项，应用仍将重启，请查日志"
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start

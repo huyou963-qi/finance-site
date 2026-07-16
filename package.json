@@ -12,6 +12,7 @@
     "postinstall": "prisma generate",
     "db:generate": "dotenv -e .env.local -- prisma generate",
     "db:migrate": "dotenv -e .env.local -- prisma migrate deploy",
+    "db:ensure-owner": "dotenv -e .env.local -- node scripts/db-ensure-app-owner.mjs",
     "db:migrate:dev": "dotenv -e .env.local -- prisma migrate dev",
     "db:migrate-from-json": "tsx scripts/migrate-json-to-db.ts",
     "db:seed-market-events": "dotenv -e .env.local -- tsx scripts/seed-market-events.ts",
