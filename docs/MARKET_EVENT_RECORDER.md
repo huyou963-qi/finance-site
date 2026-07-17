@@ -20,11 +20,6 @@ npm run events:import-ingest -- .data/event-ingest-run.json
 
 **库内去重**：除 `externalId` 外，同日 + 相同 `sourceUrl` / 标题+类型 / 正文指纹 / 评级机构+标的 视为同一事件——不新建，合并标签（见 Skill `reference/dedup.md`）。导入回报含 `merged`。
 
-## 部署与表 owner
-
-本机与阿里云统一：`DATABASE_URL=postgresql://finance:…@…/finance`，表 owner 应为 `finance`。  
-部署流水线在 `db:migrate` 前会跑 `npm run db:ensure-owner`（`scripts/db-ensure-app-owner.mjs`），用本机 `postgres` 超级用户把 `public`/`mds` 对象归属改回应用用户，避免 `must be owner of table`。
-
 ## 图表 API
 
 ```
