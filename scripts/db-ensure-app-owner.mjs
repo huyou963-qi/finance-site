@@ -25,17 +25,35 @@ function parseDatabaseUrl(url) {
 }
 
 function runPsqlAsPostgres(database, sql) {
-  // 优先 peer / 本地 socket（阿里云 root 部署常见）
-  const attempts = [
-    { cmd: "sudo", args: ["-u", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-d", database, "-c", sql] },
-    { cmd: "psql", args: ["-U", "postgres", "-h", "127.0.0.1", "-v", "ON_ERROR_STOP=1", "-d", database, "-c", sql] },
-  ];
+  // Linux 云部署：sudo -u postgres（peer）。Windows 本机：psql -U postgres（勿先跑 sudo，会挂起）。
+  const isWin = process.platform === "win32";
+  const attempts = isWin
+    ? [
+        {
+          cmd: "psql",
+          args: ["-U", "postgres", "-h", "127.0.0.1", "-v", "ON_ERROR_STOP=1", "-d", database, "-c", sql],
+        },
+      ]
+    : [
+        {
+          cmd: "sudo",
+          args: ["-n", "-u", "postgres", "psql", "-v", "ON_ERROR_STOP=1", "-d", database, "-c", sql],
+        },
+        {
+          cmd: "psql",
+          args: ["-U", "postgres", "-h", "127.0.0.1", "-v", "ON_ERROR_STOP=1", "-d", database, "-c", sql],
+        },
+      ];
   let lastErr = null;
   for (const a of attempts) {
     try {
       const r = spawnSync(a.cmd, a.args, {
         encoding: "utf8",
-        env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || "" },
+        timeout: 60_000,
+        env: {
+          ...process.env,
+          PGPASSWORD: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || "postgres",
+        },
       });
       if (r.status === 0) {
         return (r.stdout || "") + (r.stderr || "");
@@ -147,56 +165,62 @@ SELECT 'ok' AS ensure_owner,
 `;
 }
 
-function resolveFailedMigration(databaseUrl) {
-  // 仅处理当前已知的失败迁移：权限导致未真正落库
-  const migration = "20260716120000_market_event_chart_markers";
-  const checkSql = `
-SELECT migration_name, finished_at, rolled_back_at, logs
+function migrationState(databaseUrl, migration) {
+  const { database, user, host, port } = parseDatabaseUrl(databaseUrl);
+  const pass = decodeURIComponent(new URL(databaseUrl).password || "");
+  const sql = `
+SELECT CASE
+  WHEN finished_at IS NULL AND rolled_back_at IS NULL THEN 'failed'
+  WHEN rolled_back_at IS NOT NULL THEN 'rolled_back'
+  WHEN finished_at IS NOT NULL THEN 'applied'
+  ELSE 'unknown'
+END
 FROM "_prisma_migrations"
 WHERE migration_name = '${migration}'
 LIMIT 1;
-`;
-  let out = "";
-  try {
-    out = execFileSync(
-      "npx",
-      ["dotenv", "-e", ".env.local", "--", "prisma", "db", "execute", "--stdin"],
-      {
-        encoding: "utf8",
-        input: checkSql,
-        cwd: process.cwd(),
-        env: process.env,
-      },
-    );
-  } catch {
-    // prisma db execute 可能因版本/参数不可用；改用 psql + DATABASE_URL
-    try {
-      const { database, user, host, port } = parseDatabaseUrl(databaseUrl);
-      const pass = decodeURIComponent(new URL(databaseUrl).password || "");
-      const r = spawnSync(
-        "psql",
-        ["-h", host, "-p", port, "-U", user, "-d", database, "-tAc",
-          `SELECT CASE WHEN finished_at IS NULL AND rolled_back_at IS NULL THEN 'failed' WHEN rolled_back_at IS NOT NULL THEN 'rolled_back' WHEN finished_at IS NOT NULL THEN 'applied' ELSE 'unknown' END FROM "_prisma_migrations" WHERE migration_name='${migration}' LIMIT 1`],
-        { encoding: "utf8", env: { ...process.env, PGPASSWORD: pass } },
-      );
-      out = (r.stdout || "").trim();
-      if (out === "failed") {
-        console.log(`[db-ensure-owner] migration ${migration} is failed → resolve --rolled-back`);
-        execFileSync(
-          "npx",
-          ["dotenv", "-e", ".env.local", "--", "prisma", "migrate", "resolve", "--rolled-back", migration],
-          { stdio: "inherit", cwd: process.cwd(), env: process.env },
-        );
-      } else {
-        console.log(`[db-ensure-owner] migration ${migration} state: ${out || "absent"}`);
-      }
-      return;
-    } catch (e) {
-      console.warn(`[db-ensure-owner] skip failed-migration resolve: ${e instanceof Error ? e.message : e}`);
-      return;
-    }
+`.trim();
+  const r = spawnSync(
+    "psql",
+    ["-h", host, "-p", port, "-U", user, "-d", database, "-tAc", sql],
+    { encoding: "utf8", env: { ...process.env, PGPASSWORD: pass } },
+  );
+  if (r.status !== 0) {
+    throw new Error((r.stderr || r.stdout || `psql exit ${r.status}`).trim());
   }
-  console.log(`[db-ensure-owner] prisma migrations check:\n${out}`);
+  return (r.stdout || "").trim() || "absent";
+}
+
+function resolveFailedMigration(databaseUrl) {
+  // 方案 A：权限失败导致未真正落库 → 标 rolled-back，再由 migrate deploy 重跑
+  const migration = "20260716120000_market_event_chart_markers";
+  try {
+    const state = migrationState(databaseUrl, migration);
+    console.log(`[db-ensure-owner] migration ${migration} state: ${state}`);
+    if (state !== "failed") return;
+
+    console.log(`[db-ensure-owner] → prisma migrate resolve --rolled-back ${migration}`);
+    execFileSync(
+      "npx",
+      [
+        "dotenv",
+        "-e",
+        ".env.local",
+        "--",
+        "prisma",
+        "migrate",
+        "resolve",
+        "--rolled-back",
+        migration,
+      ],
+      { stdio: "inherit", cwd: process.cwd(), env: process.env },
+    );
+    console.log(`[db-ensure-owner] resolved ${migration} as rolled-back`);
+  } catch (e) {
+    console.error(
+      `[db-ensure-owner] failed-migration resolve ERROR: ${e instanceof Error ? e.message : e}`,
+    );
+    process.exit(3);
+  }
 }
 
 function main() {
