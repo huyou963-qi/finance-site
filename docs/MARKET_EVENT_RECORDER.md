@@ -20,6 +20,22 @@ npm run events:import-ingest -- .data/event-ingest-run.json
 
 **库内去重**：除 `externalId` 外，同日 + 相同 `sourceUrl` / 标题+类型 / 正文指纹 / 评级机构+标的 视为同一事件——不新建，合并标签（见 Skill `reference/dedup.md`）。导入回报含 `merged`。
 
+## 旧事件字段回填
+
+美国时间线等旧行可能仍是中文 `eventType`、空的 `scope/markerLabel/sourceKind/externalId`。  
+用幂等脚本就地 UPDATE（**不必**再传 JSON；云库里已有这些行）：
+
+```bash
+# 本机
+npm run db:backfill-market-event-fields -- --dry-run
+npm run db:backfill-market-event-fields
+
+# 云服务器（代码随 deploy 更新后执行一次）
+cd /opt/finance-site
+npm run db:backfill-market-event-fields -- --dry-run
+npm run db:backfill-market-event-fields
+```
+
 ## 图表 API
 
 ```
