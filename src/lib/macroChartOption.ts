@@ -113,31 +113,75 @@ export function resolveSlotAxisRanges(
 
 export function computePaddedValueExtent(
   values: number[],
-  padRatio = 0.12,
+  padRatio = 0.06,
 ): { min: number; max: number } | null {
   if (values.length === 0) return null;
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const span = hi - lo;
   const pad = span > 0 ? span * padRatio : Math.max(Math.abs(hi) * 0.05, 1);
-  return { min: lo - pad, max: hi + pad };
+  let min = lo - pad;
+  let max = hi + pad;
+  // 全非负 / 全非正时不要把轴跨过 0（堆叠柱尤其需要从 0 起）
+  if (lo >= 0) min = Math.max(0, min);
+  if (hi <= 0) max = Math.min(0, max);
+  return { min, max };
 }
 
-/** 从图内序列收集某侧 Y 轴上的有效数值 */
+const STACK_CHART_TYPES = new Set<MacroSeriesChartType>(["stackBar", "stackArea"]);
+
+/** 从图内序列收集某侧 Y 轴上的有效数值（堆叠序列按类目求和） */
 export function collectSeriesValuesOnAxis(
   slice: MacroChartSlice,
   visualMap: MacroSeriesVisualConfigMap,
   axis: "left" | "right",
 ): number[] {
   const values: number[] = [];
+  const stackGroups = new Map<string, Array<Array<number | null | undefined>>>();
+
   for (const s of slice.series) {
     const k = s.key ?? s.name;
-    const onRight = visualMap[k]?.axis === "right";
+    const cfg = visualMap[k];
+    const onRight = cfg?.axis === "right";
     if (axis === "left" ? onRight : !onRight) continue;
+
+    const chartType = cfg?.chartType ?? "line";
+    if (STACK_CHART_TYPES.has(chartType)) {
+      const group = cfg?.stackGroup ?? `stack-${axis}`;
+      const list = stackGroups.get(group) ?? [];
+      list.push(s.data as Array<number | null | undefined>);
+      stackGroups.set(group, list);
+      continue;
+    }
+
     for (const v of s.data) {
       if (typeof v === "number" && Number.isFinite(v)) values.push(v);
     }
   }
+
+  let stackFloor: number | null = null;
+  for (const seriesList of stackGroups.values()) {
+    const len = seriesList.reduce((m, d) => Math.max(m, d.length), 0);
+    for (let i = 0; i < len; i++) {
+      let sum = 0;
+      let any = false;
+      for (const data of seriesList) {
+        const v = data[i];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          sum += v;
+          any = true;
+        }
+      }
+      if (any) {
+        values.push(sum);
+        stackFloor = stackFloor == null ? sum : Math.min(stackFloor, sum);
+      }
+    }
+  }
+
+  // 非负堆叠从基线 0 起画，范围必须包含 0，否则自动轴会裁掉柱体下部
+  if (stackFloor != null && stackFloor >= 0) values.push(0);
+
   return values;
 }
 

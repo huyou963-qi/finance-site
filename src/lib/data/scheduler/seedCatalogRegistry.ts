@@ -63,6 +63,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     labelZh: "制造业与库存周期自检",
     verifyNeedsDb: true,
   },
+  debtcap: { script: "verify-debtcap", labelZh: "BIS 杠杆率与偿债率自检" },
 };
 
 export function listSeedCatalogNames(): string[] {

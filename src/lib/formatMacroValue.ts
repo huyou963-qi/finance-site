@@ -38,7 +38,33 @@ export function roundMacroDisplayNumber(value: number): number {
   return Number(formatMacroDisplayNumber(value));
 }
 
-/** 自动 Y 轴边界：按展示精度向外取整，避免 8.903585 这类刻度 */
+function cleanAxisNumber(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  return Number(value.toPrecision(12));
+}
+
+/**
+ * “好看”刻度步长（1 / 2 / 5 × 10^n）。
+ * round=true 时向最近 nice 值靠拢（用于 step）；false 时向上取（用于 range）。
+ */
+function niceNumber(range: number, round: boolean): number {
+  if (!Number.isFinite(range) || range <= 0) return 1;
+  const exponent = Math.floor(Math.log10(range));
+  const fraction = range / 10 ** exponent;
+  let niceFraction: number;
+  if (round) {
+    if (fraction < 1.5) niceFraction = 1;
+    else if (fraction < 3) niceFraction = 2;
+    else if (fraction < 7) niceFraction = 5;
+    else niceFraction = 10;
+  } else if (fraction <= 1) niceFraction = 1;
+  else if (fraction <= 2) niceFraction = 2;
+  else if (fraction <= 5) niceFraction = 5;
+  else niceFraction = 10;
+  return niceFraction * 10 ** exponent;
+}
+
+/** 自动 Y 轴边界：按展示精度向外取整（legacy；优先用 normalizeMacroAxisExtent） */
 export function roundMacroAxisBound(value: number, edge: "min" | "max"): number {
   if (!Number.isFinite(value)) return value;
   const decimals = macroDecimalPlaces(Math.abs(value));
@@ -48,15 +74,46 @@ export function roundMacroAxisBound(value: number, edge: "min" | "max"): number 
   return roundMacroDisplayNumber(rounded);
 }
 
+/**
+ * 自动 Y 轴范围：对齐到 1/2/5×10^n 刻度，避免 244.58、8.82 这类边界。
+ */
 export function normalizeMacroAxisExtent(extent: {
   min: number;
   max: number;
 }): { min: number; max: number } {
-  let min = roundMacroAxisBound(extent.min, "min");
-  let max = roundMacroAxisBound(extent.max, "max");
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
-    max = min + Math.max(Math.abs(min) * 0.02, 0.01);
-    max = roundMacroAxisBound(max, "max");
+  let min = extent.min;
+  let max = extent.max;
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return { min, max };
   }
-  return { min, max };
+
+  if (min === max) {
+    const pad = Math.max(Math.abs(min) * 0.05, 1);
+    min -= pad;
+    max += pad;
+  }
+
+  if (min > max) {
+    const t = min;
+    min = max;
+    max = t;
+  }
+
+  const tickCount = 5;
+  const step = niceNumber((max - min) / Math.max(tickCount - 1, 1), true);
+  let niceMin = Math.floor(min / step) * step;
+  let niceMax = Math.ceil(max / step) * step;
+
+  // 数据全非负时不把轴拉到负区间；全非正时同理
+  if (min >= 0 && niceMin < 0) niceMin = 0;
+  if (max <= 0 && niceMax > 0) niceMax = 0;
+
+  if (niceMin >= niceMax) {
+    niceMax = niceMin + step;
+  }
+
+  return {
+    min: cleanAxisNumber(niceMin),
+    max: cleanAxisNumber(niceMax),
+  };
 }

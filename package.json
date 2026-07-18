@@ -65,6 +65,7 @@
     "data:seed-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase2.ts",
     "data:verify-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/verify-phase2.ts",
     "data:refetch-debtcap": "dotenv -e .env.local -- tsx scripts/data-worker/refetch-debtcap-bis.ts",
+    "data:retag-debtcap": "dotenv -e .env.local -- tsx scripts/data-worker/retag-debtcap-source.ts",
     "data:verify-debtcap": "dotenv -e .env.local -- tsx scripts/data-worker/verify-debtcap.ts",
     "data:seed-phase3-wb": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase3-wb.ts",
     "data:verify-phase3": "dotenv -e .env.local -- tsx scripts/data-worker/verify-phase3.ts",
