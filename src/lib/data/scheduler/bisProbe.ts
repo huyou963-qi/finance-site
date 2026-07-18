@@ -16,19 +16,33 @@ export type BisProbeResult = {
 
 const BIS_API_V1 = "https://stats.bis.org/api/v1/data";
 
-/** debtcap sectorCode → BIS DSR/Credit 维度后缀 */
+/** debtcap sectorCode → BIS 借款人部门维度（CL_TC_BORROWERS / CL_DSR_BORROWERS） */
 const BIS_SECTOR_SUFFIX: Record<string, string | null> = {
   household: "H",
   non_financial_corporate: "N",
   private_non_financial: "P",
-  government: null,
+  government: "G",
 };
 
 const METRIC_TO_BIS_FLOW: Record<string, string | null> = {
   debt_service: "WS_DSR",
-  leverage: "WS_CREDIT_GAP",
-  leverage_nominal: "WS_CREDIT_GAP",
+  leverage: "WS_TC",
+  leverage_nominal: "WS_TC",
 };
+
+/** BIS 各数据流当前版本（WS_TC 是 2.0，用 1.0 请求会 404） */
+export const BIS_FLOW_VERSION: Record<string, string> = {
+  WS_TC: "2.0",
+  WS_DSR: "1.0",
+  WS_CREDIT_GAP: "1.0",
+};
+
+export function bisFlowVersion(flowId: string): string {
+  return BIS_FLOW_VERSION[flowId] ?? "1.0";
+}
+
+/** WS_DSR 只发布 H/N/P，没有政府部门 */
+const BIS_DSR_SECTORS = new Set(["H", "N", "P"]);
 
 function portalUrl(flowId: string, seriesKey: string): string {
   if (flowId === "WS_DSR") {
@@ -37,11 +51,18 @@ function portalUrl(flowId: string, seriesKey: string): string {
   if (flowId === "WS_CREDIT_GAP") {
     return "https://data.bis.org/topics/CREDIT_GAP";
   }
+  if (flowId === "WS_TC") {
+    return "https://data.bis.org/topics/TOTAL_CREDIT";
+  }
   return "https://www.bis.org/statistics/";
 }
 
 function buildApiUrl(flowId: string, seriesKey: string): string {
-  return `${BIS_API_V1}/BIS,${flowId},1.0/${seriesKey}?startPeriod=2020-Q1&endPeriod=2025-Q4&format=csv`;
+  const endYear = new Date().getUTCFullYear() + 1;
+  return (
+    `${BIS_API_V1}/BIS,${flowId},${bisFlowVersion(flowId)}/${seriesKey}` +
+    `?startPeriod=2020-Q1&endPeriod=${endYear}-Q4&format=csv`
+  );
 }
 
 function parseBisCsv(text: string): { date: string; value: number } | null {
@@ -105,13 +126,18 @@ export function bisSeriesKeyFromDebtcapMeta(meta: {
   const flowId = METRIC_TO_BIS_FLOW[metric];
   if (!flowId || !/^[A-Z]{2}$/.test(cc)) return null;
 
-  if (flowId === "WS_CREDIT_GAP") {
-    // BIS credit gap 数据流：Q.{国家}.P.A.A（私营非金融部门信贷/GDP 比）
-    return { flowId, seriesKey: `Q.${cc}.P.A.A` };
-  }
-
   const suffix = BIS_SECTOR_SUFFIX[sector];
   if (!suffix) return null;
+
+  if (flowId === "WS_TC") {
+    // 总信贷流：FREQ.BORROWERS_CTY.TC_BORROWERS.TC_LENDERS.VALUATION.UNIT_TYPE.TC_ADJUST
+    // 770 = Percentage of GDP；leverage 用市值（M），leverage_nominal 用名义价值（N）
+    const valuation = metric === "leverage_nominal" ? "N" : "M";
+    return { flowId, seriesKey: `Q.${cc}.${suffix}.A.${valuation}.770.A` };
+  }
+
+  // WS_DSR 只覆盖 H/N/P
+  if (!BIS_DSR_SECTORS.has(suffix)) return null;
   return { flowId, seriesKey: `Q.${cc}.${suffix}` };
 }
 

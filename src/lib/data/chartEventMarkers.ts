@@ -1,11 +1,5 @@
 import type { EventImportance } from "@prisma/client";
-import {
-  defaultMarkerLabel,
-  markerColorFor,
-  markerShapeFor,
-  normalizeEventType,
-  type MarkerShape,
-} from "@/lib/data/eventTaxonomy";
+import type { EventListContextMode } from "@/lib/chart/eventPanelListFilters";
 import {
   eventHitsAssetContext,
   parseExpandLevel,
@@ -13,8 +7,18 @@ import {
   type EventExpandLevel,
 } from "@/lib/data/assetEventResolver";
 import {
+  defaultMarkerLabel,
+  eventTypeMatchesSelection,
+  isEraEventType,
+  markerColorFor,
+  markerShapeFor,
+  normalizeEventType,
+  type MarkerShape,
+} from "@/lib/data/eventTaxonomy";
+import {
   listMarketEvents,
   meetsMinImportance as meetsImp,
+  normalizeAssetTag,
   type MarketEventDto,
 } from "@/lib/data/marketEvents";
 import {
@@ -129,11 +133,7 @@ function marketToMarker(ev: MarketEventDto): ChartEventMarker {
 }
 
 function typeFilterOk(eventType: string, types?: string[]): boolean {
-  if (!types?.length) return true;
-  return types.some((t) => {
-    const want = normalizeEventType(t) ?? t;
-    return eventType === want || eventType.startsWith(`${want}.`) || want.startsWith(eventType);
-  });
+  return eventTypeMatchesSelection(eventType, types);
 }
 
 /** 同日去重：stock_derived 优先 */
@@ -200,4 +200,148 @@ export async function loadChartEventMarkers(
 
   const markers = dedupeSameDay(out).slice(0, limit);
   return { markers, expand, symbol: ctx.symbol };
+}
+
+function stockToPanelEvent(ev: StockEvent, symbol: string): MarketEventDto {
+  const eventType = stockTypeToEventType(ev.type, ev.items);
+  const importance = stockImportanceToEvent(ev.importance);
+  const day = ev.date.slice(0, 10);
+  const contentParts = [
+    ev.titleZh,
+    ev.form ? `表格：${ev.form}` : null,
+    ev.items.length ? `Items：${ev.items.join(", ")}` : null,
+    ev.splitRatio ? `拆股比例：${ev.splitRatio}` : null,
+    ev.metrics
+      ? `营收 ${ev.metrics.revenue ?? "—"} · EPS ${ev.metrics.eps ?? "—"}`
+      : null,
+  ].filter(Boolean);
+  const now = new Date().toISOString();
+  return {
+    id: `stock:${ev.type}:${symbol}:${day}:${ev.form ?? ""}:${ev.items.join(",")}`,
+    title: ev.titleZh,
+    content: contentParts.join("\n"),
+    occurredAt: `${day}T12:00:00.000Z`,
+    datePrecision: "DATE",
+    importance,
+    eventType,
+    scope: "COMPANY",
+    countries: ["US"],
+    industries: [],
+    assets: [normalizeAssetTag(symbol)],
+    macroKeys: [],
+    persons: [],
+    institutions: [],
+    tags: [],
+    payload: {
+      stockType: ev.type,
+      form: ev.form,
+      items: ev.items,
+      metrics: ev.metrics,
+      splitRatio: ev.splitRatio,
+      reaction: ev.reaction,
+    },
+    markerLabel: stockMarkerLabel(ev),
+    sourceKind: "sec",
+    externalId: `sec:${ev.type}:${symbol}:${day}`,
+    sourceUrl: ev.url,
+    isPublic: true,
+    createdById: "system",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function marketContextOk(
+  ev: MarketEventDto,
+  ctx: Awaited<ReturnType<typeof resolveAssetEventContext>>,
+  mode: EventListContextMode,
+): boolean {
+  if (mode === "range") return true;
+  if (isEraEventType(ev.eventType) && mode === "chart") return true;
+  if (mode === "symbol") {
+    const sym = ctx.symbol;
+    return ev.assets.some((a) => normalizeAssetTag(a) === sym);
+  }
+  return eventHitsAssetContext(ev, ctx);
+}
+
+/**
+ * 侧栏列表同源流：SEC stockEvents + MarketEvent（含时代），按上下文模式裁剪。
+ * 不做重要性/类型过滤（留给客户端列表筛选）。
+ */
+export async function loadChartPanelEvents(query: {
+  symbol: string;
+  from?: string;
+  to?: string;
+  expand?: string;
+  mode?: EventListContextMode;
+  includeSec?: boolean;
+  includeMarket?: boolean;
+  limit?: number;
+}): Promise<{
+  events: MarketEventDto[];
+  expand: EventExpandLevel;
+  symbol: string;
+  mode: EventListContextMode;
+}> {
+  const expand = parseExpandLevel(query.expand);
+  const mode: EventListContextMode = query.mode ?? "chart";
+  const ctx = await resolveAssetEventContext(query.symbol, expand);
+  const includeSec = query.includeSec !== false;
+  const includeMarket = query.includeMarket !== false;
+  const limit = Math.min(3000, Math.max(1, query.limit ?? 2000));
+  const out: MarketEventDto[] = [];
+
+  if (includeSec) {
+    const row = await prisma.equitySecurity.findUnique({
+      where: { symbol: ctx.symbol },
+      select: { cik: true },
+    });
+    const stockEvents = await loadStockEvents(ctx.symbol, {
+      cik: row?.cik ?? null,
+      limit: 200,
+    });
+    for (const ev of stockEvents) {
+      if (!inRange(ev.date, query.from, query.to)) continue;
+      out.push(stockToPanelEvent(ev, ctx.symbol));
+    }
+  }
+
+  if (includeMarket) {
+    const { events } = await listMarketEvents({
+      from: query.from,
+      to: query.to,
+      limit: 2000,
+    });
+    for (const ev of events) {
+      if (!marketContextOk(ev, ctx, mode)) continue;
+      out.push(ev);
+    }
+  }
+
+  // 同日公司类：SEC 优先（去掉与 stock 撞车的 market_event）
+  const stockKeys = new Set(
+    out
+      .filter((e) => e.sourceKind === "sec")
+      .map((e) => {
+        const day = e.occurredAt.slice(0, 10);
+        const t = normalizeEventType(e.eventType) ?? e.eventType ?? "";
+        return `${day}:${t}`;
+      }),
+  );
+  const deduped = out.filter((e) => {
+    if (e.sourceKind === "sec") return true;
+    const day = e.occurredAt.slice(0, 10);
+    const t = normalizeEventType(e.eventType) ?? e.eventType ?? "";
+    if (!t.startsWith("company.")) return true;
+    return !stockKeys.has(`${day}:${t}`);
+  });
+
+  deduped.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  return {
+    events: deduped.slice(0, limit),
+    expand,
+    symbol: ctx.symbol,
+    mode,
+  };
 }

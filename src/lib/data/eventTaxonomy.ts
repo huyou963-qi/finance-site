@@ -139,6 +139,136 @@ export function normalizeEventType(raw: string | null | undefined): string | nul
   return LEGACY_EVENT_TYPE_ALIASES[t] ?? t;
 }
 
+/** 侧栏类型族（多选；默认全选 = 不限制类型） */
+export const EVENT_TYPE_FAMILY_IDS = [
+  "policy",
+  "macro",
+  "company",
+  "speech",
+  "rating",
+  "market",
+  "era",
+  "other",
+] as const;
+
+export type EventTypeFamilyId = (typeof EVENT_TYPE_FAMILY_IDS)[number];
+
+export type EventTypeFamilyDef = {
+  id: EventTypeFamilyId;
+  label: string;
+  /** 精确码 */
+  codes: readonly string[];
+  /** 前缀（如 policy → policy.*） */
+  prefixes: readonly string[];
+};
+
+export const EVENT_TYPE_FAMILIES: readonly EventTypeFamilyDef[] = [
+  {
+    id: "policy",
+    label: "政策",
+    codes: [],
+    prefixes: ["policy"],
+  },
+  {
+    id: "macro",
+    label: "宏观",
+    codes: [],
+    prefixes: ["macro"],
+  },
+  {
+    id: "company",
+    label: "公司",
+    codes: [],
+    prefixes: ["company"],
+  },
+  {
+    id: "speech",
+    label: "讲话",
+    codes: [],
+    prefixes: ["speech"],
+  },
+  {
+    id: "rating",
+    label: "评级",
+    codes: ["price_target.change"],
+    prefixes: ["rating"],
+  },
+  {
+    id: "market",
+    label: "异动",
+    codes: ["market.anomaly"],
+    prefixes: [],
+  },
+  {
+    id: "era",
+    label: "时代",
+    codes: ["era"],
+    prefixes: [],
+  },
+  {
+    id: "other",
+    label: "其他",
+    codes: ["other"],
+    prefixes: [],
+  },
+] as const;
+
+export const ALL_EVENT_TYPE_FAMILY_IDS: EventTypeFamilyId[] = [...EVENT_TYPE_FAMILY_IDS];
+
+export function familyIdForEventType(
+  eventType: string | null | undefined,
+): EventTypeFamilyId {
+  const n = normalizeEventType(eventType) ?? "";
+  if (!n) return "other";
+  for (const f of EVENT_TYPE_FAMILIES) {
+    if (f.id === "other") continue;
+    if (f.codes.includes(n)) return f.id;
+    if (f.prefixes.some((p) => n === p || n.startsWith(`${p}.`))) return f.id;
+  }
+  if ((EVENT_TYPE_CODES as readonly string[]).includes(n)) {
+    // 已知码但未归入上表时仍走 other
+    return "other";
+  }
+  return "other";
+}
+
+/**
+ * 类型族多选匹配。全选或空选 = 不限制。
+ * 与 chart-markers typeFilterOk 一致：normalize + 前缀。
+ */
+export function eventTypeMatchesFamilies(
+  eventType: string | null | undefined,
+  selected: readonly EventTypeFamilyId[] | null | undefined,
+): boolean {
+  if (!selected?.length) return true;
+  if (selected.length >= EVENT_TYPE_FAMILY_IDS.length) return true;
+  const family = familyIdForEventType(eventType);
+  return selected.includes(family);
+}
+
+/** 单码/前缀列表匹配（供图表 types= 与旧逻辑复用） */
+export function eventTypeMatchesSelection(
+  eventType: string | null | undefined,
+  types?: readonly string[] | null,
+): boolean {
+  if (!types?.length) return true;
+  const eventTypeNorm = normalizeEventType(eventType) ?? eventType ?? "";
+  if (!eventTypeNorm) return false;
+  return types.some((t) => {
+    const want = normalizeEventType(t) ?? t;
+    return (
+      eventTypeNorm === want ||
+      eventTypeNorm.startsWith(`${want}.`) ||
+      want.startsWith(`${eventTypeNorm}.`)
+    );
+  });
+}
+
+export function isEraEventType(eventType: string | null | undefined): boolean {
+  const n = normalizeEventType(eventType) ?? eventType ?? "";
+  return n === "era" || n === "时代阶段";
+}
+
 export function eventTypeLabel(code: string | null | undefined): string {
   if (!code) return "事件";
   const n = normalizeEventType(code) ?? code;

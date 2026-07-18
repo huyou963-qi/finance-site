@@ -64,6 +64,16 @@ import {
   type IndicatorSettings,
 } from "@/lib/chart/indicatorSettings";
 import {
+  colorsForKlineMode,
+  DEFAULT_KLINE_CANDLE_COLOR_MODE,
+  KLINE_CANDLE_COLOR_MODE_LABEL,
+  KLINE_CANDLE_COLOR_MODES,
+  loadKlineCandleColorMode,
+  saveKlineCandleColorMode,
+  type KlineCandleColorMode,
+  type KlineCandleColors,
+} from "@/lib/chart/klineColorScheme";
+import {
   peLineFromQuarterlyPe,
   ttmPeLineFromCandles,
   type QuarterlyPePoint,
@@ -163,6 +173,12 @@ export type StockChartWorkspaceProps = {
     title: string;
     source: string;
   }) => void;
+  /**
+   * 受控：图表事件标记偏好（行情页由右侧事件面板管理时传入）。
+   * 未传入时组件内自管 localStorage，并在顶栏展示开关。
+   */
+  eventMarkerPrefs?: ChartEventMarkerPrefs;
+  onEventMarkerPrefsChange?: (prefs: ChartEventMarkerPrefs) => void;
 };
 
 type DrawingTool =
@@ -213,8 +229,8 @@ type SubPaneScaleKey = "a" | "b";
 /** 副图顶栏高度（px）；scaleMargins 同步预留，避免压在成交量柱/指标线上 */
 const SUB_PANE_TOOLBAR_PX = 26;
 
-/** 主图底时间轴高度预留（副轴全隐藏时指标条下移，避免挡住年份刻度） */
-const KLINE_TIME_SCALE_RESERVE_PX = 30;
+/** 双副图均隐藏时，图表下方为两行指标条预留的高度（时间轴留在图表内） */
+const HIDDEN_SUB_TOOLBAR_STACK_PX = SUB_PANE_TOOLBAR_PX * 2;
 
 const KLINE_CHART_TEXT_COLOR = KLINE.text;
 
@@ -365,6 +381,7 @@ function appendSubPaneSeries(
   scaleKey: SubPaneScaleKey,
   ttmPeLine: LineData[],
   params: SubPaneIndicatorParams,
+  candleColors: KlineCandleColors,
 ): SubPaneSeriesApi[] {
   if (!candles.length) return [];
   if (content === "volume") {
@@ -372,7 +389,7 @@ function appendSubPaneSeries(
       time: c.time,
       value: volumes[i] ?? 0,
       color:
-        c.close >= c.open ? "rgba(38,166,154,0.65)" : "rgba(239,83,80,0.65)",
+        c.close >= c.open ? candleColors.volumeUp : candleColors.volumeDown,
     }));
     const sid = `vol_${scaleKey}`;
     const vol = chart.addSeries(
@@ -476,6 +493,7 @@ function updateSubPaneSeriesData(
   volumes: number[],
   ttmPeLine: LineData[],
   params: SubPaneIndicatorParams,
+  candleColors: KlineCandleColors,
 ): void {
   if (!apis.length || !candles.length) return;
   if (content === "volume" && apis[0]) {
@@ -483,7 +501,7 @@ function updateSubPaneSeriesData(
       time: c.time,
       value: volumes[i] ?? 0,
       color:
-        c.close >= c.open ? "rgba(38,166,154,0.65)" : "rgba(239,83,80,0.65)",
+        c.close >= c.open ? candleColors.volumeUp : candleColors.volumeDown,
     }));
     apis[0].setData(histData);
     return;
@@ -741,6 +759,8 @@ export function StockChartWorkspace({
   onLocalCrosshairTime,
   toolbarPortalEl = null,
   onEventMarkerClick,
+  eventMarkerPrefs: eventMarkerPrefsProp,
+  onEventMarkerPrefsChange,
 }: StockChartWorkspaceProps) {
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -750,17 +770,44 @@ export function StockChartWorkspace({
   const eventMarkersDataRef = useRef<ChartEventMarker[]>([]);
   const onEventMarkerClickRef = useRef(onEventMarkerClick);
   onEventMarkerClickRef.current = onEventMarkerClick;
-  const [eventMarkerPrefs, setEventMarkerPrefs] = useState<ChartEventMarkerPrefs>(
-    DEFAULT_CHART_EVENT_MARKER_PREFS,
+  const eventMarkerPrefsControlled = eventMarkerPrefsProp !== undefined;
+  const [eventMarkerPrefsInternal, setEventMarkerPrefsInternal] =
+    useState<ChartEventMarkerPrefs>(DEFAULT_CHART_EVENT_MARKER_PREFS);
+  const eventMarkerPrefs = eventMarkerPrefsProp ?? eventMarkerPrefsInternal;
+  const setEventMarkerPrefs = useCallback(
+    (next: ChartEventMarkerPrefs) => {
+      if (onEventMarkerPrefsChange) {
+        onEventMarkerPrefsChange(next);
+        return;
+      }
+      setEventMarkerPrefsInternal(next);
+    },
+    [onEventMarkerPrefsChange],
   );
+  const [candleColorMode, setCandleColorMode] = useState<KlineCandleColorMode>(
+    DEFAULT_KLINE_CANDLE_COLOR_MODE,
+  );
+  const candleColors = useMemo(
+    () => colorsForKlineMode(candleColorMode),
+    [candleColorMode],
+  );
+  const candleColorsRef = useRef(candleColors);
+  candleColorsRef.current = candleColors;
   /** 可见区间变化时触发事件标记刷新 */
   const [markerRangeTick, setMarkerRangeTick] = useState(0);
   useEffect(() => {
-    setEventMarkerPrefs(loadChartEventMarkerPrefs());
-  }, []);
+    if (!eventMarkerPrefsControlled) {
+      setEventMarkerPrefsInternal(loadChartEventMarkerPrefs());
+    }
+    setCandleColorMode(loadKlineCandleColorMode());
+  }, [eventMarkerPrefsControlled]);
   useEffect(() => {
-    saveChartEventMarkerPrefs(eventMarkerPrefs);
-  }, [eventMarkerPrefs]);
+    if (eventMarkerPrefsControlled) return;
+    saveChartEventMarkerPrefs(eventMarkerPrefsInternal);
+  }, [eventMarkerPrefsControlled, eventMarkerPrefsInternal]);
+  useEffect(() => {
+    saveKlineCandleColorMode(candleColorMode);
+  }, [candleColorMode]);
   const nativeHandlesRef = useRef<{
     userPriceLines: IPriceLine[];
     userTrendLines: ISeriesApi<"Line", Time>[];
@@ -1341,6 +1388,7 @@ export function StockChartWorkspace({
 
     const subs = h.subPaneSeries;
     let idx = 0;
+    const colors = candleColorsRef.current;
     if (subPane1.visible) {
       const n = subPaneSeriesCount(subPane1.content);
       updateSubPaneSeriesData(
@@ -1350,6 +1398,7 @@ export function StockChartWorkspace({
         volumes,
         ttmPeLine,
         subParams,
+        colors,
       );
       idx += n;
     }
@@ -1362,6 +1411,7 @@ export function StockChartWorkspace({
         volumes,
         ttmPeLine,
         subParams,
+        colors,
       );
     }
 
@@ -1389,6 +1439,52 @@ export function StockChartWorkspace({
     ttmPeLine,
   ]);
 
+  /** 切换涨跌配色：更新蜡烛与成交量柱，不重建整图 */
+  useEffect(() => {
+    if (loading) return;
+    const candle = candleRef.current;
+    if (!candle) return;
+    const colors = candleColors;
+    candle.applyOptions({
+      upColor: colors.up,
+      downColor: colors.down,
+      wickUpColor: colors.up,
+      wickDownColor: colors.down,
+    });
+    const cList = candlesRef.current;
+    const vList = volumesRef.current;
+    if (!cList.length) return;
+    const h = nativeHandlesRef.current;
+    const subs = h.subPaneSeries;
+    let idx = 0;
+    const refresh = (visible: boolean, content: SubPaneContent) => {
+      if (!visible) return;
+      const n = subPaneSeriesCount(content);
+      updateSubPaneSeriesData(
+        subs.slice(idx, idx + n),
+        content,
+        cList,
+        vList,
+        ttmPeLine,
+        subParams,
+        colors,
+      );
+      idx += n;
+    };
+    refresh(subPane1.visible, subPane1.content);
+    refresh(subPane2.visible, subPane2.content);
+  }, [
+    loading,
+    candleColorMode,
+    candleColors,
+    subPane1.visible,
+    subPane1.content,
+    subPane2.visible,
+    subPane2.content,
+    subParams,
+    ttmPeLine,
+  ]);
+
   const syncPaneLayoutMetrics = useCallback(() => {
     const area = chartAreaRef.current;
     const chart = chartRef.current;
@@ -1407,16 +1503,15 @@ export function StockChartWorkspace({
     let slot1Geom: { top: number; height: number } | null = null;
     let slot2Geom: { top: number; height: number } | null = null;
 
-    /** 双副图均隐藏：指标条放在时间轴下方，避免半透明顶栏压住年份刻度 */
+    /** 双副图均隐藏：图表高度已扣除底部两行条带，指标条贴容器底，时间轴仍在图表内 */
     if (panes.length === 1) {
-      const belowMain = r0.bottom - ar.top;
-      const toolTop = belowMain + KLINE_TIME_SCALE_RESERVE_PX;
+      const areaH = ar.height;
       slot1Geom = {
-        top: toolTop,
+        top: Math.max(0, areaH - HIDDEN_SUB_TOOLBAR_STACK_PX),
         height: SUB_PANE_TOOLBAR_PX,
       };
       slot2Geom = {
-        top: toolTop + SUB_PANE_TOOLBAR_PX,
+        top: Math.max(0, areaH - SUB_PANE_TOOLBAR_PX),
         height: SUB_PANE_TOOLBAR_PX,
       };
       writeToolbarTopCssVars(area, slot1Geom, slot2Geom);
@@ -1920,7 +2015,9 @@ export function StockChartWorkspace({
     const el = wrapRef.current;
     const box = chartAreaRef.current;
     const cw = Math.max(100, box?.clientWidth ?? el.clientWidth);
-    const ch = Math.max(400, box?.clientHeight ?? 520);
+    const bothSubsHidden = !subPane1.visible && !subPane2.visible;
+    const bottomReserve = bothSubsHidden ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
+    const ch = Math.max(400, (box?.clientHeight ?? 520) - bottomReserve);
     el.replaceChildren();
     const chart = createChart(el, {
       layout: {
@@ -1965,7 +2062,8 @@ export function StockChartWorkspace({
         textColor: KLINE_CHART_TEXT_COLOR,
       },
       timeScale: {
-        borderColor: "#485065",
+        borderColor: KLINE.border,
+        visible: true,
         timeVisible: interval !== "1d" && interval !== "1w",
         secondsVisible: false,
         /**
@@ -2006,14 +2104,15 @@ export function StockChartWorkspace({
       chart.panes()[2]?.setStretchFactor(27);
     }
 
+    const initColors = candleColorsRef.current;
     const candle = chart.addSeries(
       CandlestickSeries,
       {
-        upColor: KLINE.up,
-        downColor: KLINE.down,
+        upColor: initColors.up,
+        downColor: initColors.down,
         borderVisible: false,
-        wickUpColor: KLINE.up,
-        wickDownColor: KLINE.down,
+        wickUpColor: initColors.up,
+        wickDownColor: initColors.down,
       },
       0,
     );
@@ -2091,6 +2190,7 @@ export function StockChartWorkspace({
           "a",
           ttmPeLine,
           subParams,
+          initColors,
         ),
       );
       subPaneIdx++;
@@ -2106,6 +2206,7 @@ export function StockChartWorkspace({
           "b",
           ttmPeLine,
           subParams,
+          initColors,
         ),
       );
     }
@@ -2118,7 +2219,10 @@ export function StockChartWorkspace({
       const cr = chartRef.current;
       if (!area || !cr) return;
       const w = area.clientWidth;
-      const h = Math.max(400, area.clientHeight);
+      const bothHidden =
+        !subPane1.visible && !subPane2.visible;
+      const reserve = bothHidden ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
+      const h = Math.max(400, area.clientHeight - reserve);
       cr.resize(w, h);
       setOverlaySize({ w, h });
       schedulePaneLayoutMetrics();
@@ -2961,6 +3065,25 @@ export function StockChartWorkspace({
 
   const chartToolbar = (
     <>
+      <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
+        <span className="sr-only">K 线涨跌颜色</span>
+        <select
+          value={candleColorMode}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "red-up" || v === "green-up") setCandleColorMode(v);
+          }}
+          title="K 线涨跌颜色：红涨绿跌 / 红跌绿涨"
+          aria-label="K 线涨跌颜色"
+          className="h-[22px] max-w-[6.5rem] cursor-pointer rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+        >
+          {KLINE_CANDLE_COLOR_MODES.map((mode) => (
+            <option key={mode} value={mode}>
+              {KLINE_CANDLE_COLOR_MODE_LABEL[mode]}
+            </option>
+          ))}
+        </select>
+      </label>
       <div ref={overlayMenuRef} className="relative flex items-center">
         <button
           type="button"
@@ -3213,7 +3336,7 @@ export function StockChartWorkspace({
       <button
         type="button"
         onClick={handleClearDrawings}
-        className="rounded border border-rose-900/60 px-2 py-1 text-[11px] text-rose-200/90 hover:bg-rose-950/50"
+        className="rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-secondary hover:bg-fs-border hover:text-fs-text"
       >
         消除所有画线
       </button>
@@ -3225,11 +3348,12 @@ export function StockChartWorkspace({
           已选中 · Delete 删除
         </span>
       ) : null}
-      <ChartEventMarkersToolbar
-        prefs={eventMarkerPrefs}
-        onChange={setEventMarkerPrefs}
-        compact
-      />
+      {!eventMarkerPrefsControlled ? (
+        <ChartEventMarkersToolbar
+          prefs={eventMarkerPrefs}
+          onChange={setEventMarkerPrefs}
+        />
+      ) : null}
     </>
   );
 
@@ -3401,7 +3525,7 @@ export function StockChartWorkspace({
               const pct =
                 ch.open !== 0 ? (delta / ch.open) * 100 : 0;
               const upA = delta >= 0;
-              const dCls = upA ? "text-rose-400" : "text-fs-accent-text";
+              const dColor = upA ? candleColors.up : candleColors.down;
               return (
                 <div className="grid grid-cols-[2.5rem_1fr] gap-x-2 gap-y-0.5 text-fs-text">
                   <span className="text-fs-muted">开盘</span>
@@ -3409,31 +3533,46 @@ export function StockChartWorkspace({
                     {fmtPriceCompact(ch.open)}
                   </span>
                   <span className="text-fs-muted">最高</span>
-                  <span className="text-right font-mono text-rose-300">
+                  <span
+                    className="text-right font-mono"
+                    style={{ color: candleColors.up }}
+                  >
                     {fmtPriceCompact(ch.high)}
                   </span>
                   <span className="text-fs-muted">最低</span>
-                  <span className="text-right font-mono text-fs-accent-text">
+                  <span
+                    className="text-right font-mono"
+                    style={{ color: candleColors.down }}
+                  >
                     {fmtPriceCompact(ch.low)}
                   </span>
                   <span className="text-fs-muted">收盘</span>
-                  <span className={`text-right font-mono ${dCls}`}>
+                  <span
+                    className="text-right font-mono"
+                    style={{ color: dColor }}
+                  >
                     {fmtPriceCompact(ch.close)}
                   </span>
                   <span className="text-fs-muted">涨跌额</span>
-                  <span className={`text-right font-mono ${dCls}`}>
+                  <span
+                    className="text-right font-mono"
+                    style={{ color: dColor }}
+                  >
                     {ch.open !== 0
                       ? `${delta >= 0 ? "+" : ""}${fmtPriceCompact(delta)}`
                       : "—"}
                   </span>
                   <span className="text-fs-muted">涨跌幅</span>
-                  <span className={`text-right font-mono ${dCls}`}>
+                  <span
+                    className="text-right font-mono"
+                    style={{ color: dColor }}
+                  >
                     {ch.open !== 0
                       ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`
                       : "—"}
                   </span>
                   <span className="text-fs-muted">成交量</span>
-                  <span className="text-right font-mono text-amber-200/95">
+                  <span className="text-right font-mono text-fs-secondary">
                     {fmtVolumeZh(ch.volume)}
                   </span>
                 </div>
@@ -3536,6 +3675,8 @@ export function StockChartWorkspace({
               stats={r.stats}
               title={rangePanelTitle(idx)}
               accentColor={r.color}
+              upColor={candleColors.up}
+              downColor={candleColors.down}
               stackOffsetPx={idx * 28}
               onClose={() => removeRangeEntry(r.id)}
             />

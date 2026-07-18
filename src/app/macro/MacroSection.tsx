@@ -186,6 +186,12 @@ const SIDEBAR_DEFAULT_PX = 320;
 const SIDEBAR_MIN_PX = 200;
 const SIDEBAR_MAX_PX = 520;
 
+/** 已选指标 / 提取数据 上下分栏 */
+const SELECTED_PANE_DEFAULT_FRAC = 0.5;
+const SELECTED_PANE_MIN_PX = 120;
+const EXTRACT_PANE_MIN_PX = 120;
+const SELECTED_EXTRACT_SPLITTER_PX = 6;
+
 type MdsIndicatorAttrs = {
   country: string;
   unit: string;
@@ -597,6 +603,8 @@ export function MacroSection() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidthPx, setSidebarWidthPx] = useState<number | null>(null);
   const macroLayoutRowRef = useRef<HTMLDivElement | null>(null);
+  const [selectedPaneHeightPx, setSelectedPaneHeightPx] = useState<number | null>(null);
+  const selectedExtractSplitRef = useRef<HTMLDivElement | null>(null);
   const [macroCrosshairTimeLabel, setMacroCrosshairTimeLabel] = useState<string | null>(null);
   const [macroVisibleFromLabel, setMacroVisibleFromLabel] = useState<string | null>(null);
   const [macroVisibleToLabel, setMacroVisibleToLabel] = useState<string | null>(null);
@@ -2802,6 +2810,46 @@ export function MacroSection() {
     [sidebarWidthPx],
   );
 
+  const startSelectedExtractResize = useCallback(
+    (downEvent: React.MouseEvent) => {
+      downEvent.preventDefault();
+      const split = selectedExtractSplitRef.current;
+      if (!split) return;
+      const startY = downEvent.clientY;
+      const splitH = split.clientHeight;
+      const startH =
+        selectedPaneHeightPx ?? Math.round(splitH * SELECTED_PANE_DEFAULT_FRAC);
+
+      const onMove = (ev: MouseEvent) => {
+        const h = selectedExtractSplitRef.current?.clientHeight ?? splitH;
+        const maxH = Math.max(
+          SELECTED_PANE_MIN_PX,
+          h - EXTRACT_PANE_MIN_PX - SELECTED_EXTRACT_SPLITTER_PX,
+        );
+        const delta = ev.clientY - startY;
+        const next = Math.min(maxH, Math.max(SELECTED_PANE_MIN_PX, startH + delta));
+        setSelectedPaneHeightPx(next);
+      };
+
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.removeProperty("cursor");
+        document.body.style.removeProperty("user-select");
+      };
+
+      document.body.style.cursor = "ns-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+
+      if (selectedPaneHeightPx === null) {
+        setSelectedPaneHeightPx(startH);
+      }
+    },
+    [selectedPaneHeightPx],
+  );
+
   const startChartSettingsResize = useCallback(
     (downEvent: React.MouseEvent) => {
       downEvent.preventDefault();
@@ -3198,166 +3246,188 @@ export function MacroSection() {
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-[1_1_50%] flex-col border-b border-fs-border">
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
-                  <span>
-                    已选指标
-                    <span className="ml-2 font-normal text-fs-secondary">
-                      {selectedKeys.size}/{MACRO_MAX_SERIES}
+              <div
+                ref={selectedExtractSplitRef}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div
+                  className="flex min-h-0 flex-col"
+                  style={
+                    selectedPaneHeightPx != null
+                      ? { height: selectedPaneHeightPx, flex: "0 0 auto" }
+                      : { flex: "1 1 50%" }
+                  }
+                >
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
+                    <span>
+                      已选指标
+                      <span className="ml-2 font-normal text-fs-secondary">
+                        {selectedKeys.size}/{MACRO_MAX_SERIES}
+                      </span>
                     </span>
-                  </span>
-                  <button
-                    type="button"
-                    disabled={selectedListItems.length === 0}
-                    onClick={() =>
-                      setSelectedListItems((prev) => [
-                        ...prev,
-                        createDividerItem(),
-                      ])
-                    }
-                    className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:opacity-40"
-                    title="在列表末尾添加分割线"
-                  >
-                    添加分割线
-                  </button>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto rounded-t-lg border border-b-0 border-fs-border/90 bg-fs-bg/60">
-                  <SelectedIndicatorsList
-                    items={selectedListItems}
-                    rowByKey={selectedRowByKey}
-                    onChange={setSelectedListItems}
-                    onRemoveKey={removeSelectedKey}
-                    onLocateKey={locateIndicatorInSidebar}
-                  />
-                </div>
-              </div>
-
-              <div className="flex min-h-0 flex-[1_1_50%] flex-col">
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
-                  <span>提取数据</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-normal text-fs-secondary">导出</span>
                     <button
                       type="button"
-                      disabled={!displayPayload}
-                      onClick={() => exportExtractedData("csv")}
-                      title="导出为 CSV"
-                      className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={selectedListItems.length === 0}
+                      onClick={() =>
+                        setSelectedListItems((prev) => [
+                          ...prev,
+                          createDividerItem(),
+                        ])
+                      }
+                      className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:opacity-40"
+                      title="在列表末尾添加分割线"
                     >
-                      CSV
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!displayPayload}
-                      onClick={() => exportExtractedData("xlsx")}
-                      title="导出为 Excel"
-                      className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      XLSX
+                      添加分割线
                     </button>
                   </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto rounded-t-lg border border-b-0 border-fs-border/90 bg-fs-bg/60">
+                    <SelectedIndicatorsList
+                      items={selectedListItems}
+                      rowByKey={selectedRowByKey}
+                      onChange={setSelectedListItems}
+                      onRemoveKey={removeSelectedKey}
+                      onLocateKey={locateIndicatorInSidebar}
+                    />
+                  </div>
                 </div>
+
                 <div
-                  className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-fs-border/90 bg-fs-bg/60"
-                  suppressHydrationWarning
+                  role="separator"
+                  aria-orientation="horizontal"
+                  title="上下拖动调节已选指标与提取数据高度"
+                  onMouseDown={startSelectedExtractResize}
+                  className="group h-1.5 shrink-0 cursor-ns-resize border-y border-fs-border bg-fs-elevated/90 hover:bg-fs-accent-soft"
                 >
-                  {displayPayload ? (
-                    <div className="h-full overflow-auto">
-                      <table className="w-max max-w-none border-separate border-spacing-0 text-xs table-fixed">
-                        <colgroup>
-                          <col style={{ width: tableColumnWidths.time }} />
-                          {tableColumns.map((c) => (
-                            <col
-                              key={c.key}
-                              style={{ width: tableColumnWidths.columns.get(c.key) ?? 120 }}
-                            />
-                          ))}
-                        </colgroup>
-                        <thead className="sticky top-0 z-10 bg-fs-elevated text-fs-secondary">
-                          <tr>
-                            <th
-                              className="sticky left-0 z-20 border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium"
-                              style={{
-                                width: tableColumnWidths.time,
-                                minWidth: tableColumnWidths.time,
-                              }}
-                            >
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setTableTimeSort((prev) => (prev === "asc" ? "desc" : "asc"))
-                                }
-                                className="inline-flex items-center gap-1 text-fs-secondary hover:text-fs-accent-text"
-                                title={
-                                  tableTimeSort === "asc"
-                                    ? "按时间升序，点击切换为降序"
-                                    : "按时间降序，点击切换为升序"
-                                }
-                                aria-label={
-                                  tableTimeSort === "asc"
-                                    ? "时间升序，点击切换为降序"
-                                    : "时间降序，点击切换为升序"
-                                }
-                              >
-                                时间
-                                <span
-                                  className="text-[10px] text-fs-accent-text"
-                                  aria-hidden
-                                >
-                                  {tableTimeSort === "asc" ? "↑" : "↓"}
-                                </span>
-                              </button>
-                            </th>
+                  <span className="mx-auto block h-px w-full bg-fs-border group-hover:bg-fs-accent" />
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
+                    <span>提取数据</span>
+                    <div className="flex items-center gap-1">
+                      <span className="font-normal text-fs-secondary">导出</span>
+                      <button
+                        type="button"
+                        disabled={!displayPayload}
+                        onClick={() => exportExtractedData("csv")}
+                        title="导出为 CSV"
+                        className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        CSV
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!displayPayload}
+                        onClick={() => exportExtractedData("xlsx")}
+                        title="导出为 Excel"
+                        className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        XLSX
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-fs-border/90 bg-fs-bg/60"
+                    suppressHydrationWarning
+                  >
+                    {displayPayload ? (
+                      <div className="h-full overflow-auto">
+                        <table className="w-max max-w-none border-separate border-spacing-0 text-xs table-fixed">
+                          <colgroup>
+                            <col style={{ width: tableColumnWidths.time }} />
                             {tableColumns.map((c) => (
-                              <th
+                              <col
                                 key={c.key}
-                                className="border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium whitespace-nowrap"
-                                style={{ width: tableColumnWidths.columns.get(c.key) }}
-                                title={c.label}
-                              >
-                                {c.label}
-                              </th>
+                                style={{ width: tableColumnWidths.columns.get(c.key) ?? 120 }}
+                              />
                             ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {sortedTableRowIndices.map((idx, rowIdx) => {
-                            const time = displayPayload.categories[idx]!;
-                            const stickyTimeBg =
-                              rowIdx % 2 === 0 ? "bg-fs-bg" : "bg-fs-elevated/35";
-                            return (
-                            <tr
-                              key={`${time}-${idx}`}
-                              className="odd:bg-fs-bg even:bg-fs-elevated/35"
-                            >
-                              <td
-                                className={`sticky left-0 z-[5] whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-muted tabular-nums ${stickyTimeBg}`}
-                                style={{ minWidth: tableColumnWidths.time }}
+                          </colgroup>
+                          <thead className="sticky top-0 z-10 bg-fs-elevated text-fs-secondary">
+                            <tr>
+                              <th
+                                className="sticky left-0 z-20 border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium"
+                                style={{
+                                  width: tableColumnWidths.time,
+                                  minWidth: tableColumnWidths.time,
+                                }}
                               >
-                                {formatMacroPeriodDisplay(
-                                  time,
-                                  displayPayload.categories,
-                                )}
-                              </td>
-                              {tableColumns.map((c) => (
-                                <td
-                                  key={`${c.key}-${idx}`}
-                                  className="whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-text tabular-nums"
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setTableTimeSort((prev) => (prev === "asc" ? "desc" : "asc"))
+                                  }
+                                  className="inline-flex items-center gap-1 text-fs-secondary hover:text-fs-accent-text"
+                                  title={
+                                    tableTimeSort === "asc"
+                                      ? "按时间升序，点击切换为降序"
+                                      : "按时间降序，点击切换为升序"
+                                  }
+                                  aria-label={
+                                    tableTimeSort === "asc"
+                                      ? "时间升序，点击切换为降序"
+                                      : "时间降序，点击切换为升序"
+                                  }
                                 >
-                                  {tableCellDisplayText(tableValueByKey.get(c.key)?.[idx])}
-                                </td>
+                                  时间
+                                  <span
+                                    className="text-[10px] text-fs-accent-text"
+                                    aria-hidden
+                                  >
+                                    {tableTimeSort === "asc" ? "↑" : "↓"}
+                                  </span>
+                                </button>
+                              </th>
+                              {tableColumns.map((c) => (
+                                <th
+                                  key={c.key}
+                                  className="border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium whitespace-nowrap"
+                                  style={{ width: tableColumnWidths.columns.get(c.key) }}
+                                  title={c.label}
+                                >
+                                  {c.label}
+                                </th>
                               ))}
                             </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="px-3 py-6 text-center text-xs text-fs-muted">
-                      点击「提取数据」后，各指标数值将显示在此处。
-                    </p>
-                  )}
+                          </thead>
+                          <tbody>
+                            {sortedTableRowIndices.map((idx, rowIdx) => {
+                              const time = displayPayload.categories[idx]!;
+                              const stickyTimeBg =
+                                rowIdx % 2 === 0 ? "bg-fs-bg" : "bg-fs-elevated/35";
+                              return (
+                              <tr
+                                key={`${time}-${idx}`}
+                                className="odd:bg-fs-bg even:bg-fs-elevated/35"
+                              >
+                                <td
+                                  className={`sticky left-0 z-[5] whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-muted tabular-nums ${stickyTimeBg}`}
+                                  style={{ minWidth: tableColumnWidths.time }}
+                                >
+                                  {formatMacroPeriodDisplay(
+                                    time,
+                                    displayPayload.categories,
+                                  )}
+                                </td>
+                                {tableColumns.map((c) => (
+                                  <td
+                                    key={`${c.key}-${idx}`}
+                                    className="whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-text tabular-nums"
+                                  >
+                                    {tableCellDisplayText(tableValueByKey.get(c.key)?.[idx])}
+                                  </td>
+                                ))}
+                              </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="px-3 py-6 text-center text-xs text-fs-muted">
+                        点击「提取数据」后，各指标数值将显示在此处。
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </section>

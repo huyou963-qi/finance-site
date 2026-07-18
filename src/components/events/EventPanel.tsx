@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MarketEventDto } from "@/lib/data/marketEvents";
+import {
+  meetsMinImportance,
+  type MarketEventDto,
+} from "@/lib/data/marketEvents";
 import {
   EMPTY_EVENT_PANEL_FILTERS,
   EventPanelFilters,
@@ -23,6 +26,17 @@ import {
   buildEventTimeline,
   isEraHeaderEvent,
 } from "@/lib/data/marketEventTimeline";
+import {
+  eventTypeMatchesFamilies,
+  isEraEventType,
+  normalizeIndustryTag,
+} from "@/lib/data/eventTaxonomy";
+import {
+  isAllTypeFamiliesSelected,
+  loadEventPanelListFilters,
+  saveEventPanelListFilters,
+} from "@/lib/chart/eventPanelListFilters";
+import type { EventExpandLevel } from "@/lib/data/assetEventResolver";
 
 const TRACKING_STORAGE_KEY = "event-panel-tracking-v1";
 
@@ -46,6 +60,13 @@ export type EventPanelProps = {
   compact?: boolean;
   embedded?: boolean;
   className?: string;
+  /**
+   * 行情 K 线联动：有值时列表走 /api/events/for-chart（含 SEC），
+   * 并显示上下文模式筛选。
+   */
+  chartSymbol?: string | null;
+  /** 与图表标记「上卷」一致，供 for-chart expand */
+  chartExpand?: EventExpandLevel;
 };
 
 function buildContextUrl(
@@ -64,10 +85,13 @@ function buildContextUrl(
   const sp = new URLSearchParams({ date: props.contextDate });
   sp.set("lookback", String(props.lookbackDays ?? 7));
   sp.set("lookahead", String(props.lookaheadDays ?? 7));
-  if (props.contextCountries?.length) sp.set("countries", props.contextCountries.join(","));
-  if (props.contextIndustries?.length) sp.set("industries", props.contextIndustries.join(","));
+  if (props.contextCountries?.length)
+    sp.set("countries", props.contextCountries.join(","));
+  if (props.contextIndustries?.length)
+    sp.set("industries", props.contextIndustries.join(","));
   if (props.contextAssets?.length) sp.set("assets", props.contextAssets.join(","));
-  if (props.contextMacroKeys?.length) sp.set("macroKeys", props.contextMacroKeys.join(","));
+  if (props.contextMacroKeys?.length)
+    sp.set("macroKeys", props.contextMacroKeys.join(","));
   return `/api/events/context?${sp.toString()}`;
 }
 
@@ -78,6 +102,25 @@ function buildRangeUrl(rangeFrom: string, rangeTo: string): string {
     limit: "2000",
   });
   return `/api/events?${sp.toString()}`;
+}
+
+function buildForChartUrl(
+  symbol: string,
+  rangeFrom: string,
+  rangeTo: string,
+  expand: EventExpandLevel,
+  mode: EventPanelFilterState["contextMode"],
+): string {
+  const sp = new URLSearchParams({
+    symbol,
+    from: rangeFrom,
+    to: rangeTo,
+    expand,
+    mode,
+    includeSec: "1",
+    includeMarket: "1",
+  });
+  return `/api/events/for-chart?${sp.toString()}`;
 }
 
 function eventDateMs(event: MarketEventDto): number {
@@ -92,7 +135,10 @@ function sortEventsAsc(events: MarketEventDto[]): MarketEventDto[] {
   });
 }
 
-function findNearestEventId(events: MarketEventDto[], trackDate: string): string | null {
+function findNearestEventId(
+  events: MarketEventDto[],
+  trackDate: string,
+): string | null {
   const candidates = events.filter((ev) => !isEraHeaderEvent(ev));
   const targetMs = Date.parse(trackDate.slice(0, 10));
   if (!Number.isFinite(targetMs) || candidates.length === 0) return null;
@@ -108,7 +154,7 @@ function findNearestEventId(events: MarketEventDto[], trackDate: string): string
   return bestId;
 }
 
-function eventMatchesFilters(
+export function eventMatchesFilters(
   event: MarketEventDto,
   filters: EventPanelFilterState,
 ): boolean {
@@ -119,30 +165,44 @@ function eventMatchesFilters(
       event.content.toLowerCase().includes(q);
     if (!hit) return false;
   }
-  if (filters.importance && event.importance !== filters.importance) return false;
-  if (filters.scope && event.scope !== filters.scope) return false;
-  if (filters.eventType && event.eventType !== filters.eventType) return false;
+  if (!meetsMinImportance(event.importance, filters.minImportance)) return false;
+  if (!eventTypeMatchesFamilies(event.eventType, filters.typeFamilies)) {
+    return false;
+  }
   if (filters.countries.length) {
     if (!filters.countries.some((c) => event.countries.includes(c))) return false;
   }
   if (filters.industries.length) {
-    if (!filters.industries.some((ind) => event.industries.includes(ind))) return false;
+    const want = filters.industries.map(normalizeIndustryTag);
+    const hit = event.industries.some((ind) => {
+      const e = normalizeIndustryTag(ind);
+      return want.some((w) => e === w || e.startsWith(w) || w.startsWith(e));
+    });
+    if (!hit) return false;
   }
   if (filters.assets.length) {
     const want = new Set(filters.assets.map((a) => a.toUpperCase()));
     if (!event.assets.some((a) => want.has(a.toUpperCase()))) return false;
   }
-  if (filters.persons?.length) {
+  if (filters.persons.length) {
     if (!filters.persons.some((p) => event.persons.includes(p))) return false;
   }
-  if (filters.institutions?.length) {
-    if (!filters.institutions.some((i) => event.institutions.includes(i))) return false;
+  if (filters.institutions.length) {
+    if (!filters.institutions.some((i) => event.institutions.includes(i)))
+      return false;
   }
   return true;
 }
 
-function filterEvents(events: MarketEventDto[], filters: EventPanelFilterState): MarketEventDto[] {
+function filterEvents(
+  events: MarketEventDto[],
+  filters: EventPanelFilterState,
+): MarketEventDto[] {
   return events.filter((e) => eventMatchesFilters(e, filters));
+}
+
+function isSecDerivedEvent(event: MarketEventDto): boolean {
+  return event.sourceKind === "sec" || event.id.startsWith("stock:");
 }
 
 export function EventPanel({
@@ -161,6 +221,8 @@ export function EventPanel({
   compact = false,
   embedded = false,
   className = "",
+  chartSymbol = null,
+  chartExpand = "symbol",
 }: EventPanelProps) {
   const [events, setEvents] = useState<MarketEventDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -171,15 +233,29 @@ export function EventPanel({
   const [editEvent, setEditEvent] = useState<MarketEventDto | null>(null);
   const [trackingInternal, setTrackingInternal] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<EventPanelFilterState>(EMPTY_EVENT_PANEL_FILTERS);
-  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [filters, setFilters] = useState<EventPanelFilterState>(
+    EMPTY_EVENT_PANEL_FILTERS,
+  );
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const listScrollRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const lastScrolledTrackDateRef = useRef<string | null>(null);
 
   const useRangeMode = Boolean(rangeFrom && rangeTo);
+  const useChartList = Boolean(chartSymbol?.trim() && useRangeMode);
+  const showContextMode = useChartList;
 
   const eventTracking = eventTrackingProp ?? trackingInternal;
+
+  useEffect(() => {
+    setFilters(loadEventPanelListFilters());
+    setFiltersHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersHydrated) return;
+    saveEventPanelListFilters(filters);
+  }, [filters, filtersHydrated]);
 
   useEffect(() => {
     if (eventTrackingProp !== undefined) return;
@@ -205,6 +281,15 @@ export function EventPanel({
   );
 
   const listUrl = useMemo(() => {
+    if (useChartList && chartSymbol && rangeFrom && rangeTo) {
+      return buildForChartUrl(
+        chartSymbol.trim(),
+        rangeFrom,
+        rangeTo,
+        chartExpand,
+        filters.contextMode,
+      );
+    }
     if (useRangeMode && rangeFrom && rangeTo) {
       return buildRangeUrl(rangeFrom, rangeTo);
     }
@@ -218,6 +303,10 @@ export function EventPanel({
       lookaheadDays,
     });
   }, [
+    useChartList,
+    chartSymbol,
+    chartExpand,
+    filters.contextMode,
     useRangeMode,
     rangeFrom,
     rangeTo,
@@ -230,28 +319,45 @@ export function EventPanel({
     lookaheadDays,
   ]);
 
+  const eraFamilyOn =
+    isAllTypeFamiliesSelected(filters.typeFamilies) ||
+    filters.typeFamilies.includes("era");
+
   const sortedEvents = useMemo(() => sortEventsAsc(events), [events]);
   const filtersActive = hasActiveEventPanelFilters(filters);
-  const timelineModel = useMemo(() => buildEventTimeline(sortedEvents), [sortedEvents]);
   const filteredEvents = useMemo(
     () => filterEvents(sortedEvents, filters),
     [sortedEvents, filters],
   );
+
   const displayModel = useMemo(() => {
+    if (!eraFamilyOn) {
+      const flat = filteredEvents.filter(
+        (e) => !isEraHeaderEvent(e) && !isEraEventType(e.eventType),
+      );
+      return {
+        groups: [],
+        orphans: flat,
+        hasEraStructure: false as const,
+      };
+    }
+    const timelineModel = buildEventTimeline(sortedEvents);
     if (!filtersActive) return timelineModel;
-    return filterTimelineGroups(timelineModel, (e) => eventMatchesFilters(e, filters));
-  }, [timelineModel, filters, filtersActive]);
-  const trackingEvents = useMemo(
-    () =>
-      filtersActive
-        ? filteredEvents.filter((ev) => !isEraHeaderEvent(ev))
-        : timelineVisibleEvents(displayModel).filter((ev) => !isEraHeaderEvent(ev)),
-    [filtersActive, filteredEvents, displayModel],
-  );
-  const hasVisibleTimeline =
-    displayModel.hasEraStructure
-      ? displayModel.groups.length > 0 || displayModel.orphans.length > 0
-      : trackingEvents.length > 0;
+    return filterTimelineGroups(timelineModel, (e) =>
+      eventMatchesFilters(e, filters),
+    );
+  }, [eraFamilyOn, sortedEvents, filteredEvents, filters, filtersActive]);
+
+  const trackingEvents = useMemo(() => {
+    const list = displayModel.hasEraStructure
+      ? timelineVisibleEvents(displayModel)
+      : filteredEvents;
+    return list.filter((ev) => !isEraHeaderEvent(ev));
+  }, [displayModel, filteredEvents]);
+
+  const hasVisibleTimeline = displayModel.hasEraStructure
+    ? displayModel.groups.length > 0 || displayModel.orphans.length > 0
+    : trackingEvents.length > 0;
 
   const load = useCallback(async () => {
     if (!listUrl) {
@@ -316,6 +422,10 @@ export function EventPanel({
   }, [rangeFrom, rangeTo, listUrl, filters]);
 
   const onDelete = async (id: string) => {
+    if (id.startsWith("stock:")) {
+      window.alert("SEC 派生事件不可删除");
+      return;
+    }
     if (!window.confirm("确定删除该事件？")) return;
     const r = await fetch(`/api/events/${id}`, { method: "DELETE" });
     if (!r.ok) {
@@ -359,7 +469,7 @@ export function EventPanel({
                 type="checkbox"
                 checked={eventTracking}
                 onChange={(e) => setEventTracking(e.target.checked)}
-                className="h-3 w-3 shrink-0 rounded border-fs-border accent-cyan-600"
+                className="h-3 w-3 shrink-0 rounded border-fs-border accent-[var(--fs-accent,#2383e2)]"
                 aria-label="事件追踪：十字线移动时滚动到最近事件"
               />
               事件追踪
@@ -368,10 +478,14 @@ export function EventPanel({
               {!embedded ? (
                 <h3 className="text-[11px] font-semibold text-fs-text">事件记录</h3>
               ) : null}
-              <p className={`truncate text-[10px] text-fs-muted ${embedded ? "" : "mt-0"}`}>
+              <p
+                className={`truncate text-[10px] text-fs-muted ${embedded ? "" : "mt-0"}`}
+              >
                 {rangeHint}
                 {eventTracking ? (
-                  <span className="ml-1 text-[9px] text-cyan-500/80">· 十字线联动</span>
+                  <span className="ml-1 text-[9px] text-fs-accent-text/80">
+                    · 十字线联动
+                  </span>
                 ) : null}
               </p>
             </div>
@@ -400,8 +514,7 @@ export function EventPanel({
         <EventPanelFilters
           filters={filters}
           onChange={setFilters}
-          expanded={filtersExpanded}
-          onToggleExpanded={() => setFiltersExpanded((v) => !v)}
+          showContextMode={showContextMode}
         />
       </div>
       <div
@@ -413,7 +526,7 @@ export function EventPanel({
         ) : authHint ? (
           <p className="py-4 text-center text-[11px] text-fs-muted">{authHint}</p>
         ) : error ? (
-          <p className="py-4 text-center text-[11px] text-rose-300">{error}</p>
+          <p className="py-4 text-center text-[11px] text-fs-negative">{error}</p>
         ) : !listUrl ? (
           <p className="py-4 text-center text-[11px] text-fs-secondary">
             {useRangeMode ? "暂无时间轴范围" : "移动图表十字线以加载事件"}
@@ -426,7 +539,7 @@ export function EventPanel({
           </p>
         ) : (
           <EventTimelineView
-            key={`${listUrl}-${filters.searchQ}-${filters.importance}-${filters.eventType}`}
+            key={`${listUrl}-${filters.minImportance}-${filters.typeFamilies.join(",")}`}
             events={
               displayModel.hasEraStructure
                 ? timelineVisibleEvents(displayModel)
@@ -440,6 +553,7 @@ export function EventPanel({
               else rowRefs.current.delete(id);
             }}
             onEdit={(e) => {
+              if (isSecDerivedEvent(e)) return;
               setEditEvent(e);
               setFormOpen(true);
             }}

@@ -22,6 +22,12 @@ import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
+import {
+  DEFAULT_CHART_EVENT_MARKER_PREFS,
+  loadChartEventMarkerPrefs,
+  saveChartEventMarkerPrefs,
+  type ChartEventMarkerPrefs,
+} from "@/lib/chart/chartEventMarkerPrefs";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
 import { findMarketInstrument } from "@/lib/data/marketInstruments";
 
@@ -76,6 +82,15 @@ export function MarketsClient() {
     RangeStatWireSegment[]
   >([]);
   const [remoteRangeSpecsVer, setRemoteRangeSpecsVer] = useState(0);
+  const [eventMarkerPrefs, setEventMarkerPrefs] = useState<ChartEventMarkerPrefs>(
+    DEFAULT_CHART_EVENT_MARKER_PREFS,
+  );
+  useEffect(() => {
+    setEventMarkerPrefs(loadChartEventMarkerPrefs());
+  }, []);
+  useEffect(() => {
+    saveChartEventMarkerPrefs(eventMarkerPrefs);
+  }, [eventMarkerPrefs]);
   const [eventContextDate, setEventContextDate] = useState<string | null>(null);
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
@@ -498,7 +513,7 @@ export function MarketsClient() {
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => commitSymbol(h.symbol, h.name)}
                   >
-                    <span className="font-mono text-amber-200/90">
+                    <span className="font-mono font-medium text-fs-text">
                       {h.symbol}
                     </span>
                     <span className="line-clamp-2 text-[9px] text-fs-muted">
@@ -632,12 +647,17 @@ export function MarketsClient() {
             onLocalCrosshairTime={onLocalCrosshairTime}
             onEventMarkerClick={onEventMarkerClick}
             toolbarPortalEl={chartToolbarMount}
+            eventMarkerPrefs={eventMarkerPrefs}
+            onEventMarkerPrefsChange={setEventMarkerPrefs}
           />
         </div>
 
         <EventChartSidePanel
           variant="docked"
           splitRowRef={chartSplitRowRef}
+          markerPrefs={eventMarkerPrefs}
+          onMarkerPrefsChange={setEventMarkerPrefs}
+          chartSymbol={symbol.trim() || null}
           {...chartLinkedEventProps}
         />
       </div>

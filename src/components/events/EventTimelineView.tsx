@@ -224,8 +224,8 @@ export function filterTimelineGroups(
   const groups: TimelineEraGroup[] = [];
   for (const g of model.groups) {
     const children = g.children.filter(matchEvent);
-    const eraOk = matchEvent(g.era);
-    if (!eraOk && children.length === 0) continue;
+    // 无子事件时不保留空壳时代组
+    if (children.length === 0) continue;
     groups.push({ ...g, children });
   }
 

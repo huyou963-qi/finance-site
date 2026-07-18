@@ -3,10 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { formatEventOccurredAt } from "@/lib/data/marketEvents";
+import { eventTypeLabel } from "@/lib/data/eventTaxonomy";
 import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
 import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
 import { EventHoverCard } from "@/components/events/EventHoverCard";
 import { eventPreviewContent } from "@/lib/data/eventContentDisplay";
+
+function isSecDerivedEvent(event: MarketEventDto): boolean {
+  return event.sourceKind === "sec" || event.id.startsWith("stock:");
+}
 
 const HOVER_OPEN_MS = 400;
 
@@ -37,6 +42,7 @@ export function EventListRow({
   const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const secDerived = isSecDerivedEvent(event);
   const tags = [
     ...event.countries,
     ...event.industries.filter((t) => t !== "时代阶段"),
@@ -119,12 +125,23 @@ export function EventListRow({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <time className="text-[10px] tabular-nums text-cyan-400/90">
+              <time className="text-[10px] tabular-nums text-fs-accent-text">
                 {formatEventOccurredAt(event)}
               </time>
               <EventImportanceBadge importance={event.importance} />
+              {secDerived ? (
+                <span className="rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[9px] font-medium text-fs-secondary">
+                  SEC
+                </span>
+              ) : event.sourceKind === "ai_skill" ? (
+                <span className="rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[9px] text-fs-muted">
+                  录入
+                </span>
+              ) : null}
               {event.eventType ? (
-                <span className="text-[10px] text-fs-muted">{event.eventType}</span>
+                <span className="text-[10px] text-fs-muted">
+                  {eventTypeLabel(event.eventType)}
+                </span>
               ) : null}
               {tags.map((t) => (
                 <span
@@ -139,7 +156,7 @@ export function EventListRow({
                   href={event.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[10px] text-cyan-500/90 hover:underline"
+                  className="text-[10px] text-fs-accent-text hover:underline"
                   onClick={(e) => e.stopPropagation()}
                   onMouseEnter={cancelTimers}
                 >
@@ -155,7 +172,7 @@ export function EventListRow({
             </p>
             <p className="mt-1 text-[9px] text-fs-muted">悬停预览 · 点击查看全文</p>
           </div>
-          {isAdmin ? (
+          {isAdmin && !secDerived ? (
             <div className="flex shrink-0 flex-col gap-0.5">
               <button
                 type="button"
@@ -173,7 +190,7 @@ export function EventListRow({
                   e.stopPropagation();
                   onDelete(event.id);
                 }}
-                className="text-[10px] text-fs-muted hover:text-rose-300"
+                className="text-[10px] text-fs-muted hover:text-fs-negative"
               >
                 删除
               </button>

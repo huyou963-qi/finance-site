@@ -151,40 +151,16 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
   const rightPct = Math.min(100, Math.max(0, (visible.to / maxI) * 100));
   const wPct = Math.max(0.5, rightPct - leftPct);
 
-  const closes = candles.map((c) => c.close);
-  const hi = Math.max(...closes);
-  const lo = Math.min(...closes);
-  const span = hi - lo || 1;
-  const pts = closes.map((c, i) => {
-    const x = maxI > 0 ? (i / maxI) * 100 : 0;
-    const y = 100 - ((c - lo) / span) * 100;
-    return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-  });
-  const pathD = pts.join(" ");
-
   return (
     <div className="border-t border-fs-border px-2 py-2">
       <div
         ref={trackRef}
-        className="relative h-10 w-full cursor-pointer rounded bg-[#1e222d]"
+        className="relative h-8 w-full cursor-pointer rounded border border-fs-border bg-fs-elevated"
         onPointerDown={onTrackOnlyPointerDown}
         role="presentation"
       >
-        <svg
-          className="pointer-events-none absolute inset-0 h-full w-full text-fs-secondary"
-          preserveAspectRatio="none"
-          viewBox="0 0 100 100"
-        >
-          <path
-            d={pathD}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="0.8"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
         <div
-          className="pointer-events-auto absolute top-0 bottom-0 border-x border-amber-500/70 bg-amber-500/15"
+          className="pointer-events-auto absolute top-0 bottom-0 border-x border-fs-accent/40 bg-fs-accent-soft"
           style={{
             left: `${leftPct}%`,
             width: `${wPct}%`,
@@ -194,14 +170,14 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
         <button
           type="button"
           aria-label="拖动左边界"
-          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-3 -translate-x-1/2 cursor-ew-resize border-0 bg-amber-500/90 p-0 hover:bg-amber-400"
+          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2.5 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
           style={{ left: `${leftPct}%` }}
           onPointerDown={onPointerDownLeft}
         />
         <button
           type="button"
           aria-label="拖动右边界"
-          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-3 -translate-x-1/2 cursor-ew-resize border-0 bg-amber-500/90 p-0 hover:bg-amber-400"
+          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2.5 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
           style={{ left: `${rightPct}%` }}
           onPointerDown={onPointerDownRight}
         />

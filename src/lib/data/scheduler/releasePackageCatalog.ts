@@ -2,6 +2,7 @@ import type { DataGranularity } from "@prisma/client";
 import { CPI_FRED_SERIES } from "./cpiFredSeedCatalog";
 import { LABOR_FRED_SERIES } from "./laborFredSeedCatalog";
 import { defaultEconomicCalendarRule } from "./releaseRule";
+import { PHASE2_DEBTCAP_BIS_CODES } from "./phase2SeedCatalog";
 import type { ReleasePackageDef, ReleasePackageMemberRule } from "./releasePackageTypes";
 import type { CalendarMatchSpec } from "./teEventMap";
 import { mergedUsovFredMap } from "./usovFredMap";
@@ -26,6 +27,15 @@ function usovCodesForFred(...fredIds: string[]): string[] {
     .filter(([, fred]) => want.has(fred))
     .map(([code]) => code);
 }
+
+/** debtcap 按 BIS 数据流分组：leverage* → WS_TC，debt_service → WS_DSR */
+const DEBTCAP_LEVERAGE_CODES: string[] = PHASE2_DEBTCAP_BIS_CODES.filter((c) =>
+  c.includes("_leverage"),
+);
+
+const DEBTCAP_DSR_CODES: string[] = PHASE2_DEBTCAP_BIS_CODES.filter((c) =>
+  c.includes("_debt_service"),
+);
 
 function pkg(
   id: string,
@@ -743,6 +753,25 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 168,
     sortOrder: 234,
     members: { fredSeriesIds: ["IIPUSNETIQ"] },
+  }),
+  // BIS 无「某日宣布」式日历，按官方数据流（= 官方发布批次）分两组
+  probePkg("intl.bis.total_credit", "BIS 总信贷（杠杆率 / %GDP）", {
+    labelEn: "BIS Total Credit Statistics",
+    countryCode: "CH",
+    agencyId: "intl-bis",
+    granularity: "QUARTERLY",
+    intervalHours: 72,
+    sortOrder: 240,
+    members: { instrumentCodes: DEBTCAP_LEVERAGE_CODES },
+  }),
+  probePkg("intl.bis.dsr", "BIS 偿债率", {
+    labelEn: "BIS Debt Service Ratios",
+    countryCode: "CH",
+    agencyId: "intl-bis",
+    granularity: "QUARTERLY",
+    intervalHours: 72,
+    sortOrder: 241,
+    members: { instrumentCodes: DEBTCAP_DSR_CODES },
   }),
 ] as const;
 

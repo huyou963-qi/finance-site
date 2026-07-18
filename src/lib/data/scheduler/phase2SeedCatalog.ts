@@ -44,23 +44,33 @@ export const PHASE2_USOV_FRED = Object.entries(USOV_FRED_SERIES_BY_CODE).map(
   }),
 );
 
-/** debtcap 预设键（去掉 4 条政府 leverage_nominal，BIS 无映射） */
+/**
+ * debtcap 预设键。
+ *
+ * 杠杆率走 WS_TC（总信贷，UNIT_TYPE=770 即 %GDP），按部门取 H/N/P/G；
+ * 政府部门 leverage_nominal 对应 VALUATION=N（名义价值），BIS 确实有该序列。
+ * 偿债率走 WS_DSR，仅 H/N/P——中国只发布 P，故 cn 的 H/N 两条不在此列。
+ */
 export const PHASE2_DEBTCAP_BIS_CODES = [
   "debtcap_us_leverage_household",
   "debtcap_us_leverage_non_financial_corporate",
+  "debtcap_us_leverage_nominal_government",
   "debtcap_us_debt_service_household",
   "debtcap_us_debt_service_private_non_financial",
   "debtcap_us_debt_service_non_financial_corporate",
   "debtcap_jp_leverage_household",
   "debtcap_jp_leverage_non_financial_corporate",
+  "debtcap_jp_leverage_nominal_government",
   "debtcap_jp_debt_service_household",
   "debtcap_jp_debt_service_private_non_financial",
   "debtcap_jp_debt_service_non_financial_corporate",
   "debtcap_cn_leverage_household",
   "debtcap_cn_leverage_non_financial_corporate",
+  "debtcap_cn_leverage_nominal_government",
   "debtcap_cn_debt_service_private_non_financial",
   "debtcap_de_leverage_household",
   "debtcap_de_leverage_non_financial_corporate",
+  "debtcap_de_leverage_nominal_government",
   "debtcap_de_debt_service_household",
   "debtcap_de_debt_service_private_non_financial",
   "debtcap_de_debt_service_non_financial_corporate",

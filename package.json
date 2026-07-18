@@ -64,6 +64,8 @@
     "data:verify-framework": "dotenv -e .env.local -- tsx scripts/verify-framework-indicators.ts",
     "data:seed-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase2.ts",
     "data:verify-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/verify-phase2.ts",
+    "data:refetch-debtcap": "dotenv -e .env.local -- tsx scripts/data-worker/refetch-debtcap-bis.ts",
+    "data:verify-debtcap": "dotenv -e .env.local -- tsx scripts/data-worker/verify-debtcap.ts",
     "data:seed-phase3-wb": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase3-wb.ts",
     "data:verify-phase3": "dotenv -e .env.local -- tsx scripts/data-worker/verify-phase3.ts",
     "data:seed-phase4": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase4.ts",

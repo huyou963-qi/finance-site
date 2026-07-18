@@ -1,10 +1,12 @@
 import { parseBisCsvObservations, parseBisSeriesKey } from "./bisCsv";
+import { bisFlowVersion } from "../bisProbe";
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
 
 const BIS_API_V1 = "https://stats.bis.org/api/v1/data";
 
 function bisPeriodStart(isoDate: string): string {
-  const y = Math.max(2020, Number(isoDate.slice(0, 4)));
+  const y = Number(isoDate.slice(0, 4));
+  if (!Number.isFinite(y)) return "1947-Q1";
   const m = Number(isoDate.slice(5, 7)) || 1;
   const q = Math.floor((m - 1) / 3) + 1;
   return `${y}-Q${q}`;
@@ -28,7 +30,7 @@ export async function fetchBisIncremental(
   const startPeriod = bisPeriodStart(observationStart);
   const endYear = new Date().getUTCFullYear() + 1;
   const url =
-    `${BIS_API_V1}/BIS,${flowId},1.0/${seriesKey}` +
+    `${BIS_API_V1}/BIS,${flowId},${bisFlowVersion(flowId)}/${seriesKey}` +
     `?startPeriod=${encodeURIComponent(startPeriod)}&endPeriod=${endYear}-Q4&format=csv`;
 
   const res = await fetch(url, {

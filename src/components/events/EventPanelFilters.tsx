@@ -1,153 +1,73 @@
 "use client";
 
-import type { EventImportance, EventScope } from "@/lib/data/marketEvents";
+import { useState } from "react";
+import type { EventImportance } from "@prisma/client";
 import {
   EVENT_IMPORTANCE_LABELS,
-  EVENT_TYPE_SUGGESTIONS,
   EVENT_INDUSTRY_SUGGESTIONS,
-  EVENT_SCOPE_LABELS,
-  EVENT_SCOPES,
 } from "@/lib/data/marketEvents";
-import { EVENT_TYPE_LABELS, type EventTypeCode } from "@/lib/data/eventTaxonomy";
+import {
+  ALL_EVENT_TYPE_FAMILY_IDS,
+  EVENT_TYPE_FAMILIES,
+  type EventTypeFamilyId,
+} from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
+import {
+  DEFAULT_EVENT_PANEL_LIST_FILTERS,
+  hasActiveEventPanelListFilters,
+  isAllTypeFamiliesSelected,
+  type EventListContextMode,
+  type EventPanelListFilterState,
+} from "@/lib/chart/eventPanelListFilters";
 
-export type EventPanelFilterState = {
-  searchQ: string;
-  countries: string[];
-  industries: string[];
-  assets: string[];
-  persons: string[];
-  institutions: string[];
-  importance: EventImportance | "";
-  eventType: string;
-  scope: EventScope | "";
-};
-
-export const EMPTY_EVENT_PANEL_FILTERS: EventPanelFilterState = {
-  searchQ: "",
-  countries: [],
-  industries: [],
-  assets: [],
-  persons: [],
-  institutions: [],
-  importance: "",
-  eventType: "",
-  scope: "",
-};
-
-export function hasActiveEventPanelFilters(f: EventPanelFilterState): boolean {
-  return Boolean(
-    f.searchQ.trim() ||
-      f.countries.length ||
-      f.industries.length ||
-      f.assets.length ||
-      f.persons.length ||
-      f.institutions.length ||
-      f.importance ||
-      f.eventType ||
-      f.scope,
-  );
-}
-
-type FilterTagChip = {
-  id: string;
-  label: string;
-  onRemove: () => void;
-};
-
-function typeDisplay(t: string): string {
-  if (t in EVENT_TYPE_LABELS) return EVENT_TYPE_LABELS[t as EventTypeCode];
-  return t;
-}
-
-export function eventPanelFilterTagChips(
-  filters: EventPanelFilterState,
-  onChange: (next: EventPanelFilterState) => void,
-): FilterTagChip[] {
-  const chips: FilterTagChip[] = [];
-  if (filters.importance) {
-    chips.push({
-      id: "importance",
-      label: EVENT_IMPORTANCE_LABELS[filters.importance],
-      onRemove: () => onChange({ ...filters, importance: "" }),
-    });
-  }
-  if (filters.scope) {
-    chips.push({
-      id: "scope",
-      label: EVENT_SCOPE_LABELS[filters.scope],
-      onRemove: () => onChange({ ...filters, scope: "" }),
-    });
-  }
-  if (filters.eventType) {
-    chips.push({
-      id: `type-${filters.eventType}`,
-      label: typeDisplay(filters.eventType),
-      onRemove: () => onChange({ ...filters, eventType: "" }),
-    });
-  }
-  for (const c of filters.countries) {
-    chips.push({
-      id: `country-${c}`,
-      label: c,
-      onRemove: () =>
-        onChange({ ...filters, countries: filters.countries.filter((x) => x !== c) }),
-    });
-  }
-  for (const ind of filters.industries) {
-    chips.push({
-      id: `ind-${ind}`,
-      label: ind,
-      onRemove: () =>
-        onChange({ ...filters, industries: filters.industries.filter((x) => x !== ind) }),
-    });
-  }
-  for (const a of filters.assets) {
-    chips.push({
-      id: `asset-${a}`,
-      label: a,
-      onRemove: () =>
-        onChange({ ...filters, assets: filters.assets.filter((x) => x !== a) }),
-    });
-  }
-  for (const p of filters.persons) {
-    chips.push({
-      id: `person-${p}`,
-      label: p,
-      onRemove: () =>
-        onChange({ ...filters, persons: filters.persons.filter((x) => x !== p) }),
-    });
-  }
-  for (const inst of filters.institutions) {
-    chips.push({
-      id: `inst-${inst}`,
-      label: inst,
-      onRemove: () =>
-        onChange({
-          ...filters,
-          institutions: filters.institutions.filter((x) => x !== inst),
-        }),
-    });
-  }
-  return chips;
-}
+export type EventPanelFilterState = EventPanelListFilterState;
+export const EMPTY_EVENT_PANEL_FILTERS = DEFAULT_EVENT_PANEL_LIST_FILTERS;
+export { hasActiveEventPanelListFilters as hasActiveEventPanelFilters };
 
 type EventPanelFiltersProps = {
-  filters: EventPanelFilterState;
-  onChange: (next: EventPanelFilterState) => void;
-  expanded: boolean;
-  onToggleExpanded: () => void;
+  filters: EventPanelListFilterState;
+  onChange: (next: EventPanelListFilterState) => void;
+  /** 是否展示「上下文」模式（行情 docked 侧栏） */
+  showContextMode?: boolean;
+};
+
+const CONTEXT_MODE_LABELS: Record<EventListContextMode, string> = {
+  chart: "跟随图表",
+  range: "时间轴全部",
+  symbol: "仅本票",
 };
 
 export function EventPanelFilters({
   filters,
   onChange,
-  expanded,
-  onToggleExpanded,
+  showContextMode = false,
 }: EventPanelFiltersProps) {
-  const patch = (p: Partial<EventPanelFilterState>) => onChange({ ...filters, ...p });
-  const tagChips = eventPanelFilterTagChips(filters, onChange);
+  const patch = (p: Partial<EventPanelListFilterState>) =>
+    onChange({ ...filters, ...p });
+
+  const allFamilies = isAllTypeFamiliesSelected(filters.typeFamilies);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const toggleFamily = (id: EventTypeFamilyId) => {
+    const set = new Set(filters.typeFamilies);
+    if (set.has(id)) set.delete(id);
+    else set.add(id);
+    const next = ALL_EVENT_TYPE_FAMILY_IDS.filter((f) => set.has(f));
+    patch({
+      typeFamilies: next.length ? next : [...ALL_EVENT_TYPE_FAMILY_IDS],
+    });
+  };
+
+  const selectAllFamilies = () =>
+    patch({ typeFamilies: [...ALL_EVENT_TYPE_FAMILY_IDS] });
+
+  const advancedActive =
+    filters.countries.length > 0 ||
+    filters.industries.length > 0 ||
+    filters.assets.length > 0 ||
+    filters.persons.length > 0 ||
+    filters.institutions.length > 0;
 
   return (
     <div className="flex shrink-0 flex-col gap-1.5">
@@ -156,98 +76,105 @@ export function EventPanelFilters({
         value={filters.searchQ}
         onChange={(e) => patch({ searchQ: e.target.value })}
         placeholder="搜索标题或内容…"
-        className="w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-cyan-700 focus:outline-none focus:ring-1 focus:ring-cyan-700/40"
+        className="w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-fs-accent/50 focus:outline-none focus:ring-1 focus:ring-fs-accent/30"
         aria-label="搜索事件"
       />
-      <div className="flex min-w-0 flex-wrap items-center gap-1">
-        <button
-          type="button"
-          onClick={onToggleExpanded}
-          className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] transition ${
-            expanded || hasActiveEventPanelFilters(filters)
-              ? "border-cyan-800/60 bg-cyan-950/30 text-cyan-200"
-              : "border-fs-border text-fs-muted hover:border-fs-border hover:text-fs-text"
-          }`}
-        >
-          标签筛选
-        </button>
-        {tagChips.map((chip) => (
-          <span
-            key={chip.id}
-            className="inline-flex max-w-full items-center gap-0.5 rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[10px] text-fs-text"
-          >
-            <span className="truncate">{chip.label}</span>
+
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="text-[10px] text-fs-muted">类型</span>
+        {EVENT_TYPE_FAMILIES.map((f) => {
+          const on = filters.typeFamilies.includes(f.id);
+          return (
             <button
+              key={f.id}
               type="button"
-              className="shrink-0 text-fs-muted hover:text-rose-300"
-              onClick={chip.onRemove}
-              aria-label={`移除 ${chip.label}`}
+              onClick={() => toggleFamily(f.id)}
+              aria-pressed={on}
+              className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
+                on
+                  ? "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
+                  : "border-fs-border text-fs-muted hover:border-fs-border hover:text-fs-text"
+              }`}
             >
-              ×
+              {f.label}
             </button>
-          </span>
-        ))}
-        {hasActiveEventPanelFilters(filters) ? (
+          );
+        })}
+        {!allFamilies ? (
           <button
             type="button"
-            onClick={() => onChange({ ...EMPTY_EVENT_PANEL_FILTERS })}
-            className="shrink-0 rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
+            onClick={selectAllFamilies}
+            className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
           >
-            清除
+            全选
           </button>
         ) : null}
       </div>
-      {expanded ? (
-        <div className="space-y-1.5 rounded border border-fs-border bg-fs-bg/40 p-1.5">
-          <div className="flex flex-wrap gap-1">
-            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-fs-muted">
-              重要性
-              <select
-                value={filters.importance}
-                onChange={(e) =>
-                  patch({ importance: e.target.value as EventImportance | "" })
-                }
-                className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
-              >
-                <option value="">全部</option>
-                {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1 text-[10px] text-fs-muted">
+          最低重要度
+          <select
+            value={filters.minImportance}
+            onChange={(e) =>
+              patch({ minImportance: e.target.value as EventImportance })
+            }
+            className="rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[10px] text-fs-text"
+          >
+            {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map(
+              (k) => (
+                <option key={k} value={k}>
+                  {EVENT_IMPORTANCE_LABELS[k]}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        {showContextMode ? (
+          <label className="flex items-center gap-1 text-[10px] text-fs-muted">
+            上下文
+            <select
+              value={filters.contextMode}
+              onChange={(e) =>
+                patch({ contextMode: e.target.value as EventListContextMode })
+              }
+              className="rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[10px] text-fs-text"
+              title="跟随图表：与当前标的/上卷范围相关；时间轴全部：可见区间内不限标的；仅本票：assets 含当前代码"
+            >
+              {(Object.keys(CONTEXT_MODE_LABELS) as EventListContextMode[]).map(
+                (k) => (
                   <option key={k} value={k}>
-                    {EVENT_IMPORTANCE_LABELS[k]}
+                    {CONTEXT_MODE_LABELS[k]}
                   </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-fs-muted">
-              范围
-              <select
-                value={filters.scope}
-                onChange={(e) => patch({ scope: e.target.value as EventScope | "" })}
-                className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
-              >
-                <option value="">全部</option>
-                {EVENT_SCOPES.map((s) => (
-                  <option key={s} value={s}>
-                    {EVENT_SCOPE_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[10px] text-fs-muted">
-              类型
-              <select
-                value={filters.eventType}
-                onChange={(e) => patch({ eventType: e.target.value })}
-                className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
-              >
-                <option value="">全部</option>
-                {EVENT_TYPE_SUGGESTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {typeDisplay(t)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+                ),
+              )}
+            </select>
+          </label>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setMoreOpen((v) => !v)}
+          className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
+            moreOpen || advancedActive
+              ? "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
+              : "border-fs-border text-fs-muted hover:text-fs-text"
+          }`}
+        >
+          更多条件 {moreOpen ? "▴" : "▾"}
+        </button>
+        {hasActiveEventPanelListFilters(filters) ? (
+          <button
+            type="button"
+            onClick={() => onChange({ ...DEFAULT_EVENT_PANEL_LIST_FILTERS })}
+            className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
+          >
+            重置
+          </button>
+        ) : null}
+      </div>
+
+      {moreOpen ? (
+        <div className="space-y-1.5 rounded border border-fs-border bg-fs-bg/40 p-1.5">
           <TagInput
             label="国家"
             values={filters.countries}

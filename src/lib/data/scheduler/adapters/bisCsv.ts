@@ -19,19 +19,53 @@ export function parseBisTimePeriod(period: string): Date | null {
   return null;
 }
 
+/**
+ * 拆一行 CSV：BIS 的 TITLE_TS 是带引号字段且内部含逗号（如 "Banks, domestic"），
+ * 直接 split(",") 会错列。
+ */
+export function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (quoted) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          quoted = false;
+        }
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === ",") {
+      out.push(cur);
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
 /** 解析 BIS CSV 全部观测行 */
 export function parseBisCsvObservations(text: string): ObservationPoint[] {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return [];
 
-  const header = lines[0]!.split(",");
+  const header = splitCsvLine(lines[0]!);
   const timeIdx = header.indexOf("TIME_PERIOD");
   const valIdx = header.indexOf("OBS_VALUE");
   if (timeIdx < 0 || valIdx < 0) return [];
 
   const points: ObservationPoint[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i]!.split(",");
+    const cols = splitCsvLine(lines[i]!);
     const value = Number(cols[valIdx]);
     const period = cols[timeIdx]?.trim() ?? "";
     if (!Number.isFinite(value) || !period) continue;

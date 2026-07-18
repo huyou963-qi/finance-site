@@ -24,6 +24,9 @@ type Props = {
   title: string;
   /** 标题与边框强调色（与 K 线区间两端竖线一致） */
   accentColor: string;
+  /** 与主图 K 线涨跌配色一致 */
+  upColor?: string;
+  downColor?: string;
   /** 未手动拖动时，相对默认位置的纵向错位（多区间错开弹窗） */
   stackOffsetPx?: number;
   onClose: () => void;
@@ -33,17 +36,15 @@ export function KlineRangeStatsPanel({
   stats,
   title,
   accentColor,
+  upColor = "#ef5350",
+  downColor = "#26a69a",
   stackOffsetPx = 0,
   onClose,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
-  const upCls = "text-fs-accent-text";
-  const downCls = "text-rose-400";
-  const neuCls = "text-fs-text";
-
-  const changeCls = stats.changePct >= 0 ? upCls : downCls;
+  const changeColor = stats.changePct >= 0 ? upColor : downColor;
 
   const handleDragStart = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -139,26 +140,30 @@ export function KlineRangeStatsPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] sm:grid-cols-4">
-        <Cell label="区间最高" value={fmtPrice(stats.maxHigh)} valueClass={upCls} />
-        <Cell label="区间最低" value={fmtPrice(stats.minLow)} valueClass={downCls} />
-        <Cell label="开盘(首根)" value={fmtPrice(stats.firstOpen)} valueClass={neuCls} />
-        <Cell label="收盘(末根)" value={fmtPrice(stats.lastClose)} valueClass={changeCls} />
+        <Cell label="区间最高" value={fmtPrice(stats.maxHigh)} valueColor={upColor} />
+        <Cell label="区间最低" value={fmtPrice(stats.minLow)} valueColor={downColor} />
+        <Cell label="开盘(首根)" value={fmtPrice(stats.firstOpen)} />
+        <Cell
+          label="收盘(末根)"
+          value={fmtPrice(stats.lastClose)}
+          valueColor={changeColor}
+        />
 
         <Cell
           label="涨跌幅"
           value={`${stats.changePct >= 0 ? "+" : ""}${stats.changePct.toFixed(2)}%`}
-          valueClass={changeCls}
+          valueColor={changeColor}
         />
-        <Cell
-          label="振幅"
-          value={`${stats.amplitudePct.toFixed(2)}%`}
-          valueClass={neuCls}
-        />
-        <Cell label="阳线" value={`${stats.upBars} 根`} valueClass={upCls} />
-        <Cell label="阴线" value={`${stats.downBars} 根`} valueClass={downCls} />
+        <Cell label="振幅" value={`${stats.amplitudePct.toFixed(2)}%`} />
+        <Cell label="阳线" value={`${stats.upBars} 根`} valueColor={upColor} />
+        <Cell label="阴线" value={`${stats.downBars} 根`} valueColor={downColor} />
 
         <Cell label="平盘" value={`${stats.flatBars} 根`} valueClass="text-fs-muted" />
-        <Cell label="成交量合计" value={fmtVolZh(stats.totalVolume)} valueClass="text-amber-200/90" />
+        <Cell
+          label="成交量合计"
+          value={fmtVolZh(stats.totalVolume)}
+          valueClass="text-fs-secondary"
+        />
       </div>
 
       <p className="mt-3 text-[10px] leading-relaxed text-fs-secondary">
@@ -171,16 +176,23 @@ export function KlineRangeStatsPanel({
 function Cell({
   label,
   value,
-  valueClass,
+  valueClass = "text-fs-text",
+  valueColor,
 }: {
   label: string;
   value: string;
-  valueClass: string;
+  valueClass?: string;
+  valueColor?: string;
 }) {
   return (
     <div className="min-w-0">
       <div className="text-fs-muted">{label}</div>
-      <div className={`truncate font-mono text-xs ${valueClass}`}>{value}</div>
+      <div
+        className={`truncate font-mono text-xs ${valueColor ? "" : valueClass}`}
+        style={valueColor ? { color: valueColor } : undefined}
+      >
+        {value}
+      </div>
     </div>
   );
 }
