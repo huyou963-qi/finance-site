@@ -20,6 +20,7 @@ description: >-
 - 「为某国/某行业/某股票补事件」「同步评级与目标价」「录入 FOMC/政策」
 - 「生成某标的 K 线事件」「批量补非 SEC 公司大事」
 - 维护 `/events` 或行情标记数据
+- 「取队列下一格 / 批跑 market-event-ingest」
 
 ## Modes
 
@@ -119,7 +120,7 @@ description: >-
 | 评级 | `ai:rating:{agency}:{SYMBOL}:{yyyy-mm-dd}` |
 | 目标价 | `ai:pt:{agency}:{SYMBOL}:{yyyy-mm-dd}` |
 
-## Workflow
+## Workflow（单次 / 手动指定）
 
 1. 解析意图 → 选 mode（可多 mode）
 2. WebSearch / WebFetch 检索并交叉验证
@@ -127,15 +128,54 @@ description: >-
 4. 写出 ingest JSON 到临时文件（如 `.data/event-ingest-run.json`）
 5. `npm run events:validate-ingest -- <file.json>`
 6. `npm run events:import-ingest -- <file.json>`（自动 externalId + 语义去重）
-7. **更新检索进度记录表**：追加一行到 `.data/market-event-ingest-record.md`，至少记录 `mode / assets / tags / industries(GICS) / eventType(s) / query.from→query.to / 输出 event 记录文件路径 / 状态（validate/import dry-run 或正式 import）`
+7. **更新检索进度记录表**：追加一行到 `.data/market-event-ingest-record.md`；并刷新一眼看板 `.data/market-event-ingest-progress.md`（`npm run events:ingest-dashboard`）
 8. 回报：写入 N / 更新（合并）M / 跳过 K / 失败原因
 
 入库 `sourceKind` 固定为 `ai_skill`。
+
+## 批跑（队列驱动）
+
+覆盖矩阵与优先级见 `docs/MARKET_EVENT_RECORDER.md`。本地队列：`.data/market-event-ingest-queue.json`（gitignore）。
+
+### 队列命令
+
+```bash
+npm run events:ingest-seed-p0          # P0/P1：US macro + 黄金 + GICS + 宽基（2006→今天，按年）
+npm run events:ingest-gen-sp500        # P2：SP500 × mode × 年
+npm run events:ingest-gen-sp500 -- --from-year=2016 --dry-run
+npm run events:ingest-next -- --stats
+npm run events:ingest-dashboard         # 一眼看板：完成/剩余 + 已搜集明细
+npm run events:ingest-next             # 领取 pending → running
+npm run events:ingest-next -- --done=<id> --output=.data/ingest/...json
+npm run events:ingest-next -- --blocked=<id> --note="no sources"
+```
+
+### Agent 批跑规程（取下一格时必须遵循）
+
+1. `npm run events:ingest-next`（或 `--peek`）拿到 `task`
+2. 若 `task.query.symbol` 存在：
+   - 先 `GET /api/equity/stocks/{symbol}/events`
+   - 财报/年报/8-K/拆分 → `skipped: covered_by_sec`，禁止写入 `events[]`
+3. `GET /api/events?from={from}&to={to}&limit=2000` 库内去重
+4. 按 `task.mode` + `task.query` 检索；≥2 权威源；禁止编造
+5. 写出 JSON 到 `task.outputFile`
+6. `npm run events:validate-ingest -- <outputFile>`
+7. **连续批跑默认正式入库**：`npm run events:import-ingest -- <outputFile>`（校验通过即写库；仅调试时才加 `--dry-run`）
+8. `npm run events:ingest-next -- --done=<id> --output=<outputFile>`（追加 record）
+9. **立即**再 `events:ingest-next` 领取下一格；无可靠来源：`--blocked=<id>` + JSON `skipped[]`
+
+### 默认覆盖假设
+
+- 个股 = S&P 500（`mds.equity_security` 且 `gics_sector` 非空）
+- 时间主窗 = `2006-01-01` → 今天；按年切片；优先 2016+ 再回补 2006–2015
+- 每轮通常 1 格；不上 CI 自动 import
 
 ## References
 
 - `reference/dedup.md` — 去重与标签合并细则
 - `reference/event-taxonomy.md` — 类型与缩略字（与 TS 同步说明）
 - `reference/source-whitelist.md` — 优先源
-- `reference/gics-alias.md` — 行业标签
+- `reference/gics-alias.md` — 行业映射
+- `templates/queue.schema.json` — 批跑队列 schema
 - 时代线长文：`.cursor/prompts/market-events-us-history-timeline.md`
+- 操作文档：`docs/MARKET_EVENT_RECORDER.md`

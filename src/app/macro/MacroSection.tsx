@@ -12,6 +12,7 @@ import { MacroChartDrawingToolbar } from "@/components/MacroChartDrawingToolbar"
 import { MacroMultiChartGrid } from "@/components/MacroMultiChartGrid";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
+import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
 import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
 import type {
   MacroDrawing,
@@ -1269,79 +1270,13 @@ export function MacroSection() {
     [templateFolders],
   );
 
-  const persistSystemBuiltinTemplateLayout = useCallback(
-    async (
-      folders: MacroTemplateFolder[],
-      folderIds: Record<string, string | null>,
-    ) => {
-      if (!isAdmin) return;
-      const res = await fetch("/api/tools/macro-chart-prefs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemMacroChartPrefs: {
-            version: 1,
-            builtinTemplateFolders: folders,
-            builtinTemplateFolderIds: folderIds,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(j.error ?? `保存系统文件夹失败 (${res.status})`);
-      }
-      const j = (await res.json()) as {
-        builtinTemplateFolders?: MacroTemplateFolder[];
-        builtinTemplateFolderIds?: Record<string, string | null>;
-      };
-      if (Array.isArray(j.builtinTemplateFolders)) {
-        setSystemBuiltinFolders(j.builtinTemplateFolders);
-      } else {
-        setSystemBuiltinFolders(folders);
-      }
-      if (j.builtinTemplateFolderIds) {
-        setBuiltinTemplateFolderIds(j.builtinTemplateFolderIds);
-      } else {
-        setBuiltinTemplateFolderIds(folderIds);
-      }
-    },
-    [isAdmin],
-  );
-
   const addUserTemplateFolder = useCallback((name: string) => {
     setTemplateFolders((prev) => [...prev, createMacroTemplateFolder(name, "user")]);
   }, []);
 
-  const addBuiltinTemplateFolder = useCallback(
-    (name: string) => {
-      if (!isAdmin) return;
-      const folder = createMacroTemplateFolder(name, "builtin");
-      const nextFolders = [...systemBuiltinFolders, folder];
-      setSystemBuiltinFolders(nextFolders);
-      void persistSystemBuiltinTemplateLayout(nextFolders, builtinTemplateFolderIds).catch(
-        (e) => window.alert(e instanceof Error ? e.message : "保存失败"),
-      );
-    },
-    [builtinTemplateFolderIds, isAdmin, persistSystemBuiltinTemplateLayout, systemBuiltinFolders],
-  );
-
   const renameUserTemplateFolder = useCallback((folderId: string, name: string) => {
     setTemplateFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, name } : f)));
   }, []);
-
-  const renameBuiltinTemplateFolder = useCallback(
-    (folderId: string, name: string) => {
-      if (!isAdmin) return;
-      const nextFolders = systemBuiltinFolders.map((f) =>
-        f.id === folderId ? { ...f, name } : f,
-      );
-      setSystemBuiltinFolders(nextFolders);
-      void persistSystemBuiltinTemplateLayout(nextFolders, builtinTemplateFolderIds).catch(
-        (e) => window.alert(e instanceof Error ? e.message : "保存失败"),
-      );
-    },
-    [builtinTemplateFolderIds, isAdmin, persistSystemBuiltinTemplateLayout, systemBuiltinFolders],
-  );
 
   const deleteUserTemplateFolder = useCallback((folderId: string) => {
     setTemplateFolders((prev) => prev.filter((f) => f.id !== folderId));
@@ -1350,42 +1285,6 @@ export function MacroSection() {
     );
     setNewTemplateFolderId((prev) => (prev === folderId ? "" : prev));
   }, []);
-
-  const deleteBuiltinTemplateFolder = useCallback(
-    (folderId: string) => {
-      if (!isAdmin) return;
-      const nextFolders = systemBuiltinFolders.filter((f) => f.id !== folderId);
-      const nextIds: Record<string, string | null> = {};
-      for (const [k, v] of Object.entries(builtinTemplateFolderIds)) {
-        nextIds[k] = v === folderId ? null : v;
-      }
-      setSystemBuiltinFolders(nextFolders);
-      setBuiltinTemplateFolderIds(nextIds);
-      void persistSystemBuiltinTemplateLayout(nextFolders, nextIds).catch((e) =>
-        window.alert(e instanceof Error ? e.message : "保存失败"),
-      );
-    },
-    [builtinTemplateFolderIds, isAdmin, persistSystemBuiltinTemplateLayout, systemBuiltinFolders],
-  );
-
-  const assignBuiltinTemplateFolder = useCallback(
-    (templateId: string, folderId: string | null) => {
-      if (!isAdmin) return;
-      const validFolderId =
-        folderId && systemBuiltinFolders.some((f) => f.id === folderId) ? folderId : null;
-      const nextIds = { ...builtinTemplateFolderIds, [templateId]: validFolderId };
-      setBuiltinTemplateFolderIds(nextIds);
-      void persistSystemBuiltinTemplateLayout(systemBuiltinFolders, nextIds).catch((e) =>
-        window.alert(e instanceof Error ? e.message : "保存失败"),
-      );
-    },
-    [
-      builtinTemplateFolderIds,
-      isAdmin,
-      persistSystemBuiltinTemplateLayout,
-      systemBuiltinFolders,
-    ],
-  );
 
   const assignUserTemplateFolder = useCallback(
     (templateId: string, folderId: string | null) => {
@@ -3705,34 +3604,19 @@ export function MacroSection() {
             </section>
           ) : (
             <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-              <div className="rounded-lg border border-fs-border/90 bg-fs-bg/60 p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-medium text-fs-text">系统模板</h3>
-                  {isAdmin ? (
-                    <span className="text-[10px] text-fs-muted">
-                      管理员可删除；代码内置模板删除后为全员隐藏，可下方恢复
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-fs-secondary">文件夹由管理员统一维护</span>
-                  )}
-                </div>
-                <MacroTemplateFolderSection
+              <div className="rounded-xl border border-fs-border/80 bg-fs-elevated/40 p-4">
+                <MacroSystemTemplateBrowser
                   templates={builtInTemplates}
-                  folders={builtinFolders}
-                  getFolderId={(tpl) => builtinTemplateFolderIds[tpl.id] ?? null}
-                  onAssignFolder={assignBuiltinTemplateFolder}
-                  onCreateFolder={addBuiltinTemplateFolder}
-                  onRenameFolder={renameBuiltinTemplateFolder}
-                  onDeleteFolder={deleteBuiltinTemplateFolder}
-                  disabled={loading || !isAdmin}
+                  folderIdByTemplate={builtinTemplateFolderIds}
+                  loading={loading}
                   emptyText="暂无系统模板。"
                   renderActions={(tpl) => (
-                    <div className="flex w-full flex-col gap-0.5">
+                    <div className="flex w-full flex-col gap-1">
                       <button
                         type="button"
                         disabled={loading}
                         onClick={() => applyTemplateAndExtract(tpl)}
-                        className="w-full rounded border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                        className="w-full rounded-md border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         加载
                       </button>
@@ -3741,7 +3625,7 @@ export function MacroSection() {
                           type="button"
                           disabled={loading}
                           onClick={() => deleteSystemTemplate(tpl)}
-                          className="w-full rounded border border-fs-negative/50 bg-white px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="w-full rounded-md border border-fs-negative/50 bg-fs-elevated px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           删除
                         </button>
@@ -3750,7 +3634,7 @@ export function MacroSection() {
                   )}
                 />
                 {isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
-                  <div className="mt-3 rounded border border-fs-border bg-fs-bg/40 px-2 py-2">
+                  <div className="mt-3 rounded-lg border border-fs-border bg-fs-bg/40 px-2 py-2">
                     <p className="text-[10px] font-medium text-fs-muted">已隐藏的内置系统模板</p>
                     <ul className="mt-1.5 flex flex-wrap gap-1.5">
                       {hiddenHardcodedBuiltinTemplates.map((tpl) => (

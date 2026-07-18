@@ -20,6 +20,10 @@
     "db:backfill-market-event-fields": "dotenv -e .env.local -- tsx scripts/backfill-market-event-fields.ts",
     "events:validate-ingest": "dotenv -e .env.local -- tsx scripts/validate-event-ingest.ts",
     "events:import-ingest": "dotenv -e .env.local -- tsx scripts/import-event-ingest.ts",
+    "events:ingest-seed-p0": "dotenv -e .env.local -- tsx scripts/event-ingest-seed-p0-queue.ts",
+    "events:ingest-gen-sp500": "dotenv -e .env.local -- tsx scripts/event-ingest-generate-sp500-queue.ts",
+    "events:ingest-next": "dotenv -e .env.local -- tsx scripts/event-ingest-queue-next.ts",
+    "events:ingest-dashboard": "dotenv -e .env.local -- tsx scripts/event-ingest-dashboard.ts",
     "db:import-mysql-h": "tsx scripts/migrate-mysql-h-to-pg.ts",
     "db:seed-mds-from-legacy-h": "dotenv -e .env.local -- tsx scripts/seed-mds-from-legacy-h.ts",
     "db:etl-legacy-h-observations": "dotenv -e .env.local -- tsx scripts/etl-legacy-h-wide-to-observations.ts",
@@ -108,6 +112,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@xyflow/react": "^12.11.2",
     "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.2",
     "lightweight-charts": "^5.0.3",
