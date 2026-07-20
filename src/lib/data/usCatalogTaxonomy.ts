@@ -61,7 +61,13 @@ const FRED_CPI = new Set(
 const FRED_PCE_PPI = new Set(["PCEPI", "PCEPILFE", "PPIFIS"]);
 const FRED_INFLATION_EXPECT_ENERGY = new Set(["T5YIE", "T10YIE", "DCOILWTICO"]);
 
-const FRED_NATIONAL_ACCOUNTS = new Set(["GDPC1", "GDP", "A191RL1Q225SBEA", "PNFIC1"]);
+const FRED_NATIONAL_ACCOUNTS = new Set([
+  "GDPC1",
+  "GDP",
+  "A191RL1Q225SBEA",
+  "PNFIC1",
+  "PRFIC1",
+]);
 const FRED_INDUSTRIAL = new Set([
   "INDPRO",
   "IPMAN",
@@ -209,7 +215,7 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   if (FRED_FISCAL_RATIOS.has(id)) return p("财政与公共债务", "可持续性比率");
   if (FRED_GOV_SPENDING.has(id)) return p("财政与公共债务", "政府支出核算");
   if (id === "FGRECPT" || id === "FGEXPND") return p("财政与公共债务", "政府支出核算");
-  if (id === "GPDIC1" || id === "A101RX1Q020SBEA") return p("国民经济", "核算");
+  if (id === "GPDIC1") return p("国民经济", "核算");
   if (FRED_HOUSING_SUPPLY.has(id)) return p("地产与建筑", "开工与销售");
   if (FRED_HOUSING_MORTGAGE.has(id)) return p("地产与建筑", "抵押利率");
   if (FRED_HOUSING_PRICE.has(id)) return p("地产与建筑", "房价与可负担性");

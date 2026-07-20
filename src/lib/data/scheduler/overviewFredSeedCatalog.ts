@@ -26,6 +26,7 @@ function overviewFredSourceMeta(fredId: string): { source: string; sourceUpdateN
     fredId === "PCEC96" ||
     fredId === "PCEPILFE" ||
     fredId === "PNFIC1" ||
+    fredId === "PRFIC1" ||
     fredId === "EXPGSC1" ||
     fredId === "IMPGSC1" ||
     fredId === "GCEC1"
@@ -138,6 +139,7 @@ export const OVERVIEW_FRED_SERIES: readonly OverviewFredSeedRow[] = [
   overviewFredRow("DFEDTARU", "联邦基金目标利率上限", "银行与货币", "日", "DAILY", "%"),
   overviewFredRow("T10Y2Y", "10Y-2Y 国债利差", "利率与债券", "日", "DAILY", "%"),
   overviewFredRow("PNFIC1", "实际私人固定投资", "固定资产投资", "季", "QUARTERLY", "十亿美元"),
+  overviewFredRow("PRFIC1", "实际住宅固定投资", "固定资产投资", "季", "QUARTERLY", "十亿美元"),
   overviewFredRow("HOUST", "新屋开工", "固定资产与地产", "月", "MONTHLY", "千套"),
   overviewFredRow("EXPGSC1", "实际出口", "对外贸易及投资", "季", "QUARTERLY", "十亿美元"),
   overviewFredRow("IMPGSC1", "实际进口", "对外贸易及投资", "季", "QUARTERLY", "十亿美元"),

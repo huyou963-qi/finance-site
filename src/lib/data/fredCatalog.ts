@@ -215,6 +215,7 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "RHORUSQ156N", label: "自有住房率（%）", category: "固定资产与地产", frequency: "季度" },
   { id: "DRSFRMACBS", label: "单户住宅抵押贷款拖欠率（%）", category: "固定资产与地产", frequency: "季度" },
   { id: "PNFIC1", label: "实际私人固定投资（十亿美元）", category: "固定资产投资", frequency: "季度" },
+  { id: "PRFIC1", label: "实际住宅固定投资（十亿美元）", category: "固定资产投资", frequency: "季度" },
   { id: "EXPGSC1", label: "实际出口（十亿美元）", category: "对外贸易及投资", frequency: "季度" },
   { id: "IMPGSC1", label: "实际进口（十亿美元）", category: "对外贸易及投资", frequency: "季度" },
   { id: "GCEC1", label: "实际政府消费支出（十亿美元）", category: "财政", frequency: "季度" },

@@ -264,8 +264,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["prelim", "final", "q/q", "annualized"],
     },
     members: {
-      // GDP 季报同时发布实际最终销售（FINSLC1）与贸易条件指数
-      fredSeriesIds: ["GDP", "GDPC1", "A191RL1Q225SBEA", "FINSLC1", "W369RG3Q066SBEA"],
+      // GDP 季报同时发布实际最终销售（FINSLC1）、贸易条件指数与 NIPA 表 1.1.6 的固定投资分项
+      fredSeriesIds: [
+        "GDP",
+        "GDPC1",
+        "A191RL1Q225SBEA",
+        "FINSLC1",
+        "W369RG3Q066SBEA",
+        "PRFIC1",
+      ],
       instrumentCodes: usovCodesForFred("A191RL1Q225SBEA"),
     },
   }),
