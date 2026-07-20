@@ -30,6 +30,8 @@
     "db:import-debt-capacity-xlsx": "dotenv -e .env.local -- tsx scripts/import-debt-capacity-xlsx.ts",
     "db:import-macro-xlsx": "dotenv -e .env.local -- tsx scripts/import-macro-xlsx.ts",
     "db:verify-macro-import": "dotenv -e .env.local -- tsx scripts/verify-macro-import.ts",
+    "db:verify-macro-asof": "dotenv -e .env.local -- tsx scripts/verify-macro-asof.ts",
+    "verify:phase0-pit": "dotenv -e .env.local -- tsx scripts/verify-phase0-pit.ts",
     "db:verify-ism-import": "dotenv -e .env.local -- tsx scripts/verify-macro-import.ts -- --prefix=ism_us_ --country=US --category=采购经理人指数 --expect-count=8 --require-name-en",
     "db:backfill-debt-capacity-attrs": "dotenv -e .env.local -- tsx scripts/backfill-debt-capacity-attrs-from-xlsx.ts",
     "db:backfill-us-overview-attrs": "dotenv -e .env.local -- tsx scripts/backfill-us-overview-attrs-from-xlsx.ts",
@@ -111,6 +113,10 @@
     "equity:sync-sec": "dotenv -e .env.local -- tsx scripts/equity/sync-sec.ts",
     "equity:sync-prices": "dotenv -e .env.local -- tsx scripts/equity/sync-prices.ts",
     "equity:verify-gics": "dotenv -e .env.local -- tsx scripts/equity/verify-gics.ts",
+    "equity:rebuild-sp500-history": "dotenv -e .env.local -- tsx scripts/equity/rebuild-sp500-history.ts",
+    "equity:verify-sp500-history": "dotenv -e .env.local -- tsx scripts/equity/verify-sp500-history.ts",
+    "equity:build-delistings": "dotenv -e .env.local -- tsx scripts/equity/build-delistings.ts",
+    "equity:verify-first-reported": "dotenv -e .env.local -- tsx scripts/equity/verify-first-reported.ts",
     "test:equity": "tsx --test src/lib/equity/*.test.ts"
   },
   "dependencies": {

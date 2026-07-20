@@ -40,6 +40,10 @@ export async function upsertQuarterlyFundamentals(
       sharesOutstanding: r.sharesOutstanding,
       dividendsPaid: r.dividendsPaid,
       fiscalDate,
+      // PIT：该季数据首次披露日（详见 SecQuarterlyFundamentals.firstReportedAt）
+      firstReportedAt: r.firstReportedAt
+        ? new Date(`${r.firstReportedAt}T00:00:00.000Z`)
+        : null,
       asOf: fiscalDate,
     };
     await prisma.equityFundamentalSnapshot.upsert({

@@ -1,0 +1,5 @@
+{
+  "source": "wikipedia:List_of_S&P_500_companies (action=parse HTML)",
+  "fetchedAt": "2026-07-19",
+  "note": "含 id=constituents 当前成分表与 id=changes 变更表；刷新方式见 rebuild-sp500-history.ts 头注释"
+}

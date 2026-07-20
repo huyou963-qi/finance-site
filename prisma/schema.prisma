@@ -583,6 +583,8 @@ model EquityFundamentalSnapshot {
   fiscalDate        DateTime? @map("fiscal_date") @db.Date
   /// 财季位置 1–4（由 10-K 年度期末锚定；年度聚合按 FQ4 分组）
   fiscalQuarter     Int?      @map("fiscal_quarter") @db.SmallInt
+  /// 该季数据首次向市场披露日（PIT：各字段来源事实点最早 filed 的 max；值仍取最新重述）
+  firstReportedAt   DateTime? @map("first_reported_at") @db.Date
   asOf              DateTime  @map("as_of") @db.Date
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
@@ -649,6 +651,28 @@ model EquityDailyBar {
   @@unique([symbol, date])
   @@index([symbol, date(sort: Desc)])
   @@map("equity_daily_bar")
+  @@schema("mds")
+}
+
+/// 退市/移出清单（从 SP500 历史成分消失的 symbol 反推；供回测消除幸存者偏差）。
+/// delistDate 优先取 Wikipedia 变更表移出生效日，缺行时退化为最后出现的月末；
+/// 历史 symbol 与价格库同口径（改名公司按现 ticker，见 SP500_TICKER_ALIASES）。
+model EquityDelisting {
+  id            String    @id @default(uuid()) @db.Uuid
+  symbol        String    @unique @db.VarChar(16)
+  delistDate    DateTime  @map("delist_date") @db.Date
+  /// 移出原因（含公司名），如 "Pactiv — Reynolds Group Holdings acquired Pactiv."
+  reason        String?   @db.VarChar(512)
+  /// 价格库最后一根日线（null = 尚无价格数据）
+  lastPriceDate DateTime? @map("last_price_date") @db.Date
+  /// Yahoo 覆盖状态：covered=有日线 / not_found=Yahoo 无此标的 /
+  /// no_data=Yahoo 有 symbol 但无日线（已查过） / pending=尚未尝试补价
+  priceStatus   String?   @map("price_status") @db.VarChar(16)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([delistDate])
+  @@map("equity_delisting")
   @@schema("mds")
 }
 

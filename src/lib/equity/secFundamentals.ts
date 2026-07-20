@@ -187,6 +187,12 @@ export type SecQuarterlyFundamentals = {
   longTermDebt: number | null;
   cash: number | null;
   sharesOutstanding: number | null;
+  /**
+   * PIT：该季数据首次向市场披露日（ISO），= 各字段来源事实点首次 filed 的 max。
+   * 差分派生季（如 Q4 = FY − YTD9）取参与各点首次 filed 的 max（即 10-K filed 日）。
+   * 注意与去重语义分开：字段值取同期最新 filed（容纳重述），首披露日取最早 filed。
+   */
+  firstReportedAt: string | null;
 };
 
 /** 各标准化字段的候选 US-GAAP tag（按优先级回退，跨公司报表栏目标准化的核心映射表） */
@@ -254,11 +260,30 @@ function isSecPeriodicForm(form: string | undefined): boolean {
   return typeof form === "string" && (form.startsWith("10-Q") || form.startsWith("10-K"));
 }
 
-type FlowQuarter = { start: string; end: string; val: number; derived: boolean };
+/** filed = 该季值的首次披露日 ISO（PIT），"" 表示源数据缺 filed */
+type FlowQuarter = { start: string; end: string; val: number; derived: boolean; filed: string };
 
-type DedupedDurPoint = { start: string; end: string; val: number; filed: string; days: number };
+type DedupedDurPoint = {
+  start: string;
+  end: string;
+  val: number;
+  filed: string;
+  firstFiled: string;
+  days: number;
+};
 
-/** duration 事实点去重（同 (start,end) 取最新 filed，容纳重述） */
+/** 取若干首披露日的 max（PIT：派生值要等所有参与点都披露后才可见）；"" 视为缺失不参与 */
+function maxFiled(...dates: string[]): string {
+  let out = "";
+  for (const d of dates) if (d > out) out = d;
+  return out;
+}
+
+/**
+ * duration 事实点去重。两个语义分开：
+ * 值取同 (start,end) 最新 filed（容纳重述）→ filed；
+ * PIT 首披露日取同 (start,end) 最早 filed → firstFiled。
+ */
 function dedupeDurationPoints(points: SecFactPoint[]): DedupedDurPoint[] {
   const byKey = new Map<string, DedupedDurPoint>();
   for (const p of points) {
@@ -277,8 +302,16 @@ function dedupeDurationPoints(points: SecFactPoint[]): DedupedDurPoint[] {
     const key = `${start}|${p.end}`;
     const filed = p.filed ?? "";
     const prev = byKey.get(key);
-    if (!prev || filed > prev.filed) {
-      byKey.set(key, { start, end: p.end, val: p.val, filed, days });
+    if (!prev) {
+      byKey.set(key, { start, end: p.end, val: p.val, filed, firstFiled: filed, days });
+      continue;
+    }
+    if (filed > prev.filed) {
+      prev.val = p.val;
+      prev.filed = filed;
+    }
+    if (filed && (!prev.firstFiled || filed < prev.firstFiled)) {
+      prev.firstFiled = filed;
     }
   }
   return [...byKey.values()];
@@ -304,7 +337,13 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
     if (!isQuarterSpan(p.days)) continue;
     const prev = byEnd.get(p.end);
     if (!prev || prev.derived) {
-      byEnd.set(p.end, { start: p.start, end: p.end, val: p.val, derived: false });
+      byEnd.set(p.end, {
+        start: p.start,
+        end: p.end,
+        val: p.val,
+        derived: false,
+        filed: p.firstFiled,
+      });
     }
   }
 
@@ -330,6 +369,8 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
         end: c.end,
         val: c.val - prefix.val,
         derived: true,
+        // 派生值要等参与差分的两个点都披露后市场才能算出
+        filed: maxFiled(c.firstFiled, prefix.firstFiled),
       });
       continue;
     }
@@ -338,6 +379,7 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
     let cursorMs = dateMs(c.start);
     let sum = 0;
     let ok = true;
+    let chainFiled = c.firstFiled;
     for (let i = 0; i < 4; i++) {
       const remain = Math.round((cEndMs - cursorMs) / DAY_MS);
       if (isQuarterSpan(remain + 1)) break; // 只剩最后一季
@@ -352,6 +394,7 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
         break;
       }
       sum += next.val;
+      chainFiled = maxFiled(chainFiled, next.filed);
       cursorMs = dateMs(next.end);
     }
     const lastSpan = Math.round((cEndMs - cursorMs) / DAY_MS);
@@ -361,6 +404,7 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
         end: c.end,
         val: c.val - sum,
         derived: true,
+        filed: chainFiled,
       });
     }
   }
@@ -368,10 +412,13 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
   return [...byEnd.values()].sort((a, b) => a.end.localeCompare(b.end));
 }
 
-/** instant 概念 → 季末时点值（同 end 取最新 filed） */
-function instantSeries(points: SecFactPoint[]): Map<string, number> {
+/** 值 = 同 end 最新 filed（容纳重述）；firstFiled = 同 end 最早 filed（PIT 首披露日） */
+type InstantPoint = { val: number; firstFiled: string };
+
+/** instant 概念 → 季末时点值 */
+function instantSeries(points: SecFactPoint[]): Map<string, InstantPoint> {
   const filedByEnd = new Map<string, string>();
-  const out = new Map<string, number>();
+  const out = new Map<string, InstantPoint>();
   for (const p of points) {
     if (
       typeof p.end !== "string" ||
@@ -383,9 +430,17 @@ function instantSeries(points: SecFactPoint[]): Map<string, number> {
     }
     const filed = p.filed ?? "";
     const prevFiled = filedByEnd.get(p.end);
+    const prev = out.get(p.end);
     if (prevFiled == null || filed > prevFiled) {
       filedByEnd.set(p.end, filed);
-      out.set(p.end, p.val);
+      out.set(p.end, {
+        val: p.val,
+        firstFiled: prev && prev.firstFiled && (!filed || prev.firstFiled < filed)
+          ? prev.firstFiled
+          : filed,
+      });
+    } else if (prev && filed && (!prev.firstFiled || filed < prev.firstFiled)) {
+      prev.firstFiled = filed;
     }
   }
   return out;
@@ -429,7 +484,25 @@ function pickFlowQuarterSeries(
       if (c.magnitude > best.magnitude * 1.05) best = c;
     }
   }
-  return best.series;
+
+  // PIT 首披露日跨候选合并：换 tag 公司（GOOGL 2025 起换营收 tag）在新 tag 下的
+  // 旧季度事实来自后续财报对比列（firstFiled 晚一年），但市场当时在旧 tag 下已见到
+  // 同一数值。同 (end) 且值接近（±2%）的其他候选若首披露更早，则采用其更早 filed；
+  // 值差大的不合并（JPM 手续费收入 vs 总收入是不同口径，早披露不等于本口径可见）。
+  const merged = best.series.map((q) => ({ ...q }));
+  for (const c of cands) {
+    if (c === best) continue;
+    const byEnd = new Map(c.series.map((q) => [q.end, q]));
+    for (const q of merged) {
+      const o = byEnd.get(q.end);
+      if (!o?.filed) continue;
+      const tol = 0.02 * Math.max(Math.abs(q.val), Math.abs(o.val));
+      if (Math.abs(q.val - o.val) <= tol && (!q.filed || o.filed < q.filed)) {
+        q.filed = o.filed;
+      }
+    }
+  }
+  return merged;
 }
 
 /** 两条单季序列按同期末求和（仅两侧都有值的季度），用于银行合成营收 */
@@ -444,6 +517,7 @@ function sumFlowSeries(a: FlowQuarter[], b: FlowQuarter[]): FlowQuarter[] {
       end: qa.end,
       val: qa.val + qb.val,
       derived: qa.derived || qb.derived,
+      filed: maxFiled(qa.filed, qb.filed),
     });
   }
   return out;
@@ -454,8 +528,8 @@ function pickInstantSeries(
   gaap: Record<string, SecConcept>,
   names: readonly string[],
   unitKeys: string[],
-): Map<string, number> {
-  type Cand = { series: Map<string, number>; lastEnd: string };
+): Map<string, InstantPoint> {
+  type Cand = { series: Map<string, InstantPoint>; lastEnd: string };
   const cands: Cand[] = [];
   for (const name of names) {
     const series = instantSeries(pickUnitPoints(gaap[name], unitKeys));
@@ -465,7 +539,24 @@ function pickInstantSeries(
   if (!cands.length) return new Map();
   const maxEndMs = Math.max(...cands.map((c) => dateMs(c.lastEnd)));
   const fresh = cands.filter((c) => (maxEndMs - dateMs(c.lastEnd)) / DAY_MS <= 100);
-  return fresh[0]!.series;
+  const best = fresh[0]!;
+
+  // PIT 首披露日跨候选合并（同 pickFlowQuarterSeries）：同 end 值接近（±2%）的
+  // 其他候选若首披露更早，采用其更早 firstFiled（换 tag 后旧期末只出现在对比列的场景）
+  const merged = new Map([...best.series].map(([end, p]) => [end, { ...p }]));
+  for (const c of cands) {
+    if (c === best) continue;
+    for (const [end, o] of c.series) {
+      if (!o.firstFiled) continue;
+      const m = merged.get(end);
+      if (!m) continue;
+      const tol = 0.02 * Math.max(Math.abs(m.val), Math.abs(o.val));
+      if (Math.abs(m.val - o.val) <= tol && (!m.firstFiled || o.firstFiled < m.firstFiled)) {
+        m.firstFiled = o.firstFiled;
+      }
+    }
+  }
+  return merged;
 }
 
 function yoyQuarter(series: FlowQuarter[], idx: number): number | null {
@@ -522,18 +613,23 @@ export function scaleFactorsBackward(values: (number | null)[]): number[] {
 }
 
 /** dei.EntityCommonStockSharesOutstanding：封面日期滞后于季末，取季末后 120 天内最近一点 */
-function deiSharesNear(facts: unknown, endIso: string): number | null {
+function deiSharesNear(facts: unknown, endIso: string): InstantPoint | null {
   const dei = (facts as { facts?: { dei?: Record<string, SecConcept> } }).facts?.dei;
   const pts = pickUnitPoints(dei?.["EntityCommonStockSharesOutstanding"], ["shares"]);
   const endMs = dateMs(endIso);
-  let best: { end: string; val: number } | null = null;
+  let best: { end: string; val: number; firstFiled: string } | null = null;
   for (const p of pts) {
     if (typeof p.end !== "string" || typeof p.val !== "number" || !Number.isFinite(p.val)) continue;
     const gap = (dateMs(p.end) - endMs) / DAY_MS;
     if (gap < 0 || gap > 120) continue;
-    if (!best || p.end < best.end) best = { end: p.end, val: p.val };
+    const filed = p.filed ?? "";
+    if (!best || p.end < best.end) {
+      best = { end: p.end, val: p.val, firstFiled: filed };
+    } else if (p.end === best.end && filed && (!best.firstFiled || filed < best.firstFiled)) {
+      best.firstFiled = filed;
+    }
   }
-  return best?.val ?? null;
+  return best ? { val: best.val, firstFiled: best.firstFiled } : null;
 }
 
 /**
@@ -579,10 +675,8 @@ export function extractQuarterlyFundamentals(
   const cashAt = pickInstantSeries(gaap, INSTANT_CONCEPTS.cash, ["USD"]);
   const sharesAt = pickInstantSeries(gaap, INSTANT_CONCEPTS.sharesOutstanding, ["shares"]);
 
-  const flowValAt = (series: FlowQuarter[], end: string): number | null => {
-    const hit = series.find((q) => q.end === end);
-    return hit ? hit.val : null;
-  };
+  const flowAt = (series: FlowQuarter[], end: string): FlowQuarter | null =>
+    series.find((q) => q.end === end) ?? null;
 
   // 财年期末集合（10-K 年度 duration 点的 end），用于财季位置锚定
   const fiscalYearEnds = new Set<string>();
@@ -599,16 +693,53 @@ export function extractQuarterlyFundamentals(
   for (const q of tail) {
     const idx = revenueQ.findIndex((r) => r.end === q.end);
     const revenue = q.val;
-    const gross = flowValAt(grossQ, q.end);
-    const op = flowValAt(opQ, q.end);
+    const grossHit = flowAt(grossQ, q.end);
+    const opHit = flowAt(opQ, q.end);
+    const niHit = flowAt(niQ, q.end);
+    const ocfHit = flowAt(ocfQ, q.end);
+    const capexHit = flowAt(capexQ, q.end);
+    const divHit = flowAt(divQ, q.end);
     const epsIdx = epsQ.findIndex((r) => r.end === q.end);
-    epsDerived.push(epsIdx >= 0 ? epsQ[epsIdx]!.derived : false);
+    const epsHit = epsIdx >= 0 ? epsQ[epsIdx]! : null;
+    epsDerived.push(epsHit?.derived ?? false);
 
-    const totalAssets = assetsAt.get(q.end) ?? null;
-    const equity = equityAt.get(q.end) ?? null;
-    let totalLiabilities = liabAt.get(q.end) ?? null;
+    const assetsPt = assetsAt.get(q.end) ?? null;
+    const equityPt = equityAt.get(q.end) ?? null;
+    const liabPt = liabAt.get(q.end) ?? null;
+    const ltDebtPt = ltDebtAt.get(q.end) ?? null;
+    const cashPt = cashAt.get(q.end) ?? null;
+    const sharesPt = sharesAt.get(q.end) ?? deiSharesNear(facts, q.end);
+
+    const totalAssets = assetsPt?.val ?? null;
+    const equity = equityPt?.val ?? null;
+    let totalLiabilities = liabPt?.val ?? null;
     if (totalLiabilities == null && totalAssets != null && equity != null) {
       totalLiabilities = totalAssets - equity;
+    }
+
+    // PIT 行级首披露日：各非空字段来源点首次 filed 的 max（缺 filed 的点不参与）。
+    // 上限保护：换 tag 公司的旧季度事实往往只出现在后续财报的对比列（首次 filed 晚
+    // 一整年，如 GOOGL 2025 新 tag 覆盖 2024 各季），若照收会把整行拖后。晚于本期
+    // 主报告（营收骨架 filed）45 天以上的字段来源不 gate 行级首披露日——代价是该
+    // 字段的值在 firstReportedAt 时点严格说尚不可见，属已记录的近似。
+    const capMs = q.filed ? dateMs(q.filed) + 45 * DAY_MS : Infinity;
+    let firstReportedAt = q.filed;
+    for (const c of [
+      grossHit?.filed,
+      opHit?.filed,
+      niHit?.filed,
+      epsHit?.filed,
+      ocfHit?.filed,
+      capexHit?.filed,
+      divHit?.filed,
+      assetsPt?.firstFiled,
+      liabPt?.firstFiled,
+      equityPt?.firstFiled,
+      ltDebtPt?.firstFiled,
+      cashPt?.firstFiled,
+      sharesPt?.firstFiled,
+    ]) {
+      if (c && dateMs(c) <= capMs) firstReportedAt = maxFiled(firstReportedAt, c);
     }
 
     out.push({
@@ -617,20 +748,21 @@ export function extractQuarterlyFundamentals(
       fiscalQuarter: null,
       revenue,
       revenueYoY: yoyQuarter(revenueQ, idx),
-      grossMargin: revenue !== 0 && gross != null ? gross / revenue : null,
-      opMargin: revenue !== 0 && op != null ? op / revenue : null,
-      netIncome: flowValAt(niQ, q.end),
-      eps: epsIdx >= 0 ? epsQ[epsIdx]!.val : null,
+      grossMargin: revenue !== 0 && grossHit != null ? grossHit.val / revenue : null,
+      opMargin: revenue !== 0 && opHit != null ? opHit.val / revenue : null,
+      netIncome: niHit?.val ?? null,
+      eps: epsHit?.val ?? null,
       epsYoY: epsIdx >= 0 ? yoyQuarter(epsQ, epsIdx) : null,
-      ocf: flowValAt(ocfQ, q.end),
-      capex: flowValAt(capexQ, q.end),
-      dividendsPaid: flowValAt(divQ, q.end),
+      ocf: ocfHit?.val ?? null,
+      capex: capexHit?.val ?? null,
+      dividendsPaid: divHit?.val ?? null,
       totalAssets,
       totalLiabilities,
       equity,
-      longTermDebt: ltDebtAt.get(q.end) ?? null,
-      cash: cashAt.get(q.end) ?? null,
-      sharesOutstanding: sharesAt.get(q.end) ?? deiSharesNear(facts, q.end),
+      longTermDebt: ltDebtPt?.val ?? null,
+      cash: cashPt?.val ?? null,
+      sharesOutstanding: sharesPt?.val ?? null,
+      firstReportedAt: firstReportedAt || null,
     });
   }
 
