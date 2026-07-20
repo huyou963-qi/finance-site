@@ -107,7 +107,9 @@ const CPI_COMPONENT_FRED_IDS = fredIdsFromCpi(
     id === "CPIFABSL" ||
     id === "CPIMEDSL" ||
     id === "CPIAUCSL" ||
-    id === "CPILFESL",
+    id === "CPILFESL" ||
+    id === "CPIUFDSL" ||
+    id === "CPIAPPSL",
 );
 
 const EMPLOYMENT_FRED_IDS = fredIdsFromLabor(
