@@ -6,6 +6,10 @@
 import type { EventImportance } from "@prisma/client";
 import type { GicsSector } from "@/lib/equity/gicsCatalog";
 import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
+import {
+  getIndustryByCode,
+  GICS_SUB_INDUSTRIES,
+} from "@/lib/equity/gicsIndustryCatalog";
 
 export const EVENT_SCOPES = ["COUNTRY", "INDUSTRY", "COMPANY", "CROSS"] as const;
 export type EventScopeCode = (typeof EVENT_SCOPES)[number];
@@ -305,7 +309,6 @@ const ZH_TO_GICS_CODE: Record<string, string> = Object.fromEntries(
 
 /** 旧中文行业建议 → 仍可用于 UI；入库时尽量规范为 GICS code */
 export const EVENT_INDUSTRY_SUGGESTIONS = [
-  ...GICS_SECTOR_DEFS.map((d) => GICS_SECTOR_CODES[d.sector]),
   ...GICS_SECTOR_DEFS.map((d) => d.nameZh),
   "制造业",
   "科技",
@@ -314,10 +317,72 @@ export const EVENT_INDUSTRY_SUGGESTIONS = [
   "交通运输",
 ] as const;
 
+/** 侧栏快捷添加：仅 11 大类中文名（存库仍规范为两位码） */
+export const EVENT_INDUSTRY_QUICK_SUGGESTIONS: readonly string[] =
+  GICS_SECTOR_DEFS.map((d) => d.nameZh);
+
+const GICS_CODE_TO_SECTOR_ZH: Record<string, string> = Object.fromEntries(
+  GICS_SECTOR_DEFS.map((d) => [GICS_SECTOR_CODES[d.sector], d.nameZh]),
+);
+
+const INDUSTRY_GROUP_NAME_BY_CODE = (() => {
+  const m = new Map<string, string>();
+  for (const row of GICS_SUB_INDUSTRIES) {
+    if (!m.has(row.industryGroupCode)) {
+      m.set(row.industryGroupCode, row.industryGroup);
+    }
+  }
+  return m;
+})();
+
+const SUB_INDUSTRY_NAME_BY_CODE = (() => {
+  const m = new Map<string, string>();
+  for (const row of GICS_SUB_INDUSTRIES) {
+    m.set(row.subIndustryCode, row.subIndustry);
+  }
+  return m;
+})();
+
+/**
+ * UI 展示用行业标签：优先中文大类名 / 行业组与行业英文名，避免只显示 GICS 数字码。
+ * 存储值仍可为 code（normalizeIndustryTag）。
+ */
+export function formatIndustryTagLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  // 已是中文大类名
+  if (ZH_TO_GICS_CODE[trimmed] || GICS_SECTOR_DEFS.some((d) => d.nameZh === trimmed)) {
+    return trimmed;
+  }
+  const code = normalizeIndustryTag(trimmed);
+  if (/^\d{2}$/.test(code)) {
+    return GICS_CODE_TO_SECTOR_ZH[code] ?? code;
+  }
+  if (/^\d{4}$/.test(code)) {
+    const group = INDUSTRY_GROUP_NAME_BY_CODE.get(code);
+    const sectorZh = GICS_CODE_TO_SECTOR_ZH[code.slice(0, 2)];
+    if (group && sectorZh) return `${sectorZh} · ${group}`;
+    if (group) return group;
+  }
+  if (/^\d{6}$/.test(code)) {
+    const ind = getIndustryByCode(code);
+    const sectorZh = GICS_CODE_TO_SECTOR_ZH[code.slice(0, 2)];
+    if (ind && sectorZh) return `${sectorZh} · ${ind.nameEn}`;
+    if (ind) return ind.nameEn;
+  }
+  if (/^\d{8}$/.test(code)) {
+    const sub = SUB_INDUSTRY_NAME_BY_CODE.get(code);
+    const sectorZh = GICS_CODE_TO_SECTOR_ZH[code.slice(0, 2)];
+    if (sub && sectorZh) return `${sectorZh} · ${sub}`;
+    if (sub) return sub;
+  }
+  return trimmed;
+}
+
 export function normalizeIndustryTag(raw: string): string {
   const t = raw.trim();
   if (!t) return t;
-  if (/^\d{2}(\d{2})?(\d{2})?$/.test(t)) return t;
+  if (/^\d{2}(\d{2})?(\d{2})?(\d{2})?$/.test(t)) return t;
   if (ZH_TO_GICS_CODE[t]) return ZH_TO_GICS_CODE[t];
   const fromLegacy: Record<string, string> = {
     制造业: "20",

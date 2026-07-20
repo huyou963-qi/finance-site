@@ -9,12 +9,17 @@ import type {
 } from "@/lib/data/marketEvents";
 import {
   EVENT_IMPORTANCE_LABELS,
-  EVENT_INDUSTRY_SUGGESTIONS,
   EVENT_SCOPE_LABELS,
   EVENT_SCOPES,
   EVENT_TYPE_SUGGESTIONS,
 } from "@/lib/data/marketEvents";
-import { EVENT_TYPE_LABELS, type EventTypeCode } from "@/lib/data/eventTaxonomy";
+import {
+  EVENT_INDUSTRY_QUICK_SUGGESTIONS,
+  EVENT_TYPE_LABELS,
+  formatIndustryTagLabel,
+  normalizeIndustryTag,
+  type EventTypeCode,
+} from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
 
@@ -326,7 +331,10 @@ export function EventFormModal({
             label="行业标签（GICS）"
             values={form.industries}
             onChange={(industries) => patch({ industries })}
-            suggestions={[...EVENT_INDUSTRY_SUGGESTIONS]}
+            placeholder="信息技术、金融…"
+            suggestions={EVENT_INDUSTRY_QUICK_SUGGESTIONS}
+            formatLabel={formatIndustryTagLabel}
+            normalizeAdd={normalizeIndustryTag}
           />
           <TagInput
             label="资产标签"

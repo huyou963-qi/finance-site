@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import type { EventImportance } from "@prisma/client";
-import {
-  EVENT_IMPORTANCE_LABELS,
-  EVENT_INDUSTRY_SUGGESTIONS,
-} from "@/lib/data/marketEvents";
+import { EVENT_IMPORTANCE_LABELS } from "@/lib/data/marketEvents";
 import {
   ALL_EVENT_TYPE_FAMILY_IDS,
+  EVENT_INDUSTRY_QUICK_SUGGESTIONS,
   EVENT_TYPE_FAMILIES,
+  formatIndustryTagLabel,
+  normalizeIndustryTag,
   type EventTypeFamilyId,
 } from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
@@ -267,8 +267,10 @@ export function EventPanelFilters({
             label="行业（GICS）"
             values={filters.industries}
             onChange={(industries) => patch({ industries })}
-            placeholder="45、金融…"
-            suggestions={[...EVENT_INDUSTRY_SUGGESTIONS]}
+            placeholder="信息技术、金融…"
+            suggestions={EVENT_INDUSTRY_QUICK_SUGGESTIONS}
+            formatLabel={formatIndustryTagLabel}
+            normalizeAdd={normalizeIndustryTag}
           />
           <TagInput
             label="资产"
