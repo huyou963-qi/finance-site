@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { EventImportance } from "@prisma/client";
 import { loadChartPanelEvents } from "@/lib/data/chartEventMarkers";
-import type { EventListContextMode } from "@/lib/chart/eventPanelListFilters";
 
-function parseMode(raw: string | null): EventListContextMode | undefined {
-  if (raw === "chart" || raw === "range" || raw === "symbol") return raw;
-  return undefined;
+function parseCsv(param: string | null): string[] {
+  if (!param?.trim()) return [];
+  return param
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export async function GET(req: NextRequest) {
@@ -16,12 +19,19 @@ export async function GET(req: NextRequest) {
     }
     const includeSec = sp.get("includeSec");
     const includeMarket = sp.get("includeMarket");
+    const minImportance = sp.get("minImportance") as EventImportance | null;
     const result = await loadChartPanelEvents({
       symbol,
       from: sp.get("from") ?? undefined,
       to: sp.get("to") ?? undefined,
       expand: sp.get("expand") ?? undefined,
-      mode: parseMode(sp.get("mode")),
+      mode: sp.get("mode") ?? undefined,
+      scopeMode: sp.get("scopeMode") ?? sp.get("mode") ?? undefined,
+      assets: parseCsv(sp.get("assets")),
+      industries: parseCsv(sp.get("industries")),
+      countries: parseCsv(sp.get("countries")),
+      types: parseCsv(sp.get("types")),
+      minImportance: minImportance || undefined,
       includeSec: includeSec === null ? undefined : includeSec !== "0",
       includeMarket: includeMarket === null ? undefined : includeMarket !== "0",
       limit: sp.get("limit") ? Number(sp.get("limit")) : undefined,

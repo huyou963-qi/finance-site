@@ -14,40 +14,45 @@ import {
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
 import {
-  DEFAULT_EVENT_PANEL_LIST_FILTERS,
-  hasActiveEventPanelListFilters,
+  DEFAULT_EVENT_VIEW_FILTERS,
+  hasActiveEventViewContentFilters,
   isAllTypeFamiliesSelected,
-  type EventListContextMode,
-  type EventPanelListFilterState,
-} from "@/lib/chart/eventPanelListFilters";
+  type EventViewFilterState,
+} from "@/lib/chart/eventViewFilters";
+import type { EventScopeMode } from "@/lib/data/assetEventResolver";
+import type { ChartSymbolProfile } from "@/lib/data/chartSymbolProfile";
 
-export type EventPanelFilterState = EventPanelListFilterState;
-export const EMPTY_EVENT_PANEL_FILTERS = DEFAULT_EVENT_PANEL_LIST_FILTERS;
-export { hasActiveEventPanelListFilters as hasActiveEventPanelFilters };
+export type EventPanelFilterState = EventViewFilterState;
+export const EMPTY_EVENT_PANEL_FILTERS = DEFAULT_EVENT_VIEW_FILTERS;
+export { hasActiveEventViewContentFilters as hasActiveEventPanelFilters };
 
 type EventPanelFiltersProps = {
-  filters: EventPanelListFilterState;
-  onChange: (next: EventPanelListFilterState) => void;
-  /** 是否展示「上下文」模式（行情 docked 侧栏） */
-  showContextMode?: boolean;
+  filters: EventViewFilterState;
+  onChange: (next: EventViewFilterState) => void;
+  /** 行情 docked：展示范围 + 显示开关 + 上下文徽章 */
+  chartLinked?: boolean;
+  /** 当前标的画像（徽章） */
+  symbolProfile?: ChartSymbolProfile | null;
+  onResetToSymbolDefault?: () => void;
 };
 
-const CONTEXT_MODE_LABELS: Record<EventListContextMode, string> = {
-  chart: "跟随图表",
+const SCOPE_MODE_LABELS: Record<EventScopeMode, string> = {
+  follow: "跟随标的",
   range: "时间轴全部",
-  symbol: "仅本票",
 };
 
 export function EventPanelFilters({
   filters,
   onChange,
-  showContextMode = false,
+  chartLinked = false,
+  symbolProfile = null,
+  onResetToSymbolDefault,
 }: EventPanelFiltersProps) {
-  const patch = (p: Partial<EventPanelListFilterState>) =>
+  const patch = (p: Partial<EventViewFilterState>) =>
     onChange({ ...filters, ...p });
 
   const allFamilies = isAllTypeFamiliesSelected(filters.typeFamilies);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(true);
 
   const toggleFamily = (id: EventTypeFamilyId) => {
     const set = new Set(filters.typeFamilies);
@@ -71,6 +76,63 @@ export function EventPanelFilters({
 
   return (
     <div className="flex shrink-0 flex-col gap-1.5">
+      {chartLinked && symbolProfile ? (
+        <p className="truncate text-[10px] text-fs-muted">
+          上下文：
+          <span className="text-fs-text">{symbolProfile.symbol}</span>
+          {" · "}
+          {symbolProfile.kindLabel}
+          {" · "}
+          <span className="text-fs-secondary">自动跟随（换标的会重算）</span>
+        </p>
+      ) : null}
+
+      {chartLinked ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded border border-fs-border/80 bg-fs-elevated/40 px-1.5 py-1 text-[10px]">
+          <span className="font-medium text-fs-secondary">显示</span>
+          <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
+            <input
+              type="checkbox"
+              checked={filters.markersEnabled}
+              onChange={(e) => patch({ markersEnabled: e.target.checked })}
+              className="accent-[var(--fs-accent,#2383e2)]"
+            />
+            图上标记
+          </label>
+          {filters.markersEnabled ? (
+            <>
+              <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
+                <input
+                  type="checkbox"
+                  checked={filters.includeSec}
+                  onChange={(e) => patch({ includeSec: e.target.checked })}
+                  className="accent-[var(--fs-accent,#2383e2)]"
+                />
+                SEC公司
+              </label>
+              <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
+                <input
+                  type="checkbox"
+                  checked={filters.includeMarket}
+                  onChange={(e) => patch({ includeMarket: e.target.checked })}
+                  className="accent-[var(--fs-accent,#2383e2)]"
+                />
+                其它事件
+              </label>
+              <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
+                <input
+                  type="checkbox"
+                  checked={filters.showLabel}
+                  onChange={(e) => patch({ showLabel: e.target.checked })}
+                  className="accent-[var(--fs-accent,#2383e2)]"
+                />
+                文字
+              </label>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       <input
         type="search"
         value={filters.searchQ}
@@ -130,24 +192,22 @@ export function EventPanelFilters({
             )}
           </select>
         </label>
-        {showContextMode ? (
+        {chartLinked ? (
           <label className="flex items-center gap-1 text-[10px] text-fs-muted">
-            上下文
+            范围
             <select
-              value={filters.contextMode}
+              value={filters.scopeMode}
               onChange={(e) =>
-                patch({ contextMode: e.target.value as EventListContextMode })
+                patch({ scopeMode: e.target.value as EventScopeMode })
               }
               className="rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[10px] text-fs-text"
-              title="跟随图表：与当前标的/上卷范围相关；时间轴全部：可见区间内不限标的；仅本票：assets 含当前代码"
+              title="跟随标的：按国家/行业/资产标签匹配；时间轴全部：仅按可见时间窗"
             >
-              {(Object.keys(CONTEXT_MODE_LABELS) as EventListContextMode[]).map(
-                (k) => (
-                  <option key={k} value={k}>
-                    {CONTEXT_MODE_LABELS[k]}
-                  </option>
-                ),
-              )}
+              {(Object.keys(SCOPE_MODE_LABELS) as EventScopeMode[]).map((k) => (
+                <option key={k} value={k}>
+                  {SCOPE_MODE_LABELS[k]}
+                </option>
+              ))}
             </select>
           </label>
         ) : null}
@@ -162,10 +222,30 @@ export function EventPanelFilters({
         >
           更多条件 {moreOpen ? "▴" : "▾"}
         </button>
-        {hasActiveEventPanelListFilters(filters) ? (
+        {onResetToSymbolDefault ? (
           <button
             type="button"
-            onClick={() => onChange({ ...DEFAULT_EVENT_PANEL_LIST_FILTERS })}
+            onClick={onResetToSymbolDefault}
+            className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
+          >
+            重置为标的默认
+          </button>
+        ) : hasActiveEventViewContentFilters(filters) ? (
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                ...filters,
+                searchQ: "",
+                typeFamilies: [...DEFAULT_EVENT_VIEW_FILTERS.typeFamilies],
+                minImportance: DEFAULT_EVENT_VIEW_FILTERS.minImportance,
+                countries: [],
+                industries: [],
+                assets: [],
+                persons: [],
+                institutions: [],
+              })
+            }
             className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
           >
             重置

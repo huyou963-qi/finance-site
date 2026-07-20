@@ -1,19 +1,22 @@
 import type { EventImportance } from "@prisma/client";
-import type { EventListContextMode } from "@/lib/chart/eventPanelListFilters";
 import {
-  eventHitsAssetContext,
-  parseExpandLevel,
-  resolveAssetEventContext,
-  type EventExpandLevel,
+  eventHitsExplicitFilters,
+  parseScopeMode,
+  resolveChartSymbolProfile,
+  type EventScopeMode,
+  type ExplicitEventTagFilters,
 } from "@/lib/data/assetEventResolver";
 import {
   defaultMarkerLabel,
+  eventTypeMatchesFamilies,
   eventTypeMatchesSelection,
   isEraEventType,
   markerColorFor,
   markerShapeFor,
   normalizeEventType,
+  type EventTypeFamilyId,
   type MarkerShape,
+  EVENT_TYPE_FAMILY_IDS,
 } from "@/lib/data/eventTaxonomy";
 import {
   listMarketEvents,
@@ -49,7 +52,12 @@ export type ChartMarkersQuery = {
   symbol: string;
   from?: string;
   to?: string;
+  /** @deprecated 改用 scopeMode + 显式 tags */
   expand?: string;
+  scopeMode?: EventScopeMode | string;
+  assets?: string[];
+  industries?: string[];
+  countries?: string[];
   types?: string[];
   minImportance?: EventImportance;
   includeSec?: boolean;
@@ -132,7 +140,16 @@ function marketToMarker(ev: MarketEventDto): ChartEventMarker {
   };
 }
 
+function asFamilyIds(types?: string[]): EventTypeFamilyId[] | null {
+  if (!types?.length) return null;
+  const set = new Set(EVENT_TYPE_FAMILY_IDS as readonly string[]);
+  const families = types.filter((t): t is EventTypeFamilyId => set.has(t));
+  return families.length === types.length ? families : null;
+}
+
 function typeFilterOk(eventType: string, types?: string[]): boolean {
+  const families = asFamilyIds(types);
+  if (families) return eventTypeMatchesFamilies(eventType, families);
   return eventTypeMatchesSelection(eventType, types);
 }
 
@@ -152,11 +169,45 @@ function dedupeSameDay(markers: ChartEventMarker[]): ChartEventMarker[] {
   return [...byDayType.values()].sort((a, b) => a.time - b.time);
 }
 
+function resolveTagFilters(
+  query: ChartMarkersQuery,
+  symbol: string,
+): ExplicitEventTagFilters {
+  const hasExplicit =
+    (query.assets?.length ?? 0) > 0 ||
+    (query.industries?.length ?? 0) > 0 ||
+    (query.countries?.length ?? 0) > 0;
+  if (hasExplicit) {
+    return {
+      assets: query.assets,
+      industries: query.industries,
+      countries: query.countries,
+    };
+  }
+  // 无显式 tags 时回退为本票
+  return { assets: [normalizeAssetTag(symbol)] };
+}
+
+function marketFollowOk(
+  ev: MarketEventDto,
+  scopeMode: EventScopeMode,
+  tags: ExplicitEventTagFilters,
+): boolean {
+  if (scopeMode === "range") return true;
+  if (isEraEventType(ev.eventType)) return true;
+  return eventHitsExplicitFilters(ev, tags);
+}
+
 export async function loadChartEventMarkers(
   query: ChartMarkersQuery,
-): Promise<{ markers: ChartEventMarker[]; expand: EventExpandLevel; symbol: string }> {
-  const expand = parseExpandLevel(query.expand);
-  const ctx = await resolveAssetEventContext(query.symbol, expand);
+): Promise<{
+  markers: ChartEventMarker[];
+  symbol: string;
+  scopeMode: EventScopeMode;
+}> {
+  const profile = await resolveChartSymbolProfile(query.symbol);
+  const scopeMode = parseScopeMode(query.scopeMode);
+  const tags = resolveTagFilters(query, profile.symbol);
   const includeSec = query.includeSec !== false;
   const includeMarket = query.includeMarket !== false;
   const minImp = query.minImportance ?? "MEDIUM";
@@ -166,16 +217,16 @@ export async function loadChartEventMarkers(
 
   if (includeSec) {
     const row = await prisma.equitySecurity.findUnique({
-      where: { symbol: ctx.symbol },
+      where: { symbol: profile.symbol },
       select: { cik: true },
     });
-    const stockEvents = await loadStockEvents(ctx.symbol, {
+    const stockEvents = await loadStockEvents(profile.symbol, {
       cik: row?.cik ?? null,
       limit: 200,
     });
     for (const ev of stockEvents) {
       if (!inRange(ev.date, query.from, query.to)) continue;
-      const m = stockToMarker(ev, ctx.symbol);
+      const m = stockToMarker(ev, profile.symbol);
       if (!meetsImp(m.importance, minImp)) continue;
       if (!typeFilterOk(m.eventType, query.types)) continue;
       out.push(m);
@@ -190,7 +241,7 @@ export async function loadChartEventMarkers(
     });
     for (const ev of events) {
       if (ev.eventType === "时代阶段" || ev.eventType === "era") continue;
-      if (!eventHitsAssetContext(ev, ctx)) continue;
+      if (!marketFollowOk(ev, scopeMode, tags)) continue;
       if (!meetsImp(ev.importance, minImp)) continue;
       const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
       if (!typeFilterOk(eventType, query.types)) continue;
@@ -199,7 +250,7 @@ export async function loadChartEventMarkers(
   }
 
   const markers = dedupeSameDay(out).slice(0, limit);
-  return { markers, expand, symbol: ctx.symbol };
+  return { markers, symbol: profile.symbol, scopeMode };
 }
 
 function stockToPanelEvent(ev: StockEvent, symbol: string): MarketEventDto {
@@ -251,59 +302,61 @@ function stockToPanelEvent(ev: StockEvent, symbol: string): MarketEventDto {
   };
 }
 
-function marketContextOk(
-  ev: MarketEventDto,
-  ctx: Awaited<ReturnType<typeof resolveAssetEventContext>>,
-  mode: EventListContextMode,
-): boolean {
-  if (mode === "range") return true;
-  if (isEraEventType(ev.eventType) && mode === "chart") return true;
-  if (mode === "symbol") {
-    const sym = ctx.symbol;
-    return ev.assets.some((a) => normalizeAssetTag(a) === sym);
-  }
-  return eventHitsAssetContext(ev, ctx);
-}
-
 /**
- * 侧栏列表同源流：SEC stockEvents + MarketEvent（含时代），按上下文模式裁剪。
- * 不做重要性/类型过滤（留给客户端列表筛选）。
+ * 侧栏列表同源流：SEC stockEvents + MarketEvent（含时代），按 scopeMode + 显式 tags 裁剪。
+ * 重要性/类型亦可在服务端预筛（与图表标记对齐）；客户端仍可再筛 search/人物等。
  */
 export async function loadChartPanelEvents(query: {
   symbol: string;
   from?: string;
   to?: string;
-  expand?: string;
-  mode?: EventListContextMode;
+  scopeMode?: EventScopeMode | string;
+  assets?: string[];
+  industries?: string[];
+  countries?: string[];
+  types?: string[];
+  minImportance?: EventImportance;
   includeSec?: boolean;
   includeMarket?: boolean;
   limit?: number;
+  /** @deprecated */
+  expand?: string;
+  /** @deprecated 旧 mode；chart/symbol → follow，range → range */
+  mode?: string;
 }): Promise<{
   events: MarketEventDto[];
-  expand: EventExpandLevel;
   symbol: string;
-  mode: EventListContextMode;
+  scopeMode: EventScopeMode;
+  profileKind: string;
 }> {
-  const expand = parseExpandLevel(query.expand);
-  const mode: EventListContextMode = query.mode ?? "chart";
-  const ctx = await resolveAssetEventContext(query.symbol, expand);
+  const profile = await resolveChartSymbolProfile(query.symbol);
+  const scopeMode = parseScopeMode(query.scopeMode ?? query.mode);
+  const tags = resolveTagFilters(query, profile.symbol);
   const includeSec = query.includeSec !== false;
   const includeMarket = query.includeMarket !== false;
+  const minImp = query.minImportance;
   const limit = Math.min(3000, Math.max(1, query.limit ?? 2000));
   const out: MarketEventDto[] = [];
 
   if (includeSec) {
     const row = await prisma.equitySecurity.findUnique({
-      where: { symbol: ctx.symbol },
+      where: { symbol: profile.symbol },
       select: { cik: true },
     });
-    const stockEvents = await loadStockEvents(ctx.symbol, {
+    const stockEvents = await loadStockEvents(profile.symbol, {
       cik: row?.cik ?? null,
       limit: 200,
     });
     for (const ev of stockEvents) {
       if (!inRange(ev.date, query.from, query.to)) continue;
-      out.push(stockToPanelEvent(ev, ctx.symbol));
+      const panel = stockToPanelEvent(ev, profile.symbol);
+      if (minImp && !meetsImp(panel.importance, minImp)) continue;
+      if (
+        query.types?.length &&
+        !typeFilterOk(panel.eventType ?? "other", query.types)
+      )
+        continue;
+      out.push(panel);
     }
   }
 
@@ -314,12 +367,14 @@ export async function loadChartPanelEvents(query: {
       limit: 2000,
     });
     for (const ev of events) {
-      if (!marketContextOk(ev, ctx, mode)) continue;
+      if (!marketFollowOk(ev, scopeMode, tags)) continue;
+      if (minImp && !meetsImp(ev.importance, minImp)) continue;
+      const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
+      if (query.types?.length && !typeFilterOk(eventType, query.types)) continue;
       out.push(ev);
     }
   }
 
-  // 同日公司类：SEC 优先（去掉与 stock 撞车的 market_event）
   const stockKeys = new Set(
     out
       .filter((e) => e.sourceKind === "sec")
@@ -340,8 +395,8 @@ export async function loadChartPanelEvents(query: {
   deduped.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
   return {
     events: deduped.slice(0, limit),
-    expand,
-    symbol: ctx.symbol,
-    mode,
+    symbol: profile.symbol,
+    scopeMode,
+    profileKind: profile.kind,
   };
 }

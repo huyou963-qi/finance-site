@@ -1,12 +1,18 @@
 /**
- * K 线事件标记图层偏好（localStorage）。
+ * 兼容旧图表标记 prefs（迁移到 eventViewFilters）。
+ * 新代码请直接使用 EventViewFilterState。
  */
 
 import type { EventImportance } from "@prisma/client";
 import type { EventExpandLevel } from "@/lib/data/assetEventResolver";
+import {
+  DEFAULT_EVENT_VIEW_FILTERS,
+  loadEventViewFilters,
+  saveEventViewFilters,
+  type EventViewFilterState,
+} from "@/lib/chart/eventViewFilters";
 
-const STORAGE_KEY = "chart-event-markers-prefs-v1";
-
+/** @deprecated 使用 EventViewFilterState */
 export type ChartEventMarkerPrefs = {
   enabled: boolean;
   includeSec: boolean;
@@ -16,31 +22,50 @@ export type ChartEventMarkerPrefs = {
   showLabel: boolean;
 };
 
+/** @deprecated */
 export const DEFAULT_CHART_EVENT_MARKER_PREFS: ChartEventMarkerPrefs = {
-  enabled: true,
-  includeSec: true,
-  includeMarket: true,
-  minImportance: "MEDIUM",
+  enabled: DEFAULT_EVENT_VIEW_FILTERS.markersEnabled,
+  includeSec: DEFAULT_EVENT_VIEW_FILTERS.includeSec,
+  includeMarket: DEFAULT_EVENT_VIEW_FILTERS.includeMarket,
+  minImportance: DEFAULT_EVENT_VIEW_FILTERS.minImportance,
   expand: "symbol",
-  showLabel: true,
+  showLabel: DEFAULT_EVENT_VIEW_FILTERS.showLabel,
 };
 
-export function loadChartEventMarkerPrefs(): ChartEventMarkerPrefs {
-  if (typeof window === "undefined") return { ...DEFAULT_CHART_EVENT_MARKER_PREFS };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_CHART_EVENT_MARKER_PREFS };
-    const parsed = JSON.parse(raw) as Partial<ChartEventMarkerPrefs>;
-    return { ...DEFAULT_CHART_EVENT_MARKER_PREFS, ...parsed };
-  } catch {
-    return { ...DEFAULT_CHART_EVENT_MARKER_PREFS };
-  }
+export function markerPrefsFromViewFilters(
+  f: EventViewFilterState,
+): ChartEventMarkerPrefs {
+  return {
+    enabled: f.markersEnabled,
+    includeSec: f.includeSec,
+    includeMarket: f.includeMarket,
+    minImportance: f.minImportance,
+    expand: "symbol",
+    showLabel: f.showLabel,
+  };
 }
 
+export function patchViewFiltersFromMarkerPrefs(
+  prev: EventViewFilterState,
+  prefs: ChartEventMarkerPrefs,
+): EventViewFilterState {
+  return {
+    ...prev,
+    markersEnabled: prefs.enabled,
+    includeSec: prefs.includeSec,
+    includeMarket: prefs.includeMarket,
+    minImportance: prefs.minImportance,
+    showLabel: prefs.showLabel,
+  };
+}
+
+/** @deprecated */
+export function loadChartEventMarkerPrefs(): ChartEventMarkerPrefs {
+  return markerPrefsFromViewFilters(loadEventViewFilters());
+}
+
+/** @deprecated */
 export function saveChartEventMarkerPrefs(prefs: ChartEventMarkerPrefs): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    /* ignore */
-  }
+  const cur = loadEventViewFilters();
+  saveEventViewFilters(patchViewFiltersFromMarkerPrefs(cur, prefs));
 }

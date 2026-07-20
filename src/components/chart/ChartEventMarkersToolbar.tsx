@@ -1,22 +1,21 @@
 "use client";
 
-import type { ChartEventMarkerPrefs } from "@/lib/chart/chartEventMarkerPrefs";
-import type { EventImportance } from "@prisma/client";
-import { EVENT_IMPORTANCE_LABELS } from "@/lib/data/marketEvents";
+import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
 
 type Props = {
-  prefs: ChartEventMarkerPrefs;
-  onChange: (next: ChartEventMarkerPrefs) => void;
-  /** inline：顶栏横排；panel：侧栏竖排分组 */
+  prefs: EventViewFilterState;
+  onChange: (next: EventViewFilterState) => void;
   layout?: "inline" | "panel";
 };
 
+/** 未受控时顶栏用的精简「图上标记」开关（侧栏已合一后很少用） */
 export function ChartEventMarkersToolbar({
   prefs,
   onChange,
   layout = "inline",
 }: Props) {
-  const patch = (p: Partial<ChartEventMarkerPrefs>) => onChange({ ...prefs, ...p });
+  const patch = (p: Partial<EventViewFilterState>) =>
+    onChange({ ...prefs, ...p });
   const isPanel = layout === "panel";
 
   return (
@@ -30,13 +29,13 @@ export function ChartEventMarkersToolbar({
       <label className="inline-flex cursor-pointer items-center gap-1.5 text-fs-muted">
         <input
           type="checkbox"
-          checked={prefs.enabled}
-          onChange={(e) => patch({ enabled: e.target.checked })}
+          checked={prefs.markersEnabled}
+          onChange={(e) => patch({ markersEnabled: e.target.checked })}
           className="accent-[var(--fs-accent,#2383e2)]"
         />
-        事件标记
+        图上标记
       </label>
-      {prefs.enabled ? (
+      {prefs.markersEnabled ? (
         <div
           className={
             isPanel
@@ -61,52 +60,6 @@ export function ChartEventMarkersToolbar({
               className="accent-[var(--fs-accent,#2383e2)]"
             />
             其它事件
-          </label>
-          <label
-            className={
-              isPanel
-                ? "flex items-center justify-between gap-2 text-fs-muted"
-                : "inline-flex items-center gap-0.5 text-fs-muted"
-            }
-          >
-            <span>最低重要度</span>
-            <select
-              value={prefs.minImportance}
-              onChange={(e) =>
-                patch({ minImportance: e.target.value as EventImportance })
-              }
-              className="rounded border border-fs-border bg-fs-bg px-1.5 py-0.5 text-[10px] text-fs-text"
-            >
-              {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map(
-                (k) => (
-                  <option key={k} value={k}>
-                    {EVENT_IMPORTANCE_LABELS[k]}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-          <label
-            className={
-              isPanel
-                ? "flex items-center justify-between gap-2 text-fs-muted"
-                : "inline-flex items-center gap-0.5 text-fs-muted"
-            }
-          >
-            <span>上卷范围</span>
-            <select
-              value={prefs.expand}
-              onChange={(e) =>
-                patch({
-                  expand: e.target.value as ChartEventMarkerPrefs["expand"],
-                })
-              }
-              className="rounded border border-fs-border bg-fs-bg px-1.5 py-0.5 text-[10px] text-fs-text"
-            >
-              <option value="symbol">仅本票</option>
-              <option value="industry">+行业</option>
-              <option value="country">+国家</option>
-            </select>
           </label>
           <label className="inline-flex cursor-pointer items-center gap-1.5 text-fs-muted">
             <input

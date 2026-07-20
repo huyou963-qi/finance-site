@@ -23,11 +23,11 @@ import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import {
-  DEFAULT_CHART_EVENT_MARKER_PREFS,
-  loadChartEventMarkerPrefs,
-  saveChartEventMarkerPrefs,
-  type ChartEventMarkerPrefs,
-} from "@/lib/chart/chartEventMarkerPrefs";
+  DEFAULT_EVENT_VIEW_FILTERS,
+  loadEventViewFilters,
+  saveEventViewFilters,
+  type EventViewFilterState,
+} from "@/lib/chart/eventViewFilters";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
 import { findMarketInstrument } from "@/lib/data/marketInstruments";
 
@@ -82,15 +82,15 @@ export function MarketsClient() {
     RangeStatWireSegment[]
   >([]);
   const [remoteRangeSpecsVer, setRemoteRangeSpecsVer] = useState(0);
-  const [eventMarkerPrefs, setEventMarkerPrefs] = useState<ChartEventMarkerPrefs>(
-    DEFAULT_CHART_EVENT_MARKER_PREFS,
+  const [eventViewFilters, setEventViewFilters] = useState<EventViewFilterState>(
+    () =>
+      typeof window !== "undefined"
+        ? loadEventViewFilters()
+        : DEFAULT_EVENT_VIEW_FILTERS,
   );
   useEffect(() => {
-    setEventMarkerPrefs(loadChartEventMarkerPrefs());
-  }, []);
-  useEffect(() => {
-    saveChartEventMarkerPrefs(eventMarkerPrefs);
-  }, [eventMarkerPrefs]);
+    saveEventViewFilters(eventViewFilters);
+  }, [eventViewFilters]);
   const [eventContextDate, setEventContextDate] = useState<string | null>(null);
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
@@ -647,16 +647,16 @@ export function MarketsClient() {
             onLocalCrosshairTime={onLocalCrosshairTime}
             onEventMarkerClick={onEventMarkerClick}
             toolbarPortalEl={chartToolbarMount}
-            eventMarkerPrefs={eventMarkerPrefs}
-            onEventMarkerPrefsChange={setEventMarkerPrefs}
+            eventViewFilters={eventViewFilters}
+            onEventViewFiltersChange={setEventViewFilters}
           />
         </div>
 
         <EventChartSidePanel
           variant="docked"
           splitRowRef={chartSplitRowRef}
-          markerPrefs={eventMarkerPrefs}
-          onMarkerPrefsChange={setEventMarkerPrefs}
+          viewFilters={eventViewFilters}
+          onViewFiltersChange={setEventViewFilters}
           chartSymbol={symbol.trim() || null}
           {...chartLinkedEventProps}
         />

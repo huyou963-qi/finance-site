@@ -23,11 +23,12 @@ import {
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
 import { ChartEventMarkersToolbar } from "@/components/chart/ChartEventMarkersToolbar";
 import {
-  DEFAULT_CHART_EVENT_MARKER_PREFS,
-  loadChartEventMarkerPrefs,
-  saveChartEventMarkerPrefs,
-  type ChartEventMarkerPrefs,
-} from "@/lib/chart/chartEventMarkerPrefs";
+  DEFAULT_EVENT_VIEW_FILTERS,
+  loadEventViewFilters,
+  saveEventViewFilters,
+  typeFamiliesToQueryPrefixes,
+  type EventViewFilterState,
+} from "@/lib/chart/eventViewFilters";
 import type { ChartEventMarker } from "@/lib/data/chartEventMarkers";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
 import { KlineRangeStatsPanel } from "@/components/chart/KlineRangeStatsPanel";
@@ -174,11 +175,11 @@ export type StockChartWorkspaceProps = {
     source: string;
   }) => void;
   /**
-   * 受控：图表事件标记偏好（行情页由右侧事件面板管理时传入）。
-   * 未传入时组件内自管 localStorage，并在顶栏展示开关。
+   * 受控：统一事件筛选（行情页由右侧事件面板管理时传入）。
+   * 未传入时组件内自管 localStorage，并在顶栏展示图层开关。
    */
-  eventMarkerPrefs?: ChartEventMarkerPrefs;
-  onEventMarkerPrefsChange?: (prefs: ChartEventMarkerPrefs) => void;
+  eventViewFilters?: EventViewFilterState;
+  onEventViewFiltersChange?: (prefs: EventViewFilterState) => void;
 };
 
 type DrawingTool =
@@ -759,8 +760,8 @@ export function StockChartWorkspace({
   onLocalCrosshairTime,
   toolbarPortalEl = null,
   onEventMarkerClick,
-  eventMarkerPrefs: eventMarkerPrefsProp,
-  onEventMarkerPrefsChange,
+  eventViewFilters: eventViewFiltersProp,
+  onEventViewFiltersChange,
 }: StockChartWorkspaceProps) {
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -770,19 +771,19 @@ export function StockChartWorkspace({
   const eventMarkersDataRef = useRef<ChartEventMarker[]>([]);
   const onEventMarkerClickRef = useRef(onEventMarkerClick);
   onEventMarkerClickRef.current = onEventMarkerClick;
-  const eventMarkerPrefsControlled = eventMarkerPrefsProp !== undefined;
-  const [eventMarkerPrefsInternal, setEventMarkerPrefsInternal] =
-    useState<ChartEventMarkerPrefs>(DEFAULT_CHART_EVENT_MARKER_PREFS);
-  const eventMarkerPrefs = eventMarkerPrefsProp ?? eventMarkerPrefsInternal;
-  const setEventMarkerPrefs = useCallback(
-    (next: ChartEventMarkerPrefs) => {
-      if (onEventMarkerPrefsChange) {
-        onEventMarkerPrefsChange(next);
+  const eventViewFiltersControlled = eventViewFiltersProp !== undefined;
+  const [eventViewFiltersInternal, setEventViewFiltersInternal] =
+    useState<EventViewFilterState>(DEFAULT_EVENT_VIEW_FILTERS);
+  const eventViewFilters = eventViewFiltersProp ?? eventViewFiltersInternal;
+  const setEventViewFilters = useCallback(
+    (next: EventViewFilterState) => {
+      if (onEventViewFiltersChange) {
+        onEventViewFiltersChange(next);
         return;
       }
-      setEventMarkerPrefsInternal(next);
+      setEventViewFiltersInternal(next);
     },
-    [onEventMarkerPrefsChange],
+    [onEventViewFiltersChange],
   );
   const [candleColorMode, setCandleColorMode] = useState<KlineCandleColorMode>(
     DEFAULT_KLINE_CANDLE_COLOR_MODE,
@@ -796,15 +797,15 @@ export function StockChartWorkspace({
   /** 可见区间变化时触发事件标记刷新 */
   const [markerRangeTick, setMarkerRangeTick] = useState(0);
   useEffect(() => {
-    if (!eventMarkerPrefsControlled) {
-      setEventMarkerPrefsInternal(loadChartEventMarkerPrefs());
+    if (!eventViewFiltersControlled) {
+      setEventViewFiltersInternal(loadEventViewFilters());
     }
     setCandleColorMode(loadKlineCandleColorMode());
-  }, [eventMarkerPrefsControlled]);
+  }, [eventViewFiltersControlled]);
   useEffect(() => {
-    if (eventMarkerPrefsControlled) return;
-    saveChartEventMarkerPrefs(eventMarkerPrefsInternal);
-  }, [eventMarkerPrefsControlled, eventMarkerPrefsInternal]);
+    if (eventViewFiltersControlled) return;
+    saveEventViewFilters(eventViewFiltersInternal);
+  }, [eventViewFiltersControlled, eventViewFiltersInternal]);
   useEffect(() => {
     saveKlineCandleColorMode(candleColorMode);
   }, [candleColorMode]);
@@ -2692,7 +2693,7 @@ export function StockChartWorkspace({
       eventMarkersDataRef.current = [];
       return;
     }
-    if (!eventMarkerPrefs.enabled) {
+    if (!eventViewFilters.markersEnabled) {
       eventMarkersPluginRef.current?.setMarkers([]);
       eventMarkersDataRef.current = [];
       return;
@@ -2721,13 +2722,21 @@ export function StockChartWorkspace({
 
       const qs = new URLSearchParams({
         symbol: symbol.trim().toUpperCase(),
-        expand: eventMarkerPrefs.expand,
-        minImportance: eventMarkerPrefs.minImportance,
-        includeSec: eventMarkerPrefs.includeSec ? "1" : "0",
-        includeMarket: eventMarkerPrefs.includeMarket ? "1" : "0",
+        scopeMode: eventViewFilters.scopeMode,
+        minImportance: eventViewFilters.minImportance,
+        includeSec: eventViewFilters.includeSec ? "1" : "0",
+        includeMarket: eventViewFilters.includeMarket ? "1" : "0",
       });
       if (from) qs.set("from", from);
       if (to) qs.set("to", to);
+      if (eventViewFilters.assets.length)
+        qs.set("assets", eventViewFilters.assets.join(","));
+      if (eventViewFilters.industries.length)
+        qs.set("industries", eventViewFilters.industries.join(","));
+      if (eventViewFilters.countries.length)
+        qs.set("countries", eventViewFilters.countries.join(","));
+      const types = typeFamiliesToQueryPrefixes(eventViewFilters.typeFamilies);
+      if (types?.length) qs.set("types", types.join(","));
 
       void fetch(`/api/events/chart-markers?${qs}`)
         .then((r) => r.json())
@@ -2748,7 +2757,7 @@ export function StockChartWorkspace({
           for (const [, list] of byDay) {
             const primary = list[0]!;
             const extra = list.length - 1;
-            const text = eventMarkerPrefs.showLabel
+            const text = eventViewFilters.showLabel
               ? extra > 0
                 ? `${primary.label}+${extra}`
                 : primary.label
@@ -2783,12 +2792,16 @@ export function StockChartWorkspace({
     symbol,
     interval,
     payload?.candles?.length,
-    eventMarkerPrefs.enabled,
-    eventMarkerPrefs.includeSec,
-    eventMarkerPrefs.includeMarket,
-    eventMarkerPrefs.minImportance,
-    eventMarkerPrefs.expand,
-    eventMarkerPrefs.showLabel,
+    eventViewFilters.markersEnabled,
+    eventViewFilters.includeSec,
+    eventViewFilters.includeMarket,
+    eventViewFilters.minImportance,
+    eventViewFilters.scopeMode,
+    eventViewFilters.showLabel,
+    eventViewFilters.assets,
+    eventViewFilters.industries,
+    eventViewFilters.countries,
+    eventViewFilters.typeFamilies,
     markerRangeTick,
   ]);
 
@@ -3348,10 +3361,10 @@ export function StockChartWorkspace({
           已选中 · Delete 删除
         </span>
       ) : null}
-      {!eventMarkerPrefsControlled ? (
+      {!eventViewFiltersControlled ? (
         <ChartEventMarkersToolbar
-          prefs={eventMarkerPrefs}
-          onChange={setEventMarkerPrefs}
+          prefs={eventViewFilters}
+          onChange={setEventViewFilters}
         />
       ) : null}
     </>

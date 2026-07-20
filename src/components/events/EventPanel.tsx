@@ -29,25 +29,28 @@ import {
 import {
   eventTypeMatchesFamilies,
   isEraEventType,
-  normalizeIndustryTag,
 } from "@/lib/data/eventTaxonomy";
 import {
   isAllTypeFamiliesSelected,
-  loadEventPanelListFilters,
-  saveEventPanelListFilters,
-} from "@/lib/chart/eventPanelListFilters";
-import type { EventExpandLevel } from "@/lib/data/assetEventResolver";
+  loadEventViewFilters,
+  saveEventViewFilters,
+  typeFamiliesToQueryPrefixes,
+  type EventViewFilterState,
+} from "@/lib/chart/eventViewFilters";
+import { eventHitsExplicitFilters } from "@/lib/data/assetEventResolver";
+import {
+  applySymbolDraftToFilters,
+  classifyChartSymbol,
+  deriveEventFilterDraft,
+  type ChartSymbolProfile,
+} from "@/lib/data/chartSymbolProfile";
 
 const TRACKING_STORAGE_KEY = "event-panel-tracking-v1";
 
 export type EventPanelProps = {
-  /** 底部时间轴可见区间起点 YYYY-MM-DD */
   rangeFrom?: string | null;
-  /** 底部时间轴可见区间终点 YYYY-MM-DD */
   rangeTo?: string | null;
-  /** 图表十字线当前日期 YYYY-MM-DD（事件追踪用） */
   trackDate?: string | null;
-  /** 兼容：无 range 时仍可按上下文 ±N 天加载 */
   contextDate?: string | null;
   contextCountries?: string[];
   contextIndustries?: string[];
@@ -60,13 +63,14 @@ export type EventPanelProps = {
   compact?: boolean;
   embedded?: boolean;
   className?: string;
-  /**
-   * 行情 K 线联动：有值时列表走 /api/events/for-chart（含 SEC），
-   * 并显示上下文模式筛选。
-   */
+  /** 行情 K 线联动：列表走 /api/events/for-chart */
   chartSymbol?: string | null;
-  /** 与图表标记「上卷」一致，供 for-chart expand */
-  chartExpand?: EventExpandLevel;
+  /**
+   * 受控统一筛选（图+列表）。传入时由父组件持有状态；
+   * 不传则面板内部管理（embedded 宏观等）。
+   */
+  viewFilters?: EventViewFilterState;
+  onViewFiltersChange?: (next: EventViewFilterState) => void;
 };
 
 function buildContextUrl(
@@ -108,18 +112,24 @@ function buildForChartUrl(
   symbol: string,
   rangeFrom: string,
   rangeTo: string,
-  expand: EventExpandLevel,
-  mode: EventPanelFilterState["contextMode"],
+  filters: EventViewFilterState,
 ): string {
   const sp = new URLSearchParams({
     symbol,
     from: rangeFrom,
     to: rangeTo,
-    expand,
-    mode,
-    includeSec: "1",
-    includeMarket: "1",
+    scopeMode: filters.scopeMode,
+    includeSec: filters.includeSec ? "1" : "0",
+    includeMarket: filters.includeMarket ? "1" : "0",
+    minImportance: filters.minImportance,
   });
+  if (filters.assets.length) sp.set("assets", filters.assets.join(","));
+  if (filters.industries.length)
+    sp.set("industries", filters.industries.join(","));
+  if (filters.countries.length)
+    sp.set("countries", filters.countries.join(","));
+  const types = typeFamiliesToQueryPrefixes(filters.typeFamilies);
+  if (types?.length) sp.set("types", types.join(","));
   return `/api/events/for-chart?${sp.toString()}`;
 }
 
@@ -157,6 +167,7 @@ function findNearestEventId(
 export function eventMatchesFilters(
   event: MarketEventDto,
   filters: EventPanelFilterState,
+  opts?: { skipTagContext?: boolean },
 ): boolean {
   const q = filters.searchQ.trim().toLowerCase();
   if (q) {
@@ -169,20 +180,13 @@ export function eventMatchesFilters(
   if (!eventTypeMatchesFamilies(event.eventType, filters.typeFamilies)) {
     return false;
   }
-  if (filters.countries.length) {
-    if (!filters.countries.some((c) => event.countries.includes(c))) return false;
-  }
-  if (filters.industries.length) {
-    const want = filters.industries.map(normalizeIndustryTag);
-    const hit = event.industries.some((ind) => {
-      const e = normalizeIndustryTag(ind);
-      return want.some((w) => e === w || e.startsWith(w) || w.startsWith(e));
+  if (!opts?.skipTagContext && filters.scopeMode !== "range") {
+    const tagOk = eventHitsExplicitFilters(event, {
+      assets: filters.assets,
+      industries: filters.industries,
+      countries: filters.countries,
     });
-    if (!hit) return false;
-  }
-  if (filters.assets.length) {
-    const want = new Set(filters.assets.map((a) => a.toUpperCase()));
-    if (!event.assets.some((a) => want.has(a.toUpperCase()))) return false;
+    if (!tagOk) return false;
   }
   if (filters.persons.length) {
     if (!filters.persons.some((p) => event.persons.includes(p))) return false;
@@ -197,8 +201,9 @@ export function eventMatchesFilters(
 function filterEvents(
   events: MarketEventDto[],
   filters: EventPanelFilterState,
+  opts?: { skipTagContext?: boolean },
 ): MarketEventDto[] {
-  return events.filter((e) => eventMatchesFilters(e, filters));
+  return events.filter((e) => eventMatchesFilters(e, filters, opts));
 }
 
 function isSecDerivedEvent(event: MarketEventDto): boolean {
@@ -222,7 +227,8 @@ export function EventPanel({
   embedded = false,
   className = "",
   chartSymbol = null,
-  chartExpand = "symbol",
+  viewFilters: viewFiltersProp,
+  onViewFiltersChange,
 }: EventPanelProps) {
   const [events, setEvents] = useState<MarketEventDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -233,29 +239,114 @@ export function EventPanel({
   const [editEvent, setEditEvent] = useState<MarketEventDto | null>(null);
   const [trackingInternal, setTrackingInternal] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<EventPanelFilterState>(
+  const [filtersInternal, setFiltersInternal] = useState<EventViewFilterState>(
     EMPTY_EVENT_PANEL_FILTERS,
   );
   const [filtersHydrated, setFiltersHydrated] = useState(false);
+  const [symbolProfile, setSymbolProfile] = useState<ChartSymbolProfile | null>(
+    null,
+  );
   const listScrollRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const lastScrolledTrackDateRef = useRef<string | null>(null);
+  const lastAppliedSymbolRef = useRef<string | null>(null);
+
+  const controlled = viewFiltersProp !== undefined;
+  const filters = viewFiltersProp ?? filtersInternal;
+  const setFilters = useCallback(
+    (next: EventViewFilterState | ((prev: EventViewFilterState) => EventViewFilterState)) => {
+      if (controlled) {
+        const resolved =
+          typeof next === "function" ? next(viewFiltersProp!) : next;
+        onViewFiltersChange?.(resolved);
+      } else {
+        setFiltersInternal(next);
+      }
+    },
+    [controlled, onViewFiltersChange, viewFiltersProp],
+  );
 
   const useRangeMode = Boolean(rangeFrom && rangeTo);
   const useChartList = Boolean(chartSymbol?.trim() && useRangeMode);
-  const showContextMode = useChartList;
+  const chartLinked = useChartList;
 
   const eventTracking = eventTrackingProp ?? trackingInternal;
 
   useEffect(() => {
-    setFilters(loadEventPanelListFilters());
+    if (controlled) {
+      setFiltersHydrated(true);
+      return;
+    }
+    setFiltersInternal(loadEventViewFilters());
     setFiltersHydrated(true);
-  }, []);
+  }, [controlled]);
 
   useEffect(() => {
+    if (!filtersHydrated || controlled) return;
+    saveEventViewFilters(filtersInternal);
+  }, [filtersInternal, filtersHydrated, controlled]);
+
+  /** 换标的：重算草稿（覆盖类型/国家/行业/资产） */
+  useEffect(() => {
     if (!filtersHydrated) return;
-    saveEventPanelListFilters(filters);
-  }, [filters, filtersHydrated]);
+    const sym = chartSymbol?.trim();
+    if (!sym) {
+      setSymbolProfile(null);
+      lastAppliedSymbolRef.current = null;
+      return;
+    }
+    if (lastAppliedSymbolRef.current === sym) return;
+    lastAppliedSymbolRef.current = sym;
+
+    const profile = classifyChartSymbol(sym);
+    const draft = deriveEventFilterDraft(profile);
+    setSymbolProfile(profile);
+    setFilters((prev) => applySymbolDraftToFilters(prev, draft));
+  }, [chartSymbol, filtersHydrated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 补全个股 industries：独立 effect 调 profile 接口
+  useEffect(() => {
+    const sym = chartSymbol?.trim();
+    if (!sym || !filtersHydrated) return;
+    let cancelled = false;
+    void fetch(`/api/events/symbol-profile?symbol=${encodeURIComponent(sym)}`, {
+      cache: "no-store",
+    })
+      .then(async (r) => {
+        if (!r.ok) return null;
+        return (await r.json()) as {
+          profile?: ChartSymbolProfile;
+        };
+      })
+      .then((j) => {
+        if (cancelled || !j?.profile) return;
+        if (lastAppliedSymbolRef.current !== sym) return;
+        setSymbolProfile(j.profile);
+        if (
+          (j.profile.kind === "equity" || j.profile.kind === "unknown") &&
+          j.profile.industries.length
+        ) {
+          setFilters((prev) => {
+            // 仅当仍是该标的默认资产、且行业尚未手改得与 draft 不同时补全
+            const draft = deriveEventFilterDraft(j.profile!);
+            if (
+              prev.assets.length === 1 &&
+              prev.assets[0] === j.profile!.symbol &&
+              prev.industries.length === 0
+            ) {
+              return { ...prev, industries: [...draft.industries] };
+            }
+            return prev;
+          });
+        }
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chartSymbol, filtersHydrated, setFilters]);
 
   useEffect(() => {
     if (eventTrackingProp !== undefined) return;
@@ -280,14 +371,21 @@ export function EventPanel({
     [onEventTrackingChange],
   );
 
+  const resetToSymbolDefault = useCallback(() => {
+    const sym = chartSymbol?.trim();
+    if (!sym) return;
+    const profile = symbolProfile ?? classifyChartSymbol(sym);
+    const draft = deriveEventFilterDraft(profile);
+    setFilters((prev) => applySymbolDraftToFilters(prev, draft));
+  }, [chartSymbol, symbolProfile, setFilters]);
+
   const listUrl = useMemo(() => {
     if (useChartList && chartSymbol && rangeFrom && rangeTo) {
       return buildForChartUrl(
         chartSymbol.trim(),
         rangeFrom,
         rangeTo,
-        chartExpand,
-        filters.contextMode,
+        filters,
       );
     }
     if (useRangeMode && rangeFrom && rangeTo) {
@@ -305,8 +403,7 @@ export function EventPanel({
   }, [
     useChartList,
     chartSymbol,
-    chartExpand,
-    filters.contextMode,
+    filters,
     useRangeMode,
     rangeFrom,
     rangeTo,
@@ -325,9 +422,11 @@ export function EventPanel({
 
   const sortedEvents = useMemo(() => sortEventsAsc(events), [events]);
   const filtersActive = hasActiveEventPanelFilters(filters);
+  // for-chart 已按 tags/types/importance 预筛；客户端只补 search/人物/机构
+  const skipTagContext = useChartList;
   const filteredEvents = useMemo(
-    () => filterEvents(sortedEvents, filters),
-    [sortedEvents, filters],
+    () => filterEvents(sortedEvents, filters, { skipTagContext }),
+    [sortedEvents, filters, skipTagContext],
   );
 
   const displayModel = useMemo(() => {
@@ -344,9 +443,16 @@ export function EventPanel({
     const timelineModel = buildEventTimeline(sortedEvents);
     if (!filtersActive) return timelineModel;
     return filterTimelineGroups(timelineModel, (e) =>
-      eventMatchesFilters(e, filters),
+      eventMatchesFilters(e, filters, { skipTagContext }),
     );
-  }, [eraFamilyOn, sortedEvents, filteredEvents, filters, filtersActive]);
+  }, [
+    eraFamilyOn,
+    sortedEvents,
+    filteredEvents,
+    filters,
+    filtersActive,
+    skipTagContext,
+  ]);
 
   const trackingEvents = useMemo(() => {
     const list = displayModel.hasEraStructure
@@ -514,7 +620,11 @@ export function EventPanel({
         <EventPanelFilters
           filters={filters}
           onChange={setFilters}
-          showContextMode={showContextMode}
+          chartLinked={chartLinked}
+          symbolProfile={symbolProfile}
+          onResetToSymbolDefault={
+            chartLinked ? resetToSymbolDefault : undefined
+          }
         />
       </div>
       <div
