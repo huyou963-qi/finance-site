@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { SiteHeaderShell } from "@/components/SiteHeaderShell";
+import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
+import { ReportBugButton } from "@/components/errors/ReportBugButton";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,6 +24,8 @@ export default function RootLayout({
         <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pt-1 pb-3">
           {children}
         </main>
+        <GlobalErrorListeners />
+        <ReportBugButton />
       </body>
     </html>
   );

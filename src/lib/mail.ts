@@ -94,3 +94,50 @@ export async function sendDataLagAlertEmail(
   await transport.sendMail({ from, to, subject, text });
   return { delivered: true as const, fallback: false as const };
 }
+
+export async function sendErrorReportEmail(
+  to: string,
+  report: {
+    id: string;
+    source: string;
+    message: string;
+    pageUrl: string;
+    username?: string | null;
+    digest?: string | null;
+  },
+) {
+  const subject = `[finance-site] 错误反馈 ${report.source} · ${report.message.slice(0, 60)}`;
+  const text = [
+    `新错误反馈已入库：`,
+    ``,
+    `id: ${report.id}`,
+    `来源: ${report.source}`,
+    `页面: ${report.pageUrl}`,
+    `用户: ${report.username || "（匿名）"}`,
+    `digest: ${report.digest || "—"}`,
+    `消息: ${report.message}`,
+    ``,
+    `管理端：${getBaseUrl().replace(/\/+$/, "")}/admin/error-reports`,
+  ].join("\n");
+
+  const host = process.env.SMTP_HOST?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
+  const from = process.env.SMTP_FROM?.trim() || user || "no-reply@localhost";
+  const port = Number(process.env.SMTP_PORT?.trim() || "587");
+  const secure = (process.env.SMTP_SECURE?.trim() || "false").toLowerCase() === "true";
+
+  if (!host || !user || !pass) {
+    await appendOutbox(`[ERROR_REPORT] to=${to}\n${text}`);
+    return { delivered: false as const, fallback: true as const };
+  }
+
+  const transport = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+  await transport.sendMail({ from, to, subject, text });
+  return { delivered: true as const, fallback: false as const };
+}

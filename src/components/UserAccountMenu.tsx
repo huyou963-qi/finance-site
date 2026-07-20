@@ -102,6 +102,8 @@ function UserMenu({
   const adminDataActive =
     pathname === "/admin/data-catalog" || pathname.startsWith("/admin/data-catalog/");
   const adminUsersActive = pathname === "/admin/users" || pathname.startsWith("/admin/users/");
+  const adminErrorsActive =
+    pathname === "/admin/error-reports" || pathname.startsWith("/admin/error-reports/");
 
   const displayEmail = user.email || user.username;
 
@@ -141,6 +143,12 @@ function UserMenu({
             label="用户管理"
             href="/admin/users"
             active={adminUsersActive}
+            onClick={onClose}
+          />
+          <MenuRow
+            label="错误反馈"
+            href="/admin/error-reports"
+            active={adminErrorsActive}
             onClick={onClose}
           />
         </>

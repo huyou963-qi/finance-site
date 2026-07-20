@@ -118,6 +118,33 @@ model DataSchedulerCalendarOverride {
   @@schema("public")
 }
 
+/// 用户端错误反馈工单（自动崩溃 / window 异常 / 手动报告）
+model ErrorReport {
+  id         String    @id @default(cuid())
+  createdAt  DateTime  @default(now()) @map("created_at")
+  /// open | acknowledged | resolved | ignored
+  status     String    @default("open") @db.VarChar(32)
+  /// auto_crash | auto_window | manual
+  source     String    @db.VarChar(32)
+  message    String
+  stack      String?   @db.Text
+  pageUrl    String    @map("page_url")
+  userAgent  String?   @map("user_agent") @db.Text
+  userNote   String?   @map("user_note") @db.Text
+  digest     String?
+  userId     String?   @map("user_id")
+  username   String?
+  metadata   Json?
+  resolvedAt DateTime? @map("resolved_at")
+  resolvedBy String?   @map("resolved_by")
+  adminNote  String?   @map("admin_note") @db.Text
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("error_report")
+  @@schema("public")
+}
+
 enum EventImportance {
   LOW
   MEDIUM
