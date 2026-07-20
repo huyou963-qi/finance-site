@@ -676,6 +676,47 @@ model EquityDelisting {
   @@schema("mds")
 }
 
+/// 月频 PIT 因子快照（长表，Phase 1）。date = 月末宇宙快照日（IndexConstituent.asOfDate 对齐）；
+/// value 为原始因子值（factorRegistry.ts 定义口径），zscore / sectorZscore 为当月截面
+/// winsorize(±3 MAD) 后的标准分（sector 按 EquitySecurity 现值 GICS 近似，非 PIT，见文档）。
+model FactorSnapshot {
+  id           String   @id @default(uuid()) @db.Uuid
+  symbol       String   @db.VarChar(16)
+  date         DateTime @db.Date
+  factorKey    String   @map("factor_key") @db.VarChar(32)
+  value        Float
+  zscore       Float?
+  sectorZscore Float?   @map("sector_zscore")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([symbol, date, factorKey])
+  @@index([date, factorKey])
+  @@map("factor_snapshot")
+  @@schema("mds")
+}
+
+/// 行业因子月频聚合（Phase 1 WS4）：FactorSnapshot 按 GICS sector（现值近似）聚合的
+/// 中位数/四分位序列，补行业维度时间序列缺口。coverage = 有值成分数 / 当月 sector 宇宙数。
+model FactorSectorSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  sector      String   @db.VarChar(64)
+  date        DateTime @db.Date
+  factorKey   String   @map("factor_key") @db.VarChar(32)
+  median      Float
+  p25         Float
+  p75         Float
+  coverage    Float
+  sampleCount Int      @map("sample_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([sector, date, factorKey])
+  @@index([date, factorKey])
+  @@map("factor_sector_snapshot")
+  @@schema("mds")
+}
+
 /// SEC EDGAR 披露索引（供 Automation 取证）
 model SecFiling {
   id        String   @id @default(uuid()) @db.Uuid

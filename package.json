@@ -118,6 +118,9 @@
     "equity:verify-sp500-history": "dotenv -e .env.local -- tsx scripts/equity/verify-sp500-history.ts",
     "equity:build-delistings": "dotenv -e .env.local -- tsx scripts/equity/build-delistings.ts",
     "equity:verify-first-reported": "dotenv -e .env.local -- tsx scripts/equity/verify-first-reported.ts",
+    "quant:build-factors": "dotenv -e .env.local -- tsx scripts/quant/build-factors.ts",
+    "quant:build-sector-factors": "dotenv -e .env.local -- tsx scripts/quant/build-sector-factors.ts",
+    "quant:verify-factors": "dotenv -e .env.local -- tsx scripts/quant/verify-factors.ts",
     "test:equity": "tsx --test src/lib/equity/*.test.ts"
   },
   "dependencies": {
