@@ -121,7 +121,8 @@
     "quant:build-factors": "dotenv -e .env.local -- tsx scripts/quant/build-factors.ts",
     "quant:build-sector-factors": "dotenv -e .env.local -- tsx scripts/quant/build-sector-factors.ts",
     "quant:verify-factors": "dotenv -e .env.local -- tsx scripts/quant/verify-factors.ts",
-    "test:equity": "tsx --test src/lib/equity/*.test.ts"
+    "test:equity": "tsx --test src/lib/equity/*.test.ts",
+    "test:quant": "tsx --test src/lib/quant/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

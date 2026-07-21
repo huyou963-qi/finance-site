@@ -29,7 +29,24 @@ model User {
   macroChartPrefsRow    UserMacroChartPrefs?
   bookmarkState         UserBookmarkState?
   marketEventsCreated   MarketEvent[]
+  strategies            StrategyDefinition[]
 
+  @@schema("public")
+}
+
+/// 选股器策略定义（Phase 2）：一用户多行（区别于既有单行 Json 州模型）。
+/// config = ScreenerConfig JSON（src/lib/quant/screener.ts），是 Phase 3 回测的直接输入。
+model StrategyDefinition {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(128)
+  config    Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("strategy_definition")
   @@schema("public")
 }
 
