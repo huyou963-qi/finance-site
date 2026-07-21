@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { getUserByRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { saveErrorReportImages, type IncomingImage } from "@/lib/errorReports/attachments";
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
         digest: digest ?? null,
         userId: me?.id ?? null,
         username: me?.username ?? null,
-        metadata: baseMeta,
+        metadata: baseMeta as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
         const metadata: ErrorReportMetadata = { ...baseMeta, images: saved };
         await prisma.errorReport.update({
           where: { id: row.id },
-          data: { metadata },
+          data: { metadata: metadata as unknown as Prisma.InputJsonValue },
         });
       }
     } catch (e) {
