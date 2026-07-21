@@ -1,4 +1,9 @@
-export const ERROR_REPORT_SOURCES = ["auto_crash", "auto_window", "manual"] as const;
+export const ERROR_REPORT_SOURCES = [
+  "auto_crash",
+  "auto_window",
+  "manual",
+  "manual_feature",
+] as const;
 export type ErrorReportSource = (typeof ERROR_REPORT_SOURCES)[number];
 
 export const ERROR_REPORT_STATUSES = [
@@ -19,7 +24,8 @@ export const ERROR_REPORT_STATUS_LABELS: Record<ErrorReportStatus, string> = {
 export const ERROR_REPORT_SOURCE_LABELS: Record<ErrorReportSource, string> = {
   auto_crash: "页面崩溃",
   auto_window: "未捕获异常",
-  manual: "手动报告",
+  manual: "问题反馈",
+  manual_feature: "需求反馈",
 };
 
 export const MAX_MESSAGE_LEN = 2000;
@@ -27,3 +33,25 @@ export const MAX_STACK_LEN = 16_384;
 export const MAX_USER_NOTE_LEN = 2000;
 export const MAX_PAGE_URL_LEN = 2000;
 export const MAX_DIGEST_LEN = 200;
+export const MAX_IMAGES = 3;
+/** 单张解码后最大字节数 */
+export const MAX_IMAGE_BYTES = 1_500_000;
+export const ALLOWED_IMAGE_MIMES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
+export type ErrorReportImageMeta = {
+  file: string;
+  mime: string;
+  name: string;
+};
+
+export type ErrorReportMetadata = {
+  feedbackKind?: "bug" | "feature";
+  images?: ErrorReportImageMeta[];
+  from?: string;
+  [key: string]: unknown;
+};

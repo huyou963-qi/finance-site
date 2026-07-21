@@ -141,7 +141,7 @@ model ErrorReport {
   createdAt  DateTime  @default(now()) @map("created_at")
   /// open | acknowledged | resolved | ignored
   status     String    @default("open") @db.VarChar(32)
-  /// auto_crash | auto_window | manual
+  /// auto_crash | auto_window | manual | manual_feature
   source     String    @db.VarChar(32)
   message    String
   stack      String?   @db.Text

@@ -146,7 +146,7 @@ function UserMenu({
             onClick={onClose}
           />
           <MenuRow
-            label="错误反馈"
+            label="用户反馈"
             href="/admin/error-reports"
             active={adminErrorsActive}
             onClick={onClose}

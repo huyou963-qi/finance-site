@@ -3287,6 +3287,7 @@ export function MacroSection() {
                       onChange={setSelectedListItems}
                       onRemoveKey={removeSelectedKey}
                       onLocateKey={locateIndicatorInSidebar}
+                      showSource={isAdmin}
                     />
                   </div>
                 </div>

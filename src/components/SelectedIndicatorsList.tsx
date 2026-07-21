@@ -27,6 +27,8 @@ type Props = {
   onChange: (items: MacroSelectedListItem[]) => void;
   onRemoveKey: (key: string) => void;
   onLocateKey: (key: string) => void;
+  /** 管理员可见指标来源；普通用户隐藏 */
+  showSource?: boolean;
 };
 
 function DividerLabelEditor({
@@ -105,6 +107,7 @@ export function SelectedIndicatorsList({
   onChange,
   onRemoveKey,
   onLocateKey,
+  showSource = false,
 }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -198,7 +201,16 @@ export function SelectedIndicatorsList({
           <li
             key={item.key}
             {...dropTargetProps(index)}
-            title={`${item.key}\n国家：${row.country}\n单位：${row.unit}\n更新时间：${row.updatedAt}\n频率：${row.frequency}\n来源：${row.source}\n范围：${rangeText}\n拖动调整顺序；双击定位到左侧指标树`}
+            title={[
+              item.key,
+              `国家：${row.country}`,
+              `单位：${row.unit}`,
+              `更新时间：${row.updatedAt}`,
+              `频率：${row.frequency}`,
+              ...(showSource ? [`来源：${row.source}`] : []),
+              `范围：${rangeText}`,
+              "拖动调整顺序；双击定位到左侧指标树",
+            ].join("\n")}
             className={`flex cursor-pointer items-center gap-1.5 px-2 py-1 hover:bg-fs-elevated/80 ${
               isDropTarget ? "bg-fs-elevated ring-1 ring-inset ring-fs-accent/40" : ""
             }`}
@@ -226,8 +238,12 @@ export function SelectedIndicatorsList({
               <span className="text-fs-secondary">更新时间</span>：{row.updatedAt}
               <span className="mx-1.5 text-fs-secondary">|</span>
               <span className="text-fs-secondary">频率</span>：{row.frequency}
-              <span className="mx-1.5 text-fs-secondary">|</span>
-              <span className="text-fs-secondary">来源</span>：{row.source}
+              {showSource ? (
+                <>
+                  <span className="mx-1.5 text-fs-secondary">|</span>
+                  <span className="text-fs-secondary">来源</span>：{row.source}
+                </>
+              ) : null}
               <span className="mx-1.5 text-fs-secondary">|</span>
               <span className="text-fs-secondary">范围</span>：{rangeText}
             </span>

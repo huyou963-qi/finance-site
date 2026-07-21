@@ -5,6 +5,8 @@ import {
   ERROR_REPORT_SOURCE_LABELS,
   ERROR_REPORT_STATUS_LABELS,
   ERROR_REPORT_STATUSES,
+  type ErrorReportImageMeta,
+  type ErrorReportMetadata,
   type ErrorReportSource,
   type ErrorReportStatus,
 } from "@/lib/errorReports/types";
@@ -21,6 +23,7 @@ type ReportRow = {
   userNote: string | null;
   digest: string | null;
   username: string | null;
+  metadata: ErrorReportMetadata | null;
   resolvedAt: string | null;
   resolvedBy: string | null;
   adminNote: string | null;
@@ -78,8 +81,8 @@ export function AdminErrorReportsClient() {
     <div className="space-y-4 py-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-fs-text">错误反馈</h1>
-          <p className="text-xs text-fs-muted">用户端自动上报与手动「报告问题」工单</p>
+          <h1 className="text-lg font-semibold text-fs-text">用户反馈</h1>
+          <p className="text-xs text-fs-muted">问题报告、新需求与自动崩溃上报</p>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-xs text-fs-muted">状态</label>
@@ -151,6 +154,27 @@ export function AdminErrorReportsClient() {
                         <span className="text-fs-muted">用户说明：</span>
                         {r.userNote}
                       </p>
+                    ) : null}
+                    {Array.isArray(r.metadata?.images) && r.metadata.images.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(r.metadata.images as ErrorReportImageMeta[]).map((img, i) => (
+                          <a
+                            key={`${r.id}-${img.file}`}
+                            href={`/api/admin/error-reports/${r.id}/images/${i}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block overflow-hidden rounded border border-fs-border"
+                            title={img.name}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/admin/error-reports/${r.id}/images/${i}`}
+                              alt={img.name}
+                              className="h-24 max-w-[160px] object-contain bg-fs-bg"
+                            />
+                          </a>
+                        ))}
+                      </div>
                     ) : null}
                     {r.digest ? (
                       <p>

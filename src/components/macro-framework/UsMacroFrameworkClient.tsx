@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   CALENDAR,
   CONTRADICTION_SIGNALS,
@@ -250,6 +250,26 @@ function MatrixCell({
 
 export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndicator[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) return false;
+        const j = (await r.json().catch(() => ({}))) as { user?: { role?: string } };
+        return String(j.user?.role ?? "").trim().toLowerCase() === "admin";
+      })
+      .then((admin) => {
+        if (!cancelled) setIsAdmin(admin);
+      })
+      .catch(() => {
+        /* 未登录或请求失败则保持非 admin */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const indById = useMemo(() => indicatorsById(indicators), [indicators]);
 
   const matrix = useMemo(() => {
@@ -413,7 +433,7 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
                 </strong>
               </span>
               <span>{indById[selectedId].asOfDate}</span>
-              <span>{indById[selectedId].source}</span>
+              {isAdmin ? <span>{indById[selectedId].source}</span> : null}
               <span style={{ color: timingAccent(indById[selectedId].timing) }}>
                 {TIMING_LABEL[indById[selectedId].timing]}
               </span>

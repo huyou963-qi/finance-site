@@ -20,6 +20,26 @@ export function MacroChart({
 }: MacroChartProps) {
   const [payload, setPayload] = useState<MacroPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) return false;
+        const j = (await r.json().catch(() => ({}))) as { user?: { role?: string } };
+        return String(j.user?.role ?? "").trim().toLowerCase() === "admin";
+      })
+      .then((admin) => {
+        if (!cancelled) setIsAdmin(admin);
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +110,7 @@ export function MacroChart({
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-2">
-      {payload.attribution ? (
+      {isAdmin && payload.attribution ? (
         <p className="shrink-0 text-xs leading-relaxed text-fs-muted">{payload.attribution}</p>
       ) : null}
       <div className="w-full min-w-0" style={{ height: chartHeight }}>

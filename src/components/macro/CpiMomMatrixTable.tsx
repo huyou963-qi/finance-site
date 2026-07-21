@@ -67,6 +67,26 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
   const [payload, setPayload] = useState<UnifiedPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) return false;
+        const j = (await r.json().catch(() => ({}))) as { user?: { role?: string } };
+        return String(j.user?.role ?? "").trim().toLowerCase() === "admin";
+      })
+      .then((admin) => {
+        if (!cancelled) setIsAdmin(admin);
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,8 +213,18 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
           </p>
         ) : null}
         <p>
-          环比 = 季调指数（BLS/FRED，SA）相邻月变动；正值（通胀走热）红色、负值绿色。权重为{" "}
-          {CPI_WEIGHT_META.source}（{CPI_WEIGHT_META.asOf}，{CPI_WEIGHT_META.weightBase}，CPI-U，占全部项目 %）。
+          {isAdmin ? (
+            <>
+              环比 = 季调指数（BLS/FRED，SA）相邻月变动；正值（通胀走热）红色、负值绿色。权重为{" "}
+              {CPI_WEIGHT_META.source}（{CPI_WEIGHT_META.asOf}，{CPI_WEIGHT_META.weightBase}
+              ，CPI-U，占全部项目 %）。
+            </>
+          ) : (
+            <>
+              环比 = 季调指数相邻月变动；正值（通胀走热）红色、负值绿色。权重为相对重要性（
+              {CPI_WEIGHT_META.asOf}，CPI-U，占全部项目 %）。
+            </>
+          )}
         </p>
       </div>
     </div>

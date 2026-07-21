@@ -89,27 +89,32 @@ export function KlineRangeStatsPanel({
   return (
     <div
       ref={panelRef}
-      className={`pointer-events-auto fixed z-[100] w-[min(96vw,420px)] rounded-lg border bg-[#1a1f2e]/98 px-4 py-3 shadow-2xl backdrop-blur-sm ${
+      className={`pointer-events-auto fixed z-[100] w-[min(96vw,420px)] rounded-lg border border-fs-border bg-fs-bg/95 px-4 py-3 text-fs-text shadow-xl backdrop-blur-sm ${
         pos ? "" : "left-1/2 -translate-x-1/2"
       }`}
       style={
         pos
-          ? { left: pos.left, top: pos.top, borderColor: `${accentColor}66` }
+          ? {
+              left: pos.left,
+              top: pos.top,
+              borderColor: accentColor,
+              boxShadow: `0 12px 40px rgba(0,0,0,0.12), 0 0 0 1px ${accentColor}33`,
+            }
           : {
               left: "50%",
               top: stackOffsetPx
                 ? `calc(22% + ${stackOffsetPx}px)`
                 : "22%",
               transform: "translate(-50%, 0)",
-              borderColor: `${accentColor}66`,
+              borderColor: accentColor,
+              boxShadow: `0 12px 40px rgba(0,0,0,0.12), 0 0 0 1px ${accentColor}33`,
             }
       }
       role="dialog"
       aria-label={title}
     >
       <div
-        className="mb-3 flex cursor-move touch-none select-none items-start justify-between gap-2 border-b pb-2"
-        style={{ borderColor: `${accentColor}44` }}
+        className="mb-3 flex cursor-move touch-none select-none items-start justify-between gap-2 border-b border-fs-border pb-2"
         onPointerDown={handleDragStart}
       >
         <h3 className="text-sm font-semibold" style={{ color: accentColor }}>
@@ -119,7 +124,7 @@ export function KlineRangeStatsPanel({
           type="button"
           onClick={onClose}
           onPointerDown={(e) => e.stopPropagation()}
-          className="cursor-pointer rounded px-2 py-0.5 text-xs text-fs-muted hover:bg-fs-elevated hover:text-fs-secondary"
+          className="cursor-pointer rounded px-2 py-0.5 text-xs text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
         >
           关闭
         </button>

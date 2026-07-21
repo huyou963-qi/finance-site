@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CommonLinksMenu } from "@/components/CommonLinksMenu";
+import { ReportBugButton } from "@/components/errors/ReportBugButton";
 import { UserAccountMenu } from "@/components/UserAccountMenu";
 
 const linkBase =
@@ -209,7 +210,10 @@ export function SiteHeaderNav() {
         ) : null}
         {isAdmin ? <CommonLinksMenu me={me} /> : null}
       </div>
-      <UserAccountMenu />
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <ReportBugButton />
+        <UserAccountMenu />
+      </div>
     </nav>
   );
 }

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { SiteHeaderShell } from "@/components/SiteHeaderShell";
 import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
-import { ReportBugButton } from "@/components/errors/ReportBugButton";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,7 +24,6 @@ export default function RootLayout({
           {children}
         </main>
         <GlobalErrorListeners />
-        <ReportBugButton />
       </body>
     </html>
   );
