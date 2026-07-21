@@ -761,6 +761,65 @@ model FactorSectorSnapshot {
   @@schema("mds")
 }
 
+/// 回测运行记录（Phase 3 WS3）。strategyConfig = ScreenerConfig JSON（回测输入），
+/// params = BacktestParams（start/end/weighting/execution/costBps）。
+/// status：queued→running→done|failed；metrics = BacktestMetrics（done 时写入）。
+/// userId 可空（CLI 匿名 run）；关联的 nav/position 随 run 级联删除。
+model BacktestRun {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String?   @map("user_id")
+  name           String    @db.VarChar(128)
+  strategyConfig Json      @map("strategy_config")
+  params         Json
+  status         String    @default("queued") @db.VarChar(16)
+  metrics        Json?
+  /// 数据边界透明化摘要（宇宙覆盖率/剔除计数/无价跳过等）
+  summary        Json?
+  error          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  finishedAt     DateTime? @map("finished_at")
+
+  nav       BacktestNav[]
+  positions BacktestPosition[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("backtest_run")
+  @@schema("mds")
+}
+
+/// 回测日 NAV 序列（Phase 3）。nav/benchNav 均以起点归一（起点 = 1）。
+model BacktestNav {
+  id       String   @id @default(uuid()) @db.Uuid
+  runId    String   @map("run_id") @db.Uuid
+  run      BacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  date     DateTime @db.Date
+  nav      Float
+  benchNav Float?   @map("bench_nav")
+
+  @@unique([runId, date])
+  @@index([runId, date])
+  @@map("backtest_nav")
+  @@schema("mds")
+}
+
+/// 回测逐期持仓（Phase 3）。weight = 目标权重（跳过无价后重归一）；
+/// entryPrice = 入场 adjClose（复权口径）；exitReason = sold|carried|liquidated|endOfBacktest。
+model BacktestPosition {
+  id            String   @id @default(uuid()) @db.Uuid
+  runId         String   @map("run_id") @db.Uuid
+  run           BacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  rebalanceDate DateTime @map("rebalance_date") @db.Date
+  symbol        String   @db.VarChar(16)
+  weight        Float
+  entryPrice    Float?   @map("entry_price")
+  exitReason    String?  @map("exit_reason") @db.VarChar(16)
+
+  @@index([runId, rebalanceDate])
+  @@map("backtest_position")
+  @@schema("mds")
+}
+
 /// SEC EDGAR 披露索引（供 Automation 取证）
 model SecFiling {
   id        String   @id @default(uuid()) @db.Uuid

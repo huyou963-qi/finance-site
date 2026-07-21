@@ -39,6 +39,8 @@ export function SiteHeaderNav() {
     pathname === "/equity/sectors" || pathname.startsWith("/equity/sectors/");
   const screenerActive =
     pathname === "/equity/screener" || pathname.startsWith("/equity/screener/");
+  const backtestActive =
+    pathname === "/equity/backtest" || pathname.startsWith("/equity/backtest/");
   const toolsActive = isToolPath(pathname);
   const marketsActive =
     (pathname === "/markets" || pathname.startsWith("/markets/")) && !toolsActive;
@@ -138,6 +140,17 @@ export function SiteHeaderNav() {
           aria-current={screenerActive ? "page" : undefined}
         >
           选股器
+        </Link>
+        <Link
+          href="/equity/backtest"
+          className={`${linkBase} ${
+            backtestActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={backtestActive ? "page" : undefined}
+        >
+          回测
         </Link>
         <Link
           href="/events"

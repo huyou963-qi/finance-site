@@ -8,6 +8,7 @@
  */
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FACTOR_DEFS,
@@ -161,7 +162,10 @@ function FactorSelect({
   );
 }
 
+const BACKTEST_CONFIG_KEY = "equityBacktestNewConfig.v1";
+
 export function EquityScreenerClient() {
+  const router = useRouter();
   const [dates, setDates] = useState<string[]>([]);
   const [config, setConfig] = useState<ScreenerConfig>(defaultConfig);
   const [result, setResult] = useState<PersistedState["result"]>(null);
@@ -392,6 +396,20 @@ export function EquityScreenerClient() {
     }
   };
 
+  // ── 回测此策略（带当前 config 跳转回测新建页） ────────────────────────────
+  const backtestThisStrategy = () => {
+    try {
+      const current = strategies?.find((x) => x.id === currentStrategyId);
+      sessionStorage.setItem(
+        BACKTEST_CONFIG_KEY,
+        JSON.stringify({ config, name: current?.name }),
+      );
+    } catch {
+      // sessionStorage 不可用时仍导航（回测页会提示选择策略）
+    }
+    router.push("/equity/backtest");
+  };
+
   // ── 结果表 ────────────────────────────────────────────────────────────────
   const shownFactorKeys = useMemo(() => {
     if (!result?.rows.length) return [];
@@ -474,6 +492,14 @@ export function EquityScreenerClient() {
             </>
           )}
           {strategyMsg ? <span className="text-xs text-fs-muted">{strategyMsg}</span> : null}
+          <button
+            type="button"
+            onClick={backtestThisStrategy}
+            className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-2.5 py-1 text-sm text-fs-accent-text hover:opacity-90"
+            title="以当前条件/排序配置发起历史回测（月度调仓 vs SPY）"
+          >
+            回测此策略 →
+          </button>
         </div>
       </div>
 

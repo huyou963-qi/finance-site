@@ -121,6 +121,8 @@
     "quant:build-factors": "dotenv -e .env.local -- tsx scripts/quant/build-factors.ts",
     "quant:build-sector-factors": "dotenv -e .env.local -- tsx scripts/quant/build-sector-factors.ts",
     "quant:verify-factors": "dotenv -e .env.local -- tsx scripts/quant/verify-factors.ts",
+    "quant:backtest": "dotenv -e .env.local -- tsx scripts/quant/run-backtest.ts",
+    "quant:verify-backtest": "dotenv -e .env.local -- tsx scripts/quant/verify-backtest.ts",
     "test:equity": "tsx --test src/lib/equity/*.test.ts",
     "test:quant": "tsx --test src/lib/quant/*.test.ts"
   },
