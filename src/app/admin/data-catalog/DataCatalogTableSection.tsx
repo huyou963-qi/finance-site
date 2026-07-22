@@ -228,7 +228,7 @@ function PromoteOnboardingButton({
   async function promote() {
     const catalogCategory = window.prompt("正式目录分类名称（如：通胀与价格）", defaultCategory);
     if (!catalogCategory?.trim()) return;
-    const displayName = window.prompt("中文显示名", defaultLabel);
+    const displayName = window.prompt("中文名（可改弱译）", defaultLabel);
     setBusy(true);
     setMsg(null);
     try {

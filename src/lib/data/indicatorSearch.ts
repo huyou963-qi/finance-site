@@ -7,6 +7,7 @@ import {
   wbCatalogKey,
 } from "@/lib/data/indicatorOnboarding";
 import { allItemsInGroup } from "@/lib/data/catalogTree";
+import { weakTranslateTitle } from "@/lib/data/fredTitleZh";
 
 export type IndicatorSearchHit = {
   origin: "local" | "fred" | "worldbank";
@@ -14,7 +15,13 @@ export type IndicatorSearchHit = {
   sourceSeriesKey: string;
   /** 本地已知时的统一目录键 */
   key: string | null;
+  /** 主标题（中文优先） */
   title: string;
+  /** 英文原题（外部源） */
+  titleEn: string | null;
+  /** 弱译中文（与 title 相同时可省略展示） */
+  titleZh: string | null;
+  labelZhWeak: boolean;
   frequency: string | null;
   units: string | null;
   alreadyLocal: boolean;
@@ -73,6 +80,9 @@ async function searchLocalCatalog(
           sourceSeriesKey,
           key: item.key,
           title: item.label,
+          titleEn: null,
+          titleZh: item.label,
+          labelZhWeak: false,
           frequency: item.frequency,
           units: null,
           alreadyLocal: true,
@@ -138,6 +148,8 @@ async function searchLocalDbPending(
     if (!matchText(blob, q) && status !== "pending_completion") continue;
 
     // 非 pending 且已在正式树外：仍允许搜到「仅数据库」类指标
+    const nameEn = typeof md.nameEn === "string" ? md.nameEn.trim() : "";
+    const weak = md.labelZhWeak === true;
     hits.push({
       origin: "local",
       source: row.dataSubscription?.sourceId ?? (row.fredSeriesId ? "fred" : "mds"),
@@ -145,6 +157,9 @@ async function searchLocalDbPending(
         row.dataSubscription?.sourceSeriesKey ?? row.fredSeriesId ?? row.code,
       key: catalogKey,
       title: displayName,
+      titleEn: nameEn || null,
+      titleZh: displayName,
+      labelZhWeak: weak,
       frequency: row.freqLabel,
       units: row.unit,
       alreadyLocal: true,
@@ -266,18 +281,28 @@ async function searchWorldBankExternal(q: string, limit: number): Promise<Indica
     }
   }
 
-  return scored.slice(0, limit).map((s) => ({
-    origin: "worldbank" as const,
-    source: "worldbank",
-    sourceSeriesKey: `US:${s.id}`,
-    key: wbCatalogKey("US", s.id),
-    title: s.name,
-    frequency: "年",
-    units: null,
-    alreadyLocal: false,
-    onboardingStatus: null,
-    countryCode: "US",
-  }));
+  return scored.slice(0, limit).map((s) => {
+    const zh = weakTranslateTitle({
+      titleEn: s.name,
+      seriesId: s.id,
+      source: "worldbank",
+    });
+    return {
+      origin: "worldbank" as const,
+      source: "worldbank",
+      sourceSeriesKey: `US:${s.id}`,
+      key: wbCatalogKey("US", s.id),
+      title: zh.labelZh,
+      titleEn: zh.labelEn,
+      titleZh: zh.labelZh,
+      labelZhWeak: zh.weak,
+      frequency: "年",
+      units: null,
+      alreadyLocal: false,
+      onboardingStatus: null,
+      countryCode: "US",
+    };
+  });
 }
 
 async function loadLocalWbKeys(prisma: PrismaClient): Promise<Set<string>> {
@@ -352,12 +377,21 @@ export async function searchIndicators(
               if (localFredIds.has(idUp)) continue;
               const key = fredCatalogKey(h.id);
               if (excludeKeys.has(key)) continue;
+              const zh = weakTranslateTitle({
+                titleEn: h.title,
+                seriesId: h.id,
+                units: h.units,
+                source: "fred",
+              });
               external.push({
                 origin: "fred",
                 source: "fred",
                 sourceSeriesKey: h.id,
                 key,
-                title: h.title,
+                title: zh.labelZh,
+                titleEn: zh.labelEn,
+                titleZh: zh.labelZh,
+                labelZhWeak: zh.weak,
                 frequency: h.frequency,
                 units: h.units,
                 alreadyLocal: false,

@@ -13,6 +13,11 @@ import {
   filterUnifiedCatalogCountry,
   findIndicatorPath,
 } from "@/lib/data/catalogTree";
+import {
+  defaultVariantChoices,
+  labelForVariantKey,
+  variantKeysForBase,
+} from "@/lib/data/fredTitleZh";
 
 const DEFAULT_OPEN_COUNTRY_CODES = new Set(["CN", "US"]);
 const DEFAULT_OPEN_CATEGORY_NAMES = new Set([
@@ -116,6 +121,7 @@ function TreeSectionHeader({
 function IndicatorPickRow({
   itemKey,
   label,
+  labelEn,
   frequency,
   checked,
   highlighted,
@@ -124,9 +130,11 @@ function IndicatorPickRow({
   onToggle,
   onDoubleClickAdd,
   badge,
+  weakBadge,
 }: {
   itemKey: string;
   label: string;
+  labelEn?: string | null;
   frequency: string;
   checked: boolean;
   highlighted: boolean;
@@ -135,16 +143,21 @@ function IndicatorPickRow({
   onToggle: () => void;
   onDoubleClickAdd?: () => void;
   badge?: string | null;
+  weakBadge?: boolean;
 }) {
+  const showEn =
+    Boolean(labelEn?.trim()) &&
+    labelEn!.trim() !== label.trim() &&
+    !label.includes(labelEn!.trim());
   return (
-    <li key={itemKey}>
+    <li>
       <div
         data-indicator-key={itemKey}
         onDoubleClick={(e) => {
           e.preventDefault();
           onDoubleClickAdd?.();
         }}
-        title={onDoubleClickAdd ? "双击添加" : undefined}
+        title={onDoubleClickAdd ? "双击选择原值/同比/环比后添加" : undefined}
         className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition ${
           disabled ? "opacity-40" : "hover:bg-fs-elevated/90"
         } ${highlighted ? "bg-cyan-950/45 ring-1 ring-cyan-500/50" : ""}`}
@@ -157,7 +170,19 @@ function IndicatorPickRow({
             disabled={disabled || (!checked && atLimit)}
             onChange={onToggle}
           />
-          <span className="text-[11px] leading-snug text-fs-secondary">{label}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] leading-snug text-fs-secondary">{label}</span>
+            {showEn ? (
+              <span className="mt-0.5 block truncate text-[9px] leading-snug text-fs-muted">
+                {labelEn}
+              </span>
+            ) : null}
+          </span>
+          {weakBadge ? (
+            <span className="shrink-0 rounded border border-fs-border/80 px-1 py-0 text-[9px] text-fs-muted">
+              弱译
+            </span>
+          ) : null}
           {badge ? (
             <span className="shrink-0 rounded border border-amber-800/60 bg-amber-950/30 px-1 py-0 text-[9px] text-amber-200/90">
               {badge}
@@ -169,6 +194,120 @@ function IndicatorPickRow({
         </label>
       </div>
     </li>
+  );
+}
+
+type VariantPickerTarget = {
+  mode: "local" | "external";
+  baseKey: string;
+  source: string;
+  sourceSeriesKey: string;
+  titleZh: string;
+  titleEn: string | null;
+  frequency: string | null;
+  units: string | null;
+  alreadyLocal: boolean;
+  needsOnboard: boolean;
+};
+
+function VariantPickerModal({
+  target,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  target: VariantPickerTarget;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (choices: { level: boolean; yoy: boolean; mom: boolean }) => void;
+}) {
+  const defaults = defaultVariantChoices({
+    frequency: target.frequency,
+    units: target.units,
+    titleEn: target.titleEn,
+  });
+  const [level, setLevel] = useState(defaults.level);
+  const [yoy, setYoy] = useState(defaults.yoy);
+  const [mom, setMom] = useState(defaults.mom);
+
+  useEffect(() => {
+    const d = defaultVariantChoices({
+      frequency: target.frequency,
+      units: target.units,
+      titleEn: target.titleEn,
+    });
+    setLevel(d.level);
+    setYoy(d.yoy);
+    setMom(d.mom);
+  }, [target.baseKey, target.frequency, target.units, target.titleEn]);
+
+  const any = level || yoy || mom;
+
+  return (
+    <div
+      className="absolute inset-0 z-40 flex items-end justify-center bg-black/50 p-3 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label="选择添加形态"
+    >
+      <div className="w-full max-w-sm rounded-lg border border-fs-border bg-fs-bg p-3 shadow-xl">
+        <p className="text-xs font-medium text-fs-text">添加指标形态</p>
+        <p className="mt-1 text-[11px] leading-snug text-fs-secondary">{target.titleZh}</p>
+        {target.titleEn && target.titleEn !== target.titleZh ? (
+          <p className="mt-0.5 text-[10px] text-fs-muted">{target.titleEn}</p>
+        ) : null}
+        <div className="mt-3 space-y-2 text-[11px] text-fs-secondary">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={level}
+              onChange={(e) => setLevel(e.target.checked)}
+              className="accent-fs-accent"
+            />
+            原值（水平序列）
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={yoy}
+              onChange={(e) => setYoy(e.target.checked)}
+              className="accent-fs-accent"
+            />
+            同比
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={mom}
+              onChange={(e) => setMom(e.target.checked)}
+              className="accent-fs-accent"
+            />
+            环比
+          </label>
+        </div>
+        <p className="mt-2 text-[10px] text-fs-muted">
+          同比/环比在客户端由原值计算，不额外拉取 FRED 序列。
+        </p>
+        <div className="mt-3 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded border border-fs-border px-2.5 py-1 text-[11px] text-fs-muted hover:text-fs-text disabled:opacity-40"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            disabled={busy || !any}
+            onClick={() => onConfirm({ level, yoy, mom })}
+            className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2.5 py-1 text-[11px] font-medium text-fs-accent-text disabled:opacity-40"
+          >
+            {busy ? "处理中…" : "确认添加"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -186,6 +325,8 @@ export type UnifiedMacroSidebarProps = {
   onCatalogRefresh?: () => void;
   /** 入库成功后立刻放行新键，避免刷新完成前被 allowlist 剔除 */
   onAllowlistExpand?: (key: string, label?: string) => void;
+  /** 批量放行（原值 + 变体） */
+  onAllowlistExpandMany?: (entries: { key: string; label?: string }[]) => void;
 };
 
 export function UnifiedMacroSidebar({
@@ -198,6 +339,7 @@ export function UnifiedMacroSidebar({
   onLocateKeyHandled,
   onCatalogRefresh,
   onAllowlistExpand,
+  onAllowlistExpandMany,
 }: UnifiedMacroSidebarProps) {
   const count = selectedKeys.size;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -213,7 +355,11 @@ export function UnifiedMacroSidebar({
       sourceSeriesKey: string;
       key: string | null;
       title: string;
+      titleEn: string | null;
+      titleZh: string | null;
+      labelZhWeak: boolean;
       frequency: string | null;
+      units: string | null;
       alreadyLocal: boolean;
       onboardingStatus: string | null;
     }[]
@@ -222,13 +368,17 @@ export function UnifiedMacroSidebar({
     {
       key: string;
       title: string;
+      titleEn: string | null;
+      labelZhWeak: boolean;
       frequency: string | null;
+      units: string | null;
       onboardingStatus: string | null;
     }[]
   >([]);
   const [externalNote, setExternalNote] = useState<string | null>(null);
   const [externalLoading, setExternalLoading] = useState(false);
   const [onboardingKey, setOnboardingKey] = useState<string | null>(null);
+  const [variantTarget, setVariantTarget] = useState<VariantPickerTarget | null>(null);
 
   const isSearchMode = searchQuery.trim().length > 0;
 
@@ -254,7 +404,10 @@ export function UnifiedMacroSidebar({
           local?: {
             key: string | null;
             title: string;
+            titleEn?: string | null;
+            labelZhWeak?: boolean;
             frequency: string | null;
+            units?: string | null;
             onboardingStatus: string | null;
           }[];
           external?: typeof externalHits;
@@ -277,7 +430,10 @@ export function UnifiedMacroSidebar({
           .map((h) => ({
             key: h.key as string,
             title: h.title,
+            titleEn: h.titleEn ?? null,
+            labelZhWeak: Boolean(h.labelZhWeak),
             frequency: h.frequency,
+            units: h.units ?? null,
             onboardingStatus: h.onboardingStatus,
           }));
         setPendingLocalHits(pending);
@@ -388,16 +544,24 @@ export function UnifiedMacroSidebar({
     return () => window.clearTimeout(timer);
   }, [limitHint]);
 
-  function addKey(key: string) {
-    if (disabled) return;
-    if (selectedKeys.has(key)) return;
-    if (selectedKeys.size >= MACRO_MAX_SERIES) {
-      setLimitHint(true);
-      return;
-    }
+  function addKeys(keys: string[]) {
+    if (disabled || keys.length === 0) return;
     const next = new Set(selectedKeys);
-    next.add(key);
+    let hitLimit = false;
+    for (const key of keys) {
+      if (next.has(key)) continue;
+      if (next.size >= MACRO_MAX_SERIES) {
+        hitLimit = true;
+        break;
+      }
+      next.add(key);
+    }
+    if (hitLimit) setLimitHint(true);
     onChange(next);
+  }
+
+  function addKey(key: string) {
+    addKeys([key]);
   }
 
   function toggle(key: string) {
@@ -415,40 +579,78 @@ export function UnifiedMacroSidebar({
     onChange(next);
   }
 
-  async function onboardExternal(hit: {
-    source: string;
-    sourceSeriesKey: string;
-    key: string | null;
-    title: string;
-    alreadyLocal: boolean;
-  }) {
+  function openVariantPicker(target: VariantPickerTarget) {
     if (disabled || onboardingKey) return;
-    if (hit.alreadyLocal && hit.key) {
-      addKey(hit.key);
-      return;
-    }
-    const lockId = `${hit.source}:${hit.sourceSeriesKey}`;
+    setVariantTarget(target);
+  }
+
+  function openLocalVariantPicker(key: string, label: string, frequency: string) {
+    const baseKey = key.includes("::") ? key.split("::")[0]! : key;
+    openVariantPicker({
+      mode: "local",
+      baseKey,
+      source: baseKey.startsWith("wb:") ? "worldbank" : "fred",
+      sourceSeriesKey: baseKey.startsWith("fred:")
+        ? baseKey.slice(5)
+        : baseKey.startsWith("wb:")
+          ? baseKey.slice(3)
+          : baseKey,
+      titleZh: label,
+      titleEn: null,
+      frequency,
+      units: null,
+      alreadyLocal: true,
+      needsOnboard: false,
+    });
+  }
+
+  async function confirmVariantPicker(choices: {
+    level: boolean;
+    yoy: boolean;
+    mom: boolean;
+  }) {
+    if (!variantTarget || disabled) return;
+    const target = variantTarget;
+    const lockId = `${target.source}:${target.sourceSeriesKey}`;
     setOnboardingKey(lockId);
     try {
-      const res = await fetch("/api/data/indicator-onboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: hit.source === "worldbank" ? "worldbank" : "fred",
-          sourceSeriesKey: hit.sourceSeriesKey,
-          titleHint: hit.title,
-        }),
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        key?: string;
-        error?: string;
-        title?: string;
-      };
-      if (!res.ok) throw new Error(j.error ?? `${res.status}`);
-      if (!j.key) throw new Error("入库未返回指标键");
-      onAllowlistExpand?.(j.key, j.title);
-      onCatalogRefresh?.();
-      addKey(j.key);
+      let baseKey = target.baseKey;
+      let baseLabel = target.titleZh;
+
+      if (target.needsOnboard) {
+        const res = await fetch("/api/data/indicator-onboard", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            source: target.source === "worldbank" ? "worldbank" : "fred",
+            sourceSeriesKey: target.sourceSeriesKey,
+            titleHint: target.titleZh,
+          }),
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          key?: string;
+          error?: string;
+          title?: string;
+        };
+        if (!res.ok) throw new Error(j.error ?? `${res.status}`);
+        if (!j.key) throw new Error("入库未返回指标键");
+        baseKey = j.key.includes("::") ? j.key.split("::")[0]! : j.key;
+        baseLabel = j.title?.trim() || target.titleZh;
+        onCatalogRefresh?.();
+      }
+
+      const keys = variantKeysForBase(baseKey, choices);
+      const entries = keys.map((key) => ({
+        key,
+        label: labelForVariantKey(baseLabel, key),
+      }));
+      if (onAllowlistExpandMany) {
+        onAllowlistExpandMany(entries);
+      } else {
+        for (const e of entries) onAllowlistExpand?.(e.key, e.label);
+      }
+      addKeys(keys);
+      setVariantTarget(null);
     } catch (e) {
       setExternalNote(e instanceof Error ? e.message : "添加外部指标失败");
     } finally {
@@ -498,7 +700,7 @@ export function UnifiedMacroSidebar({
       </label>
       {isSearchMode ? (
         <p className="shrink-0 text-[10px] leading-relaxed text-fs-muted">
-          站内结果在上；外部源双击可添加（本地已有则直接选用，新指标先草稿入库，可临时画图）。
+          站内在上、外部在下；双击可选原值/同比/环比。外部新指标会弱译中文名并草稿入库。
         </p>
       ) : null}
 
@@ -567,7 +769,9 @@ export function UnifiedMacroSidebar({
                                       disabled={disabled}
                                       atLimit={count >= MACRO_MAX_SERIES}
                                       onToggle={() => toggle(key)}
-                                      onDoubleClickAdd={() => addKey(key)}
+                                      onDoubleClickAdd={() =>
+                                        openLocalVariantPicker(key, label, frequency)
+                                      }
                                     />
                                   ))}
                                   {(category.subgroups ?? []).map((subgroup) => {
@@ -610,7 +814,9 @@ export function UnifiedMacroSidebar({
                                                   disabled={disabled}
                                                   atLimit={count >= MACRO_MAX_SERIES}
                                                   onToggle={() => toggle(key)}
-                                                  onDoubleClickAdd={() => addKey(key)}
+                                                  onDoubleClickAdd={() =>
+                                                    openLocalVariantPicker(key, label, frequency)
+                                                  }
                                                 />
                                               ))}
                                             </ul>
@@ -644,14 +850,33 @@ export function UnifiedMacroSidebar({
                   key={`pending-${hit.key}`}
                   itemKey={hit.key}
                   label={hit.title}
+                  labelEn={hit.titleEn}
                   frequency={hit.frequency ?? "—"}
                   checked={selectedKeys.has(hit.key)}
                   highlighted={highlightKey === hit.key}
                   disabled={disabled}
                   atLimit={count >= MACRO_MAX_SERIES}
                   badge="待完善"
+                  weakBadge={hit.labelZhWeak}
                   onToggle={() => toggle(hit.key)}
-                  onDoubleClickAdd={() => addKey(hit.key)}
+                  onDoubleClickAdd={() =>
+                    openVariantPicker({
+                      mode: "local",
+                      baseKey: hit.key.includes("::") ? hit.key.split("::")[0]! : hit.key,
+                      source: hit.key.startsWith("wb:") ? "worldbank" : "fred",
+                      sourceSeriesKey: hit.key.startsWith("fred:")
+                        ? hit.key.slice(5).split("::")[0]!
+                        : hit.key.startsWith("wb:")
+                          ? hit.key.slice(3)
+                          : hit.key,
+                      titleZh: hit.title,
+                      titleEn: hit.titleEn,
+                      frequency: hit.frequency,
+                      units: hit.units,
+                      alreadyLocal: true,
+                      needsOnboard: false,
+                    })
+                  }
                 />
               ))}
             </ul>
@@ -681,16 +906,31 @@ export function UnifiedMacroSidebar({
                     const rowKey = hit.key ?? `fred:${hit.sourceSeriesKey}`;
                     const lockId = `${hit.source}:${hit.sourceSeriesKey}`;
                     const busy = onboardingKey === lockId;
+                    const openExt = () =>
+                      openVariantPicker({
+                        mode: "external",
+                        baseKey: rowKey.includes("::") ? rowKey.split("::")[0]! : rowKey,
+                        source: "fred",
+                        sourceSeriesKey: hit.sourceSeriesKey,
+                        titleZh: hit.titleZh || hit.title,
+                        titleEn: hit.titleEn,
+                        frequency: hit.frequency,
+                        units: hit.units,
+                        alreadyLocal: hit.alreadyLocal,
+                        needsOnboard: !hit.alreadyLocal,
+                      });
                     return (
                       <IndicatorPickRow
                         key={`ext-fred-${hit.sourceSeriesKey}`}
                         itemKey={rowKey}
                         label={hit.title}
+                        labelEn={hit.titleEn}
                         frequency={hit.frequency ?? "—"}
                         checked={hit.key ? selectedKeys.has(hit.key) : false}
                         highlighted={false}
                         disabled={disabled || busy}
                         atLimit={count >= MACRO_MAX_SERIES}
+                        weakBadge={hit.labelZhWeak}
                         badge={
                           hit.alreadyLocal
                             ? "已入库"
@@ -698,12 +938,8 @@ export function UnifiedMacroSidebar({
                               ? "入库中…"
                               : "外部"
                         }
-                        onToggle={() => {
-                          void onboardExternal(hit);
-                        }}
-                        onDoubleClickAdd={() => {
-                          void onboardExternal(hit);
-                        }}
+                        onToggle={openExt}
+                        onDoubleClickAdd={openExt}
                       />
                     );
                   })}
@@ -720,16 +956,31 @@ export function UnifiedMacroSidebar({
                     const rowKey = hit.key ?? `wb:${hit.sourceSeriesKey}`;
                     const lockId = `${hit.source}:${hit.sourceSeriesKey}`;
                     const busy = onboardingKey === lockId;
+                    const openExt = () =>
+                      openVariantPicker({
+                        mode: "external",
+                        baseKey: rowKey.includes("::") ? rowKey.split("::")[0]! : rowKey,
+                        source: "worldbank",
+                        sourceSeriesKey: hit.sourceSeriesKey,
+                        titleZh: hit.titleZh || hit.title,
+                        titleEn: hit.titleEn,
+                        frequency: hit.frequency,
+                        units: hit.units,
+                        alreadyLocal: hit.alreadyLocal,
+                        needsOnboard: !hit.alreadyLocal,
+                      });
                     return (
                       <IndicatorPickRow
                         key={`ext-wb-${hit.sourceSeriesKey}`}
                         itemKey={rowKey}
                         label={hit.title}
+                        labelEn={hit.titleEn}
                         frequency={hit.frequency ?? "年"}
                         checked={hit.key ? selectedKeys.has(hit.key) : false}
                         highlighted={false}
                         disabled={disabled || busy}
                         atLimit={count >= MACRO_MAX_SERIES}
+                        weakBadge={hit.labelZhWeak}
                         badge={
                           hit.alreadyLocal
                             ? "已入库"
@@ -737,12 +988,8 @@ export function UnifiedMacroSidebar({
                               ? "入库中…"
                               : "外部"
                         }
-                        onToggle={() => {
-                          void onboardExternal(hit);
-                        }}
-                        onDoubleClickAdd={() => {
-                          void onboardExternal(hit);
-                        }}
+                        onToggle={openExt}
+                        onDoubleClickAdd={openExt}
                       />
                     );
                   })}
@@ -773,6 +1020,17 @@ export function UnifiedMacroSidebar({
           <p className="py-4 text-center text-xs text-fs-muted">无匹配项，请调整搜索词</p>
         ) : null}
       </div>
+
+      {variantTarget ? (
+        <VariantPickerModal
+          target={variantTarget}
+          busy={Boolean(onboardingKey)}
+          onCancel={() => setVariantTarget(null)}
+          onConfirm={(choices) => {
+            void confirmVariantPicker(choices);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

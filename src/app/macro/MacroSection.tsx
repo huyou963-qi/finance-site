@@ -1855,6 +1855,24 @@ export function MacroSection() {
     }
   }, []);
 
+  const expandAllowlistMany = useCallback(
+    (entries: { key: string; label?: string }[]) => {
+      setCatalogAllowlist((prev) => {
+        const next = new Set(prev ?? []);
+        for (const e of entries) next.add(e.key);
+        return next;
+      });
+      setCatalogLabelExtras((prev) => {
+        const next = { ...prev };
+        for (const e of entries) {
+          if (e.label?.trim()) next[e.key] = e.label.trim();
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!catalogAllowlist) return;
     const kept = orderedSelectedKeys.filter((k) => unifiedKeyInAllowlist(k, catalogAllowlist));
@@ -2872,8 +2890,13 @@ export function MacroSection() {
       if (!split) return;
       const startY = downEvent.clientY;
       const splitH = split.clientHeight;
+      // 用上方面板当前实际高度作起点，避免首次从 flex 切到固定 px 时按 50% 估算导致跳动
+      const topPane = split.firstElementChild as HTMLElement | null;
+      const measuredTopH = topPane ? Math.round(topPane.getBoundingClientRect().height) : null;
       const startH =
-        selectedPaneHeightPx ?? Math.round(splitH * SELECTED_PANE_DEFAULT_FRAC);
+        measuredTopH ??
+        selectedPaneHeightPx ??
+        Math.round(splitH * SELECTED_PANE_DEFAULT_FRAC);
 
       const onMove = (ev: MouseEvent) => {
         const h = selectedExtractSplitRef.current?.clientHeight ?? splitH;
@@ -2956,6 +2979,203 @@ export function MacroSection() {
           canDeleteActiveTemplate={Boolean(activeTemplate && (activeTemplate.builtIn ? isAdmin : true))}
           onDeleteActiveTemplate={deleteActiveTemplate}
         />
+        {mainTab === "selected" ? (
+          <div className="ml-3 min-w-0 flex-1 rounded-md border border-fs-border/90 bg-fs-elevated px-2 py-1 sm:ml-4">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+              <span className="shrink-0 text-xs font-bold text-fs-muted">
+                单指标运算
+              </span>
+              <label className="text-fs-muted">
+                指标
+                <select
+                  value={calcTargetKey}
+                  onChange={(e) => setCalcTargetKey(e.target.value)}
+                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  {selectedKeyOptions.map((x) => (
+                    <option key={x.key} value={x.key}>
+                      {x.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-fs-muted">
+                运算
+                <select
+                  value={calcDraft.op}
+                  onChange={(e) =>
+                    setCalcDraft((prev) => ({ ...prev, op: e.target.value as MacroSeriesCalcOp }))
+                  }
+                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  <option value="none">原始</option>
+                  <option value="pctChange">环比%</option>
+                  <option value="yoy">同比%</option>
+                  <option value="diff">差分</option>
+                  <option value="cumsum">累计</option>
+                </select>
+              </label>
+              <label className="text-fs-muted">
+                频率
+                <select
+                  value={calcDraft.frequency}
+                  onChange={(e) =>
+                    setCalcDraft((prev) => ({
+                      ...prev,
+                      frequency: e.target.value as MacroFrequencyAdjust,
+                    }))
+                  }
+                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  <option value="keep">原始</option>
+                  <option value="month">月</option>
+                  <option value="quarter">季</option>
+                  <option value="year">年</option>
+                </select>
+              </label>
+              <label className="text-fs-muted">
+                变频
+                <select
+                  value={calcDraft.resampleMethod}
+                  onChange={(e) =>
+                    setCalcDraft((prev) => ({
+                      ...prev,
+                      resampleMethod: e.target.value as MacroResampleMethod,
+                    }))
+                  }
+                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  <option value="avg">平均</option>
+                  <option value="start">期初</option>
+                  <option value="end">期末</option>
+                </select>
+              </label>
+              <label className="text-fs-muted">
+                单位
+                <select
+                  value={calcDraft.unit}
+                  onChange={(e) =>
+                    setCalcDraft((prev) => ({ ...prev, unit: e.target.value as MacroUnitAdjust }))
+                  }
+                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  <option value="keep">原始</option>
+                  <option value="x0.01">x0.01</option>
+                  <option value="x100">x100</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={applyCalcConfigToKey}
+                className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[11px] font-medium text-fs-accent-text hover:border-fs-accent"
+              >
+                应用
+              </button>
+              <button
+                type="button"
+                onClick={() => calcTargetKey && resetCalcConfigForKey(calcTargetKey)}
+                className="rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-secondary hover:border-fs-border"
+              >
+                重置
+              </button>
+
+              <span
+                className="ml-3 mr-1 hidden h-6 w-px shrink-0 self-center bg-fs-border/80 sm:inline-block"
+                aria-hidden
+              />
+
+              <span className="ml-2 shrink-0 text-xs font-bold text-fs-muted sm:ml-0">
+                指标间运算
+              </span>
+              <label className="text-fs-muted">
+                左
+                <select
+                  value={derivedLeftKey}
+                  onChange={(e) => setDerivedLeftKey(e.target.value)}
+                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  {selectedKeyOptions.map((x) => (
+                    <option key={`l-${x.key}`} value={x.key}>
+                      {x.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-fs-muted">
+                运算
+                <select
+                  value={derivedOp}
+                  onChange={(e) => setDerivedOp(e.target.value as MacroDerivedCalcOp)}
+                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  <option value="ratio">A/B</option>
+                  <option value="spread">A-B</option>
+                  <option value="add">A+B</option>
+                  <option value="sub">A-B</option>
+                  <option value="mul">A×B</option>
+                  <option value="div">A÷B</option>
+                </select>
+              </label>
+              <label className="text-fs-muted">
+                右
+                <select
+                  value={derivedRightKey}
+                  onChange={(e) => setDerivedRightKey(e.target.value)}
+                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
+                >
+                  {selectedKeyOptions.map((x) => (
+                    <option key={`r-${x.key}`} value={x.key}>
+                      {x.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-fs-muted">
+                名称
+                <input
+                  type="text"
+                  value={derivedName}
+                  onChange={(e) => setDerivedName(e.target.value)}
+                  placeholder="自动"
+                  className="ml-1 w-24 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={addDerivedCalc}
+                className="rounded border border-fs-accent/30 bg-fs-accent-soft px-2 py-0.5 text-[11px] text-fs-accent-text hover:border-fs-accent"
+              >
+                添加
+              </button>
+            </div>
+            {derivedCalcs.length > 0 ? (
+              <ul className="mt-1 flex flex-wrap gap-1 border-t border-fs-border/70 pt-1">
+                {derivedCalcs.map((x) => (
+                  <li
+                    key={x.id}
+                    className="flex items-center gap-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[10px] text-fs-secondary"
+                  >
+                    <span>{x.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => renameDerivedCalc(x.id)}
+                      className="rounded border border-fs-border px-1 text-[10px] text-fs-secondary hover:border-fs-border"
+                    >
+                      改名
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeDerivedCalc(x.id)}
+                      className="rounded border border-fs-negative/50 bg-white px-1 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
+                    >
+                      删
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
         {mainTab === "charts" ? (
           <>
             <span
@@ -3087,6 +3307,7 @@ export function MacroSection() {
                   onLocateKeyHandled={() => setSidebarLocateKey(null)}
                   onCatalogRefresh={refreshCatalog}
                   onAllowlistExpand={expandAllowlistForKey}
+                  onAllowlistExpandMany={expandAllowlistMany}
                 />
               </div>
             </aside>
@@ -3105,204 +3326,6 @@ export function MacroSection() {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-fs-bg/40 px-3 py-3 lg:min-h-0 lg:px-6 lg:py-4">
           {mainTab === "selected" ? (
             <section className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden">
-              <div className="shrink-0 border-b border-fs-border pb-2">
-                <div className="rounded-md border border-fs-border/90 bg-fs-elevated px-2 py-1.5">
-                  <div className="flex flex-wrap items-end gap-x-2 gap-y-1 text-[11px]">
-                    <span className="shrink-0 self-center text-[10px] font-medium text-fs-muted">
-                      单指标
-                    </span>
-                    <label className="text-fs-muted">
-                      指标
-                      <select
-                        value={calcTargetKey}
-                        onChange={(e) => setCalcTargetKey(e.target.value)}
-                        className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        {selectedKeyOptions.map((x) => (
-                          <option key={x.key} value={x.key}>
-                            {x.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-fs-muted">
-                      运算
-                      <select
-                        value={calcDraft.op}
-                        onChange={(e) =>
-                          setCalcDraft((prev) => ({ ...prev, op: e.target.value as MacroSeriesCalcOp }))
-                        }
-                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        <option value="none">原始</option>
-                        <option value="pctChange">环比%</option>
-                        <option value="yoy">同比%</option>
-                        <option value="diff">差分</option>
-                        <option value="cumsum">累计</option>
-                      </select>
-                    </label>
-                    <label className="text-fs-muted">
-                      频率
-                      <select
-                        value={calcDraft.frequency}
-                        onChange={(e) =>
-                          setCalcDraft((prev) => ({
-                            ...prev,
-                            frequency: e.target.value as MacroFrequencyAdjust,
-                          }))
-                        }
-                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        <option value="keep">原始</option>
-                        <option value="month">月</option>
-                        <option value="quarter">季</option>
-                        <option value="year">年</option>
-                      </select>
-                    </label>
-                    <label className="text-fs-muted">
-                      变频
-                      <select
-                        value={calcDraft.resampleMethod}
-                        onChange={(e) =>
-                          setCalcDraft((prev) => ({
-                            ...prev,
-                            resampleMethod: e.target.value as MacroResampleMethod,
-                          }))
-                        }
-                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        <option value="avg">平均</option>
-                        <option value="start">期初</option>
-                        <option value="end">期末</option>
-                      </select>
-                    </label>
-                    <label className="text-fs-muted">
-                      单位
-                      <select
-                        value={calcDraft.unit}
-                        onChange={(e) =>
-                          setCalcDraft((prev) => ({ ...prev, unit: e.target.value as MacroUnitAdjust }))
-                        }
-                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        <option value="keep">原始</option>
-                        <option value="x0.01">x0.01</option>
-                        <option value="x100">x100</option>
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={applyCalcConfigToKey}
-                      className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[11px] font-medium text-fs-accent-text hover:border-fs-accent"
-                    >
-                      应用
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => calcTargetKey && resetCalcConfigForKey(calcTargetKey)}
-                      className="rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-secondary hover:border-fs-border"
-                    >
-                      重置
-                    </button>
-
-                    <span
-                      className="mx-0.5 hidden h-6 w-px shrink-0 self-center bg-fs-border/80 sm:inline-block"
-                      aria-hidden
-                    />
-
-                    <span className="shrink-0 self-center text-[10px] font-medium text-fs-muted">
-                      指标间
-                    </span>
-                    <label className="text-fs-muted">
-                      左
-                      <select
-                        value={derivedLeftKey}
-                        onChange={(e) => setDerivedLeftKey(e.target.value)}
-                        className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        {selectedKeyOptions.map((x) => (
-                          <option key={`l-${x.key}`} value={x.key}>
-                            {x.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-fs-muted">
-                      运算
-                      <select
-                        value={derivedOp}
-                        onChange={(e) => setDerivedOp(e.target.value as MacroDerivedCalcOp)}
-                        className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        <option value="ratio">A/B</option>
-                        <option value="spread">A-B</option>
-                        <option value="add">A+B</option>
-                        <option value="sub">A-B</option>
-                        <option value="mul">A×B</option>
-                        <option value="div">A÷B</option>
-                      </select>
-                    </label>
-                    <label className="text-fs-muted">
-                      右
-                      <select
-                        value={derivedRightKey}
-                        onChange={(e) => setDerivedRightKey(e.target.value)}
-                        className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                      >
-                        {selectedKeyOptions.map((x) => (
-                          <option key={`r-${x.key}`} value={x.key}>
-                            {x.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="text-fs-muted">
-                      名称
-                      <input
-                        type="text"
-                        value={derivedName}
-                        onChange={(e) => setDerivedName(e.target.value)}
-                        placeholder="自动"
-                        className="ml-1 w-24 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={addDerivedCalc}
-                      className="rounded border border-fs-accent/30 bg-fs-accent-soft px-2 py-0.5 text-[11px] text-fs-accent-text hover:border-fs-accent"
-                    >
-                      添加
-                    </button>
-                  </div>
-                  {derivedCalcs.length > 0 ? (
-                    <ul className="mt-1 flex flex-wrap gap-1 border-t border-fs-border/70 pt-1">
-                      {derivedCalcs.map((x) => (
-                        <li
-                          key={x.id}
-                          className="flex items-center gap-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[10px] text-fs-secondary"
-                        >
-                          <span>{x.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => renameDerivedCalc(x.id)}
-                            className="rounded border border-fs-border px-1 text-[10px] text-fs-secondary hover:border-fs-border"
-                          >
-                            改名
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeDerivedCalc(x.id)}
-                            className="rounded border border-fs-negative/50 bg-white px-1 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
-                          >
-                            删
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              </div>
-
               <div
                 ref={selectedExtractSplitRef}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"

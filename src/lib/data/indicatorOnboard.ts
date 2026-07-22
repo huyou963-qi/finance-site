@@ -18,6 +18,7 @@ import {
   wbInstrumentCode,
   wbSourceSeriesKey,
 } from "@/lib/data/indicatorOnboarding";
+import { weakTranslateTitle } from "@/lib/data/fredTitleZh";
 import {
   defaultReleaseRuleForGranularity,
   computeNextRunAt,
@@ -200,7 +201,17 @@ async function onboardFred(
   const freqLabel = freqLabelFromFredFrequency(meta.frequency);
   const code = fredInstrumentCode(meta.id);
   const catalogKey = fredCatalogKey(meta.id);
-  const title = titleHint?.trim() || meta.title;
+  const titleEn = meta.title;
+  const zh = weakTranslateTitle({
+    titleEn: titleHint?.trim() && /[\u4e00-\u9fff]/.test(titleHint) ? titleEn : titleHint?.trim() || titleEn,
+    seriesId: meta.id,
+    units: meta.units,
+    source: "fred",
+  });
+  // titleHint 若已是中文（侧栏传入弱译），优先采用
+  const labelZh =
+    titleHint?.trim() && /[\u4e00-\u9fff]/.test(titleHint) ? titleHint.trim() : zh.labelZh;
+  const labelZhWeak = !(titleHint?.trim() && /[\u4e00-\u9fff]/.test(titleHint)) && zh.weak;
   const nowIso = new Date().toISOString();
 
   const metadata: Prisma.InputJsonValue = {
@@ -212,7 +223,9 @@ async function onboardFred(
     pendingSince: nowIso,
     countryCode: "US",
     countryNameZh: "美国",
-    displayName: title,
+    displayName: labelZh,
+    nameEn: titleEn,
+    labelZhWeak,
     catalogCategory: "未分配",
     fetchAcquisition: {
       status: "known",
@@ -228,7 +241,8 @@ async function onboardFred(
     data: {
       code,
       kind: InstrumentKind.MACRO_SERIES,
-      name: title,
+      name: labelZh,
+      nameEn: titleEn,
       freqLabel,
       unit: meta.units,
       fredSeriesId: meta.id,
@@ -254,7 +268,7 @@ async function onboardFred(
     created: true,
     alreadyLocal: false,
     onboardingStatus: ONBOARDING_STATUS_PENDING,
-    title,
+    title: labelZh,
     backfillStatus: backfill.status,
     backfillError: backfill.error,
   };
@@ -368,7 +382,15 @@ async function onboardWorldBank(
     throw new Error("数据源 worldbank 未初始化，请先运行 data:seed");
   }
 
-  const title = titleHint?.trim() || ind;
+  const titleEn = titleHint?.trim() && !/[\u4e00-\u9fff]/.test(titleHint) ? titleHint.trim() : ind;
+  const zh = weakTranslateTitle({
+    titleEn: titleEn || ind,
+    seriesId: ind,
+    source: "worldbank",
+  });
+  const labelZh =
+    titleHint?.trim() && /[\u4e00-\u9fff]/.test(titleHint) ? titleHint.trim() : zh.labelZh;
+  const labelZhWeak = !(titleHint?.trim() && /[\u4e00-\u9fff]/.test(titleHint)) && zh.weak;
   const nowIso = new Date().toISOString();
   const granularity = DataGranularity.ANNUAL;
   const probeRule = { type: "probe_interval" as const, intervalHours: 168 };
@@ -378,7 +400,8 @@ async function onboardWorldBank(
     data: {
       code,
       kind: InstrumentKind.MACRO_SERIES,
-      name: title,
+      name: labelZh,
+      nameEn: zh.labelEn || titleEn,
       freqLabel: "年",
       unit: null,
       externalRefs: {
@@ -393,7 +416,9 @@ async function onboardWorldBank(
         addedVia: "indicator_search",
         pendingSince: nowIso,
         countryCode: cc,
-        displayName: title,
+        displayName: labelZh,
+        nameEn: zh.labelEn || titleEn,
+        labelZhWeak,
         catalogCategory: "未分配",
         fetchAcquisition: {
           status: "known",
@@ -431,7 +456,7 @@ async function onboardWorldBank(
     created: true,
     alreadyLocal: false,
     onboardingStatus: ONBOARDING_STATUS_PENDING,
-    title,
+    title: labelZh,
     backfillStatus: backfill.status,
     backfillError: backfill.error,
   };
