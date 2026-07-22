@@ -7,11 +7,12 @@ import { getFredCatalogCached } from "@/lib/data/fredCatalog";
  */
 export async function GET() {
   try {
-    const { countries, groups, allowlist } = await getFredCatalogCached();
+    const { countries, groups, allowlist, labelExtras } = await getFredCatalogCached();
     return NextResponse.json({
       countries,
       groups,
       allowlistKeys: [...allowlist],
+      labelExtras: labelExtras ?? {},
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "未知错误";

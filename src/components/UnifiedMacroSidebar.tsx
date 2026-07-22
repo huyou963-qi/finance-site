@@ -122,6 +122,8 @@ function IndicatorPickRow({
   disabled,
   atLimit,
   onToggle,
+  onDoubleClickAdd,
+  badge,
 }: {
   itemKey: string;
   label: string;
@@ -131,11 +133,18 @@ function IndicatorPickRow({
   disabled?: boolean;
   atLimit: boolean;
   onToggle: () => void;
+  onDoubleClickAdd?: () => void;
+  badge?: string | null;
 }) {
   return (
     <li key={itemKey}>
       <div
         data-indicator-key={itemKey}
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          onDoubleClickAdd?.();
+        }}
+        title={onDoubleClickAdd ? "双击添加" : undefined}
         className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition ${
           disabled ? "opacity-40" : "hover:bg-fs-elevated/90"
         } ${highlighted ? "bg-cyan-950/45 ring-1 ring-cyan-500/50" : ""}`}
@@ -149,6 +158,11 @@ function IndicatorPickRow({
             onChange={onToggle}
           />
           <span className="text-[11px] leading-snug text-fs-secondary">{label}</span>
+          {badge ? (
+            <span className="shrink-0 rounded border border-amber-800/60 bg-amber-950/30 px-1 py-0 text-[9px] text-amber-200/90">
+              {badge}
+            </span>
+          ) : null}
           <span className="shrink-0 rounded border border-fs-border/90 px-1 py-0 text-[9px] text-fs-muted">
             {frequency}
           </span>
@@ -168,6 +182,10 @@ export type UnifiedMacroSidebarProps = {
   /** 双击已选指标时传入，展开指标树并滚动定位 */
   locateKey?: string | null;
   onLocateKeyHandled?: () => void;
+  /** 外部指标入库后刷新目录 allowlist */
+  onCatalogRefresh?: () => void;
+  /** 入库成功后立刻放行新键，避免刷新完成前被 allowlist 剔除 */
+  onAllowlistExpand?: (key: string, label?: string) => void;
 };
 
 export function UnifiedMacroSidebar({
@@ -178,15 +196,106 @@ export function UnifiedMacroSidebar({
   catalogError,
   locateKey,
   onLocateKeyHandled,
+  onCatalogRefresh,
+  onAllowlistExpand,
 }: UnifiedMacroSidebarProps) {
   const count = selectedKeys.size;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [openCountries, setOpenCountries] = useState(() => new Set(DEFAULT_OPEN_COUNTRY_CODES));
   const [openCategories, setOpenCategories] = useState(buildDefaultOpenCategories);
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
+  const [externalHits, setExternalHits] = useState<
+    {
+      origin: string;
+      source: string;
+      sourceSeriesKey: string;
+      key: string | null;
+      title: string;
+      frequency: string | null;
+      alreadyLocal: boolean;
+      onboardingStatus: string | null;
+    }[]
+  >([]);
+  const [pendingLocalHits, setPendingLocalHits] = useState<
+    {
+      key: string;
+      title: string;
+      frequency: string | null;
+      onboardingStatus: string | null;
+    }[]
+  >([]);
+  const [externalNote, setExternalNote] = useState<string | null>(null);
+  const [externalLoading, setExternalLoading] = useState(false);
+  const [onboardingKey, setOnboardingKey] = useState<string | null>(null);
 
   const isSearchMode = searchQuery.trim().length > 0;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!debouncedQuery) {
+      setExternalHits([]);
+      setPendingLocalHits([]);
+      setExternalNote(null);
+      setExternalLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setExternalLoading(true);
+    const url = `/api/data/indicator-search?q=${encodeURIComponent(debouncedQuery)}&limit=20`;
+    fetch(url)
+      .then(async (r) => {
+        const j = (await r.json().catch(() => ({}))) as {
+          local?: {
+            key: string | null;
+            title: string;
+            frequency: string | null;
+            onboardingStatus: string | null;
+          }[];
+          external?: typeof externalHits;
+          externalNote?: string | null;
+          error?: string;
+        };
+        if (!r.ok) throw new Error(j.error ?? `${r.status}`);
+        return j;
+      })
+      .then((j) => {
+        if (cancelled) return;
+        setExternalHits(Array.isArray(j.external) ? j.external : []);
+        const pending = (Array.isArray(j.local) ? j.local : [])
+          .filter(
+            (h) =>
+              h.onboardingStatus === "pending_completion" &&
+              typeof h.key === "string" &&
+              h.key.length > 0,
+          )
+          .map((h) => ({
+            key: h.key as string,
+            title: h.title,
+            frequency: h.frequency,
+            onboardingStatus: h.onboardingStatus,
+          }));
+        setPendingLocalHits(pending);
+        setExternalNote(j.externalNote ?? null);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setExternalHits([]);
+        setPendingLocalHits([]);
+        setExternalNote(e instanceof Error ? e.message : "外部搜索失败");
+      })
+      .finally(() => {
+        if (!cancelled) setExternalLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery]);
 
   function toggleCountry(code: string) {
     setOpenCountries((prev) => {
@@ -279,6 +388,18 @@ export function UnifiedMacroSidebar({
     return () => window.clearTimeout(timer);
   }, [limitHint]);
 
+  function addKey(key: string) {
+    if (disabled) return;
+    if (selectedKeys.has(key)) return;
+    if (selectedKeys.size >= MACRO_MAX_SERIES) {
+      setLimitHint(true);
+      return;
+    }
+    const next = new Set(selectedKeys);
+    next.add(key);
+    onChange(next);
+  }
+
   function toggle(key: string) {
     if (disabled) return;
     const next = new Set(selectedKeys);
@@ -294,10 +415,56 @@ export function UnifiedMacroSidebar({
     onChange(next);
   }
 
+  async function onboardExternal(hit: {
+    source: string;
+    sourceSeriesKey: string;
+    key: string | null;
+    title: string;
+    alreadyLocal: boolean;
+  }) {
+    if (disabled || onboardingKey) return;
+    if (hit.alreadyLocal && hit.key) {
+      addKey(hit.key);
+      return;
+    }
+    const lockId = `${hit.source}:${hit.sourceSeriesKey}`;
+    setOnboardingKey(lockId);
+    try {
+      const res = await fetch("/api/data/indicator-onboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: hit.source === "worldbank" ? "worldbank" : "fred",
+          sourceSeriesKey: hit.sourceSeriesKey,
+          titleHint: hit.title,
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        key?: string;
+        error?: string;
+        title?: string;
+      };
+      if (!res.ok) throw new Error(j.error ?? `${res.status}`);
+      if (!j.key) throw new Error("入库未返回指标键");
+      onAllowlistExpand?.(j.key, j.title);
+      onCatalogRefresh?.();
+      addKey(j.key);
+    } catch (e) {
+      setExternalNote(e instanceof Error ? e.message : "添加外部指标失败");
+    } finally {
+      setOnboardingKey(null);
+    }
+  }
+
   function resetDefault() {
     if (disabled) return;
     onChange(new Set(DEFAULT_UNIFIED_SERIES_KEYS));
   }
+
+  const fredExternal = externalHits.filter((h) => h.origin === "fred" || h.source === "fred");
+  const wbExternal = externalHits.filter(
+    (h) => h.origin === "worldbank" || h.source === "worldbank",
+  );
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col gap-3">
@@ -329,6 +496,11 @@ export function UnifiedMacroSidebar({
           className="w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text placeholder:text-fs-secondary focus:border-fs-border focus:outline-none disabled:opacity-40"
         />
       </label>
+      {isSearchMode ? (
+        <p className="shrink-0 text-[10px] leading-relaxed text-fs-muted">
+          站内结果在上；外部源双击可添加（本地已有则直接选用，新指标先草稿入库，可临时画图）。
+        </p>
+      ) : null}
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
         {catalogError ? (
@@ -339,6 +511,11 @@ export function UnifiedMacroSidebar({
         {!catalogCountries && !catalogError ? (
           <p className="py-6 text-center text-xs text-fs-muted">正在加载宏观指标目录…</p>
         ) : null}
+
+        {isSearchMode ? (
+          <p className="mb-1.5 px-0.5 text-[11px] font-medium text-fs-secondary">站内指标</p>
+        ) : null}
+
         <ul className="space-y-2">
           {filteredCountries.map((country) => {
             const countryOpen = isCountryOpen(country.code);
@@ -390,6 +567,7 @@ export function UnifiedMacroSidebar({
                                       disabled={disabled}
                                       atLimit={count >= MACRO_MAX_SERIES}
                                       onToggle={() => toggle(key)}
+                                      onDoubleClickAdd={() => addKey(key)}
                                     />
                                   ))}
                                   {(category.subgroups ?? []).map((subgroup) => {
@@ -432,6 +610,7 @@ export function UnifiedMacroSidebar({
                                                   disabled={disabled}
                                                   atLimit={count >= MACRO_MAX_SERIES}
                                                   onToggle={() => toggle(key)}
+                                                  onDoubleClickAdd={() => addKey(key)}
                                                 />
                                               ))}
                                             </ul>
@@ -453,7 +632,144 @@ export function UnifiedMacroSidebar({
             );
           })}
         </ul>
-        {catalogCountries && !catalogError && filteredCountries.length === 0 ? (
+
+        {isSearchMode && pendingLocalHits.length > 0 ? (
+          <div className="mt-3 rounded-md border border-amber-900/40 bg-amber-950/15">
+            <p className="border-b border-amber-900/30 px-3 py-1.5 text-[11px] font-medium text-amber-100/90">
+              待完善（可临时使用）
+            </p>
+            <ul className="space-y-0.5 px-2 py-1.5">
+              {pendingLocalHits.map((hit) => (
+                <IndicatorPickRow
+                  key={`pending-${hit.key}`}
+                  itemKey={hit.key}
+                  label={hit.title}
+                  frequency={hit.frequency ?? "—"}
+                  checked={selectedKeys.has(hit.key)}
+                  highlighted={highlightKey === hit.key}
+                  disabled={disabled}
+                  atLimit={count >= MACRO_MAX_SERIES}
+                  badge="待完善"
+                  onToggle={() => toggle(hit.key)}
+                  onDoubleClickAdd={() => addKey(hit.key)}
+                />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {isSearchMode ? (
+          <div className="mt-3 space-y-2 border-t border-fs-border pt-3">
+            <p className="px-0.5 text-[11px] font-medium text-fs-secondary">
+              外部源
+              {externalLoading ? (
+                <span className="ml-2 font-normal text-fs-muted">搜索中…</span>
+              ) : null}
+            </p>
+            {externalNote ? (
+              <p className="rounded-md border border-fs-border/80 bg-fs-elevated/50 px-2 py-1.5 text-[10px] text-fs-muted">
+                {externalNote}
+              </p>
+            ) : null}
+            {fredExternal.length > 0 ? (
+              <div className="rounded-md border border-fs-border bg-fs-elevated/80">
+                <p className="border-b border-fs-border px-3 py-1.5 text-xs font-semibold text-fs-text">
+                  FRED
+                </p>
+                <ul className="space-y-0.5 px-2 py-1.5">
+                  {fredExternal.map((hit) => {
+                    const rowKey = hit.key ?? `fred:${hit.sourceSeriesKey}`;
+                    const lockId = `${hit.source}:${hit.sourceSeriesKey}`;
+                    const busy = onboardingKey === lockId;
+                    return (
+                      <IndicatorPickRow
+                        key={`ext-fred-${hit.sourceSeriesKey}`}
+                        itemKey={rowKey}
+                        label={hit.title}
+                        frequency={hit.frequency ?? "—"}
+                        checked={hit.key ? selectedKeys.has(hit.key) : false}
+                        highlighted={false}
+                        disabled={disabled || busy}
+                        atLimit={count >= MACRO_MAX_SERIES}
+                        badge={
+                          hit.alreadyLocal
+                            ? "已入库"
+                            : busy
+                              ? "入库中…"
+                              : "外部"
+                        }
+                        onToggle={() => {
+                          void onboardExternal(hit);
+                        }}
+                        onDoubleClickAdd={() => {
+                          void onboardExternal(hit);
+                        }}
+                      />
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+            {wbExternal.length > 0 ? (
+              <div className="rounded-md border border-fs-border bg-fs-elevated/80">
+                <p className="border-b border-fs-border px-3 py-1.5 text-xs font-semibold text-fs-text">
+                  World Bank
+                </p>
+                <ul className="space-y-0.5 px-2 py-1.5">
+                  {wbExternal.map((hit) => {
+                    const rowKey = hit.key ?? `wb:${hit.sourceSeriesKey}`;
+                    const lockId = `${hit.source}:${hit.sourceSeriesKey}`;
+                    const busy = onboardingKey === lockId;
+                    return (
+                      <IndicatorPickRow
+                        key={`ext-wb-${hit.sourceSeriesKey}`}
+                        itemKey={rowKey}
+                        label={hit.title}
+                        frequency={hit.frequency ?? "年"}
+                        checked={hit.key ? selectedKeys.has(hit.key) : false}
+                        highlighted={false}
+                        disabled={disabled || busy}
+                        atLimit={count >= MACRO_MAX_SERIES}
+                        badge={
+                          hit.alreadyLocal
+                            ? "已入库"
+                            : busy
+                              ? "入库中…"
+                              : "外部"
+                        }
+                        onToggle={() => {
+                          void onboardExternal(hit);
+                        }}
+                        onDoubleClickAdd={() => {
+                          void onboardExternal(hit);
+                        }}
+                      />
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+            {!externalLoading &&
+            fredExternal.length === 0 &&
+            wbExternal.length === 0 &&
+            !externalNote ? (
+              <p className="py-2 text-center text-[11px] text-fs-muted">无外部源匹配</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {catalogCountries &&
+        !catalogError &&
+        filteredCountries.length === 0 &&
+        !isSearchMode ? (
+          <p className="py-4 text-center text-xs text-fs-muted">无匹配项，请调整搜索词</p>
+        ) : null}
+        {catalogCountries &&
+        !catalogError &&
+        isSearchMode &&
+        filteredCountries.length === 0 &&
+        externalHits.length === 0 &&
+        !externalLoading ? (
           <p className="py-4 text-center text-xs text-fs-muted">无匹配项，请调整搜索词</p>
         ) : null}
       </div>

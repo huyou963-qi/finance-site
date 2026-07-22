@@ -26,6 +26,7 @@ import {
   type PackageByInstrument,
 } from "./releasePackageStore";
 import { sortByCatalogCountryCode } from "@/lib/data/catalogCountryOrder";
+import { readOnboardingStatus } from "@/lib/data/indicatorOnboarding";
 
 export type AdminCatalogIndicator = {
   key: string;
@@ -83,6 +84,8 @@ export type AdminCatalogIndicator = {
   /** 发布包 ID（Phase B） */
   releasePackageId: string | null;
   releasePackageLabelZh: string | null;
+  /** 用户搜索添加：pending_completion | complete */
+  onboardingStatus: "pending_completion" | "complete" | null;
 };
 
 export type AdminCatalogCategory = {
@@ -565,6 +568,7 @@ function enrichIndicator(
     needsNetworkSource: needsNetwork,
     releasePackageId: pkgInfo?.packageId ?? null,
     releasePackageLabelZh: pkgInfo?.labelZh ?? null,
+    onboardingStatus: readOnboardingStatus(inst?.metadata ?? null),
   };
 }
 

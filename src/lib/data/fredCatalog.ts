@@ -17,6 +17,12 @@ import {
   loadMacroCatalogLayout,
 } from "@/lib/data/catalogLayout";
 import { resolveUsCatalogPlacement } from "@/lib/data/usCatalogTaxonomy";
+import {
+  ONBOARDING_STATUS_COMPLETE,
+  ONBOARDING_STATUS_PENDING,
+  fredCatalogKey,
+  readOnboardingStatus,
+} from "@/lib/data/indicatorOnboarding";
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -497,8 +503,131 @@ type CatalogCache = {
   countries: UnifiedCatalogCountry[];
   groups: UnifiedCatalogGroup[];
   allowlist: Set<string>;
+  /** 不在目录树中但仍需展示标签的键（待完善草稿等） */
+  labelExtras: Record<string, string>;
   builtAt: number;
 };
+
+/** 用户搜索晋升完成的指标 → 注入正式目录树 */
+async function loadPromotedSearchCatalog(): Promise<UnifiedCatalogCountry[]> {
+  const rows = await prisma.instrument.findMany({
+    where: {
+      kind: InstrumentKind.MACRO_SERIES,
+      metadata: { path: ["onboardingStatus"], equals: ONBOARDING_STATUS_COMPLETE },
+    },
+    select: {
+      code: true,
+      name: true,
+      freqLabel: true,
+      fredSeriesId: true,
+      metadata: true,
+    },
+  });
+
+  const byCountry = new Map<string, Map<string, UnifiedCatalogItem[]>>();
+  for (const row of rows) {
+    const md =
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : {};
+    const catalogKey =
+      typeof md.catalogKey === "string" && md.catalogKey.trim()
+        ? md.catalogKey.trim()
+        : row.fredSeriesId
+          ? fredCatalogKey(row.fredSeriesId)
+          : `mds:${row.code}`;
+    const countryCode = (
+      typeof md.countryCode === "string" && md.countryCode.trim()
+        ? md.countryCode
+        : "US"
+    )
+      .trim()
+      .toUpperCase();
+    const categoryName =
+      typeof md.catalogCategory === "string" && md.catalogCategory.trim()
+        ? md.catalogCategory.trim()
+        : "未分配";
+    const label =
+      typeof md.displayName === "string" && md.displayName.trim()
+        ? md.displayName.trim()
+        : row.name;
+    const provider: UnifiedCatalogProvider = catalogKey.startsWith("fred:")
+      ? "fred"
+      : catalogKey.startsWith("wb:")
+        ? "wb"
+        : "mds";
+    const countryMap = byCountry.get(countryCode) ?? new Map<string, UnifiedCatalogItem[]>();
+    const items = countryMap.get(categoryName) ?? [];
+    items.push({
+      key: catalogKey,
+      label,
+      frequency: normalizeFrequency(row.freqLabel),
+      provider,
+      countryCode,
+      categoryName,
+    });
+    countryMap.set(categoryName, items);
+    byCountry.set(countryCode, countryMap);
+  }
+
+  const out: UnifiedCatalogCountry[] = [];
+  for (const [code, catMap] of byCountry) {
+    out.push({
+      code,
+      name: macroCountryName(code),
+      categories: [...catMap.entries()]
+        .map(([name, items]) => ({
+          name,
+          items: [...new Map(items.map((i) => [i.key, i])).values()].sort((a, b) =>
+            a.label.localeCompare(b.label, "zh-CN"),
+          ),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "zh-CN")),
+    });
+  }
+  return out;
+}
+
+/** 待完善草稿：仅 allowlist + 标签，不进目录树 */
+async function loadPendingSearchAllowlist(): Promise<{
+  keys: string[];
+  labels: Record<string, string>;
+}> {
+  const rows = await prisma.instrument.findMany({
+    where: {
+      kind: InstrumentKind.MACRO_SERIES,
+      metadata: { path: ["onboardingStatus"], equals: ONBOARDING_STATUS_PENDING },
+    },
+    select: {
+      code: true,
+      name: true,
+      fredSeriesId: true,
+      metadata: true,
+    },
+  });
+  const keys: string[] = [];
+  const labels: Record<string, string> = {};
+  for (const row of rows) {
+    if (readOnboardingStatus(row.metadata) !== ONBOARDING_STATUS_PENDING) continue;
+    const md =
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : {};
+    const catalogKey =
+      typeof md.catalogKey === "string" && md.catalogKey.trim()
+        ? md.catalogKey.trim()
+        : row.fredSeriesId
+          ? fredCatalogKey(row.fredSeriesId)
+          : `mds:${row.code}`;
+    const label =
+      typeof md.displayName === "string" && md.displayName.trim()
+        ? md.displayName.trim()
+        : row.name;
+    keys.push(catalogKey);
+    labels[catalogKey] = label;
+  }
+  return { keys, labels };
+}
 
 let catalogCache: CatalogCache | null = null;
 
@@ -519,7 +648,9 @@ export async function buildBaseCatalogCountries(): Promise<UnifiedCatalogCountry
   const mdsCountries = await loadMdsCatalog();
   const withMds = mergeCountryCatalog(staticCountries, mdsCountries);
   const withCot = mergeCountryCatalog(withMds, [buildCotCatalogCountry()]);
-  return withCot.map((c) => consolidatePriceIndexCpi(c));
+  const promoted = await loadPromotedSearchCatalog();
+  const withPromoted = mergeCountryCatalog(withCot, promoted);
+  return withPromoted.map((c) => consolidatePriceIndexCpi(c));
 }
 
 export async function getFredCatalogCached(): Promise<CatalogCache> {
@@ -563,7 +694,15 @@ export async function getFredCatalogCached(): Promise<CatalogCache> {
       }
     }
   }
-  catalogCache = { countries, groups, allowlist, builtAt: Date.now() };
+  const pending = await loadPendingSearchAllowlist();
+  for (const key of pending.keys) addToAllowlist(key);
+  catalogCache = {
+    countries,
+    groups,
+    allowlist,
+    labelExtras: pending.labels,
+    builtAt: Date.now(),
+  };
   return catalogCache;
 }
 

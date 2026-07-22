@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, type MouseEvent } from "react";
+import { Fragment, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminCatalogCountry, AdminCatalogIndicator } from "@/lib/data/scheduler/adminCatalog";
 
@@ -209,7 +209,74 @@ function StatusCell({
   );
 }
 
-function RowDetailPanel({ row, deps }: { row: AdminCatalogIndicator; deps: RowDeps }) {
+function PromoteOnboardingButton({
+  instrumentCode,
+  defaultLabel,
+  defaultCategory,
+  countryCode,
+  onDone,
+}: {
+  instrumentCode: string;
+  defaultLabel: string;
+  defaultCategory: string;
+  countryCode: string;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function promote() {
+    const catalogCategory = window.prompt("正式目录分类名称（如：通胀与价格）", defaultCategory);
+    if (!catalogCategory?.trim()) return;
+    const displayName = window.prompt("中文显示名", defaultLabel);
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/indicator-promote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instrumentCode,
+          catalogCategory: catalogCategory.trim(),
+          displayName: displayName?.trim() || defaultLabel,
+          countryCode,
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; key?: string };
+      if (!res.ok) throw new Error(j.error ?? `${res.status}`);
+      setMsg(`已晋升：${j.key ?? instrumentCode}`);
+      onDone();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "晋升失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void promote()}
+        className="rounded border border-amber-700/60 bg-amber-950/40 px-2 py-1 text-[11px] text-amber-100 hover:border-amber-500 disabled:opacity-40"
+      >
+        {busy ? "晋升中…" : "晋升进目录树"}
+      </button>
+      {msg ? <span className="text-[10px] text-fs-muted">{msg}</span> : null}
+    </div>
+  );
+}
+
+function RowDetailPanel({
+  row,
+  deps,
+  onRefresh,
+}: {
+  row: AdminCatalogIndicator;
+  deps: RowDeps;
+  onRefresh: () => void;
+}) {
   const { formatDateTime, SourceLinks, AcquisitionCell } = deps;
   return (
     <div className="grid gap-3 text-xs text-fs-muted sm:grid-cols-2">
@@ -236,6 +303,25 @@ function RowDetailPanel({ row, deps }: { row: AdminCatalogIndicator; deps: RowDe
         <div>
           <div className="font-medium text-fs-secondary">发布包</div>
           <div className="text-sky-400">{row.releasePackageLabelZh}</div>
+        </div>
+      ) : null}
+      {row.onboardingStatus === "pending_completion" ? (
+        <div className="sm:col-span-2">
+          <div className="font-medium text-amber-200/90">待完善（用户搜索添加）</div>
+          <p className="mt-0.5 text-[11px] text-fs-muted">
+            可临时画图；晋升进正式目录树需指定分类。代码：{row.instrumentCode ?? "—"}
+          </p>
+          {row.instrumentCode ? (
+            <PromoteOnboardingButton
+              instrumentCode={row.instrumentCode}
+              defaultLabel={row.label}
+              defaultCategory={
+                row.categoryName.includes("仅数据库") ? "未分配" : row.categoryName
+              }
+              countryCode={row.countryCode}
+              onDone={onRefresh}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -290,6 +376,9 @@ function IndicatorRow({
             ) : null}
             {row.releasePackageLabelZh ? (
               <div className="mt-0.5 text-[10px] text-sky-500">发布包：{row.releasePackageLabelZh}</div>
+            ) : null}
+            {row.onboardingStatus === "pending_completion" ? (
+              <div className="mt-0.5 text-[10px] text-amber-300/90">待完善</div>
             ) : null}
           </div>
         );
@@ -371,7 +460,7 @@ function IndicatorRow({
       {detailOpen ? (
         <tr className="bg-fs-elevated/20">
           <td colSpan={colCount} className="px-3 py-2">
-            <RowDetailPanel row={row} deps={deps} />
+            <RowDetailPanel row={row} deps={deps} onRefresh={onRefresh} />
           </td>
         </tr>
       ) : null}
@@ -575,6 +664,7 @@ export function filterCountry(
   onlySubscribed: boolean,
   onlyPending: boolean,
   onlyStale: boolean,
+  onlyIncompleteOnboarding = false,
 ): AdminCatalogCountry {
   const filterRows = (rows: AdminCatalogIndicator[]) => {
     let indicators = rows;
@@ -583,6 +673,9 @@ export function filterCountry(
     }
     if (onlyStale) indicators = indicators.filter((i) => i.isStale);
     if (onlyPending) indicators = indicators.filter((i) => !i.networkAcquisitionConfirmed);
+    if (onlyIncompleteOnboarding) {
+      indicators = indicators.filter((i) => i.onboardingStatus === "pending_completion");
+    }
     if (needle) {
       indicators = indicators.filter(
         (i) =>

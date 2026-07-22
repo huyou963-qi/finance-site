@@ -679,6 +679,7 @@ export function MacroSection() {
   const [sidebarLocateKey, setSidebarLocateKey] = useState<string | null>(null);
 
   const [catalogCountries, setCatalogCountries] = useState<UnifiedCatalogCountry[] | null>(null);
+  const [catalogLabelExtras, setCatalogLabelExtras] = useState<Record<string, string>>({});
   const [catalogAllowlist, setCatalogAllowlist] = useState<Set<string> | null>(null);
   const [catalogLoadError, setCatalogLoadError] = useState<string | null>(null);
   const [mdsAttrsByKey, setMdsAttrsByKey] = useState<Map<string, MdsIndicatorAttrs>>(new Map());
@@ -1153,10 +1154,18 @@ export function MacroSection() {
         for (const item of category.items) {
           m.set(item.key, item.label);
         }
+        for (const sg of category.subgroups ?? []) {
+          for (const item of sg.items) {
+            m.set(item.key, item.label);
+          }
+        }
       }
     }
+    for (const [k, v] of Object.entries(catalogLabelExtras)) {
+      if (!m.has(k) && v) m.set(k, v);
+    }
     return m;
-  }, [catalogCountries]);
+  }, [catalogCountries, catalogLabelExtras]);
 
   const macroSeriesLabelByKey = useMemo(() => {
     const m = new Map<string, string>([
@@ -1769,35 +1778,81 @@ export function MacroSection() {
 
   useEffect(() => {
     let cancelled = false;
+    function loadCatalog() {
+      return fetch("/api/data/fmp-catalog")
+        .then(async (r) => {
+          const j = (await r.json().catch(() => ({}))) as {
+            countries?: UnifiedCatalogCountry[];
+            allowlistKeys?: string[];
+            labelExtras?: Record<string, string>;
+            error?: string;
+          };
+          if (!r.ok) throw new Error(j.error ?? `${r.status}`);
+          return j;
+        })
+        .then((j) => {
+          if (cancelled) return;
+          if (Array.isArray(j.countries) && Array.isArray(j.allowlistKeys)) {
+            setCatalogCountries(j.countries);
+            setCatalogAllowlist(new Set(j.allowlistKeys));
+            setCatalogLabelExtras(
+              j.labelExtras && typeof j.labelExtras === "object" ? j.labelExtras : {},
+            );
+            setCatalogLoadError(null);
+          } else {
+            throw new Error("目录响应格式异常");
+          }
+        })
+        .catch((e) => {
+          if (cancelled) return;
+          setCatalogCountries(null);
+          setCatalogAllowlist(null);
+          setCatalogLabelExtras({});
+          setCatalogLoadError(e instanceof Error ? e.message : "加载失败");
+        });
+    }
+    void loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refreshCatalog = useCallback(() => {
     fetch("/api/data/fmp-catalog")
       .then(async (r) => {
         const j = (await r.json().catch(() => ({}))) as {
           countries?: UnifiedCatalogCountry[];
           allowlistKeys?: string[];
+          labelExtras?: Record<string, string>;
           error?: string;
         };
         if (!r.ok) throw new Error(j.error ?? `${r.status}`);
         return j;
       })
       .then((j) => {
-        if (cancelled) return;
         if (Array.isArray(j.countries) && Array.isArray(j.allowlistKeys)) {
           setCatalogCountries(j.countries);
           setCatalogAllowlist(new Set(j.allowlistKeys));
+          setCatalogLabelExtras(
+            j.labelExtras && typeof j.labelExtras === "object" ? j.labelExtras : {},
+          );
           setCatalogLoadError(null);
-        } else {
-          throw new Error("目录响应格式异常");
         }
       })
-      .catch((e) => {
-        if (cancelled) return;
-        setCatalogCountries(null);
-        setCatalogAllowlist(null);
-        setCatalogLoadError(e instanceof Error ? e.message : "加载失败");
+      .catch(() => {
+        /* 刷新失败保留旧目录 */
       });
-    return () => {
-      cancelled = true;
-    };
+  }, []);
+
+  const expandAllowlistForKey = useCallback((key: string, label?: string) => {
+    setCatalogAllowlist((prev) => {
+      const next = new Set(prev ?? []);
+      next.add(key);
+      return next;
+    });
+    if (label?.trim()) {
+      setCatalogLabelExtras((prev) => ({ ...prev, [key]: label.trim() }));
+    }
   }, []);
 
   useEffect(() => {
@@ -3030,6 +3085,8 @@ export function MacroSection() {
                   catalogError={catalogLoadError}
                   locateKey={sidebarLocateKey}
                   onLocateKeyHandled={() => setSidebarLocateKey(null)}
+                  onCatalogRefresh={refreshCatalog}
+                  onAllowlistExpand={expandAllowlistForKey}
                 />
               </div>
             </aside>

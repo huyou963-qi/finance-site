@@ -53,6 +53,7 @@ export function DataCatalogAdminMain() {
   const [onlySubscribed, setOnlySubscribed] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [onlyStale, setOnlyStale] = useState(false);
+  const [onlyIncompleteOnboarding, setOnlyIncompleteOnboarding] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [rowExpanded, setRowExpanded] = useState<Record<string, boolean>>({});
   const [sortKey, setSortKey] = useState<SortKey>("label");
@@ -169,9 +170,18 @@ export function DataCatalogAdminMain() {
   const filteredCountries = useMemo(() => {
     if (!data) return [];
     return data.countries
-      .map((country) => filterCountry(country, needle, onlySubscribed, onlyPending, onlyStale))
+      .map((country) =>
+        filterCountry(
+          country,
+          needle,
+          onlySubscribed,
+          onlyPending,
+          onlyStale,
+          onlyIncompleteOnboarding,
+        ),
+      )
       .filter((c) => c.categories.length > 0);
-  }, [data, needle, onlySubscribed, onlyPending, onlyStale]);
+  }, [data, needle, onlySubscribed, onlyPending, onlyStale, onlyIncompleteOnboarding]);
 
   const packageSyncLeaders = useMemo(
     () => buildPackageSyncLeaders(collectAllIndicators(filteredCountries)),
@@ -363,6 +373,15 @@ export function DataCatalogAdminMain() {
               className="rounded border-fs-border"
             />
             仅待确定
+          </label>
+          <label className="hidden cursor-pointer items-center gap-1 text-xs text-fs-muted md:flex">
+            <input
+              type="checkbox"
+              checked={onlyIncompleteOnboarding}
+              onChange={(e) => setOnlyIncompleteOnboarding(e.target.checked)}
+              className="rounded border-fs-border"
+            />
+            待完善
           </label>
           <label className="hidden cursor-pointer items-center gap-1 text-xs text-fs-muted md:flex">
             <input
