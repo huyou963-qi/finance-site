@@ -3,7 +3,17 @@
  * 依赖系统 `unzip`（本机 git-bash 自带）；仅供 ops 脚本，不进 app 运行时。
  */
 import { spawn } from "node:child_process";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import {
+  closeSync,
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { Readable } from "node:stream";
 import { createInterface } from "node:readline";
 import { join } from "node:path";
@@ -148,15 +158,54 @@ export async function listDatasets(): Promise<Dataset[]> {
   }
 }
 
-/** 下载 zip 到本地（已存在且非空则跳过）。逐个试候选 URL，流式写盘避免 86MB 全缓冲超时。 */
+/**
+ * 轻量校验：读文件尾部找 ZIP End-Of-Central-Directory 签名（PK\x05\x06）。
+ * 不稳定链路（跨境访问 SEC）可能让流悄悄提前结束而不报错——被截断的下载
+ * 仍会 "resolve" 成功但文件不完整；EOCD 签名缺失能兜底识别出这类损坏文件，
+ * 避免被当作有效缓存反复复用（unzip 报 "End-of-central-directory signature not found" 即此症状）。
+ */
+function looksLikeValidZip(path: string): boolean {
+  try {
+    const size = statSync(path).size;
+    if (size < 22) return false;
+    const readLen = Math.min(size, 65_557); // EOCD 定长 22 + 最大注释 65535
+    const buf = Buffer.alloc(readLen);
+    const fd = openSync(path, "r");
+    readSync(fd, buf, 0, readLen, size - readLen);
+    closeSync(fd);
+    for (let i = buf.length - 22; i >= 0; i--) {
+      if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 下载 zip 到本地。逐个试候选 URL，流式写盘避免 86MB 全缓冲超时；
+ * 用 Content-Length 字节数比对 + ZIP 尾部签名双重校验下载完整性——截断文件
+ * 视为失败并删除，不会被当作"已下载"缓存复用（见 looksLikeValidZip 注释）。
+ */
 export async function downloadZip(ds: Dataset, cacheDir: string): Promise<string> {
   mkdirSync(cacheDir, { recursive: true });
   const dest = join(cacheDir, `${ds.name}_form13f.zip`);
-  if (existsSync(dest) && statSync(dest).size > 1_000_000) return dest;
+  if (existsSync(dest) && statSync(dest).size > 1_000_000 && looksLikeValidZip(dest)) {
+    return dest;
+  }
+  if (existsSync(dest)) {
+    // 缓存文件存在但校验不过（如上次下载被截断）——删掉重下，不能信任
+    try {
+      rmSync(dest);
+    } catch {
+      /* ignore */
+    }
+  }
   await sleep(3000); // SEC 公平访问：批量下载间隔（避免突发触发 503 节流）
   let last = "";
   for (const url of ds.urls) {
-    // 停滞超时：整体 30 分钟上限（慢链路 86MB），不用 AbortSignal 硬砍以免流中途报错
     let res: Response;
     try {
       res = await fetchRetry(url, { headers: { "User-Agent": SEC_UA } });
@@ -172,11 +221,13 @@ export async function downloadZip(ds: Dataset, cacheDir: string): Promise<string
       last = `HTTP ${res.status} ${url}`;
       continue;
     }
+    const expectedLength = Number(res.headers.get("content-length"));
     try {
       await new Promise<void>((resolve, reject) => {
         const src = Readable.fromWeb(res.body as import("stream/web").ReadableStream);
         const ws = createWriteStream(dest);
-        // 停滞检测：> STALL_MS 无数据则中断（区别于慢但持续的下载）
+        let received = 0;
+        // 停滞检测：> 120s 无数据则中断（区别于慢但持续的下载）
         let timer: NodeJS.Timeout;
         const bump = () => {
           clearTimeout(timer);
@@ -184,7 +235,10 @@ export async function downloadZip(ds: Dataset, cacheDir: string): Promise<string
             src.destroy(new Error("下载停滞超时"));
           }, 120_000);
         };
-        src.on("data", bump);
+        src.on("data", (chunk: Buffer) => {
+          received += chunk.length;
+          bump();
+        });
         src.on("error", (e) => {
           clearTimeout(timer);
           ws.destroy();
@@ -197,14 +251,22 @@ export async function downloadZip(ds: Dataset, cacheDir: string): Promise<string
         });
         ws.on("finish", () => {
           clearTimeout(timer);
+          // 不稳定链路会出现流悄悄提前结束（无 error 事件）——用长度比对兜底识别截断
+          if (Number.isFinite(expectedLength) && expectedLength > 0 && received !== expectedLength) {
+            reject(new Error(`下载不完整：收到 ${received} / 期望 ${expectedLength} 字节`));
+            return;
+          }
           resolve();
         });
         bump();
         src.pipe(ws);
       });
+      if (!looksLikeValidZip(dest)) {
+        throw new Error("下载完成但 ZIP 签名校验失败（可能截断）");
+      }
       return dest;
     } catch (e) {
-      last = `流错误 ${e instanceof Error ? e.message : e} ${url}`;
+      last = `${e instanceof Error ? e.message : e} ${url}`;
       try {
         rmSync(dest);
       } catch {
