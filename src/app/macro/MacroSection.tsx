@@ -3286,17 +3286,6 @@ export function MacroSection() {
                 maxWidth: SIDEBAR_MAX_PX,
               }}
             >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-3 py-1.5 lg:px-4">
-                <span className="text-xs font-medium text-fs-muted">指标目录</span>
-                <button
-                  type="button"
-                  onClick={() => setSidebarCollapsed(true)}
-                  className="hidden rounded border border-fs-border/80 px-1.5 py-0.5 text-[10px] text-fs-muted transition hover:border-fs-border hover:text-fs-text lg:inline-block"
-                  title="折叠指标树"
-                >
-                  折叠
-                </button>
-              </div>
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3 lg:px-4 lg:py-4">
                 <UnifiedMacroSidebar
                   selectedKeys={selectedKeys}
@@ -3314,11 +3303,25 @@ export function MacroSection() {
             <div
               role="separator"
               aria-orientation="vertical"
-              title="拖拽调节指标树宽度"
-              onMouseDown={startSidebarResize}
-              className="group hidden w-1.5 shrink-0 cursor-col-resize border-x border-fs-border bg-fs-elevated/90 hover:bg-fs-accent-soft lg:block"
+              className="group relative hidden w-3 shrink-0 flex-col items-center border-x border-fs-border bg-fs-elevated/90 lg:flex"
             >
-              <span className="mx-auto block h-full w-px bg-fs-border group-hover:bg-fs-accent" />
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(true)}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="z-10 mt-1 shrink-0 rounded border border-fs-border/80 bg-fs-elevated px-0.5 py-1 text-[10px] leading-tight text-fs-muted transition hover:border-fs-border hover:bg-fs-accent-soft hover:text-fs-text"
+                style={{ writingMode: "vertical-rl" }}
+                title="折叠指标树"
+              >
+                折叠
+              </button>
+              <div
+                title="拖拽调节指标树宽度"
+                onMouseDown={startSidebarResize}
+                className="min-h-0 w-full flex-1 cursor-col-resize hover:bg-fs-accent-soft"
+              >
+                <span className="mx-auto block h-full w-px bg-fs-border group-hover:bg-fs-accent" />
+              </div>
             </div>
           </>
         )}
@@ -3343,6 +3346,7 @@ export function MacroSection() {
                       已选指标
                       <span className="ml-2 font-normal text-fs-secondary">
                         {selectedKeys.size}/{MACRO_MAX_SERIES}
+                        <span className="text-fs-muted">（指标数上限）</span>
                       </span>
                     </span>
                     <button

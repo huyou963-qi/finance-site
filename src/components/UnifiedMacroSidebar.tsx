@@ -673,6 +673,7 @@ export function UnifiedMacroSidebar({
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-fs-muted">
         <span>
           已选 <span className="text-fs-secondary">{count}</span> / {MACRO_MAX_SERIES}
+          <span className="text-fs-muted">（指标数上限）</span>
           {limitHint ? (
             <span className="ml-2 text-amber-300/90">已达上限</span>
           ) : null}

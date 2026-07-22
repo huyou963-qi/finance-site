@@ -76,17 +76,19 @@ export function SiteHeaderNav() {
   return (
     <nav className="flex min-w-0 flex-1 items-center gap-1">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-        <Link
-          href="/macro/framework"
-          className={`${linkBase} ${
-            macroFrameworkActive
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-          }`}
-          aria-current={macroFrameworkActive ? "page" : undefined}
-        >
-          宏观框架
-        </Link>
+        {isAdmin ? (
+          <Link
+            href="/macro/framework"
+            className={`${linkBase} ${
+              macroFrameworkActive
+                ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+                : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+            }`}
+            aria-current={macroFrameworkActive ? "page" : undefined}
+          >
+            宏观框架
+          </Link>
+        ) : null}
         <Link
           href="/macro"
           className={`${linkBase} ${
@@ -98,30 +100,30 @@ export function SiteHeaderNav() {
         >
           宏观数据
         </Link>
-        <Link
-          href="/macro/cpi-subitems"
-          className={`${linkBase} ${
-            cpiSubitemsActive
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-          }`}
-          aria-current={cpiSubitemsActive ? "page" : undefined}
-        >
-          CPI分项
-        </Link>
         {isAdmin ? (
           <Link
-            href="/markets"
+            href="/macro/cpi-subitems"
             className={`${linkBase} ${
-              marketsActive
+              cpiSubitemsActive
                 ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
                 : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
             }`}
-            aria-current={marketsActive ? "page" : undefined}
+            aria-current={cpiSubitemsActive ? "page" : undefined}
           >
-            行情
+            CPI分项
           </Link>
         ) : null}
+        <Link
+          href="/markets"
+          className={`${linkBase} ${
+            marketsActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={marketsActive ? "page" : undefined}
+        >
+          行情
+        </Link>
         <Link
           href="/equity/sectors"
           className={`${linkBase} ${
