@@ -125,6 +125,12 @@
     "quant:verify-backtest": "dotenv -e .env.local -- tsx scripts/quant/verify-backtest.ts",
     "quant:build-regime": "dotenv -e .env.local -- tsx scripts/quant/build-regime.ts",
     "quant:verify-phase4": "dotenv -e .env.local -- tsx scripts/quant/verify-phase4.ts",
+    "quant:probe-funding": "dotenv -e .env.local -- tsx scripts/quant/probe-funding-sources.ts",
+    "quant:build-cusip-bridge": "dotenv -e .env.local -- tsx scripts/quant/build-cusip-bridge.ts",
+    "quant:sync-13f": "dotenv -e .env.local -- tsx scripts/quant/sync-13f.ts",
+    "quant:build-etf-flow": "dotenv -e .env.local -- tsx scripts/quant/build-etf-flow.ts",
+    "quant:sync-short-interest": "dotenv -e .env.local -- tsx scripts/quant/sync-short-interest.ts",
+    "quant:verify-phase5": "dotenv -e .env.local -- tsx scripts/quant/verify-phase5.ts",
     "test:equity": "tsx --test src/lib/equity/*.test.ts",
     "test:quant": "tsx --test src/lib/quant/*.test.ts"
   },

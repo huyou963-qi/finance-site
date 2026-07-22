@@ -557,6 +557,8 @@ model EquitySecurity {
   id              String    @id @default(uuid()) @db.Uuid
   symbol          String    @unique @db.VarChar(16)
   cik             String?   @db.VarChar(16)
+  /// 9 位 CUSIP（Phase 5 13F CUSIP↔symbol 桥回填；dual-class 取该 symbol 对应 class 的 CUSIP）
+  cusip           String?   @db.VarChar(16)
   name            String    @db.VarChar(256)
   /// 标普 500 成分带 GICS sector；全美股宇宙其余成分为 null（未分类，仅个股页可用，不进行业浏览树）
   gicsSector        String?   @map("gics_sector") @db.VarChar(64)
@@ -576,6 +578,7 @@ model EquitySecurity {
   @@index([gicsSector, gicsIndustry])
   @@index([gicsIndustryCode])
   @@index([marketCap(sort: Desc)])
+  @@index([cusip])
   @@map("equity_security")
   @@schema("mds")
 }
@@ -865,5 +868,92 @@ model SecFiling {
   @@index([cik, filedAt(sort: Desc)])
   @@index([form])
   @@map("sec_filing")
+  @@schema("mds")
+}
+
+/// 机构持仓（Phase 5 WS2，SEC Form 13F 结构化数据集 INFOTABLE）。
+/// 逐 filer × 逐持仓证券 × 逐报告期一行（已在摄入端按 accession+cusip 聚合掉同一 filing 内
+/// 多披露口径分行、并过滤 PUTCALL 期权行 + 仅取 SSHPRNAMTTYPE=SH 的股数行）。
+/// value 一律折算为「美元」：filedAt < 2023-01-03 的 13F 原报为「千美元」已 ×1000 归一
+/// （SEC 2023-01-03 起改报到元，见 FORM13F readme）。
+/// symbol 由 CUSIP↔symbol 桥（WS1）回填，未命中宇宙的 CUSIP 保持 null。
+/// PIT：可见日 = filedAt（季末后 45 天内披露）；因子装配只取 filedAt≤T 的行。
+model InstitutionalHolding {
+  id             String   @id @default(uuid()) @db.Uuid
+  cusip          String   @db.VarChar(16)
+  /// 桥接命中的宇宙 symbol（未命中为 null）
+  symbol         String?  @db.VarChar(16)
+  filerCik       String   @map("filer_cik") @db.VarChar(16)
+  filerName      String?  @map("filer_name") @db.VarChar(256)
+  /// 报告期末（PERIODOFREPORT）
+  periodEnd      DateTime @map("period_end") @db.Date
+  /// 披露日（FILING_DATE，PIT 可见日）
+  filedAt        DateTime @map("filed_at") @db.Date
+  /// 13F-HR / 13F-HR/A（仅含 INFOTABLE 的报告型）
+  submissionType String   @map("submission_type") @db.VarChar(16)
+  /// 是否修正报（ISAMENDMENT=Y）
+  isAmendment    Boolean  @default(false) @map("is_amendment")
+  /// 持股数（SSHPRNAMT，SH 口径）
+  shares         Float
+  /// 持仓市值（美元，已按期归一）
+  value          Float
+  accession      String   @db.VarChar(32)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([accession, cusip])
+  @@index([symbol, periodEnd])
+  @@index([cusip, periodEnd])
+  @@index([periodEnd, filedAt])
+  @@index([filerCik, periodEnd])
+  @@map("institutional_holding")
+  @@schema("mds")
+}
+
+/// 空头利益（Phase 5 WS3）。免费源可达性受限（FINRA cdn/api 从本机被网络封锁，
+/// 见 [[china-server-blocked-sources]]）→ 该维度降级：表结构就绪，摄入为 best-effort/前向。
+/// PIT：可见日 = publishDate（双周结算日后约 8 天公布）；因子装配只取 publishDate≤T 的行。
+model ShortInterest {
+  id             String   @id @default(uuid()) @db.Uuid
+  symbol         String   @db.VarChar(16)
+  /// 结算日（settlement date，数据所属期）
+  settlementDate DateTime @map("settlement_date") @db.Date
+  /// 公布日（PIT 可见日）
+  publishDate    DateTime @map("publish_date") @db.Date
+  /// 空头股数
+  shares         Float
+  /// 日均成交量（days-to-cover 分母，源提供时）
+  avgDailyVol    Float?   @map("avg_daily_vol")
+  /// 空头回补天数（源直接提供时；否则 shares/avgDailyVol 现算）
+  daysToCover    Float?   @map("days_to_cover")
+  source         String?  @db.VarChar(24)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([symbol, settlementDate])
+  @@index([symbol, settlementDate(sort: Desc)])
+  @@index([settlementDate])
+  @@map("short_interest")
+  @@schema("mds")
+}
+
+/// ETF 资金流（Phase 5 WS4）。免费源无历史日频份额（Yahoo quoteSummary 现 crumb 门控且仅现值、
+/// SSGA 仅当日文件）→ 真实「份额×NAV 流」不可回测历史；本表支持「前向快照」摄入与
+/// 板块代理信号透明化。flowUsd = Δ(sharesOutstanding) × nav（相邻可得日）。
+model EtfFlow {
+  id                String   @id @default(uuid()) @db.Uuid
+  etfSymbol         String   @map("etf_symbol") @db.VarChar(16)
+  date              DateTime @db.Date
+  sharesOutstanding Float?   @map("shares_outstanding")
+  nav               Float?
+  /// 当日净流入（美元），Δ份额×NAV；缺份额历史时为 null
+  flowUsd           Float?   @map("flow_usd")
+  source            String?  @db.VarChar(24)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([etfSymbol, date])
+  @@index([etfSymbol, date(sort: Desc)])
+  @@map("etf_flow")
   @@schema("mds")
 }

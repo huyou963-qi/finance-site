@@ -36,6 +36,7 @@ const CATEGORY_LABELS: Record<FactorCategory, string> = {
   volatility: "波动",
   liquidity: "量价",
   size: "规模",
+  funding: "资金面",
 };
 
 const CATEGORY_ORDER: FactorCategory[] = [
@@ -46,6 +47,7 @@ const CATEGORY_ORDER: FactorCategory[] = [
   "volatility",
   "liquidity",
   "size",
+  "funding",
 ];
 
 const METRIC_LABELS: Record<ScreenerMetric, string> = {

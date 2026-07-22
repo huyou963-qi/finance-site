@@ -33,6 +33,8 @@ import {
   winsorizedZscores,
   type TechSeries,
 } from "../../src/lib/quant/factorCompute";
+import { computeFundingFactors, type PeriodAgg } from "../../src/lib/quant/fundingFactors";
+import { loadFundingPeriods } from "../../src/lib/quant/fundingData";
 import { FACTOR_MAP } from "../../src/lib/quant/factorRegistry";
 
 const BENCHMARK_SYMBOL = "SPY";
@@ -202,7 +204,17 @@ async function main() {
   }
   console.log(`技术面 pass 完成（有价格 symbol ${techSymbolsWithPrice}/${allSymbols.length}）`);
 
-  // ── 2) 基本面 pass（月主序） ──
+  // ── 2) 基本面 + 资金面 pass（月主序） ──
+  // 资金面（13F 机构持仓）逐 symbol 聚合预载一次（拆股归一在此完成）；无桥接持仓则空表
+  let periodsBySymbol = new Map<string, PeriodAgg[]>();
+  try {
+    periodsBySymbol = await loadFundingPeriods(allSymbols);
+    const withFunding = [...periodsBySymbol.values()].filter((p) => p.length).length;
+    console.log(`资金面预载：${withFunding}/${allSymbols.length} 只有 13F 持仓聚合`);
+  } catch (e) {
+    console.warn("资金面预载失败（institutional_holding 未就绪？）：", e instanceof Error ? e.message : e);
+  }
+
   const fundDates = dates.filter((d) => d >= FUNDAMENTAL_MIN_DATE);
   for (const d of fundDates) {
     const closes = await loadClosesAsOf(universeByDate.get(d) ?? [], d);
@@ -215,12 +227,17 @@ async function main() {
       if (adv != null && row.marketCap != null && row.marketCap > 0) {
         vals["turnover20d"] = adv / row.marketCap;
       }
+      // 资金面因子（PIT via 可见期；instOwnershipPct 分母用现刻度股本 sharesCurrent）
+      const periods = periodsBySymbol.get(row.symbol);
+      if (periods?.length) {
+        Object.assign(vals, computeFundingFactors(periods, d, row.sharesCurrent));
+      }
       if (Object.keys(vals).length) {
         Object.assign(getRow(store, d, row.symbol), vals);
         n++;
       }
     }
-    console.log(`  基本面 ${d}：${n}/${cs.rows.length} 只有因子`);
+    console.log(`  基本面+资金面 ${d}：${n}/${cs.rows.length} 只有因子`);
   }
 
   // ── 3) 标准化 + 落库（逐月） ──

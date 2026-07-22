@@ -16,10 +16,15 @@ export type FactorCategory =
   | "momentum"
   | "volatility"
   | "liquidity"
-  | "size";
+  | "size"
+  | "funding";
 
 /** 因子所需数据面：决定覆盖率报表的分母口径 */
-export type FactorDataRequirement = "price" | "fundamental" | "price+fundamental";
+export type FactorDataRequirement =
+  | "price"
+  | "fundamental"
+  | "price+fundamental"
+  | "funding";
 
 export type FactorDef = {
   key: string;
@@ -77,6 +82,12 @@ export const FACTOR_DEFS: readonly FactorDef[] = [
 
   // ── 规模 size ──────────────────────────────────────────────────────────────
   { key: "logMarketCap", nameZh: "对数市值", nameEn: "Log Market Cap", category: "size", higherIsBetter: false, requires: "price+fundamental", startYear: 2021, note: "ln(PIT 市值)；小市值溢价方向" },
+
+  // ── 资金面 funding（SEC 13F 机构持仓，季频，PIT via filedAt；Phase 5） ──────────
+  { key: "instOwnershipPct", nameZh: "机构持股占比", nameEn: "Institutional Ownership %", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "13F 合计持股（现拆股刻度）/ PIT 股本；可见期 = 报告期末+50 天" },
+  { key: "instOwnershipChgQoQ", nameZh: "机构持股环比", nameEn: "Inst. Ownership ΔQoQ", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "本可见期合计持股 / 上一可见期 − 1（拆股归一后，机构增减仓）" },
+  { key: "instHolderCount", nameZh: "持有机构家数", nameEn: "Institutional Holder Count", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "本可见期披露持股的 13F filer 家数" },
+  { key: "instConcentration", nameZh: "机构持仓集中度", nameEn: "Inst. Holding Concentration (HHI)", category: "funding", higherIsBetter: false, requires: "funding", startYear: 2013, note: "Σ(各机构份额占比²) 的 HHI；高=少数机构集中持有" },
 ] as const;
 
 export type FactorKey = (typeof FACTOR_DEFS)[number]["key"];
@@ -100,3 +111,5 @@ export const FUNDAMENTAL_FACTOR_KEYS = factorsByRequirement(
   "fundamental",
   "price+fundamental",
 ).map((d) => d.key);
+/** 资金面因子（13F，~2013 起；实际覆盖看摄入窗口与 CUSIP 桥命中） */
+export const FUNDING_FACTOR_KEYS = factorsByRequirement("funding").map((d) => d.key);
