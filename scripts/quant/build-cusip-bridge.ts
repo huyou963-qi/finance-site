@@ -11,6 +11,8 @@
  *   npm run quant:build-cusip-bridge -- --zip=/path/a.zip --zip=/path/b.zip  # 用本地缓存
  *   npm run quant:build-cusip-bridge -- --dry           # 只报不写库
  */
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { prisma } from "../../src/lib/prisma";
 import { SP500_INDEX_CODE } from "../../src/lib/equity/equitySecurities";
 import { splitTsv, headerIndex, parseInfoTableRow, isValidCusip, isDebtLikeClass } from "../../src/lib/quant/thirteenF";
@@ -29,9 +31,7 @@ import {
   type Dataset,
 } from "./lib13f";
 
-const CACHE_DIR =
-  process.env.FUNDING_CACHE_DIR ||
-  "C:/Users/ADMINI~1/AppData/Local/Temp/claude/funding-13f";
+const CACHE_DIR = process.env.FUNDING_CACHE_DIR || join(tmpdir(), "funding-13f");
 
 function argValue(name: string): string | undefined {
   const kv = process.argv.find((a) => a.startsWith(`${name}=`));

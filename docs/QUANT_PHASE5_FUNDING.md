@@ -83,6 +83,22 @@ C 架构复利（screener / IC / 回测各抽查 funding 因子）；D 史实 sa
 **史实 sanity 抽查**（2024-12-31 期，2025-03 截面）：AAPL 机构持股 62.3% / 5340 家 / HHI 0.048；
 MSFT 71.6%；NVDA 64.5%；JPM 72.7%——均符合大盘蓝筹机构高持股 + 高度分散的史实。
 
+## 生产部署（数据在 DB 不随代码走，须在生产库逐步生成）
+
+系统依赖：13F 解压依赖 `unzip`（全新 Linux 服务器需先装）：
+```bash
+apt-get install -y unzip     # Debian/Ubuntu（CentOS: yum install -y unzip）
+```
+数据管线顺序（**顺序不可乱**）：
+```bash
+npm run db:migrate                                    # 建三表 + EquitySecurity.cusip
+npm run quant:build-cusip-bridge                      # 回填 cusip（sync-13f 依赖）
+npm run quant:sync-13f -- --from=2013-01              # 摄入 13F（SEC 阿里云可达）
+npm run quant:build-factors -- --full --from=2020-06  # funding 因子进 factor_snapshot（因子仅 2020-06+ 生成）
+npm run quant:build-etf-flow                          # ETF NAV 基建
+```
+下载缓存目录默认 `os.tmpdir()/funding-13f`，可用 `FUNDING_CACHE_DIR` 覆盖。空头维度云端 FINRA 仍封锁，走 `sync-short-interest --file`。
+
 ## 已知限制 / 遗留
 
 1. **13F 历史摄入受本部署 SEC 网络带宽限制**（~50KB/s，单季 ~30min 下载）→ v1 先落近季，

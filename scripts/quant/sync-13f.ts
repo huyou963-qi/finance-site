@@ -13,6 +13,8 @@
  */
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../src/lib/prisma";
 import {
@@ -31,9 +33,7 @@ import {
   type Dataset,
 } from "./lib13f";
 
-const CACHE_DIR =
-  process.env.FUNDING_CACHE_DIR ||
-  "C:/Users/ADMINI~1/AppData/Local/Temp/claude/funding-13f";
+const CACHE_DIR = process.env.FUNDING_CACHE_DIR || join(tmpdir(), "funding-13f");
 const INSERT_CHUNK = 2000;
 /** 只处理有 INFOTABLE 的报告型 */
 const HOLDINGS_TYPES = new Set(["13F-HR", "13F-HR/A"]);

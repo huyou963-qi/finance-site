@@ -216,14 +216,25 @@ export async function downloadZip(ds: Dataset, cacheDir: string): Promise<string
   throw new Error(`下载 ${ds.name} 全部候选失败（${last}）`);
 }
 
-/** 解压指定条目到目录（覆盖），返回解出的文件路径 */
+/** 解压指定条目到目录（覆盖），返回解出的文件路径。依赖系统 `unzip`（Linux 部署需 apt-get install -y unzip）。 */
 export function extractEntry(zipPath: string, entry: string, destDir: string): Promise<string> {
   mkdirSync(destDir, { recursive: true });
   return new Promise((resolve, reject) => {
     const p = spawn("unzip", ["-o", "-q", zipPath, entry, "-d", destDir]);
     let err = "";
     p.stderr.on("data", (d) => (err += d.toString()));
-    p.on("error", reject);
+    p.on("error", (e) => {
+      // 常见于全新 Linux 服务器未装 unzip
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+        reject(
+          new Error(
+            "找不到 `unzip` 命令——13F 解压依赖系统 unzip。请先安装：Debian/Ubuntu `apt-get install -y unzip`（或 CentOS `yum install -y unzip`）。",
+          ),
+        );
+      } else {
+        reject(e);
+      }
+    });
     p.on("close", (code) => {
       if (code === 0) resolve(join(destDir, entry));
       else reject(new Error(`unzip ${entry} 退出码 ${code}: ${err}`));
