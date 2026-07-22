@@ -48,6 +48,9 @@ async function main() {
     weighting: (argValue("--weighting") as BacktestWeighting) ?? "equal",
     execution: (argValue("--execution") as BacktestExecution) ?? "nextClose",
     costBps: argValue("--cost-bps") != null ? Number(argValue("--cost-bps")) : 10,
+    regimeFilter: argValue("--regime-filter")
+      ? argValue("--regime-filter")!.split(",").map((s) => s.trim()).filter(Boolean)
+      : null,
   });
 
   console.log(`策略：${name}`);

@@ -17,13 +17,14 @@ import {
   type FactorDef,
 } from "@/lib/quant/factorRegistry";
 import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
-import type {
-  ScreenerConfig,
-  ScreenerCondition,
-  ScreenerMetric,
-  ScreenerOp,
-  ScreenerResultRow,
-  ScreenerStats,
+import {
+  referencedFactorKeys,
+  type ScreenerConfig,
+  type ScreenerCondition,
+  type ScreenerMetric,
+  type ScreenerOp,
+  type ScreenerResultRow,
+  type ScreenerStats,
 } from "@/lib/quant/screener";
 import type { StrategyRow } from "@/lib/quant/screenerStrategies";
 
@@ -410,6 +411,13 @@ export function EquityScreenerClient() {
     router.push("/equity/backtest");
   };
 
+  // ── 研究这些因子（当前 config 引用到的因子跳因子研究页） ────────────────────
+  const researchTheseFactors = () => {
+    const keys = referencedFactorKeys(config).slice(0, 8);
+    const qs = keys.length ? `?factors=${encodeURIComponent(keys.join(","))}` : "";
+    router.push(`/equity/factor-research${qs}`);
+  };
+
   // ── 结果表 ────────────────────────────────────────────────────────────────
   const shownFactorKeys = useMemo(() => {
     if (!result?.rows.length) return [];
@@ -492,6 +500,14 @@ export function EquityScreenerClient() {
             </>
           )}
           {strategyMsg ? <span className="text-xs text-fs-muted">{strategyMsg}</span> : null}
+          <button
+            type="button"
+            onClick={researchTheseFactors}
+            className="rounded-md border border-fs-border px-2.5 py-1 text-sm text-fs-text hover:bg-fs-elevated"
+            title="用当前条件/排序引用到的因子做 IC/分层/相关性研究"
+          >
+            研究这些因子 →
+          </button>
           <button
             type="button"
             onClick={backtestThisStrategy}

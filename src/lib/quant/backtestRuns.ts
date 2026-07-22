@@ -43,6 +43,8 @@ export type BacktestRunSummary = {
     droppedNull: number | null;
     filteredOut: number | null;
     matched: number | null;
+    regime: string | null;
+    regimeBlocked: boolean;
   }[];
 };
 
@@ -153,6 +155,8 @@ export async function executeRun(
         droppedNull: p.stats?.droppedNull ?? null,
         filteredOut: p.stats?.filteredOut ?? null,
         matched: p.stats?.matched ?? null,
+        regime: p.regime,
+        regimeBlocked: p.regimeBlocked,
       })),
     };
 

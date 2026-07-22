@@ -291,3 +291,54 @@ describe("computeMetrics", () => {
     assert.equal(m.monthlyWinRate, null);
   });
 });
+
+describe("regimeFilter — regime 条件化持仓（WS4）", () => {
+  // 两个标的：AA 每日 +（涨），BB 恒定。价格 20 天。
+  const prices = {
+    AA: series(0, Array.from({ length: 20 }, (_, i) => 100 * Math.pow(1.05, i))),
+    BB: series(0, Array.from({ length: 20 }, () => 100)),
+  };
+
+  it("regime ∉ 过滤集 → 该期清仓持现金（NAV 不随标的波动）", () => {
+    const ds = dataset(prices, { calendarDays: 20 });
+    // 首个调仓 day1（信号 day0）regime=contraction 被拦；后续无调仓
+    const selections: RebalanceSelection[] = [
+      { ...sel(0, ["AA"]), regime: "contraction" },
+    ];
+    const res = runBacktest(ds, selections, params({ regimeFilter: ["recovery", "overheat"] }));
+    // 全程持现金 → NAV 恒 1
+    assert.ok(res.nav.every((p) => Math.abs(p.nav - 1) < 1e-12));
+    assert.equal(res.periods[0]!.regimeBlocked, true);
+    assert.equal(res.periods[0]!.held, 0);
+  });
+
+  it("regime ∈ 过滤集 → 正常建仓", () => {
+    const ds = dataset(prices, { calendarDays: 20 });
+    const selections: RebalanceSelection[] = [
+      { ...sel(0, ["AA"]), regime: "recovery" },
+    ];
+    const res = runBacktest(ds, selections, params({ regimeFilter: ["recovery", "overheat"] }));
+    assert.equal(res.periods[0]!.regimeBlocked, false);
+    assert.equal(res.periods[0]!.held, 1);
+    // 末值 NAV = AA 从入场（day1=105）到末日（day19）的比值
+    const last = res.nav[res.nav.length - 1]!;
+    assert.ok(last.nav > 1);
+  });
+
+  it("无 regimeFilter → 忽略 regime，全程持仓", () => {
+    const ds = dataset(prices, { calendarDays: 20 });
+    const selections: RebalanceSelection[] = [
+      { ...sel(0, ["AA"]), regime: "contraction" },
+    ];
+    const res = runBacktest(ds, selections, params());
+    assert.equal(res.periods[0]!.regimeBlocked, false);
+    assert.equal(res.periods[0]!.held, 1);
+  });
+
+  it("regime=null（未落库）且启用过滤 → 保守清仓", () => {
+    const ds = dataset(prices, { calendarDays: 20 });
+    const selections: RebalanceSelection[] = [{ ...sel(0, ["AA"]), regime: null }];
+    const res = runBacktest(ds, selections, params({ regimeFilter: ["recovery"] }));
+    assert.equal(res.periods[0]!.regimeBlocked, true);
+  });
+});

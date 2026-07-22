@@ -52,6 +52,11 @@ export type BacktestParams = {
   execution: BacktestExecution;
   /** 单边费率（bp），对买卖双边成交额各收一次；默认 10 */
   costBps: number;
+  /**
+   * regime 条件化（Phase 4 WS4）：仅当调仓日 PIT regime ∈ 此集合才建仓，否则清仓持现金。
+   * 缺省/空 = 不过滤。regime 值挂在 RebalanceSelection.regime（backtestData 按信号日 PIT 注入）。
+   */
+  regimeFilter?: string[] | null;
 };
 
 export const DEFAULT_BACKTEST_PARAMS: BacktestParams = {
@@ -77,6 +82,13 @@ export function validateBacktestParams(params: BacktestParams): void {
   }
   if (!Number.isFinite(params.costBps) || params.costBps < 0) {
     throw new Error("costBps 必须是非负数");
+  }
+  if (params.regimeFilter != null) {
+    if (!Array.isArray(params.regimeFilter)) throw new Error("regimeFilter 必须是数组");
+    const allowed = new Set(["recovery", "overheat", "stagflation", "contraction"]);
+    for (const r of params.regimeFilter) {
+      if (!allowed.has(r)) throw new Error(`未知 regime：${r}`);
+    }
   }
 }
 
@@ -139,6 +151,8 @@ export type RebalanceSelection = {
   rows: { symbol: string; marketCap: number | null; score: number | null }[];
   /** 选股统计（宇宙覆盖率/剔除计数，透明化上报用；引擎不消费） */
   stats?: ScreenerStats | null;
+  /** 信号日 PIT regime 象限（regimeFilter 用；backtestData 注入，null=未知） */
+  regime?: string | null;
 };
 
 // ────────────────────────────────────────────────────────── 输出模型
@@ -183,6 +197,10 @@ export type BacktestPeriodReport = {
   cost: number;
   /** 选股统计（透明化） */
   stats: ScreenerStats | null;
+  /** 信号日 PIT regime（透明化；无过滤时仍回填便于对照） */
+  regime: string | null;
+  /** 本期被 regimeFilter 拦截（清仓持现金） */
+  regimeBlocked: boolean;
 };
 
 export type BacktestMetrics = {
@@ -304,6 +322,8 @@ export function runBacktest(
 ): BacktestResult {
   validateBacktestParams(params);
   const costRate = params.costBps / 10_000;
+  const regimeSet =
+    params.regimeFilter && params.regimeFilter.length ? new Set(params.regimeFilter) : null;
 
   // 1) 求各期执行日（主日历上），并去除执行日重复/越界的期次
   const cal = dataset.calendar;
@@ -391,13 +411,16 @@ export function runBacktest(
       }
       const navPre = cash + liveVal + frozenVal;
 
+      // regime 门：调仓日 PIT regime ∉ 过滤集 → 本期清仓持现金（目标组合为空）
+      const regimeBlocked = regimeSet != null && (sel.regime == null || !regimeSet.has(sel.regime));
+
       // 目标组合：跳过无价标的（规则 c）与权重输入缺失的标的，剩余重归一
       let noPriceSkipped = 0;
       let droppedNoWeight = 0;
       type Target = { symbol: string; px: number; raw: number; score: number | null };
       const targets: Target[] = [];
       const seen = new Set<string>();
-      for (const r of sel.rows) {
+      for (const r of regimeBlocked ? [] : sel.rows) {
         if (seen.has(r.symbol)) continue;
         seen.add(r.symbol);
         const cur = cursorOf(r.symbol);
@@ -499,6 +522,8 @@ export function runBacktest(
         turnover,
         cost,
         stats: sel.stats ?? null,
+        regime: sel.regime ?? null,
+        regimeBlocked,
       });
     }
 

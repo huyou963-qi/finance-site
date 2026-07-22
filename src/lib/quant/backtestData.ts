@@ -113,6 +113,18 @@ async function replaySelections(
   return selections;
 }
 
+/** 按信号日精确对齐落库 regime，就地写入 selection.regime（缺失 → null） */
+async function attachRegimes(selections: RebalanceSelection[]): Promise<void> {
+  if (selections.length === 0) return;
+  const dateObjs = selections.map((s) => new Date(`${s.date}T00:00:00.000Z`));
+  const rows = await prisma.macroRegime.findMany({
+    where: { date: { in: dateObjs } },
+    select: { date: true, regime: true },
+  });
+  const byDate = new Map(rows.map((r) => [r.date.toISOString().slice(0, 10), r.regime]));
+  for (const s of selections) s.regime = byDate.get(s.date) ?? null;
+}
+
 // ────────────────────────────────────────────────────────── 价格批载
 
 /**
@@ -186,6 +198,10 @@ export async function executeBacktest(
   const selections = await replaySelections(rebalanceDates, config, (done, total) =>
     opts.onProgress?.({ phase: "screening", done, total }),
   );
+
+  // regime 注入（Phase 4 WS4）：信号日 == 因子网格日，MacroRegime 按 date 精确对齐。
+  // regime[T] 本身即 as-of T 快照，调仓日（≥T）消费即 PIT 安全。
+  await attachRegimes(selections);
 
   const symbolSet = new Set<string>();
   for (const s of selections) for (const r of s.rows) symbolSet.add(r.symbol);

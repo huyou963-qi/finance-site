@@ -820,6 +820,30 @@ model BacktestPosition {
   @@schema("mds")
 }
 
+/// 宏观 regime 月频分类（Phase 4 WS3）。全程近似 PIT（getMacroValueAsOf 的估算发布日）：
+/// growthState（增长维 INDPRO/PAYEMS YoY + ISM headline 合成 z）与 inflationState
+/// （通胀维 CPI/PCE YoY 趋势）判升降；regime = 四象限
+/// recovery(复苏=增长上/通胀降) / overheat(过热=上/升) / stagflation(滞胀=下/升) / contraction(衰退式=下/降)。
+/// recession = NBER USREC 该月真值（ground truth，仅作 overlay/验证基准，不参与可交易 regime，避免 NBER 公告长滞后引入前视）。
+/// inputs = 各维度原始值/z/阈值快照（透明化与复算）。date 唯一（对齐 factor 月频网格）。
+model MacroRegime {
+  id             String   @id @default(uuid()) @db.Uuid
+  date           DateTime @db.Date
+  growthState    String   @map("growth_state") @db.VarChar(16)
+  inflationState String   @map("inflation_state") @db.VarChar(16)
+  regime         String   @db.VarChar(24)
+  /// 0/1 NBER USREC 该月真值；−1 = 未知
+  recession      Int
+  inputs         Json
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([date])
+  @@index([date])
+  @@map("macro_regime")
+  @@schema("mds")
+}
+
 /// SEC EDGAR 披露索引（供 Automation 取证）
 model SecFiling {
   id        String   @id @default(uuid()) @db.Uuid

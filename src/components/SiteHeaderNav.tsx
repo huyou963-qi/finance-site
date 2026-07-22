@@ -41,6 +41,9 @@ export function SiteHeaderNav() {
     pathname === "/equity/screener" || pathname.startsWith("/equity/screener/");
   const backtestActive =
     pathname === "/equity/backtest" || pathname.startsWith("/equity/backtest/");
+  const factorResearchActive =
+    pathname === "/equity/factor-research" || pathname.startsWith("/equity/factor-research/");
+  const regimeActive = pathname === "/equity/regime" || pathname.startsWith("/equity/regime/");
   const toolsActive = isToolPath(pathname);
   const marketsActive =
     (pathname === "/markets" || pathname.startsWith("/markets/")) && !toolsActive;
@@ -151,6 +154,28 @@ export function SiteHeaderNav() {
           aria-current={backtestActive ? "page" : undefined}
         >
           回测
+        </Link>
+        <Link
+          href="/equity/factor-research"
+          className={`${linkBase} ${
+            factorResearchActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={factorResearchActive ? "page" : undefined}
+        >
+          因子研究
+        </Link>
+        <Link
+          href="/equity/regime"
+          className={`${linkBase} ${
+            regimeActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={regimeActive ? "page" : undefined}
+        >
+          Regime
         </Link>
         <Link
           href="/events"
