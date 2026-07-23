@@ -26,8 +26,7 @@ import {
 import {
   listDatasets,
   downloadZip,
-  extractEntry,
-  streamTsv,
+  streamZipEntry,
   type Dataset,
 } from "./lib13f";
 
@@ -49,9 +48,8 @@ async function accumulateCandidates(
   zipPath: string,
   acc: Map<string, { name: string; cls: string; accessions: Set<string> }>,
 ): Promise<void> {
-  const info = await extractEntry(zipPath, "INFOTABLE.tsv", CACHE_DIR);
   let idx: Map<string, number> | null = null;
-  await streamTsv(info, (line, n) => {
+  await streamZipEntry(zipPath, "INFOTABLE.tsv", (line, n) => {
     if (n === 0) {
       idx = headerIndex(line);
       return;

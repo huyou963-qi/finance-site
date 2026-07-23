@@ -315,11 +315,43 @@ export async function readTsvLines(path: string): Promise<string[]> {
 /** 逐行流式回调（大文件用：INFOTABLE） */
 export async function streamTsv(
   path: string,
-  onLine: (line: string, lineNo: number) => void,
+  onLine: (line: string, lineNo: number) => void | Promise<void>,
 ): Promise<void> {
   const rl = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
   let n = 0;
-  for await (const line of rl) onLine(line, n++);
+  // 支持异步回调（如摄入时按批 flush 写库以控内存）；同步回调返回 void，await 无副作用
+  for await (const line of rl) await onLine(line, n++);
+}
+
+/**
+ * 直接从 zip 流式读取某条目（`unzip -p` 管道到 readline），**不落 346MB 临时文件到磁盘**。
+ * 关键收益：低内存/小盘机器（/tmp 常为 tmpfs 会吃 RAM）避免 350MB 临时文件占用。逐行 await 回调，
+ * 回调可异步（边扫边分批写库控内存）。
+ */
+export async function streamZipEntry(
+  zipPath: string,
+  entry: string,
+  onLine: (line: string, lineNo: number) => void | Promise<void>,
+): Promise<void> {
+  const p = spawn("unzip", ["-p", zipPath, entry]);
+  let err = "";
+  p.stderr.on("data", (d) => (err += d.toString()));
+  const exitPromise = new Promise<number>((resolve, reject) => {
+    p.on("error", (e) => {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") {
+        reject(new Error("找不到 `unzip` 命令——请先安装：Debian/Ubuntu `apt-get install -y unzip`。"));
+      } else {
+        reject(e);
+      }
+    });
+    p.on("close", (code) => resolve(code ?? -1));
+  });
+  // stdout 报错时让 for-await 抛出，交由调用方 try/catch
+  const rl = createInterface({ input: p.stdout, crlfDelay: Infinity });
+  let n = 0;
+  for await (const line of rl) await onLine(line, n++); // 全量排空 stdout（含每次 flush 的 await）后才结束
+  const code = await exitPromise;
+  if (code !== 0) throw new Error(`unzip -p ${entry} 退出码 ${code}: ${err}`);
 }
 
 export type SubmissionMeta = {

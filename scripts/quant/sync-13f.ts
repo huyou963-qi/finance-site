@@ -27,7 +27,7 @@ import {
   listDatasets,
   downloadZip,
   extractEntry,
-  streamTsv,
+  streamZipEntry,
   parseSubmissions,
   parseCoverpages,
   type Dataset,
@@ -65,13 +65,8 @@ type HoldingRow = {
 
 async function upsertHoldings(rows: HoldingRow[]): Promise<number> {
   let written = 0;
-  const totalChunks = Math.ceil(rows.length / INSERT_CHUNK);
   for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
     const chunk = rows.slice(i, i + INSERT_CHUNK);
-    const chunkNo = i / INSERT_CHUNK + 1;
-    if (chunkNo % 25 === 0 || chunkNo === 1) {
-      console.log(`      写库 ${chunkNo}/${totalChunks} 批（${written} 行）…`);
-    }
     const values = chunk.map(
       (r) =>
         Prisma.sql`(${randomUUID()}::uuid, ${r.cusip}, ${r.symbol}, ${r.filerCik}, ${r.filerName}, ${new Date(`${r.periodEnd}T00:00:00.000Z`)}::date, ${new Date(`${r.filedAt}T00:00:00.000Z`)}::date, ${r.submissionType}, ${r.isAmendment}, ${r.shares}, ${r.value}, ${r.accession}, CURRENT_TIMESTAMP)`,
@@ -103,64 +98,91 @@ async function ingestZip(
   const coverpages = await parseCoverpages(covPath);
   console.log(`    SUBMISSION ${submissions.size} 份 / COVERPAGE ${coverpages.size} 份，解压 INFOTABLE（约 350MB，慢盘可能需数分钟）…`);
 
-  // 流式扫 INFOTABLE，聚合 (accession|cusip) → {shares,value}
-  const infoPath = await extractEntry(zipPath, "INFOTABLE.tsv", CACHE_DIR);
-  console.log(`    INFOTABLE 已解压，开始逐行扫描…`);
-  const agg = new Map<string, { accession: string; cusip: string; shares: number; value: number }>();
+  // 流式扫 INFOTABLE：按 filing（accession）边界聚合后立即入 pending，满 FLUSH_ROWS 就写库。
+  // SEC INFOTABLE 按 accession 连续排列（同一 filing 的持仓相邻），故按边界聚合结果与全量聚合一致，
+  // 且每 (accession,cusip) 只写一次、幂等可续跑。内存峰值 = 单 filing + 一批 pending（~几 MB），
+  // 而非整季 70 万条全量聚合（数百 MB）——2GB 小内存机器由此可稳跑。
+  console.log(`    直接从 zip 流式读 INFOTABLE（不落临时文件）…`);
+  const FLUSH_ROWS = 20_000;
   let idx: Map<string, number> | null = null;
   let scanned = 0;
   let kept = 0;
-  await streamTsv(infoPath, (line, n) => {
+  let written = 0;
+  let curAcc: string | null = null;
+  let accMap = new Map<string, { shares: number; value: number }>(); // 当前 filing 内 cusip→聚合
+  let pending: HoldingRow[] = [];
+  const finalizedAcc = new Set<string>(); // 越界重现检测（防非连续排列的静默丢数）
+  let outOfOrderWarned = false;
+
+  const finalizeCurrentAcc = () => {
+    if (!curAcc || accMap.size === 0) {
+      accMap = new Map();
+      return;
+    }
+    const meta = submissions.get(curAcc);
+    if (meta) {
+      const cov = coverpages.get(curAcc);
+      for (const [cusip, e] of accMap) {
+        pending.push({
+          cusip,
+          symbol: cusipToSymbol.get(cusip) ?? null,
+          filerCik: meta.cik,
+          filerName: cov?.filerName ?? null,
+          periodEnd: meta.periodIso,
+          filedAt: meta.filedIso,
+          submissionType: meta.submissionType,
+          isAmendment: cov?.isAmendment ?? meta.submissionType.endsWith("/A"),
+          shares: e.shares,
+          value: scaleValueToUsd(e.value, meta.filedIso),
+          accession: curAcc,
+        });
+      }
+    }
+    finalizedAcc.add(curAcc);
+    accMap = new Map();
+  };
+
+  await streamZipEntry(zipPath, "INFOTABLE.tsv", async (line, n) => {
     if (n === 0) {
       idx = headerIndex(line);
       return;
     }
     scanned++;
     if (scanned % 1_000_000 === 0) {
-      console.log(`      …已扫 ${(scanned / 1e6).toFixed(0)}M 行，留宇宙 ${kept}，聚合 ${agg.size}`);
+      console.log(`      …已扫 ${(scanned / 1e6).toFixed(0)}M 行，留宇宙 ${kept}，已写 ${written}`);
     }
     const row = parseInfoTableRow(splitTsv(line), idx!);
     if (!row) return;
     if (!cusipToSymbol.has(row.cusip)) return; // 只留宇宙 CUSIP
     const meta = submissions.get(row.accession);
     if (!meta || !HOLDINGS_TYPES.has(meta.submissionType)) return;
-    kept++;
-    const key = `${row.accession}|${row.cusip}`;
-    let e = agg.get(key);
-    if (!e) {
-      e = { accession: row.accession, cusip: row.cusip, shares: 0, value: 0 };
-      agg.set(key, e);
-    }
-    e.shares += row.shares;
-    e.value += row.value;
-  });
 
-  // 组装落库行
-  const out: HoldingRow[] = [];
-  for (const e of agg.values()) {
-    const meta = submissions.get(e.accession)!;
-    const cov = coverpages.get(e.accession);
-    out.push({
-      cusip: e.cusip,
-      symbol: cusipToSymbol.get(e.cusip) ?? null,
-      filerCik: meta.cik,
-      filerName: cov?.filerName ?? null,
-      periodEnd: meta.periodIso,
-      filedAt: meta.filedIso,
-      submissionType: meta.submissionType,
-      isAmendment: cov?.isAmendment ?? meta.submissionType.endsWith("/A"),
-      shares: e.shares,
-      value: scaleValueToUsd(e.value, meta.filedIso),
-      accession: e.accession,
-    });
-  }
-  console.log(`    扫描完成（${scanned} 行，留宇宙 ${kept}），开始写库 ${out.length} 行…`);
-  const written = await upsertHoldings(out);
-  console.log(
-    `    INFOTABLE 扫 ${scanned} 行，留宇宙 ${kept}，聚合 ${agg.size} 持仓行，写库 ${written}`,
-  );
-  // 清理解出的大文件（zip 保留与否由 --keep-zip 控制）
-  for (const p of [subPath, covPath, infoPath]) {
+    // filing 边界 → 结算上一 filing，满批则 flush 写库
+    if (row.accession !== curAcc) {
+      finalizeCurrentAcc();
+      if (pending.length >= FLUSH_ROWS) {
+        written += await upsertHoldings(pending);
+        pending = [];
+      }
+      if (finalizedAcc.has(row.accession) && !outOfOrderWarned) {
+        console.warn(`      ⚠ INFOTABLE 非按 accession 连续排列（${row.accession} 重现）——该 filing 部分持仓可能被覆盖而非累加`);
+        outOfOrderWarned = true;
+      }
+      curAcc = row.accession;
+    }
+    kept++;
+    const e = accMap.get(row.cusip);
+    if (!e) accMap.set(row.cusip, { shares: row.shares, value: row.value });
+    else {
+      e.shares += row.shares;
+      e.value += row.value;
+    }
+  });
+  finalizeCurrentAcc();
+  if (pending.length) written += await upsertHoldings(pending);
+  console.log(`    INFOTABLE 扫 ${scanned} 行，留宇宙 ${kept}，写库 ${written}`);
+  // 清理解出的小临时文件（INFOTABLE 走管道未落盘；zip 保留与否由 --keep-zip 控制）
+  for (const p of [subPath, covPath]) {
     try {
       rmSync(p);
     } catch {
