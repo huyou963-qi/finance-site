@@ -10,6 +10,10 @@
  *   npm run quant:sync-13f -- --datasets=8              # 最近 8 个季度
  *   npm run quant:sync-13f -- --zip=/path/a.zip         # 本地缓存 zip（可重复）
  *   npm run quant:sync-13f -- --from=2013-01 --keep-zip # 全量回填并保留 zip 缓存
+ *   npm run quant:sync-13f -- --from=2013-01 --to=2015-12  # 分批回填（小内存机器推荐，逐段跑）
+ *
+ * 小内存(2GB)机器建议：分批 `--from/--to`（每批 ~8 季）、回填期间停掉网站、
+ * 用磁盘目录而非 tmpfs 的 FUNDING_CACHE_DIR、并加 NODE_OPTIONS=--max-old-space-size=512 兜底。
  */
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
@@ -196,6 +200,7 @@ async function main() {
   const t0 = Date.now();
   const localZips = argValues("--zip");
   const from = argValue("--from"); // YYYY-MM
+  const to = argValue("--to"); // YYYY-MM（含）——小内存机器分批回填用
   const nDatasets = argValue("--datasets") ? Number(argValue("--datasets")) : undefined;
   const keepZip = argFlag("--keep-zip");
 
@@ -227,8 +232,9 @@ async function main() {
     const all = await listDatasets();
     let picked: Dataset[] = all;
     if (from) picked = picked.filter((d) => d.endIso.slice(0, 7) >= from);
+    if (to) picked = picked.filter((d) => d.endIso.slice(0, 7) <= to);
     if (nDatasets) picked = picked.slice(-nDatasets);
-    if (!picked.length) throw new Error("无匹配数据集（检查 --from/--datasets）");
+    if (!picked.length) throw new Error("无匹配数据集（检查 --from/--to/--datasets）");
     console.log(`目标 ${picked.length} 个季度：${picked[0]!.name} … ${picked[picked.length - 1]!.name}`);
     // 逐季度：下载→摄入→清理，单季失败（404/超时）跳过不中断全程
     for (const ds of picked) {
