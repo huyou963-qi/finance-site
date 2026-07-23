@@ -38,9 +38,16 @@ import {
 } from "./lib13f";
 
 const CACHE_DIR = process.env.FUNDING_CACHE_DIR || join(tmpdir(), "funding-13f");
-const INSERT_CHUNK = 2000;
+/** 单条 INSERT 的行数。小内存机器可用 FUNDING_INSERT_CHUNK 调小（每批语句更小、索引维护峰值更低） */
+const INSERT_CHUNK = Math.max(200, Number(process.env.FUNDING_INSERT_CHUNK) || 2000);
+/** 每季之间的停顿（毫秒），给 Postgres 刷脏页/回收内存的喘息时间；小内存机器建议 3000+ */
+const QUARTER_PAUSE_MS = Math.max(0, Number(process.env.FUNDING_QUARTER_PAUSE_MS) || 0);
 /** 只处理有 INFOTABLE 的报告型 */
 const HOLDINGS_TYPES = new Set(["13F-HR", "13F-HR/A"]);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 function argValue(name: string): string | undefined {
   const kv = process.argv.find((a) => a.startsWith(`${name}=`));
@@ -256,6 +263,10 @@ async function main() {
           }
         }
       }
+      // 小内存机器：报告本进程常驻内存 + 季间停顿，便于发现内存爬升并给 PG 喘息
+      const rssMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+      console.log(`    [${ds.name} 完成] 本进程 RSS ${rssMb}MB，累计写库 ${total} 行`);
+      if (QUARTER_PAUSE_MS > 0) await sleep(QUARTER_PAUSE_MS);
     }
   }
 
