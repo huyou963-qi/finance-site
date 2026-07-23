@@ -127,35 +127,41 @@ export function generateDatasets(startYear = 2013): Dataset[] {
  * 不存在的窗口在下载阶段 404 被 per-zip try/catch 跳过）。
  */
 export async function listDatasets(): Promise<Dataset[]> {
+  // 以确定性生成的完整列表为准（2013→今，每季两种命名候选）。
+  // 不能只靠索引页：它在部分网络/时段只列出最近约 10 个季度，会让 --from=2013-01 静默只回填近两年。
+  const out = generateDatasets();
+  const known = new Set<string>();
+  for (const d of out) for (const u of d.urls) known.add(u.split("/").pop()!.toLowerCase());
+
+  // 索引页作为补充：捞出生成规律没覆盖到的异常命名
   try {
     const res = await fetchRetry(
       INDEX_URL,
       { headers: { "User-Agent": SEC_UA, Accept: "text/html" }, signal: AbortSignal.timeout(30_000) },
       3,
     );
-    if (!res.ok) throw new Error(`索引页 HTTP ${res.status}`);
-    const html = await res.text();
-    const hrefs = [...html.matchAll(/href="([^"]*form13f[^"]*\.zip)"/gi)].map((m) => m[1]!);
-    const seen = new Set<string>();
-    const out: Dataset[] = [];
-    for (const href of hrefs) {
-      const url = href.startsWith("http") ? href : `https://www.sec.gov${href}`;
-      const fname = url.split("/").pop()!;
-      if (seen.has(fname)) continue;
-      seen.add(fname);
-      const endIso = endIsoFromName(fname);
-      if (!endIso) continue;
-      out.push({ urls: [url], name: fname.replace(/_form13f\.zip$/i, ""), endIso });
+    if (res.ok) {
+      const html = await res.text();
+      const hrefs = [...html.matchAll(/href="([^"]*form13f[^"]*\.zip)"/gi)].map((m) => m[1]!);
+      let extra = 0;
+      for (const href of hrefs) {
+        const url = href.startsWith("http") ? href : `https://www.sec.gov${href}`;
+        const fname = url.split("/").pop()!;
+        if (known.has(fname.toLowerCase())) continue; // 已被生成候选覆盖
+        const endIso = endIsoFromName(fname);
+        if (!endIso) continue;
+        known.add(fname.toLowerCase());
+        out.push({ urls: [url], name: fname.replace(/_form13f\.zip$/i, ""), endIso });
+        extra++;
+      }
+      if (extra) console.log(`索引页补充 ${extra} 个非常规命名数据集`);
     }
-    if (out.length) {
-      out.sort((a, b) => a.endIso.localeCompare(b.endIso));
-      return out;
-    }
-    throw new Error("索引页无 zip 链接");
   } catch (e) {
-    console.warn(`索引页不可用（${e instanceof Error ? e.message : e}）→ 确定性生成 URL`);
-    return generateDatasets();
+    console.warn(`索引页不可用（${e instanceof Error ? e.message : e}）——使用生成列表`);
   }
+
+  out.sort((a, b) => a.endIso.localeCompare(b.endIso));
+  return out;
 }
 
 /**
@@ -278,11 +284,15 @@ export async function downloadZip(ds: Dataset, cacheDir: string): Promise<string
   throw new Error(`下载 ${ds.name} 全部候选失败（${last}）`);
 }
 
-/** 解压指定条目到目录（覆盖），返回解出的文件路径。依赖系统 `unzip`（Linux 部署需 apt-get install -y unzip）。 */
+/**
+ * 解压指定条目到目录（覆盖），返回解出的文件路径。依赖系统 `unzip`（Linux 部署需 apt-get install -y unzip）。
+ * 用通配符 `*<entry>` + `-j`（去路径）匹配：SEC 部分季度的 zip 把内容多包了一层目录
+ * （如 `01JUN2025-31AUG2025_form13f/SUBMISSION.tsv`），写死条目名会 "filename not matched"（退出码 11）。
+ */
 export function extractEntry(zipPath: string, entry: string, destDir: string): Promise<string> {
   mkdirSync(destDir, { recursive: true });
   return new Promise((resolve, reject) => {
-    const p = spawn("unzip", ["-o", "-q", zipPath, entry, "-d", destDir]);
+    const p = spawn("unzip", ["-o", "-q", "-j", zipPath, `*${entry}`, "-d", destDir]);
     let err = "";
     p.stderr.on("data", (d) => (err += d.toString()));
     p.on("error", (e) => {
@@ -333,7 +343,8 @@ export async function streamZipEntry(
   entry: string,
   onLine: (line: string, lineNo: number) => void | Promise<void>,
 ): Promise<void> {
-  const p = spawn("unzip", ["-p", zipPath, entry]);
+  // 通配符匹配：兼容部分季度 zip 多包一层目录的情况（见 extractEntry 注释）
+  const p = spawn("unzip", ["-p", zipPath, `*${entry}`]);
   let err = "";
   p.stderr.on("data", (d) => (err += d.toString()));
   const exitPromise = new Promise<number>((resolve, reject) => {
