@@ -93,6 +93,9 @@ function isLeap(y: number): boolean {
  */
 export function generateDatasets(startYear = 2013): Dataset[] {
   const nowIso = new Date().toISOString().slice(0, 10);
+  // SEC 结构化 13F 数据集实际起点 = 2013Q2（2013Q1 及更早在 SEC 侧 404，已实测确认）。
+  // 设下限避免对不存在的季度发起请求、并把 404 误报成"失败季度"。
+  const EARLIEST_END = "2013-06-30";
   const endYear = new Date().getUTCFullYear() + 1;
   const qEnd = ["03-31", "06-30", "09-30", "12-31"];
   // 与季度对齐的「日期区间」命名（近代）：Q1→01dec(Y-1)-feb(Y) 等
@@ -108,6 +111,7 @@ export function generateDatasets(startYear = 2013): Dataset[] {
     for (let q = 1; q <= 4; q++) {
       const endIso = `${y}-${qEnd[q - 1]}`;
       if (endIso > nowIso) continue;
+      if (endIso < EARLIEST_END) continue; // 2013Q2 之前 SEC 无数据集
       out.push({
         name: `${y}q${q}`,
         endIso,
