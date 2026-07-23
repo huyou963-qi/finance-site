@@ -65,8 +65,13 @@ type HoldingRow = {
 
 async function upsertHoldings(rows: HoldingRow[]): Promise<number> {
   let written = 0;
+  const totalChunks = Math.ceil(rows.length / INSERT_CHUNK);
   for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
     const chunk = rows.slice(i, i + INSERT_CHUNK);
+    const chunkNo = i / INSERT_CHUNK + 1;
+    if (chunkNo % 25 === 0 || chunkNo === 1) {
+      console.log(`      写库 ${chunkNo}/${totalChunks} 批（${written} 行）…`);
+    }
     const values = chunk.map(
       (r) =>
         Prisma.sql`(${randomUUID()}::uuid, ${r.cusip}, ${r.symbol}, ${r.filerCik}, ${r.filerName}, ${new Date(`${r.periodEnd}T00:00:00.000Z`)}::date, ${new Date(`${r.filedAt}T00:00:00.000Z`)}::date, ${r.submissionType}, ${r.isAmendment}, ${r.shares}, ${r.value}, ${r.accession}, CURRENT_TIMESTAMP)`,
@@ -96,9 +101,11 @@ async function ingestZip(
   const covPath = await extractEntry(zipPath, "COVERPAGE.tsv", CACHE_DIR);
   const submissions = await parseSubmissions(subPath);
   const coverpages = await parseCoverpages(covPath);
+  console.log(`    SUBMISSION ${submissions.size} 份 / COVERPAGE ${coverpages.size} 份，解压 INFOTABLE（约 350MB，慢盘可能需数分钟）…`);
 
   // 流式扫 INFOTABLE，聚合 (accession|cusip) → {shares,value}
   const infoPath = await extractEntry(zipPath, "INFOTABLE.tsv", CACHE_DIR);
+  console.log(`    INFOTABLE 已解压，开始逐行扫描…`);
   const agg = new Map<string, { accession: string; cusip: string; shares: number; value: number }>();
   let idx: Map<string, number> | null = null;
   let scanned = 0;
@@ -109,6 +116,9 @@ async function ingestZip(
       return;
     }
     scanned++;
+    if (scanned % 1_000_000 === 0) {
+      console.log(`      …已扫 ${(scanned / 1e6).toFixed(0)}M 行，留宇宙 ${kept}，聚合 ${agg.size}`);
+    }
     const row = parseInfoTableRow(splitTsv(line), idx!);
     if (!row) return;
     if (!cusipToSymbol.has(row.cusip)) return; // 只留宇宙 CUSIP
@@ -144,6 +154,7 @@ async function ingestZip(
       accession: e.accession,
     });
   }
+  console.log(`    扫描完成（${scanned} 行，留宇宙 ${kept}），开始写库 ${out.length} 行…`);
   const written = await upsertHoldings(out);
   console.log(
     `    INFOTABLE 扫 ${scanned} 行，留宇宙 ${kept}，聚合 ${agg.size} 持仓行，写库 ${written}`,
