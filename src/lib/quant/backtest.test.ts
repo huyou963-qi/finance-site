@@ -14,6 +14,7 @@ import {
   type SymbolPrices,
 } from "./backtest";
 import type { ScreenerConfig } from "./screener";
+import { FACTOR_MAP } from "./factorRegistry";
 
 // ────────────────────────────────────────────────────────── 测试工具
 
@@ -88,16 +89,19 @@ describe("strategyDataFloor", () => {
     assert.equal(strategyDataFloor(config, "equal"), "2000-01-01");
   });
 
+  // 断言「下限 = 注册表 startYear」这个机制本身，而非某个年份字面量
+  // （深历史回填会下调 startYear，写死年份的断言只会变成噪音）
   it("fundamental factor raises floor to its startYear", () => {
     const config = cfg({
       conditions: [{ factorKey: "roeTtm", metric: "zscore", op: "gte", bounds: { min: 0.5 } }],
     });
-    assert.equal(strategyDataFloor(config, "equal"), "2021-01-01");
+    assert.equal(strategyDataFloor(config, "equal"), `${FACTOR_MAP.get("roeTtm")!.startYear}-01-01`);
   });
 
   it("mcap weighting / minMarketCap imply logMarketCap floor", () => {
-    assert.equal(strategyDataFloor(cfg(), "mcap"), "2021-01-01");
-    assert.equal(strategyDataFloor(cfg({ universe: { minMarketCap: 1e9 } }), "equal"), "2021-01-01");
+    const floor = `${FACTOR_MAP.get("logMarketCap")!.startYear}-01-01`;
+    assert.equal(strategyDataFloor(cfg(), "mcap"), floor);
+    assert.equal(strategyDataFloor(cfg({ universe: { minMarketCap: 1e9 } }), "equal"), floor);
   });
 });
 

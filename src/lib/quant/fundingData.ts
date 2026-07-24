@@ -43,6 +43,10 @@ export async function loadFundingPeriods(
           symbol: { in: batch },
           ...(minPeriodIso ? { periodEnd: { gte: new Date(`${minPeriodIso}T00:00:00.000Z`) } } : {}),
         },
+        // 必须显式定序：HHI/合计持股是浮点累加，行序不同会在末位产生 1e-16 级差异，
+        // 经截面 zscore 放大到 1e-8，让 verify-factors D 段「增量 == 全量」逐行比对失败。
+        // 无 orderBy 时 Postgres 不保证跨次返回同一物理顺序。
+        orderBy: [{ symbol: "asc" }, { periodEnd: "asc" }, { filerCik: "asc" }],
         select: {
           symbol: true, filerCik: true, filedAt: true, periodEnd: true, shares: true, value: true,
         },

@@ -111,6 +111,7 @@
     "equity:assert-seeded": "dotenv -e .env.local -- tsx scripts/equity/assert-seeded.ts",
     "equity:sync-profiles": "dotenv -e .env.local -- tsx scripts/equity/sync-profiles.ts",
     "equity:sync-fundamentals": "dotenv -e .env.local -- tsx scripts/equity/sync-fundamentals.ts",
+    "equity:build-backfill-universe": "dotenv -e .env.local -- tsx scripts/equity/build-backfill-universe.ts",
     "equity:sync-sec": "dotenv -e .env.local -- tsx scripts/equity/sync-sec.ts",
     "equity:sync-prices": "dotenv -e .env.local -- tsx scripts/equity/sync-prices.ts",
     "equity:verify-gics": "dotenv -e .env.local -- tsx scripts/equity/verify-gics.ts",

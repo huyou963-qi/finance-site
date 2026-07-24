@@ -10,6 +10,8 @@
  *   与 EquityDailyBar.close 的现刻度一致 —— 市值 = close(T) × shares 直乘，
  *   **不得**再乘 computeSplitFactors（会重复 N 倍）。前提：拆股后 sync-fundamentals
  *   已重跑；若基本面同步落后于新拆股，该股刻度会错位（运维口径，文档标注）。
+ *   股本回溯限 4 季 / 500 天且市值有绝对下限——深历史里 BRK-B（只有 2011 前的 A 类股本）、
+ *   SPG（8000 股脏值）会让 PIT 市值差几个数量级，宁可缺失（见常量注释）。
  *
  * 装配逻辑参考 scripts/verify-phase0-pit.ts；无前视性质由 firstReportedAt 过滤天然保证。
  */
@@ -52,6 +54,11 @@ export type PitCrossSection = {
 };
 
 const DAY_MS = 86_400_000;
+/** 股本回溯：最多往回 4 个可见季，且该季期末距 T 不超过 SHARES_MAX_AGE_DAYS */
+const SHARES_LOOKBACK_QUARTERS = 4;
+const SHARES_MAX_AGE_DAYS = 500;
+/** PIT 市值下限（美元）：指数成分股低于此必是股本口径错，按缺失处理 */
+const MIN_PLAUSIBLE_MARKET_CAP = 1e8;
 
 function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -153,6 +160,39 @@ export async function buildPitCrossSection(
     opts.closes ?? loadClosesAsOf(symbols, t),
   ]);
 
+  // 股本刻度的「拆股滞后」修正（KLA 2026-06 的 10:1 实证）：
+  // 库内 sharesOutstanding 由 scaleFactorsBackward 归一到**该股最新一份财报**的刻度；
+  // 若拆股发生在那份财报披露之后，SEC 侧还没有任何按新刻度重述的季度，任凭 sync-fundamentals
+  // 重跑也补不上 —— 而 close 已是拆后刻度，市值就会差整整一个拆股倍数（KLAC 实测差 10 倍，
+  // 全历史都受影响，不只深历史）。修正 = ×∏ratio(exDate > 锚点季的首披露日)，
+  // 与 Phase 5 的 13F 归一同法（fundingData.splitFactorForPeriod）。
+  // 注：锚点季取该股**全部**季度里的最新一条（含 T 之后），这只是单位换算不是信息——
+  // 价格与股本同乘一个常数，市值不变，故不构成前视。
+  const [anchors, splits] = await Promise.all([
+    prisma.equityFundamentalSnapshot.findMany({
+      where: { symbol: { in: symbols }, periodType: "Q", sharesOutstanding: { not: null } },
+      orderBy: [{ symbol: "asc" }, { fiscalDate: "desc" }],
+      distinct: ["symbol"],
+      select: { symbol: true, fiscalDate: true, firstReportedAt: true },
+    }),
+    prisma.equitySplit.findMany({
+      where: { symbol: { in: symbols } },
+      select: { symbol: true, exDate: true, ratio: true },
+    }),
+  ]);
+  const anchorIsoBySymbol = new Map<string, string>();
+  for (const a of anchors) {
+    const iso0 = a.firstReportedAt ?? a.fiscalDate;
+    if (iso0) anchorIsoBySymbol.set(a.symbol, iso(iso0));
+  }
+  const lateSplitFactor = new Map<string, number>();
+  for (const s of splits) {
+    const anchorIso = anchorIsoBySymbol.get(s.symbol);
+    if (!anchorIso || !Number.isFinite(s.ratio) || s.ratio <= 0) continue;
+    if (iso(s.exDate) <= anchorIso) continue; // 已被最新财报的刻度反映
+    lateSplitFactor.set(s.symbol, (lateSplitFactor.get(s.symbol) ?? 1) * s.ratio);
+  }
+
   const quartersBySymbol = new Map<string, PitQuarterRow[]>();
   for (const s of snaps) {
     if (!s.fiscalDate) continue; // 无财季末日期的行无法参与 TTM 连续性判断，弃用
@@ -192,20 +232,28 @@ export async function buildPitCrossSection(
       c != null && (tMs - Date.parse(`${c.date}T00:00:00Z`)) / DAY_MS <= staleDays;
     const close = fresh ? c!.close : null;
 
-    // 股本：从最新可见季往回找有 sharesOutstanding 的行（库内已是现刻度，直取）
+    // 股本：从最新可见季往回找有 sharesOutstanding 的行（库内已是现刻度，直取）。
+    // **必须限定回溯窗口**：无限回溯会把多年前的陈旧/错类股本当成现值——
+    // 实测 BRK-B 只有 2011 前有股本且取的是 A 类（94 万股，B 类是它的 1500 倍）、
+    // SPG 只有 2011/2012 的 8000（脏值），无窗口时 2015 截面的 PIT 市值分别小 160 倍与
+    // 100 万倍，earningsYield 冲到 158 / 1360，直接污染价值策略选股。宁可市值缺失。
     let sharesCurrent: number | null = null;
-    for (let i = quarters.length - 1; i >= 0; i--) {
+    for (let i = quarters.length - 1; i >= 0 && quarters.length - i <= SHARES_LOOKBACK_QUARTERS; i--) {
       const q = quarters[i]!;
+      const ageDays = (tMs - Date.parse(`${q.fiscalDate}T00:00:00Z`)) / DAY_MS;
+      if (ageDays > SHARES_MAX_AGE_DAYS) break;
       if (q.sharesOutstanding != null && q.sharesOutstanding > 0) {
-        sharesCurrent = q.sharesOutstanding;
+        sharesCurrent = q.sharesOutstanding * (lateSplitFactor.get(symbol) ?? 1);
         break;
       }
     }
 
-    const marketCap =
+    const rawMarketCap =
       close != null && sharesCurrent != null && sharesCurrent > 0
         ? close * sharesCurrent
         : null;
+    // 绝对下限兜底：指数成分股市值不可能低于 1 亿美元，低于此必是股本口径错（如 SPG 的 8000 股）
+    const marketCap = rawMarketCap != null && rawMarketCap >= MIN_PLAUSIBLE_MARKET_CAP ? rawMarketCap : null;
 
     return {
       symbol,

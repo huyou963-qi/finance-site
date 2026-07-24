@@ -24,30 +24,30 @@ coverage 分母 = 当月宇宙 ∩ 该 sector（现值 GICS）成分数；样本
 
 | 类别 | 因子 | 口径 | 方向 | 起点 |
 | --- | --- | --- | --- | --- |
-| 估值 | `earningsYield` | TTM 净利 / PIT 市值（E/P） | ↑ | 2021 |
-| 估值 | `bookYield` | 最新季股东权益 / 市值（B/P） | ↑ | 2021 |
-| 估值 | `salesYield` | TTM 营收 / 市值（S/P） | ↑ | 2021 |
-| 估值 | `fcfYield` | TTM (OCF−CapEx) / 市值 | ↑ | 2021 |
-| 估值 | `dividendYield` | TTM \|分红\| / 市值（TTM 窗口成立时分红缺失按 0） | ↑ | 2021 |
-| 估值 | `ocfToEv` | TTM OCF / (市值+长期债务−现金)；EV/OCF 倒数 | ↑ | 2021 |
-| 质量 | `roeTtm` | TTM 净利 / 平均股东权益（本季与 4 季前均值） | ↑ | 2021 |
-| 质量 | `grossMargin` / `opMargin` | 最新可见季利润率 | ↑ | 2021 |
-| 质量 | `ocfToNetIncome` | TTM OCF / TTM 净利（净利>0） | ↑ | 2021 |
-| 质量 | `debtToAssets` | 最新季总负债 / 总资产 | ↓ | 2021 |
-| 质量 | `accrualsToAssets` | (TTM 净利 − TTM OCF) / 平均总资产 | ↓ | 2021 |
-| 成长 | `revenueYoY` | 最新可见季营收 / 上年同季 − 1（fiscalDate 差 330–400 天匹配） | ↑ | 2021 |
-| 成长 | `epsYoY` | 同上，上年 EPS>0 才给值 | ↑ | 2021 |
-| 成长 | `revenueAccel` | 本季营收 YoY − 上季营收 YoY | ↑ | 2021 |
+| 估值 | `earningsYield` | TTM 净利 / PIT 市值（E/P） | ↑ | 2012 |
+| 估值 | `bookYield` | 最新季股东权益 / 市值（B/P） | ↑ | 2012 |
+| 估值 | `salesYield` | TTM 营收 / 市值（S/P） | ↑ | 2012 |
+| 估值 | `fcfYield` | TTM (OCF−CapEx) / 市值 | ↑ | 2012 |
+| 估值 | `dividendYield` | TTM \|分红\| / 市值（TTM 窗口成立时分红缺失按 0） | ↑ | 2012 |
+| 估值 | `ocfToEv` | TTM OCF / (市值+长期债务−现金)；EV/OCF 倒数 | ↑ | 2012 |
+| 质量 | `roeTtm` | TTM 净利 / 平均股东权益（本季与 4 季前均值） | ↑ | 2012 |
+| 质量 | `grossMargin` / `opMargin` | 最新可见季利润率 | ↑ | 2012 |
+| 质量 | `ocfToNetIncome` | TTM OCF / TTM 净利（净利>0） | ↑ | 2012 |
+| 质量 | `debtToAssets` | 最新季总负债 / 总资产 | ↓ | 2012 |
+| 质量 | `accrualsToAssets` | (TTM 净利 − TTM OCF) / 平均总资产 | ↓ | 2012 |
+| 成长 | `revenueYoY` | 最新可见季营收 / 上年同季 − 1（fiscalDate 差 330–400 天匹配） | ↑ | 2012 |
+| 成长 | `epsYoY` | 同上，上年 EPS>0 才给值 | ↑ | 2012 |
+| 成长 | `revenueAccel` | 本季营收 YoY − 上季营收 YoY | ↑ | 2012 |
 | 动量 | `ret1m/3m/6m/12m` | 21/63/126/252 交易日总收益（前复权 adjClose） | ↑ | 2000 |
 | 动量 | `mom12_1` | T−252 → T−21 总收益 | ↑ | 2000 |
 | 动量 | `dist52wHigh` | close / 252 日最高 − 1 | ↑ | 2000 |
 | 波动 | `vol60d` | 60 日对数收益标准差 × √252 | ↓ | 2000 |
 | 波动 | `beta252d` | 对 SPY 日对数收益回归斜率（重叠 ≥200 日） | ↓ | 2000 |
 | 波动 | `maxDrawdown12m` | 252 日最大回撤（负值，越接近 0 越好） | ↑ | 2000 |
-| 量价 | `turnover20d` | 20 日均成交额 / PIT 市值 | ↑ | 2021 |
+| 量价 | `turnover20d` | 20 日均成交额 / PIT 市值 | ↑ | 2012 |
 | 量价 | `dollarVolPctile` | 20 日均成交额当月宇宙分位（0–1，并列取平均秩） | ↑ | 2000 |
 | 量价 | `volTrend20_120` | 20 日均量 / 120 日均量 − 1 | ↑ | 2000 |
-| 规模 | `logMarketCap` | ln(PIT 市值) | ↓ | 2021 |
+| 规模 | `logMarketCap` | ln(PIT 市值) | ↓ | 2012 |
 
 ## 关键口径（实施中核实）
 
@@ -62,8 +62,13 @@ coverage 分母 = 当月宇宙 ∩ 该 sector（现值 GICS）成分数；样本
    字段做不了，以 `ocfToEv` 替代。
 4. **GICS 非 PIT**：sector 归属取 `equity_security` 现值近似（幸存偏差：早年退市股多无
    归属 → sector_zscore null）。不建历史 GICS。
-5. **基本面起点 ~2020H2**：Q 快照仅回填 24 季；技术面因子 2000 起。构建脚本对
-   2020-06 之前月份跳过基本面 pass。
+5. **基本面起点 2012**（2026-07 P0 深历史回填，原为 ~2020H2）：Q 快照回填 70 季
+   （回到 2008–2009），技术面因子仍自 2000 起。三道门槛必须同步下调，缺一则前功尽弃：
+   `sync-fundamentals --quarters`（拉多少季）→ `build-factors` 的 `FUNDAMENTAL_MIN_DATE`
+   （早于此日不查基本面）→ `factorRegistry.startYear`（回测起点 + screener 置灰）。
+   实测有价宇宙内覆盖：2010 61%、2011 76%、2012 80%、2013–2016 82–83%、2017 87%、
+   2018 91%、2019+ ≥96%；2010–2011 作 TTM 预热期不计门槛。剩余缺口是换 tag 时代
+   拼不上的公司（详见第 9 条）。
 6. **PIT 可见性**：季度行仅当 `first_reported_at ≤ T` 参与；`first_reported_at` 为 null
    的行（未回填/退市股）保守剔除，方向无前视。
 7. **退市股**：宇宙来自历史成分，含已退市 symbol；无价格者（delisting 表
@@ -78,6 +83,22 @@ coverage 分母 = 当月宇宙 ∩ 该 sector（现值 GICS）成分数；样本
 9. **被移出成员的基本面**：sync-fundamentals 历史上只跑现任 SP500 成分；Phase 1 为
    delisting 表 ∩ equity_security 的 119 只移出成员补跑了 Q 同步（仍在上市的可完整
    回补；已被收购退市的公司 SEC ticker 映射缺失，无法覆盖，属遗留缺口）。
+   P0 起回填名单改为 `equity:build-backfill-universe`（历史成分并集 ∩ equity_security，
+   625 只），不再依赖现任成分。
+10. **换 tag 时代拼接**（P0 深历史的核心机制，`secFundamentals.ts` 的 `eraSpliceFactor`）：
+   营收骨架的现行 tag 最早只到 2017（ASC606 于 2018 生效，10-K 只重述一个对比年），
+   2010–2016 的营收挂在 `SalesRevenueNet` / `SalesRevenueGoodsNet` / `SalesRevenueServicesNet`
+   等旧 tag 上；银行则根本没有总营收 tag，得由「净利息收入 + 非利息收入」合成
+   （合成序列作**常备**拼接来源，不能只当主候选为空时的兜底——WFC/USB 这类主候选非空）。
+   拼接安全阀：接缝处那段**连续**重叠 ≥2 季、比值中位数落在 ±15% 内且偏离中位数的
+   中位数 ≤2%，通过则按该比值链接（消掉「商品营收漏掉服务收入」这类系统性水平差），
+   否则拒接 → 表现为缺失而非错值。拼不上的典型：DUK/NEE（新旧 tag 零重叠）、
+   PM（消费税口径差 2.7 倍）、KO（比值 ±5% 不稳）、DIS（2019 换主体 CIK）。
+11. **股本归一的两个深历史坑**（`scaleFactorsBackward`，24 季窗口下看不见）：
+   ① 一步内跨过两次拆股（AAPL 7:1 × 4:1 = 28）需要复合候选倍数，只给单因子会误选 25/30；
+   ② 单个脏点（AAPL 2014-03 的 8.6e5 股，比真值小 4 个数量级）若被「接受为新参考」，
+   会把它之前的整段历史钉死在错误刻度（实测 2008–2013 股本整段差 28 倍 → PIT 市值同样差
+   28 倍）。现判为脏点：丢弃该点、参考不动。
 
 ## 管线与命令
 
@@ -86,6 +107,12 @@ npm run quant:build-factors                    # 增量：补 factor_snapshot �
 npm run quant:build-factors -- --month=2023-06 # 重建单月
 npm run quant:build-factors -- --full          # 全量重建（约 25 分钟）
 npm run quant:build-factors -- --full --from=2010-01   # 断点续跑
+npm run quant:build-factors -- --full --from=2010-01 --fundamental-from=2010-01-01  # 显式基本面下限
+
+# 深历史基本面回填（P0，约 18 分钟拉完 625 只；幂等可续跑，中断后重跑同一命令即可）
+npm run equity:build-backfill-universe -- --from=2010-01-01 --out=.data/quant/backfill-universe-2010.txt
+SEC_FETCH_TIMEOUT_MS=90000 npm run equity:sync-fundamentals -- --period-type=Q --quarters=70 \
+  --symbols-file=.data/quant/backfill-universe-2010.txt --resume-log=.data/quant/backfill-2010.log
 
 npm run quant:build-sector-factors             # 行业聚合（同样支持 --full / --month）
 npm run quant:verify-factors                   # 验收套件（A–E；--skip-incremental 跳过重建对比）
@@ -105,6 +132,7 @@ npm run quant:verify-factors                   # 验收套件（A–E；--skip-i
 
 A. 20 样本股（含拆股 NVDA/AAPL、财年错位 AAPL/MU）× 2 月末，独立内联公式重算全部因子对比落库值；
 B. 无前视：全量快照显式剔除 `firstReportedAt > T` 行重算不变 + 装配层可见性断言；
-C. 覆盖率：技术面 2000 起 ≥95%（有价格宇宙）、基本面 2021 起 ≥90%，退市无价格股单列；
+C. 覆盖率：技术面 2000 起 ≥95%（有价格宇宙）、基本面 2021 起 ≥90% 且 2012–2020 ≥75%
+   （2010–2011 TTM 预热期单列不设门槛），退市无价格股单列；
 D. `--month` 增量重建与全量结果逐行一致；
 E. 行业聚合中位数/四分位与个股现算一致。

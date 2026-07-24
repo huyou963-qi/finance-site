@@ -5,7 +5,10 @@
  * - 估值因子一律取「收益率」方向（E/P 而非 P/E）：亏损股取负值仍单调可排序（陷阱：P/E 对亏损股为 null/负）。
  * - EV/EBITDA 做不了（快照无 D&A 字段），用 OCF/EV（EV/OCF 的倒数方向）替代。
  * - `requires` 决定覆盖起点：price 因子自 2000（价格库全历史）；含 fundamental 的因子
- *   受 Q 快照 24 季回填窗口限制，实际自 ~2021 起。
+ *   自 **2012**（2026-07 P0 深历史回填：Q 快照回填到 2008–2009，实测有价宇宙内覆盖
+ *   2012 起 80%+、2018 起 91%+；2010–2011 只有 61%/76%，留作 TTM 预热期不进 startYear）。
+ *   改这里会同时移动回测起点（backtest.ts 的 strategyDataFloor）与 screener 早期条件置灰，
+ *   另有两道门槛须同步：sync-fundamentals 的 --quarters、build-factors 的 FUNDAMENTAL_MIN_DATE。
  * - higherIsBetter 只是排序方向标注（供 Phase 2 screener / Phase 3 回测消费），不参与计算。
  */
 
@@ -42,25 +45,25 @@ export type FactorDef = {
 
 export const FACTOR_DEFS: readonly FactorDef[] = [
   // ── 估值 valuation（全部为收益率方向，分母 PIT 市值） ──────────────────────
-  { key: "earningsYield", nameZh: "盈利收益率", nameEn: "Earnings Yield (E/P)", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2021, note: "TTM 净利润 / PIT 市值" },
-  { key: "bookYield", nameZh: "账面收益率", nameEn: "Book Yield (B/P)", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2021, note: "最新季股东权益 / PIT 市值" },
-  { key: "salesYield", nameZh: "营收收益率", nameEn: "Sales Yield (S/P)", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2021, note: "TTM 营收 / PIT 市值" },
-  { key: "fcfYield", nameZh: "自由现金流收益率", nameEn: "FCF Yield", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2021, note: "TTM (OCF−CapEx) / PIT 市值" },
-  { key: "dividendYield", nameZh: "股息率", nameEn: "Dividend Yield", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2021, note: "TTM |分红| / PIT 市值" },
-  { key: "ocfToEv", nameZh: "经营现金流/企业价值", nameEn: "OCF / EV", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2021, note: "TTM OCF / (市值+长期债务−现金)；EV/OCF 的单调化倒数（EV/EBITDA 替代）" },
+  { key: "earningsYield", nameZh: "盈利收益率", nameEn: "Earnings Yield (E/P)", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM 净利润 / PIT 市值" },
+  { key: "bookYield", nameZh: "账面收益率", nameEn: "Book Yield (B/P)", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "最新季股东权益 / PIT 市值" },
+  { key: "salesYield", nameZh: "营收收益率", nameEn: "Sales Yield (S/P)", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM 营收 / PIT 市值" },
+  { key: "fcfYield", nameZh: "自由现金流收益率", nameEn: "FCF Yield", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM (OCF−CapEx) / PIT 市值" },
+  { key: "dividendYield", nameZh: "股息率", nameEn: "Dividend Yield", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM |分红| / PIT 市值" },
+  { key: "ocfToEv", nameZh: "经营现金流/企业价值", nameEn: "OCF / EV", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM OCF / (市值+长期债务−现金)；EV/OCF 的单调化倒数（EV/EBITDA 替代）" },
 
   // ── 质量 quality ───────────────────────────────────────────────────────────
-  { key: "roeTtm", nameZh: "TTM 净资产收益率", nameEn: "ROE (TTM)", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2021, note: "TTM 净利 / 平均股东权益（本季与 4 季前均值）" },
-  { key: "grossMargin", nameZh: "毛利率", nameEn: "Gross Margin", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2021, note: "最新可见季毛利率" },
-  { key: "opMargin", nameZh: "营业利润率", nameEn: "Operating Margin", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2021, note: "最新可见季营业利润率" },
-  { key: "ocfToNetIncome", nameZh: "现金含量", nameEn: "OCF / Net Income", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2021, note: "TTM OCF / TTM 净利（净利>0 才给值）" },
-  { key: "debtToAssets", nameZh: "资产负债率", nameEn: "Debt to Assets", category: "quality", higherIsBetter: false, requires: "fundamental", startYear: 2021, note: "最新季总负债 / 总资产" },
-  { key: "accrualsToAssets", nameZh: "应计比率", nameEn: "Accruals to Assets", category: "quality", higherIsBetter: false, requires: "fundamental", startYear: 2021, note: "(TTM 净利 − TTM OCF) / 平均总资产（高应计 = 盈余质量差）" },
+  { key: "roeTtm", nameZh: "TTM 净资产收益率", nameEn: "ROE (TTM)", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2012, note: "TTM 净利 / 平均股东权益（本季与 4 季前均值）" },
+  { key: "grossMargin", nameZh: "毛利率", nameEn: "Gross Margin", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2012, note: "最新可见季毛利率" },
+  { key: "opMargin", nameZh: "营业利润率", nameEn: "Operating Margin", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2012, note: "最新可见季营业利润率" },
+  { key: "ocfToNetIncome", nameZh: "现金含量", nameEn: "OCF / Net Income", category: "quality", higherIsBetter: true, requires: "fundamental", startYear: 2012, note: "TTM OCF / TTM 净利（净利>0 才给值）" },
+  { key: "debtToAssets", nameZh: "资产负债率", nameEn: "Debt to Assets", category: "quality", higherIsBetter: false, requires: "fundamental", startYear: 2012, note: "最新季总负债 / 总资产" },
+  { key: "accrualsToAssets", nameZh: "应计比率", nameEn: "Accruals to Assets", category: "quality", higherIsBetter: false, requires: "fundamental", startYear: 2012, note: "(TTM 净利 − TTM OCF) / 平均总资产（高应计 = 盈余质量差）" },
 
   // ── 成长 growth ────────────────────────────────────────────────────────────
-  { key: "revenueYoY", nameZh: "营收同比", nameEn: "Revenue YoY", category: "growth", higherIsBetter: true, requires: "fundamental", startYear: 2021, note: "最新可见季营收 / 上年同季 − 1（按 fiscalDate ±35 天匹配）" },
-  { key: "epsYoY", nameZh: "EPS 同比", nameEn: "EPS YoY", category: "growth", higherIsBetter: true, requires: "fundamental", startYear: 2021, note: "最新可见季 EPS / 上年同季 − 1（上年 EPS>0 才给值）" },
-  { key: "revenueAccel", nameZh: "营收加速度", nameEn: "Revenue Acceleration", category: "growth", higherIsBetter: true, requires: "fundamental", startYear: 2021, note: "本季营收 YoY − 上季营收 YoY" },
+  { key: "revenueYoY", nameZh: "营收同比", nameEn: "Revenue YoY", category: "growth", higherIsBetter: true, requires: "fundamental", startYear: 2012, note: "最新可见季营收 / 上年同季 − 1（按 fiscalDate ±35 天匹配）" },
+  { key: "epsYoY", nameZh: "EPS 同比", nameEn: "EPS YoY", category: "growth", higherIsBetter: true, requires: "fundamental", startYear: 2012, note: "最新可见季 EPS / 上年同季 − 1（上年 EPS>0 才给值）" },
+  { key: "revenueAccel", nameZh: "营收加速度", nameEn: "Revenue Acceleration", category: "growth", higherIsBetter: true, requires: "fundamental", startYear: 2012, note: "本季营收 YoY − 上季营收 YoY" },
 
   // ── 动量 momentum（前复权 adjClose 总收益口径） ────────────────────────────
   { key: "ret1m", nameZh: "近 1 月收益", nameEn: "1M Return", category: "momentum", higherIsBetter: true, requires: "price", startYear: 2000, note: "21 交易日总收益" },
@@ -76,12 +79,12 @@ export const FACTOR_DEFS: readonly FactorDef[] = [
   { key: "maxDrawdown12m", nameZh: "12 月最大回撤", nameEn: "12M Max Drawdown", category: "volatility", higherIsBetter: true, requires: "price", startYear: 2000, note: "252 日内 close/累计高点 − 1 的最小值（负数，越接近 0 越好）" },
 
   // ── 量价/流动性 liquidity ──────────────────────────────────────────────────
-  { key: "turnover20d", nameZh: "20 日换手率", nameEn: "20D Turnover", category: "liquidity", higherIsBetter: true, requires: "price+fundamental", startYear: 2021, note: "20 日均成交额 / PIT 市值（日频换手）" },
+  { key: "turnover20d", nameZh: "20 日换手率", nameEn: "20D Turnover", category: "liquidity", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "20 日均成交额 / PIT 市值（日频换手）" },
   { key: "dollarVolPctile", nameZh: "成交额分位", nameEn: "Dollar Volume Percentile", category: "liquidity", higherIsBetter: true, requires: "price", startYear: 2000, note: "20 日均成交额在当月宇宙内的分位数 0–1（成交额 = 名义价×名义量，拆股因子相消）" },
   { key: "volTrend20_120", nameZh: "量能趋势", nameEn: "Volume Trend 20/120", category: "liquidity", higherIsBetter: true, requires: "price", startYear: 2000, note: "20 日均量 / 120 日均量 − 1（放量为正；方向标注为中性偏多）" },
 
   // ── 规模 size ──────────────────────────────────────────────────────────────
-  { key: "logMarketCap", nameZh: "对数市值", nameEn: "Log Market Cap", category: "size", higherIsBetter: false, requires: "price+fundamental", startYear: 2021, note: "ln(PIT 市值)；小市值溢价方向" },
+  { key: "logMarketCap", nameZh: "对数市值", nameEn: "Log Market Cap", category: "size", higherIsBetter: false, requires: "price+fundamental", startYear: 2012, note: "ln(PIT 市值)；小市值溢价方向" },
 
   // ── 资金面 funding（SEC 13F 机构持仓，季频，PIT via filedAt；Phase 5） ──────────
   { key: "instOwnershipPct", nameZh: "机构持股占比", nameEn: "Institutional Ownership %", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "13F 合计持股（现拆股刻度）/ PIT 股本；可见期 = 报告期末+50 天" },
@@ -106,7 +109,7 @@ export function factorsByRequirement(
 
 /** 纯价格因子（2000 起可算） */
 export const PRICE_FACTOR_KEYS = factorsByRequirement("price").map((d) => d.key);
-/** 依赖基本面的因子（~2021 起） */
+/** 依赖基本面的因子（2012 起） */
 export const FUNDAMENTAL_FACTOR_KEYS = factorsByRequirement(
   "fundamental",
   "price+fundamental",

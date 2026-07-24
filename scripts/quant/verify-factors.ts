@@ -6,7 +6,8 @@
  *    样本含拆股股（NVDA/AAPL）与财年错位股（AAPL/MU）。
  * B. 无前视：取全量 Q 快照（不带 PIT 过滤），显式剔除 firstReportedAt 空/大于 T 的行后
  *    重算基本面因子，与装配层结果一致；并断言装配层结果内 max(firstReportedAt) ≤ T。
- * C. 覆盖率报表：技术面 2000 起 ≥95%（有价格宇宙内）、基本面 2021 起 ≥90%；
+ * C. 覆盖率报表：技术面 2000 起 ≥95%（有价格宇宙内）、基本面 2021 起 ≥90%、
+ *    注册表 startYear（2012）–2020 ≥75%；2010–2011 TTM 预热期单列不设门槛；
  *    退市无价格股单列。
  * D. 增量与全量一致性：抽一个月快照 → 重跑 --month → 逐行对比不变。
  * E. 行业聚合抽查：factor_sector_snapshot 与按 sector 现算的中位数/四分位一致。
@@ -470,10 +471,17 @@ async function partC() {
   `;
   const fundCount = new Map(fundRows.map((r) => [r.date.toISOString().slice(0, 10), Number(r.n)]));
 
+  // 基本面覆盖门槛：注册表 startYear 起用 P0 实测下限，2021 起沿用 Phase 1 的 90%。
+  // 2010–2011 是 TTM 预热期（实测 61%/76%），单列展示不设门槛。
+  const fundStartYear = Math.min(...FUNDAMENTAL_FACTOR_KEYS.map((k) => FACTOR_MAP.get(k)!.startYear));
+  const FUND_MIN_EARLY = 0.75;
+  const FUND_MIN_MODERN = 0.9;
+
   const dates = [...universeCount.keys()].sort();
   const byYear = new Map<string, { tech: number[]; fund: number[]; unpriced: number[] }>();
   let techBad = 0;
   let fundBad = 0;
+  let fundBadEarly = 0;
   for (const d of dates) {
     const y = d.slice(0, 4);
     const g = byYear.get(y) ?? byYear.set(y, { tech: [], fund: [], unpriced: [] }).get(y)!;
@@ -482,28 +490,55 @@ async function partC() {
       const tc = (techCount.get(d) ?? 0) / priced;
       g.tech.push(tc);
       if (d >= "2000-01-01" && tc < 0.95) techBad++;
+      const fc = (fundCount.get(d) ?? 0) / priced;
+      g.fund.push(fc);
       if (d >= "2021-01-01") {
-        const fc = (fundCount.get(d) ?? 0) / priced;
-        g.fund.push(fc);
-        if (fc < 0.9) fundBad++;
+        if (fc < FUND_MIN_MODERN) fundBad++;
+      } else if (Number(y) >= fundStartYear) {
+        if (fc < FUND_MIN_EARLY) fundBadEarly++;
       }
     }
     g.unpriced.push(unpricedUniverse.get(d) ?? 0);
   }
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-  console.log("  年份  技术面均值  技术面最低  基本面均值  宇宙内无价格股均值");
+  console.log("  年份  技术面均值  技术面最低  基本面均值  基本面最低  宇宙内无价格股均值");
   for (const [y, g] of [...byYear.entries()].sort()) {
     const f = (x: number | null) => (x == null ? "   -  " : (x * 100).toFixed(1).padStart(5) + "%");
+    const warm = Number(y) < fundStartYear && g.fund.some((x) => x > 0) ? "  ← TTM 预热期，不计门槛" : "";
     console.log(
-      `  ${y}  ${f(avg(g.tech))}     ${f(g.tech.length ? Math.min(...g.tech) : null)}     ${f(avg(g.fund))}     ${avg(g.unpriced)?.toFixed(1)}`,
+      `  ${y}  ${f(avg(g.tech))}     ${f(g.tech.length ? Math.min(...g.tech) : null)}     ${f(avg(g.fund))}     ${f(g.fund.length ? Math.min(...g.fund) : null)}     ${avg(g.unpriced)?.toFixed(1)}${warm}`,
     );
   }
   check(techBad === 0, "C 技术面覆盖 ≥95%（2000 起，有价格宇宙）", `${techBad} 个月不达标`);
   check(fundBad === 0, "C 基本面覆盖 ≥90%（2021 起，有价格宇宙）", `${fundBad} 个月不达标`);
+  check(
+    fundBadEarly === 0,
+    `C 基本面覆盖 ≥${(FUND_MIN_EARLY * 100).toFixed(0)}%（${fundStartYear}–2020，有价格宇宙）`,
+    `${fundBadEarly} 个月不达标`,
+  );
   const delistedNoPrice = await prisma.equityDelisting.count({
     where: { priceStatus: { in: ["not_found", "no_data"] } },
   });
   console.log(`  退市无价格股（delisting 表 not_found/no_data）：${delistedNoPrice} 只（单列，不计覆盖率分母）`);
+
+  // 荒谬值扫描（深历史回填踩过的坑）：股本口径错会让 PIT 市值差几个数量级 →
+  // earningsYield 冲到几百甚至上千（P/E < 0.01），直接污染价值策略选股。
+  // 实证：SPG 只有 8000 股的脏值行、BRK-B 只有 A 类股本、KLA 拆股晚于最新财报。
+  const absurd = await prisma.$queryRaw<{ symbol: string; date: Date; value: number }[]>`
+    SELECT symbol, date, value FROM mds.factor_snapshot
+    WHERE factor_key = 'earningsYield' AND value > 2
+    ORDER BY value DESC LIMIT 5
+  `;
+  for (const r of absurd) {
+    console.log(`  ✗ 荒谬 earningsYield：${r.symbol} ${r.date.toISOString().slice(0, 10)} = ${r.value.toFixed(1)}`);
+  }
+  check(absurd.length === 0, "C 无荒谬估值（earningsYield ≤ 2，即 P/E ≥ 0.5）", `${absurd.length} 行超标`);
+
+  const tinyCap = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT COUNT(*) AS n FROM mds.factor_snapshot
+    WHERE factor_key = 'logMarketCap' AND exp(value) < 1e8
+  `;
+  check(Number(tinyCap[0]?.n ?? 0) === 0, "C 无荒谬市值（PIT 市值 ≥ 1 亿美元）", `${tinyCap[0]?.n ?? 0} 行超标`);
 }
 
 async function partD() {
@@ -521,7 +556,12 @@ async function partD() {
   const before = new Map(beforeRows.map((r) => [key(r), r]));
 
   console.log(`  重跑 quant:build-factors --month=${M} …`);
-  execSync(`npx tsx scripts/quant/build-factors.ts --month=${M}`, { stdio: "pipe" });
+  // 子进程给足堆：技术面 pass 要把全宇宙日线分批载内存，13F 预载又占几百 MB，
+  // node 默认 ~2GB 上限在本机是压线状态（实测会 OOM）。
+  execSync(`npx tsx scripts/quant/build-factors.ts --month=${M}`, {
+    stdio: "pipe",
+    env: { ...process.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --max-old-space-size=4096`.trim() },
+  });
 
   const afterRows = await prisma.factorSnapshot.findMany({
     where: { date: { gte: new Date("2024-03-01T00:00:00.000Z"), lt: new Date("2024-04-01T00:00:00.000Z") } },

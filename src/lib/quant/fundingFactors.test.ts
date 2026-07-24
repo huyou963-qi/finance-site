@@ -37,6 +37,21 @@ describe("aggregatePeriods", () => {
     assert.equal(p!.visibilityIso, addDaysIso("2024-12-31", FILING_WINDOW_DAYS));
   });
 
+  it("同 filer 同日多条：按 shares/value 全序取主仓，与行序无关", () => {
+    // 13F INFOTABLE 同一 filer 同期常有多条同日行（全库 4.3 万组）。
+    // 若按「先到者胜」，DB 行序变化会让 HHI 在末位抖动，经截面 zscore 放大后
+    // 「增量重建 == 全量」的逐行比对就会失败。
+    const rows = [
+      h("A", "2024-12-31", "2025-01-20", 60),
+      h("A", "2024-12-31", "2025-01-20", 25), // 同日次仓
+      h("B", "2024-12-31", "2025-01-25", 40),
+    ];
+    const [p1] = aggregatePeriods(rows);
+    const [p2] = aggregatePeriods([rows[1]!, rows[0]!, rows[2]!]);
+    assert.equal(p1!.totalShares, 100, "取 60 而非 25");
+    assert.deepEqual(p1, p2, "换行序结果不变");
+  });
+
   it("同 filer 多份 filing 取窗口内最新（修正）", () => {
     const rows = [
       h("A", "2024-12-31", "2025-01-20", 50),

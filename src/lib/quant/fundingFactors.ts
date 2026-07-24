@@ -66,8 +66,17 @@ export function aggregatePeriods(
       filers = new Map();
       byPeriod.set(h.periodEndIso, filers);
     }
+    // 同一 filer 同一期可能有多条同日行（多个投资决定权类别/多笔持仓，全库实测 4.3 万组）。
+    // 只按 filedAt 比较时「先到者胜」，结果取决于 DB 返回行序 → 同样输入两次跑出不同 HHI
+    // （verify-factors D 段逐行比对因此失败）。这里给出全序：filedAt → shares → value，
+    // 取该 filer 的主仓，判定与行序无关。
     const cur = filers.get(h.filerCik);
-    if (!cur || h.filedAtIso > cur.filedAtIso) filers.set(h.filerCik, h);
+    const better =
+      !cur ||
+      h.filedAtIso > cur.filedAtIso ||
+      (h.filedAtIso === cur.filedAtIso &&
+        (h.shares > cur.shares || (h.shares === cur.shares && h.value > cur.value)));
+    if (better) filers.set(h.filerCik, h);
   }
 
   const out: PeriodAgg[] = [];

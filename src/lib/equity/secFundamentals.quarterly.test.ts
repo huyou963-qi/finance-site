@@ -558,3 +558,154 @@ test("computeValuation：现价×股本 → 市值与倍数；股本缺失退回
   assert.equal(v2.marketCap, 888);
   assert.equal(v2.marketCapSource, "profile");
 });
+
+// ── P0 深历史回填（2010 起）暴露的两类问题 ────────────────────────────────────
+
+test("scaleFactorsBackward：两次拆股复合（AAPL 7:1 × 4:1 = 28）", () => {
+  // 中段被脏点/口径交替打断时，一步内要跨过两次拆股——单因子表里没有 28
+  const raw = [900, 910, 25_480, 25_000, 24_500];
+  const factors = scaleFactorsBackward(raw);
+  assert.equal(factors[0], 28);
+  assert.equal(factors[1], 28);
+  assert.equal(factors[2], 1);
+});
+
+test("scaleFactorsBackward：脏点判 null 且不毒化更早历史（AAPL 2014-03 型）", () => {
+  // 索引 2 是 4 个数量级偏离的脏值：旧实现会把它当新参考，
+  // 导致其之前（索引 0/1）的拆前口径整段留在错误刻度
+  const raw = [900, 910, 0.86, 5990, 5870, 5820];
+  const factors = scaleFactorsBackward(raw);
+  assert.equal(factors[2], null, "脏点应判 null 供调用方丢弃");
+  assert.equal(factors[0], 7, "脏点之前仍按 7:1 归一，参考未被毒化");
+  assert.equal(factors[1], 7);
+  assert.equal(factors[3], 1);
+});
+
+test("scaleFactorsBackward：非整数比的大额增发接受为新参考（不判脏、不换算）", () => {
+  // 1.4 倍增发：落在 1 与 2 的容差带之间，任何拆股因子都解释不了，且 <20 倍
+  // → 保持原值并以其为新参考（整数倍增发与「反向拆股重述」在数据上不可区分，
+  // 仍会被当拆股，属既有口径）
+  const raw = [1000, 1020, 1430, 1440];
+  const factors = scaleFactorsBackward(raw);
+  assert.equal(factors[2], 1);
+  assert.equal(factors[0], 1);
+  assert.equal(factors[1], 1);
+});
+
+test("extractQuarterlyFundamentals：换 tag 时代拼接（口径一致才接，深历史的关键）", () => {
+  // 新 tag 只覆盖 2023 起，旧 tag 覆盖 2022–2023（重叠 4 季且值一致）→ 应接出 8 季
+  const newTag: ReturnType<typeof dur>[] = [];
+  const oldTag: ReturnType<typeof dur>[] = [];
+  const q = (y: number, i: number): [string, string] =>
+    [
+      [`${y}-01-01`, `${y}-03-31`],
+      [`${y}-04-01`, `${y}-06-30`],
+      [`${y}-07-01`, `${y}-09-30`],
+      [`${y}-10-01`, `${y}-12-31`],
+    ][i] as [string, string];
+  for (const y of [2022, 2023]) {
+    for (let i = 0; i < 4; i++) {
+      const [s, e] = q(y, i);
+      // 旧 tag 到 2023Q2 为止（换 tag 当年并行披露两季 → 重叠期），新 tag 覆盖 2023 全年
+      if (y === 2022 || i < 2) oldTag.push(dur(s, e, 100 + i, "10-Q", `${y}-12-31`));
+      if (y === 2023) newTag.push(dur(s, e, 100 + i, "10-Q", `${y}-12-31`));
+    }
+  }
+  const facts = {
+    facts: {
+      "us-gaap": {
+        RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: newTag } },
+        SalesRevenueNet: { units: { USD: oldTag } },
+      },
+    },
+  };
+  const rows = extractQuarterlyFundamentals(facts, { maxQuarters: 40 });
+  assert.equal(rows.length, 8, "旧 tag 时代应被接到前面");
+  assert.equal(rows[0]!.period, "2022Q1");
+
+  // 口径不一致（旧 tag 只有主口径的 30%，如手续费收入 vs 总收入）→ 不接，
+  // 只留新 tag 时代（宁缺勿错：接缝会造出假 YoY 与假估值）
+  const factsMismatch = {
+    facts: {
+      "us-gaap": {
+        RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: newTag } },
+        SalesRevenueNet: {
+          units: { USD: oldTag.map((p) => ({ ...p, val: p.val * 0.3 })) },
+        },
+      },
+    },
+  };
+  const rows2 = extractQuarterlyFundamentals(factsMismatch, { maxQuarters: 40 });
+  assert.equal(rows2.length, 4);
+  assert.equal(rows2[0]!.period, "2023Q1");
+});
+
+test("extractQuarterlyFundamentals：银行合成营收作常备拼接来源（非仅空值兜底）", () => {
+  // 银行没有单一总营收 tag：现行 tag 只覆盖 2018 起，深历史在净利息收入 + 非利息收入两支里。
+  // 旧实现只在「主候选为空」时才合成 → WFC 这类主候选非空的银行被卡在 2018。
+  const q = (y: number, i: number): [string, string] =>
+    [
+      [`${y}-01-01`, `${y}-03-31`],
+      [`${y}-04-01`, `${y}-06-30`],
+      [`${y}-07-01`, `${y}-09-30`],
+      [`${y}-10-01`, `${y}-12-31`],
+    ][i] as [string, string];
+  const modern: ReturnType<typeof dur>[] = [];
+  const nii: ReturnType<typeof dur>[] = [];
+  const nonInt: ReturnType<typeof dur>[] = [];
+  for (const y of [2016, 2017, 2018]) {
+    for (let i = 0; i < 4; i++) {
+      const [s, e] = q(y, i);
+      nii.push(dur(s, e, 60, "10-Q", `${y}-12-31`));
+      nonInt.push(dur(s, e, 40, "10-Q", `${y}-12-31`));
+      if (y === 2018) modern.push(dur(s, e, 100, "10-Q", `${y}-12-31`));
+    }
+  }
+  const facts = {
+    facts: {
+      "us-gaap": {
+        RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: modern } },
+        InterestIncomeExpenseNet: { units: { USD: nii } },
+        NoninterestIncome: { units: { USD: nonInt } },
+      },
+    },
+  };
+  const rows = extractQuarterlyFundamentals(facts, { maxQuarters: 40 });
+  assert.equal(rows.length, 12, "应拼回 2016–2018 共 12 季");
+  assert.equal(rows[0]!.period, "2016Q1");
+  assert.equal(rows[0]!.revenue, 100, "合成营收 = 净利息 60 + 非利息 40");
+});
+
+test("eraSplice：只用接缝处的连续重叠估比值（远端垃圾点不参与）", () => {
+  // 旧 tag 在接缝后 3 季与主序列 99% 吻合，更晚只剩年度点差分出的垃圾季（值仅 28%）。
+  // 若把远端垃圾一起计入中位数，会把这条本可拼接的旧序列否掉。
+  const q = (y: number, i: number): [string, string] =>
+    [
+      [`${y}-01-01`, `${y}-03-31`],
+      [`${y}-04-01`, `${y}-06-30`],
+      [`${y}-07-01`, `${y}-09-30`],
+      [`${y}-10-01`, `${y}-12-31`],
+    ][i] as [string, string];
+  const modern: ReturnType<typeof dur>[] = [];
+  const legacy: ReturnType<typeof dur>[] = [];
+  for (const y of [2020, 2021, 2022]) {
+    for (let i = 0; i < 4; i++) {
+      const [s, e] = q(y, i);
+      if (y >= 2021) modern.push(dur(s, e, 100, "10-Q", `${y}-12-31`));
+      if (y <= 2020) legacy.push(dur(s, e, 100, "10-Q", `${y}-12-31`));
+      if (y === 2021) legacy.push(dur(s, e, 100, "10-Q", `${y}-12-31`)); // 接缝处连续重叠
+      if (y === 2022 && i === 1) legacy.push(dur(s, e, 28, "10-Q", `${y}-12-31`)); // 远端垃圾点
+    }
+  }
+  const facts = {
+    facts: {
+      "us-gaap": {
+        RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: modern } },
+        SalesRevenueNet: { units: { USD: legacy } },
+      },
+    },
+  };
+  const rows = extractQuarterlyFundamentals(facts, { maxQuarters: 40 });
+  assert.equal(rows.length, 12);
+  assert.equal(rows[0]!.period, "2020Q1");
+});

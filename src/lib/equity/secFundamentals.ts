@@ -90,7 +90,17 @@ function firstConcept(
   return undefined;
 }
 
-export async function fetchSecCompanyFacts(cik: string): Promise<unknown> {
+/**
+ * companyfacts 单文件常有数 MB（大盘股 4–20MB），慢链路下 10s 不够；
+ * 批量深历史回填走 `SEC_FETCH_TIMEOUT_MS`（或显式 timeoutMs）放宽，
+ * 页面懒回补路径保持 10s 默认以免拖住渲染。
+ */
+export async function fetchSecCompanyFacts(
+  cik: string,
+  opts: { timeoutMs?: number } = {},
+): Promise<unknown> {
+  const timeoutMs =
+    opts.timeoutMs ?? (Number(process.env.SEC_FETCH_TIMEOUT_MS) || 10_000);
   const padded = padCik(cik);
   const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${padded}.json`;
   const res = await fetch(url, {
@@ -99,7 +109,7 @@ export async function fetchSecCompanyFacts(cik: string): Promise<unknown> {
       "User-Agent": SEC_UA,
       Accept: "application/json",
     },
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
     throw new Error(`SEC companyfacts CIK${padded} HTTP ${res.status}`);
@@ -459,21 +469,22 @@ function pickFlowQuarterSeries(
   gaap: Record<string, SecConcept>,
   names: readonly string[],
   unitKeys: string[],
-  opts: { magnitudeTieBreak?: boolean } = {},
+  opts: { magnitudeTieBreak?: boolean; extraSeries?: FlowQuarter[][] } = {},
 ): FlowQuarter[] {
   type Cand = { series: FlowQuarter[]; lastEnd: string; magnitude: number };
   const cands: Cand[] = [];
-  for (const name of names) {
-    const pts = pickUnitPoints(gaap[name], unitKeys);
-    const series = quarterlyFlowSeries(pts);
-    if (!series.length) continue;
+  const addCand = (series: FlowQuarter[]) => {
+    if (!series.length) return;
     const last4 = series.slice(-4);
     cands.push({
       series,
       lastEnd: series[series.length - 1]!.end,
       magnitude: last4.reduce((s, q) => s + Math.abs(q.val), 0),
     });
-  }
+  };
+  for (const name of names) addCand(quarterlyFlowSeries(pickUnitPoints(gaap[name], unitKeys)));
+  // 合成候选（如「商品+服务」营收）排在具名 tag 之后：只作拼接来源，不抢主候选
+  for (const s of opts.extraSeries ?? []) addCand(s);
   if (!cands.length) return [];
 
   const maxEndMs = Math.max(...cands.map((c) => dateMs(c.lastEnd)));
@@ -485,11 +496,38 @@ function pickFlowQuarterSeries(
     }
   }
 
+  const merged = best.series.map((q) => ({ ...q }));
+
+  // 换 tag 时代拼接（深历史的关键）：主候选只覆盖「现行 tag 时代」——AAPL 的
+  // RevenueFromContractWithCustomer 只到 2017-09、MSFT 只到 2016-06，更早的营收在
+  // SalesRevenueNet 下（2007/2009 起）。把口径一致的旧时代段接到前面，历史才能回到
+  // 2010 以前；不接则整条链路（TTM/估值/成长）在换 tag 年份处硬截断。
+  // 安全阀：只接重叠期一致（eraSegmentsAgree）的候选，可链式接多代（新 tag→SalesRevenueNet→Revenues）。
+  const splicedFrom = new Set<(typeof cands)[number]>([best]);
+  for (;;) {
+    const earliest = merged[0]?.end;
+    if (!earliest) break;
+    let picked: { cand: (typeof cands)[number]; factor: number } | null = null;
+    for (const c of cands) {
+      if (splicedFrom.has(c) || !c.series.some((q) => q.end < earliest)) continue;
+      const factor = eraSpliceFactor(merged, c.series);
+      if (factor == null) continue;
+      picked = { cand: c, factor };
+      break;
+    }
+    if (!picked) break;
+    splicedFrom.add(picked.cand);
+    merged.unshift(
+      ...picked.cand.series
+        .filter((q) => q.end < earliest)
+        .map((q) => ({ ...q, val: q.val * picked!.factor })),
+    );
+  }
+
   // PIT 首披露日跨候选合并：换 tag 公司（GOOGL 2025 起换营收 tag）在新 tag 下的
   // 旧季度事实来自后续财报对比列（firstFiled 晚一年），但市场当时在旧 tag 下已见到
   // 同一数值。同 (end) 且值接近（±2%）的其他候选若首披露更早，则采用其更早 filed；
   // 值差大的不合并（JPM 手续费收入 vs 总收入是不同口径，早披露不等于本口径可见）。
-  const merged = best.series.map((q) => ({ ...q }));
   for (const c of cands) {
     if (c === best) continue;
     const byEnd = new Map(c.series.map((q) => [q.end, q]));
@@ -503,6 +541,62 @@ function pickFlowQuarterSeries(
     }
   }
   return merged;
+}
+
+/** 换 tag 时代拼接的重叠门槛：至少 2 个重叠季 */
+const ERA_SPLICE_MIN_OVERLAP = 2;
+/**
+ * 只取**接缝处那段连续重叠**估比值：从主序列最早端起，遇到第一个没有重叠的季就停。
+ * 拼接要的是接缝处的水平连续性；离接缝远的零星重叠往往已是垃圾点
+ * （ORCL 的 Revenues 2018 后只剩 FY 点，差分出的「季度」只有真值的 28%，
+ * 把它们计进中位数会否掉这条在接缝处 99% 吻合的旧序列）。上限兜底 12 季。
+ */
+const ERA_SPLICE_MAX_SAMPLES = 12;
+/**
+ * 重叠期比值必须稳定：偏离中位数的**中位数** ≤2%。
+ * 取中位数而非最大值——ASC606 过渡期常有个别季被重述（MSFT 7 个重叠季里 6 个完全一致、
+ * 1 个差 9.8%），按最大值会把这类可靠拼接一并拒掉；而真正的异口径（KO 的
+ * Revenues vs SalesRevenueGoodsNet 各季 ±5% 乱跳）中位偏离本身就超阈值，仍会被拒。
+ */
+const ERA_SPLICE_RATIO_STABILITY = 0.02;
+/** 比值中位数须落在此带内：±15% 视为同口径的细微差（如「商品营收」漏掉少量服务收入），
+ *  超出（如银行手续费 vs 总收入的 3 倍）是两回事，拒绝拼接 */
+const ERA_SPLICE_RATIO_MIN = 0.85;
+const ERA_SPLICE_RATIO_MAX = 1.18;
+
+/**
+ * 换 tag 时代拼接的链接系数：旧序列 × 系数 = 主序列刻度。
+ * 返回 null = 不可拼接（重叠不足 / 比值不稳 / 量级差太大）。
+ *
+ * 为什么要系数而不是直接接上：ASC606 之前的营收 tag 常只覆盖「商品」部分，
+ * 比总营收低几个点（KO 实测 5.2%）。直接接会在接缝处造出假的营收 YoY，
+ * 并让旧时代的 salesYield 系统性偏低；按重叠期的稳定比值链接则两者都消掉。
+ * 拒绝拼接时表现为「缺失」而非错值（沿用 Phase 1 三道守卫的口径）。
+ */
+function eraSpliceFactor(
+  main: readonly { end: string; val: number }[],
+  older: readonly { end: string; val: number }[],
+): number | null {
+  const olderByEnd = new Map(older.map((q) => [q.end, q.val]));
+  const ratios: number[] = [];
+  // main 已按期末升序 → 从最早（= 最靠近接缝）开始取那段**连续**重叠
+  for (const q of main) {
+    const o = olderByEnd.get(q.end);
+    if (o == null || o === 0 || q.val === 0) {
+      if (ratios.length) break; // 连续段结束
+      continue; // 还没进入重叠段
+    }
+    ratios.push(q.val / o);
+    if (ratios.length >= ERA_SPLICE_MAX_SAMPLES) break;
+  }
+  if (ratios.length < ERA_SPLICE_MIN_OVERLAP) return null;
+  const sorted = [...ratios].sort((x, y) => x - y);
+  const median = sorted[Math.floor(sorted.length / 2)]!;
+  if (!Number.isFinite(median) || median <= 0) return null;
+  if (median < ERA_SPLICE_RATIO_MIN || median > ERA_SPLICE_RATIO_MAX) return null;
+  const devs = ratios.map((r) => Math.abs(r / median - 1)).sort((x, y) => x - y);
+  if (devs[Math.floor(devs.length / 2)]! > ERA_SPLICE_RATIO_STABILITY) return null;
+  return median;
 }
 
 /** 两条单季序列按同期末求和（仅两侧都有值的季度），用于银行合成营收 */
@@ -574,15 +668,42 @@ function yoyQuarter(series: FlowQuarter[], idx: number): number | null {
 const SPLIT_FACTORS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 50, 100];
 
 /**
+ * 候选倍数 = 1 + 单次拆股 + **同向两次复合**（AAPL 2014 的 7:1 叠 2020 的 4:1 = 28，
+ * 单因子表里没有 28，深历史里两次拆股会在一步内被跨过——只给单因子会误选 25/30）。
+ * 只做同向复合、上限 200：混向乘积（5/4=1.25、4/3=1.33…）会落进自然漂移带，
+ * 把大额回购/增发误判成拆股。
+ */
+const SPLIT_CANDIDATES = (() => {
+  const up = new Set<number>(SPLIT_FACTORS);
+  for (const a of SPLIT_FACTORS) {
+    for (const b of SPLIT_FACTORS) {
+      if (a * b <= 200) up.add(a * b);
+    }
+  }
+  return [1, ...up, ...[...up].map((f) => 1 / f)];
+})();
+
+/** 自然漂移带（回购/增发）：相邻比值落此带内不认为发生拆股 */
+const DRIFT_BAND_LOG = Math.log(1.33);
+/**
+ * 脏点门槛：与参考差 20 倍以上、又无法用任何拆股因子解释的点（如 AAPL 2014-03-29 的
+ * CommonStockSharesOutstanding = 8.6e5，比真值小 4 个数量级）。这类点若被「接受为新参考」，
+ * 会把它之前的全部历史钉死在错误刻度上（实测：AAPL 2008–2013 股本整段留在拆股前刻度，
+ * PIT 市值差 28 倍）。故判为脏点：丢弃该点且不更新参考。
+ */
+const JUNK_RATIO = 20;
+
+/**
  * 股本类序列的拆股口径归一（后向游走）。
  * 问题：XBRL 历史点是否按最新拆股口径重述，取决于「该期末最后一次被哪份财报披露」，
  * 因此拆股后（如 DECK 2024-09 的 6:1）序列会混杂拆前/拆后口径、甚至交替跳变。
  * 做法：从最新值往回走，相邻比值落在 [0.75,1.33] 视为自然漂移；否则尝试乘/除一个
- * 简单整数因子把它拉回参考带。返回每行「换算到最新口径」的乘数。
+ * 拆股倍数把它拉回参考带。
+ *
+ * 返回每行「换算到最新口径」的乘数；**null = 该点判为脏值，调用方应丢弃**。
  */
-export function scaleFactorsBackward(values: (number | null)[]): number[] {
-  const candidates = [1, ...SPLIT_FACTORS, ...SPLIT_FACTORS.map((f) => 1 / f)];
-  const factors: number[] = new Array(values.length).fill(1);
+export function scaleFactorsBackward(values: (number | null)[]): (number | null)[] {
+  const factors: (number | null)[] = new Array(values.length).fill(1);
   let ref: number | null = null;
   for (let i = values.length - 1; i >= 0; i--) {
     const v = values[i];
@@ -594,16 +715,18 @@ export function scaleFactorsBackward(values: (number | null)[]): number[] {
     // 容差带内可能有多个因子命中（如 ×5 与 ×6 都落带内），取对数偏差最小者
     let best = 1;
     let bestDev = Infinity;
-    for (const f of candidates) {
+    for (const f of SPLIT_CANDIDATES) {
       const dev = Math.abs(Math.log((v * f) / ref));
       if (dev < bestDev) {
         bestDev = dev;
         best = f;
       }
     }
-    if (bestDev <= Math.log(1.33)) {
+    if (bestDev <= DRIFT_BAND_LOG) {
       factors[i] = best;
       ref = v * best;
+    } else if (Math.max(v / ref, ref / v) > JUNK_RATIO) {
+      factors[i] = null; // 脏点：丢弃，参考不动（否则毒化其之前的整段历史）
     } else {
       // 无法用拆股解释的跳变（大额增发/回购等）：接受为新参考，不做换算
       ref = v;
@@ -648,16 +771,24 @@ export function extractQuarterlyFundamentals(
   const flowSeries = (names: readonly string[], unitKeys: string[]) =>
     pickFlowQuarterSeries(gaap, names, unitKeys);
 
-  let revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
+  // 深历史拼接来源（都不进主候选表，只在时代拼接时按口径一致性择用）：
+  // 1) ASC606（2018 生效）之前营收常拆成「商品 / 服务」两个 tag —— 现行 tag 最早只到 2017
+  //    （10-K 重述的对比年），2010–2016 的营收几乎都挂在旧 tag 上。只取商品会比总营收低
+  //    几个点（KO 实测 5.2%），故先合成总额；纯服务公司（CRM/ORCL）则走 services 单支。
+  // 2) 银行没有单一总营收 tag：总营收 = 净利息收入 + 非利息收入（与 RevenuesNetOfInterestExpense
+  //    同口径）。这条**不能只作「主候选为空」的兜底**——WFC/FITB/USB 这类主候选非空但只覆盖
+  //    2018 起，深历史全在 NII/非息两支里（2008 起），必须作为常备拼接来源。
+  const goodsQ = pickFlowQuarterSeries(gaap, ["SalesRevenueGoodsNet"], ["USD"]);
+  const servicesQ = pickFlowQuarterSeries(gaap, ["SalesRevenueServicesNet"], ["USD"]);
+  const preAsc606Total = goodsQ.length && servicesQ.length ? sumFlowSeries(goodsQ, servicesQ) : [];
+  const nii = pickFlowQuarterSeries(gaap, ["InterestIncomeExpenseNet"], ["USD"]);
+  const nonInterest = pickFlowQuarterSeries(gaap, ["NoninterestIncome"], ["USD"]);
+  const bankTotal = nii.length && nonInterest.length ? sumFlowSeries(nii, nonInterest) : [];
+
+  const revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
     magnitudeTieBreak: true,
+    extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal],
   });
-  if (!revenueQ.length) {
-    // 银行兜底（RF/SYF/TFC 等无总营收单一 tag）：
-    // 总营收 = 净利息收入 + 非利息收入，与 RevenuesNetOfInterestExpense 同口径
-    const nii = pickFlowQuarterSeries(gaap, ["InterestIncomeExpenseNet"], ["USD"]);
-    const nonInterest = pickFlowQuarterSeries(gaap, ["NoninterestIncome"], ["USD"]);
-    if (nii.length && nonInterest.length) revenueQ = sumFlowSeries(nii, nonInterest);
-  }
   if (!revenueQ.length) return [];
 
   const grossQ = flowSeries(FLOW_CONCEPTS.grossProfit, ["USD"]);
@@ -779,12 +910,13 @@ export function extractQuarterlyFundamentals(
     r.fiscalQuarter = ((((3 + (i - nearest)) % 4) + 4) % 4) + 1;
   });
 
-  // ① 流通股本拆股归一（自身序列后向游走）
+  // ① 流通股本拆股归一（自身序列后向游走）；factor=null 是脏点，丢弃而非留错值
   const shareFactors = scaleFactorsBackward(out.map((r) => r.sharesOutstanding));
   out.forEach((r, i) => {
-    if (r.sharesOutstanding != null && shareFactors[i] !== 1) {
-      r.sharesOutstanding = r.sharesOutstanding * shareFactors[i]!;
-    }
+    if (r.sharesOutstanding == null) return;
+    const f = shareFactors[i];
+    if (f == null) r.sharesOutstanding = null;
+    else if (f !== 1) r.sharesOutstanding = r.sharesOutstanding * f;
   });
 
   // ② 差分推导的 EPS 可能被「FY 与 YTD9 相对拆股的重述进度不同」污染（如 NVDA FY2023 Q4，
@@ -808,7 +940,10 @@ export function extractQuarterlyFundamentals(
   );
   const epsFactors = scaleFactorsBackward(impliedShares);
   out.forEach((r, i) => {
-    if (r.eps != null && epsFactors[i] !== 1) r.eps = r.eps / epsFactors[i]!;
+    if (r.eps == null) return;
+    const f = epsFactors[i];
+    if (f == null) r.eps = null; // 隐含股本判脏 → EPS 刻度不可信，丢弃
+    else if (f !== 1) r.eps = r.eps / f;
   });
 
   // ④ 归一后按统一口径重算 epsYoY（上年同一日历季度标签）

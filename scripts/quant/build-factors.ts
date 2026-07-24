@@ -38,8 +38,14 @@ import { loadFundingPeriods } from "../../src/lib/quant/fundingData";
 import { FACTOR_MAP } from "../../src/lib/quant/factorRegistry";
 
 const BENCHMARK_SYMBOL = "SPY";
-/** 基本面 pass 起点（Q 快照回填窗口 ~2020H2 起，更早月份全空，跳过省查询） */
-const FUNDAMENTAL_MIN_DATE = "2020-06-01";
+/**
+ * 基本面 pass 起点 = Q 快照的数据下限，用 --fundamental-from=YYYY-MM-DD 覆盖。
+ * 注意这是**第二道硬门槛**：即使 equity_fundamental_snapshot 已回填到 2009，
+ * 这里不下调，早于该日的月份根本不查基本面，因子表照样只有近几年
+ * （factorRegistry.startYear 是第三道，管回测起点与 screener 置灰）。
+ * 2026-07 P0 深历史回填后从 2020-06-01 下调到 2010-01-01。
+ */
+const FUNDAMENTAL_MIN_DATE = argValue("--fundamental-from") ?? "2010-01-01";
 const PRICE_BATCH = 30;
 const INSERT_CHUNK = 1000;
 
