@@ -1,0 +1,2 @@
+# Shell scripts run on the Linux cloud server — force LF so CRLF never breaks bash.
+*.sh text eol=lf
