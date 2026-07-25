@@ -12,7 +12,11 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # 正常一趟部署 ~20min（scp 228MB 约 22s + 服务器 db:migrate/data:apply 约 16min）。
+    # 曾出过一次 scp 被卡 33min 后 job 超时被 cancel——根因是当时有人在同一台服务器手工
+    # 导 dump，磁盘/CPU 争抢触发 TCP 背压把入网压到 ~1Mbit（不是网络限速，平时 scp 很快）。
+    # 故把总超时从 35 抬到 60，给偶发的资源争抢留余量；并给 scp 加保活探测（见下）快速失败。
+    timeout-minutes: 60
     env:
       DEPLOY_USER: root
       DEPLOY_PATH: /opt/finance-site
@@ -71,7 +75,16 @@ jobs:
         run: ssh-keyscan -H -p "${DEPLOY_PORT}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Copy tarball to server
-        run: scp -P "${DEPLOY_PORT}" deploy.tar.gz "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
+        # 两层防护：① 保活探测——连接真断（网络瞬挂）时 ~90s（15s×6）内报错退出、外层重试
+        # 一次，不干等到 job 超时；② 若是服务器背压（连接活着但被压到 ~1Mbit 慢传），保活探测
+        # 抓不到，靠上面抬高的 timeout-minutes=60 兜底让它传完。
+        run: |
+          scp_once() {
+            scp -P "${DEPLOY_PORT}" \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
+              deploy.tar.gz "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
+          }
+          scp_once || { echo "::warning::scp 首次失败，10s 后重试一次"; sleep 10; scp_once; }
 
       - name: Extract and restart on server
         run: |
