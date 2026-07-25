@@ -28,6 +28,17 @@ import {
 } from "@/lib/quant/screener";
 import type { StrategyRow } from "@/lib/quant/screenerStrategies";
 
+/**
+ * 基本面因子的最早可用年 = 注册表里含 fundamental 的因子中最小的 startYear。
+ * 从注册表推导、勿硬编码——深历史回填下调 startYear 时这里自动跟随
+ * （早先横幅/脚注写死 2021，回填到 2012 后就成了错误提示）。
+ */
+const FUNDAMENTAL_START_YEAR = Math.min(
+  ...FACTOR_DEFS.filter(
+    (d) => d.requires === "fundamental" || d.requires === "price+fundamental",
+  ).map((d) => d.startYear),
+);
+
 const CATEGORY_LABELS: Record<FactorCategory, string> = {
   valuation: "估值",
   quality: "质量",
@@ -545,9 +556,9 @@ export function EquityScreenerClient() {
               已钉定该截面（随策略保存）
             </span>
           ) : null}
-          {effectiveYear < 2021 ? (
+          {effectiveYear < FUNDAMENTAL_START_YEAR ? (
             <span className="text-xs text-amber-500">
-              所选日期早于 2021：基本面/估值类因子无数据，已置灰
+              所选日期早于 {FUNDAMENTAL_START_YEAR}：基本面/估值类因子无数据，已置灰
             </span>
           ) : null}
           <label className="ml-4 text-sm text-fs-muted">最小市值</label>
@@ -930,7 +941,7 @@ export function EquityScreenerClient() {
         </>
       ) : (
         <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">
-          配置条件后点击「查询」；支持任意历史月末截面（2000 起技术面、2021 起基本面）。
+          配置条件后点击「查询」；支持任意历史月末截面（2000 起技术面、{FUNDAMENTAL_START_YEAR} 起基本面）。
         </div>
       )}
     </div>
