@@ -95,6 +95,10 @@ export function aggregatePeriods(
     }
     let hhi = 0;
     if (totalShares > 0) {
+      // 升序累加：w²（w=份额占比）逐项相加的浮点结果依赖求和顺序，而 shareList 的顺序
+      // 来自 DB 行序 → 全量构建与 --month 增量的行序不同会让 HHI 在第 8 位有效数字上分叉，
+      // 经截面 zscore 放大后 verify-factors D 段逐行比对失败。从小到大累加令结果与顺序无关。
+      shareList.sort((a, b) => a - b);
       for (const s of shareList) {
         const w = s / totalShares;
         hhi += w * w;
