@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import {
   aggregatePeriods,
+  MIN_FILER_COVERAGE,
   type FilerHolding,
   type PeriodAgg,
 } from "@/lib/quant/fundingFactors";
@@ -21,6 +22,27 @@ function splitFactorForPeriod(splits: SplitEvt[], periodEndIso: string): number 
     if (s.exIso > periodEndIso) f *= s.ratio;
   }
   return f;
+}
+
+/**
+ * WS1 覆盖度门槛（[[p1-13f-coverage-gate-backfill]]）：返回全市场 13F filer 数达 minFilers 的
+ * 报告期 ISO 集合（"YYYY-MM-DD"）。稀疏期（摄入不全，仅最大几家机构）不在集合内，
+ * computeFundingFactors 据此把该期因子整期置 null，避免有偏值毒化回测/IC/选股。
+ * 全表按 period_end 分组数 distinct filer_cik（走 [filerCik, periodEnd] 索引），一次查得。
+ */
+export async function loadAdequatePeriods(
+  minFilers = MIN_FILER_COVERAGE,
+): Promise<Set<string>> {
+  const rows = await prisma.$queryRaw<{ period_end: Date; n: bigint }[]>`
+    SELECT period_end, COUNT(DISTINCT filer_cik) AS n
+    FROM mds.institutional_holding
+    GROUP BY period_end
+  `;
+  const adequate = new Set<string>();
+  for (const r of rows) {
+    if (Number(r.n) >= minFilers) adequate.add(r.period_end.toISOString().slice(0, 10));
+  }
+  return adequate;
 }
 
 /**

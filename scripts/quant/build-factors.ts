@@ -33,8 +33,8 @@ import {
   winsorizedZscores,
   type TechSeries,
 } from "../../src/lib/quant/factorCompute";
-import { computeFundingFactors, type PeriodAgg } from "../../src/lib/quant/fundingFactors";
-import { loadFundingPeriods } from "../../src/lib/quant/fundingData";
+import { computeFundingFactors, MIN_FILER_COVERAGE, type PeriodAgg } from "../../src/lib/quant/fundingFactors";
+import { loadFundingPeriods, loadAdequatePeriods } from "../../src/lib/quant/fundingData";
 import { FACTOR_MAP } from "../../src/lib/quant/factorRegistry";
 
 const BENCHMARK_SYMBOL = "SPY";
@@ -213,10 +213,18 @@ async function main() {
   // ── 2) 基本面 + 资金面 pass（月主序） ──
   // 资金面（13F 机构持仓）逐 symbol 聚合预载一次（拆股归一在此完成）；无桥接持仓则空表
   let periodsBySymbol = new Map<string, PeriodAgg[]>();
+  // WS1 覆盖度门槛：全市场 filer 数达标的报告期集合；稀疏期因子整期置 null（见 fundingFactors）
+  let adequatePeriods = new Set<string>();
   try {
-    periodsBySymbol = await loadFundingPeriods(allSymbols);
+    [periodsBySymbol, adequatePeriods] = await Promise.all([
+      loadFundingPeriods(allSymbols),
+      loadAdequatePeriods(),
+    ]);
     const withFunding = [...periodsBySymbol.values()].filter((p) => p.length).length;
-    console.log(`资金面预载：${withFunding}/${allSymbols.length} 只有 13F 持仓聚合`);
+    console.log(
+      `资金面预载：${withFunding}/${allSymbols.length} 只有 13F 持仓聚合；` +
+        `覆盖度达标报告期 ${adequatePeriods.size} 个（filer≥${MIN_FILER_COVERAGE}，稀疏期因子置 null）`,
+    );
   } catch (e) {
     console.warn("资金面预载失败（institutional_holding 未就绪？）：", e instanceof Error ? e.message : e);
   }
@@ -236,7 +244,7 @@ async function main() {
       // 资金面因子（PIT via 可见期；instOwnershipPct 分母用现刻度股本 sharesCurrent）
       const periods = periodsBySymbol.get(row.symbol);
       if (periods?.length) {
-        Object.assign(vals, computeFundingFactors(periods, d, row.sharesCurrent));
+        Object.assign(vals, computeFundingFactors(periods, d, row.sharesCurrent, adequatePeriods));
       }
       if (Object.keys(vals).length) {
         Object.assign(getRow(store, d, row.symbol), vals);

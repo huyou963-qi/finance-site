@@ -122,6 +122,41 @@ describe("computeFundingFactors", () => {
     assert.equal(f.instHolderCount, 3);
   });
 
+  it("WS1 门槛：当期稀疏（不在 adequate 集）→ 整期 null", () => {
+    // T=2025-03-01，cur=2024-12-31。adequate 集为空 → 当期不达标 → 4 因子全无。
+    const f = computeFundingFactors(periods, "2025-03-01", 1000, new Set());
+    assert.deepEqual(f, {});
+  });
+
+  it("WS1 门槛：当期+上期均达标 → 全因子含环比", () => {
+    const adequate = new Set(["2024-09-30", "2024-12-31"]);
+    const f = computeFundingFactors(periods, "2025-03-01", 1000, adequate);
+    assert.equal(f.instHolderCount, 3);
+    assert.equal(f.instOwnershipPct, (55 + 45 + 50) / 1000);
+    assert.ok(Math.abs(f.instOwnershipChgQoQ! - 0.5) < 1e-9);
+    assert.ok(f.instConcentration! > 0 && f.instConcentration! < 1);
+  });
+
+  it("WS1 门槛：当期达标但上期稀疏 → 出水平因子、环比为 null（不跨稀疏期）", () => {
+    // 仅 2024-12-31 达标，上期 2024-09-30 稀疏 → 环比分母不可信 → 不出。
+    const adequate = new Set(["2024-12-31"]);
+    const f = computeFundingFactors(periods, "2025-03-01", 1000, adequate);
+    assert.equal(f.instHolderCount, 3);
+    assert.equal(f.instOwnershipPct, (55 + 45 + 50) / 1000);
+    assert.equal(f.instOwnershipChgQoQ, undefined);
+  });
+
+  it("WS1 门槛：不传 adequate 集 → 不过滤（与既有行为逐位一致）", () => {
+    const withGateOpen = computeFundingFactors(periods, "2025-03-01", 1000, undefined);
+    const noArg = computeFundingFactors(periods, "2025-03-01", 1000);
+    assert.deepEqual(withGateOpen, noArg);
+    // 且与全期达标结果一致（门槛只减不增）
+    const allAdequate = computeFundingFactors(
+      periods, "2025-03-01", 1000, new Set(["2024-09-30", "2024-12-31"]),
+    );
+    assert.deepEqual(noArg, allAdequate);
+  });
+
   it("PIT 无前视：加入 T 之后 filed 的持仓，因子不变", () => {
     const t = "2025-03-01";
     const base = computeFundingFactors(periods, t, 1000);

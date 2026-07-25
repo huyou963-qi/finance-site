@@ -19,6 +19,19 @@
 /** 报告期后多少天视为可见（13F 法定 45 天 + 缓冲）；也是聚合计入 filing 的窗口上限 */
 export const FILING_WINDOW_DAYS = 50;
 
+/**
+ * WS1 覆盖度门槛（[[p1-13f-coverage-gate-backfill]]）：某报告期全市场 13F filer 数下限。
+ *
+ * 依据（2026-07-25 查库实测 98 个 13F 期）：完整期 filer≥3000（2019-12 至今），稀疏期 <500
+ * （2002–2019 大部分 + 2025-06 断档），半空期 2013-06 = 1559。稀疏期摄入的恰是最大几家机构
+ * （Vanguard/BlackRock/SSGA，占 40–50%）→ instOwnershipPct 系统性低估 10–15pp（AAPL 2015 读
+ * 44% vs 真实 ~60%，且不触发任何异常告警）、instHolderCount（20 vs 5000，差 100×）与
+ * instConcentration（HHI 近 1 vs 真实 ~0.05）灾难性错误。与其产出「看似合理的错值」毒化
+ * 回测/IC/选股，不如整期输出 null。2000 这个下限干净地把完整期（≥3000）与所有稀疏/半空期
+ * （≤1559）分开，留出余量吸收季度间 filer 数正常波动。
+ */
+export const MIN_FILER_COVERAGE = 2000;
+
 const DAY_MS = 86_400_000;
 
 export function addDaysIso(iso: string, days: number): string {
@@ -128,16 +141,25 @@ export const FUNDING_FACTOR_KEYS = [
 /**
  * 单 symbol 在 T 的资金面因子。periods 为该 symbol 的逐期聚合（aggregatePeriods 产物）。
  * sharesOutstanding 为 T 可见的现刻度股本（占比分母，缺则不出占比类因子）。
+ *
+ * adequatePeriods（可选，WS1 覆盖度门槛）：全市场 filer 数达 MIN_FILER_COVERAGE 的报告期 ISO 集合。
+ * 传入时，「当期」落在稀疏期（不在集合内）则**整期输出空**（4 因子全 null，避免有偏值毒化下游）；
+ * 环比额外要求「上一期」也充分，否则跨稀疏期比值失真（分母偏小 → 假的巨额增仓）。
+ * 不传（undefined）则不做门槛过滤——保持既有行为，供 PIT 无前视测试等纯粹场景复用。
  */
 export function computeFundingFactors(
   periods: PeriodAgg[],
   tIso: string,
   sharesOutstanding: number | null,
+  adequatePeriods?: ReadonlySet<string>,
 ): Record<string, number> {
   const out: Record<string, number> = {};
   const put = (k: string, x: number | null) => {
     if (x != null && Number.isFinite(x)) out[k] = x;
   };
+  // 门槛：未传集合 → 视为全期充分（不过滤）；传了 → 仅集合内报告期算充分。
+  const adequate = (p: PeriodAgg | null): boolean =>
+    p != null && (adequatePeriods === undefined || adequatePeriods.has(p.periodEndIso));
 
   // T 可见的最新期 + 上一可见期
   const visible = periods.filter((p) => p.visibilityIso <= tIso);
@@ -145,12 +167,16 @@ export function computeFundingFactors(
   const cur = visible[visible.length - 1]!;
   const prev = visible.length >= 2 ? visible[visible.length - 2]! : null;
 
+  // 当期稀疏（filer 不足）→ 整期 null：宁缺勿产出系统性偏低/灾难性错误的因子值。
+  if (!adequate(cur)) return out;
+
   put("instHolderCount", cur.holderCount > 0 ? cur.holderCount : null);
   put("instConcentration", cur.holderCount > 0 ? cur.hhi : null);
   if (sharesOutstanding != null && sharesOutstanding > 0 && cur.totalShares > 0) {
     put("instOwnershipPct", cur.totalShares / sharesOutstanding);
   }
-  if (prev && prev.totalShares > 0 && cur.totalShares > 0) {
+  // 环比要求上一期也充分，否则跨稀疏期（如 2025-06 断档）会算出假的巨额增减仓。
+  if (prev && adequate(prev) && prev.totalShares > 0 && cur.totalShares > 0) {
     put("instOwnershipChgQoQ", cur.totalShares / prev.totalShares - 1);
   }
   return out;
