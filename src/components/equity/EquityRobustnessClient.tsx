@@ -204,8 +204,13 @@ export function EquityRobustnessClient() {
           spec,
         }),
       });
-      const j = (await r.json()) as { id?: string; error?: string };
-      if (!r.ok || !j.id) throw new Error(j.error ?? "创建失败");
+      const j = (await r.json()) as { id?: string; error?: string; code?: string };
+      if (!r.ok || !j.id) {
+        if (j.code === "NEEDS_PRO" || j.code === "NEEDS_PRO_OR_CREDITS") {
+          throw new Error(`${j.error ?? "需要 Pro"} — 前往 /pricing 升级或购买积分`);
+        }
+        throw new Error(j.error ?? "创建失败");
+      }
       router.push(`/equity/robustness/${j.id}`);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "创建失败");
