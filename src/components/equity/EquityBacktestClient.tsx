@@ -12,8 +12,20 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { ScreenerConfig } from "@/lib/quant/screener";
 import type { StrategyRow } from "@/lib/quant/screenerStrategies";
+import { FACTOR_DEFS } from "@/lib/quant/factorRegistry";
 
 const INCOMING_CONFIG_KEY = "equityBacktestNewConfig.v1";
+
+/**
+ * 各类因子的数据下限年 = 注册表里该类因子最小 startYear，从注册表推导、勿硬编码
+ * （早先提示写死 2021，深历史回填 + 13F 补全后基本面到 2012、资金面到 2013，写死就成了错误提示）。
+ */
+const FUNDAMENTAL_MIN_YEAR = Math.min(
+  ...FACTOR_DEFS.filter((d) => d.requires === "fundamental" || d.requires === "price+fundamental").map((d) => d.startYear),
+);
+const FUNDING_MIN_YEAR = Math.min(
+  ...FACTOR_DEFS.filter((d) => d.requires === "funding").map((d) => d.startYear),
+);
 
 type RunListItem = {
   id: string;
@@ -249,7 +261,7 @@ export function EquityBacktestClient() {
           </button>
         </div>
         <div className="mt-2 text-xs text-fs-muted">
-          起点若早于策略数据下限（含基本面因子 → 2021）将自动裁剪；成本按调仓日双边成交额扣减。
+          起点若早于策略数据下限将自动裁剪（基本面因子 {FUNDAMENTAL_MIN_YEAR} 起、资金面 {FUNDING_MIN_YEAR} 起）；成本按调仓日双边成交额扣减。
         </div>
         {formError ? <div className="mt-2 text-xs text-red-400">{formError}</div> : null}
       </div>
