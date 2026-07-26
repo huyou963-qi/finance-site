@@ -41,6 +41,8 @@ export function SiteHeaderNav() {
     pathname === "/equity/screener" || pathname.startsWith("/equity/screener/");
   const backtestActive =
     pathname === "/equity/backtest" || pathname.startsWith("/equity/backtest/");
+  const robustnessActive =
+    pathname === "/equity/robustness" || pathname.startsWith("/equity/robustness/");
   const factorResearchActive =
     pathname === "/equity/factor-research" || pathname.startsWith("/equity/factor-research/");
   const regimeActive = pathname === "/equity/regime" || pathname.startsWith("/equity/regime/");
@@ -156,6 +158,17 @@ export function SiteHeaderNav() {
           aria-current={backtestActive ? "page" : undefined}
         >
           回测
+        </Link>
+        <Link
+          href="/equity/robustness"
+          className={`${linkBase} ${
+            robustnessActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={robustnessActive ? "page" : undefined}
+        >
+          稳健性
         </Link>
         <Link
           href="/equity/factor-research"

@@ -1014,3 +1014,32 @@ model EtfFlow {
   @@map("etf_flow")
   @@schema("mds")
 }
+
+/// 过拟合防护——稳健性分析 run（P2 WS3）。区别于 BacktestRun（单策略回测）：
+/// 本表存「跨参数网格/时间分割的稳健性分析」结果。mode = scan | oos | walkforward。
+/// result = RobustnessExecution JSON（含扫描点/IS-OOS 对照/walk-forward 拼接曲线，已月末降采样，
+/// 体量可控直接入 Json）；spec = RobustnessSpec（参数网格/分割/折数）；summary = 列表页用的头条指标。
+model RobustnessRun {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String?   @map("user_id")
+  name           String    @db.VarChar(128)
+  /// scan | oos | walkforward
+  mode           String    @db.VarChar(16)
+  strategyConfig Json      @map("strategy_config")
+  params         Json
+  /// RobustnessSpec：axes/splitDate/folds 等
+  spec           Json
+  status         String    @default("queued") @db.VarChar(16)
+  /// RobustnessExecution 完整结果
+  result         Json?
+  /// 列表页头条摘要（gridSize/最优指标/DSR 等）
+  summary        Json?
+  error          String?   @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  finishedAt     DateTime? @map("finished_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("robustness_run")
+  @@schema("mds")
+}

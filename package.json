@@ -132,6 +132,7 @@
     "quant:build-etf-flow": "dotenv -e .env.local -- tsx scripts/quant/build-etf-flow.ts",
     "quant:sync-short-interest": "dotenv -e .env.local -- tsx scripts/quant/sync-short-interest.ts",
     "quant:verify-phase5": "dotenv -e .env.local -- tsx scripts/quant/verify-phase5.ts",
+    "quant:verify-p2": "dotenv -e .env.local -- tsx scripts/quant/verify-p2.ts",
     "test:equity": "tsx --test src/lib/equity/*.test.ts",
     "test:quant": "tsx --test src/lib/quant/*.test.ts"
   },

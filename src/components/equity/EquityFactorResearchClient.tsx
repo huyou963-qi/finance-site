@@ -25,6 +25,11 @@ import {
   onColorInk,
   type RegimeKey,
 } from "@/components/equity/regimeVisuals";
+import {
+  icTStatToPValue,
+  multipleTestingCorrection,
+  type MultipleTestingResult,
+} from "@/lib/quant/robustness";
 
 const CATEGORY_LABELS: Record<FactorCategory, string> = {
   valuation: "估值",
@@ -116,6 +121,22 @@ export function EquityFactorResearchClient() {
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [restored, setRestored] = useState(false);
+
+  /**
+   * 多重检验校正：同时研究 m 个因子相当于做了 m 次显著性检验，单看每个 t 值会高估显著性。
+   * 由各因子 IC 的 tStat → 双尾 p 值 → Benjamini-Hochberg(FDR)/Bonferroni 校正（α=0.05）。
+   * m 越大、单个因子越难通过——这是把「因子挖掘」纳入选择性过拟合防护的一环。
+   */
+  const mtcByFactor = useMemo(() => {
+    const map = new Map<string, MultipleTestingResult>();
+    if (!report) return map;
+    const items = report.factors.map((f) => ({
+      label: f.factorKey,
+      pValue: icTStatToPValue(f.icSummary.tStat, f.icSummary.n),
+    }));
+    for (const r of multipleTestingCorrection(items, 0.05)) map.set(r.label, r);
+    return map;
+  }, [report]);
 
   // 还原：入口参数（?factors=a,b）优先，其次 sessionStorage
   useEffect(() => {
@@ -281,13 +302,16 @@ export function EquityFactorResearchClient() {
 
           {/* IC/IR 汇总表 */}
           <section className="mb-5 overflow-x-auto rounded-lg border border-fs-border">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[820px] text-sm">
               <thead className="bg-fs-elevated text-xs text-fs-muted">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">因子</th>
                   <th className="px-3 py-2 text-right font-medium">均值 IC</th>
                   <th className="px-3 py-2 text-right font-medium">年化 IR</th>
                   <th className="px-3 py-2 text-right font-medium">t 值</th>
+                  <th className="px-3 py-2 text-center font-medium" title={`多重检验校正（同时看 ${report.factors.length} 个因子，α=0.05）：BH=Benjamini-Hochberg(FDR)，Bonf=Bonferroni`}>
+                    多重检验后
+                  </th>
                   <th className="px-3 py-2 text-right font-medium">IC&gt;0 胜率</th>
                   <th className="px-3 py-2 text-right font-medium">行业中性 IC</th>
                   <th className="px-3 py-2 text-right font-medium">分层价差</th>
@@ -317,6 +341,32 @@ export function EquityFactorResearchClient() {
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-fs-text">
                       {num(f.icSummary.tStat)}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {(() => {
+                        const r = mtcByFactor.get(f.factorKey);
+                        if (!r) return <span className="text-fs-muted">—</span>;
+                        const title = `原始 p=${r.pValue.toExponential(2)}｜BH=${r.bh.toExponential(2)}｜Bonferroni=${r.bonferroni.toExponential(2)}`;
+                        if (r.bhSignificant) {
+                          return (
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                                r.bonferroniSignificant
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : "bg-fs-accent-soft text-fs-accent-text"
+                              }`}
+                              title={title}
+                            >
+                              {r.bonferroniSignificant ? "显著✓" : "BH 显著"}
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="rounded px-1.5 py-0.5 text-xs text-fs-muted" title={title}>
+                            不显著
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-fs-text">
                       {pct(f.icSummary.hitRate, 1)}
