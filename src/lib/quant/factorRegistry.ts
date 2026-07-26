@@ -87,13 +87,13 @@ export const FACTOR_DEFS: readonly FactorDef[] = [
   { key: "logMarketCap", nameZh: "对数市值", nameEn: "Log Market Cap", category: "size", higherIsBetter: false, requires: "price+fundamental", startYear: 2012, note: "ln(PIT 市值)；小市值溢价方向" },
 
   // ── 资金面 funding（SEC 13F 机构持仓，季频，PIT via filedAt；Phase 5） ──────────
-  // startYear 2020：WS1 覆盖度门槛（[[p1-13f-coverage-gate-backfill]]）后，唯一「filer 充分」的
-  // 完整 13F 期从 2019-12-31 起（可见 2020-02），此前均稀疏、因子整期 null。若日后云端补全
-  // 2013–2019（WS2）使这些期达标，再把此处改回 2013。回测 strategyDataFloor + screener 置灰依赖它。
-  { key: "instOwnershipPct", nameZh: "机构持股占比", nameEn: "Institutional Ownership %", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2020, note: "13F 合计持股（现拆股刻度）/ PIT 股本；可见期 = 报告期末+50 天；仅 filer 充分期（≥2000）出值" },
-  { key: "instOwnershipChgQoQ", nameZh: "机构持股环比", nameEn: "Inst. Ownership ΔQoQ", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2020, note: "本可见期合计持股 / 上一可见期 − 1（拆股归一后，机构增减仓）；跨稀疏期不出" },
-  { key: "instHolderCount", nameZh: "持有机构家数", nameEn: "Institutional Holder Count", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2020, note: "本可见期披露持股的 13F filer 家数；仅 filer 充分期出值" },
-  { key: "instConcentration", nameZh: "机构持仓集中度", nameEn: "Inst. Holding Concentration (HHI)", category: "funding", higherIsBetter: false, requires: "funding", startYear: 2020, note: "Σ(各机构份额占比²) 的 HHI；高=少数机构集中持有；仅 filer 充分期出值" },
+  // startYear 2013：WS2（[[p1-13f-coverage-gate-backfill]]）云端补全 2013-2019 后，filer 充分期
+  // 从 2013-06-30 起（首个 funding 因子月 2013-08，可见期 = 报告期末+50 天）。WS1 覆盖度门槛
+  // （filer≥2000）仍在，仅挡真正稀疏的期。回测 strategyDataFloor + screener 置灰依赖它。
+  { key: "instOwnershipPct", nameZh: "机构持股占比", nameEn: "Institutional Ownership %", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "13F 合计持股（现拆股刻度）/ PIT 股本；可见期 = 报告期末+50 天；仅 filer 充分期（≥2000）出值" },
+  { key: "instOwnershipChgQoQ", nameZh: "机构持股环比", nameEn: "Inst. Ownership ΔQoQ", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "本可见期合计持股 / 上一可见期 − 1（拆股归一后，机构增减仓）；跨稀疏期不出" },
+  { key: "instHolderCount", nameZh: "持有机构家数", nameEn: "Institutional Holder Count", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "本可见期披露持股的 13F filer 家数；仅 filer 充分期出值" },
+  { key: "instConcentration", nameZh: "机构持仓集中度", nameEn: "Inst. Holding Concentration (HHI)", category: "funding", higherIsBetter: false, requires: "funding", startYear: 2013, note: "Σ(各机构份额占比²) 的 HHI；高=少数机构集中持有；仅 filer 充分期出值" },
 ] as const;
 
 export type FactorKey = (typeof FACTOR_DEFS)[number]["key"];
