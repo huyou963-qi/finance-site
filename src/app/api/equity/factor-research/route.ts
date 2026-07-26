@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/eventAuth";
+import { requireProUser, proErrorResponse } from "@/lib/auth/requirePro";
 import { FACTOR_DEFS } from "@/lib/quant/factorRegistry";
 import { runFactorResearch } from "@/lib/quant/factorResearchData";
 
-/** 因子清单（供前端多选）+ regime 是否已构建 */
+/** 因子清单（供前端多选）— 公开；执行研究需 Pro */
 export async function GET() {
   try {
     return NextResponse.json({
@@ -24,9 +25,10 @@ export async function GET() {
 
 const MAX_FACTORS = 8;
 
-/** 执行因子研究；body = { factorKeys: string[], start?, end?, quantiles? } */
+/** 执行因子研究；需 Pro / 试用 */
 export async function POST(req: NextRequest) {
   try {
+    await requireProUser(req);
     const body = (await req.json()) as {
       factorKeys?: unknown;
       start?: string | null;
@@ -45,6 +47,10 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(report);
   } catch (e) {
+    const mapped = proErrorResponse(e);
+    if (mapped.status === 401 || mapped.status === 403) {
+      return NextResponse.json(mapped.body, { status: mapped.status });
+    }
     const { msg, status } = apiErrorResponse(e);
     return NextResponse.json({ error: msg }, { status });
   }

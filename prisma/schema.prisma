@@ -22,6 +22,12 @@ model User {
   role             String
   /// standard=普通用户，pro=付费 Pro 用户
   plan             String    @default("standard")
+  /// Pro 付费到期时间；过期后视为 standard（试用另见 trialEndsAt）
+  planExpiresAt    DateTime? @map("plan_expires_at")
+  /// 新注册 7 天试用截止；试用期内享有 Pro 能力
+  trialEndsAt      DateTime? @map("trial_ends_at")
+  /// 回测等用量积分余额（非 Pro 可用积分抵扣；Pro 不扣减）
+  creditBalance    Int       @default(0) @map("credit_balance")
   createdAt        DateTime
 
   sessions              Session[]
@@ -30,7 +36,58 @@ model User {
   bookmarkState         UserBookmarkState?
   marketEventsCreated   MarketEvent[]
   strategies            StrategyDefinition[]
+  paymentOrders         PaymentOrder[]
+  creditLedger          CreditLedgerEntry[]
 
+  @@schema("public")
+}
+
+/// B2C 订单：人工转账 / 爱发电等；Admin 确认后开通 Pro 或加积分
+model PaymentOrder {
+  id           String    @id @default(cuid())
+  /// 短单号，转账备注用，如 FN-A1B2C3
+  orderNo      String    @unique @map("order_no") @db.VarChar(32)
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// pro_month | pro_year | credits
+  productType  String    @map("product_type") @db.VarChar(32)
+  /// month | year | pack（积分包）
+  period       String?   @db.VarChar(16)
+  amountCny    Int       @map("amount_cny")
+  /// 积分包时为购买积分数
+  credits      Int       @default(0)
+  /// pending | paid | cancelled | expired
+  status       String    @default("pending") @db.VarChar(16)
+  /// manual | afdian | xunhu | admin
+  channel      String    @default("manual") @db.VarChar(16)
+  manualNote   String?   @map("manual_note") @db.VarChar(512)
+  externalId   String?   @map("external_id") @db.VarChar(128)
+  paidAt       DateTime? @map("paid_at")
+  confirmedBy  String?   @map("confirmed_by") @db.VarChar(64)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  expiresAt    DateTime? @map("expires_at")
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("payment_order")
+  @@schema("public")
+}
+
+model CreditLedgerEntry {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// purchase | consume_backtest | admin_grant | pro_grant
+  reason      String   @db.VarChar(32)
+  delta       Int
+  balanceAfter Int     @map("balance_after")
+  orderId     String?  @map("order_id") @db.VarChar(64)
+  note        String?  @db.VarChar(256)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("credit_ledger_entry")
   @@schema("public")
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AuthPageShell,
@@ -14,6 +15,11 @@ type UserProfile = {
   phone: string;
   role: "admin" | "user";
   plan: "standard" | "pro";
+  planExpiresAt?: string | null;
+  trialEndsAt?: string | null;
+  creditBalance?: number;
+  hasProAccess?: boolean;
+  isTrial?: boolean;
   createdAt: string;
 };
 
@@ -21,6 +27,11 @@ const PLAN_LABELS: Record<UserProfile["plan"], string> = {
   standard: "普通用户",
   pro: "Pro 用户",
 };
+
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return iso.slice(0, 10);
+}
 
 export function AccountProfileClient() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -105,12 +116,33 @@ export function AccountProfileClient() {
     );
   }
 
+  const membershipLabel = profile.hasProAccess
+    ? profile.isTrial
+      ? `试用中（至 ${fmtDate(profile.trialEndsAt)}）`
+      : `Pro（至 ${fmtDate(profile.planExpiresAt)}）`
+    : PLAN_LABELS[profile.plan] ?? profile.plan;
+
   return (
     <AuthPageShell>
       <h1 className="text-xl font-semibold text-fs-text">个人账户</h1>
       <p className="mt-1 text-sm text-fs-muted">
-        修改邮箱、手机号或登录密码。用户名、会员类型与管理员权限不可自行更改。
+        修改邮箱、手机号或登录密码。会员续费请前往定价页。
       </p>
+
+      <div className="mt-4 rounded-lg border border-fs-border bg-fs-elevated/40 px-4 py-3 text-sm">
+        <p className="text-fs-text">
+          会员状态：<span className="font-medium">{membershipLabel}</span>
+        </p>
+        <p className="mt-1 text-xs text-fs-muted">
+          回测积分余额：{profile.creditBalance ?? 0}
+        </p>
+        <Link
+          href="/pricing"
+          className="mt-2 inline-block text-sm font-medium text-fs-accent-text underline"
+        >
+          升级 / 续费 Pro
+        </Link>
+      </div>
 
       <form
         className="mt-6 space-y-4"
@@ -125,11 +157,7 @@ export function AccountProfileClient() {
         </label>
         <label className="block text-sm text-fs-secondary">
           会员类型
-          <input
-            value={PLAN_LABELS[profile.plan] ?? profile.plan}
-            readOnly
-            className={authReadonlyInputClass}
-          />
+          <input value={membershipLabel} readOnly className={authReadonlyInputClass} />
         </label>
         <label className="block text-sm text-fs-secondary">
           管理员
@@ -197,18 +225,15 @@ export function AccountProfileClient() {
           </div>
         </div>
 
-        <div className="sticky bottom-0 z-10 -mx-8 border-t border-fs-border/80 bg-white/95 px-8 py-4 backdrop-blur-sm lg:-mx-10 lg:px-10">
-          <button
-            type="submit"
-            disabled={
-              loading || (profile.role !== "admin" && (!email.trim() || !phone.trim()))
-            }
-            className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
-          >
-            {loading ? "保存中…" : "保存修改"}
-          </button>
-          {hint ? <p className="mt-3 text-sm text-fs-secondary">{hint}</p> : null}
-        </div>
+        {hint ? <p className="text-sm text-fs-muted">{hint}</p> : null}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-md bg-fs-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {loading ? "保存中…" : "保存"}
+        </button>
       </form>
     </AuthPageShell>
   );

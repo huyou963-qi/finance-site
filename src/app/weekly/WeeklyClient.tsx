@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { WeeklyReportDetail, WeeklyReportListItem } from "@/lib/data/weeklyReports";
 import { WeeklyMarkdown } from "@/components/weekly/WeeklyMarkdown";
 import { WeeklyHistorySidebar } from "@/components/weekly/WeeklyHistorySidebar";
+import Link from "next/link";
 
 function kpiTone(label: string, dir: "up" | "down" | "flat"): string {
   if (label === "HY OAS" && dir === "up") return "text-fs-negative";
@@ -28,6 +29,7 @@ function WeeklyClientInner() {
   const [deleting, setDeleting] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [truncated, setTruncated] = useState(false);
 
   const selectReport = useCallback(
     (id: string) => {
@@ -128,11 +130,17 @@ function WeeklyClientInner() {
     }
     let cancelled = false;
     setDetailLoading(true);
+    setTruncated(false);
     fetch(`/api/weekly-reports/${selectedId}`, { cache: "no-store" })
       .then(async (r) => {
         if (r.status === 401) throw new Error("请先登录");
-        const j = (await r.json()) as { report?: WeeklyReportDetail; error?: string };
+        const j = (await r.json()) as {
+          report?: WeeklyReportDetail;
+          error?: string;
+          truncated?: boolean;
+        };
         if (!r.ok) throw new Error(j.error ?? "加载详情失败");
+        setTruncated(Boolean(j.truncated));
         return j.report ?? null;
       })
       .then((report) => {
@@ -181,6 +189,15 @@ function WeeklyClientInner() {
               <div className="text-sm text-fs-muted">加载报告…</div>
             ) : detail && activeMeta ? (
               <div className="w-full min-w-0">
+                {truncated ? (
+                  <div className="mb-4 rounded-lg border border-fs-accent/30 bg-fs-accent-soft/50 px-3 py-2 text-sm text-fs-secondary">
+                    当前为摘要预览。{" "}
+                    <Link href="/pricing" className="font-medium text-fs-accent-text underline">
+                      升级 Pro
+                    </Link>{" "}
+                    阅读全文。
+                  </div>
+                ) : null}
                 <div className="mb-4 flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-semibold text-fs-text">
                     截至 {activeMeta.weekEnding}

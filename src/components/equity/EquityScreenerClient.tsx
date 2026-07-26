@@ -352,8 +352,14 @@ export function EquityScreenerClient() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, config }),
         });
-        const j = (await r.json()) as { error?: string; strategy?: StrategyRow };
-        if (!r.ok) throw new Error(j.error ?? "保存失败");
+        const j = (await r.json()) as { error?: string; code?: string; strategy?: StrategyRow };
+        if (!r.ok) {
+          throw new Error(
+            j.code === "NEEDS_PRO"
+              ? `${j.error ?? "需要 Pro"}（前往 /pricing 升级）`
+              : j.error ?? "保存失败",
+          );
+        }
         setCurrentStrategyId(j.strategy!.id);
         setStrategyMsg(`已保存「${j.strategy!.name}」`);
       } else {
@@ -362,8 +368,14 @@ export function EquityScreenerClient() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ config }),
         });
-        const j = (await r.json()) as { error?: string };
-        if (!r.ok) throw new Error(j.error ?? "保存失败");
+        const j = (await r.json()) as { error?: string; code?: string };
+        if (!r.ok) {
+          throw new Error(
+            j.code === "NEEDS_PRO"
+              ? `${j.error ?? "需要 Pro"}（前往 /pricing 升级）`
+              : j.error ?? "保存失败",
+          );
+        }
         setStrategyMsg(`已更新「${current.name}」`);
       }
       await reloadStrategies();

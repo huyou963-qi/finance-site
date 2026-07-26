@@ -175,8 +175,13 @@ export function EquityFactorResearchClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ factorKeys: [...selected] }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "请求失败");
+      const json = (await res.json()) as { error?: string; code?: string } & Report;
+      if (!res.ok) {
+        const msg = json?.error ?? "请求失败";
+        throw new Error(
+          json?.code === "NEEDS_PRO" ? `${msg}（前往 /pricing）` : msg,
+        );
+      }
       const rep = json as Report;
       setReport(rep);
       setFocused(rep.factors[0]?.factorKey ?? null);

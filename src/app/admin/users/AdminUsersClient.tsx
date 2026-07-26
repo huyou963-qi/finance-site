@@ -11,6 +11,10 @@ type User = {
   phone: string;
   role: "admin" | "user";
   plan: UserPlan;
+  planExpiresAt?: string | null;
+  trialEndsAt?: string | null;
+  creditBalance?: number;
+  hasProAccess?: boolean;
   createdAt: string;
 };
 
@@ -214,7 +218,15 @@ export function AdminUsersClient() {
                   <td className="px-2 py-2">{u.email || "—"}</td>
                   <td className="px-2 py-2">{u.phone || "—"}</td>
                   <td className="px-2 py-2">{u.role === "admin" ? "是" : "否"}</td>
-                  <td className="px-2 py-2">{PLAN_LABELS[u.plan] ?? u.plan}</td>
+                  <td className="px-2 py-2">
+                    {PLAN_LABELS[u.plan] ?? u.plan}
+                    <div className="text-[10px] text-fs-muted">
+                      {u.hasProAccess ? "有效" : "无Pro"}
+                      {u.planExpiresAt ? ` · 至${u.planExpiresAt.slice(0, 10)}` : ""}
+                      {u.trialEndsAt ? ` · 试用至${u.trialEndsAt.slice(0, 10)}` : ""}
+                      {typeof u.creditBalance === "number" ? ` · 积分${u.creditBalance}` : ""}
+                    </div>
+                  </td>
                   <td className="px-2 py-2">{u.createdAt.replace("T", " ").slice(0, 19)}</td>
                   <td className="px-2 py-2">
                     <button

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/eventAuth";
-import { requireWeeklyReportIngest } from "@/lib/api/weeklyReportAuth";
+import { getUserByRequest, getUserAccessRecord } from "@/lib/auth";
+import { userHasProAccess } from "@/lib/billing/access";
 import {
   listWeeklyReports,
   parseWeeklyReportMeta,
   upsertWeeklyReport,
 } from "@/lib/data/weeklyReports";
+import { requireWeeklyReportIngest } from "@/lib/api/weeklyReportAuth";
 
 function weeklyApiError(e: unknown) {
   const base = apiErrorResponse(e);
@@ -23,7 +25,14 @@ export async function GET(req: NextRequest) {
     const limit = sp.get("limit") ? Number(sp.get("limit")) : undefined;
     const offset = sp.get("offset") ? Number(sp.get("offset")) : undefined;
     const result = await listWeeklyReports({ limit, offset });
-    return NextResponse.json(result);
+    const me = await getUserByRequest(req);
+    let hasPro = false;
+    if (me) {
+      const access = await getUserAccessRecord(me.id);
+      hasPro = Boolean(access && userHasProAccess(access));
+    }
+    // 非 Pro：仅返回列表元数据（摘要），不暴露深度由详情接口控制
+    return NextResponse.json({ ...result, hasProAccess: hasPro, needsLogin: !me });
   } catch (e) {
     const { msg, status } = apiErrorResponse(e);
     return NextResponse.json({ error: msg }, { status });

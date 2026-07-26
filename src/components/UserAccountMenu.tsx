@@ -77,7 +77,8 @@ function GuestMenu({ onClose }: { onClose: () => void }) {
         <p className="mt-0.5 text-xs text-fs-muted">登录后同步宏观模板与偏好</p>
       </div>
       <MenuRow label="登录" href="/auth" onClick={onClose} />
-      <MenuRow label="注册" href="/auth?register=1" onClick={onClose} />
+      <MenuRow label="注册" href="/auth?register=1" hint="7天试用" onClick={onClose} />
+      <MenuRow label="查看定价" href="/pricing" onClick={onClose} />
       <div className="border-t border-fs-border px-4 py-2.5 text-xs text-fs-muted">
         忘记密码请在登录页联系管理员
       </div>
@@ -125,6 +126,13 @@ function UserMenu({
 
       <MenuSection title="账户" />
       <MenuRow label="个人资料" href="/auth" active={authActive} onClick={onClose} />
+      <MenuRow
+        label="升级 Pro"
+        href="/pricing"
+        hint={user.plan === "pro" ? "续费" : "¥39 起"}
+        active={pathname === "/pricing" || pathname.startsWith("/pricing/")}
+        onClick={onClose}
+      />
       {!verified ? <MenuRow label="验证邮箱" href="/auth/verify" onClick={onClose} /> : null}
 
       <MenuSection title="偏好" />
@@ -143,6 +151,12 @@ function UserMenu({
             label="用户管理"
             href="/admin/users"
             active={adminUsersActive}
+            onClick={onClose}
+          />
+          <MenuRow
+            label="订单确认"
+            href="/admin/orders"
+            active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}
             onClick={onClose}
           />
           <MenuRow

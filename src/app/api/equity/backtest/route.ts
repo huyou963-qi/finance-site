@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
+import { requireBacktestAccess, proErrorResponse } from "@/lib/auth/requirePro";
 import type { ScreenerConfig } from "@/lib/quant/screener";
 import type { BacktestParams } from "@/lib/quant/backtest";
 import {
@@ -23,13 +24,11 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * 创建 run 并进程内异步执行（fire-and-forget）。立即返回 runId，前端轮询 /[runId]。
- * body = { name, config, params }（config 为 ScreenerConfig，params 为 BacktestParams 部分字段）。
+ * 创建 run 并进程内异步执行。权限：Pro/试用免费；否则消耗 1 回测积分。
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUserByRequest(req);
-    if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    const user = await requireBacktestAccess(req);
 
     const body = (await req.json()) as {
       name?: unknown;
@@ -42,8 +41,12 @@ export async function POST(req: NextRequest) {
 
     const { id } = await createRun({ name, userId: user.id, config: body.config, params });
     executeRunInBackground(id);
-    return NextResponse.json({ id, status: "queued" });
+    return NextResponse.json({ id, status: "queued", usedCredit: user.usedCredit });
   } catch (e) {
+    const mapped = proErrorResponse(e);
+    if (mapped.status === 401 || mapped.status === 403) {
+      return NextResponse.json(mapped.body, { status: mapped.status });
+    }
     const message = e instanceof Error ? e.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 400 });
   }

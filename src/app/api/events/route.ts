@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { EventImportance } from "@prisma/client";
 import { apiErrorResponse, requireAdmin } from "@/lib/api/eventAuth";
+import { getUserByRequest, getUserAccessRecord } from "@/lib/auth";
+import { userHasProAccess } from "@/lib/billing/access";
 import {
   createMarketEvent,
   listMarketEvents,
@@ -17,6 +19,25 @@ function parseCsv(param: string | null): string[] {
 
 export async function GET(req: NextRequest) {
   try {
+    const me = await getUserByRequest(req);
+    if (!me) {
+      return NextResponse.json(
+        { error: "请先登录后查看时间线", code: "NEEDS_LOGIN", pricingPath: "/pricing" },
+        { status: 401 },
+      );
+    }
+    const access = await getUserAccessRecord(me.id);
+    if (!access || !userHasProAccess(access)) {
+      return NextResponse.json(
+        {
+          error: "事件时间线深度浏览需要 Pro 会员或试用期",
+          code: "NEEDS_PRO",
+          pricingPath: "/pricing",
+        },
+        { status: 403 },
+      );
+    }
+
     const sp = req.nextUrl.searchParams;
     const importance = parseCsv(sp.get("importance")) as EventImportance[];
     const result = await listMarketEvents({

@@ -251,6 +251,16 @@ export function SiteHeaderNav() {
         {isAdmin ? <CommonLinksMenu me={me} /> : null}
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <Link
+          href="/pricing"
+          className={`${linkBase} ${
+            pathname === "/pricing" || pathname.startsWith("/pricing/")
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+        >
+          Pro
+        </Link>
         <ReportBugButton />
         <UserAccountMenu />
       </div>

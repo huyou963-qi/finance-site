@@ -20,6 +20,7 @@ import {
   buildEventTimeline,
   isEraHeaderEvent,
 } from "@/lib/data/marketEventTimeline";
+import { ProPaywall } from "@/components/billing/ProPaywall";
 
 type EventsView = "timeline" | "list";
 
@@ -98,6 +99,12 @@ export function EventsClient() {
         setTotal(0);
         return;
       }
+      if (r.status === 403) {
+        setError("NEEDS_PRO");
+        setEvents([]);
+        setTotal(0);
+        return;
+      }
       const j = (await r.json()) as { events?: MarketEventDto[]; total?: number; error?: string };
       if (!r.ok) throw new Error(j.error ?? "加载失败");
       setEvents(sortEventsAsc(j.events ?? []));
@@ -123,6 +130,12 @@ export function EventsClient() {
       const r = await fetch(`/api/events?${sp.toString()}`, { cache: "no-store" });
       if (r.status === 401) {
         setError("请先登录后查看时间线");
+        setEvents([]);
+        setTotal(0);
+        return;
+      }
+      if (r.status === 403) {
+        setError("NEEDS_PRO");
         setEvents([]);
         setTotal(0);
         return;
@@ -204,7 +217,14 @@ export function EventsClient() {
           </div>
         </div>
 
-        {error ? (
+        {error === "NEEDS_PRO" ? (
+          <div className="flex flex-1 items-center justify-center p-6">
+            <ProPaywall
+              title="事件时间线需要 Pro"
+              description="深度浏览历史市场事件时间线需开通 Pro 或处于试用期。"
+            />
+          </div>
+        ) : error ? (
           <p className="m-4 rounded border border-rose-900/50 bg-rose-950/20 px-3 py-2 text-sm text-rose-200">
             {error}
           </p>
@@ -321,7 +341,12 @@ export function EventsClient() {
         </button>
       </div>
 
-      {error ? (
+      {error === "NEEDS_PRO" ? (
+        <ProPaywall
+          title="事件时间线需要 Pro"
+          description="深度浏览历史市场事件时间线需开通 Pro 或处于试用期。"
+        />
+      ) : error ? (
         <p className="rounded border border-rose-900/50 bg-rose-950/20 px-3 py-2 text-sm text-rose-200">
           {error}
         </p>

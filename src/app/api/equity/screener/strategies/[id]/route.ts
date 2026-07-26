@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByRequest } from "@/lib/auth";
+import { requireProUser, proErrorResponse } from "@/lib/auth/requirePro";
 import { prisma } from "@/lib/prisma";
 import { validateScreenerConfig, type ScreenerConfig } from "@/lib/quant/screener";
 import { parseStrategyName, toStrategyRow } from "@/lib/quant/screenerStrategies";
@@ -17,8 +17,7 @@ export async function PUT(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getUserByRequest(req);
-    if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    const user = await requireProUser(req);
     const { id } = await ctx.params;
     await findOwnStrategy(user.id, id);
     const body = (await req.json()) as { name?: unknown; config?: ScreenerConfig };
@@ -32,6 +31,10 @@ export async function PUT(
     const updated = await prisma.strategyDefinition.update({ where: { id }, data });
     return NextResponse.json({ strategy: toStrategyRow(updated) });
   } catch (e) {
+    const mapped = proErrorResponse(e);
+    if (mapped.status === 401 || mapped.status === 403) {
+      return NextResponse.json(mapped.body, { status: mapped.status });
+    }
     const message = e instanceof Error ? e.message : "未知错误";
     const status = message.includes("不存在") ? 404 : 400;
     return NextResponse.json({ error: message }, { status });
@@ -43,13 +46,16 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getUserByRequest(req);
-    if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    const user = await requireProUser(req);
     const { id } = await ctx.params;
     await findOwnStrategy(user.id, id);
     await prisma.strategyDefinition.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    const mapped = proErrorResponse(e);
+    if (mapped.status === 401 || mapped.status === 403) {
+      return NextResponse.json(mapped.body, { status: mapped.status });
+    }
     const message = e instanceof Error ? e.message : "未知错误";
     const status = message.includes("不存在") ? 404 : 400;
     return NextResponse.json({ error: message }, { status });

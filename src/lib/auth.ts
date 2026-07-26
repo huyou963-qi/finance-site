@@ -1,24 +1,18 @@
 import crypto from "node:crypto";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { accessSummary, userHasProAccess } from "@/lib/billing/access";
+import { TRIAL_DAYS } from "@/lib/billing/pricing";
+import {
+  parseUserPlan,
+  validateUserPlan,
+  USER_PLAN_LABELS,
+  type Role,
+  type UserPlan,
+} from "@/lib/auth/types";
 
-export type Role = "admin" | "user";
-export type UserPlan = "standard" | "pro";
-
-export const USER_PLAN_LABELS: Record<UserPlan, string> = {
-  standard: "普通用户",
-  pro: "Pro 用户",
-};
-
-function parseUserPlan(raw: string | null | undefined): UserPlan {
-  return raw === "pro" ? "pro" : "standard";
-}
-
-function validateUserPlan(plan: string): UserPlan {
-  const p = plan.trim().toLowerCase();
-  if (p === "pro" || p === "standard") return p;
-  throw new Error("会员类型不合法");
-}
+export type { Role, UserPlan };
+export { USER_PLAN_LABELS, parseUserPlan, userHasProAccess };
 
 export type UserRecord = {
   id: string;
@@ -187,6 +181,8 @@ export async function registerUser(
   }
 
   const salt = crypto.randomBytes(16).toString("hex");
+  const planExpiresAt =
+    plan === "pro" ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) : null;
   const user = await prisma.user.create({
     data: {
       id: uid(),
@@ -198,6 +194,7 @@ export async function registerUser(
       passSalt: salt,
       role,
       plan,
+      planExpiresAt,
       createdAt: new Date(),
     },
   });
@@ -321,6 +318,7 @@ export async function verifyRegistrationToken(
   }
 
   const user = await prisma.$transaction(async (tx) => {
+    const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
     const u = await tx.user.create({
       data: {
         id: uid(),
@@ -332,6 +330,7 @@ export async function verifyRegistrationToken(
         passSalt: row.passSalt,
         role: "user",
         plan: "standard",
+        trialEndsAt,
         createdAt: new Date(),
       },
     });
@@ -418,8 +417,18 @@ export async function listUsers() {
     email: u.email ?? "",
     phone: u.phone ?? "",
     emailVerifiedAt: u.emailVerifiedAt ? u.emailVerifiedAt.toISOString() : "",
-    role: u.role,
+    role: u.role as Role,
     plan: parseUserPlan(u.plan),
+    planExpiresAt: u.planExpiresAt ? u.planExpiresAt.toISOString() : null,
+    trialEndsAt: u.trialEndsAt ? u.trialEndsAt.toISOString() : null,
+    creditBalance: u.creditBalance,
+    ...accessSummary({
+      role: u.role as Role,
+      plan: u.plan,
+      planExpiresAt: u.planExpiresAt,
+      trialEndsAt: u.trialEndsAt,
+      creditBalance: u.creditBalance,
+    }),
     createdAt: u.createdAt.toISOString(),
   }));
 }
@@ -436,6 +445,16 @@ export async function getUserProfile(userId: string) {
     emailVerifiedAt: user.emailVerifiedAt ? user.emailVerifiedAt.toISOString() : "",
     role: user.role as Role,
     plan: parseUserPlan(user.plan),
+    planExpiresAt: user.planExpiresAt ? user.planExpiresAt.toISOString() : null,
+    trialEndsAt: user.trialEndsAt ? user.trialEndsAt.toISOString() : null,
+    creditBalance: user.creditBalance,
+    ...accessSummary({
+      role: user.role as Role,
+      plan: user.plan,
+      planExpiresAt: user.planExpiresAt,
+      trialEndsAt: user.trialEndsAt,
+      creditBalance: user.creditBalance,
+    }),
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -462,6 +481,8 @@ export async function updateUserAccount(
     passSalt?: string;
     role?: string;
     plan?: string;
+    planExpiresAt?: Date | null;
+    trialEndsAt?: Date | null;
     emailVerifiedAt?: Date | null;
   } = {};
 
@@ -525,6 +546,13 @@ export async function updateUserAccount(
   if (patch.plan !== undefined) {
     if (!options?.byAdmin) throw new Error("无权修改会员类型");
     data.plan = validateUserPlan(patch.plan);
+    if (data.plan === "standard") {
+      data.planExpiresAt = null;
+    } else if (data.plan === "pro" && !user.planExpiresAt) {
+      // 管理员手工开通且无到期日：默认一年
+      data.planExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      data.trialEndsAt = null;
+    }
   }
 
   if (Object.keys(data).length === 0) {
@@ -544,14 +572,32 @@ export async function updateUserAccount(
     emailVerifiedAt: updated.emailVerifiedAt ? updated.emailVerifiedAt.toISOString() : "",
     role: updated.role as Role,
     plan: parseUserPlan(updated.plan),
+    planExpiresAt: updated.planExpiresAt ? updated.planExpiresAt.toISOString() : null,
+    trialEndsAt: updated.trialEndsAt ? updated.trialEndsAt.toISOString() : null,
+    creditBalance: updated.creditBalance,
+    ...accessSummary({
+      role: updated.role as Role,
+      plan: updated.plan,
+      planExpiresAt: updated.planExpiresAt,
+      trialEndsAt: updated.trialEndsAt,
+      creditBalance: updated.creditBalance,
+    }),
     createdAt: updated.createdAt.toISOString(),
   };
 }
 
-/** 是否 Pro 会员（管理员始终视为拥有全部能力） */
-export function userHasProAccess(user: { role: Role; plan?: UserPlan | string | null }): boolean {
-  if (user.role === "admin") return true;
-  return parseUserPlan(user.plan) === "pro";
+export async function getUserAccessRecord(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return null;
+  return {
+    id: user.id,
+    username: user.username,
+    role: user.role as Role,
+    plan: parseUserPlan(user.plan),
+    planExpiresAt: user.planExpiresAt,
+    trialEndsAt: user.trialEndsAt,
+    creditBalance: user.creditBalance,
+  };
 }
 
 export function getSessionToken(req: NextRequest): string | null {
