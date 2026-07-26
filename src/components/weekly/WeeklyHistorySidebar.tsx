@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WeeklyReportListItem } from "@/lib/data/weeklyReports";
 import {
   RECENT_SIDEBAR_COUNT,
@@ -14,6 +14,9 @@ import {
 } from "@/lib/weekly/sidebarNav";
 
 type QuickFilter = "latest" | "prevMonth" | "prevQuarter" | null;
+
+/** 每次滚到底追加的条数 */
+const SIDEBAR_PAGE_SIZE = RECENT_SIDEBAR_COUNT;
 
 function SidebarCard({
   item,
@@ -69,18 +72,50 @@ export function WeeklyHistorySidebar({
   const [weekInput, setWeekInput] = useState("");
   const [jumpError, setJumpError] = useState<string | null>(null);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("latest");
+  const [visibleCount, setVisibleCount] = useState(RECENT_SIDEBAR_COUNT);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const sel = list.find((r) => r.id === selectedId);
     if (sel) setWeekInput(weekEndingToIsoWeekValue(sel.meta.weekEnding));
   }, [list, selectedId]);
 
+  // 列表刷新时回到首屏窗口；跳转到更早周时至少展开到选中项所在位置
+  useEffect(() => {
+    setVisibleCount(RECENT_SIDEBAR_COUNT);
+  }, [list]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const idx = list.findIndex((r) => r.id === selectedId);
+    if (idx < 0) return;
+    setVisibleCount((c) => Math.max(c, Math.min(list.length, idx + 1)));
+  }, [list, selectedId]);
+
   const { items: displayItems, pinnedOutsideRecent } = useMemo(
-    () => buildSidebarDisplayList(list, selectedId, RECENT_SIDEBAR_COUNT),
-    [list, selectedId],
+    () => buildSidebarDisplayList(list, selectedId, visibleCount),
+    [list, selectedId, visibleCount],
   );
 
-  const olderCount = Math.max(0, total - RECENT_SIDEBAR_COUNT);
+  const hasMore = visibleCount < list.length;
+  const olderCount = Math.max(0, list.length - visibleCount);
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = sentinelRef.current;
+    if (!root || !sentinel || !hasMore) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        setVisibleCount((c) => Math.min(list.length, c + SIDEBAR_PAGE_SIZE));
+      },
+      { root, rootMargin: "48px", threshold: 0 },
+    );
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [hasMore, list.length, visibleCount]);
 
   const applyQuick = useCallback(
     (filter: QuickFilter) => {
@@ -120,9 +155,7 @@ export function WeeklyHistorySidebar({
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-fs-border bg-fs-elevated lg:w-80">
       <div className="shrink-0 border-b border-fs-border p-3">
-        <div className="text-xs font-medium text-fs-muted">历史周报</div>
-        <div className="mt-2 text-[11px] text-fs-muted">跳转到周</div>
-        <div className="mt-1.5 flex gap-2">
+        <div className="flex gap-2">
           <input
             type="week"
             value={weekInput}
@@ -179,7 +212,7 @@ export function WeeklyHistorySidebar({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3 pt-2">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-3 pt-2">
         {displayItems.map((item) => (
           <SidebarCard
             key={item.id}
@@ -189,10 +222,15 @@ export function WeeklyHistorySidebar({
             onClick={() => handleCardSelect(item.id)}
           />
         ))}
-        {olderCount > 0 ? (
-          <p className="mt-1 px-1 text-[11px] leading-relaxed text-fs-muted">
-            … 更早 {olderCount} 条，请用上方周选择器跳转
-          </p>
+        {hasMore ? (
+          <>
+            <p className="mt-1 px-1 text-[11px] leading-relaxed text-fs-muted">
+              … 更早还有 {olderCount} 条，继续向下滚动加载
+            </p>
+            <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
+          </>
+        ) : list.length > RECENT_SIDEBAR_COUNT ? (
+          <p className="mt-1 px-1 text-[11px] leading-relaxed text-fs-muted">已显示全部</p>
         ) : null}
       </div>
 
