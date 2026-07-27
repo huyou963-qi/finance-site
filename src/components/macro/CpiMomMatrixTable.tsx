@@ -40,6 +40,36 @@ function computeMomByPeriod(
   return out;
 }
 
+/** 指数水平按 period → value */
+function levelByPeriod(categories: string[], data: (number | null)[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (let i = 0; i < categories.length; i++) {
+    const v = data[i];
+    if (v != null && Number.isFinite(v)) out.set(categories[i]!, v);
+  }
+  return out;
+}
+
+/** 同月减一年：`2026-06` / `2026-06-01` → 对应去年标签 */
+function shiftYearPeriod(period: string, deltaYears: number): string | null {
+  const m = /^(\d{4})(-\d{2}(?:-\d{2})?)$/.exec(period.trim());
+  if (!m) return null;
+  return `${Number(m[1]) + deltaYears}${m[2]}`;
+}
+
+function computeYoy(
+  levels: Map<string, number>,
+  latestPeriod: string | null,
+): number | null {
+  if (!latestPeriod) return null;
+  const prev = shiftYearPeriod(latestPeriod, -1);
+  if (!prev) return null;
+  const cur = levels.get(latestPeriod);
+  const base = levels.get(prev);
+  if (cur == null || base == null || base === 0) return null;
+  return (cur / base - 1) * 100;
+}
+
 function fmtMom(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "—";
   const s = v.toFixed(1);
@@ -114,10 +144,18 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
     };
   }, []);
 
-  const { columns, momByRow } = useMemo(() => {
-    if (!payload) return { columns: [] as string[], momByRow: new Map<string, Map<string, number>>() };
+  const { columns, momByRow, yoyByRow, latestPeriod } = useMemo(() => {
+    if (!payload) {
+      return {
+        columns: [] as string[],
+        momByRow: new Map<string, Map<string, number>>(),
+        yoyByRow: new Map<string, number | null>(),
+        latestPeriod: null as string | null,
+      };
+    }
     const seriesByKey = new Map(payload.series.map((s) => [s.key, s]));
     const perRow = new Map<string, Map<string, number>>();
+    const perYoy = new Map<string, number | null>();
     const periodSet = new Set<string>();
     for (const row of CPI_MOM_MATRIX_ROWS) {
       const s = seriesByKey.get(fredKey(row.fredId));
@@ -127,7 +165,13 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
     }
     const allPeriods = [...periodSet].sort(compareMacroPeriodLabels);
     const cols = allPeriods.slice(-months);
-    return { columns: cols, momByRow: perRow };
+    const latest = cols.length > 0 ? cols[cols.length - 1]! : null;
+    for (const row of CPI_MOM_MATRIX_ROWS) {
+      const s = seriesByKey.get(fredKey(row.fredId));
+      const levels = s ? levelByPeriod(payload.categories, s.data) : new Map<string, number>();
+      perYoy.set(row.fredId, computeYoy(levels, latest));
+    }
+    return { columns: cols, momByRow: perRow, yoyByRow: perYoy, latestPeriod: latest };
   }, [payload, months]);
 
   if (loading) {
@@ -142,9 +186,12 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
   }
 
   const hasFootnote = CPI_MOM_MATRIX_ROWS.some((r) => r.footnote);
+  const yoyTitle = latestPeriod
+    ? `相对最新月（${formatMacroPeriodDisplay(latestPeriod, columns)}）的去年同月`
+    : "相对最新月的去年同月";
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto">
       <div className="overflow-x-auto rounded-lg border border-fs-border">
         <table className="w-max min-w-full border-separate border-spacing-0 text-xs">
           <thead>
@@ -160,6 +207,12 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
                   {formatMacroPeriodDisplay(c, columns)}
                 </th>
               ))}
+              <th
+                className="border-b border-l border-fs-border bg-fs-elevated px-3 py-2 text-right font-semibold text-fs-text whitespace-nowrap"
+                title={yoyTitle}
+              >
+                同比 %
+              </th>
               <th className="border-b border-l border-fs-border bg-fs-elevated px-3 py-2 text-right font-semibold text-fs-text whitespace-nowrap">
                 权重 %
               </th>
@@ -168,6 +221,7 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
           <tbody>
             {CPI_MOM_MATRIX_ROWS.map((row) => {
               const mom = momByRow.get(row.fredId);
+              const yoy = yoyByRow.get(row.fredId) ?? null;
               const weight = cpiWeightForFredId(row.fredId);
               return (
                 <tr key={row.fredId}>
@@ -196,6 +250,14 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
                       </td>
                     );
                   })}
+                  <td
+                    className={`border-b border-l border-fs-border px-3 py-1.5 text-right tabular-nums ${momColorClass(
+                      yoy,
+                    )}`}
+                    title={yoyTitle}
+                  >
+                    {fmtMom(yoy)}
+                  </td>
                   <td className="border-b border-l border-fs-border px-3 py-1.5 text-right tabular-nums font-medium text-fs-secondary">
                     {fmtWeight(weight)}
                   </td>
@@ -215,13 +277,13 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
         <p>
           {isAdmin ? (
             <>
-              环比 = 季调指数（BLS/FRED，SA）相邻月变动；正值（通胀走热）红色、负值绿色。权重为{" "}
+              环比 = 季调指数（BLS/FRED，SA）相邻月变动；同比 = 最新月季调指数相对去年同月；正值（通胀走热）红色、负值绿色。权重为{" "}
               {CPI_WEIGHT_META.source}（{CPI_WEIGHT_META.asOf}，{CPI_WEIGHT_META.weightBase}
               ，CPI-U，占全部项目 %）。
             </>
           ) : (
             <>
-              环比 = 季调指数相邻月变动；正值（通胀走热）红色、负值绿色。权重为相对重要性（
+              环比 = 季调指数相邻月变动；同比 = 最新月相对去年同月；正值（通胀走热）红色、负值绿色。权重为相对重要性（
               {CPI_WEIGHT_META.asOf}，CPI-U，占全部项目 %）。
             </>
           )}

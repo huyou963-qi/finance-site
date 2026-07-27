@@ -47,7 +47,8 @@ export type MacroChartSlotMode =
   | "heatmap"
   | "xyScatter"
   | "boxplot"
-  | "radar";
+  | "radar"
+  | "cpiMomMatrix";
 
 export const DEFAULT_SEASONAL_YEAR_COUNT = 5;
 

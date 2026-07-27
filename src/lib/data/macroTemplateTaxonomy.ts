@@ -261,6 +261,7 @@ const BUILTIN_PLACEMENT: Record<string, MacroTemplatePlacement> = {
   "builtin-us-econ-demand": { scope: "US", dimensionId: "economy" },
   "builtin-us-cpi-overview": { scope: "US", dimensionId: "inflation" },
   "builtin-us-cpi-drivers": { scope: "US", dimensionId: "inflation" },
+  "builtin-us-cpi-subitems": { scope: "US", dimensionId: "inflation" },
   "builtin-us-labor-overview": { scope: "US", dimensionId: "labor" },
   "builtin-us-labor-drivers": { scope: "US", dimensionId: "labor" },
   "builtin-us-fiscal-overview": { scope: "US", dimensionId: "fiscal" },

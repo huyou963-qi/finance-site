@@ -31,8 +31,6 @@ export function SiteHeaderNav() {
   const macroFrameworkActive =
     pathname === "/macro/framework" || pathname.startsWith("/macro/framework/");
   const macroActive = pathname === "/macro";
-  const cpiSubitemsActive =
-    pathname === "/macro/cpi-subitems" || pathname.startsWith("/macro/cpi-subitems/");
   const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
   const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
   const equityActive =
@@ -102,19 +100,6 @@ export function SiteHeaderNav() {
         >
           宏观数据
         </Link>
-        {isAdmin ? (
-          <Link
-            href="/macro/cpi-subitems"
-            className={`${linkBase} ${
-              cpiSubitemsActive
-                ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-                : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-            }`}
-            aria-current={cpiSubitemsActive ? "page" : undefined}
-          >
-            CPI分项
-          </Link>
-        ) : null}
         <Link
           href="/markets"
           className={`${linkBase} ${

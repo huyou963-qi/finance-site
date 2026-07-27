@@ -48,6 +48,7 @@ import {
   withDefaultStyle,
 } from "@/lib/macroChartDrawing";
 import { randomUUID } from "@/lib/randomId";
+import { CpiMomMatrixTable } from "@/components/macro/CpiMomMatrixTable";
 
 export type MacroChartPanelProps = {
   slice: MacroChartSlice | null;
@@ -150,6 +151,7 @@ export function MacroChartPanel({
     setHoverPoint(null);
   }, [drawTool]);
 
+  const isCpiMomMatrix = slotMode === "cpiMomMatrix";
   const isPie = slotMode === "pie" && Boolean(pieYear);
   const isSeasonal = slotMode === "seasonal";
   const isWaterfall = slotMode === "waterfall" && Boolean(waterfallYear);
@@ -165,6 +167,7 @@ export function MacroChartPanel({
   );
 
   const opt = useMemo(() => {
+    if (isCpiMomMatrix) return null;
     if (!slice?.series?.length) return null;
     if (isPie && pieYear) {
       return macroSliceToPieChartOption(slice, pieYear, {
@@ -235,6 +238,7 @@ export function MacroChartPanel({
     displayConfig,
     axisRanges,
     recessionBands,
+    isCpiMomMatrix,
     isPie,
     pieYear,
     isSeasonal,
@@ -443,6 +447,23 @@ export function MacroChartPanel({
     if (el) ro.observe(el);
     return () => ro.disconnect();
   }, [refreshGraphics, opt]);
+
+  if (isCpiMomMatrix) {
+    return (
+      <div
+        className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${className ?? ""}`}
+        style={
+          chartAreaHeight
+            ? { width: "100%", height: chartAreaHeight, minHeight: chartAreaHeight }
+            : undefined
+        }
+      >
+        <div className="min-h-0 flex-1 overflow-auto px-1 py-1">
+          <CpiMomMatrixTable />
+        </div>
+      </div>
+    );
+  }
 
   if (!slice?.series?.length) {
     return (

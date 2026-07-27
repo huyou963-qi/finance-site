@@ -56,6 +56,7 @@ import {
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
   BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
+  BUILTIN_US_CPI_SUBITEMS_TEMPLATE,
   BUILTIN_US_ECON_DEMAND_TEMPLATE,
   BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
   BUILTIN_US_FISCAL_HIGHFREQ_TEMPLATE,
@@ -191,6 +192,13 @@ const SELECTED_PANE_DEFAULT_FRAC = 0.5;
 const SELECTED_PANE_MIN_PX = 120;
 const EXTRACT_PANE_MIN_PX = 120;
 const SELECTED_EXTRACT_SPLITTER_PX = 6;
+
+const EMPTY_MACRO_PAYLOAD: MacroPayload = {
+  title: "",
+  source: "unified",
+  categories: [],
+  series: [],
+};
 
 type MdsIndicatorAttrs = {
   country: string;
@@ -1076,6 +1084,7 @@ export function MacroSection() {
       BUILTIN_US_ECON_DEMAND_TEMPLATE,
       BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
       BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+      BUILTIN_US_CPI_SUBITEMS_TEMPLATE,
       BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
       BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
       BUILTIN_US_FISCAL_OVERVIEW_TEMPLATE,
@@ -1113,6 +1122,7 @@ export function MacroSection() {
       BUILTIN_US_ECON_DEMAND_TEMPLATE,
       BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
       BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+      BUILTIN_US_CPI_SUBITEMS_TEMPLATE,
       BUILTIN_US_LABOR_OVERVIEW_TEMPLATE,
       BUILTIN_US_LABOR_DRIVERS_TEMPLATE,
       BUILTIN_US_FISCAL_OVERVIEW_TEMPLATE,
@@ -1242,6 +1252,18 @@ export function MacroSection() {
 
       const query = buildExtractQueryFromKeys(templateKeys, catalogAllowlist);
       if (!query) {
+        const isCpiMomMatrixTpl =
+          tpl.id === "builtin-us-cpi-subitems" ||
+          resolvedTpl.displayConfig?.slotModes?.[0] === "cpiMomMatrix";
+        if (isCpiMomMatrixTpl) {
+          setError(null);
+          setPayload(null);
+          setRequestedQuery(null);
+          setRequestedMdsInstruments(null);
+          setExtractedSet(new Set());
+          setMainTab("charts");
+          return;
+        }
         setError(
           tpl.id === BUILTIN_US_OVERVIEW_TEMPLATE.id
             ? "数据库中暂无 US_Overview 数据。"
@@ -2026,6 +2048,16 @@ export function MacroSection() {
     seriesCalcConfigMap,
     seriesVisualMap,
   ]);
+
+  /** CPI 环比表槽位自拉数据，允许无 selectedKeys 时仍进入图表区 */
+  const chartsAllowEmptyPayload = useMemo(() => {
+    for (let i = 0; i < layoutMode; i++) {
+      if (displayConfig.slotModes?.[i] === "cpiMomMatrix") return true;
+    }
+    return false;
+  }, [displayConfig.slotModes, layoutMode]);
+
+  const chartGridPayload = displayPayload ?? (chartsAllowEmptyPayload ? EMPTY_MACRO_PAYLOAD : null);
 
   const chartAvailableYears = useMemo(
     () => extractYearsFromCategories(displayPayload?.categories ?? []),
@@ -3269,12 +3301,25 @@ export function MacroSection() {
           <button
             type="button"
             onClick={() => setSidebarCollapsed(false)}
-            className="hidden w-9 shrink-0 flex-col items-center justify-center gap-0.5 border-r border-fs-border bg-fs-bg/90 py-3 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text lg:flex"
+            className="group relative hidden w-3 shrink-0 items-stretch border-r border-fs-border bg-fs-elevated/90 transition hover:bg-fs-accent-soft/40 lg:flex"
             title="展开指标树"
+            aria-label="展开指标树"
           >
-            <span>指</span>
-            <span>标</span>
-            <span>树</span>
+            <span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" />
+            <span className="absolute left-1/2 top-1/2 z-10 flex h-7 w-3 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm border border-fs-border/70 bg-fs-elevated text-fs-muted shadow-sm transition group-hover:border-fs-accent group-hover:bg-fs-accent-soft group-hover:text-fs-text">
+              <svg
+                viewBox="0 0 10 14"
+                className="h-3 w-2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M3.5 2.5 7.5 7l-4 4.5" />
+              </svg>
+            </span>
           </button>
         ) : (
           <>
@@ -3303,25 +3348,36 @@ export function MacroSection() {
             <div
               role="separator"
               aria-orientation="vertical"
-              className="group relative hidden w-3 shrink-0 flex-col items-center border-x border-fs-border bg-fs-elevated/90 lg:flex"
+              className="group relative hidden w-3 shrink-0 items-stretch border-x border-fs-border bg-fs-elevated/90 lg:flex"
             >
+              <div
+                title="拖拽调节指标树宽度"
+                onMouseDown={startSidebarResize}
+                className="absolute inset-0 cursor-col-resize hover:bg-fs-accent-soft/60"
+              >
+                <span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" />
+              </div>
               <button
                 type="button"
                 onClick={() => setSidebarCollapsed(true)}
                 onMouseDown={(e) => e.stopPropagation()}
-                className="z-10 mt-1 shrink-0 rounded border border-fs-border/80 bg-fs-elevated px-0.5 py-1 text-[10px] leading-tight text-fs-muted transition hover:border-fs-border hover:bg-fs-accent-soft hover:text-fs-text"
-                style={{ writingMode: "vertical-rl" }}
+                className="absolute left-1/2 top-1/2 z-10 flex h-7 w-3 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm border border-fs-border/70 bg-fs-elevated text-fs-muted shadow-sm transition hover:border-fs-accent hover:bg-fs-accent-soft hover:text-fs-text"
                 title="折叠指标树"
+                aria-label="折叠指标树"
               >
-                折叠
+                <svg
+                  viewBox="0 0 10 14"
+                  className="h-3 w-2.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M6.5 2.5 2.5 7l4 4.5" />
+                </svg>
               </button>
-              <div
-                title="拖拽调节指标树宽度"
-                onMouseDown={startSidebarResize}
-                className="min-h-0 w-full flex-1 cursor-col-resize hover:bg-fs-accent-soft"
-              >
-                <span className="mx-auto block h-full w-px bg-fs-border group-hover:bg-fs-accent" />
-              </div>
             </div>
           </>
         )}
@@ -3522,7 +3578,7 @@ export function MacroSection() {
                 <div className="flex min-h-[200px] flex-1 items-center justify-center text-sm text-fs-muted">
                   正在加载…
                 </div>
-              ) : displayPayload ? (
+              ) : chartGridPayload ? (
                 <div className="flex min-h-0 flex-1 flex-col gap-2">
                   {error ? (
                     <div className="shrink-0 rounded-lg border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-200/90">
@@ -3536,7 +3592,7 @@ export function MacroSection() {
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
                       <MacroMultiChartGrid
                         key={`macro-grid-${layoutMode}`}
-                        payload={displayPayload}
+                        payload={chartGridPayload}
                         layoutMode={layoutMode}
                         slotAssignment={extractedAssignment}
                         seriesVisualMap={seriesVisualMap}

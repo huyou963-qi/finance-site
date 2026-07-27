@@ -150,14 +150,17 @@
 
 ## 附：CPI 分项季调环比表（BLS Table A 复刻 + 权重列）
 
-路由 `/macro/cpi-subitems`（顶栏「CPI分项」），复刻 BLS「Table A. Percent changes in CPI-U」：
-**分项作行、最近 N 个月的季调环比（MoM %）作列、末列为各分项权重**。用于一眼定位当月通胀由哪些分项驱动。
+宏观模板库 → **美国通胀分析** → 内置模板「CPI 分项 · 环比矩阵」（`builtin-us-cpi-subitems`），
+复刻 BLS「Table A. Percent changes in CPI-U」：
+**分项作行、最近 N 个月的季调环比（MoM %）作列、另含最新月同比 % 与各分项权重**。用于一眼定位当月通胀由哪些分项驱动。
 
+- **槽位模式**：`cpiMomMatrix`（图表槽位可选手动切换）
 - **组件**：`src/components/macro/CpiMomMatrixTable.tsx`（客户端，走 `/api/data/macro?source=unified`）
 - **行定义**：`src/lib/data/cpi/cpiMomMatrixCatalog.ts`（`CPI_MOM_MATRIX_ROWS`，含缩进层级与英文行名）
 - **权重快照**：`src/lib/data/cpi/cpi-relative-importance-2025.json`
   = BLS *Relative importance …, December 2025*（2024 权重，CPI-U，占全部项目 %）。**每年 BLS 更新权重时手动 refresh 此 JSON**。
 - **环比口径**：DB 只存 SA 指数水平，环比在前端由相邻月比值算出（与 `seriesCalcConfigMap` 一致，不预存 MoM）。
+- **同比口径**：最新月季调指数相对去年同月。
 - **上色**：正值（通胀走热）红、负值绿、约 0 灰。
 
 ### 新增分项序列（2026-07-14 FRED 校验，最新 obs 2026-06）

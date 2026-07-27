@@ -398,10 +398,47 @@ export const BUILTIN_US_CPI_DRIVERS_TEMPLATE = buildCpiBuiltinTemplate({
   slotTitles: CPI_DRIVERS_SLOT_TITLES,
 });
 
-/** 全部内置 CPI 模板（2 图组，按分析顺序） */
+/** 模板 ③：CPI 分项 · 环比矩阵（BLS Table A 风格 HTML 表） */
+export const CPI_SUBITEMS_DESCRIPTION =
+  "BLS Table A 风格分项季调环比矩阵：按食品/能源/核心商品与服务层级展示近月环比、最新月同比与相对重要性权重，用于快速定位当月通胀驱动。";
+
+export const CPI_SUBITEMS_CHART_INTRO: Record<string, string> = {
+  "0": "分项季调环比（红涨绿跌）+ 最新月同比 + 权重列。对照总览模板判断是食品、能源还是核心分项在推升/拖累 Headline。",
+};
+
+export const BUILTIN_US_CPI_SUBITEMS_TEMPLATE: MacroChartTemplate = {
+  id: "builtin-us-cpi-subitems",
+  name: "CPI 分项 · 环比矩阵",
+  description: CPI_SUBITEMS_DESCRIPTION,
+  chartIntroNotes: CPI_SUBITEMS_CHART_INTRO,
+  selectedKeys: [],
+  layoutMode: 1,
+  slotAssignment: {},
+  seriesVisualMap: {},
+  displayConfig: {
+    ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+    legendPosition: "bottom",
+    xLabelRotate: 24,
+    xLabelFontSize: 10,
+    yLabelFontSize: 10,
+    lineWidth: 1.6,
+    barMaxWidth: 14,
+    showSymbols: false,
+    lineSmooth: false,
+    slotModes: { 0: "cpiMomMatrix" },
+    slotTitles: { 0: "CPI 分项季调环比（BLS Table A）" },
+    slotShowTitles: { 0: true },
+  },
+  createdAtIso: "2026-07-27T00:00:00.000Z",
+  builtIn: true,
+  folderId: "folder-builtin-us-cpi",
+};
+
+/** 全部内置 CPI 模板（3 图组，按分析顺序） */
 export const BUILTIN_US_CPI_TEMPLATES: readonly MacroChartTemplate[] = [
   BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
+  BUILTIN_US_CPI_SUBITEMS_TEMPLATE,
 ];
 
 export const BUILTIN_US_CPI_TEMPLATE_IDS = BUILTIN_US_CPI_TEMPLATES.map((t) => t.id);
