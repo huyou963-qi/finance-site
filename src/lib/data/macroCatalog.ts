@@ -33,6 +33,7 @@ export const MACRO_COUNTRIES: MacroCountry[] = [
   { code: "JP", name: "日本" },
   { code: "DE", name: "德国" },
   { code: "GB", name: "英国" },
+  { code: "CH", name: "瑞士" },
   { code: "FR", name: "法国" },
   { code: "IN", name: "印度" },
   { code: "BR", name: "巴西" },
@@ -43,6 +44,9 @@ export const MACRO_COUNTRIES: MacroCountry[] = [
   { code: "AU", name: "澳大利亚" },
   { code: "ES", name: "西班牙" },
   { code: "MX", name: "墨西哥" },
+  { code: "ID", name: "印度尼西亚" },
+  { code: "SA", name: "沙特阿拉伯" },
+  { code: "ZA", name: "南非" },
 ];
 
 /** 常用宏观指标（世界银行 indicator id） */
@@ -149,13 +153,14 @@ export function serializeFredSeriesIds(ids: string[]): string {
   ].join(",");
 }
 
-/** 世界银行响应里的 countryiso3code */
+/** 世界银行响应里的 countryiso3code（须覆盖 MACRO_MAJOR_COUNTRIES + 目录常用国） */
 export const ISO2_TO_ISO3: Record<string, string> = {
   US: "USA",
   CN: "CHN",
   JP: "JPN",
   DE: "DEU",
   GB: "GBR",
+  CH: "CHE",
   FR: "FRA",
   IN: "IND",
   BR: "BRA",
@@ -166,6 +171,9 @@ export const ISO2_TO_ISO3: Record<string, string> = {
   AU: "AUS",
   ES: "ESP",
   MX: "MEX",
+  ID: "IDN",
+  SA: "SAU",
+  ZA: "ZAF",
 };
 
 /** 单页「已选指标」上限 */
