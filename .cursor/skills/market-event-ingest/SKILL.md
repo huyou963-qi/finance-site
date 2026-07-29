@@ -28,7 +28,7 @@ description: >-
 |------|------|------------|------|
 | `policy` | 财政/货币/监管/贸易 | COUNTRY / INDUSTRY | |
 | `macro-event` | 地缘、危机、灾害、异动 | COUNTRY / CROSS | |
-| `company-matter` | SEC **未覆盖**的公司事项 | COMPANY | 先对账 stockEvents |
+| `company-matter` | SEC **未覆盖**的公司事项 | COMPANY | 先对账 stockEvents；可用 product/capacity/mna/capital/partnership/litigation/supply/ops_news/guidance/management |
 | `ops-news` | 经营新闻叙事 | COMPANY | 排除传闻 |
 | `speech` | 官员/高管/投资人讲话 | 视主体 | |
 | `rating` | 评级变动 | COMPANY | 禁止编造 |

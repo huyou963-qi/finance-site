@@ -1,59 +1,88 @@
 ---
 name: company-milestone-ingest
 description: >-
-  Collect company operating milestones (product launch/production, factory capacity)
-  and policies that materially affect a ticker; emit MarketEvent ingest JSON for
-  events:import-ingest. Use when building stock operating timelines, backfilling
-  TSLA/AAPL-style narratives, or when a user asks to gather historical business
-  events for a stock they follow.
+  Collect operating milestones for ANY listed company (product launch/scale-up,
+  capacity/factory nodes, and policies that materially affect that ticker).
+  Emit JSON for the markets operating timeline (user-local import) or admin
+  events:import-ingest into shared MarketEvent. Use when building stock operating
+  timelines or gathering historical business events for a ticker.
 ---
 
 # Company Milestone Ingest
 
-为**单只股票**搜集「经营里程碑」与「影响该公司的政策」，生成可导入事件管理器的标准 JSON。
+为**任意一只股票**搜集「经营里程碑」与「影响该公司的政策」，生成标准 JSON。
 
-与 [`market-event-ingest`](../market-event-ingest/SKILL.md) 共用入库管线（`events:validate-ingest` / `events:import-ingest`），本 Skill 更窄：不跑宏观批队列、不做评级/目标价，专注**可读的经营叙事**。
+与 [`market-event-ingest`](../market-event-ingest/SKILL.md) **共用同一套字段与词表**（不另建事件类型体系）。本 Skill 更窄：专注产品/产能/挂票政策，不做评级/目标价/宏观批队列。
+
+**Skill + Schema 是一套**：规程见本文件，结构见 [`templates/ingest-output.schema.json`](./templates/ingest-output.schema.json)。
+
+## 可见性（导入后谁能看见）
+
+| 路径 | 谁 | 效果 |
+|------|-----|------|
+| `/markets` →「导入经营事件」 | 任意登录用户 | **仅该用户浏览器本地**（按 userId+标的），只对自己生效；冲突时**优先于**共享库/SEC 显示 |
+| `npm run events:import-ingest` | **Admin / 运维** | 写入共享 `MarketEvent`，其他用户在经营轴/K 线可见 |
+
+普通用户 Skill 产出 → 本地导入即可；全站共享须管理员入库。
 
 ## When to use
 
-- 「搜集 TSLA / AAPL 历史经营重要事件」
-- 「补产品发布、量产、工厂投产、影响该公司的补贴/监管」
-- 用户要用自己的 AI 为关注标的做时间轴，再导入本站查看
+- 「搜集 `{SYMBOL}` 历史经营重要事件」
+- 「补产品发布、量产、工厂/产能、影响该公司的补贴/监管」
+- 用户要用自己的 AI 为关注标的做时间轴
 
 ## 输入
 
 | 字段 | 必填 | 说明 |
 |------|------|------|
-| `symbol` | 是 | 美股 ticker，如 `TSLA` |
-| `from` / `to` | 建议 | 默认上市日或 `2008-01-01` → 今天 |
-| 行业提示 | 否 | GICS / 主营国家，加速政策检索 |
+| `symbol` | 是 | ticker，一律大写 |
+| `from` / `to` | 建议 | 上市日或合理起点 → 今天 |
+| 行业提示 | 否 | GICS / 主营 / 国家 |
 
-## 三类必须覆盖
+**一条运行只服务一个 `symbol`。**
 
-1. **产品** `company.product` — 发布、量产、首交付、关键 SKU 放量  
-2. **产能** `company.capacity` — 工厂签约/开工/投产、重大扩产  
-3. **政策** `policy.*` — 国家/行业/国际规则中**确实影响该公司**需求、成本或准入者  
+## 打标约定（本地与入库相同）
 
-**禁止**：SEC 已覆盖的财报/10-K/8-K/拆分；传闻；无日期编造；把无关宏观政策硬挂到公司。
+| 字段 | 约定 |
+|------|------|
+| `scope` | 公司本体 `COMPANY`；政策可用 `COUNTRY`/`INDUSTRY`，但必须挂 assets |
+| `assets` | **必含** 目标 ticker |
+| `eventType` | 见下表 |
+| `tags` | 建议含 `milestone` |
+| `markerLabel` | ≤4 字 |
+| `payload.impact.summary` | 经营类建议必填 |
+| `externalId` | `ai:milestone:{SYMBOL}:{yyyy-mm-dd}:{slug}` |
+
+## 必须覆盖
+
+1. **产品** `company.product`  
+2. **产能** `company.capacity`  
+3. **政策** `policy.*`（确实影响该公司者）  
+
+可选（若检索到且非 SEC 重复）：`company.mna` / `capital` / `partnership` / `litigation` / `supply`（详见词表；亦可用 `company-matter` 模式）。
+
+**禁止**：SEC 已覆盖财报/8-K/拆分；传闻；无日期编造；无关宏观硬挂公司。
+
+## 允许的 eventType（本模式核心）
+
+| eventType | scope 建议 |
+|-----------|------------|
+| `company.product` | `COMPANY` |
+| `company.capacity` | `COMPANY` |
+| `policy.fiscal` / `monetary` / `regulatory` / `trade` | `COUNTRY` / `INDUSTRY` / `CROSS` |
+
+完整词表：[`src/lib/data/eventTaxonomy.ts`](../../../src/lib/data/eventTaxonomy.ts)。
 
 ## Hard rules
 
-1. 日期、数字、政策名禁止编造；无可靠来源 → `skipped[]`。  
-2. 交叉验证 ≥2 独立权威源（IR、官方博客、政府公报、主要财经媒体）。  
-3. 先对账：`GET /api/equity/stocks/{symbol}/events`（SEC）与 `GET /api/events?assets={symbol}&from=&to=`。  
-4. 库内已有同日同政策 → **merge** `assets`/`tags`，不新建。  
-5. `eventType` / `markerLabel` 以 [`src/lib/data/eventTaxonomy.ts`](../../../src/lib/data/eventTaxonomy.ts) 为准。  
-6. 每条必须有 `externalId`、`markerLabel`（≤4 字）、`payload.impact.summary`。
+1. 禁止编造；无来源 → `skipped[]`  
+2. 交叉验证 ≥2 权威源  
+3. 对账 SEC：`GET /api/equity/stocks/{symbol}/events`  
+4. Admin 入库前对账库内并去重 merge  
+5. 每条：`externalId`、`markerLabel`、`payload.impact.summary`  
+6. 符合 Schema  
 
-## externalId
-
-```
-ai:milestone:{SYMBOL}:{yyyy-mm-dd}:{slug}
-```
-
-政策若站内已有宏观条目，优先沿用其 `externalId` 并 merge `assets`。
-
-## payload.impact（时间轴主展示）
+## payload.impact
 
 ```json
 {
@@ -64,34 +93,21 @@ ai:milestone:{SYMBOL}:{yyyy-mm-dd}:{slug}
 }
 ```
 
-`content` 写事实；`impact.summary` 写**对该公司的影响**（政策类尤其重要）。
-
-## importance
-
-| 等级 | 何时 |
-|------|------|
-| CRITICAL | 改变公司商业模式或利润拐点的节点（如首次全年盈利、主力工厂投产） |
-| HIGH | 显著放量/产能/政策（Model 3 量产、双积分、IRA） |
-| MEDIUM | 规划发布、补充车型、次要工厂节点 |
-| LOW | 少用 |
-
 ## Workflow
 
 1. 解析 `symbol` + 时间窗  
-2. 按 [reference/checklist.md](./reference/checklist.md) 检索三类事件  
-3. 对账 SEC + 库内事件；准备 merge 或 create  
-4. 写出 JSON（见 [templates/ingest-output.schema.json](./templates/ingest-output.schema.json)）  
-5. `npm run events:validate-ingest -- <file.json>`  
-6. `npm run events:import-ingest -- <file.json>`  
-7. 在 `/markets` 勾选「经营时间轴」导入 JSON 查看  
+2. 按 [reference/checklist.md](./reference/checklist.md) 检索  
+3. 写出 JSON（[templates/ingest-output.schema.json](./templates/ingest-output.schema.json)）  
+4. **用户**：`/markets` → 事件筛选器 →「导入经营事件」（本地）  
+5. **Admin 全站共享**（可选）：
+   ```bash
+   npm run events:validate-ingest -- <file.json>
+   npm run events:import-ingest -- <file.json>
+   ```
 
-范例：[templates/example-TSLA.json](./templates/example-TSLA.json)
+示例形状：[templates/example-TSLA.json](./templates/example-TSLA.json)  
+用户包：`/templates/company-milestone/company-milestone-pack.zip`（改完跑 `npm run pack:company-milestone`）。
 
-站内下载副本：`/templates/company-milestone/`（Schema / Skill / 示例）。
+## 经营轴展示
 
-## 展示约定（给站内 UI）
-
-- **主**：个股经营时间轴（全量里程碑 + impact）  
-- **辅**：K 线 / 基本面图仅默认显示 `HIGH`+`CRITICAL` 钉  
-
-入库后 `assets` 含 ticker 即可被 `/api/events/chart-markers` 与里程碑页拉取。
+行情页「事件筛选器」合并三层：**用户本地 > 共享 MarketEvent > SEC**；默认类型 `company.*` + 挂票 `policy.*`。

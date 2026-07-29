@@ -150,7 +150,7 @@ npm run db:studio        # Prisma Studio
 
 ## 个股经营里程碑（Skill）
 
-用户可用自己的 AI 按 [`.cursor/skills/company-milestone-ingest/`](.cursor/skills/company-milestone-ingest/) 搜集单票产品/产能/影响该公司的政策。模板下载：`/templates/company-milestone/`。在 **行情页** `/markets` 打开「经营时间轴」后可导入 JSON 显示；亦可 CLI：
+用户可用自己的 AI 按 [`.cursor/skills/company-milestone-ingest/`](.cursor/skills/company-milestone-ingest/) 搜集单票产品/产能/影响该公司的政策。模板整包：`/templates/company-milestone/company-milestone-pack.zip`（改文件后 `npm run pack:company-milestone`）。在 **行情页** `/markets` 底部展开「事件筛选器」：**导入经营事件仅本地对本账号生效**；Admin 用 `events:import-ingest` 入库后全站可见；轴上本地优先于共享库与 SEC。亦可 CLI：
 
 ```bash
 npm run events:validate-ingest -- <file.json>

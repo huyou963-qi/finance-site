@@ -34,9 +34,9 @@ import {
   isAllTypeFamiliesSelected,
   loadEventViewFilters,
   saveEventViewFilters,
-  typeFamiliesToQueryPrefixes,
   type EventViewFilterState,
 } from "@/lib/chart/eventViewFilters";
+import { buildForChartUrl } from "@/lib/chart/buildForChartUrl";
 import { eventHitsExplicitFilters } from "@/lib/data/assetEventResolver";
 import {
   applySymbolDraftToFilters,
@@ -106,31 +106,6 @@ function buildRangeUrl(rangeFrom: string, rangeTo: string): string {
     limit: "2000",
   });
   return `/api/events?${sp.toString()}`;
-}
-
-function buildForChartUrl(
-  symbol: string,
-  rangeFrom: string,
-  rangeTo: string,
-  filters: EventViewFilterState,
-): string {
-  const sp = new URLSearchParams({
-    symbol,
-    from: rangeFrom,
-    to: rangeTo,
-    scopeMode: filters.scopeMode,
-    includeSec: filters.includeSec ? "1" : "0",
-    includeMarket: filters.includeMarket ? "1" : "0",
-    minImportance: filters.minImportance,
-  });
-  if (filters.assets.length) sp.set("assets", filters.assets.join(","));
-  if (filters.industries.length)
-    sp.set("industries", filters.industries.join(","));
-  if (filters.countries.length)
-    sp.set("countries", filters.countries.join(","));
-  const types = typeFamiliesToQueryPrefixes(filters.typeFamilies);
-  if (types?.length) sp.set("types", types.join(","));
-  return `/api/events/for-chart?${sp.toString()}`;
 }
 
 function eventDateMs(event: MarketEventDto): number {

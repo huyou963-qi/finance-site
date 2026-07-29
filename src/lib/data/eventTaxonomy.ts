@@ -38,6 +38,11 @@ export const EVENT_TYPE_CODES = [
   "company.product",
   "company.capacity",
   "company.management",
+  "company.mna",
+  "company.capital",
+  "company.partnership",
+  "company.litigation",
+  "company.supply",
   "speech.official",
   "speech.executive",
   "speech.investor",
@@ -69,6 +74,11 @@ export const EVENT_TYPE_LABELS: Record<EventTypeCode, string> = {
   "company.product": "产品/车型",
   "company.capacity": "工厂/产能",
   "company.management": "管理层变动",
+  "company.mna": "并购/剥离",
+  "company.capital": "回购/增发/分红",
+  "company.partnership": "战略合作/大单",
+  "company.litigation": "诉讼/处罚",
+  "company.supply": "供应链节点",
   "speech.official": "官员讲话",
   "speech.executive": "高管讲话",
   "speech.investor": "投资人讲话",
@@ -99,6 +109,11 @@ export const EVENT_TYPE_MARKER_LABELS: Record<EventTypeCode, string> = {
   "company.product": "产品",
   "company.capacity": "工厂",
   "company.management": "高管",
+  "company.mna": "并购",
+  "company.capital": "资本",
+  "company.partnership": "合作",
+  "company.litigation": "诉讼",
+  "company.supply": "供应",
   "speech.official": "讲话",
   "speech.executive": "高管说",
   "speech.investor": "投资人",
@@ -250,7 +265,9 @@ export function eventTypeMatchesFamilies(
   eventType: string | null | undefined,
   selected: readonly EventTypeFamilyId[] | null | undefined,
 ): boolean {
-  if (!selected?.length) return true;
+  // null/undefined：未传筛选 → 不过滤；[]：显式全不选 → 无匹配
+  if (selected == null) return true;
+  if (selected.length === 0) return false;
   if (selected.length >= EVENT_TYPE_FAMILY_IDS.length) return true;
   const family = familyIdForEventType(eventType);
   return selected.includes(family);
@@ -277,6 +294,21 @@ export function eventTypeMatchesSelection(
 export function isEraEventType(eventType: string | null | undefined): boolean {
   const n = normalizeEventType(eventType) ?? eventType ?? "";
   return n === "era" || n === "时代阶段";
+}
+
+/**
+ * 事件筛选器默认类型：全部 company.* + 挂票的 policy.*
+ * 供 /api/events/for-chart?types= 与客户端过滤共用。
+ */
+export const COMPANY_TIMELINE_TYPE_FILTERS = ["company", "policy"] as const;
+
+/** 是否属于经营/公司事件轴默认集合 */
+export function isCompanyTimelineEventType(
+  eventType: string | null | undefined,
+): boolean {
+  const n = normalizeEventType(eventType) ?? eventType ?? "";
+  if (!n) return false;
+  return n.startsWith("company.") || n.startsWith("policy.");
 }
 
 export function eventTypeLabel(code: string | null | undefined): string {
@@ -433,6 +465,9 @@ export function markerColorFor(
   if (n.startsWith("company.earnings") || n.startsWith("company.filing")) return "#1d4ed8";
   if (n === "company.product") return "#047857";
   if (n === "company.capacity") return "#c2410c";
+  if (n === "company.mna" || n === "company.capital") return "#b45309";
+  if (n === "company.partnership" || n === "company.supply") return "#0f766e";
+  if (n === "company.litigation") return "#be123c";
   if (n.startsWith("company.")) return "#4338ca";
   if (n.startsWith("speech")) return "#7e22ce";
   if (importance === "CRITICAL") return "#e11d48";

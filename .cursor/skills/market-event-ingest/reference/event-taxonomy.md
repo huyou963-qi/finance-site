@@ -13,6 +13,7 @@ policy.fiscal | policy.monetary | policy.regulatory | policy.trade
 macro.release | macro.geopolitics | macro.disaster
 company.earnings | company.guidance | company.corp_action
 company.filing | company.ops_news | company.product | company.capacity | company.management
+company.mna | company.capital | company.partnership | company.litigation | company.supply
 speech.official | speech.executive | speech.investor
 rating.initiate | rating.upgrade | rating.downgrade | rating.maintain
 price_target.change
@@ -21,6 +22,7 @@ market.anomaly | era | other
 
 `company.earnings` / `company.filing` / `company.corp_action`（拆分）通常由 SEC `stockEvents` 提供，Skill **不要**再写。
 `company.product` / `company.capacity` 用于经营里程碑（产品放量、工厂投产），见 `company-milestone-ingest` Skill。
+`company.mna` / `capital` / `partnership` / `litigation` / `supply` 用于 `company-matter` 等非 SEC 公司大事（并购、资本运作、大单、诉讼、供应链）。
 
 ## markerLabel
 

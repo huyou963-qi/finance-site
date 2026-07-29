@@ -181,8 +181,8 @@ export type StockChartWorkspaceProps = {
   eventViewFilters?: EventViewFilterState;
   onEventViewFiltersChange?: (prefs: EventViewFilterState) => void;
   /**
-   * 经营时间轴模式：强制隐藏两副图，且不预留「显示副图」堆叠条高度。
-   * 关闭后恢复进入前的副图可见状态。
+   * 事件筛选器展开时：仅将两副图设为「隐藏」（保存并在关闭后恢复可见性），
+   * 不取消副图控件；仍可出现「显示副图」堆叠条与工具条上的「显示」。
    */
   forceHideSubPanes?: boolean;
   /** 外部请求定位到某根 K 线时间（Unix 秒）；版本递增时应用 */
@@ -2054,8 +2054,7 @@ export function StockChartWorkspace({
     const box = chartAreaRef.current;
     const cw = Math.max(100, box?.clientWidth ?? el.clientWidth);
     const bothSubsHidden = !subPane1.visible && !subPane2.visible;
-    const bottomReserve =
-      bothSubsHidden && !forceHideSubPanes ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
+    const bottomReserve = bothSubsHidden ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
     const ch = Math.max(400, (box?.clientHeight ?? 520) - bottomReserve);
     el.replaceChildren();
     const chart = createChart(el, {
@@ -2260,8 +2259,7 @@ export function StockChartWorkspace({
       const w = area.clientWidth;
       const bothHidden =
         !subPane1.visible && !subPane2.visible;
-      const reserve =
-        bothHidden && !forceHideSubPanes ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
+      const reserve = bothHidden ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
       const h = Math.max(400, area.clientHeight - reserve);
       cr.resize(w, h);
       setOverlaySize({ w, h });
@@ -2738,6 +2736,11 @@ export function StockChartWorkspace({
       eventMarkersDataRef.current = [];
       return;
     }
+    if (eventViewFilters.typeFamilies.length === 0) {
+      eventMarkersPluginRef.current?.setMarkers([]);
+      eventMarkersDataRef.current = [];
+      return;
+    }
 
     let cancelled = false;
     const timer = window.setTimeout(() => {
@@ -3007,7 +3010,7 @@ export function StockChartWorkspace({
     pageSyncEnabled,
   ]);
 
-  /** 经营时间轴点击：定位到事件日附近并显示十字线 */
+  /** 事件筛选器点击：定位到事件日附近并显示十字线 */
   useEffect(() => {
     if (!seekToTimeVersion) return;
     if (seekToTimeSec == null) return;
@@ -3471,7 +3474,7 @@ export function StockChartWorkspace({
               : "h-full w-full min-h-[520px]"
           }
         />
-        {subPaneToolbarGeom.slot1 && !forceHideSubPanes ? (
+        {subPaneToolbarGeom.slot1 ? (
           <div
             className={`pointer-events-auto absolute left-0 right-0 z-[25] flex flex-wrap items-center gap-1 border-b border-fs-border bg-white/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
             style={{
@@ -3514,7 +3517,7 @@ export function StockChartWorkspace({
             ) : null}
           </div>
         ) : null}
-        {subPaneToolbarGeom.slot2 && !forceHideSubPanes ? (
+        {subPaneToolbarGeom.slot2 ? (
           <div
             className={`pointer-events-auto absolute left-0 right-0 z-[26] flex flex-col overflow-hidden border-b border-fs-border bg-white/95 backdrop-blur-[2px] ${subPane2.visible ? "" : "opacity-90"}`}
             style={{

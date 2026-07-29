@@ -21,8 +21,7 @@ import {
 import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
-import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
-import { OperatingMilestoneStrip } from "@/components/equity/OperatingMilestoneStrip";
+import { MarketsEventShelf } from "@/components/equity/MarketsEventShelf";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
   loadEventViewFilters,
@@ -110,8 +109,7 @@ export function MarketsClient() {
   const [eventContextDate, setEventContextDate] = useState<string | null>(null);
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
-  const [milestoneMode, setMilestoneMode] = useState(false);
-  const chartSplitRowRef = useRef<HTMLDivElement | null>(null);
+  const [eventShelfOpen, setEventShelfOpen] = useState(false);
 
   const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
 
@@ -135,6 +133,15 @@ export function MarketsClient() {
     setEventRangeToSec(null);
     setEventContextDate(null);
   }, [symbol]);
+
+  /** 换标的时套用事件筛选草稿（原右侧 EventPanel 行为） */
+  useEffect(() => {
+    if (!eventFiltersHydrated) return;
+    const sym = symbol.trim();
+    if (!sym) return;
+    const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
+    setEventViewFilters((prev) => applySymbolDraftToFilters(prev, draft));
+  }, [symbol, eventFiltersHydrated]);
 
   useEffect(() => {
     bcRef.current = new BroadcastChannel(KLINE_PAGE_SYNC_CHANNEL);
@@ -352,10 +359,21 @@ export function MarketsClient() {
       rangeFrom: eventRangeFrom,
       rangeTo: eventRangeTo,
       trackDate: eventContextDate,
-      contextAssets: symbol.trim() ? [symbol.trim()] : [],
     }),
-    [eventRangeFrom, eventRangeTo, eventContextDate, symbol],
+    [eventRangeFrom, eventRangeTo, eventContextDate],
   );
+
+  const resetEventFiltersToSymbol = useCallback(() => {
+    const sym = symbol.trim();
+    if (!sym) {
+      setEventViewFilters({ ...DEFAULT_EVENT_VIEW_FILTERS });
+      return;
+    }
+    const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
+    setEventViewFilters(
+      applySymbolDraftToFilters({ ...DEFAULT_EVENT_VIEW_FILTERS }, draft),
+    );
+  }, [symbol]);
 
   const pickInterval = (iv: KlineInterval) => {
     setKlineInterval(iv);
@@ -604,20 +622,6 @@ export function MarketsClient() {
           页面同步
         </label>
 
-        <label
-          className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted"
-          title="关闭两副图，在主图下方展开经营时间轴；可导入自建 JSON"
-        >
-          <input
-            type="checkbox"
-            checked={milestoneMode}
-            onChange={(e) => setMilestoneMode(e.target.checked)}
-            className="h-3 w-3 shrink-0 rounded border-fs-border"
-            aria-label="经营时间轴"
-          />
-          经营时间轴
-        </label>
-
         <div
           className="min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-fs-muted sm:text-[9px]"
           title={dataHint ?? undefined}
@@ -650,56 +654,55 @@ export function MarketsClient() {
         </div>
       </div>
 
-      <div
-        ref={chartSplitRowRef}
-        className="flex min-h-0 min-w-0 flex-1 flex-row items-stretch overflow-hidden"
-      >
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <StockChartWorkspace
-            key={`${symbol || "none"}-${interval}-${priceAdjustment}`}
-            symbol={symbol}
-            interval={interval}
-            priceAdjustment={priceAdjustment}
-            fillHeight
-            onAttributionChange={setDataHint}
-            onKlineLoadSuccess={onKlineLoadSuccess}
-            pageSyncEnabled={pageSync}
-            pageSyncLeadNonce={syncLeadNonce}
-            onPageSyncLeaderSnapshot={onLeaderSnapshot}
-            remoteVisibleTimeRange={remoteVisible}
-            remoteVisibleTimeRangeVersion={remoteVisibleVer}
-            remoteCrosshairTime={remoteCrosshair}
-            remoteCrosshairVersion={remoteCrosshairVer}
-            remoteRangeSpecs={remoteRangeSpecs}
-            remoteRangeSpecsVersion={remoteRangeSpecsVer}
-            onRangeSpecsBroadcast={onRangeSpecsBroadcast}
-            onLocalVisibleTimeRange={onLocalVisibleTimeRange}
-            onVisibleTimeRangeChange={onVisibleTimeRangeChange}
-            onLocalCrosshairTime={onLocalCrosshairTime}
-            onEventMarkerClick={onEventMarkerClick}
-            toolbarPortalEl={chartToolbarMount}
-            eventViewFilters={eventViewFilters}
-            onEventViewFiltersChange={setEventViewFilters}
-            forceHideSubPanes={milestoneMode}
-          />
-          {milestoneMode ? (
-            <OperatingMilestoneStrip
-              symbol={symbol}
-              height={248}
-              rangeFromSec={eventRangeFromSec}
-              rangeToSec={eventRangeToSec}
-            />
-          ) : null}
-        </div>
-
-        <EventChartSidePanel
-          variant="docked"
-          splitRowRef={chartSplitRowRef}
-          viewFilters={eventViewFilters}
-          onViewFiltersChange={setEventViewFilters}
-          chartSymbol={symbol.trim() || null}
-          {...chartLinkedEventProps}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <StockChartWorkspace
+          key={`${symbol || "none"}-${interval}-${priceAdjustment}`}
+          symbol={symbol}
+          interval={interval}
+          priceAdjustment={priceAdjustment}
+          fillHeight
+          onAttributionChange={setDataHint}
+          onKlineLoadSuccess={onKlineLoadSuccess}
+          pageSyncEnabled={pageSync}
+          pageSyncLeadNonce={syncLeadNonce}
+          onPageSyncLeaderSnapshot={onLeaderSnapshot}
+          remoteVisibleTimeRange={remoteVisible}
+          remoteVisibleTimeRangeVersion={remoteVisibleVer}
+          remoteCrosshairTime={remoteCrosshair}
+          remoteCrosshairVersion={remoteCrosshairVer}
+          remoteRangeSpecs={remoteRangeSpecs}
+          remoteRangeSpecsVersion={remoteRangeSpecsVer}
+          onRangeSpecsBroadcast={onRangeSpecsBroadcast}
+          onLocalVisibleTimeRange={onLocalVisibleTimeRange}
+          onVisibleTimeRangeChange={onVisibleTimeRangeChange}
+          onLocalCrosshairTime={onLocalCrosshairTime}
+          onEventMarkerClick={onEventMarkerClick}
+          toolbarPortalEl={chartToolbarMount}
+          eventViewFilters={eventViewFilters}
+          onEventViewFiltersChange={setEventViewFilters}
+          forceHideSubPanes={eventShelfOpen}
         />
+        {eventShelfOpen ? (
+          <MarketsEventShelf
+            symbol={symbol}
+            viewFilters={eventViewFilters}
+            onViewFiltersChange={setEventViewFilters}
+            rangeFromSec={eventRangeFromSec}
+            rangeToSec={eventRangeToSec}
+            trackDate={chartLinkedEventProps.trackDate}
+            onResetToSymbolDefault={resetEventFiltersToSymbol}
+          />
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setEventShelfOpen((v) => !v)}
+          className="flex h-7 w-full shrink-0 items-center justify-center gap-1 border-t border-fs-border bg-fs-elevated text-[11px] text-fs-secondary hover:bg-fs-accent-soft hover:text-fs-accent-text"
+          aria-expanded={eventShelfOpen}
+          aria-label={eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
+        >
+          <span aria-hidden>{eventShelfOpen ? "▾" : "▴"}</span>
+          {eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
+        </button>
       </div>
       </div>
     </div>

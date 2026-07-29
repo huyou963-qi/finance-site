@@ -77,11 +77,13 @@ export function sanitizeEventViewFilters(
 
   const families = Array.isArray(raw.typeFamilies)
     ? raw.typeFamilies.filter(isFamilyId)
-    : base.typeFamilies;
+    : null;
 
   return {
     searchQ: typeof raw.searchQ === "string" ? raw.searchQ : "",
-    typeFamilies: families.length ? [...new Set(families)] : [...ALL_EVENT_TYPE_FAMILY_IDS],
+    typeFamilies: families
+      ? [...new Set(families)]
+      : [...base.typeFamilies],
     minImportance: isImportance(raw.minImportance)
       ? raw.minImportance
       : base.minImportance,
@@ -210,10 +212,11 @@ export function hasActiveEventViewContentFilters(
   );
 }
 
-/** 类型族 → chart-markers types= 查询（前缀） */
+/** 类型族 → chart-markers types= 查询（前缀）；[] 表示显式全不选 */
 export function typeFamiliesToQueryPrefixes(
   families: readonly EventTypeFamilyId[],
 ): string[] | undefined {
+  if (families.length === 0) return [];
   if (isAllTypeFamiliesSelected(families)) return undefined;
   return [...families];
 }

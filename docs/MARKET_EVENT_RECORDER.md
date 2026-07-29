@@ -1,15 +1,31 @@
 # 事件记录器与 K 线标记
 
-## 双源模型
+## 双源 + 用户本地（公司经营轴）
 
-| 源 | 内容 | 入库 |
-|----|------|------|
-| SEC `stockEvents` | 10-Q/10-K/8-K、拆分、业绩 metrics | **不**写入 `MarketEvent`，图表直接读 |
-| `MarketEvent` | 政策、讲话、评级、目标价、经营新闻等 | AI Skill / 人工 |
+| 源 | 内容 | 谁可见 |
+|----|------|--------|
+| SEC `stockEvents` | 10-Q/10-K/8-K、拆分、业绩 metrics | 全站；**不**写入 `MarketEvent` |
+| `MarketEvent`（共享） | 政策、讲话、评级、经营新闻、admin 入库的公司里程碑等 | 全站；**Admin** CLI/`events:import-ingest` 写入 |
+| 用户本地（浏览器） | 用户 Skill「导入经营事件」 | **仅该 userId**；键 `company-events-local:v1:{userId}:{SYMBOL}` |
+
+### 事件筛选器（`/markets`）
+
+底部「展开事件筛选器」打开后，横向轴合并三层，**展示优先级**：
+
+1. 用户本地公司事件（最高；冲突则盖住下层，不删库）  
+2. 共享 `MarketEvent`（`company.*` + 挂该票的 `policy.*`）  
+3. SEC  
+
+冲突：同 `externalId`，或同日 + 同 `eventType` + 标题近似 / 同 `sourceUrl`。
+
+公司事件打标约定：`assets` 含 ticker、`eventType` 用词表、`payload.impact`（经营类）、稳定 `externalId`。词表见 `src/lib/data/eventTaxonomy.ts`（含 `company.mna/capital/partnership/litigation/supply`）。
+
+用户包：`/templates/company-milestone/company-milestone-pack.zip`。
 
 ## AI Skill 批补
 
-Skill：`.cursor/skills/market-event-ingest/`
+Skill：`.cursor/skills/market-event-ingest/`（宏观/评级等批跑）  
+个股经营：`.cursor/skills/company-milestone-ingest/`
 
 ```bash
 npm run events:validate-ingest -- .data/event-ingest-run.json
