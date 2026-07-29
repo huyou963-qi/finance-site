@@ -22,6 +22,7 @@ import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
+import { OperatingMilestoneStrip } from "@/components/equity/OperatingMilestoneStrip";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
   loadEventViewFilters,
@@ -30,6 +31,11 @@ import {
 } from "@/lib/chart/eventViewFilters";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
 import { findMarketInstrument } from "@/lib/data/marketInstruments";
+import {
+  applySymbolDraftToFilters,
+  classifyChartSymbol,
+  deriveEventFilterDraft,
+} from "@/lib/data/chartSymbolProfile";
 
 type SymbolHit = {
   symbol: string;
@@ -83,17 +89,28 @@ export function MarketsClient() {
   >([]);
   const [remoteRangeSpecsVer, setRemoteRangeSpecsVer] = useState(0);
   const [eventViewFilters, setEventViewFilters] = useState<EventViewFilterState>(
-    () =>
-      typeof window !== "undefined"
-        ? loadEventViewFilters()
-        : DEFAULT_EVENT_VIEW_FILTERS,
+    DEFAULT_EVENT_VIEW_FILTERS,
   );
+  const [eventFiltersHydrated, setEventFiltersHydrated] = useState(false);
   useEffect(() => {
+    const loaded = loadEventViewFilters();
+    const sym = symbol.trim();
+    if (sym) {
+      const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
+      setEventViewFilters(applySymbolDraftToFilters(loaded, draft));
+    } else {
+      setEventViewFilters(loaded);
+    }
+    setEventFiltersHydrated(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- 仅首屏 hydrate；换标的由 EventPanel 套草稿
+  useEffect(() => {
+    if (!eventFiltersHydrated) return;
     saveEventViewFilters(eventViewFilters);
-  }, [eventViewFilters]);
+  }, [eventViewFilters, eventFiltersHydrated]);
   const [eventContextDate, setEventContextDate] = useState<string | null>(null);
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
+  const [milestoneMode, setMilestoneMode] = useState(false);
   const chartSplitRowRef = useRef<HTMLDivElement | null>(null);
 
   const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
@@ -587,6 +604,20 @@ export function MarketsClient() {
           页面同步
         </label>
 
+        <label
+          className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted"
+          title="关闭两副图，在主图下方展开经营时间轴；可导入自建 JSON"
+        >
+          <input
+            type="checkbox"
+            checked={milestoneMode}
+            onChange={(e) => setMilestoneMode(e.target.checked)}
+            className="h-3 w-3 shrink-0 rounded border-fs-border"
+            aria-label="经营时间轴"
+          />
+          经营时间轴
+        </label>
+
         <div
           className="min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-fs-muted sm:text-[9px]"
           title={dataHint ?? undefined}
@@ -649,7 +680,16 @@ export function MarketsClient() {
             toolbarPortalEl={chartToolbarMount}
             eventViewFilters={eventViewFilters}
             onEventViewFiltersChange={setEventViewFilters}
+            forceHideSubPanes={milestoneMode}
           />
+          {milestoneMode ? (
+            <OperatingMilestoneStrip
+              symbol={symbol}
+              height={248}
+              rangeFromSec={eventRangeFromSec}
+              rangeToSec={eventRangeToSec}
+            />
+          ) : null}
         </div>
 
         <EventChartSidePanel

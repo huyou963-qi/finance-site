@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildRebalanceCalendar,
   computeMetrics,
+  computeRegimeCoverage,
   dayToIso,
   isoToDay,
   normalizeScoreWeights,
@@ -344,5 +345,47 @@ describe("regimeFilter — regime 条件化持仓（WS4）", () => {
     const selections: RebalanceSelection[] = [{ ...sel(0, ["AA"]), regime: null }];
     const res = runBacktest(ds, selections, params({ regimeFilter: ["recovery"] }));
     assert.equal(res.periods[0]!.regimeBlocked, true);
+  });
+});
+
+describe("computeRegimeCoverage", () => {
+  const p = (regime: string | null, recession: number | null) => ({ regime, recession });
+
+  it("按象限计数，并把 NBER 衰退期单列", () => {
+    const cov = computeRegimeCoverage([
+      p("contraction", 0), p("contraction", 0), p("contraction", 1),
+      p("overheat", 0), p("recovery", 0),
+    ]);
+    assert.equal(cov.total, 5);
+    assert.equal(cov.byQuadrant["contraction"], 3);
+    assert.equal(cov.byQuadrant["overheat"], 1);
+    assert.equal(cov.byQuadrant["recovery"], 1);
+    assert.equal(cov.byQuadrant["stagflation"], 0);
+    // 3 个 contraction 期里只有 1 个是真衰退——这正是要单列的原因
+    assert.equal(cov.recessionPeriods, 1);
+  });
+
+  it("衰退样本不足时置 recessionThin（实测 2013+ 仅 2 个衰退月）", () => {
+    const many = Array.from({ length: 160 }, () => p("overheat", 0));
+    const cov = computeRegimeCoverage([...many, p("contraction", 1), p("contraction", 1)]);
+    assert.equal(cov.recessionPeriods, 2);
+    assert.equal(cov.recessionThin, true);
+    // 足量衰退期则不告警
+    const rich = Array.from({ length: 8 }, () => p("contraction", 1));
+    assert.equal(computeRegimeCoverage([...many, ...rich]).recessionThin, false);
+  });
+
+  it("样本稀薄的象限进 thinQuadrants；regime/recession 未知分别计数", () => {
+    const cov = computeRegimeCoverage([
+      ...Array.from({ length: 20 }, () => p("overheat", 0)),
+      p("recovery", 0),
+      p(null, null),
+      p(null, -1),
+    ]);
+    assert.equal(cov.unknown, 2);
+    assert.equal(cov.recessionUnknown, 2); // null 与 -1 都算未知
+    assert.ok(!cov.thinQuadrants.includes("overheat")); // 20 期 ≥ 12
+    assert.ok(cov.thinQuadrants.includes("recovery")); // 1 期 < 12
+    assert.ok(cov.thinQuadrants.includes("stagflation")); // 0 期
   });
 });

@@ -55,6 +55,7 @@ function isFamilyId(v: unknown): v is EventTypeFamilyId {
 }
 
 function isScopeMode(v: unknown): v is EventScopeMode {
+  // 「时间轴全部」已取消；旧存档 range 一律当 follow
   return v === "follow" || v === "range";
 }
 
@@ -84,7 +85,11 @@ export function sanitizeEventViewFilters(
     minImportance: isImportance(raw.minImportance)
       ? raw.minImportance
       : base.minImportance,
-    scopeMode: isScopeMode(raw.scopeMode) ? raw.scopeMode : base.scopeMode,
+    scopeMode: isScopeMode(raw.scopeMode)
+      ? raw.scopeMode === "range"
+        ? "follow"
+        : raw.scopeMode
+      : base.scopeMode,
     countries: asStringArray(raw.countries),
     industries: asStringArray(raw.industries),
     assets: asStringArray(raw.assets),
@@ -118,9 +123,7 @@ function migrateFromLegacy(): EventViewFilterState | null {
       ? (JSON.parse(markerRaw) as Record<string, unknown>)
       : {};
 
-    const contextMode = list.contextMode;
-    let scopeMode: EventScopeMode = "follow";
-    if (contextMode === "range") scopeMode = "range";
+    const scopeMode: EventScopeMode = "follow";
 
     return sanitizeEventViewFilters({
       searchQ: typeof list.searchQ === "string" ? list.searchQ : "",

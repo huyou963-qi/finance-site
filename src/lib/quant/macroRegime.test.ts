@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyHysteresis,
   classifyQuadrant,
   deriveMomentum,
   deriveYoY,
@@ -92,5 +93,54 @@ describe("latestVisibleIndex", () => {
     assert.equal(latestVisibleIndex(series, isoToDay("2020-01-01")), -1);
     // T 晚于全部 → 最后一期
     assert.equal(latestVisibleIndex(series, isoToDay("2020-05-01")), 2);
+  });
+});
+
+describe("applyHysteresis", () => {
+  it("带内保持上期状态，越过 阈值±band 才切换", () => {
+    // band=0.25，阈值 0：z 在 (-0.25, 0.25) 内保持前值
+    assert.equal(applyHysteresis(0.1, 0, 0.25, true), true);
+    assert.equal(applyHysteresis(0.1, 0, 0.25, false), false); // 同一 z，前值不同 → 结果不同
+    assert.equal(applyHysteresis(-0.2, 0, 0.25, true), true);
+    // 越过上沿 → 切 true；越过下沿 → 切 false
+    assert.equal(applyHysteresis(0.3, 0, 0.25, false), true);
+    assert.equal(applyHysteresis(-0.3, 0, 0.25, true), false);
+  });
+
+  it("prev=null（首期）或 band=0 时退化为普通阈值判定", () => {
+    assert.equal(applyHysteresis(0.1, 0, 0.25, null), true);
+    assert.equal(applyHysteresis(-0.1, 0, 0.25, null), false);
+    assert.equal(applyHysteresis(0.1, 0, 0, false), true); // band=0 → 无滞回
+  });
+
+  it("z 缺失时保持上期状态（不制造虚假切换）", () => {
+    assert.equal(applyHysteresis(null, 0, 0.25, true), true);
+    assert.equal(applyHysteresis(null, 0, 0.25, false), false);
+    assert.equal(applyHysteresis(null, 0, 0.25, null), false); // 无前值兜底 false
+  });
+
+  it("滞回带确实减少抖动：z 在 0 附近来回时状态不翻转", () => {
+    const zs = [0.05, -0.05, 0.08, -0.09, 0.06, -0.04];
+    let noBand: boolean | null = null;
+    let withBand: boolean | null = null;
+    let flipsNoBand = 0;
+    let flipsWithBand = 0;
+    for (const z of zs) {
+      const a = applyHysteresis(z, 0, 0, noBand);
+      const b = applyHysteresis(z, 0, 0.25, withBand);
+      if (noBand != null && a !== noBand) flipsNoBand += 1;
+      if (withBand != null && b !== withBand) flipsWithBand += 1;
+      noBand = a;
+      withBand = b;
+    }
+    assert.equal(flipsNoBand, 5); // 每期都翻
+    assert.equal(flipsWithBand, 0); // 全在带内，一次不翻
+  });
+  it("band 非有限（调用方漏传）退化为无滞回，绝不冻结状态", () => {
+    // 回归：曾因 band=undefined 落到 NaN 比较 → 永远 return prev → 全序列同一象限
+    const bad = undefined as unknown as number;
+    assert.equal(applyHysteresis(0.5, 0, bad, false), true);
+    assert.equal(applyHysteresis(-0.5, 0, bad, true), false);
+    assert.equal(applyHysteresis(0.5, 0, NaN, false), true);
   });
 });

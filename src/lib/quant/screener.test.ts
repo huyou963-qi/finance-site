@@ -189,6 +189,39 @@ describe("runScreener 排序与打分", () => {
     assert.equal(res.rows[1]!.score, -3);
   });
 
+  it("composite metric=sectorZscore 用行业内标准化打分（行业中性化）", () => {
+    // 两只股 zscore 相同，但 sectorZscore 相反 → 排序应由 sectorZscore 决定
+    const rows = [
+      row("TECH", { roeTtm: { value: 1, zscore: 2, sectorZscore: -1 } }, { sector: "Information Technology" }),
+      row("BANK", { roeTtm: { value: 1, zscore: 2, sectorZscore: 1 } }, { sector: "Financials" }),
+    ];
+    const neutral = runScreener(rows, cfg({
+      ranking: { mode: "composite", weights: [{ factorKey: "roeTtm", weight: 1, metric: "sectorZscore" }] },
+    }));
+    assert.deepEqual(neutral.rows.map((r) => r.symbol), ["BANK", "TECH"]);
+    assert.equal(neutral.rows[0]!.score, 1);
+    assert.equal(neutral.rows[1]!.score, -1);
+
+    // 缺省仍走 zscore：两者同分，按 symbol 稳定序
+    const raw = runScreener(rows, cfg({
+      ranking: { mode: "composite", weights: [{ factorKey: "roeTtm", weight: 1 }] },
+    }));
+    assert.equal(raw.rows[0]!.score, 2);
+    assert.equal(raw.rows[1]!.score, 2);
+  });
+
+  it("composite metric=sectorZscore 时 sectorZscore 为 null 的行被剔除并计数", () => {
+    const rows = [
+      row("OK", { roeTtm: { value: 1, zscore: 1, sectorZscore: 1 } }),
+      row("NOSECTOR", { roeTtm: { value: 1, zscore: 1, sectorZscore: null } }, { sector: null }),
+    ];
+    const res = runScreener(rows, cfg({
+      ranking: { mode: "composite", weights: [{ factorKey: "roeTtm", weight: 1, metric: "sectorZscore" }] },
+    }));
+    assert.deepEqual(res.rows.map((r) => r.symbol), ["OK"]);
+    assert.equal(res.stats.excludedByNull["roeTtm"], 1);
+  });
+
   it("composite mode drops rows missing any weighted zscore and counts them", () => {
     const rows = [
       row("FULL", { roeTtm: { value: 1, zscore: 1 }, ret1m: { value: 0.1, zscore: 0.5 } }),

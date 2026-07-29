@@ -43,12 +43,31 @@ type PeriodSummary = {
   matched: number | null;
 };
 
+type RegimeCoverage = {
+  total: number;
+  byQuadrant: Record<string, number>;
+  unknown: number;
+  recessionPeriods: number;
+  recessionUnknown: number;
+  thinQuadrants: string[];
+  recessionThin: boolean;
+};
+
 type Summary = {
   effectiveStart: string;
   dataFloor: string;
   rebalanceCount: number;
   symbolCount: number;
   periods: PeriodSummary[];
+  /** 旧 run 无此字段 */
+  regimeCoverage?: RegimeCoverage | null;
+};
+
+const REGIME_LABEL: Record<string, string> = {
+  recovery: "复苏",
+  overheat: "过热",
+  stagflation: "滞胀",
+  contraction: "衰退式",
 };
 
 type Position = {
@@ -306,6 +325,46 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
                 <span>累计清算 <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.liquidated, 0)}</span> 次</span>
                 <span>累计权重缺失剔除 <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.droppedNoWeight, 0)}</span> 次</span>
               </div>
+            </div>
+          ) : null}
+
+          {/* ── 宏观状态覆盖度（本回测见过多少种宏观环境） ── */}
+          {s?.regimeCoverage ? (
+            <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-xs">
+              <div className="mb-1 font-medium text-amber-500/90">宏观状态覆盖度（结论适用范围）</div>
+              <div className="mb-1.5 flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
+                {(["recovery", "overheat", "stagflation", "contraction"] as const).map((q) => {
+                  const n = s.regimeCoverage!.byQuadrant[q] ?? 0;
+                  const thin = s.regimeCoverage!.thinQuadrants.includes(q);
+                  return (
+                    <span key={q}>
+                      {REGIME_LABEL[q]}{" "}
+                      <span className={thin ? "text-amber-400" : "text-fs-text"}>{n}</span> 期
+                      {thin ? <span className="text-amber-400/70">（样本薄）</span> : null}
+                    </span>
+                  );
+                })}
+                {s.regimeCoverage.unknown > 0 ? (
+                  <span>未知 <span className="text-fs-text">{s.regimeCoverage.unknown}</span> 期</span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
+                <span>
+                  其中 <span className="text-fs-text">NBER 实际衰退期</span>{" "}
+                  <span className={s.regimeCoverage.recessionThin ? "text-amber-400" : "text-fs-text"}>
+                    {s.regimeCoverage.recessionPeriods}
+                  </span>{" "}
+                  期
+                </span>
+              </div>
+              {s.regimeCoverage.recessionThin ? (
+                <div className="mt-1.5 text-amber-400/90">
+                  ⚠ 衰退样本不足：本回测几乎没有经历真实衰退，
+                  <span className="text-fs-text">最大回撤 / 下行防御相关结论不可靠</span>。
+                  注意「衰退式」象限只表示增长动能向下，中周期放缓也计入，
+                  <span className="text-fs-text">不等于实际衰退</span>。
+                </div>
+              ) : null}
             </div>
           ) : null}
 

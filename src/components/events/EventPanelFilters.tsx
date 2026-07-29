@@ -19,8 +19,6 @@ import {
   isAllTypeFamiliesSelected,
   type EventViewFilterState,
 } from "@/lib/chart/eventViewFilters";
-import type { EventScopeMode } from "@/lib/data/assetEventResolver";
-import type { ChartSymbolProfile } from "@/lib/data/chartSymbolProfile";
 
 export type EventPanelFilterState = EventViewFilterState;
 export const EMPTY_EVENT_PANEL_FILTERS = DEFAULT_EVENT_VIEW_FILTERS;
@@ -29,23 +27,12 @@ export { hasActiveEventViewContentFilters as hasActiveEventPanelFilters };
 type EventPanelFiltersProps = {
   filters: EventViewFilterState;
   onChange: (next: EventViewFilterState) => void;
-  /** 行情 docked：展示范围 + 显示开关 + 上下文徽章 */
-  chartLinked?: boolean;
-  /** 当前标的画像（徽章） */
-  symbolProfile?: ChartSymbolProfile | null;
   onResetToSymbolDefault?: () => void;
-};
-
-const SCOPE_MODE_LABELS: Record<EventScopeMode, string> = {
-  follow: "跟随标的",
-  range: "时间轴全部",
 };
 
 export function EventPanelFilters({
   filters,
   onChange,
-  chartLinked = false,
-  symbolProfile = null,
   onResetToSymbolDefault,
 }: EventPanelFiltersProps) {
   const patch = (p: Partial<EventViewFilterState>) =>
@@ -76,63 +63,6 @@ export function EventPanelFilters({
 
   return (
     <div className="flex shrink-0 flex-col gap-1.5">
-      {chartLinked && symbolProfile ? (
-        <p className="truncate text-[10px] text-fs-muted">
-          上下文：
-          <span className="text-fs-text">{symbolProfile.symbol}</span>
-          {" · "}
-          {symbolProfile.kindLabel}
-          {" · "}
-          <span className="text-fs-secondary">自动跟随（换标的会重算）</span>
-        </p>
-      ) : null}
-
-      {chartLinked ? (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded border border-fs-border/80 bg-fs-elevated/40 px-1.5 py-1 text-[10px]">
-          <span className="font-medium text-fs-secondary">显示</span>
-          <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
-            <input
-              type="checkbox"
-              checked={filters.markersEnabled}
-              onChange={(e) => patch({ markersEnabled: e.target.checked })}
-              className="accent-[var(--fs-accent,#2383e2)]"
-            />
-            图上标记
-          </label>
-          {filters.markersEnabled ? (
-            <>
-              <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
-                <input
-                  type="checkbox"
-                  checked={filters.includeSec}
-                  onChange={(e) => patch({ includeSec: e.target.checked })}
-                  className="accent-[var(--fs-accent,#2383e2)]"
-                />
-                SEC公司
-              </label>
-              <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
-                <input
-                  type="checkbox"
-                  checked={filters.includeMarket}
-                  onChange={(e) => patch({ includeMarket: e.target.checked })}
-                  className="accent-[var(--fs-accent,#2383e2)]"
-                />
-                其它事件
-              </label>
-              <label className="inline-flex cursor-pointer items-center gap-1 text-fs-muted">
-                <input
-                  type="checkbox"
-                  checked={filters.showLabel}
-                  onChange={(e) => patch({ showLabel: e.target.checked })}
-                  className="accent-[var(--fs-accent,#2383e2)]"
-                />
-                文字
-              </label>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-
       <input
         type="search"
         value={filters.searchQ}
@@ -192,25 +122,6 @@ export function EventPanelFilters({
             )}
           </select>
         </label>
-        {chartLinked ? (
-          <label className="flex items-center gap-1 text-[10px] text-fs-muted">
-            范围
-            <select
-              value={filters.scopeMode}
-              onChange={(e) =>
-                patch({ scopeMode: e.target.value as EventScopeMode })
-              }
-              className="rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[10px] text-fs-text"
-              title="跟随标的：按国家/行业/资产标签匹配；时间轴全部：仅按可见时间窗"
-            >
-              {(Object.keys(SCOPE_MODE_LABELS) as EventScopeMode[]).map((k) => (
-                <option key={k} value={k}>
-                  {SCOPE_MODE_LABELS[k]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
         <button
           type="button"
           onClick={() => setMoreOpen((v) => !v)}
@@ -256,11 +167,10 @@ export function EventPanelFilters({
       {moreOpen ? (
         <div className="space-y-1.5 rounded border border-fs-border bg-fs-bg/40 p-1.5">
           <TagInput
-            label="国家"
-            values={filters.countries}
-            onChange={(countries) => patch({ countries })}
-            placeholder="US, CN…"
-            suggestions={MACRO_COUNTRIES.map((c) => c.code)}
+            label="资产"
+            values={filters.assets}
+            onChange={(assets) => patch({ assets })}
+            placeholder="AAPL、GC…"
             uppercase
           />
           <TagInput
@@ -273,24 +183,27 @@ export function EventPanelFilters({
             normalizeAdd={normalizeIndustryTag}
           />
           <TagInput
-            label="资产"
-            values={filters.assets}
-            onChange={(assets) => patch({ assets })}
-            placeholder="AAPL、GC…"
+            label="国家"
+            values={filters.countries}
+            onChange={(countries) => patch({ countries })}
+            placeholder="US, CN…"
+            suggestions={MACRO_COUNTRIES.map((c) => c.code)}
             uppercase
           />
-          <TagInput
-            label="人物"
-            values={filters.persons}
-            onChange={(persons) => patch({ persons })}
-            placeholder="Powell…"
-          />
-          <TagInput
-            label="机构"
-            values={filters.institutions}
-            onChange={(institutions) => patch({ institutions })}
-            placeholder="Fed、Goldman…"
-          />
+          <div className="grid grid-cols-2 gap-1.5">
+            <TagInput
+              label="人物"
+              values={filters.persons}
+              onChange={(persons) => patch({ persons })}
+              placeholder="Powell…"
+            />
+            <TagInput
+              label="机构"
+              values={filters.institutions}
+              onChange={(institutions) => patch({ institutions })}
+              placeholder="Fed、Goldman…"
+            />
+          </div>
         </div>
       ) : null}
     </div>

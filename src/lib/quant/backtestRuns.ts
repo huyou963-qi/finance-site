@@ -14,6 +14,7 @@ import {
   DEFAULT_BACKTEST_PARAMS,
   validateBacktestParams,
   type BacktestParams,
+  type RegimeCoverage,
 } from "@/lib/quant/backtest";
 import { validateScreenerConfig, type ScreenerConfig } from "@/lib/quant/screener";
 import { executeBacktest, type BacktestProgress } from "@/lib/quant/backtestData";
@@ -44,8 +45,12 @@ export type BacktestRunSummary = {
     filteredOut: number | null;
     matched: number | null;
     regime: string | null;
+    /** 该期所属月 NBER USREC 真值（1/0/null）；仅透明化 */
+    recession: number | null;
     regimeBlocked: boolean;
   }[];
+  /** 宏观状态覆盖度（本回测见过多少种宏观环境；衰退期单列） */
+  regimeCoverage: RegimeCoverage;
 };
 
 /** 规范化 + 校验参数（缺省填默认，供 CLI/API 入口统一） */
@@ -156,8 +161,10 @@ export async function executeRun(
         filteredOut: p.stats?.filteredOut ?? null,
         matched: p.stats?.matched ?? null,
         regime: p.regime,
+        recession: p.recession,
         regimeBlocked: p.regimeBlocked,
       })),
+      regimeCoverage: result.regimeCoverage,
     };
 
     await prisma.backtestRun.update({

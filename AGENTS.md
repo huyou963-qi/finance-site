@@ -148,6 +148,15 @@ npm run db:studio        # Prisma Studio
 
 **同一时间仅一人** 提交 `prisma/migrations/*` 变更。
 
+## 个股经营里程碑（Skill）
+
+用户可用自己的 AI 按 [`.cursor/skills/company-milestone-ingest/`](.cursor/skills/company-milestone-ingest/) 搜集单票产品/产能/影响该公司的政策。模板下载：`/templates/company-milestone/`。在 **行情页** `/markets` 打开「经营时间轴」后可导入 JSON 显示；亦可 CLI：
+
+```bash
+npm run events:validate-ingest -- <file.json>
+npm run events:import-ingest -- <file.json>
+```
+
 ## AI 工作检查清单
 
 完成任务前确认：

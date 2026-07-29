@@ -10,7 +10,6 @@ import {
   defaultMarkerLabel,
   eventTypeMatchesFamilies,
   eventTypeMatchesSelection,
-  isEraEventType,
   markerColorFor,
   markerShapeFor,
   normalizeEventType,
@@ -173,29 +172,26 @@ function resolveTagFilters(
   query: ChartMarkersQuery,
   symbol: string,
 ): ExplicitEventTagFilters {
-  const hasExplicit =
-    (query.assets?.length ?? 0) > 0 ||
-    (query.industries?.length ?? 0) > 0 ||
-    (query.countries?.length ?? 0) > 0;
-  if (hasExplicit) {
+  const assets = query.assets ?? [];
+  const industries = query.industries ?? [];
+  const countries = query.countries ?? [];
+  // 相关维为空时回退本票，避免「仅国家」撑开全市场
+  if (assets.length === 0 && industries.length === 0) {
     return {
-      assets: query.assets,
-      industries: query.industries,
-      countries: query.countries,
+      assets: [normalizeAssetTag(symbol)],
+      industries: [],
+      countries,
     };
   }
-  // 无显式 tags 时回退为本票
-  return { assets: [normalizeAssetTag(symbol)] };
+  return { assets, industries, countries };
 }
 
 function marketFollowOk(
   ev: MarketEventDto,
-  scopeMode: EventScopeMode,
   tags: ExplicitEventTagFilters,
+  fallbackAsset: string,
 ): boolean {
-  if (scopeMode === "range") return true;
-  if (isEraEventType(ev.eventType)) return true;
-  return eventHitsExplicitFilters(ev, tags);
+  return eventHitsExplicitFilters(ev, tags, { fallbackAsset });
 }
 
 export async function loadChartEventMarkers(
@@ -241,7 +237,7 @@ export async function loadChartEventMarkers(
     });
     for (const ev of events) {
       if (ev.eventType === "时代阶段" || ev.eventType === "era") continue;
-      if (!marketFollowOk(ev, scopeMode, tags)) continue;
+      if (!marketFollowOk(ev, tags, profile.symbol)) continue;
       if (!meetsImp(ev.importance, minImp)) continue;
       const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
       if (!typeFilterOk(eventType, query.types)) continue;
@@ -367,7 +363,7 @@ export async function loadChartPanelEvents(query: {
       limit: 2000,
     });
     for (const ev of events) {
-      if (!marketFollowOk(ev, scopeMode, tags)) continue;
+      if (!marketFollowOk(ev, tags, profile.symbol)) continue;
       if (minImp && !meetsImp(ev.importance, minImp)) continue;
       const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
       if (query.types?.length && !typeFilterOk(eventType, query.types)) continue;

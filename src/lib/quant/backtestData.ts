@@ -119,10 +119,17 @@ async function attachRegimes(selections: RebalanceSelection[]): Promise<void> {
   const dateObjs = selections.map((s) => new Date(`${s.date}T00:00:00.000Z`));
   const rows = await prisma.macroRegime.findMany({
     where: { date: { in: dateObjs } },
-    select: { date: true, regime: true },
+    select: { date: true, regime: true, recession: true },
   });
-  const byDate = new Map(rows.map((r) => [r.date.toISOString().slice(0, 10), r.regime]));
-  for (const s of selections) s.regime = byDate.get(s.date) ?? null;
+  const byDate = new Map(
+    rows.map((r) => [r.date.toISOString().slice(0, 10), r] as const),
+  );
+  for (const s of selections) {
+    const hit = byDate.get(s.date);
+    s.regime = hit?.regime ?? null;
+    // recession 仅用于覆盖度透明化，不参与 regimeFilter 判定
+    s.recession = hit?.recession ?? null;
+  }
 }
 
 // ────────────────────────────────────────────────────────── 价格批载

@@ -1,0 +1,415 @@
+{
+  "mode": "company-milestone",
+  "query": { "symbol": "TSLA", "from": "2008-01-01", "to": "2025-12-31" },
+  "events": [
+    {
+      "externalId": "ai:milestone:TSLA:2008-02-01:roadster-delivery",
+      "title": "Roadster 首辆客户交付",
+      "content": "特斯拉首款量产电动跑车 Roadster 开始向客户交付，带来最初整车营收，规模仍极小，公司持续亏损。",
+      "occurredAt": "2008-02-01",
+      "datePrecision": "DATE",
+      "importance": "MEDIUM",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "roadster"],
+      "markerLabel": "Roadster",
+      "sourceUrl": "https://www.tesla.com",
+      "payload": {
+        "impact": {
+          "summary": "验证电动车可量产交付，营收基数极低，品牌与技术叙事起步。",
+          "channels": ["narrative", "demand"]
+        }
+      },
+      "sources": [{ "url": "https://www.tesla.com", "note": "公司产品史" }]
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2009-01-01:us-ev-tax-credit",
+      "title": "美国联邦电动车税收抵免生效",
+      "content": "《能源改进与延长法案》引入的联邦 EV 税收抵免（最高约 7,500 美元）自 2009 年起生效，降低高端电动车购车门槛。",
+      "occurredAt": "2009-01-01",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COUNTRY",
+      "eventType": "policy.fiscal",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "policy", "us-ev-credit"],
+      "markerLabel": "美抵免",
+      "sourceUrl": "https://www.irs.gov",
+      "payload": {
+        "impact": {
+          "summary": "降低 Model S 等早期车型有效售价，支撑高端小众阶段的需求。",
+          "channels": ["demand"]
+        }
+      },
+      "sources": [{ "url": "https://www.irs.gov", "note": "联邦抵免说明" }]
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2009-03-26:model-s-unveil",
+      "title": "Model S 原型发布",
+      "content": "Model S 豪华电动轿车原型亮相，确立后续主力轿车产品路线。",
+      "occurredAt": "2009-03-26",
+      "datePrecision": "DATE",
+      "importance": "MEDIUM",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "model-s"],
+      "markerLabel": "S发布",
+      "payload": {
+        "impact": {
+          "summary": "锁定豪华轿车定位，为 2012 年量产放量铺路。",
+          "channels": ["narrative"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2010-05-20:fremont-factory",
+      "title": "Fremont 工厂收购",
+      "content": "特斯拉收购加州 Fremont 原 NUMMI 工厂，成为后续 Model S/X/3/Y 北美整车生产基地。",
+      "occurredAt": "2010-05-20",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COMPANY",
+      "eventType": "company.capacity",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "factory", "fremont"],
+      "markerLabel": "Fremont",
+      "payload": {
+        "impact": {
+          "summary": "获得规模化整车产能载体，是 Model S 及后续车型量产的前提。",
+          "channels": ["capacity"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2012-06-22:model-s-delivery",
+      "title": "Model S 量产交付",
+      "content": "Model S 在 Fremont 工厂开始客户交付。定位豪华电动轿车，性能与续航领先，成为北美高端车市场畅销车型之一。",
+      "occurredAt": "2012-06-22",
+      "datePrecision": "DATE",
+      "importance": "CRITICAL",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "model-s"],
+      "markerLabel": "S交付",
+      "payload": {
+        "impact": {
+          "summary": "推动 2012–2013 年营收近 5 倍跳升，证明电动车商业模式可行。",
+          "channels": ["demand", "margin", "narrative"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2015-09-29:model-x-delivery",
+      "title": "Model X 客户交付",
+      "content": "基于 Model S 平台的豪华电动 SUV Model X 在 Fremont 开始交付，补充高端产品线。",
+      "occurredAt": "2015-09-29",
+      "datePrecision": "DATE",
+      "importance": "MEDIUM",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "model-x"],
+      "markerLabel": "X交付",
+      "payload": {
+        "impact": {
+          "summary": "温和增厚高端销量，增量弱于后续 Model 3/Y 放量。",
+          "channels": ["demand"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2016-03-31:model-3-unveil",
+      "title": "Model 3 正式发布与预售",
+      "content": "大众市场定位的平价电动车 Model 3 发布，引发大规模预订，预示后续销量台阶。",
+      "occurredAt": "2016-03-31",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "model-3"],
+      "markerLabel": "3发布",
+      "payload": {
+        "impact": {
+          "summary": "打开大众市场需求预期，估值与订单叙事大幅强化。",
+          "channels": ["demand", "narrative"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2016-07-29:gigafactory-nevada",
+      "title": "内华达 Gigafactory 盛大开业",
+      "content": "电池为主的内华达超级工厂开业，支撑电芯与储能产能，服务 Model 3 成本下降。",
+      "occurredAt": "2016-07-29",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COMPANY",
+      "eventType": "company.capacity",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "factory", "nevada"],
+      "markerLabel": "内华达",
+      "payload": {
+        "impact": {
+          "summary": "垂直整合电池供给，为 Model 3 爬坡与毛利率改善提供产能底座。",
+          "channels": ["capacity", "cost"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2017-07-28:model-3-delivery",
+      "title": "Model 3 量产与首批交付",
+      "content": "Model 3 生产启动并首批交付；初期经历「产能地狱」，随后爬坡成功，成为主力销量车型。",
+      "occurredAt": "2017-07-28",
+      "datePrecision": "DATE",
+      "importance": "CRITICAL",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "model-3"],
+      "markerLabel": "3交付",
+      "payload": {
+        "impact": {
+          "summary": "驱动 2017–2018 年营收翻倍，完成从豪华小众到规模化主流的转型。",
+          "channels": ["demand", "capacity", "margin"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2018-07-10:shanghai-agreement",
+      "title": "上海超级工厂签约（外商独资）",
+      "content": "与上海市政府签署协议，建设中国首个外商独资整车厂，受益于外资股比放开。",
+      "occurredAt": "2018-07-10",
+      "datePrecision": "DATE",
+      "importance": "CRITICAL",
+      "scope": "COMPANY",
+      "eventType": "company.capacity",
+      "assets": ["TSLA"],
+      "countries": ["CN"],
+      "industries": ["25"],
+      "tags": ["milestone", "factory", "shanghai"],
+      "markerLabel": "沪签约",
+      "payload": {
+        "impact": {
+          "summary": "锁定中国产能与成本优势路径，是 2020 年后全球放量的最大引擎之一。",
+          "channels": ["capacity", "cost", "narrative"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2018-04-01:china-dual-credit",
+      "title": "中国新能源汽车双积分政策实施",
+      "content": "「双积分」政策正式实施，强制车企生产一定比例新能源汽车，积分可交易，加速行业电动化。",
+      "occurredAt": "2018-04-01",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COUNTRY",
+      "eventType": "policy.regulatory",
+      "assets": ["TSLA"],
+      "countries": ["CN"],
+      "industries": ["25"],
+      "tags": ["milestone", "policy", "dual-credit"],
+      "markerLabel": "双积分",
+      "payload": {
+        "impact": {
+          "summary": "扩大中国 NEV 需求与积分交易空间，利好纯电车企在华销量与合规收益。",
+          "channels": ["demand", "margin"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2019-03-14:model-y-unveil",
+      "title": "Model Y 正式发布",
+      "content": "跨界 SUV Model Y 发布，计划与 Model 3 共享平台，瞄准全球主力销量区间。",
+      "occurredAt": "2019-03-14",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "model-y"],
+      "markerLabel": "Y发布",
+      "payload": {
+        "impact": {
+          "summary": "预告「双神车」组合，打开 SUV 主力市场预期。",
+          "channels": ["demand", "narrative"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2020-01-07:shanghai-delivery",
+      "title": "上海超级工厂首批客户交付",
+      "content": "上海工厂约 10 个月建成并开始客户交付（初期 Model 3），后期本土化率高并成为全球出口枢纽。",
+      "occurredAt": "2020-01-07",
+      "datePrecision": "DATE",
+      "importance": "CRITICAL",
+      "scope": "COMPANY",
+      "eventType": "company.capacity",
+      "assets": ["TSLA"],
+      "countries": ["CN"],
+      "industries": ["25"],
+      "tags": ["milestone", "factory", "shanghai"],
+      "markerLabel": "上海厂",
+      "payload": {
+        "impact": {
+          "summary": "大幅降低单车成本并扩容，后期贡献全球近一半产能/交付，驱动 2020–2023 指数级增长。",
+          "channels": ["capacity", "cost", "margin"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2020-03-13:model-y-delivery",
+      "title": "Model Y 首批客户交付",
+      "content": "Model Y 在 Fremont 开始交付，随后上海等工厂跟进，与 Model 3 合计占交付量绝大多数。",
+      "occurredAt": "2020-03-13",
+      "datePrecision": "DATE",
+      "importance": "CRITICAL",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "model-y"],
+      "markerLabel": "Y交付",
+      "payload": {
+        "impact": {
+          "summary": "成为 2020–2023 年交付与营收爆发的主力车型之一。",
+          "channels": ["demand", "capacity", "margin"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2021-01-01:eu-co2-fleet",
+      "title": "欧盟新车队 CO₂ 排放标准收紧生效期",
+      "content": "欧盟新车队平均排放目标约 95g/km 等标准持续收紧，不达标车企面临重罚，倒逼电动化。",
+      "occurredAt": "2021-01-01",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COUNTRY",
+      "eventType": "policy.regulatory",
+      "assets": ["TSLA"],
+      "countries": ["EU"],
+      "industries": ["25"],
+      "tags": ["milestone", "policy", "eu-co2"],
+      "markerLabel": "欧排放",
+      "payload": {
+        "impact": {
+          "summary": "提升欧洲对纯电供给的结构性需求，利好特斯拉在欧销量与积分/合规叙事。",
+          "channels": ["demand"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2022-03-22:berlin-open",
+      "title": "柏林超级工厂开业并交付 Model Y",
+      "content": "Gigafactory Berlin-Brandenburg 正式开业，开始交付 Model Y，拓展欧洲本地产能。",
+      "occurredAt": "2022-03-22",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COMPANY",
+      "eventType": "company.capacity",
+      "assets": ["TSLA"],
+      "countries": ["DE"],
+      "industries": ["25"],
+      "tags": ["milestone", "factory", "berlin"],
+      "markerLabel": "柏林厂",
+      "payload": {
+        "impact": {
+          "summary": "缩短欧洲交付半径、提升区域产能，支撑全球交付继续上台阶。",
+          "channels": ["capacity", "cost"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2022-04-07:texas-cyber-rodeo",
+      "title": "得州工厂 Cyber Rodeo 并开始 Model Y 交付",
+      "content": "Gigafactory Texas 举办 Cyber Rodeo，开始 Model Y 交付，后续承接 Cybertruck 等车型。",
+      "occurredAt": "2022-04-07",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COMPANY",
+      "eventType": "company.capacity",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "factory", "texas"],
+      "markerLabel": "得州厂",
+      "payload": {
+        "impact": {
+          "summary": "北美新增主力产能节点，支撑交付增长与下一代车型落地。",
+          "channels": ["capacity"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2022-08-16:ira",
+      "title": "美国《通胀削减法案》签署（EV 抵免调整）",
+      "content": "IRA 强化并调整电动车税收抵免条件（含本土化等要求），2022–2025 年继续刺激需求。",
+      "occurredAt": "2022-08-16",
+      "datePrecision": "DATE",
+      "importance": "HIGH",
+      "scope": "COUNTRY",
+      "eventType": "policy.fiscal",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "policy", "ira"],
+      "markerLabel": "IRA",
+      "payload": {
+        "impact": {
+          "summary": "符合条件的车型维持美国市场需求支撑；本土化要求强化北美产能布局价值。",
+          "channels": ["demand", "capacity"]
+        }
+      }
+    },
+    {
+      "externalId": "ai:milestone:TSLA:2023-11-30:cybertruck-production",
+      "title": "Cybertruck 量产交付启动",
+      "content": "Cybertruck 于 2023 年 11 月前后进入量产交付阶段（发布于 2019-11-21）。",
+      "occurredAt": "2023-11-30",
+      "datePrecision": "DATE",
+      "importance": "MEDIUM",
+      "scope": "COMPANY",
+      "eventType": "company.product",
+      "assets": ["TSLA"],
+      "countries": ["US"],
+      "industries": ["25"],
+      "tags": ["milestone", "product", "cybertruck"],
+      "markerLabel": "皮卡",
+      "payload": {
+        "impact": {
+          "summary": "开拓皮卡细分，增量相对 Model 3/Y 仍有限，丰富产品叙事。",
+          "channels": ["demand", "narrative"]
+        }
+      }
+    }
+  ],
+  "skipped": [
+    {
+      "reason": "demo_fixture",
+      "hint": "本文件为演示范本；正式入库前请用 ≥2 权威源复核日期并替换 sourceUrl"
+    }
+  ]
+}

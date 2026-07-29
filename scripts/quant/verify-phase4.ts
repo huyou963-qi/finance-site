@@ -107,6 +107,65 @@ async function sectionB() {
   // 增长维转负领先/同步：以「增长下」为预警，覆盖全部衰退月（sensitivity=1）
   const sens = rec.filter((p) => p.growthState === "below").length / rec.length;
   check("增长下 对 NBER 衰退敏感度 = 100%", sens === 1, pct(sens));
+
+  // ── 双边验收（原验收只测召回：一个「永远输出增长下」的分类器也能全过）──
+  const down = pts.filter((p) => p.growthState === "below").length;
+  check(
+    "非退化：并非全部期都判「增长下」（防单边验收漏洞）",
+    down < pts.length * 0.7,
+    `${down}/${pts.length} = ${pct(down / pts.length)}`,
+  );
+
+  // AUC：增长 z 判别衰退的秩统计，与阈值无关，是比召回更实的判别力度量
+  const zPairs = pts
+    .map((p) => ({ z: p.inputs.growthZ, y: p.recession === 1 ? 1 : 0 }))
+    .filter((x): x is { z: number; y: number } => x.z != null && Number.isFinite(x.z));
+  const a = aucOf(zPairs.map((x) => ({ s: -x.z, y: x.y })));
+  check("增长 z 判别衰退 AUC ≥ 0.90", a >= 0.9, a.toFixed(3));
+
+  // 稳定性：状态月度抖动（滞回带的目标）。无滞回时通胀维每 4.2 月翻一次。
+  let gFlips = 0;
+  let iFlips = 0;
+  for (let i = 1; i < pts.length; i++) {
+    if (pts[i]!.growthState !== pts[i - 1]!.growthState) gFlips += 1;
+    if (pts[i]!.inflationState !== pts[i - 1]!.inflationState) iFlips += 1;
+  }
+  check("增长维平均持续 ≥ 18 月（滞回带生效）", pts.length / (gFlips + 1) >= 18,
+    `${gFlips} 次翻转 / ${(pts.length / (gFlips + 1)).toFixed(1)} 月`);
+  // 通胀维门槛低于增长维：通胀动量是二阶差分、天然更噪，且 band 取 0.25 是为「衰退月落
+  // 衰退式 75%（band≥0.3 掉到 68%）」的分类精度让步于稳定性的结果。基线：无滞回 4.2 月。
+  check("通胀维平均持续 ≥ 5 月（滞回带生效；无滞回基线 4.2 月）",
+    pts.length / (iFlips + 1) >= 5,
+    `${iFlips} 次翻转 / ${(pts.length / (iFlips + 1)).toFixed(1)} 月`);
+
+  // 成分：调查块须真的把服务业纳入（1997-07 后），否则退回制造业独大
+  const recent = pts.filter((p) => p.date >= "2005-01-01");
+  const svcCovered = recent.filter((p) => p.inputs.components.ismSvcZ != null).length / recent.length;
+  check("2005+ ISM 服务业分量覆盖 ≥ 95%", svcCovered >= 0.95, pct(svcCovered));
+  const incomeCovered = recent.filter((p) => p.inputs.components.incomeZ != null).length / recent.length;
+  check("2005+ 实际个人收入分量覆盖 ≥ 95%", incomeCovered >= 0.95, pct(incomeCovered));
+}
+
+/** Mann-Whitney AUC：score 越大越倾向 label=1 */
+function aucOf(pairs: { s: number; y: number }[]): number {
+  const nPos = pairs.filter((p) => p.y === 1).length;
+  const nNeg = pairs.length - nPos;
+  if (!nPos || !nNeg) return NaN;
+  const sorted = [...pairs].sort((x, y) => x.s - y.s);
+  const rank = new Array<number>(sorted.length);
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1]!.s === sorted[i]!.s) j += 1;
+    const r = (i + j) / 2 + 1;
+    for (let k = i; k <= j; k++) rank[k] = r;
+    i = j + 1;
+  }
+  let rs = 0;
+  sorted.forEach((p, idx) => {
+    if (p.y === 1) rs += rank[idx]!;
+  });
+  return (rs - (nPos * (nPos + 1)) / 2) / (nPos * nNeg);
 }
 
 /** 截断 MonthlySeries 到 obsDate ≤ cutoffIso（去掉未来月，验无前视） */
@@ -136,7 +195,9 @@ async function sectionC() {
     const truncated = {
       indpro: truncateSeries(s.indpro, T),
       payems: truncateSeries(s.payems, T),
+      income: truncateSeries(s.income, T),
       ism: truncateSeries(s.ism, T),
+      ismSvc: truncateSeries(s.ismSvc, T),
       cpi: truncateSeries(s.cpi, T),
       pce: truncateSeries(s.pce, T),
       usrec: truncateSeries(s.usrec, T),

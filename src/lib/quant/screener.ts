@@ -40,16 +40,25 @@ export type ScreenerUniverse = {
   minMarketCap?: number | null;
 };
 
+/** 复合分可用的标准化口径：全截面 zscore（默认）或 GICS 行业内 sectorZscore（行业中性化） */
+export type CompositeMetric = "zscore" | "sectorZscore";
+
 export type CompositeWeight = {
   factorKey: string;
   weight: number;
+  /**
+   * 该项使用的标准化口径，缺省 "zscore"（向后兼容）。
+   * "sectorZscore" = 行业内标准化 → 复合分不再含跨行业倾斜，等价于行业中性化打分。
+   * 注意 sectorZscore 对无 GICS 归属的行（早年退市股）为 null，会被当作缺失剔除并计数。
+   */
+  metric?: CompositeMetric;
 };
 
 export type ScreenerRanking = {
   mode: "single" | "composite";
   /** single 模式排序因子；缺省不排序（保持 symbol 序） */
   sortFactor?: string | null;
-  /** composite 模式权重表；复合分 = Σ weight × zscore × (higherIsBetter ? 1 : -1) */
+  /** composite 模式权重表；复合分 = Σ weight × metric(默认 zscore) × (higherIsBetter ? 1 : -1) */
   weights?: CompositeWeight[];
   /** 结果截断；缺省全量返回 */
   topN?: number | null;
@@ -152,6 +161,9 @@ export function validateScreenerConfig(config: ScreenerConfig): void {
     for (const w of r.weights) {
       if (!FACTOR_MAP.has(w.factorKey)) throw new Error(`未知权重因子：${w.factorKey}`);
       if (!isFiniteNum(w.weight)) throw new Error(`${w.factorKey}: weight 必须是有限数`);
+      if (w.metric != null && w.metric !== "zscore" && w.metric !== "sectorZscore") {
+        throw new Error(`${w.factorKey}: 复合权重 metric 只能是 zscore 或 sectorZscore`);
+      }
     }
   }
   if (r.topN != null && (!Number.isInteger(r.topN) || r.topN <= 0)) {
@@ -309,7 +321,7 @@ export function runScreener(
   }
   if (config.ranking.mode === "composite") {
     for (const w of config.ranking.weights ?? []) {
-      rankingNeeds.push({ factorKey: w.factorKey, metric: "zscore" });
+      rankingNeeds.push({ factorKey: w.factorKey, metric: w.metric ?? "zscore" });
     }
   }
 
@@ -350,7 +362,7 @@ export function runScreener(
       score = 0;
       for (const w of config.ranking.weights!) {
         const dir = FACTOR_MAP.get(w.factorKey)!.higherIsBetter ? 1 : -1;
-        score += w.weight * metricOf(row, w.factorKey, "zscore")! * dir;
+        score += w.weight * metricOf(row, w.factorKey, w.metric ?? "zscore")! * dir;
       }
     }
     passed.push({ row, marketCap, score });

@@ -48,14 +48,8 @@ export function parseExpandLevel(raw: string | null | undefined): EventExpandLev
 
 export type EventScopeMode = "follow" | "range";
 
-export function parseScopeMode(raw: string | null | undefined): EventScopeMode {
-  const s = (raw ?? "follow").trim().toLowerCase();
-  if (s === "range" || s === "chart") {
-    // chart 兼容旧 mode=chart → follow
-    return s === "range" ? "range" : "follow";
-  }
-  if (s === "follow") return "follow";
-  // 旧 mode=symbol → follow（由显式 assets 表达）
+/** 已取消「时间轴全部」；读到 range/旧值一律当 follow */
+export function parseScopeMode(_raw?: string | null): EventScopeMode {
   return "follow";
 }
 
@@ -160,7 +154,11 @@ function industryHit(eventIndustries: string[], want: string[]): boolean {
 }
 
 /**
- * 显式标签匹配（follow 模式）：任一非空维度命中即可；全空则不过滤。
+ * 显式标签匹配：
+ * - 相关维（资产、行业）：OR，至少命中其一
+ * - 收窄维（国家）：非空则 AND，不能单独打开集合
+ * - 相关维皆空且提供 fallbackAsset 时，回退为该资产
+ * - 相关维皆空且无 fallback：不过滤（兼容非图表上下文）
  */
 export function eventHitsExplicitFilters(
   event: {
@@ -169,27 +167,39 @@ export function eventHitsExplicitFilters(
     countries: string[];
   },
   filters: ExplicitEventTagFilters,
+  opts?: { fallbackAsset?: string | null },
 ): boolean {
-  const assets = (filters.assets ?? []).map(normalizeAssetTag).filter(Boolean);
+  let assets = (filters.assets ?? []).map(normalizeAssetTag).filter(Boolean);
   const industries = (filters.industries ?? []).filter(Boolean);
   const countries = (filters.countries ?? []).filter(Boolean);
 
-  const dims: boolean[] = [];
-  if (assets.length) {
-    const assetSet = new Set(assets);
-    dims.push(event.assets.some((a) => assetSet.has(normalizeAssetTag(a))));
+  if (!assets.length && !industries.length && opts?.fallbackAsset?.trim()) {
+    assets = [normalizeAssetTag(opts.fallbackAsset)];
   }
-  if (industries.length) {
-    dims.push(industryHit(event.industries, industries));
+
+  const hasRelevance = assets.length > 0 || industries.length > 0;
+  if (hasRelevance) {
+    let rel = false;
+    if (assets.length) {
+      const assetSet = new Set(assets);
+      rel = event.assets.some((a) => assetSet.has(normalizeAssetTag(a)));
+    }
+    if (!rel && industries.length) {
+      rel = industryHit(event.industries, industries);
+    }
+    if (!rel) return false;
   }
+
   if (countries.length) {
-    dims.push(
-      event.countries.length > 0 &&
-        event.countries.some((c) => countries.includes(c)),
-    );
+    if (
+      !event.countries.length ||
+      !event.countries.some((c) => countries.includes(c))
+    ) {
+      return false;
+    }
   }
-  if (!dims.length) return true;
-  return dims.some(Boolean);
+
+  return true;
 }
 
 /** 按 expand 级别判断 MarketEvent 是否命中当前标的上下文 */

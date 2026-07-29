@@ -153,6 +153,12 @@ export type RebalanceSelection = {
   stats?: ScreenerStats | null;
   /** 信号日 PIT regime 象限（regimeFilter 用；backtestData 注入，null=未知） */
   regime?: string | null;
+  /**
+   * 信号日所属月的 NBER USREC 真值（1=衰退 / 0=否 / null=未知）。
+   * 仅作覆盖度透明化——**不进任何交易判定**（NBER 公告长滞后，当信号会前视）。
+   * 与 regime 象限须分开看：contraction 象限只是增长动能向下，绝大多数不是真衰退。
+   */
+  recession?: number | null;
 };
 
 // ────────────────────────────────────────────────────────── 输出模型
@@ -199,6 +205,8 @@ export type BacktestPeriodReport = {
   stats: ScreenerStats | null;
   /** 信号日 PIT regime（透明化；无过滤时仍回填便于对照） */
   regime: string | null;
+  /** 信号日所属月 NBER USREC 真值（1/0/null）；仅透明化，不参与交易判定 */
+  recession: number | null;
   /** 本期被 regimeFilter 拦截（清仓持现金） */
   regimeBlocked: boolean;
 };
@@ -231,7 +239,72 @@ export type BacktestResult = {
   positions: BacktestPositionRow[];
   periods: BacktestPeriodReport[];
   metrics: BacktestMetrics;
+  /** 宏观状态覆盖度（透明化：本回测到底见过多少种宏观环境） */
+  regimeCoverage: RegimeCoverage;
 };
+
+// ────────────────────────────────────────────────── regime 覆盖度（透明化）
+
+/** 象限样本低于此期数 → 该象限结论不可靠 */
+export const THIN_QUADRANT_PERIODS = 12;
+/** NBER 衰退期样本低于此期数 → 下行/危机行为结论不可靠 */
+export const THIN_RECESSION_PERIODS = 6;
+
+export type RegimeCoverage = {
+  /** 总调仓期数 */
+  total: number;
+  /** 各象限调仓期数（recovery/overheat/stagflation/contraction） */
+  byQuadrant: Record<string, number>;
+  /** regime 未知的期数（macro_regime 未覆盖该日） */
+  unknown: number;
+  /** 落在 NBER 衰退月的调仓期数 */
+  recessionPeriods: number;
+  /** recession 真值未知的期数 */
+  recessionUnknown: number;
+  /** 样本不足（< THIN_QUADRANT_PERIODS）的象限名 */
+  thinQuadrants: string[];
+  /** 衰退样本是否不足（< THIN_RECESSION_PERIODS） */
+  recessionThin: boolean;
+};
+
+/**
+ * 统计本回测覆盖了哪些宏观状态。
+ *
+ * 为什么必须单列 NBER 衰退期数：contraction 象限只表示「增长动能向下」，
+ * 中周期放缓也计入——实测 2013+ 有 39 个 contraction 月但仅 1 个真衰退月。
+ * 只看象限分布会误以为下行样本充足。
+ */
+export function computeRegimeCoverage(
+  periods: readonly Pick<BacktestPeriodReport, "regime" | "recession">[],
+): RegimeCoverage {
+  const byQuadrant: Record<string, number> = {
+    recovery: 0,
+    overheat: 0,
+    stagflation: 0,
+    contraction: 0,
+  };
+  let unknown = 0;
+  let recessionPeriods = 0;
+  let recessionUnknown = 0;
+  for (const p of periods) {
+    if (p.regime == null) unknown++;
+    else byQuadrant[p.regime] = (byQuadrant[p.regime] ?? 0) + 1;
+    if (p.recession == null || p.recession < 0) recessionUnknown++;
+    else if (p.recession > 0) recessionPeriods++;
+  }
+  const thinQuadrants = Object.entries(byQuadrant)
+    .filter(([, n]) => n < THIN_QUADRANT_PERIODS)
+    .map(([k]) => k);
+  return {
+    total: periods.length,
+    byQuadrant,
+    unknown,
+    recessionPeriods,
+    recessionUnknown,
+    thinQuadrants,
+    recessionThin: recessionPeriods < THIN_RECESSION_PERIODS,
+  };
+}
 
 // ────────────────────────────────────────────────────────── 价格查找
 
@@ -523,6 +596,7 @@ export function runBacktest(
         cost,
         stats: sel.stats ?? null,
         regime: sel.regime ?? null,
+        recession: sel.recession ?? null,
         regimeBlocked,
       });
     }
@@ -539,7 +613,7 @@ export function runBacktest(
   }
 
   const metrics = computeMetrics(nav, totalTurnover);
-  return { nav, positions, periods, metrics };
+  return { nav, positions, periods, metrics, regimeCoverage: computeRegimeCoverage(periods) };
 }
 
 // ────────────────────────────────────────────────────────── 绩效指标

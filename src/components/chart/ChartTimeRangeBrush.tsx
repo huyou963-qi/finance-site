@@ -152,10 +152,10 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
   const wPct = Math.max(0.5, rightPct - leftPct);
 
   return (
-    <div className="border-t border-fs-border px-2 py-2">
+    <div className="border-t border-fs-border px-2 py-1">
       <div
         ref={trackRef}
-        className="relative h-8 w-full cursor-pointer rounded border border-fs-border bg-fs-elevated"
+        className="relative h-4 w-full cursor-pointer rounded border border-fs-border bg-fs-elevated"
         onPointerDown={onTrackOnlyPointerDown}
         role="presentation"
       >
@@ -170,14 +170,14 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
         <button
           type="button"
           aria-label="拖动左边界"
-          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2.5 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
+          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
           style={{ left: `${leftPct}%` }}
           onPointerDown={onPointerDownLeft}
         />
         <button
           type="button"
           aria-label="拖动右边界"
-          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2.5 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
+          className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
           style={{ left: `${rightPct}%` }}
           onPointerDown={onPointerDownRight}
         />

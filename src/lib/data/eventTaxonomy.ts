@@ -35,6 +35,8 @@ export const EVENT_TYPE_CODES = [
   "company.corp_action",
   "company.filing",
   "company.ops_news",
+  "company.product",
+  "company.capacity",
   "company.management",
   "speech.official",
   "speech.executive",
@@ -64,6 +66,8 @@ export const EVENT_TYPE_LABELS: Record<EventTypeCode, string> = {
   "company.corp_action": "公司行动",
   "company.filing": "监管披露",
   "company.ops_news": "经营新闻",
+  "company.product": "产品/车型",
+  "company.capacity": "工厂/产能",
   "company.management": "管理层变动",
   "speech.official": "官员讲话",
   "speech.executive": "高管讲话",
@@ -92,6 +96,8 @@ export const EVENT_TYPE_MARKER_LABELS: Record<EventTypeCode, string> = {
   "company.corp_action": "行动",
   "company.filing": "披露",
   "company.ops_news": "经营",
+  "company.product": "产品",
+  "company.capacity": "工厂",
   "company.management": "高管",
   "speech.official": "讲话",
   "speech.executive": "高管说",
@@ -420,14 +426,18 @@ export function markerColorFor(
   importance: EventImportance,
 ): string {
   const n = normalizeEventType(eventType) ?? "";
-  if (n.startsWith("rating.upgrade") || n === "price_target.change") return "#34d399";
-  if (n.startsWith("rating.downgrade")) return "#f87171";
-  if (n.startsWith("policy") || n.startsWith("macro")) return "#38bdf8";
-  if (n.startsWith("company.earnings") || n.startsWith("company.filing")) return "#fbbf24";
-  if (n.startsWith("speech")) return "#c084fc";
-  if (importance === "CRITICAL") return "#fb7185";
-  if (importance === "HIGH") return "#f59e0b";
-  return "#94a3b8";
+  // 浅色底 K 线上避免淡黄/浅橙；用对比度更高的实色
+  if (n.startsWith("rating.upgrade") || n === "price_target.change") return "#059669";
+  if (n.startsWith("rating.downgrade")) return "#dc2626";
+  if (n.startsWith("policy") || n.startsWith("macro")) return "#0369a1";
+  if (n.startsWith("company.earnings") || n.startsWith("company.filing")) return "#1d4ed8";
+  if (n === "company.product") return "#047857";
+  if (n === "company.capacity") return "#c2410c";
+  if (n.startsWith("company.")) return "#4338ca";
+  if (n.startsWith("speech")) return "#7e22ce";
+  if (importance === "CRITICAL") return "#e11d48";
+  if (importance === "HIGH") return "#4338ca";
+  return "#475569";
 }
 
 export type MarkerShape = "circle" | "square" | "arrowUp" | "arrowDown";

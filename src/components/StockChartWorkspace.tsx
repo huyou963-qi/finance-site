@@ -180,6 +180,14 @@ export type StockChartWorkspaceProps = {
    */
   eventViewFilters?: EventViewFilterState;
   onEventViewFiltersChange?: (prefs: EventViewFilterState) => void;
+  /**
+   * 经营时间轴模式：强制隐藏两副图，且不预留「显示副图」堆叠条高度。
+   * 关闭后恢复进入前的副图可见状态。
+   */
+  forceHideSubPanes?: boolean;
+  /** 外部请求定位到某根 K 线时间（Unix 秒）；版本递增时应用 */
+  seekToTimeSec?: number | null;
+  seekToTimeVersion?: number;
 };
 
 type DrawingTool =
@@ -762,6 +770,9 @@ export function StockChartWorkspace({
   onEventMarkerClick,
   eventViewFilters: eventViewFiltersProp,
   onEventViewFiltersChange,
+  forceHideSubPanes = false,
+  seekToTimeSec = null,
+  seekToTimeVersion = 0,
 }: StockChartWorkspaceProps) {
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -896,6 +907,32 @@ export function StockChartWorkspace({
     visible: boolean;
     content: SubPaneContent;
   }>({ visible: true, content: "kdj" });
+  const savedSubVisibilityRef = useRef<{ v1: boolean; v2: boolean } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (forceHideSubPanes) {
+      if (!savedSubVisibilityRef.current) {
+        savedSubVisibilityRef.current = {
+          v1: subPane1.visible,
+          v2: subPane2.visible,
+        };
+      }
+      setSubPane1((s) => (s.visible ? { ...s, visible: false } : s));
+      setSubPane2((s) => (s.visible ? { ...s, visible: false } : s));
+      return;
+    }
+    const saved = savedSubVisibilityRef.current;
+    if (saved) {
+      savedSubVisibilityRef.current = null;
+      setSubPane1((s) => ({ ...s, visible: saved.v1 }));
+      setSubPane2((s) => ({ ...s, visible: saved.v2 }));
+    }
+    // 仅响应 forceHide 开关；可见性快照取自进入时的 state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceHideSubPanes]);
+
   const [ttmEpsTimeline, setTtmEpsTimeline] = useState<TtmEpsPoint[]>([]);
   const [quarterlyPe, setQuarterlyPe] = useState<QuarterlyPePoint[]>([]);
   const [ttmPeError, setTtmPeError] = useState<string | null>(null);
@@ -2017,7 +2054,8 @@ export function StockChartWorkspace({
     const box = chartAreaRef.current;
     const cw = Math.max(100, box?.clientWidth ?? el.clientWidth);
     const bothSubsHidden = !subPane1.visible && !subPane2.visible;
-    const bottomReserve = bothSubsHidden ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
+    const bottomReserve =
+      bothSubsHidden && !forceHideSubPanes ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
     const ch = Math.max(400, (box?.clientHeight ?? 520) - bottomReserve);
     el.replaceChildren();
     const chart = createChart(el, {
@@ -2222,7 +2260,8 @@ export function StockChartWorkspace({
       const w = area.clientWidth;
       const bothHidden =
         !subPane1.visible && !subPane2.visible;
-      const reserve = bothHidden ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
+      const reserve =
+        bothHidden && !forceHideSubPanes ? HIDDEN_SUB_TOOLBAR_STACK_PX : 0;
       const h = Math.max(400, area.clientHeight - reserve);
       cr.resize(w, h);
       setOverlaySize({ w, h });
@@ -2684,6 +2723,7 @@ export function StockChartWorkspace({
     interval,
     schedulePaneLayoutMetrics,
     ttmPeLine,
+    forceHideSubPanes,
   ]);
 
   /** 可见区间内拉取事件标记并打到主图蜡烛上 */
@@ -2966,6 +3006,38 @@ export function StockChartWorkspace({
     symbol,
     pageSyncEnabled,
   ]);
+
+  /** 经营时间轴点击：定位到事件日附近并显示十字线 */
+  useEffect(() => {
+    if (!seekToTimeVersion) return;
+    if (seekToTimeSec == null) return;
+    const chart = chartRef.current;
+    const candle = candleRef.current;
+    if (!chart || !candle || loading) return;
+    const cList = candlesRef.current;
+    if (!cList.length) return;
+    let bar = cList.find((c) => c.time === seekToTimeSec);
+    if (!bar) {
+      let best = cList[0]!;
+      for (const c of cList) {
+        if ((c.time as number) <= seekToTimeSec) best = c;
+        else break;
+      }
+      bar = best;
+    }
+    const idx = cList.indexOf(bar);
+    const fromIdx = Math.max(0, idx - 40);
+    const toIdx = Math.min(cList.length - 1, idx + 40);
+    try {
+      chart.timeScale().setVisibleLogicalRange({
+        from: fromIdx,
+        to: toIdx,
+      });
+      chart.setCrosshairPosition(bar.close, bar.time, candle);
+    } catch {
+      /* ignore */
+    }
+  }, [seekToTimeSec, seekToTimeVersion, loading, symbol, candles]);
 
   /** 应用其它标签页传来的区间统计（按柱时间映射到本地下标） */
   useEffect(() => {
@@ -3399,7 +3471,7 @@ export function StockChartWorkspace({
               : "h-full w-full min-h-[520px]"
           }
         />
-        {subPaneToolbarGeom.slot1 ? (
+        {subPaneToolbarGeom.slot1 && !forceHideSubPanes ? (
           <div
             className={`pointer-events-auto absolute left-0 right-0 z-[25] flex flex-wrap items-center gap-1 border-b border-fs-border bg-white/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
             style={{
@@ -3442,7 +3514,7 @@ export function StockChartWorkspace({
             ) : null}
           </div>
         ) : null}
-        {subPaneToolbarGeom.slot2 ? (
+        {subPaneToolbarGeom.slot2 && !forceHideSubPanes ? (
           <div
             className={`pointer-events-auto absolute left-0 right-0 z-[26] flex flex-col overflow-hidden border-b border-fs-border bg-white/95 backdrop-blur-[2px] ${subPane2.visible ? "" : "opacity-90"}`}
             style={{

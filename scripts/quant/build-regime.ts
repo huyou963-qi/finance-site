@@ -25,9 +25,14 @@ function numArg(name: string, dflt: number): number {
 }
 
 async function main() {
+  // 注意：scripts/ 不在 tsconfig 覆盖内，这里漏字段类型检查拦不住 —— 新增 RegimeThresholds
+  // 字段时必须同步这里（用展开兜底，未显式覆盖的字段自动取默认值）。
   const thresholds: RegimeThresholds = {
+    ...DEFAULT_REGIME_THRESHOLDS,
     growthZThreshold: numArg("--growth-z", DEFAULT_REGIME_THRESHOLDS.growthZThreshold),
     inflationZThreshold: numArg("--infl-z", DEFAULT_REGIME_THRESHOLDS.inflationZThreshold),
+    growthHysteresisBand: numArg("--growth-band", DEFAULT_REGIME_THRESHOLDS.growthHysteresisBand),
+    inflationHysteresisBand: numArg("--infl-band", DEFAULT_REGIME_THRESHOLDS.inflationHysteresisBand),
     zWindowMonths: numArg("--z-window", DEFAULT_REGIME_THRESHOLDS.zWindowMonths),
     inflationMomentumMonths: numArg("--infl-mom", DEFAULT_REGIME_THRESHOLDS.inflationMomentumMonths),
     minZSample: numArg("--min-sample", DEFAULT_REGIME_THRESHOLDS.minZSample),

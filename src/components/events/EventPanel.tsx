@@ -167,7 +167,7 @@ function findNearestEventId(
 export function eventMatchesFilters(
   event: MarketEventDto,
   filters: EventPanelFilterState,
-  opts?: { skipTagContext?: boolean },
+  opts?: { skipTagContext?: boolean; fallbackAsset?: string | null },
 ): boolean {
   const q = filters.searchQ.trim().toLowerCase();
   if (q) {
@@ -176,18 +176,22 @@ export function eventMatchesFilters(
       event.content.toLowerCase().includes(q);
     if (!hit) return false;
   }
-  if (!meetsMinImportance(event.importance, filters.minImportance)) return false;
   if (!eventTypeMatchesFamilies(event.eventType, filters.typeFamilies)) {
     return false;
   }
-  if (!opts?.skipTagContext && filters.scopeMode !== "range") {
-    const tagOk = eventHitsExplicitFilters(event, {
-      assets: filters.assets,
-      industries: filters.industries,
-      countries: filters.countries,
-    });
+  if (!opts?.skipTagContext) {
+    const tagOk = eventHitsExplicitFilters(
+      event,
+      {
+        assets: filters.assets,
+        industries: filters.industries,
+        countries: filters.countries,
+      },
+      { fallbackAsset: opts?.fallbackAsset },
+    );
     if (!tagOk) return false;
   }
+  if (!meetsMinImportance(event.importance, filters.minImportance)) return false;
   if (filters.persons.length) {
     if (!filters.persons.some((p) => event.persons.includes(p))) return false;
   }
@@ -201,7 +205,7 @@ export function eventMatchesFilters(
 function filterEvents(
   events: MarketEventDto[],
   filters: EventPanelFilterState,
-  opts?: { skipTagContext?: boolean },
+  opts?: { skipTagContext?: boolean; fallbackAsset?: string | null },
 ): MarketEventDto[] {
   return events.filter((e) => eventMatchesFilters(e, filters, opts));
 }
@@ -237,7 +241,7 @@ export function EventPanel({
   const [isAdmin, setIsAdmin] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editEvent, setEditEvent] = useState<MarketEventDto | null>(null);
-  const [trackingInternal, setTrackingInternal] = useState(false);
+  const [trackingInternal, setTrackingInternal] = useState(true);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [filtersInternal, setFiltersInternal] = useState<EventViewFilterState>(
     EMPTY_EVENT_PANEL_FILTERS,
@@ -352,7 +356,8 @@ export function EventPanel({
     if (eventTrackingProp !== undefined) return;
     try {
       const raw = localStorage.getItem(TRACKING_STORAGE_KEY);
-      if (raw === "1") setTrackingInternal(true);
+      if (raw === "0") setTrackingInternal(false);
+      else if (raw === "1") setTrackingInternal(true);
     } catch {
       /* ignore */
     }
@@ -422,11 +427,15 @@ export function EventPanel({
 
   const sortedEvents = useMemo(() => sortEventsAsc(events), [events]);
   const filtersActive = hasActiveEventPanelFilters(filters);
-  // for-chart 已按 tags/types/importance 预筛；客户端只补 search/人物/机构
+  // for-chart 已按 tags 预筛；客户端仍筛类型/搜索/重要度/人物/机构
   const skipTagContext = useChartList;
+  const filterOpts = {
+    skipTagContext,
+    fallbackAsset: chartSymbol,
+  };
   const filteredEvents = useMemo(
-    () => filterEvents(sortedEvents, filters, { skipTagContext }),
-    [sortedEvents, filters, skipTagContext],
+    () => filterEvents(sortedEvents, filters, filterOpts),
+    [sortedEvents, filters, skipTagContext, chartSymbol],
   );
 
   const displayModel = useMemo(() => {
@@ -443,7 +452,7 @@ export function EventPanel({
     const timelineModel = buildEventTimeline(sortedEvents);
     if (!filtersActive) return timelineModel;
     return filterTimelineGroups(timelineModel, (e) =>
-      eventMatchesFilters(e, filters, { skipTagContext }),
+      eventMatchesFilters(e, filters, filterOpts),
     );
   }, [
     eraFamilyOn,
@@ -452,6 +461,7 @@ export function EventPanel({
     filters,
     filtersActive,
     skipTagContext,
+    chartSymbol,
   ]);
 
   const trackingEvents = useMemo(() => {
@@ -570,6 +580,31 @@ export function EventPanel({
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
+            {chartLinked ? (
+              <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted">
+                <input
+                  type="checkbox"
+                  checked={filters.markersEnabled}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setFilters({
+                      ...filters,
+                      markersEnabled: on,
+                      ...(on
+                        ? {
+                            includeSec: true,
+                            includeMarket: true,
+                            showLabel: true,
+                          }
+                        : {}),
+                    });
+                  }}
+                  className="h-3 w-3 shrink-0 rounded border-fs-border accent-[var(--fs-accent,#2383e2)]"
+                  aria-label="图上显示：在 K 线上标记事件"
+                />
+                图上显示
+              </label>
+            ) : null}
             <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted">
               <input
                 type="checkbox"
@@ -620,8 +655,6 @@ export function EventPanel({
         <EventPanelFilters
           filters={filters}
           onChange={setFilters}
-          chartLinked={chartLinked}
-          symbolProfile={symbolProfile}
           onResetToSymbolDefault={
             chartLinked ? resetToSymbolDefault : undefined
           }
