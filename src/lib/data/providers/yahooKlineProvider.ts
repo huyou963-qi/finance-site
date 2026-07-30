@@ -198,13 +198,32 @@ export const yahooKlineProvider: KlineMarketDataProvider = {
 
     try {
       if (isDailyBacked(req.interval)) {
-        // 日线/周线：本地库 + 服务端精确复权（全历史一次算，保证后复权锚点稳定）
-        const { bars, found, source } = await getAdjustedDailyBars(symbol, {
+        // 日线/周线：按窗口/分页在 DB 裁剪后再复权（后复权仅额外取最早一根作锚点）
+        const pageLimit = req.limit > 0 ? req.limit : KLINE_PAGE_SIZE;
+        const isWeek = req.interval === "1w";
+        const dailyLimit = isWeek ? pageLimit * 8 + 7 : pageLimit;
+        const { beforeTimeSec, fromTimeSec, toTimeSec } = req.window;
+
+        const barQuery: Parameters<typeof getAdjustedDailyBars>[1] = {
           mode: req.adjustment,
-        });
+        };
+        if (fromTimeSec != null && toTimeSec != null) {
+          barQuery.fromSec = isWeek ? fromTimeSec - 7 * DAY_SEC : fromTimeSec;
+          barQuery.toSec = toTimeSec;
+          // 显式超长区间也加硬顶，防止一次请求拖数十年全日线
+          const spanDays = Math.ceil((toTimeSec - (barQuery.fromSec ?? fromTimeSec)) / DAY_SEC);
+          if (spanDays > 4000) barQuery.limit = 4000;
+        } else if (beforeTimeSec != null) {
+          barQuery.toSec = beforeTimeSec - 1;
+          barQuery.limit = dailyLimit;
+        } else {
+          barQuery.limit = dailyLimit;
+        }
+
+        const { bars, found, source } = await getAdjustedDailyBars(symbol, barQuery);
         if (!found) throw new YahooSymbolNotFoundError(symbol);
 
-        const series = req.interval === "1w" ? aggregate(bars, weekStartSec) : bars;
+        const series = isWeek ? aggregate(bars, weekStartSec) : bars;
         const { page, hasMoreOlder } = sliceWindow(series, req);
         const { candles, volumes } = toCandles(page);
 

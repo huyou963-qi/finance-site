@@ -300,13 +300,57 @@ export type DailyBarsQuery = {
   /** 返回区间（UTC 秒，含端点）；省略则返回全部 */
   fromSec?: number;
   toSec?: number;
-  /** 只保留最后 N 根（在区间过滤之后） */
+  /** 只保留最后 N 根（在区间过滤之后）；优先在 DB 层 LIMIT，避免全表进内存 */
   limit?: number;
 };
 
+const BAR_SELECT = {
+  date: true,
+  open: true,
+  high: true,
+  low: true,
+  close: true,
+  adjClose: true,
+  volume: true,
+} as const;
+
+/** 单标的日线：有 from/to/limit 时在 SQL 裁剪，禁止无界全表默认路径被页面打穿。 */
+async function fetchRawDailyBarRows(
+  symbol: string,
+  query: { fromSec?: number; toSec?: number; limit?: number },
+): Promise<DbBarRow[]> {
+  const dateFilter: { gte?: Date; lte?: Date } = {};
+  if (query.fromSec != null) dateFilter.gte = dateOnly(toUtcDayStartSec(query.fromSec));
+  if (query.toSec != null) dateFilter.lte = dateOnly(toUtcDayStartSec(query.toSec));
+
+  const where: Prisma.EquityDailyBarWhereInput = {
+    symbol,
+    ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
+  };
+
+  const take = query.limit != null && query.limit > 0 ? query.limit : undefined;
+  if (take != null) {
+    const rows = await prisma.equityDailyBar.findMany({
+      where,
+      orderBy: { date: "desc" },
+      take,
+      select: BAR_SELECT,
+    });
+    rows.reverse();
+    return rows;
+  }
+
+  return prisma.equityDailyBar.findMany({
+    where,
+    orderBy: { date: "asc" },
+    select: BAR_SELECT,
+  });
+}
+
 /**
- * 单标的复权日线。后复权锚定库内最早一根，故先取全序列复权再裁剪区间——
- * 这样切换区间时后复权刻度不会跳变。
+ * 单标的复权日线。
+ * - 前复权 / 不复权：按 from/to/limit 在 DB 裁剪后再算（拆股事件仍全量读取）。
+ * - 后复权：额外取库内最早一根作锚点 K，再与窗口合并复权，避免为锚点拉全历史。
  */
 export async function getAdjustedDailyBars(
   symbol: string,
@@ -316,19 +360,15 @@ export async function getAdjustedDailyBars(
   const { missing } = await ensureDailyBars([sym]);
   if (missing.includes(sym)) return { bars: [], source: null, found: false };
 
+  const mode = query.mode ?? "forward";
+  const bounded =
+    query.fromSec != null || query.toSec != null || (query.limit != null && query.limit > 0);
+
   const [rows, splitsBySymbol, cov] = await Promise.all([
-    prisma.equityDailyBar.findMany({
-      where: { symbol: sym },
-      orderBy: { date: "asc" },
-      select: {
-        date: true,
-        open: true,
-        high: true,
-        low: true,
-        close: true,
-        adjClose: true,
-        volume: true,
-      },
+    fetchRawDailyBarRows(sym, {
+      fromSec: query.fromSec,
+      toSec: query.toSec,
+      limit: query.limit,
     }),
     readSplits([sym]),
     prisma.equityPriceCoverage.findUnique({ where: { symbol: sym } }),
@@ -336,9 +376,21 @@ export async function getAdjustedDailyBars(
 
   if (rows.length === 0) return { bars: [], source: null, found: false };
 
-  const raw = sanitizeRawDailyBars(rows.map(rowToRaw));
+  let mergeRows = rows;
+  if (mode === "backward" && bounded) {
+    const earliest = await prisma.equityDailyBar.findFirst({
+      where: { symbol: sym },
+      orderBy: { date: "asc" },
+      select: BAR_SELECT,
+    });
+    if (earliest && rows[0]!.date.getTime() !== earliest.date.getTime()) {
+      mergeRows = [earliest, ...rows];
+    }
+  }
+
+  const raw = sanitizeRawDailyBars(mergeRows.map(rowToRaw));
   if (raw.length === 0) return { bars: [], source: null, found: false };
-  const adjusted = adjustDailyBars(raw, splitsBySymbol.get(sym) ?? [], query.mode ?? "forward");
+  const adjusted = adjustDailyBars(raw, splitsBySymbol.get(sym) ?? [], mode);
 
   let out = adjusted;
   if (query.fromSec != null) out = out.filter((b) => b.time >= query.fromSec!);
@@ -367,22 +419,21 @@ export async function getDailyClosesDbFirst(
 
   const { missing } = await ensureDailyBars(unique);
   const usable = unique.filter((s) => !missing.includes(s));
+  const take = Math.max(1, Math.floor(limit > 0 ? limit : 320));
 
+  // 每标的只取最近 take 根，避免 sector/industry 一次拖全历史进内存
   const [rows, splitsBySymbol] = await Promise.all([
-    prisma.equityDailyBar.findMany({
-      where: { symbol: { in: usable } },
-      orderBy: [{ symbol: "asc" }, { date: "asc" }],
-      select: {
-        symbol: true,
-        date: true,
-        open: true,
-        high: true,
-        low: true,
-        close: true,
-        adjClose: true,
-        volume: true,
-      },
-    }),
+    prisma.$queryRaw<(DbBarRow & { symbol: string })[]>`
+      SELECT symbol, date, open, high, low, close, adj_close AS "adjClose", volume
+      FROM (
+        SELECT symbol, date, open, high, low, close, adj_close, volume,
+               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) AS rn
+        FROM mds.equity_daily_bar
+        WHERE symbol = ANY(${usable})
+      ) t
+      WHERE rn <= ${take}
+      ORDER BY symbol ASC, date ASC
+    `,
     readSplits(usable),
   ]);
 

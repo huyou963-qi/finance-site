@@ -219,6 +219,8 @@ export async function loadChartEventMarkers(
     const stockEvents = await loadStockEvents(profile.symbol, {
       cik: row?.cik ?? null,
       limit: 200,
+      from: query.from,
+      to: query.to,
     });
     for (const ev of stockEvents) {
       if (!inRange(ev.date, query.from, query.to)) continue;
@@ -233,7 +235,7 @@ export async function loadChartEventMarkers(
     const { events } = await listMarketEvents({
       from: query.from,
       to: query.to,
-      limit: 2000,
+      limit: Math.min(500, Math.max(limit * 2, 200)),
     });
     for (const ev of events) {
       if (ev.eventType === "时代阶段" || ev.eventType === "era") continue;
@@ -342,6 +344,8 @@ export async function loadChartPanelEvents(query: {
     const stockEvents = await loadStockEvents(profile.symbol, {
       cik: row?.cik ?? null,
       limit: 200,
+      from: query.from,
+      to: query.to,
     });
     for (const ev of stockEvents) {
       if (!inRange(ev.date, query.from, query.to)) continue;
@@ -360,7 +364,7 @@ export async function loadChartPanelEvents(query: {
     const { events } = await listMarketEvents({
       from: query.from,
       to: query.to,
-      limit: 2000,
+      limit: Math.min(1000, Math.max(limit, 200)),
     });
     for (const ev of events) {
       if (!marketFollowOk(ev, tags, profile.symbol)) continue;

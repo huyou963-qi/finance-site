@@ -163,15 +163,34 @@ export async function ingestSecFilingsForSymbol(
 
 /**
  * 事件聚合主入口。filings 为空且给了 cik 时懒回补一次（失败静默，UI 空态兜底）。
+ * from/to（YYYY-MM-DD）用于收窄 SEC 与日线读取，避免 chart-markers 拖全历史进内存。
  */
 export async function loadStockEvents(
   symbol: string,
-  opts: { cik?: string | null; types?: StockEventType[] | null; limit?: number } = {},
+  opts: {
+    cik?: string | null;
+    types?: StockEventType[] | null;
+    limit?: number;
+    from?: string;
+    to?: string;
+  } = {},
 ): Promise<StockEvent[]> {
   const limit = Math.min(200, Math.max(1, opts.limit ?? 80));
+  const fromDay = opts.from?.slice(0, 10);
+  const toDay = opts.to?.slice(0, 10);
+
+  const filingWhere: {
+    symbol: string;
+    filedAt?: { gte?: Date; lte?: Date };
+  } = { symbol };
+  if (fromDay || toDay) {
+    filingWhere.filedAt = {};
+    if (fromDay) filingWhere.filedAt.gte = new Date(`${fromDay}T00:00:00.000Z`);
+    if (toDay) filingWhere.filedAt.lte = new Date(`${toDay}T23:59:59.999Z`);
+  }
 
   let filings = await prisma.secFiling.findMany({
-    where: { symbol },
+    where: filingWhere,
     orderBy: { filedAt: "desc" },
     take: 300,
   });
@@ -179,7 +198,7 @@ export async function loadStockEvents(
     try {
       await ingestSecFilingsForSymbol(symbol, opts.cik);
       filings = await prisma.secFiling.findMany({
-        where: { symbol },
+        where: filingWhere,
         orderBy: { filedAt: "desc" },
         take: 300,
       });
@@ -188,7 +207,7 @@ export async function loadStockEvents(
     }
   }
 
-  const [splits, quarters, dailyBars] = await Promise.all([
+  const [splits, quarters] = await Promise.all([
     prisma.equitySplit.findMany({ where: { symbol }, orderBy: { exDate: "desc" }, take: 20 }),
     prisma.equityFundamentalSnapshot.findMany({
       where: { symbol, periodType: "Q" },
@@ -205,13 +224,31 @@ export async function loadStockEvents(
         epsYoY: true,
       },
     }),
-    // T+1 反应用 adjClose（跨拆股/分红不失真）；只读库，价格由个股页/脚本回补
-    prisma.equityDailyBar.findMany({
-      where: { symbol },
+  ]);
+
+  // T+1 反应用 adjClose：只取事件日期邻域，不拉全历史
+  const dateCandidates: number[] = [];
+  for (const f of filings) dateCandidates.push(f.filedAt.getTime());
+  for (const s of splits) {
+    const t = s.exDate.getTime();
+    if (fromDay && s.exDate.toISOString().slice(0, 10) < fromDay) continue;
+    if (toDay && s.exDate.toISOString().slice(0, 10) > toDay) continue;
+    dateCandidates.push(t);
+  }
+
+  let dailyBars: { date: Date; adjClose: number }[] = [];
+  if (dateCandidates.length > 0) {
+    const minMs = Math.min(...dateCandidates) - 14 * 86_400_000;
+    const maxMs = Math.max(...dateCandidates) + 21 * 86_400_000;
+    dailyBars = await prisma.equityDailyBar.findMany({
+      where: {
+        symbol,
+        date: { gte: new Date(minMs), lte: new Date(maxMs) },
+      },
       orderBy: { date: "asc" },
       select: { date: true, adjClose: true },
-    }),
-  ]);
+    });
+  }
 
   // 披露次交易日涨跌幅：prev = 披露日当日或之前最近一根，next = 其后第一根
   const barDates = dailyBars.map((b) => b.date.toISOString().slice(0, 10));
