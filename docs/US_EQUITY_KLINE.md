@@ -59,3 +59,7 @@ npm run equity:sync-prices -- --full           # 强制重拉全量历史（含�
 - `src/lib/equity/equityPriceStore.ts` — db-first 落库 + 缺口拼接 + 覆盖状态
 - `src/lib/data/providers/yahooKlineProvider.ts` — K 线 provider（周期聚合 + 窗口分页）
 - `src/lib/equity/usEquitySearch.ts` — 全美股符号联想
+
+## 多资产 / 基本面叠加
+
+行情页顶栏「叠加」：多标的折线、表达式（`-` `/` 括号）、基本面（TTM/Forward PE、PB、EPS、营收、利润率）与左右/独立/副图坐标轴。详见 [MARKETS_CHART_LAYERS.md](./MARKETS_CHART_LAYERS.md)。

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { KlineRangeStatsResult } from "@/lib/chart/klineRangeStats";
+import type { LayerRangeStatsResult } from "@/lib/chart/layerRangeStats";
 
 function fmtPrice(x: number): string {
   if (!Number.isFinite(x)) return "—";
@@ -20,6 +21,8 @@ function fmtVolZh(v: number): string {
 
 type Props = {
   stats: KlineRangeStatsResult;
+  /** 叠加资产 / 运算层统计（可空） */
+  layerStats?: LayerRangeStatsResult[];
   /** 如「区间统计」「区间统计2」 */
   title: string;
   /** 标题与边框强调色（与 K 线区间两端竖线一致） */
@@ -34,6 +37,7 @@ type Props = {
 
 export function KlineRangeStatsPanel({
   stats,
+  layerStats = [],
   title,
   accentColor,
   upColor = "#ef5350",
@@ -171,8 +175,69 @@ export function KlineRangeStatsPanel({
         />
       </div>
 
+      {layerStats.length > 0 ? (
+        <div className="mt-3 border-t border-fs-border pt-3">
+          <div className="mb-2 text-[11px] font-medium text-fs-secondary">
+            叠加层（含运算）
+          </div>
+          <div className="space-y-2">
+            {layerStats.map((ly) => {
+              const lyColor = ly.changePct >= 0 ? upColor : downColor;
+              return (
+                <div
+                  key={`${ly.label}-${ly.color}`}
+                  className="rounded border border-fs-border/70 bg-fs-elevated/30 px-2 py-1.5"
+                >
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px]">
+                    <span
+                      className="inline-block h-1.5 w-3 shrink-0 rounded-sm"
+                      style={{ background: ly.color }}
+                    />
+                    <span className="truncate font-medium text-fs-text">
+                      {ly.label}
+                    </span>
+                    <span className="ml-auto font-mono text-[10px] text-fs-muted">
+                      {ly.count} 点
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:grid-cols-4">
+                    <Cell label="起点" value={fmtPrice(ly.first)} />
+                    <Cell
+                      label="终点"
+                      value={fmtPrice(ly.last)}
+                      valueColor={lyColor}
+                    />
+                    <Cell
+                      label="最高"
+                      value={fmtPrice(ly.max)}
+                      valueColor={upColor}
+                    />
+                    <Cell
+                      label="最低"
+                      value={fmtPrice(ly.min)}
+                      valueColor={downColor}
+                    />
+                    <Cell
+                      label="涨跌幅"
+                      value={`${ly.changePct >= 0 ? "+" : ""}${ly.changePct.toFixed(2)}%`}
+                      valueColor={lyColor}
+                    />
+                    <Cell
+                      label="振幅"
+                      value={`${ly.amplitudePct.toFixed(2)}%`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <p className="mt-3 text-[10px] leading-relaxed text-fs-secondary">
-        涨跌幅按首根开盘价与末根收盘价计算；振幅为 (区间最高 − 区间最低) / 区间最低；成交量为区间内各柱之和（无数据时可能为估算）。
+        涨跌幅按首根开盘价与末根收盘价计算；振幅为 (区间最高 − 区间最低) /
+        区间最低；成交量为区间内各柱之和（无数据时可能为估算）。叠加层按与主图
+        K 线同日对齐的序列值统计（运算式缺日不计入）。
       </p>
     </div>
   );

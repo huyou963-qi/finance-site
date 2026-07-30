@@ -10,6 +10,7 @@ import {
   HistogramSeries,
   isBusinessDay,
   LineSeries,
+  LineType,
   type CandlestickData,
   type ISeriesMarkersPluginApi,
   type LineData,
@@ -22,6 +23,13 @@ import {
 } from "lightweight-charts";
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
 import { ChartEventMarkersToolbar } from "@/components/chart/ChartEventMarkersToolbar";
+import { ChartLayersPanel } from "@/components/chart/ChartLayersPanel";
+import { useChartLayers } from "@/hooks/useChartLayers";
+import {
+  layerNeedsLeftScale,
+  resolvePriceScaleId,
+  type AxisBinding,
+} from "@/lib/chart/chartLayers";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
   loadEventViewFilters,
@@ -38,6 +46,11 @@ import {
   computeVisibleRangeExtrema,
   type KlineRangeStatsResult,
 } from "@/lib/chart/klineRangeStats";
+import {
+  computeAllLayerRangeStats,
+  type LayerRangeSeriesInput,
+  type LayerRangeStatsResult,
+} from "@/lib/chart/layerRangeStats";
 import {
   pickDrawingAt,
   type DrawingHitTarget,
@@ -564,7 +577,47 @@ type CrosshairOhlcv = {
   volume: number;
   /** 相对图宽的横坐标，用于决定浮窗靠左/靠右避让光标 */
   cursorX: number;
+  /** 叠加层在该时间点的值 */
+  layers?: { label: string; color: string; value: number | null }[];
 };
+
+/** Layer 绑到哪个 pane / priceScale */
+function resolveLayerPlacement(
+  axis: AxisBinding,
+  sub1Visible: boolean,
+  sub2Visible: boolean,
+): { paneIndex: number; priceScaleId: string } {
+  if (axis.mode === "pane") {
+    if (axis.paneSlot === "sub1" && sub1Visible) {
+      return { paneIndex: 1, priceScaleId: "right" };
+    }
+    if (axis.paneSlot === "sub2" && sub2Visible) {
+      return { paneIndex: sub1Visible ? 2 : 1, priceScaleId: "right" };
+    }
+    return {
+      paneIndex: 0,
+      priceScaleId: resolvePriceScaleId({
+        mode: "scale",
+        scaleId: `pane_fb_${axis.paneSlot}`,
+      }),
+    };
+  }
+  return { paneIndex: 0, priceScaleId: resolvePriceScaleId(axis) };
+}
+
+function valueAtTime(
+  points: LineData[],
+  time: Time,
+): number | null {
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i]!;
+    if (p.time === time) return p.value;
+    if (typeof p.time === "number" && typeof time === "number" && p.time < time) {
+      return p.value;
+    }
+  }
+  return null;
+}
 
 /** 十字光标 / 时间轴统一日期：YYYY/MM/DD（UTC 日历日） */
 function formatYyyyMmDdUtc(sec: number): string {
@@ -628,7 +681,72 @@ type RangeStatEntry = {
   i0: number;
   i1: number;
   stats: KlineRangeStatsResult;
+  /** 叠加资产 / 运算层在同区间内的统计 */
+  layerStats: LayerRangeStatsResult[];
 };
+
+function derivedToLayerRangeInputs(
+  derived: { label: string; color: string; points: { time: unknown; value: number }[] }[],
+): LayerRangeSeriesInput[] {
+  return derived.map((d) => ({
+    label: d.label,
+    color: d.color,
+    points: d.points
+      .map((p) => {
+        const time =
+          typeof p.time === "number"
+            ? p.time
+            : typeof p.time === "string"
+              ? Math.floor(Date.parse(p.time) / 1000)
+              : NaN;
+        return { time, value: p.value };
+      })
+      .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.value)),
+  }));
+}
+
+function candlesToTimedBars(
+  candles: CandlestickData[],
+): { time: number }[] {
+  const out: { time: number }[] = [];
+  for (const c of candles) {
+    const t =
+      typeof c.time === "number"
+        ? c.time
+        : typeof c.time === "string"
+          ? Math.floor(Date.parse(c.time) / 1000)
+          : null;
+    out.push({ time: t != null && Number.isFinite(t) ? t : Number.NaN });
+  }
+  return out;
+}
+
+function buildRangeStatEntry(
+  candles: CandlestickData[],
+  volumes: number[],
+  i0: number,
+  i1: number,
+  interval: string,
+  color: string,
+  layerInputs: LayerRangeSeriesInput[],
+  id?: string,
+): RangeStatEntry | null {
+  const stats = computeKlineRangeStats(candles, volumes, i0, i1, interval);
+  if (!stats) return null;
+  return {
+    id: id ?? randomUUID(),
+    color,
+    i0,
+    i1,
+    stats,
+    layerStats: computeAllLayerRangeStats(
+      candlesToTimedBars(candles),
+      i0,
+      i1,
+      layerInputs,
+    ),
+  };
+}
 
 function nearestBarIndexForTime(
   candles: CandlestickData[],
@@ -682,26 +800,23 @@ function wireSpecsToRangeEntries(
   candles: CandlestickData[],
   volumes: number[],
   interval: string,
+  layerInputs: LayerRangeSeriesInput[] = [],
 ): RangeStatEntry[] {
   const out: RangeStatEntry[] = [];
   for (const s of specs) {
     const m = mapTimePairToBarIndices(candles, s.fromTime, s.toTime);
     if (!m) continue;
-    const stats = computeKlineRangeStats(
+    const entry = buildRangeStatEntry(
       candles,
       volumes,
       m.i0,
       m.i1,
       interval,
+      s.color,
+      layerInputs,
     );
-    if (!stats) continue;
-    out.push({
-      id: randomUUID(),
-      color: s.color,
-      i0: m.i0,
-      i1: m.i1,
-      stats,
-    });
+    if (!entry) continue;
+    out.push(entry);
   }
   return out;
 }
@@ -830,11 +945,14 @@ export function StockChartWorkspace({
     };
     /** 副图序列（appendSubPaneSeries 顺序），用于追加历史后刷新指标 */
     subPaneSeries: SubPaneSeriesApi[];
+    /** 多资产/基本面 Layer 折线（与 derived 顺序对齐） */
+    layerSeries: { id: string; api: ISeriesApi<"Line", Time> }[];
   }>({
     userPriceLines: [],
     userTrendLines: [],
     overlayLines: { boll: [], ma: [] },
     subPaneSeries: [],
+    layerSeries: [],
   });
 
   const [payload, setPayload] = useState<KlinePayload | null>(null);
@@ -1154,6 +1272,21 @@ export function StockChartWorkspace({
   // 服务端已按 adjust= 精确复权（拆股事件 + 分红因子），客户端直接使用
   const candles = useMemo(() => payload?.candles ?? [], [payload?.candles]);
 
+  const [visibleFromSec, setVisibleFromSec] = useState<number | null>(null);
+  const layersApi = useChartLayers({
+    primarySymbol: symbol,
+    interval,
+    priceAdjustment,
+    primaryCandles: candles,
+    fetchLimit: Math.max(KLINE_INITIAL_LIMIT, candles.length || 0),
+    indexFromSec: visibleFromSec,
+  });
+  const layersStructKey = layersApi.structKey;
+  const derivedLayersRef = useRef(layersApi.derived);
+  derivedLayersRef.current = layersApi.derived;
+  const layersPrefsRef = useRef(layersApi.prefs);
+  layersPrefsRef.current = layersApi.prefs;
+
   const needsTtmPe =
     subPane1.content === "ttmpe" || subPane2.content === "ttmpe";
 
@@ -1200,6 +1333,8 @@ export function StockChartWorkspace({
     }
     return ttmPeLineFromCandles(candles, ttmEpsTimeline);
   }, [candles, ttmEpsTimeline, quarterlyPe]);
+  const ttmPeLineRef = useRef(ttmPeLine);
+  ttmPeLineRef.current = ttmPeLine;
 
   const volumes = useMemo(() => {
     const c = payload?.candles ?? [];
@@ -1453,6 +1588,18 @@ export function StockChartWorkspace({
       );
     }
 
+    // Layer 数据增量刷新（结构未变时不重建 chart）
+    const layerHandles = h.layerSeries;
+    for (const d of derivedLayersRef.current) {
+      const handle = layerHandles.find((x) => x.id === d.layerId);
+      if (!handle) continue;
+      try {
+        handle.api.setData(d.points);
+      } catch {
+        /* series may be detached mid-rebuild */
+      }
+    }
+
     if (vr) {
       chart.timeScale().setVisibleRange({
         from: vr.from,
@@ -1476,6 +1623,27 @@ export function StockChartWorkspace({
     subPane2.content,
     ttmPeLine,
   ]);
+
+  /** Layer 仅数据变化时 setData，不触发 createChart 重建 */
+  useEffect(() => {
+    if (loading) return;
+    const handles = nativeHandlesRef.current.layerSeries;
+    if (!handles.length) return;
+    for (const d of layersApi.derived) {
+      const handle = handles.find((x) => x.id === d.layerId);
+      if (!handle) continue;
+      try {
+        handle.api.setData(d.points);
+        handle.api.applyOptions({
+          color: d.color,
+          title: d.label,
+          lineWidth: d.lineWidth,
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [loading, layersApi.derived]);
 
   /** 切换涨跌配色：更新蜡烛与成交量柱，不重建整图 */
   useEffect(() => {
@@ -1654,26 +1822,20 @@ export function StockChartWorkspace({
     i0 = Math.max(0, Math.min(c.length - 1, i0));
     i1 = Math.max(0, Math.min(c.length - 1, i1));
     if (i1 < i0) [i0, i1] = [i1, i0];
-    const stats = computeKlineRangeStats(
-      c,
-      v,
-      i0,
-      i1,
-      intervalRef.current,
-    );
-    if (!stats) return;
+    const layerInputs = derivedToLayerRangeInputs(derivedLayersRef.current);
     setRangeEntries((prev) => {
       const color = RANGE_PALETTE[prev.length % RANGE_PALETTE.length];
-      return [
-        ...prev,
-        {
-          id: randomUUID(),
-          color,
-          i0,
-          i1,
-          stats,
-        },
-      ];
+      const entry = buildRangeStatEntry(
+        c,
+        v,
+        i0,
+        i1,
+        intervalRef.current,
+        color,
+        layerInputs,
+      );
+      if (!entry) return prev;
+      return [...prev, entry];
     });
   }, []);
 
@@ -1725,15 +1887,20 @@ export function StockChartWorkspace({
                 i1 = Math.min(n - 1, i1);
               }
               if (i1 <= i0) return r;
-              const stats = computeKlineRangeStats(
+              const layerInputs = derivedToLayerRangeInputs(
+                derivedLayersRef.current,
+              );
+              const next = buildRangeStatEntry(
                 candlesRef.current,
                 volumesRef.current,
                 i0,
                 i1,
                 intervalRef.current,
+                r.color,
+                layerInputs,
+                r.id,
               );
-              if (!stats) return r;
-              return { ...r, i0, i1, stats };
+              return next ?? r;
             }),
           );
           setOverlayLayoutTick((t) => t + 1);
@@ -2099,6 +2266,11 @@ export function StockChartWorkspace({
         borderColor: KLINE.border,
         textColor: KLINE_CHART_TEXT_COLOR,
       },
+      leftPriceScale: {
+        visible: layerNeedsLeftScale(layersPrefsRef.current.layers),
+        borderColor: KLINE.border,
+        textColor: KLINE_CHART_TEXT_COLOR,
+      },
       timeScale: {
         borderColor: KLINE.border,
         visible: true,
@@ -2226,7 +2398,7 @@ export function StockChartWorkspace({
           subPaneIdx,
           subPane1.content,
           "a",
-          ttmPeLine,
+          ttmPeLineRef.current,
           subParams,
           initColors,
         ),
@@ -2242,13 +2414,49 @@ export function StockChartWorkspace({
           subPaneIdx,
           subPane2.content,
           "b",
-          ttmPeLine,
+          ttmPeLineRef.current,
           subParams,
           initColors,
         ),
       );
     }
     nativeHandlesRef.current.subPaneSeries = subPaneApis;
+
+    // 多资产 / 基本面 Layer（结构变才重建；数据走独立 setData effect）
+    nativeHandlesRef.current.layerSeries = [];
+    const derivedSnapshot = derivedLayersRef.current;
+    for (const d of derivedSnapshot) {
+      const place = resolveLayerPlacement(
+        d.axis,
+        subPane1.visible,
+        subPane2.visible,
+      );
+      const s = chart.addSeries(
+        LineSeries,
+        {
+          color: d.color,
+          lineWidth: d.lineWidth,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          title: d.label,
+          priceScaleId: place.priceScaleId,
+          lineType:
+            d.style === "step" ? LineType.WithSteps : LineType.Simple,
+        },
+        place.paneIndex,
+      );
+      if (d.points.length) s.setData(d.points);
+      nativeHandlesRef.current.layerSeries.push({ id: d.layerId, api: s });
+      if (place.priceScaleId !== "right" && place.priceScaleId !== "left") {
+        try {
+          chart.priceScale(place.priceScaleId, place.paneIndex).applyOptions({
+            scaleMargins: { top: 0.08, bottom: 0.08 },
+          });
+        } catch {
+          /* scale may not exist until series attached */
+        }
+      }
+    }
 
     chart.timeScale().fitContent();
 
@@ -2546,6 +2754,11 @@ export function StockChartWorkspace({
         close: bar.close,
         volume: vol,
         cursorX: param.point.x,
+        layers: derivedLayersRef.current.map((d) => ({
+          label: d.label,
+          color: d.color,
+          value: valueAtTime(d.points, t),
+        })),
       });
       setPlotDraft((prev) => {
         if (
@@ -2665,6 +2878,7 @@ export function StockChartWorkspace({
       const fromSec = horzTimeToUnixSec(tr.from);
       const toSec = horzTimeToUnixSec(tr.to);
       if (fromSec == null || toSec == null) return;
+      setVisibleFromSec(fromSec);
       onVisibleTimeRangeChangeRef.current?.(fromSec, toSec);
       setMarkerRangeTick((t) => t + 1);
       if (
@@ -2706,13 +2920,15 @@ export function StockChartWorkspace({
         userTrendLines: [],
         overlayLines: { boll: [], ma: [] },
         subPaneSeries: [],
+        layerSeries: [],
       };
-    };
+      };
   }, [
     loading,
     symbol,
     source,
     overlayStructKey,
+    layersStructKey,
     subParams,
     subPane1.visible,
     subPane1.content,
@@ -2720,7 +2936,6 @@ export function StockChartWorkspace({
     subPane2.content,
     interval,
     schedulePaneLayoutMetrics,
-    ttmPeLine,
     forceHideSubPanes,
   ]);
 
@@ -3042,6 +3257,32 @@ export function StockChartWorkspace({
     }
   }, [seekToTimeSec, seekToTimeVersion, loading, symbol, candles]);
 
+  /** Layer 数据变化时刷新已有区间的叠加统计（不改主 K 区间边界） */
+  useEffect(() => {
+    if (!rangeEntries.length) return;
+    const c = candlesRef.current;
+    const v = volumesRef.current;
+    if (!c.length) return;
+    const layerInputs = derivedToLayerRangeInputs(layersApi.derived);
+    setRangeEntries((prev) =>
+      prev.map((r) => {
+        const next = buildRangeStatEntry(
+          c,
+          v,
+          r.i0,
+          r.i1,
+          intervalRef.current,
+          r.color,
+          layerInputs,
+          r.id,
+        );
+        return next ?? r;
+      }),
+    );
+    // 仅当叠加派生序列变化时刷新；避免与划定区间互相打架
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layersApi.derived]);
+
   /** 应用其它标签页传来的区间统计（按柱时间映射到本地下标） */
   useEffect(() => {
     if (!pageSyncEnabled) return;
@@ -3053,7 +3294,13 @@ export function StockChartWorkspace({
     suppressRangeSpecsBroadcastRef.current = true;
     const specs = remoteRangeSpecs ?? [];
     setRangeEntries(
-      wireSpecsToRangeEntries(specs, c, v, intervalRef.current),
+      wireSpecsToRangeEntries(
+        specs,
+        c,
+        v,
+        intervalRef.current,
+        derivedToLayerRangeInputs(derivedLayersRef.current),
+      ),
     );
     window.setTimeout(() => {
       suppressRangeSpecsBroadcastRef.current = false;
@@ -3172,6 +3419,7 @@ export function StockChartWorkspace({
           ))}
         </select>
       </label>
+      <ChartLayersPanel primarySymbol={symbol} layersApi={layersApi} />
       <div ref={overlayMenuRef} className="relative flex items-center">
         <button
           type="button"
@@ -3474,6 +3722,24 @@ export function StockChartWorkspace({
               : "h-full w-full min-h-[520px]"
           }
         />
+        {layersApi.derived.length > 0 ? (
+          <div className="pointer-events-none absolute left-2 top-2 z-[18] flex max-w-[min(70%,20rem)] flex-col gap-0.5 rounded border border-fs-border/60 bg-white/85 px-2 py-1 text-[10px] shadow-sm backdrop-blur-[1px]">
+            {layersApi.derived.map((d) => (
+              <div key={d.layerId} className="flex items-center gap-1.5 truncate">
+                <span
+                  className="inline-block h-1.5 w-3 shrink-0 rounded-sm"
+                  style={{ background: d.color }}
+                />
+                <span className="truncate text-fs-secondary">{d.label}</span>
+                {d.lastValue != null ? (
+                  <span className="ml-auto font-mono text-fs-text">
+                    {d.lastValue.toPrecision(4)}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
         {subPaneToolbarGeom.slot1 ? (
           <div
             className={`pointer-events-auto absolute left-0 right-0 z-[25] flex flex-wrap items-center gap-1 border-b border-fs-border bg-white/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
@@ -3663,6 +3929,19 @@ export function StockChartWorkspace({
                   <span className="text-right font-mono text-fs-secondary">
                     {fmtVolumeZh(ch.volume)}
                   </span>
+                  {ch.layers?.map((ly) => (
+                    <span key={ly.label} className="contents">
+                      <span className="truncate text-fs-muted" style={{ color: ly.color }}>
+                        {ly.label}
+                      </span>
+                      <span
+                        className="text-right font-mono"
+                        style={{ color: ly.color }}
+                      >
+                        {ly.value != null ? ly.value.toPrecision(4) : "—"}
+                      </span>
+                    </span>
+                  ))}
                 </div>
               );
             })()}
@@ -3761,6 +4040,7 @@ export function StockChartWorkspace({
             <KlineRangeStatsPanel
               key={r.id}
               stats={r.stats}
+              layerStats={r.layerStats}
               title={rangePanelTitle(idx)}
               accentColor={r.color}
               upColor={candleColors.up}
