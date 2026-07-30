@@ -55,6 +55,7 @@ import {
   pickDrawingAt,
   type DrawingHitTarget,
 } from "@/lib/chart/drawingHitTest";
+import { copyElementScreenshotToClipboard } from "@/lib/copyElementScreenshot";
 import {
   klineDebugLog,
   logCandleSeriesReport,
@@ -1057,6 +1058,9 @@ export function StockChartWorkspace({
   const [drawings, setDrawings] = useState<PersistedDrawing[]>([]);
   const drawingsRef = useRef(drawings);
   drawingsRef.current = drawings;
+  const [screenshotBusy, setScreenshotBusy] = useState(false);
+  const [screenshotHint, setScreenshotHint] = useState<string | null>(null);
+  const screenshotHintTimerRef = useRef<number | null>(null);
   const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(
     null,
   );
@@ -3321,6 +3325,37 @@ export function StockChartWorkspace({
     setDrawings([]);
   };
 
+  const handleScreenshot = useCallback(async () => {
+    const el = chartAreaRef.current;
+    if (!el || screenshotBusy) return;
+    if (screenshotHintTimerRef.current != null) {
+      window.clearTimeout(screenshotHintTimerRef.current);
+      screenshotHintTimerRef.current = null;
+    }
+    setScreenshotBusy(true);
+    setScreenshotHint(null);
+    try {
+      await copyElementScreenshotToClipboard(el, { backgroundColor: "#ffffff" });
+      setScreenshotHint("已复制");
+      screenshotHintTimerRef.current = window.setTimeout(() => {
+        setScreenshotHint(null);
+        screenshotHintTimerRef.current = null;
+      }, 1800);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "截图失败");
+    } finally {
+      setScreenshotBusy(false);
+    }
+  }, [screenshotBusy]);
+
+  useEffect(() => {
+    return () => {
+      if (screenshotHintTimerRef.current != null) {
+        window.clearTimeout(screenshotHintTimerRef.current);
+      }
+    };
+  }, []);
+
   const tools: { id: DrawingTool; label: string }[] = [
     { id: "cursor", label: "十字" },
     { id: "trend", label: "趋势" },
@@ -3614,6 +3649,15 @@ export function StockChartWorkspace({
         }`}
       >
         区间统计
+      </button>
+      <button
+        type="button"
+        onClick={() => void handleScreenshot()}
+        disabled={screenshotBusy}
+        title="截取主图与副图（含画线）到剪贴板"
+        className="rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] font-medium text-fs-text transition hover:border-fs-accent/40 hover:bg-fs-accent-soft hover:text-fs-accent-text disabled:cursor-wait disabled:opacity-60"
+      >
+        {screenshotBusy ? "截图中…" : screenshotHint ? screenshotHint : "截图"}
       </button>
       <div ref={drawToolMenuRef} className="relative flex items-center">
         <button

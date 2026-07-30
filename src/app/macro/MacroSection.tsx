@@ -23,6 +23,7 @@ import {
   DEFAULT_MACRO_DRAWING_STYLE,
   patchDrawing,
 } from "@/lib/macroChartDrawing";
+import { copyElementScreenshotToClipboard } from "@/lib/copyElementScreenshot";
 import {
   contextDateFromTimeLabel,
   extractCountriesFromMacroKeys,
@@ -579,6 +580,42 @@ export function MacroSection() {
   const clearMacroDrawings = useCallback(() => {
     setMacroDrawingsBySlot({});
     setSelectedDrawingBySlot({});
+  }, []);
+
+  const chartCaptureRef = useRef<HTMLDivElement | null>(null);
+  const [screenshotBusy, setScreenshotBusy] = useState(false);
+  const [screenshotHint, setScreenshotHint] = useState<string | null>(null);
+  const screenshotHintTimerRef = useRef<number | null>(null);
+
+  const onMacroScreenshot = useCallback(async () => {
+    const el = chartCaptureRef.current;
+    if (!el || screenshotBusy) return;
+    if (screenshotHintTimerRef.current != null) {
+      window.clearTimeout(screenshotHintTimerRef.current);
+      screenshotHintTimerRef.current = null;
+    }
+    setScreenshotBusy(true);
+    setScreenshotHint(null);
+    try {
+      await copyElementScreenshotToClipboard(el, { backgroundColor: "#ffffff" });
+      setScreenshotHint("已复制");
+      screenshotHintTimerRef.current = window.setTimeout(() => {
+        setScreenshotHint(null);
+        screenshotHintTimerRef.current = null;
+      }, 1800);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "截图失败");
+    } finally {
+      setScreenshotBusy(false);
+    }
+  }, [screenshotBusy]);
+
+  useEffect(() => {
+    return () => {
+      if (screenshotHintTimerRef.current != null) {
+        window.clearTimeout(screenshotHintTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -3226,6 +3263,9 @@ export function MacroSection() {
               onSelectedStyleChange={onMacroSelectedStyleChange}
               onSelectedTextChange={onMacroSelectedTextChange}
               onDeleteSelected={deleteSelectedMacroDrawing}
+              onScreenshot={onMacroScreenshot}
+              screenshotBusy={screenshotBusy}
+              screenshotHint={screenshotHint}
             />
           <label className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-medium text-fs-muted">
             <span className="shrink-0">图表布局</span>
@@ -3589,7 +3629,10 @@ export function MacroSection() {
                     ref={chartSplitRowRef}
                     className="flex min-h-0 min-w-0 flex-1 flex-row items-stretch"
                   >
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                    <div
+                      ref={chartCaptureRef}
+                      className="flex min-h-0 min-w-0 flex-1 flex-col"
+                    >
                       <MacroMultiChartGrid
                         key={`macro-grid-${layoutMode}`}
                         payload={chartGridPayload}

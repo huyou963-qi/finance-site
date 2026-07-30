@@ -17,6 +17,10 @@ export type MacroChartDrawingToolbarProps = {
   onSelectedStyleChange: (patch: Partial<MacroDrawingStyle>) => void;
   onSelectedTextChange: (text: string) => void;
   onDeleteSelected: () => void;
+  /** 截取图表区（含作图标注）到剪贴板 */
+  onScreenshot?: () => void | Promise<void>;
+  screenshotBusy?: boolean;
+  screenshotHint?: string | null;
 };
 
 const LINE_STYLES: Array<{ value: MacroDrawingStyle["lineStyle"]; label: string }> = [
@@ -35,6 +39,9 @@ export function MacroChartDrawingToolbar({
   onSelectedStyleChange,
   onSelectedTextChange,
   onDeleteSelected,
+  onScreenshot,
+  screenshotBusy = false,
+  screenshotHint = null,
 }: MacroChartDrawingToolbarProps) {
   const activeStyle = selectedDrawing
     ? resolveDrawingStyle(selectedDrawing.style)
@@ -45,6 +52,17 @@ export function MacroChartDrawingToolbar({
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1">
+      {onScreenshot ? (
+        <button
+          type="button"
+          onClick={() => void onScreenshot()}
+          disabled={screenshotBusy}
+          title="截取图表区域（含作图标注）到剪贴板"
+          className="rounded-md border border-fs-border/90 bg-fs-elevated px-2.5 py-1 text-[11px] font-medium text-fs-text transition hover:border-fs-accent/40 hover:bg-fs-accent-soft hover:text-fs-accent-text disabled:cursor-wait disabled:opacity-60"
+        >
+          {screenshotBusy ? "截图中…" : screenshotHint ? screenshotHint : "截图"}
+        </button>
+      ) : null}
       <div
         className="flex flex-wrap items-center gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5"
         role="toolbar"
