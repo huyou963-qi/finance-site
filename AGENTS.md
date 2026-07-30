@@ -193,6 +193,8 @@ npm run events:import-ingest -- <file.json>
 
 若 `/opt/finance-site` 曾有 `git clone`，tar 解压后 `git status` 会一片红，可忽略或删除 `.git`。
 
+**主机卡死排查落盘**（心跳 + 压力现场 + 开机捞 OOM）：见 [docs/OPS_HOST_DIAGNOSTICS.md](./docs/OPS_HOST_DIAGNOSTICS.md)；部署后在服务器装一次 cron（`host-diagnostics-snapshot.sh` 每 2 分钟）。
+
 ## 部署参考（内网 Windows）
 
 ```bash
