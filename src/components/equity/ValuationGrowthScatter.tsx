@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import * as echarts from "echarts/core";
 import { ScatterChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, MarkLineComponent } from "echarts/components";
@@ -22,6 +23,7 @@ const PE_CAP = 120;
 /**
  * 估值-成长散点：x=最新季营收同比，y=TTM PE，点面积 ∝ √市值。
  * 中位数十字线把面板分成四象限（右下=高成长低估值）。
+ * 点击数据点跳转个股研究页。
  */
 export function ValuationGrowthScatter({
   points,
@@ -31,6 +33,7 @@ export function ValuationGrowthScatter({
   height?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const { data, medianX, medianY, excluded } = useMemo(() => {
     const usable = points.filter(
@@ -49,7 +52,6 @@ export function ValuationGrowthScatter({
       data: inChart.map((p) => ({
         name: p.symbol,
         value: [p.revenueYoY * 100, p.peTtm],
-        // 面积 ∝ √市值：mega-cap 不至于吞掉小盘点
         symbolSize: 6 + 14 * Math.sqrt((p.marketCap ?? 0) / maxCap),
       })),
       medianX: med(inChart.map((p) => p.revenueYoY * 100)),
@@ -65,7 +67,7 @@ export function ValuationGrowthScatter({
       backgroundColor: "transparent",
       tooltip: {
         formatter: (p: { name: string; value: [number, number] }) =>
-          `<b>${p.name}</b><br/>营收YoY: ${p.value[0].toFixed(1)}%<br/>TTM PE: ${p.value[1].toFixed(1)}`,
+          `<b>${p.name}</b><br/>营收YoY: ${p.value[0].toFixed(1)}%<br/>TTM PE: ${p.value[1].toFixed(1)}<br/><span style="opacity:.7">点击打开个股研究</span>`,
       },
       grid: { left: 48, right: 16, top: 20, bottom: 40 },
       xAxis: {
@@ -113,13 +115,21 @@ export function ValuationGrowthScatter({
         },
       ],
     });
+    const onClick = (params: unknown) => {
+      const p = params as { name?: string; data?: { name?: string } | null };
+      const sym = p.name || (p.data && typeof p.data === "object" ? p.data.name : undefined);
+      if (!sym || typeof sym !== "string") return;
+      router.push(`/equity/stocks/${encodeURIComponent(sym)}`);
+    };
+    chart.on("click", onClick);
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
+      chart.off("click", onClick);
       window.removeEventListener("resize", onResize);
       chart.dispose();
     };
-  }, [data, medianX, medianY]);
+  }, [data, medianX, medianY, router]);
 
   if (data.length < 3) return null;
 
@@ -128,11 +138,11 @@ export function ValuationGrowthScatter({
       <div className="flex items-baseline justify-between border-b border-fs-border bg-fs-elevated/40 px-3 py-2">
         <span className="text-sm font-medium text-fs-text">估值 – 成长（虚线为行业中位数）</span>
         <span className="text-[11px] text-fs-muted">
-          {data.length} 只入图
-          {excluded > 0 ? ` · ${excluded} 只 PE>${PE_CAP} 或亏损未入图` : ""}
+          点击圆点打开个股
+          {excluded > 0 ? ` · 已剔除 PE>${PE_CAP} 共 ${excluded} 点` : ""}
         </span>
       </div>
-      <div ref={ref} style={{ width: "100%", height }} />
+      <div ref={ref} style={{ height }} className="w-full cursor-pointer" />
     </section>
   );
 }

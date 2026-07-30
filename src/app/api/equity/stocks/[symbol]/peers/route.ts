@@ -64,6 +64,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         period: s.period,
         fiscalDate: (s.fiscalDate ?? s.asOf).toISOString().slice(0, 10),
         fiscalQuarter: s.fiscalQuarter,
+        firstReportedAt: s.firstReportedAt
+          ? s.firstReportedAt.toISOString().slice(0, 10)
+          : null,
         revenue: s.revenue,
         revenueYoY: s.revenueYoY,
         eps: s.eps,

@@ -74,6 +74,8 @@ export type QuarterSnapshotRow = QuarterFundamentalRow & {
   epsYoY: number | null;
   grossMargin: number | null;
   opMargin: number | null;
+  /** PIT：该季事实首次披露日 YYYY-MM-DD（无则 null） */
+  firstReportedAt: string | null;
 };
 
 function toRow(r: {
@@ -81,6 +83,7 @@ function toRow(r: {
   fiscalDate: Date | null;
   fiscalQuarter: number | null;
   asOf: Date;
+  firstReportedAt?: Date | null;
   revenue: number | null;
   revenueYoY: number | null;
   eps: number | null;
@@ -102,6 +105,9 @@ function toRow(r: {
     period: r.period,
     fiscalDate: (r.fiscalDate ?? r.asOf).toISOString().slice(0, 10),
     fiscalQuarter: r.fiscalQuarter,
+    firstReportedAt: r.firstReportedAt
+      ? r.firstReportedAt.toISOString().slice(0, 10)
+      : null,
     revenue: r.revenue,
     revenueYoY: r.revenueYoY,
     eps: r.eps,

@@ -76,13 +76,14 @@ Sector ETF / SPY / 个股日线默认 **Yahoo Finance**（免密钥，不依赖 
 - 收益：Industry **等权篮子**（非 S&P 付费指数）；个股与篮子区间涨跌来自 Yahoo 日线
 - 重生成目录：`python scripts/equity/generate-gics-offline.py`（若存在）或 `npx tsx scripts/equity/build-gics-data.ts`
 
-## 个股详情（Phase 1）
+## 个股详情
 
-- 页面：`/equity/stocks/[symbol]`（顶层路由；面包屑 Sector › Industry › Symbol 由 `equity_security` GICS 字段反查）。含日 K（ECharts 蜡烛+成交量）、四线相对净值（个股 / Industry 等权 / Sector ETF / SPY，起点=100）、1M–1Y 区间收益表（绝对 / vs SPY / vs Sector ETF / vs Industry 等权）；基本面与事件叙事为 Phase 2/3 占位。
-- API：`GET /api/equity/stocks/[symbol]/profile`（主档+归属+各窗口收益）、`.../prices?days=`（OHLCV 日线）、`.../relative?from=&to=`（归一化净值序列+区间超额）
-- 计算：`src/lib/equity/stockRelative.ts`（等权净值 / RS 线 / vs 多基准超额，纯函数含测试）
-- 行业/板块成分表的代码与「个股」列内链此页；「K线」保留外链 `/markets` 工作台
-- 三层研究设计（含 Phase 2 季度基本面、Phase 3 联动）：`docs/research/US_EQUITY_STOCK_DRILLDOWN_DESIGN.md`
+- 页面：`/equity/stocks/[symbol]`（顶层路由；面包屑 Sector › Industry › Symbol 由 `equity_security` GICS 字段反查）。
+- **已交付**：日 K（ECharts 蜡烛+成交量、财报「E」标记）、四线相对净值（个股 / Industry 等权 / Sector ETF / SPY）、1M–1Y 区间收益表；**基本面**（SEC 标准化三表、TTM 估值、PE/PB 历史带、DuPont、同业 RV）；**事件时间线**（季年报/8-K/拆股 + 经营简报）。
+- API：`GET /api/equity/stocks/[symbol]/profile`、`.../prices`、`.../relative`、`.../fundamentals?quarters=`（默认 20，上限 70）、`.../peers`、`.../events`
+- 计算：`src/lib/equity/stockRelative.ts`（等权净值 / RS / 超额）；TTM/比率读时计算（`ttm.ts` / `fundamentalRatios.ts`）
+- 行业/板块成分表的代码与「个股」列内链此页；行情页顶栏「个股研究」回链（仅 `classifyChartSymbol`→equity）；「K线」保留 `/markets`
+- 设计原稿：`docs/research/US_EQUITY_STOCK_DRILLDOWN_DESIGN.md`；行情叠加与 PE 口径见 `docs/MARKETS_CHART_LAYERS.md`
 
 ## Prisma 表
 
@@ -96,4 +97,5 @@ Sector ETF / SPY / 个股日线默认 **Yahoo Finance**（免密钥，不依赖 
 | `public.company_operating_brief` | 经营简报 |
 | `public.industry_peer_resonance` | 同业互证 |
 
-调研背景：`docs/research/US_EQUITY_INDUSTRY_RESEARCH.md`、`docs/research/US_EQUITY_OPERATING_TRACK_DECISION.md`。
+调研背景：`docs/research/US_EQUITY_INDUSTRY_RESEARCH.md`、`docs/research/US_EQUITY_OPERATING_TRACK_DECISION.md`。  
+终端级缺口与数据源拍板：`docs/STOCK_FUNDAMENTALS_TERMINAL_GAP.md`。

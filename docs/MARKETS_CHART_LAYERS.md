@@ -21,9 +21,9 @@
 | 用途 | 端点 |
 |------|------|
 | 叠加价格 | 现有 `GET /api/data/klines` |
-| SEC 估值/季频 | `GET /api/data/chart-fundamentals?symbol=&metrics=` |
+| TTM PE 副图 / Layer | 优先 `GET /api/data/chart-fundamentals`（SEC）；失败回退 `ttm-pe`（FMP） |
 | Forward EPS | `GET /api/data/forward-pe?symbol=`（FMP，需 `FMP_API_KEY`） |
-| 遗留 TTM PE 副图 | `GET /api/data/ttm-pe`（副图选项仍可用；亦可加 fundamental Layer） |
+| 遗留 FMP only | `GET /api/data/ttm-pe` 仍可作为 fallback |
 
 ## UI
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   RoeDupontChart,
   StockFundamentalTrend,
@@ -211,18 +212,74 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
   const [data, setData] = useState<FundamentalsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 默认 20；可扩至 40/70 与回填深度对齐 */
+  const [quartersLimit, setQuartersLimit] = useState(20);
 
   const [tab, setTab] = useState<TabId>("overview");
   const [viewMode, setViewMode] = useState<"Q" | "FY">("Q");
   const [valueMode, setValueMode] = useState<"value" | "yoy">("value");
 
   const [peers, setPeers] = useState<PeerRow[] | null>(null);
+  const [peerUniverseCount, setPeerUniverseCount] = useState<number | null>(null);
   const [peersLoading, setPeersLoading] = useState(false);
   const [peersError, setPeersError] = useState<string | null>(null);
   const [peerSort, setPeerSort] = useState<{ key: PeerSortKey; desc: boolean }>({
     key: "marketCap",
     desc: true,
   });
+  /** Forward PE（FMP estimates；与行情叠加同源） */
+  const [forwardPe, setForwardPe] = useState<number | null>(null);
+  const [forwardEps, setForwardEps] = useState<number | null>(null);
+  const [forwardPeError, setForwardPeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setQuartersLimit(20);
+    setPeers(null);
+    setPeerUniverseCount(null);
+    setForwardPe(null);
+    setForwardEps(null);
+    setForwardPeError(null);
+  }, [symbol]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setForwardPeError(null);
+      try {
+        const r = await fetch(
+          `/api/data/forward-pe?symbol=${encodeURIComponent(symbol)}`,
+          { cache: "no-store" },
+        );
+        const j = (await r.json().catch(() => ({}))) as {
+          error?: string;
+          timeline?: { date: string; forwardEps: number }[];
+        };
+        if (!r.ok) throw new Error(j.error ?? `${r.status}`);
+        const timeline = j.timeline ?? [];
+        if (!timeline.length) throw new Error("无 Forward EPS");
+        const latest = timeline[timeline.length - 1]!;
+        if (cancelled) return;
+        setForwardEps(latest.forwardEps);
+      } catch (e) {
+        if (cancelled) return;
+        setForwardEps(null);
+        setForwardPe(null);
+        setForwardPeError(e instanceof Error ? e.message : "Forward PE 不可用");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+
+  useEffect(() => {
+    const price = data?.valuation?.price;
+    if (price != null && price > 0 && forwardEps != null && forwardEps > 0) {
+      setForwardPe(price / forwardEps);
+    } else if (forwardEps == null) {
+      setForwardPe(null);
+    }
+  }, [data?.valuation?.price, forwardEps]);
 
   useEffect(() => {
     let cancelled = false;
@@ -230,9 +287,11 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
       setLoading(true);
       setError(null);
       try {
-        const r = await fetch(`/api/equity/stocks/${encodeURIComponent(symbol)}/fundamentals`, {
-          cache: "no-store",
-        });
+        const qs = new URLSearchParams({ quarters: String(quartersLimit) });
+        const r = await fetch(
+          `/api/equity/stocks/${encodeURIComponent(symbol)}/fundamentals?${qs}`,
+          { cache: "no-store" },
+        );
         const j = (await r.json()) as FundamentalsPayload & { error?: string };
         if (!r.ok) throw new Error(j.error ?? "基本面加载失败");
         if (!cancelled) setData(j);
@@ -245,7 +304,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, quartersLimit]);
 
   useEffect(() => {
     if (tab !== "peers" || peers != null) return;
@@ -257,9 +316,16 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
         const r = await fetch(`/api/equity/stocks/${encodeURIComponent(symbol)}/peers`, {
           cache: "no-store",
         });
-        const j = (await r.json()) as { error?: string; peers?: PeerRow[] };
+        const j = (await r.json()) as {
+          error?: string;
+          peers?: PeerRow[];
+          industry?: { peerCount?: number };
+        };
         if (!r.ok) throw new Error(j.error ?? "同业数据加载失败");
-        if (!cancelled) setPeers(j.peers ?? []);
+        if (!cancelled) {
+          setPeers(j.peers ?? []);
+          setPeerUniverseCount(j.industry?.peerCount ?? j.peers?.length ?? null);
+        }
       } catch (e) {
         if (!cancelled) setPeersError(e instanceof Error ? e.message : "同业数据加载失败");
       } finally {
@@ -269,7 +335,6 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-    // peersLoading 不进依赖：setPeersLoading(true) 会触发自身清理、丢弃 fetch 结果
   }, [tab, peers, symbol]);
 
   const lastRatio = data?.ratios.length ? data.ratios[data.ratios.length - 1]! : null;
@@ -324,7 +389,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
 
   return (
     <section className="rounded-md border border-fs-border">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-fs-border bg-fs-elevated/40 px-3 py-2">
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-fs-border bg-fs-bg/95 px-3 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium">基本面（SEC EDGAR · 三表标准化）</span>
           <div className="flex items-center gap-1">
@@ -353,6 +418,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
         {data?.ttm ? (
           <span className="text-[11px] text-fs-muted">
             TTM 覆盖 {data.ttm.periods[0]} – {data.ttm.periods[3]}
+            {data.quarters.length ? ` · 已载 ${data.quarters.length} 季` : ""}
           </span>
         ) : null}
       </div>
@@ -386,7 +452,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
           {tab === "overview" ? (
             <>
               {data.valuation ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
                   {(
                     [
                       [
@@ -394,6 +460,14 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                         `${fmtMoney(data.valuation.marketCap)}${data.valuation.marketCapSource === "profile" ? "*" : ""}`,
                       ],
                       ["PE (TTM)", fmtRatio(data.valuation.peTtm)],
+                      [
+                        "Forward PE",
+                        forwardPe != null
+                          ? fmtRatio(forwardPe)
+                          : forwardPeError
+                            ? "—"
+                            : "…",
+                      ],
                       ["PB", fmtRatio(data.valuation.pb)],
                       ["PS (TTM)", fmtRatio(data.valuation.psTtm)],
                       ["EV", fmtMoney(data.valuation.ev)],
@@ -406,6 +480,15 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                     <div
                       key={label}
                       className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2"
+                      title={
+                        label === "Forward PE"
+                          ? forwardPeError
+                            ? `Forward PE：${forwardPeError}`
+                            : forwardEps != null
+                              ? `现价 / 一致预期 EPS（FMP annual）≈ ${forwardEps.toFixed(2)}`
+                              : "Forward PE（FMP analyst-estimates）"
+                          : undefined
+                      }
                     >
                       <div className="text-[11px] text-fs-muted">{label}</div>
                       <div className="mt-0.5 text-sm font-medium text-fs-text tabular-nums">
@@ -614,7 +697,16 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                         }`}
                       >
                         <td className="sticky left-0 whitespace-nowrap bg-fs-bg px-3 py-1.5">
-                          <span className="font-medium text-fs-text">{p.symbol}</span>
+                          {p.symbol === symbol ? (
+                            <span className="font-medium text-fs-accent-text">{p.symbol}</span>
+                          ) : (
+                            <Link
+                              href={`/equity/stocks/${encodeURIComponent(p.symbol)}`}
+                              className="font-medium text-fs-accent-text hover:underline"
+                            >
+                              {p.symbol}
+                            </Link>
+                          )}
                           <span className="ml-2 text-xs text-fs-muted">{p.name}</span>
                         </td>
                         {peerCols.map((c) => (
@@ -638,11 +730,51 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
             )
           ) : null}
 
+          {tab === "peers" &&
+          sortedPeers &&
+          peerUniverseCount != null &&
+          peerUniverseCount > sortedPeers.length ? (
+            <p className="text-[11px] text-fs-muted">
+              同业 Industry 共 {peerUniverseCount} 只，本表按市值展示前 {sortedPeers.length}{" "}
+              只。
+            </p>
+          ) : null}
+
+          {tab === "statements" && data && quartersLimit < 70 ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() =>
+                  setQuartersLimit((n) => (n < 40 ? 40 : 70))
+                }
+                className="rounded border border-fs-border px-3 py-1 text-xs text-fs-secondary hover:bg-fs-elevated hover:text-fs-text"
+              >
+                {quartersLimit < 40
+                  ? "加载更多历史（至 40 季）"
+                  : "加载更深历史（至 70 季）"}
+              </button>
+            </div>
+          ) : null}
+
+          {tab === "overview" && data && quartersLimit < 40 ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setQuartersLimit(40)}
+                className="rounded border border-fs-border px-3 py-1 text-xs text-fs-secondary hover:bg-fs-elevated hover:text-fs-text"
+              >
+                扩展趋势历史（至 40 季）
+              </button>
+            </div>
+          ) : null}
+
           <p className="text-[11px] leading-relaxed text-fs-muted">
             数据源 SEC EDGAR companyfacts（US-GAAP XBRL），跨公司报表栏目已标准化到统一科目；
             财年错位公司的 Q4 由年报差分推导，拆股后 EPS/股本已统一到最新口径；
             估值历史按财报披露滞后 40 天计算避免前视。金融公司无毛利率/资本开支为正常现象；
             市值带 * 表示来自主档缓存（股本缺失）。TTM/比率均为读取时计算。
+            Forward PE 来自 FMP analyst-estimates（需密钥；与一致预期修订/Surprise 等终端能力的差距见
+            docs/STOCK_FUNDAMENTALS_TERMINAL_GAP.md）。
           </p>
         </div>
       )}

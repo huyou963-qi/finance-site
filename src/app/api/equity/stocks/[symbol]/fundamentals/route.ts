@@ -22,7 +22,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     }
 
     const quartersParam = Number(req.nextUrl.searchParams.get("quarters") ?? 20);
-    const quarters = Math.min(Math.max(Number.isFinite(quartersParam) ? quartersParam : 20, 4), 24);
+    /** 与深历史回填（--quarters=70）对齐；默认仍 20 保首屏体积 */
+    const quarters = Math.min(
+      Math.max(Number.isFinite(quartersParam) ? quartersParam : 20, 4),
+      70,
+    );
 
     const rows = await getQuarterlyFundamentalsDbFirst(stock.symbol, {
       quarters,

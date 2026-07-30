@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { StockEventsPanel } from "@/components/equity/StockEventsPanel";
 import { StockFundamentalsPanel } from "@/components/equity/StockFundamentalsPanel";
+import { StockSymbolSwitcher } from "@/components/equity/StockSymbolSwitcher";
 import {
   StockPriceChart,
   type ChartEarningsMark,
@@ -245,12 +246,15 @@ export function StockDetailClient({
             {priceSource ? ` · 行情 ${priceSource}` : ""}
           </p>
         </div>
-        <Link
-          href={`/markets?symbol=${encodeURIComponent(symbol)}`}
-          className="text-xs text-fs-accent-text hover:underline"
-        >
-          在行情工作台打开 →
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <StockSymbolSwitcher currentSymbol={symbol} />
+          <Link
+            href={`/markets?symbol=${encodeURIComponent(symbol)}`}
+            className="text-xs text-fs-accent-text hover:underline"
+          >
+            在行情工作台打开 →
+          </Link>
+        </div>
       </header>
 
       {error ? (

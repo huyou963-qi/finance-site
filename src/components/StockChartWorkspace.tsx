@@ -1054,7 +1054,10 @@ export function StockChartWorkspace({
 
   const [ttmEpsTimeline, setTtmEpsTimeline] = useState<TtmEpsPoint[]>([]);
   const [quarterlyPe, setQuarterlyPe] = useState<QuarterlyPePoint[]>([]);
+  /** SEC chart-fundamentals 日线 TTM PE（优先于 FMP） */
+  const [secTtmPeDaily, setSecTtmPeDaily] = useState<LineData[]>([]);
   const [ttmPeError, setTtmPeError] = useState<string | null>(null);
+  const [ttmPeSource, setTtmPeSource] = useState<"sec" | "fmp" | null>(null);
   const [drawings, setDrawings] = useState<PersistedDrawing[]>([]);
   const drawingsRef = useRef(drawings);
   drawingsRef.current = drawings;
@@ -1298,45 +1301,81 @@ export function StockChartWorkspace({
     if (!symbol.trim() || !needsTtmPe) {
       setTtmEpsTimeline([]);
       setQuarterlyPe([]);
+      setSecTtmPeDaily([]);
       setTtmPeError(null);
+      setTtmPeSource(null);
       return;
     }
     let cancelled = false;
     setTtmPeError(null);
-    fetch(`/api/data/ttm-pe?symbol=${encodeURIComponent(symbol.trim())}`)
-      .then(async (r) => {
+
+    const load = async () => {
+      // 优先 SEC（与个股研究页同口径）；失败再回退 FMP
+      try {
+        const r = await fetch(
+          `/api/data/chart-fundamentals?symbol=${encodeURIComponent(symbol.trim())}&metrics=ttmPe`,
+        );
+        const j = (await r.json().catch(() => ({}))) as {
+          error?: string;
+          daily?: { ttmPe?: { time: number; value: number }[] };
+        };
+        if (r.ok && (j.daily?.ttmPe?.length ?? 0) > 0) {
+          if (cancelled) return;
+          setSecTtmPeDaily(
+            (j.daily!.ttmPe ?? []).map((p) => ({
+              time: p.time as UTCTimestamp,
+              value: p.value,
+            })),
+          );
+          setTtmEpsTimeline([]);
+          setQuarterlyPe([]);
+          setTtmPeSource("sec");
+          return;
+        }
+      } catch {
+        /* fall through to FMP */
+      }
+
+      try {
+        const r = await fetch(
+          `/api/data/ttm-pe?symbol=${encodeURIComponent(symbol.trim())}`,
+        );
         const j = (await r.json().catch(() => ({}))) as {
           error?: string;
           ttmTimeline?: TtmEpsPoint[];
           quarterlyPe?: QuarterlyPePoint[];
         };
         if (!r.ok) throw new Error(j.error ?? `${r.status}`);
-        return j;
-      })
-      .then((j) => {
         if (cancelled) return;
+        setSecTtmPeDaily([]);
         setTtmEpsTimeline(j.ttmTimeline ?? []);
         setQuarterlyPe(j.quarterlyPe ?? []);
-      })
-      .catch((e) => {
+        setTtmPeSource("fmp");
+      } catch (e) {
         if (cancelled) return;
+        setSecTtmPeDaily([]);
         setTtmEpsTimeline([]);
         setQuarterlyPe([]);
+        setTtmPeSource(null);
         setTtmPeError(
           e instanceof Error ? e.message : "TTM PE 数据加载失败",
         );
-      });
+      }
+    };
+
+    void load();
     return () => {
       cancelled = true;
     };
   }, [symbol, needsTtmPe]);
 
   const ttmPeLine = useMemo(() => {
+    if (secTtmPeDaily.length) return secTtmPeDaily;
     if (quarterlyPe.length) {
       return peLineFromQuarterlyPe(candles, quarterlyPe);
     }
     return ttmPeLineFromCandles(candles, ttmEpsTimeline);
-  }, [candles, ttmEpsTimeline, quarterlyPe]);
+  }, [candles, ttmEpsTimeline, quarterlyPe, secTtmPeDaily]);
   const ttmPeLineRef = useRef(ttmPeLine);
   ttmPeLineRef.current = ttmPeLine;
 
@@ -3825,6 +3864,11 @@ export function StockChartWorkspace({
                 {ttmPeError}
               </span>
             ) : null}
+            {subPane1.content === "ttmpe" && !ttmPeError && ttmPeSource ? (
+              <span className="text-[10px] text-fs-muted" title="TTM PE 数据源">
+                {ttmPeSource === "sec" ? "SEC" : "FMP"}
+              </span>
+            ) : null}
           </div>
         ) : null}
         {subPaneToolbarGeom.slot2 ? (
@@ -3880,6 +3924,11 @@ export function StockChartWorkspace({
                   title={ttmPeError}
                 >
                   {ttmPeError}
+                </span>
+              ) : null}
+              {subPane2.content === "ttmpe" && !ttmPeError && ttmPeSource ? (
+                <span className="text-[10px] text-fs-muted" title="TTM PE 数据源">
+                  {ttmPeSource === "sec" ? "SEC" : "FMP"}
                 </span>
               ) : null}
             </div>

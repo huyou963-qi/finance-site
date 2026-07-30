@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = await getQuarterlyFundamentalsDbFirst(stock.symbol, {
-      quarters: 24,
+      quarters: 70,
       lazy: true,
       cik: stock.cik,
     });

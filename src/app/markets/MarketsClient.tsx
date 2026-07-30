@@ -645,6 +645,15 @@ export function MarketsClient() {
               <span className="rounded bg-fs-elevated px-1 py-0 font-mono text-[9px] leading-none text-fs-muted">
                 {INTERVAL_LABEL[interval]}
               </span>
+              {classifyChartSymbol(symbol).kind === "equity" ? (
+                <a
+                  href={`/equity/stocks/${encodeURIComponent(symbol.trim().toUpperCase())}`}
+                  className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] leading-none text-fs-accent-text hover:bg-fs-accent-soft"
+                  title="打开个股研究页（基本面 / 同业 / 事件）"
+                >
+                  个股研究
+                </a>
+              ) : null}
             </>
           ) : (
             <span className="text-[10px] leading-none text-fs-secondary">
