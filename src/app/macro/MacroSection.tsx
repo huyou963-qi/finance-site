@@ -2112,15 +2112,14 @@ export function MacroSection() {
     return out;
   }, [displayPayload, extractedSet, slotAssignment]);
 
+  /** 单图/轴设置只跟「已选指标 + 仍有效的衍生序列」走，勿并入已提取但已取消勾选的 payload 残留 */
   const chartPropertyKeys = useMemo(() => {
     const out = new Set<string>(selectedKeys);
-    if (displayPayload?.series) {
-      for (const s of displayPayload.series) {
-        if (s.key) out.add(s.key);
-      }
+    for (const calc of derivedCalcs) {
+      out.add(`calc:${calc.id}`);
     }
     return out;
-  }, [displayPayload, selectedKeys]);
+  }, [derivedCalcs, selectedKeys]);
 
   const resolvedAssignment = useMemo(() => {
     const cap = Math.max(0, layoutMode - 1);
@@ -3728,8 +3727,8 @@ export function MacroSection() {
                                     onClick={() => setChartPropsTab(id)}
                                     className={`flex-1 rounded px-2 py-0.5 text-[11px] font-medium transition ${
                                       chartPropsTab === id
-                                        ? "bg-fs-elevated text-fs-text ring-1 ring-fs-border"
-                                        : "text-fs-muted hover:bg-fs-elevated hover:text-fs-secondary"
+                                        ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+                                        : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                                     }`}
                                   >
                                     {label}
