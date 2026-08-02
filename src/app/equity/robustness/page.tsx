@@ -1,7 +1,5 @@
-import { EquityRobustnessClient } from "@/components/equity/EquityRobustnessClient";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "稳健性分析" };
-
-export default function EquityRobustnessPage() {
-  return <EquityRobustnessClient />;
+export default function EquityRobustnessRedirect() {
+  redirect("/quant/robustness");
 }

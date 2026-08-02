@@ -235,7 +235,7 @@ export function EquityFactorResearchClient() {
           月频截面 IC/IR、五分层、行业中性化对照与因子相关性（前向收益 = 次调仓期总收益）
         </p>
         <Link
-          href="/equity/screener"
+          href="/quant/screener"
           className="ml-auto text-sm text-fs-accent-text hover:underline"
         >
           ← 选股器

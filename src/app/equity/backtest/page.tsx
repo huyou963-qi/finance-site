@@ -1,7 +1,5 @@
-import { EquityBacktestClient } from "@/components/equity/EquityBacktestClient";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "策略回测" };
-
-export default function EquityBacktestPage() {
-  return <EquityBacktestClient />;
+export default function EquityBacktestRedirect() {
+  redirect("/quant/backtest");
 }

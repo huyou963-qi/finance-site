@@ -1,12 +1,10 @@
-import { EquityBacktestReportClient } from "@/components/equity/EquityBacktestReportClient";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "回测报告" };
-
-export default async function EquityBacktestReportPage({
+export default async function EquityBacktestReportRedirect({
   params,
 }: {
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  return <EquityBacktestReportClient runId={runId} />;
+  redirect(`/quant/backtest/${runId}`);
 }

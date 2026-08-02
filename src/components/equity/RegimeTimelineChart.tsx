@@ -15,6 +15,7 @@ import {
   TooltipComponent,
   MarkAreaComponent,
   MarkLineComponent,
+  DataZoomComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { REGIME_COLOR, REGIME_LABEL, type RegimeKey } from "@/components/equity/regimeVisuals";
@@ -26,6 +27,7 @@ echarts.use([
   TooltipComponent,
   MarkAreaComponent,
   MarkLineComponent,
+  DataZoomComponent,
   CanvasRenderer,
 ]);
 
@@ -82,7 +84,35 @@ export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
         top: 0,
         right: 8,
       },
-      grid: { left: 44, right: 16, top: 32, bottom: 44 },
+      // bottom 留出滑块高度；滑块自身高 22 + 轴标签
+      grid: { left: 44, right: 16, top: 32, bottom: 72 },
+      dataZoom: [
+        {
+          // 底部滑块：拖两端调区间、拖中间平移
+          type: "slider",
+          height: 22,
+          bottom: 8,
+          borderColor: AXIS_LINE,
+          backgroundColor: "transparent",
+          fillerColor: "rgba(57,135,229,0.14)",
+          handleStyle: { color: GROWTH_LINE, borderColor: GROWTH_LINE },
+          moveHandleStyle: { color: AXIS_LINE },
+          dataBackground: {
+            lineStyle: { color: INK_MUTED, opacity: 0.5 },
+            areaStyle: { color: INK_MUTED, opacity: 0.15 },
+          },
+          selectedDataBackground: {
+            lineStyle: { color: GROWTH_LINE },
+            areaStyle: { color: GROWTH_LINE, opacity: 0.2 },
+          },
+          textStyle: { color: INK_MUTED, fontSize: 10 },
+          // 默认全区间；缩放后 markArea 色带随之裁切，无需额外处理
+          start: 0,
+          end: 100,
+        },
+        // 图内滚轮缩放 + 拖拽平移（不叠加 moveOnMouseWheel，避免与页面滚动打架）
+        { type: "inside", zoomOnMouseWheel: true, moveOnMouseMove: true, moveOnMouseWheel: false },
+      ],
       tooltip: {
         trigger: "axis",
         backgroundColor: "#1a1a19",

@@ -119,7 +119,7 @@ async function attachRegimes(selections: RebalanceSelection[]): Promise<void> {
   const dateObjs = selections.map((s) => new Date(`${s.date}T00:00:00.000Z`));
   const rows = await prisma.macroRegime.findMany({
     where: { date: { in: dateObjs } },
-    select: { date: true, regime: true, recession: true },
+    select: { date: true, regime: true, growthDirection: true, dalioRegime: true, recession: true },
   });
   const byDate = new Map(
     rows.map((r) => [r.date.toISOString().slice(0, 10), r] as const),
@@ -127,6 +127,8 @@ async function attachRegimes(selections: RebalanceSelection[]): Promise<void> {
   for (const s of selections) {
     const hit = byDate.get(s.date);
     s.regime = hit?.regime ?? null;
+    s.growthDirection = hit?.growthDirection ?? null;
+    s.dalioRegime = hit?.dalioRegime ?? null;
     // recession 仅用于覆盖度透明化，不参与 regimeFilter 判定
     s.recession = hit?.recession ?? null;
   }

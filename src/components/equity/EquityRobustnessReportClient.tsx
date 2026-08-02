@@ -337,7 +337,7 @@ export function EquityRobustnessReportClient({ runId }: { runId: string }) {
   if (error && !run) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-6">
-        <Link href="/equity/robustness" className="text-sm text-fs-accent-text hover:underline">
+        <Link href="/quant/robustness" className="text-sm text-fs-accent-text hover:underline">
           ← 返回稳健性分析列表
         </Link>
         <div className="mt-4 rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-400">
@@ -354,7 +354,7 @@ export function EquityRobustnessReportClient({ runId }: { runId: string }) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Link href="/equity/robustness" className="text-sm text-fs-accent-text hover:underline">
+        <Link href="/quant/robustness" className="text-sm text-fs-accent-text hover:underline">
           ← 稳健性列表
         </Link>
         <h1 className="text-xl font-semibold">{run.name}</h1>

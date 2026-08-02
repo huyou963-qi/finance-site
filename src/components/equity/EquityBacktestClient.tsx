@@ -157,7 +157,7 @@ export function EquityBacktestClient() {
         }
         throw new Error(j.error ?? "创建失败");
       }
-      router.push(`/equity/backtest/${j.id}`);
+      router.push(`/quant/backtest/${j.id}`);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "创建失败");
       setSubmitting(false);
@@ -179,7 +179,7 @@ export function EquityBacktestClient() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">策略回测</h1>
         <span className="text-xs text-fs-muted">月度调仓 · 次日收盘成交 · buy-and-hold 漂移 · vs SPY</span>
-        <Link href="/equity/screener" className="ml-auto text-sm text-fs-accent-text hover:underline">
+        <Link href="/quant/screener" className="ml-auto text-sm text-fs-accent-text hover:underline">
           去选股器 →
         </Link>
       </div>
@@ -297,7 +297,7 @@ export function EquityBacktestClient() {
               {runs.map((r) => (
                 <tr key={r.id} className="border-b border-fs-border/60 last:border-0 hover:bg-fs-elevated/40">
                   <td className="px-3 py-2">
-                    <Link href={`/equity/backtest/${r.id}`} className="font-medium text-fs-accent-text hover:underline">
+                    <Link href={`/quant/backtest/${r.id}`} className="font-medium text-fs-accent-text hover:underline">
                       {r.name}
                     </Link>
                   </td>

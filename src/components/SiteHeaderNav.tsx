@@ -35,15 +35,19 @@ export function SiteHeaderNav() {
   const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
   const equityActive =
     pathname === "/equity/sectors" || pathname.startsWith("/equity/sectors/");
-  const screenerActive =
-    pathname === "/equity/screener" || pathname.startsWith("/equity/screener/");
-  const backtestActive =
-    pathname === "/equity/backtest" || pathname.startsWith("/equity/backtest/");
-  const robustnessActive =
-    pathname === "/equity/robustness" || pathname.startsWith("/equity/robustness/");
-  const factorResearchActive =
-    pathname === "/equity/factor-research" || pathname.startsWith("/equity/factor-research/");
-  const regimeActive = pathname === "/equity/regime" || pathname.startsWith("/equity/regime/");
+  const quantActive =
+    pathname === "/quant" ||
+    pathname.startsWith("/quant/") ||
+    pathname === "/equity/screener" ||
+    pathname.startsWith("/equity/screener/") ||
+    pathname === "/equity/backtest" ||
+    pathname.startsWith("/equity/backtest/") ||
+    pathname === "/equity/robustness" ||
+    pathname.startsWith("/equity/robustness/") ||
+    pathname === "/equity/factor-research" ||
+    pathname.startsWith("/equity/factor-research/") ||
+    pathname === "/equity/regime" ||
+    pathname.startsWith("/equity/regime/");
   const toolsActive = isToolPath(pathname);
   const marketsActive =
     (pathname === "/markets" || pathname.startsWith("/markets/")) && !toolsActive;
@@ -123,59 +127,15 @@ export function SiteHeaderNav() {
           美股行业
         </Link>
         <Link
-          href="/equity/screener"
+          href="/quant"
           className={`${linkBase} ${
-            screenerActive
+            quantActive
               ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
               : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
           }`}
-          aria-current={screenerActive ? "page" : undefined}
+          aria-current={quantActive ? "page" : undefined}
         >
-          选股器
-        </Link>
-        <Link
-          href="/equity/backtest"
-          className={`${linkBase} ${
-            backtestActive
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-          }`}
-          aria-current={backtestActive ? "page" : undefined}
-        >
-          回测
-        </Link>
-        <Link
-          href="/equity/robustness"
-          className={`${linkBase} ${
-            robustnessActive
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-          }`}
-          aria-current={robustnessActive ? "page" : undefined}
-        >
-          稳健性
-        </Link>
-        <Link
-          href="/equity/factor-research"
-          className={`${linkBase} ${
-            factorResearchActive
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-          }`}
-          aria-current={factorResearchActive ? "page" : undefined}
-        >
-          因子研究
-        </Link>
-        <Link
-          href="/equity/regime"
-          className={`${linkBase} ${
-            regimeActive
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-          }`}
-          aria-current={regimeActive ? "page" : undefined}
-        >
-          Regime
+          量化
         </Link>
         <Link
           href="/events"

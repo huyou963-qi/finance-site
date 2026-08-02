@@ -68,6 +68,33 @@ export type RegimeThresholds = {
    * 若使用场景以 regimeFilter 择时为主（更在意换手/抖动而非分类精度），可调到 0.4。
    */
   inflationHysteresisBand: number;
+  /**
+   * 增长方向的回看期数（网格期，月频即月数）。方向 = growthZ[i] − growthZ[i−N] 的符号。
+   * **刻意不加滞回带**：3 期差分本身已是平滑量，且这是实证检验通过的原始口径
+   * （加带会改变已验证的规则，见 regime-research-findings 备忘的 OOS 结果）。
+   */
+  growthDirectionLookback: number;
+  /**
+   * 判方向前对 growthZ 做的尾部移动平均窗口（月）；1 = 不平滑。
+   * 借 Chicago Fed CFNAI-MA3 的做法：月度值噪音大，官方发布也以 3 月移动平均（CFNAI-MA3）
+   * 作为周期判读口径。实测（2000+，判据沿用既定的 NBER/专家区间口径）：
+   * 加 MA3 后 NBER 衰退月落「增长弱」由 26/28 → **28/28**、专家区间命中 59.8% → 61.6%、
+   * 象限平均持续 2.6 → 3.5 期，且 8 个专家区间**零回退**，代价仅转折点晚约 1.2 期。
+   */
+  growthDirectionSmoothMonths: number;
+  /**
+   * 最短相位（期）：新状态需连续出现此期数才被确认，否则并入上一状态；1 = 不删失。
+   * 借 Bry-Boschan 商业周期定标的删失规则（月度数据最短相位 6 个月、完整周期 15 个月）。
+   *
+   * **取 3 而非实测最优的 4**：3 有独立先验（一个季度＝宏观数据的天然信息周期），
+   * 且删失后象限平均持续 6.8 期正落在 BB 建议区间。实测专家命中 MA3+删失3 = 71.9%、
+   * 删失4 = 80.6%、删失6 = 67.5%——**取 4 只因它在这 8 个专家区间上分最高，属对评测指标调参**
+   * （8 个区间 × 5 个候选值，峰值大概率是噪音），故不取。
+   *
+   * 代价（不粉饰）：转折确认晚约 3 期；2001 通缩期命中由 88% 降至 75%。
+   * 删失只回看已确认的过去状态，不看未来 → 无前视。
+   */
+  minPhaseMonths: number;
   /** 滚动 z 参考窗（月） */
   zWindowMonths: number;
   /** 通胀动量 = YoY 与 N 月前 YoY 之差 */
@@ -81,12 +108,24 @@ export const DEFAULT_REGIME_THRESHOLDS: RegimeThresholds = {
   inflationZThreshold: 0,
   growthHysteresisBand: 0.25,
   inflationHysteresisBand: 0.25,
+  growthDirectionLookback: 3,
+  growthDirectionSmoothMonths: 3,
+  minPhaseMonths: 3,
   zWindowMonths: 120,
   inflationMomentumMonths: 3,
   minZSample: 24,
 };
 
 export type GrowthState = "above" | "below";
+/**
+ * 增长「方向」——增长 z 相对 N 期前的变化符号，与 GrowthState 的「水平」**正交**。
+ *
+ * 为何必须与水平分开：经典宏观四象限用的是方向（加速/减速），本分类器的象限用的是水平，
+ * 二者在「复苏早期」会给出相反读数——2020-08~2021-04 增长 z 从 −1.83 反弹到 +0.03
+ * （3 期变化 +4.46），水平仍「下」但方向「升」，实为再通胀大牛市，被象限标成「滞胀」。
+ * 实测（2000+）把滞胀按方向拆开：方向升 36 月下期 SPY +0.82%、方向降 29 月 −1.32%，差 2.14pp/月。
+ */
+export type GrowthDirection = "rising" | "falling";
 export type InflationState = "rising" | "falling";
 export type RegimeQuadrant = "recovery" | "overheat" | "stagflation" | "contraction";
 
@@ -98,6 +137,41 @@ export const REGIME_LABEL_ZH: Record<RegimeQuadrant, string> = {
   contraction: "衰退式",
 };
 
+/**
+ * Dalio 式四象限：**两轴同为「方向」**（增长方向 × 通胀方向），与上面按
+ * 「增长水平 × 通胀动量」划分的 RegimeQuadrant **并列存在、互不替代**。
+ *
+ * 为何需要它：现行 RegimeQuadrant 两轴的导数阶数不一致——增长用水平（崩盘后长期为负、
+ * 恢复慢），通胀用动量（二阶量、基数效应几个月就翻正）。于是每次周期见底都被机械地
+ * 推去「增长下+通胀升」= 滞胀：实测 **13 次离开「衰退式」象限，13 次全部跳到「滞胀」**，
+ * 且「衰退式↔滞胀」锁成二元振荡出不去复苏。这是定义的产物而非经济现实。
+ *
+ * 两轴同为方向后结构健康（离开最差象限有 3 个去向）、区分度更高
+ * （最好−最差价差 1.47 vs 1.33 pp/月）、故事更干净（三个「还行」态都在 1.15% 左右，
+ * 一个明确坏态 stagflation −0.31%）。NBER 衰退月落点两者相当。
+ *
+ * 命名注意：`stagflation` 与 RegimeQuadrant 同名但**语义不同**（这里是「增长方向降 +
+ * 通胀升」，不含水平条件）。回测 regimeFilter 里用 `dalio:` 前缀区分，勿混用。
+ */
+export type DalioQuadrant = "reflation" | "goldilocks" | "stagflation" | "deflation";
+
+export const DALIO_LABEL_ZH: Record<DalioQuadrant, string> = {
+  reflation: "再通胀（增↑通↑）",
+  goldilocks: "金发女孩（增↑通↓）",
+  stagflation: "真滞胀（增↓通↑）",
+  deflation: "通缩衰退（增↓通↓）",
+};
+
+/** 增长方向 × 通胀方向 → Dalio 四象限；方向未知（序列头部）→ null */
+export function dalioQuadrant(
+  growth: GrowthDirection | null,
+  inflation: InflationState | null,
+): DalioQuadrant | null {
+  if (growth == null || inflation == null) return null;
+  if (growth === "rising") return inflation === "rising" ? "reflation" : "goldilocks";
+  return inflation === "rising" ? "stagflation" : "deflation";
+}
+
 // ────────────────────────────────────────────────────────── 纯函数
 
 /** 增长上/下 × 通胀升/降 → 四象限 */
@@ -107,6 +181,89 @@ export function classifyQuadrant(
 ): RegimeQuadrant {
   if (growth === "above") return inflation === "rising" ? "overheat" : "recovery";
   return inflation === "rising" ? "stagflation" : "contraction";
+}
+
+/**
+ * 增长方向：当前 z 与 lookback 期前的 z 相比升/降。
+ * history = 按网格日升序的历史 growthZ（最近一期在末尾，不含当前期）。
+ * 任一端缺失或历史不足 lookback 期 → null（不猜方向）。
+ */
+/**
+ * 尾部移动平均：out[i] = mean(有限值 of xs[i−k+1..i])。窗内无有限值 → null。
+ * 只回看，无前视。k ≤ 1 时原样返回。
+ */
+export function trailingMean(
+  xs: readonly (number | null)[],
+  k: number,
+): (number | null)[] {
+  if (!(k > 1)) return [...xs];
+  return xs.map((_, i) => {
+    const w: number[] = [];
+    for (let j = Math.max(0, i - k + 1); j <= i; j++) {
+      const v = xs[j];
+      if (v != null && Number.isFinite(v)) w.push(v);
+    }
+    return w.length ? w.reduce((s, v) => s + v, 0) / w.length : null;
+  });
+}
+
+/**
+ * 最短相位删失（Bry-Boschan 式）：新状态需连续出现 minRun 期才被确认，
+ * 否则沿用上一个已确认状态。**只用已确认的过去状态延续，不看未来 → 无前视。**
+ *
+ * 代价：转折点确认被推迟最多 minRun−1 期（这正是删失换稳定性的对价）。
+ * minRun ≤ 1 时原样返回。
+ */
+export function censorMinPhase<T>(
+  seq: readonly (T | null)[],
+  minRun: number,
+): (T | null)[] {
+  if (!(minRun > 1)) return [...seq];
+  const out: (T | null)[] = [];
+  let confirmed: T | null = null;
+  let pending: T | null = null;
+  let pendingLen = 0;
+  for (const cur of seq) {
+    if (cur == null) {
+      out.push(confirmed);
+      continue;
+    }
+    if (confirmed == null) {
+      confirmed = cur;
+      out.push(cur);
+      continue;
+    }
+    if (cur === confirmed) {
+      pending = null;
+      pendingLen = 0;
+      out.push(confirmed);
+      continue;
+    }
+    if (cur === pending) pendingLen += 1;
+    else {
+      pending = cur;
+      pendingLen = 1;
+    }
+    if (pendingLen >= minRun) {
+      confirmed = pending;
+      pending = null;
+      pendingLen = 0;
+    }
+    out.push(confirmed);
+  }
+  return out;
+}
+
+export function growthDirectionOf(
+  currentZ: number | null,
+  history: readonly (number | null)[],
+  lookback: number,
+): GrowthDirection | null {
+  if (currentZ == null || !Number.isFinite(currentZ)) return null;
+  if (!(lookback >= 1) || history.length < lookback) return null;
+  const past = history[history.length - lookback];
+  if (past == null || !Number.isFinite(past)) return null;
+  return currentZ - past > 0 ? "rising" : "falling";
 }
 
 /**
@@ -281,8 +438,18 @@ export type RegimeInputs = {
 export type MacroRegimePoint = {
   date: string;
   growthState: GrowthState;
+  /** 增长方向；回看期数不足（序列头部）时为 null */
+  growthDirection: GrowthDirection | null;
   inflationState: InflationState;
   regime: RegimeQuadrant;
+  /**
+   * Dalio 式象限（增长方向 × 通胀方向）；与 regime 并列，方向未知时为 null。
+   * 经 computeRegimeSeries 的序列级处理：方向用 MA 平滑后的 growthZ 判定，象限再过最短相位删失。
+   * 故删失生效的月份会与「growthDirection × inflationState 直接组合」不一致（见 censoredPhase）。
+   */
+  dalioRegime: DalioQuadrant | null;
+  /** 该期 dalioRegime 是否由最短相位删失改写（true = 与原始组合不同，透明化用） */
+  censoredPhase?: boolean;
   /** 0/1 NBER USREC 该月真值；−1 未知 */
   recession: number;
   inputs: RegimeInputs;
@@ -336,8 +503,15 @@ export function classifyRegimeAt(
     pceMom: (number | null)[];
   },
   th: RegimeThresholds,
-  /** 上期状态（滞回带用）；null = 首期或无上期，退化为普通阈值 */
-  prev: { growth: GrowthState; inflation: InflationState } | null = null,
+  /**
+   * 跨期状态：滞回带用 growth/inflation，方向判定用 growthZHistory
+   * （按网格日升序的历史 growthZ，最近一期在末尾）。null = 首期，退化为普通阈值 + 方向未知。
+   */
+  prev: {
+    growth: GrowthState;
+    inflation: InflationState;
+    growthZHistory: readonly (number | null)[];
+  } | null = null,
 ): MacroRegimePoint {
   const tDay = isoToDay(tIso);
   const { zWindowMonths: W, minZSample: MS } = th;
@@ -380,6 +554,12 @@ export function classifyRegimeAt(
   const growthState: GrowthState = growthAbove ? "above" : "below";
   const inflationState: InflationState = inflationRising ? "rising" : "falling";
   const regime = classifyQuadrant(growthState, inflationState);
+  // 方向与象限正交：只依赖过去的 growthZ，无前视
+  const growthDirection = growthDirectionOf(
+    growthZ,
+    prev?.growthZHistory ?? [],
+    th.growthDirectionLookback,
+  );
 
   const usrecIdx = indexOfMonth(s.usrec, monthStartOf(tIso));
   const recession = usrecIdx >= 0 ? Math.round(s.usrec.values[usrecIdx]!) : -1;
@@ -407,8 +587,10 @@ export function classifyRegimeAt(
   return {
     date: tIso,
     growthState,
+    growthDirection,
     inflationState,
     regime,
+    dalioRegime: dalioQuadrant(growthDirection, inflationState),
     recession,
     inputs: {
       visibleMonth: {
@@ -457,13 +639,42 @@ export async function computeRegimeSeries(
   const derived = deriveRegimeArrays(s, thresholds);
   const sorted = [...gridDates].sort();
   const out: MacroRegimePoint[] = [];
-  let prev: { growth: GrowthState; inflation: InflationState } | null = null;
+  const growthZHistory: (number | null)[] = [];
+  let prev: {
+    growth: GrowthState;
+    inflation: InflationState;
+    growthZHistory: readonly (number | null)[];
+  } | null = null;
   for (const d of sorted) {
     const p = classifyRegimeAt(d, s, derived, thresholds, prev);
     out.push(p);
-    prev = { growth: p.growthState, inflation: p.inflationState };
+    growthZHistory.push(p.inputs.growthZ);
+    prev = { growth: p.growthState, inflation: p.inflationState, growthZHistory };
   }
-  return out;
+
+  // ── 第二遍：方向与 Dalio 象限的序列级处理（逐点算不了，只回看故仍无前视）
+  //
+  // ① MA3 平滑后再判方向（CFNAI-MA3 思路）：月度 growthZ 噪音大。
+  // ② 最短相位删失（Bry-Boschan）：**删失的是「相位」= 复合象限本身，不是单条序列**——
+  //    实测删方向几乎无效（专家命中 64.6% vs 删象限 71.9%），因为象限翻转来自两条轴，
+  //    只删方向则通胀那一侧的翻转照样漏过来。BB 定标的也正是复合相位。
+  //
+  // 后果（须知）：dalioRegime 是**删失后的相位**，在删失生效的月份会与
+  // 「growthDirection × inflationState 的直接组合」不一致——这是有意的，
+  // censoredPhase 标记了这些月份。
+  const smoothed = trailingMean(growthZHistory, thresholds.growthDirectionSmoothMonths);
+  const dirs = smoothed.map((z, i) =>
+    growthDirectionOf(z, smoothed.slice(0, i), thresholds.growthDirectionLookback),
+  );
+  const rawBoxes = dirs.map((d, i) => dalioQuadrant(d, out[i]!.inflationState));
+  const censored = censorMinPhase(rawBoxes, thresholds.minPhaseMonths);
+
+  return out.map((p, i) => ({
+    ...p,
+    growthDirection: dirs[i] ?? null,
+    dalioRegime: censored[i] ?? null,
+    censoredPhase: censored[i] !== rawBoxes[i],
+  }));
 }
 
 // ────────────────────────────────────────────────────────── 落库 / 读取
@@ -478,15 +689,19 @@ export async function persistRegimeSeries(points: readonly MacroRegimePoint[]): 
       create: {
         date,
         growthState: p.growthState,
+        growthDirection: p.growthDirection,
         inflationState: p.inflationState,
         regime: p.regime,
+        dalioRegime: p.dalioRegime,
         recession: p.recession,
         inputs: p.inputs as unknown as object,
       },
       update: {
         growthState: p.growthState,
+        growthDirection: p.growthDirection,
         inflationState: p.inflationState,
         regime: p.regime,
+        dalioRegime: p.dalioRegime,
         recession: p.recession,
         inputs: p.inputs as unknown as object,
       },
@@ -499,8 +714,10 @@ export async function persistRegimeSeries(points: readonly MacroRegimePoint[]): 
 export type StoredRegime = {
   date: string;
   growthState: GrowthState;
+  growthDirection: GrowthDirection | null;
   inflationState: InflationState;
   regime: RegimeQuadrant;
+  dalioRegime: DalioQuadrant | null;
   recession: number;
   inputs: RegimeInputs;
 };
@@ -508,16 +725,20 @@ export type StoredRegime = {
 function rowToStored(r: {
   date: Date;
   growthState: string;
+  growthDirection: string | null;
   inflationState: string;
   regime: string;
+  dalioRegime: string | null;
   recession: number;
   inputs: unknown;
 }): StoredRegime {
   return {
     date: r.date.toISOString().slice(0, 10),
     growthState: r.growthState as GrowthState,
+    growthDirection: (r.growthDirection ?? null) as GrowthDirection | null,
     inflationState: r.inflationState as InflationState,
     regime: r.regime as RegimeQuadrant,
+    dalioRegime: (r.dalioRegime ?? null) as DalioQuadrant | null,
     recession: r.recession,
     inputs: r.inputs as RegimeInputs,
   };
@@ -541,13 +762,17 @@ export async function listStoredRegimes(opts: {
 /** date(ISO) → regime 象限映射（精确对齐网格日；未落库 → 缺项） */
 export async function loadRegimeMap(
   gridDates: readonly string[],
-): Promise<Map<string, RegimeQuadrant>> {
+): Promise<Map<string, DalioQuadrant>> {
   const dateObjs = gridDates.map((d) => new Date(`${d}T00:00:00.000Z`));
   const rows = await prisma.macroRegime.findMany({
     where: { date: { in: dateObjs } },
-    select: { date: true, regime: true },
+    select: { date: true, dalioRegime: true },
   });
-  return new Map(rows.map((r) => [r.date.toISOString().slice(0, 10), r.regime as RegimeQuadrant]));
+  const out = new Map<string, DalioQuadrant>();
+  for (const r of rows) {
+    if (r.dalioRegime) out.set(r.date.toISOString().slice(0, 10), r.dalioRegime as DalioQuadrant);
+  }
+  return out;
 }
 
 /**

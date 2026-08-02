@@ -23,14 +23,14 @@ import {
   type ICSummary,
   type LayeringSummary,
 } from "@/lib/quant/factorResearch";
-import { loadRegimeMap, type RegimeQuadrant } from "@/lib/quant/macroRegime";
+import { loadRegimeMap, type DalioQuadrant } from "@/lib/quant/macroRegime";
 
 /** 四象限固定顺序（分 regime 表的列序） */
-export const REGIME_ORDER: RegimeQuadrant[] = [
-  "recovery",
-  "overheat",
+export const REGIME_ORDER: DalioQuadrant[] = [
+  "goldilocks",
+  "reflation",
   "stagflation",
-  "contraction",
+  "deflation",
 ];
 
 const DEFAULT_QUANTILES = 5;
@@ -195,7 +195,7 @@ export type FactorResearchResult = {
   /** 行业中性化对照：sectorZscore 口径的 IC 汇总（量化行业暴露贡献） */
   neutralizedIcSummary: ICSummary;
   /** 分 regime 的 IC 汇总（联动分析，WS4）：按信号日 regime 桶分组的 zscore IC */
-  icByRegime: Record<RegimeQuadrant, ICSummary>;
+  icByRegime: Record<DalioQuadrant, ICSummary>;
 };
 
 /** 对齐同一 symbol 序列，产出 (因子值, 前向收益) 两数组 */
@@ -286,7 +286,7 @@ export type FactorResearchReport = {
   factors: FactorResearchResult[];
   correlation: FactorCorrelation;
   /** 各网格日 regime（联动分析；未落库则缺项，需先跑 quant:build-regime） */
-  regimeByDate: Record<string, RegimeQuadrant>;
+  regimeByDate: Record<string, DalioQuadrant>;
   /** regime 是否已落库覆盖网格（false → 提示先构建 regime） */
   regimeAvailable: boolean;
 };
@@ -294,23 +294,23 @@ export type FactorResearchReport = {
 /** 按 regime 桶分组 period IC 并各自汇总 */
 function icByRegimeOf(
   periods: readonly FactorICPeriod[],
-  regimeByDate: ReadonlyMap<string, RegimeQuadrant>,
-): Record<RegimeQuadrant, ICSummary> {
-  const buckets: Record<RegimeQuadrant, (number | null)[]> = {
-    recovery: [],
-    overheat: [],
+  regimeByDate: ReadonlyMap<string, DalioQuadrant>,
+): Record<DalioQuadrant, ICSummary> {
+  const buckets: Record<DalioQuadrant, (number | null)[]> = {
+    goldilocks: [],
+    reflation: [],
     stagflation: [],
-    contraction: [],
+    deflation: [],
   };
   for (const p of periods) {
     const r = regimeByDate.get(p.date);
     if (r) buckets[r].push(p.ic);
   }
   return {
-    recovery: summarizeIC(buckets.recovery),
-    overheat: summarizeIC(buckets.overheat),
+    goldilocks: summarizeIC(buckets.goldilocks),
+    reflation: summarizeIC(buckets.reflation),
     stagflation: summarizeIC(buckets.stagflation),
-    contraction: summarizeIC(buckets.contraction),
+    deflation: summarizeIC(buckets.deflation),
   };
 }
 
@@ -382,7 +382,7 @@ export async function runFactorResearch(
     symbolCount: symbols.length,
     factors,
     correlation,
-    regimeByDate: Object.fromEntries(regimeByDate) as Record<string, RegimeQuadrant>,
+    regimeByDate: Object.fromEntries(regimeByDate) as Record<string, DalioQuadrant>,
     regimeAvailable: regimeByDate.size > 0,
   };
 }

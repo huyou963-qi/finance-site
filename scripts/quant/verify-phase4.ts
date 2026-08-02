@@ -144,6 +144,30 @@ async function sectionB() {
   check("2005+ ISM 服务业分量覆盖 ≥ 95%", svcCovered >= 0.95, pct(svcCovered));
   const incomeCovered = recent.filter((p) => p.inputs.components.incomeZ != null).length / recent.length;
   check("2005+ 实际个人收入分量覆盖 ≥ 95%", incomeCovered >= 0.95, pct(incomeCovered));
+
+  // ── 增长方向（与象限的「水平」正交，见 regime-research-findings）──
+  const dirKnown = pts.filter((p) => p.growthDirection != null).length;
+  check("增长方向覆盖（仅头部 lookback 期可为 null）",
+    pts.length - dirKnown <= DEFAULT_REGIME_THRESHOLDS.growthDirectionLookback,
+    `${pts.length - dirKnown} 期无方向`);
+
+  // 2020-08~2021-04 疫后再通胀：象限判滞胀（水平仍低）但方向应为 rising。
+  // 这正是「水平口径躲滞胀」在 OOS 失败的根源——把再通胀大牛市误当真滞胀。
+  // 门槛取「多数」而非全部：2021-03 有一次 −0.04 的微幅回落（z −1.06 vs 三期前 −1.02）
+  // 使该月翻 falling。方向维**刻意不加滞回带**——通过 OOS 检验的正是无带版本
+  // （那次测试已含此 blip），为消除观感瑕疵去改已验证规则得不偿失。
+  const covid = pts.filter((p) => p.date >= "2020-08-01" && p.date <= "2021-04-30");
+  const covidRising = covid.filter((p) => p.growthDirection === "rising").length;
+  check("2020-08~2021-04 再通胀期方向多数为 rising（≥80%）",
+    covid.length > 0 && covidRising / covid.length >= 0.8,
+    `${covidRising}/${covid.length}`);
+
+  // 方向必须真的切分了滞胀（否则该字段无信息量）
+  const stag = pts.filter((p) => p.regime === "stagflation" && p.growthDirection != null);
+  const stagRising = stag.filter((p) => p.growthDirection === "rising").length;
+  check("滞胀期被方向切成两类（各 ≥ 20%）",
+    stag.length > 0 && stagRising / stag.length >= 0.2 && stagRising / stag.length <= 0.8,
+    `rising ${stagRising}/${stag.length}`);
 }
 
 /** Mann-Whitney AUC：score 越大越倾向 label=1 */

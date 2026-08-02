@@ -12,6 +12,7 @@ import {
   RegimeTimelineChart,
   type RegimePoint,
 } from "@/components/equity/RegimeTimelineChart";
+import { RegimeMethodologyNote } from "@/components/equity/RegimeMethodologyNote";
 import {
   REGIME_COLOR,
   REGIME_DESC,
@@ -30,7 +31,9 @@ type StoredRegime = {
   date: string;
   growthState: string;
   inflationState: string;
-  regime: RegimeKey;
+  regime: string;
+  /** Dalio 口径象限（UI 统一用它；旧 regime 保留仅供回溯） */
+  dalioRegime: RegimeKey | null;
   recession: number;
   inputs: RegimeInputs;
 };
@@ -89,9 +92,11 @@ export function EquityRegimeClient() {
 
   const timelinePoints: RegimePoint[] = useMemo(() => {
     if (!data) return [];
-    return data.regimes.map((r) => ({
+    return data.regimes
+      .filter((r) => r.dalioRegime != null)
+      .map((r) => ({
       date: r.date,
-      regime: r.regime,
+      regime: r.dalioRegime!,
       recession: r.recession,
       growthZ: r.inputs?.growthZ ?? null,
       inflationMomZ: r.inputs?.inflationMomZ ?? null,
@@ -121,7 +126,7 @@ export function EquityRegimeClient() {
           增长×通胀四象限（近似 PIT）+ 分 regime 的行业表现 · NBER 衰退对照
         </p>
         <Link
-          href="/equity/factor-research"
+          href="/quant/factor-research"
           className="ml-auto text-sm text-fs-accent-text hover:underline"
         >
           因子研究 →
@@ -147,16 +152,16 @@ export function EquityRegimeClient() {
             {data.current ? (
               <div
                 className="rounded-lg border p-4"
-                style={{ borderColor: `${REGIME_COLOR[data.current.regime]}66` }}
+                style={{ borderColor: `${REGIME_COLOR[data.current.dalioRegime!]}66` }}
               >
                 <div className="text-xs text-fs-muted">最新 regime（{data.current.date}）</div>
                 <div className="mt-1 flex items-center gap-2">
                   <span
                     className="inline-block h-3.5 w-3.5 rounded-sm"
-                    style={{ background: REGIME_COLOR[data.current.regime] }}
+                    style={{ background: REGIME_COLOR[data.current.dalioRegime!] }}
                   />
                   <span className="text-xl font-semibold text-fs-text">
-                    {REGIME_LABEL[data.current.regime]}
+                    {REGIME_LABEL[data.current.dalioRegime!]}
                   </span>
                   {data.current.recession === 1 ? (
                     <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-xs text-red-400">
@@ -164,7 +169,7 @@ export function EquityRegimeClient() {
                     </span>
                   ) : null}
                 </div>
-                <div className="mt-1 text-sm text-fs-muted">{REGIME_DESC[data.current.regime]}</div>
+                <div className="mt-1 text-sm text-fs-muted">{REGIME_DESC[data.current.dalioRegime!]}</div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <div className="text-xs text-fs-muted">增长 z</div>
@@ -204,7 +209,9 @@ export function EquityRegimeClient() {
             <RegimeTimelineChart points={timelinePoints} />
             <p className="mt-1 text-xs text-fs-muted">
               背景色带 = 当期象限；增长 z 转负领先/同步 NBER 衰退。全程 as-of（用估算发布日）防前视。
+              底部滑块可调时间范围，图内滚轮缩放。
             </p>
+            <RegimeMethodologyNote />
           </section>
 
           {/* 分 regime 行业收益热力图 */}

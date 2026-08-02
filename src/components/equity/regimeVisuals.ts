@@ -2,37 +2,41 @@
  * regime 展示常量（Phase 4 WS5）+ 分歧色阶。
  * 四象限配色取 dataviz 校验通过的分类 4 色集（blue/green/magenta/yellow，全对 CVD 通过），
  * 语义化指派后始终配文字标签作二级编码（不靠颜色单独承载身份）。
+ *
+ * **UI 统一用 Dalio 口径**（增长方向 × 通胀方向）。旧「水平×动量」口径两轴导数阶数不一致，
+ * 实测 13 次离开「衰退式」13 次全跳「滞胀」的结构性锁死，故不再展示、避免两套并行造成误读；
+ * 数据层仍保留 macro_regime.regime 供回溯与既有 regimeFilter 键使用。
  */
 
-export type RegimeKey = "recovery" | "overheat" | "stagflation" | "contraction";
+export type RegimeKey = "reflation" | "goldilocks" | "stagflation" | "deflation";
 
 export const REGIME_ORDER: RegimeKey[] = [
-  "recovery",
-  "overheat",
+  "goldilocks",
+  "reflation",
   "stagflation",
-  "contraction",
+  "deflation",
 ];
 
 export const REGIME_LABEL: Record<RegimeKey, string> = {
-  recovery: "复苏",
-  overheat: "过热",
+  goldilocks: "金发女孩",
+  reflation: "再通胀",
   stagflation: "滞胀",
-  contraction: "衰退式",
+  deflation: "通缩衰退",
 };
 
 export const REGIME_DESC: Record<RegimeKey, string> = {
-  recovery: "增长上行 · 通胀回落",
-  overheat: "增长上行 · 通胀升温",
-  stagflation: "增长下行 · 通胀升温",
-  contraction: "增长下行 · 通胀回落",
+  goldilocks: "增长加速 · 通胀回落",
+  reflation: "增长加速 · 通胀升温",
+  stagflation: "增长减速 · 通胀升温",
+  deflation: "增长减速 · 通胀回落",
 };
 
 /** dataviz 校验通过的分类 4 色（暗色步进），语义化指派 */
 export const REGIME_COLOR: Record<RegimeKey, string> = {
-  recovery: "#008300", // 绿：健康扩张
-  overheat: "#c98500", // 琥珀：过热
-  stagflation: "#d55181", // 品红：滞胀压力
-  contraction: "#3987e5", // 蓝：收缩/衰退
+  goldilocks: "#008300", // 绿：最有利
+  reflation: "#c98500", // 琥珀：增长+通胀同升
+  stagflation: "#d55181", // 品红：滞胀压力（实测唯一负收益象限）
+  deflation: "#3987e5", // 蓝：通缩收缩
 };
 
 // ────────────────────────────────────────────────────────── 分歧色阶（热力图）

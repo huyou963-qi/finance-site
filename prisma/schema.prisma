@@ -890,8 +890,16 @@ model MacroRegime {
   id             String   @id @default(uuid()) @db.Uuid
   date           DateTime @db.Date
   growthState    String   @map("growth_state") @db.VarChar(16)
+  /// 增长 z 相对 N 期前的变化方向（rising/falling）。**与 growthState 的「水平」正交**：
+  /// 2020-08~2021-04 增长 z 水平仍「下」但方向「升」= 再通胀（大牛市），
+  /// 与真滞胀（水平下+方向降）性质相反。实证见 regime-research-findings 备忘。
+  growthDirection String? @map("growth_direction") @db.VarChar(16)
   inflationState String   @map("inflation_state") @db.VarChar(16)
   regime         String   @db.VarChar(24)
+  /// Dalio 式象限（增长方向 × 通胀方向），与 regime **并列**而非替代。
+  /// regime 两轴导数阶数不一致（水平 × 动量）导致「离开衰退式 13/13 全跳滞胀」的
+  /// 结构性锁死；本列两轴同为方向，无此问题。同名 stagflation 语义不同，勿混用。
+  dalioRegime    String?  @map("dalio_regime") @db.VarChar(24)
   /// 0/1 NBER USREC 该月真值；−1 = 未知
   recession      Int
   inputs         Json

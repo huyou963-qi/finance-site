@@ -1,7 +1,5 @@
-import { EquityScreenerClient } from "@/components/equity/EquityScreenerClient";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "选股器" };
-
-export default function EquityScreenerPage() {
-  return <EquityScreenerClient />;
+export default function EquityScreenerRedirect() {
+  redirect("/quant/screener");
 }

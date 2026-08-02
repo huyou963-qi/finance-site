@@ -45,6 +45,10 @@ export type BacktestRunSummary = {
     filteredOut: number | null;
     matched: number | null;
     regime: string | null;
+    /** 该期增长方向（透明化） */
+    growthDirection: string | null;
+    /** 该期 Dalio 象限（透明化） */
+    dalioRegime: string | null;
     /** 该期所属月 NBER USREC 真值（1/0/null）；仅透明化 */
     recession: number | null;
     regimeBlocked: boolean;
@@ -161,6 +165,8 @@ export async function executeRun(
         filteredOut: p.stats?.filteredOut ?? null,
         matched: p.stats?.matched ?? null,
         regime: p.regime,
+        growthDirection: p.growthDirection,
+        dalioRegime: p.dalioRegime,
         recession: p.recession,
         regimeBlocked: p.regimeBlocked,
       })),

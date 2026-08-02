@@ -433,14 +433,14 @@ export function EquityScreenerClient() {
     } catch {
       // sessionStorage 不可用时仍导航（回测页会提示选择策略）
     }
-    router.push("/equity/backtest");
+    router.push("/quant/backtest");
   };
 
   // ── 研究这些因子（当前 config 引用到的因子跳因子研究页） ────────────────────
   const researchTheseFactors = () => {
     const keys = referencedFactorKeys(config).slice(0, 8);
     const qs = keys.length ? `?factors=${encodeURIComponent(keys.join(","))}` : "";
-    router.push(`/equity/factor-research${qs}`);
+    router.push(`/quant/factor-research${qs}`);
   };
 
   // ── 结果表 ────────────────────────────────────────────────────────────────

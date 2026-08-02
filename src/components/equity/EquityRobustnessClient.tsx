@@ -211,7 +211,7 @@ export function EquityRobustnessClient() {
         }
         throw new Error(j.error ?? "创建失败");
       }
-      router.push(`/equity/robustness/${j.id}`);
+      router.push(`/quant/robustness/${j.id}`);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "创建失败");
       setSubmitting(false);
@@ -237,7 +237,7 @@ export function EquityRobustnessClient() {
         <span className="text-xs text-fs-muted">
           样本外分割 · Walk-Forward · 参数扫描 + Deflated Sharpe，靶向「选择性过拟合」
         </span>
-        <Link href="/equity/backtest" className="ml-auto text-sm text-fs-accent-text hover:underline">
+        <Link href="/quant/backtest" className="ml-auto text-sm text-fs-accent-text hover:underline">
           单策略回测 →
         </Link>
       </div>
@@ -411,7 +411,7 @@ export function EquityRobustnessClient() {
               {runs.map((r) => (
                 <tr key={r.id} className="border-b border-fs-border/60 last:border-0 hover:bg-fs-elevated/40">
                   <td className="px-3 py-2">
-                    <Link href={`/equity/robustness/${r.id}`} className="font-medium text-fs-accent-text hover:underline">
+                    <Link href={`/quant/robustness/${r.id}`} className="font-medium text-fs-accent-text hover:underline">
                       {r.name}
                     </Link>
                     {r.summary?.oosCollapsed ? <span className="ml-1 text-xs text-red-400" title="样本外崩溃">⚠</span> : null}

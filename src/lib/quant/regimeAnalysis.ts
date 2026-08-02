@@ -13,7 +13,7 @@ import {
   loadGridCloses,
   REGIME_ORDER,
 } from "@/lib/quant/factorResearchData";
-import { loadRegimeMap, type RegimeQuadrant } from "@/lib/quant/macroRegime";
+import { loadRegimeMap, type DalioQuadrant } from "@/lib/quant/macroRegime";
 
 export type RegimeCell = { meanReturn: number | null; periods: number };
 
@@ -21,20 +21,20 @@ export type SectorRegimePerformance = {
   start: string;
   end: string;
   sectors: string[];
-  regimes: RegimeQuadrant[];
+  regimes: DalioQuadrant[];
   /** sector → regime → 等权次期月收益的时间平均 */
-  cells: Record<string, Record<RegimeQuadrant, RegimeCell>>;
+  cells: Record<string, Record<DalioQuadrant, RegimeCell>>;
   /** 各 regime 的全市场等权基准 */
-  marketByRegime: Record<RegimeQuadrant, RegimeCell>;
+  marketByRegime: Record<DalioQuadrant, RegimeCell>;
   regimeAvailable: boolean;
 };
 
-function emptyRegimeRow(): Record<RegimeQuadrant, RegimeCell> {
+function emptyRegimeRow(): Record<DalioQuadrant, RegimeCell> {
   return {
-    recovery: { meanReturn: null, periods: 0 },
-    overheat: { meanReturn: null, periods: 0 },
+    goldilocks: { meanReturn: null, periods: 0 },
+    reflation: { meanReturn: null, periods: 0 },
     stagflation: { meanReturn: null, periods: 0 },
-    contraction: { meanReturn: null, periods: 0 },
+    deflation: { meanReturn: null, periods: 0 },
   };
 }
 
@@ -67,20 +67,20 @@ export async function sectorPerformanceByRegime(opts: {
 
   const sectors = [...new Set(sectorMap.values())].sort();
   // 累加器：sector → regime → { sum, periods }
-  const acc = new Map<string, Record<RegimeQuadrant, { sum: number; periods: number }>>();
+  const acc = new Map<string, Record<DalioQuadrant, { sum: number; periods: number }>>();
   for (const s of sectors) {
     acc.set(s, {
-      recovery: { sum: 0, periods: 0 },
-      overheat: { sum: 0, periods: 0 },
+      goldilocks: { sum: 0, periods: 0 },
+      reflation: { sum: 0, periods: 0 },
       stagflation: { sum: 0, periods: 0 },
-      contraction: { sum: 0, periods: 0 },
+      deflation: { sum: 0, periods: 0 },
     });
   }
-  const marketAcc: Record<RegimeQuadrant, { sum: number; periods: number }> = {
-    recovery: { sum: 0, periods: 0 },
-    overheat: { sum: 0, periods: 0 },
+  const marketAcc: Record<DalioQuadrant, { sum: number; periods: number }> = {
+    goldilocks: { sum: 0, periods: 0 },
+    reflation: { sum: 0, periods: 0 },
     stagflation: { sum: 0, periods: 0 },
-    contraction: { sum: 0, periods: 0 },
+    deflation: { sum: 0, periods: 0 },
   };
 
   // 末期无前向收益（i=len-1 恒 null），逐期到倒数第二期
@@ -113,7 +113,7 @@ export async function sectorPerformanceByRegime(opts: {
     }
   }
 
-  const cells: Record<string, Record<RegimeQuadrant, RegimeCell>> = {};
+  const cells: Record<string, Record<DalioQuadrant, RegimeCell>> = {};
   for (const sector of sectors) {
     const row = emptyRegimeRow();
     for (const regime of REGIME_ORDER) {

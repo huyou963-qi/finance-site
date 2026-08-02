@@ -4,6 +4,8 @@ import {
   buildRebalanceCalendar,
   computeMetrics,
   computeRegimeCoverage,
+  isValidRegimeFilterKey,
+  regimeAllowed,
   dayToIso,
   isoToDay,
   normalizeScoreWeights,
@@ -387,5 +389,80 @@ describe("computeRegimeCoverage", () => {
     assert.ok(!cov.thinQuadrants.includes("overheat")); // 20 期 ≥ 12
     assert.ok(cov.thinQuadrants.includes("recovery")); // 1 期 < 12
     assert.ok(cov.thinQuadrants.includes("stagflation")); // 0 期
+  });
+});
+
+describe("regimeFilter 组合键（象限-方向）", () => {
+  it("isValidRegimeFilterKey 接受象限与象限-方向，拒绝其它", () => {
+    assert.equal(isValidRegimeFilterKey("stagflation"), true);
+    assert.equal(isValidRegimeFilterKey("stagflation-falling"), true);
+    assert.equal(isValidRegimeFilterKey("overheat-rising"), true);
+    assert.equal(isValidRegimeFilterKey("bogus"), false);
+    assert.equal(isValidRegimeFilterKey("stagflation-sideways"), false);
+    assert.equal(isValidRegimeFilterKey("stagflation-falling-x"), false);
+  });
+
+  it("纯象限键匹配整个象限；方向键只匹配该方向", () => {
+    const quadOnly = new Set(["stagflation"]);
+    assert.equal(regimeAllowed(quadOnly, "stagflation", "rising"), true);
+    assert.equal(regimeAllowed(quadOnly, "stagflation", "falling"), true);
+    assert.equal(regimeAllowed(quadOnly, "overheat", "rising"), false);
+
+    const dirKey = new Set(["stagflation-rising"]);
+    assert.equal(regimeAllowed(dirKey, "stagflation", "rising"), true);
+    assert.equal(regimeAllowed(dirKey, "stagflation", "falling"), false); // 真滞胀被拦
+  });
+
+  it("「躲增长降的滞胀」= 列出其余三象限 + stagflation-rising", () => {
+    const f = new Set(["recovery", "overheat", "contraction", "stagflation-rising"]);
+    assert.equal(regimeAllowed(f, "stagflation", "falling"), false); // 唯一被拦的
+    assert.equal(regimeAllowed(f, "stagflation", "rising"), true);
+    assert.equal(regimeAllowed(f, "contraction", "falling"), true);
+    assert.equal(regimeAllowed(f, "recovery", null), true);
+  });
+
+  it("regime 未知一律拦截；方向未知时只能被纯象限键放行", () => {
+    assert.equal(regimeAllowed(new Set(["stagflation"]), null, "rising"), false);
+    assert.equal(regimeAllowed(new Set(["stagflation-rising"]), "stagflation", null), false);
+    assert.equal(regimeAllowed(new Set(["stagflation"]), "stagflation", null), true);
+    assert.equal(regimeAllowed(null, "anything", null), true); // 无过滤
+  });
+});
+
+describe("regimeFilter 的 dalio: 前缀键", () => {
+  it("isValidRegimeFilterKey 接受 dalio: 前缀的四个象限", () => {
+    for (const q of ["reflation", "goldilocks", "stagflation", "deflation"]) {
+      assert.equal(isValidRegimeFilterKey(`dalio:${q}`), true);
+    }
+    assert.equal(isValidRegimeFilterKey("dalio:bogus"), false);
+    assert.equal(isValidRegimeFilterKey("dalio:"), false);
+  });
+
+  it("dalio 键按 dalioRegime 匹配，与水平口径键互不干扰", () => {
+    const dalioOnly = new Set(["dalio:reflation"]);
+    // 水平口径是 stagflation、Dalio 是 reflation（2020 疫后场景）→ dalio 键放行
+    assert.equal(regimeAllowed(dalioOnly, "stagflation", "rising", "reflation"), true);
+    // 水平口径同为 stagflation 但 Dalio 是真滞胀 → 拦截
+    assert.equal(regimeAllowed(dalioOnly, "stagflation", "falling", "stagflation"), false);
+  });
+
+  it("同名 stagflation 不串味：水平键不会误放行 Dalio 真滞胀", () => {
+    // 只列水平口径 contraction；某期水平=contraction 但 Dalio=stagflation → 仍放行（按水平键）
+    assert.equal(regimeAllowed(new Set(["contraction"]), "contraction", "falling", "stagflation"), true);
+    // 只列 dalio:stagflation；某期水平=stagflation 但 Dalio=reflation → 拦截
+    assert.equal(regimeAllowed(new Set(["dalio:stagflation"]), "stagflation", "rising", "reflation"), false);
+  });
+
+  it("三类键可混用于同一 filter，取或", () => {
+    const mixed = new Set(["recovery", "overheat-rising", "dalio:goldilocks"]);
+    assert.equal(regimeAllowed(mixed, "recovery", "falling", "deflation"), true);      // 象限键
+    assert.equal(regimeAllowed(mixed, "overheat", "rising", "deflation"), true);       // 象限-方向键
+    assert.equal(regimeAllowed(mixed, "contraction", "rising", "goldilocks"), true);   // dalio 键
+    assert.equal(regimeAllowed(mixed, "contraction", "falling", "deflation"), false);  // 都不中
+  });
+
+  it("dalioRegime 未知时 dalio 键不放行", () => {
+    assert.equal(regimeAllowed(new Set(["dalio:reflation"]), "stagflation", "rising", null), false);
+    assert.equal(regimeAllowed(new Set(["dalio:reflation"]), "stagflation", "rising"), false);
   });
 });

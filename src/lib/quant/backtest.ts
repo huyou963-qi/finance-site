@@ -85,11 +85,60 @@ export function validateBacktestParams(params: BacktestParams): void {
   }
   if (params.regimeFilter != null) {
     if (!Array.isArray(params.regimeFilter)) throw new Error("regimeFilter 必须是数组");
-    const allowed = new Set(["recovery", "overheat", "stagflation", "contraction"]);
     for (const r of params.regimeFilter) {
-      if (!allowed.has(r)) throw new Error(`未知 regime：${r}`);
+      if (!isValidRegimeFilterKey(r)) throw new Error(`未知 regime：${r}`);
     }
   }
+}
+
+export const REGIME_QUADRANTS = ["recovery", "overheat", "stagflation", "contraction"] as const;
+export const REGIME_DIRECTIONS = ["rising", "falling"] as const;
+/** Dalio 式象限（增长方向 × 通胀方向），filter 里带 `dalio:` 前缀 */
+export const DALIO_QUADRANTS = ["reflation", "goldilocks", "stagflation", "deflation"] as const;
+export const DALIO_PREFIX = "dalio:";
+
+/**
+ * regimeFilter 键三种形态：
+ *  1. `<象限>`                 —— 水平口径象限（recovery/overheat/stagflation/contraction）
+ *  2. `<象限>-<增长方向>`      —— 象限 + 方向，如 stagflation-rising 是再通胀
+ *     （2020-08~2021-04 大牛市），stagflation-falling 才是真滞胀
+ *  3. `dalio:<Dalio象限>`      —— 两轴同为方向的 Dalio 口径，与 1/2 **并列**
+ *
+ * 前缀必须：`stagflation` 在两套口径里同名但语义不同（水平口径含「增长低于近十年均值」
+ * 条件，Dalio 口径只看方向），不加前缀无法区分。
+ */
+export function isValidRegimeFilterKey(key: string): boolean {
+  if (key.startsWith(DALIO_PREFIX)) {
+    return (DALIO_QUADRANTS as readonly string[]).includes(key.slice(DALIO_PREFIX.length));
+  }
+  const [q, dir, ...rest] = key.split("-");
+  if (rest.length > 0) return false;
+  if (!q || !(REGIME_QUADRANTS as readonly string[]).includes(q)) return false;
+  if (dir === undefined) return true;
+  return (REGIME_DIRECTIONS as readonly string[]).includes(dir);
+}
+
+/**
+ * 该调仓期是否被 regimeFilter 放行。三类键取或——命中任一即持仓：
+ *  - 象限键          匹配整个水平口径象限
+ *  - 象限-方向键     只匹配该增长方向
+ *  - `dalio:` 前缀键 匹配 Dalio 口径象限（与前两者并列，可混用于同一 filter）
+ *
+ * 未知一律拦截（宁可空仓不乱开仓）：regime 为 null → 前两类都不放行；
+ * 方向为 null → 象限-方向键不放行；dalioRegime 为 null → dalio 键不放行。
+ */
+export function regimeAllowed(
+  filter: ReadonlySet<string> | null,
+  regime: string | null | undefined,
+  direction: string | null | undefined,
+  dalioRegime?: string | null,
+): boolean {
+  if (filter == null) return true;
+  if (regime != null) {
+    if (filter.has(regime)) return true;
+    if (direction != null && filter.has(`${regime}-${direction}`)) return true;
+  }
+  return dalioRegime != null && filter.has(`${DALIO_PREFIX}${dalioRegime}`);
 }
 
 // ────────────────────────────────────────────────────────── 调仓日历
@@ -153,6 +202,10 @@ export type RebalanceSelection = {
   stats?: ScreenerStats | null;
   /** 信号日 PIT regime 象限（regimeFilter 用；backtestData 注入，null=未知） */
   regime?: string | null;
+  /** 信号日增长方向（rising/falling）；supports `<象限>-<方向>` 形式的 regimeFilter 键 */
+  growthDirection?: string | null;
+  /** 信号日 Dalio 象限（增长方向×通胀方向）；supports `dalio:<象限>` 形式的 filter 键 */
+  dalioRegime?: string | null;
   /**
    * 信号日所属月的 NBER USREC 真值（1=衰退 / 0=否 / null=未知）。
    * 仅作覆盖度透明化——**不进任何交易判定**（NBER 公告长滞后，当信号会前视）。
@@ -205,6 +258,10 @@ export type BacktestPeriodReport = {
   stats: ScreenerStats | null;
   /** 信号日 PIT regime（透明化；无过滤时仍回填便于对照） */
   regime: string | null;
+  /** 信号日增长方向（透明化；与象限的「水平」正交） */
+  growthDirection: string | null;
+  /** 信号日 Dalio 象限（透明化；与 regime 并列的另一套口径） */
+  dalioRegime: string | null;
   /** 信号日所属月 NBER USREC 真值（1/0/null）；仅透明化，不参与交易判定 */
   recession: number | null;
   /** 本期被 regimeFilter 拦截（清仓持现金） */
@@ -485,7 +542,7 @@ export function runBacktest(
       const navPre = cash + liveVal + frozenVal;
 
       // regime 门：调仓日 PIT regime ∉ 过滤集 → 本期清仓持现金（目标组合为空）
-      const regimeBlocked = regimeSet != null && (sel.regime == null || !regimeSet.has(sel.regime));
+      const regimeBlocked = !regimeAllowed(regimeSet, sel.regime, sel.growthDirection, sel.dalioRegime);
 
       // 目标组合：跳过无价标的（规则 c）与权重输入缺失的标的，剩余重归一
       let noPriceSkipped = 0;
@@ -596,6 +653,8 @@ export function runBacktest(
         cost,
         stats: sel.stats ?? null,
         regime: sel.regime ?? null,
+        growthDirection: sel.growthDirection ?? null,
+        dalioRegime: sel.dalioRegime ?? null,
         recession: sel.recession ?? null,
         regimeBlocked,
       });

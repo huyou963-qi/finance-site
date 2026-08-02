@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   applyHysteresis,
+  growthDirectionOf,
+  dalioQuadrant,
+  trailingMean,
+  censorMinPhase,
   classifyQuadrant,
   deriveMomentum,
   deriveYoY,
@@ -142,5 +146,96 @@ describe("applyHysteresis", () => {
     assert.equal(applyHysteresis(0.5, 0, bad, false), true);
     assert.equal(applyHysteresis(-0.5, 0, bad, true), false);
     assert.equal(applyHysteresis(0.5, 0, NaN, false), true);
+  });
+});
+
+describe("growthDirectionOf", () => {
+  it("与 lookback 期前比较定升降", () => {
+    // history 末尾是最近一期；lookback=3 → 取 history[len-3]
+    assert.equal(growthDirectionOf(0.0, [-1.8, -1.2, -0.5], 3), "rising"); // 0.0 > -1.8
+    assert.equal(growthDirectionOf(-1.0, [0.5, 0.2, -0.3], 3), "falling"); // -1.0 < 0.5
+  });
+
+  it("2020 疫后场景：水平仍「下」但方向「升」", () => {
+    // 增长 z 从 -1.83 反弹到 +0.03：象限判 below（水平），方向应为 rising
+    const dir = growthDirectionOf(0.03, [-1.83, -1.4, -0.9], 3);
+    assert.equal(dir, "rising");
+  });
+
+  it("历史不足 lookback 期 / 端点缺失 → null（不猜方向）", () => {
+    assert.equal(growthDirectionOf(0.5, [0.1, 0.2], 3), null); // 只有 2 期
+    assert.equal(growthDirectionOf(null, [0.1, 0.2, 0.3], 3), null);
+    assert.equal(growthDirectionOf(0.5, [null, 0.2, 0.3], 3), null); // 3 期前是 null
+    assert.equal(growthDirectionOf(0.5, [], 3), null);
+  });
+
+  it("持平（差为 0）判 falling（严格大于才算升）", () => {
+    assert.equal(growthDirectionOf(0.5, [0.5, 0.6, 0.7], 3), "falling");
+  });
+});
+
+describe("dalioQuadrant（两轴同为方向）", () => {
+  it("四组合映射", () => {
+    assert.equal(dalioQuadrant("rising", "rising"), "reflation");
+    assert.equal(dalioQuadrant("rising", "falling"), "goldilocks");
+    assert.equal(dalioQuadrant("falling", "rising"), "stagflation");
+    assert.equal(dalioQuadrant("falling", "falling"), "deflation");
+  });
+
+  it("与水平口径语义不同：2020 疫后水平判滞胀、Dalio 判再通胀", () => {
+    // 2020-08：增长水平 below（z −1.83）但方向 rising，通胀动量 rising
+    assert.equal(classifyQuadrant("below", "rising"), "stagflation"); // 水平口径
+    assert.equal(dalioQuadrant("rising", "rising"), "reflation");     // Dalio 口径
+  });
+
+  it("方向未知 → null（不猜）", () => {
+    assert.equal(dalioQuadrant(null, "rising"), null);
+    assert.equal(dalioQuadrant("rising", null), null);
+  });
+});
+
+describe("trailingMean（CFNAI-MA3 式平滑）", () => {
+  it("尾部 k 期均值，只回看", () => {
+    assert.deepEqual(trailingMean([1, 2, 3, 4], 3), [1, 1.5, 2, 3]);
+  });
+  it("跳过 null；窗内全 null → null", () => {
+    assert.deepEqual(trailingMean([1, null, 3], 2), [1, 1, 3]);
+    assert.equal(trailingMean([null, null], 2)[0], null);
+  });
+  it("k ≤ 1 原样返回", () => {
+    assert.deepEqual(trailingMean([1, 2, 3], 1), [1, 2, 3]);
+  });
+});
+
+describe("censorMinPhase（Bry-Boschan 式最短相位删失）", () => {
+  it("短于 minRun 的段并入上一状态", () => {
+    // B 只出现 1 期 < 3 → 被抹平为 A
+    assert.deepEqual(censorMinPhase(["A", "A", "B", "A", "A"], 3), ["A", "A", "A", "A", "A"]);
+  });
+
+  it("连续达 minRun 才确认新状态（转折点被推迟 minRun−1 期）", () => {
+    // B 连续 3 期：前两期仍记 A，第三期才切 B
+    assert.deepEqual(censorMinPhase(["A", "B", "B", "B", "B"], 3), ["A", "A", "A", "B", "B"]);
+  });
+
+  it("交替噪音被完全压平", () => {
+    assert.deepEqual(censorMinPhase(["A", "B", "A", "B", "A"], 3), ["A", "A", "A", "A", "A"]);
+  });
+
+  it("null 沿用已确认状态，不制造切换", () => {
+    assert.deepEqual(censorMinPhase(["A", null, "A"], 3), ["A", "A", "A"]);
+  });
+
+  it("minRun ≤ 1 原样返回（关闭删失）", () => {
+    assert.deepEqual(censorMinPhase(["A", "B", "A"], 1), ["A", "B", "A"]);
+  });
+
+  it("只回看：输出第 i 项不依赖 i 之后的输入（无前视）", () => {
+    const base = ["A", "A", "B", "B", "B", "A"];
+    const full = censorMinPhase(base, 3);
+    for (let i = 1; i <= base.length; i++) {
+      const partial = censorMinPhase(base.slice(0, i), 3);
+      assert.deepEqual(partial, full.slice(0, i), `前 ${i} 期应与全序列一致`);
+    }
   });
 });
