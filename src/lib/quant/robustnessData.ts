@@ -271,6 +271,8 @@ export type WindowMetrics = SplitMetrics & {
   kurtosis: number;
   /** 日收益样本数 */
   nDays: number;
+  /** 同窗口内被动基准（SPY）的每期夏普，DSR 的零假设下限 */
+  benchPerPeriodSharpe: number;
   /** 平均持仓数 */
   avgHeld: number;
   calmar: number | null;
@@ -298,10 +300,15 @@ function runWindow(
   }
   if (result.nav.length < 2) return null;
   const rets: number[] = [];
+  const benchRets: number[] = [];
   for (let i = 1; i < result.nav.length; i++) {
     rets.push(result.nav[i]!.nav / result.nav[i - 1]!.nav - 1);
+    const b0 = result.nav[i - 1]!.benchNav;
+    const b1 = result.nav[i]!.benchNav;
+    if (b0 != null && b1 != null && b0 > 0) benchRets.push(b1 / b0 - 1);
   }
   const mom = returnMoments(rets);
+  const benchMom = returnMoments(benchRets);
   const m = result.metrics;
   const avgHeld =
     result.periods.length > 0
@@ -319,6 +326,7 @@ function runWindow(
       skew: mom.skew,
       kurtosis: mom.kurtosis,
       nDays: mom.n,
+      benchPerPeriodSharpe: benchMom.sharpe,
       avgHeld,
       calmar: m.calmar,
       monthlyWinRate: m.monthlyWinRate,
@@ -459,6 +467,7 @@ function deflatedForPoints(
     skew: winner.skew,
     kurtosis: winner.kurtosis,
     trialSharpes,
+    benchmarkSharpe: winner.benchPerPeriodSharpe,
   });
 }
 
@@ -498,7 +507,11 @@ export async function executeRobustness(
 
   // 3) 调仓日历（一次）
   const factorDates = await listFactorDates();
-  const rebalanceDates = buildRebalanceCalendar(factorDates, { start: effectiveStart, end });
+  const rebalanceDates = buildRebalanceCalendar(factorDates, {
+    start: effectiveStart,
+    end,
+    frequency: baseParams.rebalanceFrequency ?? "monthly",
+  });
   if (rebalanceDates.length < 2) {
     throw new Error(
       `区间内可用调仓期不足（${rebalanceDates.length}；起点 ${effectiveStart}${end ? `，终点 ${end}` : ""}）`,

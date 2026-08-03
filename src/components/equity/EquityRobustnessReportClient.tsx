@@ -104,7 +104,7 @@ function DsrBanner({
               : "bg-red-400/15 text-red-400"
           }`}
         >
-          {dsr.significant ? "扣除多重检验后仍显著" : "扣除多重检验后不显著"}
+          {dsr.significant ? "扣除多重检验与基准后仍显著" : "扣除多重检验与基准后不显著"}
         </span>
       </div>
       <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-fs-muted">
@@ -115,14 +115,22 @@ function DsrBanner({
           观测每期夏普 <span className="text-fs-text tabular-nums">{num(dsr.observedSharpe, 4)}</span>
         </span>
         <span>
-          期望最大夏普 SR₀ <span className="text-fs-text tabular-nums">{num(dsr.expectedMaxSharpe, 4)}</span>
+          期望最大夏普 <span className="text-fs-text tabular-nums">{num(dsr.expectedMaxSharpe, 4)}</span>
+        </span>
+        <span>
+          基准(SPY)每期夏普{" "}
+          <span className="text-fs-text tabular-nums">{num(dsr.benchmarkSharpe, 4)}</span>
+        </span>
+        <span>
+          实际零假设 SR₀ <span className="text-fs-text tabular-nums">{num(dsr.thresholdSharpe, 4)}</span>
         </span>
         <span>
           未校正 PSR(vs 0) <span className="text-fs-text tabular-nums">{pct(dsr.psrVsZero)}</span>
         </span>
       </div>
       <div className="mt-1 text-[11px] text-fs-muted">
-        N 次试验里挑最优会抬高「凭运气」的夏普门槛（SR₀）；DSR 把观测夏普对着 SR₀ 而非 0 检验。
+        零假设 SR₀ = max(期望最大夏普, 基准夏普)，两道门都要过：前者防「N 次试验里挑最优」，
+        后者防「只是拿了 beta」——多头股票策略对着 0 检验几乎必然显著，那是空洞结论。
         试验数按实际扫描点数如实记录——谎报 N=1 等于没做校正。
       </div>
     </div>

@@ -24,6 +24,10 @@ type Metrics = {
   avgAnnualTurnover: number;
   benchCagr: number | null;
   benchMaxDrawdown: number | null;
+  // 旧 run 落库时还没有主动风险指标，读取时可能缺失
+  trackingError?: number | null;
+  informationRatio?: number | null;
+  cumulativeExcess?: number | null;
   days: number;
 };
 
@@ -300,6 +304,22 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
             <StatTile label="Calmar" value={num(m.calmar, 2)} sub="CAGR/|MDD|" />
             <StatTile label="月胜率 vs SPY" value={pct(m.monthlyWinRate)} sub={`${m.monthlyCount} 月`} />
             <StatTile label="平均年换手" value={`${num(m.avgAnnualTurnover, 2)}×`} sub="单边口径" />
+          </div>
+          {/* 主动风险：夏普高可能只是 beta 高，IR 才回答「选股本身有没有超额」 */}
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <StatTile
+              label="信息比 IR"
+              value={num(m.informationRatio, 2)}
+              tone={m.informationRatio != null ? (m.informationRatio >= 0 ? "pos" : "neg") : undefined}
+              sub="年化超额/跟踪误差"
+            />
+            <StatTile label="跟踪误差" value={pct(m.trackingError)} sub="年化，vs SPY" />
+            <StatTile
+              label="累计超额"
+              value={pct(m.cumulativeExcess)}
+              tone={m.cumulativeExcess != null ? (m.cumulativeExcess >= 0 ? "pos" : "neg") : undefined}
+              sub="全区间涨幅之差"
+            />
           </div>
 
           {/* ── NAV 曲线 ── */}

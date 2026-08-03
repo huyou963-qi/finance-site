@@ -65,6 +65,32 @@ function pct(v: number | null | undefined): string {
   return `${(v * 100).toFixed(1)}%`;
 }
 
+/**
+ * regime 择时可选集。两套口径并列（引擎按 `dalio:` 前缀区分）：
+ * 水平口径象限含「增长低于近十年均值」条件，Dalio 口径只看两轴方向，
+ * 同名的 stagflation 语义不同，故分两行展示避免混淆。
+ */
+const REGIME_CHOICES: { group: string; items: { key: string; label: string }[] }[] = [
+  {
+    group: "水平象限",
+    items: [
+      { key: "recovery", label: "复苏" },
+      { key: "overheat", label: "过热" },
+      { key: "stagflation", label: "滞胀" },
+      { key: "contraction", label: "衰退" },
+    ],
+  },
+  {
+    group: "Dalio 象限",
+    items: [
+      { key: "dalio:goldilocks", label: "金发女孩" },
+      { key: "dalio:reflation", label: "再通胀" },
+      { key: "dalio:stagflation", label: "滞胀" },
+      { key: "dalio:deflation", label: "通缩" },
+    ],
+  },
+];
+
 export function EquityBacktestClient() {
   const router = useRouter();
   const [runs, setRuns] = useState<RunListItem[] | null>(null);
@@ -78,6 +104,9 @@ export function EquityBacktestClient() {
   const [weighting, setWeighting] = useState("equal");
   const [execution, setExecution] = useState("nextClose");
   const [costBps, setCostBps] = useState(10);
+  const [rebalanceFrequency, setRebalanceFrequency] = useState("monthly");
+  const [regimeFilter, setRegimeFilter] = useState<Set<string>>(new Set());
+  const [blockedExposure, setBlockedExposure] = useState(0);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -147,6 +176,9 @@ export function EquityBacktestClient() {
             weighting,
             execution,
             costBps,
+            rebalanceFrequency,
+            regimeFilter: regimeFilter.size ? [...regimeFilter] : null,
+            regimeBlockedExposure: regimeFilter.size ? blockedExposure : null,
           },
         }),
       });
@@ -249,6 +281,19 @@ export function EquityBacktestClient() {
             />
           </div>
           <div className="flex flex-col gap-1">
+            <label className="text-xs text-fs-muted">调仓频率</label>
+            <select
+              value={rebalanceFrequency}
+              onChange={(e) => setRebalanceFrequency(e.target.value)}
+              className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1"
+            >
+              <option value="monthly">月频</option>
+              <option value="quarterly">季频</option>
+              <option value="semiannual">半年</option>
+              <option value="annual">年频</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
             <label className="text-xs text-fs-muted">起始（可空）</label>
             <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1" />
           </div>
@@ -265,6 +310,73 @@ export function EquityBacktestClient() {
             {submitting ? "创建中…" : "发起回测"}
           </button>
         </div>
+        {/* regime 择时（可选） */}
+        <div className="mt-3 border-t border-fs-border pt-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <span className="text-xs text-fs-muted">regime 择时（可选，勾选 = 允许持仓的宏观状态）</span>
+            {REGIME_CHOICES.map((g) => (
+              <div key={g.group} className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-fs-muted">{g.group}</span>
+                {g.items.map((it) => {
+                  const on = regimeFilter.has(it.key);
+                  return (
+                    <button
+                      key={it.key}
+                      type="button"
+                      onClick={() =>
+                        setRegimeFilter((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(it.key)) next.delete(it.key);
+                          else next.add(it.key);
+                          return next;
+                        })
+                      }
+                      className={`rounded-md px-2 py-0.5 text-xs ring-1 transition ${
+                        on
+                          ? "bg-fs-accent-soft text-fs-accent-text ring-fs-accent/30"
+                          : "text-fs-muted ring-fs-border hover:text-fs-text"
+                      }`}
+                    >
+                      {it.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+            {regimeFilter.size ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-fs-muted">未命中时仓位</label>
+                  <select
+                    value={blockedExposure}
+                    onChange={(e) => setBlockedExposure(Number(e.target.value))}
+                    className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1 text-sm"
+                  >
+                    <option value={0}>0（清仓持现金）</option>
+                    <option value={0.25}>25%</option>
+                    <option value={0.5}>50%</option>
+                    <option value={0.75}>75%</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRegimeFilter(new Set())}
+                  className="text-xs text-fs-muted hover:text-fs-text"
+                >
+                  清空
+                </button>
+              </>
+            ) : null}
+          </div>
+          {regimeFilter.size ? (
+            <div className="mt-1.5 text-xs text-fs-muted">
+              未勾选的 regime 期减仓到上述比例。择时降波动的收益里混着「单纯降暴露」的成分——
+              请另跑一次不择时、但把选股数放宽/仓位调低到<span className="text-fs-text">相同平均暴露</span>
+              的对照组，两者之差才是真正的择时能力。
+            </div>
+          ) : null}
+        </div>
+
         <div className="mt-2 text-xs text-fs-muted">
           起点若早于策略数据下限将自动裁剪（基本面因子 {FUNDAMENTAL_MIN_YEAR} 起、资金面 {FUNDING_MIN_YEAR} 起）；成本按调仓日双边成交额扣减。
         </div>

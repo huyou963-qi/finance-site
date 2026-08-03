@@ -197,6 +197,7 @@ export async function executeBacktest(
   const rebalanceDates = buildRebalanceCalendar(factorDates, {
     start: effectiveStart,
     end: params.end,
+    frequency: params.rebalanceFrequency ?? "monthly",
   });
   if (rebalanceDates.length === 0) {
     throw new Error(

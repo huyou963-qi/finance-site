@@ -279,13 +279,17 @@ export type DeflatedSharpeResult = {
   nTrials: number;
   /** 各试验夏普的横截面标准差（每期口径） */
   trialSharpeStd: number;
-  /** N 次试验期望最大夏普 SR0（每期，DSR 的比较基准） */
+  /** N 次试验期望最大夏普 SR0（每期，仅多重检验部分） */
   expectedMaxSharpe: number;
+  /** 被动基准的每期夏普（如 SPY 买入持有）；未提供 = 0 */
+  benchmarkSharpe: number;
+  /** 实际用作零假设的夏普 = max(expectedMaxSharpe, benchmarkSharpe) */
+  thresholdSharpe: number;
   /** 未校正的 PSR（基准=0），用于对照「校正吃掉了多少显著性」 */
   psrVsZero: number;
-  /** Deflated Sharpe Ratio = PSR(观测夏普 vs SR0) */
+  /** Deflated Sharpe Ratio = PSR(观测夏普 vs thresholdSharpe) */
   dsr: number;
-  /** DSR ≥ 显著性阈值（默认 0.95）→ 扣除多重检验后仍显著 */
+  /** DSR ≥ 显著性阈值（默认 0.95）→ 扣除多重检验与基准后仍显著 */
   significant: boolean;
 };
 
@@ -293,6 +297,11 @@ export type DeflatedSharpeResult = {
  * Deflated Sharpe Ratio。入选策略的收益矩（observedSharpe/n/skew/kurtosis 每期口径）+
  * 全部试验的每期夏普数组 → DSR。DSR = PSR，但基准从 0 抬到 N 次试验的期望最大夏普。
  * 「从扫描里挑最优」正是这里 N>1 该校正的场景。
+ *
+ * `benchmarkSharpe`：对**多头股票策略**，「真实夏普 > 0」是几乎必然成立的空洞命题——
+ * 买入持有 SPY 的每期夏普本就为正，任何满仓策略都能轻松通过 vs 0 的检验。要回答
+ * 「选股是否真的胜过被动持有」，零假设必须抬到基准自身的夏普。故最终阈值取
+ * max(期望最大夏普, 基准夏普)：前者防「挑最优」，后者防「只是拿了 beta」。
  */
 export function deflatedSharpe(input: {
   observedSharpe: number;
@@ -300,19 +309,28 @@ export function deflatedSharpe(input: {
   skew: number;
   kurtosis: number;
   trialSharpes: readonly number[];
+  /** 被动基准的每期夏普（同频口径）；缺省 0 = 退回经典 DSR */
+  benchmarkSharpe?: number;
   threshold?: number;
 }): DeflatedSharpeResult {
   const threshold = input.threshold ?? 0.95;
   const nTrials = input.trialSharpes.filter((s) => Number.isFinite(s)).length;
   const trialStd = sharpeStd(input.trialSharpes);
-  const sr0 = expectedMaxSharpe(trialStd, nTrials);
+  const srMax = expectedMaxSharpe(trialStd, nTrials);
+  const benchmarkSharpe =
+    input.benchmarkSharpe != null && Number.isFinite(input.benchmarkSharpe)
+      ? input.benchmarkSharpe
+      : 0;
+  const sr0 = Math.max(srMax, benchmarkSharpe);
   const psrVsZero = probabilisticSharpe(input.observedSharpe, input.n, input.skew, input.kurtosis, 0);
   const dsr = probabilisticSharpe(input.observedSharpe, input.n, input.skew, input.kurtosis, sr0);
   return {
     observedSharpe: input.observedSharpe,
     nTrials,
     trialSharpeStd: trialStd,
-    expectedMaxSharpe: sr0,
+    expectedMaxSharpe: srMax,
+    benchmarkSharpe,
+    thresholdSharpe: sr0,
     psrVsZero,
     dsr,
     significant: dsr >= threshold,

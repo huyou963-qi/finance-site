@@ -172,3 +172,54 @@ describe("summarizeLayering — 与 IC 符号一致（验收标准）", () => {
     assert.equal(Math.sign(lay.meanSpread), Math.sign(summarizeIC(ics).meanIC));
   });
 });
+
+describe("summarizeLayering — 复利口径（算术均值高估高波动组）", () => {
+  /**
+   * 构造两组：低波动组每期恒 +1%；高波动组交替 +21%/−19%（算术均值同为 +1%，
+   * 但复利后是亏的）。算术列会判两组一样好，几何/净值列必须判低波动组胜出——
+   * 这正是只看算术均值会得出反向结论的场景。
+   */
+  it("算术均值相同时，几何均值与累计净值揭示高波动组更差", () => {
+    const periods = Array.from({ length: 20 }, (_, t) => ({
+      // 因子值 0 → 最低组，1 → 最高组（每期各 100 只，二分到 Q1/Q2）
+      factorValues: Array.from({ length: 100 }, (_, i) => (i < 50 ? 0 : 1)),
+      fwdReturns: Array.from({ length: 100 }, (_, i) =>
+        i < 50 ? 0.01 : t % 2 === 0 ? 0.21 : -0.19,
+      ),
+    }));
+    const lay = summarizeLayering(periods, 2);
+
+    // 算术：两组均值都是 +1%
+    assert.ok(Math.abs(lay.meanGroupReturns[0]! - 0.01) < 1e-12);
+    assert.ok(Math.abs(lay.meanGroupReturns[1]! - 0.01) < 1e-12);
+
+    // 几何：低波动组仍是 +1%，高波动组为负
+    assert.ok(Math.abs(lay.geomGroupReturns[0]! - 0.01) < 1e-12);
+    assert.ok(lay.geomGroupReturns[1]! < 0, `geom=${lay.geomGroupReturns[1]}`);
+
+    // 累计净值：低波动组 1.01^20，高波动组跌破 1
+    assert.ok(Math.abs(lay.groupNav[0]! - Math.pow(1.01, 20)) < 1e-9);
+    assert.ok(lay.groupNav[1]! < 1);
+
+    // 波动列解释差异来源
+    assert.ok(lay.groupVol[0]! < 1e-12);
+    assert.ok(lay.groupVol[1]! > lay.groupVol[0]!);
+    assert.deepEqual(lay.groupN, [20, 20]);
+  });
+
+  it("单期 −100% 的组净值归零且几何均值 = −1", () => {
+    const periods = [
+      {
+        factorValues: [0, 0, 1, 1],
+        fwdReturns: [0.05, 0.05, -1, -1],
+      },
+      {
+        factorValues: [0, 0, 1, 1],
+        fwdReturns: [0.05, 0.05, 0.5, 0.5],
+      },
+    ];
+    const lay = summarizeLayering(periods, 2);
+    assert.equal(lay.groupNav[1], 0);
+    assert.equal(lay.geomGroupReturns[1], -1);
+  });
+});

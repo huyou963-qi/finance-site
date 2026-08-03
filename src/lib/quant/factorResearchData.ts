@@ -149,17 +149,22 @@ export async function loadGridCloses(
   return out;
 }
 
-/** symbol → 逐网格前向收益（网格 i → i+1）；末期与无价期为 null */
+/**
+ * symbol → 逐网格前向收益（网格 i → i+horizon）；末 horizon 期与无价期为 null。
+ * horizon 默认 1（下一网格期），>1 用于 IC 衰减曲线。
+ */
 export function buildForwardReturns(
   closes: ReadonlyMap<string, (number | null)[]>,
   gridDates: readonly string[],
+  horizon = 1,
 ): Map<string, (number | null)[]> {
+  const h = Math.max(1, Math.trunc(horizon));
   const out = new Map<string, (number | null)[]>();
   for (const [symbol, px] of closes) {
     const fwd: (number | null)[] = [];
     for (let i = 0; i < gridDates.length; i++) {
       const cur = px[i];
-      const nxt = i + 1 < gridDates.length ? px[i + 1] : null;
+      const nxt = i + h < gridDates.length ? px[i + h] : null;
       fwd.push(cur != null && nxt != null && cur > 0 ? nxt / cur - 1 : null);
     }
     out.set(symbol, fwd);
@@ -180,6 +185,23 @@ export type FactorICPeriod = {
   n: number;
 };
 
+/**
+ * IC 衰减曲线的前瞻期（月）。回答「信号能撑多久」——决定调仓频率的直接依据：
+ * 若 IC 到 3 月才衰减一半，月频调仓多付的换手成本大概率买不到额外收益。
+ */
+export const IC_DECAY_HORIZONS = [1, 3, 6, 12] as const;
+
+export type ICDecayPoint = {
+  /** 前瞻期（网格期数 ≈ 月） */
+  horizon: number;
+  meanIC: number;
+  /** 每期 IR = meanIC/stdIC。**不年化**：horizon>1 的样本重叠，×√12 会虚高 */
+  ir: number;
+  hitRate: number;
+  /** 有效期数 */
+  n: number;
+};
+
 export type FactorResearchResult = {
   factorKey: string;
   nameZh: string;
@@ -194,6 +216,11 @@ export type FactorResearchResult = {
   layering: LayeringSummary;
   /** 行业中性化对照：sectorZscore 口径的 IC 汇总（量化行业暴露贡献） */
   neutralizedIcSummary: ICSummary;
+  /**
+   * IC 衰减曲线：不同前瞻期的均值 IC。horizon>1 的前向收益窗口互相重叠，
+   * 其 IR/t 值被自相关放大，只可横向比较衰减形状，**不可**直接当显著性用。
+   */
+  icDecay: ICDecayPoint[];
   /** 分 regime 的 IC 汇总（联动分析，WS4）：按信号日 regime 桶分组的 zscore IC */
   icByRegime: Record<DalioQuadrant, ICSummary>;
 };
@@ -339,12 +366,20 @@ export async function runFactorResearch(
   const closes = await loadGridCloses(symbols, gridDates);
   const fwdReturns = buildForwardReturns(closes, gridDates);
   const regimeByDate = await loadRegimeMap(gridDates);
+  // 衰减曲线的多前瞻期面板（h=1 复用主面板，不重复构建）
+  const fwdByHorizon = new Map<number, ReadonlyMap<string, (number | null)[]>>([[1, fwdReturns]]);
+  for (const h of IC_DECAY_HORIZONS) {
+    if (h > 1 && h < gridDates.length) fwdByHorizon.set(h, buildForwardReturns(closes, gridDates, h));
+  }
 
   const factors: FactorResearchResult[] = factorKeys.map((factorKey) => {
     const def = FACTOR_MAP.get(factorKey)!;
     const periods: FactorICPeriod[] = [];
     const layerPeriods: { factorValues: (number | null)[]; fwdReturns: (number | null)[] }[] = [];
     const neutralIcs: (number | null)[] = [];
+    /** horizon → 逐期 IC（h=1 直接用 periods，避免重算） */
+    const decayIcs = new Map<number, (number | null)[]>();
+    for (const h of fwdByHorizon.keys()) if (h > 1) decayIcs.set(h, []);
     for (let i = 0; i < gridDates.length; i++) {
       const date = gridDates[i]!;
       const nextDate = i + 1 < gridDates.length ? gridDates[i + 1]! : null;
@@ -355,6 +390,18 @@ export async function runFactorResearch(
       layerPeriods.push({ factorValues: aligned.factorValues, fwdReturns: aligned.fwdReturns });
       const neutralAligned = alignSeries(bySymbol, fwdReturns, i, "sectorZscore");
       neutralIcs.push(spearmanIC(neutralAligned.factorValues, neutralAligned.fwdReturns));
+      for (const [h, series] of decayIcs) {
+        const a = alignSeries(bySymbol, fwdByHorizon.get(h)!, i, "zscore");
+        series.push(spearmanIC(a.factorValues, a.fwdReturns));
+      }
+    }
+    const icDecay: ICDecayPoint[] = [];
+    for (const h of IC_DECAY_HORIZONS) {
+      const series = h === 1 ? periods.map((p) => p.ic) : decayIcs.get(h);
+      if (!series) continue;
+      const s = summarizeIC(series);
+      if (s.n === 0) continue;
+      icDecay.push({ horizon: h, meanIC: s.meanIC, ir: s.ir, hitRate: s.hitRate, n: s.n });
     }
     return {
       factorKey,
@@ -369,6 +416,7 @@ export async function runFactorResearch(
       icSummary: summarizeIC(periods.map((p) => p.ic)),
       layering: summarizeLayering(layerPeriods, q),
       neutralizedIcSummary: summarizeIC(neutralIcs),
+      icDecay,
       icByRegime: icByRegimeOf(periods, regimeByDate),
     };
   });

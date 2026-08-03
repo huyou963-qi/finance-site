@@ -53,10 +53,24 @@ export type BacktestParams = {
   /** 单边费率（bp），对买卖双边成交额各收一次；默认 10 */
   costBps: number;
   /**
+   * 调仓频率，默认 monthly。引擎本身只消费传入的 selections，本参数由数据层
+   * （executeBacktest/executeRobustness）在构建调仓日历时消费并随 run 一起持久化，
+   * 使「换手成本 vs 信号衰减」可作为一个可回放的参数被对照。
+   */
+  rebalanceFrequency?: RebalanceFrequency | null;
+  /**
    * regime 条件化（Phase 4 WS4）：仅当调仓日 PIT regime ∈ 此集合才建仓，否则清仓持现金。
    * 缺省/空 = 不过滤。regime 值挂在 RebalanceSelection.regime（backtestData 按信号日 PIT 注入）。
    */
   regimeFilter?: string[] | null;
+  /**
+   * regime 未命中时保留的目标仓位比例（0–1），命中时恒为 1。默认 0 = 清仓持现金（旧行为）。
+   *
+   * 二元开关把择时压成「全仓 / 空仓」，其降波动的收益里混着「单纯降暴露」的成分，
+   * 无法与等平均暴露的常数仓位对照。给出连续比例后，可用同一平均暴露的常数仓位作
+   * 对照组，把真正的择时能力从降暴露里剥离出来。regimeFilter 为空时本参数无效。
+   */
+  regimeBlockedExposure?: number | null;
 };
 
 export const DEFAULT_BACKTEST_PARAMS: BacktestParams = {
@@ -88,6 +102,16 @@ export function validateBacktestParams(params: BacktestParams): void {
     for (const r of params.regimeFilter) {
       if (!isValidRegimeFilterKey(r)) throw new Error(`未知 regime：${r}`);
     }
+  }
+  if (
+    params.rebalanceFrequency != null &&
+    !(params.rebalanceFrequency in REBALANCE_MONTH_STEP)
+  ) {
+    throw new Error(`未知调仓频率：${params.rebalanceFrequency}`);
+  }
+  const ex = params.regimeBlockedExposure;
+  if (ex != null && (!Number.isFinite(ex) || ex < 0 || ex > 1)) {
+    throw new Error("regimeBlockedExposure 必须在 0–1 之间");
   }
 }
 
@@ -158,13 +182,26 @@ export function strategyDataFloor(config: ScreenerConfig, weighting: BacktestWei
   return `${year}-01-01`;
 }
 
+/** 调仓频率；月频以外按「每 k 个可用月取一期」抽稀 */
+export type RebalanceFrequency = "monthly" | "quarterly" | "semiannual" | "annual";
+
+export const REBALANCE_MONTH_STEP: Record<RebalanceFrequency, number> = {
+  monthly: 1,
+  quarterly: 3,
+  semiannual: 6,
+  annual: 12,
+};
+
 /**
  * 调仓日历：因子落库日（升序 ISO）按自然月取最后一期去重，再按 [start, end] 裁剪。
  * start 应已含 strategyDataFloor 裁剪（buildBacktestCalendar 的调用方负责取 max）。
+ *
+ * frequency 非月频时**在裁剪之后**每 k 个月取一期（从区间首期起算），保证首期与月频一致、
+ * 间隔均匀；先抽稀再裁剪会让 start 的微小变化整体平移相位，两次回测不可比。
  */
 export function buildRebalanceCalendar(
   factorDates: readonly string[],
-  opts: { start?: string | null; end?: string | null } = {},
+  opts: { start?: string | null; end?: string | null; frequency?: RebalanceFrequency } = {},
 ): string[] {
   const byMonth = new Map<string, string>();
   for (const d of factorDates) {
@@ -172,9 +209,12 @@ export function buildRebalanceCalendar(
     const prev = byMonth.get(month);
     if (!prev || d > prev) byMonth.set(month, d);
   }
-  return [...byMonth.values()]
+  const inRange = [...byMonth.values()]
     .filter((d) => (!opts.start || d >= opts.start) && (!opts.end || d <= opts.end))
     .sort();
+  const step = REBALANCE_MONTH_STEP[opts.frequency ?? "monthly"] ?? 1;
+  if (step <= 1) return inRange;
+  return inRange.filter((_, i) => i % step === 0);
 }
 
 // ────────────────────────────────────────────────────────── 数据集/选股输入
@@ -264,8 +304,10 @@ export type BacktestPeriodReport = {
   dalioRegime: string | null;
   /** 信号日所属月 NBER USREC 真值（1/0/null）；仅透明化，不参与交易判定 */
   recession: number | null;
-  /** 本期被 regimeFilter 拦截（清仓持现金） */
+  /** 本期被 regimeFilter 拦截（按 regimeBlockedExposure 减仓，默认清仓持现金） */
   regimeBlocked: boolean;
+  /** 本期实际目标暴露（1=满仓，0=空仓）；拦截期 = regimeBlockedExposure */
+  exposure: number;
 };
 
 export type BacktestMetrics = {
@@ -287,6 +329,18 @@ export type BacktestMetrics = {
   avgAnnualTurnover: number;
   benchCagr: number | null;
   benchMaxDrawdown: number | null;
+  /**
+   * 年化跟踪误差 = std(日超额收益) × √252。超额取**算术差** r − r_bench
+   * （非对数差）：与 IR 分子同口径才可比。无基准 = null。
+   */
+  trackingError: number | null;
+  /**
+   * 信息比 IR = 年化超额均值 / 跟踪误差。衡量「相对基准的主动收益是否稳定」，
+   * 与夏普正交：夏普高可能只是 beta 高，IR 高才说明选股本身有超额。无基准/TE=0 = null。
+   */
+  informationRatio: number | null;
+  /** 累计超额 = 策略累计涨幅 − 基准累计涨幅（区间端点口径）。无基准 = null */
+  cumulativeExcess: number | null;
   /** 回测天数（自然日） */
   days: number;
 };
@@ -454,6 +508,7 @@ export function runBacktest(
   const costRate = params.costBps / 10_000;
   const regimeSet =
     params.regimeFilter && params.regimeFilter.length ? new Set(params.regimeFilter) : null;
+  const blockedExposure = params.regimeBlockedExposure ?? 0;
 
   // 1) 求各期执行日（主日历上），并去除执行日重复/越界的期次
   const cal = dataset.calendar;
@@ -541,8 +596,9 @@ export function runBacktest(
       }
       const navPre = cash + liveVal + frozenVal;
 
-      // regime 门：调仓日 PIT regime ∉ 过滤集 → 本期清仓持现金（目标组合为空）
+      // regime 门：调仓日 PIT regime ∉ 过滤集 → 本期减仓到 blockedExposure（默认 0 = 持现金）
       const regimeBlocked = !regimeAllowed(regimeSet, sel.regime, sel.growthDirection, sel.dalioRegime);
+      const exposure = regimeBlocked ? blockedExposure : 1;
 
       // 目标组合：跳过无价标的（规则 c）与权重输入缺失的标的，剩余重归一
       let noPriceSkipped = 0;
@@ -550,7 +606,7 @@ export function runBacktest(
       type Target = { symbol: string; px: number; raw: number; score: number | null };
       const targets: Target[] = [];
       const seen = new Set<string>();
-      for (const r of regimeBlocked ? [] : sel.rows) {
+      for (const r of exposure > 0 ? sel.rows : []) {
         if (seen.has(r.symbol)) continue;
         seen.add(r.symbol);
         const cur = cursorOf(r.symbol);
@@ -586,7 +642,7 @@ export function runBacktest(
 
       // 成交额（双边）：|目标价值 − 当前可交易价值|，冻结部分已是现金不计卖出
       const targetValBySymbol = new Map<string, number>();
-      targets.forEach((t, i) => targetValBySymbol.set(t.symbol, weights[i]! * navPre));
+      targets.forEach((t, i) => targetValBySymbol.set(t.symbol, weights[i]! * exposure * navPre));
       let traded = 0;
       for (const [sym, tv] of targetValBySymbol) {
         traded += Math.abs(tv - (liveValBySymbol.get(sym) ?? 0));
@@ -618,13 +674,14 @@ export function runBacktest(
       targets.forEach((t, i) => {
         const w = weights[i]!;
         if (!(w > 0)) return;
-        const targetVal = w * navPost;
+        const targetVal = w * exposure * navPost;
         const old = oldBySymbol.get(t.symbol);
         const rowIdx = positions.length;
         positions.push({
           rebalanceDate: sel.date,
           symbol: t.symbol,
-          weight: w,
+          // 记实际 NAV 权重而非组合内权重：减仓期 Σweight = exposure，余下是现金
+          weight: w * exposure,
           entryPrice: t.px,
           exitReason: "endOfBacktest",
         });
@@ -657,6 +714,7 @@ export function runBacktest(
         dalioRegime: sel.dalioRegime ?? null,
         recession: sel.recession ?? null,
         regimeBlocked,
+        exposure,
       });
     }
 
@@ -686,7 +744,9 @@ export function computeMetrics(
     return {
       cagr: 0, vol: 0, sharpe: 0, maxDrawdown: 0, calmar: null,
       monthlyWinRate: null, monthlyCount: 0, avgAnnualTurnover: 0,
-      benchCagr: null, benchMaxDrawdown: null, days: 0,
+      benchCagr: null, benchMaxDrawdown: null,
+      trackingError: null, informationRatio: null, cumulativeExcess: null,
+      days: 0,
     };
   }
   const first = nav[0]!;
@@ -714,6 +774,28 @@ export function computeMetrics(
     ? Math.pow(last.benchNav! / first.benchNav!, 1 / years) - 1
     : null;
   const benchMaxDrawdown = hasBench ? drawdownOf(nav.map((p) => p.benchNav!)) : null;
+
+  // 主动风险：逐日超额 r − r_bench 的年化标准差与信息比
+  let trackingError: number | null = null;
+  let informationRatio: number | null = null;
+  let cumulativeExcess: number | null = null;
+  if (hasBench) {
+    const excess: number[] = [];
+    for (let i = 1; i < nav.length; i++) {
+      excess.push(
+        nav[i]!.nav / nav[i - 1]!.nav - nav[i]!.benchNav! / nav[i - 1]!.benchNav!,
+      );
+    }
+    if (excess.length > 1) {
+      const em = excess.reduce((a, b) => a + b, 0) / excess.length;
+      const ev =
+        excess.reduce((a, b) => a + (b - em) * (b - em), 0) / (excess.length - 1);
+      trackingError = Math.sqrt(ev) * Math.sqrt(252);
+      informationRatio =
+        trackingError > MIN_TRACKING_ERROR ? (em * 252) / trackingError : null;
+    }
+    cumulativeExcess = growth - last.benchNav! / first.benchNav!;
+  }
 
   // 月胜率：每自然月最后一个 NAV 点为月末，逐月收益 vs 基准
   let monthlyWinRate: number | null = null;
@@ -747,9 +829,19 @@ export function computeMetrics(
     avgAnnualTurnover,
     benchCagr,
     benchMaxDrawdown,
+    trackingError,
+    informationRatio,
+    cumulativeExcess,
     days,
   };
 }
+
+/**
+ * 跟踪误差低于此值即视为「与基准无差异」，IR 记 null。
+ * 纯持有基准的策略其逐日超额只剩浮点噪声（年化 TE ~1e-16），不设下限会算出
+ * 1e15 量级的假 IR。真实策略的年化 TE 在 1e-2 量级，1e-10 的门槛不会误伤。
+ */
+const MIN_TRACKING_ERROR = 1e-10;
 
 function drawdownOf(series: readonly number[]): number {
   let peak = -Infinity;

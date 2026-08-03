@@ -178,6 +178,44 @@ describe("deflatedSharpe（核心：多重检验抓选择性过拟合）", () =>
     });
     assert.equal(dsr.significant, true, `dsr=${dsr.dsr}`);
   });
+
+  it("基准夏普抬高零假设：只拿 beta 的策略对 0 显著、对基准不显著", () => {
+    const rnd = lcg(21);
+    // 策略 ≈ 基准（每期夏普 ~0.09，年化 ~1.4），无任何选股 alpha
+    const rets = Array.from({ length: 1000 }, () => 0.0009 + gauss(rnd) * 0.01);
+    const m = returnMoments(rets);
+    const trials = [m.sharpe];
+    const vsZero = deflatedSharpe({
+      observedSharpe: m.sharpe,
+      n: m.n,
+      skew: m.skew,
+      kurtosis: m.kurtosis,
+      trialSharpes: trials,
+    });
+    const vsBench = deflatedSharpe({
+      observedSharpe: m.sharpe,
+      n: m.n,
+      skew: m.skew,
+      kurtosis: m.kurtosis,
+      trialSharpes: trials,
+      // 基准自身每期夏普与策略相当 → 该策略并未跑赢被动持有
+      benchmarkSharpe: m.sharpe,
+    });
+    assert.equal(vsZero.significant, true, `vsZero=${vsZero.dsr}`);
+    assert.equal(vsBench.significant, false, `vsBench=${vsBench.dsr}`);
+    assert.ok(Math.abs(vsBench.dsr - 0.5) < 1e-9, `观测=基准时 DSR 应恰为 0.5，实际 ${vsBench.dsr}`);
+    assert.equal(vsBench.thresholdSharpe, m.sharpe);
+  });
+
+  it("阈值取 max(期望最大夏普, 基准夏普)——基准低时不影响经典 DSR", () => {
+    const rnd = lcg(31);
+    const trials = Array.from({ length: 100 }, () => gauss(rnd) * 0.08);
+    const base = { observedSharpe: 0.2, n: 500, skew: 0, kurtosis: 3, trialSharpes: trials };
+    const plain = deflatedSharpe(base);
+    const lowBench = deflatedSharpe({ ...base, benchmarkSharpe: -0.5 });
+    assert.equal(lowBench.thresholdSharpe, plain.expectedMaxSharpe);
+    assert.equal(lowBench.dsr, plain.dsr);
+  });
 });
 
 describe("multipleTestingCorrection", () => {

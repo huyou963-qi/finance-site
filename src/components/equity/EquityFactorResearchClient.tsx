@@ -64,9 +64,20 @@ type ICSummary = {
 type LayeringSummary = {
   quantiles: number;
   meanGroupReturns: (number | null)[];
+  // 以下为复利口径字段；sessionStorage 里可能存着旧版报告，故可选
+  geomGroupReturns?: (number | null)[];
+  groupNav?: (number | null)[];
+  groupVol?: (number | null)[];
   meanSpread: number;
   spreadN: number;
   spreadIR: number;
+};
+type ICDecayPoint = {
+  horizon: number;
+  meanIC: number;
+  ir: number;
+  hitRate: number;
+  n: number;
 };
 type FactorResult = {
   factorKey: string;
@@ -80,6 +91,7 @@ type FactorResult = {
   icSummary: ICSummary;
   layering: LayeringSummary;
   neutralizedIcSummary: ICSummary;
+  icDecay?: ICDecayPoint[];
   icByRegime: Record<RegimeKey, ICSummary>;
 };
 type Report = {
@@ -407,12 +419,56 @@ export function EquityFactorResearchClient() {
                   groupReturns={focusedFactor.layering.meanGroupReturns}
                   quantiles={focusedFactor.quantiles}
                 />
+                {focusedFactor.layering.geomGroupReturns ? (
+                  <table className="mt-2 w-full text-xs">
+                    <thead className="text-fs-muted">
+                      <tr>
+                        <th className="py-1 text-left font-medium">组</th>
+                        <th className="py-1 text-right font-medium">算术月均</th>
+                        <th
+                          className="py-1 text-right font-medium"
+                          title="(∏(1+r))^(1/n)−1，含波动拖累，这才是实际能拿到的复利收益"
+                        >
+                          几何月均
+                        </th>
+                        <th className="py-1 text-right font-medium">累计净值</th>
+                        <th className="py-1 text-right font-medium">年化波动</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {focusedFactor.layering.meanGroupReturns.map((ar, g) => (
+                        <tr key={g} className="border-t border-fs-border">
+                          <td className="py-1 text-fs-muted">Q{g + 1}</td>
+                          <td className="py-1 text-right tabular-nums text-fs-muted">
+                            {signPct(ar)}
+                          </td>
+                          <td
+                            className={`py-1 text-right tabular-nums ${icClass(
+                              focusedFactor.layering.geomGroupReturns?.[g],
+                            )}`}
+                          >
+                            {signPct(focusedFactor.layering.geomGroupReturns?.[g])}
+                          </td>
+                          <td className="py-1 text-right tabular-nums text-fs-text">
+                            {num(focusedFactor.layering.groupNav?.[g], 2)}×
+                          </td>
+                          <td className="py-1 text-right tabular-nums text-fs-muted">
+                            {pct(focusedFactor.layering.groupVol?.[g], 1)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : null}
                 <p className="mt-1 text-xs text-fs-muted">
                   Q{focusedFactor.quantiles}−Q1 价差{" "}
                   <span className={icClass(focusedFactor.layering.meanSpread)}>
                     {signPct(focusedFactor.layering.meanSpread)}
                   </span>
                   （价差 IR {num(focusedFactor.layering.spreadIR)}）。价差符号与均值 IC 一致 = 单调有效。
+                  <br />
+                  柱图与「算术月均」不含波动拖累，会系统性高估高波动组；判断哪组真的更赚钱看
+                  <span className="text-fs-text">几何月均 / 累计净值</span>。
                 </p>
               </div>
               <div className="rounded-lg border border-fs-border p-4">
@@ -453,6 +509,56 @@ export function EquityFactorResearchClient() {
                   <p className="text-sm text-fs-muted">regime 未构建，运行 quant:build-regime 后可见。</p>
                 )}
               </div>
+
+              {focusedFactor.icDecay?.length ? (
+                <div className="rounded-lg border border-fs-border p-4 md:col-span-2">
+                  <h2 className="mb-2 text-sm font-medium text-fs-text">
+                    {focusedFactor.nameZh}：IC 衰减曲线（信号能撑多久）
+                  </h2>
+                  <table className="w-full text-sm">
+                    <thead className="text-xs text-fs-muted">
+                      <tr>
+                        <th className="py-1 text-left font-medium">前瞻期</th>
+                        <th className="py-1 text-right font-medium">均值 IC</th>
+                        <th className="py-1 text-right font-medium">相对 1 月</th>
+                        <th className="py-1 text-right font-medium">每期 IR</th>
+                        <th className="py-1 text-right font-medium">IC&gt;0 胜率</th>
+                        <th className="py-1 text-right font-medium">期数</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {focusedFactor.icDecay.map((d) => {
+                        const base = focusedFactor.icDecay?.[0]?.meanIC ?? 0;
+                        const ratio = base !== 0 ? d.meanIC / base : null;
+                        return (
+                          <tr key={d.horizon} className="border-t border-fs-border">
+                            <td className="py-1.5 text-fs-text">{d.horizon} 月</td>
+                            <td className={`py-1.5 text-right tabular-nums ${icClass(d.meanIC)}`}>
+                              {num(d.meanIC, 4)}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums text-fs-muted">
+                              {ratio == null ? "—" : `${(ratio * 100).toFixed(0)}%`}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums text-fs-text">
+                              {num(d.ir, 3)}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums text-fs-muted">
+                              {pct(d.hitRate, 1)}
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums text-fs-muted">{d.n}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <p className="mt-2 text-xs text-fs-muted">
+                    衰减慢（3/6 月 IC 仍接近 1 月）说明信号寿命长，月频调仓多付的换手成本大概率
+                    买不到额外收益，可考虑季频；衰减快则必须高频调仓。
+                    注意 horizon&gt;1 的收益窗口互相重叠，IR 被自相关放大，只可横向比形状，
+                    <span className="text-fs-text">不能当显著性用</span>。
+                  </p>
+                </div>
+              ) : null}
             </section>
           ) : null}
 

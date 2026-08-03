@@ -207,8 +207,20 @@ export function quantileSpread(
 
 export type LayeringSummary = {
   quantiles: number;
-  /** 各组次期收益的时间平均（index 0 = 最低因子值组）；某组从无样本 → null */
+  /**
+   * 各组次期收益的**算术**时间平均（index 0 = 最低因子值组）；某组从无样本 → null。
+   * 注意：算术均值不含波动拖累，高波动组会被系统性高估——判断哪一组真的更赚钱
+   * 必须看 `geomGroupReturns` / `groupNav`（复利口径），勿只看本列。
+   */
   meanGroupReturns: (number | null)[];
+  /** 各组次期收益的**几何**（复利）平均：(∏(1+r))^(1/n) − 1，含波动拖累 */
+  geomGroupReturns: (number | null)[];
+  /** 各组累计净值倍数（起点 1，逐期复利）；跌破 0 记 0 */
+  groupNav: (number | null)[];
+  /** 各组次期收益的年化波动（月频 × √12），用于解释算术/几何之差 */
+  groupVol: (number | null)[];
+  /** 各组有效期数 */
+  groupN: number[];
   /** Q_top − Q_bottom 逐期价差序列 */
   perPeriodSpread: (number | null)[];
   /** 逐期价差的时间平均 */
@@ -232,6 +244,8 @@ export function summarizeLayering(
 ): LayeringSummary {
   const groupSums = Array.from({ length: q }, () => 0);
   const groupCounts = Array.from({ length: q }, () => 0);
+  /** 逐组收益样本，供几何均值/波动（复利口径）二次汇总 */
+  const groupSeries = Array.from({ length: q }, () => [] as number[]);
   const perPeriodSpread: (number | null)[] = [];
   for (const p of periods) {
     const groups = quantileGroupReturns(p.factorValues, p.fwdReturns, q);
@@ -240,6 +254,7 @@ export function summarizeLayering(
       if (v != null && Number.isFinite(v)) {
         groupSums[g] += v;
         groupCounts[g] += 1;
+        groupSeries[g]!.push(v);
       }
     }
     const top = groups[q - 1];
@@ -249,6 +264,13 @@ export function summarizeLayering(
   const meanGroupReturns = groupSums.map((s, g) =>
     groupCounts[g]! > 0 ? s / groupCounts[g]! : null,
   );
+  const groupNav = groupSeries.map((rs) => (rs.length > 0 ? compoundNav(rs) : null));
+  const geomGroupReturns = groupSeries.map((rs, g) => {
+    const nav = groupNav[g];
+    if (nav == null || rs.length === 0) return null;
+    return nav > 0 ? nav ** (1 / rs.length) - 1 : -1;
+  });
+  const groupVol = groupSeries.map((rs) => (rs.length > 1 ? sampleStd(rs) * Math.sqrt(12) : null));
   const spreads = perPeriodSpread.filter((x): x is number => x != null && Number.isFinite(x));
   const spreadN = spreads.length;
   const meanSpread = spreadN > 0 ? spreads.reduce((s, v) => s + v, 0) / spreadN : 0;
@@ -261,9 +283,32 @@ export function summarizeLayering(
   return {
     quantiles: q,
     meanGroupReturns,
+    geomGroupReturns,
+    groupNav,
+    groupVol,
+    groupN: groupCounts,
     perPeriodSpread,
     meanSpread,
     spreadN,
     spreadIR,
   };
+}
+
+/** 逐期复利累乘；任一期跌到 −100% 及以下则净值归零（不再恢复） */
+function compoundNav(returns: readonly number[]): number {
+  let nav = 1;
+  for (const r of returns) {
+    const g = 1 + r;
+    if (!(g > 0)) return 0;
+    nav *= g;
+  }
+  return nav;
+}
+
+/** 样本标准差（n−1） */
+function sampleStd(xs: readonly number[]): number {
+  const n = xs.length;
+  if (n < 2) return 0;
+  const m = xs.reduce((s, v) => s + v, 0) / n;
+  return Math.sqrt(xs.reduce((s, v) => s + (v - m) * (v - m), 0) / (n - 1));
 }

@@ -81,6 +81,36 @@ describe("buildRebalanceCalendar", () => {
     );
     assert.deepEqual(out, ["2020-02-28", "2020-03-31"]);
   });
+
+  it("quarterly 每 3 个月取一期，首期与月频一致", () => {
+    const months = Array.from({ length: 12 }, (_, i) =>
+      `2020-${String(i + 1).padStart(2, "0")}-28`,
+    );
+    const out = buildRebalanceCalendar(months, { frequency: "quarterly" });
+    assert.deepEqual(out, ["2020-01-28", "2020-04-28", "2020-07-28", "2020-10-28"]);
+  });
+
+  it("抽稀发生在裁剪之后（相位跟随 start，两次回测可比）", () => {
+    const months = Array.from({ length: 12 }, (_, i) =>
+      `2020-${String(i + 1).padStart(2, "0")}-28`,
+    );
+    const out = buildRebalanceCalendar(months, { start: "2020-02-01", frequency: "quarterly" });
+    assert.equal(out[0], "2020-02-28");
+    assert.deepEqual(out, ["2020-02-28", "2020-05-28", "2020-08-28", "2020-11-28"]);
+  });
+
+  it("semiannual / annual 步长正确", () => {
+    const months = Array.from({ length: 24 }, (_, i) => {
+      const y = 2020 + Math.floor(i / 12);
+      const m = (i % 12) + 1;
+      return `${y}-${String(m).padStart(2, "0")}-28`;
+    });
+    assert.equal(buildRebalanceCalendar(months, { frequency: "semiannual" }).length, 4);
+    assert.deepEqual(buildRebalanceCalendar(months, { frequency: "annual" }), [
+      "2020-01-28",
+      "2021-01-28",
+    ]);
+  });
 });
 
 describe("strategyDataFloor", () => {
@@ -297,6 +327,52 @@ describe("computeMetrics", () => {
     assert.equal(m.cagr, 0);
     assert.equal(m.monthlyWinRate, null);
   });
+
+  it("策略与基准逐日同步 → 跟踪误差 0、IR=null、累计超额 0", () => {
+    const navPts = [
+      { date: "2024-01-01", nav: 1, benchNav: 2 },
+      { date: "2024-01-02", nav: 1.1, benchNav: 2.2 },
+      { date: "2024-01-03", nav: 1.32, benchNav: 2.64 },
+      { date: "2024-01-04", nav: 1.188, benchNav: 2.376 },
+    ];
+    const m = computeMetrics(navPts, 0);
+    assert.ok(m.trackingError != null && m.trackingError < 1e-12);
+    assert.equal(m.informationRatio, null);
+    assert.ok(m.cumulativeExcess != null && Math.abs(m.cumulativeExcess) < 1e-12);
+  });
+
+  it("超额恒定（TE 只剩浮点噪声）时 IR 记 null，不产出 1e15 的假值", () => {
+    // 策略每日 +2%，基准每日 +1%（超额恒定 → TE=0）
+    const steady = Array.from({ length: 10 }, (_, i) => ({
+      date: `2024-01-${String(i + 1).padStart(2, "0")}`,
+      nav: Math.pow(1.02, i),
+      benchNav: Math.pow(1.01, i),
+    }));
+    const ms = computeMetrics(steady, 0);
+    assert.equal(ms.informationRatio, null);
+    assert.ok(ms.cumulativeExcess != null && ms.cumulativeExcess > 0);
+
+    // 加入扰动：超额均值仍为正，IR 应为正的有限数
+    const noisy = steady.map((p, i) => ({ ...p, nav: p.nav * (i % 2 === 0 ? 1.001 : 0.999) }));
+    const mn = computeMetrics(noisy, 0);
+    assert.ok(mn.trackingError != null && mn.trackingError > 0);
+    assert.ok(mn.informationRatio != null && Number.isFinite(mn.informationRatio));
+    assert.ok(mn.informationRatio > 0);
+  });
+
+  it("无基准 → 跟踪误差/IR/累计超额均为 null", () => {
+    const m = computeMetrics(
+      [
+        { date: "2024-01-01", nav: 1, benchNav: null },
+        { date: "2024-01-02", nav: 1.1, benchNav: null },
+        { date: "2024-01-03", nav: 1.2, benchNav: null },
+      ],
+      0,
+    );
+    assert.equal(m.trackingError, null);
+    assert.equal(m.informationRatio, null);
+    assert.equal(m.cumulativeExcess, null);
+  });
 });
 
 describe("regimeFilter — regime 条件化持仓（WS4）", () => {
@@ -347,6 +423,62 @@ describe("regimeFilter — regime 条件化持仓（WS4）", () => {
     const selections: RebalanceSelection[] = [{ ...sel(0, ["AA"]), regime: null }];
     const res = runBacktest(ds, selections, params({ regimeFilter: ["recovery"] }));
     assert.equal(res.periods[0]!.regimeBlocked, true);
+  });
+
+  it("默认 exposure：命中=1，拦截=0（与二元开关行为一致）", () => {
+    const ds = dataset(prices, { calendarDays: 20 });
+    const hit = runBacktest(ds, [{ ...sel(0, ["AA"]), regime: "recovery" }], params({ regimeFilter: ["recovery"] }));
+    assert.equal(hit.periods[0]!.exposure, 1);
+    const miss = runBacktest(ds, [{ ...sel(0, ["AA"]), regime: "contraction" }], params({ regimeFilter: ["recovery"] }));
+    assert.equal(miss.periods[0]!.exposure, 0);
+  });
+});
+
+describe("regimeBlockedExposure — 连续仓位缩放", () => {
+  // AA 每日 ×1.05；拦截期半仓 → NAV 涨幅应恰为满仓涨幅的一半（线性，单期无再平衡）
+  const prices = {
+    AA: series(0, Array.from({ length: 10 }, (_, i) => 100 * Math.pow(1.05, i))),
+  };
+
+  it("拦截期按比例减仓而非清仓，剩余为现金", () => {
+    const ds = dataset(prices, { calendarDays: 10 });
+    const selections: RebalanceSelection[] = [{ ...sel(0, ["AA"]), regime: "contraction" }];
+    const res = runBacktest(
+      ds,
+      selections,
+      params({ regimeFilter: ["recovery"], regimeBlockedExposure: 0.5 }),
+    );
+    assert.equal(res.periods[0]!.regimeBlocked, true);
+    assert.equal(res.periods[0]!.exposure, 0.5);
+    assert.equal(res.periods[0]!.held, 1);
+    // 入场 day1（px=105），末日 day9（px=105×1.05^8）；半仓 → NAV = 0.5 + 0.5×比值
+    const ratio = Math.pow(1.05, 8);
+    const expected = 0.5 + 0.5 * ratio;
+    assert.ok(Math.abs(res.nav[res.nav.length - 1]!.nav - expected) < 1e-9);
+    // 持仓权重记的是实际 NAV 权重
+    assert.ok(Math.abs(res.positions[0]!.weight - 0.5) < 1e-12);
+  });
+
+  it("exposure=1 时拦截等于不拦截（连续参数的边界退化）", () => {
+    const ds = dataset(prices, { calendarDays: 10 });
+    const blocked = runBacktest(
+      ds,
+      [{ ...sel(0, ["AA"]), regime: "contraction" }],
+      params({ regimeFilter: ["recovery"], regimeBlockedExposure: 1 }),
+    );
+    const unfiltered = runBacktest(ds, [{ ...sel(0, ["AA"]), regime: "contraction" }], params());
+    assert.equal(
+      blocked.nav[blocked.nav.length - 1]!.nav,
+      unfiltered.nav[unfiltered.nav.length - 1]!.nav,
+    );
+  });
+
+  it("越界比例被拒绝", () => {
+    const ds = dataset(prices, { calendarDays: 10 });
+    assert.throws(
+      () => runBacktest(ds, [sel(0, ["AA"])], params({ regimeBlockedExposure: 1.5 })),
+      /regimeBlockedExposure/,
+    );
   });
 });
 
