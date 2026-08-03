@@ -61,6 +61,8 @@ pm2 restart finance-site
 
 `data:apply` 传 `--skip-migrate`，因前一步已单独跑过 `db:migrate`。两步失败**只打日志、不阻断重启**（末尾 `curl` 健康检查兜底）；若新指标无数据，请 SSH 查 deploy 日志并手动 `npm run data:apply`。
 
+**quant 平台衍生表（如 `macro_regime`）**：`data:apply` 只管本节说的 FRED 宏观数据，不包含 quant 平台的因子/regime 等计算表。`db:migrate` 之后紧跟一步 `npm run quant:build-regime`——它是纯本地计算（读库里已有的 `factor_snapshot` + 宏观数据 upsert 写回，不发外部请求），幂等、代价低，放这里保证代码上线后 regime 数据自动跟上。`factor_snapshot` 本身走的是另一条手动链路（见下节「为什么不用 pg_dump」之前的因子云同步），云端若还没导入最新 `factor_snapshot`，这步会安全地算出空网格，不报错，等因子导入后下次部署自动补齐。
+
 **全链路**：`git push main` → Actions 部署 → 生产库自动落库 → worker 按 `nextRunAt` 灌满剩余观测。
 
 **前置条件**：服务器 `/opt/finance-site/.env.local` 需有 `DATABASE_URL` + `FRED_API_KEY`（worker 依赖）。

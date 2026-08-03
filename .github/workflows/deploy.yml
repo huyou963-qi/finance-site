@@ -100,6 +100,10 @@ jobs:
           # 非致命：数据步骤失败只告警，不阻断应用重启（末尾健康检查兜底）。观测由 worker 自动回填。
           npm run db:migrate || echo "[deploy] db:migrate 失败，schema 未应用，请查日志"
           npm run data:apply -- --skip-migrate || echo "[deploy] data:apply 有失败项，应用仍将重启，请查日志"
+          # quant 平台 regime 表：纯本地计算（读库里已有的 factor_snapshot + 宏观数据，无外部抓取），
+          # 幂等 upsert，之前从未接入任何自动化链路导致生产库长期为空，故补在这里。
+          # factor_snapshot 云端为空时该脚本网格也为空，安全跳过，不会报错。
+          npm run quant:build-regime || echo "[deploy] quant:build-regime 失败，regime 数据未更新，请查日志"
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start
           pm2 save
           sleep 5
