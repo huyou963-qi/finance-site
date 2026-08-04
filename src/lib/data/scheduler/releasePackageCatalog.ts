@@ -435,6 +435,29 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       instrumentCodePatterns: ["ism_svc_us_svc_*"],
     },
   }),
+  pkg("cn.nbs.pmi", "中国采购经理指数", {
+    labelEn: "China Purchasing Managers Index",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "MONTHLY",
+    sortOrder: 132,
+    calendar: {
+      countryCodes: ["CN"],
+      keywords: [
+        "china manufacturing pmi",
+        "chinese manufacturing pmi",
+        "nbs manufacturing pmi",
+      ],
+      excludeKeywords: ["caixin", "s&p global", "flash"],
+    },
+    members: {
+      instrumentCodes: [
+        "chov_c05_mfg_pmi",
+        "chov_c06_nm_pmi",
+      ],
+      instrumentCodePatterns: ["nbs_cn_mfg_*", "nbs_cn_non_mfg_*"],
+    },
+  }),
   pkg("us.umich.sentiment", "密歇根消费者信心", {
     granularity: "MONTHLY",
     sortOrder: 140,

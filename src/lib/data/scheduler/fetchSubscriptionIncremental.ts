@@ -78,6 +78,14 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "nbs_pmi") {
+        const { fetchNbsPmiIncremental } = await import("./adapters/nbsPmiAdapter");
+        return fetchNbsPmiIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }

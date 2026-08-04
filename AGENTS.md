@@ -136,6 +136,8 @@ npm run db:studio        # Prisma Studio
 「美国对外部门与美元」：`data:seed-external-dollar` / `data:verify-external-dollar`（加 `--db`）；文档 [docs/US_EXTERNAL_DOLLAR_ANALYSIS.md](./docs/US_EXTERNAL_DOLLAR_ANALYSIS.md)。
 「美国制造业与库存周期」：`data:seed-industry-inventory` / `data:verify-industry-inventory`（加 `--db`）；文档 [docs/US_INDUSTRY_INVENTORY_ANALYSIS.md](./docs/US_INDUSTRY_INVENTORY_ANALYSIS.md)。
 
+「中国国家统计局 PMI」：`data:seed-nbs-pmi` → `data:sync-nbs-pmi` / `data:verify-nbs-pmi`（加 `--db`）；制造业、非制造业及分项走新版国家数据 JSON 全历史 + 官方月报 Excel 首发，Spec [docs/specs/cn-nbs-pmi.spec.md](./docs/specs/cn-nbs-pmi.spec.md)。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

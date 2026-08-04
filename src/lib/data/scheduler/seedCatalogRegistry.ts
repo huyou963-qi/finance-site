@@ -21,6 +21,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   monetary: { script: "seed-monetary", labelZh: "美国货币政策与金融条件" },
   housing: { script: "seed-housing", labelZh: "美国住房与地产" },
   "nyfed-recession": { script: "seed-nyfed-recession", labelZh: "NY Fed 衰退概率（抓取）" },
+  "nbs-pmi": { script: "seed-nbs-pmi", labelZh: "中国国家统计局 PMI（官方 Excel）" },
   "cycle-risk": { script: "seed-cycle-risk", labelZh: "美国增长动能与衰退风险" },
   "consumer-balance": { script: "seed-consumer-balance", labelZh: "美国消费与居民资产负债" },
   "external-dollar": { script: "seed-external-dollar", labelZh: "美国对外部门与美元" },
@@ -47,6 +48,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   monetary: { script: "verify-monetary", labelZh: "货币政策与金融条件自检", verifyNeedsDb: true },
   housing: { script: "verify-housing", labelZh: "住房与地产自检", verifyNeedsDb: true },
   "nyfed-recession": { script: "verify-nyfed-recession", labelZh: "NY Fed 衰退概率自检", verifyNeedsDb: true },
+  "nbs-pmi": { script: "verify-nbs-pmi", labelZh: "中国国家统计局 PMI 自检", verifyNeedsDb: true },
   "cycle-risk": { script: "verify-cycle-risk", labelZh: "增长动能与衰退风险自检", verifyNeedsDb: true },
   "consumer-balance": {
     script: "verify-consumer-balance",
