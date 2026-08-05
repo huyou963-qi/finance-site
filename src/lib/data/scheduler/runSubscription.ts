@@ -1,5 +1,6 @@
 import {
   FetchRunStatus,
+  SourceAdapterKind,
   type DataSubscription,
   type DataSource,
   type PrismaClient,
@@ -27,6 +28,7 @@ import {
   effectiveReleaseRule,
   parsePackageScheduleState,
 } from "./releasePackageStore";
+import { isCatalogKeyExcluded } from "../catalogExclusions";
 
 export type SubscriptionWithRelations = DataSubscription & {
   source: DataSource;
@@ -50,6 +52,16 @@ export async function runDataSubscription(
   options?: { force?: boolean; skipCalendarRefresh?: boolean },
 ): Promise<SubscriptionRunResult> {
   const now = new Date();
+  // 目录树中的“彻底删除”会留下 tombstone；即使未来 seed 又写回订阅，
+  // 所有调度入口最终都会经过这里，因此不会重新拉取已删除指标。
+  if (
+    await isCatalogKeyExcluded(prisma, [
+      `mds:${sub.instrument.code}`,
+      `fred:${sub.sourceSeriesKey}`,
+    ])
+  ) {
+    return { status: "skipped", rowsUpserted: 0, rowsSkipped: 0, error: "catalog_deleted" };
+  }
   if (!sub.enabled) {
     return { status: "skipped", rowsUpserted: 0, rowsSkipped: 0, error: "disabled" };
   }
@@ -114,7 +126,13 @@ export async function runDataSubscription(
   }
 
   try {
-    const transform = fredTransformForInstrument(sub.instrument.code);
+    // `_yoy` 是跨来源的常用命名；只有 FRED 水平序列需要在调度器内二次计算。
+    // 国家统计局等来源已直接提供同比，若仍套用此变换会把正确百分比污染为
+    // “同比的同比”。
+    const transform =
+      sub.source.adapterKind === SourceAdapterKind.FRED_API
+        ? fredTransformForInstrument(sub.instrument.code)
+        : "none";
     const { fetchStart, persistStart } = observationWindowForFetch(
       sub.lastObsDate,
       sub.revisionLookback,

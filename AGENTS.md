@@ -138,6 +138,18 @@ npm run db:studio        # Prisma Studio
 
 「中国国家统计局 PMI」：`data:seed-nbs-pmi` → `data:sync-nbs-pmi` / `data:verify-nbs-pmi`（加 `--db`）；制造业、非制造业及分项走新版国家数据 JSON 全历史 + 官方月报 Excel 首发，Spec [docs/specs/cn-nbs-pmi.spec.md](./docs/specs/cn-nbs-pmi.spec.md)。
 
+「中国国家统计局 PPI」：`data:seed-nbs-ppi` → `data:sync-nbs-ppi` / `data:verify-nbs-ppi -- --db`；总项、生产/生活资料及 41 个工业门类走国家数据 JSON，全历史按基期分段回填；上年同月=100 指数同步保存同比，环比取上月=100。
+
+「中国国家统计局规模以上工业增加值」：`data:seed-nbs-industrial` → `data:sync-nbs-industrial` / `data:verify-nbs-industrial -- --db`；总项、经济类型、三大门类与 41 个行业回填当月/累计同比，总项环比取月度发布稿（官方未发布分项环比）。
+
+「中国国家统计局 GDP」：`data:seed-nbs-gdp` → `data:sync-nbs-gdp` / `data:verify-nbs-gdp -- --db`；季度生产法名义值、实际同比、总项实际环比与三大需求贡献率，年度生产法与支出法名义值及实际同比；仅保留国家统计局公开口径，不推算分项环比。
+
+「中国国家统计局固定资产投资」：`data:seed-nbs-fai` → `data:sync-nbs-fai` / `data:verify-nbs-fai -- --db`；月度累计同比及行业、资金、构成、注册类型分项，年度名义值/同比，月度发布稿总项季调环比；1 月免报，官方未发布的分项环比不推算。
+
+「中国财政部财政收支」：`data:seed-mof-fiscal` → `data:sync-mof-fiscal` / `data:verify-mof-fiscal -- --db`；一般公共预算、政府性基金的累计收入/支出及分项累计额、同比，历史来自国库司月报归档；季度、年度对应月末累计口径，不推算单月值或环比。
+
+「中国国家统计局 CPI」：`data:seed-nbs-cpi` → `data:sync-nbs-cpi` / `data:verify-nbs-cpi`（加 `--db`）；全国总项、核心项及八大类的指数、同比、环比走国家数据 UUID 接口全历史 + 官方月报 Excel 首发。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

@@ -112,6 +112,78 @@ function dedupeKeys(keys: string[]): string[] {
   return out;
 }
 
+/**
+ * 目录展示层可使用 `fred:<id>::yoy` 等变体键；持久化布局始终绑定原始指标键。
+ * 这样编辑器可直接编辑宏观页正在展示的树，而布局仍能在展示转换之前应用。
+ */
+function storageCatalogKey(key: string): string {
+  const variantAt = key.indexOf("::");
+  return variantAt >= 0 ? key.slice(0, variantAt) : key;
+}
+
+/**
+ * 将管理员提交的布局收敛为当前基础目录的完整、无重复布局。
+ *
+ * 数据源新增/删除指标时，浏览器可能仍持有旧布局。保存时不能让这种旧布局
+ * 丢失新指标：所有未被显式放置的现存指标都会进入其国家的「未分配」。
+ */
+export function reconcileCatalogLayoutWithBase(
+  layout: CatalogLayoutDocument,
+  base: UnifiedCatalogCountry[],
+): CatalogLayoutDocument {
+  const itemsByCountry = collectItemsByCountry(base);
+  const layoutByCountry = new Map(layout.countries.map((country) => [country.countryCode, country]));
+  const countryCodes = [
+    ...layout.countries.map((country) => country.countryCode),
+    ...base.map((country) => country.code),
+  ].filter((code, index, all) => all.indexOf(code) === index);
+
+  const countries: CatalogLayoutCountry[] = countryCodes.map((countryCode) => {
+    const available = itemsByCountry.get(countryCode) ?? new Map<string, UnifiedCatalogItem>();
+    const submitted = layoutByCountry.get(countryCode);
+    const used = new Set<string>();
+    const categories = (submitted?.categories ?? []).map((category) => {
+      const pick = (keys: string[]) =>
+        dedupeKeys(keys.map(storageCatalogKey)).filter((key) => {
+          if (used.has(key) || !available.has(key)) return false;
+          used.add(key);
+          return true;
+        });
+      return {
+        ...category,
+        itemKeys: pick(category.itemKeys),
+        subgroups: category.subgroups.map((subgroup) => ({
+          ...subgroup,
+          itemKeys: pick(subgroup.itemKeys),
+        })),
+      };
+    });
+
+    const missing = [...available.keys()].filter((key) => !used.has(key));
+    if (missing.length > 0) {
+      const unassignedIndex = categories.findIndex((category) => category.name === UNASSIGNED_CATEGORY_NAME);
+      if (unassignedIndex >= 0) {
+        const category = categories[unassignedIndex]!;
+        categories[unassignedIndex] = {
+          ...category,
+          itemKeys: [...category.itemKeys, ...missing],
+        };
+      } else {
+        categories.push({
+          id: randomUUID(),
+          name: UNASSIGNED_CATEGORY_NAME,
+          itemKeys: missing,
+          subgroups: [],
+        });
+      }
+    }
+
+    return { countryCode, categories };
+  });
+
+  return sortCatalogLayoutDocument({ version: CATALOG_LAYOUT_VERSION, countries });
+}
+
 function pruneEmptyGroups(countries: UnifiedCatalogCountry[]): UnifiedCatalogCountry[] {
   return countries
     .map((country) => ({

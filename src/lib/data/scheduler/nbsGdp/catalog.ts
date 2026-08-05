@@ -1,0 +1,59 @@
+/** 国家统计局 GDP：季度生产法 / 年度生产法与支出法。只接入官方公开口径。 */
+export const NBS_GDP_API_BASE = "https://data.stats.gov.cn/dg/website/publicrelease/web/external";
+export const NBS_GDP_DATA_URL = "https://data.stats.gov.cn/dg/website/page.html#/pc/national/quarterData";
+export const NBS_GDP_RELEASE_URL = "https://www.stats.gov.cn/xxgk/sjfb/zxfb2020/";
+export const NBS_GDP_SYNC_SCRIPT = "scripts/data-worker/sync-nbs-gdp.ts";
+export const NBS_GDP_ROOT_ID = "69c574ab128a44e595cc0b24502b771b";
+
+export type GdpFrequency = "quarterly" | "annual";
+export type GdpTransform = "none" | "index_minus_100";
+export type GdpMeasure = "nominal" | "nominal_cumulative" | "real" | "real_cumulative" | "real_yoy" | "real_cumulative_yoy" | "mom" | "contribution" | "contribution_cumulative";
+export type GdpComponent = { key: string; name: string; group: "production" | "expenditure" };
+export type GdpSeries = { code: string; component: GdpComponent; measure: GdpMeasure; frequency: GdpFrequency; unit: "亿元" | "%"; cid: string; indicatorId: string; transform: GdpTransform };
+
+export const NBS_GDP_SOURCE = { id: "nbs-gdp", agencyId: "cn-nbs", name: "国家统计局中国国内生产总值", baseUrl: NBS_GDP_DATA_URL, termsUrl: "https://www.stats.gov.cn/english/nbs/200701/t20070104_59236.html" } as const;
+
+const qNominalCid = "28d936104e304aa191e338eb82b6dc09";
+const qRealCid = "b676631776424600bdae363df047559f";
+const qIndexCid = "f9b694c9b79e4ce5958bc88c6410fa67";
+const qMomCid = "2b0aa179980e41b8b636037ebae01d91";
+const qContributionCid = "62cd73e3fcb4492fab8e998ca3a7dc5b";
+const annualGdpCid = "f7fd25aaad184414875632cf2327da60";
+const annualIndustryCid = "eb1beae0a5d9480ba195a624ec7ada43";
+const annualIndexCid = "489888799f8d470786bc01a4057efc38";
+const annualIndustryIndexCid = "6470d8a1eaf848dcacb1ee8a65722f9c";
+const annualExpenditureCid = "0bb77c6247864057968547a9ea8b1134";
+
+const production = (key: string, name: string): GdpComponent => ({ key, name, group: "production" });
+const expenditure = (key: string, name: string): GdpComponent => ({ key, name, group: "expenditure" });
+const p = {
+  headline: production("headline", "国内生产总值"), primary: production("primary", "第一产业增加值"), secondary: production("secondary", "第二产业增加值"), tertiary: production("tertiary", "第三产业增加值"),
+  agriculture: production("agriculture", "农林牧渔业增加值"), industry: production("industry", "工业增加值"), manufacturing: production("manufacturing", "制造业增加值"), construction: production("construction", "建筑业增加值"), wholesale_retail: production("wholesale_retail", "批发和零售业增加值"), transport: production("transport", "交通运输、仓储和邮政业增加值"), accommodation: production("accommodation", "住宿和餐饮业增加值"), finance: production("finance", "金融业增加值"), real_estate: production("real_estate", "房地产业增加值"), information: production("information", "信息传输、软件和信息技术服务业增加值"), leasing: production("leasing", "租赁和商务服务业增加值"), other: production("other", "其他行业增加值"),
+} as const;
+const e = {
+  headline: expenditure("expenditure_gdp", "支出法国内生产总值"), final_consumption: expenditure("final_consumption", "最终消费支出"), household_consumption: expenditure("household_consumption", "居民消费支出"), urban_household_consumption: expenditure("urban_household_consumption", "城镇居民消费支出"), rural_household_consumption: expenditure("rural_household_consumption", "农村居民消费支出"), government_consumption: expenditure("government_consumption", "政府消费支出"), capital_formation: expenditure("capital_formation", "资本形成总额"), fixed_capital: expenditure("fixed_capital", "固定资本形成总额"), inventory_change: expenditure("inventory_change", "存货变动"), net_exports: expenditure("net_exports", "货物和服务净出口"),
+} as const;
+export const NBS_GDP_COMPONENTS: readonly GdpComponent[] = [...Object.values(p), ...Object.values(e)];
+
+const code = (frequency: GdpFrequency, component: GdpComponent, measure: GdpMeasure) => `nbs_cn_gdp_${frequency === "quarterly" ? "q" : "a"}_${component.key}_${measure.replace("nominal_cumulative", "nomcum").replace("real_cumulative_yoy", "reaccyoy").replace("real_cumulative", "realcum").replace("contribution_cumulative", "contribcum")}`;
+const series = (frequency: GdpFrequency, component: GdpComponent, measure: GdpMeasure, unit: GdpSeries["unit"], cid: string, indicatorId: string, transform: GdpTransform = "none"): GdpSeries => ({ code: code(frequency, component, measure), component, measure, frequency, unit, cid, indicatorId, transform });
+
+const qNominal: readonly [GdpComponent, string, string][] = [
+  [p.headline, "d22612f09aeb4241bc557ef0ac61b3ba", "8c5fab362d124fa7b91af833b3bd7397"], [p.primary, "a26bbeef7cac49ef9162c2411e0b211e", "36fe1057b5bb4839aca4614b7f2ab0d5"], [p.secondary, "4c9eec4f1cdd4c138ed3a25c9cb9cbaf", "a7c4cc22c1e240aaa7573110ce71d5a4"], [p.tertiary, "5f9d870499024341862a97826d66ec3d", "e908d8dbcccf47c498075a2abd6fa235"], [p.agriculture, "66e748d902e949b5bb343b82d96bdadb", "3da82fae3fa0410ab0c33735c4f8602a"], [p.industry, "035fc18c660842deb1d392b70e334be3", "ec5475316f6e4f06871833c90edd5fad"], [p.manufacturing, "ee1888d32d84452e871760589bd27b05", "4bc9692b5b5a4d0f8dcf4d1f2ca64506"], [p.construction, "d5496e884ff04aa287cd8d3431b80476", "deada080429e4e65945c2f571eeb0daa"], [p.wholesale_retail, "671aa8d9f85d420585a7677520087a88", "256f8b49a24f4f4b9b9476e006e16220"], [p.transport, "3323aa992a2d4c31bcb815b1f1668d12", "02f29f8ac9bc4ee3aeb6607c7f11c88c"], [p.accommodation, "11c18b1ada6845e3aacfed8e0af5b224", "b4967f4295e14293b3f2562a640a4f37"], [p.finance, "b244a032e2f1417f8825463dbbe6ba34", "992a89e242954b53956f4ab1df1ebdac"], [p.real_estate, "6ea65de52b6b41e8837497a69782c603", "c576815190f1403d9ecc59e188977b61"], [p.information, "b46978955565481eb801c97029bbc779", "73b8ac2e73f749e9a56351bf18e78521"], [p.leasing, "6c2faca79747406ea31a22b2774aeb03", "97067c59b8144940b4373d082d722785"], [p.other, "870c261fc85f4b06a9a549ab415b1628", "1df4664bd38f41dd97ddeb0763341ae5"],
+];
+const qIndex: readonly [GdpComponent, string, string][] = [
+  [p.headline, "170e7f00f8c24ede863c0526b42ae81f", "f5b82b2b6ad345a29a337d256a9d5ded"], [p.primary, "6be0a577e9ca470c9b5bb2a20805dd97", "45145645b2b54dd5a31a6e9c73e89baa"], [p.secondary, "db8aa034185e4b09a345bf4bb36be0eb", "a0058ccaf3424e3ba7179452bafca425"], [p.tertiary, "bb45bc3960bd443caa67eb3b0118f123", "4ff4c250f58043a1b39a1fe978ad1317"], [p.agriculture, "7209b3f1308644ca808b2879c56af318", "dcecd2e991f3479eb72a954e13e7a07a"], [p.industry, "3b072468175048f188437fd909939b5a", "938e67d24bcb484a9c68f1238baade99"], [p.manufacturing, "1a9c5f486ee848138ddf4189b46f1830", "74dc0a5a68a14acd92d332d734d40e88"], [p.construction, "5ff57944a0ea4930a045d9cefcd01fa7", "5f131a5a84434255a7f38c20fe8cd3d4"], [p.wholesale_retail, "a03a6de5c3d9491f8fc532a464b02f17", "70351748209843a7aa920fc2e0c1d34e"], [p.transport, "bff83f21b7954f5bb93bf1152721a7e8", "b76043a078c74aa4950dd4fdc32d3fe5"], [p.accommodation, "8944f69e0d0d4682b40aeebe3380f60a", "ff5b9deee6f643f89fcdc508bf3e7c7a"], [p.finance, "a3e2ff27f77c480a809020cd02b465f8", "3042be425f7c49ad8b174ca5a464fbd3"], [p.real_estate, "1966970d83ce4c6092e210fec22062e5", "62b3fba571da47ce9a69ef3e9760c2fa"], [p.information, "060c7617bdd846ae917d1b8738ff6a70", "8f37220a367f435d929e19ddc404f769"], [p.leasing, "95cdc28485e741ebaf630dce16cd1b0d", "0128a96dc7ab4ad99f65ee50fc5fbc9a"], [p.other, "4129395b1b0346e2b81ac79a035b55ba", "acfb99d9d1e34b42bba1fc3183fee2f3"],
+];
+
+export const NBS_GDP_SERIES: readonly GdpSeries[] = [
+  ...qNominal.flatMap(([component, current, cumulative]) => [series("quarterly", component, "nominal", "亿元", qNominalCid, current), series("quarterly", component, "nominal_cumulative", "亿元", qNominalCid, cumulative)]),
+  ...([[p.headline, "b704155cd926437b8ee9c65fe058210d", "e33efbac437d4d10b5ccae6ad9d923b9"], [p.primary, "afcfe0040c0447769b60556d799ab65c", "4c98f1249da0469e83e34847b74fbc25"], [p.secondary, "29075512c6414477a0ec48a9b74ba053", "151f79a5233d430bbfbff37946ccd546"], [p.tertiary, "8ef83df0eec94d9e8410002fff7a9b01", "0f66062b8f7f4a06b7c4ec83afd04a0e"]] as const).flatMap(([component, current, cumulative]) => [series("quarterly", component, "real", "亿元", qRealCid, current), series("quarterly", component, "real_cumulative", "亿元", qRealCid, cumulative)]),
+  ...qIndex.flatMap(([component, current, cumulative]) => [series("quarterly", component, "real_yoy", "%", qIndexCid, current, "index_minus_100"), series("quarterly", component, "real_cumulative_yoy", "%", qIndexCid, cumulative, "index_minus_100")]),
+  series("quarterly", p.headline, "mom", "%", qMomCid, "88bcaf76058e49b08a45b14a204b2d3d"),
+  ...([[e.final_consumption, "ce94d6319c5e4a55b271c6a0a0f671c2", "74879952748d45eeb193c165c00196a8"], [e.capital_formation, "cd5cb165190b4a9ab8f2f5674c58618b", "a5eb634225de4c24a2827dc8ba979e19"], [e.net_exports, "8df845d93daa42359314690b9721de19", "35271309c7754640a997fdb316f43208"]] as const).flatMap(([component, current, cumulative]) => [series("quarterly", component, "contribution", "%", qContributionCid, current), series("quarterly", component, "contribution_cumulative", "%", qContributionCid, cumulative)]),
+  ...([[p.headline, "7dc6a2ee6c614960b7059991e0cc4d96", annualGdpCid], [p.primary, "fb00df5cde1c41509e681eff1c10f387", annualGdpCid], [p.secondary, "95f6ceb2e6d147da83c3c5ad6a2e8bde", annualGdpCid], [p.tertiary, "30966f1491de4744b6e21b76867e983f", annualGdpCid], [p.agriculture, "3b7f6244aef34f60bd5bafeb9d22b3a9", annualIndustryCid], [p.industry, "1e344d8fa0d040f88e80b5bf0b56dbac", annualIndustryCid], [p.construction, "ac2f5d90af284afeb0f251d05d2a70dd", annualIndustryCid], [p.wholesale_retail, "51eeed275874433db95b87c14e09486b", annualIndustryCid], [p.transport, "21bbcab8b77a4a539a01064bd1afbcf1", annualIndustryCid], [p.accommodation, "07edb41560124b9dac1e852a045d9dcf", annualIndustryCid], [p.finance, "f0186dd9ee6c4330873255e999380c79", annualIndustryCid], [p.real_estate, "3a23ed33b9774681870cb3e654ebd64d", annualIndustryCid], [p.other, "4301b7210bf347e6870724a501fbf244", annualIndustryCid]] as const).map(([component, indicatorId, cid]) => series("annual", component, "nominal", "亿元", cid, indicatorId)),
+  ...([[p.headline, "93dd15c8a3a3400ea89f8dceec7ab2b3", annualIndexCid], [p.primary, "642558a5caab47629ca2b034ff448792", annualIndexCid], [p.secondary, "952fc0dd154e487f81e4cc633b1d647c", annualIndexCid], [p.tertiary, "916e6158982c43e7a4a2bf319df5485d", annualIndexCid], [p.agriculture, "2f2e2f65088b469386cfe0a5b6ef6844", annualIndustryIndexCid], [p.industry, "62262746be4c47cb903f2e3e496c5fdf", annualIndustryIndexCid], [p.construction, "37b796458cf34429bc740e6106933480", annualIndustryIndexCid], [p.wholesale_retail, "555de329bfc54bb68158846fd29bde06", annualIndustryIndexCid], [p.transport, "093d0fb1b5c24ccb92edd0dc635918ce", annualIndustryIndexCid], [p.accommodation, "61dd80bb5e154501b7935caf89bf1afa", annualIndustryIndexCid], [p.finance, "cd530281de2b48deb0d5cfa53c733fa7", annualIndustryIndexCid], [p.real_estate, "252ee178dc044612b212476f763dc96f", annualIndustryIndexCid], [p.other, "40f0213597174c15b0bf11d02283b87d", annualIndustryIndexCid]] as const).map(([component, indicatorId, cid]) => series("annual", component, "real_yoy", "%", cid, indicatorId, "index_minus_100")),
+  ...([[e.headline, "5d95e29a86f94dcdabed1441fd30d430"], [e.final_consumption, "4505839ba207460585a7f534b469d776"], [e.household_consumption, "a9d6271fcbad4003943ec01f74305436"], [e.urban_household_consumption, "66acc412c0fa4340a48f68c391058d59"], [e.rural_household_consumption, "5ef39109dd48455599daac40d08cac18"], [e.government_consumption, "245fadf5ea4a4ac688575be8f4ee71f0"], [e.capital_formation, "bc1988566be14ea99fe79541da2f2962"], [e.fixed_capital, "d13131557f2e4873a56a9e84373bda1c"], [e.inventory_change, "84f4b89495b14ec296f641be0a02905e"], [e.net_exports, "ab05c1fdde01485e88589917a2c3ea07"]] as const).map(([component, indicatorId]) => series("annual", component, "nominal", "亿元", annualExpenditureCid, indicatorId)),
+];
+
+export const NBS_GDP_CODES = NBS_GDP_SERIES.map((x) => x.code);

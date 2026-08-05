@@ -16,6 +16,7 @@ import {
   applyCatalogLayout,
   loadMacroCatalogLayout,
 } from "@/lib/data/catalogLayout";
+import { loadExcludedCatalogKeys } from "@/lib/data/catalogExclusions";
 import { resolveUsCatalogPlacement } from "@/lib/data/usCatalogTaxonomy";
 import {
   ONBOARDING_STATUS_COMPLETE,
@@ -371,6 +372,11 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
         { code: { startsWith: "treasury_" } },
         { code: { startsWith: "fiscal_" } },
         { code: { startsWith: "nyfed_" } },
+        // 国家统计局等非 FRED 调度器序列也必须进入基础目录；否则即使 metadata
+        // 已声明 countryCode/catalogCategory，管理端仍会把它们误列为「仅数据库」。
+        { code: { startsWith: "nbs_" } },
+        { code: { startsWith: "mof_" } },
+        { code: { startsWith: "chov_" } },
         { metadata: { path: ["bootstrap"], equals: "excel" } },
       ],
     },
@@ -650,7 +656,23 @@ export async function buildBaseCatalogCountries(): Promise<UnifiedCatalogCountry
   const withCot = mergeCountryCatalog(withMds, [buildCotCatalogCountry()]);
   const promoted = await loadPromotedSearchCatalog();
   const withPromoted = mergeCountryCatalog(withCot, promoted);
-  return withPromoted.map((c) => consolidatePriceIndexCpi(c));
+  const excluded = await loadExcludedCatalogKeys(prisma);
+  const withoutDeleted = withPromoted.map((country) => ({
+    ...country,
+    categories: country.categories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) => !excluded.has(item.key)),
+        subgroups: category.subgroups
+          ?.map((subgroup) => ({
+            ...subgroup,
+            items: subgroup.items.filter((item) => !excluded.has(item.key)),
+          }))
+          .filter((subgroup) => subgroup.items.length > 0),
+      }))
+      .filter((category) => category.items.length > 0 || (category.subgroups?.length ?? 0) > 0),
+  }));
+  return withoutDeleted.map((country) => consolidatePriceIndexCpi(country));
 }
 
 export async function getFredCatalogCached(): Promise<CatalogCache> {

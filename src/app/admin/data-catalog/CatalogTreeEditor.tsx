@@ -139,6 +139,7 @@ function DropZone({
   categoryId,
   subgroupId,
   onDropItem,
+  onDeleteItem,
 }: {
   label: string;
   keys: string[];
@@ -147,6 +148,7 @@ function DropZone({
   categoryId: string;
   subgroupId: string | null;
   onDropItem: (payload: DragPayload, to: ItemLocation) => void;
+  onDeleteItem: (key: string) => void;
 }) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -214,6 +216,15 @@ function DropZone({
               {itemLabels[key] ?? key}
             </span>
             <span className="shrink-0 font-mono text-[10px] text-fs-secondary">{key}</span>
+            <button
+              type="button"
+              draggable={false}
+              onClick={() => onDeleteItem(key)}
+              className="shrink-0 rounded px-1 text-[10px] text-red-400 hover:bg-red-950/40 hover:text-red-300"
+              title="彻底删除指标、历史数据和定时更新"
+            >
+              删除
+            </button>
           </div>
         ))
       )}
@@ -245,6 +256,7 @@ function CategoryBlock({
   onRenameSubgroup,
   onDeleteSubgroup,
   onDropItem,
+  onDeleteItem,
 }: {
   countryCode: string;
   category: CatalogLayoutCategory;
@@ -255,9 +267,11 @@ function CategoryBlock({
   onRenameSubgroup: (categoryId: string, subgroupId: string, name: string) => void;
   onDeleteSubgroup: (categoryId: string, subgroupId: string) => void;
   onDropItem: (payload: DragPayload, to: ItemLocation) => void;
+  onDeleteItem: (key: string) => void;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(category.name);
+  const [collapsed, setCollapsed] = useState(false);
 
   const btn =
     "rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text";
@@ -303,6 +317,14 @@ function CategoryBlock({
           项
         </span>
         <div className="ml-auto flex flex-wrap gap-1">
+          <button
+            type="button"
+            className={btn}
+            onClick={() => setCollapsed((value) => !value)}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? "展开" : "折叠"}
+          </button>
           <button type="button" className={btn} onClick={() => onAddSubgroup(category.id)}>
             + 子层
           </button>
@@ -312,6 +334,7 @@ function CategoryBlock({
         </div>
       </div>
 
+      {!collapsed ? <>
       <div className="mb-3">
         <div className="mb-1 text-[10px] uppercase tracking-wide text-fs-secondary">分类下指标</div>
         <DropZone
@@ -322,6 +345,7 @@ function CategoryBlock({
           categoryId={category.id}
           subgroupId={null}
           onDropItem={onDropItem}
+          onDeleteItem={onDeleteItem}
         />
       </div>
 
@@ -335,8 +359,10 @@ function CategoryBlock({
           onRename={(name) => onRenameSubgroup(category.id, sg.id, name)}
           onDelete={() => onDeleteSubgroup(category.id, sg.id)}
           onDropItem={onDropItem}
+          onDeleteItem={onDeleteItem}
         />
       ))}
+      </> : null}
     </div>
   );
 }
@@ -349,6 +375,7 @@ function SubgroupBlock({
   onRename,
   onDelete,
   onDropItem,
+  onDeleteItem,
 }: {
   countryCode: string;
   categoryId: string;
@@ -357,9 +384,11 @@ function SubgroupBlock({
   onRename: (name: string) => void;
   onDelete: () => void;
   onDropItem: (payload: DragPayload, to: ItemLocation) => void;
+  onDeleteItem: (key: string) => void;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(subgroup.name);
+  const [collapsed, setCollapsed] = useState(false);
   const btn =
     "rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text";
 
@@ -401,8 +430,16 @@ function SubgroupBlock({
         <button type="button" className={btn} onClick={onDelete}>
           删除子层
         </button>
+        <button
+          type="button"
+          className={btn}
+          onClick={() => setCollapsed((value) => !value)}
+          aria-expanded={!collapsed}
+        >
+          {collapsed ? "展开" : "折叠"}
+        </button>
       </div>
-      <DropZone
+      {!collapsed ? <DropZone
         label={subgroup.name}
         keys={subgroup.itemKeys}
         itemLabels={itemLabels}
@@ -410,7 +447,8 @@ function SubgroupBlock({
         categoryId={categoryId}
         subgroupId={subgroup.id}
         onDropItem={onDropItem}
-      />
+        onDeleteItem={onDeleteItem}
+      /> : null}
     </div>
   );
 }
@@ -472,6 +510,36 @@ export function CatalogTreeEditor({ onSaved }: { onSaved?: () => void }) {
     if (!layout) return;
     const next = moveItemInLayout(layout, payload.key, payload.from, to);
     patchLayout(next);
+  };
+
+  const deleteItem = async (key: string) => {
+    const label = itemLabels[key] ?? key;
+    if (
+      !window.confirm(
+        `彻底删除「${label}」？这会删除数据库中的历史数据、更新日志和定时更新订阅，且不能恢复。`,
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/catalog-layout/item", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+      const payload = (await res.json()) as { message?: string; error?: string };
+      if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
+      setMsg(payload.message ?? "指标已删除");
+      await load();
+      onSaved?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "删除失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addCategory = () => {
@@ -655,7 +723,7 @@ export function CatalogTreeEditor({ onSaved }: { onSaved?: () => void }) {
         <div>
           <h2 className="text-sm font-medium text-fs-text">编辑目录树</h2>
           <p className="mt-0.5 text-xs text-fs-muted">
-            拖动指标调整层级与顺序；宏观页目录只读，与此处保存的布局一致。
+            拖动指标调整层级与顺序；此树与宏观页目录使用同一有效布局，未归类指标始终显示在「未分配」。
             {data?.isCustom ? (
               <span className="text-cyan-500/80">
                 {" "}
@@ -727,6 +795,7 @@ export function CatalogTreeEditor({ onSaved }: { onSaved?: () => void }) {
               onRenameSubgroup={renameSubgroup}
               onDeleteSubgroup={deleteSubgroup}
               onDropItem={handleDropItem}
+              onDeleteItem={deleteItem}
             />
           ))}
         </div>

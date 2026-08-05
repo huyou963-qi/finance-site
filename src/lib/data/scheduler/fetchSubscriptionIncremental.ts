@@ -86,6 +86,38 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "nbs_cpi") {
+        const { fetchNbsCpiIncremental } = await import("./adapters/nbsCpiAdapter");
+        return fetchNbsCpiIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
+      if (scrapeObj.provider === "nbs_retail") {
+        const { fetchNbsRetailIncremental } = await import("./adapters/nbsRetailAdapter");
+        return fetchNbsRetailIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
+      if (scrapeObj.provider === "nbs_ppi") {
+        const { fetchNbsPpiIncremental } = await import("./adapters/nbsPpiAdapter");
+        return fetchNbsPpiIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
+      if (scrapeObj.provider === "nbs_industrial") {
+        const { fetchNbsIndustrialIncremental } = await import("./adapters/nbsIndustrialAdapter");
+        return fetchNbsIndustrialIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
+      if (scrapeObj.provider === "nbs_gdp") {
+        const { fetchNbsGdpIncremental } = await import("./adapters/nbsGdpAdapter");
+        return fetchNbsGdpIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
+      if (scrapeObj.provider === "nbs_fai") {
+        const { fetchNbsFaiIncremental } = await import("./adapters/nbsFaiAdapter");
+        return fetchNbsFaiIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
+      if (scrapeObj.provider === "mof_fiscal") {
+        const { fetchMofFiscalIncremental } = await import("./adapters/mofFiscalAdapter");
+        return fetchMofFiscalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }

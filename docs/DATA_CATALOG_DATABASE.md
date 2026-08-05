@@ -378,6 +378,19 @@ allowlist（每条 item.key + 其原始基键 fredCatalogBaseKey）
 
 **关键顺序**：`presentUsCpiAsYoy` **必须在 `applyCatalogLayout` 之后**。存量布局按原始基键 `fred:CPIAUCSL` 匹配；若在 base 阶段就把键改成 `::yoy`，布局认不出而把全部 CPI 丢进「未分配」（已实测复现）。
 
+### 10b.1a 目录树一致性约束（强制）
+
+`/admin/data-catalog` 的「编辑目录树」与 `/macro` 的「指标目录」是同一份有效目录的两个视图，不允许分别维护。以下约束适用于指标、一级分类和子层的任何新增、删除、重命名、移动及排序：
+
+- 编辑器必须回显宏观页**实际渲染**的目录结构与指标集合；宏观页只读该布局的有效结果。
+- 保存目录树时，服务端以当前基础指标目录为全集校验并收敛布局：无效/已删除的键被移除，重复键只保留一个位置，所有未在提交布局中出现的现存指标自动加入其国家的「未分配」。因此未分配指标在编辑器和宏观页都必须可见。
+- 宏观展示层的 CPI `::yoy` 变体仅是显示键。编辑器可以显示并拖动该键，保存时必须归一回原始 `fred:<ID>` 键，再由宏观展示层恢复同一显示结构；不得因此产生第二套布局。
+- 新增或删除真实指标的唯一入口是指标目录/入库流程，不是手工伪造布局键；布局编辑只改变这些真实指标的层级和顺序。
+
+目录树中的「删除指标」是不可恢复的管理操作：写入删除标记并清除该指标的 `Instrument`、观测、抓取日志、订阅和发布包成员关系；共享数据源与发布包不会删除。删除标记还会过滤目录，并在任何调度运行入口阻止后续 seed 意外恢复的订阅再次拉取。
+
+实现位置：`GET/PUT /api/admin/catalog-layout`、`reconcileCatalogLayoutWithBase`、`getFredCatalogCached`。任何后续目录功能改动都必须保持此不变量。
+
 ### 10b.2 归类权威表 `usCatalogTaxonomy.ts`
 
 `resolveUsCatalogPlacement({key,label,legacyCategory,fredId})` → `{category, subgroup}`，优先级：

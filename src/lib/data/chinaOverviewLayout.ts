@@ -276,6 +276,7 @@ export const CHINA_OVERVIEW_CATEGORY_CODE_BY_NAME: Record<string, string> = {
   国内贸易与消费: "domestic_trade",
   固定资产投资: "fixed_investment",
   固定资产与地产: "real_estate",
+  财政: "fiscal",
 };
 
 export const CHINA_OVERVIEW_CATEGORY_SORT_BY_NAME: Record<string, number> = {
@@ -290,4 +291,5 @@ export const CHINA_OVERVIEW_CATEGORY_SORT_BY_NAME: Record<string, number> = {
   国内贸易与消费: 80,
   固定资产投资: 90,
   固定资产与地产: 100,
+  财政: 105,
 };

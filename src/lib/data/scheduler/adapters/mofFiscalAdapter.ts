@@ -1,0 +1,4 @@
+import type { FetchIncrementalResult } from "../types";
+import { fetchMofFiscalSeries } from "../mofFiscal/client";
+import type { FiscalMeasure } from "../mofFiscal/catalog";
+export async function fetchMofFiscalIncremental(metadata: unknown, _code: string, obsStart: string): Promise<FetchIncrementalResult> { const scrape = metadata && typeof metadata === "object" ? (metadata as Record<string, unknown>).scrape as Record<string, unknown> | undefined : undefined; if (!scrape || typeof scrape.component !== "string" || (scrape.measure !== "amount" && scrape.measure !== "yoy")) throw new Error("财政部财政收支缺少 scrape 配置"); const start = new Date(`${obsStart}T00:00:00.000Z`); const points = await fetchMofFiscalSeries(scrape.component, scrape.measure as FiscalMeasure, start.getUTCFullYear()); return { points: points.filter((x) => x.obsDate >= start), sourceLatestObsDate: points.at(-1)?.obsDate ?? null, skippedInvalid: 0 }; }

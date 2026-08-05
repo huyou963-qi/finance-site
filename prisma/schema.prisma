@@ -180,6 +180,16 @@ model MacroCatalogLayout {
   @@schema("public")
 }
 
+/// 管理员从目录树彻底删除的宏观指标。作为 tombstone 防止静态目录/后续 seed 再次展示或调度该指标。
+model MacroCatalogExcludedKey {
+  catalogKey String   @id @map("catalog_key") @db.VarChar(192)
+  deletedAt  DateTime @default(now()) @map("deleted_at")
+  deletedBy  String?  @map("deleted_by") @db.VarChar(64)
+
+  @@map("macro_catalog_excluded_key")
+  @@schema("public")
+}
+
 /// 数据调度：经济日历关键词覆盖（FRED 键或发布包 id）；优先于代码内置表与 `.data/*.json`
 model DataSchedulerCalendarOverride {
   key       String   @id @db.VarChar(80)

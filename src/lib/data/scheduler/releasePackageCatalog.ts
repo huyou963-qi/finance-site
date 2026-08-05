@@ -6,6 +6,7 @@ import { PHASE2_DEBTCAP_BIS_CODES } from "./phase2SeedCatalog";
 import type { ReleasePackageDef, ReleasePackageMemberRule } from "./releasePackageTypes";
 import type { CalendarMatchSpec } from "./teEventMap";
 import { mergedUsovFredMap } from "./usovFredMap";
+import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -457,6 +458,82 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       ],
       instrumentCodePatterns: ["nbs_cn_mfg_*", "nbs_cn_non_mfg_*"],
     },
+  }),
+  pkg("cn.nbs.cpi", "中国居民消费价格", {
+    labelEn: "China Consumer Price Index",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "MONTHLY",
+    sortOrder: 133,
+    calendar: {
+      countryCodes: ["CN"],
+      keywords: ["china cpi", "chinese cpi", "china consumer price index"],
+      // 日历常把中国 headline 写作 "CPI (YoY)"，不能排除 y/y 或 yoy。
+      excludeKeywords: ["ppi", "core"],
+    },
+    members: { instrumentCodes: NBS_CPI_INSTRUMENT_CODES },
+  }),
+  pkg("cn.nbs.retail-sales", "中国社会消费品零售总额", {
+    labelEn: "China Retail Sales",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "MONTHLY",
+    sortOrder: 134,
+    calendar: {
+      countryCodes: ["CN"],
+      keywords: ["china retail sales", "chinese retail sales", "retail sales"],
+      excludeKeywords: ["u.s.", "us retail", "japan"],
+    },
+    members: { instrumentCodePatterns: ["nbs_cn_retail_*"] },
+  }),
+  pkg("cn.nbs.ppi", "中国工业生产者出厂价格", {
+    labelEn: "China Producer Price Index",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "MONTHLY",
+    sortOrder: 135,
+    calendar: {
+      countryCodes: ["CN"],
+      keywords: ["china ppi", "chinese ppi", "china producer price index"],
+      excludeKeywords: ["cpi", "core"],
+    },
+    members: { instrumentCodePatterns: ["nbs_cn_ppi_*"] },
+  }),
+  pkg("cn.nbs.industrial-production", "中国规模以上工业增加值", {
+    labelEn: "China Industrial Production",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "MONTHLY",
+    sortOrder: 136,
+    calendar: { countryCodes: ["CN"], keywords: ["china industrial production", "chinese industrial production"], excludeKeywords: ["pmi", "ppi"] },
+    members: { instrumentCodePatterns: ["nbs_cn_industrial_*"] },
+  }),
+  pkg("cn.nbs.gdp", "中国国内生产总值", {
+    labelEn: "China Gross Domestic Product",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "QUARTERLY",
+    sortOrder: 137,
+    calendar: { countryCodes: ["CN"], keywords: ["china gdp", "chinese gdp", "china gross domestic product"], excludeKeywords: ["pmi", "ppi"] },
+    members: { instrumentCodePatterns: ["nbs_cn_gdp_*"] },
+  }),
+  pkg("cn.nbs.fixed-asset-investment", "中国固定资产投资", {
+    labelEn: "China Fixed Asset Investment",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "MONTHLY",
+    sortOrder: 138,
+    calendar: { countryCodes: ["CN"], keywords: ["china fixed asset investment", "chinese fixed asset investment", "china fixed investment"], excludeKeywords: ["real estate price"] },
+    members: { instrumentCodePatterns: ["nbs_cn_fai_*"] },
+  }),
+  pkg("cn.mof.fiscal", "中国财政收支", {
+    labelEn: "China Fiscal Revenue and Expenditure",
+    countryCode: "CN",
+    agencyId: "cn-mof",
+    granularity: "MONTHLY",
+    sortOrder: 139,
+    calendar: { countryCodes: ["CN"], keywords: ["china fiscal revenue", "china fiscal expenditure", "china government budget"], excludeKeywords: ["trade balance"] },
+    members: { instrumentCodePatterns: ["mof_cn_fiscal_*"] },
   }),
   pkg("us.umich.sentiment", "密歇根消费者信心", {
     granularity: "MONTHLY",
