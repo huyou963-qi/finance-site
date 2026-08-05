@@ -1,7 +1,7 @@
 # Agent C — 网页抓取接入（web-scrape-onboarding）
 
 > 输入：Spec §3 中 kind ∈ {`te_scrape`, `web_scrape_new`} 的指标 + §3.1 调研记录。
-> 职责：**分析网页结构 → 固化为可复用的抓取模板（parser + adapter + metadata.scrape 配置）→ 历史回填 → 挂到调度**，让 `data:worker` 在更新日自动抓取。
+> 职责：**分析网页结构 → 固化为可复用的抓取模板（parser + adapter + metadata.scrape 配置）→ 历史回填 → 挂到调度 → 目录树归位**，让 `data:worker` 在更新日自动抓取，且指标出现在正确的宏观目录节点下（非「未分配」）。
 > 这是一个可重复执行的 skill：每接一个新页面都走同一流程，产物沉淀为 `<provider>` 模块。
 
 ## 三档抓取方案（先分类，再动手）
@@ -14,7 +14,7 @@
 
 判断顺序：能 C1 不做 C3；页面若有隐藏 JSON/CSV 接口（看 Network 面板/页内 `<script>` 数据），优先当 C1/结构化接口处理，比解析 HTML 稳定。
 
-## 通用流程（C2/C3；C1 只做 1、2、6、7、8）
+## 通用流程（C2/C3；C1 只做 1、2、6、7、8、9）
 
 ### 1. 合规检查（必做，结论写进 Spec §3.1）
 
@@ -75,11 +75,48 @@ seed 脚本为每条仪器写入（字段规范见 te-indicator-scrape.md 第三
 
 门禁：`fetchAcquisition.status === "known"` 且非 `bootstrapOnly` 才参与 worker 调度。
 
+**目录字段（与步骤 9 配套，seed 时一并写）**：
+
+| 字段 | 抓取型（常见） | FRED 镜像/兼有 FRED id |
+|------|----------------|------------------------|
+| `metadata.catalogKey` / `externalRefs.catalogKey` | `mds:<instrumentCode>`（范本：NBS PMI、NY Fed） | `fred:<ID>` |
+| `metadata.catalogCategory` | 已有分类名（见下） | 同左；US 可用 `usMetadataCatalogCategory(...)` |
+| `metadata.countryCode` | 必填（如 `US` / `CN`），否则进不了国家树 | 同左 |
+
+分类名优先用 Spec §3 / §3.1 给出的目录节点；Spec 未写时可按同类指标（国家 + 分析维度）推断，**必须**在 Spec §3.1 写明假设与依据。US 分类名对齐 `src/lib/data/usCatalogTaxonomy.ts` 的既有顶层/子组（如「景气调查」「领先与深度」「利率与债券」），**不要发明新分类**除非现有桶确实装不下。非美国家照该国 layout / 已有 `catalogCategory` 惯例。范本：`seed-nyfed-recession.ts`（`领先与深度`）、`seed-nbs-pmi.ts`（`景气调查`）。
+
 ### 8. 更新调度（"到了更新日期自动去获取"）
 
 - **有官方发布日**（月频指标）→ 发布包 + TE 经济日历：`releasePackageCatalog.ts` 加包（keywords/excludes 来自 Spec），`data:sync-calendar` 对齐 `nextRunAt`，发布时刻 +3 分钟自动抓；多分项共用 headline 一条日历事件（**禁止**每分项单配关键词）。
 - **无日历事件** → `releaseRule: { type: "probe_interval", intervalHours: N }` 定期探测；页面无新值时 adapter 返回空 points，状态显示「源端暂无新值」。
 - 抓取失败 → fetch_run FAILED + 滞后告警（`lagAlerts.ts` / Slack 通道已有）；连续失败优先怀疑页面结构变更，回到步骤 2 重新取样比对。
+
+### 9. 目录树归位（每条新指标必做，否则显示「未分配」）
+
+管理页 `/admin/data-catalog`（及宏观侧栏树）**不是**只看 seed 写进了 `catalogCategory`——最终显示还要叠加管理员持久化的自定义布局 `MacroCatalogLayout`（见 `catalogLayout.ts`）。布局里没登记的 key，一律挂在「未分配」/易被看成「仅数据库（未在 FMP 统一目录）」。机制与 Agent B 手册 §0.5 相同；抓取型多半没有 `FRED_US_ITEMS` 一行，靠步骤 7 的 `catalogCategory` + 本步 sync。
+
+seed 完成后执行（**先 `--dry-run` 看落点**）：
+
+```powershell
+# 抓取型：key = mds:<instrumentCode>
+npm run data:sync-catalog-layout -- --keys=mds:<code1>,mds:<code2> --dry-run
+npm run data:sync-catalog-layout -- --keys=mds:<code1>,mds:<code2>
+
+# 若该批实际是 FRED 序列（少见，仅当 Agent C 误伤/兼写 FRED）：
+npm run data:sync-catalog-layout -- --keys=fred:<ID1>,fred:<ID2>
+
+# 批量前缀（脚本帮助为准）：
+# npm run data:sync-catalog-layout -- --prefix=mds: --dry-run
+```
+
+`--keys` 格式约定（以 `scripts/data-worker/sync-catalog-layout-new-items.ts` 帮助为准）：
+
+- **FRED**：`fred:<ID>`（与 AGENTS.md / Agent B 一致）
+- **抓取 / 非 FRED MDS**：`<sourcePrefix>:<instrumentCode>`，项目惯例为 **`mds:<instrumentCode>`**（与 `externalRefs.catalogKey`、目录树 `item.key` 一致）；不要只传裸 `instrument.code`
+
+若 DB 无自定义布局（`loadMacroCatalogLayout()` 为 null），脚本会提示无需同步并跳过——此时步骤 7 的 `catalogCategory` 直接作为树分类生效。
+
+**验证**：刷新 `/admin/data-catalog`，新指标出现在目标国家 → 目标分类下，且不在「未分配」/误入「仅数据库」。落点与 Spec §3.1 不一致 → 改 `catalogCategory`（必要时改 taxonomy 映射）后重新 `--dry-run` + sync，不要只改布局手工拖拽作为交付。
 
 ## 验证 checklist（并入 Spec §6）
 
@@ -87,12 +124,15 @@ seed 脚本为每条仪器写入（字段规范见 te-indicator-scrape.md 第三
 - [ ] live 抓取一次成功、重复跑幂等（upsert 不产生重复观测）
 - [ ] 历史回填后首末观测日期符合预期
 - [ ] `data:sync-calendar` matched（或 probe_interval 生效），`/admin/data-catalog` 状态「等待下次更新」
+- [ ] seed 含 `catalogKey`（`mds:…` 或 `fred:…`）+ `catalogCategory` + `countryCode`；`data:sync-catalog-layout` 已 dry-run 确认并写入（或确认无自定义布局可跳过）
+- [ ] `/admin/data-catalog` 侧栏树节点 = Spec §3.1 目标目录（非「未分配」）
 - [ ] parser 对"锚点缺失"的 fixture 变体会 throw（手工删掉锚点测一次）
 - [ ] `.data/` fixture 已留存；新增 npm scripts 已写入 AGENTS.md 一行引用
 
 ## 硬约束
 
 - 禁止使用付费 API Key 写入仓库；禁止跳过 fixture 直接写 parser；禁止未 `known` 就参与调度（与 TE 流程三禁令一致）。
+- 禁止只 seed 不归类：新指标必须完成步骤 9（或已确认无 `MacroCatalogLayout`、且 `catalogCategory` 落点正确），不得交付「未分配」状态。
 - 请求必须带超时（30s）与限频（`DataSource.rateLimit.minIntervalMs`）；不重试风暴（backoff 由 `releaseRule.computeBackoffRunAt` 处理）。
 - 静默错值是最高级事故：宁可 FAILED 告警，不可写入解析不确定的数值。
 
@@ -106,3 +146,4 @@ seed 脚本为每条仪器写入（字段规范见 te-indicator-scrape.md 第三
 - **防御**：sheet/列缺失、0 有效点、值越界一律 throw（源改版报错而非静默）。
 - **坑（已修）**：`sync-one.ts` 原 include 未 select `instrument.metadata`，导致抓取型 provider 被误路由到 BIS 兜底。已修（select metadata + releasePackage）。**测抓取型 provider 的 worker 分发，别只信 sync 脚本直调 parser——要走 `sync-one` 或 worker 验证 `fetchSubscriptionIncremental` 分发命中。**
 - **非 FRED 判定**：FRED 的 `RECPROUSM156N` 是 Chauvet-Piger 方法，≠ NY Fed 收益率曲线模型，故 NY Fed 版是真抓取目标。接入前务必确认目标确实不在 FRED/已接 API 源。
+- **目录归位**：seed 写 `catalogCategory: "领先与深度"` + `externalRefs.catalogKey: mds:<code>` 后，跑 `data:sync-catalog-layout -- --keys=mds:<code>`（有自定义布局时）；只 seed 不 sync 会卡在「未分配」。
