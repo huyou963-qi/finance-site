@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import * as XLSX from "xlsx";
 import { NBS_CPI_INDEX_URL } from "./catalog";
+import { fetchChinaOfficial } from "../chinaOfficialProxy";
 
 const DEFAULT_USER_AGENT = "finance-site-data-scheduler/1.0";
 const CACHE_TTL_MS = 60_000;
@@ -14,7 +15,7 @@ function links(html: string) {
     .map((match) => ({ href: match[1]!, text: text(match[2]!) }));
 }
 async function get(url: string, accept: string) {
-  const response = await fetch(url, { headers: { "User-Agent": process.env.NBS_USER_AGENT?.trim() || DEFAULT_USER_AGENT, Accept: accept }, signal: AbortSignal.timeout(30_000) });
+  const response = await fetchChinaOfficial(url, { headers: { "User-Agent": process.env.NBS_USER_AGENT?.trim() || DEFAULT_USER_AGENT, Accept: accept }, signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`国家统计局 CPI 抓取 HTTP ${response.status}: ${url}`);
   return response;
 }

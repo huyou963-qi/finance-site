@@ -1,5 +1,6 @@
 import type { ObservationPoint } from "../types";
 import { NBS_CPI_COMPONENTS, NBS_CPI_MEASURES, NBS_DATA_API_BASE, NBS_MONTHLY_ROOT_ID, nbsCpiCode, type NbsCpiMeasure } from "./catalog";
+import { fetchChinaOfficial } from "../chinaOfficialProxy";
 
 type TreeRow = { _id?: string; name?: string; isLeaf?: boolean; sdate?: string | number | null; edate?: string | number | null };
 type Indicator = { _id?: string; i_showname?: string };
@@ -10,7 +11,7 @@ const PARENTS: Record<NbsCpiMeasure, string> = { index: "5b434e4d5e634a39b27a95f
 function norm(value: unknown) { return String(value ?? "").replace(/\s/g, "").replace(/[（）()：:]/g, ""); }
 function isIndexName(name: string) { return /上年同月=100/.test(name); }
 function isMomName(name: string) { return /上月=100/.test(name); }
-async function json(url: string) { const response = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) }); if (!response.ok) throw new Error(`国家数据 CPI 元数据 HTTP ${response.status}: ${url}`); return response.json(); }
+async function json(url: string) { const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) }); if (!response.ok) throw new Error(`国家数据 CPI 元数据 HTTP ${response.status}: ${url}`); return response.json(); }
 function periodStart(row: TreeRow) { const year = Number(row.sdate); return Number.isInteger(year) && year > 1900 ? year : 2000; }
 function periodEnd(row: TreeRow) { const year = Number(row.edate); return Number.isInteger(year) && year > 1900 ? year : new Date().getUTCFullYear(); }
 
@@ -40,7 +41,7 @@ export async function fetchNbsCpiHistory(): Promise<Map<string, ObservationPoint
         if (indicator?._id) indicatorByComponent.set(component.key, indicator._id);
       }
       if (!indicatorByComponent.has("headline")) throw new Error(`国家数据 CPI：${leaf.name} 缺总指数`);
-      const response = await fetch(`${NBS_DATA_API_BASE}/stream/esData`, { method: "POST", headers: { ...HEADERS, "Content-Type": "application/json" }, body: JSON.stringify({ cid: leaf._id, indicatorIds: [...indicatorByComponent.values()], das: [{ text: "全国", value: "000000000000" }], dts: [`${periodStart(leaf)}01MM-${periodEnd(leaf)}12MM`], showType: "1", rootId: NBS_MONTHLY_ROOT_ID }), signal: AbortSignal.timeout(90_000) });
+      const response = await fetchChinaOfficial(`${NBS_DATA_API_BASE}/stream/esData`, { method: "POST", headers: { ...HEADERS, "Content-Type": "application/json" }, body: JSON.stringify({ cid: leaf._id, indicatorIds: [...indicatorByComponent.values()], das: [{ text: "全国", value: "000000000000" }], dts: [`${periodStart(leaf)}01MM-${periodEnd(leaf)}12MM`], showType: "1", rootId: NBS_MONTHLY_ROOT_ID }), signal: AbortSignal.timeout(90_000) });
       if (!response.ok) throw new Error(`国家数据 CPI 历史 HTTP ${response.status}: ${leaf.name}`);
       const payload = await response.json() as Payload;
       if (!Array.isArray(payload.data)) throw new Error(`国家数据 CPI：${leaf.name} 返回缺 data`);

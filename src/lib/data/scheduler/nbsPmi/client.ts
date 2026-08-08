@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import * as XLSX from "xlsx";
 import { NBS_PMI_INDEX_URL } from "./catalog";
+import { fetchChinaOfficial } from "../chinaOfficialProxy";
 
 /**
  * 国家统计局 PMI 官方发布结构（2026-08 核实）：
@@ -58,7 +59,7 @@ export function parsePmiWorkbookUrl(html: string, articleUrl: string): string {
 }
 
 async function fetchOfficial(url: string, accept: string): Promise<Response> {
-  const response = await fetch(url, {
+  const response = await fetchChinaOfficial(url, {
     headers: {
       "User-Agent": process.env.NBS_USER_AGENT?.trim() || DEFAULT_USER_AGENT,
       Accept: accept,

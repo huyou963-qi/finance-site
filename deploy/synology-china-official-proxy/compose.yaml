@@ -1,0 +1,13 @@
+services:
+  china-official-proxy:
+    build: .
+    restart: unless-stopped
+    environment:
+      HK_HOST: 8.218.16.70
+      HK_SSH_PORT: "22"
+      HK_SSH_USER: china-proxy
+      REMOTE_PROXY_PORT: "18080"
+      SSH_KEY_PATH: /run/keys/id_ed25519
+      SSH_KNOWN_HOSTS_PATH: /run/keys/known_hosts
+    volumes:
+      - ./keys:/run/keys:ro

@@ -4,6 +4,7 @@ import {
   type NbsPpiComponent, type NbsPpiMeasure,
 } from "./catalog";
 import { parseNbsPpiResponse } from "./parseResponse";
+import { fetchChinaOfficial } from "../chinaOfficialProxy";
 
 type Indicator = { _id?: string; i_showname?: string };
 const HEADERS = {
@@ -20,7 +21,7 @@ function isForComponent(indicator: Indicator, component: NbsPpiComponent): boole
 }
 
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) });
+  const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`国家数据 PPI 元数据 HTTP ${response.status}: ${url}`);
   return response.json() as Promise<T>;
 }
@@ -56,7 +57,7 @@ export async function fetchNbsPpiCurrentCatalog(): Promise<NbsPpiCurrentCatalog>
 
 export async function fetchNbsPpiSeries(series: NbsPpiSourceSeries, measure: NbsPpiMeasure, startYear = 1983): Promise<ObservationPoint[]> {
   const endYear = new Date().getUTCFullYear() + 1;
-  const response = await fetch(`${NBS_DATA_API_BASE}/stream/esData`, {
+  const response = await fetchChinaOfficial(`${NBS_DATA_API_BASE}/stream/esData`, {
     method: "POST", headers: { ...HEADERS, "Content-Type": "application/json" },
     body: JSON.stringify({ cid: series.cid, indicatorIds: [series.indicatorId], das: [{ text: "全国", value: "000000000000" }], dts: [`${startYear}01MM-${endYear}12MM`], showType: "1", rootId: NBS_MONTHLY_ROOT_ID }),
     signal: AbortSignal.timeout(90_000),
@@ -84,7 +85,7 @@ export async function fetchNbsPpiHistory(): Promise<Map<string, ObservationPoint
     });
     if (matched.length === 0) continue;
     const rawById = new Map<string, ObservationPoint[]>();
-    const values = await fetch(`${NBS_DATA_API_BASE}/stream/esData`, {
+    const values = await fetchChinaOfficial(`${NBS_DATA_API_BASE}/stream/esData`, {
       method: "POST", headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ cid, indicatorIds: matched.map((item) => item.indicatorId), das: [{ text: "全国", value: "000000000000" }], dts: ["198301MM-202712MM"], showType: "1", rootId: NBS_MONTHLY_ROOT_ID }), signal: AbortSignal.timeout(90_000),
     });

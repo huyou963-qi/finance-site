@@ -6,6 +6,7 @@ import {
   NBS_PMI_INDICATOR_ID_BY_CODE,
   NBS_PMI_INSTRUMENTS,
 } from "./catalog";
+import { fetchChinaOfficial } from "../chinaOfficialProxy";
 
 type ApiValue = {
   _id?: string;
@@ -85,7 +86,7 @@ async function fetchSheet(
     codeByIndicatorId.set(indicatorId, definition.code);
   }
   const start = sheetName === "制造业" ? "200501MM" : "200701MM";
-  const response = await fetch(NBS_PMI_HISTORY_API_URL, {
+  const response = await fetchChinaOfficial(NBS_PMI_HISTORY_API_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
