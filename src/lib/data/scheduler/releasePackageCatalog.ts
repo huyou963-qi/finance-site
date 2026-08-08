@@ -882,6 +882,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 241,
     members: { instrumentCodes: DEBTCAP_DSR_CODES },
   }),
+  probePkg("cn.pbc.monetary-credit", "中国人民银行货币与信用", {
+    labelEn: "PBC Monetary, Credit and Total Social Financing",
+    countryCode: "CN",
+    agencyId: "cn-pbc",
+    granularity: "MONTHLY",
+    intervalHours: 24,
+    sortOrder: 250,
+    members: { instrumentCodePatterns: ["pbc_cn_*"] },
+  }),
 ] as const;
 
 export function instrumentMatchesPackageMember(

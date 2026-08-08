@@ -118,6 +118,10 @@ export async function fetchSubscriptionIncremental(
         const { fetchMofFiscalIncremental } = await import("./adapters/mofFiscalAdapter");
         return fetchMofFiscalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "pbc_monetary") {
+        const { fetchPbcMonetaryIncremental } = await import("./adapters/pbcMonetaryAdapter");
+        return fetchPbcMonetaryIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }

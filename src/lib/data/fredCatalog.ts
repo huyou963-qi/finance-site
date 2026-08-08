@@ -376,6 +376,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
         // 已声明 countryCode/catalogCategory，管理端仍会把它们误列为「仅数据库」。
         { code: { startsWith: "nbs_" } },
         { code: { startsWith: "mof_" } },
+        { code: { startsWith: "pbc_" } },
         { code: { startsWith: "chov_" } },
         { metadata: { path: ["bootstrap"], equals: "excel" } },
       ],

@@ -28,6 +28,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "nbs-gdp": { script: "seed-nbs-gdp", labelZh: "中国国家统计局 GDP" },
   "nbs-fai": { script: "seed-nbs-fai", labelZh: "中国国家统计局固定资产投资" },
   "mof-fiscal": { script: "seed-mof-fiscal", labelZh: "中国财政部财政收支" },
+  "pbc-monetary": { script: "seed-pbc-monetary", labelZh: "中国人民银行货币与信用" },
   "nbs-retail": { script: "seed-nbs-retail", labelZh: "中国国家统计局社会消费品零售额" },
   "cycle-risk": { script: "seed-cycle-risk", labelZh: "美国增长动能与衰退风险" },
   "consumer-balance": { script: "seed-consumer-balance", labelZh: "美国消费与居民资产负债" },
@@ -62,6 +63,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "nbs-gdp": { script: "verify-nbs-gdp", labelZh: "中国国家统计局 GDP 自检", verifyNeedsDb: true },
   "nbs-fai": { script: "verify-nbs-fai", labelZh: "中国国家统计局固定资产投资自检", verifyNeedsDb: true },
   "mof-fiscal": { script: "verify-mof-fiscal", labelZh: "中国财政部财政收支自检", verifyNeedsDb: true },
+  "pbc-monetary": { script: "verify-pbc-monetary", labelZh: "中国人民银行货币与信用自检", verifyNeedsDb: true },
   "cycle-risk": { script: "verify-cycle-risk", labelZh: "增长动能与衰退风险自检", verifyNeedsDb: true },
   "consumer-balance": {
     script: "verify-consumer-balance",

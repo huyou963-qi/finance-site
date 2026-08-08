@@ -148,6 +148,8 @@ npm run db:studio        # Prisma Studio
 
 「中国财政部财政收支」：`data:seed-mof-fiscal` → `data:sync-mof-fiscal` / `data:verify-mof-fiscal -- --db`；一般公共预算、政府性基金的累计收入/支出及分项累计额、同比，历史来自国库司月报归档；季度、年度对应月末累计口径，不推算单月值或环比。
 
+「中国人民银行货币与信用」：`data:seed-pbc-monetary` → `data:sync-pbc-monetary` / `data:verify-pbc-monetary -- --db`；月度 M0/M1/M2、人民币贷款/存款、分部门累计增量、社融存量/增量及分项、同业利率和 LPR，历史来自人民银行公开归档；仅保留公告直接披露的余额、同比、累计增量或利率，不推算环比。
+
 「中国国家统计局 CPI」：`data:seed-nbs-cpi` → `data:sync-nbs-cpi` / `data:verify-nbs-cpi`（加 `--db`）；全国总项、核心项及八大类的指数、同比、环比走国家数据 UUID 接口全历史 + 官方月报 Excel 首发。
 
 ## 模块分工建议（3–5 人）
