@@ -130,6 +130,10 @@ export async function fetchSubscriptionIncremental(
         const { fetchSafeExternalIncremental } = await import("./adapters/safeExternalAdapter");
         return fetchSafeExternalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "mofcom_trade") {
+        const { fetchMofcomTradeIncremental } = await import("./adapters/mofcomTradeAdapter");
+        return fetchMofcomTradeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }

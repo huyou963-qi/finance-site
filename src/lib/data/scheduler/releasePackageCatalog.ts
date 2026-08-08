@@ -538,6 +538,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     },
     members: { instrumentCodePatterns: ["nbs_cn_realestate_"] },
   }),
+  pkg("cn.mofcom.trade", "中国货物贸易", {
+    labelEn: "China Merchandise Trade",
+    countryCode: "CN",
+    agencyId: "cn-mofcom",
+    granularity: "MONTHLY",
+    sortOrder: 140,
+    calendar: { countryCodes: ["CN"], keywords: ["China Trade Balance", "China Exports", "China Imports"] },
+    members: { instrumentCodePatterns: ["mofcom_cn_trade_"] },
+  }),
   pkg("cn.mof.fiscal", "中国财政收支", {
     labelEn: "China Fiscal Revenue and Expenditure",
     countryCode: "CN",
