@@ -117,6 +117,15 @@ function buildPlan(flags: Flags): Step[] {
       args: [],
       gating: true,
     });
+    // 各国（尤其中国官方序列）的目录定义来自 Instrument metadata。把所有
+    // mds key 幂等写入已有的自定义布局，避免云端已有 MacroCatalogLayout 时
+    // 新增指标因 key 不在布局中而显示为「未分配」。
+    steps.push({
+      label: "sync-new-catalog-layout",
+      script: "data:sync-catalog-layout",
+      args: ["--prefix=mds:"],
+      gating: true,
+    });
   }
 
   // 5) 经济日历对齐（日历型发布包 → nextRunAt）

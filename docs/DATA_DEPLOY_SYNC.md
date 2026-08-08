@@ -11,7 +11,7 @@
 | 内置模板 / 图表定义 / 分析文档 | **代码（git）**——模板硬编码在 `.ts`，不在 DB（`SystemMacroChartPrefs` 只存管理员覆盖项） | 现有 `git→build→deploy` 已全自动，零额外操作 |
 | Prisma schema（如新增表） | migrations（git） | `npm run db:migrate`（= `prisma migrate deploy`） |
 | 指标 / 订阅 / 发布包 / 元数据 | DB，但**完全由 git 的 seed catalog 决定** | `npm run data:seed`（幂等 upsert）+ `data:seed-release-packages` |
-| 目录分类布局 | DB（`MacroCatalogLayout`） | `npm run data:rebuild-us-catalog-layout`（`data:apply` 自动执行；仅替换 US，保留他国） |
+| 目录分类布局 | DB（`MacroCatalogLayout`） | `npm run data:rebuild-us-catalog-layout` + `npm run data:sync-catalog-layout -- --prefix=mds:`；`data:apply` 自动执行。新增 MDS 指标按代码中的 `metadata.catalogCategory` 幂等写入已有布局，避免云端落入“未分配” |
 | 历史观测值（几万行/序列） | DB，**来自 FRED** | 已运行的 `data:worker` 按 `nextRunAt` 自动全量回填 |
 
 **关键**：开发库本身是靠跑这些 git 脚本生成的——它是缓存。事实来源是 **git 的 catalog 代码 + FRED**。所以云服务器只要跑同样的脚本，两边就**由构造而一致**：不需要 `pg_dump`/restore、不会有主键冲突、不会漂移。
@@ -27,6 +27,7 @@ db:migrate                 # schema 迁移（前向非交互）
 → data:seed（遍历 SEED_CATALOG_REGISTRY 所有 catalog）  # 指标+订阅+发布规则
 → data:seed-release-packages                            # 发布包（在指标之后）
 → data:rebuild-us-catalog-layout                        # 美国目录 9 大类布局整表重建
+→ data:sync-catalog-layout -- --prefix=mds:             # 各国官方/自建 MDS 指标归入代码声明的目录层级
 → data:sync-calendar                                    # 日历型包 → nextRunAt
 → data:backfill-empty --limit=150                       # 为「有订阅但零观测」的新指标强制拉历史
 → data:verify（遍历各域自检，排除噪音 verify-catalog）  # 门禁

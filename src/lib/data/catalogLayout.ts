@@ -113,6 +113,17 @@ function dedupeKeys(keys: string[]): string[] {
 }
 
 /**
+ * A saved layout is a presentation override, not the source of a new
+ * indicator's economic classification. When a new key has not yet been saved
+ * in that layout, keep the source catalog's declared category instead of
+ * silently putting it under "未分配".
+ */
+function fallbackCategoryName(item: UnifiedCatalogItem): string {
+  const name = item.categoryName?.trim();
+  return name && name !== UNASSIGNED_CATEGORY_NAME ? name : UNASSIGNED_CATEGORY_NAME;
+}
+
+/**
  * 目录展示层可使用 `fred:<id>::yoy` 等变体键；持久化布局始终绑定原始指标键。
  * 这样编辑器可直接编辑宏观页正在展示的树，而布局仍能在展示转换之前应用。
  */
@@ -160,21 +171,15 @@ export function reconcileCatalogLayoutWithBase(
     });
 
     const missing = [...available.keys()].filter((key) => !used.has(key));
-    if (missing.length > 0) {
-      const unassignedIndex = categories.findIndex((category) => category.name === UNASSIGNED_CATEGORY_NAME);
-      if (unassignedIndex >= 0) {
-        const category = categories[unassignedIndex]!;
-        categories[unassignedIndex] = {
-          ...category,
-          itemKeys: [...category.itemKeys, ...missing],
-        };
+    for (const key of missing) {
+      const item = available.get(key)!;
+      const name = fallbackCategoryName(item);
+      const index = categories.findIndex((category) => category.name === name);
+      if (index >= 0) {
+        const category = categories[index]!;
+        categories[index] = { ...category, itemKeys: [...category.itemKeys, key] };
       } else {
-        categories.push({
-          id: randomUUID(),
-          name: UNASSIGNED_CATEGORY_NAME,
-          itemKeys: missing,
-          subgroups: [],
-        });
+        categories.push({ id: randomUUID(), name, itemKeys: [key], subgroups: [] });
       }
     }
 
@@ -279,18 +284,16 @@ export function applyCatalogLayout(
       });
     }
 
-    const unassigned: UnifiedCatalogItem[] = [];
     for (const [key, item] of itemMap) {
       if (used.has(key)) continue;
       used.add(key);
-      unassigned.push({ ...item, categoryName: UNASSIGNED_CATEGORY_NAME });
-    }
-    if (unassigned.length > 0) {
-      const existing = categories.find((c) => c.name === UNASSIGNED_CATEGORY_NAME);
+      const name = fallbackCategoryName(item);
+      const next = { ...item, categoryName: name };
+      const existing = categories.find((c) => c.name === name);
       if (existing) {
-        existing.items.push(...unassigned);
+        existing.items.push(next);
       } else {
-        categories.push({ name: UNASSIGNED_CATEGORY_NAME, items: unassigned });
+        categories.push({ name, items: [next] });
       }
     }
 
