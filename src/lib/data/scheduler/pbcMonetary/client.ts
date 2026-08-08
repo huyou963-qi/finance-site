@@ -10,14 +10,22 @@ const HEADERS = { "User-Agent": process.env.PBC_USER_AGENT?.trim() || "finance-s
 const HISTORY_MIN_INTERVAL_MS = 300;
 
 function sleep(ms: number) { return new Promise<void>((resolve) => setTimeout(resolve, ms)); }
+export function decodePbcHtml(bytes: ArrayBuffer): string {
+  const utf8 = new TextDecoder("utf-8").decode(bytes);
+  // The older PBC archive is predominantly GBK/GB2312.  A GBK page can still
+  // produce a few CJK code points after an incorrect UTF-8 decode, so merely
+  // checking for Chinese characters is not sufficient.
+  const declared = /<meta[^>]+charset\s*=\s*["']?\s*([\w-]+)/i.exec(utf8)?.[1]
+    ?? /charset\s*=\s*([\w-]+)/i.exec(utf8)?.[1];
+  if (/^(?:gbk|gb2312|gb18030|gb_2312-80)$/i.test(declared ?? "") || utf8.includes("\uFFFD")) {
+    return new TextDecoder("gb18030").decode(bytes);
+  }
+  return utf8;
+}
 async function html(url: string): Promise<string> {
   const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) });
   if (!response.ok) throw new Error(`人民银行公告 HTTP ${response.status}: ${url}`);
-  // PBC omits the HTTP charset header. Current archive pages declare UTF-8 in HTML;
-  // fall back to GB18030 only for legacy pages that do not expose Chinese text.
-  const bytes = await response.arrayBuffer();
-  const utf8 = new TextDecoder("utf-8").decode(bytes);
-  return /[\u4e00-\u9fff]/.test(utf8) ? utf8 : new TextDecoder("gb18030").decode(bytes);
+  return decodePbcHtml(await response.arrayBuffer());
 }
 function strip(value: string) { return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(); }
 function links(page: string, url: string, allowed: (title: string) => boolean): Article[] {
@@ -71,7 +79,7 @@ export async function fetchPbcMonetaryHistory(): Promise<History> {
   for (const article of financial) {
     await sleep(HISTORY_MIN_INTERVAL_MS);
     try { for (const [key, point] of parsePbcMonetaryPage(await html(article.url))) append(history, key, point); }
-    catch (error) { skipped++; console.warn(`[pbc-monetary] 跳过无法解析公告：${article.title} (${error instanceof Error ? error.message : String(error)})`); }
+    catch (error) { skipped++; console.warn(`[pbc-monetary] 跳过无法解析公告：${article.title} <${article.url}> (${error instanceof Error ? error.message : String(error)})`); }
   }
   for (const article of lpr) {
     await sleep(HISTORY_MIN_INTERVAL_MS);
