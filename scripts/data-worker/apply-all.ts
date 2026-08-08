@@ -95,7 +95,10 @@ function buildPlan(flags: Flags): Step[] {
     // 商务部外贸分类历史需串行请求数百个低频接口，通常约 7 分钟。部署阶段
     // 仅落最新一期和定义；完整历史由服务器后台的一次性 seed 任务完成，避免
     // GitHub Actions 到服务器的 SSH 会话因长期无输出而断开。
-    const seedArgs = [`--catalog=${name}`, ...(name === "mofcom-trade" ? ["--latest-only"] : [])];
+    // These providers have intentionally rate-limited archive backfills. Full
+    // history is run as a detached one-off job, never in a deployment session.
+    const isLongHistoricalSeed = name === "mofcom-trade" || name === "nbs-realestate";
+    const seedArgs = [`--catalog=${name}`, ...(isLongHistoricalSeed ? ["--latest-only"] : [])];
     steps.push({
       label: `seed:${name}`,
       script: "data:seed",

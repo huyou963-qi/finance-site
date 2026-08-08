@@ -10,10 +10,15 @@ loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
 
 async function main() {
+  // Deployment only needs current definitions and the latest release. The
+  // default remains an explicit, one-time historical backfill command.
+  const latestOnly = process.argv.includes("--latest-only");
   await prisma.statisticalAgency.upsert({ where: { id: "cn-nbs" }, create: { id: "cn-nbs", countryCode: "CN", nameZh: "国家统计局", nameEn: "National Bureau of Statistics of China", websiteUrl: "https://www.stats.gov.cn/" }, update: { countryCode: "CN", nameZh: "国家统计局", nameEn: "National Bureau of Statistics of China", websiteUrl: "https://www.stats.gov.cn/" } });
   await prisma.dataSource.upsert({ where: { id: NBS_REAL_ESTATE_SOURCE.id }, create: { ...NBS_REAL_ESTATE_SOURCE, adapterKind: SourceAdapterKind.REST_API, rateLimit: { requestsPerMinute: 12, minIntervalMs: 5_000 } }, update: { agencyId: "cn-nbs", name: NBS_REAL_ESTATE_SOURCE.name, adapterKind: SourceAdapterKind.REST_API, baseUrl: NBS_REAL_ESTATE_SOURCE.baseUrl, termsUrl: NBS_REAL_ESTATE_SOURCE.termsUrl, rateLimit: { requestsPerMinute: 12, minIntervalMs: 5_000 } } });
-  console.log("[data:seed-nbs-realestate] 正在扫描国家统计局公开发布归档并建立指标定义…");
-  const history = await fetchNbsRealEstateHistory({ historical: true });
+  console.log(latestOnly
+    ? "[data:seed-nbs-realestate] 正在读取最近发布以建立指标定义（部署快速模式）…"
+    : "[data:seed-nbs-realestate] 正在扫描国家统计局公开发布归档并建立指标定义…");
+  const history = await fetchNbsRealEstateHistory({ historical: !latestOnly });
   const releaseRule = defaultEconomicCalendarRule(DataGranularity.MONTHLY);
   const nextRunAt = computeNextRunAt(releaseRule, new Date());
   const probedAt = new Date().toISOString();
@@ -25,7 +30,7 @@ async function main() {
     await prisma.dataSubscription.upsert({ where: { instrumentId: item.id }, create: { instrumentId: item.id, sourceId: NBS_REAL_ESTATE_SOURCE.id, sourceSeriesKey: series.key, fetchMethod: DataFetchMethod.API, granularity: DataGranularity.MONTHLY, releaseRule: releaseRule as object, nextRunAt, enabled: true, priority: 42 }, update: { sourceId: NBS_REAL_ESTATE_SOURCE.id, sourceSeriesKey: series.key, fetchMethod: DataFetchMethod.API, granularity: DataGranularity.MONTHLY, releaseRule: releaseRule as object, nextRunAt, enabled: true, priority: 42 } });
     upserted += (await upsertMacroObservations(prisma, item.id, series.points)).upserted;
   }
-  console.log(`[data:seed-nbs-realestate] 完成：${history.size} 条订阅，历史新增或修订=${upserted}；下一步 npm run data:sync-catalog-layout && npm run data:sync-calendar`);
+  console.log(`[data:seed-nbs-realestate] 完成：${history.size} 条订阅，${latestOnly ? "最新一期新增或修订" : "历史新增或修订"}=${upserted}`);
 }
 
 main().catch((error) => { console.error(error); process.exit(1); }).finally(() => prisma.$disconnect());
