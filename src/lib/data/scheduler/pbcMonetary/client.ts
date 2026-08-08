@@ -36,6 +36,23 @@ function links(page: string, url: string, allowed: (title: string) => boolean): 
   }
   return found;
 }
+function pdfLinks(page: string, url: string): string[] {
+  return [...page.matchAll(/href=["']([^"']+\.pdf(?:[?#][^"']*)?)["']/gi)]
+    .map((match) => new URL(match[1]!, url).toString())
+    .filter((value, index, values) => values.indexOf(value) === index);
+}
+async function pdfText(url: string): Promise<string> {
+  const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(60_000) });
+  if (!response.ok) throw new Error(`人民银行 PDF HTTP ${response.status}: ${url}`);
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const document = await getDocument({ data: new Uint8Array(await response.arrayBuffer()), verbosity: 0 }).promise;
+  const pages: string[] = [];
+  for (let page = 1; page <= document.numPages; page++) {
+    const content = await (await document.getPage(page)).getTextContent();
+    pages.push(content.items.map((item) => "str" in item ? item.str : "").join(""));
+  }
+  return pages.join("\n");
+}
 async function archive(indexUrl: string, allowed: (title: string) => boolean): Promise<Article[]> {
   const first = await html(indexUrl); const all = links(first, indexUrl, allowed);
   const template = /queryArticleByCondition\(this,'([^']+-2\.html)'\)/.exec(first)?.[1];
@@ -73,13 +90,29 @@ function parseLpr(htmlValue: string): [string, ObservationPoint][] {
 /** Fetches the official PBC archive once and shares it across all 39 subscriptions. */
 export async function fetchPbcMonetaryHistory(): Promise<History> {
   if (cache && Date.now() - cache.at < 24 * 60 * 60 * 1000) return cache.values;
-  const financial = await archive(PBC_MONETARY_INDEX_URL, (title) => /金融统计数据报告|社会融资规模(?:增量|存量)统计数据报告/.test(title));
+  const financial = await archive(PBC_MONETARY_INDEX_URL, (title) =>
+    /金融统计数据报告|社会融资规模(?:增量|存量)统计数据报告/.test(title) && !/地区社会融资规模/.test(title),
+  );
   const lpr = await archive(PBC_LPR_INDEX_URL, (title) => /贷款市场报价利率|LPR/i.test(title));
   const history: History = new Map(); let skipped = 0;
   for (const article of financial) {
     await sleep(HISTORY_MIN_INTERVAL_MS);
-    try { for (const [key, point] of parsePbcMonetaryPage(await html(article.url))) append(history, key, point); }
-    catch (error) { skipped++; console.warn(`[pbc-monetary] 跳过无法解析公告：${article.title} <${article.url}> (${error instanceof Error ? error.message : String(error)})`); }
+    try {
+      const page = await html(article.url);
+      let parsed: ReturnType<typeof parsePbcMonetaryPage>;
+      try { parsed = parsePbcMonetaryPage(page); }
+      catch (pageError) {
+        const attachments = pdfLinks(page, article.url);
+        if (!attachments.length) throw pageError;
+        let lastError: unknown = pageError;
+        for (const attachment of attachments) {
+          try { parsed = parsePbcMonetaryPage(`${page}\n${await pdfText(attachment)}`); lastError = null; break; }
+          catch (error) { lastError = error; }
+        }
+        if (lastError) throw lastError;
+      }
+      for (const [key, point] of parsed!) append(history, key, point);
+    } catch (error) { skipped++; console.warn(`[pbc-monetary] 跳过无法解析公告：${article.title} <${article.url}> (${error instanceof Error ? error.message : String(error)})`); }
   }
   for (const article of lpr) {
     await sleep(HISTORY_MIN_INTERVAL_MS);

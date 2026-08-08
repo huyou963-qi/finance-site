@@ -34,7 +34,7 @@ export function isChinaOfficialUrl(input: string | URL): boolean {
 }
 
 /**
- * 只让财政部/国家统计局请求经过大陆 HTTP CONNECT 代理。
+ * 只让已列入白名单的中国官方统计网站请求经过大陆 HTTP CONNECT 代理。
  * 未配置时严格保持原有直连行为；FRED、GitHub、网站流量不会受影响。
  */
 export async function fetchChinaOfficial(input: string | URL, init?: RequestInit): Promise<Response> {
@@ -42,7 +42,7 @@ export async function fetchChinaOfficial(input: string | URL, init?: RequestInit
   if (!proxy || !isChinaOfficialUrl(input)) return fetch(input, init);
   cachedAgent ??= new ProxyAgent(proxy);
   if (!proxyLogged) {
-    console.info("[china-official-proxy] 已启用大陆代理，仅用于财政部和国家统计局请求");
+    console.info("[china-official-proxy] 已启用大陆代理，仅用于已配置的中国官方统计网站请求");
     proxyLogged = true;
   }
   try {
