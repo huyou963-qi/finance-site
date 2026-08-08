@@ -1,6 +1,8 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["multiSchema"]
+  // 部署包在 GitHub Actions 构建、在阿里云 Debian/OpenSSL 3 运行；显式打入两端引擎。
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
