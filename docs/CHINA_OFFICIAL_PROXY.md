@@ -42,3 +42,24 @@ curl -x http://127.0.0.1:18080 -I https://gks.mof.gov.cn/tongjishuju/
 预期代理端口只绑定 `127.0.0.1`，且第二个命令返回官方站点的 200/3xx，不应返回香港直连时的 502。
 
 不要把群晖公网域名或任意端口配置为公开代理，也不要将香港整机默认路由切到群晖。
+
+## 隧道中断与长任务
+
+`client_loop: send disconnect: Broken pipe` 是 SSH 连接被对端或中间网络断开的提示，并非财政、商务部接口或数据库的解析错误。项目容器已通过 `autossh` 和 SSH keepalive 自动重连；若出现该提示，先在群晖 Container Manager 查看 `china-official-proxy` 容器是否仍为运行中，再在香港检查：
+
+```bash
+ss -ltnp | grep 18080
+curl -x http://127.0.0.1:18080 -I --max-time 30 https://data.mofcom.gov.cn/
+```
+
+外贸全历史回填不应在 GitHub Actions 的部署 SSH 会话里运行。部署完成后，在香港执行一次：
+
+```bash
+cd /opt/finance-site
+mkdir -p logs
+nohup flock -n /tmp/finance-mofcom-trade-backfill.lock npm run data:seed-mofcom-trade \
+  > logs/mofcom-trade-backfill.log 2>&1 < /dev/null &
+echo $!
+```
+
+通过 `tail -f /opt/finance-site/logs/mofcom-trade-backfill.log` 查看进度；结束后运行 `npm run data:verify-mofcom-trade -- --db`。`flock` 会避免重复启动两个全历史任务。

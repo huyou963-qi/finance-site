@@ -92,10 +92,14 @@ function buildPlan(flags: Flags): Step[] {
   const seedNames = listSeedCatalogNames().filter((n) => n !== "release-packages");
   const seedSelected = flags.only ? seedNames.filter((n) => flags.only!.includes(n)) : seedNames;
   for (const name of seedSelected) {
+    // 商务部外贸分类历史需串行请求数百个低频接口，通常约 7 分钟。部署阶段
+    // 仅落最新一期和定义；完整历史由服务器后台的一次性 seed 任务完成，避免
+    // GitHub Actions 到服务器的 SSH 会话因长期无输出而断开。
+    const seedArgs = [`--catalog=${name}`, ...(name === "mofcom-trade" ? ["--latest-only"] : [])];
     steps.push({
       label: `seed:${name}`,
       script: "data:seed",
-      args: [`--catalog=${name}`],
+      args: seedArgs,
       gating: true,
     });
   }

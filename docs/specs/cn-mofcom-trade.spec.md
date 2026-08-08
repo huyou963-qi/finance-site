@@ -17,7 +17,8 @@
 
 ## 调度、回填和故障处理
 
-- `data:seed-mofcom-trade`：回填总额 2000 年以来历史；按月（2016 年以来）回填贸易方式、主要国别地区和商品构成。全过程幂等。
+- `data:seed-mofcom-trade`：回填总额 2000 年以来历史；按月（2016 年以来）回填贸易方式、主要国别地区和商品构成。全过程幂等。该命令会持续约 7 分钟，必须在服务器后台运行，不能放在部署 SSH 会话中。
+- `data:seed-mofcom-trade -- --latest-only`：仅拉取最新发布月，用于 `data:apply` 的部署快速模式，负责落最新定义、订阅和观测；不会替代一次性的全历史回填。
 - `data:sync-mofcom-trade`：同一历史扫描的可重复修订回填命令。
 - 日常 `data:worker` 通过 `mofcom_trade` adapter 只请求当前月；`cn.mofcom.trade` 发布包经 `data:sync-calendar` 对齐发布时间，未匹配时月度探测规则兜底。
 - JSON 锚点/行集合为空或字段不可解析会抛错，由 `fetch_run` 记录 FAILED、指数退避并进入既有滞后告警。
