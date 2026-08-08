@@ -12,10 +12,8 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # 正常一趟部署 ~20min（scp 228MB 约 22s + 服务器 db:migrate/data:apply 约 16min）。
-    # 曾出过一次 scp 被卡 33min 后 job 超时被 cancel——根因是当时有人在同一台服务器手工
-    # 导 dump，磁盘/CPU 争抢触发 TCP 背压把入网压到 ~1Mbit（不是网络限速，平时 scp 很快）。
-    # 故把总超时从 35 抬到 60，给偶发的资源争抢留余量；并给 scp 加保活探测（见下）快速失败。
+    # Deployments publish code and bounded database definitions only. Data
+    # acquisition and maintenance run outside the deploy SSH session.
     timeout-minutes: 60
     env:
       DEPLOY_USER: root
@@ -37,7 +35,6 @@ jobs:
 
       - name: Build
         env:
-          # prisma generate / next build 不需要真实数据库，占位即可
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
         run: npm run build
 
@@ -75,16 +72,13 @@ jobs:
         run: ssh-keyscan -H -p "${DEPLOY_PORT}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Copy tarball to server
-        # 两层防护：① 保活探测——连接真断（网络瞬挂）时 ~90s（15s×6）内报错退出、外层重试
-        # 一次，不干等到 job 超时；② 若是服务器背压（连接活着但被压到 ~1Mbit 慢传），保活探测
-        # 抓不到，靠上面抬高的 timeout-minutes=60 兜底让它传完。
         run: |
           scp_once() {
             scp -P "${DEPLOY_PORT}" \
               -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
               deploy.tar.gz "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
           }
-          scp_once || { echo "::warning::scp 首次失败，10s 后重试一次"; sleep 10; scp_once; }
+          scp_once || { echo "::warning::First scp attempt failed; retrying once in 10 seconds"; sleep 10; scp_once; }
 
       - name: Extract and restart on server
         run: |
@@ -92,25 +86,23 @@ jobs:
             -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
             "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" <<EOF
           set -euo pipefail
-          # 生产以 CI 推送的 deploy.tar.gz 为准；勿在服务器 git pull（tar 解压会使 git 工作区与真实代码不一致）。
           cd "${DEPLOY_PATH}"
           pm2 stop finance-site || true
           rm -rf .next node_modules
           tar -xzf deploy.tar.gz
           rm -f deploy.tar.gz
-          # 幂等落库：schema 迁移 + 指标/订阅/发布包/目录布局 + 各域自检（见 docs/DATA_DEPLOY_SYNC.md）。
-          # 非致命：数据步骤失败只告警，不阻断应用重启（末尾健康检查兜底）。观测由 worker 自动回填。
-          npm run db:migrate || echo "[deploy] db:migrate 失败，schema 未应用，请查日志"
-          npm run data:apply -- --skip-migrate || echo "[deploy] data:apply 有失败项，应用仍将重启，请查日志"
-          # quant 平台 regime 表：纯本地计算（读库里已有的 factor_snapshot + 宏观数据，无外部抓取），
-          # 幂等 upsert，之前从未接入任何自动化链路导致生产库长期为空，故补在这里。
-          # factor_snapshot 云端为空时该脚本网格也为空，安全跳过，不会报错。
-          npm run quant:build-regime || echo "[deploy] quant:build-regime 失败，regime 数据未更新，请查日志"
+
+          # Fast deploy: migrations plus catalog definitions, subscriptions,
+          # release packages and layout. No history backfills, calendar fetches,
+          # equity discovery, global verification or quant rebuilds happen here.
+          npm run db:migrate || echo "[deploy] db:migrate failed; inspect server logs"
+          npm run data:apply -- --skip-migrate --skip-equity --skip-calendar --skip-backfill --skip-verify || echo "[deploy] data definitions had failures; inspect server logs"
+
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start
           pm2 save
           sleep 5
           curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
-          # 守卫（fail-hard）：S&P500 未播种会让所有个股页 404（历史事故：Wikipedia 源被墙、seed 静默失败）。
-          # 放在健康检查之后：站点已重启不受影响，仅让"空表"显式使部署变红报警，不再被绿灯掩盖。
+
+          # Application integrity guard: local DB check only, no network fetch.
           npm run equity:assert-seeded
           EOF
