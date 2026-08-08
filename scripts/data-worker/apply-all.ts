@@ -109,21 +109,13 @@ function buildPlan(flags: Flags): Step[] {
     steps.push({ label: "release-packages", script: "data:seed-release-packages", args: [], gating: true });
   }
 
-  // 4) 美国宏观目录布局整表重建（9 大类 + 子类；保留其他国家布局；fred:/mds: 双轨不去重）
+  // 4) 所有国家重建为统一的九大宏观主题 + 可扫描子层级。目录定义来自代码，
+  // 因而本机与生产库不会因各自的持久化布局而漂移。
   if (!flags.skipLayout) {
     steps.push({
-      label: "rebuild-us-catalog-layout",
-      script: "data:rebuild-us-catalog-layout",
+      label: "rebuild-global-catalog-layout",
+      script: "data:rebuild-global-catalog-layout",
       args: [],
-      gating: true,
-    });
-    // 各国（尤其中国官方序列）的目录定义来自 Instrument metadata。把所有
-    // mds key 幂等写入已有的自定义布局，避免云端已有 MacroCatalogLayout 时
-    // 新增指标因 key 不在布局中而显示为「未分配」。
-    steps.push({
-      label: "sync-new-catalog-layout",
-      script: "data:sync-catalog-layout",
-      args: ["--prefix=mds:"],
       gating: true,
     });
   }

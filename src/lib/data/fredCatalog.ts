@@ -361,27 +361,10 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
       // 都带 catalogKey: fred:<ID>，且 fred:<ID> 默认 db-first 读取同一仪器），只作数据缓存，
       // 不应作为独立目录项——否则会与静态 FRED 目录的友好条目（fred:<ID>）重复。
       // FRED 序列若需在目录出现，请加入 FRED_US_ITEMS（带友好中文名），而非从这里放行。
-      OR: [
-        { code: { startsWith: "debtcap_" } },
-        { code: { startsWith: "usov_" } },
-        { code: { startsWith: "chov_" } },
-        { code: { startsWith: "jpov_" } },
-        { code: { startsWith: "goldov_" } },
-        { code: { startsWith: "ism_" } },
-        { code: { startsWith: "ism_svc_" } },
-        { code: { startsWith: "treasury_" } },
-        { code: { startsWith: "fiscal_" } },
-        { code: { startsWith: "nyfed_" } },
-        // 国家统计局等非 FRED 调度器序列也必须进入基础目录；否则即使 metadata
-        // 已声明 countryCode/catalogCategory，管理端仍会把它们误列为「仅数据库」。
-        { code: { startsWith: "nbs_" } },
-        { code: { startsWith: "mof_" } },
-        { code: { startsWith: "mofcom_" } },
-        { code: { startsWith: "pbc_" } },
-        { code: { startsWith: "safe_" } },
-        { code: { startsWith: "chov_" } },
-        { metadata: { path: ["bootstrap"], equals: "excel" } },
-      ],
+      // All non-FRED-cache macro instruments with country metadata belong in
+      // the base catalog. Prefix allowlists silently leave later official
+      // sources in “仅数据库 / 未分配”, so only exclude the FRED cache copies.
+      NOT: { code: { startsWith: "sched_fred_" } },
     },
     orderBy: { name: "asc" },
     select: {
