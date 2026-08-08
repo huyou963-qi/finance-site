@@ -5,6 +5,7 @@ const CHINA_OFFICIAL_HOSTS = new Set([
   "data.stats.gov.cn",
   "www.stats.gov.cn",
   "www.pbc.gov.cn",
+  "www.safe.gov.cn",
 ]);
 
 let cachedProxyUrl: string | null | undefined;
@@ -29,7 +30,7 @@ function proxyUrl(): string | null {
 
 export function isChinaOfficialUrl(input: string | URL): boolean {
   const hostname = new URL(input).hostname.toLowerCase();
-  return CHINA_OFFICIAL_HOSTS.has(hostname) || hostname.endsWith(".stats.gov.cn") || hostname.endsWith(".pbc.gov.cn");
+  return CHINA_OFFICIAL_HOSTS.has(hostname) || hostname.endsWith(".stats.gov.cn") || hostname.endsWith(".pbc.gov.cn") || hostname.endsWith(".safe.gov.cn");
 }
 
 /**

@@ -122,6 +122,10 @@ export async function fetchSubscriptionIncremental(
         const { fetchPbcMonetaryIncremental } = await import("./adapters/pbcMonetaryAdapter");
         return fetchPbcMonetaryIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "safe_external") {
+        const { fetchSafeExternalIncremental } = await import("./adapters/safeExternalAdapter");
+        return fetchSafeExternalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }

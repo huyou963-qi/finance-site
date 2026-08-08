@@ -891,6 +891,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 250,
     members: { instrumentCodePatterns: ["pbc_cn_*"] },
   }),
+  probePkg("cn.safe.external", "中国外汇与国际收支", {
+    labelEn: "SAFE Foreign Exchange and External Accounts",
+    countryCode: "CN",
+    agencyId: "cn-safe",
+    granularity: "MONTHLY",
+    intervalHours: 24,
+    sortOrder: 251,
+    members: { instrumentCodePatterns: ["safe_cn_*"] },
+  }),
 ] as const;
 
 export function instrumentMatchesPackageMember(

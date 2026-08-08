@@ -150,6 +150,8 @@ npm run db:studio        # Prisma Studio
 
 「中国人民银行货币与信用」：`data:seed-pbc-monetary` → `data:sync-pbc-monetary` / `data:verify-pbc-monetary -- --db`；月度 M0/M1/M2、人民币贷款/存款、分部门累计增量、社融存量/增量及分项、同业利率和 LPR，历史来自人民银行公开归档；仅保留公告直接披露的余额、同比、累计增量或利率，不推算环比。
 
+「中国外汇与国际收支」：`data:seed-safe-external` → `data:sync-safe-external` / `data:verify-safe-external -- --db`；外汇及黄金储备、银行结售汇、代客涉外收付款、国际收支、国际投资头寸和全口径外债的公开时间序列表；按原表月/季/年频保存，不推算未发布的同比或环比。
+
 「中国国家统计局 CPI」：`data:seed-nbs-cpi` → `data:sync-nbs-cpi` / `data:verify-nbs-cpi`（加 `--db`）；全国总项、核心项及八大类的指数、同比、环比走国家数据 UUID 接口全历史 + 官方月报 Excel 首发。
 
 ## 模块分工建议（3–5 人）

@@ -377,6 +377,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
         { code: { startsWith: "nbs_" } },
         { code: { startsWith: "mof_" } },
         { code: { startsWith: "pbc_" } },
+        { code: { startsWith: "safe_" } },
         { code: { startsWith: "chov_" } },
         { metadata: { path: ["bootstrap"], equals: "excel" } },
       ],
