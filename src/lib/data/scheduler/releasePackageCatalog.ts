@@ -526,6 +526,18 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     calendar: { countryCodes: ["CN"], keywords: ["china fixed asset investment", "chinese fixed asset investment", "china fixed investment"], excludeKeywords: ["real estate price"] },
     members: { instrumentCodePatterns: ["nbs_cn_fai_*"] },
   }),
+  pkg("cn.nbs.real-estate", "中国房地产开发与70城住房价格", {
+    labelEn: "China Property Investment and Home Prices",
+    countryCode: "CN",
+    agencyId: "cn-nbs",
+    granularity: "MONTHLY",
+    sortOrder: 139,
+    calendar: {
+      countryCodes: ["CN"],
+      keywords: ["China House Price Index", "China Property Investment"],
+    },
+    members: { instrumentCodePatterns: ["nbs_cn_realestate_"] },
+  }),
   pkg("cn.mof.fiscal", "中国财政收支", {
     labelEn: "China Fiscal Revenue and Expenditure",
     countryCode: "CN",

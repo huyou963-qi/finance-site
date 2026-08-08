@@ -114,6 +114,10 @@ export async function fetchSubscriptionIncremental(
         const { fetchNbsFaiIncremental } = await import("./adapters/nbsFaiAdapter");
         return fetchNbsFaiIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "nbs_realestate") {
+        const { fetchNbsRealEstateIncremental } = await import("./adapters/nbsRealEstateAdapter");
+        return fetchNbsRealEstateIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       if (scrapeObj.provider === "mof_fiscal") {
         const { fetchMofFiscalIncremental } = await import("./adapters/mofFiscalAdapter");
         return fetchMofFiscalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);

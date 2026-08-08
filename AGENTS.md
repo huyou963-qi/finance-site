@@ -146,6 +146,8 @@ npm run db:studio        # Prisma Studio
 
 「中国国家统计局固定资产投资」：`data:seed-nbs-fai` → `data:sync-nbs-fai` / `data:verify-nbs-fai -- --db`；月度累计同比及行业、资金、构成、注册类型分项，年度名义值/同比，月度发布稿总项季调环比；1 月免报，官方未发布的分项环比不推算。
 
+「中国国家统计局房地产开发与70城住房价格」：`data:seed-nbs-realestate` → `data:sync-nbs-realestate` / `data:verify-nbs-realestate -- --db`；房地产开发、施工/新开工/竣工、销售、到位资金及待售面积从官方月报 Excel 表1回填累计/期末值和同比；70城新建、二手住宅的城市级环比/同比/年内平均指数从公开月报表1、表2回填。仅保存官方公布口径，不由累计数推算当月值或环比。
+
 「中国财政部财政收支」：`data:seed-mof-fiscal` → `data:sync-mof-fiscal` / `data:verify-mof-fiscal -- --db`；一般公共预算、政府性基金的累计收入/支出及分项累计额、同比，历史来自国库司月报归档；季度、年度对应月末累计口径，不推算单月值或环比。
 
 「中国人民银行货币与信用」：`data:seed-pbc-monetary` → `data:sync-pbc-monetary` / `data:verify-pbc-monetary -- --db`；月度 M0/M1/M2、人民币贷款/存款、分部门累计增量、社融存量/增量及分项、同业利率和 LPR，历史来自人民银行公开归档；仅保留公告直接披露的余额、同比、累计增量或利率，不推算环比。
