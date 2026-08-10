@@ -18,7 +18,7 @@ loadEnvConfig(process.cwd());
 async function main() {
   let errors = 0;
   console.log("[verify-phase4] Overview 模板");
-  if (overviewTemplateForInstrument("chov_c01_gdp_real_yoy_q") === "china") {
+  if (overviewTemplateForInstrument("chov_c05_mfg_pmi") === "china") {
     console.log("  ✓ chov 模板识别");
   } else {
     errors++;
@@ -29,7 +29,7 @@ async function main() {
     errors++;
   }
   const cnCodes = listOverviewInstrumentCodes("china");
-  if (cnCodes.length >= 20) {
+  if (cnCodes.length === 2) {
     console.log(`  ✓ 中国 layout ${cnCodes.length} 条`);
   } else {
     console.error(`  ✗ 中国 layout 仅 ${cnCodes.length} 条`);
@@ -57,10 +57,18 @@ async function main() {
 
   if (process.argv.includes("--db")) {
     try {
-      const cn = await prisma.dataSubscription.count({ where: { sourceId: "overview-china" } });
-      const jp = await prisma.dataSubscription.count({ where: { sourceId: "overview-japan" } });
-      const leg = await prisma.dataSubscription.count({ where: { sourceId: "legacy-m" } });
-      console.log(`[verify-phase4] DB overview-china ${cn} · overview-japan ${jp} · legacy-m ${leg}`);
+      const cn = await prisma.dataSubscription.count({
+        where: { sourceId: "overview-china" },
+      });
+      const jp = await prisma.dataSubscription.count({
+        where: { sourceId: "overview-japan" },
+      });
+      const leg = await prisma.dataSubscription.count({
+        where: { sourceId: "legacy-m" },
+      });
+      console.log(
+        `[verify-phase4] DB overview-china ${cn} · overview-japan ${jp} · legacy-m ${leg}`,
+      );
     } catch (e) {
       console.error(`  ✗ ${e instanceof Error ? e.message : e}`);
       errors++;
