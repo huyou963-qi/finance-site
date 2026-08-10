@@ -26,7 +26,6 @@ npm run data:verify-phase5 -- --db
 
 仍依赖 xlsx / 手工：
 
-- `usov_c14_ism_nm_pmi`（ISM 非制造业，FRED 无稳定免费序列）
 - `usov_c28_sp500_pe`（标普 PE，需 FMP 或 xlsx）
 
 复合示例：

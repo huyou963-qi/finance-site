@@ -24,7 +24,6 @@ export const USOV_FRED_SERIES_BY_CODE: Record<string, string> = {
 /** Phase 5：补全 Phase 2 未映射的 usov 直拉 FRED 序列 */
 export const USOV_FRED_PHASE5_EXTRA: Record<string, string> = {
   usov_c13_gdp_qoq_saar: "A191RL1Q225SBEA",
-  usov_c15_ism_mfg_pmi: "NAPM",
 };
 
 export function mergedUsovFredMap(): Record<string, string> {

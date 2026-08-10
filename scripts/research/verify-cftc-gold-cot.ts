@@ -157,13 +157,13 @@ async function readDbTriple(
   prisma: PrismaClient,
   obsDate: string,
 ): Promise<{ long: number | null; short: number | null; net: number | null }> {
-  const codes = ["goldov_c04_mm_long", "goldov_c05_mm_short", "goldov_c06_mm_net"] as const;
+  const codes = ["cot_mm_gold_long", "cot_mm_gold_short"] as const;
   const out: { long: number | null; short: number | null; net: number | null } = {
     long: null,
     short: null,
     net: null,
   };
-  const key = ["long", "short", "net"] as const;
+  const key = ["long", "short"] as const;
   for (let i = 0; i < codes.length; i++) {
     const inst = await prisma.instrument.findUnique({ where: { code: codes[i]! } });
     if (!inst) continue;
@@ -172,6 +172,7 @@ async function readDbTriple(
     });
     out[key[i]!] = obs?.value ?? null;
   }
+  out.net = out.long != null && out.short != null ? out.long - out.short : null;
   return out;
 }
 
@@ -252,14 +253,14 @@ async function main() {
     prisma,
     (
       await prisma.macroObservation.findFirst({
-        where: { instrument: { code: "goldov_c04_mm_long" } },
+        where: { instrument: { code: "cot_mm_gold_long" } },
         orderBy: { obsDate: "desc" },
       })
     )?.obsDate.toISOString().slice(0, 10) ?? "",
   );
   const latestObsDate = (
     await prisma.macroObservation.findFirst({
-      where: { instrument: { code: "goldov_c04_mm_long" } },
+      where: { instrument: { code: "cot_mm_gold_long" } },
       orderBy: { obsDate: "desc" },
     })
   )?.obsDate.toISOString().slice(0, 10);
@@ -279,9 +280,9 @@ async function main() {
   console.log("\n=== 字段映射结论 ===");
   console.log("| Excel 列 (goldAnalysisLayout) | CFTC kh3c-gbw2 字段 | 说明 |");
   console.log("|-------------------------------|---------------------|------|");
-  console.log("| goldov_c04_mm_long 管理基金多头 | m_money_positions_long_all | Managed Money 多头合约数 |");
-  console.log("| goldov_c05_mm_short 管理基金空头 | m_money_positions_short_all | Managed Money 空头合约数 |");
-  console.log("| goldov_c06_mm_net 管理基金净持仓 | long − short | Excel 净仓非 spread；勿用 m_money_positions_spread_all |");
+  console.log("| cot_mm_gold_long 管理基金多头 | m_money_positions_long_all | Managed Money 多头合约数 |");
+  console.log("| cot_mm_gold_short 管理基金空头 | m_money_positions_short_all | Managed Money 空头合约数 |");
+  console.log("| 管理基金净持仓（派生） | long − short | 仅用于核对；勿用 m_money_positions_spread_all |");
   console.log("| 筛选条件 | commodity='GOLD' + 非 MICRO 市场 | 同日多合约取 open_interest_all 最大 |");
   console.log("| obsDate / report_date | 与 CFTC report_date_as_yyyy_mm_dd 对齐 | 周频，通常为周二 cutoff 后周五发布 |");
 }

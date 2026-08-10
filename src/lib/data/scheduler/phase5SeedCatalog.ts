@@ -30,7 +30,4 @@ export const PHASE5_DATA_SOURCES = {
 } as const;
 
 /** 仍无 FRED/复合/e-Stat 映射的 usov 序列（继续依赖 xlsx 或手工） */
-export const USOV_MANUAL_REMAINING = [
-  "usov_c14_ism_nm_pmi",
-  "usov_c28_sp500_pe",
-] as const;
+export const USOV_MANUAL_REMAINING = ["usov_c28_sp500_pe"] as const;
