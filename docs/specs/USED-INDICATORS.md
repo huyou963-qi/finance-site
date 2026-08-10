@@ -6,7 +6,7 @@
 > 再生成基线（FRED 部分）：
 > `grep -o 'fredId: "[A-Z0-9_]*"' src/lib/data/*AnalysisLayout.ts | sort -u`
 
-生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条；2026-08-10 追加「中国财政」域（Agent E 验收）
+生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条；2026-08-10 追加「中国财政」与「中国金融条件与流动性」域（Agent E 验收）
 
 ## 美国
 
@@ -140,3 +140,18 @@
 | `mof_cn_fiscal_debt_interest_yoy` / `mof_cn_fiscal_debt_interest_amount` | 债务付息支出累计同比/累计额 | 财政部 | 中国财政 ③-4 |
 
 本地派生占用：`calc:cn-fiscal-general-deficit-proxy`、`calc:cn-fiscal-fund-deficit-proxy`、`calc:cn-fiscal-two-book-deficit-proxy`、`calc:cn-fiscal-two-book-deficit-gdp`、`calc:cn-fiscal-interest-share-expenditure-ytd`。它们不是新的官方原始指标，不得在其他维度改名冒充官方赤字或赤字率。
+
+### 中国金融条件与流动性（2026-08-10，Agent E 验收）
+
+| instrument code / key | 显示名 | 来源 | 占用模板 |
+|-----------------------|--------|------|----------|
+| `pbc_cn_lpr_1y` / `pbc_cn_lpr_5y` | 1 年期/5 年以上 LPR | 中国人民银行 | 金融条件 · 资金价格与货币活性 ①-1 |
+| `pbc_cn_repo_rate` / `pbc_cn_interbank_lending_rate` | 质押式回购/同业拆借月加权平均利率 | 中国人民银行 | 金融条件 · 资金价格与货币活性 ①-2 |
+| `pbc_cn_m1_yoy` / `pbc_cn_m2_yoy` | M1/M2 同比 | 中国人民银行 | 金融条件 · 资金价格与货币活性 ①-3、①-4 派生输入 |
+| `pbc_cn_social_financing_stock_yoy` / `pbc_cn_rmb_loan_yoy` | 社融存量/人民币贷款余额同比 | 中国人民银行 | 金融条件 · 信用扩张与融资结构 ②-1；贷款亦用于 ②-2 派生输入 |
+| `pbc_cn_rmb_deposit_yoy` | 人民币存款余额同比 | 中国人民银行 | 金融条件 · 信用扩张与融资结构 ②-2 |
+| `pbc_cn_social_financing_cumulative` | 社会融资规模增量累计 | 中国人民银行 | 金融条件 · 信用扩张与融资结构 ②-3、②-4 派生分母 |
+| `pbc_cn_social_financing_rmb_loan_cumulative` / `pbc_cn_government_bond_financing_cumulative` | 社融口径人民币贷款/政府债券融资累计 | 中国人民银行 | 金融条件 · 信用扩张与融资结构 ②-3 派生分子 |
+| `pbc_cn_corporate_bond_financing_cumulative` / `pbc_cn_domestic_equity_financing_cumulative` | 企业债券/非金融企业境内股票融资累计 | 中国人民银行 | 金融条件 · 信用扩张与融资结构 ②-4 派生分子 |
+
+本地派生占用：`calc:cn-financial-unsecured-secured-spread`、`calc:cn-financial-m1-m2-gap`、`calc:cn-financial-loan-deposit-growth-gap`、`calc:cn-financial-tsf-rmb-loan-share`、`calc:cn-financial-tsf-government-bond-share`、`calc:cn-financial-tsf-corporate-bond-share`、`calc:cn-financial-tsf-equity-share`。这些序列只在模板层按同月输入计算，不是人民银行官方指标；后续维度不得改名重复占用或把它们写成官方“金融条件指数”。

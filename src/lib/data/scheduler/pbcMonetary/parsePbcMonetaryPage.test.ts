@@ -37,3 +37,12 @@ test("parses text extracted from an official PDF attachment", () => {
   assert.equal(values.get("rmb_loan_cumulative")?.value, 35_800);
   assert.equal(values.get("m2_amount")?.obsDate.toISOString().slice(0, 10), "2011-05-01");
 });
+
+test("parses current PBC monthly interbank and pledged-repo rate wording", () => {
+  const values = parsePbcMonetaryPage(`<title>2026年6月金融统计数据报告</title>
+    <p>6月份银行间人民币市场同业拆借月加权平均利率为1.46%，
+    质押式回购月加权平均利率为1.50%。</p>`);
+  assert.equal(values.get("interbank_lending_rate")?.value, 1.46);
+  assert.equal(values.get("repo_rate")?.value, 1.5);
+  assert.equal(values.get("repo_rate")?.obsDate.toISOString().slice(0, 10), "2026-06-01");
+});

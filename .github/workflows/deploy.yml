@@ -104,10 +104,19 @@ jobs:
           curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
 
           # A successful home-page response alone can mask an incomplete Next
-          # artifact. This authenticated endpoint must be present after every
-          # release; without a session it is expected to return 401, not 404.
-          macro_prefs_status=$(curl -sS -o /dev/null -w "%{http_code}" \
-            http://127.0.0.1:3000/api/tools/macro-chart-prefs)
+          # artifact. The route can become available a few seconds after PM2
+          # reports the process online, so retry before declaring it missing.
+          # Without a session the endpoint is expected to return 401, not 404.
+          macro_prefs_status=""
+          for attempt in $(seq 1 12); do
+            macro_prefs_status=$(curl -sS --connect-timeout 2 --max-time 5 \
+              -o /dev/null -w "%{http_code}" \
+              http://127.0.0.1:3000/api/tools/macro-chart-prefs || true)
+            if [ "$macro_prefs_status" = "401" ]; then
+              break
+            fi
+            sleep 2
+          done
           if [ "$macro_prefs_status" != "401" ]; then
             echo "[deploy] macro template preferences API unavailable (HTTP $macro_prefs_status)"
             pm2 logs finance-site --lines 40 --nostream

@@ -97,6 +97,12 @@ import {
   BUILTIN_CN_FISCAL_TEMPLATE_IDS,
   BUILTIN_CN_FISCAL_TEMPLATES,
 } from "@/lib/data/cnFiscalAnalysisLayout";
+import {
+  BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
+  BUILTIN_CN_FINANCIAL_LIQUIDITY_FUNDING_TEMPLATE,
+  BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,
+  BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATES,
+} from "@/lib/data/cnFinancialLiquidityAnalysisLayout";
 
 export {
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -135,6 +141,9 @@ export {
   BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
   BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
   BUILTIN_CN_FISCAL_TEMPLATES,
+  BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
+  BUILTIN_CN_FINANCIAL_LIQUIDITY_FUNDING_TEMPLATE,
+  BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATES,
 };
 
 export type MacroChartTemplate = {
@@ -213,6 +222,11 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
     scope: "builtin",
   },
   { id: "folder-builtin-cn-fiscal", name: "中国财政分析", scope: "builtin" },
+  {
+    id: "folder-builtin-cn-financial-liquidity",
+    name: "中国金融条件与流动性",
+    scope: "builtin",
+  },
 ];
 
 export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> = {
@@ -240,6 +254,8 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-cn-fiscal-overview": "folder-builtin-cn-fiscal",
   "builtin-cn-fiscal-revenue": "folder-builtin-cn-fiscal",
   "builtin-cn-fiscal-expenditure": "folder-builtin-cn-fiscal",
+  "builtin-cn-financial-liquidity-funding": "folder-builtin-cn-financial-liquidity",
+  "builtin-cn-financial-liquidity-credit": "folder-builtin-cn-financial-liquidity",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -562,6 +578,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATE_IDS,
   ...BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
   ...BUILTIN_CN_FISCAL_TEMPLATE_IDS,
+  ...BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

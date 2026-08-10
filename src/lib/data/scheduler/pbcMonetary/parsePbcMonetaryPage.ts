@@ -56,8 +56,12 @@ export function parsePbcMonetaryPage(html: string): PbcParsedPage {
   if (stock) { const amount = number(stock[1]!, stock[2]!); const yoy = number(stock[4]!, "亿元", stock[3]); if (amount !== null) out.set("social_financing_stock_amount", { obsDate: date, value: amount }); if (yoy !== null) out.set("social_financing_stock_yoy", { obsDate: date, value: yoy }); }
   increase(body, "social_financing_cumulative", ["社会融资规模增量"], out, date); increase(body, "social_financing_rmb_loan_cumulative", ["对实体经济发放的人民币贷款"], out, date); increase(body, "social_financing_foreign_loan_cumulative", ["对实体经济发放的外币贷款折合人民币", "对实体经济发放的外币贷款"], out, date); increase(body, "entrusted_loan_cumulative", ["委托贷款"], out, date); increase(body, "trust_loan_cumulative", ["信托贷款"], out, date); increase(body, "bank_acceptance_cumulative", ["未贴现的银行承兑汇票"], out, date); increase(body, "corporate_bond_financing_cumulative", ["企业债券融资"], out, date); increase(body, "government_bond_financing_cumulative", ["政府债券融资"], out, date); increase(body, "domestic_equity_financing_cumulative", ["非金融企业境内股票融资"], out, date);
   financing(body, "social_financing_cumulative", ["社会融资规模增量累计", "社会融资规模增量"], out, date); financing(body, "corporate_bond_financing_cumulative", ["企业债券净融资", "企业债券融资"], out, date); financing(body, "government_bond_financing_cumulative", ["政府债券净融资", "政府债券融资"], out, date); financing(body, "domestic_equity_financing_cumulative", ["非金融企业境内股票融资"], out, date);
-  const interbank = /同业拆借加权平均利率为([0-9.]+)%/.exec(body); if (interbank) out.set("interbank_lending_rate", { obsDate: date, value: Number(interbank[1]) });
-  const repo = /质押式债券回购加权平均利率为([0-9.]+)%/.exec(body); if (repo) out.set("repo_rate", { obsDate: date, value: Number(repo[1]) });
+  // PBC has used both “加权平均利率” and “月加权平均利率”, and some
+  // releases abbreviate “质押式债券回购” to “质押式回购”. Keep the anchor
+  // specific to the official market-rate phrases while accepting those stable
+  // wording variants; the previous exact match silently dropped most repo rows.
+  const interbank = /同业拆借(?:月)?加权平均利率为([0-9.]+)%/.exec(body); if (interbank) out.set("interbank_lending_rate", { obsDate: date, value: Number(interbank[1]) });
+  const repo = /质押式(?:债券)?回购(?:月)?加权平均利率为([0-9.]+)%/.exec(body); if (repo) out.set("repo_rate", { obsDate: date, value: Number(repo[1]) });
   if (!out.size) throw new Error("人民银行公告未识别到货币信贷或社融指标");
   return out;
 }
