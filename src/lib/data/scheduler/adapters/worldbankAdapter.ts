@@ -20,6 +20,7 @@ function yearFromIso(isoDate: string): number {
 export async function fetchWorldBankIncremental(
   sourceSeriesKey: string,
   observationStart: string,
+  options?: { annualObservationDate?: "year_start" | "year_end"; historyStartYear?: number },
 ): Promise<FetchIncrementalResult> {
   const parsed = parseWorldBankSeriesKey(sourceSeriesKey);
   if (!parsed) {
@@ -32,7 +33,10 @@ export async function fetchWorldBankIncremental(
     throw new Error(`World Bank 不支持国家代码 ${countryCode}`);
   }
 
-  const startYear = Math.max(1990, yearFromIso(observationStart));
+  const startYear = Math.max(
+    options?.historyStartYear ?? 1990,
+    yearFromIso(observationStart),
+  );
   const endYear = new Date().getUTCFullYear() + 1;
   const url =
     `https://api.worldbank.org/v2/country/${countryCode}/indicator/${encodeURIComponent(indicatorId)}` +
@@ -73,7 +77,13 @@ export async function fetchWorldBankIncremental(
       skippedInvalid += 1;
       continue;
     }
-    points.push({ obsDate: new Date(Date.UTC(y, 0, 1)), value: v });
+    points.push({
+      obsDate:
+        options?.annualObservationDate === "year_end"
+          ? new Date(Date.UTC(y, 11, 31))
+          : new Date(Date.UTC(y, 0, 1)),
+      value: v,
+    });
   }
 
   points.sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime());

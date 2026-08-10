@@ -37,7 +37,12 @@ export async function fetchCftcCotIncremental(
 
   const points: ObservationPoint[] = series.map((row) => ({
     obsDate: row.obsDate,
-    value: cot.metric === "long" ? row.long : row.short,
+    value:
+      cot.metric === "long"
+        ? row.long
+        : cot.metric === "short"
+          ? row.short
+          : row.long - row.short,
   }));
 
   const filtered = filterFromStart(points, observationStart);

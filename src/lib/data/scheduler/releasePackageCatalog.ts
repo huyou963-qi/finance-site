@@ -256,6 +256,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     },
     members: {
       fredSeriesIds: ["PPIFIS"],
+      instrumentCodes: ["goldov_c15_ppi_yoy"],
     },
   }),
   pkg("us.bea.gdp", "美国 GDP", {

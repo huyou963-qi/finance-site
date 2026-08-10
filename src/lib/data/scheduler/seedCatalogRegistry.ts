@@ -18,6 +18,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   overview: { script: "seed-overview", labelZh: "美国 Overview FRED" },
   fiscal: { script: "seed-fiscal", labelZh: "美国财政数据" },
   cot: { script: "seed-cot", labelZh: "CFTC COT" },
+  "gold-market": { script: "seed-gold-market", labelZh: "黄金分析已确认原始市场口径" },
   monetary: { script: "seed-monetary", labelZh: "美国货币政策与金融条件" },
   housing: { script: "seed-housing", labelZh: "美国住房与地产" },
   "nyfed-recession": { script: "seed-nyfed-recession", labelZh: "NY Fed 衰退概率（抓取）" },
@@ -87,6 +88,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     verifyNeedsDb: true,
   },
   debtcap: { script: "verify-debtcap", labelZh: "BIS 杠杆率与偿债率自检" },
+  "gold-market": {
+    script: "verify-gold-market",
+    labelZh: "黄金分析已确认原始市场口径自检",
+    verifyNeedsDb: true,
+  },
 };
 
 export function listSeedCatalogNames(): string[] {

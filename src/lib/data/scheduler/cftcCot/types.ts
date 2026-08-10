@@ -25,6 +25,7 @@ export type CotMatchSpec = {
 
 export type CotInstrumentCotMeta = {
   productSlug: string;
-  metric: "long" | "short";
+  /** `net` is the official-report calculation: Managed Money long minus short. */
+  metric: "long" | "short" | "net";
   match: CotMatchSpec;
 };

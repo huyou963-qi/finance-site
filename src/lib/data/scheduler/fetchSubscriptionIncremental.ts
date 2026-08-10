@@ -27,6 +27,23 @@ function readScrapeObject(metadata: unknown): Record<string, unknown> | null {
   return scrape && typeof scrape === "object" ? (scrape as Record<string, unknown>) : null;
 }
 
+function readWorldBankOptions(metadata: unknown):
+  | { annualObservationDate?: "year_start" | "year_end"; historyStartYear?: number }
+  | undefined {
+  if (!metadata || typeof metadata !== "object") return undefined;
+  const wb = (metadata as Record<string, unknown>).worldbank;
+  if (!wb || typeof wb !== "object") return undefined;
+  const row = wb as Record<string, unknown>;
+  return {
+    annualObservationDate:
+      row.annualObservationDate === "year_end" ? "year_end" : "year_start",
+    historyStartYear:
+      typeof row.historyStartYear === "number" && Number.isFinite(row.historyStartYear)
+        ? row.historyStartYear
+        : undefined,
+  };
+}
+
 /** 按 DataSource / metadata 分发增量拉取（与 runSubscription 原逻辑一致） */
 export async function fetchSubscriptionIncremental(
   sub: SubscriptionWithRelations,
@@ -85,6 +102,10 @@ export async function fetchSubscriptionIncremental(
           sub.instrument.code,
           fetchStart,
         );
+      }
+      if (scrapeObj.provider === "bls_ppi") {
+        const { fetchBlsPpiIncremental } = await import("./adapters/blsPpiAdapter");
+        return fetchBlsPpiIncremental(sub.instrument.metadata, fetchStart);
       }
       if (scrapeObj.provider === "nbs_cpi") {
         const { fetchNbsCpiIncremental } = await import("./adapters/nbsCpiAdapter");
@@ -163,7 +184,11 @@ export async function fetchSubscriptionIncremental(
 
   if (sub.source.adapterKind === SourceAdapterKind.WORLD_BANK_API) {
     await sleep(minIntervalMs(sub.source));
-    return fetchWorldBankIncremental(sub.sourceSeriesKey, fetchStart);
+    return fetchWorldBankIncremental(
+      sub.sourceSeriesKey,
+      fetchStart,
+      readWorldBankOptions(sub.instrument.metadata),
+    );
   }
 
   if (sub.source.adapterKind === SourceAdapterKind.BULK_FILE) {

@@ -142,6 +142,8 @@
     "data:seed-cot": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cot.ts",
     "data:sync-cot": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cot.ts -- --sync-only",
     "data:verify-cot": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cot.ts",
+    "data:seed-gold-market": "dotenv -e .env.local -- tsx scripts/data-worker/seed-gold-market.ts",
+    "data:verify-gold-market": "dotenv -e .env.local -- tsx scripts/data-worker/verify-gold-market.ts",
     "data:build-us-history-timeline": "node scripts/data/build-us-history-timeline.mjs",
     "equity:seed-sp500": "dotenv -e .env.local -- tsx scripts/equity/seed-sp500.ts",
     "equity:seed-us-universe": "dotenv -e .env.local -- tsx scripts/equity/seed-us-universe.ts",

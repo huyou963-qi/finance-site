@@ -17,7 +17,8 @@ export function readCotMeta(metadata: unknown): CotInstrumentCotMeta | null {
   const cot = (metadata as Record<string, unknown>).cot;
   if (!cot || typeof cot !== "object") return null;
   const c = cot as Record<string, unknown>;
-  const metric = c.metric === "long" || c.metric === "short" ? c.metric : null;
+  const metric =
+    c.metric === "long" || c.metric === "short" || c.metric === "net" ? c.metric : null;
   const productSlug = typeof c.productSlug === "string" ? c.productSlug : null;
   const match = c.match;
   if (!metric || !productSlug || !match || typeof match !== "object") return null;
@@ -43,7 +44,7 @@ export function readCotMeta(metadata: unknown): CotInstrumentCotMeta | null {
 
 export function buildCotInstrumentMetadata(
   product: CotProductDef,
-  metric: "long" | "short",
+  metric: "long" | "short" | "net",
   acquisition: FetchAcquisitionRecord,
 ): Record<string, unknown> {
   return {
@@ -57,11 +58,16 @@ export function buildCotInstrumentMetadata(
       match: product.match,
     },
     fetchAcquisition: acquisition,
-    displayName: cotCatalogLabel(product.label, metric),
+    displayName:
+      metric === "net" ? `${product.label} · 管理基金净持仓` : cotCatalogLabel(product.label, metric),
   };
 }
 
-export function cotInstrumentName(product: CotProductDef, metric: "long" | "short"): string {
+export function cotInstrumentName(
+  product: CotProductDef,
+  metric: "long" | "short" | "net",
+): string {
+  if (metric === "net") return `COT 管理基金净持仓 · ${product.label}`;
   return metric === "long"
     ? `COT 管理基金多头 · ${product.label}`
     : `COT 管理基金空头 · ${product.label}`;
