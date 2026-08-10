@@ -1,7 +1,7 @@
 # Agent B — API 数据接入（data-onboarding）
 
-> 输入：评审通过（`indicators-approved`）的 `docs/specs/us-<dimension>.spec.md`。
-> 职责：把 Spec §3 中 kind ∈ {`fred_api`, `worldbank_api`, `rest_api_existing`, `bulk_file`, `manual`} 的指标完成**入库 + 历史回填 + 持续更新调度**。抓取类（`te_scrape` / `web_scrape_new`）交给 Agent C。
+> 输入：评审通过（`indicators-approved`）的 `docs/specs/<country>-<dimension>.spec.md`。
+> 职责：先核验并复用 Spec §3 的既有数据；仅把标为 `gap_new_source` 且 kind ∈ {`fred_api`, `worldbank_api`, `rest_api_existing`, `bulk_file`, `manual`} 的指标完成**入库 + 历史回填 + 持续更新调度**。抓取类（`te_scrape` / `web_scrape_new`）交给 Agent C。
 > 完成标准：Spec §6「数据」段全部勾选（抓取项除外），状态改 `data-ready`（若含抓取项，等 C 一起改）。
 
 ## 蓝本
@@ -11,6 +11,12 @@
 机制文档：[DATA_SCHEDULER_ONBOARD.md](../../docs/DATA_SCHEDULER_ONBOARD.md)（六步清单）。
 
 ## 执行步骤（对应六步清单）
+
+### -1. 复用门（先做，禁止跳过）
+
+对每条 `reuse_verified` / `reuse_needs_repair` 指标，读取现有 `Instrument`、`DataSubscription`、`ReleasePackage` 与最新观测；运行其原 catalog 的 verify。合格即在 Spec 记录 code、首末日期、观测数、原 catalog 与发布包，**不**新建 seed、source、订阅、解析器或发布包。仅缺字段、分类或调度异常时，在原域做最小修复并重跑原域 verify；若修复会改变口径或影响其他域，退回人工评审。
+
+中国官方域优先复用 `seedCatalogRegistry.ts` 已登记的 `nbs-*`、`mof-fiscal`、`pbc-monetary`、`safe-external`、`mofcom-trade`，以及它们的 provider catalog / adapter；不要把同一 NBS、PBC、财政部、外管局或商务部指标当作新的网页抓取源。
 
 ### 0. 属性核实（每条指标必做，不得凭 Spec 记忆填）
 
@@ -37,7 +43,7 @@
 
 新建 `src/lib/data/scheduler/<dim>FredSeedCatalog.ts`：
 
-- 每条指标一行 `SeedRow`：`fredId`、`code`（**必须** `sched_fred_<FREDID>`；非 FRED 用 `<dim>_us_<name>`）、`displayName`、`freqLabel`、`granularity`、`unit`、`category`、`source`、`sourceUpdateNote`。
+- 每条指标一行 `SeedRow`：`fredId`、`code`（FRED **必须** `sched_fred_<FREDID>`；其他国家/来源沿用 provider 的既有前缀与命名）、`displayName`、`freqLabel`、`granularity`、`unit`、`category`、`source`、`sourceUpdateNote`。
 - `build<Dim>InstrumentMetadata()`：写 `sourceTag: "<dim>-fred-seed"`、`catalogKey: "fred:<ID>"`、`countryCode/countryNameZh` 等（照抄 CPI 版结构）。
 - **先查重**：指标可能已被其他 seed 入库（全局搜 `sched_fred_<ID>`）。已存在则跳过入库，只在 Spec 里标注共享。
 

@@ -736,6 +736,9 @@ export function fredInstrumentCodeFromKey(key: string): string | null {
 export function unifiedKeyInAllowlist(key: string, allowlist: Set<string>): boolean {
   if (allowlist.has(key)) return true;
   if (key.startsWith("fred:")) return allowlist.has(fredCatalogBaseKey(key));
+  if (key.startsWith("mds:") && key.includes("::")) {
+    return allowlist.has(key.split("::")[0]!);
+  }
   return false;
 }
 

@@ -90,6 +90,13 @@ import {
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATES,
 } from "@/lib/data/industryInventoryAnalysisLayout";
+import {
+  BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
+  BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
+  BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
+  BUILTIN_CN_FISCAL_TEMPLATE_IDS,
+  BUILTIN_CN_FISCAL_TEMPLATES,
+} from "@/lib/data/cnFiscalAnalysisLayout";
 
 export {
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -124,6 +131,10 @@ export {
   BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATES,
+  BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
+  BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
+  BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
+  BUILTIN_CN_FISCAL_TEMPLATES,
 };
 
 export type MacroChartTemplate = {
@@ -179,6 +190,10 @@ export type MacroDerivedCalc = {
   rightKey: string;
   op: MacroDerivedCalcOp;
   name: string;
+  /** 对二元运算结果做最终缩放，例如比例转百分数时使用 100。 */
+  scale?: number;
+  /** 仅作为后续派生的中间节点，不进入图表与已选指标列表。 */
+  hidden?: boolean;
 };
 
 /** 代码内置系统模板文件夹（DB 无配置时合并） */
@@ -197,6 +212,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
     name: "美国制造业与库存周期",
     scope: "builtin",
   },
+  { id: "folder-builtin-cn-fiscal", name: "中国财政分析", scope: "builtin" },
 ];
 
 export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> = {
@@ -221,6 +237,9 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-us-external-dollar-balance": "folder-builtin-us-external-dollar",
   "builtin-us-industry-inventory-orders": "folder-builtin-us-industry-inventory",
   "builtin-us-industry-inventory-cycle": "folder-builtin-us-industry-inventory",
+  "builtin-cn-fiscal-overview": "folder-builtin-cn-fiscal",
+  "builtin-cn-fiscal-revenue": "folder-builtin-cn-fiscal",
+  "builtin-cn-fiscal-expenditure": "folder-builtin-cn-fiscal",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -542,6 +561,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_CONSUMER_BALANCE_TEMPLATE_IDS,
   ...BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATE_IDS,
   ...BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
+  ...BUILTIN_CN_FISCAL_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

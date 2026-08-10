@@ -1,14 +1,16 @@
-# 已占用指标负面清单（美国内置模板）
+# 已占用指标负面清单（内置模板）
 
-> Agent A 规划新维度时**必查**：下表指标已被现有内置模板占用，新模板不得复制（分析上需要时在 Spec §1.3 写「引用现有模板」）。
+> Agent A 规划新维度时**必查**：下表指标已被同一国家的现有新内置模板占用，新模板不得复制（分析上需要时在 Spec §1.3 写「引用现有模板」）。跨国家序列不互相冲突；legacy 模板的例外见文末。
 > 新维度 `verified` 后由 Agent E 把该维度指标**追加到本文件**。
 >
 > 再生成基线（FRED 部分）：
 > `grep -o 'fredId: "[A-Z0-9_]*"' src/lib/data/*AnalysisLayout.ts | sort -u`
 
-生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条（Phase 1 试点，Agent E 验收后更新）
+生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条；2026-08-10 追加「中国财政」域（Agent E 验收）
 
-## FRED 序列
+## 美国
+
+### FRED 序列
 
 | FRED id | 显示名 | 占用模板 |
 |---------|--------|----------|
@@ -95,7 +97,7 @@
 | ISRATIO / MNFCTRIRSA | 总业务库销比 / 制造业库销比 | 美国制造业与库存周期 ② |
 | MCUMFN | 制造业产能利用率(NAICS) | 美国制造业与库存周期 ②（≠TCU） |
 
-## 非 FRED 序列
+### 非 FRED 序列
 
 | instrument code / key | 显示名 | 来源 | 占用模板 |
 |-----------------------|--------|------|----------|
@@ -114,3 +116,27 @@
 
 - **ISM 服务业仍未占默认图槽**；制造业 PMI 的 headline / new_orders / inventories 已于 2026-07 由「美国制造业与库存周期」首次占用默认图槽。
 - legacy xlsx 模板（US/China/Japan_Overview、黄金、偿债）的序列不受零重复原则约束，但新模板应优先用 FRED 标准序列而非 `usov_*` 合成序列。
+
+## 中国
+
+当前 `China_Overview` 是 legacy Excel 模板，所用 `chov_*` 序列不构成新模板的可复用数据基线；新模板必须优先使用已登记的 NBS/PBC/MOF/SAFE/MOFCOM 官方 `mds:` 序列。
+
+### 中国财政（2026-08-10，Agent E 验收）
+
+| instrument code / key | 显示名 | 来源 | 占用模板 |
+|-----------------------|--------|------|----------|
+| `mof_cn_fiscal_general_revenue_yoy` / `mof_cn_fiscal_general_expenditure_yoy` | 一般公共预算收入/支出累计同比 | 财政部 | 中国财政 ① |
+| `mof_cn_fiscal_fund_revenue_yoy` / `mof_cn_fiscal_fund_expenditure_yoy` | 政府性基金预算收入/支出累计同比 | 财政部 | 中国财政 ① |
+| `mof_cn_fiscal_general_revenue_amount` / `mof_cn_fiscal_general_expenditure_amount` | 一般公共预算收入/支出累计额 | 财政部 | 中国财政 ① 派生输入；支出亦用于 ③ |
+| `mof_cn_fiscal_fund_revenue_amount` / `mof_cn_fiscal_fund_expenditure_amount` | 政府性基金预算收入/支出累计额 | 财政部 | 中国财政 ① 派生输入 |
+| `nbs_cn_gdp_a_headline_nominal` | 年度名义 GDP | 国家统计局 | 中国财政 ①-4 派生分母 |
+| `mof_cn_fiscal_tax_revenue_yoy` / `mof_cn_fiscal_nontax_revenue_yoy` | 税收/非税收入累计同比 | 财政部 | 中国财政 ②-1 |
+| `mof_cn_fiscal_general_revenue_central_yoy` / `mof_cn_fiscal_general_revenue_local_yoy` | 中央/地方本级一般公共预算收入累计同比 | 财政部 | 中国财政 ②-2 |
+| `mof_cn_fiscal_vat_yoy` / `mof_cn_fiscal_corporate_income_tax_yoy` / `mof_cn_fiscal_personal_income_tax_yoy` | 增值税/企业所得税/个人所得税累计同比 | 财政部 | 中国财政 ②-3 |
+| `mof_cn_fiscal_fund_revenue_local_yoy` / `mof_cn_fiscal_land_transfer_revenue_yoy` | 地方基金预算本级收入/土地出让收入累计同比 | 财政部 | 中国财政 ②-4 |
+| `mof_cn_fiscal_general_expenditure_central_yoy` / `mof_cn_fiscal_general_expenditure_local_yoy` | 中央本级/地方一般公共预算支出累计同比 | 财政部 | 中国财政 ③-1 |
+| `mof_cn_fiscal_social_security_yoy` / `mof_cn_fiscal_education_yoy` / `mof_cn_fiscal_health_yoy` | 社保就业/教育/卫生健康支出累计同比 | 财政部 | 中国财政 ③-2 |
+| `mof_cn_fiscal_science_yoy` / `mof_cn_fiscal_agriculture_yoy` / `mof_cn_fiscal_transport_yoy` | 科技/农林水/交通运输支出累计同比 | 财政部 | 中国财政 ③-3 |
+| `mof_cn_fiscal_debt_interest_yoy` / `mof_cn_fiscal_debt_interest_amount` | 债务付息支出累计同比/累计额 | 财政部 | 中国财政 ③-4 |
+
+本地派生占用：`calc:cn-fiscal-general-deficit-proxy`、`calc:cn-fiscal-fund-deficit-proxy`、`calc:cn-fiscal-two-book-deficit-proxy`、`calc:cn-fiscal-two-book-deficit-gdp`、`calc:cn-fiscal-interest-share-expenditure-ytd`。它们不是新的官方原始指标，不得在其他维度改名冒充官方赤字或赤字率。

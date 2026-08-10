@@ -208,7 +208,16 @@ function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTempla
               const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
               const dname = String(x.name ?? "").trim();
               if (!did || !leftKey || !rightKey || !dname || !DERIVED_OPS.has(op)) return null;
-              return { id: did, leftKey, rightKey, op, name: dname } as MacroDerivedCalc;
+              const scale = Number(x.scale);
+              return {
+                id: did,
+                leftKey,
+                rightKey,
+                op,
+                name: dname,
+                ...(Number.isFinite(scale) ? { scale } : {}),
+                ...(x.hidden === true ? { hidden: true } : {}),
+              } as MacroDerivedCalc;
             })
             .filter((x): x is MacroDerivedCalc => Boolean(x))
             .slice(0, 60)
@@ -287,7 +296,16 @@ function sanitize(input: unknown): MacroChartPrefs | null {
           const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
           const name = String(x.name ?? "").trim();
           if (!id || !leftKey || !rightKey || !name || !DERIVED_OPS.has(op)) return null;
-          return { id, leftKey, rightKey, op, name } as MacroDerivedCalc;
+          const scale = Number(x.scale);
+          return {
+            id,
+            leftKey,
+            rightKey,
+            op,
+            name,
+            ...(Number.isFinite(scale) ? { scale } : {}),
+            ...(x.hidden === true ? { hidden: true } : {}),
+          } as MacroDerivedCalc;
         })
         .filter((x): x is MacroDerivedCalc => Boolean(x))
         .slice(0, 60)
@@ -378,7 +396,16 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
             const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
             const dname = String(x.name ?? "").trim();
             if (!id || !leftKey || !rightKey || !dname || !DERIVED_OPS.has(op)) return null;
-            return { id, leftKey, rightKey, op, name: dname } as MacroDerivedCalc;
+            const scale = Number(x.scale);
+            return {
+              id,
+              leftKey,
+              rightKey,
+              op,
+              name: dname,
+              ...(Number.isFinite(scale) ? { scale } : {}),
+              ...(x.hidden === true ? { hidden: true } : {}),
+            } as MacroDerivedCalc;
           })
           .filter((x): x is MacroDerivedCalc => Boolean(x))
           .slice(0, 60)

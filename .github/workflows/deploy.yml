@@ -103,6 +103,17 @@ jobs:
           sleep 5
           curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
 
+          # A successful home-page response alone can mask an incomplete Next
+          # artifact. This authenticated endpoint must be present after every
+          # release; without a session it is expected to return 401, not 404.
+          macro_prefs_status=$(curl -sS -o /dev/null -w "%{http_code}" \
+            http://127.0.0.1:3000/api/tools/macro-chart-prefs)
+          if [ "$macro_prefs_status" != "401" ]; then
+            echo "[deploy] macro template preferences API unavailable (HTTP $macro_prefs_status)"
+            pm2 logs finance-site --lines 40 --nostream
+            exit 1
+          fi
+
           # Application integrity guard: local DB check only, no network fetch.
           npm run equity:assert-seeded
           EOF

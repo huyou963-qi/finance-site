@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Handle,
   Position,
@@ -21,14 +21,15 @@ type DimNodeData = {
   count: number;
   selected: boolean;
   subtitle?: string;
+  onSelect: (id: MacroTemplateDimensionId) => void;
 };
 
 type DimNode = Node<DimNodeData, "dim">;
 
-const NODE_W = 78;
-const HUB_W = 118;
-const POLICY_W = 92;
-const CANVAS_W = 500;
+const NODE_W = 52;
+const HUB_W = 96;
+const POLICY_W = 76;
+const CANVAS_W = 300;
 
 const LAYER_LABELS: { top: number; text: string }[] = [
   { top: 156, text: "实体与需求" },
@@ -41,6 +42,7 @@ const LAYER_LABELS: { top: number; text: string }[] = [
 function buildLayout(
   counts: Record<MacroTemplateDimensionId, number>,
   selected: MacroTemplateDimensionId,
+  onSelect: (id: MacroTemplateDimensionId) => void,
 ): { nodes: DimNode[]; edges: Edge[] } {
   const realIds: MacroTemplateDimensionId[] = [
     "consumer-balance",
@@ -49,7 +51,7 @@ function buildLayout(
     "housing",
     "external-dollar",
   ];
-  const gap = 12;
+  const gap = 6;
   const rowW = realIds.length * NODE_W + (realIds.length - 1) * gap;
   const rowStart = Math.max(8, (CANVAS_W - rowW) / 2);
   const yHub = 12;
@@ -74,6 +76,7 @@ function buildLayout(
       dimId: id,
       count: counts[id] ?? 0,
       selected: selected === id,
+      onSelect,
       ...extra,
     },
     style: { width: w },
@@ -149,8 +152,12 @@ function DimNodeView({ data }: NodeProps<DimNode>) {
   }
 
   return (
-    <div
-      className={`relative box-border h-full w-full rounded-md px-1 py-2 text-center transition-all ${shellClass}`}
+    <button
+      type="button"
+      aria-pressed={data.selected}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={() => data.onSelect(data.dimId)}
+      className={`nodrag nopan relative box-border h-full w-full rounded-md px-1 py-2 text-center transition-all ${shellClass}`}
     >
       <Handle
         type="target"
@@ -179,7 +186,7 @@ function DimNodeView({ data }: NodeProps<DimNode>) {
         position={Position.Bottom}
         className="!h-1.5 !w-1.5 !min-h-0 !min-w-0 !border-0 !bg-zinc-400"
       />
-    </div>
+    </button>
   );
 }
 
@@ -195,15 +202,8 @@ function FlowCanvas({
   onSelect: (id: MacroTemplateDimensionId) => void;
 }) {
   const { nodes, edges } = useMemo(
-    () => buildLayout(counts, selectedDimensionId),
-    [counts, selectedDimensionId],
-  );
-
-  const onNodeClick = useCallback(
-    (_: MouseEvent, node: Node) => {
-      onSelect(node.id as MacroTemplateDimensionId);
-    },
-    [onSelect],
+    () => buildLayout(counts, selectedDimensionId, onSelect),
+    [counts, onSelect, selectedDimensionId],
   );
 
   return (
@@ -211,10 +211,9 @@ function FlowCanvas({
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
-      onNodeClick={onNodeClick}
       nodesDraggable={false}
       nodesConnectable={false}
-      elementsSelectable={false}
+      elementsSelectable
       panOnDrag={false}
       zoomOnScroll={false}
       zoomOnPinch={false}

@@ -35,14 +35,14 @@ npm run data:sync-calendar
 
 ### 4. 规范与一致性
 
-- **零重复**：新 layout 的全部 fredId/key 与其他 layout 交叉 grep，重复即 FAIL；
+- **零重复**：新 layout 的全部 key 与同一国家的其他新内置 layout 交叉检查，重复即 FAIL；`docs/specs/USED-INDICATORS.md` 的 legacy 明示例外仍按其说明处理；
 - docs / layout / prompt 三处指标清单一致（显示名 + key）；
 - `git diff main --stat` 复核：只新增文件 + 约定的注册点 append，未触碰现有模板 id、migration、`MacroSection.tsx`；
 - 管理端 `/admin/data-catalog`：三列齐全、状态非「不可自动更新」。
 
 ### 5. 收尾更新（验收通过后执行）
 
-- `docs/specs/USED-INDICATORS.md` 追加本维度全部指标（含"首次占用 ISM"这类状态翻转）；
+- `docs/specs/USED-INDICATORS.md` 的对应国家章节追加本维度全部指标（含“首次占用”状态翻转）；
 - AGENTS.md 若新增了 npm scripts，补一行引用；
 - Spec §0 状态改 `verified`，§6 全勾，评审记录追加一行。
 

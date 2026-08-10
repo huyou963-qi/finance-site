@@ -1,6 +1,6 @@
-# 宏观分析维度接入 Spec 模板（美国）
+# 宏观分析维度接入 Spec 模板（跨国家、入库优先）
 
-> 每个新分析维度复制本文件为 `docs/specs/us-<dimension>.spec.md`（如 `us-monetary-financial.spec.md`）。
+> 每个新分析维度复制本文件为 `docs/specs/<country>-<dimension>.spec.md`（如 `us-monetary-financial.spec.md`、`cn-national-economy.spec.md`）。中国模板的首要任务是复用已入库的官方序列；只有盘点确认缺口才新接外部数据。
 > Spec 是 Agent 流水线的**唯一交接物**：Agent A 产出 §1–§5，人工评审后 Agent B/C 执行 §3，Agent D 执行 §2/§4，Agent E 按 §6 验收。
 > 每个阶段完成后**回写本文件**（勾选 §6、更新 §0 状态），Spec 即接入过程的单一事实来源。
 
@@ -10,10 +10,10 @@
 
 | 字段 | 值 |
 |------|----|
-| dimension id | `us-<dimension>`（kebab-case，全流程复用此 id） |
-| 中文名 | 如「美国货币政策与金融条件」 |
-| 内置文件夹 id | `folder-builtin-us-<dimension>` |
-| 模板 id 前缀 | `builtin-us-<dimension>-` |
+| dimension id | `<country>-<dimension>`（kebab-case，全流程复用；中国为 `cn-...`） |
+| 中文名 | 如「中国货币与信用」 |
+| 内置文件夹 id | `folder-builtin-<country>-<dimension>` |
+| 模板 id 前缀 | `builtin-<country>-<dimension>-` |
 | 分支 | `feature/macro-<dimension>` |
 | 状态 | `draft` → `indicators-approved` → `data-ready` → `template-ready` → `verified` |
 | 对应框架页维度 | `matrixCategories.ts` 中的 category（如 `financial` + `policy`） |
@@ -45,12 +45,12 @@
 
 ## §2 模板规划
 
-沿用「① 总览 + ② 驱动」双模板模式，`layoutMode: 4`（四图槽）。每维度 2–3 个模板。
+按分析需要规划 1–3 个模板，单模板能讲清则不拆；每个模板最多四图槽。
 
 | 顺序 | 模板 id | 名称 | 何时加载 |
 |------|---------|------|----------|
-| ① | `builtin-us-<dimension>-overview` | | 默认第一步 |
-| ② | `builtin-us-<dimension>-drivers` | | 总览说不清时加载 |
+| ① | `builtin-<country>-<dimension>-overview` | | 默认第一步 |
+| ② | `builtin-<country>-<dimension>-drivers` | | 总览说不清时加载 |
 
 ### 图槽设计（每模板一张表）
 
@@ -67,16 +67,17 @@
 
 ## §3 指标清单（核心表，每行一个序列）
 
-> 填写前先查 [USED-INDICATORS.md](./USED-INDICATORS.md)：已被其他模板占用的指标**不得复制**，在 §1.3 写「引用现有模板」。
+> 填写前先过“入库优先门”：查 `seedCatalogRegistry.ts`、provider catalog、已有 Spec/layout、发布包和 DB verify。再查 [USED-INDICATORS.md](./USED-INDICATORS.md)：同一国家已被其他新内置模板占用的指标**不得复制**，在 §1.3 写「引用现有模板」。
 
-| # | seriesKey | 显示名 | 频率 | 单位 | 发布机构 | 获取方式 kind | 源标识 | 历史回填 | 调度方式 | 模板/图槽 | 计算 | 去重 |
-|---|-----------|--------|------|------|----------|---------------|--------|----------|----------|-----------|------|------|
-| 1 | `fred:XXXX::yoy` | | 月 | % | BLS | `fred_api` | FRED id | FRED 全量 | 发布包 `us.xxx` | ①-1 | yoy | ✅ 未占用 |
+| # | seriesKey | 显示名 | 频率 | 单位 | 发布机构 | 获取状态 | 获取方式 kind | 源标识 | 历史/核验证据 | 调度方式 | 模板/图槽 | 计算 | 去重 |
+|---|-----------|--------|------|------|----------|----------|---------------|--------|---------------|----------|-----------|------|------|
+| 1 | `mds:existing_code` | | 月 | % | 国家统计局 | `reuse_verified` | `rest_api_existing` | 既有 provider catalog | 原 catalog verify + 首末日期 | 既有发布包 `cn.xxx` | ①-1 | yoy | ✅ 未占用 |
 
 **列定义**：
 
-- **seriesKey**：宏观页 virtualKey。FRED 走 `fred:<ID>[::variant]`；库内序列走 `mds:<instrument_code>`（code 规范 `sched_fred_<ID>` / `<dim>_us_<name>`）。
-- **获取方式 kind**（六选一，决定交给 Agent B 还是 Agent C）：
+- **seriesKey**：宏观页 virtualKey。FRED 走 `fred:<ID>[::variant]`；库内序列走 `mds:<instrument_code>`。新 code 须遵循对应 provider 的既有命名（中国官方域优先沿用 `nbs_cn_*`、`pbc_cn_*`、`mof_cn_*`、`safe_cn_*`、`mofcom_cn_*`）。
+- **获取状态**：`reuse_verified`（已有且 verify 通过）、`reuse_needs_repair`（已有但需最小修复）、`gap_local_derived`（只由既有原始序列计算、需补计算能力）、`gap_new_source`（盘点后仍缺口）。前三者不得再抓外网；只有最后一类才启动接入。
+- **获取方式 kind**（决定交给 Agent B 还是 Agent C）：
 
 | kind | 含义 | 执行 Agent | 复用 |
 |------|------|-----------|------|
@@ -87,7 +88,7 @@
 | `web_scrape_new` | 其他网页（官网/机构页），需新解析器 | C | `agent-c-web-scrape-onboarding.md` |
 | `bulk_file` / `manual` | 批量文件 / 人工 | B（标注） | `overviewXlsxAdapter` 或 MANUAL |
 
-- **历史回填**：FRED/API 源写「API 全量」；抓取源写历史来源（xlsx / 机构 CSV 下载 / TE 历史表），**抓取源必须先解决历史，再谈增量**。
+- **历史/核验证据**：复用源写原 catalog、code、verify 输出及首末观测日期；新 FRED/API 源写「API 全量」；抓取源写历史来源（xlsx / 机构 CSV 下载 / TE 历史表），**抓取源必须先解决历史，再谈增量**。
 - **调度方式**（写入 `releaseRule`）：
   - 有官方发布日 → 发布包 id + 日历关键词（`releasePackageCatalog.ts`；关键词 + excludes 都要写）；
   - 日频/交易日 → `probe_interval`（写 intervalHours，如 24）；
@@ -135,14 +136,14 @@
 
 | 交付物 | 路径 | 执行 Agent |
 |--------|------|-----------|
-| seed catalog | `src/lib/data/scheduler/<dim>FredSeedCatalog.ts`（API 源） | B |
+| seed catalog | `src/lib/data/scheduler/<provider>/catalog.ts` 或 `<dim>FredSeedCatalog.ts`（仅缺口 API 源） | B |
 | 抓取模块 | `src/lib/data/scheduler/<provider>/` + `adapters/<provider>Adapter.ts`（如有） | C |
 | seed / verify 脚本 | `scripts/data-worker/seed-<dim>.ts` / `verify-<dim>.ts` + `seedCatalogRegistry.ts` 注册 + package.json | B/C |
 | 发布包 | `releasePackageCatalog.ts` 新增成员 | B/C |
 | 模板 layout | `src/lib/data/<dim>AnalysisLayout.ts` | D |
 | 模板注册 | `macroPresetTemplates.ts`（文件夹 + id 映射） | D |
-| 分析文档 | `docs/US_<DIM>_ANALYSIS.md` | D |
-| 框架 prompt | `.cursor/prompts/us-<dim>-analysis-framework.md` | D |
+| 分析文档 | `docs/<COUNTRY>_<DIM>_ANALYSIS.md` | D |
+| 框架 prompt | `.cursor/prompts/<country>-<dim>-analysis-framework.md` | D |
 | 负面清单更新 | `docs/specs/USED-INDICATORS.md` 追加本维度指标 | E |
 
 ---

@@ -1,10 +1,14 @@
 # Agent C — 网页抓取接入（web-scrape-onboarding）
 
-> 输入：Spec §3 中 kind ∈ {`te_scrape`, `web_scrape_new`} 的指标 + §3.1 调研记录。
+> 输入：经入库优先门确认、且标记 `gap_new_source` 的 Spec §3 `te_scrape` / `web_scrape_new` 指标 + §3.1 调研记录。已有 `Instrument`、官方 adapter 或 provider catalog 的指标不进入本 Agent。
 > 职责：**分析网页结构 → 固化为可复用的抓取模板（parser + adapter + metadata.scrape 配置）→ 历史回填 → 挂到调度 → 目录树归位**，让 `data:worker` 在更新日自动抓取，且指标出现在正确的宏观目录节点下（非「未分配」）。
 > 这是一个可重复执行的 skill：每接一个新页面都走同一流程，产物沉淀为 `<provider>` 模块。
 
 ## 三档抓取方案（先分类，再动手）
+
+## 0. 复用检查（网页访问前必做）
+
+全局搜索 `instrumentCode`、发布机构、指标中文名和 provider catalog；检查 `seedCatalogRegistry.ts` 与 `releasePackageCatalog.ts`。若已有中国官方 NBS/PBC/MOF/SAFE/MOFCOM adapter，复用其 code、历史回填和调度，并把结果交回 Agent B/D；不得为同一口径另写 scraper。只有“无可用已入库序列、无可扩展既有 adapter”的书面证据，才可继续网页调研。
 
 | 档 | 适用 | 实现 | 蓝本 |
 |----|------|------|------|

@@ -5,7 +5,7 @@
 
 ## 任务
 
-给定一个新分析维度（如「美国货币政策与金融条件」），产出 `docs/specs/us-<dimension>.spec.md`（复制 [SPEC-TEMPLATE.md](../../docs/specs/SPEC-TEMPLATE.md) 填写 §0–§5），交人工评审指标选型。
+给定一个新分析维度（如「中国货币与信用」），产出 `docs/specs/<country>-<dimension>.spec.md`（复制 [SPEC-TEMPLATE.md](../../docs/specs/SPEC-TEMPLATE.md) 填写 §0–§5），交人工评审指标选型。
 
 ## 输入（开工前必读）
 
@@ -18,6 +18,7 @@
 | 现有四域文档 | `docs/US_{OVERVIEW,CPI,LABOR,FISCAL}_ANALYSIS.md`            | 写法范本 + 分工边界           |
 | 模板类型定义 | `src/lib/data/macroPresetTemplates.ts`（`MacroChartTemplate`） | 图槽/计算能力边界             |
 | 图形能力   | `src/lib/macroChartOption.ts`（`MacroChartSlotMode` / `MacroSeriesChartType`） | 图槽模式与序列图型边界（必读） |
+| 已入库盘点 | `seedCatalogRegistry.ts`、`releasePackageCatalog.ts`、各 provider `catalog.ts`、已有 `docs/specs/<country>-*.spec.md` | 先确认可复用序列、原始 source 与调度 |
 
 
 
@@ -28,7 +29,7 @@
 2. **划分工边界**：与现有 4 域 + legacy 模板逐一对照，写 §1.3「本维度不做」。
 3. **拆模板**：**按分析需要**拆 1–3 个模板，**不强制双模板**；每个模板 `layoutMode: 4`（**最多 4 图**）。能 1 个讲清就用 1 个；需分阶段/分主题再加，**不超过 3 个**（参考财政 3 模板先例）。务求简明：每图槽 1–2 条序列（必要时最多 3），全维度序列能少则少，通常 8–14 条即可。
 4. **选图型**（§2「图型」列必填）：按本维度分析需要，从网站**当前已支持**的图形中选用；不预设「某类问题必须用某图」。能力清单以 `macroChartOption.ts` 为准（图槽模式 `MacroChartSlotMode`、时序内序列图型 `MacroSeriesChartType`），系统新增图型后直接可用，不必等本手册改表。
-5. **选指标**：优先级 FRED > 已接 REST 源（Treasury/CFTC/BIS/世行）> TE 抓取 > 新网页抓取 > 人工。每条填 §3 全部列；抓取源补 §3.1 调研记录（要实际打开目标页确认数据位置与历史入口，不许凭记忆写）。
+5. **先过入库优先门，再选指标**：逐条搜索 registry、provider catalog、已有 Spec/layout 和 DB（能连 DB 时跑领域 verify）。已存在且数据/调度合格的序列标 `reuse_verified`，直接填既有 `mds:<code>`；已有但需修复的标 `reuse_needs_repair`，写明原域与最小修复；由既有原始序列可严格计算但系统尚不支持的指标标 `gap_local_derived`，写公式、频率对齐和展示层实现位置；只有确无可用序列才标 `gap_new_source`。缺口源优先级为已接 REST/API > 官方开放接口或文件 > TE 抓取 > 新网页抓取 > 人工。每条填 §3 全部列；仅 `gap_new_source` 的抓取源补 §3.1 调研记录。
 6. **写文案草稿**：§4 chartIntroNotes（按图 1–4 的"看什么→什么信号→跳哪张图"句式）+ 决策树。
 7. **自检后提交评审**（见下）。
 
@@ -45,7 +46,7 @@
 - **模板形态**：1–3 个模板，每模板 ≤4 图；不为凑数拆模板，也不为省事先塞满单模板。
 - **图型**：按分析需要从系统当前支持的图型中选择；不在 Spec 中写死「只能用某几种」以外的自定义图型。
 - 不改现有模板/文档/代码；重复指标一律「引用现有模板」。
-- 指标必须**可获取历史数据**：只有最新值没有历史的源，要写明历史回填方案（xlsx/CSV 下载），否则不选。
+- 指标必须有可用历史数据；复用序列要写现有首末观测/verify 证据，缺口源才写历史回填方案。
 - DB 只存水平值；YoY/MoM/差分写在「计算」列由前端做。
 - 专有数据（Conference Board LEI、密歇根细项等）不选；找 FRED 镜像或替代。
 - 抓取源必须完成合规检查（robots.txt + 条款）才能进 Spec。
@@ -55,7 +56,8 @@
 ## 产出自检
 
 - [ ] §3 每行 13 列填满，无「待定」
-- [ ] 每个 FRED id 用 `https://fred.stlouisfed.org/series/<ID>` 核实存在、频率与单位
+- [ ] 每条指标已完成入库优先盘点，并在 §3 标出 `reuse_verified` / `reuse_needs_repair` / `gap_local_derived` / `gap_new_source`
+- [ ] 新 FRED id 用 `https://fred.stlouisfed.org/series/<ID>` 核实存在、频率与单位；中国官方复用指标以 provider catalog + 原域 verify 为准
 - [ ] 去重列逐条对照过 USED-INDICATORS.md
 - [ ] 每张图的序列频率可对齐（日频标了 resample）
 - [ ] §2 模板数 1–3、每模板 ≤4 图，且与分析层级一一对应（无空凑图槽）

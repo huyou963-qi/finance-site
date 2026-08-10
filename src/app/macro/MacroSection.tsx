@@ -53,6 +53,9 @@ import { mergeBuiltinTemplateOverride } from "@/lib/data/macroChartPrefs";
 import {
   BUILTIN_DEBT_CAPACITY_TEMPLATE,
   BUILTIN_CHINA_OVERVIEW_TEMPLATE,
+  BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
+  BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
+  BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
   BUILTIN_GOLD_ANALYSIS_TEMPLATE,
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -101,6 +104,7 @@ import { CYCLE_RISK_VIRTUAL_KEY_LABELS } from "@/lib/data/cycleRiskAnalysisLayou
 import { CONSUMER_BALANCE_VIRTUAL_KEY_LABELS } from "@/lib/data/consumerBalanceAnalysisLayout";
 import { EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS } from "@/lib/data/externalDollarAnalysisLayout";
 import { INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS } from "@/lib/data/industryInventoryAnalysisLayout";
+import { CN_FISCAL_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFiscalAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -478,6 +482,7 @@ function deriveSeries(
   op: MacroDerivedCalcOp,
   name: string,
   key: string,
+  scale = 1,
 ): SeriesWorking {
   const leftMap = seriesToAlignedValueMap(left.categories, left.data);
   const rightMap = seriesToAlignedValueMap(right.categories, right.data);
@@ -486,10 +491,10 @@ function deriveSeries(
     const a = leftMap.get(c) ?? null;
     const b = rightMap.get(c) ?? null;
     if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) return null;
-    if (op === "add") return a + b;
-    if (op === "sub" || op === "spread") return a - b;
-    if (op === "mul") return a * b;
-    if ((op === "div" || op === "ratio") && b !== 0) return a / b;
+    if (op === "add") return (a + b) * scale;
+    if (op === "sub" || op === "spread") return (a - b) * scale;
+    if (op === "mul") return a * b * scale;
+    if ((op === "div" || op === "ratio") && b !== 0) return (a / b) * scale;
     return null;
   });
   return { key, name, categories: cats, data: vals };
@@ -1139,6 +1144,9 @@ export function MacroSection() {
       BUILTIN_US_EXTERNAL_DOLLAR_BALANCE_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+      BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
+      BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
+      BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
     ];
     const hidden = new Set(hiddenBuiltinTemplateIds);
     const hardcoded = base
@@ -1177,6 +1185,9 @@ export function MacroSection() {
       BUILTIN_US_EXTERNAL_DOLLAR_BALANCE_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+      BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
+      BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
+      BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
     ];
     return base
       .filter((tpl) => hidden.has(tpl.id))
@@ -1191,6 +1202,46 @@ export function MacroSection() {
   const activeTemplate = useMemo(
     () => allTemplates.find((t) => t.id === activeTemplateId) ?? null,
     [allTemplates, activeTemplateId],
+  );
+
+  /**
+   * 派生序列不属于左侧原始指标集合；模板加载期间的清理 effect 可能先移除其分图/样式。
+   * 活动模板确定后只补回缺失项，保留用户随后手动调整（含显式 null=待选集）。
+   */
+  useEffect(() => {
+    if (!activeTemplate?.derivedCalcs?.length) return;
+    const visibleKeys = activeTemplate.derivedCalcs
+      .filter((calc) => !calc.hidden)
+      .map((calc) => `calc:${calc.id}`);
+    setSlotAssignment((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of visibleKeys) {
+        if (next[key] !== undefined) continue;
+        next[key] = activeTemplate.slotAssignment[key] ?? 0;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+    setSeriesVisualMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of visibleKeys) {
+        const visual = activeTemplate.seriesVisualMap[key];
+        if (next[key] || !visual) continue;
+        next[key] = visual;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [activeTemplate]);
+
+  const effectiveSeriesVisualMap = useMemo<MacroSeriesVisualConfigMap>(
+    () =>
+      activeTemplate
+        ? { ...activeTemplate.seriesVisualMap, ...seriesVisualMap }
+        : seriesVisualMap,
+    [activeTemplate, seriesVisualMap],
   );
 
   const catalogLabelByKey = useMemo(() => {
@@ -1226,12 +1277,13 @@ export function MacroSection() {
       ...CONSUMER_BALANCE_VIRTUAL_KEY_LABELS,
       ...EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS,
       ...INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS,
+      ...CN_FISCAL_VIRTUAL_KEY_LABELS,
     ]);
     for (const [k, v] of catalogLabelByKey) {
       if (!m.has(k)) m.set(k, v);
     }
     for (const d of derivedCalcs) {
-      m.set(`calc:${d.id}`, d.name);
+      if (!d.hidden) m.set(`calc:${d.id}`, d.name);
     }
     return m;
   }, [catalogLabelByKey, derivedCalcs]);
@@ -2006,7 +2058,26 @@ export function MacroSection() {
   const displayPayload = useMemo<MacroPayload | null>(() => {
     if (!rawPayload) return null;
 
-    const work: SeriesWorking[] = rawPayload.series
+    // unified API 会把 `mds:key::variant` 去重为基础 key；在展示层按模板选中的
+    // 变体键复制同一原始序列，再分别执行期末/年度等重采样配置。
+    const rawSeriesInputs = [...rawPayload.series];
+    const rawByKey = new Map(
+      rawPayload.series
+        .map((series) => [series.key?.trim() ?? "", series] as const)
+        .filter(([key]) => Boolean(key)),
+    );
+    const inputKeys = new Set(rawSeriesInputs.map((series) => series.key?.trim() ?? ""));
+    for (const selectedKey of orderedSelectedKeys) {
+      const variantAt = selectedKey.indexOf("::");
+      if (variantAt < 0 || inputKeys.has(selectedKey)) continue;
+      const baseKey = selectedKey.slice(0, variantAt);
+      const baseSeries = rawByKey.get(baseKey);
+      if (!baseSeries) continue;
+      rawSeriesInputs.push({ ...baseSeries, key: selectedKey });
+      inputKeys.add(selectedKey);
+    }
+
+    const work: SeriesWorking[] = rawSeriesInputs
       .map((s) => {
         const key = s.key?.trim();
         if (!key) return null;
@@ -2031,7 +2102,7 @@ export function MacroSection() {
         const suffix = buildMacroSeriesCalcSuffix(cfg);
         const baseName = suffix ? `${label}（${suffix}）` : label;
         const unit = effectiveMacroSeriesUnit(key, cfg, mdsUnitByKey);
-        const axis = seriesVisualMap[key]?.axis;
+        const axis = effectiveSeriesVisualMap[key]?.axis;
         return {
           key,
           name: decorateMacroSeriesDisplayName(baseName, { unit, axis }),
@@ -2052,16 +2123,22 @@ export function MacroSection() {
       const right = byKey.get(calc.rightKey);
       if (!left || !right) continue;
       const key = `calc:${calc.id}`;
-      derivedSeries.push(
-        deriveSeries(left, right, calc.op, calc.name, key),
-      );
-      const derived = derivedSeries[derivedSeries.length - 1]!;
+      const derived = deriveSeries(left, right, calc.op, calc.name, key, calc.scale ?? 1);
+      // 允许后续 calc 引用前序 calc，支持 (A+B)−(C+D) 这类多步公式。
+      byKey.set(key, derived);
       derived.name = decorateMacroSeriesDisplayName(calc.name, {
-        axis: seriesVisualMap[key]?.axis,
+        axis: effectiveSeriesVisualMap[key]?.axis,
       });
+      if (!calc.hidden) derivedSeries.push(derived);
     }
 
-    const allSeries = [...work, ...derivedSeries];
+    const allSeries = [...work, ...derivedSeries].filter((series) => {
+      const assigned =
+        slotAssignment[series.key] !== undefined
+          ? slotAssignment[series.key]
+          : activeTemplate?.slotAssignment[series.key];
+      return typeof assigned === "number" && Number.isFinite(assigned);
+    });
     const allCategories = collectAlignedPeriodKeys(allSeries);
     const finalSeries = allSeries.map((s) => {
       const m = seriesToAlignedValueMap(s.categories, s.data);
@@ -2077,13 +2154,16 @@ export function MacroSection() {
       series: finalSeries,
     };
   }, [
+    activeTemplate,
     catalogLabelByKey,
     derivedCalcs,
     mdsUnitByKey,
+    orderedSelectedKeys,
     rawPayload,
     resolveSeriesLabel,
     seriesCalcConfigMap,
-    seriesVisualMap,
+    slotAssignment,
+    effectiveSeriesVisualMap,
   ]);
 
   /** CPI 环比表槽位自拉数据，允许无 selectedKeys 时仍进入图表区 */
@@ -2107,16 +2187,20 @@ export function MacroSection() {
       displayPayload?.series.map((s) => s.key).filter(Boolean) as string[] | undefined;
     const base = keysFromDisplay && keysFromDisplay.length > 0 ? keysFromDisplay : [...extractedSet];
     for (const key of base) {
-      out[key] = slotAssignment[key] ?? (key.startsWith("calc:") ? 0 : null);
+      const assigned =
+        slotAssignment[key] !== undefined
+          ? slotAssignment[key]
+          : activeTemplate?.slotAssignment[key];
+      out[key] = assigned === undefined ? (key.startsWith("calc:") ? 0 : null) : assigned;
     }
     return out;
-  }, [displayPayload, extractedSet, slotAssignment]);
+  }, [activeTemplate, displayPayload, extractedSet, slotAssignment]);
 
   /** 单图/轴设置只跟「已选指标 + 仍有效的衍生序列」走，勿并入已提取但已取消勾选的 payload 残留 */
   const chartPropertyKeys = useMemo(() => {
     const out = new Set<string>(selectedKeys);
     for (const calc of derivedCalcs) {
-      out.add(`calc:${calc.id}`);
+      if (!calc.hidden) out.add(`calc:${calc.id}`);
     }
     return out;
   }, [derivedCalcs, selectedKeys]);
@@ -2125,7 +2209,10 @@ export function MacroSection() {
     const cap = Math.max(0, layoutMode - 1);
     const out: MacroSlotAssignment = {};
     for (const k of chartPropertyKeys) {
-      const raw = slotAssignment[k];
+      const raw =
+        slotAssignment[k] !== undefined
+          ? slotAssignment[k]
+          : activeTemplate?.slotAssignment[k];
       if (raw === null) {
         out[k] = null;
       } else if (raw === undefined || Number.isNaN(raw)) {
@@ -2135,7 +2222,7 @@ export function MacroSection() {
       }
     }
     return out;
-  }, [chartPropertyKeys, layoutMode, slotAssignment]);
+  }, [activeTemplate, chartPropertyKeys, layoutMode, slotAssignment]);
 
   useEffect(() => {
     const mdsRaw = requestedMdsInstruments?.trim();
@@ -2379,7 +2466,7 @@ export function MacroSection() {
   useEffect(() => {
     const mdsCodes = [...selectedKeys]
       .filter((k) => k.startsWith("mds:"))
-      .map((k) => k.slice(4))
+      .map((k) => k.slice(4).split("::")[0]?.trim() ?? "")
       .filter(Boolean);
     const fredCodes = [...selectedKeys]
       .map((k) => fredInstrumentCodeFromKey(k))
@@ -2659,7 +2746,7 @@ export function MacroSection() {
         }
       }
       const unit = effectiveMacroSeriesUnit(key, cfg, mdsUnitByKey);
-      const axis = seriesVisualMap[key]?.axis;
+      const axis = effectiveSeriesVisualMap[key]?.axis;
       m.set(key, decorateMacroSeriesDisplayName(base, { unit, axis }));
     }
     return m;
@@ -2672,7 +2759,7 @@ export function MacroSection() {
     rawPayload,
     resolveSeriesLabel,
     seriesCalcConfigMap,
-    seriesVisualMap,
+    effectiveSeriesVisualMap,
   ]);
 
   const introTemplateId = activeTemplateId ?? INTRO_WORKSPACE_TEMPLATE_ID;
@@ -3216,9 +3303,9 @@ export function MacroSection() {
                 添加
               </button>
             </div>
-            {derivedCalcs.length > 0 ? (
+            {derivedCalcs.some((x) => !x.hidden) ? (
               <ul className="mt-1 flex flex-wrap gap-1 border-t border-fs-border/70 pt-1">
-                {derivedCalcs.map((x) => (
+                {derivedCalcs.filter((x) => !x.hidden).map((x) => (
                   <li
                     key={x.id}
                     className="flex items-center gap-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[10px] text-fs-secondary"
@@ -3637,7 +3724,7 @@ export function MacroSection() {
                         payload={chartGridPayload}
                         layoutMode={layoutMode}
                         slotAssignment={extractedAssignment}
-                        seriesVisualMap={seriesVisualMap}
+                        seriesVisualMap={effectiveSeriesVisualMap}
                         displayConfig={displayConfig}
                         recessionBands={
                           displayConfig.showRecessionShading ? recessionBands : undefined
@@ -3778,7 +3865,7 @@ export function MacroSection() {
                               displayLabelByKey={chartSettingsLabelByKey}
                               slotAssignment={resolvedAssignment}
                               onAssign={assignSlot}
-                              seriesVisualMap={seriesVisualMap}
+                              seriesVisualMap={effectiveSeriesVisualMap}
                               onUpdateSeriesVisual={updateSeriesVisual}
                               displayConfig={displayConfig}
                               onUpdateDisplayConfig={(patch) =>
