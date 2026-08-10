@@ -132,6 +132,8 @@
     "data:verify-safe-external": "dotenv -e .env.local -- tsx scripts/data-worker/verify-safe-external.ts",
     "data:seed-nbs-retail": "dotenv -e .env.local -- tsx scripts/data-worker/seed-nbs-retail.ts",
     "data:sync-nbs-retail": "dotenv -e .env.local -- tsx scripts/data-worker/sync-nbs-retail.ts",
+    "data:verify-nbs-retail": "dotenv -e .env.local -- tsx scripts/data-worker/verify-nbs-retail.ts",
+    "data:verify-cn-economy-overview": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cn-economy-overview.ts",
     "data:seed-labor": "dotenv -e .env.local -- tsx scripts/data-worker/seed-labor.ts",
     "data:verify-labor": "dotenv -e .env.local -- tsx scripts/data-worker/verify-labor.ts",
     "data:seed-overview": "dotenv -e .env.local -- tsx scripts/data-worker/seed-overview.ts",

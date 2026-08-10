@@ -72,6 +72,10 @@ export async function fetchUnifiedMacro(
         const base = k.slice(5).split("::")[0]?.trim();
         if (base && allowlist.has(`fred:${base}`)) return true;
       }
+      if (k.startsWith("mds:")) {
+        const base = k.slice(4).split("::")[0]?.trim();
+        if (base && allowlist.has(`mds:${base}`)) return true;
+      }
       return allowlist.has(k);
     }
     return k.startsWith("fred:") || k.startsWith("wb:") || k.startsWith("mds:");

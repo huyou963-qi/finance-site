@@ -1,10 +1,12 @@
 /** 用国家统计局 UUID 接口回填固定资产投资所有已发布月度/年度分项。 */
 import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
-import { fetchFaiMomHistory, fetchNbsFaiCatalog, fetchNbsFaiGroup } from "../../src/lib/data/scheduler/nbsFai/client";
-import { NBS_FAI_MOM_CODE, nbsFaiCode } from "../../src/lib/data/scheduler/nbsFai/catalog";
+import { fetchFaiInfrastructureHistory, fetchFaiMomHistory, fetchNbsFaiCatalog, fetchNbsFaiGroup } from "../../src/lib/data/scheduler/nbsFai/client";
+import { NBS_FAI_INFRASTRUCTURE_YOY_CODE, NBS_FAI_MOM_CODE, nbsFaiCode } from "../../src/lib/data/scheduler/nbsFai/catalog";
 import { upsertMacroObservations } from "../../src/lib/data/scheduler/upsertObservations";
 loadEnvConfig(process.cwd()); const prisma = new PrismaClient();
 async function main() { const entries = await fetchNbsFaiCatalog(); const byGroup = new Map<string, typeof entries>(); for (const item of entries) { const key = `${item.frequency}:${item.cid}`; byGroup.set(key, [...(byGroup.get(key) ?? []), item]); } let upserted = 0; let unpublished = 0; for (const group of byGroup.values()) { const values = await fetchNbsFaiGroup(group, 1998); for (const item of group) { const code = nbsFaiCode(item.frequency, item.cid, item.indicatorId); const points = values.get(item.indicatorId) ?? []; const instrument = await prisma.instrument.findUnique({ where: { code }, select: { id: true } }); if (!points.length) { if (instrument) await prisma.instrument.delete({ where: { id: instrument.id } }); unpublished++; continue; } if (!instrument) throw new Error(`未找到 ${code}，请先 seed`); const result = await upsertMacroObservations(prisma, instrument.id, points); upserted += result.upserted; } console.log(`  ${group[0]!.frequency}:${group[0]!.group} series=${group.length}`); }
-  const mom = await fetchFaiMomHistory(); const mi = await prisma.instrument.findUnique({ where: { code: NBS_FAI_MOM_CODE }, select: { id: true } }); if (!mi) throw new Error("未找到固定资产投资环比序列，请先 seed"); upserted += (await upsertMacroObservations(prisma, mi.id, mom.points)).upserted; console.log(`[data:sync-nbs-fai] 完成：catalog=${entries.length + 1} unpublished=${unpublished} upserted=${upserted}，环比来源=${mom.articleUrl}`); }
+  const mom = await fetchFaiMomHistory(); const mi = await prisma.instrument.findUnique({ where: { code: NBS_FAI_MOM_CODE }, select: { id: true } }); if (!mi) throw new Error("未找到固定资产投资环比序列，请先 seed"); upserted += (await upsertMacroObservations(prisma, mi.id, mom.points)).upserted;
+  const infrastructure = await fetchFaiInfrastructureHistory({ historical: true }); const ii = await prisma.instrument.findUnique({ where: { code: NBS_FAI_INFRASTRUCTURE_YOY_CODE }, select: { id: true } }); if (!ii) throw new Error("未找到基础设施投资累计同比序列，请先 seed"); upserted += (await upsertMacroObservations(prisma, ii.id, infrastructure.points)).upserted;
+  console.log(`[data:sync-nbs-fai] 完成：catalog=${entries.length + 2} unpublished=${unpublished} upserted=${upserted}，环比来源=${mom.articleUrl}，基础设施历史=${infrastructure.points.length}`); }
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

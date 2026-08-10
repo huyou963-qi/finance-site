@@ -6,7 +6,7 @@
 > 再生成基线（FRED 部分）：
 > `grep -o 'fredId: "[A-Z0-9_]*"' src/lib/data/*AnalysisLayout.ts | sort -u`
 
-生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条；2026-08-10 追加「中国财政」与「中国金融条件与流动性」域（Agent E 验收）
+生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条；2026-08-10 追加「中国财政」「中国金融条件与流动性」和「中国宏观经济 Overview」域（Agent E 验收）
 
 ## 美国
 
@@ -155,3 +155,20 @@
 | `pbc_cn_corporate_bond_financing_cumulative` / `pbc_cn_domestic_equity_financing_cumulative` | 企业债券/非金融企业境内股票融资累计 | 中国人民银行 | 金融条件 · 信用扩张与融资结构 ②-4 派生分子 |
 
 本地派生占用：`calc:cn-financial-unsecured-secured-spread`、`calc:cn-financial-m1-m2-gap`、`calc:cn-financial-loan-deposit-growth-gap`、`calc:cn-financial-tsf-rmb-loan-share`、`calc:cn-financial-tsf-government-bond-share`、`calc:cn-financial-tsf-corporate-bond-share`、`calc:cn-financial-tsf-equity-share`。这些序列只在模板层按同月输入计算，不是人民银行官方指标；后续维度不得改名重复占用或把它们写成官方“金融条件指数”。
+
+### 中国宏观经济 Overview（2026-08-10，Agent E 验收）
+
+| instrument code / key | 显示名 | 来源 | 占用模板 |
+|-----------------------|--------|------|----------|
+| `nbs_cn_gdp_q_headline_real_yoy` | 季度 GDP 实际同比 | 国家统计局 | 中国经济 Overview ①-1 |
+| `nbs_cn_gdp_q_headline_nominal` / `nbs_cn_gdp_q_headline_real` | 季度 GDP 名义值/不变价值 | 国家统计局 | 中国经济 Overview ①-1；名义同比与隐含平减指数输入 |
+| `nbs_cn_gdp_q_final_consumption_contribution` / `nbs_cn_gdp_q_capital_formation_contribution` / `nbs_cn_gdp_q_net_exports_contribution` | 最终消费/资本形成/净出口增长贡献率 | 国家统计局 | 中国经济 Overview ①-2 |
+| `nbs_cn_mfg_new_orders` / `nbs_cn_non_mfg_new_orders` | 制造业/非制造业 PMI 新订单 | 国家统计局 | 中国经济 Overview ①-3 |
+| `nbs_cn_industrial_headline_yoy` / `nbs_cn_retail_h_yoy` | 规模以上工业增加值/社会消费品零售总额同比 | 国家统计局 | 中国经济 Overview ①-4 |
+| `nbs_cn_fai_m_5129067b_7e570cf8` | 固定资产投资累计同比 | 国家统计局 | 中国经济 Overview ①-4、②-1（评审授权有意重复） |
+| `nbs_cn_fai_m_90028595_d1771824` / `nbs_cn_fai_m_infrastructure_yoy` / `nbs_cn_realestate_4035448cce98117aa2` | 制造业/基础设施/房地产开发投资累计同比 | 国家统计局 | 中国经济 Overview ②-1 |
+| `mof_cn_fiscal_general_expenditure_amount` / `mof_cn_fiscal_fund_expenditure_amount` | 一般公共预算/政府性基金预算支出累计额 | 财政部 | 中国经济 Overview ②-2 派生输入；经评审授权复用中国财政原始 Instrument |
+| `nbs_cn_cpi_headline_yoy` / `nbs_cn_ppi_headline_yoy` | CPI/PPI 同比 | 国家统计局 | 中国经济 Overview ②-3 |
+| `mofcom_cn_trade_cabe8908b163088537` / `mofcom_cn_trade_a02519f634eb068d5a` | 出口/进口总额当月美元同比 | 海关总署、商务部转载 | 中国经济 Overview ②-4 |
+
+本地派生占用：`calc:cn-overview-gdp-deflator-yoy`、`calc:cn-overview-broad-fiscal-expenditure`、`calc:cn-overview-broad-fiscal-expenditure-yoy`。平减指数按同季度名义值/不变价值后做同季同比；广义财政先合计两本账累计支出，再按上年同月计算同比。这三条不是外部官方原始 Instrument。

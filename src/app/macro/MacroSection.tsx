@@ -58,6 +58,8 @@ import {
   BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
   BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
   BUILTIN_CN_FINANCIAL_LIQUIDITY_FUNDING_TEMPLATE,
+  BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
+  BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
   BUILTIN_GOLD_ANALYSIS_TEMPLATE,
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -108,6 +110,7 @@ import { EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS } from "@/lib/data/externalDollarAna
 import { INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS } from "@/lib/data/industryInventoryAnalysisLayout";
 import { CN_FISCAL_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFiscalAnalysisLayout";
 import { CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFinancialLiquidityAnalysisLayout";
+import { CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/cnEconomyOverviewAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -148,6 +151,7 @@ import {
   macroPeriodKeyFromDateLabel,
   sortMacroPeriodLabels,
 } from "@/lib/macroPeriodLabel";
+import { applyMacroSeriesOp } from "@/lib/data/macroSeriesTransform";
 import {
   createDividerItem,
   keysFromListItems,
@@ -364,36 +368,6 @@ function applyUnitAdjust(value: number | null, unit: MacroUnitAdjust): number | 
   if (unit === "x0.01") return value * 0.01;
   if (unit === "x100") return value * 100;
   return value;
-}
-
-function applySeriesOp(values: (number | null)[], op: MacroSeriesCalcOp): (number | null)[] {
-  if (op === "none") return [...values];
-  if (op === "cumsum") {
-    let acc = 0;
-    return values.map((v) => {
-      if (v == null || !Number.isFinite(v)) return null;
-      acc += v;
-      return acc;
-    });
-  }
-  return values.map((v, idx) => {
-    if (v == null || !Number.isFinite(v)) return null;
-    const prev = idx > 0 ? values[idx - 1] : null;
-    if (op === "diff") {
-      if (prev == null || !Number.isFinite(prev)) return null;
-      return v - prev;
-    }
-    if (op === "pctChange") {
-      if (prev == null || !Number.isFinite(prev) || prev === 0) return null;
-      return ((v - prev) / Math.abs(prev)) * 100;
-    }
-    if (op === "yoy") {
-      const back = idx >= 12 ? values[idx - 12] : null;
-      if (back == null || !Number.isFinite(back) || back === 0) return null;
-      return ((v - back) / Math.abs(back)) * 100;
-    }
-    return v;
-  });
 }
 
 function resampleSeries(
@@ -1152,6 +1126,8 @@ export function MacroSection() {
       BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
       BUILTIN_CN_FINANCIAL_LIQUIDITY_FUNDING_TEMPLATE,
       BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
+      BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
+      BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
     ];
     const hidden = new Set(hiddenBuiltinTemplateIds);
     const hardcoded = base
@@ -1195,6 +1171,8 @@ export function MacroSection() {
       BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
       BUILTIN_CN_FINANCIAL_LIQUIDITY_FUNDING_TEMPLATE,
       BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
+      BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
+      BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
     ];
     return base
       .filter((tpl) => hidden.has(tpl.id))
@@ -1286,6 +1264,7 @@ export function MacroSection() {
       ...INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS,
       ...CN_FISCAL_VIRTUAL_KEY_LABELS,
       ...CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS,
+      ...CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS,
     ]);
     for (const [k, v] of catalogLabelByKey) {
       if (!m.has(k)) m.set(k, v);
@@ -2105,7 +2084,7 @@ export function MacroSection() {
           outCategories = sampled.categories;
           outValues = sampled.data;
         }
-        const transformed = applySeriesOp(outValues, cfg.op);
+        const transformed = applyMacroSeriesOp(outCategories, outValues, cfg.op);
         const label = catalogLabelByKey.get(key) ?? resolveSeriesLabel(key) ?? s.name;
         const suffix = buildMacroSeriesCalcSuffix(cfg);
         const baseName = suffix ? `${label}（${suffix}）` : label;
@@ -2132,6 +2111,7 @@ export function MacroSection() {
       if (!left || !right) continue;
       const key = `calc:${calc.id}`;
       const derived = deriveSeries(left, right, calc.op, calc.name, key, calc.scale ?? 1);
+      if (calc.postOp) derived.data = applyMacroSeriesOp(derived.categories, derived.data, calc.postOp);
       // 允许后续 calc 引用前序 calc，支持 (A+B)−(C+D) 这类多步公式。
       byKey.set(key, derived);
       derived.name = decorateMacroSeriesDisplayName(calc.name, {

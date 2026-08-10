@@ -146,6 +146,8 @@ npm run db:studio        # Prisma Studio
 
 「中国国家统计局 GDP」：`data:seed-nbs-gdp` → `data:sync-nbs-gdp` / `data:verify-nbs-gdp -- --db`；季度生产法名义值、实际同比、总项实际环比与三大需求贡献率，年度生产法与支出法名义值及实际同比；仅保留国家统计局公开口径，不推算分项环比。
 
+「中国宏观经济 Overview」：两套四图模板覆盖 GDP 量价与需求贡献、PMI 新订单、工业/社零/固投、固投三大领域、两本账广义财政支出、CPI/PPI 与进出口；基建累计同比扩展既有 `nbs-fai` 发布稿解析，文档 [docs/CN_ECONOMY_OVERVIEW_ANALYSIS.md](./docs/CN_ECONOMY_OVERVIEW_ANALYSIS.md)，Spec [docs/specs/cn-economy-overview.spec.md](./docs/specs/cn-economy-overview.spec.md)。
+
 「中国国家统计局固定资产投资」：`data:seed-nbs-fai` → `data:sync-nbs-fai` / `data:verify-nbs-fai -- --db`；月度累计同比及行业、资金、构成、注册类型分项，年度名义值/同比，月度发布稿总项季调环比；1 月免报，官方未发布的分项环比不推算。
 
 「中国国家统计局房地产开发与70城住房价格」：`data:seed-nbs-realestate` → `data:sync-nbs-realestate` / `data:verify-nbs-realestate -- --db`；房地产开发、施工/新开工/竣工、销售、到位资金及待售面积从官方月报 Excel 表1回填累计/期末值和同比；70城新建、二手住宅的城市级环比/同比/年内平均指数从公开月报表1、表2回填。仅保存官方公布口径，不由累计数推算当月值或环比。

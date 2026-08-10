@@ -103,6 +103,12 @@ import {
   BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,
   BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATES,
 } from "@/lib/data/cnFinancialLiquidityAnalysisLayout";
+import {
+  BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
+  BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
+  BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATE_IDS,
+  BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATES,
+} from "@/lib/data/cnEconomyOverviewAnalysisLayout";
 
 export {
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -144,6 +150,9 @@ export {
   BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
   BUILTIN_CN_FINANCIAL_LIQUIDITY_FUNDING_TEMPLATE,
   BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATES,
+  BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
+  BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
+  BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATES,
 };
 
 export type MacroChartTemplate = {
@@ -201,6 +210,8 @@ export type MacroDerivedCalc = {
   name: string;
   /** 对二元运算结果做最终缩放，例如比例转百分数时使用 100。 */
   scale?: number;
+  /** 对二元结果按同一日历期执行同比；缺少上年同期时保留空值。 */
+  postOp?: "yoy";
   /** 仅作为后续派生的中间节点，不进入图表与已选指标列表。 */
   hidden?: boolean;
 };
@@ -225,6 +236,11 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
   {
     id: "folder-builtin-cn-financial-liquidity",
     name: "中国金融条件与流动性",
+    scope: "builtin",
+  },
+  {
+    id: "folder-builtin-cn-economy-overview",
+    name: "中国宏观经济 Overview",
     scope: "builtin",
   },
 ];
@@ -256,6 +272,8 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-cn-fiscal-expenditure": "folder-builtin-cn-fiscal",
   "builtin-cn-financial-liquidity-funding": "folder-builtin-cn-financial-liquidity",
   "builtin-cn-financial-liquidity-credit": "folder-builtin-cn-financial-liquidity",
+  "builtin-cn-economy-overview-growth": "folder-builtin-cn-economy-overview",
+  "builtin-cn-economy-overview-policy": "folder-builtin-cn-economy-overview",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -579,6 +597,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
   ...BUILTIN_CN_FISCAL_TEMPLATE_IDS,
   ...BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,
+  ...BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

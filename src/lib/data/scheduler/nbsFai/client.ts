@@ -10,6 +10,7 @@ import {
   type FaiFrequency,
 } from "./catalog";
 import { parseNbsFaiResponse } from "./parseResponse";
+import { parseFaiInfrastructureRelease, type FaiInfrastructureDefinition } from "./parseRelease";
 
 export type FaiIndicator = { cid: string; indicatorId: string; label: string; frequency: FaiFrequency; group: string; unit: "%" | "亿元" };
 const headers = { Referer: "https://data.stats.gov.cn/dg/website/page.html", "User-Agent": process.env.NBS_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0" };
@@ -65,6 +66,66 @@ export async function fetchNbsFaiGroup(items: readonly FaiIndicator[], startYear
 export async function fetchNbsFaiSeries(item: FaiIndicator, startYear: number) { return (await fetchNbsFaiGroup([item], startYear)).get(item.indicatorId) ?? []; }
 
 function strip(text: string) { return text.replace(/<[^>]*>/g, "").replace(/&nbsp;|&#160;/g, " ").replace(/\s+/g, " "); }
+
+type FaiReleaseArticle = { url: string; label: string };
+
+function releaseLinks(html: string, pageUrl: string): FaiReleaseArticle[] {
+  return [...html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
+    .map((match) => ({ url: new URL(match[1]!, pageUrl).toString(), label: strip(match[2]!) }))
+    .filter((item) => /全国固定资产投资/.test(item.label));
+}
+
+async function faiReleaseArticles(historical: boolean): Promise<FaiReleaseArticle[]> {
+  const first = await fetchChinaOfficial(NBS_FAI_RELEASE_INDEX_URL, { headers, signal: AbortSignal.timeout(30_000) });
+  if (!first.ok) throw new Error(`国家统计局发布目录 HTTP ${first.status}`);
+  const firstHtml = await first.text();
+  const total = Math.min(Number(/createPageHTML\((\d+)/.exec(firstHtml)?.[1] ?? 1), 80);
+  const pages = historical ? total : Math.min(total, 3);
+  const output = new Map<string, FaiReleaseArticle>();
+  for (let page = 0; page < pages; page++) {
+    const pageUrl = page === 0 ? NBS_FAI_RELEASE_INDEX_URL : new URL(`index_${page}.html`, NBS_FAI_RELEASE_INDEX_URL).toString();
+    const html = page === 0 ? firstHtml : await (await fetchChinaOfficial(pageUrl, { headers, signal: AbortSignal.timeout(30_000) })).text();
+    for (const item of releaseLinks(html, pageUrl)) output.set(item.url, item);
+    if (page > 0) await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return [...output.values()];
+}
+
+export async function fetchFaiInfrastructureHistory(options: { historical?: boolean } = {}): Promise<{
+  points: ObservationPoint[];
+  articleUrl: string;
+  definitions: Array<{ obsDate: string; definition: FaiInfrastructureDefinition; articleUrl: string }>;
+}> {
+  const articles = await faiReleaseArticles(Boolean(options.historical));
+  const points = new Map<number, ObservationPoint>();
+  const definitions = new Map<number, { obsDate: string; definition: FaiInfrastructureDefinition; articleUrl: string }>();
+  let articleUrl = NBS_FAI_RELEASE_INDEX_URL;
+  for (const article of articles) {
+    const response = await fetchChinaOfficial(article.url, { headers, signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) continue;
+    try {
+      const parsed = parseFaiInfrastructureRelease(await response.text());
+      const key = parsed.point.obsDate.getTime();
+      points.set(key, parsed.point);
+      definitions.set(key, { obsDate: parsed.point.obsDate.toISOString().slice(0, 10), definition: parsed.definition, articleUrl: article.url });
+      if (key >= Math.max(...points.keys())) articleUrl = article.url;
+    } catch {
+      // Some archive links are interpretation pages rather than the data release.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!points.size) throw new Error("国家统计局发布目录未找到基础设施投资累计同比锚点");
+  return {
+    points: [...points.values()].sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime()),
+    articleUrl,
+    definitions: [...definitions.values()].sort((a, b) => a.obsDate.localeCompare(b.obsDate)),
+  };
+}
+
+export async function fetchLatestFaiInfrastructure() {
+  const history = await fetchFaiInfrastructureHistory();
+  return { point: history.points.at(-1)!, articleUrl: history.articleUrl, definitions: history.definitions };
+}
 
 /** 国家统计局月报是总项环比的官方来源。 */
 export async function fetchFaiMomHistory(): Promise<{ points: ObservationPoint[]; articleUrl: string }> {

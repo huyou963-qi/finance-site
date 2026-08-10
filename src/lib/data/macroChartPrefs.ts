@@ -216,6 +216,7 @@ function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTempla
                 op,
                 name: dname,
                 ...(Number.isFinite(scale) ? { scale } : {}),
+                ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
                 ...(x.hidden === true ? { hidden: true } : {}),
               } as MacroDerivedCalc;
             })
@@ -304,6 +305,7 @@ function sanitize(input: unknown): MacroChartPrefs | null {
             op,
             name,
             ...(Number.isFinite(scale) ? { scale } : {}),
+            ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
             ...(x.hidden === true ? { hidden: true } : {}),
           } as MacroDerivedCalc;
         })
@@ -403,8 +405,9 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
               rightKey,
               op,
               name: dname,
-              ...(Number.isFinite(scale) ? { scale } : {}),
-              ...(x.hidden === true ? { hidden: true } : {}),
+            ...(Number.isFinite(scale) ? { scale } : {}),
+            ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
+            ...(x.hidden === true ? { hidden: true } : {}),
             } as MacroDerivedCalc;
           })
           .filter((x): x is MacroDerivedCalc => Boolean(x))

@@ -32,3 +32,4 @@ export const NBS_FAI_CATALOGS: readonly FaiCatalog[] = [
 export const NBS_FAI_SOURCE = { id: "nbs-fai", agencyId: "cn-nbs", name: "国家统计局中国固定资产投资", baseUrl: NBS_FAI_DATA_URL, termsUrl: "https://www.stats.gov.cn/english/nbs/200701/t20070104_59236.html" } as const;
 export function nbsFaiCode(frequency: FaiFrequency, cid: string, indicatorId: string) { return `nbs_cn_fai_${frequency === "monthly" ? "m" : "a"}_${cid.slice(0, 8)}_${indicatorId.slice(0, 8)}`; }
 export const NBS_FAI_MOM_CODE = "nbs_cn_fai_m_headline_mom";
+export const NBS_FAI_INFRASTRUCTURE_YOY_CODE = "nbs_cn_fai_m_infrastructure_yoy";
