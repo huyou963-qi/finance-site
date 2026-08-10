@@ -108,17 +108,17 @@ jobs:
           # reports the process online, so retry before declaring it missing.
           # Without a session the endpoint is expected to return 401, not 404.
           macro_prefs_status=""
-          for attempt in $(seq 1 12); do
-            macro_prefs_status=$(curl -sS --connect-timeout 2 --max-time 5 \
+          for attempt in {1..12}; do
+            macro_prefs_status=\$(curl -sS --connect-timeout 2 --max-time 5 \
               -o /dev/null -w "%{http_code}" \
               http://127.0.0.1:3000/api/tools/macro-chart-prefs || true)
-            if [ "$macro_prefs_status" = "401" ]; then
+            if [ "\$macro_prefs_status" = "401" ]; then
               break
             fi
             sleep 2
           done
-          if [ "$macro_prefs_status" != "401" ]; then
-            echo "[deploy] macro template preferences API unavailable (HTTP $macro_prefs_status)"
+          if [ "\$macro_prefs_status" != "401" ]; then
+            echo "[deploy] macro template preferences API unavailable (HTTP \$macro_prefs_status)"
             pm2 logs finance-site --lines 40 --nostream
             exit 1
           fi
