@@ -73,6 +73,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "mofcom-trade": { script: "verify-mofcom-trade", labelZh: "中国外贸与外部部门自检", verifyNeedsDb: true },
   "nbs-retail": { script: "verify-nbs-retail", labelZh: "中国国家统计局社会消费品零售额自检", verifyNeedsDb: true },
   "cn-economy-overview": { script: "verify-cn-economy-overview", labelZh: "中国宏观经济 Overview 输入与派生自检", verifyNeedsDb: true },
+  "cn-balance-of-payments": { script: "verify-cn-balance-of-payments", labelZh: "中国国际收支输入与派生自检", verifyNeedsDb: true },
   "cycle-risk": { script: "verify-cycle-risk", labelZh: "增长动能与衰退风险自检", verifyNeedsDb: true },
   "consumer-balance": {
     script: "verify-consumer-balance",

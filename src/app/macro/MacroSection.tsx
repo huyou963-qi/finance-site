@@ -60,6 +60,7 @@ import {
   BUILTIN_CN_FINANCIAL_LIQUIDITY_FUNDING_TEMPLATE,
   BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
   BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
+  BUILTIN_CN_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
   BUILTIN_GOLD_ANALYSIS_TEMPLATE,
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -111,6 +112,7 @@ import { INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS } from "@/lib/data/industryInvent
 import { CN_FISCAL_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFiscalAnalysisLayout";
 import { CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFinancialLiquidityAnalysisLayout";
 import { CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/cnEconomyOverviewAnalysisLayout";
+import { CN_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS } from "@/lib/data/cnBalanceOfPaymentsAnalysisLayout";
 import { createMacroTemplateFolder, foldersForScope } from "@/lib/macroTemplateFolders";
 import type { MacroSlotAssignment } from "@/lib/macroPartition";
 import type {
@@ -1128,6 +1130,7 @@ export function MacroSection() {
       BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
       BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
       BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
+      BUILTIN_CN_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
     ];
     const hidden = new Set(hiddenBuiltinTemplateIds);
     const hardcoded = base
@@ -1173,6 +1176,7 @@ export function MacroSection() {
       BUILTIN_CN_FINANCIAL_LIQUIDITY_CREDIT_TEMPLATE,
       BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
       BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
+      BUILTIN_CN_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
     ];
     return base
       .filter((tpl) => hidden.has(tpl.id))
@@ -1265,6 +1269,7 @@ export function MacroSection() {
       ...CN_FISCAL_VIRTUAL_KEY_LABELS,
       ...CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS,
       ...CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS,
+      ...CN_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS,
     ]);
     for (const [k, v] of catalogLabelByKey) {
       if (!m.has(k)) m.set(k, v);
@@ -2085,7 +2090,7 @@ export function MacroSection() {
           outValues = sampled.data;
         }
         const transformed = applyMacroSeriesOp(outCategories, outValues, cfg.op);
-        const label = catalogLabelByKey.get(key) ?? resolveSeriesLabel(key) ?? s.name;
+        const label = resolveSeriesLabel(key) || catalogLabelByKey.get(key) || s.name;
         const suffix = buildMacroSeriesCalcSuffix(cfg);
         const baseName = suffix ? `${label}（${suffix}）` : label;
         const unit = effectiveMacroSeriesUnit(key, cfg, mdsUnitByKey);
@@ -2728,7 +2733,7 @@ export function MacroSection() {
       } else if (rawPayload) {
         const rawSeries = rawPayload.series.find((s) => s.key === key);
         if (rawSeries) {
-          const label = catalogLabelByKey.get(key) ?? resolveSeriesLabel(key) ?? rawSeries.name;
+          const label = resolveSeriesLabel(key) || catalogLabelByKey.get(key) || rawSeries.name;
           const suffix = buildMacroSeriesCalcSuffix(cfg);
           base = suffix ? `${label}（${suffix}）` : label;
         }

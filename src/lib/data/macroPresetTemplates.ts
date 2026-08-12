@@ -109,6 +109,11 @@ import {
   BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATE_IDS,
   BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATES,
 } from "@/lib/data/cnEconomyOverviewAnalysisLayout";
+import {
+  BUILTIN_CN_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
+  BUILTIN_CN_BALANCE_OF_PAYMENTS_TEMPLATE_IDS,
+  BUILTIN_CN_BALANCE_OF_PAYMENTS_TEMPLATES,
+} from "@/lib/data/cnBalanceOfPaymentsAnalysisLayout";
 
 export {
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
@@ -153,6 +158,8 @@ export {
   BUILTIN_CN_ECONOMY_OVERVIEW_GROWTH_TEMPLATE,
   BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
   BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATES,
+  BUILTIN_CN_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
+  BUILTIN_CN_BALANCE_OF_PAYMENTS_TEMPLATES,
 };
 
 export type MacroChartTemplate = {
@@ -243,6 +250,11 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
     name: "中国宏观经济 Overview",
     scope: "builtin",
   },
+  {
+    id: "folder-builtin-cn-balance-of-payments",
+    name: "中国国际收支分析",
+    scope: "builtin",
+  },
 ];
 
 export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> = {
@@ -274,6 +286,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-cn-financial-liquidity-credit": "folder-builtin-cn-financial-liquidity",
   "builtin-cn-economy-overview-growth": "folder-builtin-cn-economy-overview",
   "builtin-cn-economy-overview-policy": "folder-builtin-cn-economy-overview",
+  "builtin-cn-balance-of-payments-overview": "folder-builtin-cn-balance-of-payments",
 };
 
 const DEBT_SELECTED_KEYS: string[] = [
@@ -598,6 +611,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_CN_FISCAL_TEMPLATE_IDS,
   ...BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,
   ...BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATE_IDS,
+  ...BUILTIN_CN_BALANCE_OF_PAYMENTS_TEMPLATE_IDS,
 ]);
 
 export function resolveBuiltinTemplate(

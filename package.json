@@ -134,6 +134,7 @@
     "data:sync-nbs-retail": "dotenv -e .env.local -- tsx scripts/data-worker/sync-nbs-retail.ts",
     "data:verify-nbs-retail": "dotenv -e .env.local -- tsx scripts/data-worker/verify-nbs-retail.ts",
     "data:verify-cn-economy-overview": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cn-economy-overview.ts",
+    "data:verify-cn-balance-of-payments": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cn-balance-of-payments.ts",
     "data:seed-labor": "dotenv -e .env.local -- tsx scripts/data-worker/seed-labor.ts",
     "data:verify-labor": "dotenv -e .env.local -- tsx scripts/data-worker/verify-labor.ts",
     "data:seed-overview": "dotenv -e .env.local -- tsx scripts/data-worker/seed-overview.ts",

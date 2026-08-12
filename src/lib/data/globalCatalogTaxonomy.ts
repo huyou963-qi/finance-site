@@ -45,6 +45,15 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
 
 /** Maps every country's source category into the same top-level taxonomy as the US. */
 export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement {
+  // 来源根目录下仍按九大经济主题展开；这里为跨国/市场数据源补足稳定的业务落点。
+  if (item.countryCode === "SRC_CFTC") return p("对外与汇率", "商品期货持仓");
+  if (item.countryCode === "SRC_WTO") return p("对外与汇率", "国际贸易与关税");
+  if (item.countryCode === "SRC_BIS") {
+    return p("金融条件与银行", "国际银行、信贷与偿债能力");
+  }
+  if (item.countryCode === "SRC_IMF") {
+    return p("国民经济", "国际宏观与经济展望");
+  }
   if (item.countryCode === "CN") {
     const hit = chinaPlacement(item);
     if (hit) return hit;

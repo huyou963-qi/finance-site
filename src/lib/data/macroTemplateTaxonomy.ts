@@ -248,6 +248,7 @@ const FOLDER_ID_TO_DIMENSION: Record<string, MacroTemplateDimensionId> = {
   "folder-builtin-us-consumer-balance": "consumer-balance",
   "folder-builtin-us-external-dollar": "external-dollar",
   "folder-builtin-us-industry-inventory": "industry-inventory",
+  "folder-builtin-cn-balance-of-payments": "external-dollar",
 };
 
 /** 内置模板 id → 展示归类 */

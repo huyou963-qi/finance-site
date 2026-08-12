@@ -6,7 +6,7 @@
 > 再生成基线（FRED 部分）：
 > `grep -o 'fredId: "[A-Z0-9_]*"' src/lib/data/*AnalysisLayout.ts | sort -u`
 
-生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条；2026-08-10 追加「中国财政」「中国金融条件与流动性」和「中国宏观经济 Overview」域（Agent E 验收）
+生成日期：2026-07-04（基于当前 main 分支）；2026-07-04 追加「美国货币政策与金融条件」域 15 条；2026-08-10 追加「中国财政」「中国金融条件与流动性」和「中国宏观经济 Overview」域；2026-08-11 追加「中国国际收支」域（Agent E 验收）
 
 ## 美国
 
@@ -172,3 +172,18 @@
 | `mofcom_cn_trade_cabe8908b163088537` / `mofcom_cn_trade_a02519f634eb068d5a` | 出口/进口总额当月美元同比 | 海关总署、商务部转载 | 中国经济 Overview ②-4 |
 
 本地派生占用：`calc:cn-overview-gdp-deflator-yoy`、`calc:cn-overview-broad-fiscal-expenditure`、`calc:cn-overview-broad-fiscal-expenditure-yoy`。平减指数按同季度名义值/不变价值后做同季同比；广义财政先合计两本账累计支出，再按上年同月计算同比。这三条不是外部官方原始 Instrument。
+
+### 中国国际收支（2026-08-11，Agent E 验收）
+
+| instrument code / key | 显示名 | 来源 | 占用模板 |
+|-----------------------|--------|------|----------|
+| `safe_cn_bop_current_account` | 经常账户差额 | 国家外汇管理局 | 中国国际收支 ①-1 |
+| `safe_cn_bop_goods_balance` / `safe_cn_bop_services_balance` | 货物差额/服务差额 | 国家外汇管理局 | 中国国际收支 ①-1 |
+| `safe_cn_bop_direct_investment_net` | 直接投资净额 | 国家外汇管理局 | 中国国际收支 ①-2 |
+| `safe_cn_bop_portfolio_investment_net` / `safe_cn_bop_other_investment_net` | 证券投资净额/其他投资净额 | 国家外汇管理局 | 中国国际收支 ①-2 |
+| `safe_cn_settlement_6b1b40a90c3a` | 银行结售汇差额 | 国家外汇管理局 | 中国国际收支 ①-3 |
+| `safe_cn_payments_36f49c28853c` | 银行代客涉外收付款差额 | 国家外汇管理局 | 中国国际收支 ①-3 |
+| `safe_cn_iip_d2af2fbaf002` | 净国际投资头寸 | 国家外汇管理局 | 中国国际收支 ①-4 |
+| `safe_cn_iip_8d7e57a2760c` / `safe_cn_debt_ce941250bdad` | 储备资产/外债总额 | 国家外汇管理局 | 中国国际收支 ①-4 派生隐藏输入 |
+
+本地派生占用：`calc:cn-bop-reserve-assets-to-external-debt`。该比率按共同季度计算 `100 × 储备资产 ÷ 外债总额`，不是 SAFE 官方序列，也不是短期外债覆盖率；后续维度不得改名重复占用或把它写成 Guidotti–Greenspan 指标。

@@ -4,6 +4,7 @@ import {
   type CotMetric,
 } from "./cotProductCatalog";
 import {
+  INDEPENDENT_SOURCE_DIRECTORIES,
   macroCountryName,
   type UnifiedCatalogCountry,
   type UnifiedCatalogItem,
@@ -32,15 +33,15 @@ export function buildCotCatalogCountry(): UnifiedCatalogCountry {
         label: cotCatalogLabel(product.label, metric),
         frequency: "周",
         provider: "mds",
-        countryCode: "US",
+        countryCode: INDEPENDENT_SOURCE_DIRECTORIES.CFTC.code,
         categoryName: COT_CATALOG_CATEGORY,
       });
     }
   }
 
   return {
-    code: "US",
-    name: macroCountryName("US"),
+    code: INDEPENDENT_SOURCE_DIRECTORIES.CFTC.code,
+    name: macroCountryName(INDEPENDENT_SOURCE_DIRECTORIES.CFTC.code),
     categories: [{ name: COT_CATALOG_CATEGORY, items }],
   };
 }

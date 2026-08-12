@@ -80,6 +80,35 @@ export const MACRO_MAJOR_COUNTRIES: readonly CountryDef[] = [
 
 const COUNTRY_NAME_BY_CODE = new Map(MACRO_MAJOR_COUNTRIES.map((x) => [x.code, x.name]));
 
+/** 独立国际/市场数据源作为目录根节点；节点内部仍使用统一九大经济主题。 */
+export const INDEPENDENT_SOURCE_DIRECTORIES = {
+  WORLD_BANK: { code: "SRC_WORLDBANK", name: "世界银行" },
+  BIS: { code: "SRC_BIS", name: "国际清算银行（BIS）" },
+  IMF: { code: "SRC_IMF", name: "国际货币基金组织（IMF）" },
+  WTO: { code: "SRC_WTO", name: "世界贸易组织（WTO）" },
+  CFTC: { code: "SRC_CFTC", name: "美国商品期货交易委员会（CFTC）" },
+} as const;
+
+const INDEPENDENT_SOURCE_DIRECTORY_BY_CODE = new Map<string, string>(
+  Object.values(INDEPENDENT_SOURCE_DIRECTORIES).map((source) => [source.code, source.name]),
+);
+
+type IndependentSourceDirectory =
+  (typeof INDEPENDENT_SOURCE_DIRECTORIES)[keyof typeof INDEPENDENT_SOURCE_DIRECTORIES];
+
+function independentSourceDirectory(
+  sourceId: string | null | undefined,
+  sourceName: string | null | undefined,
+): IndependentSourceDirectory | null {
+  const text = `${sourceId ?? ""} ${sourceName ?? ""}`.toLowerCase();
+  if (/\b(worldbank|world-bank|world bank)\b/.test(text)) return INDEPENDENT_SOURCE_DIRECTORIES.WORLD_BANK;
+  if (/\b(bis|bank for international settlements)\b/.test(text)) return INDEPENDENT_SOURCE_DIRECTORIES.BIS;
+  if (/\b(imf|international monetary fund)\b/.test(text)) return INDEPENDENT_SOURCE_DIRECTORIES.IMF;
+  if (/\b(wto|world trade organization)\b/.test(text)) return INDEPENDENT_SOURCE_DIRECTORIES.WTO;
+  if (/\b(cftc|commodity futures trading commission)\b/.test(text)) return INDEPENDENT_SOURCE_DIRECTORIES.CFTC;
+  return null;
+}
+
 type FredDef = {
   id: string;
   label: string;
@@ -334,13 +363,40 @@ function buildCountryFromRows(
   };
 }
 
-function buildCountries(): UnifiedCatalogCountry[] {
-  return MACRO_MAJOR_COUNTRIES.map((country) => {
-    if (country.code === "US") {
-      return buildCountryFromRows(country, FRED_US_ITEMS, "fred");
+/** 世界银行指标保留原始国家代码于 key，目录展示则统一归入世界银行根节点。 */
+function buildWorldBankCatalogDirectory(): UnifiedCatalogCountry {
+  const directory = INDEPENDENT_SOURCE_DIRECTORIES.WORLD_BANK;
+  const byCategory = new Map<string, UnifiedCatalogItem[]>();
+  for (const country of MACRO_MAJOR_COUNTRIES.filter((candidate) => candidate.code !== "US")) {
+    for (const indicator of WORLD_BANK_INDICATORS) {
+      const items = byCategory.get(indicator.category) ?? [];
+      items.push({
+        key: `wb:${country.code}:${indicator.id}`,
+        label: `${country.name} · ${indicator.label}`,
+        frequency: indicator.frequency,
+        provider: "wb",
+        countryCode: directory.code,
+        categoryName: indicator.category,
+      });
+      byCategory.set(indicator.category, items);
     }
-    return buildCountryFromRows(country, WORLD_BANK_INDICATORS, "wb");
-  });
+  }
+  return {
+    code: directory.code,
+    name: directory.name,
+    categories: [...byCategory.entries()].map(([name, items]) => ({
+      name,
+      items: items.sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
+    })),
+  };
+}
+
+function buildCountries(): UnifiedCatalogCountry[] {
+  // 世界银行指标不再按国家分散，而是归集到单独的来源目录。
+  return [
+    buildCountryFromRows(MACRO_MAJOR_COUNTRIES[0]!, FRED_US_ITEMS, "fred"),
+    buildWorldBankCatalogDirectory(),
+  ];
 }
 
 export function normalizeFrequency(v: string | null | undefined): UnifiedCatalogFrequency {
@@ -372,6 +428,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
       name: true,
       freqLabel: true,
       metadata: true,
+      dataSubscription: { select: { sourceId: true, source: { select: { name: true } } } },
     },
   });
   const byCountry = new Map<string, Map<string, UnifiedCatalogItem[]>>();
@@ -381,7 +438,11 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
       ? (row.metadata as Record<string, unknown>)
       : {};
     const countryCodeRaw = typeof md.countryCode === "string" ? md.countryCode : "";
-    const countryCode = countryCodeRaw.trim().toUpperCase();
+    const sourceDirectory = independentSourceDirectory(
+      row.dataSubscription?.sourceId,
+      row.dataSubscription?.source.name,
+    );
+    const countryCode = (sourceDirectory?.code ?? countryCodeRaw).trim().toUpperCase();
     if (!countryCode) continue;
     const legacyCategory =
       typeof md.catalogCategory === "string" && md.catalogCategory.trim()
@@ -498,6 +559,7 @@ type CatalogCache = {
   /** 不在目录树中但仍需展示标签的键（待完善草稿等） */
   labelExtras: Record<string, string>;
   builtAt: number;
+  layoutUpdatedAt: number | null;
 };
 
 /** 用户搜索晋升完成的指标 → 注入正式目录树 */
@@ -632,7 +694,12 @@ export function worldBankIndicatorLabel(indicatorId: string): string {
 }
 
 export function macroCountryName(countryCode: string): string {
-  return COUNTRY_NAME_BY_CODE.get(countryCode.toUpperCase()) ?? countryCode.toUpperCase();
+  const code = countryCode.toUpperCase();
+  return (
+    COUNTRY_NAME_BY_CODE.get(code) ??
+    INDEPENDENT_SOURCE_DIRECTORY_BY_CODE.get(code) ??
+    code
+  );
 }
 
 export async function buildBaseCatalogCountries(): Promise<UnifiedCatalogCountry[]> {
@@ -662,7 +729,20 @@ export async function buildBaseCatalogCountries(): Promise<UnifiedCatalogCountry
 }
 
 export async function getFredCatalogCached(): Promise<CatalogCache> {
-  if (catalogCache && Date.now() - catalogCache.builtAt < CACHE_TTL_MS) return catalogCache;
+  // 布局可能由独立的 data:rebuild 脚本进程写入；比对 DB 时间戳使常驻 Web
+  // 进程无需重启也能立刻看到新目录。
+  const layoutRow = await prisma.macroCatalogLayout.findUnique({
+    where: { id: "default" },
+    select: { updatedAt: true },
+  });
+  const layoutUpdatedAt = layoutRow?.updatedAt.getTime() ?? null;
+  if (
+    catalogCache &&
+    Date.now() - catalogCache.builtAt < CACHE_TTL_MS &&
+    catalogCache.layoutUpdatedAt === layoutUpdatedAt
+  ) {
+    return catalogCache;
+  }
   const baseCountries = await buildBaseCatalogCountries();
   const layout = await loadMacroCatalogLayout();
   const laidOut = layout ? applyCatalogLayout(baseCountries, layout) : baseCountries;
@@ -710,6 +790,7 @@ export async function getFredCatalogCached(): Promise<CatalogCache> {
     allowlist,
     labelExtras: pending.labels,
     builtAt: Date.now(),
+    layoutUpdatedAt,
   };
   return catalogCache;
 }

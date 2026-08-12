@@ -23,3 +23,29 @@
 - `中国 > 国际收支与对外头寸`
 
 seed 后使用 `data:sync-catalog-layout -- --prefix=mds:safe_cn_ --dry-run` 确认，再正式写入布局。
+
+## 5. BOP 全量入库说明
+
+2026-08-12 按 Agent B 的复用路径核验：中国国际收支平衡表已经由既有 `safeExternal` provider 全量解析，不需要 Agent C 新建网页抓取器。六条模板指标只是额外使用可读语义 code；其余行项目使用由 `dataset + sheet + 官方行名 + occurrence + unit` 计算的稳定哈希 code，仍是正式入库 Instrument。
+
+| 官方工作表 | 序列数 | 观测数 | 覆盖范围 | 单位 |
+|------------|-------:|-------:|----------|------|
+| 年度 BOP（人民币） | 281 | 2,120 | 2010—2025 | 亿元人民币 |
+| 季度 BOP（人民币） | 281 | 8,161 | 2010Q1—2026Q1 | 亿元人民币 |
+| 年度 BOP（美元） | 281 | 8,768 | 1950—2025 | 亿美元 |
+| 季度 BOP（美元） | 281 | 13,585 | 1998Q1—2026Q1 | 亿美元 |
+| 年度 BOP（SDR） | 281 | 1,460 | 2016—2025 | 亿 SDR |
+| 季度 BOP（SDR） | 281 | 5,449 | 2016Q1—2026Q1 | 亿 SDR |
+| **合计** | **1,686** | **39,543** | — | — |
+
+2026-08-12 再次执行 `data:seed-safe-external -- --dataset=bop --with-observations`，结果为 `observationsUpserted=0`、`清理过期解析序列=0`，确认重复执行幂等且不存在待补的 BOP 行项目。
+
+## 6. BOP 全量验收
+
+- [x] 六张官方工作表均为 281 条序列，全部有观测
+- [x] 1,686 条 Instrument 全部使用 `safe-external` 订阅
+- [x] 1,686 条 Instrument 全部归属 `cn.safe.bop-quarterly` 发布包
+- [x] 1,686 条 Instrument 全部具有 `mds:<instrumentCode>` 目录键
+- [x] 目录同步 dry-run：待处理 1,686，已归类 1,686，未归类 0
+- [x] 全局目录 dry-run：未分配 0，超出末端上限 0
+- [x] Agent C 复用门结论：已有可扩展 SAFE provider，不启动新 scraper

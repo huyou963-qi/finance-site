@@ -1,5 +1,13 @@
 /** 目录树国家顺序：美国 → 中国 → 其余按代码 */
-const CATALOG_COUNTRY_PRIORITY = ["US", "CN"] as const;
+const CATALOG_COUNTRY_PRIORITY = [
+  "US",
+  "CN",
+  "SRC_WORLDBANK",
+  "SRC_BIS",
+  "SRC_IMF",
+  "SRC_WTO",
+  "SRC_CFTC",
+] as const;
 
 export function compareCatalogCountryCode(a: string, b: string): number {
   const pa = CATALOG_COUNTRY_PRIORITY.indexOf(a as (typeof CATALOG_COUNTRY_PRIORITY)[number]);
