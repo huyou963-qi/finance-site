@@ -37,6 +37,10 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "cycle-risk": { script: "seed-cycle-risk", labelZh: "美国增长动能与衰退风险" },
   "consumer-balance": { script: "seed-consumer-balance", labelZh: "美国消费与居民资产负债" },
   "external-dollar": { script: "seed-external-dollar", labelZh: "美国对外部门与美元" },
+  "us-balance-of-payments": {
+    script: "seed-us-balance-of-payments",
+    labelZh: "美国国际收支",
+  },
   "industry-inventory": {
     script: "seed-industry-inventory",
     labelZh: "美国制造业与库存周期",
@@ -83,6 +87,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "external-dollar": {
     script: "verify-external-dollar",
     labelZh: "对外部门与美元自检",
+    verifyNeedsDb: true,
+  },
+  "us-balance-of-payments": {
+    script: "verify-us-balance-of-payments",
+    labelZh: "美国国际收支自检",
     verifyNeedsDb: true,
   },
   "industry-inventory": {

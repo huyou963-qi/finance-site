@@ -876,14 +876,29 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "QUARTERLY",
     intervalHours: 168,
     sortOrder: 233,
-    members: { fredSeriesIds: ["IEABC"] },
+    members: {
+      fredSeriesIds: [
+        "IEABC",
+        "IEABCS",
+        "IEABCPI",
+        "IEABCSI",
+        "IEAA",
+        "IEAI",
+        "IEANLF",
+        "IEAIDI",
+        "IEAIPI",
+        "IEAIOI",
+      ],
+    },
   }),
   probePkg("us.bea.iip", "美国国际投资头寸", {
     labelEn: "U.S. International Investment Position",
     granularity: "QUARTERLY",
     intervalHours: 168,
     sortOrder: 234,
-    members: { fredSeriesIds: ["IIPUSNETIQ"] },
+    members: {
+      fredSeriesIds: ["IIPUSNETIQ", "IIPDIRELMVQ", "IIPPORTLQ", "IIPOTHELQ"],
+    },
   }),
   // BIS 无「某日宣布」式日历，按官方数据流（= 官方发布批次）分两组
   probePkg("intl.bis.total_credit", "BIS 总信贷（杠杆率 / %GDP）", {

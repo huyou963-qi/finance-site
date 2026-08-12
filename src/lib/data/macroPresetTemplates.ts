@@ -85,6 +85,11 @@ import {
   BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATES,
 } from "@/lib/data/externalDollarAnalysisLayout";
 import {
+  BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
+  BUILTIN_US_BALANCE_OF_PAYMENTS_TEMPLATE_IDS,
+  BUILTIN_US_BALANCE_OF_PAYMENTS_TEMPLATES,
+} from "@/lib/data/usBalanceOfPaymentsAnalysisLayout";
+import {
   BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
@@ -145,6 +150,8 @@ export {
   BUILTIN_US_EXTERNAL_DOLLAR_OVERVIEW_TEMPLATE,
   BUILTIN_US_EXTERNAL_DOLLAR_BALANCE_TEMPLATE,
   BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATES,
+  BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
+  BUILTIN_US_BALANCE_OF_PAYMENTS_TEMPLATES,
   BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATES,
@@ -235,6 +242,11 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
   { id: "folder-builtin-us-consumer-balance", name: "美国消费与居民资产负债", scope: "builtin" },
   { id: "folder-builtin-us-external-dollar", name: "美国对外部门与美元", scope: "builtin" },
   {
+    id: "folder-builtin-us-balance-of-payments",
+    name: "美国国际收支",
+    scope: "builtin",
+  },
+  {
     id: "folder-builtin-us-industry-inventory",
     name: "美国制造业与库存周期",
     scope: "builtin",
@@ -277,6 +289,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-us-consumer-balance-balance-sheet": "folder-builtin-us-consumer-balance",
   "builtin-us-external-dollar-overview": "folder-builtin-us-external-dollar",
   "builtin-us-external-dollar-balance": "folder-builtin-us-external-dollar",
+  "builtin-us-balance-of-payments-overview": "folder-builtin-us-balance-of-payments",
   "builtin-us-industry-inventory-orders": "folder-builtin-us-industry-inventory",
   "builtin-us-industry-inventory-cycle": "folder-builtin-us-industry-inventory",
   "builtin-cn-fiscal-overview": "folder-builtin-cn-fiscal",
@@ -607,6 +620,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_CYCLE_RISK_TEMPLATE_IDS,
   ...BUILTIN_US_CONSUMER_BALANCE_TEMPLATE_IDS,
   ...BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATE_IDS,
+  ...BUILTIN_US_BALANCE_OF_PAYMENTS_TEMPLATE_IDS,
   ...BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
   ...BUILTIN_CN_FISCAL_TEMPLATE_IDS,
   ...BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,

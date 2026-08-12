@@ -247,6 +247,7 @@ const FOLDER_ID_TO_DIMENSION: Record<string, MacroTemplateDimensionId> = {
   "folder-builtin-us-cycle-risk": "cycle-risk",
   "folder-builtin-us-consumer-balance": "consumer-balance",
   "folder-builtin-us-external-dollar": "external-dollar",
+  "folder-builtin-us-balance-of-payments": "external-dollar",
   "folder-builtin-us-industry-inventory": "industry-inventory",
   "folder-builtin-cn-balance-of-payments": "external-dollar",
 };
@@ -281,6 +282,10 @@ const BUILTIN_PLACEMENT: Record<string, MacroTemplatePlacement> = {
   },
   "builtin-us-external-dollar-overview": { scope: "US", dimensionId: "external-dollar" },
   "builtin-us-external-dollar-balance": { scope: "US", dimensionId: "external-dollar" },
+  "builtin-us-balance-of-payments-overview": {
+    scope: "US",
+    dimensionId: "external-dollar",
+  },
   "builtin-us-industry-inventory-orders": {
     scope: "US",
     dimensionId: "industry-inventory",
