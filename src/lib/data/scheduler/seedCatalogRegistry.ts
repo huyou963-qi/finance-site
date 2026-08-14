@@ -45,8 +45,8 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-industry-inventory",
     labelZh: "美国制造业与库存周期",
   },
-  "ism-te": { script: "seed-ism-te", labelZh: "ISM 制造业 TE 抓取" },
-  "ism-svc-te": { script: "seed-ism-svc-te", labelZh: "ISM 服务业 TE 抓取" },
+  "ism-te": { script: "seed-ism-te", labelZh: "ISM 制造业官网抓取（TE 备份）" },
+  "ism-svc-te": { script: "seed-ism-svc-te", labelZh: "ISM 服务业官网抓取（TE 备份）" },
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
@@ -99,6 +99,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     labelZh: "制造业与库存周期自检",
     verifyNeedsDb: true,
   },
+  "ism-official": { script: "verify-ism-official", labelZh: "ISM 官网 PMI 自检", verifyNeedsDb: true },
   debtcap: { script: "verify-debtcap", labelZh: "BIS 杠杆率与偿债率自检" },
   "gold-market": {
     script: "verify-gold-market",

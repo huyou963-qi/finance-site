@@ -65,6 +65,16 @@ export async function fetchSubscriptionIncremental(
     await sleep(minIntervalMs(sub.source));
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
     if (scrapeObj) {
+      if (scrapeObj.provider === "ism_official") {
+        const { fetchIsmOfficialIncremental } = await import(
+          "./adapters/ismOfficialAdapter"
+        );
+        return fetchIsmOfficialIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "tradingeconomics_ism") {
         const { fetchTradingEconomicsIsmIncremental } = await import(
           "./adapters/tradingEconomicsIsmAdapter"

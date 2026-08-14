@@ -13,7 +13,7 @@
 
 **禁止**：使用 TE 付费 JSON API Key 写入仓库；**禁止**跳过 fixture 实测直接写 parser；**禁止**未配置 `fetchAcquisition.status=known` 就参与调度。
 
-**范本**：ISM 制造业 PMI → `https://tradingeconomics.com/united-states/business-confidence`
+**范本**：ISM 制造业 PMI → 官网月报为主源（`ism_official`），TradingEconomics 仅校对/失败兜底。TE 页 URL 仍为 `https://tradingeconomics.com/united-states/business-confidence`。
 
 ---
 
