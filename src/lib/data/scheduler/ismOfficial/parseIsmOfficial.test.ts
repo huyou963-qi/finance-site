@@ -4,7 +4,12 @@ import path from "node:path";
 import { test } from "node:test";
 import { parseIsmOfficialCalendarPage, nextIsmOfficialRelease } from "./parseCalendar";
 import { parseIsmOfficialReport } from "./parseReport";
-import { looksLikeCaptchaInterstitial } from "./client";
+import {
+  clearIsmOfficialHtmlCache,
+  fetchIsmOfficialHtml,
+  looksLikeCaptchaInterstitial,
+} from "./client";
+import { convertTePageToIsmReport } from "../adapters/ismOfficialAdapter";
 import { loadPublishedIsmOfficialReleases } from "./publishedCalendar";
 
 const FIX = (name: string) => path.join(__dirname, "fixtures", name);
@@ -85,4 +90,73 @@ test("detects ISM reCAPTCHA interstitial", () => {
     '<form name="captcha_form" action="/captcha_resp"></form><script src="https://www.google.com/recaptcha/api.js?render=abc"></script>';
   assert.equal(looksLikeCaptchaInterstitial(html), true);
   assert.equal(looksLikeCaptchaInterstitial("<table><tr><td>January 2026</td></tr></table>"), false);
+});
+
+test("reports ISM SSO redirect without following the CAPTCHA page", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response("", {
+      status: 302,
+      headers: { location: "https://ecommerce.ismworld.org/SSO/Login.aspx?DPLF=Y" },
+    })) as typeof fetch;
+  clearIsmOfficialHtmlCache();
+  try {
+    await assert.rejects(fetchIsmOfficialHtml("https://www.ismworld.org/report"), (err) => {
+      assert.match(String(err), /HTTP 302.*SSO\/reCAPTCHA/);
+      assert.doesNotMatch(String(err), /DPLF/);
+      return true;
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearIsmOfficialHtmlCache();
+  }
+});
+
+test("preserves the low-level Node fetch cause in ISM diagnostics", async () => {
+  const originalFetch = globalThis.fetch;
+  const cause = Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" });
+  const failure = new TypeError("fetch failed");
+  (failure as Error & { cause?: unknown }).cause = cause;
+  globalThis.fetch = (async () => {
+    throw failure;
+  }) as typeof fetch;
+  clearIsmOfficialHtmlCache();
+  try {
+    await assert.rejects(
+      fetchIsmOfficialHtml("https://www.ismworld.org/report"),
+      /fetch failed.*ETIMEDOUT connect ETIMEDOUT/,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    clearIsmOfficialHtmlCache();
+  }
+});
+
+test("converts TE points into the official-series shape for fallback", () => {
+  const obsDate = new Date("2026-07-01T00:00:00.000Z");
+  const parsed = convertTePageToIsmReport("manufacturing", {
+    headline: {
+      label: "ISM Manufacturing PMI",
+      value: 55.6,
+      previous: 53.3,
+      referenceText: "Jul 2026",
+      obsDate,
+      releaseDate: null,
+    },
+    components: [
+      {
+        label: "ISM Manufacturing New Orders",
+        value: 56.7,
+        previous: 56,
+        referenceText: "Jul 2026",
+        obsDate,
+        releaseDate: null,
+      },
+    ],
+    latestCalendarRelease: null,
+    fetchedAt: new Date().toISOString(),
+  });
+  assert.equal(parsed.pointsByCode.get("ism_us_ism_headline")?.value, 55.6);
+  assert.equal(parsed.pointsByCode.get("ism_us_ism_new_orders")?.value, 56.7);
+  assert.equal(parsed.pointsByCode.has("ism_us_ism_customers_inventories"), false);
 });

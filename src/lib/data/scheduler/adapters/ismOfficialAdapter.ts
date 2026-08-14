@@ -1,5 +1,7 @@
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
 import {
+  ISM_OFFICIAL_MFG_SERIES,
+  ISM_OFFICIAL_SVC_SERIES,
   ismOfficialSeriesByCode,
   type IsmOfficialReportKind,
 } from "../ismOfficial/catalog";
@@ -15,14 +17,29 @@ import {
 import { loadTradingEconomicsIndicatorHtml } from "../tradingEconomicsIndicator/client";
 import { TE_ISM_PAGE_URL } from "../tradingEconomicsIndicator/ismCatalog";
 import { TE_ISM_SVC_PAGE_URL } from "../tradingEconomicsIndicator/ismSvcCatalog";
-import { parseTradingEconomicsIsmPage } from "../tradingEconomicsIndicator/parseIsmPage";
-import { parseTradingEconomicsIsmSvcPage } from "../tradingEconomicsIndicator/parseIsmSvcPage";
+import {
+  parseTradingEconomicsIsmPage,
+  seriesPointForTeLabel as manufacturingPointForTeLabel,
+  type TeIsmParsedPage,
+} from "../tradingEconomicsIndicator/parseIsmPage";
+import {
+  parseTradingEconomicsIsmSvcPage,
+  seriesPointForTeLabel as servicesPointForTeLabel,
+} from "../tradingEconomicsIndicator/parseIsmSvcPage";
 
 const TE_MISMATCH_WARN = 0.05;
 
 type ReportCache = { at: number; parsed: IsmOfficialParsedReport; url: string };
 const reportCache = new Map<IsmOfficialReportKind, ReportCache>();
+const reportFailureCache = new Map<IsmOfficialReportKind, { at: number; message: string }>();
+const teReportCache = new Map<IsmOfficialReportKind, ReportCache>();
 const CACHE_MS = 60_000;
+
+export type IsmPreferredReport = {
+  parsed: IsmOfficialParsedReport;
+  source: "ism_official" | "tradingeconomics";
+  officialError: string | null;
+};
 
 function readFixturePath(metadata: unknown): string | undefined {
   if (!metadata || typeof metadata !== "object") return undefined;
@@ -40,12 +57,69 @@ async function getOfficialReport(
   if (!fixturePath) {
     const hit = reportCache.get(kind);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.parsed;
+    const failed = reportFailureCache.get(kind);
+    if (failed && Date.now() - failed.at < CACHE_MS) {
+      throw new Error(failed.message);
+    }
   }
-  const loaded = await loadLatestIsmOfficialReportHtml(kind, { fixturePath });
-  const parsed = parseIsmOfficialReport(loaded.html, kind);
-  if (!fixturePath) {
-    reportCache.set(kind, { at: Date.now(), parsed, url: loaded.url });
+  try {
+    const loaded = await loadLatestIsmOfficialReportHtml(kind, { fixturePath });
+    const parsed = parseIsmOfficialReport(loaded.html, kind);
+    if (!fixturePath) {
+      reportCache.set(kind, { at: Date.now(), parsed, url: loaded.url });
+      reportFailureCache.delete(kind);
+    }
+    return parsed;
+  } catch (err) {
+    if (!fixturePath) {
+      reportFailureCache.set(kind, {
+        at: Date.now(),
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+    throw err;
   }
+}
+
+export function convertTePageToIsmReport(
+  kind: IsmOfficialReportKind,
+  parsedTe: TeIsmParsedPage,
+): IsmOfficialParsedReport {
+  const defs = kind === "manufacturing" ? ISM_OFFICIAL_MFG_SERIES : ISM_OFFICIAL_SVC_SERIES;
+  const pointsByCode = new Map<string, ObservationPoint>();
+  for (const def of defs) {
+    if (!def.teLabel) continue;
+    const point =
+      kind === "manufacturing"
+        ? manufacturingPointForTeLabel(parsedTe, def.teLabel)
+        : servicesPointForTeLabel(parsedTe, def.teLabel);
+    if (!point) continue;
+    pointsByCode.set(def.code, { obsDate: point.obsDate, value: point.value });
+  }
+  const obsDates = [...pointsByCode.values()].map((point) => point.obsDate.getTime());
+  if (!obsDates.length) {
+    throw new Error(`TE ${kind} 页面未解析到任何 ISM 分项`);
+  }
+  const obsDate = new Date(Math.max(...obsDates));
+  return {
+    kind,
+    obsDate,
+    titleMonthText: obsDate.toISOString().slice(0, 7),
+    pointsByCode,
+  };
+}
+
+async function getTeReport(kind: IsmOfficialReportKind): Promise<IsmOfficialParsedReport> {
+  const hit = teReportCache.get(kind);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.parsed;
+  const url = kind === "manufacturing" ? TE_ISM_PAGE_URL : TE_ISM_SVC_PAGE_URL;
+  const html = await loadTradingEconomicsIndicatorHtml({ defaultUrl: url });
+  const parsedTe =
+    kind === "manufacturing"
+      ? parseTradingEconomicsIsmPage(html)
+      : parseTradingEconomicsIsmSvcPage(html);
+  const parsed = convertTePageToIsmReport(kind, parsedTe);
+  teReportCache.set(kind, { at: Date.now(), parsed, url });
   return parsed;
 }
 
@@ -68,17 +142,11 @@ async function teFallbackPoint(
   teLabel: string,
   obsStart: string,
 ): Promise<FetchIncrementalResult> {
-  const html = await loadTradingEconomicsIndicatorHtml({
-    defaultUrl: kind === "manufacturing" ? TE_ISM_PAGE_URL : TE_ISM_SVC_PAGE_URL,
-  });
-  const parsed =
-    kind === "manufacturing"
-      ? parseTradingEconomicsIsmPage(html)
-      : parseTradingEconomicsIsmSvcPage(html);
-  const point =
-    parsed.headline?.label === teLabel
-      ? parsed.headline
-      : parsed.components.find((c) => c.label === teLabel) ?? null;
+  const parsed = await getTeReport(kind);
+  const def = (kind === "manufacturing" ? ISM_OFFICIAL_MFG_SERIES : ISM_OFFICIAL_SVC_SERIES).find(
+    (row) => row.teLabel === teLabel,
+  );
+  const point = def ? parsed.pointsByCode.get(def.code) ?? null : null;
   if (!point) {
     return { points: [], skippedInvalid: 0, sourceLatestObsDate: null };
   }
@@ -98,15 +166,11 @@ async function teValueForLabel(
   teLabel: string,
 ): Promise<number | null> {
   try {
-    const html = await loadTradingEconomicsIndicatorHtml({
-      defaultUrl: kind === "manufacturing" ? TE_ISM_PAGE_URL : TE_ISM_SVC_PAGE_URL,
-    });
-    const parsed =
-      kind === "manufacturing"
-        ? parseTradingEconomicsIsmPage(html)
-        : parseTradingEconomicsIsmSvcPage(html);
-    if (parsed.headline?.label === teLabel) return parsed.headline.value;
-    return parsed.components.find((c) => c.label === teLabel)?.value ?? null;
+    const parsed = await getTeReport(kind);
+    const def = (kind === "manufacturing" ? ISM_OFFICIAL_MFG_SERIES : ISM_OFFICIAL_SVC_SERIES).find(
+      (row) => row.teLabel === teLabel,
+    );
+    return def ? parsed.pointsByCode.get(def.code)?.value ?? null : null;
   } catch (err) {
     console.warn(
       `[ism-official] TE 校对跳过：${err instanceof Error ? err.message : String(err)}`,
@@ -164,7 +228,27 @@ export async function fetchAllIsmOfficialPoints(
   return parseIsmOfficialReport(loaded.html, kind);
 }
 
+/** 手工整包同步：始终先取 ISM 官网；官网不可达时整页回退 TE 已覆盖分项。 */
+export async function fetchPreferredIsmReport(
+  kind: IsmOfficialReportKind,
+  options?: { fixturePath?: string },
+): Promise<IsmPreferredReport> {
+  try {
+    return {
+      parsed: await fetchAllIsmOfficialPoints(kind, options),
+      source: "ism_official",
+      officialError: null,
+    };
+  } catch (err) {
+    const officialError = err instanceof Error ? err.message : String(err);
+    const parsed = await getTeReport(kind);
+    return { parsed, source: "tradingeconomics", officialError };
+  }
+}
+
 export function clearIsmOfficialAdapterCache(): void {
   reportCache.clear();
+  reportFailureCache.clear();
+  teReportCache.clear();
   clearIsmOfficialHtmlCache();
 }

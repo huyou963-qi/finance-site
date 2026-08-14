@@ -10,6 +10,21 @@ import { isIsmReportUnavailable } from "./parseReport";
 const CACHE_MS = 60_000;
 const cache = new Map<string, { html: string; at: number }>();
 
+export type IsmOfficialFetchFailureKind = "network" | "access" | "http" | "content";
+
+export class IsmOfficialFetchError extends Error {
+  readonly failureKind: IsmOfficialFetchFailureKind;
+
+  constructor(message: string, failureKind: IsmOfficialFetchFailureKind, cause?: unknown) {
+    super(message);
+    this.name = "IsmOfficialFetchError";
+    this.failureKind = failureKind;
+    if (cause !== undefined) {
+      (this as Error & { cause?: unknown }).cause = cause;
+    }
+  }
+}
+
 export function looksLikeCaptchaInterstitial(html: string): boolean {
   return /grecaptcha|captcha_form|recaptcha\/api\.js/i.test(html);
 }
@@ -24,27 +39,82 @@ function defaultHeaders(): Record<string, string> {
   };
 }
 
+function formatFetchCause(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const cause = (err as Error & { cause?: unknown }).cause;
+  const causeText =
+    cause instanceof Error
+      ? [
+          (cause as Error & { code?: string }).code,
+          cause.message,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : cause == null
+        ? ""
+        : String(cause);
+  return [err.message, causeText].filter(Boolean).join("；cause=");
+}
+
+function isSsoRedirect(location: string): boolean {
+  return /ecommerce\.ismworld\.org\/SSO\/Login\.aspx|\/captcha_resp/i.test(location);
+}
+
+function redirectForLog(location: string): string {
+  try {
+    const parsed = new URL(location);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return location.split("?", 1)[0] ?? location;
+  }
+}
+
 export async function fetchIsmOfficialHtml(url: string): Promise<string> {
   const now = Date.now();
   const hit = cache.get(url);
   if (hit && now - hit.at < CACHE_MS) return hit.html;
 
-  const res = await fetch(url, {
-    headers: defaultHeaders(),
-    signal: AbortSignal.timeout(30_000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: defaultHeaders(),
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    throw new IsmOfficialFetchError(
+      `ISM 官网网络请求失败：${url}（${formatFetchCause(err)}）`,
+      "network",
+      err,
+    );
+  }
+  if (res.status >= 300 && res.status < 400) {
+    const location = res.headers.get("location") ?? "";
+    if (isSsoRedirect(location)) {
+      throw new IsmOfficialFetchError(
+        `ISM 官网 HTTP ${res.status} 跳转到 SSO/reCAPTCHA 登录检查：${redirectForLog(location)}`,
+        "access",
+      );
+    }
+    throw new IsmOfficialFetchError(
+      `ISM 官网 HTTP ${res.status} 重定向：${url}${location ? ` -> ${redirectForLog(location)}` : ""}`,
+      "http",
+    );
+  }
   if (!res.ok) {
-    throw new Error(`ISM 官网 HTTP ${res.status}: ${url}`);
+    throw new IsmOfficialFetchError(`ISM 官网 HTTP ${res.status}: ${url}`, "http");
   }
   const html = await res.text();
   if (looksLikeCaptchaInterstitial(html)) {
-    throw new Error(
+    throw new IsmOfficialFetchError(
       `ISM 官网对自动化请求返回 reCAPTCHA 拦截页：${url}（不绕过验证码；数值将回退 TE）`,
+      "access",
     );
   }
   if (html.length < 2000 && !isIsmReportUnavailable(html)) {
-    throw new Error(
+    throw new IsmOfficialFetchError(
       `ISM 官网返回过短 HTML (${html.length} bytes)，可能是跳转/拦截页：${url}`,
+      "content",
     );
   }
   cache.set(url, { html, at: now });
@@ -107,6 +177,12 @@ export async function loadLatestIsmOfficialReportHtml(
       return { html, url, monthSlug: slug };
     } catch (err) {
       errors.push(`${slug}: ${err instanceof Error ? err.message : String(err)}`);
+      if (
+        err instanceof IsmOfficialFetchError &&
+        (err.failureKind === "network" || err.failureKind === "access")
+      ) {
+        break;
+      }
     }
   }
   throw new Error(

@@ -8,7 +8,7 @@ import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
 import {
   clearIsmOfficialAdapterCache,
-  fetchAllIsmOfficialPoints,
+  fetchPreferredIsmReport,
 } from "../../src/lib/data/scheduler/adapters/ismOfficialAdapter";
 import {
   ISM_OFFICIAL_MFG_SERIES,
@@ -28,10 +28,16 @@ async function writeKind(
   kind: "manufacturing" | "services",
   fixturePath: string | undefined,
 ): Promise<number> {
-  const parsed = await fetchAllIsmOfficialPoints(kind, { fixturePath });
+  const fetched = await fetchPreferredIsmReport(kind, { fixturePath });
+  const parsed = fetched.parsed;
   const series = kind === "manufacturing" ? ISM_OFFICIAL_MFG_SERIES : ISM_OFFICIAL_SVC_SERIES;
+  if (fetched.officialError) {
+    console.warn(
+      `[fallback ${kind}] ISM 官网不可用，改用 TE 已覆盖分项：${fetched.officialError}`,
+    );
+  }
   console.info(
-    `[fetch ${kind}] obs=${parsed.obsDate.toISOString().slice(0, 10)} points=${parsed.pointsByCode.size} title=${parsed.titleMonthText}`,
+    `[fetch ${kind}] source=${fetched.source} obs=${parsed.obsDate.toISOString().slice(0, 10)} points=${parsed.pointsByCode.size} title=${parsed.titleMonthText}`,
   );
 
   let upsertedTotal = 0;
@@ -46,7 +52,9 @@ async function writeKind(
       continue;
     }
     if (!point) {
-      console.warn(`[skip] 官网表未解析到 ${row.officialLabel}`);
+      console.warn(
+        `[skip] ${fetched.source === "ism_official" ? "官网表" : "TE 兜底"}未解析到 ${row.officialLabel}`,
+      );
       continue;
     }
     const { upserted } = await upsertMacroObservations(prisma, inst.id, [point]);
@@ -62,7 +70,7 @@ async function writeKind(
       });
     }
     console.info(
-      `[ok] ${row.code} | ${point.value} | obs=${point.obsDate.toISOString().slice(0, 10)} | +${upserted}`,
+      `[ok] ${row.code} | ${point.value} | obs=${point.obsDate.toISOString().slice(0, 10)} | source=${fetched.source} | +${upserted}`,
     );
   }
   return upsertedTotal;
