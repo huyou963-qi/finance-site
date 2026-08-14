@@ -30,6 +30,15 @@ import {
 import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
 import { refreshCalendarOverrideCache } from "./calendarOverrideCache";
 import type { ReleasePackageScheduleState } from "./releasePackageTypes";
+import type { IsmOfficialRelease } from "./ismOfficial/parseCalendar";
+import {
+  ismOfficialReleaseToCalendarEvent,
+  nextIsmOfficialRelease,
+  packageIdToIsmKind,
+  parseIsmOfficialCalendarPage,
+} from "./ismOfficial/parseCalendar";
+import { loadIsmOfficialCalendarHtml } from "./ismOfficial/client";
+import { loadPublishedIsmOfficialReleases } from "./ismOfficial/publishedCalendar";
 
 export type CalendarSyncRow = {
   subscriptionId?: string;
@@ -73,13 +82,14 @@ function patchCalendarRule(
     calendarMatch?: CalendarMatchSnapshot;
     calendarSync: CalendarSyncMeta;
     clearCalendarMatch?: boolean;
+    calendarProvider?: "tradingeconomics" | "ism_official";
   },
 ): Extract<ReleaseRule, { type: "economic_calendar" }> {
   const base = asEconomicCalendarRule(rule);
   const { calendarMatch: _prev, ...rest } = base;
   return {
     ...rest,
-    calendarProvider: "tradingeconomics",
+    calendarProvider: patch.calendarProvider ?? base.calendarProvider ?? "tradingeconomics",
     ...(patch.clearCalendarMatch
       ? {}
       : patch.calendarMatch
@@ -157,7 +167,7 @@ async function applyCalendarMatchToPackage(
   memberCount: number,
   nextEvent: EconomicCalendarEvent,
   now: Date,
-  options?: { dryRun?: boolean },
+  options?: { dryRun?: boolean; calendarSource?: CalendarMatchSnapshot["source"] },
 ): Promise<CalendarSyncRow> {
   const template = parsePackageReleaseTemplate(pkg.releaseTemplate);
   const snapshot: CalendarMatchSnapshot = {
@@ -165,7 +175,7 @@ async function applyCalendarMatchToPackage(
     title: nextEvent.title,
     releaseAt: nextEvent.releaseAt.toISOString(),
     syncedAt: now.toISOString(),
-    source: "tradingeconomics",
+    source: options?.calendarSource ?? "tradingeconomics",
   };
   const scheduleState: ReleasePackageScheduleState = {
     calendarMatch: snapshot,
@@ -384,6 +394,16 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
   });
   const countByPackage = new Map(memberCounts.map((r) => [r.packageId, r._count.instrumentId]));
 
+  let ismReleases: IsmOfficialRelease[] | null = null;
+  let ismCalWarning: string | undefined;
+  try {
+    const html = await loadIsmOfficialCalendarHtml();
+    ismReleases = parseIsmOfficialCalendarPage(html);
+  } catch (err) {
+    ismReleases = loadPublishedIsmOfficialReleases();
+    ismCalWarning = `${err instanceof Error ? err.message : String(err)}；改用仓库内官网年历副本`;
+  }
+
   const window = defaultCalendarWindow();
   const countryCodes = [
     ...new Set([
@@ -405,6 +425,24 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
 
   for (const pkg of packages) {
     const memberCount = countByPackage.get(pkg.id) ?? 0;
+    const ismKind = packageIdToIsmKind(pkg.id);
+    if (ismKind && ismReleases) {
+      const nextOfficial = nextIsmOfficialRelease(ismReleases, ismKind, now);
+      if (nextOfficial) {
+        rows.push(
+          await applyCalendarMatchToPackage(
+            prisma,
+            pkg,
+            memberCount,
+            ismOfficialReleaseToCalendarEvent(nextOfficial),
+            now,
+            { dryRun: options?.dryRun, calendarSource: "ism_official" },
+          ),
+        );
+        continue;
+      }
+    }
+
     const spec = calendarSpecForPackageRow(pkg);
     const template = parsePackageReleaseTemplate(pkg.releaseTemplate);
 
@@ -522,7 +560,9 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
   return {
     eventsFetched: events.length,
     source: fetchResult.source,
-    warning: fetchResult.warning,
+    warning: [ismCalWarning ? `ISM官网日历：${ismCalWarning}` : null, fetchResult.warning]
+      .filter(Boolean)
+      .join("；") || undefined,
     fetchFailed,
     rows,
   };

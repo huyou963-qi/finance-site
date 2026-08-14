@@ -64,6 +64,8 @@
     "data:sync-ism-te": "dotenv -e .env.local -- tsx scripts/data-worker/sync-ism-te.ts",
     "data:seed-ism-svc-te": "dotenv -e .env.local -- tsx scripts/data-worker/seed-ism-svc-te.ts",
     "data:sync-ism-svc-te": "dotenv -e .env.local -- tsx scripts/data-worker/sync-ism-svc-te.ts",
+    "data:sync-ism-official": "dotenv -e .env.local -- tsx scripts/data-worker/sync-ism-official.ts",
+    "data:verify-ism-official": "dotenv -e .env.local -- tsx scripts/data-worker/verify-ism-official.ts",
     "data:verify-phase1": "dotenv -e .env.local -- tsx scripts/data-worker/verify-phase1.ts",
     "data:verify-framework": "dotenv -e .env.local -- tsx scripts/verify-framework-indicators.ts",
     "data:seed-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase2.ts",
@@ -199,7 +201,8 @@
     "quant:verify-timing": "dotenv -e .env.local -- tsx scripts/quant/verify-timing.ts",
     "pack:company-milestone": "node scripts/pack-company-milestone.mjs",
     "test:equity": "tsx --test src/lib/equity/*.test.ts",
-    "test:quant": "tsx --test src/lib/quant/*.test.ts"
+    "test:quant": "tsx --test src/lib/quant/*.test.ts",
+    "test:ism-official": "tsx --test src/lib/data/scheduler/ismOfficial/parseIsmOfficial.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

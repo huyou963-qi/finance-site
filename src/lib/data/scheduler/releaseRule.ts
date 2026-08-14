@@ -51,7 +51,7 @@ export type ReleaseRule =
   | {
       type: "economic_calendar";
       /** 日历提供方（唯一：TradingEconomics） */
-      calendarProvider?: "tradingeconomics";
+      calendarProvider?: "tradingeconomics" | "ism_official";
       /** 发布后持续探测间隔（小时），直至抓到新数据或下一日历事件 */
       postReleaseProbeHours: number;
       /** 相对发布时刻的延迟（分钟），避免源端尚未入库 */
@@ -138,7 +138,8 @@ export function parseReleaseRule(raw: unknown): ReleaseRule {
         : undefined;
     return {
       type: "economic_calendar",
-      calendarProvider: "tradingeconomics",
+      calendarProvider:
+        r.calendarProvider === "ism_official" ? "ism_official" : "tradingeconomics",
       postReleaseProbeHours: Number(r.postReleaseProbeHours) || 2,
       releaseDelayMinutes: Number(r.releaseDelayMinutes) || 3,
       fallback,
@@ -239,7 +240,11 @@ export function summarizeReleaseRule(rule: ReleaseRule): string {
       const when = Number.isNaN(d.getTime())
         ? m.releaseAt
         : d.toISOString().replace("T", " ").slice(0, 16);
-      const base = `经济日历：${m.title || "下一发布"} @ ${when} UTC`;
+      const sourceLabel =
+        m.source === "ism_official" || rule.calendarProvider === "ism_official"
+          ? "ISM官网日历"
+          : "经济日历";
+      const base = `${sourceLabel}：${m.title || "下一发布"} @ ${when} UTC`;
       if (sync?.status === "fetch_failed") return `${base}（日历拉取失败，已回退间隔探测）`;
       if (sync?.status === "no_match") return `${base}（待重新匹配）`;
       return base;
