@@ -92,6 +92,10 @@ jobs:
           tar -xzf deploy.tar.gz
           rm -f deploy.tar.gz
 
+          # Stage H 只在部署时幂等安装 cron 定义；外部数据获取仍由 cron 执行，
+          # 不进入部署 SSH 会话。heartbeat monitor 与日常任务使用独立 flock。
+          install -m 0644 scripts/ops/finance-site-sector-regime.cron /etc/cron.d/finance-site-sector-regime
+
           # Fast deploy: migrations plus catalog definitions, subscriptions,
           # release packages and layout. No history backfills, calendar fetches,
           # equity discovery, global verification or quant rebuilds happen here.

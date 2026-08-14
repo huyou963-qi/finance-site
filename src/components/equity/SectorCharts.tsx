@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as echarts from "echarts/core";
 import { LineChart, BarChart } from "echarts/charts";
 import {
+  DataZoomComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,
@@ -13,6 +14,7 @@ import { CanvasRenderer } from "echarts/renderers";
 echarts.use([
   LineChart,
   BarChart,
+  DataZoomComponent,
   GridComponent,
   LegendComponent,
   TooltipComponent,
@@ -24,9 +26,15 @@ type NavSeries = { name: string; data: { time: number; value: number }[] };
 export function SectorNavChart({
   series,
   height = 280,
+  showDataZoom = false,
+  zoomWindow = null,
 }: {
   series: NavSeries[];
   height?: number;
+  /** 历史研究主图显示可拖拽缩放轴；普通短期净值图保持紧凑。 */
+  showDataZoom?: boolean;
+  /** 阶段卡被选中时，缩放轴聚焦该阶段；null = 展示完整历史。 */
+  zoomWindow?: { start: string; end: string } | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,7 +47,7 @@ export function SectorNavChart({
         textStyle: { color: "#9da8b6", fontSize: 11 },
         top: 0,
       },
-      grid: { left: 48, right: 16, top: 36, bottom: 28 },
+      grid: { left: 48, right: 16, top: 36, bottom: showDataZoom ? 66 : 28 },
       xAxis: {
         type: "time",
         axisLabel: { color: "#9da8b6", fontSize: 10 },
@@ -51,6 +59,26 @@ export function SectorNavChart({
         axisLabel: { color: "#9da8b6", fontSize: 10 },
         splitLine: { lineStyle: { color: "#1e2630" } },
       },
+      dataZoom: showDataZoom
+        ? [
+            {
+              type: "slider",
+              height: 18,
+              bottom: 18,
+              borderColor: "#2a3340",
+              backgroundColor: "rgba(30, 38, 48, 0.5)",
+              fillerColor: "rgba(62, 207, 142, 0.16)",
+              handleStyle: { color: "#3ecf8e", borderColor: "#3ecf8e" },
+              textStyle: { color: "#9da8b6", fontSize: 10 },
+              ...(zoomWindow
+                ? { startValue: zoomWindow.start, endValue: zoomWindow.end }
+                : { start: 0, end: 100 }),
+            },
+            zoomWindow
+              ? { type: "inside", startValue: zoomWindow.start, endValue: zoomWindow.end }
+              : { type: "inside", start: 0, end: 100 },
+          ]
+        : undefined,
       series: series.map((s) => ({
         name: s.name,
         type: "line",
@@ -58,7 +86,7 @@ export function SectorNavChart({
         data: s.data.map((p) => [p.time * 1000, p.value]),
       })),
     };
-  }, [series]);
+  }, [series, showDataZoom, zoomWindow]);
 
   useEffect(() => {
     if (!ref.current) return;

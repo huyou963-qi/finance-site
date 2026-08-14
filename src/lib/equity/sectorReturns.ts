@@ -35,21 +35,21 @@ function sortedCloses(points: ClosePoint[]): ClosePoint[] {
   return [...points].sort((a, b) => a.time - b.time);
 }
 
-/** 取 >= fromSec 的首个收盘；若无则取全序列第一个 */
+/** 取 >= fromSec 的首个收盘；区间晚于该 ETF 全部样本时返回空。 */
 function closeOnOrAfter(sorted: ClosePoint[], fromSec: number): ClosePoint | null {
   for (const p of sorted) {
     if (p.time >= fromSec) return p;
   }
-  return sorted[0] ?? null;
+  return null;
 }
 
-/** 取 <= toSec 的最后一个收盘；若无则取全序列最后一个 */
+/** 取 <= toSec 的最后一个收盘；区间早于该 ETF 上市日时返回空。 */
 function closeOnOrBefore(sorted: ClosePoint[], toSec: number): ClosePoint | null {
   for (let i = sorted.length - 1; i >= 0; i--) {
     const p = sorted[i]!;
     if (p.time <= toSec) return p;
   }
-  return sorted[sorted.length - 1] ?? null;
+  return null;
 }
 
 /**
@@ -67,10 +67,9 @@ export function simpleReturn(
 
   if (toSec == null) {
     const inRange = sorted.filter((p) => p.time >= fromSec);
-    const series = inRange.length >= 2 ? inRange : sorted;
-    if (series.length < 2) return null;
-    const first = series[0]!.close;
-    const last = series[series.length - 1]!.close;
+    if (inRange.length < 2) return null;
+    const first = inRange[0]!.close;
+    const last = inRange[inRange.length - 1]!.close;
     if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null;
     return last / first - 1;
   }

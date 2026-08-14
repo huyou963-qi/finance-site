@@ -82,6 +82,21 @@ async function main() {
     }
   }
 
+  // 可作为 cron monitor 的冗余入口；复用同一 Stage H heartbeat/告警状态，不创建第二套监控。
+  if (process.env.SECTOR_REGIME_MONITOR_AFTER_WORKER?.trim() === "1") {
+    try {
+      const { monitorSectorRegimeStageH } = await import(
+        "../../src/lib/equity/sectorRegimeStageH"
+      );
+      const monitor = await monitorSectorRegimeStageH();
+      console.log(
+        `[data:worker] Stage H 监控 ${monitor.alerts.length} 条，通知 ${monitor.notified.length}（抑制 ${monitor.suppressed}）`,
+      );
+    } catch (error) {
+      console.error(`[data:worker] Stage H 监控失败：${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   if (fail > 0) process.exitCode = 1;
 }
 

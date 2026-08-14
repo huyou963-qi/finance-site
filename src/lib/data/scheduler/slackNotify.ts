@@ -29,8 +29,15 @@ export async function postSlackWebhook(
   alerts: LagAlertRow[],
   thresholdDays: number,
 ): Promise<{ sent: boolean; error?: string }> {
+  return postSlackPayload(url, buildSlackLagPayload(alerts, thresholdDays));
+}
+
+/** 调度器各类运维告警共用的 Slack transport。业务模块只构造 payload，不重复 HTTP。 */
+export async function postSlackPayload(
+  url: string,
+  body: object,
+): Promise<{ sent: boolean; error?: string }> {
   try {
-    const body = buildSlackLagPayload(alerts, thresholdDays);
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

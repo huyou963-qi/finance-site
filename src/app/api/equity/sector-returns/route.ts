@@ -35,11 +35,6 @@ export async function GET(req: NextRequest) {
     const toDate = sp.get("to")?.trim() || null;
     const windowId = parseWindow(sp.get("window"));
 
-    const [{ closes, source }, summaries] = await Promise.all([
-      fetchSectorEtfClosesWithMeta(),
-      listSectorSummaries(),
-    ]);
-
     let fromSec: number;
     let toSec: number | undefined;
     let rangeMeta: { from: string; to: string } | null = null;
@@ -65,6 +60,23 @@ export async function GET(req: NextRequest) {
     } else {
       fromSec = windowStartSec(windowId);
     }
+
+    // DB helper 按“最近 N 根”读取，因此历史区间必须覆盖 from → 今天，而不能只按
+    // from → to 的区间宽度估算。否则 2000 年的一年窗口会错误地拿到最近一年的 K 线。
+    // 9,000 根足以覆盖 1998 年末上市的 Sector SPDR 全历史。
+    const historyBars = rangeMeta
+      ? Math.min(
+          9_000,
+          Math.max(
+            320,
+            Math.ceil((Date.now() - Date.parse(rangeMeta.from)) / 86400000 * 0.74) + 40,
+          ),
+        )
+      : 320;
+    const [{ closes, source }, summaries] = await Promise.all([
+      fetchSectorEtfClosesWithMeta(historyBars),
+      listSectorSummaries(),
+    ]);
 
     const { sectors, styles, spyReturn } =
       fromDate && toDate
@@ -102,9 +114,13 @@ export async function GET(req: NextRequest) {
     if (includeNav) {
       nav = {};
       for (const def of GICS_SECTOR_DEFS) {
-        nav[def.etf] = normalizeNav(closes[def.etf] ?? [], fromSec);
+        nav[def.etf] = normalizeNav(closes[def.etf] ?? [], fromSec).filter(
+          (p) => toSec == null || p.time <= toSec,
+        );
       }
-      nav[BENCHMARK_ETF] = normalizeNav(closes[BENCHMARK_ETF] ?? [], fromSec);
+      nav[BENCHMARK_ETF] = normalizeNav(closes[BENCHMARK_ETF] ?? [], fromSec).filter(
+        (p) => toSec == null || p.time <= toSec,
+      );
     }
 
     return NextResponse.json({

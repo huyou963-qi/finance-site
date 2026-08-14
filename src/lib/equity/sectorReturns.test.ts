@@ -44,10 +44,20 @@ describe("sectorReturns", () => {
     assert.ok(r != null && Math.abs(r - 0.1) < 1e-9);
   });
 
+  it("does not borrow samples from outside a historical range", () => {
+    const postListingPoints = [
+      { time: 300, close: 100 },
+      { time: 400, close: 110 },
+    ];
+    assert.equal(simpleReturn(postListingPoints, 100, 200), null);
+    assert.equal(simpleReturn(postListingPoints, 500, 600), null);
+  });
+
   it("computeSectorReturns aggregates styles", () => {
+    const now = Math.floor(Date.now() / 1000);
     const mk = (start: number, end: number) => [
-      { time: 1, close: start },
-      { time: 1_000_000, close: end },
+      { time: now - 30 * 86400, close: start },
+      { time: now, close: end },
     ];
     const closes: Record<string, { time: number; close: number }[]> = {
       SPY: mk(100, 110),

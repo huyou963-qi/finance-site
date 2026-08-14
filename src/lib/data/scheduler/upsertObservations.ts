@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type { ObservationPoint } from "./types";
+import { appendMacroObservationVintages } from "./observationVintages";
 
 const BATCH = 200;
 
@@ -18,12 +19,22 @@ export type UpsertObservationsResult = {
   latestObsDate: Date | null;
   /** latestObsDate 对应的值 */
   latestValue: number | null;
+  /** 追加到不可覆盖版本账本的行数；只记录新增或值发生变化的观测。 */
+  vintagesCaptured: number;
+};
+
+export type UpsertObservationOptions = {
+  /** 版本账本来源；调度 worker 默认为 worker_capture。 */
+  vintageSource?: string;
+  /** 测试/可复现实验可固定捕获时点。 */
+  capturedAt?: Date;
 };
 
 export async function upsertMacroObservations(
   prisma: PrismaClient,
   instrumentId: string,
   points: ObservationPoint[],
+  options: UpsertObservationOptions = {},
 ): Promise<UpsertObservationsResult> {
   let inserted = 0;
   let changed = 0;
@@ -31,6 +42,7 @@ export async function upsertMacroObservations(
   let skipped = 0;
   let latestObsDate: Date | null = null;
   let latestValue: number | null = null;
+  let vintagesCaptured = 0;
 
   for (let i = 0; i < points.length; i += BATCH) {
     const chunk = points.slice(i, i + BATCH);
@@ -67,34 +79,62 @@ export async function upsertMacroObservations(
     }
 
     const toInsert: ObservationPoint[] = [];
+    const toChange: ObservationPoint[] = [];
     for (const p of valid) {
       const prev = existingByTime.get(p.obsDate.getTime());
       if (prev === undefined) {
         toInsert.push(p);
       } else if (prev !== p.value) {
-        await prisma.macroObservation.update({
-          where: { instrumentId_obsDate: { instrumentId, obsDate: p.obsDate } },
-          data: { value: p.value },
-        });
-        changed += 1;
+        toChange.push(p);
       } else {
         unchanged += 1;
       }
     }
 
-    if (toInsert.length > 0) {
-      const res = await prisma.macroObservation.createMany({
-        data: toInsert.map((p) => ({
+    if (toInsert.length === 0 && toChange.length === 0) continue;
+
+    const capturedAt = options.capturedAt ?? new Date();
+    const writeResult = await prisma.$transaction(async (tx) => {
+      for (const p of toChange) {
+        await tx.macroObservation.update({
+          where: { instrumentId_obsDate: { instrumentId, obsDate: p.obsDate } },
+          data: { value: p.value },
+        });
+      }
+
+      const insertedResult = toInsert.length > 0
+        ? await tx.macroObservation.createMany({
+            data: toInsert.map((p) => ({
+              instrumentId,
+              obsDate: p.obsDate,
+              value: p.value,
+            })),
+            skipDuplicates: true,
+          })
+        : { count: 0 };
+
+      // 与 latest 快表同一事务追加版本。toInsert 在并发下即使被另一 worker 先写入，
+      // 本次抓取仍是一个真实“当时可见”截面，因此版本快照保留、latest 插入计数仍按实际值算。
+      const vintageCount = await appendMacroObservationVintages(
+        tx,
+        [...toInsert, ...toChange].map((p) => ({
           instrumentId,
           obsDate: p.obsDate,
+          availableAt: capturedAt,
           value: p.value,
+          source: options.vintageSource ?? "worker_capture",
+          isInitialRelease: false,
         })),
-        skipDuplicates: true,
-      });
-      inserted += res.count;
-      // createMany 因并发去重可能少写；差额记为无变化，保证计数守恒
-      unchanged += toInsert.length - res.count;
-    }
+        { batchSize: BATCH },
+      );
+      return { inserted: insertedResult.count, vintages: vintageCount };
+    });
+
+    inserted += writeResult.inserted;
+    changed += toChange.length;
+    vintagesCaptured += writeResult.vintages;
+    // createMany 因并发去重可能少写；差额记为无变化，保证计数守恒
+    unchanged += toInsert.length - writeResult.inserted;
   }
 
   return {
@@ -105,6 +145,7 @@ export async function upsertMacroObservations(
     skipped,
     latestObsDate,
     latestValue,
+    vintagesCaptured,
   };
 }
 

@@ -18,13 +18,16 @@ export type SecFundamentalSnapshot = {
   opMargin: number | null;
 };
 
-type SecFactPoint = {
+export type SecFactPoint = {
+  start?: string;
   end?: string;
   val?: number;
   form?: string;
   fp?: string;
   filed?: string;
   frame?: string;
+  accn?: string;
+  fy?: number;
 };
 
 type SecConcept = {

@@ -1,0 +1,10 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Shanghai
+FINANCE_SITE_PATH=/opt/finance-site
+
+# 每日：ALFRED 增量版本 → 冻结当月信号 → 结算到期结果 → 健康检查。
+35 23 * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-regime-stage-h-run.lock npm run equity:run-sector-regime-stage-h >> logs/sector-regime-stage-h.log 2>&1
+
+# 每小时：独立检查 heartbeat、最新观测版本覆盖、信号漂移和到期缺价；任务缺跑也能告警。
+17 * * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-regime-stage-h-monitor.lock npm run equity:monitor-sector-regime-stage-h >> logs/sector-regime-stage-h-monitor.log 2>&1

@@ -477,3 +477,52 @@ export async function getLatestClosesDbOnly(symbols: string[]): Promise<Map<stri
   `;
   return new Map(rows.map((r) => [r.symbol, Number(r.close)]));
 }
+
+export type AdjustedCloseInWindow = { date: Date; adjClose: number };
+export type DailyCloseDbRow = {
+  symbol: string;
+  date: Date;
+  close: number;
+  adjClose: number;
+};
+
+/** 多标的历史价格区间的统一只读入口；不会触发远端回补。 */
+export async function getDailyCloseRowsDbOnly(options: {
+  symbols: readonly string[];
+  from: Date;
+  to: Date;
+}): Promise<DailyCloseDbRow[]> {
+  const symbols = [...new Set(options.symbols.map(normalizeSymbol).filter(Boolean))];
+  if (symbols.length === 0 || options.from > options.to) return [];
+  return prisma.equityDailyBar.findMany({
+    where: {
+      symbol: { in: symbols },
+      date: { gte: options.from, lte: options.to },
+    },
+    orderBy: [{ symbol: "asc" }, { date: "asc" }],
+    select: { symbol: true, date: true, close: true, adjClose: true },
+  });
+}
+
+/**
+ * 只读库内价格、在给定窗口内取最早或最晚一根有效复权收盘价。
+ * 这是事件评分、回测到期结算等单点日期对齐的公共入口；不会触发远端回补。
+ */
+export async function getAdjustedCloseInWindowDbOnly(options: {
+  symbol: string;
+  from: Date;
+  to: Date;
+  prefer: "earliest" | "latest";
+}): Promise<AdjustedCloseInWindow | null> {
+  const symbol = normalizeSymbol(options.symbol);
+  if (!symbol || options.from > options.to) return null;
+  return prisma.equityDailyBar.findFirst({
+    where: {
+      symbol,
+      date: { gte: options.from, lte: options.to },
+      adjClose: { gt: 0 },
+    },
+    select: { date: true, adjClose: true },
+    orderBy: { date: options.prefer === "earliest" ? "asc" : "desc" },
+  });
+}

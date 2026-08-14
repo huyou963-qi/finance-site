@@ -1,5 +1,7 @@
 # 美股行业分析（GICS Sector）
 
+> 数据架构必须遵守 [`DATA_FOUNDATION_REUSE_PRINCIPLES.md`](./DATA_FOUNDATION_REUSE_PRINCIPLES.md)：行业模块消费宏观、量化因子和行情 canonical 底座，不另建平行数据链。
+
 > 页面：`/equity/sectors` · 详情：`/equity/sectors/[sector]`  
 > 与宏观「制造业与库存周期」(`industry-inventory`) **不同域**：本模块是 **股权 GICS 行业**，后者是宏观制造业周期。
 
@@ -12,6 +14,25 @@
 | 宏观是否支持？ | `sectorMacroMap` → 已有 `fred:`/`mds:` 序列 |
 | 基本面是否支持？ | 行业财报中位数（营收/EPS 增速、利润率、PE） |
 | 经营叙事是否共振？ | CompanyOperatingBrief + IndustryPeerResonance（外部 AI ingest） |
+
+## 历史轮动研究框架
+
+> 「宏观阶段 → 行业基本面 → 估值 → 行业收益」的正式研究口径、时间对齐、可信度、
+> API 契约与阶段化实施计划见
+> [`docs/specs/us-sector-transmission.spec.md`](./specs/us-sector-transmission.spec.md)。
+> 当前已完成阶段 A–H：30 阶段解析、传导面板、市值代理收益桥、SEC filing vintage / GICS 有效期 / ETF 持仓三层事实闸门、严格 ETF 权重端点重建、D1/D3 双轨对账、覆盖/无前视/性能/视觉总验收、Regime 的 2020+ 锁定前瞻检验、宏观 vintage + 不可回写真实前瞻账本，以及生产自动化与连续监控；完整口径、复算表与验收结果见
+> [`docs/US_EQUITY_SECTOR_TRANSMISSION.md`](./US_EQUITY_SECTOR_TRANSMISSION.md)。
+
+行业首页的「美国历史情境下的行业轮动」不是把历史收益简单外推为预测，而是把每段历史拆成一条可复核的因果链：
+
+`冲击 / 制度变化 → 增长、通胀、利率、信用条件 → 行业盈利与估值传导 → 行业相对收益`。
+
+1. **先分段。** 当前以 NBER 周期拐点、FOMC 政策切换、信用/流动性事件和改变行业定价主线的市场拐点，把 1998 年末至今拆为 30 个细分阶段；2007–2009、2020、2022–2023 等快速轮动期会进一步细分。分期定义见 `src/lib/equity/sectorHistoricalPeriods.ts`。
+2. **再提出事前可解释的假设。** 每个阶段明确增长、通胀、政策、信用四维状态，列出关键事件及影响、盈利/估值传导机制和理论受益行业；该栏不随实际结果重写。
+3. **用同一价格口径核验。** 前端只请求一次 `GET /api/equity/sector-returns?from=1998-12-16&to=2099-12-31&nav=1` 完整净值序列，再在浏览器内按 30 个阶段的首尾可得交易日计算总回报和相对 SPY 超额，避免重复拉取 30 次全历史。
+4. **最后解释偏差。** 理论受益不等于当期第一：估值起点、行业权重、商品价格、政策与事件风险都可能改变排序。缺少历史的 ETF 不补造数据（XLC、XLRE 的样本期更短）。
+
+页面保持“上方全历史走势图 + 下方横向阶段卡”的草图结构。点击卡片只缩放主图窗口；每张卡固定列出 SPY 与全部 11 个行业，并同时显示绝对收益和相对 SPY 超额。ETF 尚未上市或阶段内不足两个交易日时显示 `—`，不以区间外行情代替。手工收益矩阵仍可加入任意自定义区间，供继续做事件前后切片。
 
 ## 风格轮动宏观背景（总览顶栏）
 
@@ -33,6 +54,18 @@ npm run equity:seed-sp500          # Wikipedia → equity_security + index_const
 npm run equity:verify-gics         # 校验 74 Industry 目录；加 --db 检查回卷率
 npm run equity:sync-profiles       # 分日 FMP profile（默认 --limit=40）
 npm run equity:sync-fundamentals  # Top-N 财报快照（默认 SEC companyfacts，--limit=100）
+npm run equity:sync-fundamental-vintages # SEC accession 逐版本标准化历史
+npm run equity:sync-sector-etf-holdings # State Street SPY + 11行业 ETF 每日持仓归档
+npm run equity:import-sector-etf-holdings -- --file=<archived.xlsx> --etf=XLK --source=<source>
+npm run equity:snapshot-current-classifications # 从观察日起保存当前 GICS，不倒填历史
+npm run equity:import-sector-classifications -- --file=<history.csv> # 授权历史 GICS 导入
+npm run equity:verify-sector-history-facts # 三层事实覆盖、权重与区间校验
+npm run data:sync-regime-vintages -- --start=1998-01-01 # ALFRED 发布/修订版本
+npm run equity:run-sector-regime-ledger # 冻结新信号 + 结算到期结果（均不可覆盖）
+npm run equity:verify-sector-stage-g # 真实前瞻账本契约验收
+npm run equity:run-sector-regime-stage-h # 每日版本增量、冻结、结算与健康检查
+npm run equity:monitor-sector-regime-stage-h # heartbeat / 缺口 / 漂移 / 缺价监控
+npm run equity:verify-sector-stage-h -- --run # Stage H 实库总验收
 npm run equity:sync-sec            # Top-N SEC 8-K/10-Q/10-K 索引
 npm run equity:sync-prices         # 个股/ETF 日线回填（--limit=500 / --symbols=AAPL,MSFT / --full 5年）
 ```
@@ -48,6 +81,10 @@ npm run equity:sync-prices         # 个股/ETF 日线回填（--limit=500 / --s
 | 每周 | `equity:seed-sp500` |
 | 每日 | `equity:sync-profiles -- --only-missing` 与/或增量 limit |
 | 每日 | `equity:sync-fundamentals -- --limit=100` |
+| 每日 | `equity:sync-sector-etf-holdings`（必须归档，官网只提供每日文件） |
+| 每日/分批 | `equity:sync-fundamental-vintages -- --limit=... --last-filings=...` |
+| 每日 | `equity:run-sector-regime-stage-h`（45 天 ALFRED 增量窗口 + 新月份首次冻结 + 到期结算 + 健康检查） |
+| 每小时 | `equity:monitor-sector-regime-stage-h`（独立检测任务缺跑、版本缺口、哈希漂移和到期缺价） |
 | 每 6 小时 | `equity:sync-sec -- --limit=50` |
 | 每日（可选） | `equity:sync-prices -- --limit=500`（不跑也可：页面访问会 lazy 回补） |
 
@@ -92,6 +129,12 @@ Sector ETF / SPY / 个股日线默认 **Yahoo Finance**（免密钥，不依赖 
 | `mds.equity_security` | 证券主数据 |
 | `mds.index_constituent` | SP500 成分快照 |
 | `mds.equity_fundamental_snapshot` | 财报/估值缓存 |
+| `mds.equity_fundamental_vintage` | 按 SEC accession 保存的财报标准化版本 |
+| `mds.equity_sector_classification_history` | GICS/SIC 分类有效期历史 |
+| `mds.sector_etf_holding` | SPY / Sector SPDR 日度持仓权重 |
+| `mds.macro_observation_vintage` | 宏观观测的 ALFRED / worker 可见版本链 |
+| `mds.sector_regime_signal_snapshot` | 月度 Regime 行业排序不可变快照 |
+| `mds.sector_regime_forecast` | 逐行业 3/6/12 月预测与一次性到期结果 |
 | `mds.equity_daily_bar` | 个股/ETF 日线（OHLCV+adjClose） |
 | `mds.sec_filing` | SEC 披露索引 |
 | `public.company_operating_brief` | 经营简报 |

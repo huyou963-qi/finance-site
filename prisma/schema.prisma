@@ -14,61 +14,61 @@ datasource db {
 // ─── public：应用账户与用户态 JSON（Prisma 管理）────────────────────────────
 
 model User {
-  id               String    @id
-  username         String    @unique
-  email            String?
-  phone            String?   @unique
-  emailVerifiedAt  DateTime?
-  passHash         String
-  passSalt         String
-  role             String
+  id              String    @id
+  username        String    @unique
+  email           String?
+  phone           String?   @unique
+  emailVerifiedAt DateTime?
+  passHash        String
+  passSalt        String
+  role            String
   /// standard=普通用户，pro=付费 Pro 用户
-  plan             String    @default("standard")
+  plan            String    @default("standard")
   /// Pro 付费到期时间；过期后视为 standard（试用另见 trialEndsAt）
-  planExpiresAt    DateTime? @map("plan_expires_at")
+  planExpiresAt   DateTime? @map("plan_expires_at")
   /// 新注册 7 天试用截止；试用期内享有 Pro 能力
-  trialEndsAt      DateTime? @map("trial_ends_at")
+  trialEndsAt     DateTime? @map("trial_ends_at")
   /// 回测等用量积分余额（非 Pro 可用积分抵扣；Pro 不扣减）
-  creditBalance    Int       @default(0) @map("credit_balance")
-  createdAt        DateTime
+  creditBalance   Int       @default(0) @map("credit_balance")
+  createdAt       DateTime
 
-  sessions              Session[]
-  assetTemplateState    UserAssetTemplateState?
-  macroChartPrefsRow    UserMacroChartPrefs?
-  bookmarkState         UserBookmarkState?
-  marketEventsCreated   MarketEvent[]
-  strategies            StrategyDefinition[]
-  paymentOrders         PaymentOrder[]
-  creditLedger          CreditLedgerEntry[]
+  sessions            Session[]
+  assetTemplateState  UserAssetTemplateState?
+  macroChartPrefsRow  UserMacroChartPrefs?
+  bookmarkState       UserBookmarkState?
+  marketEventsCreated MarketEvent[]
+  strategies          StrategyDefinition[]
+  paymentOrders       PaymentOrder[]
+  creditLedger        CreditLedgerEntry[]
 
   @@schema("public")
 }
 
 /// B2C 订单：人工转账 / 爱发电等；Admin 确认后开通 Pro 或加积分
 model PaymentOrder {
-  id           String    @id @default(cuid())
+  id          String    @id @default(cuid())
   /// 短单号，转账备注用，如 FN-A1B2C3
-  orderNo      String    @unique @map("order_no") @db.VarChar(32)
-  userId       String    @map("user_id")
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderNo     String    @unique @map("order_no") @db.VarChar(32)
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// pro_month | pro_year | credits
-  productType  String    @map("product_type") @db.VarChar(32)
+  productType String    @map("product_type") @db.VarChar(32)
   /// month | year | pack（积分包）
-  period       String?   @db.VarChar(16)
-  amountCny    Int       @map("amount_cny")
+  period      String?   @db.VarChar(16)
+  amountCny   Int       @map("amount_cny")
   /// 积分包时为购买积分数
-  credits      Int       @default(0)
+  credits     Int       @default(0)
   /// pending | paid | cancelled | expired
-  status       String    @default("pending") @db.VarChar(16)
+  status      String    @default("pending") @db.VarChar(16)
   /// manual | afdian | xunhu | admin
-  channel      String    @default("manual") @db.VarChar(16)
-  manualNote   String?   @map("manual_note") @db.VarChar(512)
-  externalId   String?   @map("external_id") @db.VarChar(128)
-  paidAt       DateTime? @map("paid_at")
-  confirmedBy  String?   @map("confirmed_by") @db.VarChar(64)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  expiresAt    DateTime? @map("expires_at")
+  channel     String    @default("manual") @db.VarChar(16)
+  manualNote  String?   @map("manual_note") @db.VarChar(512)
+  externalId  String?   @map("external_id") @db.VarChar(128)
+  paidAt      DateTime? @map("paid_at")
+  confirmedBy String?   @map("confirmed_by") @db.VarChar(64)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  expiresAt   DateTime? @map("expires_at")
 
   @@index([userId, status])
   @@index([status, createdAt])
@@ -77,16 +77,16 @@ model PaymentOrder {
 }
 
 model CreditLedgerEntry {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// purchase | consume_backtest | admin_grant | pro_grant
-  reason      String   @db.VarChar(32)
-  delta       Int
-  balanceAfter Int     @map("balance_after")
-  orderId     String?  @map("order_id") @db.VarChar(64)
-  note        String?  @db.VarChar(256)
-  createdAt   DateTime @default(now()) @map("created_at")
+  reason       String   @db.VarChar(32)
+  delta        Int
+  balanceAfter Int      @map("balance_after")
+  orderId      String?  @map("order_id") @db.VarChar(64)
+  note         String?  @db.VarChar(256)
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([userId, createdAt])
   @@map("credit_ledger_entry")
@@ -373,29 +373,30 @@ model MacroCategory {
 
 /// 统一「序列 / 标的」：宏观序列、交易品种等；主引用为 `id` 与 `code`。
 model Instrument {
-  id           String       @id @default(uuid()) @db.Uuid
-  code         String       @unique @db.VarChar(48)
+  id           String         @id @default(uuid()) @db.Uuid
+  code         String         @unique @db.VarChar(48)
   kind         InstrumentKind
   name         String
   /// Excel「指标英文名称」或人工维护的英文展示名
-  nameEn       String?      @map("name_en")
-  shortName    String?      @map("short_name")
+  nameEn       String?        @map("name_en")
+  shortName    String?        @map("short_name")
   description  String?
-  freqLabel    String?      @map("freq_label")
+  freqLabel    String?        @map("freq_label")
   unit         String?
-  categoryId   String?      @map("category_id") @db.Uuid
+  categoryId   String?        @map("category_id") @db.Uuid
   category     MacroCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  fredSeriesId String?      @unique @map("fred_series_id") @db.VarChar(64)
-  exchange     String?      @db.VarChar(32)
-  tickerSymbol String?      @map("ticker_symbol") @db.VarChar(64)
-  externalRefs Json?        @map("external_refs")
+  fredSeriesId String?        @unique @map("fred_series_id") @db.VarChar(64)
+  exchange     String?        @db.VarChar(32)
+  tickerSymbol String?        @map("ticker_symbol") @db.VarChar(64)
+  externalRefs Json?          @map("external_refs")
   metadata     Json?
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
 
-  macroPoints      MacroObservation[]
-  bars             Bar[]
-  dataSubscription DataSubscription?
+  macroPoints           MacroObservation[]
+  macroPointVintages    MacroObservationVintage[]
+  bars                  Bar[]
+  dataSubscription      DataSubscription?
   releasePackageMembers ReleasePackageMember[]
 
   @@index([kind])
@@ -414,6 +415,31 @@ model MacroObservation {
 
   @@unique([instrumentId, obsDate])
   @@index([instrumentId, obsDate])
+  @@schema("mds")
+}
+
+/// 宏观观测的可见版本账本。MacroObservation 仍是“最新值”快表；本表只追加、不覆盖，
+/// availableAt 表示该版本最早被系统/官方 vintage 证明可见的时点。ALFRED 行带
+/// realtimeStart/realtimeEnd；非 FRED 源从数据 worker 首次捕获变更起保留版本。
+model MacroObservationVintage {
+  id               String     @id @default(uuid()) @db.Uuid
+  instrumentId     String     @map("instrument_id") @db.Uuid
+  instrument       Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  obsDate          DateTime   @map("obs_date") @db.Date
+  availableAt      DateTime   @map("available_at")
+  realtimeStart    DateTime?  @map("realtime_start") @db.Date
+  realtimeEnd      DateTime?  @map("realtime_end") @db.Date
+  value            Float
+  source           String     @db.VarChar(32)
+  sourceSeriesId   String?    @map("source_series_id") @db.VarChar(64)
+  isInitialRelease Boolean    @default(false) @map("is_initial_release")
+  metadata         Json?
+  createdAt        DateTime   @default(now()) @map("created_at")
+
+  @@unique([instrumentId, obsDate, availableAt])
+  @@index([instrumentId, availableAt, obsDate])
+  @@index([source, sourceSeriesId, realtimeStart])
+  @@map("macro_observation_vintage")
   @@schema("mds")
 }
 
@@ -487,18 +513,18 @@ enum DataGranularity {
 
 /// 技术数据源（API / 文件等），可挂接到 StatisticalAgency。
 model DataSource {
-  id          String            @id @db.VarChar(48)
-  agencyId    String?           @map("agency_id") @db.VarChar(48)
+  id          String             @id @db.VarChar(48)
+  agencyId    String?            @map("agency_id") @db.VarChar(48)
   agency      StatisticalAgency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
-  name        String            @db.VarChar(128)
-  adapterKind SourceAdapterKind @map("adapter_kind")
-  baseUrl     String?           @map("base_url") @db.VarChar(512)
-  termsUrl    String?           @map("terms_url") @db.VarChar(512)
+  name        String             @db.VarChar(128)
+  adapterKind SourceAdapterKind  @map("adapter_kind")
+  baseUrl     String?            @map("base_url") @db.VarChar(512)
+  termsUrl    String?            @map("terms_url") @db.VarChar(512)
   /// 如 { "requestsPerMinute": 60, "minIntervalMs": 500 }
-  rateLimit   Json?             @map("rate_limit")
+  rateLimit   Json?              @map("rate_limit")
   metadata    Json?
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
 
   subscriptions DataSubscription[]
 
@@ -509,31 +535,31 @@ model DataSource {
 
 /// 单条 Instrument 的更新订阅：官方序列键、粒度、发布规则、下次运行时间。
 model DataSubscription {
-  id              String          @id @default(uuid()) @db.Uuid
-  instrumentId    String          @unique @map("instrument_id") @db.Uuid
-  instrument      Instrument      @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
-  sourceId        String          @map("source_id") @db.VarChar(48)
-  source          DataSource      @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  id               String          @id @default(uuid()) @db.Uuid
+  instrumentId     String          @unique @map("instrument_id") @db.Uuid
+  instrument       Instrument      @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  sourceId         String          @map("source_id") @db.VarChar(48)
+  source           DataSource      @relation(fields: [sourceId], references: [id], onDelete: Restrict)
   /// 源内序列标识，如 FRED series_id、世行 indicator id
-  sourceSeriesKey String          @map("source_series_key") @db.VarChar(128)
-  fetchMethod     DataFetchMethod @map("fetch_method")
-  granularity     DataGranularity
-  timezone        String          @default("UTC") @db.VarChar(64)
+  sourceSeriesKey  String          @map("source_series_key") @db.VarChar(128)
+  fetchMethod      DataFetchMethod @map("fetch_method")
+  granularity      DataGranularity
+  timezone         String          @default("UTC") @db.VarChar(64)
   /// ReleaseRule JSON，见 src/lib/data/scheduler/releaseRule.ts
-  releaseRule     Json            @map("release_rule")
+  releaseRule      Json            @map("release_rule")
   /// 增量拉取时向前覆盖的月数（宏观修订）
-  revisionLookback Int            @default(3) @map("revision_lookback")
-  nextRunAt       DateTime?       @map("next_run_at")
-  lastSuccessAt   DateTime?       @map("last_success_at")
-  lastObsDate     DateTime?       @map("last_obs_date") @db.Date
-  enabled         Boolean         @default(true)
-  priority        Int             @default(0)
-  retryCount      Int             @default(0) @map("retry_count")
-  lastError       String?         @map("last_error") @db.Text
-  releasePackageId String?        @map("release_package_id") @db.VarChar(64)
+  revisionLookback Int             @default(3) @map("revision_lookback")
+  nextRunAt        DateTime?       @map("next_run_at")
+  lastSuccessAt    DateTime?       @map("last_success_at")
+  lastObsDate      DateTime?       @map("last_obs_date") @db.Date
+  enabled          Boolean         @default(true)
+  priority         Int             @default(0)
+  retryCount       Int             @default(0) @map("retry_count")
+  lastError        String?         @map("last_error") @db.Text
+  releasePackageId String?         @map("release_package_id") @db.VarChar(64)
   releasePackage   ReleasePackage? @relation(fields: [releasePackageId], references: [id], onDelete: SetNull)
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
   fetchRuns FetchRun[]
 
@@ -546,25 +572,25 @@ model DataSubscription {
 
 /// 按官方发布包（报告）对齐经济日历；包内指标共享 scheduleState / nextRunAt。
 model ReleasePackage {
-  id              String          @id @db.VarChar(64)
-  labelZh         String          @map("label_zh") @db.VarChar(128)
-  labelEn         String?         @map("label_en") @db.VarChar(128)
-  countryCode     String          @map("country_code") @db.VarChar(2)
-  agencyId        String?         @map("agency_id") @db.VarChar(48)
+  id              String             @id @db.VarChar(64)
+  labelZh         String             @map("label_zh") @db.VarChar(128)
+  labelEn         String?            @map("label_en") @db.VarChar(128)
+  countryCode     String             @map("country_code") @db.VarChar(2)
+  agencyId        String?            @map("agency_id") @db.VarChar(48)
   agency          StatisticalAgency? @relation(fields: [agencyId], references: [id], onDelete: SetNull)
   granularity     DataGranularity
   /// CalendarMatchSpec JSON
-  calendarSpec    Json            @map("calendar_spec")
+  calendarSpec    Json               @map("calendar_spec")
   /// economic_calendar 模板（不含 calendarMatch / calendarSync）
-  releaseTemplate Json            @map("release_template")
+  releaseTemplate Json               @map("release_template")
   /// ReleasePackageScheduleState JSON
-  scheduleState   Json?           @map("schedule_state")
-  nextRunAt       DateTime?       @map("next_run_at")
-  enabled         Boolean         @default(true)
-  sortOrder       Int             @default(0) @map("sort_order")
+  scheduleState   Json?              @map("schedule_state")
+  nextRunAt       DateTime?          @map("next_run_at")
+  enabled         Boolean            @default(true)
+  sortOrder       Int                @default(0) @map("sort_order")
   metadata        Json?
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
   members       ReleasePackageMember[]
   subscriptions DataSubscription[]
@@ -602,19 +628,19 @@ enum FetchRunStatus {
 
 /// 单次拉取执行日志。
 model FetchRun {
-  id             String         @id @default(uuid()) @db.Uuid
-  subscriptionId String         @map("subscription_id") @db.Uuid
+  id             String           @id @default(uuid()) @db.Uuid
+  subscriptionId String           @map("subscription_id") @db.Uuid
   subscription   DataSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  startedAt      DateTime       @map("started_at")
-  finishedAt     DateTime?      @map("finished_at")
+  startedAt      DateTime         @map("started_at")
+  finishedAt     DateTime?        @map("finished_at")
   status         FetchRunStatus
-  rowsUpserted   Int            @default(0) @map("rows_upserted")
-  rowsSkipped    Int            @default(0) @map("rows_skipped")
-  error          String?        @db.Text
+  rowsUpserted   Int              @default(0) @map("rows_upserted")
+  rowsSkipped    Int              @default(0) @map("rows_skipped")
+  error          String?          @db.Text
   /// 源端最新 obs 与库内 lastObsDate 相差天数（粗算滞后）
-  sourceLagDays  Int?           @map("source_lag_days")
+  sourceLagDays  Int?             @map("source_lag_days")
   metadata       Json?
-  createdAt      DateTime       @default(now()) @map("created_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
 
   @@index([subscriptionId, startedAt])
   @@map("fetch_run")
@@ -623,25 +649,25 @@ model FetchRun {
 
 /// 美股证券主数据（GICS + 市值缓存）
 model EquitySecurity {
-  id              String    @id @default(uuid()) @db.Uuid
-  symbol          String    @unique @db.VarChar(16)
-  cik             String?   @db.VarChar(16)
+  id                String    @id @default(uuid()) @db.Uuid
+  symbol            String    @unique @db.VarChar(16)
+  cik               String?   @db.VarChar(16)
   /// 9 位 CUSIP（Phase 5 13F CUSIP↔symbol 桥回填；dual-class 取该 symbol 对应 class 的 CUSIP）
-  cusip           String?   @db.VarChar(16)
-  name            String    @db.VarChar(256)
+  cusip             String?   @db.VarChar(16)
+  name              String    @db.VarChar(256)
   /// 标普 500 成分带 GICS sector；全美股宇宙其余成分为 null（未分类，仅个股页可用，不进行业浏览树）
   gicsSector        String?   @map("gics_sector") @db.VarChar(64)
   gicsIndustryGroup String?   @map("gics_industry_group") @db.VarChar(128)
   gicsIndustry      String?   @map("gics_industry") @db.VarChar(128)
   gicsSubIndustry   String?   @map("gics_sub_industry") @db.VarChar(128)
   gicsIndustryCode  String?   @map("gics_industry_code") @db.VarChar(16)
-  marketCap       Float?    @map("market_cap")
-  marketCapAsOf   DateTime? @map("market_cap_as_of") @db.Date
-  irUrl           String?   @map("ir_url") @db.VarChar(512)
-  website         String?   @db.VarChar(512)
-  metadata        Json?
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  marketCap         Float?    @map("market_cap")
+  marketCapAsOf     DateTime? @map("market_cap_as_of") @db.Date
+  irUrl             String?   @map("ir_url") @db.VarChar(512)
+  website           String?   @db.VarChar(512)
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   @@index([gicsSector])
   @@index([gicsSector, gicsIndustry])
@@ -714,6 +740,101 @@ model EquityFundamentalSnapshot {
 }
 
 /// 拆股事件（Yahoo chart events.splits；exDate 当日价格已为拆后刻度）
+/// SEC companyfacts 的逐申报版本标准化快照。
+/// 与 EquityFundamentalSnapshot（最新重述值）不同：历史截面选择 filedAt <= T 的最后版本。
+model EquityFundamentalVintage {
+  id                String    @id @default(uuid()) @db.Uuid
+  symbol            String    @db.VarChar(16)
+  period            String    @db.VarChar(16)
+  periodType        String    @default("Q") @map("period_type") @db.VarChar(8)
+  accession         String    @db.VarChar(32)
+  form              String    @db.VarChar(16)
+  filedAt           DateTime  @map("filed_at") @db.Date
+  isAmendment       Boolean   @default(false) @map("is_amendment")
+  fiscalDate        DateTime? @map("fiscal_date") @db.Date
+  fiscalQuarter     Int?      @map("fiscal_quarter") @db.SmallInt
+  revenue           Float?
+  revenueYoY        Float?    @map("revenue_yoy")
+  eps               Float?
+  epsYoY            Float?    @map("eps_yoy")
+  grossMargin       Float?    @map("gross_margin")
+  opMargin          Float?    @map("op_margin")
+  netIncome         Float?    @map("net_income")
+  ocf               Float?
+  capex             Float?
+  totalAssets       Float?    @map("total_assets")
+  totalLiabilities  Float?    @map("total_liabilities")
+  equity            Float?
+  longTermDebt      Float?    @map("long_term_debt")
+  cash              Float?
+  sharesOutstanding Float?    @map("shares_outstanding")
+  dividendsPaid     Float?    @map("dividends_paid")
+  firstReportedAt   DateTime? @map("first_reported_at") @db.Date
+  source            String    @default("sec-companyfacts") @db.VarChar(64)
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([symbol, period, accession])
+  @@index([symbol, period, filedAt(sort: Desc)])
+  @@index([symbol, filedAt])
+  @@index([accession])
+  @@map("equity_fundamental_vintage")
+  @@schema("mds")
+}
+
+/// 行业分类有效期历史。scheme=gics 才能用于 GICS 复盘；SEC SIC 必须单独标为 sec-sic。
+model EquitySectorClassificationHistory {
+  id             String    @id @default(uuid()) @db.Uuid
+  symbol         String    @db.VarChar(16)
+  scheme         String    @db.VarChar(32)
+  sector         String?   @db.VarChar(64)
+  industryGroup  String?   @map("industry_group") @db.VarChar(128)
+  industry       String?   @db.VarChar(128)
+  subIndustry    String?   @map("sub_industry") @db.VarChar(128)
+  industryCode   String?   @map("industry_code") @db.VarChar(16)
+  sic            String?   @db.VarChar(8)
+  sicDescription String?   @map("sic_description") @db.VarChar(256)
+  validFrom      DateTime  @map("valid_from") @db.Date
+  validTo        DateTime? @map("valid_to") @db.Date
+  source         String    @db.VarChar(128)
+  confidence     Float     @default(1)
+  metadata       Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@unique([symbol, scheme, validFrom])
+  @@index([symbol, scheme, validFrom, validTo])
+  @@index([scheme, sector, validFrom])
+  @@map("equity_sector_classification_history")
+  @@schema("mds")
+}
+
+/// Sector SPDR / SPY 日度持仓快照。官网每日文件从接入日起归档，早期历史须由带日期的文件导入。
+model SectorEtfHolding {
+  id          String   @id @default(uuid()) @db.Uuid
+  etf         String   @db.VarChar(16)
+  asOfDate    DateTime @map("as_of_date") @db.Date
+  holdingKey  String   @map("holding_key") @db.VarChar(64)
+  symbol      String?  @db.VarChar(32)
+  cusip       String?  @db.VarChar(16)
+  name        String   @db.VarChar(256)
+  weight      Float
+  shares      Float?
+  marketValue Float?   @map("market_value")
+  source      String   @db.VarChar(128)
+  sourceUrl   String?  @map("source_url") @db.VarChar(512)
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([etf, asOfDate, holdingKey])
+  @@index([etf, asOfDate(sort: Desc)])
+  @@index([symbol, asOfDate])
+  @@map("sector_etf_holding")
+  @@schema("mds")
+}
+
 model EquitySplit {
   id          String   @id @default(uuid()) @db.Uuid
   symbol      String   @db.VarChar(16)
@@ -751,16 +872,16 @@ model EquityPriceCoverage {
 /// OHLCV 为 Yahoo quote 口径：已按拆股回溯调整、未含现金分红；adjClose 含拆股+分红。
 /// 三种复权由 priceAdjustment.ts 结合 EquitySplit 精确还原，不做启发式猜测。
 model EquityDailyBar {
-  id       String   @id @default(uuid()) @db.Uuid
-  symbol   String   @db.VarChar(16)
-  date     DateTime @db.Date
-  open     Float?
-  high     Float?
-  low      Float?
-  close    Float
-  adjClose Float    @map("adj_close")
-  volume   Float?
-  source   String   @db.VarChar(16)
+  id        String   @id @default(uuid()) @db.Uuid
+  symbol    String   @db.VarChar(16)
+  date      DateTime @db.Date
+  open      Float?
+  high      Float?
+  low       Float?
+  close     Float
+  adjClose  Float    @map("adj_close")
+  volume    Float?
+  source    String   @db.VarChar(16)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -862,12 +983,12 @@ model BacktestRun {
 
 /// 回测日 NAV 序列（Phase 3）。nav/benchNav 均以起点归一（起点 = 1）。
 model BacktestNav {
-  id       String   @id @default(uuid()) @db.Uuid
-  runId    String   @map("run_id") @db.Uuid
+  id       String      @id @default(uuid()) @db.Uuid
+  runId    String      @map("run_id") @db.Uuid
   run      BacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  date     DateTime @db.Date
+  date     DateTime    @db.Date
   nav      Float
-  benchNav Float?   @map("bench_nav")
+  benchNav Float?      @map("bench_nav")
 
   @@unique([runId, date])
   @@index([runId, date])
@@ -878,14 +999,14 @@ model BacktestNav {
 /// 回测逐期持仓（Phase 3）。weight = 目标权重（跳过无价后重归一）；
 /// entryPrice = 入场 adjClose（复权口径）；exitReason = sold|carried|liquidated|endOfBacktest。
 model BacktestPosition {
-  id            String   @id @default(uuid()) @db.Uuid
-  runId         String   @map("run_id") @db.Uuid
+  id            String      @id @default(uuid()) @db.Uuid
+  runId         String      @map("run_id") @db.Uuid
   run           BacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  rebalanceDate DateTime @map("rebalance_date") @db.Date
-  symbol        String   @db.VarChar(16)
+  rebalanceDate DateTime    @map("rebalance_date") @db.Date
+  symbol        String      @db.VarChar(16)
   weight        Float
-  entryPrice    Float?   @map("entry_price")
-  exitReason    String?  @map("exit_reason") @db.VarChar(16)
+  entryPrice    Float?      @map("entry_price")
+  exitReason    String?     @map("exit_reason") @db.VarChar(16)
 
   @@index([runId, rebalanceDate])
   @@map("backtest_position")
@@ -899,24 +1020,24 @@ model BacktestPosition {
 /// recession = NBER USREC 该月真值（ground truth，仅作 overlay/验证基准，不参与可交易 regime，避免 NBER 公告长滞后引入前视）。
 /// inputs = 各维度原始值/z/阈值快照（透明化与复算）。date 唯一（对齐 factor 月频网格）。
 model MacroRegime {
-  id             String   @id @default(uuid()) @db.Uuid
-  date           DateTime @db.Date
-  growthState    String   @map("growth_state") @db.VarChar(16)
+  id              String   @id @default(uuid()) @db.Uuid
+  date            DateTime @db.Date
+  growthState     String   @map("growth_state") @db.VarChar(16)
   /// 增长 z 相对 N 期前的变化方向（rising/falling）。**与 growthState 的「水平」正交**：
   /// 2020-08~2021-04 增长 z 水平仍「下」但方向「升」= 再通胀（大牛市），
   /// 与真滞胀（水平下+方向降）性质相反。实证见 regime-research-findings 备忘。
-  growthDirection String? @map("growth_direction") @db.VarChar(16)
-  inflationState String   @map("inflation_state") @db.VarChar(16)
-  regime         String   @db.VarChar(24)
+  growthDirection String?  @map("growth_direction") @db.VarChar(16)
+  inflationState  String   @map("inflation_state") @db.VarChar(16)
+  regime          String   @db.VarChar(24)
   /// Dalio 式象限（增长方向 × 通胀方向），与 regime **并列**而非替代。
   /// regime 两轴导数阶数不一致（水平 × 动量）导致「离开衰退式 13/13 全跳滞胀」的
   /// 结构性锁死；本列两轴同为方向，无此问题。同名 stagflation 语义不同，勿混用。
-  dalioRegime    String?  @map("dalio_regime") @db.VarChar(24)
+  dalioRegime     String?  @map("dalio_regime") @db.VarChar(24)
   /// 0/1 NBER USREC 该月真值；−1 = 未知
-  recession      Int
-  inputs         Json
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  recession       Int
+  inputs          Json
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@unique([date])
   @@index([date])
@@ -924,21 +1045,82 @@ model MacroRegime {
   @@schema("mds")
 }
 
+/// 行业 Regime 模型的真实前瞻信号快照。每个 modelVersion × signalDate 只允许首次写入；
+/// 之后即使宏观值、因子或程序版本变化也不回写，signalHash 用于发现事后漂移。
+/// signalDate 是数据归属月，returnStartDate 是冻结后才开始计分的日期，避免把历史月末至冻结日
+/// 的已知行情偷偷计入“未来收益”。
+model SectorRegimeSignalSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  signalDate      DateTime @map("signal_date") @db.Date
+  returnStartDate DateTime @map("return_start_date") @db.Date
+  frozenAt        DateTime @map("frozen_at")
+  modelVersion    String   @map("model_version") @db.VarChar(64)
+  protocolVersion String   @map("protocol_version") @db.VarChar(32)
+  signalHash      String   @map("signal_hash") @db.VarChar(64)
+  regime          String   @db.VarChar(24)
+  growthDirection String?  @map("growth_direction") @db.VarChar(16)
+  inflationState  String?  @map("inflation_state") @db.VarChar(16)
+  vintageMode     String   @map("vintage_mode") @db.VarChar(32)
+  processGrade    String   @map("process_grade") @db.VarChar(8)
+  evidenceGrade   String   @map("evidence_grade") @db.VarChar(8)
+  inputs          Json
+  methodology     Json
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  forecasts SectorRegimeForecast[]
+
+  @@unique([signalDate, modelVersion])
+  @@index([frozenAt(sort: Desc)])
+  @@index([modelVersion, signalDate(sort: Desc)])
+  @@map("sector_regime_signal_snapshot")
+  @@schema("mds")
+}
+
+/// 快照内逐行业、逐期限的预注册排序与到期结果。rank/score/modelId 是预测字段；
+/// evaluator 只在 evaluatedAt 为空时一次性写入结果字段，不允许重算覆盖。
+model SectorRegimeForecast {
+  id              String                     @id @default(uuid()) @db.Uuid
+  snapshotId      String                     @map("snapshot_id") @db.Uuid
+  snapshot        SectorRegimeSignalSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  horizonMonths   Int                        @map("horizon_months")
+  targetDate      DateTime                   @map("target_date") @db.Date
+  sector          String                     @db.VarChar(64)
+  etf             String                     @db.VarChar(16)
+  rank            Int
+  score           Float
+  modelId         String                     @map("model_id") @db.VarChar(32)
+  selectionPassed Boolean                    @map("selection_passed")
+  entryTradeDate  DateTime?                  @map("entry_trade_date") @db.Date
+  exitTradeDate   DateTime?                  @map("exit_trade_date") @db.Date
+  sectorReturn    Float?                     @map("sector_return")
+  benchmarkReturn Float?                     @map("benchmark_return")
+  excessReturn    Float?                     @map("excess_return")
+  outcomeHash     String?                    @map("outcome_hash") @db.VarChar(64)
+  evaluatedAt     DateTime?                  @map("evaluated_at")
+  createdAt       DateTime                   @default(now()) @map("created_at")
+
+  @@unique([snapshotId, horizonMonths, sector])
+  @@index([targetDate, evaluatedAt])
+  @@index([snapshotId, horizonMonths, rank])
+  @@map("sector_regime_forecast")
+  @@schema("mds")
+}
+
 /// SEC EDGAR 披露索引（供 Automation 取证）
 model SecFiling {
-  id        String   @id @default(uuid()) @db.Uuid
-  cik       String   @db.VarChar(16)
-  symbol    String?  @db.VarChar(16)
-  accession String   @db.VarChar(32)
-  form      String   @db.VarChar(16)
-  filedAt   DateTime @map("filed_at") @db.Date
-  url       String   @db.VarChar(512)
+  id                    String   @id @default(uuid()) @db.Uuid
+  cik                   String   @db.VarChar(16)
+  symbol                String?  @db.VarChar(16)
+  accession             String   @db.VarChar(32)
+  form                  String   @db.VarChar(16)
+  filedAt               DateTime @map("filed_at") @db.Date
+  url                   String   @db.VarChar(512)
   /// 8-K item 编号原样存（如 "2.02,9.01"），事件时间线据此分级
-  items     String?  @db.VarChar(64)
+  items                 String?  @db.VarChar(64)
   /// EDGAR 主文档文件名（直链 …/{accessionNoDash}/{primaryDocument}）
-  primaryDocument       String? @map("primary_document") @db.VarChar(256)
-  primaryDocDescription String? @map("primary_doc_description") @db.VarChar(256)
-  createdAt DateTime @default(now()) @map("created_at")
+  primaryDocument       String?  @map("primary_document") @db.VarChar(256)
+  primaryDocDescription String?  @map("primary_doc_description") @db.VarChar(256)
+  createdAt             DateTime @default(now()) @map("created_at")
 
   @@unique([cik, accession])
   @@index([symbol, filedAt(sort: Desc)])

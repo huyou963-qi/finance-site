@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { upsertMacroObservations } from "./upsertObservations";
 import type { PrismaClient } from "@prisma/client";
 
-/** 最小内存版 macroObservation 表，只实现 upsertMacroObservations 用到的三个方法 */
+/** 最小内存版 Prisma，只实现 upsertMacroObservations 用到的接口。 */
 function makeFakePrisma(seed: { obsDate: string; value: number }[] = []) {
   const rows = new Map<number, { obsDate: Date; value: number }>();
   for (const s of seed) {
@@ -12,8 +12,9 @@ function makeFakePrisma(seed: { obsDate: string; value: number }[] = []) {
   }
   let updates = 0;
   let inserts = 0;
+  let vintages = 0;
 
-  const prisma = {
+  const prismaLike = {
     macroObservation: {
       async findMany({ where }: { where: { obsDate: { in: Date[] } } }) {
         return where.obsDate.in
@@ -44,9 +45,19 @@ function makeFakePrisma(seed: { obsDate: string; value: number }[] = []) {
         return { count };
       },
     },
-  } as unknown as PrismaClient;
+    macroObservationVintage: {
+      async createMany({ data }: { data: unknown[] }) {
+        vintages += data.length;
+        return { count: data.length };
+      },
+    },
+    async $transaction<T>(fn: (tx: unknown) => Promise<T>) {
+      return fn(prismaLike);
+    },
+  };
+  const prisma = prismaLike as unknown as PrismaClient;
 
-  return { prisma, stats: () => ({ updates, inserts }), rows };
+  return { prisma, stats: () => ({ updates, inserts, vintages }), rows };
 }
 
 const pt = (obsDate: string, value: number) => ({
@@ -65,6 +76,7 @@ test("brand-new rows count as inserted, not overwrites", async () => {
   assert.equal(r.unchanged, 0);
   assert.equal(r.upserted, 2);
   assert.equal(stats().updates, 0);
+  assert.equal(r.vintagesCaptured, 2);
   assert.equal(r.latestObsDate?.toISOString().slice(0, 10), "2026-04-01");
   assert.equal(r.latestValue, 110);
 });
@@ -88,6 +100,7 @@ test("re-writing identical values is unchanged, not upserted (the reported bug)"
   assert.equal(r.changed, 0);
   assert.equal(r.unchanged, 4);
   assert.equal(stats().updates, 0, "不应对相同值做空转写库");
+  assert.equal(r.vintagesCaptured, 0);
   assert.equal(r.latestObsDate?.toISOString().slice(0, 10), "2026-05-01");
 });
 
@@ -102,6 +115,7 @@ test("a revised value counts as changed and is written", async () => {
   assert.equal(r.unchanged, 0);
   assert.equal(r.upserted, 2);
   assert.equal(stats().updates, 1);
+  assert.equal(r.vintagesCaptured, 2);
   assert.equal(r.latestObsDate?.toISOString().slice(0, 10), "2026-06-01");
   assert.equal(r.latestValue, 140);
 });

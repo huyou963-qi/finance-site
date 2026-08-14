@@ -185,6 +185,10 @@ npm run events:validate-ingest -- <file.json>
 npm run events:import-ingest -- <file.json>
 ```
 
+## 数据底层复用原则（强制）
+
+所有新功能必须遵守 [数据底层复用与单一事实源设计原则](./docs/DATA_FOUNDATION_REUSE_PRINCIPLES.md)：先复用已有 Source Adapter、scheduler、canonical fact store、统一 writer 和查询/计算服务，再考虑新增底层。不得为宏观、量化、美股行业或单个页面另建同源抓取器、同义事实表、复权/as-of/Regime/因子算法。确需新增表或底层能力时，设计文档必须先说明它表达的新事实、与现有底层的主从关系、上游血缘和重建方式。
+
 ## AI 工作检查清单
 
 完成任务前确认：
@@ -195,6 +199,7 @@ npm run events:import-ingest -- <file.json>
 - [ ] 浏览器端 ID 用 `src/lib/randomId.ts`
 - [ ] 本地 `npm run build` 通过（或说明为何 CI 会通过）
 - [ ] 若改 schema：PR 中写明 `npm run db:migrate` 步骤
+- [ ] 新功能已列出底层复用项；未新增平行 adapter、事实表、writer 或重复计算链
 
 ## 禁区
 
