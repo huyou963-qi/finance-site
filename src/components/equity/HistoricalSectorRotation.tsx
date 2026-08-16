@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { SectorStageTransmissionPanel } from "@/components/equity/SectorStageTransmissionPanel";
-import { SectorRegimeForwardStudyPanel } from "@/components/equity/SectorRegimeForwardStudyPanel";
-import { SectorRegimeLiveLedgerPanel } from "@/components/equity/SectorRegimeLiveLedgerPanel";
 import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
 import {
   SECTOR_HISTORICAL_PERIODS,
@@ -319,7 +317,7 @@ export function HistoricalSectorRotation() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-[11px] font-medium tracking-[0.16em] text-fs-accent-text">US SECTOR HISTORY</p>
-            <h1 className="mt-0.5 text-lg font-semibold text-fs-text">历史情境下的行业轮动</h1>
+            <h1 className="mt-0.5 text-lg font-semibold text-fs-text">历史复盘：类似环境下行业为何强弱</h1>
           </div>
           <div className="text-right text-xs text-fs-muted">
             <div>{SECTOR_HISTORICAL_PERIODS.length} 个细分阶段 · 11 个行业完整列示</div>
@@ -380,7 +378,22 @@ export function HistoricalSectorRotation() {
         </div>
       </header>
 
-      <div className="border-b border-fs-border bg-fs-bg/20 px-3 pt-2 sm:px-5">
+      <div className="border-b border-fs-border bg-fs-bg/30 px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div><h2 className="text-sm font-medium text-fs-text">先选择一个历史阶段</h2><p className="mt-0.5 text-[10px] text-fs-muted">再查看该阶段的宏观背景、行业收益与基本面传导。完整阶段档案保留在下方，可按需展开。</p></div>
+          {period ? <span className="text-xs text-fs-accent-text">当前：{period.shortLabel} · {period.label}</span> : null}
+        </div>
+        <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {SECTOR_HISTORICAL_PERIODS.map((item, index) => {
+            const active = item.id === selectedId;
+            return <button key={item.id} type="button" onClick={() => selectStage(item.id)} aria-pressed={active} className={`rounded-md border px-2.5 py-2 text-left transition ${active ? "border-fs-accent/45 bg-fs-accent-soft text-fs-accent-text" : "border-fs-border bg-fs-elevated/25 text-fs-muted hover:text-fs-text"}`}><span className="block text-[9px]">阶段 {String(index + 1).padStart(2, "0")} · {item.shortLabel}</span><span className="mt-0.5 block truncate text-xs font-medium">{item.label}</span></button>;
+          })}
+        </div>
+      </div>
+
+      <details className="border-b border-fs-border bg-fs-bg/20">
+        <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-fs-text sm:px-5">查看完整历史行情轨迹与行业 ETF 对比</summary>
+      <div className="px-3 pt-2 sm:px-5">
         {chartLoading ? (
           <div className="flex h-[336px] items-center justify-center text-sm text-fs-muted">正在加载完整历史行情…</div>
         ) : chartSeries.length ? (
@@ -407,6 +420,7 @@ export function HistoricalSectorRotation() {
           </div>
         )}
       </div>
+      </details>
 
       <SectorStageTransmissionPanel
         stageId={selectedId}
@@ -419,10 +433,9 @@ export function HistoricalSectorRotation() {
         onClearStage={clearStage}
       />
 
-      <SectorRegimeForwardStudyPanel />
-      <SectorRegimeLiveLedgerPanel />
-
-      <div className="border-b border-fs-border bg-fs-elevated/30 px-4 py-2 text-xs text-fs-muted sm:px-5">
+      <details className="border-b border-fs-border bg-fs-elevated/30">
+      <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-fs-text sm:px-5">浏览全部 {SECTOR_HISTORICAL_PERIODS.length} 个阶段的完整档案</summary>
+      <div className="border-t border-fs-border px-4 py-2 text-xs text-fs-muted sm:px-5">
         横向历史阶段 · 点击任一阶段，主图会缩放到对应窗口；卡片按相对 SPY 的超额收益排序，并固定列出全部 11 个行业。
       </div>
 
@@ -523,6 +536,7 @@ export function HistoricalSectorRotation() {
           })}
         </div>
       </div>
+      </details>
 
       <footer className="border-t border-fs-border px-4 py-2 text-[11px] leading-4 text-fs-muted sm:px-5">
         口径：SPY 与 Sector SPDR ETF 前复权日线，按阶段内首尾可得交易日计算总收益；超额 = 行业收益 − SPY 收益。阶段依据 NBER 周期、FOMC 政策、信用事件与市场主线转折划分，不按事后行业赢家反推边界，也不把 ETF 上市前的缺失期补造成历史结论。
