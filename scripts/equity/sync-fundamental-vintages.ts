@@ -1,4 +1,5 @@
 import { prisma } from "../../src/lib/prisma";
+import { SP500_INDEX_CODE } from "../../src/lib/equity/equitySecurities";
 import { fetchSecCompanyFacts } from "../../src/lib/equity/secFundamentals";
 import {
   buildSecFundamentalVintages,
@@ -21,10 +22,34 @@ async function main() {
   const maxQuarters = Math.max(8, Number(arg("max-quarters") ?? 80));
   const emitLastFilings = Math.max(1, Number(arg("last-filings") ?? 80));
   const dryRun = process.argv.includes("--dry-run");
+  const universe = (arg("universe") ?? "sp500").trim().toLowerCase();
+  if (!requested.size && universe !== "sp500" && universe !== "all") {
+    throw new Error(`非法 --universe=${universe}；可选 sp500 或 all`);
+  }
+  const currentSp500 = !requested.size && universe === "sp500"
+    ? await prisma.indexConstituent.findFirst({
+        where: { indexCode: SP500_INDEX_CODE },
+        orderBy: { asOfDate: "desc" },
+        select: { asOfDate: true },
+      })
+    : null;
+  const sp500Symbols = currentSp500
+    ? await prisma.indexConstituent.findMany({
+        where: { indexCode: SP500_INDEX_CODE, asOfDate: currentSp500.asOfDate },
+        select: { symbol: true },
+      })
+    : [];
+  if (!requested.size && universe === "sp500" && !sp500Symbols.length) {
+    throw new Error(`没有找到 ${SP500_INDEX_CODE} 最新成分快照；先运行 equity:seed-sp500`);
+  }
   const securities = await prisma.equitySecurity.findMany({
     where: {
       cik: { not: null },
-      ...(requested.size ? { symbol: { in: [...requested] } } : {}),
+      ...(requested.size
+        ? { symbol: { in: [...requested] } }
+        : universe === "sp500"
+          ? { symbol: { in: sp500Symbols.map((row) => row.symbol) } }
+          : {}),
     },
     orderBy: { symbol: "asc" },
     take: limit,
@@ -45,7 +70,9 @@ async function main() {
       console.error(`${security.symbol}:`, error instanceof Error ? error.message : error);
     }
   }
-  console.log(`完成：symbols=${securities.length}, rows=${written}, failed=${failed}`);
+  console.log(
+    `完成：universe=${requested.size ? "symbols" : universe}, symbols=${securities.length}, rows=${written}, failed=${failed}`,
+  );
   if (failed) process.exitCode = 1;
 }
 

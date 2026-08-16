@@ -1,0 +1,15 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# 以美东收盘后的日期记载当前分类；香港服务器本地时区不影响事实日期。
+CRON_TZ=America/New_York
+TZ=America/New_York
+FINANCE_SITE_PATH=/opt/finance-site
+
+# 每个美股交易日收盘后，归档 SPY 与 11 个 Sector SPDR 的官网持仓。
+30 18 * * 1-5 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-etf-holdings.lock npm run equity:sync-sector-etf-holdings >> logs/sector-etf-holdings.log 2>&1
+
+# 将当时已观察到的当前 GICS 分类记为开放有效期；变化时由 writer 关闭旧区间。
+45 18 * * 1-5 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-classifications.lock npm run equity:snapshot-current-classifications >> logs/sector-classifications.log 2>&1
+
+# 每晚覆盖当前 S&P 500 的新增披露/重述；历史版本只追加，不删除旧 accession。
+00 19 * * 1-5 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-fundamental-vintages.lock npm run equity:sync-fundamental-vintages -- --limit=600 --last-filings=20 >> logs/sector-fundamental-vintages.log 2>&1

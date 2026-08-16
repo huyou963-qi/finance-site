@@ -105,17 +105,6 @@ export function SiteHeaderNav() {
           宏观数据
         </Link>
         <Link
-          href="/markets"
-          className={`${linkBase} ${
-            marketsActive
-              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-          }`}
-          aria-current={marketsActive ? "page" : undefined}
-        >
-          行情
-        </Link>
-        <Link
           href="/equity/sectors"
           className={`${linkBase} ${
             equityActive
@@ -125,6 +114,17 @@ export function SiteHeaderNav() {
           aria-current={equityActive ? "page" : undefined}
         >
           美股行业
+        </Link>
+        <Link
+          href="/markets"
+          className={`${linkBase} ${
+            marketsActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={marketsActive ? "page" : undefined}
+        >
+          行情
         </Link>
         <Link
           href="/quant"
