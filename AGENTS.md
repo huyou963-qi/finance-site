@@ -79,7 +79,7 @@ finance-site/
 ```bash
 npm run db:migrate          # 先应用 migration
 npm run data:seed-p0        # 机构 + 10 条 FRED 试点
-npm run data:sync-calendar  # Investing 经济日历 → nextRunAt
+npm run data:sync-calendar  # 官方/TE 发布日历 → nextRunAt（中国国家统计局走官网年历）
 npm run data:worker         # 跑到期订阅（需 FRED_API_KEY）
 npm run data:verify-phase1  # Phase 1 自检（加 --fetch --db）
 npm run data:seed-phase2    # Phase 2：FRED 扩展 + usov + BIS debtcap + WB 试点
@@ -105,7 +105,7 @@ npm run data:sync-calendar           # 包级日历匹配 → fan-out nextRunAt
 **新指标接入六步清单**见 [docs/DATA_SCHEDULER_ONBOARD.md](./docs/DATA_SCHEDULER_ONBOARD.md)。
 
 **宏观目录树约束**：所有国家使用统一九大顶层主题，指标必须归入业务子层级，末端单组最多 48 条；规则与部署流程见 [docs/DATA_CATALOG_TAXONOMY.md](./docs/DATA_CATALOG_TAXONOMY.md)。新增指标不得只依赖管理端手动拖拽，需补全 metadata 并更新 `globalCatalogTaxonomy.ts`。
-日历与发布包配置以 `src/lib/data/scheduler/releasePackageCatalog.ts` 为准（`teEventMap.ts` 中 `TE_CALENDAR_BY_FRED` 仅遗留 fallback）。  
+日历与发布包配置以 `src/lib/data/scheduler/releasePackageCatalog.ts` 为准（`teEventMap.ts` 中 `TE_CALENDAR_BY_FRED` 仅遗留 fallback）。中国国家统计局发布包必须从 [国家统计局本年发布日程](https://www.stats.gov.cn/sj/fbrc/bnxxfb/) 解析官方北京时间，不得回退为 TradingEconomics 日历；官网临时失败时保留已有未来时刻并低频重试。
 统一 seed/verify：`npm run data:seed -- --catalog=cpi`、`npm run data:verify -- --catalog=phase1`；日历覆盖入库：`npm run data:import-calendar-overrides`。
 
 **部署落库**：`npm run data:apply`（幂等编排：migrate + 全 catalog seed + 发布包 + 目录布局 + 日历 + 各域自检；读 registry，新维度自动纳入）。开发库是缓存不是事实来源，云端跑此命令即从 git 代码 + FRED 重建 DB，观测由 worker 自动回填。详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)。

@@ -5,7 +5,7 @@ import {
   type DataSource,
   type PrismaClient,
 } from "@prisma/client";
-import { scheduleAfterSuccessfulFetch, syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSchedules";
+import { scheduleAfterSuccessfulFetch, syncSubscriptionsFromEconomicCalendars } from "./applyCalendarSchedules";
 import { fetchSubscriptionIncremental } from "./fetchSubscriptionIncremental";
 import {
   computeBackoffRunAt,
@@ -213,7 +213,7 @@ export async function runDataSubscription(
           });
         }
       }
-      await syncSubscriptionsFromTradingEconomicsCalendar(prisma, {
+      await syncSubscriptionsFromEconomicCalendars(prisma, {
         subscriptionIds: [sub.id],
       });
       const refreshed = await prisma.dataSubscription.findUnique({

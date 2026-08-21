@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { Prisma } from "@prisma/client";
-import { syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSchedules";
+import { syncSubscriptionsFromEconomicCalendars } from "./applyCalendarSchedules";
 import {
   resolveAcquisitionStatus,
   resolveUpdateStatus,
@@ -156,7 +156,7 @@ export async function syncAllStaleSubscriptions(
   const now = new Date();
 
   if (!dryRun) {
-    await syncSubscriptionsFromTradingEconomicsCalendar(prisma);
+    await syncSubscriptionsFromEconomicCalendars(prisma);
   }
 
   const staleSubs = await listStaleSubscriptions(prisma, limit, now);
@@ -285,7 +285,7 @@ export async function syncAllStaleSubscriptions(
       continue;
     }
 
-    await syncSubscriptionsFromTradingEconomicsCalendar(prisma, {
+    await syncSubscriptionsFromEconomicCalendars(prisma, {
       subscriptionIds: [sub.id],
     });
     success += 1;

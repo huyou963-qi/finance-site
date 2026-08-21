@@ -52,6 +52,8 @@ function pkg(
     members: ReleasePackageMemberRule;
   },
 ): ReleasePackageDef {
+  const release = ecRule(opts.granularity);
+  if (opts.agencyId === "cn-nbs") release.calendarProvider = "nbs_official";
   return {
     id,
     labelZh,
@@ -60,7 +62,7 @@ function pkg(
     agencyId: opts.agencyId,
     granularity: opts.granularity,
     calendar: opts.calendar,
-    release: ecRule(opts.granularity),
+    release,
     sortOrder: opts.sortOrder ?? 0,
     members: opts.members,
   };

@@ -40,6 +40,14 @@ import {
 } from "./ismOfficial/parseCalendar";
 import { loadIsmOfficialCalendarHtml } from "./ismOfficial/client";
 import { loadPublishedIsmOfficialReleases } from "./ismOfficial/publishedCalendar";
+import { loadNbsOfficialCalendarHtml } from "./nbsOfficialCalendar/client";
+import {
+  isNbsOfficialPackage,
+  nbsOfficialReleaseToCalendarEvent,
+  nextNbsOfficialReleaseForPackage,
+  parseNbsOfficialCalendarPage,
+  type NbsOfficialRelease,
+} from "./nbsOfficialCalendar/parseCalendar";
 
 export type CalendarSyncRow = {
   subscriptionId?: string;
@@ -83,7 +91,7 @@ function patchCalendarRule(
     calendarMatch?: CalendarMatchSnapshot;
     calendarSync: CalendarSyncMeta;
     clearCalendarMatch?: boolean;
-    calendarProvider?: "tradingeconomics" | "ism_official";
+    calendarProvider?: "tradingeconomics" | "ism_official" | "nbs_official";
   },
 ): Extract<ReleaseRule, { type: "economic_calendar" }> {
   const base = asEconomicCalendarRule(rule);
@@ -353,8 +361,11 @@ async function syncLegacySubscription(
   };
 }
 
-/** 从 TradingEconomics 经济日历刷新发布包与订阅的 nextRunAt */
-export async function syncSubscriptionsFromTradingEconomicsCalendar(
+/**
+ * 刷新发布包与订阅的 nextRunAt：国家统计局/ISM 使用官网日历，其余使用 TE。
+ * 旧函数名保留，避免影响既有 worker/admin 调用方。
+ */
+export async function syncSubscriptionsFromEconomicCalendars(
   prisma: PrismaClient,
   options?: { subscriptionIds?: string[]; dryRun?: boolean },
 ): Promise<CalendarSyncResult> {
@@ -397,27 +408,45 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
 
   let ismReleases: IsmOfficialRelease[] | null = null;
   let ismCalWarning: string | undefined;
-  try {
-    const html = await loadIsmOfficialCalendarHtml();
-    ismReleases = parseIsmOfficialCalendarPage(html);
-  } catch (err) {
-    ismReleases = loadPublishedIsmOfficialReleases();
-    ismCalWarning = `${err instanceof Error ? err.message : String(err)}；改用仓库内官网年历副本`;
+  if (packages.some((pkg) => packageIdToIsmKind(pkg.id) != null)) {
+    try {
+      const html = await loadIsmOfficialCalendarHtml();
+      ismReleases = parseIsmOfficialCalendarPage(html);
+    } catch (err) {
+      ismReleases = loadPublishedIsmOfficialReleases();
+      ismCalWarning = `${err instanceof Error ? err.message : String(err)}；改用仓库内官网年历副本`;
+    }
+  }
+
+  let nbsReleases: NbsOfficialRelease[] | null = null;
+  let nbsCalWarning: string | undefined;
+  if (packages.some((pkg) => pkg.agencyId === "cn-nbs")) {
+    try {
+      const html = await loadNbsOfficialCalendarHtml();
+      nbsReleases = parseNbsOfficialCalendarPage(html);
+    } catch (err) {
+      nbsCalWarning = err instanceof Error ? err.message : String(err);
+    }
   }
 
   const window = defaultCalendarWindow();
+  const packagesUsingTe = packages.filter(
+    (pkg) => pkg.agencyId !== "cn-nbs" && packageIdToIsmKind(pkg.id) == null,
+  );
+  const legacySubscriptions = subs.filter((sub) => !sub.releasePackageId);
   const countryCodes = [
     ...new Set([
-      ...collectCountryCodesFromPackages(packages),
-      ...collectCountryCodesFromSubscriptions(
-        subs.filter((s) => !s.releasePackageId),
-      ),
+      ...collectCountryCodesFromPackages(packagesUsingTe),
+      ...collectCountryCodesFromSubscriptions(legacySubscriptions),
     ]),
   ];
-  const fetchResult = await fetchTradingEconomicsCalendar({
-    ...window,
-    countryCodes: countryCodes.length ? countryCodes : undefined,
-  });
+  const needsTeCalendar = packagesUsingTe.length > 0 || legacySubscriptions.length > 0;
+  const fetchResult = needsTeCalendar
+    ? await fetchTradingEconomicsCalendar({
+        ...window,
+        countryCodes: countryCodes.length ? countryCodes : undefined,
+      })
+    : { events: [], source: "not_requested" };
 
   const events = fetchResult.events;
   const fetchFailed = events.length === 0 && Boolean(fetchResult.warning);
@@ -426,6 +455,113 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
 
   for (const pkg of packages) {
     const memberCount = countByPackage.get(pkg.id) ?? 0;
+    if (pkg.agencyId === "cn-nbs") {
+      const template = parsePackageReleaseTemplate(pkg.releaseTemplate);
+      if (!template || !isNbsOfficialPackage(pkg.id)) {
+        rows.push({
+          instrumentCode: `pkg:${pkg.id}`,
+          packageId: pkg.id,
+          packageLabelZh: pkg.labelZh,
+          memberCount,
+          matched: false,
+          nextRunAt: pkg.nextRunAt,
+          message: "国家统计局官网日历映射无效",
+          syncStatus: "no_mapping",
+        });
+        continue;
+      }
+
+      if (!nbsReleases) {
+        const scheduleState: ReleasePackageScheduleState = {
+          calendarSync: {
+            status: "fetch_failed",
+            message: nbsCalWarning?.slice(0, 500),
+            syncedAt: now.toISOString(),
+          },
+        };
+        let nextRunAt = calendarResyncRunAt(now);
+        const previousState = parsePackageScheduleState(pkg.scheduleState);
+        if (previousState.calendarMatch?.releaseAt) {
+          const fromCalendar = nextRunAtFromCalendarRule(
+            {
+              ...template,
+              calendarMatch: previousState.calendarMatch,
+              calendarSync: scheduleState.calendarSync,
+            },
+            now,
+          );
+          if (fromCalendar && fromCalendar > now) nextRunAt = fromCalendar;
+        }
+        await persistPackageSchedule(
+          prisma,
+          pkg.id,
+          { scheduleState, nextRunAt },
+          options?.dryRun,
+        );
+        rows.push({
+          instrumentCode: `pkg:${pkg.id}`,
+          packageId: pkg.id,
+          packageLabelZh: pkg.labelZh,
+          memberCount,
+          matched: false,
+          nextRunAt,
+          message: "国家统计局官网日历拉取失败，保留已有未来发布日或 24h 后重试",
+          syncStatus: "fetch_failed",
+        });
+        continue;
+      }
+
+      const nextOfficial = nextNbsOfficialReleaseForPackage(nbsReleases, pkg.id, now);
+      if (nextOfficial) {
+        rows.push(
+          await applyCalendarMatchToPackage(
+            prisma,
+            pkg,
+            memberCount,
+            nbsOfficialReleaseToCalendarEvent(nextOfficial),
+            now,
+            { dryRun: options?.dryRun, calendarSource: "nbs_official" },
+          ),
+        );
+        continue;
+      }
+
+      const scheduleState: ReleasePackageScheduleState = {
+        calendarSync: {
+          status: "no_match",
+          message: "国家统计局本年官网日历内没有下一次发布；等待年度日历更新",
+          syncedAt: now.toISOString(),
+        },
+      };
+      const previousState = parsePackageScheduleState(pkg.scheduleState);
+      const fallbackNextRunAt =
+        nextRunAtFromCalendarRule(
+          { ...template, calendarSync: scheduleState.calendarSync },
+          now,
+        ) ?? calendarResyncRunAt(now);
+      const nextRunAt =
+        previousState.calendarSync?.status === "no_match" && pkg.nextRunAt
+          ? pkg.nextRunAt
+          : fallbackNextRunAt;
+      await persistPackageSchedule(
+        prisma,
+        pkg.id,
+        { scheduleState, nextRunAt },
+        options?.dryRun,
+      );
+      rows.push({
+        instrumentCode: `pkg:${pkg.id}`,
+        packageId: pkg.id,
+        packageLabelZh: pkg.labelZh,
+        memberCount,
+        matched: false,
+        nextRunAt,
+        message: "国家统计局本年官网日历内无下一发布，保留低频兜底探测",
+        syncStatus: "no_match",
+      });
+      continue;
+    }
+
     const ismKind = packageIdToIsmKind(pkg.id);
     if (ismKind && ismReleases) {
       const nextOfficial = nextIsmOfficialRelease(ismReleases, ismKind, now);
@@ -556,8 +692,7 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
     );
   }
 
-  const legacySubs = subs.filter((s) => !s.releasePackageId);
-  for (const sub of legacySubs) {
+  for (const sub of legacySubscriptions) {
     rows.push(
       await syncLegacySubscription(
         prisma,
@@ -572,9 +707,21 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
   }
 
   return {
-    eventsFetched: events.length,
-    source: fetchResult.source,
-    warning: [ismCalWarning ? `ISM官网日历：${ismCalWarning}` : null, fetchResult.warning]
+    eventsFetched:
+      events.length + (nbsReleases?.length ?? 0) + (ismReleases?.length ?? 0),
+    source:
+      [
+        nbsReleases ? "国家统计局官网" : null,
+        ismReleases ? "ISM官网" : null,
+        needsTeCalendar ? fetchResult.source : null,
+      ]
+        .filter(Boolean)
+        .join(" + ") || "no_calendar_requested",
+    warning: [
+      nbsCalWarning ? `国家统计局官网日历：${nbsCalWarning}` : null,
+      ismCalWarning ? `ISM官网日历：${ismCalWarning}` : null,
+      fetchResult.warning,
+    ]
       .filter(Boolean)
       .join("；") || undefined,
     fetchFailed,
@@ -582,9 +729,13 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
   };
 }
 
-/** @deprecated 使用 syncSubscriptionsFromTradingEconomicsCalendar */
+/** @deprecated 使用 syncSubscriptionsFromEconomicCalendars */
+export const syncSubscriptionsFromTradingEconomicsCalendar =
+  syncSubscriptionsFromEconomicCalendars;
+
+/** @deprecated 使用 syncSubscriptionsFromEconomicCalendars */
 export const syncSubscriptionsFromInvestingCalendar =
-  syncSubscriptionsFromTradingEconomicsCalendar;
+  syncSubscriptionsFromEconomicCalendars;
 
 /** 拉取成功后：若已过发布窗口则尽快安排下一次日历同步探测 */
 export function scheduleAfterSuccessfulFetch(

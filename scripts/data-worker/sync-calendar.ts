@@ -1,5 +1,6 @@
 /**
- * 从 TradingEconomics 经济日历同步各订阅的下一次发布时间 → nextRunAt
+ * 从官方/第三方经济日历同步各订阅的下一次发布时间 → nextRunAt。
+ * 国家统计局发布包只使用国家统计局官网年度日程，不使用 TradingEconomics。
  *
  * npm run data:sync-calendar
  * npm run data:sync-calendar -- --dry-run
@@ -9,7 +10,7 @@ import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
 import {
   filterEventsForDebug,
-  syncSubscriptionsFromTradingEconomicsCalendar,
+  syncSubscriptionsFromEconomicCalendars,
 } from "../../src/lib/data/scheduler/applyCalendarSchedules";
 
 loadEnvConfig(process.cwd());
@@ -46,8 +47,8 @@ async function main() {
     subscriptionIds = [sub.id];
   }
 
-  console.log(`[data:sync-calendar] 拉取 TradingEconomics 日历${dryRun ? "（dry-run）" : ""}…`);
-  const result = await syncSubscriptionsFromTradingEconomicsCalendar(prisma, {
+  console.log(`[data:sync-calendar] 拉取官方/经济日历${dryRun ? "（dry-run）" : ""}…`);
+  const result = await syncSubscriptionsFromEconomicCalendars(prisma, {
     subscriptionIds,
     dryRun,
   });

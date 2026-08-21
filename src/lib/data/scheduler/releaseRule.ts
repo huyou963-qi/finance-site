@@ -1,7 +1,7 @@
 import type { DataGranularity } from "@prisma/client";
 import { calendarWindowDays } from "./tradingEconomicsCalendar/client";
 
-/** Investing 日历匹配快照（写入 releaseRule.calendarMatch） — 现源为 TradingEconomics */
+/** 发布日历匹配快照（写入 releaseRule.calendarMatch）。 */
 export type CalendarMatchSnapshot = {
   eventId: string;
   title: string;
@@ -50,8 +50,8 @@ export type ReleaseRule =
     }
   | {
       type: "economic_calendar";
-      /** 日历提供方（唯一：TradingEconomics） */
-      calendarProvider?: "tradingeconomics" | "ism_official";
+      /** 日历提供方；官方有稳定年历时优先使用官方来源。 */
+      calendarProvider?: "tradingeconomics" | "ism_official" | "nbs_official";
       /** 发布后持续探测间隔（小时），直至抓到新数据或下一日历事件 */
       postReleaseProbeHours: number;
       /** 相对发布时刻的延迟（分钟），避免源端尚未入库 */
@@ -139,7 +139,9 @@ export function parseReleaseRule(raw: unknown): ReleaseRule {
     return {
       type: "economic_calendar",
       calendarProvider:
-        r.calendarProvider === "ism_official" ? "ism_official" : "tradingeconomics",
+        r.calendarProvider === "ism_official" || r.calendarProvider === "nbs_official"
+          ? r.calendarProvider
+          : "tradingeconomics",
       postReleaseProbeHours: Number(r.postReleaseProbeHours) || 2,
       releaseDelayMinutes: Number(r.releaseDelayMinutes) || 3,
       fallback,
@@ -243,7 +245,9 @@ export function summarizeReleaseRule(rule: ReleaseRule): string {
       const sourceLabel =
         m.source === "ism_official" || rule.calendarProvider === "ism_official"
           ? "ISM官网日历"
-          : "经济日历";
+          : m.source === "nbs_official" || rule.calendarProvider === "nbs_official"
+            ? "国家统计局官网日历"
+            : "经济日历";
       const base = `${sourceLabel}：${m.title || "下一发布"} @ ${when} UTC`;
       if (sync?.status === "fetch_failed") return `${base}（日历拉取失败，已回退间隔探测）`;
       if (sync?.status === "no_match") return `${base}（待重新匹配）`;

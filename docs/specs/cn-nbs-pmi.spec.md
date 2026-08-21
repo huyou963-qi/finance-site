@@ -60,7 +60,7 @@ kind: `web_scrape_new`（C3，官方 JSON 历史 + Excel 首发双通道）。
 - [x] 删除必需列后 parser 会 throw；
 - [x] live 抓取成功，重复同步 `upserted=0`；
 - [x] 每条分项至少 100 个观测且值域 `[0,100]`；
-- [x] `data:sync-calendar` fallback 生效（本次 TE 日历返回 0 事件）；
+- [x] `data:sync-calendar` 从国家统计局官网本年发布日程解析 PMI 官方北京时间；官网临时失败时保留已有未来时刻并低频重试，不使用 TE 事件；
 - [x] `data:sync-one` 命中 `nbs_pmi` adapter。
 
 ## 7. 关键来源

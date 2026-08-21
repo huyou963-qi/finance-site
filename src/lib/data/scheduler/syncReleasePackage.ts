@@ -1,6 +1,6 @@
 import { FetchRunStatus, type PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
-import { syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSchedules";
+import { syncSubscriptionsFromEconomicCalendars } from "./applyCalendarSchedules";
 import {
   clearTradingEconomicsIsmHtmlCache,
   fetchAllTradingEconomicsIsmPoints,
@@ -107,7 +107,7 @@ async function finalizePackageCalendar(
   logs: string[],
 ) {
   try {
-    await syncSubscriptionsFromTradingEconomicsCalendar(prisma, {
+    await syncSubscriptionsFromEconomicCalendars(prisma, {
       subscriptionIds: subs.map((s) => s.id),
     });
     logs.push(`[calendar] 已刷新发布包内 ${subs.length} 条订阅日历`);

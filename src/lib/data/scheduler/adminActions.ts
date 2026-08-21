@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { syncSubscriptionsFromTradingEconomicsCalendar } from "./applyCalendarSchedules";
+import { syncSubscriptionsFromEconomicCalendars } from "./applyCalendarSchedules";
 import { runLagAlerts } from "./lagAlerts";
 import {
   loadInstrumentsForProbe,
@@ -45,7 +45,7 @@ export async function executeSchedulerAction(
 ): Promise<SchedulerActionResult> {
   switch (action) {
     case "sync_calendar": {
-      const result = await syncSubscriptionsFromTradingEconomicsCalendar(prisma, {
+      const result = await syncSubscriptionsFromEconomicCalendars(prisma, {
         dryRun: false,
       });
       const matched = result.rows.filter((r) => r.matched).length;
