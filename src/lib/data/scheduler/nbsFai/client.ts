@@ -15,6 +15,16 @@ import { parseFaiInfrastructureRelease, type FaiInfrastructureDefinition } from 
 export type FaiIndicator = { cid: string; indicatorId: string; label: string; frequency: FaiFrequency; group: string; unit: "%" | "亿元" };
 const headers = { Referer: "https://data.stats.gov.cn/dg/website/page.html", "User-Agent": process.env.NBS_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0" };
 const years = (frequency: FaiFrequency, start: number) => frequency === "monthly" ? [`${start}01MM-${new Date().getUTCFullYear() + 1}12MM`] : [`${start}YY-${new Date().getUTCFullYear() + 1}YY`];
+// The official indicator tree still exposes this annual node, but the data
+// endpoint has never published an observation for it. Treat it as an empty
+// catalogue placeholder so deploy seeds do not recreate a permanently empty
+// subscription after the full sync removes it.
+export const NBS_FAI_EMPTY_INDICATOR_IDS = new Set([
+  "d5bc36c7a3e841ec9599ee81192cbcfa", // 国际组织固定资产投资同比
+]);
+export const NBS_FAI_EMPTY_INSTRUMENT_CODES = [
+  "nbs_cn_fai_a_8501f430_d5bc36c7",
+] as const;
 let wafCookie = "";
 
 async function nbsFetch(url: string, init: RequestInit) {
@@ -37,7 +47,9 @@ async function getIndicators(catalog: FaiCatalog) {
 export async function fetchNbsFaiCatalog(): Promise<FaiIndicator[]> {
   const output: FaiIndicator[] = [];
   for (const catalog of NBS_FAI_CATALOGS) {
-    output.push(...await getIndicators(catalog));
+    output.push(...(await getIndicators(catalog)).filter(
+      (item) => !NBS_FAI_EMPTY_INDICATOR_IDS.has(item.indicatorId),
+    ));
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   return output;
