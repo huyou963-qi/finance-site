@@ -55,7 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 const STATUS_CLASS: Record<string, string> = {
   queued: "text-fs-muted",
-  running: "text-amber-400",
+  running: "text-fs-accent-text",
   done: "text-emerald-400",
   failed: "text-red-400",
 };
@@ -219,7 +219,7 @@ export function EquityBacktestClient() {
       {/* ── 新建表单 ── */}
       <div className="mb-6 rounded-lg border border-fs-border bg-fs-elevated/40 p-4">
         {anonymous ? (
-          <div className="mb-3 rounded-md border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-500/90">
+          <div className="mb-3 rounded-md border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-800">
             登录后可发起并保存回测。
           </div>
         ) : null}

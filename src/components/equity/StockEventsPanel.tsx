@@ -49,7 +49,7 @@ function badgeClass(e: StockEvent): string {
   if (e.type === "annual") return "bg-indigo-500/20 text-indigo-400";
   if (e.type === "split") return "bg-purple-500/15 text-purple-400";
   return e.importance === "high"
-    ? "bg-amber-500/15 text-amber-400"
+    ? "bg-amber-500/15 text-amber-800"
     : "bg-fs-elevated text-fs-muted";
 }
 
@@ -181,7 +181,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
             type="button"
             onClick={() => setMajorOnly((v) => !v)}
             className={`ml-1 rounded px-2 py-0.5 transition-colors ${
-              majorOnly ? "bg-amber-500/20 text-amber-400" : "text-fs-muted hover:text-fs-text"
+              majorOnly ? "bg-amber-500/20 text-amber-800" : "text-fs-muted hover:text-fs-text"
             }`}
           >
             仅重大

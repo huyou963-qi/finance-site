@@ -336,7 +336,7 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
           {/* ── 数据边界透明化 ── */}
           {s ? (
             <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-xs">
-              <div className="mb-1 font-medium text-amber-500/90">数据边界（结论审慎性）</div>
+              <div className="mb-1 font-medium text-amber-800">数据边界（结论审慎性）</div>
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
                 <span>回测起点 <span className="text-fs-text">{s.effectiveStart}</span>（策略数据下限 {s.dataFloor}）</span>
                 <span>调仓 <span className="text-fs-text">{s.rebalanceCount}</span> 期</span>
@@ -351,7 +351,7 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
           {/* ── 宏观状态覆盖度（本回测见过多少种宏观环境） ── */}
           {s?.regimeCoverage ? (
             <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-xs">
-              <div className="mb-1 font-medium text-amber-500/90">宏观状态覆盖度（结论适用范围）</div>
+              <div className="mb-1 font-medium text-amber-800">宏观状态覆盖度（结论适用范围）</div>
               <div className="mb-1.5 flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
                 {(["recovery", "overheat", "stagflation", "contraction"] as const).map((q) => {
                   const n = s.regimeCoverage!.byQuadrant[q] ?? 0;
@@ -359,8 +359,8 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
                   return (
                     <span key={q}>
                       {REGIME_LABEL[q]}{" "}
-                      <span className={thin ? "text-amber-400" : "text-fs-text"}>{n}</span> 期
-                      {thin ? <span className="text-amber-400/70">（样本薄）</span> : null}
+                      <span className={thin ? "text-amber-800" : "text-fs-text"}>{n}</span> 期
+                      {thin ? <span className="text-amber-800">（样本薄）</span> : null}
                     </span>
                   );
                 })}
@@ -371,14 +371,14 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
                 <span>
                   其中 <span className="text-fs-text">NBER 实际衰退期</span>{" "}
-                  <span className={s.regimeCoverage.recessionThin ? "text-amber-400" : "text-fs-text"}>
+                  <span className={s.regimeCoverage.recessionThin ? "text-amber-800" : "text-fs-text"}>
                     {s.regimeCoverage.recessionPeriods}
                   </span>{" "}
                   期
                 </span>
               </div>
               {s.regimeCoverage.recessionThin ? (
-                <div className="mt-1.5 text-amber-400/90">
+                <div className="mt-1.5 text-amber-800">
                   ⚠ 衰退样本不足：本回测几乎没有经历真实衰退，
                   <span className="text-fs-text">最大回撤 / 下行防御相关结论不可靠</span>。
                   注意「衰退式」象限只表示增长动能向下，中周期放缓也计入，

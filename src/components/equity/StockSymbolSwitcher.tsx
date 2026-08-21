@@ -111,7 +111,7 @@ export function StockSymbolSwitcher({ currentSymbol }: { currentSymbol: string }
             <li className="px-3 py-2 text-[11px] text-fs-muted">搜索中…</li>
           ) : null}
           {error ? (
-            <li className="px-3 py-2 text-[11px] text-amber-500">{error}</li>
+            <li className="px-3 py-2 text-[11px] text-red-700">{error}</li>
           ) : null}
           {hits.map((h) => (
             <li key={h.symbol}>

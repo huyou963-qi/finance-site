@@ -92,16 +92,16 @@ export function SectorRegimeLiveLedgerPanel() {
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold tracking-[0.16em] text-emerald-400">LIVE WALK-FORWARD · STAGE G</span>
-              <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">{data.status.label}</span>
+              <span className="text-[10px] font-semibold tracking-[0.16em] text-emerald-700">LIVE WALK-FORWARD · STAGE G</span>
+              <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{data.status.label}</span>
               <span className="rounded-full border border-fs-border bg-fs-elevated/70 px-2 py-0.5 text-[10px] text-fs-muted">协议 {data.protocolVersion}</span>
             </div>
             <h2 className="mt-1 text-base font-semibold text-fs-text">真实前瞻走查：预测先封存，未来再揭晓</h2>
             <p className="mt-1 max-w-5xl text-xs leading-5 text-fs-muted">阶段 F 回答“历史上有没有稳定证据”；这里从现在起逐月留下不可回写的判断，按 3/6/12 个月分别到期，检验模型在未知未来中的真实表现。</p>
           </div>
           <div className="grid shrink-0 grid-cols-3 gap-2 text-center text-[10px]">
-            <div className="rounded-md border border-emerald-400/25 bg-emerald-400/5 px-3 py-2"><div className="text-fs-muted">过程完整性</div><div className="mt-0.5 text-sm font-semibold text-emerald-300">{data.status.processGrade}</div></div>
-            <div className="rounded-md border border-amber-400/25 bg-amber-400/5 px-3 py-2"><div className="text-fs-muted">统计证据</div><div className="mt-0.5 text-sm font-semibold text-amber-300">{data.status.inferenceGrade}</div></div>
+            <div className="rounded-md border border-emerald-400/25 bg-emerald-400/5 px-3 py-2"><div className="text-fs-muted">过程完整性</div><div className="mt-0.5 text-sm font-semibold text-emerald-700">{data.status.processGrade}</div></div>
+            <div className="rounded-md border border-amber-400/25 bg-amber-400/5 px-3 py-2"><div className="text-fs-muted">统计证据</div><div className="mt-0.5 text-sm font-semibold text-amber-800">{data.status.inferenceGrade}</div></div>
             <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2"><div className="text-fs-muted">已冻结月</div><div className="mt-0.5 text-sm font-semibold tabular-nums text-fs-text">{data.status.frozenSignals}</div></div>
           </div>
         </div>
@@ -138,12 +138,12 @@ export function SectorRegimeLiveLedgerPanel() {
           <div className="overflow-hidden rounded-lg border border-fs-border">
             <div className="flex flex-col gap-3 border-b border-fs-border bg-fs-elevated/25 px-3 py-3 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-medium text-fs-text">最新封存信号</h3><span className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[9px] text-fs-accent-text">{regimeLabel}</span><span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] text-amber-300">推断证据 {latest.evidenceGrade}</span></div>
+                <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-medium text-fs-text">最新封存信号</h3><span className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[9px] text-fs-accent-text">{regimeLabel}</span><span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] text-amber-800">推断证据 {latest.evidenceGrade}</span></div>
                 <p className="mt-0.5 text-[10px] text-fs-muted">模型 {latest.modelVersion} · 哈希 {latest.signalHash.slice(0, 12)}…</p>
               </div>
               <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 text-center text-[9px] text-fs-muted xl:w-auto xl:min-w-[30rem] xl:gap-2">
                 <div><div>数据归属月</div><div className="mt-0.5 text-xs tabular-nums text-fs-text">{latest.signalDate}</div></div><span>→</span>
-                <div><div>不可变冻结</div><div className="mt-0.5 text-xs tabular-nums text-emerald-300">{latest.frozenAt.slice(0, 10)}</div></div><span>→</span>
+                <div><div>不可变冻结</div><div className="mt-0.5 text-xs tabular-nums text-emerald-700">{latest.frozenAt.slice(0, 10)}</div></div><span>→</span>
                 <div><div>开始计分</div><div className="mt-0.5 text-xs tabular-nums text-fs-text">{latest.returnStartDate}</div></div>
               </div>
             </div>
@@ -152,7 +152,7 @@ export function SectorRegimeLiveLedgerPanel() {
                 <div key={row.horizonMonths} className="min-w-0 p-3" data-testid={`stage-g-horizon-${row.horizonMonths}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div><div className="text-sm font-semibold text-fs-text">T+{row.horizonMonths} 月</div><div className="mt-0.5 text-[9px] text-fs-muted">目标 {row.targetDate} · {row.modelId}</div></div>
-                    <div className="text-right"><span className={`rounded-full border px-2 py-0.5 text-[9px] ${row.status === "scored" ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-300" : "border-fs-border bg-fs-elevated text-fs-muted"}`}>{horizonStatus(row)}</span><div className={`mt-1 text-[9px] ${row.selectionPassed ? "text-fs-accent-text" : "text-amber-300"}`}>{row.selectionPassed ? "主要证据" : "失败复核，不升级证据"}</div></div>
+                    <div className="text-right"><span className={`rounded-full border px-2 py-0.5 text-[9px] ${row.status === "scored" ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-700" : "border-fs-border bg-fs-elevated text-fs-muted"}`}>{horizonStatus(row)}</span><div className={`mt-1 text-[9px] ${row.selectionPassed ? "text-fs-accent-text" : "text-amber-800"}`}>{row.selectionPassed ? "主要证据" : "失败复核，不升级证据"}</div></div>
                   </div>
                   <div className="mt-3 grid grid-cols-4 gap-1 text-center">
                     <div className="rounded bg-fs-elevated/50 py-1.5"><div className="text-[8px] text-fs-muted">IC</div><div className={`mt-0.5 text-[10px] tabular-nums ${valueClass(row.meanIc)}`}>{decimal(row.meanIc)}</div></div>

@@ -530,7 +530,7 @@ export function HistoricalSectorRotation() {
                   </div>
                 </div>
 
-                {item.caveat ? <p className="mt-2 text-[10px] leading-4 text-amber-300/80">注：{item.caveat}</p> : null}
+                {item.caveat ? <p className="mt-2 text-[10px] leading-4 text-amber-800">注：{item.caveat}</p> : null}
               </article>
             );
           })}

@@ -569,7 +569,7 @@ export function EquityScreenerClient() {
             </span>
           ) : null}
           {effectiveYear < FUNDAMENTAL_START_YEAR ? (
-            <span className="text-xs text-amber-500">
+            <span className="text-xs text-amber-800">
               所选日期早于 {FUNDAMENTAL_START_YEAR}：基本面/估值类因子无数据，已置灰
             </span>
           ) : null}
@@ -692,7 +692,7 @@ export function EquityScreenerClient() {
                   </span>
                 ) : null}
                 {unavailable ? (
-                  <span className="text-xs text-amber-500">所选日期无该因子数据</span>
+                  <span className="text-xs text-amber-800">所选日期无该因子数据</span>
                 ) : null}
                 <button
                   type="button"

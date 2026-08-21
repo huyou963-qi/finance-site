@@ -20,9 +20,9 @@ function decimal(value: number | null | undefined, digits = 3): string {
 }
 
 function verdictClass(verdict: SectorForwardVerdict): string {
-  if (verdict === "supported") return "border-emerald-400/40 bg-emerald-400/10 text-emerald-300";
-  if (verdict === "weak") return "border-amber-400/40 bg-amber-400/10 text-amber-300";
-  if (verdict === "unsupported") return "border-red-400/35 bg-red-400/10 text-red-300";
+  if (verdict === "supported") return "border-emerald-400/40 bg-emerald-400/10 text-emerald-700";
+  if (verdict === "weak") return "border-amber-400/40 bg-amber-400/10 text-amber-800";
+  if (verdict === "unsupported") return "border-red-400/35 bg-red-400/10 text-red-700";
   return "border-fs-border bg-fs-elevated text-fs-muted";
 }
 
@@ -184,7 +184,7 @@ export function SectorRegimeForwardStudyPanel({ variant = "research" }: { varian
                     <td className="px-3 py-2 font-medium text-fs-text">T+{row.horizonMonths} 月</td>
                     <td className="px-3 py-2 text-fs-text">
                       {row.modelLabel}
-                      <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[9px] ${row.selectionPassed ? "bg-fs-accent-soft text-fs-accent-text" : "bg-amber-400/10 text-amber-300"}`} title={row.selectionNote}>
+                      <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[9px] ${row.selectionPassed ? "bg-fs-accent-soft text-fs-accent-text" : "bg-amber-400/10 text-amber-800"}`} title={row.selectionNote}>
                         {row.selectionPassed ? "验证锁定" : "无模型通过"}
                       </span>
                     </td>
@@ -246,7 +246,7 @@ export function SectorRegimeForwardStudyPanel({ variant = "research" }: { varian
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-medium text-fs-text">当前模型会怎样排序</h3>
-                  <span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">{data.current.statusLabel}</span>
+                  <span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-800">{data.current.statusLabel}</span>
                 </div>
                 <p className="mt-0.5 text-[10px] text-fs-muted">{data.current.signalDate} · {REGIME_LABEL[data.current.regime]}。总体验证未通过，排序仅用于观察模型假设。</p>
               </div>

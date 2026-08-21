@@ -511,7 +511,7 @@ export function EquityRobustnessReportClient({ runId }: { runId: string }) {
 function HonestNote({ mode, fixed }: { mode: "scan" | "oos" | "walkforward"; fixed?: boolean }) {
   return (
     <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-xs text-fs-muted">
-      <div className="mb-1 font-medium text-amber-500/90">诚实边界</div>
+      <div className="mb-1 font-medium text-amber-800">诚实边界</div>
       {mode === "scan" ? (
         <p>
           扫描面呈现「参数邻域是否普遍有效」。单点惊艳而邻域塌陷 = 过拟合信号。Deflated Sharpe 已按

@@ -206,7 +206,7 @@ export function RegimeMethodologyNote() {
 
           {/* ── 已知弱点 ── */}
           <section className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-2">
-            <div className="mb-1 font-medium text-amber-500/90">已知弱点（读数时按此打折）</div>
+            <div className="mb-1 font-medium text-amber-800">已知弱点（读数时按此打折）</div>
             <ul className="list-disc space-y-1 pl-4 text-fs-muted">
               <li>
                 <span className="text-fs-text">方向判定仍会贴近门限</span>：原始 |增长差值| 中位数仅约 0.22，
