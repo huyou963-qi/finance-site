@@ -72,14 +72,31 @@ export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalC
   return p("国民经济", "其他宏观指标");
 }
 
+const FREQUENCY_GROUPS = [
+  { frequency: "年", label: "年频" },
+  { frequency: "季度", label: "季频" },
+  { frequency: "月", label: "月频" },
+  { frequency: "周", label: "周频" },
+  { frequency: "日", label: "日频" },
+] as const;
+
+/**
+ * 频率是目录叶节点的第一排序维度：同一业务子层里的年/季/月/周/日指标
+ * 必须分入名称明确的独立子目录，且按由低频到高频顺序展示。
+ */
 function boundedSubgroups(items: UnifiedCatalogItem[], subgroup: string) {
-  const sorted = [...items].sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
-  if (sorted.length <= MAX_CATALOG_LEAF_ITEMS) return [{ name: subgroup, items: sorted }];
-  const chunks = Array.from({ length: Math.ceil(sorted.length / MAX_CATALOG_LEAF_ITEMS) }, (_, index) => ({
-    name: `${subgroup}（${index + 1}）`,
-    items: sorted.slice(index * MAX_CATALOG_LEAF_ITEMS, (index + 1) * MAX_CATALOG_LEAF_ITEMS),
-  }));
-  return chunks;
+  return FREQUENCY_GROUPS.flatMap(({ frequency, label }) => {
+    const sorted = items
+      .filter((item) => item.frequency === frequency)
+      .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+    if (sorted.length === 0) return [];
+    const baseName = `${subgroup}（${label}）`;
+    if (sorted.length <= MAX_CATALOG_LEAF_ITEMS) return [{ name: baseName, items: sorted }];
+    return Array.from({ length: Math.ceil(sorted.length / MAX_CATALOG_LEAF_ITEMS) }, (_, index) => ({
+      name: `${baseName}·${index + 1}`,
+      items: sorted.slice(index * MAX_CATALOG_LEAF_ITEMS, (index + 1) * MAX_CATALOG_LEAF_ITEMS),
+    }));
+  });
 }
 
 function buildUsLayoutWithFallback(items: UnifiedCatalogItem[]): CatalogLayoutCountry {
@@ -106,7 +123,19 @@ function buildUsLayoutWithFallback(items: UnifiedCatalogItem[]): CatalogLayoutCo
     subgroup.itemKeys.push(key);
   }
   for (const category of categories) {
-    category.subgroups = category.subgroups.flatMap((subgroup) => {
+    // 目录模型只有一层子目录。把原本直接挂在主题下的指标放进“主题指标”
+    // 业务组后统一按频率拆分，保证整棵树不存在混频末端列表。
+    const directItems = category.itemKeys
+      .map((key) => byKey.get(key))
+      .filter((item): item is UnifiedCatalogItem => !!item);
+    category.itemKeys = [];
+    const inputSubgroups = [
+      ...category.subgroups,
+      ...(directItems.length
+        ? [{ id: randomUUID(), name: `${category.name}指标`, itemKeys: directItems.map((item) => item.key) }]
+        : []),
+    ];
+    category.subgroups = inputSubgroups.flatMap((subgroup) => {
       const subgroupItems = subgroup.itemKeys.map((key) => byKey.get(key)).filter((item): item is UnifiedCatalogItem => !!item);
       return boundedSubgroups(subgroupItems, subgroup.name).map((chunk) => ({ id: randomUUID(), name: chunk.name, itemKeys: chunk.items.map((item) => item.key) }));
     });

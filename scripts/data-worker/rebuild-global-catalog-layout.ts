@@ -12,18 +12,27 @@ async function main() {
   const preview = applyCatalogLayout(base, layout);
   let unassigned = 0;
   let oversized = 0;
+  let nonFrequencyLeaf = 0;
   for (const country of preview) for (const category of country.categories) {
     if (category.name === "未分配") {
       unassigned += category.items.length;
       console.error(`[unassigned] ${country.code}: ${category.items.map((item) => `${item.key} ${item.label}`).join(" | ")}`);
     }
+    if (category.items.length > 0) {
+      nonFrequencyLeaf += category.items.length;
+      console.error(`[mixed-frequency-direct] ${country.code} / ${category.name}: ${category.items.length}`);
+    }
     for (const subgroup of category.subgroups ?? []) if (subgroup.items.length > MAX_CATALOG_LEAF_ITEMS) {
       oversized++;
       console.error(`[oversized] ${country.code} / ${category.name} / ${subgroup.name}: ${subgroup.items.length}`);
     }
+    for (const subgroup of category.subgroups ?? []) if (!/（[年月季周日]频）(?:·\d+)?$/.test(subgroup.name)) {
+      nonFrequencyLeaf++;
+      console.error(`[missing-frequency] ${country.code} / ${category.name} / ${subgroup.name}`);
+    }
   }
-  console.log(`[rebuild-global-catalog-layout] 国家=${preview.length}，未分配=${unassigned}，超出末端上限=${oversized}`);
-  if (unassigned || oversized) throw new Error("全局目录分类约束未满足");
+  console.log(`[rebuild-global-catalog-layout] 国家=${preview.length}，未分配=${unassigned}，超出末端上限=${oversized}，未按频率分组=${nonFrequencyLeaf}`);
+  if (unassigned || oversized || nonFrequencyLeaf) throw new Error("全局目录分类约束未满足");
   if (dryRun) return console.log("[rebuild-global-catalog-layout] --dry-run：未写入数据库");
   await saveMacroCatalogLayout(layout, "rebuild-global-catalog-layout");
   clearFredCatalogCache();
