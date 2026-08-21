@@ -4,6 +4,7 @@ import { DataFetchMethod, DataGranularity, InstrumentKind, PrismaClient } from "
 import { fetchChinaOfficial } from "../../src/lib/data/scheduler/chinaOfficialProxy";
 import { defaultEconomicCalendarRule, computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
 import { upsertMacroObservations } from "../../src/lib/data/scheduler/upsertObservations";
+import { nbsRetailMonthlyRange } from "../../src/lib/data/scheduler/nbsRetail/catalog";
 
 loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
@@ -34,7 +35,7 @@ async function main() {
     const payload = await json<{ data: Period[] }>(`${base}/stream/esData`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cid: leaf._id, indicatorIds: wanted.map((item) => item._id), das: [{ text: "全国", value: "000000000000" }], dts: ["200001MM-203012MM"], showType: "1", rootId }),
+      body: JSON.stringify({ cid: leaf._id, indicatorIds: wanted.map((item) => item._id), das: [{ text: "全国", value: "000000000000" }], dts: [nbsRetailMonthlyRange()], showType: "1", rootId }),
     });
 
     for (const [indicatorId, label] of byId) {
@@ -61,7 +62,7 @@ async function main() {
       const points = payload.data.flatMap((period) => {
         const match = /^(\d{4})(\d{2})MM$/.exec(period.code);
         const value = period.values.find((item) => item._id === indicatorId)?.value;
-        return match && value != null ? [{ obsDate: new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1)), value: Number(value) }] : [];
+        return match && value != null && String(value).trim() !== "" ? [{ obsDate: new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1)), value: Number(value) }] : [];
       }).filter((point) => Number.isFinite(point.value));
       await upsertMacroObservations(prisma, instrument.id, points);
       series++;

@@ -1,5 +1,5 @@
 import type { ObservationPoint } from "../types";
-import { NBS_RETAIL_API, NBS_RETAIL_COMPONENTS, NBS_RETAIL_ROOT_ID, RETAIL_MEASURES, retailCode } from "./catalog";
+import { NBS_RETAIL_API, NBS_RETAIL_COMPONENTS, NBS_RETAIL_ROOT_ID, RETAIL_MEASURES, nbsRetailMonthlyRange, retailCode } from "./catalog";
 import { fetchChinaOfficial } from "../chinaOfficialProxy";
 let cache: { at: number; points: Map<string, ObservationPoint[]>; latest: Date } | null = null;
 export async function fetchNbsRetailHistory() {
@@ -7,7 +7,7 @@ export async function fetchNbsRetailHistory() {
   const points = new Map<string, ObservationPoint[]>(); let latest = new Date(0);
   for (const component of NBS_RETAIL_COMPONENTS) {
     const ids = Object.values(component.ids);
-    const response = await fetchChinaOfficial(NBS_RETAIL_API, { method: "POST", headers: { "Content-Type": "application/json", Referer: "https://data.stats.gov.cn/dg/website/page.html", "User-Agent": process.env.NBS_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0" }, body: JSON.stringify({ cid: component.cid, indicatorIds: ids, das: [{ text: "全国", value: "000000000000" }], dts: ["200001MM-203012MM"], showType: "1", rootId: NBS_RETAIL_ROOT_ID }), signal: AbortSignal.timeout(90_000) });
+    const response = await fetchChinaOfficial(NBS_RETAIL_API, { method: "POST", headers: { "Content-Type": "application/json", Referer: "https://data.stats.gov.cn/dg/website/page.html", "User-Agent": process.env.NBS_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0" }, body: JSON.stringify({ cid: component.cid, indicatorIds: ids, das: [{ text: "全国", value: "000000000000" }], dts: [nbsRetailMonthlyRange()], showType: "1", rootId: NBS_RETAIL_ROOT_ID }), signal: AbortSignal.timeout(90_000) });
     if (!response.ok) throw new Error(`国家数据社零 HTTP ${response.status}: ${component.label}`);
     const payload = await response.json() as { data?: Array<{ code?: string; values?: Array<{ _id?: string; value?: string | number | null }> }> };
     const measureById = new Map(RETAIL_MEASURES.map(m => [component.ids[m.key], m.key]));

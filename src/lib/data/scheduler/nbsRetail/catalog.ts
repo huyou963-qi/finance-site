@@ -3,6 +3,10 @@ export const NBS_RETAIL_API = "https://data.stats.gov.cn/dg/website/publicreleas
 export const NBS_RETAIL_ROOT_ID = "fc982599aa684be7969d7b90b1bd0e84";
 export const NBS_RETAIL_SYNC_SCRIPT = "scripts/data-worker/sync-nbs-retail.ts";
 export const NBS_RETAIL_SOURCE = { id: "nbs-retail", agencyId: "cn-nbs", name: "国家统计局社会消费品零售总额", baseUrl: "https://data.stats.gov.cn/", termsUrl: "https://www.stats.gov.cn/english/nbs/200701/t20070104_59236.html" } as const;
+export function nbsRetailMonthlyRange(start = "200001", now: Date = new Date()): string {
+  const end = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${start}MM-${end}MM`;
+}
 export type RetailMeasure = "current" | "cumulative" | "yoy" | "cumulative_yoy";
 export const RETAIL_MEASURES: readonly { key: RetailMeasure; label: string; unit: string }[] = [
   { key: "current", label: "当期值", unit: "亿元" }, { key: "cumulative", label: "累计值", unit: "亿元" },

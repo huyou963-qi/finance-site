@@ -92,18 +92,8 @@ export async function runDataSubscription(
     : parseReleaseRule(sub.releaseRule);
 
   const rule = effectiveRule;
-  if (
-    !options?.force &&
-    rule.type === "economic_calendar" &&
-    !rule.calendarMatch?.releaseAt
-  ) {
-    return {
-      status: "skipped",
-      rowsUpserted: 0,
-      rowsSkipped: 0,
-      error: "awaiting_calendar_match",
-    };
-  }
+  // economic_calendar 自带 fallback。没有匹配到第三方日历时，nextRunAt 已由
+  // fallback 控制；到期后必须允许采集，否则“固定间隔兜底”只会展示却永不执行。
 
   const run = await prisma.fetchRun.create({
     data: {
@@ -198,6 +188,7 @@ export async function runDataSubscription(
 
     const shouldRefreshCalendar =
       rule.type === "economic_calendar" &&
+      Boolean(rule.calendarMatch?.releaseAt) &&
       (hadNewData || status === FetchRunStatus.SUCCESS || sourceCaughtUp);
 
     if (shouldRefreshCalendar && !options?.skipCalendarRefresh) {
@@ -344,7 +335,6 @@ export async function listDueSubscriptions(
           }),
     },
     orderBy: [{ priority: "desc" }, { nextRunAt: "asc" }],
-    take: Math.max(limit * 8, limit),
     include: {
       source: true,
       instrument: { select: { id: true, code: true, name: true, metadata: true } },
@@ -359,14 +349,38 @@ export async function listDueSubscriptions(
     },
   });
 
-  return subs
-    .filter((sub) =>
+  const eligible = subs.filter((sub) =>
       subscriptionEligibleForSchedule({
         subscriptionEnabled: sub.enabled,
         adapterKind: sub.source.adapterKind,
         sourceSeriesKey: sub.sourceSeriesKey,
         metadata: sub.instrument.metadata,
       }),
-    )
-    .slice(0, limit);
+    );
+
+  // 发布包是一个原子工作单元。旧实现按“指标条数”截断：例如固投包 280 条只跑
+  // 前 20 条，第一条又会推进整包 nextRunAt，剩余 260 条因此永远错过本期。
+  // 这里先按发布包去重选择最多 limit 个工作单元，再把选中的包完整展开。
+  const selectedUnits: Array<{ packageId: string | null; firstId: string }> = [];
+  const seenPackages = new Set<string>();
+  for (const sub of eligible) {
+    const packageId = sub.releasePackageId ?? null;
+    if (packageId) {
+      if (seenPackages.has(packageId)) continue;
+      seenPackages.add(packageId);
+    }
+    selectedUnits.push({ packageId, firstId: sub.id });
+    if (selectedUnits.length >= limit) break;
+  }
+  const packageIds = new Set(
+    selectedUnits.flatMap((unit) => (unit.packageId ? [unit.packageId] : [])),
+  );
+  const standaloneIds = new Set(
+    selectedUnits.flatMap((unit) => (!unit.packageId ? [unit.firstId] : [])),
+  );
+  return eligible.filter(
+    (sub) =>
+      (sub.releasePackageId && packageIds.has(sub.releasePackageId)) ||
+      standaloneIds.has(sub.id),
+  );
 }

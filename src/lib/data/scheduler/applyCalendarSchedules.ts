@@ -3,6 +3,7 @@ import type { EconomicCalendarEvent } from "./economicCalendar/types";
 import {
   calendarSpecForPackageRow,
   loadEnabledReleasePackages,
+  parsePackageScheduleState,
   parsePackageReleaseTemplate,
   stripCalendarStateFromSubscriptionRule,
 } from "./releasePackageStore";
@@ -503,7 +504,6 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
     const nextEvent = findNextCalendarRelease(events, spec, now);
     if (!nextEvent) {
       const windowDays = calendarWindowDays();
-      const nextRunAt = calendarResyncRunAt(now);
       const scheduleState: ReleasePackageScheduleState = {
         calendarSync: {
           status: "no_match",
@@ -511,6 +511,20 @@ export async function syncSubscriptionsFromTradingEconomicsCalendar(
           syncedAt: now.toISOString(),
         },
       };
+      const previousState = parsePackageScheduleState(pkg.scheduleState);
+      // sync-calendar 每小时运行。若每次 no_match 都从“现在”重算 fallback，
+      // 12 小时后的探测点会被永久向后推，worker 永远等不到到期订阅。
+      // 首次进入 no_match 时初始化 fallback；之后保持既有探测点（包括已到期的
+      // 时间），由 worker 成功执行后再推进下一次探测。
+      const fallbackNextRunAt =
+        nextRunAtFromCalendarRule(
+          { ...template, calendarSync: scheduleState.calendarSync },
+          now,
+        ) ?? calendarResyncRunAt(now);
+      const nextRunAt =
+        previousState.calendarSync?.status === "no_match" && pkg.nextRunAt
+          ? pkg.nextRunAt
+          : fallbackNextRunAt;
       await persistPackageSchedule(
         prisma,
         pkg.id,
