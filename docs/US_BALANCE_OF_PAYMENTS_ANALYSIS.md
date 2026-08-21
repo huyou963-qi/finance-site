@@ -73,12 +73,14 @@ BEA 的符号约定必须保持：
 ## 数据、更新与口径
 
 - 来源：BEA，经 FRED API 获取；数据库只保存原始水平值。
-- 国际交易账户9条序列：季度、季调，自1999Q1起。
+- 国际交易账户完整标准口径共108条：季度、季调、百万美元；其中本域 seed 107 条，复用“美国对外部门与美元”已持有的 `IEABC` 1 条。本次在原四图指标之外补充98条，供指标目录和后续模板复用。
+- 108条的筛选边界是 FRED *U.S. International Transactions* 发布包内仍列示的季度季调百万美元序列；不重复保存年度、季度未季调、十亿美元缩放副本和已标记 discontinued 的历史副本。
 - 国际投资头寸3条序列：季度期末、未季调，自2006Q1起。
 - 更新分组：`us.bea.international_transactions`、`us.bea.iip`。
-- 自动更新：每个成员订阅按 `probe_interval` 每168小时独立检查；`data:worker` 拉取到期订阅。发布包只做同源分组和一键批量同步，不参与经济日历匹配。
+- 自动更新：国际交易账户108条绑定同一个 `economic_calendar` 发布包，由 `data:sync-calendar` 对齐 Current Account 发布事件，再由 `data:worker` 增量拉取；IIP发布包没有稳定的经济日历标题，仍按 `probe_interval=168h` 检查。
 - 人工立即更新：管理端“立即同步发布包”，或逐条执行 `npm run data:sync-one -- sched_fred_<ID>`。
-- 建议计划任务：每5分钟运行 `data:worker`；站点仍可按全局约定每小时运行 `data:sync-calendar`，但本维度的 probe 订阅不依赖该任务。
+- 建议计划任务：每小时运行 `data:sync-calendar`，每5分钟运行 `data:worker`。
+- 数据质量例外：`IEASAD`（季节调整差额）仍列在官方发布包中，但最新非空值停在2019Q4。系统保留其完整历史并继续随发布包探测，以便官方恢复报数；不把缺失季度补零，也不伪造更新状态。
 
 ## 每期检查清单
 

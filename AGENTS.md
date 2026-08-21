@@ -137,7 +137,7 @@ npm run db:studio        # Prisma Studio
 
 「美国对外部门与美元」：`data:seed-external-dollar` / `data:verify-external-dollar`（加 `--db`）；文档 [docs/US_EXTERNAL_DOLLAR_ANALYSIS.md](./docs/US_EXTERNAL_DOLLAR_ANALYSIS.md)。
 
-「美国国际收支」：`data:seed-us-balance-of-payments` / `data:verify-us-balance-of-payments -- --db`；12 条 BEA/FRED 季度序列按 `us.bea.international_transactions` 与 `us.bea.iip` 两个发布包每 168 小时探测更新；文档 [docs/US_BALANCE_OF_PAYMENTS_ANALYSIS.md](./docs/US_BALANCE_OF_PAYMENTS_ANALYSIS.md)，Spec [docs/specs/us-balance-of-payments.spec.md](./docs/specs/us-balance-of-payments.spec.md)。
+「美国国际收支」：`data:seed-us-balance-of-payments` / `data:verify-us-balance-of-payments -- --db`；BOP现行标准口径108条（本域 seed 107条、复用 `IEABC` 1条）按 `us.bea.international_transactions` 发布日历更新，IIP精选4条按 `us.bea.iip` 每168小时探测；文档 [docs/US_BALANCE_OF_PAYMENTS_ANALYSIS.md](./docs/US_BALANCE_OF_PAYMENTS_ANALYSIS.md)，Spec [docs/specs/us-balance-of-payments.spec.md](./docs/specs/us-balance-of-payments.spec.md)。
 「美国制造业与库存周期」：`data:seed-industry-inventory` / `data:verify-industry-inventory`（加 `--db`）；文档 [docs/US_INDUSTRY_INVENTORY_ANALYSIS.md](./docs/US_INDUSTRY_INVENTORY_ANALYSIS.md)。
 
 「中国国家统计局 PMI」：`data:seed-nbs-pmi` → `data:sync-nbs-pmi` / `data:verify-nbs-pmi`（加 `--db`）；制造业、非制造业及分项走新版国家数据 JSON 全历史 + 官方月报 Excel 首发，Spec [docs/specs/cn-nbs-pmi.spec.md](./docs/specs/cn-nbs-pmi.spec.md)。

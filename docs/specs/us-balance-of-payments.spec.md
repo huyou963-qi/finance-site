@@ -1,6 +1,6 @@
 # Spec：美国国际收支（us-balance-of-payments）
 
-> 按 [SPEC-TEMPLATE.md](./SPEC-TEMPLATE.md) 填写。Agent A→B→D→E 流程已完成；本 Spec 的 12 条原始指标、四图模板、更新调度与验收证据均已落地。
+> 按 [SPEC-TEMPLATE.md](./SPEC-TEMPLATE.md) 填写。Agent A→B→D→E 流程已完成；四图模板的12条原始指标及BOP完整标准科目的补充入库、更新调度与验收证据均已落地。
 
 ---
 
@@ -13,9 +13,9 @@
 | 内置文件夹 id | `folder-builtin-us-balance-of-payments` |
 | 模板 id 前缀 | `builtin-us-balance-of-payments-` |
 | 分支 | `feature/macro-us-balance-of-payments` |
-| 状态 | `verified`（2026-08-12，Agent E 验收通过） |
+| 状态 | `verified`（2026-08-12模板验收；2026-08-21完整BOP科目补充验收） |
 | 对应框架页维度 | `external`（外部与贸易） |
-| 评审记录 | 2026-08-12：Agent A 提交设计并经人工评审通过；Agent B 完成 12 条指标入库、回填和发布包调度；Agent C 因复用 FRED API 跳过；Agent D 完成模板与文档；Agent E 完成专项数据校验、页面渲染、测试与生产构建验收。 |
+| 评审记录 | 2026-08-12：Agent A 提交设计并经人工评审通过；Agent B 完成12条模板指标入库；Agent C 因复用 FRED API 跳过；Agent D/E 完成模板与验收。2026-08-21：Agent B复用同一FRED适配器、调度器、事实表和writer，补齐98条目录指标并完成历史、调度与幂等验收。 |
 
 ---
 
@@ -84,13 +84,13 @@
 
 | # | seriesKey | 显示名 | 频率 | 单位 | 发布机构 | 获取状态 | 获取方式 kind | 源标识 | 历史/核验依据 | 调度方式 | 模板/图槽 | 计算 | 去重 |
 |---|-----------|--------|------|------|----------|----------|---------------|--------|---------------|----------|-----------|------|------|
-| 1 | `fred:IEABCS` | 服务差额 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEABCS](https://fred.stlouisfed.org/series/IEABCS) | FRED 官方页核对 Frequency/Units/Release；公开 CSV 1999-Q1→2026-Q1，共 109 期 | 加入既有发布包 `us.bea.international_transactions`，probe 168h | ①-1 | none | ✅ 未被美国其他内置模板占用；≠ `BOPGSTB` |
+| 1 | `fred:IEABCS` | 服务差额 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEABCS](https://fred.stlouisfed.org/series/IEABCS) | FRED 官方页核对 Frequency/Units/Release；公开 CSV 1999-Q1→2026-Q1，共 109 期 | 加入既有发布包 `us.bea.international_transactions`，跟随发布日历 | ①-1 | none | ✅ 未被美国其他内置模板占用；≠ `BOPGSTB` |
 | 2 | `fred:IEABCPI` | 初次收入差额 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEABCPI](https://fred.stlouisfed.org/series/IEABCPI) | 同上；1999-Q1→2026-Q1，共 109 期 | 同上 | ①-1 | none | ✅ 未占用；≠ 经常账户总差额 `IEABC` |
 | 3 | `fred:IEABCSI` | 二次收入差额 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEABCSI](https://fred.stlouisfed.org/series/IEABCSI) | 同上；1999-Q1→2026-Q1，共 109 期 | 同上 | ①-1 | none | ✅ 未占用；≠ 经常账户总差额 `IEABC` |
 | 4 | `fred:IEAA` | 美国取得对外金融资产（不含衍生品） | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEAA](https://fred.stlouisfed.org/series/IEAA) | FRED 官方页核对：资产净增加/金融流出为正；1999-Q1→2026-Q1，共 109 期 | 同上 | ①-2 | none | ✅ 未占用 |
 | 5 | `fred:IEAI` | 美国发生对外金融负债（不含衍生品） | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEAI](https://fred.stlouisfed.org/series/IEAI) | FRED 官方页核对：负债净增加/金融流入为正；1999-Q1→2026-Q1，共 109 期 | 同上 | ①-2 | none | ✅ 未占用 |
-| 6 | `fred:IEANLF` | 金融账户净借贷 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEANLF](https://fred.stlouisfed.org/series/IEANLF) | FRED 官方页核对：净贷出为正、净借入为负，口径含金融衍生品净交易；1999-Q1→2026-Q1，共 109 期 | 加入 `us.bea.international_transactions`，probe 168h | ①-2 | none | ✅ 未占用；采用官方总量，不由 IEAA/IEAI 自行推算 |
-| 7 | `fred:IEAIDI` | 直接投资负债流量 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEAIDI](https://fred.stlouisfed.org/series/IEAIDI) | FRED 官方页核对 Frequency/Units/Release；1999-Q1→2026-Q1，共 109 期 | 加入 `us.bea.international_transactions`，probe 168h | ①-3 | none | ✅ 未占用 |
+| 6 | `fred:IEANLF` | 金融账户净借贷 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEANLF](https://fred.stlouisfed.org/series/IEANLF) | FRED 官方页核对：净贷出为正、净借入为负，口径含金融衍生品净交易；1999-Q1→2026-Q1，共 109 期 | 加入 `us.bea.international_transactions`，跟随发布日历 | ①-2 | none | ✅ 未占用；采用官方总量，不由 IEAA/IEAI 自行推算 |
+| 7 | `fred:IEAIDI` | 直接投资负债流量 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEAIDI](https://fred.stlouisfed.org/series/IEAIDI) | FRED 官方页核对 Frequency/Units/Release；1999-Q1→2026-Q1，共 109 期 | 加入 `us.bea.international_transactions`，跟随发布日历 | ①-3 | none | ✅ 未占用 |
 | 8 | `fred:IEAIPI` | 证券投资负债流量 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEAIPI](https://fred.stlouisfed.org/series/IEAIPI) | 同上；1999-Q1→2026-Q1，共 109 期 | 同上 | ①-3 | none | ✅ 未占用 |
 | 9 | `fred:IEAIOI` | 其他投资负债流量 | 季 | 百万美元，季调 | BEA | `gap_new_source` | `fred_api` | [IEAIOI](https://fred.stlouisfed.org/series/IEAIOI) | 同上；1999-Q1→2026-Q1，共 109 期 | 同上 | ①-3 | none | ✅ 未占用 |
 | 10 | `fred:IIPDIRELMVQ` | 直接投资负债存量（市场价值） | 季末 | 百万美元，未季调 | BEA | `gap_new_source` | `fred_api` | [IIPDIRELMVQ](https://fred.stlouisfed.org/series/IIPDIRELMVQ) | FRED 官方 IIP 页核对期末口径；2006-Q1→2026-Q1，共 81 期 | 加入既有发布包 `us.bea.iip`，probe 168h | ①-4 | none | ✅ 未占用；≠ 净 IIP `IIPUSNETIQ` |
@@ -101,7 +101,7 @@
 
 | 包 id | 现状 | 本维度追加成员 | 说明 |
 |-------|------|----------------|------|
-| `us.bea.international_transactions` | 已存在，当前含 `IEABC`；季度，probe 168h | `IEABCS`、`IEABCPI`、`IEABCSI`、`IEAA`、`IEAI`、`IEANLF`、`IEAIDI`、`IEAIPI`、`IEAIOI` | 同属 BEA *U.S. International Transactions*；只扩充成员，不新建包 |
+| `us.bea.international_transactions` | 已存在并复用；季度发布日历 | BOP现行标准口径108条，其中复用 `IEABC`、本域负责107条 | 同属 BEA *U.S. International Transactions*；只扩充成员，不新建包或平行抓取链 |
 | `us.bea.iip` | 已存在，当前含 `IIPUSNETIQ`；季度，probe 168h | `IIPDIRELMVQ`、`IIPPORTLQ`、`IIPOTHELQ` | 同属 BEA *U.S. International Investment Position*；只扩充成员，不新建包 |
 
 ### 3.2 需要新数据源的指标（Agent C 输入）
@@ -112,10 +112,20 @@
 
 | 范围 | 入库结果 | 发布包与更新方式 | 下次检查时间（本地验收库） |
 |------|----------|------------------|----------------------------|
-| `IEABCS`、`IEABCPI`、`IEABCSI`、`IEAA`、`IEAI`、`IEANLF`、`IEAIDI`、`IEAIPI`、`IEAIOI` | 每条 109 期，1999-Q1→2026-Q1 | FRED API；`us.bea.international_transactions`；季度 `probe_interval=168h` | 均有值；幂等 seed 后为 `2026-08-19T03:07:47Z` 附近 |
+| `IEABCS`、`IEABCPI`、`IEABCSI`、`IEAA`、`IEAI`、`IEANLF`、`IEAIDI`、`IEAIPI`、`IEAIOI` | 每条 109 期，1999-Q1→2026-Q1 | FRED API；`us.bea.international_transactions`；`economic_calendar` | 均有值；随 Current Account 发布事件更新 |
 | `IIPDIRELMVQ`、`IIPPORTLQ`、`IIPOTHELQ` | 每条 81 期，2006-Q1→2026-Q1 | FRED API；`us.bea.iip`；季度 `probe_interval=168h` | 均有值；幂等 seed 后为 `2026-08-19T03:07:48Z` 附近 |
 
-两个发布包均沿用现有 BEA/FRED 通道，不依赖经济日历标题匹配。发布包只负责同源分组和管理端“立即同步发布包”；每个成员保留自己的 `probe_interval=168h` 与 `nextRunAt`，由 `data:worker` 到期后经 FRED adapter 增量 upsert。因 `probePkg` 按设计不参与日历解析，`data:sync-calendar` 显示“发布包日历配置无效”是预期提示，不会覆盖成员的独立调度。部署时 `npm run data:apply` 会通过 catalog registry 幂等重建注册、发布包成员和调度配置。
+两个发布包均沿用现有 BEA/FRED 通道。国际交易账户已改为匹配 Current Account 经济日历，IIP继续按 `probe_interval=168h` 独立探测；`data:worker` 到期后经统一FRED adapter和writer增量upsert。部署时 `npm run data:apply` 会通过catalog registry幂等重建注册、发布包成员和调度配置。
+
+### 3.4 Agent B完整BOP科目补充（2026-08-21）
+
+- 官方全集盘点：FRED release 49 共550条，剔除228条已停更系列；余下口径中有108条“Quarterly, Seasonally Adjusted, Millions of Dollars”，作为不重复的季度标准事实。季度未季调、年度未季调和十亿美元缩放副本不重复入库。
+- 复用门：108条中数据库原有10条；`IEABC`继续由 `external-dollar` 域持有，其他9条是本模板已有指标。本轮只新增剩余98条，没有新增adapter、事实表、writer或平行计算链。
+- 官方页核验：108/108条逐一核对FRED公开页的Frequency、Units、Seasonal Adjustment和Release字段；98条新增序列全部通过统一FRED API完成历史回填。
+- 目录分组：国际收支总表14、金融账户资产22、金融账户负债14、经常账户借方28、经常账户贷方30；均低于单一末端组48条上限。98条补充项只进入指标目录，不自动占用内置模板槽位，因此不写入 `USED-INDICATORS.md`。
+- 更新：`us.bea.international_transactions`含108个成员，2026-08-21本地日历校准到2026-09-24 Current Account事件；IIP包保持168小时探测。
+- 例外：`IEASAD`仍在官方现行发布页中，但最新非空观测停在2019Q4。保留84期真实历史并继续随发布包探测，不补零、不合成、不把其标成来源正常更新。
+- 验收：专项DB校验108/108 BOP成员、4/4 IIP成员通过；六个业务分组的Instrument、Subscription、来源、频率、单位、历史和调度全部通过。
 
 ---
 
@@ -169,6 +179,8 @@
 **数据（Agent B 完成后）**
 
 - [x] 12 条原始指标全部创建 `Instrument`、`DataSubscription` 并完成历史回填
+- [x] 补齐98条目录指标；BOP现行标准口径达到108条且无同义频率/季调/缩放副本
+- [x] 108条官方FRED页面逐条核验，98条新增序列历史回填成功
 - [x] 交易流序列覆盖 1999-Q1→2026-Q1；IIP 存量序列覆盖 2006-Q1→2026-Q1
 - [x] `data:verify -- --catalog=us-balance-of-payments -- --db` 通过
 - [x] 两个既有 BEA 发布包包含本维度新增成员，全部订阅的 `nextRunAt` 有值

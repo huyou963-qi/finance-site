@@ -9,8 +9,8 @@ import {
  * 美国对外部门与美元 — FRED 种子目录
  *
  * Spec: docs/specs/us-external-dollar.spec.md
- * 月频贸易/进出口价格有官方发布日历 → economic_calendar；
- * 日频 H.10 汇率与季频 BEA 国际账户无 TE 日历事件 → probe_interval。
+ * 月频贸易/进出口价格与 BEA 国际交易账户有发布日历 → economic_calendar；
+ * 日频 H.10 汇率与 IIP 季频存量 → probe_interval。
  */
 
 export type ExternalDollarScheduleKind = "calendar" | "probe";
@@ -180,7 +180,7 @@ export const EXTERNAL_DOLLAR_FRED_SERIES: readonly ExternalDollarFredSeedRow[] =
     "季",
     "QUARTERLY",
     "百万美元",
-    "probe",
+    "calendar",
     "us.bea.international_transactions",
   ),
   externalDollarFredRow(

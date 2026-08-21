@@ -7,6 +7,7 @@ import type { ReleasePackageDef, ReleasePackageMemberRule } from "./releasePacka
 import type { CalendarMatchSpec } from "./teEventMap";
 import { mergedUsovFredMap } from "./usovFredMap";
 import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
+import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPaymentsFredSeedCatalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -871,24 +872,17 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       fredSeriesIds: ["DTWEXBGS", "DTWEXAFEGS", "DTWEXEMEGS", "DEXUSEU"],
     },
   }),
-  probePkg("us.bea.international_transactions", "美国国际交易账户", {
+  pkg("us.bea.international_transactions", "美国国际交易账户", {
     labelEn: "U.S. International Transactions",
     granularity: "QUARTERLY",
-    intervalHours: 168,
     sortOrder: 233,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["current account", "international transactions"],
+      excludeKeywords: ["goods trade balance", "trade balance"],
+    },
     members: {
-      fredSeriesIds: [
-        "IEABC",
-        "IEABCS",
-        "IEABCPI",
-        "IEABCSI",
-        "IEAA",
-        "IEAI",
-        "IEANLF",
-        "IEAIDI",
-        "IEAIPI",
-        "IEAIOI",
-      ],
+      fredSeriesIds: [...US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS],
     },
   }),
   probePkg("us.bea.iip", "美国国际投资头寸", {

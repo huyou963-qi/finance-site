@@ -24,6 +24,7 @@ import {
   fredCatalogKey,
   readOnboardingStatus,
 } from "@/lib/data/indicatorOnboarding";
+import { US_BOP_SUPPLEMENTAL_FRED_SERIES } from "@/lib/data/scheduler/usBalanceOfPaymentsFredSeedCatalog";
 
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -237,6 +238,12 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "IIPDIRELMVQ", label: "直接投资负债存量（市场价值，百万美元）", category: "对外贸易与汇率", frequency: "季度" },
   { id: "IIPPORTLQ", label: "证券投资负债存量（百万美元）", category: "对外贸易与汇率", frequency: "季度" },
   { id: "IIPOTHELQ", label: "其他投资负债存量（百万美元）", category: "对外贸易与汇率", frequency: "季度" },
+  ...US_BOP_SUPPLEMENTAL_FRED_SERIES.map((row) => ({
+    id: row.fredId,
+    label: `${row.displayName}（百万美元）`,
+    category: `国际收支·${row.accountGroup}`,
+    frequency: "季度" as const,
+  })),
   { id: "IQ", label: "出口价格指数", category: "对外贸易与汇率", frequency: "月" },
   { id: "IR", label: "进口价格指数", category: "对外贸易与汇率", frequency: "月" },
   { id: "W369RG3Q066SBEA", label: "贸易条件指数", category: "对外贸易与汇率", frequency: "季度" },

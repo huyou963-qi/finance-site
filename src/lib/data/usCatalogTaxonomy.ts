@@ -38,7 +38,17 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
     "政府支出核算",
   ],
   地产与建筑: ["开工与销售", "抵押利率", "房价与可负担性", "住房拖欠"],
-  对外与汇率: ["贸易", "汇率", "商品期货持仓"],
+  对外与汇率: [
+    "贸易",
+    "汇率",
+    "国际收支总表",
+    "经常账户贷方",
+    "经常账户借方",
+    "金融账户资产",
+    "金融账户负债",
+    "国际投资头寸",
+    "商品期货持仓",
+  ],
 };
 
 const FRED_CPI = new Set(
@@ -220,6 +230,13 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   if (FRED_HOUSING_MORTGAGE.has(id)) return p("地产与建筑", "抵押利率");
   if (FRED_HOUSING_PRICE.has(id)) return p("地产与建筑", "房价与可负担性");
   if (id === "DRSFRMACBS") return p("地产与建筑", "住房拖欠");
+  // BEA 国际交易账户按账表结构拆分目录；各末端组均少于 48 条。
+  if (id.startsWith("IEAA")) return p("对外与汇率", "金融账户资产");
+  if (id.startsWith("IEAI")) return p("对外与汇率", "金融账户负债");
+  if (id.startsWith("IEAX")) return p("对外与汇率", "经常账户贷方");
+  if (id.startsWith("IEAM")) return p("对外与汇率", "经常账户借方");
+  if (id.startsWith("IEA")) return p("对外与汇率", "国际收支总表");
+  if (id.startsWith("IIP")) return p("对外与汇率", "国际投资头寸");
   if (FRED_TRADE.has(id)) return p("对外与汇率", "贸易");
   if (FRED_FX.has(id)) return p("对外与汇率", "汇率");
   return null;
