@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { HistoricalSectorRotation } from "@/components/equity/HistoricalSectorRotation";
 import { SectorRegimeForwardStudyPanel } from "@/components/equity/SectorRegimeForwardStudyPanel";
 import { SectorRegimeLiveLedgerPanel } from "@/components/equity/SectorRegimeLiveLedgerPanel";
+import { SectorRegimeNowcastPanel } from "@/components/equity/SectorRegimeNowcastPanel";
 
 type View = "current" | "history" | "evidence";
 type FundamentalRow = {
@@ -92,7 +93,7 @@ export function EquitySectorsClient() {
         </nav>
       </section>
 
-      {view === "current" ? <><SectorRegimeForwardStudyPanel variant="overview" /><CurrentFundamentalPanel rows={fundRows} /></> : null}
+      {view === "current" ? <><SectorRegimeNowcastPanel /><SectorRegimeForwardStudyPanel variant="overview" /><CurrentFundamentalPanel rows={fundRows} /></> : null}
       {view === "history" ? <HistoricalSectorRotation /> : null}
       {view === "evidence" ? <><SectorRegimeForwardStudyPanel variant="research" /><SectorRegimeLiveLedgerPanel /></> : null}
     </div>

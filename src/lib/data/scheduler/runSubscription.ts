@@ -42,6 +42,16 @@ export type SubscriptionWithRelations = DataSubscription & {
   } | null;
 };
 
+export type RunDataSubscriptionOptions = {
+  force?: boolean;
+  skipCalendarRefresh?: boolean;
+  /**
+   * 仅做单序列新鲜度补检时保留原发布日程，避免提前检查一个发布包成员后
+   * 把整包 nextRunAt 推进、令其他成员错过本期。
+   */
+  preserveNextRunAt?: boolean;
+};
+
 function diffDays(a: Date, b: Date): number {
   return Math.round((a.getTime() - b.getTime()) / 86_400_000);
 }
@@ -49,7 +59,7 @@ function diffDays(a: Date, b: Date): number {
 export async function runDataSubscription(
   prisma: PrismaClient,
   sub: SubscriptionWithRelations,
-  options?: { force?: boolean; skipCalendarRefresh?: boolean },
+  options?: RunDataSubscriptionOptions,
 ): Promise<SubscriptionRunResult> {
   const now = new Date();
   // 目录树中的“彻底删除”会留下 tombstone；即使未来 seed 又写回订阅，
@@ -182,13 +192,15 @@ export async function runDataSubscription(
 
     const releaseRuleChanged = updatedRule !== rule;
 
-    let nextRunAt =
-      scheduleAfterSuccessfulFetch(updatedRule, hadNewData, new Date()) ??
-      computeNextRunAt(updatedRule, new Date());
+    let nextRunAt = options?.preserveNextRunAt
+      ? sub.nextRunAt
+      : scheduleAfterSuccessfulFetch(updatedRule, hadNewData, new Date()) ??
+        computeNextRunAt(updatedRule, new Date());
 
     const shouldRefreshCalendar =
       rule.type === "economic_calendar" &&
       Boolean(rule.calendarMatch?.releaseAt) &&
+      !options?.preserveNextRunAt &&
       (hadNewData || status === FetchRunStatus.SUCCESS || sourceCaughtUp);
 
     if (shouldRefreshCalendar && !options?.skipCalendarRefresh) {
@@ -237,7 +249,7 @@ export async function runDataSubscription(
       },
     });
 
-    if (sub.releasePackageId && nextRunAt) {
+    if (!options?.preserveNextRunAt && sub.releasePackageId && nextRunAt) {
       await prisma.releasePackage.update({
         where: { id: sub.releasePackageId },
         data: { nextRunAt },

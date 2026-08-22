@@ -786,3 +786,369 @@ export async function getRegimeAsOfDay(dateIso: string): Promise<StoredRegime | 
   });
   return row ? rowToStored(row) : null;
 }
+
+// ────────────────────────────────────────────────────────── 当前环境 Nowcast
+
+export type RegimeNowcastConfidence = "high" | "medium" | "low";
+export type RegimeNowcastAxis = "growth" | "inflation" | "rates";
+
+export type RegimeNowcastIndicator = {
+  code: string;
+  labelZh: string;
+  axis: RegimeNowcastAxis;
+  latestDate: string | null;
+  latestValue: number | null;
+  comparisonDate: string | null;
+  comparisonValue: number | null;
+  change: number | null;
+  changeKind: "absolute" | "percent";
+  vote: -1 | 0 | 1;
+  directionLabel: string;
+  fresh: boolean;
+};
+
+export type MacroRegimeNowcast = {
+  version: "regime-nowcast-v1";
+  generatedAt: string;
+  asOfDate: string;
+  cadenceLabel: string;
+  official: {
+    signalDate: string;
+    updatedAt: string | null;
+    regime: DalioQuadrant | null;
+    growthDirection: GrowthDirection | null;
+    inflationState: InflationState;
+    visibleMonth: RegimeInputs["visibleMonth"];
+  } | null;
+  live: {
+    regime: DalioQuadrant | null;
+    growthDirection: GrowthDirection | null;
+    inflationState: InflationState;
+    visibleMonth: RegimeInputs["visibleMonth"];
+    growthScore: number;
+    inflationScore: number;
+    confidence: RegimeNowcastConfidence;
+    coverage: number;
+    changedFromOfficial: boolean;
+    dataThrough: string | null;
+    summary: string;
+    indicators: RegimeNowcastIndicator[];
+  } | null;
+  limitations: string[];
+};
+
+type NowcastIndicatorDefinition = {
+  code: string;
+  labelZh: string;
+  axis: RegimeNowcastAxis;
+  changeKind: "absolute" | "percent";
+  positiveThreshold: number;
+  negativeThreshold: number;
+  /** +1 表示指标上行对应轴方向上行；-1 表示上行对应轴方向下行。 */
+  polarity: 1 | -1;
+};
+
+/**
+ * 高频确认项只选择已在 scheduler/canonical MacroObservation 中维护的序列。
+ * 阈值为事前固定的解释阈值，不以行业收益反向调参，也不产生预期收益率。
+ */
+const REGIME_NOWCAST_INDICATORS: readonly NowcastIndicatorDefinition[] = [
+  {
+    code: "sched_fred_T10Y3M",
+    labelZh: "10Y−3M 曲线",
+    axis: "growth",
+    changeKind: "absolute",
+    positiveThreshold: 0.25,
+    negativeThreshold: -0.25,
+    polarity: 1,
+  },
+  {
+    code: "sched_fred_BAMLH0A0HYM2",
+    labelZh: "高收益债 OAS",
+    axis: "growth",
+    changeKind: "absolute",
+    positiveThreshold: 0.25,
+    negativeThreshold: -0.25,
+    polarity: -1,
+  },
+  {
+    code: "sched_fred_VIXCLS",
+    labelZh: "VIX",
+    axis: "growth",
+    changeKind: "percent",
+    positiveThreshold: 0.15,
+    negativeThreshold: -0.15,
+    polarity: -1,
+  },
+  {
+    code: "sched_fred_T10YIE",
+    labelZh: "10Y 通胀预期",
+    axis: "inflation",
+    changeKind: "absolute",
+    positiveThreshold: 0.15,
+    negativeThreshold: -0.15,
+    polarity: 1,
+  },
+  {
+    code: "sched_fred_DCOILWTICO",
+    labelZh: "WTI 原油",
+    axis: "inflation",
+    changeKind: "percent",
+    positiveThreshold: 0.08,
+    negativeThreshold: -0.08,
+    polarity: 1,
+  },
+  {
+    code: "sched_fred_DGS10",
+    labelZh: "10Y 国债收益率",
+    axis: "rates",
+    changeKind: "absolute",
+    positiveThreshold: 0.20,
+    negativeThreshold: -0.20,
+    polarity: 1,
+  },
+] as const;
+
+/** 供统一 scheduler 标记更新优先级；这里只导出消费者清单，不拥有抓取职责。 */
+export const REGIME_NOWCAST_INPUT_CODES = REGIME_NOWCAST_INDICATORS.map((item) => item.code);
+
+function isoDay(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function dayDiff(left: string, right: string): number {
+  return Math.round(
+    (new Date(`${left}T00:00:00.000Z`).getTime() -
+      new Date(`${right}T00:00:00.000Z`).getTime()) /
+      86_400_000,
+  );
+}
+
+function meanVote(indicators: readonly RegimeNowcastIndicator[], axis: RegimeNowcastAxis): number {
+  const usable = indicators.filter((item) => item.axis === axis && item.fresh && item.change != null);
+  return usable.length
+    ? usable.reduce((sum, item) => sum + item.vote, 0) / usable.length
+    : 0;
+}
+
+function liveDirection(
+  score: number,
+  fallback: GrowthDirection | null,
+): GrowthDirection | null {
+  if (score >= 0.25) return "rising";
+  if (score <= -0.25) return "falling";
+  return fallback;
+}
+
+function liveInflation(score: number, fallback: InflationState): InflationState {
+  if (score >= 0.25) return "rising";
+  if (score <= -0.25) return "falling";
+  return fallback;
+}
+
+export type MacroRegimeNowcastClassification = {
+  regime: DalioQuadrant | null;
+  growthDirection: GrowthDirection | null;
+  inflationState: InflationState;
+  growthScore: number;
+  inflationScore: number;
+  confidence: RegimeNowcastConfidence;
+  coverage: number;
+  dataThrough: string | null;
+};
+
+/** 纯函数：便于宏观、量化和行业消费者对同一组实时证据做口径对账。 */
+export function classifyMacroRegimeNowcast(options: {
+  indicators: readonly RegimeNowcastIndicator[];
+  fallbackGrowth: GrowthDirection | null;
+  fallbackInflation: InflationState;
+}): MacroRegimeNowcastClassification {
+  const growthScore = meanVote(options.indicators, "growth");
+  const inflationScore = meanVote(options.indicators, "inflation");
+  const growthDirection = liveDirection(growthScore, options.fallbackGrowth);
+  const inflationState = liveInflation(inflationScore, options.fallbackInflation);
+  const freshIndicators = options.indicators.filter((item) => item.fresh && item.change != null);
+  const coverage = options.indicators.length ? freshIndicators.length / options.indicators.length : 0;
+  const growthEvidence = freshIndicators.filter((item) => item.axis === "growth").length;
+  const inflationEvidence = freshIndicators.filter((item) => item.axis === "inflation").length;
+  const confidence: RegimeNowcastConfidence = coverage >= 0.8 && growthEvidence >= 2 && inflationEvidence >= 2
+    ? "high"
+    : coverage >= 0.5 && growthEvidence >= 1 && inflationEvidence >= 1
+      ? "medium"
+      : "low";
+  const dataThrough = freshIndicators
+    .flatMap((item) => item.latestDate ? [item.latestDate] : [])
+    .sort()
+    .at(-1) ?? null;
+  return {
+    regime: dalioQuadrant(growthDirection, inflationState),
+    growthDirection,
+    inflationState,
+    growthScore,
+    inflationScore,
+    confidence,
+    coverage,
+    dataThrough,
+  };
+}
+
+function nowcastSummary(options: {
+  official: DalioQuadrant | null;
+  live: DalioQuadrant | null;
+  growthScore: number;
+  inflationScore: number;
+}): string {
+  const growth = options.growthScore >= 0.25
+    ? "高频增长/风险指标偏改善"
+    : options.growthScore <= -0.25
+      ? "高频增长/风险指标偏走弱"
+      : "高频增长信号暂未形成一致方向";
+  const inflation = options.inflationScore >= 0.25
+    ? "通胀代理偏升温"
+    : options.inflationScore <= -0.25
+      ? "通胀代理偏降温"
+      : "通胀代理变化有限";
+  const relation = options.official && options.live && options.official !== options.live
+    ? "，实时层已偏离月度锚，但尚未改写正式信号"
+    : "，实时层暂未否定月度锚";
+  return `${growth}，${inflation}${relation}。`;
+}
+
+async function loadNowcastIndicators(asOfDate: string): Promise<RegimeNowcastIndicator[]> {
+  const definitions = REGIME_NOWCAST_INDICATORS;
+  const instruments = await prisma.instrument.findMany({
+    where: { code: { in: definitions.map((item) => item.code) } },
+    select: { id: true, code: true },
+  });
+  const instrumentByCode = new Map(instruments.map((item) => [item.code, item]));
+  const targetTime = new Date(`${asOfDate}T00:00:00.000Z`).getTime() - 28 * 86_400_000;
+
+  return Promise.all(definitions.map(async (definition): Promise<RegimeNowcastIndicator> => {
+    const instrument = instrumentByCode.get(definition.code);
+    const rows = instrument
+      ? await prisma.macroObservation.findMany({
+          where: {
+            instrumentId: instrument.id,
+            obsDate: { lte: new Date(`${asOfDate}T00:00:00.000Z`) },
+          },
+          orderBy: { obsDate: "desc" },
+          take: 45,
+          select: { obsDate: true, value: true },
+        })
+      : [];
+    const latest = rows[0] ?? null;
+    const comparison = rows.find((row) => row.obsDate.getTime() <= targetTime) ?? rows.at(-1) ?? null;
+    const latestDate = latest ? isoDay(latest.obsDate) : null;
+    const comparisonDate = comparison ? isoDay(comparison.obsDate) : null;
+    const change = latest && comparison && comparison.value !== 0
+      ? definition.changeKind === "percent"
+        ? latest.value / comparison.value - 1
+        : latest.value - comparison.value
+      : null;
+    const fresh = latestDate != null && dayDiff(asOfDate, latestDate) <= 10;
+    let rawVote: -1 | 0 | 1 = 0;
+    if (fresh && change != null) {
+      if (change >= definition.positiveThreshold) rawVote = 1;
+      else if (change <= definition.negativeThreshold) rawVote = -1;
+    }
+    const vote = (rawVote * definition.polarity) as -1 | 0 | 1;
+    const directionLabel = !latest
+      ? "缺少数据"
+      : !fresh
+        ? "数据偏旧"
+        : vote > 0
+          ? definition.axis === "inflation" ? "升温" : definition.axis === "growth" ? "改善" : "上行"
+          : vote < 0
+            ? definition.axis === "inflation" ? "降温" : definition.axis === "growth" ? "走弱" : "下行"
+            : "中性";
+    return {
+      code: definition.code,
+      labelZh: definition.labelZh,
+      axis: definition.axis,
+      latestDate,
+      latestValue: latest?.value ?? null,
+      comparisonDate,
+      comparisonValue: comparison?.value ?? null,
+      change,
+      changeKind: definition.changeKind,
+      vote,
+      directionLabel,
+      fresh,
+    };
+  }));
+}
+
+/**
+ * 当前环境临时监测：月度 MacroRegime 是正式锚；本函数只在请求时用最新 canonical facts
+ * 重跑同一分类器，再叠加 4 周高频确认项。结果不写回 MacroRegime，也不进入历史回测。
+ */
+export async function getMacroRegimeNowcast(options: {
+  asOf?: Date;
+} = {}): Promise<MacroRegimeNowcast> {
+  const asOf = options.asOf ?? new Date();
+  const asOfDate = isoDay(asOf);
+  const [stored, latestStoredRow, indicators] = await Promise.all([
+    listStoredRegimes(),
+    prisma.macroRegime.findFirst({ orderBy: { date: "desc" }, select: { updatedAt: true } }),
+    loadNowcastIndicators(asOfDate),
+  ]);
+  const official = stored.at(-1) ?? null;
+  if (!official) {
+    return {
+      version: "regime-nowcast-v1",
+      generatedAt: new Date().toISOString(),
+      asOfDate,
+      cadenceLabel: "重要数据发布后重算 · 每周收盘确认",
+      official: null,
+      live: null,
+      limitations: ["缺少月度 MacroRegime 锚，暂不能生成实时环境监测。"],
+    };
+  }
+
+  const gridDates = [...new Set([...stored.map((item) => item.date), asOfDate])].sort();
+  const provisional = (await computeRegimeSeries(gridDates)).at(-1) ?? null;
+  const classification = classifyMacroRegimeNowcast({
+    indicators,
+    fallbackGrowth: provisional?.growthDirection ?? official.growthDirection,
+    fallbackInflation: provisional?.inflationState ?? official.inflationState,
+  });
+
+  return {
+    version: "regime-nowcast-v1",
+    generatedAt: new Date().toISOString(),
+    asOfDate,
+    cadenceLabel: "重要数据发布后重算 · 每周收盘确认",
+    official: {
+      signalDate: official.date,
+      updatedAt: latestStoredRow?.updatedAt.toISOString() ?? null,
+      regime: official.dalioRegime,
+      growthDirection: official.growthDirection,
+      inflationState: official.inflationState,
+      visibleMonth: official.inputs.visibleMonth,
+    },
+    live: {
+      regime: classification.regime,
+      growthDirection: classification.growthDirection,
+      inflationState: classification.inflationState,
+      visibleMonth: provisional?.inputs.visibleMonth ?? official.inputs.visibleMonth,
+      growthScore: classification.growthScore,
+      inflationScore: classification.inflationScore,
+      confidence: classification.confidence,
+      coverage: classification.coverage,
+      changedFromOfficial: Boolean(classification.regime && official.dalioRegime && classification.regime !== official.dalioRegime),
+      dataThrough: classification.dataThrough,
+      summary: nowcastSummary({
+        official: official.dalioRegime,
+        live: classification.regime,
+        growthScore: classification.growthScore,
+        inflationScore: classification.inflationScore,
+      }),
+      indicators,
+    },
+    limitations: [
+      "实时层是条件性 Nowcast，不覆盖正式月度快照，也不进入历史回测。",
+      "高频指标只用于确认增长、通胀与金融条件方向，不直接生成行业预期收益。",
+      "底层数据全部来自统一 MacroObservation 与既有 scheduler；缺失或超过 10 天的日频项不参与投票。",
+    ],
+  };
+}

@@ -15,6 +15,18 @@
 | 基本面是否支持？ | 行业财报中位数（营收/EPS 增速、利润率、PE） |
 | 经营叙事是否共振？ | CompanyOperatingBrief + IndustryPeerResonance（外部 AI ingest） |
 
+## 当前环境：月度正式锚 + 周度实时监测
+
+行业首页不再把一个 `signalDate` 同时冒充“历史信号日期”和“今天的数据日期”，而是明确显示三种时间：
+
+1. **月度归属**：正式 `MacroRegime` 的研究月份，用于历史复盘、行业模型排序和可审计前瞻账本；旧月份不能被新数据回写。
+2. **最新官方输入**：增长、就业、收入、调查与通胀等月度数据在当时可见的最新期，用来解释月度锚为什么可能落后于自然日。
+3. **实时监测截至**：请求时用 canonical `MacroObservation` 重算同一 Regime 分类器，再用 10Y−3M、HY OAS、VIX、10Y 通胀预期、WTI 和 10Y 收益率的四周变化做周度确认。
+
+实时层是 **Nowcast，不是新的正式 Regime**：它可以提示环境正在偏离月度锚，但不会覆盖 `MacroRegime`，不会进入历史回测，也不会直接改写行业排序。页面按“实时环境变化 → 月度正式信号与行业排序 → 当前行业基本面”呈现；正式月度和临时实时结论发生分歧时，页面显式保留两者并等待官方数据确认。
+
+底层仍是一套：`/api/equity/regime-nowcast` 调用 `src/lib/quant/macroRegime.ts`，读取统一 `MacroObservation`；关键输入通过同一 `DataSubscription`/release package 提升调度优先级，不新增 adapter、事实表或 writer。数据发布后由常驻 `data:worker` 增量更新，页面请求即重算；Stage H 额外按新鲜度做防漏补检（日频每天、月频每周），仍调用统一 subscription runner，并保留原 `nextRunAt`，不会提前推进发布包。无需为 Nowcast 增加第二套 cron。
+
 ## 历史轮动研究框架
 
 > 「宏观阶段 → 行业基本面 → 估值 → 行业收益」的正式研究口径、时间对齐、可信度、
@@ -83,8 +95,9 @@ npm run equity:sync-prices         # 个股/ETF 日线回填（--limit=500 / --s
 | 每日 | `equity:sync-fundamentals -- --limit=100` |
 | 每日 | `equity:sync-sector-etf-holdings`（必须归档，官网只提供每日文件） |
 | 每日/分批 | `equity:sync-fundamental-vintages -- --limit=... --last-filings=...` |
-| 每日 | `equity:run-sector-regime-stage-h`（45 天 ALFRED 增量窗口 + 新月份首次冻结 + 到期结算 + 健康检查） |
+| 每日 | `equity:run-sector-regime-stage-h`（当前输入日/周新鲜度补检 + 45 天 ALFRED 增量窗口 + 新月份首次冻结 + 到期结算 + 健康检查） |
 | 每小时 | `equity:monitor-sector-regime-stage-h`（独立检测任务缺跑、版本缺口、哈希漂移和到期缺价） |
+| 每 5 分钟 | `data:worker`（统一更新所有到期订阅；Regime 正式输入与高频确认项具有较高调度优先级） |
 | 每 6 小时 | `equity:sync-sec -- --limit=50` |
 | 每日（可选） | `equity:sync-prices -- --limit=500`（不跑也可：页面访问会 lazy 回补） |
 

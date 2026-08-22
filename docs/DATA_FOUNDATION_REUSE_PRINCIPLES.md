@@ -88,6 +88,7 @@ API / 页面
 - 行情日期对齐统一放在 `equityPriceStore.ts`；业务模块不得自行写 `EquityDailyBar.findFirst`。
 - 复权统一使用 `priceAdjustment.ts`，前端不得再次复权。
 - Regime 只由 `quant/macroRegime.ts` 定义和计算；行业模块只能消费结果。
+- Regime 的实时监测也必须调用 `quant/macroRegime.ts`：正式月度 `MacroRegime` 是可审计锚，周度 Nowcast 只能在查询时复用最新 `MacroObservation` 计算，不得另建同义状态表、独立抓取器或覆盖正式快照。
 - 因子只由量化因子流水线生成；行业模块消费 `FactorSnapshot` / `FactorSectorSnapshot`，不得复制因子计算。
 - 性能原因允许共享数据层内部使用专门的批量 SQL，但必须保持同一事实表、同一口径，并用对账测试证明结果一致。
 
@@ -110,8 +111,12 @@ API / 页面
 | worker capture 与 ALFRED 分别直接写版本表 | 共用 `appendMacroObservationVintages` |
 | 行业预测评分自行查询价格窗口 | 下沉并复用 `equityPriceStore.ts` |
 | 行业研究自行重算 Regime/因子 | 保持直接消费 `MacroRegime` 与 `FactorSectorSnapshot` |
+| 页面把月度 signalDate 当作“系统最新日期” | 拆成正式月度锚、最新官方输入、实时监测截至三种日期 |
+| 为周度 Regime 另建行情/宏观链 | `regime-nowcast` 复用统一 scheduler、`MacroObservation` 与同一分类器，只输出临时查询结果 |
 
 `data:sync-regime-vintages` 仍保留为运维命令，但它只是“选择 Regime 所需序列”的薄编排器，不再拥有独立来源协议和独立写入逻辑。
+
+周度 Nowcast 的边界：高频确认项只用于判断增长/风险、通胀代理与利率方向；过期超过 10 天的日频项不投票；结果不写入 `MacroRegime`、不冻结进前瞻账本、不进入历史回测，也不直接产生行业预期收益。关键输入只在既有 `DataSubscription.priority` 中提升优先级，实际更新仍由统一 data worker 与发布包完成。Stage H 的新鲜度兜底也只能调用统一 `runDataSubscription`：日频最多每天、月频最多每周补检一次，并使用 `preserveNextRunAt` 保留既有发布包日程，禁止因单成员提前检查而推进整包、漏掉同包其他指标。
 
 ## 6. 尚需在后续阶段统一的能力
 

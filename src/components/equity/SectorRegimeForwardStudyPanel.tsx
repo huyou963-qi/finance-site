@@ -113,16 +113,16 @@ export function SectorRegimeForwardStudyPanel({ variant = "research" }: { varian
         <header className="border-b border-fs-border px-4 py-3 sm:px-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-[10px] font-semibold tracking-[0.16em] text-fs-accent-text">CURRENT REGIME</p>
-              <h2 className="mt-1 text-base font-semibold text-fs-text">当前宏观环境如何映射到行业？</h2>
-              <p className="mt-1 max-w-3xl text-xs leading-5 text-fs-muted">{data.current ? `${data.current.signalDate} · ${currentRegime}。` : ""}{data.overallVerdict.summary}</p>
+              <p className="text-[10px] font-semibold tracking-[0.16em] text-fs-accent-text">FORMAL MONTHLY SIGNAL</p>
+              <h2 className="mt-1 text-base font-semibold text-fs-text">月度正式信号如何映射到行业？</h2>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-fs-muted">{data.current ? `${data.current.signalDate.slice(0, 7)} 月度锚 · ${currentRegime}。` : ""}{data.overallVerdict.summary}</p>
             </div>
             <div className="shrink-0 rounded-md border border-fs-border bg-fs-bg/30 px-3 py-2 text-right"><div className="text-[10px] text-fs-muted">历史检验证据</div><div className={`mt-0.5 text-xs font-medium ${verdictClass(verdict)}`}>{data.overallVerdict.label}</div></div>
           </div>
         </header>
         {data.current && activeCurrent ? (
           <div className="space-y-3 px-4 py-4 sm:px-5">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-medium text-fs-text">研究观察排序</h3><p className="mt-0.5 text-[10px] text-fs-muted">分数用于检验宏观与基本面假设，不代表预期收益或投资建议。</p></div><div className="flex items-center gap-1" aria-label="当前排序前瞻期">{data.current.horizons.map((item) => <button key={item.horizonMonths} type="button" onClick={() => setCurrentHorizon(item.horizonMonths)} className={`rounded px-2 py-1 text-[10px] ${currentHorizon === item.horizonMonths ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "text-fs-muted hover:text-fs-text"}`} aria-pressed={currentHorizon === item.horizonMonths}>{item.horizonMonths}M</button>)}</div></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-sm font-medium text-fs-text">月度模型研究排序</h3><p className="mt-0.5 text-[10px] text-fs-muted">排序以正式月度快照为锚；上方实时监测只做环境确认，不会改写回测信号。</p></div><div className="flex items-center gap-1" aria-label="当前排序前瞻期">{data.current.horizons.map((item) => <button key={item.horizonMonths} type="button" onClick={() => setCurrentHorizon(item.horizonMonths)} className={`rounded px-2 py-1 text-[10px] ${currentHorizon === item.horizonMonths ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "text-fs-muted hover:text-fs-text"}`} aria-pressed={currentHorizon === item.horizonMonths}>{item.horizonMonths}M</button>)}</div></div>
             <div className="grid gap-2 sm:grid-cols-3">{activeCurrent.rankings.slice(0, 3).map((row) => <div key={row.sector} className="rounded-lg border border-fs-border bg-fs-bg/25 p-3"><div className="text-[10px] text-fs-muted">观察 #{row.rank}</div><div className="mt-1 text-sm font-semibold text-fs-text">{row.nameZh} <span className="text-xs font-normal text-fs-muted">{row.etf}</span></div><div className={`mt-1 text-sm tabular-nums ${valueClass(row.score)}`}>研究分数 {decimal(row.score, 2)}</div></div>)}</div>
             <details className="rounded-lg border border-fs-border bg-fs-bg/20"><summary className="cursor-pointer px-3 py-2 text-xs font-medium text-fs-text">展开全部行业排序与研究限制</summary><div className="border-t border-fs-border px-3 py-3 text-xs text-fs-muted"><div className="flex flex-wrap gap-x-3 gap-y-1">{activeCurrent.rankings.map((row) => <span key={row.sector}>#{row.rank} {row.etf}</span>)}</div><p className="mt-2 leading-5">{activeCurrent.selectionPassed ? "该期限使用验证锁定模型。" : "该期限没有通过验证的模型，排序仅供失败复核。"} 详细检验与方法见“证据与方法”。</p></div></details>
           </div>

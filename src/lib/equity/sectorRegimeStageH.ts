@@ -13,6 +13,10 @@ import {
   type SyncFredMacroVintagesResult,
 } from "@/lib/data/macroObservationVintages";
 import {
+  syncRegimeCurrentInputs,
+  type SyncRegimeCurrentInputsResult,
+} from "@/lib/data/regimeCurrentInputs";
+import {
   evaluateMaturedSectorRegimeSignals,
   freezeCurrentSectorRegimeSignal,
   type EvaluateSectorRegimeSignalsResult,
@@ -38,6 +42,7 @@ export type SectorRegimeStageHState = {
   lastStatus: "never" | "running" | "success" | "failed";
   lastError: string | null;
   lastRun: {
+    currentInputs?: SyncRegimeCurrentInputsResult;
     vintage: SyncFredMacroVintagesResult;
     bootstrap: BootstrapRegimeCurrentVintagesResult;
     frozen: FreezeSectorRegimeSignalResult;
@@ -150,6 +155,13 @@ export function buildSectorRegimeStageHAlerts(options: {
       key: "task-last-run-failed",
       severity: "critical",
       message: `最近一次日常任务失败：${options.state.lastError ?? "未知错误"}`,
+    });
+  }
+  if ((options.state.lastRun?.currentInputs?.failed ?? 0) > 0) {
+    alerts.push({
+      key: "current-input-refresh-failed",
+      severity: "warning",
+      message: `${options.state.lastRun!.currentInputs!.failed} 个 Regime 当前输入的新鲜度补检失败。`,
     });
   }
 
@@ -311,6 +323,7 @@ export async function monitorSectorRegimeStageH(options: {
 export type RunSectorRegimeStageHResult = {
   startedAt: string;
   completedAt: string;
+  currentInputs: SyncRegimeCurrentInputsResult;
   vintage: SyncFredMacroVintagesResult;
   bootstrap: BootstrapRegimeCurrentVintagesResult;
   frozen: FreezeSectorRegimeSignalResult;
@@ -336,6 +349,7 @@ export async function runSectorRegimeStageH(options: {
   });
   try {
     const lookback = Math.max(1, options.vintageLookbackDays ?? DEFAULT_VINTAGE_LOOKBACK_DAYS);
+    const currentInputs = await syncRegimeCurrentInputs({ now });
     const vintage = await syncRegimeMacroVintages({
       realtimeStart: isoDay(daysBefore(now, lookback)),
       realtimeEnd: FRED_REALTIME_MAX,
@@ -355,7 +369,7 @@ export async function runSectorRegimeStageH(options: {
       lastSuccessAt: completedAt,
       lastStatus: "success",
       lastError: null,
-      lastRun: { vintage, bootstrap, frozen, evaluated, coverage, pendingMaturedForecasts },
+      lastRun: { currentInputs, vintage, bootstrap, frozen, evaluated, coverage, pendingMaturedForecasts },
     });
     const monitor = await monitorSectorRegimeStageH({
       now: new Date(completedAt),
@@ -363,7 +377,7 @@ export async function runSectorRegimeStageH(options: {
       force: options.forceAlerts,
       driftDetected: frozen.driftDetected,
     });
-    return { startedAt, completedAt, vintage, bootstrap, frozen, evaluated, monitor };
+    return { startedAt, completedAt, currentInputs, vintage, bootstrap, frozen, evaluated, monitor };
   } catch (error) {
     const failedAt = new Date();
     const message = error instanceof Error ? error.message : String(error);
