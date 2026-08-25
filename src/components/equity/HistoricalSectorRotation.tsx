@@ -48,6 +48,7 @@ const ALL_CHART_ETFS = [
   "SPY",
   ...CHART_STYLE_GROUPS.flatMap((group) => group.rows.map((row) => row.etf)),
 ];
+const DEFAULT_STAGE_ID = SECTOR_HISTORICAL_PERIODS.at(-1)?.id ?? null;
 
 function pct(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -141,7 +142,7 @@ export function HistoricalSectorRotation() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(() =>
-    validStageId(searchParams.get("stage")),
+    validStageId(searchParams.get("stage")) ?? DEFAULT_STAGE_ID,
   );
   const [transmissionMode, setTransmissionMode] = useState<SectorTransmissionMode>(() =>
     validMode(searchParams.get("mode")),
@@ -161,7 +162,7 @@ export function HistoricalSectorRotation() {
     : null;
 
   useEffect(() => {
-    setSelectedId(validStageId(searchParams.get("stage")));
+    setSelectedId(validStageId(searchParams.get("stage")) ?? DEFAULT_STAGE_ID);
     setTransmissionMode(validMode(searchParams.get("mode")));
     setAggregation(validAggregation(searchParams.get("aggregation")));
     setSelectedSectorSlug(searchParams.get("sector"));
@@ -189,22 +190,16 @@ export function HistoricalSectorRotation() {
     (stageId: string) => {
       setSelectedId(stageId);
       replaceResearchParams({ stage: stageId, mode: transmissionMode, aggregation });
-      window.setTimeout(() => {
-        document.getElementById("sector-stage-transmission")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 60);
     },
     [aggregation, replaceResearchParams, transmissionMode],
   );
 
   const clearStage = useCallback(() => {
-    setSelectedId(null);
+    setSelectedId(DEFAULT_STAGE_ID);
     setSelectedSectorSlug(null);
     setTransmissionMode("asOf");
     setAggregation("median");
-    replaceResearchParams({ stage: null, sector: null, mode: null, aggregation: null });
+    replaceResearchParams({ stage: DEFAULT_STAGE_ID, sector: null, mode: null, aggregation: null });
   }, [replaceResearchParams]);
 
   const changeMode = useCallback(
@@ -312,88 +307,81 @@ export function HistoricalSectorRotation() {
   };
 
   return (
-    <section className="overflow-hidden rounded-xl border border-fs-border bg-fs-elevated/20">
-      <header className="flex flex-col gap-3 border-b border-fs-border px-4 py-3 sm:px-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-[11px] font-medium tracking-[0.16em] text-fs-accent-text">US SECTOR HISTORY</p>
-            <h1 className="mt-0.5 text-lg font-semibold text-fs-text">历史复盘：类似环境下行业为何强弱</h1>
+    <section className="min-h-[calc(100svh-1.5rem)] overflow-hidden rounded-xl border border-fs-border bg-fs-elevated/20">
+      <div className="grid min-h-[calc(100svh-1.5rem)] xl:grid-cols-[18rem_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-b border-fs-border bg-fs-bg/25 xl:sticky xl:top-8 xl:h-[calc(100svh-8rem)] xl:self-start xl:border-b-0 xl:border-r">
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {SECTOR_HISTORICAL_PERIODS.slice().reverse().map((item) => {
+              const stageNumber = SECTOR_HISTORICAL_PERIODS.findIndex((entry) => entry.id === item.id) + 1;
+              const active = item.id === selectedId;
+              return (
+                <button key={item.id} type="button" onClick={() => selectStage(item.id)} aria-pressed={active} className={`w-full border-b border-fs-border px-2.5 py-2.5 text-left transition last:border-b-0 ${active ? "bg-fs-accent-soft text-fs-accent-text" : "text-fs-muted hover:bg-fs-elevated/60 hover:text-fs-text"}`}>
+                  <span className="block text-[11px] font-semibold">阶段 {String(stageNumber).padStart(2, "0")} · {item.start} → {periodEnd(item)}</span>
+                  <span className="mt-1 block text-xs font-semibold leading-5">{item.label}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="text-right text-xs text-fs-muted">
-            <div>{SECTOR_HISTORICAL_PERIODS.length} 个细分阶段 · 11 个行业完整列示</div>
-            <div className="mt-0.5 text-[10px]">数据源：{chartData?.priceSource ?? "前复权 ETF 日线"}</div>
-          </div>
-        </div>
-        <div className="flex min-h-7 flex-wrap items-center gap-x-3 gap-y-2" aria-label="主图行业选择">
+        </aside>
+
+        <div className="flex min-w-0 flex-col">
+        {period ? (() => {
+          const data = periodData[period.id];
+          return (
+            <div className="min-w-0 p-3 sm:p-4">
+              <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(24rem,0.95fr)]">
+                <article className="h-full rounded-lg bg-fs-bg/45 p-3 sm:p-4">
+                  <div className="border-l-2 border-fs-accent/60 pl-3">
+                    <p className="text-base font-bold text-fs-text">宏观主线</p>
+                    <p className="mt-1 text-sm leading-6 text-fs-text">{period.macro}</p>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 rounded-lg border border-fs-border bg-fs-elevated/30 p-3 text-xs">
+                    <div><dt className="text-fs-muted">增长</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.growth}</dd></div>
+                    <div><dt className="text-fs-muted">通胀</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.inflation}</dd></div>
+                    <div><dt className="text-fs-muted">政策</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.policy}</dd></div>
+                    <div><dt className="text-fs-muted">信用</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.credit}</dd></div>
+                  </dl>
+                  <div className="mt-4">
+                    <h3 className="text-xs font-medium text-fs-text">关键事件与影响</h3>
+                    <ol className="mt-2 space-y-2.5">
+                      {period.events.map((event) => <li key={`${event.date}-${event.title}`} className="grid grid-cols-[5.5rem_1fr] gap-2 text-xs leading-5"><span className="tabular-nums text-fs-muted">{event.date}</span><span className="text-fs-text"><strong className="font-medium">{event.title}</strong><span className="text-fs-muted"> · {event.impact}</span></span></li>)}
+                    </ol>
+                  </div>
+                  <div className="mt-4 rounded-lg border border-fs-border bg-fs-elevated/25 p-3">
+                    <p className="text-[11px] font-bold text-fs-text">行业传导机制：为什么会强 / 弱</p>
+                    <p className="mt-1 text-xs leading-5 text-fs-text">{period.mechanism}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1"><span className="mr-1 text-[10px] text-fs-muted">理论受益</span>{period.expectedLeaders.map((leader) => <span key={leader} className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[10px] text-fs-accent-text">{leader}</span>)}</div>
+                  </div>
+                  {period.caveat ? <p className="mt-2 text-[10px] leading-4 text-amber-800">注：{period.caveat}</p> : null}
+                </article>
+
+                <article className="flex h-full flex-col rounded-lg bg-fs-bg/45 p-3">
+                  <div className="overflow-hidden rounded-lg border border-fs-border">
+                    <div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem] items-center bg-fs-elevated/65 px-2.5 py-2 text-[10px] text-fs-muted"><span>排名</span><span>行业指数</span><span className="text-right">收益</span><span className="text-right">超额</span></div>
+                    <div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem] items-center border-t border-fs-border/70 px-2.5 py-2 text-xs"><span className="text-fs-muted">—</span><span className="text-fs-text">标普 500 <span className="text-fs-muted">SPY</span></span><span className={`text-right font-medium tabular-nums ${valueClass(data.spyReturn)}`}>{pct(data.spyReturn)}</span><span className="text-right text-fs-muted">基准</span></div>
+                    <ol>{data.sectors.map((row, rank) => <li key={row.sector} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem] items-center border-t border-fs-border/55 px-2.5 py-1.5 text-xs"><span className="tabular-nums text-fs-muted">{row.absoluteReturn == null ? "—" : rank + 1}</span><span className="truncate text-fs-text">{row.nameZh} <span className="text-fs-muted">{row.etf}</span></span><span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span><span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span></li>)}</ol>
+                    <p className="border-t border-fs-border/70 px-2.5 py-1.5 text-[10px] text-fs-muted">可比样本 {data.availableCount}/11 · “—”表示 ETF 尚未上市或区间不足</p>
+                  </div>
+                </article>
+              </div>
+            </div>
+          );
+        })() : null}
+
+      <details className="order-2 border-b border-fs-border bg-fs-bg/20">
+        <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-fs-text sm:px-5">查看完整历史行情轨迹与行业 ETF 对比</summary>
+      <div className="border-t border-fs-border px-3 py-3 sm:px-5">
+        <div className="mb-3 flex min-h-7 flex-wrap items-center gap-x-3 gap-y-2" aria-label="主图行业选择">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-medium text-fs-muted">基准</span>
             {(() => {
               const active = selectedEtfs.includes("SPY");
-              return (
-                <button
-                  type="button"
-                  onClick={() => toggleEtf("SPY")}
-                  className={`rounded px-2 py-1 text-xs font-medium transition ${active ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "bg-fs-elevated/50 text-fs-muted hover:text-fs-text"}`}
-                  aria-pressed={active}
-                  title="标普 500 SPY"
-                >
-                  SPY
-                </button>
-              );
+              return <button type="button" onClick={() => toggleEtf("SPY")} className={`rounded px-2 py-1 text-xs font-medium transition ${active ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "bg-fs-elevated/50 text-fs-muted hover:text-fs-text"}`} aria-pressed={active}>SPY</button>;
             })()}
           </div>
-          {CHART_STYLE_GROUPS.map((group) => (
-            <div key={group.id} className="flex items-center gap-1.5 border-l border-fs-border pl-3">
-              <span className="text-[10px] font-medium text-fs-muted">{group.label}</span>
-              {group.rows.map((row) => {
-                const active = selectedEtfs.includes(row.etf);
-                return (
-                  <button
-                    key={row.etf}
-                    type="button"
-                    onClick={() => toggleEtf(row.etf)}
-                    className={`rounded px-2 py-1 text-xs font-medium transition ${active ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "bg-fs-elevated/50 text-fs-muted hover:text-fs-text"}`}
-                    aria-pressed={active}
-                    title={`${row.label} ${row.etf}`}
-                  >
-                    {row.etf}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-          <div className="flex items-center gap-1.5 border-l border-fs-border pl-3">
-            <button
-              type="button"
-              onClick={clearStage}
-              className={`rounded px-2 py-1 text-xs transition ${period == null ? "bg-fs-elevated text-fs-text" : "text-fs-muted hover:text-fs-text"}`}
-              aria-pressed={period == null}
-            >
-              全历史
-            </button>
-            <span className="text-xs text-fs-muted">
-              {period ? `${period.shortLabel} · ${period.label}` : "1998-12 至今 · SPY + 11 个行业 ETF"}
-            </span>
-          </div>
+          {CHART_STYLE_GROUPS.map((group) => <div key={group.id} className="flex items-center gap-1.5 border-l border-fs-border pl-3"><span className="text-[10px] font-medium text-fs-muted">{group.label}</span>{group.rows.map((row) => { const active = selectedEtfs.includes(row.etf); return <button key={row.etf} type="button" onClick={() => toggleEtf(row.etf)} className={`rounded px-2 py-1 text-xs font-medium transition ${active ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "bg-fs-elevated/50 text-fs-muted hover:text-fs-text"}`} aria-pressed={active} title={`${row.label} ${row.etf}`}>{row.etf}</button>; })}</div>)}
+          <span className="ml-auto text-[10px] text-fs-muted">数据源：{chartData?.priceSource ?? "前复权 ETF 日线"}</span>
         </div>
-      </header>
-
-      <div className="border-b border-fs-border bg-fs-bg/30 px-4 py-3 sm:px-5">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div><h2 className="text-sm font-medium text-fs-text">先选择一个历史阶段</h2><p className="mt-0.5 text-[10px] text-fs-muted">再查看该阶段的宏观背景、行业收益与基本面传导。完整阶段档案保留在下方，可按需展开。</p></div>
-          {period ? <span className="text-xs text-fs-accent-text">当前：{period.shortLabel} · {period.label}</span> : null}
-        </div>
-        <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {SECTOR_HISTORICAL_PERIODS.map((item, index) => {
-            const active = item.id === selectedId;
-            return <button key={item.id} type="button" onClick={() => selectStage(item.id)} aria-pressed={active} className={`rounded-md border px-2.5 py-2 text-left transition ${active ? "border-fs-accent/45 bg-fs-accent-soft text-fs-accent-text" : "border-fs-border bg-fs-elevated/25 text-fs-muted hover:text-fs-text"}`}><span className="block text-[9px]">阶段 {String(index + 1).padStart(2, "0")} · {item.shortLabel}</span><span className="mt-0.5 block truncate text-xs font-medium">{item.label}</span></button>;
-          })}
-        </div>
-      </div>
-
-      <details className="border-b border-fs-border bg-fs-bg/20">
-        <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-fs-text sm:px-5">查看完整历史行情轨迹与行业 ETF 对比</summary>
-      <div className="px-3 pt-2 sm:px-5">
         {chartLoading ? (
           <div className="flex h-[336px] items-center justify-center text-sm text-fs-muted">正在加载完整历史行情…</div>
         ) : chartSeries.length ? (
@@ -422,125 +410,24 @@ export function HistoricalSectorRotation() {
       </div>
       </details>
 
-      <SectorStageTransmissionPanel
-        stageId={selectedId}
-        mode={transmissionMode}
-        aggregation={aggregation}
-        selectedSectorSlug={selectedSectorSlug}
-        onModeChange={changeMode}
-        onAggregationChange={changeAggregation}
-        onSectorChange={changeSector}
-        onClearStage={clearStage}
-      />
-
-      <details className="border-b border-fs-border bg-fs-elevated/30">
-      <summary className="cursor-pointer px-4 py-2.5 text-xs font-medium text-fs-text sm:px-5">浏览全部 {SECTOR_HISTORICAL_PERIODS.length} 个阶段的完整档案</summary>
-      <div className="border-t border-fs-border px-4 py-2 text-xs text-fs-muted sm:px-5">
-        横向历史阶段 · 点击任一阶段，主图会缩放到对应窗口；卡片按相对 SPY 的超额收益排序，并固定列出全部 11 个行业。
+      <div className="order-1 border-b border-fs-border bg-fs-elevated/15">
+        <SectorStageTransmissionPanel
+          stageId={selectedId}
+          mode={transmissionMode}
+          aggregation={aggregation}
+          selectedSectorSlug={selectedSectorSlug}
+          onModeChange={changeMode}
+          onAggregationChange={changeAggregation}
+          onSectorChange={changeSector}
+          onClearStage={clearStage}
+        />
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="flex min-w-max items-stretch divide-x divide-fs-border">
-          {SECTOR_HISTORICAL_PERIODS.map((item, index) => {
-            const data = periodData[item.id];
-            const active = item.id === selectedId;
-            return (
-              <article
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => selectStage(item.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    selectStage(item.id);
-                  }
-                }}
-                className={`relative w-[25rem] shrink-0 cursor-pointer px-4 py-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-fs-accent ${active ? "bg-fs-accent-soft/35" : "bg-fs-bg/10 hover:bg-fs-elevated/35"}`}
-                aria-pressed={active}
-                aria-label={`阶段 ${index + 1}：${item.label}`}
-              >
-                <span className={`absolute inset-x-0 top-0 h-0.5 ${active ? "bg-fs-accent" : "bg-transparent"}`} />
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs text-fs-muted">阶段 {String(index + 1).padStart(2, "0")}</div>
-                    <h2 className="mt-1 min-h-10 text-sm font-semibold leading-5 text-fs-text">{item.label}</h2>
-                  </div>
-                  <span className="shrink-0 rounded border border-fs-border bg-fs-elevated/60 px-1.5 py-0.5 text-[11px] text-fs-muted">{item.shortLabel}</span>
-                </div>
-
-                <div className="mt-2 text-[11px] tabular-nums text-fs-muted">
-                  收益窗口 · {item.start} → {periodEnd(item)}
-                </div>
-
-                <div className="mt-3 border-l-2 border-fs-accent/50 pl-2.5">
-                  <div className="text-[11px] text-fs-muted">宏观主线</div>
-                  <p className="mt-1 text-xs leading-5 text-fs-text">{item.macro}</p>
-                </div>
-
-                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 rounded-lg border border-fs-border/70 bg-fs-elevated/25 p-2.5 text-[11px]">
-                  <div><dt className="text-fs-muted">增长</dt><dd className="mt-0.5 leading-4 text-fs-text">{item.regime.growth}</dd></div>
-                  <div><dt className="text-fs-muted">通胀</dt><dd className="mt-0.5 leading-4 text-fs-text">{item.regime.inflation}</dd></div>
-                  <div><dt className="text-fs-muted">政策</dt><dd className="mt-0.5 leading-4 text-fs-text">{item.regime.policy}</dd></div>
-                  <div><dt className="text-fs-muted">信用</dt><dd className="mt-0.5 leading-4 text-fs-text">{item.regime.credit}</dd></div>
-                </dl>
-
-                <div className="mt-3">
-                  <div className="text-[11px] text-fs-muted">关键事件与影响</div>
-                  <ol className="mt-1.5 space-y-2">
-                    {item.events.map((event) => (
-                      <li key={`${event.date}-${event.title}`} className="grid grid-cols-[4.8rem_1fr] gap-2 text-[11px] leading-4">
-                        <span className="tabular-nums text-fs-muted">{event.date}</span>
-                        <span className="text-fs-text"><strong className="font-medium">{event.title}</strong><span className="text-fs-muted"> · {event.impact}</span></span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-
-                <div className="mt-3 overflow-hidden rounded-lg border border-fs-border/80">
-                  <div className="grid grid-cols-[2rem_1fr_4.2rem_4.2rem] items-center bg-fs-elevated/55 px-2 py-1.5 text-[10px] text-fs-muted">
-                    <span>排名</span><span>行业指数</span><span className="text-right">收益</span><span className="text-right">超额</span>
-                  </div>
-                  <div className="grid grid-cols-[2rem_1fr_4.2rem_4.2rem] items-center border-t border-fs-border/70 bg-fs-bg/20 px-2 py-1.5 text-xs">
-                    <span className="text-fs-muted">—</span><span className="text-fs-text">标普 500 <span className="text-fs-muted">SPY</span></span><span className={`text-right font-medium tabular-nums ${valueClass(data.spyReturn)}`}>{pct(data.spyReturn)}</span><span className="text-right tabular-nums text-fs-muted">基准</span>
-                  </div>
-                  <ol>
-                    {data.sectors.map((row, rank) => (
-                      <li key={row.sector} className="grid grid-cols-[2rem_1fr_4.2rem_4.2rem] items-center border-t border-fs-border/55 px-2 py-1.5 text-xs">
-                        <span className="tabular-nums text-fs-muted">{row.absoluteReturn == null ? "—" : rank + 1}</span>
-                        <span className="min-w-0 truncate text-fs-text">{row.nameZh} <span className="text-fs-muted">{row.etf}</span></span>
-                        <span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span>
-                        <span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="border-t border-fs-border/70 px-2 py-1.5 text-[10px] text-fs-muted">
-                    可比样本 {data.availableCount}/11 · “—”表示 ETF 尚未上市或区间不足
-                  </div>
-                </div>
-
-                <div className="mt-3 rounded-lg bg-fs-elevated/30 p-2.5">
-                  <div className="text-[11px] text-fs-muted">行业传导机制：为什么会强 / 弱</div>
-                  <p className="mt-1 text-[11px] leading-[1.1rem] text-fs-text">{item.mechanism}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-1">
-                    <span className="mr-0.5 text-[10px] text-fs-muted">理论受益</span>
-                    {item.expectedLeaders.map((leader) => (
-                      <span key={leader} className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[10px] text-fs-accent-text">{leader}</span>
-                    ))}
-                  </div>
-                </div>
-
-                {item.caveat ? <p className="mt-2 text-[10px] leading-4 text-amber-800">注：{item.caveat}</p> : null}
-              </article>
-            );
-          })}
-        </div>
-      </div>
-      </details>
-
-      <footer className="border-t border-fs-border px-4 py-2 text-[11px] leading-4 text-fs-muted sm:px-5">
+      <footer className="order-3 border-t border-fs-border px-4 py-2 text-[11px] leading-4 text-fs-muted sm:px-5">
         口径：SPY 与 Sector SPDR ETF 前复权日线，按阶段内首尾可得交易日计算总收益；超额 = 行业收益 − SPY 收益。阶段依据 NBER 周期、FOMC 政策、信用事件与市场主线转折划分，不按事后行业赢家反推边界，也不把 ETF 上市前的缺失期补造成历史结论。
       </footer>
+        </div>
+      </div>
     </section>
   );
 }

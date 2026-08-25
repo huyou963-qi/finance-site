@@ -84,12 +84,15 @@ export function EquitySectorsClient() {
   return (
     <div className="flex w-full max-w-none flex-col gap-4 px-2 py-3">
       <section className="rounded-xl border border-fs-border bg-fs-elevated/20">
-        <div className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-end lg:justify-between">
-          <div><p className="text-[11px] font-semibold tracking-[0.16em] text-fs-accent-text">US SECTOR ROTATION</p><h1 className="mt-1 text-xl font-semibold text-fs-text">美股行业轮动</h1><p className="mt-1 max-w-3xl text-sm text-fs-muted">从当前宏观环境出发，用历史相似阶段解释行业强弱，再用基本面与可审计证据验证结论。</p></div>
-          <div className="text-xs text-fs-muted">先看现在，再回看历史；研究证据单独呈现。</div>
-        </div>
-        <nav className="flex flex-wrap gap-1 border-t border-fs-border px-3 py-2" aria-label="行业研究视图">
-          {tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setView(tab.id)} aria-pressed={view === tab.id} className={`rounded-md px-3 py-2 text-left transition ${view === tab.id ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`}><span className="block text-sm font-medium">{tab.label}</span><span className="mt-0.5 block text-[10px] opacity-80">{tab.description}</span></button>)}
+        <nav className="flex flex-wrap items-center justify-between gap-2 px-3 py-2" aria-label="行业研究视图">
+          <div className="flex flex-wrap gap-1">
+            {tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setView(tab.id)} aria-pressed={view === tab.id} className={`rounded-md px-3 py-2 text-left transition ${view === tab.id ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`}><span className="block text-sm font-semibold">{tab.label}</span><span className="mt-0.5 block text-[10px] font-semibold opacity-80">{tab.description}</span></button>)}
+          </div>
+          <div className="px-1 text-right">
+            <p className="text-xs font-semibold tracking-[0.14em] text-fs-accent-text">美股行业轮动研究</p>
+            <p className="mt-0.5 text-xs text-fs-muted">从当前宏观环境出发，用历史相似阶段解释行业强弱，再用基本面与可审计证据验证结论。</p>
+            <p className="mt-0.5 text-xs text-fs-muted">先看现在，再回看历史；研究证据单独呈现。</p>
+          </div>
         </nav>
       </section>
 

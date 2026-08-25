@@ -7,8 +7,6 @@ import {
   type UnifiedCatalogCountry,
 } from "@/lib/data/macroCatalog";
 import {
-  CPI_SUBGROUP,
-  PRICE_INDEX_CATEGORY,
   categoryTreeKey,
   filterUnifiedCatalogCountry,
   findIndicatorPath,
@@ -19,29 +17,8 @@ import {
   variantKeysForBase,
 } from "@/lib/data/fredTitleZh";
 
-const DEFAULT_OPEN_COUNTRY_CODES = new Set(["CN", "US"]);
-const DEFAULT_OPEN_CATEGORY_NAMES = new Set([
-  "国民经济核算",
-  "价格指数",
-  "就业与工资",
-  "CFTC数据",
-]);
-
 function categoryCompositeKey(countryCode: string, categoryName: string, subgroupName?: string | null) {
   return categoryTreeKey(countryCode, categoryName, subgroupName);
-}
-
-function buildDefaultOpenCategories(): Set<string> {
-  const out = new Set<string>();
-  for (const countryCode of DEFAULT_OPEN_COUNTRY_CODES) {
-    for (const categoryName of DEFAULT_OPEN_CATEGORY_NAMES) {
-      out.add(categoryTreeKey(countryCode, categoryName));
-      if (categoryName === PRICE_INDEX_CATEGORY) {
-        out.add(categoryTreeKey(countryCode, categoryName, CPI_SUBGROUP));
-      }
-    }
-  }
-  return out;
 }
 
 function findIndicatorInCatalog(
@@ -345,8 +322,9 @@ export function UnifiedMacroSidebar({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [openCountries, setOpenCountries] = useState(() => new Set(DEFAULT_OPEN_COUNTRY_CODES));
-  const [openCategories, setOpenCategories] = useState(buildDefaultOpenCategories);
+  // 初次进入时保持目录简洁；仅在用户点击、搜索或「定位已选指标」时展开对应路径。
+  const [openCountries, setOpenCountries] = useState<Set<string>>(() => new Set());
+  const [openCategories, setOpenCategories] = useState<Set<string>>(() => new Set());
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [externalHits, setExternalHits] = useState<
     {

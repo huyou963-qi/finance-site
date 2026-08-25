@@ -105,6 +105,12 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "gold_etf_holdings") {
+        const { fetchGoldEtfHoldingsIncremental } = await import(
+          "./adapters/goldEtfHoldingsAdapter"
+        );
+        return fetchGoldEtfHoldingsIncremental(sub.instrument.metadata, fetchStart);
+      }
       if (scrapeObj.provider === "nbs_pmi") {
         const { fetchNbsPmiIncremental } = await import("./adapters/nbsPmiAdapter");
         return fetchNbsPmiIncremental(
@@ -188,6 +194,13 @@ export async function fetchSubscriptionIncremental(
     if (sub.sourceId === "cftc-cot") {
       const { fetchCftcCotIncremental } = await import("./adapters/cftcCotAdapter");
       return fetchCftcCotIncremental(sub.instrument.metadata, fetchStart);
+    }
+    if (sub.sourceId === "imf-il") {
+      const { fetchImfIlGoldIncremental } = await import("./adapters/imfIlGoldAdapter");
+      const transform = sub.instrument.code === "goldov_c11_global_reserve"
+        ? "legacy_avoirdupois_million_ounces"
+        : "metric_tons";
+      return fetchImfIlGoldIncremental(fetchStart, transform);
     }
     return fetchBisIncremental(sub.sourceSeriesKey, fetchStart);
   }

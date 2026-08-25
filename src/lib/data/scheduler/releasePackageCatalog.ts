@@ -915,6 +915,25 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 241,
     members: { instrumentCodes: DEBTCAP_DSR_CODES },
   }),
+  probePkg("intl.cftc.disaggregated_combined", "CFTC 分项持仓（期货与期权合并）", {
+    labelEn: "CFTC Disaggregated Futures-and-Options Combined",
+    agencyId: "us-cftc",
+    granularity: "WEEKLY",
+    intervalHours: 168,
+    sortOrder: 242,
+    members: { instrumentCodes: ["goldov_c06_mm_net"] },
+  }),
+  probePkg("intl.imf.international_liquidity_gold", "IMF 国际流动性：全球官方黄金储备", {
+    labelEn: "IMF International Liquidity: World Gold Reserves Volume",
+    countryCode: "IM",
+    agencyId: "intl-imf",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 243,
+    members: {
+      instrumentCodes: ["goldov_c24_global_reserve_tons", "goldov_c11_global_reserve"],
+    },
+  }),
   probePkg("cn.pbc.monetary-credit", "中国人民银行货币与信用", {
     labelEn: "PBC Monetary, Credit and Total Social Financing",
     countryCode: "CN",

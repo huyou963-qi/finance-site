@@ -65,6 +65,12 @@ export type MacroMultiChartGridProps = {
     fromLabel: string | null;
     toLabel: string | null;
   }) => void;
+  /** 同一份图表数据在工作区视图间切换时恢复的本地时间窗；换图时父级传 null。 */
+  initialRangePct?: { start: number; end: number } | null;
+  /** 当前图表数据集的身份标识；变化时重置为该数据集的初始时间窗。 */
+  rangeCacheKey?: string | null;
+  /** 用户拖动时间导航条后的本地范围，供工作区临时缓存。 */
+  onRangePctChange?: (range: { start: number; end: number }) => void;
 };
 
 function categoriesOfChart(chart: EChartsType): string[] {
@@ -207,6 +213,9 @@ export function MacroMultiChartGrid({
   onDrawInteraction,
   onCrosshairTimeLabel,
   onVisibleRangeLabels,
+  initialRangePct = null,
+  rangeCacheKey = null,
+  onRangePctChange: onCachedRangePctChange,
 }: MacroMultiChartGridProps) {
   const buckets = useMemo(
     () => partitionMacroSeries(payload, layoutMode, slotAssignment),
@@ -215,7 +224,9 @@ export function MacroMultiChartGrid({
   const compact = layoutMode > 1;
 
   /** 底部导航条：0–100，与全量类目对齐；切片后所有子图共用同一时间窗 */
-  const [rangePct, setRangePct] = useState({ start: 0, end: 100 });
+  const [rangePct, setRangePct] = useState(
+    () => initialRangePct ?? { start: 0, end: 100 },
+  );
 
   const categoriesFingerprint = useMemo(
     () =>
@@ -224,8 +235,10 @@ export function MacroMultiChartGrid({
   );
 
   useEffect(() => {
-    setRangePct({ start: 0, end: 100 });
-  }, [categoriesFingerprint]);
+    setRangePct(initialRangePct ?? { start: 0, end: 100 });
+    // initialRangePct 只在当前数据集首次进入图表区时读取；用户拖动后不应被父级回传值覆盖。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesFingerprint, rangeCacheKey]);
 
   const { i0, i1, visibleCategories } = useMemo(() => {
     const len = payload.categories.length;
@@ -310,7 +323,8 @@ export function MacroMultiChartGrid({
       }
       return next;
     });
-  }, []);
+    onCachedRangePctChange?.(next);
+  }, [onCachedRangePctChange]);
 
   /**
    * 区间变化后广播给其它页面。用「数值比对」防回环：

@@ -496,7 +496,7 @@ export function SectorStageTransmissionPanel({
             onClick={onClearStage}
             className="rounded-md border border-fs-border bg-fs-bg px-2.5 py-1.5 text-[11px] text-fs-muted hover:text-fs-text"
           >
-            返回全历史
+            回到最新阶段
           </button>
         </div>
       </header>
@@ -559,7 +559,7 @@ export function SectorStageTransmissionPanel({
             </div>
           </div>
 
-          <div className="mt-3 flex h-9 overflow-hidden rounded-md border border-fs-border bg-fs-elevated" aria-label="Regime 月度色带">
+          <div className="mt-3 flex h-9 gap-0.5 overflow-hidden rounded-md border border-fs-border bg-fs-elevated p-0.5" aria-label="Regime 月度色带">
             {data.macro.regimePath.length ? (
               data.macro.regimePath.map((point) => {
                 const key = point.dalioRegime ?? "unknown";
@@ -567,7 +567,7 @@ export function SectorStageTransmissionPanel({
                 return (
                   <div
                     key={point.date}
-                    className={`min-w-1 flex-1 border-r border-white/35 last:border-r-0 ${meta.className}`}
+                    className={`min-w-1 flex-1 rounded-sm ${meta.className}`}
                     title={`${point.date} · ${meta.label}`}
                   />
                 );
@@ -628,18 +628,18 @@ export function SectorStageTransmissionPanel({
           </button>
         </div>
 
-        <div className="max-h-[34rem] overflow-auto">
-          <table className="min-w-[1420px] w-full border-collapse text-left text-[11px]">
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed border-collapse text-left text-[11px]">
             <thead className="sticky top-0 z-20 bg-fs-elevated text-fs-muted shadow-[0_1px_0_var(--fs-border)]">
               <tr>
-                <th className="sticky left-0 z-30 w-40 bg-fs-elevated px-3 py-2 font-medium sm:px-5">行业</th>
-                <th className="w-48 px-3 py-2 font-medium">{aggregation === "median" ? "营收同比" : "营收同比（市值加权）"}</th>
-                <th className="w-48 px-3 py-2 font-medium">{aggregation === "median" ? "EPS 同比" : "盈利同比（市值加权）"}</th>
-                <th className="w-48 px-3 py-2 font-medium">{aggregation === "median" ? "营业利润率" : "营业利润率（市值加权）"}</th>
-                <th className="w-48 px-3 py-2 font-medium">盈利收益率 E/P</th>
-                <th className="w-28 px-3 py-2 text-right font-medium">ETF 收益</th>
-                <th className="w-28 px-3 py-2 text-right font-medium">相对 SPY</th>
-                <th className="w-64 px-3 py-2 font-medium">解释标签</th>
+                <th className="sticky left-0 z-30 w-32 bg-fs-elevated px-3 py-2 font-medium sm:px-5">行业</th>
+                <th className="w-32 px-3 py-2 font-medium">{aggregation === "median" ? "营收同比" : "营收同比（市值加权）"}</th>
+                <th className="w-32 px-3 py-2 font-medium">{aggregation === "median" ? "EPS 同比" : "盈利同比（市值加权）"}</th>
+                <th className="w-32 px-3 py-2 font-medium">{aggregation === "median" ? "营业利润率" : "营业利润率（市值加权）"}</th>
+                <th className="w-32 px-3 py-2 font-medium">盈利收益率 E/P</th>
+                <th className="w-20 px-3 py-2 text-right font-medium">ETF 收益</th>
+                <th className="w-20 px-3 py-2 text-right font-medium">相对 SPY</th>
+                <th className="w-40 px-3 py-2 font-medium">解释标签</th>
               </tr>
             </thead>
             <tbody>

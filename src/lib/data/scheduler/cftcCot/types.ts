@@ -5,6 +5,10 @@ export const CFTC_DISAGG_COMBINED_DATASET = "kh3c-gbw2";
 export const CFTC_COT_API_BASE =
   `https://publicreporting.cftc.gov/resource/${CFTC_DISAGG_COMBINED_DATASET}.json`;
 
+/** Official current-year Disaggregated Futures-and-Options Combined text file. */
+export const CFTC_DISAGG_COMBINED_CURRENT_URL =
+  "https://www.cftc.gov/dea/newcot/c_disagg.txt";
+
 export type CftcCotRow = {
   reportDate: Date;
   reportDateIso: string;

@@ -168,6 +168,11 @@ import {
 
 type MainTab = "selected" | "charts" | "templates";
 
+type ChartRangeCache = {
+  datasetKey: string;
+  range: { start: number; end: number };
+};
+
 type ChartSidePanelTab = "settings" | "events" | "intro";
 
 const INTRO_WORKSPACE_TEMPLATE_ID = "__workspace__";
@@ -700,6 +705,8 @@ export function MacroSection() {
   const [remoteVisibleRangeVersion, setRemoteVisibleRangeVersion] = useState(0);
 
   const [payload, setPayload] = useState<MacroPayload | null>(null);
+  /** 仅保留当前已加载图表的时间窗；切换工作区标签时可恢复，加载新图时丢弃。 */
+  const [chartRangeCache, setChartRangeCache] = useState<ChartRangeCache | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requestedQuery, setRequestedQuery] = useState<string | null>(null);
@@ -2173,6 +2180,35 @@ export function MacroSection() {
   }, [displayConfig.slotModes, layoutMode]);
 
   const chartGridPayload = displayPayload ?? (chartsAllowEmptyPayload ? EMPTY_MACRO_PAYLOAD : null);
+
+  /** 用已显示的序列与完整时间轴构成身份：同一图切回工作区时恢复范围，换图即不再命中缓存。 */
+  const chartRangeDatasetKey = useMemo(() => {
+    if (!chartGridPayload) return null;
+    return [
+      chartGridPayload.source,
+      chartGridPayload.categories.length,
+      chartGridPayload.categories[0] ?? "",
+      chartGridPayload.categories.at(-1) ?? "",
+      chartGridPayload.series.map((series) => series.key ?? series.name).join("|"),
+    ].join("::");
+  }, [chartGridPayload]);
+
+  useEffect(() => {
+    setChartRangeCache((previous) =>
+      previous?.datasetKey === chartRangeDatasetKey ? previous : null,
+    );
+  }, [chartRangeDatasetKey]);
+
+  const cachedChartRangePct =
+    chartRangeCache?.datasetKey === chartRangeDatasetKey ? chartRangeCache.range : null;
+
+  const cacheCurrentChartRange = useCallback(
+    (range: { start: number; end: number }) => {
+      if (!chartRangeDatasetKey) return;
+      setChartRangeCache({ datasetKey: chartRangeDatasetKey, range });
+    },
+    [chartRangeDatasetKey],
+  );
 
   const chartAvailableYears = useMemo(
     () => extractYearsFromCategories(displayPayload?.categories ?? []),
@@ -3743,6 +3779,9 @@ export function MacroSection() {
                         onDrawInteraction={onMacroDrawInteraction}
                         onCrosshairTimeLabel={onMacroCrosshairTimeLabel}
                         onVisibleRangeLabels={onMacroVisibleRangeLabels}
+                        initialRangePct={cachedChartRangePct}
+                        rangeCacheKey={chartRangeDatasetKey}
+                        onRangePctChange={cacheCurrentChartRange}
                       />
                     </div>
 
