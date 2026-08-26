@@ -2137,13 +2137,9 @@ export function MacroSection() {
       if (!calc.hidden) derivedSeries.push(derived);
     }
 
-    const allSeries = [...work, ...derivedSeries].filter((series) => {
-      const assigned =
-        slotAssignment[series.key] !== undefined
-          ? slotAssignment[series.key]
-          : activeTemplate?.slotAssignment[series.key];
-      return typeof assigned === "number" && Number.isFinite(assigned);
-    });
+    // “提取数据”必须保留所有已选指标；未分配到图表（null）只影响图表分组，
+    // 不能把指标从提取结果中移除。
+    const allSeries = [...work, ...derivedSeries];
     const allCategories = collectAlignedPeriodKeys(allSeries);
     const finalSeries = allSeries.map((s) => {
       const m = seriesToAlignedValueMap(s.categories, s.data);
@@ -2159,7 +2155,6 @@ export function MacroSection() {
       series: finalSeries,
     };
   }, [
-    activeTemplate,
     catalogLabelByKey,
     derivedCalcs,
     mdsUnitByKey,
@@ -2167,7 +2162,6 @@ export function MacroSection() {
     rawPayload,
     resolveSeriesLabel,
     seriesCalcConfigMap,
-    slotAssignment,
     effectiveSeriesVisualMap,
   ]);
 

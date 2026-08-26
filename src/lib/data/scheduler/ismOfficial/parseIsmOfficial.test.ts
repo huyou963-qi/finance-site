@@ -72,7 +72,7 @@ test("missing glance table throws", () => {
   );
 });
 
-test("published 2026 calendar fixture loads as scheduler fallback", () => {
+test("published 2026 calendar loads as a bundled scheduler fallback", () => {
   const releases = loadPublishedIsmOfficialReleases();
   assert.equal(releases.filter((r) => r.kind === "manufacturing").length, 12);
   assert.equal(releases.filter((r) => r.kind === "services").length, 12);

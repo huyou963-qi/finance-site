@@ -10,6 +10,7 @@ import {
   TooltipComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { SITE } from "@/lib/siteTheme";
 
 echarts.use([
   LineChart,
@@ -65,11 +66,28 @@ export function SectorNavChart({
               type: "slider",
               height: 18,
               bottom: 18,
-              borderColor: "#2a3340",
-              backgroundColor: "rgba(30, 38, 48, 0.5)",
-              fillerColor: "rgba(62, 207, 142, 0.16)",
-              handleStyle: { color: "#3ecf8e", borderColor: "#3ecf8e" },
-              textStyle: { color: "#9da8b6", fontSize: 10 },
+              borderColor: SITE.border,
+              backgroundColor: SITE.elevated,
+              fillerColor: SITE.accentSoft,
+              dataBackground: {
+                lineStyle: { color: "transparent" },
+                areaStyle: { color: "transparent" },
+              },
+              selectedDataBackground: {
+                lineStyle: { color: "transparent" },
+                areaStyle: { color: "transparent" },
+              },
+              handleStyle: {
+                color: SITE.elevated,
+                borderColor: SITE.accent,
+                borderWidth: 1,
+              },
+              moveHandleStyle: { color: SITE.accentSoft },
+              emphasis: {
+                handleStyle: { color: SITE.accentSoft, borderColor: SITE.accent },
+                moveHandleStyle: { color: SITE.accentSoft },
+              },
+              textStyle: { color: SITE.muted, fontSize: 10 },
               ...(zoomWindow
                 ? { startValue: zoomWindow.start, endValue: zoomWindow.end }
                 : { start: 0, end: 100 }),
