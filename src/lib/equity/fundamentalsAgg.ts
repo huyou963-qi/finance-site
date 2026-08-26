@@ -248,13 +248,21 @@ export async function aggregateSectorFundamentals(
 export async function aggregateAllSectorFundamentals(): Promise<
   Omit<SectorFundamentalsAgg, "members">[]
 > {
-  return Promise.all(
-    GICS_SECTOR_DEFS.map(async (def) => {
-      const full = await aggregateSectorFundamentals(def.sector);
-      const { members: _members, ...rest } = full;
-      return rest;
-    }),
-  );
+  const out: Omit<SectorFundamentalsAgg, "members">[] = [];
+  // Production uses a deliberately small Prisma pool. Process two sectors at
+  // a time so the overview is faster than fully sequential aggregation without
+  // exhausting the pool with all 11 sectors at once.
+  for (let index = 0; index < GICS_SECTOR_DEFS.length; index += 2) {
+    const batch = await Promise.all(
+      GICS_SECTOR_DEFS.slice(index, index + 2).map(async (def) => {
+        const full = await aggregateSectorFundamentals(def.sector);
+        const { members: _members, ...rest } = full;
+        return rest;
+      }),
+    );
+    out.push(...batch);
+  }
+  return out;
 }
 
 export type PeerQuarterMedians = {
