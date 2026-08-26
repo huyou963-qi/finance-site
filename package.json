@@ -206,7 +206,8 @@
     "test:equity": "tsx --test src/lib/equity/*.test.ts",
     "test:quant": "tsx --test src/lib/quant/*.test.ts",
     "test:ism-official": "tsx --test src/lib/data/scheduler/ismOfficial/parseIsmOfficial.test.ts",
-    "test:nbs-official-calendar": "tsx --test src/lib/data/scheduler/nbsOfficialCalendar/parseCalendar.test.ts"
+    "test:nbs-official-calendar": "tsx --test src/lib/data/scheduler/nbsOfficialCalendar/parseCalendar.test.ts",
+    "test:catalog-frequency": "tsx --test src/lib/data/fredCatalogFrequency.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

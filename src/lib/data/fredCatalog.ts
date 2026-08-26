@@ -423,12 +423,14 @@ function buildCountries(): UnifiedCatalogCountry[] {
 }
 
 export function normalizeFrequency(v: string | null | undefined): UnifiedCatalogFrequency {
-  const t = (v ?? "").trim();
-  if (t === "日" || t === "周" || t === "月" || t === "季度" || t === "年") return t;
-  if (/day/i.test(t)) return "日";
-  if (/week/i.test(t)) return "周";
-  if (/quarter/i.test(t)) return "季度";
-  if (/year/i.test(t)) return "年";
+  const t = (v ?? "").trim().toLowerCase();
+  if (/^(日|日频|每天|d|day|daily)$/.test(t)) return "日";
+  if (/^(周|周频|w|week|weekly)$/.test(t)) return "周";
+  if (/^(月|月频|m|month|monthly)$/.test(t)) return "月";
+  // Instrument.freqLabel and scheduler seeds historically use both “季” and
+  // “季度”. Falling through to the legacy default puts quarterly series in 月频 folders.
+  if (/^(季|季度|季频|q|quarter|quarterly)$/.test(t)) return "季度";
+  if (/^(年|年度|年频|a|y|year|yearly|annual)$/.test(t)) return "年";
   return "月";
 }
 
