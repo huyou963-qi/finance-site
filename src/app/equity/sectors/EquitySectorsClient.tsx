@@ -111,7 +111,7 @@ export function EquitySectorsClient() {
   ];
 
   return (
-    <div className="flex w-full max-w-none flex-col gap-4 px-2 py-3">
+    <div className={`flex w-full max-w-none flex-col gap-4 px-2 py-3 ${view === "history" ? "xl:h-full xl:min-h-0 xl:overflow-hidden" : ""}`}>
       <section className="rounded-xl border border-fs-border bg-fs-elevated/20">
         <nav className="flex flex-wrap items-center justify-between gap-2 px-3 py-2" aria-label="行业研究视图">
           <div className="flex flex-wrap gap-1">

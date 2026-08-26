@@ -307,9 +307,9 @@ export function HistoricalSectorRotation() {
   };
 
   return (
-    <section className="min-h-[calc(100svh-1.5rem)] overflow-hidden rounded-xl border border-fs-border bg-fs-elevated/20">
-      <div className="grid min-h-[calc(100svh-1.5rem)] xl:grid-cols-[18rem_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-b border-fs-border bg-fs-bg/25 xl:sticky xl:top-8 xl:h-[calc(100svh-8rem)] xl:self-start xl:border-b-0 xl:border-r">
+    <section className="overflow-hidden rounded-xl border border-fs-border bg-fs-elevated/20 xl:min-h-0 xl:flex-1">
+      <div className="grid xl:h-full xl:min-h-0 xl:grid-cols-[18rem_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-b border-fs-border bg-fs-bg/25 xl:h-full xl:border-b-0 xl:border-r">
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {SECTOR_HISTORICAL_PERIODS.slice().reverse().map((item) => {
               const stageNumber = SECTOR_HISTORICAL_PERIODS.findIndex((entry) => entry.id === item.id) + 1;
@@ -324,7 +324,7 @@ export function HistoricalSectorRotation() {
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 flex-col xl:min-h-0 xl:overflow-y-auto">
         {period ? (() => {
           const data = periodData[period.id];
           return (
