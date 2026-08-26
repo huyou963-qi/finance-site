@@ -13,6 +13,7 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      ".next.corrupt-*/**",
       "node_modules/**",
       "clientportal.gw/**",
       "dist/**",

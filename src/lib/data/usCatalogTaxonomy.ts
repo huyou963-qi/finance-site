@@ -69,7 +69,12 @@ const FRED_CPI = new Set(
 );
 
 const FRED_PCE_PPI = new Set(["PCEPI", "PCEPILFE", "PPIFIS"]);
-const FRED_INFLATION_EXPECT_ENERGY = new Set(["T5YIE", "T10YIE", "DCOILWTICO"]);
+const FRED_INFLATION_EXPECT_ENERGY = new Set([
+  "T5YIE",
+  "T10YIE",
+  "T5YIFR",
+  "DCOILWTICO",
+]);
 
 const FRED_NATIONAL_ACCOUNTS = new Set([
   "GDPC1",
@@ -89,7 +94,7 @@ const FRED_INDUSTRIAL = new Set([
   "MCUMFN",
 ]);
 const FRED_CONSUMPTION = new Set(["RSAFS", "PCEC96", "BUSINV", "ISRATIO", "MNFCTRIRSA"]);
-const FRED_SENTIMENT = new Set(["UMCSENT", "CFNAI", "USREC"]);
+const FRED_SENTIMENT = new Set(["UMCSENT", "CFNAI", "WEI", "USREC"]);
 
 const FRED_LABOR_UNEMP = new Set([
   "UNRATE",
@@ -125,9 +130,9 @@ const FRED_TREASURY_YIELDS = new Set(["GS2", "GS10", "DGS2", "DGS10"]);
 const FRED_SPREADS = new Set(["T10Y2Y", "T10Y3M"]);
 const FRED_TIPS = new Set(["DFII10"]);
 const FRED_CREDIT_SPREADS = new Set(["BAMLH0A0HYM2", "BAMLC0A0CM"]);
-const FRED_MARKET_SENTIMENT = new Set(["VIXCLS"]);
+const FRED_MARKET_SENTIMENT = new Set(["VIXCLS", "VXVCLS"]);
 
-const FRED_FINANCIAL_CONDITIONS = new Set(["NFCI"]);
+const FRED_FINANCIAL_CONDITIONS = new Set(["NFCI", "ANFCI"]);
 const FRED_BANK_CREDIT = new Set(["BUSLOANS", "DRTSCILM"]);
 const FRED_ASSET_QUALITY = new Set(["DRCCLACBS", "DRBLACBS"]);
 

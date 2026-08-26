@@ -5,7 +5,7 @@
 import { prisma } from "@/lib/prisma";
 import type { GicsSector } from "@/lib/equity/gicsCatalog";
 import { GICS_SECTOR_DEFS, getSectorDef } from "@/lib/equity/gicsCatalog";
-import { getLatestClosesDbOnly } from "@/lib/equity/equityPriceStore";
+import { getDailyCloseRowsDbOnly, getLatestClosesDbOnly } from "@/lib/equity/equityPriceStore";
 import { computeTtm, type QuarterFundamentalRow } from "@/lib/equity/ttm";
 
 export function median(xs: number[]): number | null {
@@ -25,23 +25,54 @@ export type SectorFundamentalsAgg = {
   sampleCount: number;
   universeCount: number;
   coveragePct: number;
+  period: string | null;
+  previousPeriod: string | null;
   revenueYoYMedian: number | null;
+  previousRevenueYoYMedian: number | null;
   epsYoYMedian: number | null;
   grossMarginMedian: number | null;
   opMarginMedian: number | null;
   peMedian: number | null;
+  previousPeMedian: number | null;
   members: {
     symbol: string;
     revenueYoY: number | null;
+    previousRevenueYoY: number | null;
     epsYoY: number | null;
     pe: number | null;
+    previousPe: number | null;
     grossMargin: number | null;
     opMargin: number | null;
     period: string | null;
+    previousPeriod: string | null;
   }[];
 };
 
 type MemberRow = SectorFundamentalsAgg["members"][number];
+
+function dominantPeriod(values: (string | null)[]): string | null {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([periodA, countA], [periodB, countB]) => countB - countA || periodB.localeCompare(periodA))[0]?.[0] ?? null;
+}
+
+/** 当前已完成的自然季度；财报季中只聚合这一季已披露的公司。 */
+export function latestCompletedQuarter(asOf = new Date()): string {
+  const year = asOf.getUTCFullYear();
+  const currentQuarter = Math.floor(asOf.getUTCMonth() / 3) + 1;
+  return currentQuarter === 1 ? `${year - 1}Q4` : `${year}Q${currentQuarter - 1}`;
+}
+
+export function previousQuarter(period: string): string {
+  const match = /^(\d{4})Q([1-4])$/.exec(period);
+  if (!match) return period;
+  const year = Number(match[1]);
+  const quarter = Number(match[2]);
+  return quarter === 1 ? `${year - 1}Q4` : `${year}Q${quarter - 1}`;
+}
 
 function finalizeAgg(
   sector: GicsSector,
@@ -59,11 +90,15 @@ function finalizeAgg(
     sampleCount: members.length,
     universeCount,
     coveragePct: universeCount ? members.length / universeCount : 0,
+    period: dominantPeriod(members.map((m) => m.period)),
+    previousPeriod: dominantPeriod(members.map((m) => m.previousPeriod)),
     revenueYoYMedian: pick((m) => m.revenueYoY),
+    previousRevenueYoYMedian: pick((m) => m.previousRevenueYoY),
     epsYoYMedian: pick((m) => m.epsYoY),
     grossMarginMedian: pick((m) => m.grossMargin),
     opMarginMedian: pick((m) => m.opMargin),
     peMedian: pick((m) => m.pe),
+    previousPeMedian: pick((m) => m.previousPe),
     members: members.sort((a, b) => a.symbol.localeCompare(b.symbol)),
   };
 }
@@ -85,6 +120,8 @@ export async function aggregateSectorFundamentals(
   if (!symbols.length) return finalizeAgg(sector, periodType, 0, []);
 
   if (periodType === "Q") {
+    const targetPeriod = latestCompletedQuarter();
+    const priorPeriod = previousQuarter(targetPeriod);
     const snaps = await prisma.equityFundamentalSnapshot.findMany({
       where: {
         symbol: { in: symbols },
@@ -102,13 +139,35 @@ export async function aggregateSectorFundamentals(
         if (arr) arr.push(s);
         else rowsBySymbol.set(s.symbol, [s]);
       }
+      const previousAnchorBySymbol = new Map<string, Date>();
+      for (const [symbol, rows] of rowsBySymbol) {
+        if (!rows.some((row) => row.period === targetPeriod)) continue;
+        const previous = rows.find((row) => row.period === priorPeriod);
+        if (previous) previousAnchorBySymbol.set(symbol, previous.firstReportedAt ?? previous.fiscalDate ?? previous.asOf);
+      }
+      const previousAnchors = [...previousAnchorBySymbol.values()];
+      const previousPriceRows = previousAnchors.length
+        ? await getDailyCloseRowsDbOnly({
+            symbols: [...previousAnchorBySymbol.keys()],
+            from: new Date(Math.min(...previousAnchors.map((date) => date.getTime())) - 14 * 86_400_000),
+            to: new Date(Math.max(...previousAnchors.map((date) => date.getTime()))),
+          })
+        : [];
+      const previousCloses = new Map<string, number>();
+      for (const row of previousPriceRows) {
+        const anchor = previousAnchorBySymbol.get(row.symbol);
+        if (anchor && row.date <= anchor && row.close > 0) previousCloses.set(row.symbol, row.close);
+      }
       const closes = await getLatestClosesDbOnly([...rowsBySymbol.keys()]);
       const cachedMcap = new Map(securities.map((s) => [s.symbol, s.marketCap]));
 
       const members: MemberRow[] = [];
       for (const [sym, rows] of rowsBySymbol) {
-        const latest = rows[rows.length - 1]!;
-        const ttmRows: QuarterFundamentalRow[] = rows.map((r) => ({
+        const latest = rows.find((row) => row.period === targetPeriod);
+        if (!latest) continue;
+        const previous = rows.find((row) => row.period === priorPeriod) ?? null;
+        const throughTarget = rows.filter((row) => row.asOf <= latest.asOf);
+        const ttmRows: QuarterFundamentalRow[] = throughTarget.map((r) => ({
           period: r.period,
           fiscalDate: (r.fiscalDate ?? r.asOf).toISOString().slice(0, 10),
           revenue: r.revenue,
@@ -125,22 +184,36 @@ export async function aggregateSectorFundamentals(
           sharesOutstanding: r.sharesOutstanding,
         }));
         const ttm = computeTtm(ttmRows);
+        const previousTtm = previous
+          ? computeTtm(ttmRows.filter((_, index) => throughTarget[index]!.asOf <= previous.asOf))
+          : null;
         const close = closes.get(sym) ?? null;
+        const previousClose = previousCloses.get(sym) ?? null;
         const mcap =
           close != null && latest.sharesOutstanding != null && latest.sharesOutstanding > 0
             ? close * latest.sharesOutstanding
             : (cachedMcap.get(sym) ?? null);
+        const previousMcap =
+          previousClose != null && previous?.sharesOutstanding != null && previous.sharesOutstanding > 0
+            ? previousClose * previous.sharesOutstanding
+            : null;
         members.push({
           symbol: sym,
           revenueYoY: latest.revenueYoY,
+          previousRevenueYoY: previous?.revenueYoY ?? null,
           epsYoY: latest.epsYoY,
           pe:
             mcap != null && ttm?.netIncome != null && ttm.netIncome > 0
               ? mcap / ttm.netIncome
               : null,
+          previousPe:
+            previousMcap != null && previousTtm?.netIncome != null && previousTtm.netIncome > 0
+              ? previousMcap / previousTtm.netIncome
+              : null,
           grossMargin: latest.grossMargin,
           opMargin: latest.opMargin,
-          period: latest.period,
+          period: targetPeriod,
+          previousPeriod: previous ? priorPeriod : null,
         });
       }
       return finalizeAgg(sector, "Q", universeCount, members);
@@ -160,11 +233,14 @@ export async function aggregateSectorFundamentals(
   const members: MemberRow[] = [...latestBySymbol.values()].map((r) => ({
     symbol: r.symbol,
     revenueYoY: r.revenueYoY,
+    previousRevenueYoY: null,
     epsYoY: r.epsYoY,
     pe: r.pe,
+    previousPe: null,
     grossMargin: r.grossMargin,
     opMargin: r.opMargin,
     period: r.period,
+    previousPeriod: null,
   }));
   return finalizeAgg(sector, "FY", universeCount, members);
 }
@@ -172,13 +248,13 @@ export async function aggregateSectorFundamentals(
 export async function aggregateAllSectorFundamentals(): Promise<
   Omit<SectorFundamentalsAgg, "members">[]
 > {
-  const out: Omit<SectorFundamentalsAgg, "members">[] = [];
-  for (const def of GICS_SECTOR_DEFS) {
-    const full = await aggregateSectorFundamentals(def.sector);
-    const { members: _m, ...rest } = full;
-    out.push(rest);
-  }
-  return out;
+  return Promise.all(
+    GICS_SECTOR_DEFS.map(async (def) => {
+      const full = await aggregateSectorFundamentals(def.sector);
+      const { members: _members, ...rest } = full;
+      return rest;
+    }),
+  );
 }
 
 export type PeerQuarterMedians = {

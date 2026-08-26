@@ -169,6 +169,7 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "CES0500000003", label: "平均时薪（全体私营）", category: "就业与工资", frequency: "月" },
   { id: "T5YIE", label: "5Y 盈亏平衡通胀", category: "通胀驱动因子", frequency: "日" },
   { id: "T10YIE", label: "10Y 盈亏平衡通胀", category: "通胀驱动因子", frequency: "日" },
+  { id: "T5YIFR", label: "5Y5Y 远期通胀预期", category: "通胀驱动因子", frequency: "日" },
   { id: "DCOILWTICO", label: "WTI 原油现货", category: "通胀驱动因子", frequency: "日" },
   { id: "UNRATE", label: "失业率（U-3，季调）", category: "就业与工资", frequency: "月" },
   { id: "PAYEMS", label: "非农就业人数（千人）", category: "就业与工资", frequency: "月" },
@@ -212,6 +213,7 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "EFFR", label: "有效联邦基金利率（%）", category: "银行与货币", frequency: "日" },
   { id: "RRPONTSYD", label: "ON RRP 隔夜逆回购余额（十亿美元）", category: "银行与货币", frequency: "日" },
   { id: "NFCI", label: "Chicago Fed 全国金融条件指数", category: "银行与货币", frequency: "周" },
+  { id: "ANFCI", label: "Chicago Fed 调整后全国金融条件指数", category: "银行与货币", frequency: "周" },
   { id: "DRTSCILM", label: "SLOOS 工商贷款收紧净比例（大中企业，%）", category: "银行与货币", frequency: "季度" },
   { id: "BUSLOANS", label: "工商业贷款存量（十亿美元）", category: "银行与货币", frequency: "月" },
   { id: "DRCCLACBS", label: "信用卡拖欠率（%）", category: "银行与货币", frequency: "季度" },
@@ -287,8 +289,10 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "CSUSHPINSA", label: "标普/Case-Shiller 房价指数", category: "固定资产与地产", frequency: "月" },
   { id: "UMCSENT", label: "密歇根大学消费者信心指数", category: "景气调查", frequency: "月" },
   { id: "CFNAI", label: "芝加哥联储全国活动指数", category: "景气调查", frequency: "月" },
+  { id: "WEI", label: "周度经济指数（Lewis-Mertens-Stock）", category: "景气调查", frequency: "周" },
   { id: "USREC", label: "NBER 衰退指标（0/1）", category: "综合", frequency: "月" },
   { id: "VIXCLS", label: "VIX 波动率指数", category: "证券市场", frequency: "日" },
+  { id: "VXVCLS", label: "CBOE S&P 500 3个月波动率指数", category: "证券市场", frequency: "日" },
 ] as const;
 
 type WorldBankIndicatorDef = {

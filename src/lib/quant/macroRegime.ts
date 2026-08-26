@@ -790,25 +790,46 @@ export async function getRegimeAsOfDay(dateIso: string): Promise<StoredRegime | 
 // ────────────────────────────────────────────────────────── 当前环境 Nowcast
 
 export type RegimeNowcastConfidence = "high" | "medium" | "low";
-export type RegimeNowcastAxis = "growth" | "inflation" | "rates";
+export type RegimeNowcastAxis = "risk" | "inflation" | "policy" | "financial" | "activity";
+export type RegimeNowcastRole = "core" | "confirmation" | "diagnostic";
+export type RegimeNowcastConfirmation = "confirmed" | "divergent" | "mixed" | "unavailable";
+export type RegimeNowcastRelation = "aligned" | "divergent" | "inconclusive";
+
+export type OfficialRegimeIndicator = {
+  code: string;
+  labelZh: string;
+  categoryLabel: string;
+  latestMonth: string | null;
+  latestValue: number | null;
+  valueKind: "percent" | "index";
+  modelZ: number | null;
+  momentum: number | null;
+  directionLabel: string;
+  direction: -1 | 0 | 1;
+};
 
 export type RegimeNowcastIndicator = {
   code: string;
   labelZh: string;
   axis: RegimeNowcastAxis;
+  role: RegimeNowcastRole;
+  unit: "percent" | "index" | "currency" | "ratio" | "people";
   latestDate: string | null;
   latestValue: number | null;
   comparisonDate: string | null;
   comparisonValue: number | null;
   change: number | null;
   changeKind: "absolute" | "percent";
+  /** 经历史滚动分布标准化后的连续方向分数，范围 [-1, 1]。 */
+  signal: number | null;
+  weight: number;
   vote: -1 | 0 | 1;
   directionLabel: string;
   fresh: boolean;
 };
 
 export type MacroRegimeNowcast = {
-  version: "regime-nowcast-v1";
+  version: "market-pricing-regime-v2";
   generatedAt: string;
   asOfDate: string;
   cadenceLabel: string;
@@ -819,14 +840,20 @@ export type MacroRegimeNowcast = {
     growthDirection: GrowthDirection | null;
     inflationState: InflationState;
     visibleMonth: RegimeInputs["visibleMonth"];
+    indicators: OfficialRegimeIndicator[];
   } | null;
   live: {
     regime: DalioQuadrant | null;
-    growthDirection: GrowthDirection | null;
-    inflationState: InflationState;
+    riskDirection: GrowthDirection | null;
+    inflationState: InflationState | null;
     visibleMonth: RegimeInputs["visibleMonth"];
-    growthScore: number;
+    riskScore: number;
     inflationScore: number;
+    policyScore: number;
+    financialConditionsScore: number;
+    activityScore: number;
+    confirmation: RegimeNowcastConfirmation;
+    relationToOfficial: RegimeNowcastRelation;
     confidence: RegimeNowcastConfidence;
     coverage: number;
     changedFromOfficial: boolean;
@@ -839,81 +866,275 @@ export type MacroRegimeNowcast = {
 
 type NowcastIndicatorDefinition = {
   code: string;
+  sourceCodes: readonly string[];
   labelZh: string;
   axis: RegimeNowcastAxis;
+  role: RegimeNowcastRole;
+  unit: RegimeNowcastIndicator["unit"];
   changeKind: "absolute" | "percent";
-  positiveThreshold: number;
-  negativeThreshold: number;
+  horizonDays: number;
+  maxAgeDays: number;
+  weight: number;
   /** +1 表示指标上行对应轴方向上行；-1 表示上行对应轴方向下行。 */
   polarity: 1 | -1;
+  transform?: "ratio";
+  positiveLabel?: string;
+  negativeLabel?: string;
 };
 
 /**
- * 高频确认项只选择已在 scheduler/canonical MacroObservation 中维护的序列。
- * 阈值为事前固定的解释阈值，不以行业收益反向调参，也不产生预期收益率。
+ * v2 将“市场正在交易什么”与月度宏观事实分开：
+ * - risk × inflation 只由可交易价格构成，并映射为四类市场交易背景；
+ * - policy 是贴现率/政策路径覆盖层；financial 与 activity 只做慢确认；
+ * - diagnostic 行展示但不重复计权（例如 T10YIE、NFCI、ICSA）。
+ * 所有序列仍来自 scheduler/canonical MacroObservation，不新增平行抓取链。
  */
 const REGIME_NOWCAST_INDICATORS: readonly NowcastIndicatorDefinition[] = [
   {
-    code: "sched_fred_T10Y3M",
-    labelZh: "10Y−3M 曲线",
-    axis: "growth",
+    code: "sched_fred_BAMLH0A0HYM2",
+    sourceCodes: ["sched_fred_BAMLH0A0HYM2"],
+    labelZh: "高收益债 OAS",
+    axis: "risk",
+    role: "core",
+    unit: "percent",
     changeKind: "absolute",
-    positiveThreshold: 0.25,
-    negativeThreshold: -0.25,
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0.4,
+    polarity: -1,
+  },
+  {
+    code: "derived_vix_term_structure",
+    sourceCodes: ["sched_fred_VIXCLS", "sched_fred_VXVCLS"],
+    labelZh: "VIX／3月 VIX",
+    axis: "risk",
+    role: "core",
+    unit: "ratio",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0.35,
+    polarity: -1,
+    transform: "ratio",
+  },
+  {
+    code: "sched_fred_DTWEXBGS",
+    sourceCodes: ["sched_fred_DTWEXBGS"],
+    labelZh: "广义美元指数",
+    axis: "risk",
+    role: "core",
+    unit: "index",
+    changeKind: "percent",
+    horizonDays: 28,
+    maxAgeDays: 10,
+    weight: 0.25,
+    polarity: -1,
+  },
+  {
+    code: "sched_fred_T5YIE",
+    sourceCodes: ["sched_fred_T5YIE"],
+    labelZh: "5Y 通胀预期",
+    axis: "inflation",
+    role: "core",
+    unit: "percent",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0.5,
     polarity: 1,
   },
   {
-    code: "sched_fred_BAMLH0A0HYM2",
-    labelZh: "高收益债 OAS",
-    axis: "growth",
-    changeKind: "absolute",
-    positiveThreshold: 0.25,
-    negativeThreshold: -0.25,
-    polarity: -1,
-  },
-  {
-    code: "sched_fred_VIXCLS",
-    labelZh: "VIX",
-    axis: "growth",
-    changeKind: "percent",
-    positiveThreshold: 0.15,
-    negativeThreshold: -0.15,
-    polarity: -1,
-  },
-  {
-    code: "sched_fred_T10YIE",
-    labelZh: "10Y 通胀预期",
+    code: "sched_fred_T5YIFR",
+    sourceCodes: ["sched_fred_T5YIFR"],
+    labelZh: "5Y5Y 远期通胀",
     axis: "inflation",
+    role: "core",
+    unit: "percent",
     changeKind: "absolute",
-    positiveThreshold: 0.15,
-    negativeThreshold: -0.15,
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0.35,
     polarity: 1,
   },
   {
     code: "sched_fred_DCOILWTICO",
+    sourceCodes: ["sched_fred_DCOILWTICO"],
     labelZh: "WTI 原油",
     axis: "inflation",
+    role: "core",
+    unit: "currency",
     changeKind: "percent",
-    positiveThreshold: 0.08,
-    negativeThreshold: -0.08,
+    horizonDays: 28,
+    maxAgeDays: 10,
+    weight: 0.15,
     polarity: 1,
   },
   {
-    code: "sched_fred_DGS10",
-    labelZh: "10Y 国债收益率",
-    axis: "rates",
+    code: "sched_fred_DGS2",
+    sourceCodes: ["sched_fred_DGS2"],
+    labelZh: "2Y 国债收益率",
+    axis: "policy",
+    role: "core",
+    unit: "percent",
     changeKind: "absolute",
-    positiveThreshold: 0.20,
-    negativeThreshold: -0.20,
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0.55,
     polarity: 1,
+  },
+  {
+    code: "sched_fred_DFII10",
+    sourceCodes: ["sched_fred_DFII10"],
+    labelZh: "10Y 实际利率",
+    axis: "policy",
+    role: "core",
+    unit: "percent",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0.45,
+    polarity: 1,
+  },
+  {
+    code: "sched_fred_ANFCI",
+    sourceCodes: ["sched_fred_ANFCI"],
+    labelZh: "调整后金融条件",
+    axis: "financial",
+    role: "confirmation",
+    unit: "index",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 14,
+    weight: 1,
+    polarity: -1,
+  },
+  {
+    code: "sched_fred_WEI",
+    sourceCodes: ["sched_fred_WEI"],
+    labelZh: "周度经济指数",
+    axis: "activity",
+    role: "confirmation",
+    unit: "index",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 14,
+    weight: 1,
+    polarity: 1,
+  },
+  {
+    code: "sched_fred_T10YIE",
+    sourceCodes: ["sched_fred_T10YIE"],
+    labelZh: "10Y 通胀预期",
+    axis: "inflation",
+    role: "diagnostic",
+    unit: "percent",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0,
+    polarity: 1,
+  },
+  {
+    code: "sched_fred_T10Y3M",
+    sourceCodes: ["sched_fred_T10Y3M"],
+    labelZh: "10Y−3M 曲线",
+    axis: "policy",
+    role: "diagnostic",
+    unit: "percent",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0,
+    polarity: 1,
+    positiveLabel: "走阔",
+    negativeLabel: "收窄",
+  },
+  {
+    code: "sched_fred_DGS10",
+    sourceCodes: ["sched_fred_DGS10"],
+    labelZh: "10Y 国债收益率",
+    axis: "policy",
+    role: "diagnostic",
+    unit: "percent",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 7,
+    weight: 0,
+    polarity: 1,
+    positiveLabel: "上行",
+    negativeLabel: "下行",
+  },
+  {
+    code: "sched_fred_NFCI",
+    sourceCodes: ["sched_fred_NFCI"],
+    labelZh: "金融条件指数",
+    axis: "financial",
+    role: "diagnostic",
+    unit: "index",
+    changeKind: "absolute",
+    horizonDays: 28,
+    maxAgeDays: 14,
+    weight: 0,
+    polarity: -1,
+  },
+  {
+    code: "sched_fred_ICSA",
+    sourceCodes: ["sched_fred_ICSA"],
+    labelZh: "初请失业金人数",
+    axis: "activity",
+    role: "diagnostic",
+    unit: "people",
+    changeKind: "percent",
+    horizonDays: 28,
+    maxAgeDays: 14,
+    weight: 0,
+    polarity: -1,
   },
 ] as const;
 
 /** 供统一 scheduler 标记更新优先级；这里只导出消费者清单，不拥有抓取职责。 */
-export const REGIME_NOWCAST_INPUT_CODES = REGIME_NOWCAST_INDICATORS.map((item) => item.code);
+export const REGIME_NOWCAST_INPUT_CODES = [
+  ...new Set(REGIME_NOWCAST_INDICATORS.flatMap((item) => item.sourceCodes)),
+];
 
 function isoDay(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+function officialIndicatorDirection(modelZ: number | null): -1 | 0 | 1 {
+  if (modelZ == null || !Number.isFinite(modelZ) || Math.abs(modelZ) < 0.1) return 0;
+  return modelZ > 0 ? 1 : -1;
+}
+
+/** 只把落库月度快照中已参与分类的原始值与 z 贡献展开给 UI，不在页面重算模型。 */
+export function buildOfficialRegimeIndicators(regime: StoredRegime): OfficialRegimeIndicator[] {
+  const { components, visibleMonth } = regime.inputs;
+  const growth = (options: Omit<OfficialRegimeIndicator, "direction" | "directionLabel" | "momentum">): OfficialRegimeIndicator => {
+    const direction = officialIndicatorDirection(options.modelZ);
+    return {
+      ...options,
+      momentum: null,
+      direction,
+      directionLabel: direction > 0 ? "高于常态" : direction < 0 ? "低于常态" : "接近常态",
+    };
+  };
+  const inflation = (options: Omit<OfficialRegimeIndicator, "direction" | "directionLabel">): OfficialRegimeIndicator => {
+    const direction = officialIndicatorDirection(options.modelZ);
+    return {
+      ...options,
+      direction,
+      directionLabel: direction > 0 ? "升温贡献" : direction < 0 ? "降温贡献" : "中性贡献",
+    };
+  };
+  return [
+    growth({ code: REGIME_CODES.payems, labelZh: "非农就业", categoryLabel: "增长·就业", latestMonth: visibleMonth.payems, latestValue: components.payemsYoY, valueKind: "percent", modelZ: components.payemsZ }),
+    growth({ code: REGIME_CODES.income, labelZh: "实际收入（除转移）", categoryLabel: "增长·收入", latestMonth: visibleMonth.income, latestValue: components.incomeYoY, valueKind: "percent", modelZ: components.incomeZ }),
+    growth({ code: REGIME_CODES.indpro, labelZh: "工业生产", categoryLabel: "增长·生产", latestMonth: visibleMonth.indpro, latestValue: components.indproYoY, valueKind: "percent", modelZ: components.indproZ }),
+    growth({ code: REGIME_CODES.ism, labelZh: "ISM 制造业", categoryLabel: "增长·调查（合并一票）", latestMonth: visibleMonth.ism, latestValue: components.ismLevel, valueKind: "index", modelZ: components.ismZ }),
+    growth({ code: REGIME_CODES.ismSvc, labelZh: "ISM 服务业", categoryLabel: "增长·调查（合并一票）", latestMonth: visibleMonth.ismSvc, latestValue: components.ismSvcLevel, valueKind: "index", modelZ: components.ismSvcZ }),
+    inflation({ code: REGIME_CODES.cpi, labelZh: "CPI", categoryLabel: "通胀动量", latestMonth: visibleMonth.cpi, latestValue: components.cpiYoY, valueKind: "percent", modelZ: components.cpiMomZ, momentum: components.cpiMom }),
+    inflation({ code: REGIME_CODES.pce, labelZh: "PCE 物价", categoryLabel: "通胀动量", latestMonth: visibleMonth.pce, latestValue: components.pceYoY, valueKind: "percent", modelZ: components.pceMomZ, momentum: components.pceMom }),
+  ];
 }
 
 function dayDiff(left: string, right: string): number {
@@ -924,34 +1145,64 @@ function dayDiff(left: string, right: string): number {
   );
 }
 
-function meanVote(indicators: readonly RegimeNowcastIndicator[], axis: RegimeNowcastAxis): number {
-  const usable = indicators.filter((item) => item.axis === axis && item.fresh && item.change != null);
-  return usable.length
-    ? usable.reduce((sum, item) => sum + item.vote, 0) / usable.length
-    : 0;
+function median(values: readonly number[]): number {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function liveDirection(
-  score: number,
-  fallback: GrowthDirection | null,
-): GrowthDirection | null {
-  if (score >= 0.25) return "rising";
-  if (score <= -0.25) return "falling";
-  return fallback;
+function robustSignal(values: readonly number[]): number | null {
+  if (values.length < 40) return null;
+  const sample = values.slice(-750);
+  const current = sample.at(-1)!;
+  const history = sample.slice(0, -1);
+  // 变化量的经济方向由 0 决定，不能减去历史中位数后翻转符号；历史仅用于估计典型波动尺度。
+  let scale = median(history.map((value) => Math.abs(value))) * 1.4826;
+  if (scale < 1e-9) {
+    scale = Math.sqrt(history.reduce((sum, value) => sum + value ** 2, 0) / history.length);
+  }
+  if (scale < 1e-9) return 0;
+  return Math.tanh((current / scale) / 2);
 }
 
-function liveInflation(score: number, fallback: InflationState): InflationState {
-  if (score >= 0.25) return "rising";
-  if (score <= -0.25) return "falling";
-  return fallback;
+function marketDirection(score: number, coverage: number): GrowthDirection | null {
+  if (coverage < 0.6) return null;
+  if (score >= 0.2) return "rising";
+  if (score <= -0.2) return "falling";
+  return null;
+}
+
+function inflationDirection(score: number, coverage: number): InflationState | null {
+  return marketDirection(score, coverage);
+}
+
+function axisScore(indicators: readonly RegimeNowcastIndicator[], axis: RegimeNowcastAxis): {
+  score: number;
+  coverage: number;
+} {
+  const eligible = indicators.filter((item) => item.axis === axis && item.role !== "diagnostic" && item.weight > 0);
+  const totalWeight = eligible.reduce((sum, item) => sum + item.weight, 0);
+  const usable = eligible.filter((item) => item.fresh && item.signal != null);
+  const usedWeight = usable.reduce((sum, item) => sum + item.weight, 0);
+  return {
+    score: usedWeight
+      ? usable.reduce((sum, item) => sum + item.signal! * item.weight, 0) / usedWeight
+      : 0,
+    coverage: totalWeight ? usedWeight / totalWeight : 0,
+  };
 }
 
 export type MacroRegimeNowcastClassification = {
   regime: DalioQuadrant | null;
-  growthDirection: GrowthDirection | null;
-  inflationState: InflationState;
-  growthScore: number;
+  riskDirection: GrowthDirection | null;
+  inflationState: InflationState | null;
+  riskScore: number;
   inflationScore: number;
+  policyScore: number;
+  financialConditionsScore: number;
+  activityScore: number;
+  confirmation: RegimeNowcastConfirmation;
   confidence: RegimeNowcastConfidence;
   coverage: number;
   dataThrough: string | null;
@@ -960,32 +1211,44 @@ export type MacroRegimeNowcastClassification = {
 /** 纯函数：便于宏观、量化和行业消费者对同一组实时证据做口径对账。 */
 export function classifyMacroRegimeNowcast(options: {
   indicators: readonly RegimeNowcastIndicator[];
-  fallbackGrowth: GrowthDirection | null;
-  fallbackInflation: InflationState;
 }): MacroRegimeNowcastClassification {
-  const growthScore = meanVote(options.indicators, "growth");
-  const inflationScore = meanVote(options.indicators, "inflation");
-  const growthDirection = liveDirection(growthScore, options.fallbackGrowth);
-  const inflationState = liveInflation(inflationScore, options.fallbackInflation);
-  const freshIndicators = options.indicators.filter((item) => item.fresh && item.change != null);
-  const coverage = options.indicators.length ? freshIndicators.length / options.indicators.length : 0;
-  const growthEvidence = freshIndicators.filter((item) => item.axis === "growth").length;
-  const inflationEvidence = freshIndicators.filter((item) => item.axis === "inflation").length;
-  const confidence: RegimeNowcastConfidence = coverage >= 0.8 && growthEvidence >= 2 && inflationEvidence >= 2
-    ? "high"
-    : coverage >= 0.5 && growthEvidence >= 1 && inflationEvidence >= 1
-      ? "medium"
-      : "low";
+  const risk = axisScore(options.indicators, "risk");
+  const inflation = axisScore(options.indicators, "inflation");
+  const policy = axisScore(options.indicators, "policy");
+  const financial = axisScore(options.indicators, "financial");
+  const activity = axisScore(options.indicators, "activity");
+  const riskDirection = marketDirection(risk.score, risk.coverage);
+  const inflationState = inflationDirection(inflation.score, inflation.coverage);
+  const regime = riskDirection && inflationState ? dalioQuadrant(riskDirection, inflationState) : null;
+  const confirmationSignals = [
+    financial.coverage >= 0.8 && Math.abs(financial.score) >= 0.2 ? financial.score : null,
+    activity.coverage >= 0.8 && Math.abs(activity.score) >= 0.2 ? activity.score : null,
+  ].filter((value): value is number => value != null);
+  const confirmation: RegimeNowcastConfirmation = !confirmationSignals.length
+    ? financial.coverage || activity.coverage ? "mixed" : "unavailable"
+    : Math.abs(risk.score) < 0.2
+      ? "mixed"
+    : confirmationSignals.some((score) => Math.sign(score) !== Math.sign(risk.score))
+      ? "divergent"
+      : "confirmed";
+  const coverage = (risk.coverage + inflation.coverage) / 2;
+  let confidence: RegimeNowcastConfidence = coverage >= 0.8 && regime ? "high" : coverage >= 0.6 ? "medium" : "low";
+  if (confirmation === "divergent" && confidence === "high") confidence = "medium";
+  const freshIndicators = options.indicators.filter((item) => item.fresh && item.signal != null);
   const dataThrough = freshIndicators
     .flatMap((item) => item.latestDate ? [item.latestDate] : [])
     .sort()
     .at(-1) ?? null;
   return {
-    regime: dalioQuadrant(growthDirection, inflationState),
-    growthDirection,
+    regime,
+    riskDirection,
     inflationState,
-    growthScore,
-    inflationScore,
+    riskScore: risk.score,
+    inflationScore: inflation.score,
+    policyScore: policy.score,
+    financialConditionsScore: financial.score,
+    activityScore: activity.score,
+    confirmation,
     confidence,
     coverage,
     dataThrough,
@@ -995,144 +1258,219 @@ export function classifyMacroRegimeNowcast(options: {
 function nowcastSummary(options: {
   official: DalioQuadrant | null;
   live: DalioQuadrant | null;
-  growthScore: number;
+  riskScore: number;
   inflationScore: number;
+  policyScore: number;
+  confirmation: RegimeNowcastConfirmation;
 }): string {
-  const growth = options.growthScore >= 0.25
-    ? "高频增长/风险指标偏改善"
-    : options.growthScore <= -0.25
-      ? "高频增长/风险指标偏走弱"
-      : "高频增长信号暂未形成一致方向";
-  const inflation = options.inflationScore >= 0.25
-    ? "通胀代理偏升温"
-    : options.inflationScore <= -0.25
-      ? "通胀代理偏降温"
-      : "通胀代理变化有限";
+  const risk = options.riskScore >= 0.2
+    ? "市场风险偏好改善"
+    : options.riskScore <= -0.2
+      ? "市场风险偏好走弱"
+      : "风险定价尚未形成一致方向";
+  const inflation = options.inflationScore >= 0.2
+    ? "通胀定价升温"
+    : options.inflationScore <= -0.2
+      ? "通胀定价降温"
+      : "通胀定价变化有限";
+  const policy = options.policyScore >= 0.2
+    ? "政策/实际贴现率偏紧"
+    : options.policyScore <= -0.2
+      ? "政策/实际贴现率偏松"
+      : "政策利率覆盖层中性";
+  const confirmation = options.confirmation === "confirmed"
+    ? "慢频确认同向"
+    : options.confirmation === "divergent"
+      ? "周度经济或金融条件尚未确认"
+      : "慢频确认不足";
   const relation = options.official && options.live && options.official !== options.live
-    ? "，实时层已偏离月度锚，但尚未改写正式信号"
-    : "，实时层暂未否定月度锚";
-  return `${growth}，${inflation}${relation}。`;
+    ? "市场交易背景与月度事实锚存在分歧"
+    : options.official && options.live
+      ? "市场交易背景与月度事实锚同向"
+      : "市场交易背景仍在过渡";
+  return `${risk}，${inflation}；${policy}，${confirmation}。${relation}。`;
+}
+
+type NowcastPoint = { obsDate: Date; value: number };
+
+function seriesForDefinition(
+  definition: NowcastIndicatorDefinition,
+  rowsByCode: ReadonlyMap<string, readonly NowcastPoint[]>,
+): NowcastPoint[] {
+  if (definition.transform !== "ratio") return [...(rowsByCode.get(definition.sourceCodes[0]) ?? [])];
+  const [numeratorCode, denominatorCode] = definition.sourceCodes;
+  const denominator = new Map((rowsByCode.get(denominatorCode) ?? []).map((row) => [isoDay(row.obsDate), row.value]));
+  return (rowsByCode.get(numeratorCode) ?? [])
+    .flatMap((row) => {
+      const divisor = denominator.get(isoDay(row.obsDate));
+      return divisor && Number.isFinite(divisor) ? [{ obsDate: row.obsDate, value: row.value / divisor }] : [];
+    });
+}
+
+function changeSeries(rows: readonly NowcastPoint[], horizonDays: number, kind: "absolute" | "percent") {
+  return rows.flatMap((row, index) => {
+    const target = row.obsDate.getTime() - horizonDays * 86_400_000;
+    let comparison: NowcastPoint | null = null;
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      if (rows[cursor].obsDate.getTime() <= target) {
+        comparison = rows[cursor];
+        break;
+      }
+    }
+    if (!comparison || (kind === "percent" && comparison.value === 0)) return [];
+    return [{
+      obsDate: row.obsDate,
+      comparison,
+      change: kind === "percent" ? row.value / comparison.value - 1 : row.value - comparison.value,
+    }];
+  });
 }
 
 async function loadNowcastIndicators(asOfDate: string): Promise<RegimeNowcastIndicator[]> {
   const definitions = REGIME_NOWCAST_INDICATORS;
+  const sourceCodes = [...new Set(definitions.flatMap((item) => item.sourceCodes))];
   const instruments = await prisma.instrument.findMany({
-    where: { code: { in: definitions.map((item) => item.code) } },
+    where: { code: { in: sourceCodes } },
     select: { id: true, code: true },
   });
   const instrumentByCode = new Map(instruments.map((item) => [item.code, item]));
-  const targetTime = new Date(`${asOfDate}T00:00:00.000Z`).getTime() - 28 * 86_400_000;
+  const rowsByCode = new Map<string, NowcastPoint[]>();
+  await Promise.all(sourceCodes.map(async (code) => {
+    const instrument = instrumentByCode.get(code);
+    const rows = instrument ? await prisma.macroObservation.findMany({
+      where: {
+        instrumentId: instrument.id,
+        obsDate: { lte: new Date(`${asOfDate}T00:00:00.000Z`) },
+      },
+      orderBy: { obsDate: "desc" },
+      take: 1100,
+      select: { obsDate: true, value: true },
+    }) : [];
+    rowsByCode.set(code, rows.reverse());
+  }));
 
-  return Promise.all(definitions.map(async (definition): Promise<RegimeNowcastIndicator> => {
-    const instrument = instrumentByCode.get(definition.code);
-    const rows = instrument
-      ? await prisma.macroObservation.findMany({
-          where: {
-            instrumentId: instrument.id,
-            obsDate: { lte: new Date(`${asOfDate}T00:00:00.000Z`) },
-          },
-          orderBy: { obsDate: "desc" },
-          take: 45,
-          select: { obsDate: true, value: true },
-        })
-      : [];
-    const latest = rows[0] ?? null;
-    const comparison = rows.find((row) => row.obsDate.getTime() <= targetTime) ?? rows.at(-1) ?? null;
+  return definitions.map((definition): RegimeNowcastIndicator => {
+    const rows = seriesForDefinition(definition, rowsByCode);
+    const longChanges = changeSeries(rows, definition.horizonDays, definition.changeKind);
+    const shortChanges = changeSeries(rows, 7, definition.changeKind);
+    const latest = rows.at(-1) ?? null;
+    const latestLong = longChanges.at(-1) ?? null;
     const latestDate = latest ? isoDay(latest.obsDate) : null;
-    const comparisonDate = comparison ? isoDay(comparison.obsDate) : null;
-    const change = latest && comparison && comparison.value !== 0
-      ? definition.changeKind === "percent"
-        ? latest.value / comparison.value - 1
-        : latest.value - comparison.value
-      : null;
-    const fresh = latestDate != null && dayDiff(asOfDate, latestDate) <= 10;
-    let rawVote: -1 | 0 | 1 = 0;
-    if (fresh && change != null) {
-      if (change >= definition.positiveThreshold) rawVote = 1;
-      else if (change <= definition.negativeThreshold) rawVote = -1;
-    }
-    const vote = (rawVote * definition.polarity) as -1 | 0 | 1;
+    const longSignal = robustSignal(longChanges.map((item) => item.change));
+    const shortSignal = robustSignal(shortChanges.map((item) => item.change));
+    const rawSignal = longSignal == null ? null : 0.7 * longSignal + 0.3 * (shortSignal ?? longSignal);
+    const signal = rawSignal == null ? null : definition.polarity * rawSignal;
+    const fresh = latestDate != null && dayDiff(asOfDate, latestDate) <= definition.maxAgeDays;
+    const vote: -1 | 0 | 1 = !fresh || signal == null || Math.abs(signal) < 0.2 ? 0 : signal > 0 ? 1 : -1;
     const directionLabel = !latest
       ? "缺少数据"
       : !fresh
         ? "数据偏旧"
+        : signal == null
+          ? "历史不足"
         : vote > 0
-          ? definition.axis === "inflation" ? "升温" : definition.axis === "growth" ? "改善" : "上行"
+          ? definition.positiveLabel ?? (definition.axis === "inflation" ? "升温" : definition.axis === "policy" ? "收紧" : "改善")
           : vote < 0
-            ? definition.axis === "inflation" ? "降温" : definition.axis === "growth" ? "走弱" : "下行"
+            ? definition.negativeLabel ?? (definition.axis === "inflation" ? "降温" : definition.axis === "policy" ? "宽松" : "走弱")
             : "中性";
     return {
       code: definition.code,
       labelZh: definition.labelZh,
       axis: definition.axis,
+      role: definition.role,
+      unit: definition.unit,
       latestDate,
       latestValue: latest?.value ?? null,
-      comparisonDate,
-      comparisonValue: comparison?.value ?? null,
-      change,
+      comparisonDate: latestLong ? isoDay(latestLong.comparison.obsDate) : null,
+      comparisonValue: latestLong?.comparison.value ?? null,
+      change: latestLong?.change ?? null,
       changeKind: definition.changeKind,
+      signal,
+      weight: definition.weight,
       vote,
       directionLabel,
       fresh,
     };
-  }));
+  });
 }
 
 /**
- * 当前环境临时监测：月度 MacroRegime 是正式锚；本函数只在请求时用最新 canonical facts
- * 重跑同一分类器，再叠加 4 周高频确认项。结果不写回 MacroRegime，也不进入历史回测。
+ * 用当前可见的月频事实重算正式月度锚，但不写回历史 MacroRegime 表。
+ *
+ * MacroRegime 表保存 factor 网格日的 PIT/研究快照；若把“今天”的结果直接追加进去，
+ * 行业前瞻研究会误把它当作新的调仓网格。这里沿用历史网格建立滞回状态，只在内存中
+ * 增加 as-of 日并取最后一点，从而兼顾当前状态的新鲜度与历史研究的可复现性。
+ */
+async function computeCurrentOfficialRegime(
+  stored: readonly StoredRegime[],
+  asOfDate: string,
+): Promise<MacroRegimePoint | null> {
+  if (stored.length === 0) return null;
+  const historicalGrid = stored
+    .map((row) => row.date)
+    .filter((date) => date < asOfDate);
+  const points = await computeRegimeSeries([...historicalGrid, asOfDate]);
+  return points.at(-1) ?? null;
+}
+
+/**
+ * 周度市场交易背景：月度 MacroRegime 是正式事实锚；本函数只读 canonical market facts，
+ * 对 1 周/4 周变化做历史稳健标准化。周度分类器不覆盖月度分类器，且两层都不在请求时写库。
  */
 export async function getMacroRegimeNowcast(options: {
   asOf?: Date;
 } = {}): Promise<MacroRegimeNowcast> {
   const asOf = options.asOf ?? new Date();
   const asOfDate = isoDay(asOf);
-  const [stored, latestStoredRow, indicators] = await Promise.all([
+  const generatedAt = new Date().toISOString();
+  const [stored, indicators] = await Promise.all([
     listStoredRegimes(),
-    prisma.macroRegime.findFirst({ orderBy: { date: "desc" }, select: { updatedAt: true } }),
     loadNowcastIndicators(asOfDate),
   ]);
-  const official = stored.at(-1) ?? null;
+  const official = await computeCurrentOfficialRegime(stored, asOfDate);
   if (!official) {
     return {
-      version: "regime-nowcast-v1",
-      generatedAt: new Date().toISOString(),
+      version: "market-pricing-regime-v2",
+      generatedAt,
       asOfDate,
-      cadenceLabel: "重要数据发布后重算 · 每周收盘确认",
+      cadenceLabel: "交易日更新 · 每周收盘确认",
       official: null,
       live: null,
       limitations: ["缺少月度 MacroRegime 锚，暂不能生成实时环境监测。"],
     };
   }
 
-  const gridDates = [...new Set([...stored.map((item) => item.date), asOfDate])].sort();
-  const provisional = (await computeRegimeSeries(gridDates)).at(-1) ?? null;
-  const classification = classifyMacroRegimeNowcast({
-    indicators,
-    fallbackGrowth: provisional?.growthDirection ?? official.growthDirection,
-    fallbackInflation: provisional?.inflationState ?? official.inflationState,
-  });
+  const classification = classifyMacroRegimeNowcast({ indicators });
+  const relationToOfficial: RegimeNowcastRelation = !classification.regime || !official.dalioRegime
+    ? "inconclusive"
+    : classification.regime === official.dalioRegime ? "aligned" : "divergent";
 
   return {
-    version: "regime-nowcast-v1",
-    generatedAt: new Date().toISOString(),
+    version: "market-pricing-regime-v2",
+    generatedAt,
     asOfDate,
-    cadenceLabel: "重要数据发布后重算 · 每周收盘确认",
+    cadenceLabel: "交易日更新 · 每周收盘确认",
     official: {
       signalDate: official.date,
-      updatedAt: latestStoredRow?.updatedAt.toISOString() ?? null,
+      updatedAt: generatedAt,
       regime: official.dalioRegime,
       growthDirection: official.growthDirection,
       inflationState: official.inflationState,
       visibleMonth: official.inputs.visibleMonth,
+      indicators: buildOfficialRegimeIndicators(official),
     },
     live: {
       regime: classification.regime,
-      growthDirection: classification.growthDirection,
+      riskDirection: classification.riskDirection,
       inflationState: classification.inflationState,
-      visibleMonth: provisional?.inputs.visibleMonth ?? official.inputs.visibleMonth,
-      growthScore: classification.growthScore,
+      visibleMonth: official.inputs.visibleMonth,
+      riskScore: classification.riskScore,
       inflationScore: classification.inflationScore,
+      policyScore: classification.policyScore,
+      financialConditionsScore: classification.financialConditionsScore,
+      activityScore: classification.activityScore,
+      confirmation: classification.confirmation,
+      relationToOfficial,
       confidence: classification.confidence,
       coverage: classification.coverage,
       changedFromOfficial: Boolean(classification.regime && official.dalioRegime && classification.regime !== official.dalioRegime),
@@ -1140,15 +1478,17 @@ export async function getMacroRegimeNowcast(options: {
       summary: nowcastSummary({
         official: official.dalioRegime,
         live: classification.regime,
-        growthScore: classification.growthScore,
+        riskScore: classification.riskScore,
         inflationScore: classification.inflationScore,
+        policyScore: classification.policyScore,
+        confirmation: classification.confirmation,
       }),
       indicators,
     },
     limitations: [
-      "实时层是条件性 Nowcast，不覆盖正式月度快照，也不进入历史回测。",
-      "高频指标只用于确认增长、通胀与金融条件方向，不直接生成行业预期收益。",
-      "底层数据全部来自统一 MacroObservation 与既有 scheduler；缺失或超过 10 天的日频项不参与投票。",
+      "周度层描述市场定价，不覆盖月度宏观事实，也不直接生成行业预期收益。",
+      "风险与通胀核心按 1 周/4 周变化的历史分布标准化；政策、金融条件和真实经济分别覆盖，不做等权混投。",
+      "WEI/ANFCI 只作慢确认；ICSA/NFCI/T10YIE 等诊断项不重复计权。缺失或过期序列自动退出计算。",
     ],
   };
 }

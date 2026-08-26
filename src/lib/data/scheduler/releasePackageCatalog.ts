@@ -607,7 +607,21 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "DAILY",
     intervalHours: 24,
     sortOrder: 201,
-    members: { fredSeriesIds: ["T10YIE", "T10Y3M"] },
+    members: { fredSeriesIds: ["T5YIE", "T10YIE", "T5YIFR", "T10Y3M"] },
+  }),
+  probePkg("us.cboe.market_statistics", "CBOE 市场波动率", {
+    labelEn: "CBOE Market Statistics",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 202,
+    members: { fredSeriesIds: ["VIXCLS", "VXVCLS"] },
+  }),
+  probePkg("us.eia.spot_prices", "EIA 现货价格", {
+    labelEn: "Spot Prices",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 202,
+    members: { fredSeriesIds: ["DCOILWTICO"] },
   }),
   probePkg("us.ice.bofa_indices", "ICE BofA 债券利差指数", {
     labelEn: "ICE BofA Indices",
@@ -657,7 +671,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "WEEKLY",
     intervalHours: 24,
     sortOrder: 206,
-    members: { fredSeriesIds: ["NFCI"] },
+    members: { fredSeriesIds: ["NFCI", "ANFCI"] },
+  }),
+  probePkg("us.fred.weekly_economic_index", "周度经济指数", {
+    labelEn: "Weekly Economic Index (Lewis-Mertens-Stock)",
+    granularity: "WEEKLY",
+    intervalHours: 24,
+    sortOrder: 206,
+    members: { fredSeriesIds: ["WEI"] },
   }),
   probePkg("us.frb.sloos", "美联储高级信贷官意见调查（SLOOS）", {
     labelEn: "Senior Loan Officer Opinion Survey on Bank Lending Practices",

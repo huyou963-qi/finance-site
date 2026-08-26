@@ -66,6 +66,7 @@ npm run equity:seed-sp500          # Wikipedia → equity_security + index_const
 npm run equity:verify-gics         # 校验 74 Industry 目录；加 --db 检查回卷率
 npm run equity:sync-profiles       # 分日 FMP profile（默认 --limit=40）
 npm run equity:sync-fundamentals  # Top-N 财报快照（默认 SEC companyfacts，--limit=100）
+npm run equity:sync-weekly-fundamentals # 最近新增 10-Q/10-K → 当前季度快照 + PIT vintage
 npm run equity:sync-fundamental-vintages # SEC accession 逐版本标准化历史
 npm run equity:sync-sector-etf-holdings # State Street SPY + 11行业 ETF 每日持仓归档
 npm run equity:import-sector-etf-holdings -- --file=<archived.xlsx> --etf=XLK --source=<source>
@@ -92,9 +93,9 @@ npm run equity:sync-prices         # 个股/ETF 日线回填（--limit=500 / --s
 |------|------|
 | 每周 | `equity:seed-sp500` |
 | 每日 | `equity:sync-profiles -- --only-missing` 与/或增量 limit |
-| 每日 | `equity:sync-fundamentals -- --limit=100` |
+| 每周 | `equity:sync-weekly-fundamentals`（扫描最近 10 天 SEC 10-Q/10-K，只刷新有新披露的公司） |
 | 每日 | `equity:sync-sector-etf-holdings`（必须归档，官网只提供每日文件） |
-| 每日/分批 | `equity:sync-fundamental-vintages -- --limit=... --last-filings=...` |
+| 历史回填时 | `equity:sync-fundamental-vintages -- --limit=... --last-filings=...` |
 | 每日 | `equity:run-sector-regime-stage-h`（当前输入日/周新鲜度补检 + 45 天 ALFRED 增量窗口 + 新月份首次冻结 + 到期结算 + 健康检查） |
 | 每小时 | `equity:monitor-sector-regime-stage-h`（独立检测任务缺跑、版本缺口、哈希漂移和到期缺价） |
 | 每 5 分钟 | `data:worker`（统一更新所有到期订阅；Regime 正式输入与高频确认项具有较高调度优先级） |
