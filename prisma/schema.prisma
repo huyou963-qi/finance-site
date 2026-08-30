@@ -230,7 +230,7 @@ model InvestmentAction {
   @@schema("public")
 }
 
-/// AI/人工复盘版本；记录数据截止时间与模型，避免事后信息泄漏和无痕覆盖。
+/// 外部 AI Skill/人工复盘版本；记录数据截止时间与来源，避免事后信息泄漏和无痕覆盖。
 model InvestmentReview {
   id             String         @id @default(uuid()) @db.Uuid
   caseId         String         @map("case_id") @db.Uuid
