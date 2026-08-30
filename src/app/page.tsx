@@ -2,7 +2,7 @@ import { HomeLanding } from "@/components/home/HomeLanding";
 
 export default function Home() {
   return (
-    <div className="-mt-1 -mb-3 flex min-h-full flex-1 flex-col w-full px-6 pb-10 pt-3 md:px-10 md:pb-14 md:pt-4 lg:px-14 xl:px-20">
+    <div className="-mb-3 -mt-1 flex min-h-full w-full flex-1 flex-col bg-white px-5 pb-8 pt-2 sm:px-8 lg:px-12 xl:px-16">
       <HomeLanding />
     </div>
   );
