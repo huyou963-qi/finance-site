@@ -646,13 +646,22 @@ export function MarketsClient() {
                 {INTERVAL_LABEL[interval]}
               </span>
               {classifyChartSymbol(symbol).kind === "equity" ? (
-                <a
-                  href={`/equity/stocks/${encodeURIComponent(symbol.trim().toUpperCase())}`}
-                  className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] leading-none text-fs-accent-text hover:bg-fs-accent-soft"
-                  title="打开个股研究页（基本面 / 同业 / 事件）"
-                >
-                  个股研究
-                </a>
+                <>
+                  <a
+                    href={`/equity/stocks/${encodeURIComponent(symbol.trim().toUpperCase())}`}
+                    className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] leading-none text-fs-accent-text hover:bg-fs-accent-soft"
+                    title="打开个股研究页（基本面 / 同业 / 事件）"
+                  >
+                    个股研究
+                  </a>
+                  <a
+                    href={`/investments?symbol=${encodeURIComponent(symbol.trim().toUpperCase())}`}
+                    className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] leading-none text-fs-accent-text hover:bg-fs-accent-soft"
+                    title="为当前标的创建私人投资案例"
+                  >
+                    投资记录
+                  </a>
+                </>
               ) : null}
             </>
           ) : (

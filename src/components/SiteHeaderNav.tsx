@@ -33,6 +33,8 @@ export function SiteHeaderNav() {
   const macroActive = pathname === "/macro";
   const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
   const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
+  const investmentsActive =
+    pathname === "/investments" || pathname.startsWith("/investments/");
   const equityActive =
     pathname === "/equity/sectors" || pathname.startsWith("/equity/sectors/");
   const quantActive =
@@ -125,6 +127,17 @@ export function SiteHeaderNav() {
           aria-current={marketsActive ? "page" : undefined}
         >
           行情
+        </Link>
+        <Link
+          href="/investments"
+          className={`${linkBase} ${
+            investmentsActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={investmentsActive ? "page" : undefined}
+        >
+          投资记录
         </Link>
         <Link
           href="/quant"

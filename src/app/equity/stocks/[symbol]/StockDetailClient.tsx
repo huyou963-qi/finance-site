@@ -254,6 +254,12 @@ export function StockDetailClient({
           >
             在行情工作台打开 →
           </Link>
+          <Link
+            href={`/investments?symbol=${encodeURIComponent(symbol)}`}
+            className="rounded-md border border-fs-border px-2 py-1 text-xs text-fs-accent-text hover:bg-fs-accent-soft"
+          >
+            创建投资案例
+          </Link>
         </div>
       </header>
 

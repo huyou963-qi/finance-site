@@ -38,6 +38,7 @@ model User {
   bookmarkState       UserBookmarkState?
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
+  investmentCases     InvestmentCase[]
   paymentOrders       PaymentOrder[]
   creditLedger        CreditLedgerEntry[]
 
@@ -106,6 +107,145 @@ model StrategyDefinition {
 
   @@index([userId])
   @@map("strategy_definition")
+  @@schema("public")
+}
+
+/// 用户投资案例：研究、投决、执行与复盘的私有工作台。
+/// 行情、基本面和公共事件仍引用 mds/public 既有事实，不在此处复制。
+model InvestmentCase {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol       String    @db.VarChar(16)
+  title        String    @db.VarChar(160)
+  style        String    @default("long_term") @db.VarChar(24)
+  status       String    @default("research") @db.VarChar(24)
+  horizon      String?   @db.VarChar(80)
+  coreThesis   String?   @map("core_thesis") @db.Text
+  nextReviewAt DateTime? @map("next_review_at")
+  closedAt     DateTime? @map("closed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  researchVersions InvestmentResearchVersion[]
+  catalysts        InvestmentCatalyst[]
+  tradePlan        InvestmentTradePlan?
+  actions          InvestmentAction[]
+  reviews          InvestmentReview[]
+
+  @@index([userId, status, updatedAt(sort: Desc)])
+  @@index([userId, symbol])
+  @@map("investment_case")
+  @@schema("public")
+}
+
+/// 已确认的研究版本只追加不覆盖；草稿编辑保存在前端，确认后生成下一版本。
+model InvestmentResearchVersion {
+  id             String         @id @default(uuid()) @db.Uuid
+  caseId         String         @map("case_id") @db.Uuid
+  investmentCase InvestmentCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  version        Int
+  content        Json
+  note           String?        @db.VarChar(256)
+  confirmedAt    DateTime       @default(now()) @map("confirmed_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@unique([caseId, version])
+  @@index([caseId, confirmedAt(sort: Desc)])
+  @@map("investment_research_version")
+  @@schema("public")
+}
+
+model InvestmentCatalyst {
+  id             String         @id @default(uuid()) @db.Uuid
+  caseId         String         @map("case_id") @db.Uuid
+  investmentCase InvestmentCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  title          String         @db.VarChar(200)
+  direction      String         @default("neutral") @db.VarChar(16)
+  probability    Float?
+  impact         String         @default("medium") @db.VarChar(16)
+  status         String         @default("watching") @db.VarChar(20)
+  windowStart    DateTime?      @map("window_start") @db.Date
+  windowEnd      DateTime?      @map("window_end") @db.Date
+  affectedAssets String[]       @default([]) @map("affected_assets")
+  transmission   String?        @db.Text
+  invalidation   String?        @db.Text
+  actualOutcome  String?        @map("actual_outcome") @db.Text
+  notes          String?        @db.Text
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@index([caseId, status])
+  @@index([caseId, windowEnd])
+  @@map("investment_catalyst")
+  @@schema("public")
+}
+
+model InvestmentTradePlan {
+  id              String         @id @default(uuid()) @db.Uuid
+  caseId          String         @unique @map("case_id") @db.Uuid
+  investmentCase  InvestmentCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  direction       String         @default("long") @db.VarChar(12)
+  entryLow        Float?         @map("entry_low")
+  entryHigh       Float?         @map("entry_high")
+  stopPrice       Float?         @map("stop_price")
+  target1         Float?
+  target2         Float?
+  target3         Float?
+  targetWeightPct Float?         @map("target_weight_pct")
+  riskPct         Float?         @map("risk_pct")
+  timeStop        DateTime?      @map("time_stop") @db.Date
+  thesis          String?        @db.Text
+  invalidation    Json?
+  gateResults     Json?          @map("gate_results")
+  notes           String?        @db.Text
+  confirmedAt     DateTime?      @map("confirmed_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@map("investment_trade_plan")
+  @@schema("public")
+}
+
+/// 实际动作事实账本，仅追加。当前仓位、均价、盈亏从动作与 canonical 行情派生。
+model InvestmentAction {
+  id                String         @id @default(uuid()) @db.Uuid
+  caseId            String         @map("case_id") @db.Uuid
+  investmentCase    InvestmentCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actionType        String         @map("action_type") @db.VarChar(24)
+  occurredAt        DateTime       @map("occurred_at")
+  quantity          Float?
+  price             Float?
+  fee               Float?
+  positionWeightPct Float?         @map("position_weight_pct")
+  reasonCode        String?        @map("reason_code") @db.VarChar(40)
+  thesisImpact      String?        @map("thesis_impact") @db.VarChar(16)
+  planMatched       Boolean?       @map("plan_matched")
+  note              String?        @db.Text
+  sourceKind        String         @default("manual") @map("source_kind") @db.VarChar(20)
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  @@index([caseId, occurredAt])
+  @@map("investment_action")
+  @@schema("public")
+}
+
+/// AI/人工复盘版本；记录数据截止时间与模型，避免事后信息泄漏和无痕覆盖。
+model InvestmentReview {
+  id             String         @id @default(uuid()) @db.Uuid
+  caseId         String         @map("case_id") @db.Uuid
+  investmentCase InvestmentCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  authorKind     String         @map("author_kind") @db.VarChar(16)
+  title          String         @db.VarChar(200)
+  bodyMarkdown   String         @map("body_markdown") @db.Text
+  dataCutoff     DateTime       @map("data_cutoff")
+  model          String?        @db.VarChar(64)
+  promptVersion  String?        @map("prompt_version") @db.VarChar(32)
+  inputHash      String?        @map("input_hash") @db.VarChar(64)
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@index([caseId, createdAt(sort: Desc)])
+  @@map("investment_review")
   @@schema("public")
 }
 
