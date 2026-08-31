@@ -7,9 +7,12 @@
  * npm run data:worker -- --source=bis --force
  */
 import { loadEnvConfig } from "@next/env";
-import { PrismaClient, SchedulerInvocationStatus } from "@prisma/client";
+import { FetchRunStatus, PrismaClient, SchedulerInvocationStatus } from "@prisma/client";
 import { listDueSubscriptions, runDataSubscription } from "../../src/lib/data/scheduler/runSubscription";
-import { recoverAbandonedSchedulerRuns } from "../../src/lib/data/scheduler/schedulerAudit";
+import {
+  recordScheduleChange,
+  recoverAbandonedSchedulerRuns,
+} from "../../src/lib/data/scheduler/schedulerAudit";
 
 loadEnvConfig(process.cwd());
 
@@ -89,13 +92,86 @@ async function main() {
       console.log(`[data:worker] 处理 ${subs.length} 条订阅…`);
     }
 
+    const failedPackages = new Map<string, { memberCode: string; error: string }>();
     for (const sub of subs) {
       const label = `${sub.instrument.code} ← ${sub.sourceSeriesKey}`;
       process.stdout.write(`  ${label} … `);
+      const packageFailure = sub.releasePackageId
+        ? failedPackages.get(sub.releasePackageId)
+        : undefined;
+      if (packageFailure) {
+        const now = new Date();
+        await prisma.fetchRun.create({
+          data: {
+            subscriptionId: sub.id,
+            startedAt: now,
+            finishedAt: now,
+            status: FetchRunStatus.SKIPPED,
+            error: `package_aborted_after_member_failure: ${packageFailure.memberCode}`,
+            metadata: {
+              trigger: "scheduled",
+              skipReason: "package_aborted_after_member_failure",
+              failedMemberCode: packageFailure.memberCode,
+              packageError: packageFailure.error.slice(0, 500),
+              releasePackageId: sub.releasePackageId,
+            },
+          },
+        });
+        skipped += 1;
+        console.log(`skipped (发布包成员 ${packageFailure.memberCode} 已失败，本轮不重复请求同源)`);
+        continue;
+      }
       const result = await runDataSubscription(prisma, sub, { force });
       if (result.status === "failed") {
         fail += 1;
         console.log(`FAIL: ${result.error}`);
+        if (sub.releasePackageId) {
+          failedPackages.set(sub.releasePackageId, {
+            memberCode: sub.instrument.code,
+            error: result.error ?? "unknown package member failure",
+          });
+          const [failedSchedule, packageSchedule] = await Promise.all([
+            prisma.dataSubscription.findUnique({
+              where: { id: sub.id },
+              select: { nextRunAt: true },
+            }),
+            prisma.releasePackage.findUnique({
+              where: { id: sub.releasePackageId },
+              select: { nextRunAt: true },
+            }),
+          ]);
+          if (failedSchedule?.nextRunAt) {
+            await prisma.$transaction([
+              prisma.releasePackage.update({
+                where: { id: sub.releasePackageId },
+                data: { nextRunAt: failedSchedule.nextRunAt },
+              }),
+              prisma.dataSubscription.updateMany({
+                where: {
+                  releasePackageId: sub.releasePackageId,
+                  id: { not: sub.id },
+                  enabled: true,
+                },
+                data: {
+                  nextRunAt: failedSchedule.nextRunAt,
+                  retryCount: { increment: 1 },
+                  lastError: `package member ${sub.instrument.code} failed: ${(result.error ?? "unknown").slice(0, 1800)}`,
+                },
+              }),
+            ]);
+            await recordScheduleChange(prisma, {
+              releasePackageId: sub.releasePackageId,
+              previousNextRunAt: packageSchedule?.nextRunAt,
+              nextRunAt: failedSchedule.nextRunAt,
+              source: "data_worker",
+              reason: "package_member_failed_backoff",
+              metadata: {
+                failedMemberCode: sub.instrument.code,
+                error: (result.error ?? "unknown").slice(0, 500),
+              },
+            });
+          }
+        }
       } else {
         if (result.status === "skipped") skipped += 1;
         else success += 1;
