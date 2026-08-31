@@ -7,8 +7,9 @@
  * npm run data:worker -- --source=bis --force
  */
 import { loadEnvConfig } from "@next/env";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, SchedulerInvocationStatus } from "@prisma/client";
 import { listDueSubscriptions, runDataSubscription } from "../../src/lib/data/scheduler/runSubscription";
+import { recoverAbandonedSchedulerRuns } from "../../src/lib/data/scheduler/schedulerAudit";
 
 loadEnvConfig(process.cwd());
 
@@ -29,48 +30,111 @@ function parseArgs() {
 
 async function main() {
   const { force, limit, sourceId } = parseArgs();
-  let subs = await listDueSubscriptions(prisma, limit, { forceAll: force });
-  if (sourceId) {
-    subs = subs.filter((s) => s.sourceId === sourceId);
-    if (force) {
-      const all = await prisma.dataSubscription.findMany({
-        where: { enabled: true, sourceId },
-        take: limit,
-        orderBy: [{ priority: "desc" }, { nextRunAt: "asc" }],
-        include: {
-          source: true,
-          instrument: { select: { id: true, code: true, name: true, metadata: true } },
-        },
-      });
-      subs = all;
-    }
+  const startedAt = new Date();
+  console.log(
+    `[data:worker] START ${startedAt.toISOString()} pid=${process.pid} force=${force} limit=${limit} source=${sourceId ?? "all"}`,
+  );
+  const staleAfterHours = Number(process.env.SCHEDULER_ABANDONED_AFTER_HOURS ?? "6");
+  const recovered = await recoverAbandonedSchedulerRuns(prisma, {
+    now: startedAt,
+    staleAfterHours: Number.isFinite(staleAfterHours) ? staleAfterHours : 6,
+  });
+  if (recovered.fetchRuns || recovered.invocations) {
+    console.warn(
+      `[data:worker] 收口中断记录：fetch=${recovered.fetchRuns}, invocation=${recovered.invocations}`,
+    );
   }
-
-  if (subs.length === 0) {
-    console.log("[data:worker] 无到期订阅。");
-    return;
-  }
-
-  console.log(`[data:worker] 处理 ${subs.length} 条订阅…`);
-  let ok = 0;
+  const invocation = await prisma.schedulerInvocation.create({
+    data: {
+      job: "data:worker",
+      startedAt,
+      status: SchedulerInvocationStatus.RUNNING,
+      metadata: {
+        pid: process.pid,
+        host: process.env.HOSTNAME ?? null,
+        force,
+        limit,
+        sourceId: sourceId ?? null,
+      },
+    },
+  });
+  let success = 0;
+  let skipped = 0;
   let fail = 0;
-
-  for (const sub of subs) {
-    const label = `${sub.instrument.code} ← ${sub.sourceSeriesKey}`;
-    process.stdout.write(`  ${label} … `);
-    const result = await runDataSubscription(prisma, sub, { force });
-    if (result.status === "failed") {
-      fail += 1;
-      console.log(`FAIL: ${result.error}`);
-    } else {
-      ok += 1;
-      console.log(
-        `${result.status} (+${result.rowsUpserted} upsert, skip ${result.rowsSkipped})`,
-      );
+  try {
+    let subs = await listDueSubscriptions(prisma, limit, { forceAll: force });
+    if (sourceId) {
+      subs = subs.filter((s) => s.sourceId === sourceId);
+      if (force) {
+        const all = await prisma.dataSubscription.findMany({
+          where: { enabled: true, sourceId },
+          take: limit,
+          orderBy: [{ priority: "desc" }, { nextRunAt: "asc" }],
+          include: {
+            source: true,
+            instrument: { select: { id: true, code: true, name: true, metadata: true } },
+          },
+        });
+        subs = all;
+      }
     }
-  }
 
-  console.log(`[data:worker] 完成：${ok} 成功/跳过，${fail} 失败。`);
+    await prisma.schedulerInvocation.update({
+      where: { id: invocation.id },
+      data: { selectedCount: subs.length },
+    });
+    if (subs.length === 0) {
+      console.log("[data:worker] 无到期订阅。");
+    } else {
+      console.log(`[data:worker] 处理 ${subs.length} 条订阅…`);
+    }
+
+    for (const sub of subs) {
+      const label = `${sub.instrument.code} ← ${sub.sourceSeriesKey}`;
+      process.stdout.write(`  ${label} … `);
+      const result = await runDataSubscription(prisma, sub, { force });
+      if (result.status === "failed") {
+        fail += 1;
+        console.log(`FAIL: ${result.error}`);
+      } else {
+        if (result.status === "skipped") skipped += 1;
+        else success += 1;
+        console.log(
+          `${result.status} (+${result.rowsUpserted} upsert, skip ${result.rowsSkipped})`,
+        );
+      }
+    }
+
+    const finishedAt = new Date();
+    await prisma.schedulerInvocation.update({
+      where: { id: invocation.id },
+      data: {
+        finishedAt,
+        status: fail > 0 ? SchedulerInvocationStatus.PARTIAL : SchedulerInvocationStatus.SUCCESS,
+        successCount: success,
+        skippedCount: skipped,
+        failedCount: fail,
+      },
+    });
+    console.log(
+      `[data:worker] END ${finishedAt.toISOString()} success=${success} skipped=${skipped} failed=${fail}`,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await prisma.schedulerInvocation.update({
+      where: { id: invocation.id },
+      data: {
+        finishedAt: new Date(),
+        status: SchedulerInvocationStatus.FAILED,
+        successCount: success,
+        skippedCount: skipped,
+        failedCount: fail,
+        error: message.slice(0, 2000),
+      },
+    });
+    console.error(`[data:worker] ABORT ${new Date().toISOString()} ${message}`);
+    throw error;
+  }
 
   if (process.env.DATA_LAG_ALERT_AFTER_WORKER?.trim() === "1") {
     const { runLagAlerts } = await import("../../src/lib/data/scheduler/lagAlerts");

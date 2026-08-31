@@ -771,7 +771,7 @@ export async function getFredCatalogCached(): Promise<CatalogCache> {
   const baseCountries = await buildBaseCatalogCountries();
   const layout = await loadMacroCatalogLayout();
   const laidOut = layout ? applyCatalogLayout(baseCountries, layout) : baseCountries;
-  // 收尾：美国 CPI 统一「同比」呈现 + 拆「CPI / CPI 分项」。必须在布局之后，
+  // 收尾：美国 CPI 统一「同比」呈现 + 合并为单一 CPI 子层。必须在布局之后，
   // 否则存量布局按原始基键匹配不到 ::yoy 变体。
   const countries = presentUsCpiAsYoy(laidOut);
   const groups = countries.flatMap((country) =>

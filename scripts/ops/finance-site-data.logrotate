@@ -1,0 +1,11 @@
+/opt/finance-site/logs/*.log {
+    daily
+    size 50M
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su root root
+}

@@ -8,6 +8,7 @@ import { PrismaClient } from "@prisma/client";
 import { stripCalendarStateFromSubscriptionRule } from "../../src/lib/data/scheduler/applyCalendarSchedules";
 import {
   RELEASE_PACKAGE_CATALOG,
+  RETIRED_RELEASE_PACKAGE_IDS,
   instrumentMatchesPackageMember,
 } from "../../src/lib/data/scheduler/releasePackageCatalog";
 import { parseReleaseRule } from "../../src/lib/data/scheduler/releaseRule";
@@ -93,6 +94,15 @@ async function main() {
     }
 
     console.log(`  ✓ ${def.id} (${def.labelZh}) members=${matched.length}`);
+  }
+
+  const retired = await prisma.releasePackage.deleteMany({
+    where: { id: { in: [...RETIRED_RELEASE_PACKAGE_IDS] } },
+  });
+  if (retired.count > 0) {
+    console.log(
+      `  ✓ 已删除合并后的旧发布包：${RETIRED_RELEASE_PACKAGE_IDS.join(", ")}`,
+    );
   }
 
   console.log(

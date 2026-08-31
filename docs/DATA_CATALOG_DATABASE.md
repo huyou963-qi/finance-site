@@ -233,7 +233,14 @@ erDiagram
 
 ### 5.6 `FetchRun` — 拉取审计
 
-每次 `runDataSubscription` 写一条：成功/失败、upsert 行数、滞后天数，供管理页「最近拉取」与排障。
+每次实际进入 `runDataSubscription` 都写一条：成功/失败/跳过、触发方式、跳过原因、upsert 行数、滞后天数，供管理页「最近拉取」与排障。即使因为 `not_due`、`disabled`、`acquisition_not_confirmed` 或目录 tombstone 提前返回，也必须完成该行。
+
+另外两张审计表补足 `FetchRun` 无法表达的事实：
+
+- `SchedulerInvocation`：每次 `data:worker` / `data:sync-calendar` 的开始、结束、选择数、成功/跳过/失败汇总；进程异常退出后，下一轮 worker 会将超过 6 小时仍未完成的记录收口为 `FAILED`。
+- `ScheduleAuditEvent`：`nextRunAt` 的旧值、新值、变更来源与原因；发布包批量推进只记一条包级事件，避免成员日志洪泛。
+
+管理员可通过 `GET /api/admin/data-scheduler/audit` 查询执行批次和调度变更历史；逐指标结果仍通过 `GET /api/admin/data-scheduler/fetch-runs` 查询。
 
 ---
 

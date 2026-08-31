@@ -7,7 +7,7 @@
  * npm run data:sync-calendar -- --code=sched_fred_CPIAUCSL
  */
 import { loadEnvConfig } from "@next/env";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, SchedulerInvocationStatus } from "@prisma/client";
 import {
   filterEventsForDebug,
   syncSubscriptionsFromEconomicCalendars,
@@ -16,6 +16,7 @@ import {
 loadEnvConfig(process.cwd());
 
 const prisma = new PrismaClient();
+let invocationId: string | undefined;
 
 function argFlag(name: string): boolean {
   return process.argv.includes(`--${name}`);
@@ -29,20 +30,36 @@ function argValue(prefix: string): string | undefined {
 async function main() {
   const dryRun = argFlag("dry-run");
   const code = argValue("code");
+  const startedAt = new Date();
+  console.log(
+    `[data:sync-calendar] START ${startedAt.toISOString()} pid=${process.pid} dryRun=${dryRun} code=${code ?? "all"}`,
+  );
+  const invocation = await prisma.schedulerInvocation.create({
+    data: {
+      job: "data:sync-calendar",
+      startedAt,
+      status: SchedulerInvocationStatus.RUNNING,
+      metadata: {
+        pid: process.pid,
+        host: process.env.HOSTNAME ?? null,
+        dryRun,
+        code: code ?? null,
+      },
+    },
+  });
+  invocationId = invocation.id;
 
   let subscriptionIds: string[] | undefined;
   if (code) {
     const inst = await prisma.instrument.findUnique({ where: { code } });
     if (!inst) {
-      console.error(`未找到 Instrument: ${code}`);
-      process.exit(1);
+      throw new Error(`未找到 Instrument: ${code}`);
     }
     const sub = await prisma.dataSubscription.findUnique({
       where: { instrumentId: inst.id },
     });
     if (!sub) {
-      console.error(`未找到 DataSubscription: ${code}`);
-      process.exit(1);
+      throw new Error(`未找到 DataSubscription: ${code}`);
     }
     subscriptionIds = [sub.id];
   }
@@ -81,21 +98,53 @@ async function main() {
   const calendarEligible = result.rows.filter((r) => r.syncStatus !== "probe_only");
   const matched = result.rows.filter((r) => r.matched).length;
   console.log(
-    `[data:sync-calendar] 完成：${matched}/${calendarEligible.length} 条日历订阅已对齐（共 ${result.rows.length} 条）`,
+    `[data:sync-calendar] END ${new Date().toISOString()} matched=${matched}/${calendarEligible.length} rows=${result.rows.length} events=${result.eventsFetched} source=${result.source}`,
   );
+  const noCalendarMatches =
+    !dryRun && matched === 0 && result.eventsFetched === 0 && calendarEligible.length > 0;
+  await prisma.schedulerInvocation.update({
+    where: { id: invocation.id },
+    data: {
+      finishedAt: new Date(),
+      status: result.fetchFailed || noCalendarMatches
+        ? SchedulerInvocationStatus.PARTIAL
+        : SchedulerInvocationStatus.SUCCESS,
+      selectedCount: result.rows.length,
+      successCount: matched,
+      skippedCount: Math.max(0, result.rows.length - matched),
+      failedCount: result.fetchFailed || noCalendarMatches ? 1 : 0,
+      error: result.fetchFailed
+        ? result.warning?.slice(0, 2000)
+        : noCalendarMatches
+          ? "no_calendar_matches"
+          : null,
+    },
+  });
+  invocationId = undefined;
   if (result.fetchFailed) {
     console.warn(
       "  TE 日历拉取失败，economic_calendar 订阅已回退间隔探测。可检查网络或配置 TE_CALENDAR_COOKIE",
     );
   }
-  if (!dryRun && matched === 0 && result.eventsFetched === 0 && calendarEligible.length > 0) {
-    process.exit(2);
+  if (noCalendarMatches) {
+    process.exitCode = 2;
   }
 }
 
 main()
-  .catch((e) => {
+  .catch(async (e) => {
+    if (invocationId) {
+      await prisma.schedulerInvocation.update({
+        where: { id: invocationId },
+        data: {
+          finishedAt: new Date(),
+          status: SchedulerInvocationStatus.FAILED,
+          failedCount: 1,
+          error: (e instanceof Error ? e.message : String(e)).slice(0, 2000),
+        },
+      }).catch(() => undefined);
+    }
     console.error(e);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(() => prisma.$disconnect());

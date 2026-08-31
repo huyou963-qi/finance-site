@@ -34,9 +34,11 @@ npm run data:seed-p0
 ### Linux cron（示例）
 
 ```cron
-0 * * * * cd /opt/finance-site && npm run data:sync-calendar >> /var/log/finance-calendar.log 2>&1
-*/5 * * * * cd /opt/finance-site && npm run data:worker >> /var/log/finance-worker.log 2>&1
+0 * * * * flock -n /tmp/finance-sync-calendar.lock sh -lc 'cd /opt/finance-site && npm run data:sync-calendar >> /opt/finance-site/logs/sync-calendar.log 2>&1'
+*/5 * * * * flock -n /tmp/finance-data-worker.lock sh -lc 'cd /opt/finance-site && npm run data:worker >> /opt/finance-site/logs/data-worker.log 2>&1'
 ```
+
+任务输出包含 ISO 开始/结束时间；部署会安装 `/etc/logrotate.d/finance-site-data`，日志每日或达到 50MB 时轮转，保留 14 份并压缩。完整的逐指标与调度审计以 PostgreSQL 为准，文本日志只用于快速现场排查。
 
 ## 3. 验证清单
 

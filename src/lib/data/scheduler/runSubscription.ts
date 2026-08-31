@@ -29,6 +29,7 @@ import {
   parsePackageScheduleState,
 } from "./releasePackageStore";
 import { isCatalogKeyExcluded } from "../catalogExclusions";
+import { recordScheduleChange } from "./schedulerAudit";
 
 export type SubscriptionWithRelations = DataSubscription & {
   source: DataSource;
@@ -62,6 +63,37 @@ export async function runDataSubscription(
   options?: RunDataSubscriptionOptions,
 ): Promise<SubscriptionRunResult> {
   const now = new Date();
+  const trigger = options?.force
+    ? options.preserveNextRunAt ? "freshness_force" : "force"
+    : "scheduled";
+  const run = await prisma.fetchRun.create({
+    data: {
+      subscriptionId: sub.id,
+      startedAt: now,
+      status: FetchRunStatus.FAILED,
+      metadata: {
+        trigger,
+        scheduledFor: sub.nextRunAt?.toISOString() ?? null,
+        releasePackageId: sub.releasePackageId ?? null,
+      },
+    },
+  });
+  const finishSkipped = async (reason: string) => {
+    await prisma.fetchRun.update({
+      where: { id: run.id },
+      data: {
+        finishedAt: new Date(),
+        status: FetchRunStatus.SKIPPED,
+        error: reason,
+        metadata: {
+          trigger,
+          skipReason: reason,
+          scheduledFor: sub.nextRunAt?.toISOString() ?? null,
+          releasePackageId: sub.releasePackageId ?? null,
+        },
+      },
+    });
+  };
   // 目录树中的“彻底删除”会留下 tombstone；即使未来 seed 又写回订阅，
   // 所有调度入口最终都会经过这里，因此不会重新拉取已删除指标。
   if (
@@ -70,9 +102,11 @@ export async function runDataSubscription(
       `fred:${sub.sourceSeriesKey}`,
     ])
   ) {
+    await finishSkipped("catalog_deleted");
     return { status: "skipped", rowsUpserted: 0, rowsSkipped: 0, error: "catalog_deleted" };
   }
   if (!sub.enabled) {
+    await finishSkipped("disabled");
     return { status: "skipped", rowsUpserted: 0, rowsSkipped: 0, error: "disabled" };
   }
 
@@ -85,6 +119,7 @@ export async function runDataSubscription(
       metadata: sub.instrument.metadata,
     })
   ) {
+    await finishSkipped("acquisition_not_confirmed");
     return {
       status: "skipped",
       rowsUpserted: 0,
@@ -94,6 +129,7 @@ export async function runDataSubscription(
   }
 
   if (!options?.force && sub.nextRunAt && sub.nextRunAt > now) {
+    await finishSkipped("not_due");
     return { status: "skipped", rowsUpserted: 0, rowsSkipped: 0, error: "not_due" };
   }
 
@@ -105,23 +141,8 @@ export async function runDataSubscription(
   // economic_calendar 自带 fallback。没有匹配到第三方日历时，nextRunAt 已由
   // fallback 控制；到期后必须允许采集，否则“固定间隔兜底”只会展示却永不执行。
 
-  const run = await prisma.fetchRun.create({
-    data: {
-      subscriptionId: sub.id,
-      startedAt: now,
-      status: FetchRunStatus.FAILED,
-    },
-  });
-
   if (rule.type === "manual" && !options?.force) {
-    await prisma.fetchRun.update({
-      where: { id: run.id },
-      data: {
-        finishedAt: new Date(),
-        status: FetchRunStatus.SKIPPED,
-        error: "manual subscription",
-      },
-    });
+    await finishSkipped("manual subscription");
     return { status: "skipped", rowsUpserted: 0, rowsSkipped: 0, error: "manual" };
   }
 
@@ -235,6 +256,10 @@ export async function runDataSubscription(
       if (refreshed?.nextRunAt) nextRunAt = refreshed.nextRunAt;
     }
 
+    const scheduleBeforeUpdate = await prisma.dataSubscription.findUnique({
+      where: { id: sub.id },
+      select: { nextRunAt: true },
+    });
     await prisma.dataSubscription.update({
       where: { id: sub.id },
       data: {
@@ -249,7 +274,14 @@ export async function runDataSubscription(
       },
     });
 
+    let packageScheduleBeforeUpdate: Date | null | undefined;
     if (!options?.preserveNextRunAt && sub.releasePackageId && nextRunAt) {
+      packageScheduleBeforeUpdate = (
+        await prisma.releasePackage.findUnique({
+          where: { id: sub.releasePackageId },
+          select: { nextRunAt: true },
+        })
+      )?.nextRunAt;
       await prisma.releasePackage.update({
         where: { id: sub.releasePackageId },
         data: { nextRunAt },
@@ -273,6 +305,9 @@ export async function runDataSubscription(
         rowsSkipped: skipped + fetchResult.skippedInvalid,
         sourceLagDays,
         metadata: {
+          trigger,
+          scheduledFor: sub.nextRunAt?.toISOString() ?? null,
+          releasePackageId: sub.releasePackageId ?? null,
           fetchStart,
           persistStart,
           fetched: fetchResult.points.length,
@@ -283,6 +318,37 @@ export async function runDataSubscription(
         },
       },
     });
+
+    await recordScheduleChange(prisma, {
+      subscriptionId: sub.id,
+      previousNextRunAt: scheduleBeforeUpdate?.nextRunAt,
+      nextRunAt,
+      source: "subscription_runner",
+      reason: options?.preserveNextRunAt
+        ? "preserve_schedule"
+        : status === FetchRunStatus.SUCCESS
+          ? "fetch_success"
+          : "source_no_new_data",
+      metadata: { fetchRunId: run.id, trigger },
+    }).catch((auditError) => {
+      console.error(
+        `[scheduler:audit] subscription ${sub.id} 写入失败：${auditError instanceof Error ? auditError.message : String(auditError)}`,
+      );
+    });
+    if (!options?.preserveNextRunAt && sub.releasePackageId && nextRunAt) {
+      await recordScheduleChange(prisma, {
+        releasePackageId: sub.releasePackageId,
+        previousNextRunAt: packageScheduleBeforeUpdate,
+        nextRunAt,
+        source: "subscription_runner",
+        reason: status === FetchRunStatus.SUCCESS ? "member_fetch_success" : "member_source_current",
+        metadata: { fetchRunId: run.id, memberSubscriptionId: sub.id },
+      }).catch((auditError) => {
+        console.error(
+          `[scheduler:audit] package ${sub.releasePackageId} 写入失败：${auditError instanceof Error ? auditError.message : String(auditError)}`,
+        );
+      });
+    }
 
     return {
       status:
@@ -303,6 +369,10 @@ export async function runDataSubscription(
     const message = e instanceof Error ? e.message : String(e);
     const retryCount = sub.retryCount + 1;
     const nextRunAt = computeBackoffRunAt(retryCount);
+    const scheduleBeforeBackoff = await prisma.dataSubscription.findUnique({
+      where: { id: sub.id },
+      select: { nextRunAt: true },
+    });
 
     await prisma.dataSubscription.update({
       where: { id: sub.id },
@@ -320,6 +390,18 @@ export async function runDataSubscription(
         status: FetchRunStatus.FAILED,
         error: message.slice(0, 2000),
       },
+    });
+    await recordScheduleChange(prisma, {
+      subscriptionId: sub.id,
+      previousNextRunAt: scheduleBeforeBackoff?.nextRunAt,
+      nextRunAt,
+      source: "subscription_runner",
+      reason: "fetch_failed_backoff",
+      metadata: { fetchRunId: run.id, retryCount, error: message.slice(0, 500) },
+    }).catch((auditError) => {
+      console.error(
+        `[scheduler:audit] failed backoff ${sub.id} 写入失败：${auditError instanceof Error ? auditError.message : String(auditError)}`,
+      );
     });
 
     return {

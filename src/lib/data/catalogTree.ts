@@ -10,26 +10,8 @@ export const PRICE_INDEX_CATEGORY = "价格指数";
 /** 美国目录合并 CPI 子层时使用的大类名 */
 export const US_INFLATION_CATEGORY = "通胀与价格";
 export const CPI_SUBGROUP = "CPI";
-/** 美国 CPI 细分项子层（电力/汽油/家庭食品等）——与主口径「CPI」分开陈列 */
+/** 旧布局兼容：读取时会把该子层合并回 CPI，不再单独展示。 */
 export const CPI_SUBITEMS_SUBGROUP = "CPI 分项";
-
-/**
- * CPI 主口径 id：总量、三分法（能源/食品）、核心、核心商品/服务、住房/OER。
- * 归入「CPI」子层；其余 CPI 细分项归入「CPI 分项」子层。
- */
-const CPI_AGGREGATE_IDS = new Set(
-  [
-    "CPIAUCSL",
-    "CPILFESL",
-    "CPIENGSL",
-    "CPIFABSL",
-    "CPIUFDSL",
-    "CUSR0000SAH1",
-    "CUSR0000SEHC",
-    "CUSR0000SACL1E",
-    "CUSR0000SASLE",
-  ].map((x) => x.toUpperCase()),
-);
 
 /**
  * 将美国 FRED CPI 指数条目呈现为「同比」变体：键加 `::yoy`、标签补「同比」。
@@ -67,6 +49,15 @@ function dedupeItems(items: UnifiedCatalogItem[]): UnifiedCatalogItem[] {
   return [...new Map(items.map((i) => [i.key, i])).values()].sort((a, b) =>
     a.label.localeCompare(b.label, "zh-CN"),
   );
+}
+
+function dedupeAndOrderUsCpiItems(items: UnifiedCatalogItem[]): UnifiedCatalogItem[] {
+  return [...new Map(items.map((item) => [item.key, item])).values()].sort((a, b) => {
+    const aHeadline = fredIdFromCatalogKey(a.key) === "CPIAUCSL";
+    const bHeadline = fredIdFromCatalogKey(b.key) === "CPIAUCSL";
+    if (aHeadline !== bHeadline) return aHeadline ? -1 : 1;
+    return a.label.localeCompare(b.label, "zh-CN");
+  });
 }
 
 function mergeSubgroups(
@@ -174,8 +165,8 @@ type WorkingCategory = {
 };
 
 /**
- * **布局应用之后** 的收尾：把美国 CPI 指数条目统一呈现为「同比」，并拆成
- * 「CPI」（主口径）+「CPI 分项」两个子层。
+ * **布局应用之后** 的收尾：把美国 CPI 指数条目统一呈现为「同比」，并将旧的
+ * 「CPI」「CPI 分项」合并成一个「CPI」子层；总 CPI 固定排第一。
  *
  * 必须在 applyCatalogLayout 之后跑：存量 MacroCatalogLayout 按原始基键
  * （fred:CPIAUCSL）匹配条目，若在 base 阶段就把键改成 ::yoy，布局会认不出而全
@@ -209,18 +200,10 @@ export function presentUsCpiAsYoy(
 
     if (gathered.length === 0) return country;
 
-    const aggregates: UnifiedCatalogItem[] = [];
-    const details: UnifiedCatalogItem[] = [];
-    for (const it of gathered) {
-      const fredId = fredIdFromCatalogKey(it.key);
-      const yoy = toCpiYoyItem(it);
-      if (fredId && CPI_AGGREGATE_IDS.has(fredId)) aggregates.push(yoy);
-      else details.push(yoy);
-    }
-    const cpiSubgroups: UnifiedCatalogSubgroup[] = [
-      { name: CPI_SUBGROUP, items: dedupeItems(aggregates) },
-      { name: CPI_SUBITEMS_SUBGROUP, items: dedupeItems(details) },
-    ].filter((sg) => sg.items.length > 0);
+    const cpiSubgroups: UnifiedCatalogSubgroup[] = [{
+      name: CPI_SUBGROUP,
+      items: dedupeAndOrderUsCpiItems(gathered.map(toCpiYoyItem)),
+    }];
 
     const inflIdx = categories.findIndex((c) => c.name === US_INFLATION_CATEGORY);
     if (inflIdx >= 0) {

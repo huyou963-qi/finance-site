@@ -41,6 +41,7 @@ import {
 import { loadIsmOfficialCalendarHtml } from "./ismOfficial/client";
 import { loadPublishedIsmOfficialReleases } from "./ismOfficial/publishedCalendar";
 import { loadNbsOfficialCalendarHtml } from "./nbsOfficialCalendar/client";
+import { recordScheduleChange } from "./schedulerAudit";
 import {
   isNbsOfficialPackage,
   nbsOfficialReleaseToCalendarEvent,
@@ -131,12 +132,26 @@ async function persistSubscription(
   dryRun?: boolean,
 ) {
   if (dryRun) return;
+  const previous = await prisma.dataSubscription.findUnique({
+    where: { id: subId },
+    select: { nextRunAt: true },
+  });
   await prisma.dataSubscription.update({
     where: { id: subId },
     data: {
       ...(data.releaseRule ? { releaseRule: data.releaseRule as object } : {}),
       nextRunAt: data.nextRunAt,
     },
+  });
+  const syncStatus = data.releaseRule?.type === "economic_calendar"
+    ? data.releaseRule.calendarSync?.status
+    : undefined;
+  await recordScheduleChange(prisma, {
+    subscriptionId: subId,
+    previousNextRunAt: previous?.nextRunAt,
+    nextRunAt: data.nextRunAt,
+    source: "calendar_sync",
+    reason: syncStatus ? `calendar_${syncStatus}` : "calendar_schedule_update",
   });
 }
 
@@ -150,6 +165,10 @@ async function persistPackageSchedule(
   dryRun?: boolean,
 ) {
   if (dryRun) return;
+  const previous = await prisma.releasePackage.findUnique({
+    where: { id: packageId },
+    select: { nextRunAt: true },
+  });
   await prisma.releasePackage.update({
     where: { id: packageId },
     data: {
@@ -163,6 +182,16 @@ async function persistPackageSchedule(
       data: { nextRunAt: data.nextRunAt },
     });
   }
+  await recordScheduleChange(prisma, {
+    releasePackageId: packageId,
+    previousNextRunAt: previous?.nextRunAt,
+    nextRunAt: data.nextRunAt,
+    source: "calendar_sync",
+    reason: data.scheduleState.calendarSync?.status
+      ? `calendar_${data.scheduleState.calendarSync.status}`
+      : "calendar_schedule_update",
+    metadata: { memberSchedulePropagated: data.nextRunAt != null },
+  });
 }
 
 async function applyCalendarMatchToPackage(

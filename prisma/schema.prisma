@@ -701,7 +701,8 @@ model DataSubscription {
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
 
-  fetchRuns FetchRun[]
+  fetchRuns           FetchRun[]
+  scheduleAuditEvents ScheduleAuditEvent[]
 
   @@index([sourceId])
   @@index([enabled, nextRunAt])
@@ -732,8 +733,9 @@ model ReleasePackage {
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
-  members       ReleasePackageMember[]
-  subscriptions DataSubscription[]
+  members             ReleasePackageMember[]
+  subscriptions       DataSubscription[]
+  scheduleAuditEvents ScheduleAuditEvent[]
 
   @@index([countryCode])
   @@index([enabled, nextRunAt])
@@ -766,6 +768,15 @@ enum FetchRunStatus {
   @@schema("mds")
 }
 
+enum SchedulerInvocationStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+
+  @@schema("mds")
+}
+
 /// 单次拉取执行日志。
 model FetchRun {
   id             String           @id @default(uuid()) @db.Uuid
@@ -784,6 +795,48 @@ model FetchRun {
 
   @@index([subscriptionId, startedAt])
   @@map("fetch_run")
+  @@schema("mds")
+}
+
+/// data:worker 等调度入口的一次完整执行；与逐指标 FetchRun 分层记录。
+model SchedulerInvocation {
+  id            String                    @id @default(uuid()) @db.Uuid
+  job           String                    @db.VarChar(64)
+  startedAt     DateTime                  @map("started_at")
+  finishedAt    DateTime?                 @map("finished_at")
+  status        SchedulerInvocationStatus
+  selectedCount Int                       @default(0) @map("selected_count")
+  successCount  Int                       @default(0) @map("success_count")
+  skippedCount  Int                       @default(0) @map("skipped_count")
+  failedCount   Int                       @default(0) @map("failed_count")
+  error         String?                   @db.Text
+  metadata      Json?
+  createdAt     DateTime                  @default(now()) @map("created_at")
+
+  @@index([job, startedAt])
+  @@index([status, startedAt])
+  @@map("scheduler_invocation")
+  @@schema("mds")
+}
+
+/// nextRunAt 的变更审计。发布包批量推进时只记一条包级事件，避免成员日志洪泛。
+model ScheduleAuditEvent {
+  id                String            @id @default(uuid()) @db.Uuid
+  subscriptionId    String?           @map("subscription_id") @db.Uuid
+  subscription      DataSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  releasePackageId  String?           @map("release_package_id") @db.VarChar(64)
+  releasePackage    ReleasePackage?   @relation(fields: [releasePackageId], references: [id], onDelete: Cascade)
+  changedAt         DateTime          @default(now()) @map("changed_at")
+  source            String            @db.VarChar(64)
+  reason            String            @db.VarChar(128)
+  previousNextRunAt DateTime?         @map("previous_next_run_at")
+  nextRunAt         DateTime?         @map("next_run_at")
+  metadata          Json?
+
+  @@index([subscriptionId, changedAt])
+  @@index([releasePackageId, changedAt])
+  @@index([changedAt])
+  @@map("schedule_audit_event")
   @@schema("mds")
 }
 

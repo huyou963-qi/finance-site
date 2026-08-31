@@ -231,21 +231,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["core", "income", "spending"],
     },
     members: {
-      fredSeriesIds: ["PCEPI"],
-      instrumentCodes: usovCodesForFred("PCEPI"),
-    },
-  }),
-  pkg("us.bea.core_pce", "美国核心 PCE", {
-    granularity: "MONTHLY",
-    sortOrder: 51,
-    calendar: {
-      countryCodes: ["US"],
-      keywords: ["core pce", "core pce price index"],
-      excludeKeywords: ["income", "spending", "y/y", "yoy"],
-    },
-    members: {
-      fredSeriesIds: ["PCEPILFE"],
-      instrumentCodes: usovCodesForFred("PCEPILFE"),
+      fredSeriesIds: ["PCEPI", "PCEPILFE"],
+      instrumentCodes: usovCodesForFred("PCEPI", "PCEPILFE"),
     },
   }),
   pkg("us.bls.ppi", "美国 PPI", {
@@ -1001,6 +988,9 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     members: { instrumentCodePatterns: ["safe_cn_debt_*"] },
   }),
 ] as const;
+
+/** 已合并且必须由 seed 从数据库删除的旧发布包。 */
+export const RETIRED_RELEASE_PACKAGE_IDS = ["us.bea.core_pce"] as const;
 
 export function instrumentMatchesPackageMember(
   inst: { code: string; fredSeriesId: string | null },

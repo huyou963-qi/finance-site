@@ -429,6 +429,8 @@ export async function listRecentFetchRuns(
     const packageSyncId =
       typeof meta?.packageSyncId === "string" ? meta.packageSyncId : null;
     const batchSync = meta?.batchSync === true;
+    const trigger = typeof meta?.trigger === "string" ? meta.trigger : null;
+    const skipReason = typeof meta?.skipReason === "string" ? meta.skipReason : null;
 
     return {
       id: r.id,
@@ -439,6 +441,8 @@ export async function listRecentFetchRuns(
       releasePackageLabelZh: r.subscription.releasePackage?.labelZh ?? null,
       packageSyncId,
       batchSync,
+      trigger,
+      skipReason,
       startedAt: r.startedAt.toISOString(),
       finishedAt: r.finishedAt?.toISOString() ?? null,
       status: r.status,
