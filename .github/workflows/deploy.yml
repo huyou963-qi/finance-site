@@ -101,8 +101,10 @@ jobs:
           # Fast deploy: migrations plus catalog definitions, subscriptions,
           # release packages and layout. No history backfills, calendar fetches,
           # equity discovery, global verification or quant rebuilds happen here.
-          npm run db:migrate || echo "[deploy] db:migrate failed; inspect server logs"
-          npm run data:apply -- --skip-migrate --skip-equity --skip-calendar --skip-backfill --skip-verify || echo "[deploy] data definitions had failures; inspect server logs"
+          # Schema and code-owned catalog definitions are deployment gates. A green
+          # workflow must mean migrations and release-package membership reached DB.
+          npm run db:migrate
+          npm run data:apply -- --skip-migrate --skip-equity --skip-calendar --skip-backfill --skip-verify
 
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start
           pm2 save
