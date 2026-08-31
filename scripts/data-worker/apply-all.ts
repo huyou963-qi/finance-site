@@ -103,8 +103,17 @@ function buildPlan(flags: Flags): Step[] {
   }
 
   // 2) 各 catalog 指标/订阅 seed —— release-packages 必须最后（要链接已存在指标）
+  const deploymentExternalDiscoverySeeds = new Set([
+    "mofcom-trade",
+    "nbs-realestate",
+  ]);
   const seedNames = listSeedCatalogNames().filter(
-    (n) => n !== "release-packages",
+    (name) =>
+      name !== "release-packages" &&
+      // 这两类定义依赖外部发布归档动态发现；快速部署明确不做外部采集。
+      // 已有定义由后续 release-package/layout seed 幂等链接；首次接入或补历史
+      // 走显式维护命令，不得因官网临时缺表阻断应用部署。
+      !(flags.skipBackfill && deploymentExternalDiscoverySeeds.has(name)),
   );
   const seedSelected = flags.only
     ? seedNames.filter((n) => flags.only!.includes(n))
@@ -115,8 +124,7 @@ function buildPlan(flags: Flags): Step[] {
     // GitHub Actions 到服务器的 SSH 会话因长期无输出而断开。
     // These providers have intentionally rate-limited archive backfills. Full
     // history is run as a detached one-off job, never in a deployment session.
-    const isLongHistoricalSeed =
-      name === "mofcom-trade" || name === "nbs-realestate";
+    const isLongHistoricalSeed = deploymentExternalDiscoverySeeds.has(name);
     // COT's 60-week backfill is one-off initialization work. The regular seed
     // only maintains catalog definitions and subscriptions; run --bulk-only
     // explicitly when historical COT observations need to be loaded.

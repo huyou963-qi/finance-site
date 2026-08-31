@@ -87,6 +87,16 @@ jobs:
             "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" <<EOF
           set -euo pipefail
           cd "${DEPLOY_PATH}"
+          site_stopped=0
+          restore_site() {
+            if [ "\$site_stopped" = "1" ]; then
+              cd "${DEPLOY_PATH}"
+              pm2 restart finance-site || pm2 start npm --name finance-site -- run start
+              pm2 save || true
+            fi
+          }
+          trap restore_site EXIT
+          site_stopped=1
           pm2 stop finance-site || true
           rm -rf .next node_modules
           tar -xzf deploy.tar.gz
@@ -108,6 +118,8 @@ jobs:
 
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start
           pm2 save
+          site_stopped=0
+          trap - EXIT
           sleep 5
           curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
 
