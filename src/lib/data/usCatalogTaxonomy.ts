@@ -122,6 +122,7 @@ const FRED_POLICY_RATES = new Set([
   "SOFR",
   "IORB",
   "RRPONTSYAWARD",
+  "SRFTSYD",
 ]);
 const FRED_FED_BS = new Set(["WALCL", "WRESBAL", "TREAST", "WLRRAL", "M2SL"]);
 const FRED_MONEY_MARKET = new Set(["WTREGEN", "RRPONTSYD"]);

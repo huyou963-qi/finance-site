@@ -44,6 +44,22 @@ test("风险偏好与通胀定价同升形成再通胀交易背景", () => {
   assert.equal(result.inflationState, "rising");
   assert.equal(result.confidence, "high");
   assert.equal(result.coverage, 1);
+  assert.equal(result.riskCoverage, 1);
+  assert.equal(result.inflationCoverage, 1);
+});
+
+test("覆盖完整但通胀得分未越过阈值时不强行形成四象限", () => {
+  const result = classifyMacroRegimeNowcast({
+    indicators: [
+      indicator({ code: "risk", axis: "risk", signal: 0.29 }),
+      indicator({ code: "inflation", axis: "inflation", signal: 0.12 }),
+    ],
+  });
+  assert.equal(result.riskDirection, "rising");
+  assert.equal(result.inflationState, null);
+  assert.equal(result.regime, null);
+  assert.equal(result.riskCoverage, 1);
+  assert.equal(result.inflationCoverage, 1);
 });
 
 test("过期数据不借用月度锚填补周度方向", () => {

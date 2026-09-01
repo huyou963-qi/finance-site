@@ -132,13 +132,6 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
     message: "已复原为 c17+c18+c19+c20+c21+c22；4039 个重叠日最大差 0.02 吨。六只上游均已接通，但 PHAU 是月频；禁止前向填充，只有六只严格同一官方 as-of 日期时才刷新。",
   },
   {
-    code: "goldov_c26_dxy",
-    method: "licensed_ice_index_data",
-    methodLabel: "ICE U.S. Dollar Index 授权数据",
-    officialUrl: "https://www.ice.com/forex/usdx",
-    message: "必须使用 ICE DXY；广义美元指数不是同一口径。",
-  },
-  {
     code: "goldov_c27_brent",
     method: "licensed_ice_futures_data",
     methodLabel: "ICE Brent 连续期货结算价授权数据",
@@ -152,6 +145,9 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
     message: "需先确认 trailing/forward、收益口径和指数版本，不能用其他 S&P 估值比率替代。",
   },
 ];
+
+/** 已由其他美元指数覆盖的 legacy 工作簿序列；部署时幂等清理并留下 tombstone。 */
+const RETIRED_SERIES = ["goldov_c26_dxy"] as const;
 
 const DERIVED_SERIES: ReadonlyArray<{ code: string; formula: string }> = [
   { code: "goldov_c03_basis", formula: "goldov_c01_comex_active - goldov_c02_london_gold" },
@@ -687,8 +683,32 @@ async function markPendingAndDerived() {
   console.log(`  · 已标记 ${PENDING_RAW_SERIES.length} 条待授权/待接通口径，以及 ${DERIVED_SERIES.length} 条已确认派生项`);
 }
 
+async function deleteRetiredSeries() {
+  for (const code of RETIRED_SERIES) {
+    const key = `mds:${code}`;
+    const instrument = await prisma.instrument.findUnique({
+      where: { code },
+      select: { id: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      await tx.macroCatalogExcludedKey.upsert({
+        where: { catalogKey: key },
+        create: { catalogKey: key, deletedBy: "data:seed-gold-market" },
+        update: { deletedAt: new Date(), deletedBy: "data:seed-gold-market" },
+      });
+      if (!instrument) return;
+      await tx.fetchRun.deleteMany({ where: { subscription: { instrumentId: instrument.id } } });
+      await tx.releasePackageMember.deleteMany({ where: { instrumentId: instrument.id } });
+      await tx.dataSubscription.deleteMany({ where: { instrumentId: instrument.id } });
+      await tx.instrument.delete({ where: { id: instrument.id } });
+    });
+    console.log(`  ✓ 已退役并删除 ${code}`);
+  }
+}
+
 async function main() {
   console.log("[data:seed-gold-market] 写入已验证的黄金分析原始口径订阅…");
+  await deleteRetiredSeries();
   await ensureSources();
   await seedCftcNet();
   await seedBlsPpi();

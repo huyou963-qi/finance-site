@@ -159,10 +159,12 @@ import {
 import { applyMacroSeriesOp } from "@/lib/data/macroSeriesTransform";
 import {
   createDividerItem,
+  displayKeysFromListItems,
   keysFromListItems,
   listItemsFromKeys,
   listItemsFromTemplate,
   membershipSignatureFromListItems,
+  syncListWithDerivedKeys,
   syncListWithKeys,
   type MacroSelectedListItem,
 } from "@/lib/macroSelectedList";
@@ -655,6 +657,10 @@ export function MacroSection() {
     () => keysFromListItems(selectedListItems),
     [selectedListItems],
   );
+  const orderedDisplayKeys = useMemo(
+    () => displayKeysFromListItems(selectedListItems),
+    [selectedListItems],
+  );
   // 纯排序只改变 orderedSelectedKeys；成员签名不变时复用同一个 Set，避免把排序
   // 误判为指标增删，进而重复请求元数据和重跑完整的数据加工链。
   const selectedMembershipSignature = useMemo(
@@ -1103,13 +1109,16 @@ export function MacroSection() {
           }
         }
         for (const k of Object.keys(n)) {
-          if (!capped.has(k)) delete n[k];
+          if (!capped.has(k) && !k.startsWith("calc:")) delete n[k];
         }
         return n;
       });
       setSelectedListItems((prev) => syncListWithKeys(prev, capped));
       setSeriesVisualMap((prev) => {
         const out: MacroSeriesVisualConfigMap = {};
+        for (const [key, value] of Object.entries(prev)) {
+          if (key.startsWith("calc:")) out[key] = value;
+        }
         for (const key of capped) {
           if (prev[key]) out[key] = prev[key];
         }
@@ -1353,7 +1362,13 @@ export function MacroSection() {
       }
       setLayoutMode(resolvedTpl.layoutMode);
       setSelectedListItems(
-        listItemsFromTemplate(templateKeys, resolvedTpl.selectedListItems),
+        listItemsFromTemplate(
+          templateKeys,
+          resolvedTpl.selectedListItems,
+          (resolvedTpl.derivedCalcs ?? [])
+            .filter((calc) => !calc.hidden)
+            .map((calc) => `calc:${calc.id}`),
+        ),
       );
       setSlotAssignment({ ...resolvedTpl.slotAssignment });
       setSeriesVisualMap({ ...resolvedTpl.seriesVisualMap });
@@ -1546,7 +1561,7 @@ export function MacroSection() {
         selectedListItems: selectedListItems.map((i) =>
           i.type === "divider"
             ? { type: "divider" as const, id: i.id, ...(i.label ? { label: i.label } : {}) }
-            : { type: "series" as const, key: i.key },
+            : { type: i.type, key: i.key },
         ),
         layoutMode,
         slotAssignment: { ...slotAssignment },
@@ -1689,7 +1704,7 @@ export function MacroSection() {
       selectedListItems: selectedListItems.map((i) =>
         i.type === "divider"
           ? { type: "divider" as const, id: i.id, ...(i.label ? { label: i.label } : {}) }
-          : { type: "series" as const, key: i.key },
+          : { type: i.type, key: i.key },
       ),
       layoutMode,
       slotAssignment: { ...slotAssignment },
@@ -2174,7 +2189,16 @@ export function MacroSection() {
 
     // “提取数据”必须保留所有已选指标；未分配到图表（null）只影响图表分组，
     // 不能把指标从提取结果中移除。
-    const allSeries = [...work, ...derivedSeries];
+    const unorderedSeries = [...work, ...derivedSeries];
+    const seriesOrder = new Map(orderedDisplayKeys.map((key, index) => [key, index]));
+    const allSeries = unorderedSeries
+      .map((series, index) => ({ series, index }))
+      .sort((a, b) => {
+        const aOrder = seriesOrder.get(a.series.key) ?? Number.MAX_SAFE_INTEGER;
+        const bOrder = seriesOrder.get(b.series.key) ?? Number.MAX_SAFE_INTEGER;
+        return aOrder - bOrder || a.index - b.index;
+      })
+      .map(({ series }) => series);
     const allCategories = collectAlignedPeriodKeys(allSeries);
     const finalSeries = allSeries.map((s) => {
       const m = seriesToAlignedValueMap(s.categories, s.data);
@@ -2193,6 +2217,7 @@ export function MacroSection() {
     catalogLabelByKey,
     derivedCalcs,
     mdsUnitByKey,
+    orderedDisplayKeys,
     selectedKeys,
     rawPayload,
     resolveSeriesLabel,
@@ -2433,6 +2458,14 @@ export function MacroSection() {
     setDerivedCalcs((prev) => prev.filter((x) => x.leftKey !== key && x.rightKey !== key));
   }
 
+  function removeSelectedListKey(key: string) {
+    if (key.startsWith("calc:")) {
+      removeDerivedCalc(key.slice("calc:".length));
+      return;
+    }
+    removeSelectedKey(key);
+  }
+
   function assignSlot(key: string, slotIndex: number | null) {
     setSlotAssignment((prev) => ({ ...prev, [key]: slotIndex }));
   }
@@ -2487,6 +2520,9 @@ export function MacroSection() {
   function removeDerivedCalc(id: string) {
     setDerivedCalcs((prev) => prev.filter((x) => x.id !== id));
     const key = `calc:${id}`;
+    setSelectedListItems((prev) =>
+      prev.filter((item) => item.type !== "derived" || item.key !== key),
+    );
     setSlotAssignment((prev) => {
       if (!(key in prev)) return prev;
       const out = { ...prev };
@@ -2507,6 +2543,10 @@ export function MacroSection() {
     const next = window.prompt("运算指标名称", current.name)?.trim();
     if (!next) return;
     setDerivedCalcs((prev) => prev.map((x) => (x.id === id ? { ...x, name: next } : x)));
+  }
+
+  function renameSelectedListKey(key: string) {
+    if (key.startsWith("calc:")) renameDerivedCalc(key.slice("calc:".length));
   }
 
   useEffect(() => {
@@ -2656,18 +2696,27 @@ export function MacroSection() {
     return m;
   }, [displayPayload]);
 
+  const visibleDerivedKeys = useMemo(
+    () => derivedCalcs.filter((calc) => !calc.hidden).map((calc) => `calc:${calc.id}`),
+    [derivedCalcs],
+  );
+
+  useEffect(() => {
+    setSelectedListItems((prev) => syncListWithDerivedKeys(prev, visibleDerivedKeys));
+  }, [visibleDerivedKeys]);
+
   const selectedRowByKey = useMemo(() => {
     const m = new Map<
       string,
       {
         key: string;
         label: string;
-        frequency: string;
-        range: string;
-        unit: string;
-        country: string;
-        updatedAt: string;
-        source: string;
+        frequency?: string;
+        range?: string;
+        unit?: string;
+        country?: string;
+        updatedAt?: string;
+        source?: string;
       }
     >();
     for (const key of orderedSelectedKeys) {
@@ -2697,10 +2746,26 @@ export function MacroSection() {
         source: mdsAttrs?.source ?? "-",
       });
     }
+    for (const calc of derivedCalcs) {
+      if (calc.hidden) continue;
+      const key = `calc:${calc.id}`;
+      const extracted = extractedMetaByKey.get(key);
+      m.set(key, {
+        key,
+        label: calc.name,
+        frequency: extracted?.frequency,
+        range: extracted?.range,
+        unit: undefined,
+        country: undefined,
+        updatedAt: undefined,
+        source: undefined,
+      });
+    }
     return m;
   }, [
     orderedSelectedKeys,
     catalogMetaByKey,
+    derivedCalcs,
     extractedMetaByKey,
     mdsAttrsByKey,
     mdsUnitByKey,
@@ -3366,32 +3431,6 @@ export function MacroSection() {
                 添加
               </button>
             </div>
-            {derivedCalcs.some((x) => !x.hidden) ? (
-              <ul className="mt-1 flex flex-wrap gap-1 border-t border-fs-border/70 pt-1">
-                {derivedCalcs.filter((x) => !x.hidden).map((x) => (
-                  <li
-                    key={x.id}
-                    className="flex items-center gap-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[10px] text-fs-secondary"
-                  >
-                    <span>{x.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => renameDerivedCalc(x.id)}
-                      className="rounded border border-fs-border px-1 text-[10px] text-fs-secondary hover:border-fs-border"
-                    >
-                      改名
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeDerivedCalc(x.id)}
-                      className="rounded border border-fs-negative/50 bg-white px-1 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
-                    >
-                      删
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </div>
         ) : null}
         {mainTab === "charts" ? (
@@ -3590,8 +3629,10 @@ export function MacroSection() {
                     <span>
                       已选指标
                       <span className="ml-2 font-normal text-fs-secondary">
-                        {selectedKeys.size}/{MACRO_MAX_SERIES}
-                        <span className="text-fs-muted">（指标数上限）</span>
+                        {orderedDisplayKeys.length}
+                        <span className="ml-1 text-fs-muted">
+                          （原始指标 {selectedKeys.size}/{MACRO_MAX_SERIES}）
+                        </span>
                       </span>
                     </span>
                     <button
@@ -3614,7 +3655,8 @@ export function MacroSection() {
                       items={selectedListItems}
                       rowByKey={selectedRowByKey}
                       onChange={setSelectedListItems}
-                      onRemoveKey={removeSelectedKey}
+                      onRemoveKey={removeSelectedListKey}
+                      onRenameKey={renameSelectedListKey}
                       onLocateKey={locateIndicatorInSidebar}
                       showSource={isAdmin}
                     />
@@ -4046,7 +4088,7 @@ export function MacroSection() {
                                                 id: i.id,
                                                 ...(i.label ? { label: i.label } : {}),
                                               }
-                                            : { type: "series" as const, key: i.key },
+                                            : { type: i.type, key: i.key },
                                         ),
                                         layoutMode,
                                         slotAssignment: { ...slotAssignment },

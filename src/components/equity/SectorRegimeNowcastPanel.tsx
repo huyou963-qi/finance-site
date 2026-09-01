@@ -9,6 +9,10 @@ import type {
   RegimeNowcastConfidence,
   RegimeNowcastIndicator,
 } from "@/lib/quant/macroRegime";
+import {
+  REGIME_NOWCAST_DIRECTION_THRESHOLD,
+  REGIME_NOWCAST_MIN_AXIS_COVERAGE,
+} from "@/lib/quant/macroRegime";
 
 const CONFIDENCE_LABEL: Record<RegimeNowcastConfidence, string> = {
   high: "较高",
@@ -39,10 +43,34 @@ function marketFundamentalSummary(data: MacroRegimeNowcast): { conclusion: strin
   const weekly = regimeLabel(data.live?.regime);
   const monthly = regimeLabel(data.official?.regime);
   const conclusion = `周度市场交易：${weekly}；月度宏观基本面：${monthly}。`;
-  if (!data.live?.regime || !data.official?.regime || data.live.relationToOfficial === "inconclusive") {
+  if (!data.live) {
     return {
       conclusion,
-      comment: "当前证据不足，暂不能判断两者是否一致，不用月度结论填补周度中性信号。",
+      comment: "缺少周度市场数据，暂不能形成市场交易四象限。",
+    };
+  }
+  if (!data.live.regime) {
+    const unresolved: string[] = [];
+    const threshold = REGIME_NOWCAST_DIRECTION_THRESHOLD.toFixed(2);
+    const axisReason = (label: string, score: number, coverage: number) =>
+      coverage < REGIME_NOWCAST_MIN_AXIS_COVERAGE
+        ? `${label}有效覆盖率 ${(coverage * 100).toFixed(0)}%，低于 ${(REGIME_NOWCAST_MIN_AXIS_COVERAGE * 100).toFixed(0)}% 要求`
+        : `${label}得分 ${score >= 0 ? "+" : ""}${score.toFixed(2)}，仍在 -${threshold}～+${threshold} 中性区间`;
+    if (!data.live.riskDirection) {
+      unresolved.push(axisReason("风险定价", data.live.riskScore, data.live.riskCoverage));
+    }
+    if (!data.live.inflationState) {
+      unresolved.push(axisReason("通胀定价", data.live.inflationScore, data.live.inflationCoverage));
+    }
+    return {
+      conclusion,
+      comment: `周度四象限暂未形成：${unresolved.join("；")}。模型要求风险与通胀两条轴均形成方向，不用月度结论填补周度中性信号。`,
+    };
+  }
+  if (!data.official?.regime || data.live.relationToOfficial === "inconclusive") {
+    return {
+      conclusion,
+      comment: "周度市场交易背景已形成，但月度正式锚暂无可比方向，暂不判断两者是否一致。",
     };
   }
   if (data.live.relationToOfficial === "aligned") {
@@ -76,8 +104,8 @@ function latestValueText(row: RegimeNowcastIndicator): string {
 }
 
 function scoreLabel(value: number, positive: string, negative: string): string {
-  if (value >= 0.2) return positive;
-  if (value <= -0.2) return negative;
+  if (value >= REGIME_NOWCAST_DIRECTION_THRESHOLD) return positive;
+  if (value <= -REGIME_NOWCAST_DIRECTION_THRESHOLD) return negative;
   return "方向中性";
 }
 

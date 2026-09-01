@@ -13,12 +13,12 @@ import {
 export type SelectedIndicatorRowMeta = {
   key: string;
   label: string;
-  frequency: string;
-  range: string;
-  unit: string;
-  country: string;
-  updatedAt: string;
-  source: string;
+  frequency?: string;
+  range?: string;
+  unit?: string;
+  country?: string;
+  updatedAt?: string;
+  source?: string;
 };
 
 type Props = {
@@ -26,6 +26,7 @@ type Props = {
   rowByKey: Map<string, SelectedIndicatorRowMeta>;
   onChange: (items: MacroSelectedListItem[]) => void;
   onRemoveKey: (key: string) => void;
+  onRenameKey?: (key: string) => void;
   onLocateKey: (key: string) => void;
   /** 管理员可见指标来源；普通用户隐藏 */
   showSource?: boolean;
@@ -106,6 +107,7 @@ export function SelectedIndicatorsList({
   rowByKey,
   onChange,
   onRemoveKey,
+  onRenameKey,
   onLocateKey,
   showSource = false,
 }: Props) {
@@ -201,7 +203,19 @@ export function SelectedIndicatorsList({
 
         const row = rowByKey.get(item.key);
         if (!row) return null;
-        const rangeText = row.range !== "-" ? row.range : "—";
+        const isDerived = item.type === "derived";
+        const metadataEntries: Array<[string, string | undefined]> = [
+          ["国家", row.country],
+          ["单位", row.unit],
+          ["更新时间", row.updatedAt],
+          ["频率", row.frequency],
+          ...(showSource ? [["来源", row.source] as [string, string | undefined]] : []),
+          ["范围", row.range],
+        ];
+        const visibleMeta = metadataEntries.filter((entry): entry is [string, string] => {
+          const value = entry[1];
+          return Boolean(value && value !== "-" && value !== "—");
+        });
         const isDropTarget = dropIndex === index && dragIndex !== null && dragIndex !== index;
 
         return (
@@ -210,13 +224,8 @@ export function SelectedIndicatorsList({
             {...dropTargetProps(index)}
             title={[
               item.key,
-              `国家：${row.country}`,
-              `单位：${row.unit}`,
-              `更新时间：${row.updatedAt}`,
-              `频率：${row.frequency}`,
-              ...(showSource ? [`来源：${row.source}`] : []),
-              `范围：${rangeText}`,
-              "拖动调整顺序；双击定位到左侧指标树",
+              ...visibleMeta.map(([label, value]) => `${label}：${value}`),
+              isDerived ? "拖动调整顺序" : "拖动调整顺序；双击定位到左侧指标树",
             ].join("\n")}
             className={`flex cursor-pointer items-center gap-1.5 px-2 py-1 hover:bg-fs-elevated/80 ${
               isDropTarget ? "bg-fs-elevated ring-1 ring-inset ring-fs-accent/40" : ""
@@ -238,29 +247,31 @@ export function SelectedIndicatorsList({
               {row.label}
             </span>
             <span className="min-w-0 flex-1 truncate text-right text-[10px] leading-tight text-fs-secondary tabular-nums">
-              <span className="text-fs-secondary">国家</span>：{row.country}
-              <span className="mx-1.5 text-fs-secondary">|</span>
-              <span className="text-fs-secondary">单位</span>：{row.unit}
-              <span className="mx-1.5 text-fs-secondary">|</span>
-              <span className="text-fs-secondary">更新时间</span>：{row.updatedAt}
-              <span className="mx-1.5 text-fs-secondary">|</span>
-              <span className="text-fs-secondary">频率</span>：{row.frequency}
-              {showSource ? (
-                <>
-                  <span className="mx-1.5 text-fs-secondary">|</span>
-                  <span className="text-fs-secondary">来源</span>：{row.source}
-                </>
-              ) : null}
-              <span className="mx-1.5 text-fs-secondary">|</span>
-              <span className="text-fs-secondary">范围</span>：{rangeText}
+              {visibleMeta.map(([label, value], metaIndex) => (
+                <span key={label}>
+                  {metaIndex > 0 ? <span className="mx-1.5 text-fs-secondary">|</span> : null}
+                  <span className="text-fs-secondary">{label}</span>：{value}
+                </span>
+              ))}
             </span>
-            <Link
-              href={`/tools/statistical-analysis?series=${encodeURIComponent(item.key)}&label=${encodeURIComponent(row.label)}`}
-              className="shrink-0 rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent"
-              title="跳转到统计分析页面"
-            >
-              统计分析
-            </Link>
+            {!isDerived ? (
+              <Link
+                href={`/tools/statistical-analysis?series=${encodeURIComponent(item.key)}&label=${encodeURIComponent(row.label)}`}
+                className="shrink-0 rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent"
+                title="跳转到统计分析页面"
+              >
+                统计分析
+              </Link>
+            ) : null}
+            {isDerived && onRenameKey ? (
+              <button
+                type="button"
+                onClick={() => onRenameKey(item.key)}
+                className="shrink-0 rounded border border-fs-border px-1.5 py-0 text-[10px] text-fs-secondary hover:border-fs-accent"
+              >
+                改名
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => onRemoveKey(item.key)}

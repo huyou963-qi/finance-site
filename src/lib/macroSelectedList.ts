@@ -1,12 +1,25 @@
 import { MACRO_MAX_SERIES } from "@/lib/data/macroCatalog";
 
 export type MacroSelectedSeriesItem = { type: "series"; key: string };
+export type MacroSelectedDerivedItem = { type: "derived"; key: string };
 export type MacroSelectedDividerItem = { type: "divider"; id: string; label?: string };
-export type MacroSelectedListItem = MacroSelectedSeriesItem | MacroSelectedDividerItem;
+export type MacroSelectedListItem =
+  | MacroSelectedSeriesItem
+  | MacroSelectedDerivedItem
+  | MacroSelectedDividerItem;
 
 export function keysFromListItems(items: MacroSelectedListItem[]): string[] {
   return items
     .filter((i): i is MacroSelectedSeriesItem => i.type === "series")
+    .map((i) => i.key);
+}
+
+/** 列表中的全部可见指标顺序（原始指标 + 指标间运算结果）。 */
+export function displayKeysFromListItems(items: MacroSelectedListItem[]): string[] {
+  return items
+    .filter(
+      (i): i is MacroSelectedSeriesItem | MacroSelectedDerivedItem => i.type !== "divider",
+    )
     .map((i) => i.key);
 }
 
@@ -27,17 +40,30 @@ export function listItemsFromKeys(keys: Iterable<string>): MacroSelectedListItem
 export function listItemsFromTemplate(
   keys: string[],
   savedItems?: MacroSelectedListItem[],
+  derivedKeys: string[] = [],
 ): MacroSelectedListItem[] {
-  if (!savedItems?.length) return listItemsFromKeys(keys);
+  if (!savedItems?.length) {
+    return [
+      ...listItemsFromKeys(keys),
+      ...derivedKeys.map((key): MacroSelectedDerivedItem => ({ type: "derived", key })),
+    ];
+  }
   const keySet = new Set(keys);
+  const derivedKeySet = new Set(derivedKeys);
   const filtered = savedItems.filter(
-    (i) => i.type === "divider" || keySet.has(i.key),
+    (i) =>
+      i.type === "divider" ||
+      (i.type === "series" && keySet.has(i.key)) ||
+      (i.type === "derived" && derivedKeySet.has(i.key)),
   );
-  const existing = new Set(keysFromListItems(filtered));
+  const existing = new Set(displayKeysFromListItems(filtered));
   const additions: MacroSelectedSeriesItem[] = keys
     .filter((k) => !existing.has(k))
     .map((key) => ({ type: "series", key }));
-  return [...filtered, ...additions];
+  const derivedAdditions: MacroSelectedDerivedItem[] = derivedKeys
+    .filter((k) => !existing.has(k))
+    .map((key) => ({ type: "derived", key }));
+  return [...filtered, ...additions, ...derivedAdditions];
 }
 
 export function createDividerItem(label?: string): MacroSelectedDividerItem {
@@ -55,11 +81,30 @@ export function syncListWithKeys(
   maxSeries = MACRO_MAX_SERIES,
 ): MacroSelectedListItem[] {
   const capped = capKeysInSet(nextKeys, maxSeries);
-  const filtered = prev.filter((i) => i.type === "divider" || capped.has(i.key));
+  const filtered = prev.filter(
+    (i) => i.type === "divider" || i.type === "derived" || capped.has(i.key),
+  );
   const existing = new Set(keysFromListItems(filtered));
   const additions: MacroSelectedSeriesItem[] = [];
   for (const key of capped) {
     if (!existing.has(key)) additions.push({ type: "series", key });
+  }
+  return [...filtered, ...additions];
+}
+
+/** 与可见衍生指标同步：保留现有位置，删除失效项，新结果追加到末尾。 */
+export function syncListWithDerivedKeys(
+  prev: MacroSelectedListItem[],
+  derivedKeys: Iterable<string>,
+): MacroSelectedListItem[] {
+  const valid = new Set(derivedKeys);
+  const filtered = prev.filter(
+    (i) => i.type !== "derived" || valid.has(i.key),
+  );
+  const existing = new Set(displayKeysFromListItems(filtered));
+  const additions: MacroSelectedDerivedItem[] = [];
+  for (const key of valid) {
+    if (!existing.has(key)) additions.push({ type: "derived", key });
   }
   return [...filtered, ...additions];
 }
@@ -123,16 +168,19 @@ export function sanitizeSelectedListItems(input: unknown): MacroSelectedListItem
   if (!Array.isArray(input)) return [];
   const out: MacroSelectedListItem[] = [];
   const seenKeys = new Set<string>();
+  let seriesCount = 0;
   for (const row of input) {
     if (!row || typeof row !== "object") continue;
     const x = row as Record<string, unknown>;
     const type = String(x.type ?? "").trim();
-    if (type === "series") {
+    if (type === "series" || type === "derived") {
       const key = String(x.key ?? "").trim();
       if (!key || seenKeys.has(key)) continue;
+      if (type === "derived" && !key.startsWith("calc:")) continue;
+      if (type === "series" && seriesCount >= MACRO_MAX_SERIES) continue;
       seenKeys.add(key);
-      out.push({ type: "series", key });
-      if (seenKeys.size >= MACRO_MAX_SERIES) break;
+      out.push(type === "series" ? { type: "series", key } : { type: "derived", key });
+      if (type === "series") seriesCount += 1;
     } else if (type === "divider") {
       const id = String(x.id ?? "").trim();
       if (!id) continue;

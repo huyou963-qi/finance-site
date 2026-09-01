@@ -632,12 +632,12 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 204,
     members: { fredSeriesIds: ["EFFR"] },
   }),
-  probePkg("us.nyfed.rrp", "纽约联储：隔夜逆回购", {
+  probePkg("us.nyfed.rrp", "纽约联储：临时公开市场操作（回购/逆回购）", {
     labelEn: "Temporary Open Market Operations",
     granularity: "DAILY",
     intervalHours: 24,
     sortOrder: 205,
-    members: { fredSeriesIds: ["RRPONTSYD", "RRPONTSYAWARD"] },
+    members: { fredSeriesIds: ["RRPONTSYD", "RRPONTSYAWARD", "SRFTSYD"] },
   }),
   probePkg("us.nyfed.sofr", "纽约联储：SOFR", {
     labelEn: "Secured Overnight Financing Rate Data",

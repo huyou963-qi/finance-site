@@ -59,7 +59,7 @@ Live 入库验证（2026-08-22/23）：`c17` 新增 52 点至 2026-08-20（1,038
 
 来源证据：[IMF International Liquidity dataset](https://data.imf.org/Datasets/IL)、[IMF IFS 访问迁移说明](https://data.imf.org/en/news/accessing)、[WGC Gold Reserves by Country](https://www.gold.org/goldhub/data/gold-reserves-by-country)、[WGC Terms（明确禁止 scrape）](https://www.gold.org/terms-and-conditions)。
 
-## 当前 16 条原始口径及相关派生项的来源结论
+## 当前 15 条原始口径及相关派生项的来源结论
 
 | code | 工作簿精确口径 | 结论 | 更新机制 / 阻塞原因 |
 |---|---|---|---|
@@ -78,7 +78,6 @@ Live 入库验证（2026-08-22/23）：`c17` 新增 52 点至 2026-08-20（1,038
 | `goldov_c23_comex_stock_oz` | COMEX 黄金库存（金衡盎司） | 待授权 | CME 的 Gold Stocks 是精确公开报告口径，但网站数据条款明确禁止脚本/机器人抓取；联系 CME GCC 获取可自动化的 report/data feed 许可。 |
 | `goldov_c24_global_reserve_tons` | 各国央行/官方部门黄金总量（吨） | IMF 官方世界汇总已接通 | IMF IL `G001.RGV_REVS.FTO.M`，fine troy ounces 转公吨；841 点，1950-12-31–2026-06-30；72 小时 probe 的月频发布包更新。 |
 | `goldov_c25_etf_holding_tons` | 六只 legacy 黄金 ETF 持有量合计（吨） | 派生已确认、上游待许可 | `c17+c18+c19+c20+c21+c22`；4039 个重叠日最大差 0.02 吨。 |
-| `goldov_c26_dxy` | ICE 美元指数 DXY | 待授权 | ICE Data Indices 的 DXY 是受许可指数；FRED 广义美元指数口径不同，不能替换。 |
 | `goldov_c27_brent` | ICE 布伦特原油连续期货结算价 | 待授权 | 需 ICE Futures 的连续合约结算数据；EIA/FRED 布伦特现货不等价。 |
 | `goldov_c28_real_rate` | 美国实际利率 | 已接通 | World Bank Open Data API `US:FR.INR.RINR`；年度、年末观测日期、每周探测新年值。 |
 | `usov_c28_sp500_pe` | 标普 500 PE | 待定义/授权 | 工作簿来源 Wind，尚未说明 trailing/forward、收益口径和指数版本；S&P 官方 P/E 数据需按所需版本取得授权。 |
@@ -89,5 +88,5 @@ Live 入库验证（2026-08-22/23）：`c17` 新增 52 点至 2026-08-20（1,038
 
 - 已验证来源的 `c06/c11/c15/c24/c28` 会被设为 `fetchAcquisition.status=known`、启用订阅并由 worker 更新；`c11` 是与 `c24` 同源、保留 legacy 单位的派生输出。
 - CME 页面返回的规则明确禁止使用脚本、机器人等抓取机制；因此本项目不实现网页绕过。对于 `c01/c23`，取得 CME data feed/许可和 API 凭据后，再实现经授权适配器。
-- ICE DXY、ICE Brent 和精确 S&P 500 P/E 同样必须由持牌数据源提供。将来接入时把凭据放入部署环境变量，不提交到仓库，并在适配器中写明供应商、合约/指数版本、调整规则、时区及再分发限制。
+- `goldov_c26_dxy` 已于 2026-09-01 退役并从数据库、目录和工作簿导入布局删除；美元分析统一复用已有美元指数，不再保留这条待授权的 ICE DXY 占位序列。ICE Brent 和精确 S&P 500 P/E 仍须由持牌数据源提供；将来接入时把凭据放入部署环境变量，不提交到仓库，并在适配器中写明供应商、合约/指数版本、调整规则、时区及再分发限制。
 - `c11` 已随 IMF 官方 `c24` 刷新；ETF 授权范围已确认，`c17` 已按 fixture → parser test → adapter → subscription 实现全历史文件，`c18` 接入官方直接披露的日常吨数，`c19/c21` 接入官方 Dataspan 托管 bar list，`c20` 接入许可 WGC 月表，`c22` 接入官方 UOI×Metal Entitlement。不得用池化 bar list、NAV/AUM/金价或份额反推。`c09/c10/c16/c25` 必须等六只同一官方 as-of 日期数据齐全后刷新；当前仍无这样的新增日期。

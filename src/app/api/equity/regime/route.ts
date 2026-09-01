@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/eventAuth";
-import { listStoredRegimes } from "@/lib/quant/macroRegime";
+import { getMacroRegimeNowcast, listStoredRegimes } from "@/lib/quant/macroRegime";
 import { sectorPerformanceByRegime } from "@/lib/quant/regimeAnalysis";
 
 /**
@@ -12,15 +12,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const start = searchParams.get("start");
     const end = searchParams.get("end");
-    const [regimes, sectorPerformance] = await Promise.all([
+    const [regimes, sectorPerformance, nowcast] = await Promise.all([
       listStoredRegimes({ start, end }),
       sectorPerformanceByRegime({ start, end }),
+      getMacroRegimeNowcast(),
     ]);
     const current = regimes.length ? regimes[regimes.length - 1]! : null;
     return NextResponse.json({
       regimes,
       sectorPerformance,
       current,
+      currentOfficial: nowcast.official,
       available: regimes.length > 0,
     });
   } catch (e) {

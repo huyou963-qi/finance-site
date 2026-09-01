@@ -51,6 +51,13 @@ type ApiResponse = {
   regimes: StoredRegime[];
   sectorPerformance: SectorPerf;
   current: StoredRegime | null;
+  currentOfficial: {
+    signalDate: string;
+    updatedAt: string | null;
+    regime: RegimeKey | null;
+    growthZ: number | null;
+    inflationMomZ: number | null;
+  } | null;
   available: boolean;
 };
 
@@ -118,6 +125,12 @@ export function EquityRegimeClient() {
     return vals[Math.floor(vals.length * 0.9)] || 0.03;
   }, [data]);
 
+  const currentOfficial = data?.currentOfficial?.regime ? data.currentOfficial : null;
+  const currentRegime = currentOfficial?.regime ?? data?.current?.dalioRegime ?? null;
+  const currentDate = currentOfficial?.signalDate ?? data?.current?.date ?? null;
+  const currentGrowthZ = currentOfficial?.growthZ ?? data?.current?.inputs?.growthZ ?? null;
+  const currentInflationMomZ = currentOfficial?.inflationMomZ ?? data?.current?.inputs?.inflationMomZ ?? null;
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -149,36 +162,43 @@ export function EquityRegimeClient() {
         <>
           {/* 当前 regime + 四象限图例 */}
           <section className="mb-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-            {data.current ? (
+            {currentRegime && currentDate ? (
               <div
                 className="rounded-lg border p-4"
-                style={{ borderColor: `${REGIME_COLOR[data.current.dalioRegime!]}66` }}
+                style={{ borderColor: `${REGIME_COLOR[currentRegime]}66` }}
               >
-                <div className="text-xs text-fs-muted">最新 regime（{data.current.date}）</div>
+                <div className="text-xs text-fs-muted">
+                  {currentOfficial ? "当前实时月度锚" : "最新落库 regime"}（{currentDate}）
+                </div>
                 <div className="mt-1 flex items-center gap-2">
                   <span
                     className="inline-block h-3.5 w-3.5 rounded-sm"
-                    style={{ background: REGIME_COLOR[data.current.dalioRegime!] }}
+                    style={{ background: REGIME_COLOR[currentRegime] }}
                   />
                   <span className="text-xl font-semibold text-fs-text">
-                    {REGIME_LABEL[data.current.dalioRegime!]}
+                    {REGIME_LABEL[currentRegime]}
                   </span>
-                  {data.current.recession === 1 ? (
+                  {!currentOfficial && data.current?.recession === 1 ? (
                     <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-xs text-red-400">
                       NBER 衰退
                     </span>
                   ) : null}
                 </div>
-                <div className="mt-1 text-sm text-fs-muted">{REGIME_DESC[data.current.dalioRegime!]}</div>
+                <div className="mt-1 text-sm text-fs-muted">{REGIME_DESC[currentRegime]}</div>
+                {currentOfficial ? (
+                  <div className="mt-1 text-xs text-fs-muted">
+                    请求时按最新官方月度输入重算；历史时间线仍使用已落库快照。
+                  </div>
+                ) : null}
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <div className="text-xs text-fs-muted">增长 z</div>
-                    <div className="tabular-nums text-fs-text">{num(data.current.inputs?.growthZ)}</div>
+                    <div className="tabular-nums text-fs-text">{num(currentGrowthZ)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-fs-muted">通胀动量 z</div>
                     <div className="tabular-nums text-fs-text">
-                      {num(data.current.inputs?.inflationMomZ)}
+                      {num(currentInflationMomZ)}
                     </div>
                   </div>
                 </div>

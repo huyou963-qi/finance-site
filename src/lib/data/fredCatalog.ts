@@ -201,6 +201,7 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "SOFR", label: "担保隔夜融资利率 SOFR（%）", category: "利率与债券", frequency: "日" },
   { id: "IORB", label: "准备金利率 IORB（%）", category: "银行与货币", frequency: "日" },
   { id: "RRPONTSYAWARD", label: "ON RRP 利率（%）", category: "银行与货币", frequency: "日" },
+  { id: "SRFTSYD", label: "美联储常备回购便利（SRF）操作利率（%）", category: "银行与货币", frequency: "日" },
   { id: "GS10", label: "10 年期美债收益率（%）", category: "利率与债券", frequency: "月" },
   { id: "GS2", label: "2 年期美债收益率（%）", category: "利率与债券", frequency: "月" },
   { id: "T10Y2Y", label: "10Y-2Y 国债期限利差（%）", category: "利率与债券", frequency: "日" },

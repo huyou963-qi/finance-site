@@ -20,6 +20,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   cot: { script: "seed-cot", labelZh: "CFTC COT" },
   "gold-market": { script: "seed-gold-market", labelZh: "黄金分析已确认原始市场口径" },
   monetary: { script: "seed-monetary", labelZh: "美国货币政策与金融条件" },
+  "standing-repo": { script: "seed-standing-repo", labelZh: "美联储常备回购便利（SRF）操作利率" },
   "market-pricing": { script: "seed-market-pricing", labelZh: "美国周度市场定价与经济确认" },
   housing: { script: "seed-housing", labelZh: "美国住房与地产" },
   "nyfed-recession": { script: "seed-nyfed-recession", labelZh: "NY Fed 衰退概率（抓取）" },
@@ -63,6 +64,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   fiscal: { script: "verify-fiscal", labelZh: "财政自检" },
   cot: { script: "verify-cot", labelZh: "COT 自检" },
   monetary: { script: "verify-monetary", labelZh: "货币政策与金融条件自检", verifyNeedsDb: true },
+  "standing-repo": {
+    script: "verify-standing-repo",
+    labelZh: "美联储常备回购便利（SRF）操作利率自检",
+    verifyNeedsDb: true,
+  },
   "market-pricing": {
     script: "verify-market-pricing",
     labelZh: "周度市场定价与经济确认自检",

@@ -839,6 +839,8 @@ export type MacroRegimeNowcast = {
     regime: DalioQuadrant | null;
     growthDirection: GrowthDirection | null;
     inflationState: InflationState;
+    growthZ: number | null;
+    inflationMomZ: number | null;
     visibleMonth: RegimeInputs["visibleMonth"];
     indicators: OfficialRegimeIndicator[];
   } | null;
@@ -849,6 +851,8 @@ export type MacroRegimeNowcast = {
     visibleMonth: RegimeInputs["visibleMonth"];
     riskScore: number;
     inflationScore: number;
+    riskCoverage: number;
+    inflationCoverage: number;
     policyScore: number;
     financialConditionsScore: number;
     activityScore: number;
@@ -1166,10 +1170,13 @@ function robustSignal(values: readonly number[]): number | null {
   return Math.tanh((current / scale) / 2);
 }
 
+export const REGIME_NOWCAST_DIRECTION_THRESHOLD = 0.2;
+export const REGIME_NOWCAST_MIN_AXIS_COVERAGE = 0.6;
+
 function marketDirection(score: number, coverage: number): GrowthDirection | null {
-  if (coverage < 0.6) return null;
-  if (score >= 0.2) return "rising";
-  if (score <= -0.2) return "falling";
+  if (coverage < REGIME_NOWCAST_MIN_AXIS_COVERAGE) return null;
+  if (score >= REGIME_NOWCAST_DIRECTION_THRESHOLD) return "rising";
+  if (score <= -REGIME_NOWCAST_DIRECTION_THRESHOLD) return "falling";
   return null;
 }
 
@@ -1199,6 +1206,8 @@ export type MacroRegimeNowcastClassification = {
   inflationState: InflationState | null;
   riskScore: number;
   inflationScore: number;
+  riskCoverage: number;
+  inflationCoverage: number;
   policyScore: number;
   financialConditionsScore: number;
   activityScore: number;
@@ -1221,12 +1230,12 @@ export function classifyMacroRegimeNowcast(options: {
   const inflationState = inflationDirection(inflation.score, inflation.coverage);
   const regime = riskDirection && inflationState ? dalioQuadrant(riskDirection, inflationState) : null;
   const confirmationSignals = [
-    financial.coverage >= 0.8 && Math.abs(financial.score) >= 0.2 ? financial.score : null,
-    activity.coverage >= 0.8 && Math.abs(activity.score) >= 0.2 ? activity.score : null,
+    financial.coverage >= 0.8 && Math.abs(financial.score) >= REGIME_NOWCAST_DIRECTION_THRESHOLD ? financial.score : null,
+    activity.coverage >= 0.8 && Math.abs(activity.score) >= REGIME_NOWCAST_DIRECTION_THRESHOLD ? activity.score : null,
   ].filter((value): value is number => value != null);
   const confirmation: RegimeNowcastConfirmation = !confirmationSignals.length
     ? financial.coverage || activity.coverage ? "mixed" : "unavailable"
-    : Math.abs(risk.score) < 0.2
+    : Math.abs(risk.score) < REGIME_NOWCAST_DIRECTION_THRESHOLD
       ? "mixed"
     : confirmationSignals.some((score) => Math.sign(score) !== Math.sign(risk.score))
       ? "divergent"
@@ -1245,6 +1254,8 @@ export function classifyMacroRegimeNowcast(options: {
     inflationState,
     riskScore: risk.score,
     inflationScore: inflation.score,
+    riskCoverage: risk.coverage,
+    inflationCoverage: inflation.coverage,
     policyScore: policy.score,
     financialConditionsScore: financial.score,
     activityScore: activity.score,
@@ -1263,19 +1274,19 @@ function nowcastSummary(options: {
   policyScore: number;
   confirmation: RegimeNowcastConfirmation;
 }): string {
-  const risk = options.riskScore >= 0.2
+  const risk = options.riskScore >= REGIME_NOWCAST_DIRECTION_THRESHOLD
     ? "市场风险偏好改善"
-    : options.riskScore <= -0.2
+    : options.riskScore <= -REGIME_NOWCAST_DIRECTION_THRESHOLD
       ? "市场风险偏好走弱"
       : "风险定价尚未形成一致方向";
-  const inflation = options.inflationScore >= 0.2
+  const inflation = options.inflationScore >= REGIME_NOWCAST_DIRECTION_THRESHOLD
     ? "通胀定价升温"
-    : options.inflationScore <= -0.2
+    : options.inflationScore <= -REGIME_NOWCAST_DIRECTION_THRESHOLD
       ? "通胀定价降温"
       : "通胀定价变化有限";
-  const policy = options.policyScore >= 0.2
+  const policy = options.policyScore >= REGIME_NOWCAST_DIRECTION_THRESHOLD
     ? "政策/实际贴现率偏紧"
-    : options.policyScore <= -0.2
+    : options.policyScore <= -REGIME_NOWCAST_DIRECTION_THRESHOLD
       ? "政策/实际贴现率偏松"
       : "政策利率覆盖层中性";
   const confirmation = options.confirmation === "confirmed"
@@ -1361,7 +1372,7 @@ async function loadNowcastIndicators(asOfDate: string): Promise<RegimeNowcastInd
     const rawSignal = longSignal == null ? null : 0.7 * longSignal + 0.3 * (shortSignal ?? longSignal);
     const signal = rawSignal == null ? null : definition.polarity * rawSignal;
     const fresh = latestDate != null && dayDiff(asOfDate, latestDate) <= definition.maxAgeDays;
-    const vote: -1 | 0 | 1 = !fresh || signal == null || Math.abs(signal) < 0.2 ? 0 : signal > 0 ? 1 : -1;
+    const vote: -1 | 0 | 1 = !fresh || signal == null || Math.abs(signal) < REGIME_NOWCAST_DIRECTION_THRESHOLD ? 0 : signal > 0 ? 1 : -1;
     const directionLabel = !latest
       ? "缺少数据"
       : !fresh
@@ -1456,6 +1467,8 @@ export async function getMacroRegimeNowcast(options: {
       regime: official.dalioRegime,
       growthDirection: official.growthDirection,
       inflationState: official.inflationState,
+      growthZ: official.inputs.growthZ,
+      inflationMomZ: official.inputs.inflationMomZ,
       visibleMonth: official.inputs.visibleMonth,
       indicators: buildOfficialRegimeIndicators(official),
     },
@@ -1466,6 +1479,8 @@ export async function getMacroRegimeNowcast(options: {
       visibleMonth: official.inputs.visibleMonth,
       riskScore: classification.riskScore,
       inflationScore: classification.inflationScore,
+      riskCoverage: classification.riskCoverage,
+      inflationCoverage: classification.inflationCoverage,
       policyScore: classification.policyScore,
       financialConditionsScore: classification.financialConditionsScore,
       activityScore: classification.activityScore,

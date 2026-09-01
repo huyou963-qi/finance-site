@@ -259,18 +259,6 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     color: "#8f74c8",
   },
   {
-    columnIndex: 26,
-    displayName: "美元指数",
-    code: "goldov_c26_dxy",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 1,
-    catalogCategory: "黄金价格",
-    axis: "right",
-    chartType: "line",
-    color: "#d75a68",
-  },
-  {
     columnIndex: 27,
     displayName: "期货结算价(连续):布伦特原油",
     code: "goldov_c27_brent",

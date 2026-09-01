@@ -87,6 +87,8 @@
     "data:rebuild-global-catalog-layout": "dotenv -e .env.local -- tsx scripts/data-worker/rebuild-global-catalog-layout.ts",
     "data:seed-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/seed-monetary.ts",
     "data:verify-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/verify-monetary.ts",
+    "data:seed-standing-repo": "dotenv -e .env.local -- tsx scripts/data-worker/seed-standing-repo.ts",
+    "data:verify-standing-repo": "dotenv -e .env.local -- tsx scripts/data-worker/verify-standing-repo.ts",
     "data:seed-market-pricing": "dotenv -e .env.local -- tsx scripts/data-worker/seed-market-pricing.ts",
     "data:verify-market-pricing": "dotenv -e .env.local -- tsx scripts/data-worker/verify-market-pricing.ts",
     "data:seed-housing": "dotenv -e .env.local -- tsx scripts/data-worker/seed-housing.ts",
