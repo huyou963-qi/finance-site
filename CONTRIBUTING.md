@@ -47,7 +47,7 @@ git push -u origin feature/macro-xxx
 - 标题：简短说明「做了什么」（中文或英文均可）
 - 填写 PR 模板（变更说明、测试、是否含 migration）
 - 至少 **1 人 Review** 后再合并（建议 2 人改同一模块时）
-- CI 绿灯（`build` + `lint`）才能合并
+- CI 绿灯（完整单元测试 + 架构守卫 + Prisma schema + lint + build）才能合并
 - 合并方式：**Squash merge**（保持 `main` 历史清晰）
 
 合并后：
@@ -72,12 +72,13 @@ npm run db:migrate
 
 - 提交信息：一句说清目的，例如 `fix: wrap statistical-analysis in Suspense`
 - 小步提交，一个 PR 只做一类事
-- 提交前本地：
+- 提交前本地统一执行：
 
 ```bash
-npm run lint
-npm run build
+npm run verify:commit
 ```
+
+开发过程中需要更快反馈时可运行 `npm run verify:quick`（不含生产构建）。完整测试策略与模块矩阵见 [docs/TEST_STRATEGY.md](./docs/TEST_STRATEGY.md)。
 
 Windows：构建前 **停止** `npm run dev` / `npm run start`，避免 Prisma 文件锁。
 
@@ -87,7 +88,7 @@ Windows：构建前 **停止** `npm run dev` / `npm run start`，避免 Prisma �
 
 - [x] Require a pull request before merging
 - [x] Require approvals（1）
-- [x] Require status checks to pass（选 `CI / build`）
+- [x] Require status checks to pass（选 `CI / build`；该 job 已包含测试、schema、lint 与 build）
 - [x] Do not allow bypassing（可选，管理员也走 PR）
 
 **Settings → Secrets and variables**（若用 GitHub Actions 部署再加；当前 CI 仅需 dummy DB URL）。

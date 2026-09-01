@@ -10,6 +10,11 @@ export function keysFromListItems(items: MacroSelectedListItem[]): string[] {
     .map((i) => i.key);
 }
 
+/** 与列表展示顺序无关的成员身份；用于隔离“排序”和“增删指标”的响应链。 */
+export function membershipSignatureFromListItems(items: MacroSelectedListItem[]): string {
+  return JSON.stringify(keysFromListItems(items).sort());
+}
+
 export function setFromListItems(items: MacroSelectedListItem[]): Set<string> {
   return new Set(keysFromListItems(items));
 }

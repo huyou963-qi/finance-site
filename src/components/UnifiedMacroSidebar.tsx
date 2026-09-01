@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   DEFAULT_UNIFIED_SERIES_KEYS,
   MACRO_MAX_SERIES,
@@ -306,7 +306,7 @@ export type UnifiedMacroSidebarProps = {
   onAllowlistExpandMany?: (entries: { key: string; label?: string }[]) => void;
 };
 
-export function UnifiedMacroSidebar({
+export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
   selectedKeys,
   onChange,
   disabled,
@@ -1012,4 +1012,4 @@ export function UnifiedMacroSidebar({
       ) : null}
     </div>
   );
-}
+});

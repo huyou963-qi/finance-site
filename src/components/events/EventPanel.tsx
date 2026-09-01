@@ -404,13 +404,13 @@ export function EventPanel({
   const filtersActive = hasActiveEventPanelFilters(filters);
   // for-chart 已按 tags 预筛；客户端仍筛类型/搜索/重要度/人物/机构
   const skipTagContext = useChartList;
-  const filterOpts = {
-    skipTagContext,
-    fallbackAsset: chartSymbol,
-  };
+  const filterOpts = useMemo(
+    () => ({ skipTagContext, fallbackAsset: chartSymbol }),
+    [skipTagContext, chartSymbol],
+  );
   const filteredEvents = useMemo(
     () => filterEvents(sortedEvents, filters, filterOpts),
-    [sortedEvents, filters, skipTagContext, chartSymbol],
+    [sortedEvents, filters, filterOpts],
   );
 
   const displayModel = useMemo(() => {
@@ -435,8 +435,7 @@ export function EventPanel({
     filteredEvents,
     filters,
     filtersActive,
-    skipTagContext,
-    chartSymbol,
+    filterOpts,
   ]);
 
   const trackingEvents = useMemo(() => {

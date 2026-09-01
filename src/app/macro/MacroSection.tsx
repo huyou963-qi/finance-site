@@ -33,6 +33,7 @@ import {
   type NberRecessionBand,
 } from "@/lib/data/nberRecessionBands";
 import { SelectedIndicatorsList } from "@/components/SelectedIndicatorsList";
+import { MacroExtractedDataTable } from "@/components/MacroExtractedDataTable";
 import { UnifiedMacroSidebar } from "@/components/UnifiedMacroSidebar";
 import type { MacroPayload } from "@/lib/data/types";
 import {
@@ -161,7 +162,7 @@ import {
   keysFromListItems,
   listItemsFromKeys,
   listItemsFromTemplate,
-  setFromListItems,
+  membershipSignatureFromListItems,
   syncListWithKeys,
   type MacroSelectedListItem,
 } from "@/lib/macroSelectedList";
@@ -650,13 +651,19 @@ export function MacroSection() {
     if (replaceKey) return listItemsFromKeys([replaceKey]);
     return listItemsFromKeys(DEFAULT_UNIFIED_SERIES_KEYS);
   });
-  const selectedKeys = useMemo(
-    () => setFromListItems(selectedListItems),
-    [selectedListItems],
-  );
   const orderedSelectedKeys = useMemo(
     () => keysFromListItems(selectedListItems),
     [selectedListItems],
+  );
+  // 纯排序只改变 orderedSelectedKeys；成员签名不变时复用同一个 Set，避免把排序
+  // 误判为指标增删，进而重复请求元数据和重跑完整的数据加工链。
+  const selectedMembershipSignature = useMemo(
+    () => membershipSignatureFromListItems(selectedListItems),
+    [selectedListItems],
+  );
+  const selectedKeys = useMemo(
+    () => new Set<string>(JSON.parse(selectedMembershipSignature) as string[]),
+    [selectedMembershipSignature],
   );
   const [slotAssignment, setSlotAssignment] = useState<MacroSlotAssignment>({});
   const [seriesVisualMap, setSeriesVisualMap] = useState<MacroSeriesVisualConfigMap>({});
@@ -714,7 +721,13 @@ export function MacroSection() {
   const [requestedMdsInstruments, setRequestedMdsInstruments] = useState<string | null>(null);
   const [extractedSet, setExtractedSet] = useState<Set<string>>(new Set());
   const [tableTimeSort, setTableTimeSort] = useState<"asc" | "desc">("desc");
+  const toggleTableTimeSort = useCallback(() => {
+    setTableTimeSort((prev) => (prev === "asc" ? "desc" : "asc"));
+  }, []);
   const [sidebarLocateKey, setSidebarLocateKey] = useState<string | null>(null);
+  const handleSidebarLocateKeyHandled = useCallback(() => {
+    setSidebarLocateKey(null);
+  }, []);
 
   const [catalogCountries, setCatalogCountries] = useState<UnifiedCatalogCountry[] | null>(null);
   const [catalogLabelExtras, setCatalogLabelExtras] = useState<Record<string, string>>({});
@@ -723,6 +736,7 @@ export function MacroSection() {
   const [mdsAttrsByKey, setMdsAttrsByKey] = useState<Map<string, MdsIndicatorAttrs>>(new Map());
   const [prefsHydrated, setPrefsHydrated] = useState(false);
   const saveTimerRef = useRef<number | null>(null);
+  const saveIdleRef = useRef<number | null>(null);
   const introDescSaveTimerRef = useRef<number | null>(null);
   const introDescPendingSaveRef = useRef<
     | { kind: "hardcoded"; overrides: Record<string, BuiltinTemplateOverride> }
@@ -1029,16 +1043,37 @@ export function MacroSection() {
       activeTemplateId,
       templateIndicatorNotes,
     };
-    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    if (saveTimerRef.current != null) window.clearTimeout(saveTimerRef.current);
+    if (saveIdleRef.current != null && typeof window.cancelIdleCallback === "function") {
+      window.cancelIdleCallback(saveIdleRef.current);
+    }
     saveTimerRef.current = window.setTimeout(() => {
-      fetch("/api/tools/macro-chart-prefs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prefs }),
-      }).catch(() => {});
+      saveTimerRef.current = null;
+      const persistPrefs = () => {
+        saveIdleRef.current = null;
+        fetch("/api/tools/macro-chart-prefs", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prefs }),
+        }).catch(() => {});
+      };
+      if (typeof window.requestIdleCallback === "function") {
+        saveIdleRef.current = window.requestIdleCallback(persistPrefs, { timeout: 1000 });
+      } else {
+        persistPrefs();
+      }
     }, 450);
     return () => {
-      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      if (saveTimerRef.current != null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (saveIdleRef.current != null) {
+        if (typeof window.cancelIdleCallback === "function") {
+          window.cancelIdleCallback(saveIdleRef.current);
+        }
+        saveIdleRef.current = null;
+      }
     };
   }, [
     prefsHydrated,
@@ -2071,7 +2106,7 @@ export function MacroSection() {
         .filter(([key]) => Boolean(key)),
     );
     const inputKeys = new Set(rawSeriesInputs.map((series) => series.key?.trim() ?? ""));
-    for (const selectedKey of orderedSelectedKeys) {
+    for (const selectedKey of selectedKeys) {
       const variantAt = selectedKey.indexOf("::");
       if (variantAt < 0 || inputKeys.has(selectedKey)) continue;
       const baseKey = selectedKey.slice(0, variantAt);
@@ -2158,7 +2193,7 @@ export function MacroSection() {
     catalogLabelByKey,
     derivedCalcs,
     mdsUnitByKey,
-    orderedSelectedKeys,
+    selectedKeys,
     rawPayload,
     resolveSeriesLabel,
     seriesCalcConfigMap,
@@ -2716,8 +2751,8 @@ export function MacroSection() {
         .map((s) => s.trim())
         .filter(Boolean);
     }
-    return orderedSelectedKeys;
-  }, [displayPayload, orderedSelectedKeys, requestedQuery]);
+    return [...selectedKeys];
+  }, [displayPayload, requestedQuery, selectedKeys]);
 
   const macroEventContextDate = useMemo(
     () => contextDateFromTimeLabel(macroCrosshairTimeLabel),
@@ -3492,7 +3527,7 @@ export function MacroSection() {
                   catalogCountries={catalogCountries}
                   catalogError={catalogLoadError}
                   locateKey={sidebarLocateKey}
-                  onLocateKeyHandled={() => setSidebarLocateKey(null)}
+                  onLocateKeyHandled={handleSidebarLocateKeyHandled}
                   onCatalogRefresh={refreshCatalog}
                   onAllowlistExpand={expandAllowlistForKey}
                   onAllowlistExpandMany={expandAllowlistMany}
@@ -3626,97 +3661,15 @@ export function MacroSection() {
                     suppressHydrationWarning
                   >
                     {displayPayload ? (
-                      <div className="h-full overflow-auto">
-                        <table className="w-max max-w-none border-separate border-spacing-0 text-xs table-fixed">
-                          <colgroup>
-                            <col style={{ width: tableColumnWidths.time }} />
-                            {tableColumns.map((c) => (
-                              <col
-                                key={c.key}
-                                style={{ width: tableColumnWidths.columns.get(c.key) ?? 120 }}
-                              />
-                            ))}
-                          </colgroup>
-                          <thead className="sticky top-0 z-10 bg-fs-elevated text-fs-secondary">
-                            <tr>
-                              <th
-                                className="sticky left-0 z-20 border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium"
-                                style={{
-                                  width: tableColumnWidths.time,
-                                  minWidth: tableColumnWidths.time,
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setTableTimeSort((prev) => (prev === "asc" ? "desc" : "asc"))
-                                  }
-                                  className="inline-flex items-center gap-1 text-fs-secondary hover:text-fs-accent-text"
-                                  title={
-                                    tableTimeSort === "asc"
-                                      ? "按时间升序，点击切换为降序"
-                                      : "按时间降序，点击切换为升序"
-                                  }
-                                  aria-label={
-                                    tableTimeSort === "asc"
-                                      ? "时间升序，点击切换为降序"
-                                      : "时间降序，点击切换为升序"
-                                  }
-                                >
-                                  时间
-                                  <span
-                                    className="text-[10px] text-fs-accent-text"
-                                    aria-hidden
-                                  >
-                                    {tableTimeSort === "asc" ? "↑" : "↓"}
-                                  </span>
-                                </button>
-                              </th>
-                              {tableColumns.map((c) => (
-                                <th
-                                  key={c.key}
-                                  className="border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium whitespace-nowrap"
-                                  style={{ width: tableColumnWidths.columns.get(c.key) }}
-                                  title={c.label}
-                                >
-                                  {c.label}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sortedTableRowIndices.map((idx, rowIdx) => {
-                              const time = displayPayload.categories[idx]!;
-                              const stickyTimeBg =
-                                rowIdx % 2 === 0 ? "bg-fs-bg" : "bg-fs-elevated/35";
-                              return (
-                              <tr
-                                key={`${time}-${idx}`}
-                                className="odd:bg-fs-bg even:bg-fs-elevated/35"
-                              >
-                                <td
-                                  className={`sticky left-0 z-[5] whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-muted tabular-nums ${stickyTimeBg}`}
-                                  style={{ minWidth: tableColumnWidths.time }}
-                                >
-                                  {formatMacroPeriodDisplay(
-                                    time,
-                                    displayPayload.categories,
-                                  )}
-                                </td>
-                                {tableColumns.map((c) => (
-                                  <td
-                                    key={`${c.key}-${idx}`}
-                                    className="whitespace-nowrap border-b border-r border-fs-border px-2 py-0.5 text-fs-text tabular-nums"
-                                  >
-                                    {tableCellDisplayText(tableValueByKey.get(c.key)?.[idx])}
-                                  </td>
-                                ))}
-                              </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                      <MacroExtractedDataTable
+                        payload={displayPayload}
+                        columns={tableColumns}
+                        valueByKey={tableValueByKey}
+                        rowIndices={sortedTableRowIndices}
+                        widths={tableColumnWidths}
+                        timeSort={tableTimeSort}
+                        onToggleTimeSort={toggleTableTimeSort}
+                      />
                     ) : (
                       <p className="px-3 py-6 text-center text-xs text-fs-muted">
                         点击「提取数据」后，各指标数值将显示在此处。

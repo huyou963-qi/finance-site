@@ -13,10 +13,12 @@
 
 ## 测试
 
-<!-- 你如何验证？例如：npm run dev 打开 /macro，npm run build -->
+<!-- 你如何验证？默认先跑 npm run verify:commit；UI/数据变更再补专项验证。 -->
 
-- [ ] 本地 `npm run lint` 通过
-- [ ] 本地 `npm run build` 通过（Windows 构建前已停止 dev/start）
+- [ ] 本地 `npm run verify:commit` 通过（Windows 构建前已停止 dev/start）
+- [ ] 新增/修改的业务逻辑已有对应自动化测试，或已说明暂不自动化的原因
+- [ ] UI 变更已验证桌面端与移动端关键路径（可附截图）
+- [ ] 数据口径变更已验证 as-of、复权、频率、单位与空值边界
 
 ## 数据库 / 部署
 

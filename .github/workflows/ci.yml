@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -30,6 +29,12 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      - name: Unit and architecture tests
+        run: npm test
+
+      - name: Validate Prisma schema
+        run: npm run test:schema
 
       - name: Lint
         run: npm run lint

@@ -138,16 +138,23 @@ export function SelectedIndicatorsList({
 
   const dragHandleProps = (index: number) => ({
     draggable: true,
-    onDragStart: () => setDragIndex(index),
+    onDragStart: (e: React.DragEvent) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(index));
+      setDragIndex(index);
+    },
     onDragEnd: finishDrag,
   });
 
   const dropTargetProps = (index: number) => ({
+    onDragEnter: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDropIndex((prev) => (prev === index ? prev : index));
+    },
     onDragOver: (e: React.DragEvent) => {
       e.preventDefault();
-      setDropIndex(index);
+      e.dataTransfer.dropEffect = "move";
     },
-    onDragLeave: () => setDropIndex((prev) => (prev === index ? null : prev)),
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       handleDrop(index);
