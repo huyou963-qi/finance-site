@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse, requireAdmin } from "@/lib/api/eventAuth";
 import { getUserByRequest, getUserAccessRecord } from "@/lib/auth";
-import { userHasProAccess } from "@/lib/billing/access";
+import { userCanAccessProFeatures } from "@/lib/billing/access";
 import { deleteWeeklyReport, getWeeklyReportById } from "@/lib/data/weeklyReports";
 
 type RouteCtx = { params: Promise<{ id: string }> };
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, ctx: RouteCtx) {
       );
     }
     const access = await getUserAccessRecord(me.id);
-    const hasPro = Boolean(access && userHasProAccess(access));
+    const hasPro = Boolean(access && userCanAccessProFeatures(access));
 
     const { id } = await ctx.params;
     const report = await getWeeklyReportById(id);

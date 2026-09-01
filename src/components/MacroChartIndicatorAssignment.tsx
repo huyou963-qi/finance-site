@@ -2,7 +2,11 @@
 
 import { useState, type DragEvent } from "react";
 import { unifiedSeriesDisplayName } from "@/lib/data/macroCatalog";
-import type { MacroSlotAssignment } from "@/lib/macroPartition";
+import {
+  moveMacroKeyRelative,
+  orderMacroSeriesByKey,
+  type MacroSlotAssignment,
+} from "@/lib/macroPartition";
 import type {
   MacroChartDisplayConfig,
   MacroChartSlotMode,
@@ -69,9 +73,12 @@ export function MacroChartIndicatorAssignment({
   chartPayload = null,
   tab,
 }: MacroChartIndicatorAssignmentProps) {
-  const [dragOver, setDragOver] = useState<{ kind: "slot"; slot: number } | { kind: "pool" } | null>(
-    null,
-  );
+  const [dragOver, setDragOver] = useState<
+    | { kind: "slot"; slot: number }
+    | { kind: "indicator"; slot: number; key: string; edge: "before" | "after" }
+    | { kind: "pool" }
+    | null
+  >(null);
 
   const keysList = [...selectedKeys].sort((a, b) => a.localeCompare(b));
 
@@ -94,12 +101,38 @@ export function MacroChartIndicatorAssignment({
       bySlot[r]?.push(key);
     }
   }
+  for (let slot = 0; slot < bySlot.length; slot += 1) {
+    bySlot[slot] = orderMacroSeriesByKey(
+      bySlot[slot].map((key) => ({ key })),
+      displayConfig.slotSeriesOrder?.[slot],
+    ).map(({ key }) => key);
+  }
 
   function startDrag(key: string) {
     return (e: DragEvent) => {
       e.dataTransfer.setData(DRAG_TYPE, key);
       e.dataTransfer.effectAllowed = "move";
+      setDragOver(null);
     };
+  }
+
+  function updateSlotOrder(slot: number, keys: string[]) {
+    onUpdateDisplayConfig({
+      slotSeriesOrder: {
+        ...displayConfig.slotSeriesOrder,
+        [slot]: keys,
+      },
+    });
+  }
+
+  function assignToSlotEnd(key: string, slot: number) {
+    if (slotMode(slot) === "seasonal") {
+      for (const existingKey of bySlot[slot]) {
+        if (existingKey !== key) onAssign(existingKey, null);
+      }
+    }
+    onAssign(key, slot);
+    updateSlotOrder(slot, [...bySlot[slot].filter((item) => item !== key), key]);
   }
 
   function dragProps(
@@ -118,14 +151,7 @@ export function MacroChartIndicatorAssignment({
         const key = e.dataTransfer.getData(DRAG_TYPE);
         if (!key || !selectedKeys.has(key)) return;
         if (dropTarget.kind === "slot") {
-          const slot = dropTarget.slot;
-          if (slotMode(slot) === "seasonal") {
-            const existing = bySlot[slot];
-            for (const k of existing) {
-              if (k !== key) onAssign(k, null);
-            }
-          }
-          onAssign(key, slot);
+          assignToSlotEnd(key, dropTarget.slot);
         } else {
           onAssign(key, null);
         }
@@ -138,7 +164,35 @@ export function MacroChartIndicatorAssignment({
   ): boolean {
     if (!dragOver) return false;
     if (target.kind === "pool") return dragOver.kind === "pool";
-    return dragOver.kind === "slot" && dragOver.slot === target.slot;
+    return dragOver.kind !== "pool" && dragOver.slot === target.slot;
+  }
+
+  function indicatorDragProps(slot: number, targetKey: string) {
+    return {
+      onDragOver: (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "move";
+        const rect = e.currentTarget.getBoundingClientRect();
+        const edge = e.clientY < rect.top + rect.height / 2 ? "before" : "after";
+        setDragOver({ kind: "indicator", slot, key: targetKey, edge });
+      },
+      onDrop: (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const key = e.dataTransfer.getData(DRAG_TYPE);
+        const rect = e.currentTarget.getBoundingClientRect();
+        const edge = e.clientY < rect.top + rect.height / 2 ? "before" : "after";
+        setDragOver(null);
+        if (!key || !selectedKeys.has(key)) return;
+        if (slotMode(slot) === "seasonal") {
+          assignToSlotEnd(key, slot);
+          return;
+        }
+        onAssign(key, slot);
+        updateSlotOrder(slot, moveMacroKeyRelative(bySlot[slot], key, targetKey, edge));
+      },
+    };
   }
 
   function parseIntSafe(v: string, fallback: number): number {
@@ -626,13 +680,23 @@ export function MacroChartIndicatorAssignment({
                   return (
                     <div
                       key={key}
-                      className="flex items-center gap-1 rounded border border-fs-border/80 bg-white/95 px-1 py-0.5"
+                      {...indicatorDragProps(slot, key)}
+                      className={`flex items-center gap-1 rounded border bg-white/95 px-1 py-0.5 ${
+                        dragOver?.kind === "indicator" &&
+                        dragOver.slot === slot &&
+                        dragOver.key === key
+                          ? dragOver.edge === "before"
+                            ? "border-t-2 border-t-fs-accent border-x-fs-border/80 border-b-fs-border/80"
+                            : "border-b-2 border-b-fs-accent border-x-fs-border/80 border-t-fs-border/80"
+                          : "border-fs-border/80"
+                      }`}
                       title={key}
                     >
                       <button
                         type="button"
                         draggable
                         onDragStart={startDrag(key)}
+                        onDragEnd={() => setDragOver(null)}
                         className="min-w-0 flex-1 cursor-grab truncate text-left text-[11px] text-fs-secondary active:cursor-grabbing"
                       >
                         {displayNameForKey(key)}

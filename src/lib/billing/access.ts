@@ -8,6 +8,17 @@ export type AccessUser = {
   trialEndsAt?: Date | string | null;
 };
 
+/**
+ * 是否启用非 Pro 功能限制。默认启用；只有显式配置为 false/0/no/off 时关闭。
+ * 这是服务端开关，不改变用户实际套餐、试用期或管理员角色。
+ */
+export function nonProFeatureRestrictionsEnabled(
+  raw = process.env.NON_PRO_FEATURE_RESTRICTIONS_ENABLED,
+): boolean {
+  if (!raw?.trim()) return true;
+  return !["false", "0", "no", "off"].includes(raw.trim().toLowerCase());
+}
+
 function asDate(v: Date | string | null | undefined): Date | null {
   if (!v) return null;
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
@@ -32,6 +43,15 @@ export function userHasProAccess(user: AccessUser, now = Date.now()): boolean {
   if (user.role === "admin") return true;
   if (isTrialActive(user, now)) return true;
   return isPaidProActive(user, now);
+}
+
+/** 是否可使用受 Pro 门禁保护的功能（支持运维开关临时向普通注册用户开放）。 */
+export function userCanAccessProFeatures(
+  user: AccessUser,
+  now = Date.now(),
+  restrictionsEnabled = nonProFeatureRestrictionsEnabled(),
+): boolean {
+  return !restrictionsEnabled || userHasProAccess(user, now);
 }
 
 export function accessSummary(user: AccessUser & { creditBalance?: number }) {

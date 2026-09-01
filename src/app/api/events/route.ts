@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { EventImportance } from "@prisma/client";
 import { apiErrorResponse, requireAdmin } from "@/lib/api/eventAuth";
 import { getUserByRequest, getUserAccessRecord } from "@/lib/auth";
-import { userHasProAccess } from "@/lib/billing/access";
+import { userCanAccessProFeatures } from "@/lib/billing/access";
 import {
   createMarketEvent,
   listMarketEvents,
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       );
     }
     const access = await getUserAccessRecord(me.id);
-    if (!access || !userHasProAccess(access)) {
+    if (!access || !userCanAccessProFeatures(access)) {
       return NextResponse.json(
         {
           error: "事件时间线深度浏览需要 Pro 会员或试用期",

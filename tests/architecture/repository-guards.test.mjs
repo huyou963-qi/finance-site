@@ -70,3 +70,14 @@ test("production source contains no committed private-key blocks", () => {
     .filter((file) => /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(source(file)));
   assert.deepEqual(violations, [], `private keys found in source files:\n${violations.join("\n")}`);
 });
+
+test("tests do not depend on ignored machine-local runtime files", () => {
+  const testFiles = walk(resolve(root, "src"), (path) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(path));
+  const forbiddenPath = /["'](?:\.data|\.env(?:\.local)?)(?:[\\/][^"']*)?["']/;
+  const violations = testFiles.filter((file) => forbiddenPath.test(source(file)));
+  assert.deepEqual(
+    violations,
+    [],
+    `tests reference ignored local files; use inline data or committed fixtures:\n${violations.join("\n")}`,
+  );
+});

@@ -5,7 +5,7 @@ import {
   getUserAccessRecord,
   type Role,
 } from "@/lib/auth";
-import { userHasProAccess } from "@/lib/billing/access";
+import { userCanAccessProFeatures } from "@/lib/billing/access";
 import { consumeBacktestCredit } from "@/lib/billing/orders";
 
 export async function requireProUser(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function requireProUser(req: NextRequest) {
     throw err;
   }
   const access = await getUserAccessRecord(me.id);
-  if (!access || !userHasProAccess(access)) {
+  if (!access || !userCanAccessProFeatures(access)) {
     const err = new Error("需要 Pro 会员或试用期内访问，请前往定价页升级");
     (err as Error & { status?: number; code?: string }).status = 403;
     (err as Error & { code?: string }).code = "NEEDS_PRO";
@@ -58,7 +58,7 @@ export async function requireBacktestAccess(req: NextRequest): Promise<{
     (err as Error & { status?: number }).status = 401;
     throw err;
   }
-  if (userHasProAccess(access)) {
+  if (userCanAccessProFeatures(access)) {
     return { id: access.id, username: access.username, role: access.role, usedCredit: false };
   }
   if (access.creditBalance > 0) {

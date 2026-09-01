@@ -218,8 +218,14 @@ export function MacroMultiChartGrid({
   onRangePctChange: onCachedRangePctChange,
 }: MacroMultiChartGridProps) {
   const buckets = useMemo(
-    () => partitionMacroSeries(payload, layoutMode, slotAssignment),
-    [payload, layoutMode, slotAssignment],
+    () =>
+      partitionMacroSeries(
+        payload,
+        layoutMode,
+        slotAssignment,
+        displayConfig?.slotSeriesOrder,
+      ),
+    [payload, layoutMode, slotAssignment, displayConfig?.slotSeriesOrder],
   );
   const compact = layoutMode > 1;
 

@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EChartsType } from "echarts";
+import type { EChartsOption, EChartsType } from "echarts";
 import ReactECharts from "echarts-for-react";
 import type { MacroChartSlice } from "@/lib/macroChartOption";
 import {
@@ -121,6 +121,10 @@ export function MacroChartPanel({
   } | null>(null);
   const [draft, setDraft] = useState<MacroDrawingDraft | null>(null);
   const [hoverPoint, setHoverPoint] = useState<MacroPointerData | null>(null);
+  const [legendState, setLegendState] = useState<{
+    scope: string;
+    selected: Record<string, boolean>;
+  }>({ scope: "", selected: {} });
 
   drawToolRef.current = drawTool;
   drawStyleRef.current = drawStyle;
@@ -166,7 +170,7 @@ export function MacroChartPanel({
     [displayConfig, slotIndex],
   );
 
-  const opt = useMemo(() => {
+  const baseOpt = useMemo(() => {
     if (isCpiMomMatrix) return null;
     if (!slice?.series?.length) return null;
     if (isPie && pieYear) {
@@ -252,6 +256,56 @@ export function MacroChartPanel({
     radarYear,
     isAltChart,
   ]);
+
+  const legendScope = useMemo(
+    () =>
+      [
+        slotMode,
+        pieYear ?? "",
+        waterfallYear ?? "",
+        radarYear ?? "",
+        isSeasonal ? seasonalYearCount : "",
+        ...(slice?.series.map((series) => series.name) ?? []),
+      ].join("\u0001"),
+    [
+      slotMode,
+      pieYear,
+      waterfallYear,
+      radarYear,
+      isSeasonal,
+      seasonalYearCount,
+      slice?.series,
+    ],
+  );
+
+  const opt = useMemo<EChartsOption | null>(() => {
+    if (!baseOpt) return null;
+    const selected = legendState.scope === legendScope ? legendState.selected : {};
+    const withSelection = (legend: NonNullable<EChartsOption["legend"]>) => ({
+      ...legend,
+      selectedMode: true,
+      selected,
+    });
+
+    return {
+      ...baseOpt,
+      legend: Array.isArray(baseOpt.legend)
+        ? baseOpt.legend.map(withSelection)
+        : baseOpt.legend
+          ? withSelection(baseOpt.legend)
+          : baseOpt.legend,
+    };
+  }, [baseOpt, legendScope, legendState]);
+
+  const chartEvents = useMemo(
+    () => ({
+      legendselectchanged: (params: { selected?: Record<string, boolean> }) => {
+        if (!params.selected) return;
+        setLegendState({ scope: legendScope, selected: { ...params.selected } });
+      },
+    }),
+    [legendScope],
+  );
 
   const refreshGraphics = useCallback(() => {
     const chart = chartRef.current;
@@ -525,6 +579,7 @@ export function MacroChartPanel({
           style={{ width: "100%", height: "100%" }}
           opts={{ renderer: "canvas" }}
           notMerge
+          onEvents={chartEvents}
           onChartReady={handleChartReady}
         />
       </div>

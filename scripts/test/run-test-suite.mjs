@@ -41,7 +41,13 @@ console.log(`[test] ${scope}: running ${files.length} test files`);
 for (const file of files) console.log(`  - ${relative(root, file).split(sep).join("/")}`);
 
 const tsxCli = resolve(root, "node_modules", "tsx", "dist", "cli.mjs");
-const result = spawnSync(process.execPath, [tsxCli, "--test", "--test-concurrency=4", ...files], {
+const result = spawnSync(process.execPath, [
+  tsxCli,
+  "--test",
+  "--test-reporter=spec",
+  "--test-concurrency=4",
+  ...files,
+], {
   cwd: root,
   env: { ...process.env, NODE_ENV: "test", TZ: "UTC" },
   stdio: "inherit",

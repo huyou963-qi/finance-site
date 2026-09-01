@@ -103,6 +103,8 @@ export type MacroChartDisplayConfig = {
   slotShowTitles?: Partial<Record<number, boolean>>;
   /** 各图槽左右 Y 轴范围（时序图 / 季节图） */
   slotAxisRanges?: Partial<Record<number, MacroSlotAxisRanges>>;
+  /** 各图槽内的指标展示顺序（同时控制曲线、图例及顺序敏感图形） */
+  slotSeriesOrder?: Partial<Record<number, string[]>>;
 };
 
 export function resolveSlotAxisRanges(
