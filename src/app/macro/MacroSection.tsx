@@ -32,7 +32,10 @@ import {
   usrecSeriesToBands,
   type NberRecessionBand,
 } from "@/lib/data/nberRecessionBands";
-import type { MacroRegimeBand } from "@/lib/data/macroRegimeBands";
+import {
+  MACRO_REGIME_OVERLAY,
+  type MacroRegimeBand,
+} from "@/lib/data/macroRegimeBands";
 import { SelectedIndicatorsList } from "@/components/SelectedIndicatorsList";
 import { MacroExtractedDataTable } from "@/components/MacroExtractedDataTable";
 import { UnifiedMacroSidebar } from "@/components/UnifiedMacroSidebar";
@@ -678,6 +681,13 @@ export function MacroSection() {
   const [seriesVisualMap, setSeriesVisualMap] = useState<MacroSeriesVisualConfigMap>({});
   const [displayConfig, setDisplayConfig] = useState<MacroChartDisplayConfig>(
     DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+  );
+  const regimeOverlaySelected = selectedKeys.has(MACRO_REGIME_OVERLAY.key);
+  const regimeShadingEnabled =
+    Boolean(displayConfig.showRegimeShading) || regimeOverlaySelected;
+  const effectiveDisplayConfig = useMemo<MacroChartDisplayConfig>(
+    () => ({ ...displayConfig, showRegimeShading: regimeShadingEnabled }),
+    [displayConfig, regimeShadingEnabled],
   );
   const [savedTemplates, setSavedTemplates] = useState<MacroChartTemplate[]>([]);
   const [templateFolders, setTemplateFolders] = useState<MacroTemplateFolder[]>([]);
@@ -2068,7 +2078,10 @@ export function MacroSection() {
   }, [searchParams]);
 
   const seriesQuery = useMemo(() => {
-    return serializeUnifiedKeys(orderedSelectedKeys, catalogAllowlist);
+    return serializeUnifiedKeys(
+      orderedSelectedKeys.filter((key) => key !== MACRO_REGIME_OVERLAY.key),
+      catalogAllowlist,
+    );
   }, [orderedSelectedKeys, catalogAllowlist]);
 
   const selectedKeyOptions = useMemo(
@@ -2430,7 +2443,7 @@ export function MacroSection() {
 
   /** Regime 模板启用时，直接从 mds.MacroRegime 读取并压缩四象限连续区间。 */
   useEffect(() => {
-    if (!displayConfig.showRegimeShading || regimeBands.length > 0) return;
+    if (!regimeShadingEnabled || regimeBands.length > 0) return;
     let cancelled = false;
     fetch("/api/data/macro-regime-bands")
       .then(async (response) => {
@@ -2449,7 +2462,7 @@ export function MacroSection() {
     return () => {
       cancelled = true;
     };
-  }, [displayConfig.showRegimeShading, regimeBands.length]);
+  }, [regimeShadingEnabled, regimeBands.length]);
 
   function handleExtractData() {
     if (!seriesQuery) {
@@ -3778,12 +3791,12 @@ export function MacroSection() {
                         layoutMode={layoutMode}
                         slotAssignment={extractedAssignment}
                         seriesVisualMap={effectiveSeriesVisualMap}
-                        displayConfig={displayConfig}
+                        displayConfig={effectiveDisplayConfig}
                         recessionBands={
                           displayConfig.showRecessionShading ? recessionBands : undefined
                         }
                         regimeBands={
-                          displayConfig.showRegimeShading ? regimeBands : undefined
+                          regimeShadingEnabled ? regimeBands : undefined
                         }
                         pageSyncEnabled={pageSyncEnabled}
                         remoteCrosshairTimeLabel={remoteCrosshairTimeLabel}

@@ -3,12 +3,25 @@ import { categoryLabelTimeSpan } from "@/lib/data/nberRecessionBands";
 export type MacroRegimeKey = "goldilocks" | "reflation" | "stagflation" | "deflation";
 
 export const MACRO_REGIME_SERIES = {
-  growthZ: { code: "quant_regime_growth_z", key: "mds:quant_regime_growth_z", label: "增长 z" },
-  inflationMomZ: { code: "quant_regime_inflation_mom_z", key: "mds:quant_regime_inflation_mom_z", label: "通胀动量 z" },
+  growthZ: { code: "quant_regime_growth_z", key: "mds:quant_regime_growth_z", label: "增长 z", unit: "z" },
+  inflationMomZ: { code: "quant_regime_inflation_mom_z", key: "mds:quant_regime_inflation_mom_z", label: "通胀动量 z", unit: "z" },
 } as const;
 
+/** 目录中的覆盖层指标：勾选后开启色带，本身不产生第三条数值曲线。 */
+export const MACRO_REGIME_OVERLAY = {
+  code: "quant_regime_quadrant_band",
+  key: "mds:quant_regime_quadrant_band",
+  label: "宏观 Regime 四象限色带",
+  unit: "背景覆盖层",
+} as const;
+
+export const MACRO_REGIME_CATALOG_ITEMS = [
+  ...Object.values(MACRO_REGIME_SERIES),
+  MACRO_REGIME_OVERLAY,
+] as const;
+
 export const MACRO_REGIME_CODES = new Set<string>(
-  Object.values(MACRO_REGIME_SERIES).map((item) => item.code),
+  MACRO_REGIME_CATALOG_ITEMS.map((item) => item.code),
 );
 
 export type MacroRegimeBand = {

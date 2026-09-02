@@ -1,6 +1,9 @@
 import type { MacroChartTemplate } from "@/lib/data/macroPresetTemplates";
 import { DEFAULT_MACRO_CHART_DISPLAY_CONFIG } from "@/lib/macroChartOption";
-import { MACRO_REGIME_SERIES } from "@/lib/data/macroRegimeBands";
+import {
+  MACRO_REGIME_OVERLAY,
+  MACRO_REGIME_SERIES,
+} from "@/lib/data/macroRegimeBands";
 
 export const BUILTIN_US_REGIME_TEMPLATE: MacroChartTemplate = {
   id: "builtin-us-macro-regime",
@@ -13,12 +16,18 @@ export const BUILTIN_US_REGIME_TEMPLATE: MacroChartTemplate = {
   indicatorIntroNotes: {
     [MACRO_REGIME_SERIES.growthZ.key]: "增长 z：就业、收入、生产、调查四块滚动标准化后的等权合成。",
     [MACRO_REGIME_SERIES.inflationMomZ.key]: "通胀动量 z：CPI 与 PCE 同比变化动量的滚动标准化合成。",
+    [MACRO_REGIME_OVERLAY.key]: "背景覆盖层：读取 mds.MacroRegime 的 Dalio 四象限历史并显示连续色带；不生成数值曲线。",
   },
-  selectedKeys: [MACRO_REGIME_SERIES.growthZ.key, MACRO_REGIME_SERIES.inflationMomZ.key],
+  selectedKeys: [
+    MACRO_REGIME_SERIES.growthZ.key,
+    MACRO_REGIME_SERIES.inflationMomZ.key,
+    MACRO_REGIME_OVERLAY.key,
+  ],
   layoutMode: 1,
   slotAssignment: {
     [MACRO_REGIME_SERIES.growthZ.key]: 0,
     [MACRO_REGIME_SERIES.inflationMomZ.key]: 0,
+    [MACRO_REGIME_OVERLAY.key]: null,
   },
   seriesVisualMap: {
     [MACRO_REGIME_SERIES.growthZ.key]: { axis: "left", chartType: "line", color: "#3987e5", showEndLabel: true },
@@ -26,7 +35,7 @@ export const BUILTIN_US_REGIME_TEMPLATE: MacroChartTemplate = {
   },
   displayConfig: {
     ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
-    showRegimeShading: true,
+    showRegimeShading: false,
     lineSmooth: false,
     showSymbols: false,
     xLabelRotate: 0,
@@ -40,4 +49,5 @@ export const BUILTIN_US_REGIME_TEMPLATE: MacroChartTemplate = {
 export const REGIME_VIRTUAL_KEY_LABELS = new Map<string, string>([
   [MACRO_REGIME_SERIES.growthZ.key, MACRO_REGIME_SERIES.growthZ.label],
   [MACRO_REGIME_SERIES.inflationMomZ.key, MACRO_REGIME_SERIES.inflationMomZ.label],
+  [MACRO_REGIME_OVERLAY.key, MACRO_REGIME_OVERLAY.label],
 ]);
