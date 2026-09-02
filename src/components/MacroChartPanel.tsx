@@ -121,10 +121,7 @@ export function MacroChartPanel({
   } | null>(null);
   const [draft, setDraft] = useState<MacroDrawingDraft | null>(null);
   const [hoverPoint, setHoverPoint] = useState<MacroPointerData | null>(null);
-  const [legendState, setLegendState] = useState<{
-    scope: string;
-    selected: Record<string, boolean>;
-  }>({ scope: "", selected: {} });
+  const legendSelectionByScopeRef = useRef<Record<string, Record<string, boolean>>>({});
 
   drawToolRef.current = drawTool;
   drawStyleRef.current = drawStyle;
@@ -280,7 +277,7 @@ export function MacroChartPanel({
 
   const opt = useMemo<EChartsOption | null>(() => {
     if (!baseOpt) return null;
-    const selected = legendState.scope === legendScope ? legendState.selected : {};
+    const selected = legendSelectionByScopeRef.current[legendScope] ?? {};
     const withSelection = (legend: NonNullable<EChartsOption["legend"]>) => ({
       ...legend,
       selectedMode: true,
@@ -295,13 +292,16 @@ export function MacroChartPanel({
           ? withSelection(baseOpt.legend)
           : baseOpt.legend,
     };
-  }, [baseOpt, legendScope, legendState]);
+  }, [baseOpt, legendScope]);
 
   const chartEvents = useMemo(
     () => ({
       legendselectchanged: (params: { selected?: Record<string, boolean> }) => {
         if (!params.selected) return;
-        setLegendState({ scope: legendScope, selected: { ...params.selected } });
+        // 只记录、不在 ECharts 自己的点击事件中触发 React 重渲染。
+        // 同步 setState + notMerge 会抢在 ECharts 本帧绘制前重下发 option，
+        // 导致内部 selected 已变化但画布要等到下一次刷新才显隐。
+        legendSelectionByScopeRef.current[legendScope] = { ...params.selected };
       },
     }),
     [legendScope],
