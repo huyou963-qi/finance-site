@@ -126,6 +126,13 @@ const FRED_POLICY_RATES = new Set([
 ]);
 const FRED_FED_BS = new Set(["WALCL", "WRESBAL", "TREAST", "WLRRAL", "M2SL"]);
 const FRED_MONEY_MARKET = new Set(["WTREGEN", "RRPONTSYD"]);
+const FRED_REPO_OPERATIONS = new Set([
+  "RPONTTLD",
+  "RPONTSYD",
+  "RPONAGYD",
+  "RPONMBSD",
+  "RPONTSYSAD",
+]);
 
 const FRED_TREASURY_YIELDS = new Set(["GS2", "GS10", "DGS2", "DGS10"]);
 const FRED_SPREADS = new Set(["T10Y2Y", "T10Y3M"]);
@@ -217,6 +224,7 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   if (FRED_LABOR_STRUCTURE.has(id)) return p("劳动力市场", "就业结构");
   if (FRED_POLICY_RATES.has(id)) return p("货币政策与流动性", "政策利率");
   if (FRED_FED_BS.has(id)) return p("货币政策与流动性", "联储资产负债表");
+  if (FRED_REPO_OPERATIONS.has(id)) return p("货币政策与流动性", "财政部账户与货币市场");
   if (FRED_MONEY_MARKET.has(id)) return p("货币政策与流动性", "财政部账户与货币市场");
   if (FRED_TREASURY_YIELDS.has(id)) return p("利率与信用市场", "国债收益率");
   if (FRED_SPREADS.has(id)) return p("利率与信用市场", "利差与期限结构");

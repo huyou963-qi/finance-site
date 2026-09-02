@@ -1,5 +1,5 @@
 /**
- * 美联储常备回购便利（SRF）操作利率 FRED 种子。
+ * 美联储常备回购便利（SRF）操作利率、使用量与抵押品分项 FRED 种子。
  *
  * npm run data:seed-standing-repo
  */

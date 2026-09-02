@@ -637,7 +637,18 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "DAILY",
     intervalHours: 24,
     sortOrder: 205,
-    members: { fredSeriesIds: ["RRPONTSYD", "RRPONTSYAWARD", "SRFTSYD"] },
+    members: {
+      fredSeriesIds: [
+        "RRPONTSYD",
+        "RRPONTSYAWARD",
+        "SRFTSYD",
+        "RPONTTLD",
+        "RPONTSYD",
+        "RPONAGYD",
+        "RPONMBSD",
+        "RPONTSYSAD",
+      ],
+    },
   }),
   probePkg("us.nyfed.sofr", "纽约联储：SOFR", {
     labelEn: "Secured Overnight Financing Rate Data",

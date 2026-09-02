@@ -7,18 +7,27 @@ import { feature, mesh } from "topojson-client";
 import countriesTopology from "world-atlas/countries-110m.json";
 import { useEffect, useRef, useState } from "react";
 
-type Market = { city: string; exchange: string; code: string; lon: number; lat: number; session: string };
+type Market = { city: string; exchange: string; code: string; symbol: string; lon: number; lat: number; session: string };
 
 const MARKETS: Market[] = [
-  { city: "纽约", exchange: "NYSE / Nasdaq", code: "US", lon: -74.006, lat: 40.713, session: "09:30–16:00 ET" },
-  { city: "伦敦", exchange: "London Stock Exchange", code: "UK", lon: -0.128, lat: 51.507, session: "08:00–16:30 GMT" },
-  { city: "法兰克福", exchange: "Deutsche Börse", code: "DE", lon: 8.682, lat: 50.111, session: "09:00–17:30 CET" },
-  { city: "东京", exchange: "Tokyo Stock Exchange", code: "JP", lon: 139.692, lat: 35.69, session: "09:00–15:30 JST" },
-  { city: "香港", exchange: "Hong Kong Exchanges", code: "HK", lon: 114.169, lat: 22.319, session: "09:30–16:00 HKT" },
-  { city: "上海", exchange: "Shanghai Stock Exchange", code: "CN", lon: 121.474, lat: 31.23, session: "09:30–15:00 CST" },
-  { city: "新加坡", exchange: "Singapore Exchange", code: "SG", lon: 103.82, lat: 1.352, session: "09:00–17:00 SGT" },
-  { city: "悉尼", exchange: "Australian Securities Exchange", code: "AU", lon: 151.209, lat: -33.869, session: "10:00–16:00 AET" },
+  { city: "纽约", exchange: "NYSE / Nasdaq", code: "US", symbol: "^GSPC", lon: -74.006, lat: 40.713, session: "09:30–16:00 ET" },
+  { city: "伦敦", exchange: "London Stock Exchange", code: "UK", symbol: "^FTSE", lon: -0.128, lat: 51.507, session: "08:00–16:30 GMT" },
+  { city: "法兰克福", exchange: "Deutsche Börse", code: "DE", symbol: "^GDAXI", lon: 8.682, lat: 50.111, session: "09:00–17:30 CET" },
+  { city: "东京", exchange: "Tokyo Stock Exchange", code: "JP", symbol: "^N225", lon: 139.692, lat: 35.69, session: "09:00–15:30 JST" },
+  { city: "香港", exchange: "Hong Kong Exchanges", code: "HK", symbol: "^HSI", lon: 114.169, lat: 22.319, session: "09:30–16:00 HKT" },
+  { city: "上海", exchange: "Shanghai Stock Exchange", code: "CN", symbol: "000001.SS", lon: 121.474, lat: 31.23, session: "09:30–15:00 CST" },
+  { city: "新加坡", exchange: "Singapore Exchange", code: "SG", symbol: "^STI", lon: 103.82, lat: 1.352, session: "09:00–17:00 SGT" },
+  { city: "悉尼", exchange: "Australian Securities Exchange", code: "AU", symbol: "^AXJO", lon: 151.209, lat: -33.869, session: "10:00–16:00 AET" },
 ];
+
+const MARKET_LABEL_OFFSET_Y: Record<string, number> = {
+  UK: -11,
+  DE: 11,
+  JP: -9,
+  CN: 9,
+  HK: -7,
+  SG: 7,
+};
 
 const CITY_LIGHTS: Array<[number, number]> = [
   [-122.42, 37.77], [-118.24, 34.05], [-87.63, 41.88], [-95.37, 29.76], [-99.13, 19.43],
@@ -74,6 +83,7 @@ export function MarketGlobe() {
   const dragRef = useRef<{ x: number; y: number; rotation: [number, number, number] } | null>(null);
   const pauseUntilRef = useRef(0);
   const activeMarketRef = useRef<Market>(MARKETS[5]);
+  const marketChangesRef = useRef<Record<string, number>>({});
   const [selected, setSelected] = useState(MARKETS[5]);
   const [now, setNow] = useState(() => new Date());
 
@@ -83,10 +93,60 @@ export function MarketGlobe() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const loadMarketChanges = async () => {
+      const results = await Promise.allSettled(MARKETS.map(async (market) => {
+        const params = new URLSearchParams({
+          symbol: market.symbol,
+          interval: "1d",
+          limit: "2",
+          adjust: "none",
+        });
+        const response = await fetch(`/api/data/klines?${params}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json() as { candles?: Array<{ close?: number }> };
+        const candles = payload.candles ?? [];
+        const previous = candles.at(-2)?.close;
+        const latest = candles.at(-1)?.close;
+        if (typeof previous !== "number" || typeof latest !== "number" || previous === 0) return null;
+        return [market.code, (latest / previous - 1) * 100] as const;
+      }));
+      if (controller.signal.aborted) return;
+      marketChangesRef.current = Object.fromEntries(
+        results.flatMap((result) => result.status === "fulfilled" && result.value ? [result.value] : []),
+      );
+    };
+    void loadMarketChanges();
+    const timer = window.setInterval(() => void loadMarketChanges(), 300_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const context = canvas.getContext("2d", { alpha: true });
     if (!context) return;
+    const earthTexture = new Image();
+    const textureSource = document.createElement("canvas");
+    const textureSourceContext = textureSource.getContext("2d", { willReadFrequently: true });
+    const textureGlobe = document.createElement("canvas");
+    const textureGlobeContext = textureGlobe.getContext("2d");
+    let texturePixels: ImageData | null = null;
+    earthTexture.decoding = "async";
+    earthTexture.onload = () => {
+      if (!textureSourceContext) return;
+      textureSource.width = earthTexture.naturalWidth;
+      textureSource.height = earthTexture.naturalHeight;
+      textureSourceContext.drawImage(earthTexture, 0, 0);
+      texturePixels = textureSourceContext.getImageData(0, 0, textureSource.width, textureSource.height);
+    };
+    earthTexture.src = "/earth-blue-marble-v1.png";
     const projection = geoOrthographic().precision(0.35).clipAngle(90);
     const path = geoPath(projection, context);
     const minorGraticule = geoGraticule().stepMinor([10, 10]).stepMajor([90, 360])();
@@ -110,6 +170,76 @@ export function MarketGlobe() {
     const isVisible = (lon: number, lat: number) => {
       const rotated = geoRotation(rotationRef.current)([lon, lat]);
       return Math.cos(rotated[1] * Math.PI / 180) * Math.cos(rotated[0] * Math.PI / 180) > 0;
+    };
+    const drawTexturedEarth = (
+      target: CanvasRenderingContext2D,
+      cx: number,
+      cy: number,
+      radius: number,
+      sun: { lon: number; lat: number },
+    ) => {
+      if (!texturePixels || !textureGlobeContext) return false;
+      // Project at the globe's real backing-store diameter instead of creating a
+      // small intermediate bitmap that the canvas has to upscale.
+      const size = Math.min(
+        texturePixels.height,
+        Math.max(320, Math.round(radius * 2)),
+      );
+      if (textureGlobe.width !== size || textureGlobe.height !== size) {
+        textureGlobe.width = size;
+        textureGlobe.height = size;
+      }
+      const globePixels = textureGlobeContext.createImageData(size, size);
+      const sampleProjection = geoOrthographic()
+        .precision(0.6)
+        .clipAngle(90)
+        .translate([size / 2, size / 2])
+        .scale(size * 0.495)
+        .rotate(rotationRef.current);
+      const source = texturePixels.data;
+      const output = globePixels.data;
+      const sampleRadius = size * 0.495;
+
+      for (let y = 0; y < size; y += 1) {
+        const ny = (y + 0.5 - size / 2) / sampleRadius;
+        for (let x = 0; x < size; x += 1) {
+          const nx = (x + 0.5 - size / 2) / sampleRadius;
+          const rr = nx * nx + ny * ny;
+          if (rr > 1) continue;
+          const coordinates = sampleProjection.invert?.([x + 0.5, y + 0.5]);
+          if (!coordinates) continue;
+          const [lon, lat] = coordinates;
+          const sourceX = Math.min(
+            texturePixels.width - 1,
+            Math.floor((((lon + 180) % 360 + 360) % 360) / 360 * texturePixels.width),
+          );
+          const sourceY = Math.min(
+            texturePixels.height - 1,
+            Math.max(0, Math.floor((90 - lat) / 180 * texturePixels.height)),
+          );
+          const sourceIndex = (sourceY * texturePixels.width + sourceX) * 4;
+          const outputIndex = (y * size + x) * 4;
+          const light = illumination(lon, lat, sun);
+          const daylight = 0.22 + 0.78 * smoothstep(-0.2, 0.34, light);
+          const twilight = 0.13 * (1 - smoothstep(0.01, 0.18, Math.abs(light)));
+          const limb = 0.7 + 0.3 * smoothstep(0.02, 0.72, Math.sqrt(1 - rr));
+          output[outputIndex] = Math.min(255, source[sourceIndex] * daylight * limb + 80 * twilight);
+          output[outputIndex + 1] = Math.min(255, source[sourceIndex + 1] * daylight * limb + 34 * twilight);
+          output[outputIndex + 2] = Math.min(255, source[sourceIndex + 2] * daylight * limb + 8 * twilight);
+          output[outputIndex + 3] = Math.min(255, 255 * smoothstep(1, 0.985, rr));
+        }
+      }
+      textureGlobeContext.putImageData(globePixels, 0, 0);
+      target.save();
+      target.beginPath();
+      target.arc(cx, cy, radius, 0, Math.PI * 2);
+      target.clip();
+      target.imageSmoothingEnabled = true;
+      target.imageSmoothingQuality = "high";
+      target.filter = "contrast(1.06) saturate(1.04)";
+      target.drawImage(textureGlobe, cx - radius, cy - radius, radius * 2, radius * 2);
+      target.restore();
+      return true;
     };
 
     const draw = (time: number) => {
@@ -148,30 +278,31 @@ export function MarketGlobe() {
       context.restore();
 
       const sun = solarPosition(new Date());
-      const sunPoint = projection([sun.lon, sun.lat]);
-      const oceanGradient = context.createRadialGradient(
-        sunPoint?.[0] ?? cx, sunPoint?.[1] ?? cy, radius * 0.04, cx, cy, radius * 1.1,
-      );
-      oceanGradient.addColorStop(0, "#f7fcff");
-      oceanGradient.addColorStop(0.42, "#d9ebf2");
-      oceanGradient.addColorStop(1, "#aac8d6");
-
-      context.save();
-      context.beginPath();
-      path({ type: "Sphere" });
-      context.fillStyle = oceanGradient;
-      context.shadowColor = "rgba(28, 92, 134, 0.22)";
-      context.shadowBlur = 44 * dpr;
-      context.fill();
-      context.restore();
-
-      countries.features.forEach((country, index) => {
+      const textureDrawn = drawTexturedEarth(context, cx, cy, radius, sun);
+      if (!textureDrawn) {
+        const sunPoint = projection([sun.lon, sun.lat]);
+        const oceanGradient = context.createRadialGradient(
+          sunPoint?.[0] ?? cx, sunPoint?.[1] ?? cy, radius * 0.04, cx, cy, radius * 1.1,
+        );
+        oceanGradient.addColorStop(0, "#f7fcff");
+        oceanGradient.addColorStop(0.42, "#d9ebf2");
+        oceanGradient.addColorStop(1, "#aac8d6");
+        context.save();
         context.beginPath();
-        path(country);
-        const palette = ["#c4d8df", "#cbdde4", "#bdd3db"];
-        context.fillStyle = palette[index % palette.length];
+        path({ type: "Sphere" });
+        context.fillStyle = oceanGradient;
+        context.shadowColor = "rgba(28, 92, 134, 0.22)";
+        context.shadowBlur = 44 * dpr;
         context.fill();
-      });
+        context.restore();
+        countries.features.forEach((country, index) => {
+          context.beginPath();
+          path(country);
+          const palette = ["#c4d8df", "#cbdde4", "#bdd3db"];
+          context.fillStyle = palette[index % palette.length];
+          context.fill();
+        });
+      }
       context.beginPath(); path(minorGraticule);
       context.strokeStyle = "rgba(42, 86, 112, 0.095)"; context.lineWidth = Math.max(0.55, 0.55 * dpr); context.stroke();
       context.beginPath(); path(majorGraticule);
@@ -185,45 +316,6 @@ export function MarketGlobe() {
       context.setLineDash([]);
       context.beginPath(); path(borders);
       context.strokeStyle = "rgba(255, 255, 255, 0.58)"; context.lineWidth = Math.max(0.55, 0.62 * dpr); context.stroke();
-
-      const rotatedSun = geoRotation(rotationRef.current)([sun.lon, sun.lat]);
-      const lambda = rotatedSun[0] * Math.PI / 180;
-      const phi = rotatedSun[1] * Math.PI / 180;
-      const sunVector = { x: Math.cos(phi) * Math.sin(lambda), y: Math.sin(phi), z: Math.cos(phi) * Math.cos(lambda) };
-      const image = context.getImageData(0, 0, width, height);
-      const data = image.data;
-      const left = Math.max(0, Math.floor(cx - radius));
-      const right = Math.min(width, Math.ceil(cx + radius));
-      const top = Math.max(0, Math.floor(cy - radius));
-      const bottom = Math.min(height, Math.ceil(cy + radius));
-      for (let y = top; y < bottom; y += 1) {
-        const py = -(y + 0.5 - cy) / radius;
-        for (let x = left; x < right; x += 1) {
-          const px = (x + 0.5 - cx) / radius;
-          const rr = px * px + py * py;
-          if (rr > 1) continue;
-          const light = px * sunVector.x + py * sunVector.y + Math.sqrt(1 - rr) * sunVector.z;
-          const pz = Math.sqrt(1 - rr);
-          const night = 0.6 * (1 - smoothstep(-0.22, 0.2, light));
-          const twilight = 0.17 * (1 - smoothstep(0.01, 0.2, Math.abs(light)));
-          const dayGlow = 0.04 * smoothstep(0.3, 0.96, light);
-          const limb = 0.06 * (1 - smoothstep(0.03, 0.68, pz));
-          const index = (y * width + x) * 4;
-          data[index] = data[index] * (1 - night) + 18 * night;
-          data[index + 1] = data[index + 1] * (1 - night) + 39 * night;
-          data[index + 2] = data[index + 2] * (1 - night) + 64 * night;
-          data[index] = data[index] * (1 - twilight) + 244 * twilight;
-          data[index + 1] = data[index + 1] * (1 - twilight) + 169 * twilight;
-          data[index + 2] = data[index + 2] * (1 - twilight) + 79 * twilight;
-          data[index] = data[index] * (1 - dayGlow) + 255 * dayGlow;
-          data[index + 1] = data[index + 1] * (1 - dayGlow) + 252 * dayGlow;
-          data[index + 2] = data[index + 2] * (1 - dayGlow) + 235 * dayGlow;
-          data[index] = data[index] * (1 - limb) + 30 * limb;
-          data[index + 1] = data[index + 1] * (1 - limb) + 64 * limb;
-          data[index + 2] = data[index + 2] * (1 - limb) + 91 * limb;
-        }
-      }
-      context.putImageData(image, 0, 0);
 
       CITY_LIGHTS.forEach(([lon, lat]) => {
         if (!isVisible(lon, lat)) return;
@@ -249,13 +341,72 @@ export function MarketGlobe() {
         context.beginPath(); context.arc(point[0], point[1], (active ? 4.5 : 3.2) * dpr, 0, Math.PI * 2);
         context.fillStyle = `rgb(${color})`; context.fill();
         context.strokeStyle = "rgba(255,255,255,0.95)"; context.lineWidth = 1.4 * dpr; context.stroke();
+        const change = marketChangesRef.current[market.code];
+        if (typeof change === "number") {
+          const changeLabel = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
+          context.save();
+          context.font = `500 ${9.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
+          const cityWidth = context.measureText(market.city).width;
+          context.font = `650 ${10.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
+          const changeWidth = context.measureText(changeLabel).width;
+          const paddingX = 8 * dpr;
+          const dotGap = 8 * dpr;
+          const textGap = 6 * dpr;
+          const boxHeight = 23 * dpr;
+          const boxWidth = paddingX * 2 + dotGap + cityWidth + textGap + changeWidth;
+          const placeLeft = point[0] > cx;
+          const connectorLength = 10 * dpr;
+          const boxX = placeLeft ? point[0] - boxWidth - connectorLength : point[0] + connectorLength;
+          const boxY = point[1] - boxHeight / 2 + (MARKET_LABEL_OFFSET_Y[market.code] ?? 0) * dpr;
+          const marketColor = change >= 0 ? "251, 113, 133" : "52, 211, 153";
+
+          context.beginPath();
+          context.moveTo(point[0] + (placeLeft ? -4 : 4) * dpr, point[1]);
+          context.lineTo(placeLeft ? boxX + boxWidth : boxX, boxY + boxHeight / 2);
+          context.strokeStyle = "rgba(226, 232, 240, 0.5)";
+          context.lineWidth = 0.75 * dpr;
+          context.stroke();
+
+          context.beginPath();
+          context.roundRect(boxX, boxY, boxWidth, boxHeight, 7 * dpr);
+          context.fillStyle = "rgba(8, 18, 38, 0.84)";
+          context.shadowColor = "rgba(2, 8, 23, 0.28)";
+          context.shadowBlur = 8 * dpr;
+          context.shadowOffsetY = 2 * dpr;
+          context.fill();
+          context.shadowColor = "transparent";
+          context.shadowBlur = 0;
+          context.shadowOffsetY = 0;
+          context.strokeStyle = "rgba(226, 232, 240, 0.2)";
+          context.lineWidth = 0.7 * dpr;
+          context.stroke();
+
+          const middleY = boxY + boxHeight / 2;
+          context.beginPath();
+          context.arc(boxX + paddingX + 1.5 * dpr, middleY, 2.25 * dpr, 0, Math.PI * 2);
+          context.fillStyle = `rgb(${marketColor})`;
+          context.fill();
+
+          const cityX = boxX + paddingX + dotGap;
+          context.font = `500 ${9.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
+          context.fillStyle = "rgba(226, 232, 240, 0.72)";
+          context.textBaseline = "middle";
+          context.fillText(market.city, cityX, middleY);
+          context.font = `650 ${10.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
+          context.fillStyle = `rgb(${marketColor})`;
+          context.fillText(changeLabel, cityX + cityWidth + textGap, middleY);
+          context.restore();
+        }
       });
       context.save(); context.beginPath(); path({ type: "Sphere" });
       context.strokeStyle = "rgba(76, 137, 169, 0.22)"; context.lineWidth = 1.2 * dpr;
       context.shadowColor = "rgba(97, 180, 218, 0.55)"; context.shadowBlur = 18 * dpr; context.stroke(); context.restore();
     };
     frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      earthTexture.onload = null;
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   const selectNearest = (clientX: number, clientY: number) => {
@@ -290,7 +441,7 @@ export function MarketGlobe() {
   };
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[680px] select-none" aria-label="全球主要资本市场交互地球">
+    <div className="relative mx-auto aspect-square w-full max-w-[760px] select-none" aria-label="全球主要资本市场交互地球">
       <canvas ref={canvasRef} className="h-full w-full cursor-grab touch-none active:cursor-grabbing" role="img" tabIndex={0}
         aria-label="可拖动旋转的全球市场地球。方向键旋转，滚轮缩放，市场节点可点击。"
         onPointerDown={(event) => {
@@ -328,7 +479,7 @@ export function MarketGlobe() {
       <div className="pointer-events-none absolute left-[8%] top-[8%] rounded-full border border-slate-200 bg-white/82 px-3 py-1.5 text-[11px] font-medium tracking-wide text-slate-500 shadow-sm backdrop-blur-md">
         LIVE · {formatUtc(now)} UTC
       </div>
-      <div className="absolute bottom-[7%] left-1/2 w-[84%] -translate-x-1/2 rounded-2xl border border-slate-200/85 bg-white/88 p-3.5 shadow-[0_18px_60px_rgba(28,55,74,0.13)] backdrop-blur-xl sm:w-[70%] sm:p-4">
+      <div className="absolute bottom-[7%] left-[4%] z-20 w-[84%] rounded-2xl border border-slate-200/85 bg-white/88 p-3.5 shadow-[0_18px_60px_rgba(28,55,74,0.13)] backdrop-blur-xl sm:left-[2%] sm:w-[70%] sm:p-4 lg:-left-[78%] lg:w-[62%]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-blue-600">{selected.code} MARKET</div>
