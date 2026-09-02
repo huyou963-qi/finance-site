@@ -527,7 +527,9 @@ export function MacroSection() {
 
   const onMacroSelectDrawing = useCallback((slotIndex: number, id: string | null) => {
     setActiveDrawSlot(slotIndex);
-    setSelectedDrawingBySlot((prev) => ({ ...prev, [slotIndex]: id }));
+    setSelectedDrawingBySlot((prev) =>
+      prev[slotIndex] === id ? prev : { ...prev, [slotIndex]: id },
+    );
   }, []);
 
   const onMacroDrawInteraction = useCallback((slotIndex: number) => {

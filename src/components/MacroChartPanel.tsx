@@ -379,6 +379,11 @@ export function MacroChartPanel({
       const tool = drawToolRef.current;
       if (tool !== "cursor") return;
 
+      // 图例、坐标轴和缩放条也位于 ECharts 画布内。只在笛卡尔绘图区
+      // 处理标注选择，避免图例的 mousedown 先触发 React 状态更新，
+      // 从而在 ECharts 完成 legend toggle 前重新下发 option。
+      if (!chart.containPixel({ gridIndex: 0 }, [e.offsetX, e.offsetY])) return;
+
       onInteractionRef.current?.();
       const hitId = hitTestDrawings(chart, categories, drawingsRef.current, e.offsetX, e.offsetY);
       onSelectDrawingRef.current?.(hitId);
