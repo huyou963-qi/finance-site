@@ -37,6 +37,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "mofcom-trade": { script: "seed-mofcom-trade", labelZh: "中国外贸与外部部门" },
   "nbs-retail": { script: "seed-nbs-retail", labelZh: "中国国家统计局社会消费品零售额" },
   "cycle-risk": { script: "seed-cycle-risk", labelZh: "美国增长动能与衰退风险" },
+  "regime-macro": { script: "seed-regime-macro", labelZh: "宏观 Regime 图表只读投影" },
   "consumer-balance": { script: "seed-consumer-balance", labelZh: "美国消费与居民资产负债" },
   "external-dollar": { script: "seed-external-dollar", labelZh: "美国对外部门与美元" },
   "us-balance-of-payments": {

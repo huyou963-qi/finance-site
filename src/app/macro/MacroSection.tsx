@@ -32,6 +32,7 @@ import {
   usrecSeriesToBands,
   type NberRecessionBand,
 } from "@/lib/data/nberRecessionBands";
+import type { MacroRegimeBand } from "@/lib/data/macroRegimeBands";
 import { SelectedIndicatorsList } from "@/components/SelectedIndicatorsList";
 import { MacroExtractedDataTable } from "@/components/MacroExtractedDataTable";
 import { UnifiedMacroSidebar } from "@/components/UnifiedMacroSidebar";
@@ -80,6 +81,7 @@ import {
   BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
+  BUILTIN_US_REGIME_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
   BUILTIN_US_EXTERNAL_DOLLAR_OVERVIEW_TEMPLATE,
@@ -108,6 +110,7 @@ import { OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/overviewAnalysisLayout";
 import { MONETARY_VIRTUAL_KEY_LABELS } from "@/lib/data/monetaryAnalysisLayout";
 import { HOUSING_VIRTUAL_KEY_LABELS } from "@/lib/data/housingAnalysisLayout";
 import { CYCLE_RISK_VIRTUAL_KEY_LABELS } from "@/lib/data/cycleRiskAnalysisLayout";
+import { REGIME_VIRTUAL_KEY_LABELS } from "@/lib/data/regimeAnalysisLayout";
 import { CONSUMER_BALANCE_VIRTUAL_KEY_LABELS } from "@/lib/data/consumerBalanceAnalysisLayout";
 import { EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS } from "@/lib/data/externalDollarAnalysisLayout";
 import { US_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS } from "@/lib/data/usBalanceOfPaymentsAnalysisLayout";
@@ -707,6 +710,7 @@ export function MacroSection() {
   const [hiddenBuiltinTemplateIds, setHiddenBuiltinTemplateIds] = useState<string[]>([]);
   const [pageSyncEnabled, setPageSyncEnabled] = useState(false);
   const [recessionBands, setRecessionBands] = useState<NberRecessionBand[]>([]);
+  const [regimeBands, setRegimeBands] = useState<MacroRegimeBand[]>([]);
   const [remoteCrosshairTimeLabel, setRemoteCrosshairTimeLabel] = useState<string | null>(null);
   const [remoteCrosshairVersion, setRemoteCrosshairVersion] = useState(0);
   const [remoteVisibleRange, setRemoteVisibleRange] = useState<{
@@ -1170,6 +1174,7 @@ export function MacroSection() {
       BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
+      BUILTIN_US_REGIME_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
       BUILTIN_US_EXTERNAL_DOLLAR_OVERVIEW_TEMPLATE,
@@ -1217,6 +1222,7 @@ export function MacroSection() {
       BUILTIN_US_HOUSING_PRICE_FINANCE_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
       BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
+      BUILTIN_US_REGIME_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
       BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
       BUILTIN_US_EXTERNAL_DOLLAR_OVERVIEW_TEMPLATE,
@@ -1318,6 +1324,7 @@ export function MacroSection() {
       ...MONETARY_VIRTUAL_KEY_LABELS,
       ...HOUSING_VIRTUAL_KEY_LABELS,
       ...CYCLE_RISK_VIRTUAL_KEY_LABELS,
+      ...REGIME_VIRTUAL_KEY_LABELS,
       ...CONSUMER_BALANCE_VIRTUAL_KEY_LABELS,
       ...EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS,
       ...US_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS,
@@ -2420,6 +2427,29 @@ export function MacroSection() {
       cancelled = true;
     };
   }, [displayConfig.showRecessionShading, recessionBands.length]);
+
+  /** Regime 模板启用时，直接从 mds.MacroRegime 读取并压缩四象限连续区间。 */
+  useEffect(() => {
+    if (!displayConfig.showRegimeShading || regimeBands.length > 0) return;
+    let cancelled = false;
+    fetch("/api/data/macro-regime-bands")
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `${response.status}`);
+        }
+        return response.json() as Promise<{ bands: MacroRegimeBand[] }>;
+      })
+      .then((body) => {
+        if (!cancelled) setRegimeBands(body.bands);
+      })
+      .catch(() => {
+        if (!cancelled) setRegimeBands([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [displayConfig.showRegimeShading, regimeBands.length]);
 
   function handleExtractData() {
     if (!seriesQuery) {
@@ -3751,6 +3781,9 @@ export function MacroSection() {
                         displayConfig={displayConfig}
                         recessionBands={
                           displayConfig.showRecessionShading ? recessionBands : undefined
+                        }
+                        regimeBands={
+                          displayConfig.showRegimeShading ? regimeBands : undefined
                         }
                         pageSyncEnabled={pageSyncEnabled}
                         remoteCrosshairTimeLabel={remoteCrosshairTimeLabel}

@@ -5,6 +5,10 @@ import { fetchFredSeriesMultipleDbFirst } from "./fredDbFirst";
 import { fetchWorldBankSeries } from "./worldbank";
 import { indicatorLabel, selectionKey, type MacroSelection } from "./macroCatalog";
 import { prisma } from "@/lib/prisma";
+import {
+  fetchMacroRegimeProjection,
+} from "@/lib/data/macroRegimeProjection";
+import { MACRO_REGIME_CODES } from "@/lib/data/macroRegimeBands";
 
 /** 内置模板的 fred: 序列默认优先读本地库（缺失才实时）；MACRO_FRED_DB_FIRST=0 回退纯实时 */
 function fredDbFirstEnabled(): boolean {
@@ -159,10 +163,13 @@ export async function fetchUnifiedMacro(
   }
 
   if (mdsCodes.size > 0) {
+    const regimeProjection = await fetchMacroRegimeProjection([...mdsCodes]);
+    if (regimeProjection) parts.push(regimeProjection);
+    const observationCodes = [...mdsCodes].filter((code) => !MACRO_REGIME_CODES.has(code));
     const insts = await prisma.instrument.findMany({
       where: {
         kind: InstrumentKind.MACRO_SERIES,
-        code: { in: [...mdsCodes] },
+        code: { in: observationCodes },
       },
       select: { id: true, code: true, name: true, shortName: true, metadata: true },
     });
@@ -183,7 +190,11 @@ export async function fetchUnifiedMacro(
       }
       const categories = [...dateSet].sort();
       const codeByInst = new Map(insts.map((i) => [i.code, i]));
-      const virtualMdsKeys = keys.filter((k) => k.startsWith("mds:"));
+      const virtualMdsKeys = keys.filter((k) => {
+        if (!k.startsWith("mds:")) return false;
+        const code = k.slice(4).split("::")[0]?.trim();
+        return Boolean(code && !MACRO_REGIME_CODES.has(code));
+      });
       parts.push({
         categories,
         series: virtualMdsKeys

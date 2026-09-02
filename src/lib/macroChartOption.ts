@@ -5,6 +5,11 @@ import {
   NBER_RECESSION_MARK_AREA_STYLE,
   type NberRecessionBand,
 } from "@/lib/data/nberRecessionBands";
+import {
+  macroRegimeMarkAreaData,
+  MACRO_REGIME_MARK_AREA_STYLE,
+  type MacroRegimeBand,
+} from "@/lib/data/macroRegimeBands";
 import { formatMacroDisplayNumber, formatMacroDisplayValue, normalizeMacroAxisExtent } from "@/lib/formatMacroValue";
 import { CHART, SITE } from "@/lib/siteTheme";
 
@@ -87,6 +92,8 @@ export type MacroChartDisplayConfig = {
   endLabelDecimals: number;
   /** FRED 风格：叠加美国 NBER 衰退灰带（时序图） */
   showRecessionShading?: boolean;
+  /** 量化 Regime 的 Dalio 四象限色带（直接读取 mds.MacroRegime） */
+  showRegimeShading?: boolean;
   /** 各图槽展示模式，默认时序图 */
   slotModes?: Partial<Record<number, MacroChartSlotMode>>;
   /** 饼图各槽使用的年份（如 "2024"） */
@@ -260,6 +267,7 @@ export const DEFAULT_MACRO_CHART_DISPLAY_CONFIG: MacroChartDisplayConfig = {
   symbolSize: 7,
   endLabelDecimals: 2,
   showRecessionShading: false,
+  showRegimeShading: false,
 };
 
 export function yearFromCategoryLabel(label: string): string | null {
@@ -1484,6 +1492,8 @@ export function macroPayloadToChartOption(
     axisRanges?: MacroSlotAxisRanges;
     /** NBER 衰退区间；与 displayConfig.showRecessionShading 同时启用时叠加 markArea */
     recessionBands?: readonly NberRecessionBand[];
+    /** Dalio 四象限区间；与 displayConfig.showRegimeShading 同时启用时叠加 markArea */
+    regimeBands?: readonly MacroRegimeBand[];
   },
 ): EChartsOption {
   const compact = opts?.compact ?? false;
@@ -1492,6 +1502,10 @@ export function macroPayloadToChartOption(
   const recessionMarkAreaData =
     display.showRecessionShading && opts?.recessionBands?.length
       ? markAreaDataForCategories(slice.categories, opts.recessionBands)
+      : [];
+  const regimeMarkAreaData =
+    display.showRegimeShading && opts?.regimeBands?.length
+      ? macroRegimeMarkAreaData(slice.categories, opts.regimeBands)
       : [];
   const many = slice.series.length >= 5;
   const titleSize = compact ? 11 : 13;
@@ -1680,7 +1694,12 @@ export function macroPayloadToChartOption(
       const symbolSize = Math.max(2, cfg.symbolSize ?? display.symbolSize);
       const opacity = Math.max(0.05, Math.min(1, cfg.opacity ?? 1));
       const recessionMarkArea =
-        seriesIndex === 0 && recessionMarkAreaData.length > 0
+        seriesIndex === 0 && regimeMarkAreaData.length > 0
+          ? {
+              ...MACRO_REGIME_MARK_AREA_STYLE,
+              data: regimeMarkAreaData,
+            }
+          : seriesIndex === 0 && recessionMarkAreaData.length > 0
           ? {
               ...NBER_RECESSION_MARK_AREA_STYLE,
               data: recessionMarkAreaData,

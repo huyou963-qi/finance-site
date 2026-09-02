@@ -94,6 +94,7 @@
     "data:seed-housing": "dotenv -e .env.local -- tsx scripts/data-worker/seed-housing.ts",
     "data:verify-housing": "dotenv -e .env.local -- tsx scripts/data-worker/verify-housing.ts",
     "data:seed-cycle-risk": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cycle-risk.ts",
+    "data:seed-regime-macro": "dotenv -e .env.local -- tsx scripts/data-worker/seed-regime-macro.ts",
     "data:verify-cycle-risk": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cycle-risk.ts",
     "data:seed-consumer-balance": "dotenv -e .env.local -- tsx scripts/data-worker/seed-consumer-balance.ts",
     "data:verify-consumer-balance": "dotenv -e .env.local -- tsx scripts/data-worker/verify-consumer-balance.ts",

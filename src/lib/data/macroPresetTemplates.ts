@@ -73,6 +73,9 @@ import {
   BUILTIN_US_CYCLE_RISK_TEMPLATES,
 } from "@/lib/data/cycleRiskAnalysisLayout";
 import {
+  BUILTIN_US_REGIME_TEMPLATE,
+} from "@/lib/data/regimeAnalysisLayout";
+import {
   BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_TEMPLATE_IDS,
@@ -144,6 +147,7 @@ export {
   BUILTIN_US_CYCLE_RISK_SIGNALS_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_MOMENTUM_TEMPLATE,
   BUILTIN_US_CYCLE_RISK_TEMPLATES,
+  BUILTIN_US_REGIME_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_SPENDING_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_SHEET_TEMPLATE,
   BUILTIN_US_CONSUMER_BALANCE_TEMPLATES,
@@ -285,6 +289,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-us-housing-price-finance": "folder-builtin-us-housing",
   "builtin-us-cycle-risk-signals": "folder-builtin-us-cycle-risk",
   "builtin-us-cycle-risk-momentum": "folder-builtin-us-cycle-risk",
+  "builtin-us-macro-regime": "folder-builtin-us-cycle-risk",
   "builtin-us-consumer-balance-spending": "folder-builtin-us-consumer-balance",
   "builtin-us-consumer-balance-balance-sheet": "folder-builtin-us-consumer-balance",
   "builtin-us-external-dollar-overview": "folder-builtin-us-external-dollar",
@@ -618,6 +623,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_MONETARY_TEMPLATE_IDS,
   ...BUILTIN_US_HOUSING_TEMPLATE_IDS,
   ...BUILTIN_US_CYCLE_RISK_TEMPLATE_IDS,
+  BUILTIN_US_REGIME_TEMPLATE.id,
   ...BUILTIN_US_CONSUMER_BALANCE_TEMPLATE_IDS,
   ...BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATE_IDS,
   ...BUILTIN_US_BALANCE_OF_PAYMENTS_TEMPLATE_IDS,

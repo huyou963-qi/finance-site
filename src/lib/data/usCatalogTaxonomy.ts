@@ -249,6 +249,7 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
 }
 
 function placementFromMdsCode(code: string): UsCatalogPlacement | null {
+  if (code.startsWith("quant_regime_")) return p("国民经济", "景气综合");
   if (code.startsWith("treasury_mts_")) return p("财政与公共债务", "MTS现金流量");
   if (code.startsWith("treasury_dts_") || code.startsWith("treasury_debt_")) {
     return p("财政与公共债务", "融资与现金");
