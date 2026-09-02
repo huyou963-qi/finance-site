@@ -29,10 +29,7 @@ import type {
 } from "@/lib/macroChartOption";
 import { resolveSlotAxisRanges } from "@/lib/macroChartOption";
 import type { NberRecessionBand } from "@/lib/data/nberRecessionBands";
-import {
-  MACRO_REGIME_VISUALS,
-  type MacroRegimeBand,
-} from "@/lib/data/macroRegimeBands";
+import type { MacroRegimeBand } from "@/lib/data/macroRegimeBands";
 import type {
   MacroDrawing,
   MacroDrawingDraft,
@@ -597,20 +594,6 @@ export function MacroChartPanel({
           onChartReady={handleChartReady}
         />
       </div>
-      {displayConfig?.showRegimeShading ? (
-        <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 px-2 pb-1 text-[10px] text-fs-muted">
-          {MACRO_REGIME_VISUALS.map((item) => (
-            <span key={item.key} className="inline-flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className="h-2.5 w-2.5 rounded-sm"
-                style={{ backgroundColor: item.color }}
-              />
-              <span>{item.label}：{item.description}</span>
-            </span>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }

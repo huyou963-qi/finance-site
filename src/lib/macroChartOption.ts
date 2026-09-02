@@ -8,6 +8,7 @@ import {
 import {
   macroRegimeMarkAreaData,
   MACRO_REGIME_MARK_AREA_STYLE,
+  MACRO_REGIME_VISUALS,
   type MacroRegimeBand,
 } from "@/lib/data/macroRegimeBands";
 import { formatMacroDisplayNumber, formatMacroDisplayValue, normalizeMacroAxisExtent } from "@/lib/formatMacroValue";
@@ -1507,7 +1508,14 @@ export function macroPayloadToChartOption(
     display.showRegimeShading && opts?.regimeBands?.length
       ? macroRegimeMarkAreaData(slice.categories, opts.regimeBands)
       : [];
-  const many = slice.series.length >= 5;
+  const regimeLegendItems = display.showRegimeShading
+    ? MACRO_REGIME_VISUALS.map((item) => ({
+        name: `${item.label}：${item.description}`,
+        icon: "roundRect" as const,
+        itemStyle: { color: item.color },
+      }))
+    : [];
+  const many = slice.series.length + regimeLegendItems.length >= 5;
   const titleSize = compact ? 11 : 13;
   const legendSize = compact ? 10 : 11;
   const gridTop = compact ? 40 : 56;
@@ -1648,7 +1656,10 @@ export function macroPayloadToChartOption(
     legend: {
       show: display.showLegend,
       type: many ? "scroll" : "plain",
-      data: slice.series.map((s) => s.name),
+      data: [
+        ...slice.series.map((s) => s.name),
+        ...regimeLegendItems,
+      ],
       textStyle: { color: CHART.muted, fontSize: legendSize },
       ...(display.legendPosition === "top"
         ? { top: compact ? 2 : 4 }
@@ -1683,7 +1694,8 @@ export function macroPayloadToChartOption(
       },
     },
     yAxis,
-    series: slice.series.map((s, seriesIndex) => {
+    series: ([
+      ...slice.series.map((s, seriesIndex) => {
       const k = s.key ?? s.name;
       const cfg = visualMap[k] ?? {};
       const chartType = cfg.chartType ?? "line";
@@ -1830,7 +1842,18 @@ export function macroPayloadToChartOption(
         clip: false,
         data: s.data,
         ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
-      };
-    }),
+        };
+      }),
+      ...regimeLegendItems.map((item) => ({
+        name: item.name,
+        type: "line" as const,
+        data: [],
+        silent: true,
+        symbol: "roundRect",
+        lineStyle: { color: item.itemStyle.color, width: 0 },
+        itemStyle: { color: item.itemStyle.color },
+        tooltip: { show: false },
+      })),
+    ] as NonNullable<EChartsOption["series"]>),
   };
 }
