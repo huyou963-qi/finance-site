@@ -194,6 +194,7 @@
     "quant:backtest": "dotenv -e .env.local -- tsx scripts/quant/run-backtest.ts",
     "quant:verify-backtest": "dotenv -e .env.local -- tsx scripts/quant/verify-backtest.ts",
     "quant:build-regime": "dotenv -e .env.local -- tsx scripts/quant/build-regime.ts",
+    "quant:run-monthly-production": "dotenv -e .env.local -- tsx scripts/quant/run-monthly-production.ts",
     "quant:verify-phase4": "dotenv -e .env.local -- tsx scripts/quant/verify-phase4.ts",
     "quant:probe-funding": "dotenv -e .env.local -- tsx scripts/quant/probe-funding-sources.ts",
     "quant:build-cusip-bridge": "dotenv -e .env.local -- tsx scripts/quant/build-cusip-bridge.ts",

@@ -61,7 +61,9 @@ pm2 restart finance-site
 
 `data:apply` 传 `--skip-migrate`，因前一步已单独跑过 `db:migrate`。两步失败**只打日志、不阻断重启**（末尾 `curl` 健康检查兜底）；若新指标无数据，请 SSH 查 deploy 日志并手动 `npm run data:apply`。
 
-**quant 平台衍生表（如 `macro_regime`）**：`data:apply` 只管本节说的 FRED 宏观数据，不包含 quant 平台的因子/regime 等计算表。`db:migrate` 之后紧跟一步 `npm run quant:build-regime`——它是纯本地计算（读库里已有的 `factor_snapshot` + 宏观数据 upsert 写回，不发外部请求），幂等、代价低，放这里保证代码上线后 regime 数据自动跟上。`factor_snapshot` 本身走的是另一条手动链路（见下节「为什么不用 pg_dump」之前的因子云同步），云端若还没导入最新 `factor_snapshot`，这步会安全地算出空网格，不报错，等因子导入后下次部署自动补齐。
+**quant 平台衍生表（如 `factor_snapshot` / `macro_regime`）**：`data:apply` 不构建量化衍生表，快速部署也不在 SSH 会话内执行重计算。部署会安装 `scripts/ops/finance-site-quant-monthly.cron`；它每天做一次轻量完成态检查，每月首次成功时以“上一个完整自然月月末”为目标，依次执行 SPY 官方持仓归档所对应的月末宇宙、成分股价格增量、个股/行业因子和 append-only Regime。成功后同月其余触发按 DB 事实幂等跳过，日志在 `logs/quant-monthly.log`。手动补跑：`npm run quant:run-monthly-production`；指定历史月末：`npm run quant:run-monthly-production -- --target=YYYY-MM-DD`。
+
+月末宇宙优先读取 `mds.sector_etf_holding` 中目标日及以前最近 10 天的 SPY 官方持仓；只有该归档缺失时才回退到目标日前最近的 `IndexConstituent`，且最多允许陈旧 62 天，绝不读取目标日之后的成员信息。`quant:build-regime -- --append-only` 只补缺失网格，不重写已经进入历史回测和前瞻账本的旧 Regime。
 
 **全链路**：`git push main` → Actions 部署 → 生产库自动落库 → worker 按 `nextRunAt` 灌满剩余观测。
 

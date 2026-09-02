@@ -1,0 +1,8 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Hong_Kong
+FINANCE_SITE_PATH=/opt/finance-site
+
+# 每日轻量检查；每月首次成功后由 DB 完成态幂等跳过。目标始终是上一个完整自然月月末。
+# SPY 官方持仓归档 → 月末宇宙 → 价格增量 → 个股/行业因子 → append-only Regime。
+10 19 * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-quant-monthly.lock nice -n 10 npm run quant:run-monthly-production >> logs/quant-monthly.log 2>&1

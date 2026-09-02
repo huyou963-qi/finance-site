@@ -105,6 +105,7 @@ coverage 分母 = 当月宇宙 ∩ 该 sector（现值 GICS）成分数；样本
 ```bash
 npm run quant:build-factors                    # 增量：补 factor_snapshot 缺的最新月
 npm run quant:build-factors -- --month=2023-06 # 重建单月
+npm run quant:build-factors -- --date=2023-06-30 # 精确重建指定月末（生产调度使用）
 npm run quant:build-factors -- --full          # 全量重建（约 25 分钟）
 npm run quant:build-factors -- --full --from=2010-01   # 断点续跑
 npm run quant:build-factors -- --full --from=2010-01 --fundamental-from=2010-01-01  # 显式基本面下限
@@ -116,7 +117,15 @@ SEC_FETCH_TIMEOUT_MS=90000 npm run equity:sync-fundamentals -- --period-type=Q -
 
 npm run quant:build-sector-factors             # 行业聚合（同样支持 --full / --month）
 npm run quant:verify-factors                   # 验收套件（A–E；--skip-incremental 跳过重建对比）
+
+# 生产月度链：上月月末宇宙 → 价格 → 个股/行业因子 → append-only Regime
+npm run quant:run-monthly-production
+npm run quant:run-monthly-production -- --target=2026-08-31 # 手动补跑指定月末
 ```
+
+生产部署安装 `scripts/ops/finance-site-quant-monthly.cron`，香港时间每天 19:10 检查一次；
+同一目标月完成后按 `FactorSnapshot`、`FactorSectorSnapshot`、`MacroRegime` 三项 DB 事实直接跳过。
+任务以独立 `flock` 防重入并降优先级运行，输出到 `logs/quant-monthly.log`。
 
 构建管线三个 pass：技术面（symbol 主序，日线分批全量载入内存）→ 基本面（月主序，
 `buildPitCrossSection`）→ 标准化+落库（逐月，先 delete 当月再插，幂等）。

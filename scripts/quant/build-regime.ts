@@ -5,12 +5,14 @@
  *   npm run quant:build-regime                       # 全网格默认参数
  *   npm run quant:build-regime -- --start=2000-01-01 --end=2025-12-31
  *   npm run quant:build-regime -- --z-window=120 --growth-z=0 --infl-z=0 --infl-mom=3
+ *   npm run quant:build-regime -- --append-only        # 只补缺失网格，不改写历史快照
  */
 import { listResearchGrid } from "../../src/lib/quant/factorResearchData";
 import {
   DEFAULT_REGIME_THRESHOLDS,
   REGIME_LABEL_ZH,
   computeRegimeSeries,
+  listStoredRegimes,
   persistRegimeSeries,
   type RegimeThresholds,
 } from "../../src/lib/quant/macroRegime";
@@ -39,6 +41,7 @@ async function main() {
   };
   const start = argValue("--start") ?? null;
   const end = argValue("--end") ?? null;
+  const appendOnly = process.argv.includes("--append-only");
 
   console.log("参数：", thresholds, { start, end });
   const grid = await listResearchGrid({ start, end });
@@ -46,7 +49,11 @@ async function main() {
 
   const started = Date.now();
   const points = await computeRegimeSeries(grid, thresholds);
-  const written = await persistRegimeSeries(points);
+  const existingDates = appendOnly
+    ? new Set((await listStoredRegimes()).map((row) => row.date))
+    : null;
+  const pending = existingDates ? points.filter((point) => !existingDates.has(point.date)) : points;
+  const written = await persistRegimeSeries(pending);
   console.log(`落库 ${written} 行（${((Date.now() - started) / 1000).toFixed(1)}s）`);
 
   const dist = new Map<string, number>();

@@ -6,11 +6,13 @@
  *   npm run equity:sync-prices                          # 市值前 100 成分 + 11 Sector ETF + SPY
  *   npm run equity:sync-prices -- --limit=500           # 市值前 500
  *   npm run equity:sync-prices -- --symbols=AAPL,GME    # 任意美股代码（不限 S&P500）
+ *   npm run equity:sync-prices -- --index-date=2026-08-31 # 指定 S&P500 宇宙快照
  *   npm run equity:sync-prices -- --full                # 强制重拉全量历史（含拆股事件）
  */
 import { prisma } from "../../src/lib/prisma";
 import { syncSymbolFromRemote } from "../../src/lib/equity/equityPriceStore";
 import { BENCHMARK_ETF, SECTOR_ETF_SYMBOLS } from "../../src/lib/equity/gicsCatalog";
+import { SP500_INDEX_CODE } from "../../src/lib/equity/equitySecurities";
 
 function argValue(name: string): string | undefined {
   const eq = process.argv.find((a) => a.startsWith(`${name}=`));
@@ -30,6 +32,7 @@ function sleep(ms: number) {
 
 async function main() {
   const symbolsArg = argValue("--symbols");
+  const indexDate = argValue("--index-date");
   const limit = Math.max(1, Number(argValue("--limit") ?? 100) || 100);
   const delayMs = Math.max(80, Number(argValue("--delay-ms") ?? 150) || 150);
   const full = hasFlag("--full");
@@ -40,6 +43,17 @@ async function main() {
       .split(",")
       .map((s) => s.trim().toUpperCase())
       .filter(Boolean);
+  } else if (indexDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(indexDate)) throw new Error(`非法 --index-date: ${indexDate}`);
+    const members = await prisma.indexConstituent.findMany({
+      where: {
+        indexCode: SP500_INDEX_CODE,
+        asOfDate: new Date(`${indexDate}T00:00:00.000Z`),
+      },
+      orderBy: { symbol: "asc" },
+      select: { symbol: true },
+    });
+    symbols = members.map((row) => row.symbol);
   } else {
     const rows = await prisma.equitySecurity.findMany({
       orderBy: [{ marketCap: "desc" }, { symbol: "asc" }],

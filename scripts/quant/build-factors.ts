@@ -3,6 +3,7 @@
  *
  * Usage:
  *   npm run quant:build-factors -- --month=2023-06   # 重建单月
+ *   npm run quant:build-factors -- --date=2023-06-30 # 重建指定月末截面
  *   npm run quant:build-factors -- --full            # 全量重建（2000-01 起全部宇宙月末）
  *   npm run quant:build-factors -- --full --from=2010-01   # 全量但从指定月起（断点续跑）
  *   npm run quant:build-factors                      # 增量：补 factor_snapshot 缺的最新月
@@ -79,6 +80,13 @@ async function resolveTargetDates(): Promise<string[]> {
   const all = await listUniverseDates();
   if (!all.length) throw new Error("index_constituent 无月末快照，先跑 equity:rebuild-sp500-history");
 
+  const date = argValue("--date");
+  if (date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !all.includes(date)) {
+      throw new Error(`日期 ${date} 无宇宙快照（可用范围 ${all[0]} ~ ${all[all.length - 1]}）`);
+    }
+    return [date];
+  }
   const month = argValue("--month");
   if (month) {
     const hits = all.filter((d) => d.startsWith(month));

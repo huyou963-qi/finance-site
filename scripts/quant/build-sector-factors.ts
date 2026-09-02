@@ -9,6 +9,7 @@
  *   npm run quant:build-sector-factors                  # 增量：补 sector 表缺的月份
  *   npm run quant:build-sector-factors -- --full        # 全量重建
  *   npm run quant:build-sector-factors -- --month=2023-06
+ *   npm run quant:build-sector-factors -- --date=2023-06-30
  */
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -43,6 +44,13 @@ async function resolveTargetDates(): Promise<string[]> {
   ).map((r) => iso(r.date));
   if (!all.length) throw new Error("factor_snapshot 为空，先跑 quant:build-factors");
 
+  const date = argValue("--date");
+  if (date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !all.includes(date)) {
+      throw new Error(`日期 ${date} 无因子快照`);
+    }
+    return [date];
+  }
   const month = argValue("--month");
   if (month) {
     const hits = all.filter((d) => d.startsWith(month));
