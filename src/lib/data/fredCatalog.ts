@@ -299,6 +299,12 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "USREC", label: "NBER 衰退指标（0/1）", category: "综合", frequency: "月" },
   { id: "VIXCLS", label: "VIX 波动率指数", category: "证券市场", frequency: "日" },
   { id: "VXVCLS", label: "CBOE S&P 500 3个月波动率指数", category: "证券市场", frequency: "日" },
+  { id: "GACDISA066MSFRBNY", label: "纽约联储帝国州制造业指数（现况）", category: "景气调查", frequency: "月" },
+  { id: "GACDFSA066MSFRBPHI", label: "费城联储制造业指数（现况）", category: "景气调查", frequency: "月" },
+  { id: "BACTSAMFRBDAL", label: "达拉斯联储得州制造业展望指数（现况）", category: "景气调查", frequency: "月" },
+  { id: "CP", label: "企业税后利润（NIPA，十亿美元，SAAR）", category: "国民经济核算", frequency: "季度" },
+  { id: "A053RC1Q027SBEA", label: "企业税前利润（NIPA，十亿美元，SAAR）", category: "国民经济核算", frequency: "季度" },
+  { id: "STLFSI4", label: "圣路易斯联储金融压力指数", category: "银行与货币", frequency: "周" },
 ] as const;
 
 type WorldBankIndicatorDef = {

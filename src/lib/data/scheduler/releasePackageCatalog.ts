@@ -678,6 +678,13 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 206,
     members: { fredSeriesIds: ["WEI"] },
   }),
+  probePkg("us.stlouisfed.financial_stress_index", "圣路易斯联储金融压力指数", {
+    labelEn: "St. Louis Fed Financial Stress Index",
+    granularity: "WEEKLY",
+    intervalHours: 24,
+    sortOrder: 207,
+    members: { fredSeriesIds: ["STLFSI4"] },
+  }),
   probePkg("us.frb.sloos", "美联储高级信贷官意见调查（SLOOS）", {
     labelEn: "Senior Loan Officer Opinion Survey on Bank Lending Practices",
     granularity: "QUARTERLY",
@@ -846,6 +853,27 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 225,
     members: { fredSeriesIds: ["USREC"] },
   }),
+  probePkg("us.nyfed.empire_state", "纽约联储：帝国州制造业指数", {
+    labelEn: "Empire State Manufacturing Survey",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 226,
+    members: { fredSeriesIds: ["GACDISA066MSFRBNY"] },
+  }),
+  probePkg("us.philadelphiafed.mbos", "费城联储：制造业展望调查", {
+    labelEn: "Manufacturing Business Outlook Survey",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 227,
+    members: { fredSeriesIds: ["GACDFSA066MSFRBPHI"] },
+  }),
+  probePkg("us.dallasfed.tmos", "达拉斯联储：得州制造业展望调查", {
+    labelEn: "Texas Manufacturing Outlook Survey",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 228,
+    members: { fredSeriesIds: ["BACTSAMFRBDAL"] },
+  }),
   pkg("us.census.m3", "美国制造商订单与库存（M3）", {
     labelEn: "Manufacturer's Shipments, Inventories, and Orders (M3)",
     granularity: "MONTHLY",
@@ -914,6 +942,13 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     members: {
       fredSeriesIds: ["IIPUSNETIQ", "IIPDIRELMVQ", "IIPPORTLQ", "IIPOTHELQ"],
     },
+  }),
+  probePkg("us.bea.corporate_profits", "美国企业利润（NIPA）", {
+    labelEn: "BEA National Income: Corporate Profits",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 235,
+    members: { fredSeriesIds: ["CP", "A053RC1Q027SBEA"] },
   }),
   // BIS 无「某日宣布」式日历，按官方数据流（= 官方发布批次）分两组
   probePkg("intl.bis.total_credit", "BIS 总信贷（杠杆率 / %GDP）", {

@@ -50,6 +50,18 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   },
   "ism-te": { script: "seed-ism-te", labelZh: "ISM 制造业官网抓取（TE 备份）" },
   "ism-svc-te": { script: "seed-ism-svc-te", labelZh: "ISM 服务业官网抓取（TE 备份）" },
+  "regional-fed-surveys": {
+    script: "seed-regional-fed-surveys",
+    labelZh: "地区联储制造业景气调查（纽约/费城/达拉斯）",
+  },
+  "corporate-profits": {
+    script: "seed-corporate-profits",
+    labelZh: "BEA NIPA 企业利润（税前/税后）",
+  },
+  "financial-stress": {
+    script: "seed-financial-stress",
+    labelZh: "圣路易斯联储金融压力指数（STLFSI4）",
+  },
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
@@ -117,6 +129,21 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "gold-market": {
     script: "verify-gold-market",
     labelZh: "黄金分析已确认原始市场口径自检",
+    verifyNeedsDb: true,
+  },
+  "regional-fed-surveys": {
+    script: "verify-regional-fed-surveys",
+    labelZh: "地区联储制造业景气调查自检",
+    verifyNeedsDb: true,
+  },
+  "corporate-profits": {
+    script: "verify-corporate-profits",
+    labelZh: "BEA NIPA 企业利润自检",
+    verifyNeedsDb: true,
+  },
+  "financial-stress": {
+    script: "verify-financial-stress",
+    labelZh: "圣路易斯联储金融压力指数自检",
     verifyNeedsDb: true,
   },
 };
