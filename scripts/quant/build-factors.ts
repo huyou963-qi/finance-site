@@ -48,7 +48,9 @@ const BENCHMARK_SYMBOL = "SPY";
  * 2026-07 P0 深历史回填后从 2020-06-01 下调到 2010-01-01。
  */
 const FUNDAMENTAL_MIN_DATE = argValue("--fundamental-from") ?? "2010-01-01";
-const PRICE_BATCH = 30;
+// 全历史 OHLCV 行在 Prisma 中会膨胀为大量 JS 对象；小批量可显著降低常驻峰值，
+// 为同机 Next.js 与 PostgreSQL 留出稳定余量。
+const PRICE_BATCH = 10;
 const INSERT_CHUNK = 1000;
 
 function argFlag(name: string): boolean {
