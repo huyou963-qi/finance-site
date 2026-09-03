@@ -5,6 +5,21 @@ export type MacroSlotAssignment = Record<string, number | null>;
 
 export type MacroSlotSeriesOrder = Partial<Record<number, string[]>>;
 
+/** 让设置面板的指标顺序跟实际图表 payload 保持一致；尚无数据的键稳定追加。 */
+export function orderMacroKeysByPayload(
+  keys: readonly string[],
+  payload: MacroPayload | null | undefined,
+): string[] {
+  const remaining = new Set(keys);
+  const ordered: string[] = [];
+  for (const series of payload?.series ?? []) {
+    const key = series.key?.trim();
+    if (!key || !remaining.delete(key)) continue;
+    ordered.push(key);
+  }
+  return [...ordered, ...[...remaining].sort((a, b) => a.localeCompare(b))];
+}
+
 /** 按用户保存的图内顺序排列；未记录的新指标稳定追加在末尾。 */
 export function orderMacroSeriesByKey<T extends { key?: string }>(
   series: readonly T[],

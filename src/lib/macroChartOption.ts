@@ -44,6 +44,29 @@ export type MacroSeriesVisualConfig = {
 
 export type MacroSeriesVisualConfigMap = Record<string, MacroSeriesVisualConfig>;
 
+/**
+ * 宏观时序图的稳定默认调色板。
+ *
+ * 不依赖 ECharts 的隐式主题默认值：图表渲染和「单图设置」色块必须共同使用
+ * 这一映射，否则未显式配置颜色的指标会在设置面板中显示成错误的灰色。
+ */
+export const MACRO_SERIES_COLOR_PALETTE = [
+  "#5470c6",
+  "#91cc75",
+  "#fac858",
+  "#ee6666",
+  "#73c0de",
+  "#3ba272",
+  "#fc8452",
+  "#9a60b4",
+  "#ea7ccc",
+] as const;
+
+export function defaultMacroSeriesColor(seriesIndex: number): string {
+  const safeIndex = Number.isFinite(seriesIndex) ? Math.max(0, Math.floor(seriesIndex)) : 0;
+  return MACRO_SERIES_COLOR_PALETTE[safeIndex % MACRO_SERIES_COLOR_PALETTE.length]!;
+}
+
 export type MacroLegendPosition = "bottom" | "top";
 export type MacroChartSlotMode =
   | "timeSeries"
@@ -581,6 +604,7 @@ export function macroSliceToSeasonalChartOption(
         }
       : undefined,
     backgroundColor: "transparent",
+    color: [...MACRO_SERIES_COLOR_PALETTE],
     textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
     tooltip: display.showTooltip
       ? {
@@ -671,6 +695,7 @@ export function macroSliceToPieChartOption(
         }
       : undefined,
     backgroundColor: "transparent",
+    color: [...MACRO_SERIES_COLOR_PALETTE],
     textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
     tooltip: display.showTooltip
       ? {
@@ -1622,6 +1647,7 @@ export function macroPayloadToChartOption(
         }
       : undefined,
     backgroundColor: "transparent",
+    color: [...MACRO_SERIES_COLOR_PALETTE],
     textStyle: { color: CHART.text, fontSize: compact ? 11 : 12 },
     tooltip: display.showTooltip
       ? {

@@ -4,6 +4,7 @@ import { useState, type DragEvent } from "react";
 import { unifiedSeriesDisplayName } from "@/lib/data/macroCatalog";
 import {
   moveMacroKeyRelative,
+  orderMacroKeysByPayload,
   orderMacroSeriesByKey,
   type MacroSlotAssignment,
 } from "@/lib/macroPartition";
@@ -16,6 +17,7 @@ import type {
   MacroSeriesVisualConfigMap,
 } from "@/lib/macroChartOption";
 import {
+  defaultMacroSeriesColor,
   DEFAULT_SEASONAL_YEAR_COUNT,
   isAltMacroSlotMode,
   resolveSlotSeasonalYearCount,
@@ -80,7 +82,7 @@ export function MacroChartIndicatorAssignment({
     | null
   >(null);
 
-  const keysList = [...selectedKeys].sort((a, b) => a.localeCompare(b));
+  const keysList = orderMacroKeysByPayload([...selectedKeys], chartPayload);
 
   function resolvedSlot(key: string): number | null {
     const cap = Math.max(0, layoutMode - 1);
@@ -674,7 +676,7 @@ export function MacroChartIndicatorAssignment({
               {bySlot[slot].length === 0 ? (
                 <span className="text-[11px] text-fs-secondary">拖入指标…</span>
               ) : (
-                bySlot[slot].map((key) => {
+                bySlot[slot].map((key, seriesIndex) => {
                   const cfg = seriesVisualMap[key] ?? {};
                   const isAltSlot = isAltMacroSlotMode(slotMode(slot));
                   return (
@@ -703,7 +705,7 @@ export function MacroChartIndicatorAssignment({
                       </button>
                       <input
                         type="color"
-                        value={cfg.color ?? "#64748b"}
+                        value={cfg.color ?? defaultMacroSeriesColor(seriesIndex)}
                         onChange={(e) =>
                           onUpdateSeriesVisual(key, { color: e.target.value })
                         }

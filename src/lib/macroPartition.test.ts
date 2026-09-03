@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { MacroPayload } from "@/lib/data/types";
-import { moveMacroKeyRelative, partitionMacroSeries } from "./macroPartition";
+import {
+  moveMacroKeyRelative,
+  orderMacroKeysByPayload,
+  partitionMacroSeries,
+} from "./macroPartition";
 
 const payload: MacroPayload = {
   title: "test",
@@ -41,4 +45,18 @@ test("moveMacroKeyRelative supports before and after drops", () => {
     "a",
     "c",
   ]);
+});
+
+test("settings keys follow the actual payload series order", () => {
+  assert.deepEqual(
+    orderMacroKeysByPayload(["b", "c", "a", "missing"], payload),
+    ["a", "b", "c", "missing"],
+  );
+  assert.deepEqual(
+    orderMacroKeysByPayload(["c", "a"], {
+      ...payload,
+      series: [payload.series[2]!, payload.series[0]!],
+    }),
+    ["c", "a"],
+  );
 });
