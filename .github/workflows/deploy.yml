@@ -109,6 +109,7 @@ jobs:
           install -m 0644 scripts/ops/finance-site-sector-history.cron /etc/cron.d/finance-site-sector-history
           install -m 0644 scripts/ops/finance-site-quant-monthly.cron /etc/cron.d/finance-site-quant-monthly
           install -m 0644 scripts/ops/finance-site-data.logrotate /etc/logrotate.d/finance-site-data
+          chmod +x scripts/ops/host-diagnostics-snapshot.sh scripts/ops/host-diagnostics-boot.sh
 
           # Fast deploy: migrations plus catalog definitions, subscriptions,
           # release packages and layout. No history backfills, calendar fetches,

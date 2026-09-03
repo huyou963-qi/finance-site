@@ -37,6 +37,7 @@ import {
 import { computeFundingFactors, MIN_FILER_COVERAGE, type PeriodAgg } from "../../src/lib/quant/fundingFactors";
 import { loadFundingPeriods, loadAdequatePeriods } from "../../src/lib/quant/fundingData";
 import { FACTOR_MAP } from "../../src/lib/quant/factorRegistry";
+import { fundingHistoryStart } from "../../src/lib/quant/monthlyProduction";
 
 const BENCHMARK_SYMBOL = "SPY";
 /**
@@ -219,25 +220,26 @@ async function main() {
   console.log(`技术面 pass 完成（有价格 symbol ${techSymbolsWithPrice}/${allSymbols.length}）`);
 
   // ── 2) 基本面 + 资金面 pass（月主序） ──
+  const fundDates = dates.filter((d) => d >= FUNDAMENTAL_MIN_DATE);
   // 资金面（13F 机构持仓）逐 symbol 聚合预载一次（拆股归一在此完成）；无桥接持仓则空表
   let periodsBySymbol = new Map<string, PeriodAgg[]>();
   // WS1 覆盖度门槛：全市场 filer 数达标的报告期集合；稀疏期因子整期置 null（见 fundingFactors）
   let adequatePeriods = new Set<string>();
   try {
+    const fundingStart = fundingHistoryStart(fundDates[0] ?? dates[0]!);
     [periodsBySymbol, adequatePeriods] = await Promise.all([
-      loadFundingPeriods(allSymbols),
+      loadFundingPeriods(allSymbols, fundingStart),
       loadAdequatePeriods(),
     ]);
     const withFunding = [...periodsBySymbol.values()].filter((p) => p.length).length;
     console.log(
-      `资金面预载：${withFunding}/${allSymbols.length} 只有 13F 持仓聚合；` +
+      `资金面预载（${fundingStart} 起）：${withFunding}/${allSymbols.length} 只有 13F 持仓聚合；` +
         `覆盖度达标报告期 ${adequatePeriods.size} 个（filer≥${MIN_FILER_COVERAGE}，稀疏期因子置 null）`,
     );
   } catch (e) {
     console.warn("资金面预载失败（institutional_holding 未就绪？）：", e instanceof Error ? e.message : e);
   }
 
-  const fundDates = dates.filter((d) => d >= FUNDAMENTAL_MIN_DATE);
   for (const d of fundDates) {
     const closes = await loadClosesAsOf(universeByDate.get(d) ?? [], d);
     const cs = await buildPitCrossSection(d, { closes });

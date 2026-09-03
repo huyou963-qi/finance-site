@@ -11,7 +11,9 @@ import {
   type PeriodAgg,
 } from "@/lib/quant/fundingFactors";
 
-const SYMBOL_BATCH = 60;
+// Prisma 会把一个批次的每条 13F 持仓实体化为 JS 对象。60 只股票叠加多年
+// 历史曾让 3.4 GiB 生产机达到 2 GiB RSS 并触发系统 OOM；小批量确保峰值可控。
+const SYMBOL_BATCH = 10;
 
 type SplitEvt = { exIso: string; ratio: number };
 
