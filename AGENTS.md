@@ -164,6 +164,8 @@ npm run db:studio        # Prisma Studio
 
 「中国国家统计局 CPI」：`data:seed-nbs-cpi` → `data:sync-nbs-cpi` / `data:verify-nbs-cpi`（加 `--db`）；全国总项、核心项及八大类的指数、同比、环比走国家数据 UUID 接口全历史 + 官方月报 Excel 首发。
 
+「CBOE VIX9D / VVIX」：`data:seed-cboe-vix9d-vvix` → `data:sync-cboe-vix9d-vvix` / `data:verify-cboe-vix9d-vvix`（加 `--db`）；9 日波动率与 VIX 之 VIX 走 CBOE 官方结构化 CSV 全历史（`cdn.cboe.com/api/global/us_indices/daily_prices/`），非 FRED 序列（已核实），日频 `probe_interval` 探测。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

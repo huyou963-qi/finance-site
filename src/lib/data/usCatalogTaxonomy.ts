@@ -284,6 +284,9 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   if (code.startsWith("usov_")) {
     return p("利率与信用市场", "市场情绪");
   }
+  if (code.startsWith("cboe_")) {
+    return p("利率与信用市场", "市场情绪");
+  }
   if (code.startsWith("debtcap_")) {
     return p("财政与公共债务", "债务存量");
   }
