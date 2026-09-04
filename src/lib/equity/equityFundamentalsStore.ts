@@ -39,6 +39,7 @@ export async function upsertQuarterlyFundamentals(
       cash: r.cash,
       sharesOutstanding: r.sharesOutstanding,
       dividendsPaid: r.dividendsPaid,
+      buybackPaid: r.buybackPaid,
       fiscalDate,
       // PIT：该季数据首次披露日（详见 SecQuarterlyFundamentals.firstReportedAt）
       firstReportedAt: r.firstReportedAt
@@ -100,6 +101,7 @@ function toRow(r: {
   cash: number | null;
   sharesOutstanding: number | null;
   dividendsPaid: number | null;
+  buybackPaid: number | null;
 }): QuarterSnapshotRow {
   return {
     period: r.period,
@@ -118,6 +120,7 @@ function toRow(r: {
     ocf: r.ocf,
     capex: r.capex,
     dividendsPaid: r.dividendsPaid,
+    buybackPaid: r.buybackPaid,
     totalAssets: r.totalAssets,
     totalLiabilities: r.totalLiabilities,
     equity: r.equity,

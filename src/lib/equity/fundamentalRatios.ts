@@ -203,6 +203,7 @@ export function aggregateFiscalYears(quarters: QuarterWithMargins[]): FiscalYear
       ocf,
       capex,
       dividendsPaid: sumOrNull(g, (r) => r.dividendsPaid),
+      buybackPaid: sumOrNull(g, (r) => r.buybackPaid),
       totalAssets: last.totalAssets,
       totalLiabilities: last.totalLiabilities,
       equity: last.equity,

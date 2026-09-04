@@ -18,6 +18,7 @@ import {
 type StatementRow = FundamentalQuarterPoint & {
   netIncome: number | null;
   dividendsPaid: number | null;
+  buybackPaid: number | null;
   totalAssets: number | null;
   totalLiabilities: number | null;
   equity: number | null;
@@ -54,6 +55,7 @@ type FundamentalsPayload = {
     ev: number | null;
     fcfYield: number | null;
     dividendYield: number | null;
+    buybackYield: number | null;
   } | null;
   valuationHistory: {
     points: ValuationBandPoint[];
@@ -169,6 +171,7 @@ const STATEMENT_SECTIONS: SectionDef[] = [
       { label: "资本开支", kind: "money", sel: (r) => r.capex },
       { label: "自由现金流", kind: "money", sel: (r) => r.fcf },
       { label: "分红支付", kind: "money", sel: (r) => r.dividendsPaid },
+      { label: "股票回购", kind: "money", sel: (r) => r.buybackPaid },
     ],
   },
 ];
@@ -452,7 +455,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
           {tab === "overview" ? (
             <>
               {data.valuation ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-8">
                   {(
                     [
                       [
@@ -475,6 +478,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                         "FCF 收益率 / 股息率",
                         `${fmtPct(data.valuation.fcfYield)} / ${fmtPct(data.valuation.dividendYield)}`,
                       ],
+                      ["回购收益率", fmtPct(data.valuation.buybackYield)],
                     ] as const
                   ).map(([label, value]) => (
                     <div

@@ -50,6 +50,7 @@ export const FACTOR_DEFS: readonly FactorDef[] = [
   { key: "salesYield", nameZh: "营收收益率", nameEn: "Sales Yield (S/P)", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM 营收 / PIT 市值" },
   { key: "fcfYield", nameZh: "自由现金流收益率", nameEn: "FCF Yield", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM (OCF−CapEx) / PIT 市值" },
   { key: "dividendYield", nameZh: "股息率", nameEn: "Dividend Yield", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM |分红| / PIT 市值" },
+  { key: "buybackYield", nameZh: "回购收益率", nameEn: "Buyback Yield", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM |股票回购支出| / PIT 市值（XBRL PaymentsForRepurchaseOfCommonStock）" },
   { key: "ocfToEv", nameZh: "经营现金流/企业价值", nameEn: "OCF / EV", category: "valuation", higherIsBetter: true, requires: "price+fundamental", startYear: 2012, note: "TTM OCF / (市值+长期债务−现金)；EV/OCF 的单调化倒数（EV/EBITDA 替代）" },
 
   // ── 质量 quality ───────────────────────────────────────────────────────────

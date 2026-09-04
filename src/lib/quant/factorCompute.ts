@@ -265,8 +265,14 @@ export function computeFundamentalFactors(row: PitEquityRow, t: string): Record<
       // 不分红公司 dividendsPaid 常为 null：TTM 窗口成立即按 0 计（股息率真实为 0）
       const idx = quarters.length - 4;
       let div = 0;
-      for (let k = idx; k < quarters.length; k++) div += quarters[k]!.dividendsPaid ?? 0;
+      let buyback = 0;
+      for (let k = idx; k < quarters.length; k++) {
+        div += quarters[k]!.dividendsPaid ?? 0;
+        buyback += quarters[k]!.buybackPaid ?? 0;
+      }
       put("dividendYield", Math.abs(div) / mcap);
+      // 不回购公司 buybackPaid 常为 null：同股息率口径，TTM 窗口成立即按 0 计
+      put("buybackYield", Math.abs(buyback) / mcap);
     }
     const ev = mcap + (latest.longTermDebt ?? 0) - (latest.cash ?? 0);
     put("ocfToEv", ttm?.ocf != null && ev > 0 ? ttm.ocf / ev : null);

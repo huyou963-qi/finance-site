@@ -18,6 +18,7 @@ function q(
     ocf: 20,
     capex: 5,
     dividendsPaid: 4,
+    buybackPaid: null,
     totalAssets: 400,
     totalLiabilities: 250,
     equity: 150,

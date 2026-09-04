@@ -176,6 +176,7 @@ export async function aggregateSectorFundamentals(
           ocf: r.ocf,
           capex: r.capex,
           dividendsPaid: r.dividendsPaid,
+          buybackPaid: r.buybackPaid,
           totalAssets: r.totalAssets,
           totalLiabilities: r.totalLiabilities,
           equity: r.equity,

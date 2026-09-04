@@ -13,6 +13,7 @@ export type QuarterFundamentalRow = {
   ocf: number | null;
   capex: number | null;
   dividendsPaid: number | null;
+  buybackPaid: number | null;
   totalAssets: number | null;
   totalLiabilities: number | null;
   equity: number | null;
@@ -32,6 +33,7 @@ export type TtmAggregates = {
   /** FCF = OCF − CapEx（CapEx 在 XBRL 中为正的现金流出） */
   fcf: number | null;
   dividendsPaid: number | null;
+  buybackPaid: number | null;
 };
 
 export type ValuationCard = {
@@ -46,6 +48,8 @@ export type ValuationCard = {
   ev: number | null;
   fcfYield: number | null;
   dividendYield: number | null;
+  /** TTM |回购支出| / 市值（buyback yield，"股票供给收缩"口径） */
+  buybackYield: number | null;
 };
 
 const DAY_MS = 86_400_000;
@@ -90,6 +94,7 @@ export function computeTtm(quarters: QuarterFundamentalRow[]): TtmAggregates | n
       return ocf != null && capex != null ? ocf - capex : null;
     })(),
     dividendsPaid: sum4(last4, (r) => r.dividendsPaid),
+    buybackPaid: sum4(last4, (r) => r.buybackPaid),
   };
 }
 
@@ -125,6 +130,7 @@ export function computeValuation(
   const ltDebt = latestQuarter?.longTermDebt ?? null;
   const cash = latestQuarter?.cash ?? null;
   const div = ttm?.dividendsPaid ?? null;
+  const buyback = ttm?.buybackPaid ?? null;
 
   return {
     price,
@@ -138,5 +144,7 @@ export function computeValuation(
     fcfYield: ratio(ttm?.fcf ?? null, marketCap),
     // XBRL PaymentsOfDividends 为正的现金流出
     dividendYield: div != null ? ratio(Math.abs(div), marketCap) : null,
+    // XBRL PaymentsForRepurchaseOfCommonStock 为正的现金流出
+    buybackYield: buyback != null ? ratio(Math.abs(buyback), marketCap) : null,
   };
 }

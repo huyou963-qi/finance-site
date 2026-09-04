@@ -914,6 +914,8 @@ model EquityFundamentalSnapshot {
   cash              Float?
   sharesOutstanding Float?    @map("shares_outstanding")
   dividendsPaid     Float?    @map("dividends_paid")
+  /// 融资活动现金流出——普通股回购（XBRL PaymentsForRepurchaseOfCommonStock，正值=现金流出）
+  buybackPaid       Float?    @map("buyback_paid")
   /// 财报期实际截止日（period 是标准化标签，此列保留公司真实财季末）
   fiscalDate        DateTime? @map("fiscal_date") @db.Date
   /// 财季位置 1–4（由 10-K 年度期末锚定；年度聚合按 FQ4 分组）
@@ -962,6 +964,8 @@ model EquityFundamentalVintage {
   cash              Float?
   sharesOutstanding Float?    @map("shares_outstanding")
   dividendsPaid     Float?    @map("dividends_paid")
+  /// 融资活动现金流出——普通股回购（XBRL PaymentsForRepurchaseOfCommonStock，正值=现金流出）
+  buybackPaid       Float?    @map("buyback_paid")
   firstReportedAt   DateTime? @map("first_reported_at") @db.Date
   source            String    @default("sec-companyfacts") @db.VarChar(64)
   metadata          Json?
