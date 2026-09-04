@@ -23,7 +23,7 @@ export type UsCatalogPlacement = {
 
 /** 各大类下的子类顺序（布局重建用） */
 export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> = {
-  国民经济: ["核算", "工业", "消费与国内需求", "景气综合"],
+  国民经济: ["核算", "工业", "消费与国内需求", "景气综合", "物流与出行"],
   通胀与价格: ["CPI", "PCE与PPI", "通胀预期与能源"],
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
   货币政策与流动性: ["政策利率", "联储资产负债表", "财政部账户与货币市场"],
@@ -295,6 +295,9 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   }
   if (code.startsWith("damodaran_")) {
     return p("利率与信用市场", "股权风险溢价");
+  }
+  if (code.startsWith("tsa_") || code.startsWith("aar_")) {
+    return p("国民经济", "物流与出行");
   }
   return null;
 }

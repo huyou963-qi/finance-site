@@ -201,6 +201,26 @@ export async function fetchSubscriptionIncremental(
         const { fetchMofcomTradeIncremental } = await import("./adapters/mofcomTradeAdapter");
         return fetchMofcomTradeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "tsa_passenger_volumes") {
+        const { fetchTsaPassengerVolumesIncremental } = await import(
+          "./adapters/tsaPassengerVolumesAdapter"
+        );
+        return fetchTsaPassengerVolumesIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
+      if (scrapeObj.provider === "aar_rail_carloads" || scrapeObj.provider === "aar_rail_intermodal") {
+        const { fetchAarRailTrafficIncremental } = await import(
+          "./adapters/aarRailTrafficAdapter"
+        );
+        return fetchAarRailTrafficIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }
