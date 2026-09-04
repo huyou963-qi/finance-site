@@ -105,6 +105,16 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "damodaran_erp") {
+        const { fetchDamodaranErpIncremental } = await import(
+          "./adapters/damodaranErpAdapter"
+        );
+        return fetchDamodaranErpIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "gold_etf_holdings") {
         const { fetchGoldEtfHoldingsIncremental } = await import(
           "./adapters/goldEtfHoldingsAdapter"

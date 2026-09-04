@@ -27,7 +27,7 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
   通胀与价格: ["CPI", "PCE与PPI", "通胀预期与能源"],
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
   货币政策与流动性: ["政策利率", "联储资产负债表", "财政部账户与货币市场"],
-  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪"],
+  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价"],
   金融条件与银行: ["金融条件指数", "银行信贷", "资产质量"],
   财政与公共债务: [
     "MTS现金流量",
@@ -289,6 +289,9 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   }
   if (code.includes("recession") || code.includes("nyfed")) {
     return p("国民经济", "景气综合");
+  }
+  if (code.startsWith("damodaran_")) {
+    return p("利率与信用市场", "股权风险溢价");
   }
   return null;
 }
