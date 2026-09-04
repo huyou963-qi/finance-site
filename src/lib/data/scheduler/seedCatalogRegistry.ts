@@ -65,6 +65,14 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-financial-stress",
     labelZh: "圣路易斯联储金融压力指数（STLFSI4）",
   },
+  "caixin-pmi-te": {
+    script: "seed-caixin-pmi-te",
+    labelZh: "中国制造业PMI（民间口径，TE 抓取）",
+  },
+  "euro-composite-pmi-te": {
+    script: "seed-euro-composite-pmi-te",
+    labelZh: "欧元区综合PMI（TE 抓取）",
+  },
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
@@ -150,6 +158,16 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "financial-stress": {
     script: "verify-financial-stress",
     labelZh: "圣路易斯联储金融压力指数自检",
+    verifyNeedsDb: true,
+  },
+  "caixin-pmi": {
+    script: "verify-caixin-pmi",
+    labelZh: "中国制造业PMI（民间口径）自检",
+    verifyNeedsDb: true,
+  },
+  "euro-composite-pmi": {
+    script: "verify-euro-composite-pmi",
+    labelZh: "欧元区综合PMI自检",
     verifyNeedsDb: true,
   },
 };

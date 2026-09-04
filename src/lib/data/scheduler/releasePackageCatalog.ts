@@ -8,6 +8,8 @@ import type { CalendarMatchSpec } from "./teEventMap";
 import { mergedUsovFredMap } from "./usovFredMap";
 import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
 import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPaymentsFredSeedCatalog";
+import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPmiCatalog";
+import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -448,6 +450,44 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
         "chov_c06_nm_pmi",
       ],
       instrumentCodePatterns: ["nbs_cn_mfg_*", "nbs_cn_non_mfg_*"],
+    },
+  }),
+  pkg("cn.spglobal.manufacturing-pmi", "中国制造业PMI（民间口径）", {
+    labelEn: "China Manufacturing PMI (S&P Global, private survey)",
+    countryCode: "CN",
+    granularity: "MONTHLY",
+    sortOrder: 255,
+    calendar: {
+      countryCodes: ["CN"],
+      keywords: [
+        "ratingdog manufacturing pmi",
+        "ratingdog china manufacturing pmi",
+        "caixin manufacturing pmi",
+        "caixin china manufacturing pmi",
+      ],
+      excludeKeywords: ["composite", "services", "non-manufacturing", "flash"],
+    },
+    members: {
+      instrumentCodes: [CAIXIN_PMI_INSTRUMENT_CODE],
+    },
+  }),
+  pkg("eu.spglobal.composite-pmi", "欧元区综合PMI", {
+    labelEn: "Eurozone Composite PMI (S&P Global)",
+    countryCode: "EU",
+    granularity: "MONTHLY",
+    sortOrder: 256,
+    calendar: {
+      countryCodes: ["EU"],
+      keywords: [
+        "s&p global composite pmi final",
+        "eurozone composite pmi final",
+        "s&p global composite pmi",
+        "eurozone composite pmi",
+      ],
+      excludeKeywords: ["flash", "manufacturing", "services", "construction"],
+    },
+    members: {
+      instrumentCodes: [EURO_COMPOSITE_PMI_INSTRUMENT_CODE],
     },
   }),
   pkg("cn.nbs.cpi", "中国居民消费价格", {

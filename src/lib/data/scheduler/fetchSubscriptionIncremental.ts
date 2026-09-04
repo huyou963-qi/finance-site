@@ -95,6 +95,26 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "tradingeconomics_caixin_mfg_pmi") {
+        const { fetchTradingEconomicsCaixinPmiIncremental } = await import(
+          "./adapters/tradingEconomicsCaixinPmiAdapter"
+        );
+        return fetchTradingEconomicsCaixinPmiIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
+      if (scrapeObj.provider === "tradingeconomics_eurozone_composite_pmi") {
+        const { fetchTradingEconomicsEuroCompositePmiIncremental } = await import(
+          "./adapters/tradingEconomicsEuroCompositePmiAdapter"
+        );
+        return fetchTradingEconomicsEuroCompositePmiIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "nyfed_recession") {
         const { fetchNyFedRecessionIncremental } = await import(
           "./adapters/nyFedRecessionAdapter"
