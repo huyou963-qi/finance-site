@@ -105,6 +105,16 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "nyfed_gscpi") {
+        const { fetchNyFedGscpiIncremental } = await import(
+          "./adapters/nyFedGscpiAdapter"
+        );
+        return fetchNyFedGscpiIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "damodaran_erp") {
         const { fetchDamodaranErpIncremental } = await import(
           "./adapters/damodaranErpAdapter"

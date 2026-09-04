@@ -290,6 +290,9 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   if (code.startsWith("debtcap_")) {
     return p("财政与公共债务", "债务存量");
   }
+  if (code.includes("gscpi")) {
+    return p("国民经济", "景气综合");
+  }
   if (code.includes("recession") || code.includes("nyfed")) {
     return p("国民经济", "景气综合");
   }

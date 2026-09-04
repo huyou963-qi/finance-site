@@ -166,6 +166,8 @@ npm run db:studio        # Prisma Studio
 
 「CBOE VIX9D / VVIX」：`data:seed-cboe-vix9d-vvix` → `data:sync-cboe-vix9d-vvix` / `data:verify-cboe-vix9d-vvix`（加 `--db`）；9 日波动率与 VIX 之 VIX 走 CBOE 官方结构化 CSV 全历史（`cdn.cboe.com/api/global/us_indices/daily_prices/`），非 FRED 序列（已核实），日频 `probe_interval` 探测。
 
+「NY Fed 全球供应链压力指数（GSCPI）」：`data:seed-nyfed-gscpi` → `data:sync-nyfed-gscpi` / `data:verify-nyfed-gscpi`（加 `--db`）；运输成本+制造业指标 PCA 合成的供应链压力标准化指数，走纽约联储官方 `gscpi_data.xlsx` 月度全历史（1998-01 起），非 FRED 序列（已核实），月频 `probe_interval`（72h）探测；归入「国民经济」目录。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |
