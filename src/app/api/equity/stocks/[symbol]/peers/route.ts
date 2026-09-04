@@ -77,6 +77,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         ocf: s.ocf,
         capex: s.capex,
         dividendsPaid: s.dividendsPaid,
+        buybackPaid: s.buybackPaid,
         totalAssets: s.totalAssets,
         totalLiabilities: s.totalLiabilities,
         equity: s.equity,

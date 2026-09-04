@@ -39,6 +39,7 @@ type VintageRow = {
   cash: number | null;
   sharesOutstanding: number | null;
   dividendsPaid: number | null;
+  buybackPaid: number | null;
 };
 
 type HoldingRow = {
@@ -198,6 +199,7 @@ function toQuarter(row: VintageRow): PitQuarterRow | null {
     ocf: row.ocf,
     capex: row.capex,
     dividendsPaid: row.dividendsPaid,
+    buybackPaid: row.buybackPaid,
     totalAssets: row.totalAssets,
     totalLiabilities: row.totalLiabilities,
     equity: row.equity,
@@ -241,7 +243,8 @@ async function buildStrictRows(
         long_term_debt AS "longTermDebt",
         cash,
         shares_outstanding AS "sharesOutstanding",
-        dividends_paid AS "dividendsPaid"
+        dividends_paid AS "dividendsPaid",
+        buyback_paid AS "buybackPaid"
       FROM mds.equity_fundamental_vintage
       WHERE symbol = ANY(${symbols})
         AND period_type = 'Q'

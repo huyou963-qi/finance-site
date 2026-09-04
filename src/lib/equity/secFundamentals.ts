@@ -193,6 +193,7 @@ export type SecQuarterlyFundamentals = {
   ocf: number | null;
   capex: number | null;
   dividendsPaid: number | null;
+  buybackPaid: number | null;
   // 资产负债表（季末时点）
   totalAssets: number | null;
   totalLiabilities: number | null;
@@ -231,6 +232,10 @@ const FLOW_CONCEPTS = {
     "PaymentsForCapitalImprovements",
   ],
   dividendsPaid: ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends"],
+  buybackPaid: [
+    "PaymentsForRepurchaseOfCommonStock",
+    "PaymentsForRepurchaseOfEquity",
+  ],
 } as const;
 
 const INSTANT_CONCEPTS = {
@@ -801,6 +806,7 @@ export function extractQuarterlyFundamentals(
   const ocfQ = flowSeries(FLOW_CONCEPTS.ocf, ["USD"]);
   const capexQ = flowSeries(FLOW_CONCEPTS.capex, ["USD"]);
   const divQ = flowSeries(FLOW_CONCEPTS.dividendsPaid, ["USD"]);
+  const buybackQ = flowSeries(FLOW_CONCEPTS.buybackPaid, ["USD"]);
 
   const assetsAt = pickInstantSeries(gaap, INSTANT_CONCEPTS.totalAssets, ["USD"]);
   const liabAt = pickInstantSeries(gaap, INSTANT_CONCEPTS.totalLiabilities, ["USD"]);
@@ -833,6 +839,7 @@ export function extractQuarterlyFundamentals(
     const ocfHit = flowAt(ocfQ, q.end);
     const capexHit = flowAt(capexQ, q.end);
     const divHit = flowAt(divQ, q.end);
+    const buybackHit = flowAt(buybackQ, q.end);
     const epsIdx = epsQ.findIndex((r) => r.end === q.end);
     const epsHit = epsIdx >= 0 ? epsQ[epsIdx]! : null;
     epsDerived.push(epsHit?.derived ?? false);
@@ -866,6 +873,7 @@ export function extractQuarterlyFundamentals(
       ocfHit?.filed,
       capexHit?.filed,
       divHit?.filed,
+      buybackHit?.filed,
       assetsPt?.firstFiled,
       liabPt?.firstFiled,
       equityPt?.firstFiled,
@@ -890,6 +898,7 @@ export function extractQuarterlyFundamentals(
       ocf: ocfHit?.val ?? null,
       capex: capexHit?.val ?? null,
       dividendsPaid: divHit?.val ?? null,
+      buybackPaid: buybackHit?.val ?? null,
       totalAssets,
       totalLiabilities,
       equity,

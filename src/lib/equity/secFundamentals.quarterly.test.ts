@@ -499,6 +499,7 @@ function qRow(partial: Partial<QuarterFundamentalRow> & { period: string; fiscal
     ocf: null,
     capex: null,
     dividendsPaid: null,
+    buybackPaid: null,
     totalAssets: null,
     totalLiabilities: null,
     equity: null,

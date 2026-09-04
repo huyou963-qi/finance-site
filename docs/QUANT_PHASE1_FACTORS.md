@@ -20,7 +20,7 @@
 `(sector, date, factor_key) → median / p25 / p75 / coverage / sample_count`。
 coverage 分母 = 当月宇宙 ∩ 该 sector（现值 GICS）成分数；样本 <3 不落行。
 
-## 因子清单（28 个，定义单一来源 `src/lib/quant/factorRegistry.ts`）
+## 因子清单（33 个，定义单一来源 `src/lib/quant/factorRegistry.ts`）
 
 | 类别 | 因子 | 口径 | 方向 | 起点 |
 | --- | --- | --- | --- | --- |
@@ -29,6 +29,7 @@ coverage 分母 = 当月宇宙 ∩ 该 sector（现值 GICS）成分数；样本
 | 估值 | `salesYield` | TTM 营收 / 市值（S/P） | ↑ | 2012 |
 | 估值 | `fcfYield` | TTM (OCF−CapEx) / 市值 | ↑ | 2012 |
 | 估值 | `dividendYield` | TTM \|分红\| / 市值（TTM 窗口成立时分红缺失按 0） | ↑ | 2012 |
+| 估值 | `buybackYield` | TTM \|股票回购支出\| / 市值（XBRL PaymentsForRepurchaseOfCommonStock，同分红口径缺失按 0） | ↑ | 2012 |
 | 估值 | `ocfToEv` | TTM OCF / (市值+长期债务−现金)；EV/OCF 倒数 | ↑ | 2012 |
 | 质量 | `roeTtm` | TTM 净利 / 平均股东权益（本季与 4 季前均值） | ↑ | 2012 |
 | 质量 | `grossMargin` / `opMargin` | 最新可见季利润率 | ↑ | 2012 |
