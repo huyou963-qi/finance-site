@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { StockEventsPanel } from "@/components/equity/StockEventsPanel";
 import { StockFundamentalsPanel } from "@/components/equity/StockFundamentalsPanel";
+import { StockInsiderTransactionsPanel } from "@/components/equity/StockInsiderTransactionsPanel";
 import { StockSymbolSwitcher } from "@/components/equity/StockSymbolSwitcher";
 import {
   StockPriceChart,
@@ -401,6 +402,8 @@ export function StockDetailClient({
       <StockFundamentalsPanel symbol={symbol} />
 
       <StockEventsPanel symbol={symbol} />
+
+      <StockInsiderTransactionsPanel symbol={symbol} />
     </div>
   );
 }
