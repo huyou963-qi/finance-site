@@ -1389,6 +1389,45 @@ model ShortInterest {
   @@schema("mds")
 }
 
+/// 内部人交易（Form 4 Table I，非衍生证券普通股买卖）。摄入端逐 accession 解析 XML，
+/// 一份申报可含多笔交易行，lineIndex 为申报内交易行序号以保证唯一约束。
+/// 仅建模 Table I（普通股直接买卖），跳过 Table II（衍生证券/期权）。
+/// PIT：可见日 = filedAt（申报日，通常晚于 transactionDate 至多 2 个工作日）。
+model InsiderTransaction {
+  id                   String   @id @default(uuid()) @db.Uuid
+  /// 发行人（issuer）CIK
+  cik                  String   @db.VarChar(16)
+  symbol               String?  @db.VarChar(16)
+  accession            String   @db.VarChar(32)
+  /// 申报人（reporting owner）CIK
+  filerCik             String   @map("filer_cik") @db.VarChar(16)
+  filerName            String?  @map("filer_name") @db.VarChar(256)
+  isDirector           Boolean  @default(false) @map("is_director")
+  isOfficer            Boolean  @default(false) @map("is_officer")
+  isTenPercentOwner    Boolean  @default(false) @map("is_ten_percent_owner")
+  officerTitle         String?  @map("officer_title") @db.VarChar(128)
+  transactionDate      DateTime @map("transaction_date") @db.Date
+  /// 交易代码：P=买入 S=卖出 A=授予 M=行权 G=赠予 F=代扣缴税 等
+  transactionCode      String   @map("transaction_code") @db.VarChar(4)
+  /// A=Acquired D=Disposed
+  acquiredDisposedCode String   @map("acquired_disposed_code") @db.VarChar(1)
+  shares               Float
+  pricePerShare        Float?   @map("price_per_share")
+  sharesOwnedAfter     Float?   @map("shares_owned_after")
+  /// 同一 accession 内交易行序号（从 0 起）
+  lineIndex            Int      @map("line_index")
+  filedAt              DateTime @map("filed_at") @db.Date
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@unique([accession, lineIndex])
+  @@index([symbol, transactionDate(sort: Desc)])
+  @@index([cik, transactionDate(sort: Desc)])
+  @@index([filedAt])
+  @@map("insider_transaction")
+  @@schema("mds")
+}
+
 /// ETF 资金流（Phase 5 WS4）。免费源无历史日频份额（Yahoo quoteSummary 现 crumb 门控且仅现值、
 /// SSGA 仅当日文件）→ 真实「份额×NAV 流」不可回测历史；本表支持「前向快照」摄入与
 /// 板块代理信号透明化。flowUsd = Δ(sharesOutstanding) × nav（相邻可得日）。
