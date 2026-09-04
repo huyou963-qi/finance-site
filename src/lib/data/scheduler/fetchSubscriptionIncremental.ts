@@ -105,6 +105,16 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "cboe_vix9d" || scrapeObj.provider === "cboe_vvix") {
+        const { fetchCboeIndicesIncremental } = await import(
+          "./adapters/cboeIndicesAdapter"
+        );
+        return fetchCboeIndicesIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "gold_etf_holdings") {
         const { fetchGoldEtfHoldingsIncremental } = await import(
           "./adapters/goldEtfHoldingsAdapter"
