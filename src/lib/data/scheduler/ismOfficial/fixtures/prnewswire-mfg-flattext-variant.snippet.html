@@ -1,0 +1,28 @@
+<!--
+  Synthetic fixture (not attributed to a live capture): exercises the defensive fallback path
+  in parsePrNewswireReport for the case flagged in the task notes — the "AT A GLANCE" table
+  rendered as plain tab/newline-separated text instead of a standard <table>/<tr>/<td> DOM
+  (as browser innerText inspection suggested might be the case). Same headline + component
+  values as prnewswire-mfg-august-2026.snippet.html, wrapped in <p>/<br> with literal tabs
+  instead of real table markup, to prove the flattened-text extraction path recovers the same
+  points when no scoring <table> is present.
+-->
+<h1>Manufacturing PMI® at 54.6%; August 2026 ISM® Manufacturing PMI® Report</h1>
+<p>GAINESVILLE, Fla., Sept. 2, 2026 /PRNewswire/ -- Economic activity in the manufacturing
+sector expanded in August for the eighth consecutive month.</p>
+<h3>MANUFACTURING AT A GLANCE</h3>
+<p>Index	Series Index Aug	Series Index Jul	Percentage Point Change	Direction	Rate of Change	Trend* (Months)<br>
+Manufacturing PMI®	54.6	55.6	-1.0	Growing	Slower	8<br>
+New Orders	53.7	56.7	-3.0	Growing	Slower	8<br>
+Production	58.3	58.5	-0.2	Growing	Slower	10<br>
+Employment	51.2	52.8	-1.6	Growing	Slower	2<br>
+Supplier Deliveries	59.3	58.9	+0.4	Slowing	Faster	9<br>
+Inventories	50.6	51.2	-0.6	Growing	Slower	3<br>
+Customers' Inventories	42.8	40.7	+2.1	Too Low	Slower	23<br>
+Prices	71.1	71.1	0.0	Increasing	Same	23<br>
+Backlog of Orders	51.8	55.0	-3.2	Growing	Slower	8<br>
+New Export Orders	53.2	53.0	+0.2	Growing	Faster	2<br>
+Imports	52.5	55.7	-3.2	Growing	Slower	7<br>
+OVERALL ECONOMY				Growing	Slower	22<br>
+Manufacturing Sector				Growing	Slower	8</p>
+<p>SOURCE Institute for Supply Management</p>

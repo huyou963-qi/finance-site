@@ -41,11 +41,11 @@ export function isIsmReportUnavailable(html: string): boolean {
   return /content you are looking for is no longer available/i.test(html);
 }
 
-function stripTags(raw: string): string {
+export function stripTags(raw: string): string {
   return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function normalizeLabel(raw: string): string {
+export function normalizeLabel(raw: string): string {
   return raw
     .replace(/®/g, "")
     .replace(/[’']/g, "'")
@@ -54,7 +54,7 @@ function normalizeLabel(raw: string): string {
     .toLowerCase();
 }
 
-function parseNumber(raw: string): number | null {
+export function parseNumber(raw: string): number | null {
   const s = stripTags(raw).replace(/,/g, "").trim();
   if (!s || /^n\/?a$/i.test(s)) return null;
   if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
@@ -62,7 +62,7 @@ function parseNumber(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function extractTables(html: string): string[] {
+export function extractTables(html: string): string[] {
   const out: string[] = [];
   const re = /<table\b[^>]*>([\s\S]*?)<\/table>/gi;
   let m: RegExpExecArray | null;
@@ -70,7 +70,7 @@ function extractTables(html: string): string[] {
   return out;
 }
 
-function extractRows(tableHtml: string): string[][] {
+export function extractRows(tableHtml: string): string[][] {
   const rows: string[][] = [];
   const trRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
   let m: RegExpExecArray | null;
@@ -106,7 +106,7 @@ function labelsFor(def: IsmOfficialSeriesDef): string[] {
   return [def.officialLabel, ...(def.officialLabelAliases ?? [])].map(normalizeLabel);
 }
 
-function findSeries(
+export function findSeries(
   defs: readonly IsmOfficialSeriesDef[],
   rowLabel: string,
 ): IsmOfficialSeriesDef | null {
@@ -117,7 +117,7 @@ function findSeries(
   return defs.find((d) => labelsFor(d).includes(key)) ?? null;
 }
 
-function firstNumericCell(cells: string[]): number | null {
+export function firstNumericCell(cells: string[]): number | null {
   for (let i = 1; i < cells.length; i++) {
     const n = parseNumber(cells[i]!);
     if (n != null) return n;

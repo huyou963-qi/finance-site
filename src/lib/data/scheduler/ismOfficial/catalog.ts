@@ -14,6 +14,14 @@ export const ISM_OFFICIAL_SVC_REPORT_URL_TEMPLATE =
 
 export const ISM_OFFICIAL_SYNC_SCRIPT = "scripts/data-worker/sync-ism-official.ts";
 
+/**
+ * PR Newswire 公开发布 ISM 新闻稿（不受官网 SSO 墙影响，robots.txt 无 disallow）。
+ * 新闻稿正文内嵌与官网相同的 "AT A GLANCE" 表，分项覆盖比 TE 更全，
+ * 因此官网失败时优先兜底 PR Newswire，PR Newswire 也失败/无该分项时再退到 TE。
+ */
+export const PR_NEWSWIRE_ISM_LIST_URL =
+  "https://www.prnewswire.com/news/institute-for-supply-management/";
+
 export const ISM_OFFICIAL_SOURCE = {
   id: "ism-official",
   agencyId: "us-ism",
@@ -42,6 +50,11 @@ export type IsmOfficialSeriesDef = {
   displayName: string;
   /** TE 页有对应分项时用于校对 / 失败兜底 */
   teLabel?: string;
+  /**
+   * PR Newswire 新闻稿 "AT A GLANCE" 表对应行第一列文本（与 officialLabel 一致）。
+   * 仅在已核实该分项出现在 PR Newswire 表中时才设置——不是"假设全覆盖"。
+   */
+  prNewswireLabel?: string;
 };
 
 export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
@@ -52,6 +65,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Manufacturing PMI",
     displayName: "ISM 制造业 PMI",
     teLabel: "ISM Manufacturing PMI",
+    prNewswireLabel: "Manufacturing PMI",
   },
   {
     code: "ism_us_ism_new_orders",
@@ -60,6 +74,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "New Orders",
     displayName: "ISM 制造业新订单",
     teLabel: "ISM Manufacturing New Orders",
+    prNewswireLabel: "New Orders",
   },
   {
     code: "ism_us_ism_production",
@@ -68,6 +83,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Production",
     displayName: "ISM 制造业生产",
     teLabel: "ISM Manufacturing Production",
+    prNewswireLabel: "Production",
   },
   {
     code: "ism_us_ism_employment",
@@ -76,6 +92,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Employment",
     displayName: "ISM 制造业就业",
     teLabel: "ISM Manufacturing Employment",
+    prNewswireLabel: "Employment",
   },
   {
     code: "ism_us_ism_supplier_deliveries",
@@ -84,6 +101,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Supplier Deliveries",
     displayName: "ISM 制造业供应商交货",
     teLabel: "ISM Manufacturing Supplier Deliveries",
+    prNewswireLabel: "Supplier Deliveries",
   },
   {
     code: "ism_us_ism_inventories",
@@ -92,6 +110,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Inventories",
     displayName: "ISM 制造业库存",
     teLabel: "ISM Manufacturing Inventories",
+    prNewswireLabel: "Inventories",
   },
   {
     code: "ism_us_ism_customers_inventories",
@@ -100,6 +119,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Customers' Inventories",
     officialLabelAliases: ["Customers’ Inventories"],
     displayName: "ISM 制造业客户库存",
+    prNewswireLabel: "Customers' Inventories",
   },
   {
     code: "ism_us_ism_prices",
@@ -108,6 +128,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Prices",
     displayName: "ISM 制造业价格指数",
     teLabel: "ISM Manufacturing Prices",
+    prNewswireLabel: "Prices",
   },
   {
     code: "ism_us_ism_backlog",
@@ -116,6 +137,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Backlog of Orders",
     displayName: "ISM 制造业积压订单",
     teLabel: "ISM Manufacturing Backlog of Orders",
+    prNewswireLabel: "Backlog of Orders",
   },
   {
     code: "ism_us_ism_new_export_orders",
@@ -123,6 +145,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "manufacturing",
     officialLabel: "New Export Orders",
     displayName: "ISM 制造业新出口订单",
+    prNewswireLabel: "New Export Orders",
   },
   {
     code: "ism_us_ism_imports",
@@ -130,6 +153,7 @@ export const ISM_OFFICIAL_MFG_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "manufacturing",
     officialLabel: "Imports",
     displayName: "ISM 制造业进口",
+    prNewswireLabel: "Imports",
   },
 ];
 
@@ -141,6 +165,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Services PMI",
     displayName: "ISM 服务业 PMI",
     teLabel: "United States ISM Services PMI",
+    prNewswireLabel: "Services PMI",
   },
   {
     code: "ism_svc_us_svc_business_activity",
@@ -150,6 +175,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabelAliases: ["Business Activity/Production"],
     displayName: "ISM 服务业经营活动",
     teLabel: "ISM Services Business Activity",
+    prNewswireLabel: "Business Activity",
   },
   {
     code: "ism_svc_us_svc_new_orders",
@@ -158,6 +184,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "New Orders",
     displayName: "ISM 服务业新订单",
     teLabel: "ISM Services New Orders",
+    prNewswireLabel: "New Orders",
   },
   {
     code: "ism_svc_us_svc_employment",
@@ -166,6 +193,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Employment",
     displayName: "ISM 服务业就业",
     teLabel: "ISM Services Employment",
+    prNewswireLabel: "Employment",
   },
   {
     code: "ism_svc_us_svc_supplier_deliveries",
@@ -173,6 +201,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "services",
     officialLabel: "Supplier Deliveries",
     displayName: "ISM 服务业供应商交货",
+    prNewswireLabel: "Supplier Deliveries",
   },
   {
     code: "ism_svc_us_svc_inventories",
@@ -180,6 +209,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "services",
     officialLabel: "Inventories",
     displayName: "ISM 服务业库存",
+    prNewswireLabel: "Inventories",
   },
   {
     code: "ism_svc_us_svc_prices",
@@ -188,6 +218,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     officialLabel: "Prices",
     displayName: "ISM 服务业价格指数",
     teLabel: "ISM Services Prices",
+    prNewswireLabel: "Prices",
   },
   {
     code: "ism_svc_us_svc_backlog",
@@ -195,6 +226,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "services",
     officialLabel: "Backlog of Orders",
     displayName: "ISM 服务业积压订单",
+    prNewswireLabel: "Backlog of Orders",
   },
   {
     code: "ism_svc_us_svc_new_export_orders",
@@ -202,6 +234,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "services",
     officialLabel: "New Export Orders",
     displayName: "ISM 服务业新出口订单",
+    prNewswireLabel: "New Export Orders",
   },
   {
     code: "ism_svc_us_svc_imports",
@@ -209,6 +242,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "services",
     officialLabel: "Imports",
     displayName: "ISM 服务业进口",
+    prNewswireLabel: "Imports",
   },
   {
     code: "ism_svc_us_svc_inventory_sentiment",
@@ -216,6 +250,7 @@ export const ISM_OFFICIAL_SVC_SERIES: readonly IsmOfficialSeriesDef[] = [
     kind: "services",
     officialLabel: "Inventory Sentiment",
     displayName: "ISM 服务业库存情绪",
+    prNewswireLabel: "Inventory Sentiment",
   },
 ];
 

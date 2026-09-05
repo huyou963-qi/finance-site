@@ -33,7 +33,7 @@ async function writeKind(
   const series = kind === "manufacturing" ? ISM_OFFICIAL_MFG_SERIES : ISM_OFFICIAL_SVC_SERIES;
   if (fetched.officialError) {
     console.warn(
-      `[fallback ${kind}] ISM 官网不可用，改用 TE 已覆盖分项：${fetched.officialError}`,
+      `[fallback ${kind}] ISM 官网不可用，改用 ${fetched.source === "pr_newswire" ? "PR Newswire" : "TE"} 已覆盖分项：${fetched.officialError}`,
     );
   }
   console.info(
@@ -52,9 +52,13 @@ async function writeKind(
       continue;
     }
     if (!point) {
-      console.warn(
-        `[skip] ${fetched.source === "ism_official" ? "官网表" : "TE 兜底"}未解析到 ${row.officialLabel}`,
-      );
+      const sourceLabel =
+        fetched.source === "ism_official"
+          ? "官网表"
+          : fetched.source === "pr_newswire"
+            ? "PR Newswire 兜底"
+            : "TE 兜底";
+      console.warn(`[skip] ${sourceLabel}未解析到 ${row.officialLabel}`);
       continue;
     }
     const { upserted } = await upsertMacroObservations(prisma, inst.id, [point]);

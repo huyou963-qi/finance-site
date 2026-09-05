@@ -2,6 +2,7 @@ import type { FetchIncrementalResult, ObservationPoint } from "../types";
 import {
   ISM_OFFICIAL_MFG_SERIES,
   ISM_OFFICIAL_SVC_SERIES,
+  PR_NEWSWIRE_ISM_LIST_URL,
   ismOfficialSeriesByCode,
   type IsmOfficialReportKind,
 } from "../ismOfficial/catalog";
@@ -14,6 +15,12 @@ import {
   pointForOfficialCode,
   type IsmOfficialParsedReport,
 } from "../ismOfficial/parseReport";
+import {
+  clearPrNewswireHtmlCache,
+  loadPrNewswireHtml,
+} from "../ismOfficial/prNewswire/client";
+import { latestPrNewswireEntry, parsePrNewswireListPage } from "../ismOfficial/prNewswire/parseList";
+import { parsePrNewswireReport } from "../ismOfficial/prNewswire/parseReport";
 import { loadTradingEconomicsIndicatorHtml } from "../tradingEconomicsIndicator/client";
 import { TE_ISM_PAGE_URL } from "../tradingEconomicsIndicator/ismCatalog";
 import { TE_ISM_SVC_PAGE_URL } from "../tradingEconomicsIndicator/ismSvcCatalog";
@@ -33,11 +40,13 @@ type ReportCache = { at: number; parsed: IsmOfficialParsedReport; url: string };
 const reportCache = new Map<IsmOfficialReportKind, ReportCache>();
 const reportFailureCache = new Map<IsmOfficialReportKind, { at: number; message: string }>();
 const teReportCache = new Map<IsmOfficialReportKind, ReportCache>();
+const prNewswireReportCache = new Map<IsmOfficialReportKind, { at: number; parsed: IsmOfficialParsedReport }>();
+const prNewswireFailureCache = new Map<IsmOfficialReportKind, { at: number; message: string }>();
 const CACHE_MS = 60_000;
 
 export type IsmPreferredReport = {
   parsed: IsmOfficialParsedReport;
-  source: "ism_official" | "tradingeconomics";
+  source: "ism_official" | "pr_newswire" | "tradingeconomics";
   officialError: string | null;
 };
 
@@ -123,6 +132,54 @@ async function getTeReport(kind: IsmOfficialReportKind): Promise<IsmOfficialPars
   return parsed;
 }
 
+async function getPrNewswireReport(kind: IsmOfficialReportKind): Promise<IsmOfficialParsedReport> {
+  const hit = prNewswireReportCache.get(kind);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.parsed;
+  const failed = prNewswireFailureCache.get(kind);
+  if (failed && Date.now() - failed.at < CACHE_MS) {
+    throw new Error(failed.message);
+  }
+  try {
+    const listHtml = await loadPrNewswireHtml({ url: PR_NEWSWIRE_ISM_LIST_URL });
+    const entries = parsePrNewswireListPage(listHtml);
+    const latest = latestPrNewswireEntry(entries, kind);
+    if (!latest) {
+      throw new Error(`PR Newswire 新闻列表未找到 ${kind} 报告链接`);
+    }
+    const reportHtml = await loadPrNewswireHtml({ url: latest.url });
+    const parsed = parsePrNewswireReport(reportHtml, kind);
+    prNewswireReportCache.set(kind, { at: Date.now(), parsed });
+    prNewswireFailureCache.delete(kind);
+    return parsed;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    prNewswireFailureCache.set(kind, { at: Date.now(), message });
+    throw err;
+  }
+}
+
+async function prNewswireFallbackPoint(
+  kind: IsmOfficialReportKind,
+  code: string,
+  obsStart: string,
+): Promise<FetchIncrementalResult> {
+  const def = ismOfficialSeriesByCode(code);
+  const parsed = await getPrNewswireReport(kind);
+  const point = parsed.pointsByCode.get(code);
+  if (!point) {
+    throw new Error(`PR Newswire ${kind} 报告未包含 ${def?.officialLabel ?? code}`);
+  }
+  const start = new Date(`${obsStart}T00:00:00.000Z`);
+  if (point.obsDate < start) {
+    return { points: [], skippedInvalid: 0, sourceLatestObsDate: point.obsDate };
+  }
+  return {
+    points: [point],
+    skippedInvalid: 0,
+    sourceLatestObsDate: parsed.obsDate,
+  };
+}
+
 function warnTeMismatch(
   code: string,
   official: ObservationPoint,
@@ -179,7 +236,10 @@ async function teValueForLabel(
   }
 }
 
-/** worker 增量：ISM 官网月报为主，TE 仅校对；官网失败且 TE 有该分项时兜底 */
+/**
+ * worker 增量：ISM 官网月报为主，TE 仅校对；官网失败时按优先级兜底：
+ * PR Newswire 新闻稿（分项覆盖更全）→ TE（分项覆盖较窄）→ 都失败才报错。
+ */
 export async function fetchIsmOfficialIncremental(
   metadata: unknown,
   instrumentCode: string,
@@ -210,11 +270,34 @@ export async function fetchIsmOfficialIncremental(
     };
   } catch (err) {
     const officialErr = err instanceof Error ? err.message : String(err);
-    if (!def.teLabel) {
-      throw new Error(`${officialErr}（该分项无 TE 兜底）`);
+    const attempts = [`官网：${officialErr}`];
+
+    if (def.prNewswireLabel) {
+      try {
+        const result = await prNewswireFallbackPoint(def.kind, def.code, obsStart);
+        console.warn(`[ism-official] 官网失败，改用 PR Newswire 兜底 ${def.code}：${officialErr}`);
+        return result;
+      } catch (prErr) {
+        attempts.push(`PR Newswire：${prErr instanceof Error ? prErr.message : String(prErr)}`);
+      }
     }
-    console.warn(`[ism-official] 官网失败，改用 TE 兜底 ${def.code}：${officialErr}`);
-    return teFallbackPoint(def.kind, def.teLabel, obsStart);
+
+    if (def.teLabel) {
+      try {
+        const result = await teFallbackPoint(def.kind, def.teLabel, obsStart);
+        console.warn(
+          `[ism-official] 官网${def.prNewswireLabel ? "/PR Newswire" : ""}均失败，改用 TE 兜底 ${def.code}：${officialErr}`,
+        );
+        return result;
+      } catch (teErr) {
+        attempts.push(`TE：${teErr instanceof Error ? teErr.message : String(teErr)}`);
+      }
+    }
+
+    if (!def.prNewswireLabel && !def.teLabel) {
+      throw new Error(`${officialErr}（该分项无 PR Newswire/TE 兜底）`);
+    }
+    throw new Error(`${attempts.join("；")}（所有兜底均失败）`);
   }
 }
 
@@ -228,7 +311,11 @@ export async function fetchAllIsmOfficialPoints(
   return parseIsmOfficialReport(loaded.html, kind);
 }
 
-/** 手工整包同步：始终先取 ISM 官网；官网不可达时整页回退 TE 已覆盖分项。 */
+/**
+ * 手工整包同步：始终先取 ISM 官网；官网不可达时整页回退 PR Newswire 新闻稿
+ * （分项覆盖更全，含官网 fixture 场景不涉及的 customers_inventories/new_export_orders/
+ * imports/inventory_sentiment 等）；PR Newswire 也不可达时再退到 TE 已覆盖分项。
+ */
 export async function fetchPreferredIsmReport(
   kind: IsmOfficialReportKind,
   options?: { fixturePath?: string },
@@ -241,8 +328,16 @@ export async function fetchPreferredIsmReport(
     };
   } catch (err) {
     const officialError = err instanceof Error ? err.message : String(err);
-    const parsed = await getTeReport(kind);
-    return { parsed, source: "tradingeconomics", officialError };
+    try {
+      const parsed = await getPrNewswireReport(kind);
+      return { parsed, source: "pr_newswire", officialError };
+    } catch (prErr) {
+      console.warn(
+        `[ism-official] PR Newswire 整页回退也失败，改用 TE：${prErr instanceof Error ? prErr.message : String(prErr)}`,
+      );
+      const parsed = await getTeReport(kind);
+      return { parsed, source: "tradingeconomics", officialError };
+    }
   }
 }
 
@@ -250,5 +345,8 @@ export function clearIsmOfficialAdapterCache(): void {
   reportCache.clear();
   reportFailureCache.clear();
   teReportCache.clear();
+  prNewswireReportCache.clear();
+  prNewswireFailureCache.clear();
   clearIsmOfficialHtmlCache();
+  clearPrNewswireHtmlCache();
 }
