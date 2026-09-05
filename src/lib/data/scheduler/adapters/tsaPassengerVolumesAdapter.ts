@@ -4,6 +4,7 @@ import {
   clearTsaPassengerVolumesCache,
 } from "../tsaPassengerVolumes/client";
 import { parseTsaPassengerVolumesPage } from "../tsaPassengerVolumes/parsePassengerVolumes";
+import { TSA_PASSENGER_VOLUMES_FIRST_YEAR } from "../tsaPassengerVolumes/catalog";
 
 function readScrapeConfig(metadata: unknown): { url?: string; fixturePath?: string } {
   if (!metadata || typeof metadata !== "object") return {};
@@ -28,7 +29,13 @@ export async function fetchTsaPassengerVolumesIncremental(
   const { url, fixturePath } = readScrapeConfig(metadata);
   const now = new Date();
   const currentYear = now.getUTCFullYear();
-  const startYear = Number(obsStart.slice(0, 4)) || currentYear;
+  // obsStart 冷启动兜底是 1950-01-01（见 upsertObservations.observationStartDate），
+  // 但 TSA 归档页最早只到 2019；不 clamp 会拼出 /travel/passenger-volumes/1950 这种
+  // 不存在的年度页并直接 403，导致整次同步失败。
+  const startYear = Math.max(
+    Number(obsStart.slice(0, 4)) || currentYear,
+    TSA_PASSENGER_VOLUMES_FIRST_YEAR,
+  );
 
   const allPoints: ObservationPoint[] = [];
   let latestObsDate: Date | null = null;
