@@ -129,7 +129,7 @@ npm run db:studio        # Prisma Studio
 
 **统一布局宏观 Excel**（列头 `国家:指标:子维度`）：见 [.cursor/prompts/macro-xlsx-import.md](./.cursor/prompts/macro-xlsx-import.md)。流程：`db:import-macro-xlsx --dry-run` → 加 preset → 正式导入 → `db:verify-macro-import`。
 
-**TradingEconomics 指标页自动更新**（给定 URL，HTML 抓取 + 日历调度）：见 [.cursor/prompts/te-indicator-scrape.md](./.cursor/prompts/te-indicator-scrape.md)。ISM 制造业/服务业现以官网月报为主源：`data:seed-ism-te` / `data:seed-ism-svc-te` → `data:sync-ism-official` → `data:sync-calendar`（发布日跟 ISM 年历；TE 仅校对与失败兜底）；`data:verify-ism-official`（加 `--db`）。
+**TradingEconomics 指标页自动更新**（给定 URL，HTML 抓取 + 日历调度）：见 [.cursor/prompts/te-indicator-scrape.md](./.cursor/prompts/te-indicator-scrape.md)。ISM 制造业/服务业现以官网月报为主源：`data:seed-ism-te` / `data:seed-ism-svc-te` → `data:sync-ism-official` → `data:sync-calendar`（发布日跟 ISM 年历；TE 仅校对与失败兜底）；`data:verify-ism-official`（加 `--db`）。2026-09 起 ISM 官网报告页开始把所有月份 302 到 `ecommerce.ismworld.org/SSO/Login.aspx`（`isSsoRedirect` 已识别）——**`ismOfficialAdapter.ts` 的 `fetchIsmOfficialIncremental` 已经自动处理**：官网失败且该分项在 `ISM_OFFICIAL_MFG_SERIES`/`ISM_OFFICIAL_SVC_SERIES` 里配了 `teLabel` 时会静默改用 TE 值（写库仍成功、不报错），data:worker 常规调度即可，无需额外 cron。没配 `teLabel` 的分项（客户库存、服务业库存情绪、新出口订单、进口，共 3 项制造业 + 6 项服务业）会继续按 `error: "...（该分项无 TE 兜底）"` 失败——已核实 FRED 完全不收录 ISM 数据、TE 免费页的 Components 结构化表也不含这几项（TE 叙述段偶尔提到 Imports/Inventories/Backlog 等数值但不稳定，未纳入解析），这是没有免费替代源的已知缺口，非代码问题。
 
 **新增宏观分析维度（拆维度 → 定指标 → 入库调度 → 建模板）**：走 Agent 流水线，见 [.cursor/prompts/macro-dimension-pipeline.md](./.cursor/prompts/macro-dimension-pipeline.md)；Spec 模板与已占用指标清单在 `docs/specs/`。
 首个完成域「美国货币政策与金融条件」：`data:seed-monetary` / `data:verify-monetary`（加 `--db`）；新 FRED 指标目录归类 `data:sync-catalog-layout -- --keys=fred:<ID>,...`；文档 [docs/US_MONETARY_ANALYSIS.md](./docs/US_MONETARY_ANALYSIS.md)。
