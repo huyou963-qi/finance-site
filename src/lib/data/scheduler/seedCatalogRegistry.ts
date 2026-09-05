@@ -87,6 +87,14 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-euro-composite-pmi-te",
     labelZh: "欧元区综合PMI（TE 抓取）",
   },
+  "corporate-bond-financing": {
+    script: "seed-corporate-bond-financing",
+    labelZh: "美国非金融企业公司债存量/净发行（Z.1）",
+  },
+  "finra-margin-debt": {
+    script: "seed-finra-margin-debt",
+    labelZh: "FINRA 客户融资余额统计（NYSE 融资余额）",
+  },
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
@@ -199,6 +207,16 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "euro-composite-pmi": {
     script: "verify-euro-composite-pmi",
     labelZh: "欧元区综合PMI自检",
+    verifyNeedsDb: true,
+  },
+  "corporate-bond-financing": {
+    script: "verify-corporate-bond-financing",
+    labelZh: "美国非金融企业公司债存量/净发行自检",
+    verifyNeedsDb: true,
+  },
+  "finra-margin-debt": {
+    script: "verify-finra-margin-debt",
+    labelZh: "FINRA 客户融资余额统计自检",
     verifyNeedsDb: true,
   },
 };

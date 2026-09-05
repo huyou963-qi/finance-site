@@ -178,6 +178,10 @@ npm run db:studio        # Prisma Studio
 
 「海外PMI（中国制造业 PMI 民间口径 + 欧元区综合 PMI）」：`data:seed-caixin-pmi-te` / `data:seed-euro-composite-pmi-te` → `data:sync-caixin-pmi-te` / `data:sync-euro-composite-pmi-te` → `data:sync-calendar` / `data:verify-caixin-pmi` / `data:verify-euro-composite-pmi`（加 `--db`）；S&P Global 编制（中国序列 TE 页现冠名 RatingDog，2025 年前为 Caixin/财新；FRED 均无镜像，已核实），走 TE 指标页叙述段抓取（页面无 `#calendar`/历史表），归入美国「对外与汇率 · 海外PMI」（比照 CFTC COT 惯例，用于美股外需传导分析），历史仅自接入起累积。
 
+「美国非金融企业公司债存量/净发行（Z.1）」：`data:seed-corporate-bond-financing` → `data:sync-catalog`（常规 FRED_API，走标准调度）/ `data:verify-corporate-bond-financing`（加 `--db`）；`CBLBSNNCB`（存量 Level）+`NCBCBLQ027S`（净发行 Transactions，折年率）两条美联储 Z.1 资金流量表原生 FRED 序列，同一 Release，季度 `probe_interval`（168h）探测；SIFMA 官网"总发债规模"统计需填 HubSpot 表单下载（注册墙），按合规规则拒绝抓取，改用更权威的央行一手数据替代，归入「利率与信用市场 · 公司债市场」。
+
+「FINRA 客户融资余额统计（NYSE 融资余额/杠杆率）」：`data:seed-finra-margin-debt` → `data:sync-finra-margin-debt` / `data:verify-finra-margin-debt`（加 `--db`）；FINRA 官网仅发布一份 `margin-statistics.xlsx`（Rule 4521(d) 会员行月度申报汇总，明确"不提供数据接口"），一次抓取拆出三条分项：Debit Balances（融资余额，即"股市杠杆率"最常引用口径，1997-01 起）、Free Credit Balances in Cash Accounts（现金账户闲置资金，1997-01 起）、Free Credit Balances in Securities Margin Accounts（保证金账户闲置资金，仅 2010-02 起有该分项，规则生效前无此统计），三者共享同一份源文件（client 内 60s 缓存避免重复请求），月频 `probe_interval`（72h）探测，归入「利率与信用市场 · 市场情绪」（与 CBOE VIX9D/VVIX 同组）。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

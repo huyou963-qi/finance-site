@@ -869,6 +869,21 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 228,
     members: { fredSeriesIds: ["TDSP"] },
   }),
+  probePkg("us.frb.z1_corporate_bonds", "美国 Z.1 非金融企业公司债", {
+    labelEn: "Z.1 Financial Accounts — Nonfinancial Corporate Bonds",
+    granularity: "QUARTERLY",
+    intervalHours: 168,
+    sortOrder: 257,
+    members: { fredSeriesIds: ["CBLBSNNCB", "NCBCBLQ027S"] },
+  }),
+  probePkg("us.finra.margin_statistics", "美国 FINRA 客户融资余额统计", {
+    labelEn: "FINRA Customer Margin Statistics",
+    agencyId: "us-finra",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 258,
+    members: { instrumentCodePatterns: ["finra_us_margin_*"] },
+  }),
   probePkg("us.stlouisfed.recession_prob", "美国平滑衰退概率", {
     labelEn: "Smoothed U.S. Recession Probabilities",
     granularity: "MONTHLY",

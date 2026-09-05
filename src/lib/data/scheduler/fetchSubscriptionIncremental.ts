@@ -135,6 +135,20 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (
+        scrapeObj.provider === "finra_margin_debit_balances" ||
+        scrapeObj.provider === "finra_margin_free_credit_cash" ||
+        scrapeObj.provider === "finra_margin_free_credit_margin"
+      ) {
+        const { fetchFinraMarginDebtIncremental } = await import(
+          "./adapters/finraMarginDebtAdapter"
+        );
+        return fetchFinraMarginDebtIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "damodaran_erp") {
         const { fetchDamodaranErpIncremental } = await import(
           "./adapters/damodaranErpAdapter"

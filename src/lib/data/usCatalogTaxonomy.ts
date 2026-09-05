@@ -27,7 +27,7 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
   通胀与价格: ["CPI", "PCE与PPI", "通胀预期与能源"],
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
   货币政策与流动性: ["政策利率", "联储资产负债表", "财政部账户与货币市场"],
-  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价"],
+  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场"],
   金融条件与银行: ["金融条件指数", "银行信贷", "资产质量"],
   财政与公共债务: [
     "MTS现金流量",
@@ -232,6 +232,7 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   if (FRED_TIPS.has(id)) return p("利率与信用市场", "TIPS");
   if (FRED_CREDIT_SPREADS.has(id)) return p("利率与信用市场", "信用利差");
   if (FRED_MARKET_SENTIMENT.has(id)) return p("利率与信用市场", "市场情绪");
+  if (id === "CBLBSNNCB" || id === "NCBCBLQ027S") return p("利率与信用市场", "公司债市场");
   if (FRED_FINANCIAL_CONDITIONS.has(id)) return p("金融条件与银行", "金融条件指数");
   if (FRED_BANK_CREDIT.has(id)) return p("金融条件与银行", "银行信贷");
   if (FRED_ASSET_QUALITY.has(id)) return p("金融条件与银行", "资产质量");
@@ -286,6 +287,9 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
     return p("利率与信用市场", "市场情绪");
   }
   if (code.startsWith("cboe_")) {
+    return p("利率与信用市场", "市场情绪");
+  }
+  if (code.startsWith("finra_")) {
     return p("利率与信用市场", "市场情绪");
   }
   if (code.startsWith("debtcap_")) {

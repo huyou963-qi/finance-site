@@ -216,6 +216,8 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "DFII10", label: "10Y TIPS 实际收益率（%）", category: "利率与债券", frequency: "日" },
   { id: "T10Y3M", label: "10Y-3M 国债利差（%）", category: "利率与债券", frequency: "日" },
   { id: "BAMLC0A0CM", label: "投资级公司债 OAS（%）", category: "利率与债券", frequency: "日" },
+  { id: "CBLBSNNCB", label: "非金融企业公司债存量（不含REITs，百万美元）", category: "利率与债券", frequency: "季度" },
+  { id: "NCBCBLQ027S", label: "非金融企业公司债净发行（折年率，百万美元）", category: "利率与债券", frequency: "季度" },
   { id: "EFFR", label: "有效联邦基金利率（%）", category: "银行与货币", frequency: "日" },
   { id: "RRPONTSYD", label: "ON RRP 隔夜逆回购余额（十亿美元）", category: "银行与货币", frequency: "日" },
   { id: "NFCI", label: "Chicago Fed 全国金融条件指数", category: "银行与货币", frequency: "周" },
