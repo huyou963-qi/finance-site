@@ -133,7 +133,6 @@ import {
   DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
   extractYearsFromCategories,
 } from "@/lib/macroChartOption";
-import { buildMacroDemoSeries } from "@/lib/sampleSeries";
 import {
   getOrCreateMacroSyncTabId,
   MACRO_PAGE_SYNC_CHANNEL,
@@ -2365,41 +2364,13 @@ export function MacroSection() {
       })
       .catch((e) => {
         if (cancelled) return;
-        if (mdsRaw) {
-          setPayload(null);
-          setError(
-            e instanceof Error
-              ? e.message
-              : "无法加载本地宏观数据",
-          );
-          return;
-        }
-        const demo = buildMacroDemoSeries();
-        setPayload({
-          title: "演示数据（离线）",
-          source: "fmp",
-          categories: demo.categories,
-          series: [
-            {
-              name: "演示序列 A",
-              data: demo.inflation as (number | null)[],
-              key: "demo:A",
-            },
-            {
-              name: "演示序列 B",
-              data: demo.policyRate as (number | null)[],
-              key: "demo:B",
-            },
-          ],
-          attribution:
-            e instanceof Error
-              ? `无法拉取远程数据（${e.message}）。以下为本地演示序列（随机，非真实）。`
-              : "无法拉取远程宏观数据，已显示本地演示序列（随机）。",
-        });
+        setPayload(null);
         setError(
           e instanceof Error
             ? e.message
-            : "无法加载数据（请检查网络或上游服务）",
+            : mdsRaw
+              ? "无法加载本地宏观数据"
+              : "无法加载数据（请检查网络或上游服务）",
         );
       })
       .finally(() => {
@@ -4011,8 +3982,14 @@ export function MacroSection() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-fs-border p-8 text-center text-sm text-fs-muted">
-                  暂无数据
+                <div
+                  className={
+                    error
+                      ? "flex flex-1 items-center justify-center rounded-lg border border-amber-900/50 bg-amber-950/20 p-8 text-center text-sm text-amber-200/90"
+                      : "flex flex-1 items-center justify-center rounded-lg border border-dashed border-fs-border p-8 text-center text-sm text-fs-muted"
+                  }
+                >
+                  {error ? `加载失败：${error}` : "暂无数据"}
                 </div>
               )}
             </section>
