@@ -74,6 +74,10 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-aar-rail-traffic",
     labelZh: "AAR 美国铁路周度装车量/多式联运量（抓取）",
   },
+  "cass-freight-index": {
+    script: "seed-cass-freight-index",
+    labelZh: "Cass 货运指数（Shipments/Expenditures）",
+  },
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
@@ -170,6 +174,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "aar-rail-traffic": {
     script: "verify-aar-rail-traffic",
     labelZh: "AAR 美国铁路周度装车量/多式联运量自检",
+    verifyNeedsDb: true,
+  },
+  "cass-freight-index": {
+    script: "verify-cass-freight-index",
+    labelZh: "Cass 货运指数自检",
     verifyNeedsDb: true,
   },
 };

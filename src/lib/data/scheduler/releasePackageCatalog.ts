@@ -950,6 +950,13 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 235,
     members: { fredSeriesIds: ["CP", "A053RC1Q027SBEA"] },
   }),
+  probePkg("us.cass.freight_index", "Cass 货运指数", {
+    labelEn: "Cass Freight Index Report",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 236,
+    members: { fredSeriesIds: ["FRGSHPUSM649NCIS", "FRGEXPUSM649NCIS"] },
+  }),
   // BIS 无「某日宣布」式日历，按官方数据流（= 官方发布批次）分两组
   probePkg("intl.bis.total_credit", "BIS 总信贷（杠杆率 / %GDP）", {
     labelEn: "BIS Total Credit Statistics",

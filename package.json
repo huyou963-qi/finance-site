@@ -181,6 +181,8 @@
     "data:seed-aar-rail-traffic": "dotenv -e .env.local -- tsx scripts/data-worker/seed-aar-rail-traffic.ts",
     "data:sync-aar-rail-traffic": "dotenv -e .env.local -- tsx scripts/data-worker/sync-aar-rail-traffic.ts",
     "data:verify-aar-rail-traffic": "dotenv -e .env.local -- tsx scripts/data-worker/verify-aar-rail-traffic.ts",
+    "data:seed-cass-freight-index": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cass-freight-index.ts",
+    "data:verify-cass-freight-index": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cass-freight-index.ts",
     "data:build-us-history-timeline": "node scripts/data/build-us-history-timeline.mjs",
     "equity:seed-sp500": "dotenv -e .env.local -- tsx scripts/equity/seed-sp500.ts",
     "equity:seed-us-universe": "dotenv -e .env.local -- tsx scripts/equity/seed-us-universe.ts",
