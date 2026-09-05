@@ -51,7 +51,12 @@ export function normalizeLabel(raw: string): string {
     .replace(/[’']/g, "'")
     .replace(/\s+/g, " ")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    // 多行标签常拆成相邻 <p>/<td> 元素（如 "Business Activity/</p><p>Production"），
+    // stripTags 把每个标签替换成空格，"/" 前后就会多出一个空格；实测 PR Newswire
+    // 页面正是这种结构，与 catalog 里手写的 "Business Activity/Production" 别名因为
+    // 这一个空格对不上，导致整行匹配失败、静默漏掉该分项。统一去掉 "/" 两侧空白。
+    .replace(/\s*\/\s*/g, "/");
 }
 
 export function parseNumber(raw: string): number | null {
