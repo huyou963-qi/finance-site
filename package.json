@@ -172,6 +172,8 @@
     "data:verify-corporate-profits": "dotenv -e .env.local -- tsx scripts/data-worker/verify-corporate-profits.ts",
     "data:seed-financial-stress": "dotenv -e .env.local -- tsx scripts/data-worker/seed-financial-stress.ts",
     "data:verify-financial-stress": "dotenv -e .env.local -- tsx scripts/data-worker/verify-financial-stress.ts",
+    "data:seed-cass-freight-index": "dotenv -e .env.local -- tsx scripts/data-worker/seed-cass-freight-index.ts",
+    "data:verify-cass-freight-index": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cass-freight-index.ts",
     "data:build-us-history-timeline": "node scripts/data/build-us-history-timeline.mjs",
     "equity:seed-sp500": "dotenv -e .env.local -- tsx scripts/equity/seed-sp500.ts",
     "equity:seed-us-universe": "dotenv -e .env.local -- tsx scripts/equity/seed-us-universe.ts",

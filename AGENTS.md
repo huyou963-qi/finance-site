@@ -166,6 +166,8 @@ npm run db:studio        # Prisma Studio
 
 「CBOE VIX9D / VVIX」：`data:seed-cboe-vix9d-vvix` → `data:sync-cboe-vix9d-vvix` / `data:verify-cboe-vix9d-vvix`（加 `--db`）；9 日波动率与 VIX 之 VIX 走 CBOE 官方结构化 CSV 全历史（`cdn.cboe.com/api/global/us_indices/daily_prices/`），非 FRED 序列（已核实），日频 `probe_interval` 探测。
 
+「Cass 货运指数（Shipments/Expenditures）」：`data:seed-cass-freight-index` / `data:verify-cass-freight-index -- --db`；Cass Information Systems 编制、原生落在 FRED（`FRGSHPUSM649NCIS`/`FRGEXPUSM649NCIS`，Release「Cass Freight Index Report」rid=280，历史起 2016-01），走常规 FRED_API 接入，无需抓取；两条序列同源同批发布，月频 `probe_interval`（72 小时）探测，见 `us.cass.freight_index` 发布包。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

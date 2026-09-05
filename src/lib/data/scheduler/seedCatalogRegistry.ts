@@ -65,6 +65,10 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-financial-stress",
     labelZh: "圣路易斯联储金融压力指数（STLFSI4）",
   },
+  "cass-freight-index": {
+    script: "seed-cass-freight-index",
+    labelZh: "Cass 货运指数（Shipments/Expenditures）",
+  },
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
@@ -150,6 +154,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "financial-stress": {
     script: "verify-financial-stress",
     labelZh: "圣路易斯联储金融压力指数自检",
+    verifyNeedsDb: true,
+  },
+  "cass-freight-index": {
+    script: "verify-cass-freight-index",
+    labelZh: "Cass 货运指数自检",
     verifyNeedsDb: true,
   },
 };
