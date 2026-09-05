@@ -4,14 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseTsaPassengerVolumesPage } from "./parsePassengerVolumes";
 
-const FIXTURE_CURRENT = path.join(
-  process.cwd(),
-  ".data/tsa-passenger-volumes-current-sample.html",
-);
-const FIXTURE_2019 = path.join(
-  process.cwd(),
-  ".data/tsa-passenger-volumes-2019-sample.html",
-);
+const FIXTURE_CURRENT = path.join(__dirname, "fixtures/tsa-passenger-volumes-current-sample.html");
+const FIXTURE_2019 = path.join(__dirname, "fixtures/tsa-passenger-volumes-2019-sample.html");
 
 describe("parseTsaPassengerVolumesPage", () => {
   it("解析当年滚动窗口页面（fixture 核实：起 2026-01-01，最新 2026-09-02）", () => {

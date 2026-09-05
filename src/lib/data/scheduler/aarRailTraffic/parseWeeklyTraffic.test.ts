@@ -8,18 +8,9 @@ import {
   parseAarWeeklyReleasePage,
 } from "./parseWeeklyTraffic";
 
-const FIXTURE_LIST = path.join(
-  process.cwd(),
-  ".data/aar-weekly-traffic-archive-page1-sample.html",
-);
-const FIXTURE_WEEK_2026 = path.join(
-  process.cwd(),
-  ".data/aar-weekly-traffic-week-sample.html",
-);
-const FIXTURE_WEEK_2019 = path.join(
-  process.cwd(),
-  ".data/aar-weekly-traffic-week-2019-sample.html",
-);
+const FIXTURE_LIST = path.join(__dirname, "fixtures/aar-weekly-traffic-archive-page1-sample.html");
+const FIXTURE_WEEK_2026 = path.join(__dirname, "fixtures/aar-weekly-traffic-week-sample.html");
+const FIXTURE_WEEK_2019 = path.join(__dirname, "fixtures/aar-weekly-traffic-week-2019-sample.html");
 
 describe("parseAarArchiveListPage", () => {
   it("解析归档列表第 1 页（fixture 核实：10 条，含 2026-08-29 最新一条）", () => {
