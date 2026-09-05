@@ -48,6 +48,7 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
     "金融账户负债",
     "国际投资头寸",
     "商品期货持仓",
+    "海外PMI",
   ],
 };
 
@@ -301,6 +302,11 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   }
   if (code.startsWith("tsa_") || code.startsWith("aar_")) {
     return p("国民经济", "物流与出行");
+  }
+  // 海外制造业/服务业景气调查（S&P Global 编制，TE 抓取）——对美股外需传导信号，
+  // 与美元指数/BOP 同属对外与汇率维度，非国内数据故不进 US_CATALOG 其余子类。
+  if (code === "caixin_cn_mfg_pmi" || code.startsWith("spgi_")) {
+    return p("对外与汇率", "海外PMI");
   }
   return null;
 }

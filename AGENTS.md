@@ -174,6 +174,8 @@ npm run db:studio        # Prisma Studio
 
 「Cass 货运指数（Shipments/Expenditures）」：`data:seed-cass-freight-index` / `data:verify-cass-freight-index -- --db`；Cass Information Systems 编制、原生落在 FRED（`FRGSHPUSM649NCIS`/`FRGEXPUSM649NCIS`，Release「Cass Freight Index Report」rid=280，历史起 2016-01），走常规 FRED_API 接入，无需抓取；两条序列同源同批发布，月频 `probe_interval`（72 小时）探测，见 `us.cass.freight_index` 发布包。
 
+「海外PMI（中国制造业 PMI 民间口径 + 欧元区综合 PMI）」：`data:seed-caixin-pmi-te` / `data:seed-euro-composite-pmi-te` → `data:sync-caixin-pmi-te` / `data:sync-euro-composite-pmi-te` → `data:sync-calendar` / `data:verify-caixin-pmi` / `data:verify-euro-composite-pmi`（加 `--db`）；S&P Global 编制（中国序列 TE 页现冠名 RatingDog，2025 年前为 Caixin/财新；FRED 均无镜像，已核实），走 TE 指标页叙述段抓取（页面无 `#calendar`/历史表），归入美国「对外与汇率 · 海外PMI」（比照 CFTC COT 惯例，用于美股外需传导分析），历史仅自接入起累积。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |
