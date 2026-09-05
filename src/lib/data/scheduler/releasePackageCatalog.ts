@@ -578,6 +578,17 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     calendar: { countryCodes: ["CN"], keywords: ["China Trade Balance", "China Exports", "China Imports"] },
     members: { instrumentCodePatterns: ["mofcom_cn_trade_*"] },
   }),
+  pkg("cn.gacc.commodity", "中国海关主要商品量值", {
+    labelEn: "China Customs Major Commodities in Quantity and Value",
+    countryCode: "CN",
+    agencyId: "cn-gacc",
+    granularity: "MONTHLY",
+    sortOrder: 141,
+    // 与 cn.mofcom.trade 同一场发布（海关月度数据），共用日历关键词；
+    // 150 条分商品序列只挂这一条日历事件，不给每个商品单配关键词。
+    calendar: { countryCodes: ["CN"], keywords: ["China Trade Balance", "China Exports", "China Imports"] },
+    members: { instrumentCodePatterns: ["gacc_cn_*"] },
+  }),
   pkg("cn.mof.fiscal", "中国财政收支", {
     labelEn: "China Fiscal Revenue and Expenditure",
     countryCode: "CN",

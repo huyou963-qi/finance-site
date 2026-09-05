@@ -39,7 +39,14 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
   if (code.startsWith("mof_cn_fiscal_")) return p("财政与公共债务", /支出/.test(label) ? "财政支出" : /基金/.test(label) ? "政府性基金" : "一般公共预算收入");
   if (code.startsWith("pbc_cn_")) return /利率|LPR/.test(label) ? p("利率与信用市场", "贷款利率") : p("货币政策与流动性", "货币、信贷与社会融资");
   if (code.startsWith("safe_cn_")) return /外汇储备|黄金/.test(label) ? p("对外与汇率", "外汇储备与黄金") : /结售汇|收付款/.test(label) ? p("对外与汇率", "银行结售汇与跨境资金") : p("对外与汇率", "国际收支、投资头寸与外债");
-  if (code.startsWith("mofcom_cn_trade_")) return /贸易方式/.test(label) ? p("对外与汇率", "货物贸易：贸易方式") : /国别|地区/.test(label) ? p("对外与汇率", "货物贸易：国别地区") : /商品构成/.test(label) ? p("对外与汇率", "货物贸易：商品构成") : p("对外与汇率", "货物贸易：总额");
+  if (code.startsWith("mofcom_cn_trade_")) return /贸易方式/.test(label) ? p("对外与汇率", "货物贸易：贸易方式") : /国别|地区/.test(label) ? p("对外与汇率", "货物贸易：国别地区") : p("对外与汇率", "货物贸易：总额");
+  // 海关主要商品量值表：按「进/出口 × 量/额/价」拆成 6 组，每组 25 条，
+  // 和上面商务部的三个维度并列在「对外与汇率」下（不按数量硬切成 ·1/·2）。
+  if (code.startsWith("gacc_cn_")) {
+    const side = code.startsWith("gacc_cn_imp_") ? "进口" : "出口";
+    const measure = code.endsWith("_price") ? "单价" : code.endsWith("_qty") ? "数量" : "金额";
+    return p("对外与汇率", `主要商品：${side}${measure}`);
+  }
   return null;
 }
 

@@ -231,6 +231,14 @@ export async function fetchSubscriptionIncremental(
         const { fetchMofcomTradeIncremental } = await import("./adapters/mofcomTradeAdapter");
         return fetchMofcomTradeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "gacc_commodity") {
+        const { fetchGaccCommodityIncremental } = await import("./adapters/gaccCommodityAdapter");
+        return fetchGaccCommodityIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "tsa_passenger_volumes") {
         const { fetchTsaPassengerVolumesIncremental } = await import(
           "./adapters/tsaPassengerVolumesAdapter"

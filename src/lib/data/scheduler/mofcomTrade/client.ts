@@ -99,18 +99,6 @@ function parseCountry(data: unknown, out: MofcomTradeHistory) {
     }
   }
 }
-function parseComposition(data: unknown, out: MofcomTradeHistory) {
-  const input = rows(data); if (!input.length) throw new Error("商务部货物贸易商品构成接口为空");
-  for (const row of input) {
-    const obsDate = date(row.data_time); const item = String(row.name ?? "").trim(); if (!obsDate || !item) continue;
-    // This endpoint is expressed in thousand USD; convert to 亿美元 (1 亿美元 = 100,000 千美元).
-    for (const [kind, label, prefix] of [["export", "出口", "export"], ["import", "进口", "import"]] as const) {
-      field(out, `commodity|${item}|${kind}|amount`, `外贸：商品构成：${item}：${label}当月值`, "亿美元", row, `${prefix}_value`, obsDate, 1 / 100_000);
-      field(out, `commodity|${item}|${kind}|cumulative_amount`, `外贸：商品构成：${item}：${label}累计值`, "亿美元", row, `${prefix}_lj_value`, obsDate, 1 / 100_000);
-      field(out, `commodity|${item}|${kind}|cumulative_yoy`, `外贸：商品构成：${item}：${label}累计同比`, "%", row, `${prefix}_lj_per`, obsDate);
-    }
-  }
-}
 function months(startYear: number, end: Date): string[] {
   const result: string[] = [];
   for (let year = startYear; year <= end.getUTCFullYear(); year++) for (let month = 1; month <= 12; month++) {
@@ -122,7 +110,9 @@ function months(startYear: number, end: Date): string[] {
 
 /**
  * Official structure (checked 2026-08): totalmonth accepts a date range;
- * the three classification endpoints accept one YYYYMM and return all rows.
+ * the classification endpoints accept one YYYYMM and return all rows.
+ * 分商品维度已于 2026-09 迁到海关总署主要商品量值表（gaccCommodity 模块）——
+ * 商务部的 composition/query 只有金额没有数量，算不出单价，故此处不再抓取。
  * Historical scans are serial and caller-authorized; normal worker fetches only
  * the latest release month, so it does not repeatedly crawl history.
  */
@@ -142,20 +132,18 @@ export async function fetchMofcomTradeHistory(options: Options = {}): Promise<Mo
   );
   if (!latest) throw new Error("商务部货物贸易：月度总值未返回有效观测日期");
   const periods = options.historical ? months(2016, latest) : [latest.toISOString().slice(0, 7).replace("-", "")];
-  const unavailable = { tradeMethod: 0, country: 0, composition: 0 };
+  const unavailable = { tradeMethod: 0, country: 0 };
   for (const period of periods) {
     const body = new URLSearchParams({ query_date: period }); const tradeMethod = await request("totaltrademethod/query", body);
     if (rows(tradeMethod).length) parseTradeMethod(tradeMethod, output); else unavailable.tradeMethod++;
     const byDate = new URLSearchParams({ date: period }); const country = await request("totalbycountry/query", byDate);
     if (rows(country).length) parseCountry(country, output); else unavailable.country++;
-    const composition = await request("composition/query", byDate);
-    if (rows(composition).length) parseComposition(composition, output); else unavailable.composition++;
   }
-  if (!options.historical && (unavailable.tradeMethod || unavailable.country || unavailable.composition)) {
-    throw new Error(`商务部货物贸易本期缺少分类数据：贸易方式=${unavailable.tradeMethod}，国别=${unavailable.country}，商品构成=${unavailable.composition}`);
+  if (!options.historical && (unavailable.tradeMethod || unavailable.country)) {
+    throw new Error(`商务部货物贸易本期缺少分类数据：贸易方式=${unavailable.tradeMethod}，国别=${unavailable.country}`);
   }
-  if (options.historical && (unavailable.tradeMethod || unavailable.country || unavailable.composition)) {
-    console.warn(`[mofcom-trade] 官方分类历史未覆盖的月份：贸易方式=${unavailable.tradeMethod}，国别=${unavailable.country}，商品构成=${unavailable.composition}`);
+  if (options.historical && (unavailable.tradeMethod || unavailable.country)) {
+    console.warn(`[mofcom-trade] 官方分类历史未覆盖的月份：贸易方式=${unavailable.tradeMethod}，国别=${unavailable.country}`);
   }
   for (const series of output.values()) series.points.sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime());
   if (!output.size) throw new Error("商务部货物贸易：未解析到任何官方序列");

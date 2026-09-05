@@ -160,7 +160,9 @@ npm run db:studio        # Prisma Studio
 
 「中国外汇与国际收支」：`data:seed-safe-external` → `data:sync-safe-external` / `data:verify-safe-external -- --db`；外汇及黄金储备、银行结售汇、代客涉外收付款、国际收支、国际投资头寸和全口径外债的公开时间序列表；按原表月/季/年频保存，不推算未发布的同比或环比。
 
-「中国外贸与外部部门」：`data:seed-mofcom-trade` → `data:sync-mofcom-trade` / `data:verify-mofcom-trade -- --db`；商务部公开接口转载海关总署货物贸易统计，回填全国进出口、贸易方式、主要国别地区及 SITC 商品构成的当月/累计美元值和官方同比；发布包触发日常增量更新，不由累计数倒推非官方值。
+「中国外贸与外部部门」：`data:seed-mofcom-trade` → `data:sync-mofcom-trade` / `data:verify-mofcom-trade -- --db`；商务部公开接口转载海关总署货物贸易统计，回填全国进出口、贸易方式、主要国别地区的当月/累计美元值和官方同比；发布包触发日常增量更新，不由累计数倒推非官方值。分商品维度已于 2026-09 迁出（见下条），旧的「外贸：商品构成」894 条序列由 `data:drop-mofcom-composition -- --apply` 一次性下线。
+
+「中国海关主要商品量值」：`data:seed-gacc-commodity` → `data:sync-gacc-commodity` / `data:verify-gacc-commodity -- --db`；抓海关总署英文站统计月报表(13)/(14)（= 中文月报表13/表14 出口/进口主要商品量值表）的静态 HTML，进出口各 25 个重点商品 × 当月数量/当月金额/当月单价共 150 条序列，回填自 2020-01（源站 2018–2019 是另一套商品名录，不可对齐）。中文站 www.customs.gov.cn 与 stats.customs.gov.cn 挂瑞数动态防护恒返回 412，只能走英文站；该站仅有 HTTP，勿改 https。
 
 「中国国家统计局 CPI」：`data:seed-nbs-cpi` → `data:sync-nbs-cpi` / `data:verify-nbs-cpi`（加 `--db`）；全国总项、核心项及八大类的指数、同比、环比走国家数据 UUID 接口全历史 + 官方月报 Excel 首发。
 
