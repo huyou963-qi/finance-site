@@ -168,6 +168,12 @@ npm run db:studio        # Prisma Studio
 
 「NY Fed 全球供应链压力指数（GSCPI）」：`data:seed-nyfed-gscpi` → `data:sync-nyfed-gscpi` / `data:verify-nyfed-gscpi`（加 `--db`）；运输成本+制造业指标 PCA 合成的供应链压力标准化指数，走纽约联储官方 `gscpi_data.xlsx` 月度全历史（1998-01 起），非 FRED 序列（已核实），月频 `probe_interval`（72h）探测；归入「国民经济」目录。
 
+「TSA 安检口日度旅客通过人数」：`data:seed-tsa-passenger-volumes` → `data:sync-tsa-passenger-volumes` / `data:verify-tsa-passenger-volumes -- --db`；`tsa.gov/travel/passenger-volumes` 当年滚动窗口 + `/travel/passenger-volumes/{year}` 年度归档（2019 起，页面本身无更早归档，回填深度上限即此），非 FRED 序列，日频 `probe_interval` 探测。
+
+「AAR 美国铁路周度装车量/多式联运量」：`data:seed-aar-rail-traffic` → `data:sync-aar-rail-traffic` / `data:verify-aar-rail-traffic -- --db`；`aar.org` 每周三新闻稿正文抓取（归档列表 `/aar_news/weekly-rail-traffic-data/page/{n}/` 分页发现 URL，`sync` 支持 `--no-resume`/`--max-pages` 断点续抓），拆分 carloads/intermodal 两条仪器，回填深度上限 2019-01（正文句式核实置信度限制）；与 FRED 的 `RAILFRTCARLOADS`/`RAILFRTINTERMODAL`（BTS 按周汇总折算月频、滞后约 2 个月）口径与时效均不同，非重复口径，周频 `probe_interval` 探测。
+
+「Cass 货运指数（Shipments/Expenditures）」：`data:seed-cass-freight-index` / `data:verify-cass-freight-index -- --db`；Cass Information Systems 编制、原生落在 FRED（`FRGSHPUSM649NCIS`/`FRGEXPUSM649NCIS`，Release「Cass Freight Index Report」rid=280，历史起 2016-01），走常规 FRED_API 接入，无需抓取；两条序列同源同批发布，月频 `probe_interval`（72 小时）探测，见 `us.cass.freight_index` 发布包。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |
