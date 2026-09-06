@@ -1,0 +1,7 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Hong_Kong
+FINANCE_SITE_PATH=/opt/finance-site
+
+# 每日更新已经完成首次同步的标的。首次覆盖由管理员显式执行，避免无界历史回填。
+20 3 * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-ownership-sync.lock nice -n 10 timeout --signal=TERM --kill-after=30s 4h env NODE_OPTIONS=--max-old-space-size=1024 npm run quant:sync-form4 -- --tracked-only --since=2025-01-01 >> logs/ownership-sync.log 2>&1

@@ -56,9 +56,9 @@ npm run equity:verify-ownership -- --symbol=CRWV
 
 本次migration：`20260905160000_ownership_supply_evidence`。其他环境必须先`npm run db:migrate`。Schema已变更时生产构建会更新Prisma客户端。
 
-首次同步后每天运行同一命令；已有XML按解析版本跳过或本地重解析，历史发现保留分页完整性。`--max-filings=N`为调试上限，**会标记不完整**；`--plans-only`只处理计划财报，不覆盖已有Form4覆盖状态；`--force`从SEC重取。整批非零退出表示有失败。建议与其他SEC批量任务串行，进程内限速不代表多进程总限速。
+首次同步后由 `scripts/ops/finance-site-ownership.cron` 每日执行 `--tracked-only`，只更新已有 `ownershipCoverage` 的标的；新标的仍需显式执行一次 `--symbols` 初始化。已有XML按解析版本跳过或本地重解析，历史发现保留分页完整性。`--max-filings=N`为调试上限，**会标记不完整**；`--plans-only`只处理计划财报，不覆盖已有Form4覆盖状态；`--force`从SEC重取。整批非零退出表示有失败。建议与其他SEC批量任务串行，进程内限速不代表多进程总限速。
 
-现有日线同步单独运行，查询页面不触发SEC抓取。部署沿项目现有GitHub Actions流程；本次未修改生产部署或擅自启动服务器计划任务。日常调度可将上述命令接入既有运维计划；不要运行另一套抓取器。
+现有日线同步单独运行，查询页面不触发SEC抓取。部署沿项目现有GitHub Actions流程安装每日任务，仍调用同一个ownership同步器和writer；不要运行另一套抓取器。
 
 FMP访问权限不足或接口失败时保留已核实分母。管理员可在“证据审核→流通股分母”录入带公开来源的数值；不能用总股本、无日期网页值或猜测值填充。
 
