@@ -95,6 +95,10 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-finra-margin-debt",
     labelZh: "FINRA 客户融资余额统计（NYSE 融资余额）",
   },
+  "ritter-ipo": {
+    script: "seed-ritter-ipo",
+    labelZh: "美股 IPO 月度统计（Ritter）",
+  },
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
@@ -217,6 +221,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "finra-margin-debt": {
     script: "verify-finra-margin-debt",
     labelZh: "FINRA 客户融资余额统计自检",
+    verifyNeedsDb: true,
+  },
+  "ritter-ipo": {
+    script: "verify-ritter-ipo",
+    labelZh: "美股 IPO 月度统计自检",
     verifyNeedsDb: true,
   },
 };

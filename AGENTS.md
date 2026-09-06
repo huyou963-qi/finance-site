@@ -182,6 +182,11 @@ npm run db:studio        # Prisma Studio
 
 「FINRA 客户融资余额统计（NYSE 融资余额/杠杆率）」：`data:seed-finra-margin-debt` → `data:sync-finra-margin-debt` / `data:verify-finra-margin-debt`（加 `--db`）；FINRA 官网仅发布一份 `margin-statistics.xlsx`（Rule 4521(d) 会员行月度申报汇总，明确"不提供数据接口"），一次抓取拆出三条分项：Debit Balances（融资余额，即"股市杠杆率"最常引用口径，1997-01 起）、Free Credit Balances in Cash Accounts（现金账户闲置资金，1997-01 起）、Free Credit Balances in Securities Margin Accounts（保证金账户闲置资金，仅 2010-02 起有该分项，规则生效前无此统计），三者共享同一份源文件（client 内 60s 缓存避免重复请求），月频 `probe_interval`（72h）探测，归入「利率与信用市场 · 市场情绪」（与 CBOE VIX9D/VVIX 同组）。
 
+「美股 IPO 月度统计（Ritter）」：`data:seed-ritter-ipo` → `data:sync-ritter-ipo` / `data:verify-ritter-ipo`（加 `--db`）；佛罗里达大学 Jay Ritter 的 `IPOALL.xlsx`（学术界标准公开数据集，FRED 对 IPO 零覆盖已核实，SDC/Dealogic 均付费），一次抓取拆出四条月频分项：首日平均涨幅（1960-01 起 761 点）、发行家数毛口径（1960-01 起 792 点，含 SPAC/直接上市/仙股/单位/封闭式基金）、发行家数净口径（1975-01 起 612 点，剔除上述）、定价高于申报区间中值占比（1980-01 起 534 点）。归入「利率与信用市场 · 市场情绪」（与 CBOE VIX9D、FINRA 融资余额同组，同属风险偏好指标）。
+
+⚠ 三个坑（都在 `ritterIpo/catalog.ts` 顶部注释里写全了）：①**源文件没有表头行**，列含义只写在末尾脚注，解析器靠「col0 是 1..12 月份 + col1 是可信年份」锚定数据行；②**年份是两位数**，60–99→19xx、0–59→20xx，另有 [1960, 次年] 兜底，源跨到 2060 会报错而非静默取错；③**四列起始年份各不相同且用字符串哨兵占位**（`"see 1975"`/`"see 1980"`/`"."`/`"na"`），必须逐列独立判断，已知哨兵静默跳过、未知文字计入 `skippedInvalid` 以便发现源改版。
+⚠ 这是**年度更新**的研究数据集（上一年数据次年 1 月补齐），"最新观测落后 9–14 个月"是正常状态，verify 的过期阈值因此放到 24 个月；它解决历史统计，不解决当期 IPO 跟踪。当期跟踪的候选源 Nasdaq IPO API（`api.nasdaq.com/api/ipo/calendar`，免费 JSON、可回溯到 2000-01、含发行价与募资额）数据虽好，但 **`api.nasdaq.com/robots.txt` 是全站 `Disallow: /`**，按合规规则不可抓，已搁置待议；另一条路是 SEC EDGAR 的 424B4/8-A12B（事件检测结构化、可行，但发行价与募资额需解析自由文本招股书）。FMP 的 `/ipos-calendar` 等端点在当前订阅下返回 `Restricted Endpoint`。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

@@ -884,6 +884,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 258,
     members: { instrumentCodePatterns: ["finra_us_margin_*"] },
   }),
+  // 年度更新的研究数据集，探测间隔取 168h（周）——比月频源更稀疏即可
+  probePkg("us.ritter.ipo_statistics", "美国 IPO 月度统计（Ritter）", {
+    labelEn: "US IPO Monthly Statistics (Ritter)",
+    agencyId: "us-uf-ritter",
+    granularity: "MONTHLY",
+    intervalHours: 168,
+    sortOrder: 259,
+    members: { instrumentCodePatterns: ["ritter_us_ipo_*"] },
+  }),
   probePkg("us.stlouisfed.recession_prob", "美国平滑衰退概率", {
     labelEn: "Smoothed U.S. Recession Probabilities",
     granularity: "MONTHLY",

@@ -149,6 +149,17 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (
+        typeof scrapeObj.provider === "string" &&
+        scrapeObj.provider.startsWith("ritter_ipo_")
+      ) {
+        const { fetchRitterIpoIncremental } = await import("./adapters/ritterIpoAdapter");
+        return fetchRitterIpoIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "damodaran_erp") {
         const { fetchDamodaranErpIncremental } = await import(
           "./adapters/damodaranErpAdapter"

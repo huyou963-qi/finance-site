@@ -292,6 +292,10 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   if (code.startsWith("finra_")) {
     return p("利率与信用市场", "市场情绪");
   }
+  // IPO 首日涨幅/发行家数是经典的风险偏好与一级市场过热度指标，与 VIX、融资余额同组
+  if (code.startsWith("ritter_us_ipo_")) {
+    return p("利率与信用市场", "市场情绪");
+  }
   if (code.startsWith("debtcap_")) {
     return p("财政与公共债务", "债务存量");
   }
