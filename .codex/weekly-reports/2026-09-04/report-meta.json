@@ -1,0 +1,14 @@
+{
+  "weekEnding": "2026-09-04",
+  "title": "油价与强就业推高利率，AI 龙头托住窄幅指数",
+  "regime": "Reflation / Narrow AI leadership",
+  "regimeConfidence": "M",
+  "scope": "Global",
+  "generatedAt": "2026-09-05 18:15 CST",
+  "summaryOneLiner": "FROM 防御与可选消费 → TO 能源、半导体与 Momentum；油价和再加息风险压缩估值空间",
+  "kpis": [
+    { "label": "HY OAS", "value": "265bp", "delta": "+2bp", "dir": "up" },
+    { "label": "10Y-2Y", "value": "0.41%", "delta": "+2bp", "dir": "up" },
+    { "label": "VIX", "value": "14.53", "delta": "+0.10", "dir": "up" }
+  ]
+}

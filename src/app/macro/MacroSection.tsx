@@ -3265,7 +3265,7 @@ export function MacroSection() {
   );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 lg:min-h-full">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-0">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-fs-border px-4 pb-1.5 pt-1 lg:px-6">
         <MacroMainToolbar
           mainTab={mainTab}
