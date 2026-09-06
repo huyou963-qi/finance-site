@@ -5,8 +5,10 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { syncSecFilings } from "./secFilingSync";
+import { loadOwnershipPlanDisclosures } from "./ownershipMonitor";
 
-export type StockEventType = "earnings" | "annual" | "8k" | "split";
+export type StockEventType = "earnings" | "annual" | "8k" | "split" | "insider-plan";
 export type StockEventImportance = "high" | "medium" | "low";
 
 export type StockEventMetrics = {
@@ -85,80 +87,10 @@ export async function ingestSecFilingsForSymbol(
   cik: string,
   opts: { lookbackDays?: number } = {},
 ): Promise<number> {
-  const lookbackDays = opts.lookbackDays ?? 750;
-  const cutoff = Date.now() - lookbackDays * 86_400_000;
-  const padded = cik.replace(/\D/g, "").padStart(10, "0");
-  const forms = new Set(["8-K", "10-Q", "10-K", "8-K/A", "10-Q/A", "10-K/A"]);
-
-  const res = await fetch(`https://data.sec.gov/submissions/CIK${padded}.json`, {
-    headers: {
-      "User-Agent":
-        process.env.SEC_USER_AGENT?.trim() || "hblook.com equity-fundamentals admin@hblook.com",
-      Accept: "application/json",
-    },
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!res.ok) throw new Error(`SEC submissions HTTP ${res.status}`);
-  const data = (await res.json()) as {
-    filings?: {
-      recent?: {
-        accessionNumber?: string[];
-        form?: string[];
-        filingDate?: string[];
-        items?: string[];
-        primaryDocument?: string[];
-        primaryDocDescription?: string[];
-      };
-    };
-  };
-  const recent = data.filings?.recent;
-  const accessions = recent?.accessionNumber ?? [];
-  const formArr = recent?.form ?? [];
-  const dates = recent?.filingDate ?? [];
-  const itemsArr = recent?.items ?? [];
-  const primaryDocs = recent?.primaryDocument ?? [];
-  const primaryDescs = recent?.primaryDocDescription ?? [];
-  const n = Math.min(accessions.length, formArr.length, dates.length);
-
-  let upserted = 0;
-  for (let i = 0; i < n; i++) {
-    const form = formArr[i]!;
-    if (!forms.has(form)) continue;
-    const filed = dates[i]!;
-    const filedMs = Date.parse(`${filed}T00:00:00Z`);
-    if (!Number.isFinite(filedMs) || filedMs < cutoff) continue;
-    const accession = accessions[i]!;
-    const primaryDocument = primaryDocs[i]?.trim().slice(0, 256) || null;
-    const noDash = accession.replace(/-/g, "");
-    const base = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${noDash}`;
-    const url = primaryDocument ? `${base}/${primaryDocument}` : `${base}/${accession}-index.htm`;
-    await prisma.secFiling.upsert({
-      where: { cik_accession: { cik: padded, accession } },
-      create: {
-        cik: padded,
-        symbol,
-        accession,
-        form,
-        filedAt: new Date(`${filed}T00:00:00.000Z`),
-        url,
-        items: itemsArr[i]?.trim().slice(0, 64) || null,
-        primaryDocument,
-        primaryDocDescription: primaryDescs[i]?.trim().slice(0, 256) || null,
-      },
-      update: {
-        symbol,
-        form,
-        filedAt: new Date(`${filed}T00:00:00.000Z`),
-        url,
-        items: itemsArr[i]?.trim().slice(0, 64) || null,
-        primaryDocument,
-        primaryDocDescription: primaryDescs[i]?.trim().slice(0, 256) || null,
-      },
-    });
-    upserted += 1;
-  }
-  return upserted;
+  void cik;
+  const result = await syncSecFilings({ symbols: [symbol], lookbackDays: opts.lookbackDays ?? 750 });
+  if (result.failed) throw new Error("SEC 同步失败");
+  return result.upserted;
 }
 
 /**
@@ -181,8 +113,9 @@ export async function loadStockEvents(
 
   const filingWhere: {
     symbol: string;
+    form: { in: string[] };
     filedAt?: { gte?: Date; lte?: Date };
-  } = { symbol };
+  } = { symbol, form: { in: ["8-K", "8-K/A", "10-Q", "10-K", "10-Q/A", "10-K/A"] } };
   if (fromDay || toDay) {
     filingWhere.filedAt = {};
     if (fromDay) filingWhere.filedAt.gte = new Date(`${fromDay}T00:00:00.000Z`);
@@ -354,6 +287,17 @@ export async function loadStockEvents(
   }
 
   const typeFilter = opts.types?.length ? new Set(opts.types) : null;
+  if(!typeFilter || typeFilter.has("insider-plan")) {
+    const today=new Date().toISOString().slice(0,10);
+    const asOf=toDay&&toDay<today?toDay:today;
+    const plans=await loadOwnershipPlanDisclosures(symbol,asOf);
+    for(const plan of plans.filter(p=>p.verified)) {
+      const maximum=plan.maxShares==null?"上限未核实":`最多 ${plan.maxShares.toLocaleString("en-US")} 股`;
+      const dates=[{date:plan.filedAt,title:`${plan.ownerName} · 10b5-1 ${plan.status==="terminated"?"计划终止披露":"计划披露"} · ${maximum}`}];
+      if(plan.start && plan.start>=asOf && (!plan.terminated || plan.terminated>asOf) && (!plan.end || plan.end>=asOf)) dates.push({date:plan.start,title:`${plan.ownerName} · 10b5-1 条件性执行窗口开始 · ${maximum}`});
+      for(const event of dates) if((!fromDay||event.date>=fromDay)&&(!toDay||event.date<=toDay)) events.push({type:"insider-plan",date:event.date,titleZh:event.title,form:null,items:[],importance:"medium",url:plan.sourceUrl,metrics:null,splitRatio:null,reaction:null});
+    }
+  }
   return events
     .filter((e) => !typeFilter || typeFilter.has(e.type))
     .sort((a, b) => b.date.localeCompare(a.date))

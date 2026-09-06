@@ -68,6 +68,16 @@ export async function fetchFmpProfile(symbol: string): Promise<FmpProfile | null
   };
 }
 
+/** Float SHARES, never freeFloat (percentage) or outstandingShares. Date is the vendor observation date. */
+export async function fetchFmpSharesFloat(symbol: string): Promise<{ shares: number; date: string; source: string } | null> {
+  const json = await fmpGetJson(`/shares-float?symbol=${encodeURIComponent(symbol)}`, "shares-float");
+  const row = Array.isArray(json) ? json.find(r=>r?.symbol===symbol) : null;
+  if (!row || typeof row.floatShares !== "number" || !Number.isFinite(row.floatShares) || row.floatShares<=0 || typeof row.date!=="string") return null;
+  const date = row.date.slice(0,10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date))) return null;
+  return { shares:row.floatShares,date,source:`https://financialmodelingprep.com/stable/shares-float?symbol=${encodeURIComponent(symbol)}` };
+}
+
 export type FmpSectorPerfPoint = {
   date: string;
   sector: string;

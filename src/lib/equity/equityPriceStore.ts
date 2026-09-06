@@ -14,6 +14,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   adjustDailyBars,
+  sharesAtDate,
   sanitizeRawDailyBars,
   type AdjustedBar,
   type PriceAdjustmentMode,
@@ -525,4 +526,21 @@ export async function getAdjustedCloseInWindowDbOnly(options: {
     select: { date: true, adjClose: true },
     orderBy: { date: options.prefer === "earliest" ? "asc" : "desc" },
   });
+}
+
+/** DB-only supply denominator; 20 nominal daily volumes normalized to the requested share basis. */
+export async function getOwnershipMarketContext(symbol: string, asOf: string) {
+  const [rows, splitMap, coverage] = await Promise.all([
+    fetchRawDailyBarRows(symbol, { toSec: Date.parse(asOf) / 1000, limit: 20 }),
+    readSplits([symbol]), prisma.equityPriceCoverage.findUnique({ where: { symbol } }),
+  ]);
+  const splits = splitMap.get(symbol) ?? [];
+  const nominal = adjustDailyBars(sanitizeRawDailyBars(rows.map(rowToRaw)), splits, "none");
+  const volumes = nominal.map(b => b.volume == null ? null : sharesAtDate(b.volume, new Date(b.time * 1000).toISOString().slice(0,10), asOf, splits));
+  const latest = rows.at(-1)?.date.toISOString().slice(0,10) ?? null;
+  const fresh = latest != null && Date.parse(asOf) - Date.parse(latest) <= 7 * 86400000;
+  const adv20 = coverage?.fullHistory && volumes.length === 20 && volumes.every(v => v != null && v > 0) && fresh
+    ? volumes.reduce<number>((sum,v) => sum + (v ?? 0), 0) / 20 : null;
+  return { splits, adv20, volumeDays: volumes.length, latest, source: coverage?.source ?? null,
+    issue: adv20 == null ? "需要最近七日内结束的20根有效日线成交量" : null };
 }

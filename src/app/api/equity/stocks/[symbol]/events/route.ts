@@ -5,7 +5,7 @@ import { loadStockEvents, type StockEventType } from "@/lib/equity/stockEvents";
 
 type Ctx = { params: Promise<{ symbol: string }> };
 
-const VALID_TYPES = new Set<StockEventType>(["earnings", "annual", "8k", "split"]);
+const VALID_TYPES = new Set<StockEventType>(["earnings", "annual", "8k", "split", "insider-plan"]);
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   try {

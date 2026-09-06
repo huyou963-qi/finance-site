@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 /**
  * 个股「内部人交易」面板（Form 4 Table I）：逐笔明细表 + 月度净买卖趋势图。
@@ -113,6 +114,7 @@ function NetTrendChart({ monthly }: { monthly: InsiderMonthlyNet[] }) {
 
 export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
   const [transactions, setTransactions] = useState<InsiderTransactionRow[]>([]);
+  const [coverageMessage, setCoverageMessage] = useState("");
   const [monthly, setMonthly] = useState<InsiderMonthlyNet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +129,7 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
       .then(async (r) => {
         const j = (await r.json()) as {
           error?: string;
+          coverageMessage?: string;
           transactions?: InsiderTransactionRow[];
           monthly?: InsiderMonthlyNet[];
         };
@@ -134,6 +137,7 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
         if (cancelled) return;
         setTransactions(j.transactions ?? []);
         setMonthly(j.monthly ?? []);
+        setCoverageMessage(j.coverageMessage ?? "");
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : "加载失败");
@@ -150,9 +154,10 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
     <section className="rounded-md border border-fs-border">
       <div className="flex items-center justify-between gap-2 border-b border-fs-border bg-fs-elevated/40 px-3 py-2">
         <span className="text-sm font-medium text-fs-text">内部人交易</span>
-        <span className="text-[11px] text-fs-muted">SEC Form 4 · 逐笔申报</span>
+        <Link className="text-xs text-fs-accent" href={`/equity/ownership?symbol=${encodeURIComponent(symbol)}`}>完整持股与供给监控 ↗</Link>
       </div>
 
+      {coverageMessage ? <p className="px-3 py-2 text-xs text-fs-muted">{coverageMessage}</p> : null}
       {error ? <div className="px-3 py-3 text-sm text-red-300">{error}</div> : null}
 
       {loading ? (
@@ -165,7 +170,7 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
         <>
           {monthly.length > 0 ? (
             <div className="border-b border-fs-border px-3 py-3">
-              <div className="mb-1 text-xs font-medium text-fs-muted">月度净买卖（公开市场 P/S 口径）</div>
+              <div className="mb-1 text-xs font-medium text-fs-muted">月度已确认净买卖（市场 / 私下 P/S 口径）</div>
               <NetTrendChart monthly={monthly} />
             </div>
           ) : null}

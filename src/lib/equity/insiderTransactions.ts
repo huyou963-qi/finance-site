@@ -3,9 +3,14 @@
  * 纯 DB 读取，不做 lazy on-demand 抓取——Form 4 走批量后台同步（npm run quant:sync-form4），
  * 不像 fundamentals 那样适合按需拉取单只股票（申报量大、逐份还要再拉 XML）。
  */
-import { prisma } from "@/lib/prisma";
+import { loadOwnershipMonitor } from "./ownershipMonitor";
+import type { OwnershipLineEvidence } from "./ownershipTypes";
 
 export type InsiderTransactionRow = {
+  evidence?: OwnershipLineEvidence | null;
+  lineIndex?: number;
+  id: string;
+  cik: string;
   accession: string;
   filerCik: string;
   filerName: string | null;
@@ -32,41 +37,23 @@ export type InsiderMonthlyNet = {
 };
 
 export type InsiderTransactionsResult = {
+  truncated: boolean;
+  coverageMessage: string;
   transactions: InsiderTransactionRow[];
   monthly: InsiderMonthlyNet[];
 };
-
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 export async function loadInsiderTransactions(
   symbol: string,
   opts: { limit?: number } = {},
 ): Promise<InsiderTransactionsResult> {
-  const limit = Math.max(1, Math.min(opts.limit ?? 200, 1000));
-  const rows = await prisma.insiderTransaction.findMany({
-    where: { symbol },
-    orderBy: [{ transactionDate: "desc" }, { filedAt: "desc" }],
-    take: limit,
-  });
-
-  const transactions: InsiderTransactionRow[] = rows.map((r) => ({
-    accession: r.accession,
-    filerCik: r.filerCik,
-    filerName: r.filerName,
-    isDirector: r.isDirector,
-    isOfficer: r.isOfficer,
-    isTenPercentOwner: r.isTenPercentOwner,
-    officerTitle: r.officerTitle,
-    transactionDate: toIsoDate(r.transactionDate),
-    transactionCode: r.transactionCode,
-    acquiredDisposedCode: r.acquiredDisposedCode,
-    shares: r.shares,
-    pricePerShare: r.pricePerShare,
-    sharesOwnedAfter: r.sharesOwnedAfter,
-    filedAt: toIsoDate(r.filedAt),
-  }));
+  const limit = Number.isFinite(opts.limit) ? Math.max(1, Math.min(Math.floor(opts.limit!), 1000)) : 200;
+  const asOf = new Date().toISOString().slice(0,10);
+  const monitor = await loadOwnershipMonitor(symbol,asOf,"2006-01-01");
+  const rows = (monitor?.transactions ?? []).filter(t=>t.status==="included")
+    .sort((a,b)=>b.transactionDate.localeCompare(a.transactionDate)||b.filedAt.localeCompare(a.filedAt));
+  const transactions: InsiderTransactionRow[] = rows.slice(0,limit);
+  const coverageMessage = `仅包含已确认经济交易；待裁定 ${monitor?.auditCount ?? 0} 行。缺价交易不贡献金额；最多显示 ${limit} 行。`;
 
   const monthlyMap = new Map<string, InsiderMonthlyNet>();
   for (const t of transactions) {
@@ -78,10 +65,10 @@ export async function loadInsiderTransactions(
     }
     const value = t.shares * (t.pricePerShare ?? 0);
     // P=公开市场买入 S=公开市场卖出；其余代码（授予/行权/代扣等）不计入净买卖趋势
-    if (t.transactionCode === "P") {
+    if (t.transactionCode === "P" && t.acquiredDisposedCode === "A") {
       m.buyShares += t.shares;
       m.buyValue += value;
-    } else if (t.transactionCode === "S") {
+    } else if (t.transactionCode === "S" && t.acquiredDisposedCode === "D") {
       m.sellShares += t.shares;
       m.sellValue += value;
     }
@@ -89,5 +76,5 @@ export async function loadInsiderTransactions(
   for (const m of monthlyMap.values()) m.netValue = m.buyValue - m.sellValue;
   const monthly = [...monthlyMap.values()].sort((a, b) => a.month.localeCompare(b.month));
 
-  return { transactions, monthly };
+  return { transactions, monthly, coverageMessage, truncated: rows.length > limit || !!monitor?.truncated };
 }

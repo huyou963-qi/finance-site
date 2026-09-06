@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import {test} from "node:test";
+import {parseTradingPlans} from "./ownershipPlans";
+import {parseOwnershipDate,parseOwnershipHoldings,parseForm4Xml,parseDerivativeTransactions} from "../quant/form4";
+const context='<xbrli:context id="p"><xbrldi:explicitMember dimension="ecd:IndividualAxis">issuer:JaneMember</xbrldi:explicitMember></xbrli:context>';
+const fact=(name:string,value:string)=>`<ix:nonNumeric contextRef="p" name="ecd:${name}">${value}</ix:nonNumeric>`;
+const html=context+fact("MtrlTermsOfTrdArrTextBlock",fact("TrdArrIndName","Jane Doe")+fact("TrdArrAdoptionDate","On May 11, 2026")+fact("Rule10b51ArrAdoptedFlag","true")+fact("TrdArrExpirationDate","December 31, 2026")+'<ix:nonFraction contextRef="p" name="ecd:TrdArrSecuritiesAggAvailAmt" scale="3">2</ix:nonFraction>');
+test("嵌套Inline XBRL不吞掉内部计划字段，日期不受Windows时区影响",()=>{
+ const old=process.env.TZ;process.env.TZ='Asia/Shanghai';try{const p=parseTradingPlans(html,'https://www.sec.gov/test','2026-06-01')[0];assert.equal(p.adopted,'2026-05-11');assert.equal(p.end,'2026-12-31');assert.equal(p.maxShares,2000);assert.equal(p.verified,true);assert.equal(parseOwnershipDate('February 30, 2026'),null);}finally{if(old===undefined)delete process.env.TZ;else process.env.TZ=old;}
+});
+test("缺乏结构化标记保留候选证据，不声称无计划",()=>{const p=parseTradingPlans('<p>Jane adopted a 10b5-1 plan.</p>','https://www.sec.gov/test','2026-06-01')[0];assert.equal(p.status,'candidate');assert.equal(p.maxShares,null);});
+test("同一计划独立子维度可求和，但父级总数不能与子级双计",()=>{
+ const child=(id:string,member:string,value:number)=>`<xbrli:context id="${id}"><xbrldi:explicitMember dimension="ecd:IndividualAxis">issuer:JaneMember</xbrldi:explicitMember><xbrldi:explicitMember dimension="ecd:TradingArrAxis">issuer:${member}</xbrldi:explicitMember></xbrli:context><ix:nonFraction contextRef="${id}" name="ecd:TrdArrSecuritiesAggAvailAmt">${value}</ix:nonFraction>`;
+ const prefix=context+fact('TrdArrIndName','Jane Doe')+fact('TrdArrAdoptionDate','May 11, 2026')+fact('Rule10b51ArrAdoptedFlag','true');
+ const children=child('a','CommonMember',100)+child('b','OptionMember',200);
+ assert.equal(parseTradingPlans(prefix+children,'https://www.sec.gov/test','2026-06-01')[0].maxShares,300);
+ assert.equal(parseTradingPlans(prefix+'<ix:nonFraction contextRef="p" name="ecd:TrdArrSecuritiesAggAvailAmt">300</ix:nonFraction>'+children,'https://www.sec.gov/test','2026-06-01')[0].maxShares,300);
+});
+const xml=`<ownershipDocument><documentType>3</documentType><periodOfReport>2026-01-01</periodOfReport><issuer><issuerCik>1</issuerCik></issuer><reportingOwner><reportingOwnerId><rptOwnerCik>2</rptOwnerCik><rptOwnerName>Jane</rptOwnerName></reportingOwnerId></reportingOwner><nonDerivativeTable><nonDerivativeHolding><securityTitle><value>Common Stock</value></securityTitle><postTransactionAmounts><sharesOwnedFollowingTransaction><value>1000</value></sharesOwnedFollowingTransaction></postTransactionAmounts><ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership></ownershipNature></nonDerivativeHolding></nonDerivativeTable></ownershipDocument>`;
+test("Form3持仓不伪造为买卖交易",()=>{assert.equal(parseForm4Xml(xml).length,0);const h=parseOwnershipHoldings(xml)[0];assert.equal(h.shares,1000);assert.equal(h.date,'2026-01-01');assert.equal(h.ownership,'D');});
+test("TableII与TableI分离，行权不重复计普通股供给",()=>{const derivative=xml.replace('<nonDerivativeTable>',`<derivativeTable><derivativeTransaction><securityTitle><value>Option</value></securityTitle><transactionDate><value>2026-01-01</value></transactionDate><transactionCoding><transactionCode>M</transactionCode></transactionCoding><transactionAmounts><transactionShares><value>100</value></transactionShares><transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode></transactionAmounts><underlyingSecurity><underlyingSecurityTitle><value>Common Stock</value></underlyingSecurityTitle><underlyingSecurityShares><value>100</value></underlyingSecurityShares></underlyingSecurity></derivativeTransaction></derivativeTable><nonDerivativeTable>`);assert.equal(parseForm4Xml(derivative).length,0);assert.equal(parseDerivativeTransactions(derivative)[0].evidence.underlyingShares,100);});

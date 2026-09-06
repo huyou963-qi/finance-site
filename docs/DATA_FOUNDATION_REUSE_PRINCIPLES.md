@@ -50,6 +50,8 @@ API / 页面
 | GICS 当前定义 | `mds.EquitySecurity` + `GICS_SECTOR_DEFS` | equity 公共定义 | 所有行业页面 |
 | GICS 历史事实 | `mds.SectorClassificationHistory` | 历史分类服务 | 严格历史重建 |
 | SEC 财报版本 | `mds.EquityFundamentalVintage` | filing vintage 服务 | PIT 基本面 |
+| SEC 内部人交易与计划证据 | `mds.SecFiling.ownershipData` + `mds.InsiderTransaction` | 共享 EDGAR transport、ownership writer / engine | 持股监控、个股面板、计划催化剂 |
+| Ownership 核实事实与裁定版本 | `mds.OwnershipReview` | appendOwnershipReview（只追加） | 去重、账户、基准、流通股、角色与计划修订 |
 | ETF 历史持仓 | `mds.SectorEtfHolding` | ETF holdings 服务 | 严格行业端点 |
 
 `MacroObservationVintage` 与 `MacroObservation` 不是两套同类底层：前者是 append-only 的版本事实账本，后者是供日常查询使用的最新值投影。二者必须通过统一写入服务保持一致。

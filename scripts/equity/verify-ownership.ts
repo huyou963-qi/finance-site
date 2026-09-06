@@ -1,0 +1,4 @@
+import {prisma} from '../../src/lib/prisma';
+import {loadOwnershipMonitor} from '../../src/lib/equity/ownershipMonitor';
+async function main(){const symbol=(process.argv.find(v=>v.startsWith('--symbol='))?.slice(9)||'CRWV').toUpperCase();const day=new Date().toISOString().slice(0,10);const r=await loadOwnershipMonitor(symbol,day,'2006-01-01');if(!r)throw new Error('Unknown symbol');console.log(JSON.stringify({symbol,coverage:r.coverage,rawRows:r.transactions.length,confirmed:r.transactions.filter(t=>t.status==='included').length,pending:r.auditCount,accounts:r.accounts.length,reconciled:r.accounts.filter(a=>!a.issues.length&&a.baseline&&a.baseline>0).length,plans:r.plans.length,supply:r.supply},null,2));if(!r.coverage?.complete||r.truncated)process.exitCode=1;}
+main().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>prisma.$disconnect());

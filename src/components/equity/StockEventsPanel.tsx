@@ -17,7 +17,7 @@ type EventMetrics = {
 };
 
 type StockEvent = {
-  type: "earnings" | "annual" | "8k" | "split";
+  type: "earnings" | "annual" | "8k" | "split" | "insider-plan";
   date: string;
   titleZh: string;
   form: string | null;
@@ -42,6 +42,7 @@ const TYPE_FILTERS: { id: StockEvent["type"]; labelZh: string }[] = [
   { id: "annual", labelZh: "年报" },
   { id: "8k", labelZh: "8-K" },
   { id: "split", labelZh: "拆股" },
+  { id: "insider-plan", labelZh: "内部人计划" },
 ];
 
 function badgeClass(e: StockEvent): string {
@@ -54,6 +55,7 @@ function badgeClass(e: StockEvent): string {
 }
 
 function badgeText(e: StockEvent): string {
+  if (e.type === "insider-plan") return "10b5-1";
   if (e.type === "earnings") return e.form ?? "10-Q";
   if (e.type === "annual") return e.form ?? "10-K";
   if (e.type === "split") return "拆股";
@@ -86,7 +88,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTypes, setActiveTypes] = useState<Set<StockEvent["type"]>>(
-    new Set(["earnings", "annual", "8k", "split"]),
+    new Set(["earnings", "annual", "8k", "split", "insider-plan"]),
   );
   const [majorOnly, setMajorOnly] = useState(false);
 

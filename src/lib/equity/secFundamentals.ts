@@ -1,3 +1,4 @@
+import { fetchSecJson } from "./secEdgar";
 /**
  * SEC EDGAR XBRL companyfacts → 三大报表标准化字段（免密钥）。
  * https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json
@@ -36,8 +37,7 @@ type SecConcept = {
 
 // SEC 公平访问要求 UA 带真实域名联系邮箱。www.sec.gov/files/* 会拒绝 @localhost（403）；
 // data.sec.gov/* 虽宽松，统一用合规 UA。可用 SEC_USER_AGENT 环境变量覆盖。
-const SEC_UA =
-  process.env.SEC_USER_AGENT?.trim() || "hblook.com equity-fundamentals admin@hblook.com";
+
 
 function padCik(cik: string): string {
   return cik.replace(/\D/g, "").padStart(10, "0");
@@ -106,18 +106,7 @@ export async function fetchSecCompanyFacts(
     opts.timeoutMs ?? (Number(process.env.SEC_FETCH_TIMEOUT_MS) || 10_000);
   const padded = padCik(cik);
   const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${padded}.json`;
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      "User-Agent": SEC_UA,
-      Accept: "application/json",
-    },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) {
-    throw new Error(`SEC companyfacts CIK${padded} HTTP ${res.status}`);
-  }
-  return res.json();
+  return fetchSecJson(url, timeoutMs);
 }
 
 /** 从 companyfacts 提取最近两个财年，算 YoY 与利润率 */
@@ -977,16 +966,7 @@ export function extractQuarterlyFundamentals(
 /** SEC 全市场 ticker → CIK（约 1 次请求，可缓存） */
 export async function fetchSecTickerCikMap(): Promise<Map<string, string>> {
   const url = "https://www.sec.gov/files/company_tickers.json";
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: { "User-Agent": SEC_UA, Accept: "application/json" },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!res.ok) throw new Error(`SEC tickers HTTP ${res.status}`);
-  const json = (await res.json()) as Record<
-    string,
-    { cik_str?: number | string; ticker?: string }
-  >;
+  const json = await fetchSecJson<Record<string, { cik_str?: number | string; ticker?: string }>>(url, 10000);
   const map = new Map<string, string>();
   for (const row of Object.values(json)) {
     const ticker = row.ticker?.trim().toUpperCase();

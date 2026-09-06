@@ -125,6 +125,12 @@ export function computeSplitFactors(
   return factors;
 }
 
+/** Reported nominal shares -> shares at a chosen date; reuse the canonical split algorithm. */
+export function sharesAtDate(shares: number, date: string, asOf: string, splits: readonly SplitEvent[]): number {
+  const bar: RawDailyBar = { time: Date.parse(date) / 1000, open: 1, high: 1, low: 1, close: 1, adjClose: 1, volume: null };
+  return shares * computeSplitFactors([bar], splits.filter(s => s.exDate <= asOf))[0];
+}
+
 /** T_i = adjClose_i / close_i；close 非正时退化为 1 */
 function totalReturnFactor(bar: RawDailyBar): number {
   if (!Number.isFinite(bar.close) || bar.close <= 0) return 1;

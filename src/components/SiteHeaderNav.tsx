@@ -118,6 +118,13 @@ export function SiteHeaderNav() {
           美股行业
         </Link>
         <Link
+          href="/equity/ownership"
+          className={`${linkBase} ${pathname === "/equity/ownership" ? "bg-fs-accent-soft text-fs-accent-text" : "text-fs-muted hover:bg-fs-elevated"}`}
+          aria-current={pathname === "/equity/ownership" ? "page" : undefined}
+        >
+          持股监控
+        </Link>
+        <Link
           href="/markets"
           className={`${linkBase} ${
             marketsActive

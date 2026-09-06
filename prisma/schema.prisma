@@ -1317,6 +1317,9 @@ model SecFiling {
   /// EDGAR 主文档文件名（直链 …/{accessionNoDash}/{primaryDocument}）
   primaryDocument       String?  @map("primary_document") @db.VarChar(256)
   primaryDocDescription String?  @map("primary_doc_description") @db.VarChar(256)
+  /// 原始 ownership XML / Item 408 结构化证据的唯一文档投影，可由 SEC 重建
+  ownershipData         Json?    @map("ownership_data")
+  ownershipParsedAt     DateTime? @map("ownership_parsed_at")
   createdAt             DateTime @default(now()) @map("created_at")
 
   @@unique([cik, accession])
@@ -1418,6 +1421,8 @@ model InsiderTransaction {
   shares               Float
   pricePerShare        Float?   @map("price_per_share")
   sharesOwnedAfter     Float?   @map("shares_owned_after")
+  /// v2 解析证据：证券、账户、全部申报人、脚注、10b5-1 与原始行索引
+  evidence             Json?
   /// 同一 accession 内交易行序号（从 0 起）
   lineIndex            Int      @map("line_index")
   filedAt              DateTime @map("filed_at") @db.Date
@@ -1429,6 +1434,26 @@ model InsiderTransaction {
   @@index([cik, transactionDate(sort: Desc)])
   @@index([filedAt])
   @@map("insider_transaction")
+  @@schema("mds")
+}
+
+/// Ownership 的人工事实/裁定版本账本。不是第二套申报或交易表；仅补充来源不能唯一解析的语义。
+model OwnershipReview {
+  id          String   @id @default(uuid()) @db.Uuid
+  symbol      String   @db.VarChar(16)
+  key         String   @db.VarChar(160)
+  revision    Int
+  kind        String   @db.VarChar(24)
+  payload     Json
+  sourceUrl   String   @map("source_url") @db.VarChar(1024)
+  quote       String   @db.Text
+  availableAt DateTime @map("available_at") @db.Date
+  author      String   @db.VarChar(128)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([symbol, key, revision])
+  @@index([symbol, availableAt])
+  @@map("ownership_review")
   @@schema("mds")
 }
 

@@ -71,6 +71,7 @@ function stockImportanceToEvent(i: StockEventImportance): EventImportance {
 }
 
 function stockTypeToEventType(t: StockEventType, items: string[]): string {
+  if (t === "insider-plan") return "company.management";
   if (t === "earnings" || t === "annual") return "company.earnings";
   if (t === "split") return "company.corp_action";
   if (items.includes("5.02")) return "company.management";
@@ -79,6 +80,7 @@ function stockTypeToEventType(t: StockEventType, items: string[]): string {
 }
 
 function stockMarkerLabel(ev: StockEvent): string {
+  if (ev.type === "insider-plan") return "持股计划";
   if (ev.type === "earnings") return "财报";
   if (ev.type === "annual") return "年报";
   if (ev.type === "split") return "拆分";
