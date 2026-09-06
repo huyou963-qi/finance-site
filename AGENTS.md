@@ -182,10 +182,17 @@ npm run db:studio        # Prisma Studio
 
 「FINRA 客户融资余额统计（NYSE 融资余额/杠杆率）」：`data:seed-finra-margin-debt` → `data:sync-finra-margin-debt` / `data:verify-finra-margin-debt`（加 `--db`）；FINRA 官网仅发布一份 `margin-statistics.xlsx`（Rule 4521(d) 会员行月度申报汇总，明确"不提供数据接口"），一次抓取拆出三条分项：Debit Balances（融资余额，即"股市杠杆率"最常引用口径，1997-01 起）、Free Credit Balances in Cash Accounts（现金账户闲置资金，1997-01 起）、Free Credit Balances in Securities Margin Accounts（保证金账户闲置资金，仅 2010-02 起有该分项，规则生效前无此统计），三者共享同一份源文件（client 内 60s 缓存避免重复请求），月频 `probe_interval`（72h）探测，归入「利率与信用市场 · 市场情绪」（与 CBOE VIX9D/VVIX 同组）。
 
-「美股 IPO 月度统计（Ritter）」：`data:seed-ritter-ipo` → `data:sync-ritter-ipo` / `data:verify-ritter-ipo`（加 `--db`）；佛罗里达大学 Jay Ritter 的 `IPOALL.xlsx`（学术界标准公开数据集，FRED 对 IPO 零覆盖已核实，SDC/Dealogic 均付费），一次抓取拆出四条月频分项：首日平均涨幅（1960-01 起 761 点）、发行家数毛口径（1960-01 起 792 点，含 SPAC/直接上市/仙股/单位/封闭式基金）、发行家数净口径（1975-01 起 612 点，剔除上述）、定价高于申报区间中值占比（1980-01 起 534 点）。归入「利率与信用市场 · 市场情绪」（与 CBOE VIX9D、FINRA 融资余额同组，同属风险偏好指标）。
+「美股 IPO 月度统计（Ritter）」：`data:seed-ritter-ipo` → `data:sync-ritter-ipo` / `data:verify-ritter-ipo`（加 `--db`）；佛罗里达大学 Jay Ritter 的 `IPOALL.xlsx`（学术界标准公开数据集，FRED 对 IPO 零覆盖已核实，SDC/Dealogic 均付费），一次抓取拆出四条月频分项：首日平均涨幅（1960-01 起 761 点）、发行家数毛口径（1960-01 起 792 点，含 SPAC/直接上市/仙股/单位/封闭式基金）、发行家数净口径（1975-01 起 612 点，剔除上述）、定价高于申报区间中值占比（1980-01 起 534 点）。另接入同文件的 SPAC 两列：SPAC 发行家数（2020-01 起 72 点）、SPAC 首日平均涨幅（69 点，**源用小数记录、入库乘 100 统一为 %**，见 `scaleBy`）。共 6 条，归入「利率与信用市场 · 市场情绪」（与 CBOE VIX9D、FINRA 融资余额同组，同属风险偏好指标）。
 
 ⚠ 三个坑（都在 `ritterIpo/catalog.ts` 顶部注释里写全了）：①**源文件没有表头行**，列含义只写在末尾脚注，解析器靠「col0 是 1..12 月份 + col1 是可信年份」锚定数据行；②**年份是两位数**，60–99→19xx、0–59→20xx，另有 [1960, 次年] 兜底，源跨到 2060 会报错而非静默取错；③**四列起始年份各不相同且用字符串哨兵占位**（`"see 1975"`/`"see 1980"`/`"."`/`"na"`），必须逐列独立判断，已知哨兵静默跳过、未知文字计入 `skippedInvalid` 以便发现源改版。
-⚠ 这是**年度更新**的研究数据集（上一年数据次年 1 月补齐），"最新观测落后 9–14 个月"是正常状态，verify 的过期阈值因此放到 24 个月；它解决历史统计，不解决当期 IPO 跟踪。当期跟踪的候选源 Nasdaq IPO API（`api.nasdaq.com/api/ipo/calendar`，免费 JSON、可回溯到 2000-01、含发行价与募资额）数据虽好，但 **`api.nasdaq.com/robots.txt` 是全站 `Disallow: /`**，按合规规则不可抓，已搁置待议；另一条路是 SEC EDGAR 的 424B4/8-A12B（事件检测结构化、可行，但发行价与募资额需解析自由文本招股书）。FMP 的 `/ipos-calendar` 等端点在当前订阅下返回 `Restricted Endpoint`。
+⚠ 还有两列**已被源方弃更**：proceeds-weighted return、avg money left on the table、avg proceeds（col7/8/9，仅 2020-01→2023-02），**故意不接入**——挂上调度就是永不更新的僵尸序列。理由与判据写在 `ritterIpo/catalog.ts` 陷阱 5。
+⚠ 这是**年度更新**的研究数据集（上一年数据次年 1 月补齐），"最新观测落后 9–14 个月"是正常状态，verify 的过期阈值因此放到 24 个月；它解决历史统计，不解决当期 IPO 跟踪。
+
+**当期 IPO 跟踪的源调研结论（2026-09 实测，勿重复踩）：**
+- **Nasdaq IPO API** — 数据最好（免费 JSON、回溯到 2000-01、含发行价/股数/募资额），但除 robots.txt 全站 Disallow 外，**服务条款明文禁止**："Not access or use the Service, or any process, whether automated or manual, to capture data or content from the Service"，并点名 scraping/data mining，且授权仅限 "personal, non-commercial use"。本项目是商业产品，**不可用**，勿再提。
+- **SEC EDGAR** — 合规且权威，但没有"一个表单就等于一次 IPO"的干净信号：①`424B4` 包含增发与转售（实测 WeShop 2026-09-03 那份就是转售而非 IPO），直接计数会严重高估；②`8-A12B` 是交易所注册，实测 2026-07/08 为 136/169 件，而 Ritter 毛口径才约 30/月，**超计约 5 倍**（ETF、信托、封闭式基金、老公司发新证券类别都会报），需按 SIC/是否新注册人/有无并发 S-1·F-1 过滤。
+- **EDGAR 结构化募资额确实存在**：S-1/F-1 的 Exhibit 107（`ex107_htm.xml`，ffd 命名空间 XBRL）直接给 `ffd:MaxAggtOfferingPric`、`ffd:AmtSctiesRegd`、`ffd:MaxOfferingPricPerScty`，**无需解析自由文本**。但那是**登记金额而非实际募资额**，且实测 0/12 份 424B4 带费用附件——最终定价只以散文形式存在于招股书封面。
+- 做这条路时 Ritter 的月度家数可当**校准基准**验证过滤规则。FMP 的 `/ipos-calendar` 等端点在当前订阅下返回 `Restricted Endpoint`。
 
 ## 模块分工建议（3–5 人）
 

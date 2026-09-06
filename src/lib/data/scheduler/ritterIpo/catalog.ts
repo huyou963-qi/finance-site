@@ -20,9 +20,15 @@ import type { DataGranularity } from "@prisma/client";
  * 3. **四列各自的起始年份不同**，且用字符串哨兵占位而非留空：净发行家数 1975 年前
  *    写 "see 1975"，中值占比 1980 年前写 "see 1980"，个别月份写 "." 或 "na"。
  *    必须逐列独立判断该单元格是否为数字，不能假设整行齐全。
- * 4. 另有 2020 年后才出现的稀疏列（proceeds-weighted return / avg money left on
- *    table / avg proceeds / SPAC 家数与首日涨幅，仅 38–72 个点，且 2019-09 行里混着
- *    "N"/"first-day returns" 之类的行内表头）——覆盖太短且结构不规整，本次不接入。
+ * 4. **2019-08/2019-09 两行的 col13/col14 里混着行内表头**（"SPAC IPOs"/"N"/
+ *    "first-day returns"）——它们所在的行本身是合法数据行（月/年都正常），所以
+ *    这些标签串已列入解析器的已知哨兵，否则会被当成源改版计入 skippedInvalid。
+ * 5. 源里另有三列 **已断更**：proceeds-weighted return（col7）、avg money left on
+ *    the table（col8）、avg proceeds（col9），实测只覆盖 2020-01→2023-02 共 38 个月，
+ *    此后 Ritter 不再维护。**故意不接入**——接进来是永不更新的僵尸序列，还得给它
+ *    特批过期豁免。若将来只做历史研究可另行一次性导入，勿挂到调度上。
+ * 6. col13/col14（SPAC 家数与首日涨幅）则是活的，2020-01→2025-12 与主序列同步更新，
+ *    已接入。注意 col14 用小数记录，入库乘 100 统一为 %（见 scaleBy）。
  */
 export const RITTER_IPO_PAGE_URL = "https://site.warrington.ufl.edu/ritter/ipo-data/";
 export const RITTER_IPO_XLS_URL = "https://site.warrington.ufl.edu/ritter/files/IPOALL.xlsx";
@@ -33,7 +39,9 @@ export type RitterIpoSeriesKey =
   | "first_day_return"
   | "count_gross"
   | "count_net"
-  | "above_midpoint_pct";
+  | "above_midpoint_pct"
+  | "spac_count"
+  | "spac_first_day_return";
 
 export type RitterIpoSeriesConfig = {
   seriesKey: RitterIpoSeriesKey;
@@ -51,10 +59,22 @@ export type RitterIpoSeriesConfig = {
   countryCode: "US";
   officialUrl: string;
   sourceUpdateNote: string;
-  /** 值域校验（宽松边界，只为拦截列错位/单位错乱） */
+  /** 值域校验（宽松边界，只为拦截列错位/单位错乱）。针对**换算后**的入库值。 */
   valueRange: readonly [number, number];
   /** 实测最早有值月份，仅用于 verify 断言与文档 */
   firstObsMonth: string;
+  /**
+   * 入库前的换算系数。源文件主涨幅列（col2）用百分数（13.8 = 13.8%），
+   * 但 SPAC 涨幅列（col14）用小数（0.038 = 3.8%）——同一文件两种口径。
+   * 统一乘 100 存成 %，两条首日涨幅序列才能直接叠在同一张图上比。
+   */
+  scaleBy?: number;
+  /**
+   * 该分项在源里可选。四条核心序列（1960/1975/1980 起）是骨干，解析后 0 点一律
+   * 报错；SPAC 两列是源方后加的附加统计，若哪天被撤掉，不应连累核心序列同步失败，
+   * 故解析器放行、由 verify 的 MIN_COUNT 在监控层报警。
+   */
+  optional?: boolean;
 };
 
 export const RITTER_IPO_SERIES: readonly RitterIpoSeriesConfig[] = [
@@ -131,6 +151,45 @@ export const RITTER_IPO_SERIES: readonly RitterIpoSeriesConfig[] = [
       "定价高于原始申报区间中值的 IPO 占比（仅计中值≥$8.00 的发行），仅 1980-01 起有值",
     valueRange: [0, 100],
     firstObsMonth: "1980-01",
+  },
+  {
+    seriesKey: "spac_count",
+    provider: "ritter_ipo_spac_count",
+    instrumentCode: "ritter_us_ipo_spac_count",
+    columnIndex: 13,
+    name: "US SPAC IPO Count (Ritter)",
+    displayName: "美股 SPAC 发行家数",
+    freqLabel: "月",
+    granularity: "MONTHLY",
+    unit: "家",
+    category: "利率与信用市场",
+    countryCode: "US",
+    officialUrl: RITTER_IPO_PAGE_URL,
+    sourceUpdateNote: "SPAC（特殊目的收购公司）月度发行家数，源文件 2020-01 起单列统计",
+    valueRange: [0, 1000],
+    firstObsMonth: "2020-01",
+    optional: true,
+  },
+  {
+    seriesKey: "spac_first_day_return",
+    provider: "ritter_ipo_spac_first_day_return",
+    instrumentCode: "ritter_us_ipo_spac_first_day_return",
+    columnIndex: 14,
+    name: "US SPAC IPO Average First-Day Return (Ritter)",
+    displayName: "美股 SPAC 首日平均涨幅",
+    freqLabel: "月",
+    granularity: "MONTHLY",
+    unit: "%",
+    category: "利率与信用市场",
+    countryCode: "US",
+    officialUrl: RITTER_IPO_PAGE_URL,
+    // 源用小数（0.038），入库乘 100 统一成 % —— 与主涨幅列口径对齐
+    sourceUpdateNote:
+      "SPAC 月度首日平均涨幅，源文件以小数记录（0.038=3.8%），入库统一换算为百分数，2020-01 起",
+    valueRange: [-50, 200],
+    firstObsMonth: "2020-01",
+    scaleBy: 100,
+    optional: true,
   },
 ] as const;
 

@@ -20,6 +20,9 @@ const MIN_COUNT: Record<RitterIpoSeriesKey, number> = {
   count_gross: 750,
   count_net: 580,
   above_midpoint_pct: 500,
+  // SPAC 两列源文件 2020-01 起才单列统计，实测 72/69 点
+  spac_count: 60,
+  spac_first_day_return: 60,
 };
 
 /**
