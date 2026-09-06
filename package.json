@@ -217,6 +217,7 @@
     "equity:build-backfill-universe": "dotenv -e .env.local -- tsx scripts/equity/build-backfill-universe.ts",
     "equity:sync-sec": "dotenv -e .env.local -- tsx scripts/equity/sync-sec.ts",
     "equity:sync-prices": "dotenv -e .env.local -- tsx scripts/equity/sync-prices.ts",
+    "equity:research-stage-assets": "dotenv -e .env.local -- tsx scripts/equity/research-stage-asset-classes.ts",
     "equity:verify-gics": "dotenv -e .env.local -- tsx scripts/equity/verify-gics.ts",
     "equity:rebuild-sp500-history": "dotenv -e .env.local -- tsx scripts/equity/rebuild-sp500-history.ts",
     "equity:verify-sp500-history": "dotenv -e .env.local -- tsx scripts/equity/verify-sp500-history.ts",

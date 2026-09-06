@@ -171,3 +171,57 @@ export function computeSectorReturns(
 ): { sectors: SectorReturnRow[]; styles: StyleReturnRow[]; spyReturn: number | null } {
   return computeSectorReturnsForRange(closesByEtf, windowStartSec(windowId));
 }
+
+// ─────────────────────────────────────────── 历史阶段窗口（严格首尾贴边）
+
+/** 阶段收益的通用输入：净值点或收盘点都能喂进来 */
+export type StagePoint = { time: number; value: number };
+
+const STAGE_EDGE_TOLERANCE_SEC = 15 * 86400;
+const STAGE_EDGE_TOLERANCE_RATIO = 0.2;
+
+/**
+ * 阶段窗口内的首尾容差：吸收节假日、周末与数据尾部滞后，但短窗口按比例收紧，
+ * 避免在 2020-02→03 这种一个月的阶段里放进半段行情。
+ */
+export function stageEdgeToleranceSec(fromSec: number, toSec: number): number {
+  return Math.min(
+    STAGE_EDGE_TOLERANCE_SEC,
+    Math.max(0, (toSec - fromSec) * STAGE_EDGE_TOLERANCE_RATIO),
+  );
+}
+
+/**
+ * 阶段总收益：取窗口内首尾样本之比。
+ *
+ * 与 `simpleReturn` 的区别是**首尾都必须贴住阶段边界**，否则返回 null。
+ * 上市晚于阶段起点（XLRE 2015-10、XLC 2018-06、GC=F 2000-08 等）或序列在阶段结束前
+ * 就断掉时，给出的是一段局部行情，把它当成整个阶段的收益会系统性地误导；宁可显示 `—`。
+ */
+export function stageWindowReturn(
+  points: readonly StagePoint[] | undefined,
+  fromSec: number,
+  toSec: number,
+): number | null {
+  if (!points?.length || toSec <= fromSec) return null;
+  let first: StagePoint | undefined;
+  for (const point of points) {
+    if (point.time >= fromSec && point.time <= toSec) {
+      first = point;
+      break;
+    }
+  }
+  let last: StagePoint | undefined;
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    const point = points[index]!;
+    if (point.time <= toSec && point.time >= fromSec) {
+      last = point;
+      break;
+    }
+  }
+  if (!first || !last || last.time <= first.time || !first.value) return null;
+  const tolerance = stageEdgeToleranceSec(fromSec, toSec);
+  if (first.time - fromSec > tolerance) return null;
+  if (toSec - last.time > tolerance) return null;
+  return last.value / first.value - 1;
+}

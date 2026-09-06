@@ -6,9 +6,15 @@ import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { SectorStageTransmissionPanel } from "@/components/equity/SectorStageTransmissionPanel";
 import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
 import {
+  isMacroAssetGroupHead,
+  macroAssetGroupNameZh,
+  MACRO_ASSET_CLASSES,
+} from "@/lib/equity/macroAssetClasses";
+import {
   SECTOR_HISTORICAL_PERIODS,
   type SectorHistoricalPeriod,
 } from "@/lib/equity/sectorHistoricalPeriods";
+import { stageWindowReturn } from "@/lib/equity/sectorReturns";
 import { STYLE_BUCKETS } from "@/lib/equity/styleBuckets";
 import type {
   SectorAggregationMode,
@@ -19,6 +25,10 @@ type NavPoint = { time: number; value: number };
 type ApiResponse = {
   nav?: Record<string, NavPoint[]>;
   priceSource?: string | null;
+  /** SPY 最后一根日线（UTC 秒），阶段窗口右边界 */
+  latestSec?: number | null;
+  /** 服务端按同一阶段窗口算好的大类资产收益：stageId → assetId → 收益 */
+  assetStages?: Record<string, Record<string, number | null>>;
 };
 type PeriodSectorRow = {
   sector: string;
@@ -27,10 +37,21 @@ type PeriodSectorRow = {
   absoluteReturn: number | null;
   excessVsSpy: number | null;
 };
+type PeriodAssetRow = {
+  id: string;
+  nameZh: string;
+  symbol: string;
+  groupNameZh: string | null;
+  proxyZh: string;
+  absoluteReturn: number | null;
+  excessVsSpy: number | null;
+};
 type PeriodReturnData = {
   spyReturn: number | null;
   sectors: PeriodSectorRow[];
+  assets: PeriodAssetRow[];
   availableCount: number;
+  assetAvailableCount: number;
 };
 
 /** Select Sector SPDR 的共同历史从 1998-12 开始；2099 仅作为“最新可得交易日”哨兵。 */
@@ -49,6 +70,8 @@ const ALL_CHART_ETFS = [
   ...CHART_STYLE_GROUPS.flatMap((group) => group.rows.map((row) => row.etf)),
 ];
 const DEFAULT_STAGE_ID = SECTOR_HISTORICAL_PERIODS.at(-1)?.id ?? null;
+/** 排名表列宽：大类资产与行业共用，首列在资产行放分组名、在行业行放名次 */
+const RANK_ROW_COLS = "grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem]";
 
 function pct(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -68,9 +91,10 @@ function dateStartSec(date: string) {
   return Date.parse(`${date}T00:00:00Z`) / 1000;
 }
 
-function dateEndSec(date: string) {
+/** 阶段右边界：钉在最新可得交易日上，与服务端算大类资产时用的是同一个值。 */
+function dateEndSec(date: string, latestSec: number | null) {
   const requested = Date.parse(`${date}T23:59:59Z`) / 1000;
-  return Math.min(requested, Date.now() / 1000);
+  return Math.min(requested, latestSec ?? Date.now() / 1000);
 }
 
 function validStageId(value: string | null): string | null {
@@ -89,32 +113,44 @@ function validAggregation(value: string | null): SectorAggregationMode {
 
 /**
  * 从同一份完整净值序列计算阶段收益，避免为 30 张卡重复请求 30 次历史数据。
- * ETF 晚于阶段上市时，首尾点无法同时落入窗口，严格返回 null，不跨期补样本。
+ * ETF 晚于阶段上市（XLRE 2015-10、XLC 2018-06）时首尾无法同时贴住阶段边界，
+ * `stageWindowReturn` 严格返回 null，不把局部区间冒充整段阶段收益。
  */
-function navReturn(points: NavPoint[] | undefined, period: SectorHistoricalPeriod) {
-  if (!points?.length) return null;
-  const fromSec = dateStartSec(period.start);
-  const toSec = dateEndSec(period.end);
-  const first = points.find((point) => point.time >= fromSec && point.time <= toSec);
-  let last: NavPoint | undefined;
-  for (let index = points.length - 1; index >= 0; index -= 1) {
-    const point = points[index]!;
-    if (point.time <= toSec && point.time >= fromSec) {
-      last = point;
-      break;
-    }
-  }
-  if (!first || !last || last.time <= first.time || first.value === 0) return null;
-  return last.value / first.value - 1;
+function navReturn(
+  points: NavPoint[] | undefined,
+  period: SectorHistoricalPeriod,
+  latestSec: number | null,
+) {
+  return stageWindowReturn(
+    points,
+    dateStartSec(period.start),
+    dateEndSec(period.end, latestSec),
+  );
 }
 
 function derivePeriodData(
-  nav: Record<string, NavPoint[]> | undefined,
+  payload: ApiResponse | null,
   period: SectorHistoricalPeriod,
 ): PeriodReturnData {
-  const spyReturn = navReturn(nav?.SPY, period);
+  const nav = payload?.nav;
+  const latestSec = payload?.latestSec ?? null;
+  const spyReturn = navReturn(nav?.SPY, period, latestSec);
+  const assetRow = payload?.assetStages?.[period.id];
+  const assets: PeriodAssetRow[] = MACRO_ASSET_CLASSES.map((asset, index) => {
+    const absoluteReturn = assetRow?.[asset.id] ?? null;
+    return {
+      id: asset.id,
+      nameZh: asset.nameZh,
+      symbol: asset.symbol,
+      groupNameZh: isMacroAssetGroupHead(index) ? macroAssetGroupNameZh(asset.group) : null,
+      proxyZh: asset.proxyZh,
+      absoluteReturn,
+      excessVsSpy:
+        absoluteReturn != null && spyReturn != null ? absoluteReturn - spyReturn : null,
+    };
+  });
   const sectors = GICS_SECTOR_DEFS.map((definition) => {
-    const absoluteReturn = navReturn(nav?.[definition.etf], period);
+    const absoluteReturn = navReturn(nav?.[definition.etf], period, latestSec);
     return {
       sector: definition.sector,
       nameZh: definition.nameZh,
@@ -132,7 +168,9 @@ function derivePeriodData(
   return {
     spyReturn,
     sectors,
+    assets,
     availableCount: sectors.filter((row) => row.absoluteReturn != null).length,
+    assetAvailableCount: assets.filter((row) => row.absoluteReturn != null).length,
   };
 }
 
@@ -237,7 +275,7 @@ export function HistoricalSectorRotation() {
     setChartLoading(true);
     setChartError(null);
     fetch(
-      `/api/equity/sector-returns?from=${CHART_HISTORY_START}&to=${LATEST_DATE_SENTINEL}&nav=1`,
+      `/api/equity/sector-returns?from=${CHART_HISTORY_START}&to=${LATEST_DATE_SENTINEL}&nav=1&assets=1`,
       { cache: "no-store" },
     )
       .then(async (response) => {
@@ -290,10 +328,10 @@ export function HistoricalSectorRotation() {
       Object.fromEntries(
         SECTOR_HISTORICAL_PERIODS.map((item) => [
           item.id,
-          derivePeriodData(chartData?.nav, item),
+          derivePeriodData(chartData, item),
         ]),
       ) as Record<string, PeriodReturnData>,
-    [chartData?.nav],
+    [chartData],
   );
 
   const toggleEtf = (etf: string) => {
@@ -357,10 +395,13 @@ export function HistoricalSectorRotation() {
 
                 <article className="flex h-full flex-col rounded-lg bg-fs-bg/45 p-3">
                   <div className="overflow-hidden rounded-lg border border-fs-border">
-                    <div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem] items-center bg-fs-elevated/65 px-2.5 py-2 text-[10px] text-fs-muted"><span>排名</span><span>行业指数</span><span className="text-right">收益</span><span className="text-right">超额</span></div>
-                    <div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem] items-center border-t border-fs-border/70 px-2.5 py-2 text-xs"><span className="text-fs-muted">—</span><span className="text-fs-text">标普 500 <span className="text-fs-muted">SPY</span></span><span className={`text-right font-medium tabular-nums ${valueClass(data.spyReturn)}`}>{pct(data.spyReturn)}</span><span className="text-right text-fs-muted">基准</span></div>
-                    <ol>{data.sectors.map((row, rank) => <li key={row.sector} className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4.5rem] items-center border-t border-fs-border/55 px-2.5 py-1.5 text-xs"><span className="tabular-nums text-fs-muted">{row.absoluteReturn == null ? "—" : rank + 1}</span><span className="truncate text-fs-text">{row.nameZh} <span className="text-fs-muted">{row.etf}</span></span><span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span><span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span></li>)}</ol>
-                    <p className="border-t border-fs-border/70 px-2.5 py-1.5 text-[10px] text-fs-muted">可比样本 {data.availableCount}/11 · “—”表示 ETF 尚未上市或区间不足</p>
+                    <div className={`grid ${RANK_ROW_COLS} items-center bg-fs-elevated/65 px-2.5 py-2 text-[10px] text-fs-muted`}><span>排名</span><span>大类资产 / 行业指数</span><span className="text-right">收益</span><span className="text-right">超额</span></div>
+                    <p className="border-t border-fs-border/70 bg-fs-bg/30 px-2.5 py-1 text-[10px] text-fs-muted">大类资产 · 阶段一阶影响先落在利率、信用、实物与汇率上</p>
+                    <ol>{data.assets.map((row) => <li key={row.id} title={`${row.nameZh} · ${row.proxyZh}`} className={`grid ${RANK_ROW_COLS} items-center border-t border-fs-border/55 px-2.5 py-1.5 text-xs`}><span className="truncate text-[9px] text-fs-muted">{row.groupNameZh ?? ""}</span><span className="truncate text-fs-text">{row.nameZh} <span className="text-fs-muted">{row.symbol}</span></span><span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span><span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span></li>)}</ol>
+                    <p className="border-t border-fs-border/70 bg-fs-bg/30 px-2.5 py-1 text-[10px] text-fs-muted">美股 · 基准与 11 个行业</p>
+                    <div className={`grid ${RANK_ROW_COLS} items-center border-t border-fs-border/70 px-2.5 py-2 text-xs`}><span className="text-fs-muted">—</span><span className="text-fs-text">标普 500 <span className="text-fs-muted">SPY</span></span><span className={`text-right font-medium tabular-nums ${valueClass(data.spyReturn)}`}>{pct(data.spyReturn)}</span><span className="text-right text-fs-muted">基准</span></div>
+                    <ol>{data.sectors.map((row, rank) => <li key={row.sector} className={`grid ${RANK_ROW_COLS} items-center border-t border-fs-border/55 px-2.5 py-1.5 text-xs`}><span className="tabular-nums text-fs-muted">{row.absoluteReturn == null ? "—" : rank + 1}</span><span className="truncate text-fs-text">{row.nameZh} <span className="text-fs-muted">{row.etf}</span></span><span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span><span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span></li>)}</ol>
+                    <p className="border-t border-fs-border/70 px-2.5 py-1.5 text-[10px] text-fs-muted">可比样本 行业 {data.availableCount}/11 · 大类资产 {data.assetAvailableCount}/{MACRO_ASSET_CLASSES.length} · “—”表示该代理在此阶段尚未存在或首尾未贴住阶段边界</p>
                   </div>
                 </article>
               </div>
@@ -424,7 +465,7 @@ export function HistoricalSectorRotation() {
       </div>
 
       <footer className="order-3 border-t border-fs-border px-4 py-2 text-[11px] leading-4 text-fs-muted sm:px-5">
-        口径：SPY 与 Sector SPDR ETF 前复权日线，按阶段内首尾可得交易日计算总收益；超额 = 行业收益 − SPY 收益。阶段依据 NBER 周期、FOMC 政策、信用事件与市场主线转折划分，不按事后行业赢家反推边界，也不把 ETF 上市前的缺失期补造成历史结论。
+        口径：SPY、Sector SPDR ETF 与大类资产代理均取前复权日线（含分红的总收益），按阶段内首尾可得交易日计算总收益；超额 = 该行 收益 − SPY 收益。首尾样本必须贴住阶段边界（容差 15 天且不超过窗口的 20%），否则记为不可比，不用局部区间冒充整段阶段。大类资产的债券与 TIPS 用回溯更长的指数基金净值代理（TLT/LQD/HYG 等 ETF 2002–2007 才上市，会整段缺失前若干阶段），黄金、原油自 2000-08 起。阶段依据 NBER 周期、FOMC 政策、信用事件与市场主线转折划分，不按事后赢家反推边界，也不把序列存在前的缺失期补造成历史结论。
       </footer>
         </div>
       </div>

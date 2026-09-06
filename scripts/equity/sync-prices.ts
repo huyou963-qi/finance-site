@@ -3,7 +3,7 @@
  * 数据源：Yahoo Finance v8 chart（免密钥）。首次按 range=max 拉全量历史。
  *
  * Usage:
- *   npm run equity:sync-prices                          # 市值前 100 成分 + 11 Sector ETF + SPY
+ *   npm run equity:sync-prices                          # 市值前 100 成分 + 11 Sector ETF + SPY + 大类资产代理
  *   npm run equity:sync-prices -- --limit=500           # 市值前 500
  *   npm run equity:sync-prices -- --symbols=AAPL,GME    # 任意美股代码（不限 S&P500）
  *   npm run equity:sync-prices -- --index-date=2026-08-31 # 指定 S&P500 宇宙快照
@@ -12,6 +12,7 @@
 import { prisma } from "../../src/lib/prisma";
 import { syncSymbolFromRemote } from "../../src/lib/equity/equityPriceStore";
 import { BENCHMARK_ETF, SECTOR_ETF_SYMBOLS } from "../../src/lib/equity/gicsCatalog";
+import { MACRO_ASSET_SYMBOLS } from "../../src/lib/equity/macroAssetClasses";
 import { SP500_INDEX_CODE } from "../../src/lib/equity/equitySecurities";
 
 function argValue(name: string): string | undefined {
@@ -61,7 +62,13 @@ async function main() {
       select: { symbol: true },
     });
     symbols = [
-      ...new Set([...rows.map((r) => r.symbol), ...SECTOR_ETF_SYMBOLS, BENCHMARK_ETF]),
+      ...new Set([
+        ...rows.map((r) => r.symbol),
+        ...SECTOR_ETF_SYMBOLS,
+        BENCHMARK_ETF,
+        // 历史阶段卡的大类资产行同样走 equity_daily_bar，随价格同步一起保鲜
+        ...MACRO_ASSET_SYMBOLS,
+      ]),
     ];
   }
 

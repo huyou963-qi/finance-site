@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/eventAuth";
-import { fetchSectorEtfClosesWithMeta } from "@/lib/equity/fetchSectorEtfCloses";
+import {
+  fetchMacroAssetCloses,
+  fetchSectorEtfClosesWithMeta,
+} from "@/lib/equity/fetchSectorEtfCloses";
 import {
   computeSectorReturns,
   computeSectorReturnsForRange,
   dateToUtcSec,
   normalizeNav,
   RETURN_WINDOWS,
+  stageWindowReturn,
+  type ClosePoint,
   type ReturnWindowId,
   windowStartSec,
 } from "@/lib/equity/sectorReturns";
 import { BENCHMARK_ETF, GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
 import { listSectorSummaries } from "@/lib/equity/equitySecurities";
+import { MACRO_ASSET_CLASSES } from "@/lib/equity/macroAssetClasses";
+import { SECTOR_HISTORICAL_PERIODS } from "@/lib/equity/sectorHistoricalPeriods";
 import { STYLE_BUCKETS } from "@/lib/equity/styleBuckets";
+
+/** ClosePoint → 阶段窗口收益的通用点位 */
+function toStagePoints(points: readonly ClosePoint[] | undefined) {
+  return (points ?? []).map((p) => ({ time: p.time, value: p.close }));
+}
 
 function parseWindow(raw: string | null): ReturnWindowId {
   const id = (raw ?? "3M").toUpperCase();
@@ -31,6 +43,7 @@ export async function GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams;
     const includeNav = sp.get("nav") === "1";
+    const includeAssets = sp.get("assets") === "1";
     const fromDate = sp.get("from")?.trim() || null;
     const toDate = sp.get("to")?.trim() || null;
     const windowId = parseWindow(sp.get("window"));
@@ -73,9 +86,10 @@ export async function GET(req: NextRequest) {
           ),
         )
       : 320;
-    const [{ closes, source }, summaries] = await Promise.all([
+    const [{ closes, source }, summaries, assetResult] = await Promise.all([
       fetchSectorEtfClosesWithMeta(historyBars),
       listSectorSummaries(),
+      includeAssets ? fetchMacroAssetCloses(historyBars) : Promise.resolve(null),
     ]);
 
     const { sectors, styles, spyReturn } =
@@ -123,9 +137,41 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // 阶段窗口的右边界统一钉在 SPY 最后一根日线上：既让「至今」阶段随行情推进，
+    // 又让服务端的大类资产与浏览器端的行业用同一个窗口，超额才可比。
+    const spyLastSec = closes[BENCHMARK_ETF]?.at(-1)?.time ?? null;
+    let assetStages: Record<string, Record<string, number | null>> | undefined;
+    if (assetResult) {
+      const stagePoints = new Map(
+        MACRO_ASSET_CLASSES.map((asset) => [
+          asset.id,
+          toStagePoints(assetResult.closes[asset.symbol]),
+        ]),
+      );
+      assetStages = {};
+      for (const period of SECTOR_HISTORICAL_PERIODS) {
+        const stageFrom = dateToUtcSec(period.start);
+        const stageTo = endOfUtcDaySec(period.end);
+        if (stageFrom == null || stageTo == null) continue;
+        const effectiveTo = spyLastSec == null ? stageTo : Math.min(stageTo, spyLastSec);
+        const row: Record<string, number | null> = {};
+        for (const asset of MACRO_ASSET_CLASSES) {
+          row[asset.id] = stageWindowReturn(
+            stagePoints.get(asset.id),
+            stageFrom,
+            effectiveTo,
+          );
+        }
+        assetStages[period.id] = row;
+      }
+    }
+
     return NextResponse.json({
       window: rangeMeta ? null : windowId,
       range: rangeMeta,
+      /** 最新可得交易日（UTC 秒）：阶段窗口右边界，浏览器端须用同一值 */
+      latestSec: spyLastSec,
+      assetStages,
       windows: RETURN_WINDOWS,
       spyReturn,
       sectors: ranked,
