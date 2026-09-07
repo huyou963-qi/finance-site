@@ -196,6 +196,16 @@ npm run db:studio        # Prisma Studio
 - **EDGAR 结构化募资额确实存在**：S-1/F-1 的 Exhibit 107（`ex107_htm.xml`，ffd 命名空间 XBRL）直接给 `ffd:MaxAggtOfferingPric`、`ffd:AmtSctiesRegd`、`ffd:MaxOfferingPricPerScty`，**无需解析自由文本**。但那是**登记金额而非实际募资额**，且实测 0/12 份 424B4 带费用附件——最终定价只以散文形式存在于招股书封面。
 - 做这条路时 Ritter 的月度家数可当**校准基准**验证过滤规则。FMP 的 `/ipos-calendar` 等端点在当前订阅下返回 `Restricted Endpoint`。
 
+「内部人交易 Tier B 全市场底座（SEC DERA）」：`equity:sync-dera-insider` → `equity:verify-dera-insider`（加 `--full` 查季度连续性）；灌 SEC 经济与风险分析司（DERA）发布的 `insider-transactions-data-sets` 季度包，2006q1 起每季一个 zip（~14MB），落 `mds.dera_insider_{filing,transaction,owner}` 三表。实测全量 **81 季 / 721 万笔交易 / 24,011 个 ticker / 73 分钟**；日常增量用 `--latest`（回看最近 2 季，覆盖出版滞后与事后更正），`--cache-dir=.data/dera` 缓存 zip 避免重复下载。
+
+**与 Tier A（`mds.insider_transaction` + 持股监控页）的边界**——两者并存互不覆盖，**不要把 Tier B 当 Tier A 用**：Tier A 是逐份 Form 4 XML 的证据级事实（含原文、SHA-256、脚注、共同申报人与人工裁定），支撑 `/equity/ownership`，成本高只覆盖重点池；Tier B 是 SEC 预解析的表格，**没有原始 XML 与脚注原文**，只能做总量统计、横截面与任意公司的历史查询，不能用于需要人工裁定的场景。全市场底座走 Tier B 是因为逐份抓 XML 要几千万次请求（627 只就跑了 3 天），DERA 只要 81 次。
+
+⚠ **源端坑（均已实测，解析器已处理）**：①日期是 `DD-MON-YYYY` 不是 ISO；②`AFF10B5ONE` 同列混用 `'0'/'1'/'false'/''` 四种编码；③**各季度列集不同**——`AFF10B5ONE` 自 **2023q1** 起才有（2022q4 及更早整列不存在），故必须按列名而非列位取值、缺失写 null 而非 false，**2023 年之前算不出 10b5-1 占比，跨这条线的时间序列会出现假跳变**；④`RPTOWNER_RELATIONSHIP` 是逗号拼接多值；⑤无 ticker 的发行人写字面量 `NONE` 而不是空串。
+
+⚠ **申报人填错必须靠 `anomaly` 列拦掉**（源保真、只打标不改值，**做金额汇总时必须 `where anomaly is null`**）：实测全量 33,850 笔（0.469%）——`no_ticker` 31,589、`date_after_filed` 1,664（交易日晚于申报日，多为年份手误）、`price_impossible` 542（单价 >$100 万；阈值取此是因 BRK.A 约 $70 万是真实价，不能误杀）、`date_impossible` 55（早于 1934-06-06 证券交易法生效，实测是"世纪打错"：申报日恰为交易日 100 年后）。不加过滤时单条错价即可把全市场月度买入额算成 48 亿亿美元。注意 1934–2004 之间的陈年交易**不是**错误（初次 Form 3 或更正时披露几十年前持仓属正常），故未标记，但做时间序列时应自行限定区间。
+
+⚠ **查询必须按 `transaction_code` 过滤**：实测 `A`(授予)+`F`(代扣税)+`M`(行权) 合计约六成，全是薪酬机制的机械产物、不含主观判断；有预测力的是 `P`(公开市场买入)/`S`(卖出)，全量比例为 845,038 : 2,610,603。直接算"内部人净买卖"而不筛代码，得到的是薪酬噪音不是信号。
+
 ## 模块分工建议（3–5 人）
 
 | 模块 | 主要路径 | 分支前缀示例 |

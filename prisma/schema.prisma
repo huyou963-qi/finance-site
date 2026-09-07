@@ -1506,3 +1506,97 @@ model RobustnessRun {
   @@map("robustness_run")
   @@schema("mds")
 }
+
+/// SEC DERA「Insider Transactions Data Sets」季度批量数据的申报头（Tier B 全市场底座）。
+///
+/// 与 Tier A 的 InsiderTransaction 并存、互不覆盖，两者数据源和用途不同：
+/// - Tier A（insider_transaction）：逐份 Form 4 XML 解析的证据级事实，含原文、脚注、
+///   共同申报人与人工裁定，支撑持股监控页；成本高，只覆盖重点池。
+/// - Tier B（本表族）：SEC 预解析的季度全市场表，2006Q1 起覆盖 5000+ 发行人，
+///   81 个 zip 即可灌完；用于全市场总量、横截面因子与任意公司的历史查询。
+///   **不含原始 XML 与脚注原文，不可用于需要人工裁定的场景。**
+model DeraInsiderFiling {
+  accession      String    @id @db.VarChar(32)
+  filingDate     DateTime  @map("filing_date") @db.Date
+  periodOfReport DateTime? @map("period_of_report") @db.Date
+  /// 3 / 4 / 5 / 3\A / 4\A / 5\A
+  documentType   String    @map("document_type") @db.VarChar(8)
+  issuerCik      String    @map("issuer_cik") @db.VarChar(16)
+  issuerName     String    @map("issuer_name") @db.VarChar(256)
+  issuerSymbol   String    @map("issuer_symbol") @db.VarChar(16)
+  /// 申报层面的 10b5-1 勾选。源文件用 '0'/'1'/'false'/'' 四种编码混排，此处已归一。
+  /// 注意：这是申报层面的标记，不能据此给一份申报里的每一行都贴计划标签。
+  plan10b51      Boolean?  @map("plan_10b5_1")
+  /// 来源季度包（如 2026q1），按季幂等重灌用
+  sourceQuarter  String    @map("source_quarter") @db.VarChar(8)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  transactions DeraInsiderTransaction[]
+  owners       DeraInsiderOwner[]
+
+  @@index([issuerSymbol, filingDate(sort: Desc)])
+  @@index([issuerCik, filingDate(sort: Desc)])
+  @@index([sourceQuarter])
+  @@map("dera_insider_filing")
+  @@schema("mds")
+}
+
+/// DERA 非衍生（Table I）交易行。发行人与申报日在此冗余一份，
+/// 使「按标的查历史」「全市场按月汇总」都是单表扫描，不必回连申报头。
+model DeraInsiderTransaction {
+  accession            String   @db.VarChar(32)
+  /// DERA 的 NONDERIV_TRANS_SK，同 accession 内唯一
+  transSk              BigInt   @map("trans_sk")
+  issuerCik            String   @map("issuer_cik") @db.VarChar(16)
+  issuerSymbol         String   @map("issuer_symbol") @db.VarChar(16)
+  securityTitle        String?  @map("security_title") @db.VarChar(256)
+  transactionDate      DateTime @map("transaction_date") @db.Date
+  /// PIT 可见日：申报日，早于此不可见
+  filedAt              DateTime @map("filed_at") @db.Date
+  /// P=买入 S=卖出 A=授予 M=行权 G=赠予 F=代扣缴税 等
+  transactionCode      String   @map("transaction_code") @db.VarChar(4)
+  /// A=Acquired D=Disposed
+  acquiredDisposedCode String?  @map("acquired_disposed_code") @db.VarChar(1)
+  shares               Float
+  pricePerShare        Float?   @map("price_per_share")
+  sharesOwnedAfter     Float?   @map("shares_owned_after")
+  /// D=直接持有 I=间接持有
+  directIndirect       String?  @map("direct_indirect") @db.VarChar(1)
+  natureOfOwnership    String?  @map("nature_of_ownership") @db.VarChar(512)
+  /// 客观异常标记（源端申报人填错，非解析问题）。按源保真落库，仅打标不修改原值：
+  /// no_ticker=发行人无 ticker（DERA 写字面量 NONE）；date_after_filed=交易日晚于申报日
+  /// （逻辑不可能，多为年份手误）；price_impossible=单价 >$100 万（美股史上最高 BRK.A 约 $70 万）。
+  /// **做金额类汇总时必须排除 anomaly is not null**，否则单条错价即可毁掉整个统计。
+  anomaly              String?  @map("anomaly") @db.VarChar(32)
+
+  filing DeraInsiderFiling @relation(fields: [accession], references: [accession], onDelete: Cascade)
+
+  @@id([accession, transSk])
+  @@index([issuerSymbol, transactionDate(sort: Desc)])
+  @@index([transactionCode, transactionDate])
+  @@index([filedAt])
+  @@map("dera_insider_transaction")
+  @@schema("mds")
+}
+
+/// DERA 申报人。源里 RPTOWNER_RELATIONSHIP 是逗号拼接的多值
+/// （如 "Director,Officer,TenPercentOwner"），此处已拆成布尔列。
+model DeraInsiderOwner {
+  accession         String  @db.VarChar(32)
+  ownerCik          String  @map("owner_cik") @db.VarChar(16)
+  ownerName         String? @map("owner_name") @db.VarChar(256)
+  isDirector        Boolean @default(false) @map("is_director")
+  isOfficer         Boolean @default(false) @map("is_officer")
+  isTenPercentOwner Boolean @default(false) @map("is_ten_percent_owner")
+  isOther           Boolean @default(false) @map("is_other")
+  officerTitle      String? @map("officer_title") @db.VarChar(256)
+
+  filing DeraInsiderFiling @relation(fields: [accession], references: [accession], onDelete: Cascade)
+
+  @@id([accession, ownerCik])
+  @@index([ownerCik])
+  @@index([ownerName])
+  @@map("dera_insider_owner")
+  @@schema("mds")
+}
