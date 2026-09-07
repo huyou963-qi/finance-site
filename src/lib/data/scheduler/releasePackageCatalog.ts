@@ -1079,6 +1079,31 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 250,
     members: { instrumentCodePatterns: ["pbc_cn_*"] },
   }),
+  probePkg("cn.nfra.bank-assets-monthly", "中国银行业资产负债（月度，境内口径）", {
+    labelEn: "China Banking Sector Assets and Liabilities (Domestic Scope)",
+    countryCode: "CN",
+    agencyId: "cn-nfra",
+    granularity: "MONTHLY",
+    intervalHours: 24,
+    sortOrder: 511,
+    members: {
+      instrumentCodes: [
+        "nfra_cn_banking_total_assets",
+        "nfra_cn_banking_total_assets_yoy",
+        "nfra_cn_banking_total_liabilities",
+        "nfra_cn_banking_total_liabilities_yoy",
+      ],
+    },
+  }),
+  probePkg("cn.nfra.bank-supervision-quarterly", "中国商业银行主要监管指标（季度）", {
+    labelEn: "China Commercial Bank Key Regulatory Indicators",
+    countryCode: "CN",
+    agencyId: "cn-nfra",
+    granularity: "QUARTERLY",
+    intervalHours: 24,
+    sortOrder: 512,
+    members: { instrumentCodePatterns: ["nfra_cn_commercial_bank_*"] },
+  }),
   probePkg("cn.safe.external", "中国外汇与国际收支", {
     labelEn: "SAFE Monthly Foreign Exchange and Cross-border Flows",
     countryCode: "CN",

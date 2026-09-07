@@ -2,6 +2,7 @@
 export const AGENCY_OFFICIAL_URLS: Record<string, string> = {
   国家统计局: "https://www.stats.gov.cn/",
   中国人民银行: "http://www.pbc.gov.cn/",
+  国家金融监督管理总局: "https://www.nfra.gov.cn/",
   日本央行: "https://www.boj.or.jp/",
   日本内阁府: "https://www.esri.cao.go.jp/",
   日本财务省: "https://www.mof.go.jp/",

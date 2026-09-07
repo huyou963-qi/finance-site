@@ -158,6 +158,8 @@ npm run db:studio        # Prisma Studio
 
 「中国人民银行货币与信用」：`data:seed-pbc-monetary` → `data:sync-pbc-monetary` / `data:verify-pbc-monetary -- --db`；月度 M0/M1/M2、人民币贷款/存款、分部门累计增量、社融存量/增量及分项、同业利率和 LPR，历史来自人民银行公开归档；仅保留公告直接披露的余额、同比、累计增量或利率，不推算环比。
 
+「中国金融监管总局银行业监管统计」：`data:seed-nfra-banking` → `data:sync-nfra-banking` / `data:verify-nfra-banking -- --db`；官网统计信息栏目静态 JSON 发现 xls/xlsx，首批接入银行业月度总资产/负债及同比与商业银行季度主要监管指标，共 42 条；两类无固定发布日历，按 24 小时 `probe_interval` 探测，必须区分月表境内口径与季度商业银行法人汇总口径；文档 [docs/specs/cn-nfra-banking.spec.md](./docs/specs/cn-nfra-banking.spec.md)。
+
 「中国外汇与国际收支」：`data:seed-safe-external` → `data:sync-safe-external` / `data:verify-safe-external -- --db`；外汇及黄金储备、银行结售汇、代客涉外收付款、国际收支、国际投资头寸和全口径外债的公开时间序列表；按原表月/季/年频保存，不推算未发布的同比或环比。
 
 「中国外贸与外部部门」：`data:seed-mofcom-trade` → `data:sync-mofcom-trade` / `data:verify-mofcom-trade -- --db`；商务部公开接口转载海关总署货物贸易统计，回填全国进出口、贸易方式、主要国别地区的当月/累计美元值和官方同比；发布包触发日常增量更新，不由累计数倒推非官方值。分商品维度已于 2026-09 迁出（见下条），旧的「外贸：商品构成」894 条序列由 `data:drop-mofcom-composition -- --apply` 一次性下线。

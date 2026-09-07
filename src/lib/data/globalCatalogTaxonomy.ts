@@ -38,6 +38,21 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
   if (code.startsWith("nbs_cn_realestate_")) return p("地产与建筑", /70城|新建商品住宅|二手住宅/.test(label) ? "70 城住房价格" : "房地产开发、销售与资金");
   if (code.startsWith("mof_cn_fiscal_")) return p("财政与公共债务", /支出/.test(label) ? "财政支出" : /基金/.test(label) ? "政府性基金" : "一般公共预算收入");
   if (code.startsWith("pbc_cn_")) return /利率|LPR/.test(label) ? p("利率与信用市场", "贷款利率") : p("货币政策与流动性", "货币、信贷与社会融资");
+  if (code.startsWith("nfra_cn_banking_total_")) {
+    return p("金融条件与银行", "银行业规模与结构");
+  }
+  if (code.startsWith("nfra_cn_commercial_bank_")) {
+    if (/正常类|关注类|不良|次级|可疑|损失|拨备/.test(label)) {
+      return p("金融条件与银行", "商业银行资产质量");
+    }
+    if (/流动性|存贷比|备付金|稳定资金/.test(label)) {
+      return p("金融条件与银行", "商业银行流动性");
+    }
+    if (/利润|利润率|净息差|非利息收入|成本收入/.test(label)) {
+      return p("金融条件与银行", "商业银行盈利能力");
+    }
+    return p("金融条件与银行", "商业银行资本与市场风险");
+  }
   if (code.startsWith("safe_cn_")) return /外汇储备|黄金/.test(label) ? p("对外与汇率", "外汇储备与黄金") : /结售汇|收付款/.test(label) ? p("对外与汇率", "银行结售汇与跨境资金") : p("对外与汇率", "国际收支、投资头寸与外债");
   if (code.startsWith("mofcom_cn_trade_")) return /贸易方式/.test(label) ? p("对外与汇率", "货物贸易：贸易方式") : /国别|地区/.test(label) ? p("对外与汇率", "货物贸易：国别地区") : p("对外与汇率", "货物贸易：总额");
   // 海关主要商品量值表：按「进/出口 × 量/额/价」拆成 6 组，每组 25 条，

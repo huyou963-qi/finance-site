@@ -17,6 +17,13 @@ export function fiscalCompositeSpec(instrumentCode: string): UsovCompositeSpec |
   return FISCAL_COMPOSITE_FRED[instrumentCode] ?? null;
 }
 
+/**
+ * 复合指标本身没有单一 FRED series id；保留其计算所依赖的上游序列，供调度审计与告警展示。
+ */
+export function fiscalCompositeFredIds(spec: UsovCompositeSpec): string[] {
+  return spec.kind === "spread" ? [spec.a, spec.b] : [spec.num, spec.den];
+}
+
 export type FiscalCompositeSeedRow = {
   code: string;
   roleId: string;
@@ -77,6 +84,7 @@ export function buildFiscalCompositeInstrumentMetadata(
     catalogKey: `fiscal:${row.code}`,
     roleId: row.roleId,
     compositeSpec: spec,
+    upstreamFredSeriesIds: fiscalCompositeFredIds(spec),
     fetchAcquisition: {
       status: "known",
       probedAt: new Date().toISOString(),
