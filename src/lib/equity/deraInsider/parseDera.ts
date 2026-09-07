@@ -9,8 +9,8 @@
  *    缺失时写 null 而不是 false——"当年还没有这个勾选框"不等于"申报人没勾"。
  * 4. `RPTOWNER_RELATIONSHIP` 是逗号拼接的多值，如 `Director,Officer,TenPercentOwner`。
  *
- * 另：列数与表头不一致的脏行在 2006q1/2026q1 实测均为 0，`parseTsv` 仍保留该校验作为
- * 防御（若将来出现，错位是静默写错数据而不是报错，代价最高）。
+ * 另：列数与表头不一致的脏行在 2006q1/2026q1 实测均为 0，仍保留该校验作为防御
+ * （若将来出现，错位是静默写错数据而不是报错，代价最高）。
  */
 
 const MONTHS: Record<string, number> = {
@@ -76,29 +76,68 @@ export function parseRelationship(raw: string | undefined | null): OwnerRelation
 
 export type TsvRow = Record<string, string>;
 
-/**
- * 逐行流式解析 TSV。**列数与表头不一致的行一律跳过并计数**——源里存在含制表符的
- * 脚注文本会撑爆列数，若按位置硬取会整列错位且不报错。
- */
-export function parseTsv(text: string): { rows: TsvRow[]; skipped: number; header: string[] } {
-  const lines = text.split(/\r?\n/);
-  const header = (lines[0] ?? "").split("\t").map((h) => h.trim());
+const LF = "\n";
+const CR = "\r";
+const TAB = "\t";
+
+/** 只读表头。调用方常需在遍历前就知道有哪些列（如 AFF10B5ONE 是否存在）。 */
+export function readTsvHeader(text: string): string[] {
+  const firstNl = text.indexOf(LF);
+  const headerLine = firstNl >= 0 ? text.slice(0, firstNl) : text;
+  const header = stripCr(headerLine).split(TAB).map((h) => h.trim());
   if (header.length < 2) throw new Error("TSV 表头异常（列数 < 2），源结构可能已变");
-  const rows: TsvRow[] = [];
-  let skipped = 0;
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i]!;
+  return header;
+}
+
+export type TsvScanStats = { skipped: number };
+
+/**
+ * 逐行生成器，**不在内存里堆积整表**。
+ *
+ * 单季 NONDERIV_TRANS 有 10 万+ 行 × 28 列，物化成对象数组要几百 MB。生产机总内存
+ * 只有 3.5GB 且常并行跑别的批任务，一次性构表会连 sshd 一起挤死——2026-09 实测过：
+ * 同一批里 2007q1 耗时从邻季的 ~30 秒劣化到 792 秒（GC/换页信号），随后整机失联。
+ *
+ * 用生成器而不是回调，是因为调用方需要在**每批之间 await 落库**形成背压；
+ * 同步回调里无法 await，只能把 promise 堆起来，等于把内存问题换个地方。
+ *
+ * **列数与表头不一致的行一律跳过并计入 stats.skipped**：按位置硬取会整列错位
+ * 且不报错，静默写错数据的代价最高。
+ */
+export function* iterTsvRows(
+  text: string,
+  header: string[],
+  stats: TsvScanStats,
+): Generator<TsvRow> {
+  const firstNl = text.indexOf(LF);
+  let pos = firstNl >= 0 ? firstNl + 1 : text.length;
+  while (pos < text.length) {
+    let end = text.indexOf(LF, pos);
+    if (end < 0) end = text.length;
+    const line = stripCr(text.slice(pos, end));
+    pos = end + 1;
     if (!line.trim()) continue;
-    const parts = line.split("\t");
+    const parts = line.split(TAB);
     if (parts.length !== header.length) {
-      skipped += 1;
+      stats.skipped += 1;
       continue;
     }
     const row: TsvRow = {};
     for (let c = 0; c < header.length; c++) row[header[c]!] = parts[c]!;
-    rows.push(row);
+    yield row;
   }
-  return { rows, skipped, header };
+}
+
+function stripCr(s: string): string {
+  return s.endsWith(CR) ? s.slice(0, -1) : s;
+}
+
+/** 物化版本，仅供单测与小文件使用；生产路径一律走 iterTsvRows。 */
+export function parseTsv(text: string): { rows: TsvRow[]; skipped: number; header: string[] } {
+  const header = readTsvHeader(text);
+  const stats: TsvScanStats = { skipped: 0 };
+  const rows = [...iterTsvRows(text, header, stats)];
+  return { rows, skipped: stats.skipped, header };
 }
 
 /** 校验 TSV 含所有必需列，缺列直接报错（源改版时立刻暴露，而不是静默产出空值）。 */

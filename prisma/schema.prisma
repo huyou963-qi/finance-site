@@ -514,7 +514,7 @@ model MacroCategory {
 /// 统一「序列 / 标的」：宏观序列、交易品种等；主引用为 `id` 与 `code`。
 model Instrument {
   id           String         @id @default(uuid()) @db.Uuid
-  code         String         @unique @db.VarChar(48)
+  code         String         @unique @db.VarChar(64)
   kind         InstrumentKind
   name         String
   /// Excel「指标英文名称」或人工维护的英文展示名

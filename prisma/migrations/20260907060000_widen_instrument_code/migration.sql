@@ -1,0 +1,11 @@
+-- Instrument.code 从 VarChar(48) 放宽到 VarChar(64)。
+--
+-- 起因：金融监管总局（NFRA）银行业统计有 5 条序列的 code 超过 48 字符
+-- （最长 nfra_cn_commercial_bank_core_tier1_capital_adequacy_ratio 为 57），
+-- seed 时 Prisma 抛 P2000，而 seed 是 data:apply 的门禁步骤，导致整条部署流水线中断。
+--
+-- 选择加宽而非改名：改名要在已有命名体系里替 5 条做例外缩写（如 tier1_car），
+-- 与其余 37 条风格不一致；而中文监管口径的描述性 code 本就偏长，48 是个偶然限制。
+-- Postgres 加宽 varchar 只改 catalog、不重写表也不动唯一索引，安全且瞬时。
+-- 注意：Instrument 模型没有 @@map，表名是首字母大写的 "Instrument"，不是 snake_case。
+ALTER TABLE "mds"."Instrument" ALTER COLUMN "code" TYPE VARCHAR(64);
