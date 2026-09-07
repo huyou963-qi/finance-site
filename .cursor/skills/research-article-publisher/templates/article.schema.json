@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hblook.com/schemas/research-article.json",
+  "title": "Finova research article bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["slug", "title", "summary", "category", "tags", "dataCutoff", "sourceManifest", "bodyMarkdown", "assets"],
+  "properties": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 120 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 1200 },
+    "category": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "tags": { "type": "array", "maxItems": 12, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 32 } },
+    "dataCutoff": { "type": "string", "format": "date-time" },
+    "sourceManifest": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "kind", "url"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "kind": { "enum": ["internal", "external"] },
+          "url": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "observedAt": { "type": "string", "format": "date-time" },
+          "note": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "bodyMarkdown": { "type": "string", "minLength": 1, "maxLength": 200000 },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["placeholder", "path", "sourceKind", "sourceUrl"],
+        "properties": {
+          "placeholder": { "type": "string", "pattern": "^\\{\\{chart:[a-z0-9-]+\\}\\}$" },
+          "path": { "type": "string", "minLength": 1 },
+          "alt": { "type": "string", "maxLength": 200 },
+          "sourceKind": { "enum": ["internal_macro", "internal_market", "external_chart"] },
+          "sourceUrl": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "sourceConfig": { "type": "object" },
+          "capturedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

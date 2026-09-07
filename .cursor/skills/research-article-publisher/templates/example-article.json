@@ -1,0 +1,19 @@
+{
+  "slug": "example-policy-analysis",
+  "title": "示例：政策变化如何传导到市场",
+  "summary": "演示文章 bundle 的最小完整结构，使用时请替换全部示例内容。",
+  "category": "policy-analysis",
+  "tags": ["政策", "宏观"],
+  "dataCutoff": "2020-01-31T23:59:59Z",
+  "sourceManifest": [
+    {
+      "label": "Finova 宏观数据",
+      "kind": "internal",
+      "url": "/macro",
+      "observedAt": "2020-01-31T23:59:59Z",
+      "note": "示例来源，正式文章应保存具体查询路径与口径。"
+    }
+  ],
+  "bodyMarkdown": "# 核心结论\n\n这是示例正文。\n\n## 风险情景\n\n如果关键假设不成立，结论需要重新评估。",
+  "assets": []
+}

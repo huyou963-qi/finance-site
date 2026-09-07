@@ -139,3 +139,31 @@ body {
 .weekly-md strong {
   color: var(--fs-text);
 }
+
+.article-md {
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.article-md h1 {
+  font-size: 1.75rem;
+}
+
+.article-md h2 {
+  font-size: 1.35rem;
+  margin-top: 2rem;
+}
+
+.article-md h3 {
+  font-size: 1.1rem;
+  margin-top: 1.5rem;
+}
+
+.article-md img {
+  border: 1px solid var(--fs-border);
+  border-radius: 0.75rem;
+  display: block;
+  height: auto;
+  margin: 1.25rem auto;
+  max-width: 100%;
+}

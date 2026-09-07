@@ -33,6 +33,7 @@ export function SiteHeaderNav() {
   const macroActive = pathname === "/macro";
   const eventsActive = pathname === "/events" || pathname.startsWith("/events/");
   const weeklyActive = pathname === "/weekly" || pathname.startsWith("/weekly/");
+  const articlesActive = pathname === "/articles" || pathname.startsWith("/articles/");
   const investmentsActive =
     pathname === "/investments" || pathname.startsWith("/investments/");
   const equityActive =
@@ -178,6 +179,17 @@ export function SiteHeaderNav() {
           aria-current={weeklyActive ? "page" : undefined}
         >
           AI周度观察
+        </Link>
+        <Link
+          href={isAdmin ? "/articles/editor" : "/articles"}
+          className={`${linkBase} ${
+            articlesActive
+              ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+              : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+          }`}
+          aria-current={articlesActive ? "page" : undefined}
+        >
+          {isAdmin ? "发布文章" : "专题文章"}
         </Link>
         {isAdmin ? (
           <div ref={toolsRef} className="relative">
