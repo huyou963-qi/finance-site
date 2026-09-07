@@ -21,7 +21,17 @@ export function fiscalCompositeSpec(instrumentCode: string): UsovCompositeSpec |
  * 复合指标本身没有单一 FRED series id；保留其计算所依赖的上游序列，供调度审计与告警展示。
  */
 export function fiscalCompositeFredIds(spec: UsovCompositeSpec): string[] {
-  return spec.kind === "spread" ? [spec.a, spec.b] : [spec.num, spec.den];
+  // UsovCompositeSpec 有四个变体；漏掉 wow_* 会在运行时返回 [undefined, undefined]。
+  // 用穷尽 switch，将来再加变体时由类型检查强制在此补齐。
+  switch (spec.kind) {
+    case "spread":
+      return [spec.a, spec.b];
+    case "ratio":
+      return [spec.num, spec.den];
+    case "wow_pct":
+    case "wow_ma4":
+      return [spec.series];
+  }
 }
 
 export type FiscalCompositeSeedRow = {
