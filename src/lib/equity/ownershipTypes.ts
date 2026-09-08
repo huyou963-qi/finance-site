@@ -31,4 +31,6 @@ export type ReviewPayload =
   | { kind: "role"; ownerCik: string; role: "Founder / Executive" | "Director" | "VC / PE" | "Strategic investor" | "10% owner" | "Employee" }
   | { kind: "plan"; plan: TradingPlan };
 export type OwnershipReviewFact = { id: string; key: string; revision: number; payload: ReviewPayload; sourceUrl: string; quote: string; availableAt: string; createdAt: string };
-export type OwnershipCoverage = { since: string; through: string; checkedAt: string; complete: boolean; discovered: number; parsed: number; failed: number; error?: string };
+/** `skipped` 是按本公司 CIK 拉到、但发行人是别家的申报（见 ForeignIssuerFilingError），
+ *  属于预期内的正常跳过，不计入 failed，否则 complete 永远为 false。旧记录无此字段。 */
+export type OwnershipCoverage = { since: string; through: string; checkedAt: string; complete: boolean; discovered: number; parsed: number; failed: number; skipped?: number; error?: string };

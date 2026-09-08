@@ -14,6 +14,21 @@ const OWNERSHIP_FORMS = new Set(["3","3/A","4","4/A","5","5/A"]);
 const PLAN_FORMS = new Set(["10-Q","10-Q/A","10-K","10-K/A"]);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 
+/**
+ * 这份申报确实挂在本公司 CIK 下，但发行人是另一家公司——不是解析失败。
+ *
+ * 持股超 10% 的机构须以「申报人」身份为被投公司提交 Form 4，这些申报同时索引在
+ * 申报人自己的 CIK 下。按 CIK 拉取时必然连带取到，拒绝它们是正确的：那是被投公司的
+ * 内部人数据，不是本公司的。实测 BAC 的 0000070858-06-000161 发行人是 ONEIDA LTD。
+ *
+ * 曾把这类计入 failed，导致 complete 恒为 false（判据含 failed===0），进而让
+ * ownershipEngine 的 supplyRatio90/sellingAdv30 对 BAC/GS/BX/C/BEN 等 162 只股票
+ * 永久返回 null 并显示「覆盖不完整」，而数据其实是全的。全量回填中这类占失败总数 90.9%。
+ */
+export class ForeignIssuerFilingError extends Error {
+  constructor() { super("发行人非本公司，按预期跳过"); this.name = "ForeignIssuerFilingError"; }
+}
+
 /** Sole ownership writer: original XML + canonical Table I rows commit together per filing. */
 export async function ingestOwnershipDocument(ctx: { cik: string; symbol: string; accession: string; form: string; filedAt: string; primaryDocument: string | null }, text: string) {
   const sourceUrl = secDocumentUrl(ctx.cik,ctx.accession,ctx.primaryDocument,OWNERSHIP_FORMS.has(ctx.form));
@@ -22,7 +37,7 @@ export async function ingestOwnershipDocument(ctx: { cik: string; symbol: string
   const rows = isOwnership ? parseForm4Xml(text) : [];
   if(isOwnership && (text.match(/<nonDerivativeTransaction(?:\s|>)/g)?.length??0)!==rows.length) throw new Error("存在无法完整解析的 Table I 交易行");
   if(rows.some(t=>!isDay(t.transactionDate)||!Number.isFinite(t.shares)||t.shares<0||!["A","D"].includes(t.acquiredDisposedCode))) throw new Error("交易日期、股数或方向无效");
-  if (rows.some(t=>Number(t.issuerCik)!==Number(ctx.cik))) throw new Error("SEC issuer CIK 不匹配");
+  if (rows.some(t=>Number(t.issuerCik)!==Number(ctx.cik))) throw new ForeignIssuerFilingError();
   const derivativeRows = isOwnership ? parseDerivativeTransactions(text) : [];
   const document: OwnershipDocument & { derivativeRows: typeof derivativeRows } = {
     version:2,parserVersion:5,sourceHash:createHash("sha256").update(text).digest("hex"),sourceUrl,parsedAt:new Date().toISOString(),
@@ -52,7 +67,7 @@ export async function syncOwnershipSymbol(symbol: string, options: { since: stri
   if (!security?.cik) throw new Error("标的不存在或缺少 CIK");
   const cik = security.cik.replace(/\D/g,"").padStart(10,"0");
   const through = new Date().toISOString().slice(0,10);
-  const coverage: OwnershipCoverage = {since:options.since,through,checkedAt:new Date().toISOString(),complete:false,discovered:0,parsed:0,failed:0};
+  const coverage: OwnershipCoverage = {since:options.since,through,checkedAt:new Date().toISOString(),complete:false,discovered:0,parsed:0,failed:0,skipped:0};
   try {
     const index = (await discoverSecFilings(cik,options.since,true)).filter(r=>OWNERSHIP_FORMS.has(r.form)||PLAN_FORMS.has(r.form));
     coverage.discovered = index.length;
@@ -67,6 +82,7 @@ export async function syncOwnershipSymbol(symbol: string, options: { since: stri
         await ingestOwnershipDocument({cik,symbol,...row},text);
         coverage.parsed++;
       } catch(error) {
+        if (error instanceof ForeignIssuerFilingError) { coverage.skipped=(coverage.skipped??0)+1; continue; }
         coverage.failed++;
         console.warn(`[ownership] ${symbol} ${row.accession}: ${error instanceof Error ? error.message : "解析失败"}`);
       }
