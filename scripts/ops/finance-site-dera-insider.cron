@@ -10,5 +10,6 @@ FINANCE_SITE_PATH=/opt/finance-site
 # 三步必须串起来，缺一不可：
 #   sync  灌新季度 → 新灌的行 price_check 全是 null
 #   check 补价格交叉校验 → 否则金额汇总会静默漏掉这批新数据
+#   sentiment 重算全市场内部人情绪序列（宏观图表与 regime 消费的两条 MacroObservation）
 #   verify 兜底 → 断言 outlier 占比与最近季度是否已校验，失败时退出码非 0 留在日志里
-40 9 * * 0 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-dera-insider.lock nice -n 10 timeout --signal=TERM --kill-after=30s 3h bash -c 'npm run equity:sync-dera-insider -- --latest --cache-dir=.data/dera && npm run equity:check-dera-prices && npm run equity:verify-dera-insider -- --full' >> logs/dera-insider-sync.log 2>&1
+40 9 * * 0 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-dera-insider.lock nice -n 10 timeout --signal=TERM --kill-after=30s 3h bash -c 'npm run equity:sync-dera-insider -- --latest --cache-dir=.data/dera && npm run equity:check-dera-prices && npm run equity:build-insider-sentiment && npm run equity:verify-dera-insider -- --full' >> logs/dera-insider-sync.log 2>&1
