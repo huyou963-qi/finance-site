@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FinovaWordmark } from "@/components/brand/FinovaWordmark";
+import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 
 function MiniSparkline({ className }: { className?: string }) {
   return (
@@ -20,7 +20,7 @@ function AuthBrandAside() {
     <aside className="flex min-h-0 flex-col justify-between border-b border-fs-border bg-fs-elevated p-8 lg:col-span-2 lg:overflow-y-auto lg:border-b-0 lg:border-r">
       <div>
         <Link href="/">
-          <FinovaWordmark size="md" />
+          <GekkoTechWordmark size="md" />
         </Link>
         <p className="mt-5 text-sm leading-relaxed text-fs-secondary">
           登录后即可使用宏观仪表盘、行情图表与 AI 周度观察。

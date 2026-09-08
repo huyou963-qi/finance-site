@@ -1,6 +1,6 @@
 "use client";
 
-import { FinovaWordmark } from "@/components/brand/FinovaWordmark";
+import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 import { AuroraFlowCanvas } from "@/components/landing-preview/AuroraFlowCanvas";
 import { SciFiNodeCanvas } from "@/components/landing-preview/SciFiNodeCanvas";
 import { LandingFusionChart } from "@/components/landing-preview/LandingFusionChart";
@@ -33,7 +33,7 @@ export function LandingPreviewFusion() {
             V5 · 融合 · HUD + 极光
           </div>
           <div className="lp-fade-up lp-fade-up-1 mb-6 md:mb-8">
-            <FinovaWordmark size="hero" />
+            <GekkoTechWordmark size="hero" />
           </div>
         </div>
 

@@ -358,7 +358,7 @@ export function MarketGlobe() {
           const connectorLength = 10 * dpr;
           const boxX = placeLeft ? point[0] - boxWidth - connectorLength : point[0] + connectorLength;
           const boxY = point[1] - boxHeight / 2 + (MARKET_LABEL_OFFSET_Y[market.code] ?? 0) * dpr;
-          const marketColor = change >= 0 ? "251, 113, 133" : "52, 211, 153";
+          const marketColor = change >= 0 ? "16, 185, 129" : "239, 68, 68";
 
           context.beginPath();
           context.moveTo(point[0] + (placeLeft ? -4 : 4) * dpr, point[1]);
@@ -441,7 +441,7 @@ export function MarketGlobe() {
   };
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[760px] select-none" aria-label="全球主要资本市场交互地球">
+    <div className="relative mx-auto aspect-square w-full max-w-[820px] select-none" aria-label="全球主要资本市场交互地球">
       <canvas ref={canvasRef} className="h-full w-full cursor-grab touch-none active:cursor-grabbing" role="img" tabIndex={0}
         aria-label="可拖动旋转的全球市场地球。方向键旋转，滚轮缩放，市场节点可点击。"
         onPointerDown={(event) => {
@@ -479,10 +479,10 @@ export function MarketGlobe() {
       <div className="pointer-events-none absolute left-[8%] top-[8%] rounded-full border border-slate-200 bg-white/82 px-3 py-1.5 text-[11px] font-medium tracking-wide text-slate-500 shadow-sm backdrop-blur-md">
         LIVE · {formatUtc(now)} UTC
       </div>
-      <div className="absolute bottom-[7%] left-[4%] z-20 w-[84%] rounded-2xl border border-slate-200/85 bg-white/88 p-3.5 shadow-[0_18px_60px_rgba(28,55,74,0.13)] backdrop-blur-xl sm:left-[2%] sm:w-[70%] sm:p-4 lg:-left-[78%] lg:w-[62%]">
+      <div className="absolute bottom-[4%] left-[2%] z-20 w-[84%] rounded-2xl border border-slate-200/85 bg-white/88 p-3.5 shadow-[0_18px_60px_rgba(28,55,74,0.13)] backdrop-blur-xl sm:w-[68%] sm:p-4 lg:-left-[3%] lg:bottom-[8%]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-blue-600">{selected.code} MARKET</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#00bfa5]">{selected.code} MARKET</div>
             <div className="mt-0.5 text-base font-semibold text-slate-900">{selected.city} · {selected.exchange}</div>
           </div>
           <div className="shrink-0 text-right text-[11px] leading-5 text-slate-500">{selected.session}</div>
@@ -490,7 +490,7 @@ export function MarketGlobe() {
         <div className="mt-3 flex gap-1.5 overflow-x-auto pb-0.5" aria-label="选择主要市场">
           {MARKETS.map((market) => (
             <button key={market.code} type="button" onClick={() => focusMarket(market)}
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${selected.code === market.code ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-700"}`}>
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${selected.code === market.code ? "bg-[#00bfa5] text-white" : "bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"}`}>
               {market.city}
             </button>
           ))}

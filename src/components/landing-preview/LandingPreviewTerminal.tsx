@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FinovaWordmark } from "@/components/brand/FinovaWordmark";
+import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 import {
   HeroVizShell,
   LandingFooter,
@@ -57,7 +57,7 @@ export function LandingPreviewTerminal() {
             V4 · 终端屏
           </div>
           <div className="lp-fade-up lp-fade-up-1 mb-6 md:mb-8">
-            <FinovaWordmark size="hero" />
+            <GekkoTechWordmark size="hero" />
           </div>
         </div>
 

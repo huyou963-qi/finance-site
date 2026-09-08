@@ -1,6 +1,6 @@
 "use client";
 
-import { FinovaWordmark } from "@/components/brand/FinovaWordmark";
+import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 import { AuroraFlowCanvas } from "@/components/landing-preview/AuroraFlowCanvas";
 import {
   HeroVizShell,
@@ -30,7 +30,7 @@ export function LandingPreviewNebula() {
             V6 · 星云 · 极光增强
           </div>
           <div className="lp-fade-up lp-fade-up-1 mb-6 md:mb-8">
-            <FinovaWordmark size="hero" />
+            <GekkoTechWordmark size="hero" />
           </div>
         </div>
 
