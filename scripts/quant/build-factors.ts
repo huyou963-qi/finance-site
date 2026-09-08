@@ -36,6 +36,8 @@ import {
 } from "../../src/lib/quant/factorCompute";
 import { computeFundingFactors, MIN_FILER_COVERAGE, type PeriodAgg } from "../../src/lib/quant/fundingFactors";
 import { loadFundingPeriods, loadAdequatePeriods } from "../../src/lib/quant/fundingData";
+import { computeInsiderFactors } from "../../src/lib/quant/insiderFactors";
+import { loadInsiderMonths } from "../../src/lib/quant/insiderFactorsData";
 import { FACTOR_MAP } from "../../src/lib/quant/factorRegistry";
 import { fundingHistoryStart } from "../../src/lib/quant/monthlyProduction";
 
@@ -242,6 +244,17 @@ async function main() {
     console.warn("资金面预载失败（institutional_holding 未就绪？）：", e instanceof Error ? e.message : e);
   }
 
+  // 内部人交易（Tier B）：SQL 侧已按标的×月聚合，全历史仅约 7.7 万行。
+  // 与资金面一样预载失败不致命——Tier B 未灌时其余因子照常产出。
+  let insiderBySymbol = new Map<string, Awaited<ReturnType<typeof loadInsiderMonths>> extends Map<string, infer V> ? V : never>();
+  try {
+    insiderBySymbol = await loadInsiderMonths(allSymbols);
+    const withInsider = [...insiderBySymbol.values()].filter((v) => v.length).length;
+    console.log(`内部人预载：${withInsider}/${allSymbols.length} 只有 P/S 申报聚合`);
+  } catch (e) {
+    console.warn("内部人预载失败（dera_insider_transaction 未就绪？）：", e instanceof Error ? e.message : e);
+  }
+
   for (const d of fundDates) {
     const closes = await loadClosesAsOf(universeByDate.get(d) ?? [], d);
     const cs = await buildPitCrossSection(d, { closes });
@@ -257,6 +270,11 @@ async function main() {
       const periods = periodsBySymbol.get(row.symbol);
       if (periods?.length) {
         Object.assign(vals, computeFundingFactors(periods, d, row.sharesCurrent, adequatePeriods));
+      }
+      // 内部人因子（PIT via filedAt 归月 + 整月已过去才计入，见 insiderFactors.ts）
+      const insiderMonths = insiderBySymbol.get(row.symbol);
+      if (insiderMonths?.length) {
+        Object.assign(vals, computeInsiderFactors(insiderMonths, d));
       }
       if (Object.keys(vals).length) {
         Object.assign(getRow(store, d, row.symbol), vals);

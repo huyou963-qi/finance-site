@@ -95,6 +95,9 @@ export const FACTOR_DEFS: readonly FactorDef[] = [
   { key: "instOwnershipChgQoQ", nameZh: "机构持股环比", nameEn: "Inst. Ownership ΔQoQ", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "本可见期合计持股 / 上一可见期 − 1（拆股归一后，机构增减仓）；跨稀疏期不出" },
   { key: "instHolderCount", nameZh: "持有机构家数", nameEn: "Institutional Holder Count", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2013, note: "本可见期披露持股的 13F filer 家数；仅 filer 充分期出值" },
   { key: "instConcentration", nameZh: "机构持仓集中度", nameEn: "Inst. Holding Concentration (HHI)", category: "funding", higherIsBetter: false, requires: "funding", startYear: 2013, note: "Σ(各机构份额占比²) 的 HHI；高=少数机构集中持有；仅 filer 充分期出值" },
+  // ── 内部人交易 insider（Tier B / DERA；PIT 用 filedAt，见 insiderFactors.ts）──────
+  { key: "insiderNetBuyRatio", nameZh: "内部人净买入比例", nameEn: "Insider Net Buy Ratio", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2007, note: "近 6 个月 (P股数−S股数)/(P+S)∈[−1,1]；按 filedAt 归月且只计整月已过去的桶；窗口内不足 3 笔不出值" },
+  { key: "insiderBuyBreadth", nameZh: "内部人买入广度", nameEn: "Insider Buy Breadth", category: "funding", higherIsBetter: true, requires: "funding", startYear: 2007, note: "近 6 个月含公开市场买入的申报份数；买入比卖出信息量高（卖出常出于分散/流动性）" },
 ] as const;
 
 export type FactorKey = (typeof FACTOR_DEFS)[number]["key"];
