@@ -36,6 +36,19 @@ function toArray<T>(v: T | T[] | undefined | null): T[] {
   return Array.isArray(v) ? v : [v];
 }
 
+/**
+ * XSD 的 xs:date 允许可选时区后缀（`-?YYYY-MM-DD(Z|(+|-)hh:mm)?`），SEC 原样透传。
+ * 高盛的申报代理就输出 `2012-07-27-04:00`，而下游按严格 `YYYY-MM-DD` 校验，
+ * 导致整份申报被判「交易日期、股数或方向无效」而丢弃——全量回填中 GS 有 418 份、
+ * DG 有 16 份因此失败，占非 CIK 类失败的绝大多数。
+ * 不匹配的值原样返回，真正畸形的日期仍会在下游被拒。
+ */
+function normalizeXsdDate(value: string | null): string | null {
+  if (!value) return value;
+  const m = /^(\d{4}-\d{2}-\d{2})(?:Z|[+-]\d{2}:\d{2})$/.exec(value.trim());
+  return m ? m[1] : value;
+}
+
 function pluckValue(node: unknown): string | null {
   if (node == null) return null;
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -105,7 +118,7 @@ export function parseForm4Xml(xml: string): Form4Transaction[] {
     const postAmounts = r.postTransactionAmounts as Record<string, unknown> | undefined;
     const coding = r.transactionCoding as Record<string, unknown> | undefined;
 
-    const transactionDate = pluckValue(r.transactionDate);
+    const transactionDate = normalizeXsdDate(pluckValue(r.transactionDate));
     const transactionCode = pluckValue(coding?.transactionCode);
     const acquiredDisposedCode = pluckValue(amounts?.transactionAcquiredDisposedCode);
     const shares = pluckNumber(amounts?.transactionShares);

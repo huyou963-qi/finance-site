@@ -124,3 +124,51 @@ describe("parseForm4Xml", () => {
     assert.deepEqual(parseForm4Xml(""), []);
   });
 });
+
+/** 高盛的申报代理输出带时区后缀的日期（真实案例 GS 0000769993-12-000461）。 */
+const TZ_SUFFIX_DATE_XML = `<?xml version="1.0"?>
+<ownershipDocument>
+  <issuer>
+    <issuerCik>0000886982</issuerCik>
+    <issuerTradingSymbol>GS</issuerTradingSymbol>
+  </issuer>
+  <reportingOwner>
+    <reportingOwnerId>
+      <rptOwnerCik>0001234567</rptOwnerCik>
+      <rptOwnerName>DOE JANE</rptOwnerName>
+    </reportingOwnerId>
+    <reportingOwnerRelationship>
+      <isDirector>1</isDirector>
+      <isOfficer>0</isOfficer>
+      <isTenPercentOwner>0</isTenPercentOwner>
+    </reportingOwnerRelationship>
+  </reportingOwner>
+  <nonDerivativeTable>
+    <nonDerivativeTransaction>
+      <transactionDate><value>2012-07-27-04:00</value></transactionDate>
+      <transactionCoding>
+        <transactionCode>S</transactionCode>
+      </transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>6000</value></transactionShares>
+        <transactionPricePerShare><value>99.50</value></transactionPricePerShare>
+        <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+      </transactionAmounts>
+      <postTransactionAmounts>
+        <sharesOwnedFollowingTransaction><value>12000</value></sharesOwnedFollowingTransaction>
+      </postTransactionAmounts>
+    </nonDerivativeTransaction>
+  </nonDerivativeTable>
+</ownershipDocument>`;
+
+describe("带时区后缀的交易日期", () => {
+  it("剥掉 XSD 时区后缀，保留纯日期", () => {
+    const rows = parseForm4Xml(TZ_SUFFIX_DATE_XML);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].transactionDate, "2012-07-27");
+  });
+  it("畸形日期不被静默修正，仍原样传给下游拒收", () => {
+    const rows = parseForm4Xml(TZ_SUFFIX_DATE_XML.replace("2012-07-27-04:00", "2012-13-99"));
+    assert.equal(rows[0]?.transactionDate, "2012-13-99");
+  });
+});
