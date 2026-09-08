@@ -1,0 +1,14 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Hong_Kong
+FINANCE_SITE_PATH=/opt/finance-site
+
+# Tier B 全市场内部人底座的周度刷新。DERA 按季发布且有出版滞后与事后更正，
+# --latest 回看最近 2 季即可覆盖；每周跑一次能及时接住新季度而不做无谓下载
+# （--cache-dir 让已下过的 zip 不重复拉）。
+#
+# 三步必须串起来，缺一不可：
+#   sync  灌新季度 → 新灌的行 price_check 全是 null
+#   check 补价格交叉校验 → 否则金额汇总会静默漏掉这批新数据
+#   verify 兜底 → 断言 outlier 占比与最近季度是否已校验，失败时退出码非 0 留在日志里
+40 9 * * 0 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-dera-insider.lock nice -n 10 timeout --signal=TERM --kill-after=30s 3h bash -c 'npm run equity:sync-dera-insider -- --latest --cache-dir=.data/dera && npm run equity:check-dera-prices && npm run equity:verify-dera-insider -- --full' >> logs/dera-insider-sync.log 2>&1

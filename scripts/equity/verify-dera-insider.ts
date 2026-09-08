@@ -69,6 +69,34 @@ async function main() {
     fail(`仅 ${((role.typed / role.all_n) * 100).toFixed(1)}% 申报人解析出角色（应 >90%，逗号拆分可能失效）`);
   } else ok(`申报人角色解析率 ${((role.typed / role.all_n) * 100).toFixed(1)}%`);
 
+  // price_check：金额汇总的前提。两条断言分别守两种失效方式。
+  const [pc] = await q(`select
+      count(*) filter (where price_check='verified')::int verified,
+      count(*) filter (where price_check='outlier')::int outlier
+    from mds.dera_insider_transaction
+    where anomaly is null and transaction_code in ('P','S') and price_per_share > 0`);
+  const judged = (pc?.verified ?? 0) + (pc?.outlier ?? 0);
+  if (!judged) {
+    fail("没有任何行带 price_check（先跑 equity:check-dera-prices，否则金额汇总不可用）");
+  } else {
+    // 失配时会飙升：日线是向今天复权的价，不还原拆股就与当日申报价不同口径。
+    // 实测正常 0.27%，未还原复权时 14.3%，取 3% 作阈值。
+    const rate = (pc.outlier / judged) * 100;
+    if (rate > 3) {
+      fail(`price_check outlier 占比 ${rate.toFixed(2)}%（应 <3%，多半是 mds.equity_split 缺数据导致复权口径失配）`);
+    } else ok(`price_check：verified ${pc.verified.toLocaleString()} · outlier ${pc.outlier.toLocaleString()}（${rate.toFixed(2)}%）`);
+  }
+
+  // 新灌的季度若没补跑校验，其 price_check 全是 null，金额汇总会静默漏掉这批数据。
+  const staleQ = (await q(`select f.source_quarter q,
+      count(*) filter (where t.price_check is not null)::int checked
+    from mds.dera_insider_transaction t join mds.dera_insider_filing f on f.accession = t.accession
+    where t.anomaly is null and t.transaction_code in ('P','S') and t.price_per_share > 0
+    group by 1 order by 1 desc limit 4`)).filter((r) => r.checked === 0);
+  if (staleQ.length) {
+    fail(`最近季度未做价格校验：${staleQ.map((r: any) => r.q).join(",")}（补跑 equity:check-dera-prices）`);
+  } else ok("最近 4 个季度均已做价格校验");
+
   if (full) {
     const present = new Set((await q(`select distinct source_quarter q from mds.dera_insider_filing`)).map((r) => r.q));
     const newest = [...present].sort().pop()!;
