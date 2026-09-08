@@ -97,7 +97,7 @@ export function LandingHeroMetrics() {
 export function LandingHeroHeader() {
   return (
     <div className="flex items-center justify-between text-xs font-mono uppercase tracking-[0.18em] text-fs-accent-text/80 md:text-[13px]">
-      <span>finova.sys / live</span>
+      <span>gekkotech.sys / live</span>
       <span className="flex items-center gap-1.5">
         <span className="lp-live-dot h-1.5 w-1.5 rounded-full bg-fs-accent" />
         streaming

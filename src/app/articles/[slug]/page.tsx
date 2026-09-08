@@ -11,8 +11,8 @@ type PageProps = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const article = await getPublishedArticleBySlug((await params).slug);
   return article
-    ? { title: `${article.title} — Finova`, description: article.summary }
-    : { title: "文章不存在 — Finova" };
+    ? { title: `${article.title} — GekkoTech`, description: article.summary }
+    : { title: "文章不存在 — GekkoTech" };
 }
 
 function dateTime(value: string | null): string {

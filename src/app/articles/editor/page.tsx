@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ArticleEditorClient } from "./ArticleEditorClient";
 
-export const metadata: Metadata = { title: "发布文章 — Finova" };
+export const metadata: Metadata = { title: "发布文章 — GekkoTech" };
 
 export default function ArticleEditorPage() {
   return (

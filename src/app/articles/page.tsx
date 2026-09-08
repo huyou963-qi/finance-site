@@ -5,7 +5,7 @@ import { listArticles } from "@/lib/articles/articleStore";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "专题文章 — Finova",
+  title: "专题文章 — GekkoTech",
   description: "聚焦特殊问题、当前政策与市场传导的研究文章。",
 };
 

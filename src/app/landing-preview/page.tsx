@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { LandingPreviewGallery } from "@/components/landing-preview/LandingPreviewGallery";
 
 export const metadata = {
-  title: "Landing Preview — Finova 设计稿对比",
+  title: "Landing Preview — GekkoTech 设计稿对比",
   description: "首页科幻风多版本设计预览：AI · Finance · Data-driven",
 };
 

@@ -44,7 +44,7 @@ export function LandingPreviewHud() {
             <div className="lp-scan-line pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fs-accent/70 to-transparent" />
             <div className="relative flex min-h-[52vh] flex-col justify-between p-8 md:min-h-[62vh] md:p-10 lg:min-h-[72vh] lg:p-12">
               <div className="flex items-center justify-between text-xs font-mono uppercase tracking-[0.18em] text-fs-accent-text/80 md:text-[13px]">
-                <span>finova.sys / live</span>
+                <span>gekkotech.sys / live</span>
                 <span className="flex items-center gap-1.5">
                   <span className="lp-live-dot h-1.5 w-1.5 rounded-full bg-fs-accent" />
                   streaming

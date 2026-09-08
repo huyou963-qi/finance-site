@@ -65,7 +65,7 @@ export function LandingPreviewTerminal() {
           <HeroVizShell className="border-fs-accent/20 bg-[#fafaf8]/90">
             <div className="relative flex min-h-[52vh] flex-col md:min-h-[62vh] lg:min-h-[72vh]">
               <div className="flex items-center justify-between border-b border-fs-border/70 bg-white/70 px-6 py-3 font-mono text-[11px] text-fs-muted md:px-8 md:text-xs">
-                <span>finova@research — bash — 80×24</span>
+                <span>gekkotech@research — bash — 80×24</span>
                 <span className="flex items-center gap-1.5 text-fs-accent-text">
                   <span className="lp-live-dot h-1.5 w-1.5 rounded-full bg-fs-accent" />
                   connected
@@ -74,7 +74,7 @@ export function LandingPreviewTerminal() {
 
               <div className="grid flex-1 gap-0 md:grid-cols-[1fr_1.2fr]">
                 <div className="border-b border-fs-border/60 p-6 md:border-b-0 md:border-r md:p-8">
-                  <p className="font-mono text-xs text-fs-accent-text">$ finova status</p>
+                  <p className="font-mono text-xs text-fs-accent-text">$ gekkotech status</p>
                   <div className="mt-4">
                     <TerminalLog />
                   </div>

@@ -130,7 +130,7 @@ export function LandingPillarsSection() {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-fs-accent-text">Core pillars</p>
         <h2 className="mt-2 text-2xl font-semibold text-fs-text md:text-3xl">AI · Finance · Data</h2>
         <p className="mt-3 text-sm leading-relaxed text-fs-secondary md:text-base">
-          三条主线构成 Finova 的研究闭环——从原始数据到跨资产视角，再到 AI 辅助解读。
+          三条主线构成 GekkoTech 的研究闭环——从原始数据到跨资产视角，再到 AI 辅助解读。
         </p>
       </div>
       <div className="grid gap-5 md:grid-cols-3">

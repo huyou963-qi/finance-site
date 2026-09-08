@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { EventsClient } from "./EventsClient";
 
 export const metadata: Metadata = {
-  title: "历史时间线 — Finova",
+  title: "历史时间线 — GekkoTech",
   description: "美国历史经济时代横轴时间线与事件列表",
 };
 

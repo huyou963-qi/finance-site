@@ -1,4 +1,4 @@
-/** Finova B2C 定价与权益（与变现计划锁定一致） */
+/** GekkoTech B2C 定价与权益（与变现计划锁定一致） */
 
 export const TRIAL_DAYS = 7;
 export const YEARLY_DISCOUNT = 0.1;

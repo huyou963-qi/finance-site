@@ -67,7 +67,7 @@ export function buildInvestmentCaseFile(detail: InvestmentCaseDetail, exportedAt
     dataCutoff: exportedAt.toISOString(),
     locale: "zh-CN",
     source: {
-      application: "Finova",
+      application: "GekkoTech",
       feature: "investment-journal",
       evidenceSha256: crypto.createHash("sha256").update(stableEvidence).digest("hex"),
     },
@@ -89,7 +89,7 @@ export function buildInvestmentCaseFile(detail: InvestmentCaseDetail, exportedAt
         "遗漏信息与证据缺口",
         "可执行改进",
       ],
-      outputFormat: "中文 Markdown；可直接粘贴回 Finova 的复盘输入框。",
+      outputFormat: "中文 Markdown；可直接粘贴回 GekkoTech 的复盘输入框。",
     },
     primaryEvidence: jsonValue(primaryEvidence),
     priorReviews: sortedRecords(detail.reviews, "createdAt"),

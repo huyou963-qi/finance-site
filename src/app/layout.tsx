@@ -4,7 +4,7 @@ import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Finova — 宏观与行情研究",
+  title: "GekkoTech — 宏观与行情研究",
   description: "宏观仪表盘、多资产行情与 AI 周度观察",
 };
 

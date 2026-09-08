@@ -77,7 +77,7 @@ export function AuthClient() {
         {mode === "login" ? "欢迎回来" : "创建账户"}
       </h1>
       <p className="mt-1 text-sm text-fs-muted">
-        {mode === "login" ? "使用用户名与密码登录 Finova" : "填写信息并完成邮箱验证"}
+        {mode === "login" ? "使用用户名与密码登录 GekkoTech" : "填写信息并完成邮箱验证"}
       </p>
 
       <div

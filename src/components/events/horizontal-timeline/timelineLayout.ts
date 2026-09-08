@@ -42,7 +42,7 @@ export type TimelineEventNode = {
   impact: string | null;
 };
 
-/** 与 Finova 浅色 UI 协调的时代色带（fs-accent-soft / fs-elevated 交替） */
+/** 与 GekkoTech 浅色 UI 协调的时代色带（fs-accent-soft / fs-elevated 交替） */
 const ERA_COLORS = [
   "rgba(231, 243, 255, 0.95)",
   "rgba(247, 247, 245, 1)",

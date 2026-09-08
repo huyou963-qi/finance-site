@@ -108,7 +108,7 @@ export function PricingClient() {
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-10">
       <p className="text-xs font-medium uppercase tracking-[0.2em] text-fs-muted">
-        Finova Pro
+        GekkoTech Pro
       </p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight text-fs-text">
         美股研究工作台 · 宏观到因子
