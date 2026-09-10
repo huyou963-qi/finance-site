@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { fetchGeoBlockedOfficialSource } from "../chinaOfficialProxy";
 import { tsaPassengerVolumesUrlForYear } from "./catalog";
 
 /**
@@ -28,7 +29,7 @@ export async function fetchTsaPassengerVolumesPage(
   const cached = cache.get(url);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.html;
 
-  const res = await fetch(url, {
+  const res = await fetchGeoBlockedOfficialSource(url, {
     headers: {
       "User-Agent":
         process.env.TSA_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0",

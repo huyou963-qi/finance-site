@@ -55,3 +55,26 @@ export async function fetchChinaOfficial(input: string | URL, init?: RequestInit
     throw new Error(`中国官方代理请求失败 (${host})：${error instanceof Error ? error.message : String(error)}`);
   }
 }
+
+/**
+ * 仅供已验证对香港出口 IP 实施地域封锁的官方公开源使用。
+ *
+ * 目前调用方是 iShares IAU 与 TSA Passenger Volumes。复用部署环境已有的
+ * `CHINA_OFFICIAL_PROXY_URL`，但不会把普通第三方请求或站内流量接入代理。
+ */
+export async function fetchGeoBlockedOfficialSource(
+  input: string | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const proxy = proxyUrl();
+  if (!proxy) return fetch(input, init);
+  cachedAgent ??= new ProxyAgent(proxy);
+  try {
+    return await fetch(input, { ...init, dispatcher: cachedAgent } as RequestInit);
+  } catch (error) {
+    const host = new URL(input).hostname;
+    throw new Error(
+      `官方源代理请求失败 (${host})：${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}

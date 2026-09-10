@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { fetchGeoBlockedOfficialSource } from "../chinaOfficialProxy";
 
 export const SPDR_GLD_ARCHIVE_URL =
   "https://api.spdrgoldshares.com/api/v1/historical-archive?exchange=NYSE&lang=en&product=gld";
@@ -30,7 +31,12 @@ export async function fetchOfficialFile(url: string, fixturePath?: string): Prom
 
 export async function fetchOfficialHtml(url: string, fixturePath?: string): Promise<string> {
   if (fixturePath) return readFile(fixturePath, "utf8");
-  const response = await fetch(url, {
+  const host = new URL(url).hostname.toLowerCase();
+  const request =
+    host === "www.ishares.com" || host.endsWith(".ishares.com") || host === "www.blackrock.com"
+      ? fetchGeoBlockedOfficialSource
+      : fetch;
+  const response = await request(url, {
     headers: { Accept: "text/html", "User-Agent": USER_AGENT },
     signal: AbortSignal.timeout(30_000),
   });

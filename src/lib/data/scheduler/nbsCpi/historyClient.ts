@@ -11,7 +11,38 @@ const PARENTS: Record<NbsCpiMeasure, string> = { index: "5b434e4d5e634a39b27a95f
 function norm(value: unknown) { return String(value ?? "").replace(/\s/g, "").replace(/[（）()：:]/g, ""); }
 function isIndexName(name: string) { return /上年同月=100/.test(name); }
 function isMomName(name: string) { return /上月=100/.test(name); }
-async function json(url: string) { const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) }); if (!response.ok) throw new Error(`国家数据 CPI 元数据 HTTP ${response.status}: ${url}`); return response.json(); }
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function parseJsonResponse(response: Response, context: string) {
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    const preview = raw.replace(/\s+/g, " ").slice(0, 160);
+    throw new Error(`${context} 返回非 JSON（${response.headers.get("content-type") ?? "unknown"}）：${preview}`);
+  }
+}
+
+async function jsonWithRetry(request: () => Promise<Response>, context: string) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await request();
+    if (!response.ok) throw new Error(`${context} HTTP ${response.status}`);
+    try {
+      return await parseJsonResponse(response, context);
+    } catch (error) {
+      if (attempt === 1) throw error;
+      await sleep(1_000);
+    }
+  }
+  throw new Error(`${context} 重试耗尽`);
+}
+
+async function json(url: string) {
+  return jsonWithRetry(
+    () => fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) }),
+    `国家数据 CPI 元数据：${url}`,
+  );
+}
 function periodStart(row: TreeRow) { const year = Number(row.sdate); return Number.isInteger(year) && year > 1900 ? year : 2000; }
 function periodEnd(row: TreeRow) { const year = Number(row.edate); return Number.isInteger(year) && year > 1900 ? year : new Date().getUTCFullYear(); }
 
@@ -41,9 +72,16 @@ export async function fetchNbsCpiHistory(): Promise<Map<string, ObservationPoint
         if (indicator?._id) indicatorByComponent.set(component.key, indicator._id);
       }
       if (!indicatorByComponent.has("headline")) throw new Error(`国家数据 CPI：${leaf.name} 缺总指数`);
-      const response = await fetchChinaOfficial(`${NBS_DATA_API_BASE}/stream/esData`, { method: "POST", headers: { ...HEADERS, "Content-Type": "application/json" }, body: JSON.stringify({ cid: leaf._id, indicatorIds: [...indicatorByComponent.values()], das: [{ text: "全国", value: "000000000000" }], dts: [`${periodStart(leaf)}01MM-${periodEnd(leaf)}12MM`], showType: "1", rootId: NBS_MONTHLY_ROOT_ID }), signal: AbortSignal.timeout(90_000) });
-      if (!response.ok) throw new Error(`国家数据 CPI 历史 HTTP ${response.status}: ${leaf.name}`);
-      const payload = await response.json() as Payload;
+      const payload = await jsonWithRetry(
+        () =>
+          fetchChinaOfficial(`${NBS_DATA_API_BASE}/stream/esData`, {
+            method: "POST",
+            headers: { ...HEADERS, "Content-Type": "application/json" },
+            body: JSON.stringify({ cid: leaf._id, indicatorIds: [...indicatorByComponent.values()], das: [{ text: "全国", value: "000000000000" }], dts: [`${periodStart(leaf)}01MM-${periodEnd(leaf)}12MM`], showType: "1", rootId: NBS_MONTHLY_ROOT_ID }),
+            signal: AbortSignal.timeout(90_000),
+          }),
+        `国家数据 CPI 历史：${leaf.name}`,
+      ) as Payload;
       if (!Array.isArray(payload.data)) throw new Error(`国家数据 CPI：${leaf.name} 返回缺 data`);
       const componentByIndicator = new Map([...indicatorByComponent].map(([component, id]) => [id, component]));
       for (const period of payload.data) {

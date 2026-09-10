@@ -46,6 +46,20 @@ export async function fetchTreasuryRows(
   const maxPages = opts?.maxPages ?? 50;
   const out: TreasuryRow[] = [];
 
+  const fetchPage = async (url: string): Promise<Response> => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await fetch(url, { signal: AbortSignal.timeout(120_000) });
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1_000 * (attempt + 1)));
+      }
+    }
+    const detail = lastError instanceof Error ? lastError.message : String(lastError);
+    throw new Error(`Treasury 网络请求失败（已重试 3 次）：${detail}`);
+  };
+
   for (let page = 1; page <= maxPages; page += 1) {
     const params = new URLSearchParams();
     params.set("page[size]", String(pageSize));
@@ -59,7 +73,7 @@ export async function fetchTreasuryRows(
     }
 
     const url = `${TREASURY_FISCAL_BASE}/${endpoint}?${params.toString()}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(120_000) });
+    const res = await fetchPage(url);
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Treasury HTTP ${res.status}: ${text.slice(0, 300)}`);
