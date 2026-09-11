@@ -15,8 +15,9 @@ export const USOV_FRED_SERIES_BY_CODE: Record<string, string> = {
   usov_c18_pce_yoy: "PCEPI",
   usov_c19_core_pce_yoy: "PCEPILFE",
   usov_c20_unrate_sa: "UNRATE",
-  usov_c21_unrate_sa_3mma: "UNRATE",
-  usov_c22_nfp: "PAYEMS",
+  // usov_c21_unrate_sa_3mma（3 月移动平均）与 usov_c22_nfp（新增非农:初值，月增量）都是
+  // 变换后的序列；调度器只对 `_yoy` 做同比，不做 3MMA/差分，挂 UNRATE/PAYEMS 订阅会把
+  // 原始水平值写进去（2026-09-04 香港生产事故）。勿再映射。
   usov_c23_fed_assets: "WALCL",
   usov_c24_fed_treasuries: "TREAST",
 };
