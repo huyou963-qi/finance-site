@@ -16,15 +16,20 @@ import {
   USOV_FRED_PHASE5_EXTRA,
 } from "../../src/lib/data/scheduler/usovFredMap";
 import { USOV_COMPOSITE_FRED, usovCompositeSpec } from "../../src/lib/data/scheduler/usovCompositeFred";
+import { RETIRED_USOV_CODES } from "../../src/lib/data/usOverviewStandardSeries";
 
 loadEnvConfig(process.cwd());
 
 async function main() {
   let errors = 0;
   console.log("[verify-phase5] usov 映射");
-  if (USOV_FRED_PHASE5_EXTRA.usov_c13_gdp_qoq_saar === "A191RL1Q225SBEA") {
-    console.log("  ✓ Phase5 直拉 GDP SAAR");
+  const retiredMapped = Object.keys({ ...mergedUsovFredMap(), ...USOV_FRED_PHASE5_EXTRA }).filter((code) =>
+    RETIRED_USOV_CODES.includes(code),
+  );
+  if (retiredMapped.length === 0) {
+    console.log("  ✓ 已退役 usov 序列不再挂 FRED 订阅");
   } else {
+    console.error(`  ✗ 已退役序列仍有 FRED 映射：${retiredMapped.join(", ")}`);
     errors++;
   }
   if (usovCompositeSpec("usov_c12_2y_effr")?.kind === "spread") {

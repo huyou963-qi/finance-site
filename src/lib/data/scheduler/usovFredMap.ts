@@ -10,22 +10,14 @@ export const USOV_FRED_SERIES_BY_CODE: Record<string, string> = {
   usov_c09_10y2y: "T10Y2Y",
   usov_c10_fedfunds_target: "DFEDTARU",
   usov_c11_effr: "EFFR",
-  usov_c16_cpi_yoy: "CPIAUCSL",
-  usov_c17_core_cpi_yoy: "CPILFESL",
-  usov_c18_pce_yoy: "PCEPI",
-  usov_c19_core_pce_yoy: "PCEPILFE",
-  usov_c20_unrate_sa: "UNRATE",
-  // usov_c21_unrate_sa_3mma（3 月移动平均）与 usov_c22_nfp（新增非农:初值，月增量）都是
-  // 变换后的序列；调度器只对 `_yoy` 做同比，不做 3MMA/差分，挂 UNRATE/PAYEMS 订阅会把
-  // 原始水平值写进去（2026-09-04 香港生产事故）。勿再映射。
+  // c13/c16–c22 已退役（见 usOverviewStandardSeries.ts）：xlsx 预变换值与 FRED 水平值混存，
+  // 2026-09-04 香港生产新增非农被写成水平值。标准指标直接用 sched_fred_*，勿再映射。
   usov_c23_fed_assets: "WALCL",
   usov_c24_fed_treasuries: "TREAST",
 };
 
-/** Phase 5：补全 Phase 2 未映射的 usov 直拉 FRED 序列 */
-export const USOV_FRED_PHASE5_EXTRA: Record<string, string> = {
-  usov_c13_gdp_qoq_saar: "A191RL1Q225SBEA",
-};
+/** Phase 5：补全 Phase 2 未映射的 usov 直拉 FRED 序列（原 c13 GDP 已退役，改用 sched_fred_A191RL1Q225SBEA） */
+export const USOV_FRED_PHASE5_EXTRA: Record<string, string> = {};
 
 export function mergedUsovFredMap(): Record<string, string> {
   return { ...USOV_FRED_SERIES_BY_CODE, ...USOV_FRED_PHASE5_EXTRA };

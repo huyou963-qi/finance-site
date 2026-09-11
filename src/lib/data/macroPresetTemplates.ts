@@ -25,6 +25,11 @@ import {
   usOverviewMdsKey,
 } from "@/lib/data/usOverviewLayout";
 import {
+  US_OVERVIEW_STANDARD_BY_KEY,
+  US_OVERVIEW_STANDARD_SERIES,
+} from "@/lib/data/usOverviewStandardSeries";
+import { unifiedKeyInAllowlist } from "@/lib/data/fredCatalog";
+import {
   GOLD_ANALYSIS_SERIES,
   goldAnalysisMdsKey,
 } from "@/lib/data/goldAnalysisLayout";
@@ -525,12 +530,15 @@ export const BUILTIN_JAPAN_OVERVIEW_TEMPLATE: MacroChartTemplate = {
   builtIn: true,
 };
 
+function usOverviewDefForKey(key: string) {
+  const code = usOverviewCodeFromMdsKey(key);
+  return US_OVERVIEW_STANDARD_BY_KEY.get(key) ?? (code ? US_OVERVIEW_BY_CODE.get(code) : undefined);
+}
+
 function buildUsOverviewSlotAssignment(keys: string[]): MacroSlotAssignment {
   const out: MacroSlotAssignment = {};
   for (const key of keys) {
-    const code = usOverviewCodeFromMdsKey(key);
-    const panel = code ? (US_OVERVIEW_BY_CODE.get(code)?.panel ?? 1) : 1;
-    out[key] = panel - 1;
+    out[key] = (usOverviewDefForKey(key)?.panel ?? 1) - 1;
   }
   return out;
 }
@@ -538,8 +546,7 @@ function buildUsOverviewSlotAssignment(keys: string[]): MacroSlotAssignment {
 function buildUsOverviewVisualMap(keys: string[]): MacroSeriesVisualConfigMap {
   const out: MacroSeriesVisualConfigMap = {};
   for (const key of keys) {
-    const code = usOverviewCodeFromMdsKey(key);
-    const def = code ? US_OVERVIEW_BY_CODE.get(code) : undefined;
+    const def = usOverviewDefForKey(key);
     if (!def) continue;
     out[key] = {
       axis: def.axis,
@@ -547,6 +554,16 @@ function buildUsOverviewVisualMap(keys: string[]): MacroSeriesVisualConfigMap {
       color: def.color,
       showEndLabel: true,
     };
+  }
+  return out;
+}
+
+/** 标准指标（fred:X::yoy 等虚拟键）的图表侧计算配置 */
+function buildUsOverviewCalcConfigMap(keys: string[]): MacroSeriesCalcConfigMap {
+  const out: MacroSeriesCalcConfigMap = {};
+  for (const key of keys) {
+    const def = US_OVERVIEW_STANDARD_BY_KEY.get(key);
+    if (def) out[key] = def.calc;
   }
   return out;
 }
@@ -644,9 +661,10 @@ export function resolveBuiltinTemplate(
   }
 
   if (tpl.selectedKeys.length > 0 && Object.keys(tpl.slotAssignment).length > 0) {
+    // fred:X::yoy 等虚拟键按基础键判断是否在目录内
     const keys =
       catalogAllowlist && catalogAllowlist.size > 0
-        ? tpl.selectedKeys.filter((k) => catalogAllowlist.has(k))
+        ? tpl.selectedKeys.filter((k) => unifiedKeyInAllowlist(k, catalogAllowlist))
         : tpl.selectedKeys;
     return {
       ...tpl,
@@ -669,9 +687,15 @@ export function resolveBuiltinTemplate(
           keysRaw.includes(k),
         )
       : tpl.id === BUILTIN_US_OVERVIEW_TEMPLATE.id
-        ? US_OVERVIEW_SERIES.map((row) => usOverviewMdsKey(row.code)).filter((k) =>
-            keysRaw.includes(k),
-          )
+        ? [
+            ...US_OVERVIEW_SERIES.map((row) => usOverviewMdsKey(row.code)).filter((k) =>
+              keysRaw.includes(k),
+            ),
+            // 退役 xlsx 列的标准替代（sched_fred_* 虚拟键 / multpl 抓取）
+            ...US_OVERVIEW_STANDARD_SERIES.map((row) => row.key).filter(
+              (k) => catalogAllowlist && catalogAllowlist.size > 0 && unifiedKeyInAllowlist(k, catalogAllowlist),
+            ),
+          ]
         : JAPAN_OVERVIEW_CHART_SERIES.map((row) => japanOverviewMdsKey(row.code)).filter((k) =>
             keysRaw.includes(k),
           );
@@ -679,6 +703,14 @@ export function resolveBuiltinTemplate(
   return {
     ...tpl,
     selectedKeys: keys,
+    ...(tpl.id === BUILTIN_US_OVERVIEW_TEMPLATE.id
+      ? {
+          seriesCalcConfigMap: {
+            ...(tpl.seriesCalcConfigMap ?? {}),
+            ...buildUsOverviewCalcConfigMap(keys),
+          },
+        }
+      : {}),
     layoutMode: 6,
     slotAssignment:
       tpl.id === BUILTIN_US_OVERVIEW_TEMPLATE.id

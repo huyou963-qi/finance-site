@@ -478,20 +478,16 @@ export function buildExtractQueryFromKeys(
   const trimmed = keys.map((k) => k.trim()).filter(Boolean);
   if (trimmed.length === 0) return null;
 
-  const mdsKeys = trimmed.filter((k) => k.startsWith("mds:"));
   const unifiedKeys = trimmed.filter((k) => k.startsWith("fred:") || k.startsWith("wb:"));
+  const keptUnified = new Set(
+    unifiedKeys.length > 0 ? serializeUnifiedKeys(unifiedKeys, allowlist).split(",").filter(Boolean) : [],
+  );
 
-  if (mdsKeys.length > 0) {
-    const mdsQ = allowlist
-      ? mdsKeys.filter((k) => allowlist.has(k)).join(",")
-      : mdsKeys.join(",");
-    if (mdsQ) return mdsQ;
-  }
-
-  if (unifiedKeys.length > 0) {
-    const q = serializeUnifiedKeys(unifiedKeys, allowlist);
-    if (q) return q;
-  }
-
-  return null;
+  // 模板常混用本地库键（mds:）与 FRED 虚拟键（fred:X::yoy）；unified 源一次拉取两类，
+  // 不能因为存在 mds 键就丢掉 fred 键。
+  const kept = trimmed.filter((k) => {
+    if (k.startsWith("mds:")) return !allowlist || allowlist.has(k.split("::")[0]!);
+    return keptUnified.has(k);
+  });
+  return kept.length > 0 ? [...new Set(kept)].join(",") : null;
 }

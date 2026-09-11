@@ -24,8 +24,8 @@ async function main() {
     console.error("  ✗ YoY 计算异常", yoy);
     errors++;
   }
-  if (fredTransformForInstrument("usov_c16_cpi_yoy") === "yoy_pct") {
-    console.log("  ✓ usov yoy 识别");
+  if (fredTransformForInstrument("example_cpi_yoy") === "yoy_pct") {
+    console.log("  ✓ code 后缀 _yoy 识别");
   } else {
     errors++;
   }

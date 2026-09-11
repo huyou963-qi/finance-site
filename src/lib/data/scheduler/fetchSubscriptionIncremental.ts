@@ -209,7 +209,8 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
-      if (scrapeObj.provider === "shiller_cape") {
+      // multpl.com 月度表：Shiller CAPE 与标普500 PE 同一表结构，URL 取自 metadata.scrape.url
+      if (scrapeObj.provider === "shiller_cape" || scrapeObj.provider === "multpl_sp500_pe") {
         const { fetchShillerCapeIncremental } = await import(
           "./adapters/shillerCapeAdapter"
         );

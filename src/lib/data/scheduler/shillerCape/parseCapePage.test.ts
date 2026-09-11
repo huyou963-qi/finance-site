@@ -89,6 +89,34 @@ describe("parseShillerCapePage", () => {
     assert.throws(() => parseShillerCapePage(html));
   });
 
+  it("strips the multpl estimate marker (S&P 500 PE table)", () => {
+    const html = fixtureHtml(`
+<tr class="odd">
+<td>Sep 10, 2026</td>
+<td>
+<abbr title="Estimate">†</abbr>
+25.93
+</td>
+</tr>
+<tr class="even">
+<td>Aug 1, 2026</td>
+<td>
+&#x2002;
+26.40
+</td>
+</tr>
+`);
+    const parsed = parseShillerCapePage(html);
+    assert.deepEqual(
+      parsed.points.map((p) => [p.obsDate.toISOString().slice(0, 10), p.value]),
+      [
+        ["2026-08-01", 26.4],
+        ["2026-09-01", 25.93],
+      ],
+    );
+    assert.equal(parsed.skippedInvalid, 0);
+  });
+
   it("dedupes same-month rows, keeping the first occurrence", () => {
     const html = fixtureHtml(`
 <tr class="odd">

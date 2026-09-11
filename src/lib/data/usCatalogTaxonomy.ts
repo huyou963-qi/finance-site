@@ -312,6 +312,10 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   if (code.startsWith("damodaran_")) {
     return p("利率与信用市场", "股权风险溢价");
   }
+  // 标普500 市盈率（multpl 抓取）：股票估值/情绪类，与 VIX、融资余额同组
+  if (code === "us_sp500_pe") {
+    return p("利率与信用市场", "市场情绪");
+  }
   if (code.startsWith("tsa_") || code.startsWith("aar_")) {
     return p("国民经济", "物流与出行");
   }

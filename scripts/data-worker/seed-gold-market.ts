@@ -129,12 +129,6 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
     officialUrl: "https://www.ice.com/brent-crude",
     message: "必须使用 ICE 连续期货结算价；EIA/FRED 布伦特现货不是同一口径。",
   },
-  {
-    code: "usov_c28_sp500_pe",
-    method: "vendor_definition_required",
-    methodLabel: "Wind/S&P 500 PE 口径与授权待确认",
-    message: "需先确认 trailing/forward、收益口径和指数版本，不能用其他 S&P 估值比率替代。",
-  },
 ];
 
 /** 已由其他美元指数覆盖的 legacy 工作簿序列；部署时幂等清理并留下 tombstone。 */

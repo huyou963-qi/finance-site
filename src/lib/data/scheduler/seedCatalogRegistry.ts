@@ -34,6 +34,8 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "nyfed-gscpi": { script: "seed-nyfed-gscpi", labelZh: "NY Fed 全球供应链压力指数（抓取）" },
   "damodaran-erp": { script: "seed-damodaran-erp", labelZh: "Damodaran 隐含股权风险溢价（抓取）" },
   "shiller-cape": { script: "seed-shiller-cape", labelZh: "Shiller CAPE 周期调整市盈率（抓取）" },
+  "multpl-sp500-pe": { script: "seed-multpl-sp500-pe", labelZh: "标普500 市盈率（multpl 抓取）" },
+  "usov-retire": { script: "seed-usov-retire", labelZh: "退役 US_Overview 不合规 xlsx 序列并替换模板引用" },
   "cboe-vix9d-vvix": { script: "seed-cboe-vix9d-vvix", labelZh: "CBOE VIX9D / VVIX（抓取）" },
   "nbs-pmi": { script: "seed-nbs-pmi", labelZh: "中国国家统计局 PMI（官方 Excel）" },
   "nbs-cpi": { script: "seed-nbs-cpi", labelZh: "中国国家统计局 CPI（官方 Excel + 国家数据）" },

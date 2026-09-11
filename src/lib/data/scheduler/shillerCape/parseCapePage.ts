@@ -42,8 +42,11 @@ function parseDateCell(text: string): { y: number; m: number } | null {
 }
 
 function parseValueCell(text: string): number | null {
-  // 去除 &#x2002;（figure space）等 HTML 实体、逗号、空白
+  // 去除 `<abbr title="Estimate">†</abbr>` 估算标记（标普500 PE 近月值带此标记）、
+  // 其余标签、&#x2002;（figure space）等 HTML 实体、逗号、空白
   const cleaned = text
+    .replace(/<abbr[\s\S]*?<\/abbr>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
     .replace(/&#x[0-9a-fA-F]+;/g, " ")
     .replace(/&[a-zA-Z]+;/g, " ")
     .replace(/,/g, "")

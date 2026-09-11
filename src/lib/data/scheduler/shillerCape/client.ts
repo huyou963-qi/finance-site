@@ -16,10 +16,11 @@ import fs from "node:fs";
 export const SHILLER_CAPE_PAGE_URL =
   "https://www.multpl.com/shiller-pe/table/by-month";
 
-let cache: { at: number; html: string } | null = null;
+/** 按 URL 缓存：同站还有标普500 PE 等月度表，共用本客户端 */
+const cache = new Map<string, { at: number; html: string }>();
 const CACHE_TTL_MS = 60_000;
 
-/** 抓取（或读 fixture）multpl.com Shiller CAPE 月度历史表；同轮 worker 60s 内复用 */
+/** 抓取（或读 fixture）multpl.com 月度历史表（默认 Shiller CAPE）；同轮 worker 60s 内复用 */
 export async function fetchShillerCapePage(opts?: {
   fixturePath?: string;
   url?: string;
@@ -27,9 +28,10 @@ export async function fetchShillerCapePage(opts?: {
   if (opts?.fixturePath) {
     return fs.readFileSync(opts.fixturePath, "utf8");
   }
-  if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.html;
-
   const url = opts?.url ?? SHILLER_CAPE_PAGE_URL;
+  const hit = cache.get(url);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.html;
+
   const res = await fetch(url, {
     headers: {
       "User-Agent":
@@ -43,10 +45,10 @@ export async function fetchShillerCapePage(opts?: {
     throw new Error(`Shiller CAPE 抓取 HTTP ${res.status}: ${url}`);
   }
   const html = await res.text();
-  cache = { at: Date.now(), html };
+  cache.set(url, { at: Date.now(), html });
   return html;
 }
 
 export function clearShillerCapeCache(): void {
-  cache = null;
+  cache.clear();
 }

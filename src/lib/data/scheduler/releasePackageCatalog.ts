@@ -681,6 +681,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 201,
     members: { fredSeriesIds: ["T5YIE", "T10YIE", "T5YIFR", "T10Y3M"] },
   }),
+  // multpl.com 月度估值表（同站同表结构）：Shiller CAPE + 标普500 TTM 市盈率
+  probePkg("us.multpl.valuation", "multpl 标普500 估值（CAPE / 市盈率）", {
+    labelEn: "multpl S&P 500 Valuation",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 203,
+    members: { instrumentCodes: ["us_shiller_cape", "us_sp500_pe"] },
+  }),
   probePkg("us.cboe.market_statistics", "CBOE 市场波动率", {
     labelEn: "CBOE Market Statistics",
     granularity: "DAILY",
