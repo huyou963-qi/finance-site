@@ -64,7 +64,8 @@ function parseImages(raw: unknown): IncomingImage[] | undefined {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as {
+    // 扫描器常发空 body / 非 JSON：按 400 拒收，不当作服务端错误刷日志
+    const body = (await req.json().catch(() => null)) as {
       source?: unknown;
       message?: unknown;
       stack?: unknown;
@@ -73,7 +74,10 @@ export async function POST(req: NextRequest) {
       digest?: unknown;
       metadata?: unknown;
       images?: unknown;
-    };
+    } | null;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "请求体须为 JSON 对象" }, { status: 400 });
+    }
 
     if (!isSource(body.source)) {
       return NextResponse.json({ error: "source 不合法" }, { status: 400 });

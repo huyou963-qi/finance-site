@@ -5,7 +5,7 @@ import type { GeometryObject, Topology } from "topojson-specification";
 import { geoGraticule, geoOrthographic, geoPath, geoRotation } from "d3-geo";
 import { feature, mesh } from "topojson-client";
 import countriesTopology from "world-atlas/countries-110m.json";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 type Market = { city: string; exchange: string; code: string; symbol: string; lon: number; lat: number; session: string };
 
@@ -76,6 +76,16 @@ function formatUtc(date: Date) {
   return new Intl.DateTimeFormat("zh-CN", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }
 
+const CLOCK_TICK_MS = 30_000;
+function subscribeClock(onTick: () => void) {
+  const timer = window.setInterval(onTick, CLOCK_TICK_MS);
+  return () => window.clearInterval(timer);
+}
+/** 按 30 秒取整，同一窗口内 snapshot 保持稳定 */
+const clockSnapshot = () => Math.floor(Date.now() / CLOCK_TICK_MS) * CLOCK_TICK_MS;
+/** 首页是 build 期静态预渲染：服务端/水合阶段不出时间，否则预渲染时刻≠浏览器时刻触发 React #418 */
+const serverClockSnapshot = () => null;
+
 export function MarketGlobe() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rotationRef = useRef<[number, number, number]>([-104, -18, 0]);
@@ -85,12 +95,7 @@ export function MarketGlobe() {
   const activeMarketRef = useRef<Market>(MARKETS[5]);
   const marketChangesRef = useRef<Record<string, number>>({});
   const [selected, setSelected] = useState(MARKETS[5]);
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const nowMs = useSyncExternalStore(subscribeClock, clockSnapshot, serverClockSnapshot);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -477,7 +482,7 @@ export function MarketGlobe() {
         }}
       />
       <div className="pointer-events-none absolute left-[8%] top-[8%] rounded-full border border-slate-200 bg-white/82 px-3 py-1.5 text-[11px] font-medium tracking-wide text-slate-500 shadow-sm backdrop-blur-md">
-        LIVE · {formatUtc(now)} UTC
+        LIVE · {nowMs == null ? "--:--" : formatUtc(new Date(nowMs))} UTC
       </div>
       <div className="absolute bottom-[4%] left-[2%] z-20 w-[84%] rounded-2xl border border-slate-200/85 bg-white/88 p-3.5 shadow-[0_18px_60px_rgba(28,55,74,0.13)] backdrop-blur-xl sm:w-[68%] sm:p-4 lg:-left-[3%] lg:bottom-[8%]">
         <div className="flex items-start justify-between gap-4">
