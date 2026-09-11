@@ -1,5 +1,8 @@
 import type { DataGranularity } from "@prisma/client";
+import { BOJ_SERIES } from "./boj/catalog";
+import { JGB_SERIES } from "./japanMofJgb/catalog";
 import { CPI_FRED_SERIES } from "./cpiFredSeedCatalog";
+import { PPI_FRED_IDS } from "./ppiFredSeedCatalog";
 import { LABOR_FRED_SERIES } from "./laborFredSeedCatalog";
 import { defaultEconomicCalendarRule } from "./releaseRule";
 import { PHASE2_DEBTCAP_BIS_CODES } from "./phase2SeedCatalog";
@@ -144,6 +147,38 @@ const JOLTS_FRED_IDS = ["JTSJOR", "JTSQUR", "JTSHIR", "JTSJOL"];
  * 勿在 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 新增项。
  */
 export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
+  probePkg("jp.stat.labor_force", "日本劳动力调查", {
+    countryCode: "JP", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodePatterns: ["jp_estat_lfs_*"] },
+  }),
+  probePkg("jp.sbj.cpi", "日本全国CPI", {
+    countryCode: "JP", granularity: "MONTHLY", intervalHours: 72,
+    members: { instrumentCodePatterns: ["jp_estat_cpi_2025_national_*"] },
+  }),
+  probePkg("jp.sbj.tokyo_cpi", "日本东京区部CPI", {
+    countryCode: "JP", granularity: "MONTHLY", intervalHours: 72,
+    members: { instrumentCodePatterns: ["jp_estat_cpi_2025_tokyo_*"] },
+  }),
+  probePkg("jp.meti.iip", "日本工业生产、出货与库存", {
+    countryCode: "JP", granularity: "MONTHLY", intervalHours: 72,
+    members: { instrumentCodePatterns: ["meti_jp_iip_*"] },
+  }),
+  probePkg("jp.esri.gdp", "日本季度GDP", {
+    countryCode: "JP", granularity: "QUARTERLY", intervalHours: 168,
+    members: { instrumentCodePatterns: ["esri_jp_gdp_*"] },
+  }),
+  probePkg("jp.mof.jgb_yields", "日本国债固定期限收益率", {
+    countryCode: "JP", agencyId: "jp-mof", granularity: "DAILY", intervalHours: 24,
+    members: { instrumentCodes: JGB_SERIES.map((row) => row.code) },
+  }),
+  ...[...new Set(BOJ_SERIES.map((row) => row.releasePackageId))].map((id) => {
+    const rows = BOJ_SERIES.filter((row) => row.releasePackageId === id);
+    return probePkg(id, `日本银行：${rows[0]!.subgroup}`, {
+      countryCode: "JP", agencyId: "jp-boj", granularity: rows[0]!.frequency,
+      intervalHours: rows[0]!.frequency === "QUARTERLY" ? 168 : 72,
+      members: { instrumentCodes: rows.map((row) => row.instrumentCode) },
+    });
+  }),
   pkg("us.bls.cpi", "美国 CPI", {
     agencyId: "us-bls",
     granularity: "MONTHLY",
@@ -247,8 +282,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["y/y", "yoy"],
     },
     members: {
-      fredSeriesIds: ["PPIFIS"],
-      instrumentCodes: ["goldov_c15_ppi_yoy"],
+      fredSeriesIds: PPI_FRED_IDS,
     },
   }),
   pkg("us.bea.gdp", "美国 GDP", {

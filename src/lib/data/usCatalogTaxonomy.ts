@@ -69,7 +69,11 @@ const FRED_CPI = new Set(
   ].map((x) => x.toUpperCase()),
 );
 
-const FRED_PCE_PPI = new Set(["PCEPI", "PCEPILFE", "PPIFIS"]);
+const FRED_PCE_PPI = new Set([
+  "PCEPI", "PCEPILFE", "PPIFIS", "WPSFD49116", "PPIDGS", "PPIDFS", "PPIDES", "WPSFD413",
+  "PPIDSS", "PPITSS", "PPIAWS", "PPITWS", "PPIFID", "WPUFD49116", "PPIFDG", "PPIFDF",
+  "PPIFDE", "WPUFD413", "PPIFDS", "PPIDTS", "PPITAW", "PPITTW",
+]);
 const FRED_INFLATION_EXPECT_ENERGY = new Set([
   "T5YIE",
   "T10YIE",

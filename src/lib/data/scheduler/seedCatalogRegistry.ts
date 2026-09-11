@@ -7,6 +7,12 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-estat-labor": { script: "seed-jp-estat-labor", labelZh: "日本e-Stat劳动力调查" },
+  "jp-estat-cpi": { script: "seed-jp-estat-cpi", labelZh: "日本e-Stat全国与东京CPI" },
+  "jp-meti-iip": { script: "seed-jp-meti-iip", labelZh: "日本工业生产与库存" },
+  "jp-esri-gdp": { script: "seed-jp-esri-gdp", labelZh: "日本季度GDP" },
+  "jp-boj-macro": { script: "seed-jp-boj-macro", labelZh: "日本银行宏观统计" },
+  "japan-mof-jgb": { script: "seed-japan-mof-jgb", labelZh: "日本财务省国债收益率" },
   p0: { script: "seed-p0", labelZh: "P0 试点（机构 + 10 条 FRED）" },
   "release-packages": { script: "seed-release-packages", labelZh: "发布包目录与成员链接" },
   phase2: { script: "seed-phase2", labelZh: "Phase 2 扩展订阅" },
@@ -14,6 +20,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   phase4: { script: "seed-phase4", labelZh: "Phase 4 扩展" },
   phase5: { script: "seed-phase5", labelZh: "Phase 5 扩展" },
   cpi: { script: "seed-cpi", labelZh: "美国 CPI 订阅" },
+  ppi: { script: "seed-ppi", labelZh: "美国 PPI（最终需求）订阅" },
   labor: { script: "seed-labor", labelZh: "美国就业订阅" },
   overview: { script: "seed-overview", labelZh: "美国 Overview FRED" },
   fiscal: { script: "seed-fiscal", labelZh: "美国财政数据" },
@@ -103,6 +110,12 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-estat-labor": { script: "verify-jp-estat-labor", labelZh: "日本e-Stat劳动力调查自检", verifyNeedsDb: true },
+  "jp-estat-cpi": { script: "verify-jp-estat-cpi", labelZh: "日本e-Stat全国与东京CPI自检", verifyNeedsDb: true },
+  "jp-meti-iip": { script: "verify-jp-meti-iip", labelZh: "日本工业生产与库存自检", verifyNeedsDb: true },
+  "jp-esri-gdp": { script: "verify-jp-esri-gdp", labelZh: "日本季度GDP自检", verifyNeedsDb: true },
+  "jp-boj-macro": { script: "verify-jp-boj-macro", labelZh: "日本银行宏观统计自检", verifyNeedsDb: true },
+  "japan-mof-jgb": { script: "verify-japan-mof-jgb", labelZh: "日本财务省国债收益率自检", verifyNeedsDb: true },
   catalog: { script: "verify-catalog", labelZh: "目录获取方式自检", verifyNeedsDb: true },
   phase1: { script: "verify-phase1", labelZh: "Phase 1 自检" },
   phase2: { script: "verify-phase2", labelZh: "Phase 2 自检" },
@@ -110,6 +123,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   phase4: { script: "verify-phase4", labelZh: "Phase 4 自检" },
   phase5: { script: "verify-phase5", labelZh: "Phase 5 自检" },
   cpi: { script: "verify-cpi", labelZh: "CPI 自检" },
+  ppi: { script: "verify-ppi", labelZh: "PPI（最终需求）自检", verifyNeedsDb: true },
   labor: { script: "verify-labor", labelZh: "就业自检" },
   overview: { script: "verify-overview", labelZh: "Overview 自检" },
   fiscal: { script: "verify-fiscal", labelZh: "财政自检" },

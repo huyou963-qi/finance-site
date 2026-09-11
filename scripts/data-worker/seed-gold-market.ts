@@ -16,20 +16,11 @@ import { buildCotInstrumentMetadata, CFTC_COT_SOURCE } from "../../src/lib/data/
 import { IMF_IL_GOLD_KEY, IMF_IL_GOLD_URL } from "../../src/lib/data/scheduler/adapters/imfIlGoldAdapter";
 import { GLOBAL_X_GOLD_PAGE_URL, ISHARES_IAU_PAGE_URL, SPDR_GLD_ARCHIVE_URL, WGC_GOLD_ETF_PAGE_URL, WISDOMTREE_GBS_BARLIST_URL, WISDOMTREE_SGBS_BARLIST_URL } from "../../src/lib/data/scheduler/goldEtfHoldings/client";
 import { mergeFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
-import { defaultEconomicCalendarRule, defaultReleaseRuleForGranularity, computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
+import { defaultReleaseRuleForGranularity, computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
 
 loadEnvConfig(process.cwd());
 
 const prisma = new PrismaClient();
-
-const BLS_PPI_SOURCE = {
-  id: "bls-ppi",
-  agencyId: "us-bls",
-  name: "BLS Public Data API · PPI",
-  baseUrl: "https://api.bls.gov/publicAPI/v2/timeseries/data",
-  termsUrl: "https://www.bls.gov/developers/",
-  rateLimit: { requestsPerMinute: 20, minIntervalMs: 3_000 },
-} as const;
 
 const WORLD_BANK_SOURCE = {
   id: "worldbank",
@@ -236,7 +227,6 @@ async function ensureSources() {
 
   for (const source of [
     { ...CFTC_COT_SOURCE, adapterKind: SourceAdapterKind.REST_API },
-    { ...BLS_PPI_SOURCE, adapterKind: SourceAdapterKind.REST_API },
     { ...WORLD_BANK_SOURCE, adapterKind: SourceAdapterKind.WORLD_BANK_API },
     { ...IMF_IL_SOURCE, adapterKind: SourceAdapterKind.REST_API },
     ...GOLD_ETF_SOURCES.map((source) => ({ ...source, adapterKind: SourceAdapterKind.REST_API })),
@@ -543,65 +533,6 @@ async function seedCftcNet() {
   console.log(`  ✓ ${code} ← CFTC Socrata API`);
 }
 
-async function seedBlsPpi() {
-  const code = "goldov_c15_ppi_yoy";
-  const existing = await prisma.instrument.findUnique({ where: { code } });
-  if (!existing) throw new Error(`${code} 不存在；请先导入黄金分析历史工作簿`);
-  const acquisition = {
-    status: "known" as const,
-    probedAt: new Date().toISOString(),
-    method: "bls_public_api",
-    methodLabel: "BLS Public Data API（WPU00000000，官方指数计算同比）",
-    officialUrl: "https://www.bls.gov/ppi/data-retrieval-guide/",
-    fetchUrl: `${BLS_PPI_SOURCE.baseUrl}/WPU00000000`,
-    message: "与工作簿重叠历史的四舍五入差异不超过 0.05 个百分点",
-  };
-  const metadata = mergeFetchAcquisition(
-    {
-      ...existingMetadata(existing.metadata),
-      scrape: {
-        provider: "bls_ppi",
-        seriesId: "WPU00000000",
-        transform: "yoy_pct",
-        historyStart: "1914-01-01",
-      },
-    },
-    acquisition,
-  );
-  const rule = defaultEconomicCalendarRule(DataGranularity.MONTHLY);
-  const instrument = await prisma.instrument.update({
-    where: { id: existing.id },
-    data: { metadata },
-  });
-  await prisma.dataSubscription.upsert({
-    where: { instrumentId: instrument.id },
-    create: {
-      instrumentId: instrument.id,
-      sourceId: BLS_PPI_SOURCE.id,
-      sourceSeriesKey: "WPU00000000:yoy",
-      fetchMethod: DataFetchMethod.API,
-      granularity: DataGranularity.MONTHLY,
-      releaseRule: rule,
-      nextRunAt: computeNextRunAt(rule),
-      lastObsDate: await latestObsDate(instrument.id),
-      enabled: true,
-      priority: 8,
-      revisionLookback: 14,
-    },
-    update: {
-      sourceId: BLS_PPI_SOURCE.id,
-      sourceSeriesKey: "WPU00000000:yoy",
-      granularity: DataGranularity.MONTHLY,
-      releaseRule: rule,
-      enabled: true,
-      priority: 8,
-      revisionLookback: 14,
-      lastObsDate: await latestObsDate(instrument.id),
-    },
-  });
-  console.log(`  ✓ ${code} ← BLS WPU00000000`);
-}
-
 async function seedWorldBankRealRate() {
   const code = "goldov_c28_real_rate";
   const existing = await prisma.instrument.findUnique({ where: { code } });
@@ -711,7 +642,6 @@ async function main() {
   await deleteRetiredSeries();
   await ensureSources();
   await seedCftcNet();
-  await seedBlsPpi();
   await seedWorldBankRealRate();
   await markPendingAndDerived();
   await seedGoldEtfHoldings();

@@ -127,18 +127,6 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     color: "#e8a04e",
   },
   {
-    columnIndex: 15,
-    displayName: "PPI:所有商品:非季调:同比",
-    code: "goldov_c15_ppi_yoy",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: null,
-    catalogCategory: "利率与通胀",
-    axis: "right",
-    chartType: "line",
-    color: "#a7b4c1",
-  },
-  {
     columnIndex: 16,
     displayName: "总:黄金ETF:持有量(吨):环比增加",
     code: "goldov_c16_etf_tons_wow",

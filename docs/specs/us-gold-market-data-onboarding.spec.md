@@ -68,7 +68,7 @@ Live 入库验证（2026-08-22/23）：`c17` 新增 52 点至 2026-08-20（1,038
 | `goldov_c06_mm_net` | CFTC 管理基金净持仓 | 已接通并补官方 bulk fallback | CFTC Socrata `kh3c-gbw2`，按报告字段 `m_money_positions_long_all - m_money_positions_short_all`；Socrata 失败时回退官方 Disaggregated Combined 年度 ZIP，当期文本为末级回退；归入 168 小时 probe 发布包。886 点，2009-09-01–2026-08-18。 |
 | `goldov_c09_etf_holding` | 六只 legacy 黄金 ETF 合计（百万常衡盎司） | 派生已确认、上游待许可 | `c25 × 35.2739619495804 / 1,000`；不是标准金衡盎司。 |
 | `goldov_c11_global_reserve` | 各国央行/官方部门黄金总量（百万常衡盎司） | 已接通的派生序列 | 由 IMF IL 官方 `G001.RGV_REVS.FTO.M` 的 `c24 × 35.2739619495804 / 1,000` 刷新；841 点，1950-12-31–2026-06-30。 |
-| `goldov_c15_ppi_yoy` | PPI 所有商品、非季调、同比 | 已接通 | BLS Public Data API `WPU00000000`，由官方 NSA 指数计算同月同比；并入 `us.bls.ppi` 发布包。 |
+| ~~`goldov_c15_ppi_yoy`~~ | ~~PPI 所有商品、非季调、同比~~ | 已退役 | 2026-09-11 删除：口径为商品 PPI 而非图表所需的最终需求 PPI，且 BLS API 从香港出口持续 403。替代方案见 `us-ppi.spec.md`，统一改为 BLS/FRED 的 Final Demand 指数。 |
 | `goldov_c17_spdr_etf` | SPDR Gold Trust / GLD 持金量（吨） | 已实现 | ISIN `US78463V1070`；官方 archive 全历史直接吨数，24 小时 probe。 |
 | `goldov_c18_ishares_etf` | iShares Gold Trust / IAU 持金量（吨） | 官方直接披露增量已实现 | CUSIP `464285204`；产品页 `Tonnes in Trust` 日更；历史 Excel 无吨数字段，不做近似反推。 |
 | `goldov_c19_gbs_etf` | Gold Bullion Securities 持金量（吨） | 已接通 | ISIN `GB00B00FHZ82`；官方 Dataspan GBS 独立托管账户 PDF 的 allocated fine ounces 转吨，24 小时 probe。 |
