@@ -681,6 +681,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 201,
     members: { fredSeriesIds: ["T5YIE", "T10YIE", "T5YIFR", "T10Y3M"] },
   }),
+  // 行情接口（Yahoo GC=F）日频黄金收盘价：US_Overview COMEX 连续 + 黄金分析伦敦金现续接
+  probePkg("us.yahoo.comex_gold", "COMEX 黄金期货收盘价（行情接口）", {
+    labelEn: "COMEX Gold Futures (Yahoo GC=F)",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 204,
+    members: { instrumentCodes: ["usov_c05_comex_gold", "goldov_c02_london_gold"] },
+  }),
   // multpl.com 月度估值表（同站同表结构）：Shiller CAPE + 标普500 TTM 市盈率
   probePkg("us.multpl.valuation", "multpl 标普500 估值（CAPE / 市盈率）", {
     labelEn: "multpl S&P 500 Valuation",

@@ -97,12 +97,7 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
     officialUrl: "https://www.cmegroup.com/market-data.html",
     message: "活跃合约结算价需要 CME 数据许可；网站数据条款禁止自动抓取。",
   },
-  {
-    code: "goldov_c02_london_gold",
-    method: "licensed_idc_market_data",
-    methodLabel: "IDC/ICE Data 授权行情",
-    message: "原始口径为 IDC 伦敦金现，不能用其他 LBMA/现货报价替代。",
-  },
+  // goldov_c02_london_gold 已改由行情接口 GC=F 续接（用户确认口径变更），见 seed-yahoo-gold-prices.ts
   {
     code: "goldov_c09_etf_holding",
     method: "derived_upstream_endpoint_required",

@@ -52,6 +52,19 @@ describe("rewriteRetiredUsovKeys", () => {
     assert.equal(rewriteRetiredUsovKeys(clean).value, clean);
   });
 
+  it("swaps 10Y/2Y xlsx yields for daily DGS10/DGS2 and drops the 10Y-2Y spread", () => {
+    const { value } = rewriteRetiredUsovKeys({
+      selectedKeys: ["mds:usov_c07_gs10", "mds:usov_c08_gs2", "mds:usov_c09_10y2y", "mds:usov_c11_effr", "fred:DGS10"],
+      slotAssignment: { "mds:usov_c07_gs10": 1, "mds:usov_c08_gs2": 1, "mds:usov_c09_10y2y": 1 },
+      displayConfig: { slotSeriesOrder: { "1": ["mds:usov_c09_10y2y", "mds:usov_c07_gs10", "mds:usov_c08_gs2", "mds:usov_c11_effr"] } },
+    });
+    assert.deepEqual(value.selectedKeys, ["fred:DGS10", "fred:DGS2", "mds:usov_c11_effr"]);
+    assert.deepEqual(value.slotAssignment, { "fred:DGS10": 1, "fred:DGS2": 1 });
+    assert.deepEqual((value.displayConfig as { slotSeriesOrder: unknown }).slotSeriesOrder, {
+      "1": ["fred:DGS10", "fred:DGS2", "mds:usov_c11_effr"],
+    });
+  });
+
   it("does not overwrite an existing standard key's config", () => {
     const { value } = rewriteRetiredUsovKeys({
       selectedKeys: ["fred:UNRATE", "mds:usov_c20_unrate_sa"],

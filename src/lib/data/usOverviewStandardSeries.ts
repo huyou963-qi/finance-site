@@ -22,6 +22,11 @@ const DIFF_MONTH: MacroSeriesCalcConfig = { op: "diff", frequency: "month", unit
 export const US_SP500_PE_CODE = "us_sp500_pe";
 
 export const RETIRED_USOV_REPLACEMENTS: Readonly<Record<string, UsOverviewReplacement | null>> = {
+  // 2026-09-11 第二批：日频 xlsx 收益率被挂上 FRED 月频 GS10/GS2 订阅（月初值混入日频、日值停在 2026-05）；
+  // 改用日频 H.15 DGS10/DGS2。10年-2年按用户要求直接删除（不再单列期限利差）。
+  usov_c07_gs10: { key: "fred:DGS10", calc: NONE },
+  usov_c08_gs2: { key: "fred:DGS2", calc: NONE },
+  usov_c09_10y2y: null,
   usov_c13_gdp_qoq_saar: { key: "fred:A191RL1Q225SBEA", calc: NONE },
   usov_c16_cpi_yoy: { key: "fred:CPIAUCSL::yoy", calc: YOY_MONTH },
   usov_c17_core_cpi_yoy: { key: "fred:CPILFESL::yoy", calc: YOY_MONTH },
@@ -51,6 +56,8 @@ export type UsOverviewStandardSeriesDef = {
 
 /** 内置 US_Overview 模板中替代退役 xlsx 序列的标准指标（图位/样式沿用原列） */
 export const US_OVERVIEW_STANDARD_SERIES: readonly UsOverviewStandardSeriesDef[] = [
+  { key: "fred:DGS10", displayName: "10Y 国债收益率", panel: 2, axis: "right", chartType: "line", color: "#f0d36d", calc: NONE },
+  { key: "fred:DGS2", displayName: "2Y 国债收益率", panel: 2, axis: "right", chartType: "line", color: "#9da8b6", calc: NONE },
   { key: "fred:A191RL1Q225SBEA", displayName: "实际GDP环比折年率", panel: 3, axis: "left", chartType: "line", color: "#f1cd57", calc: NONE },
   { key: "fred:UNRATE", displayName: "失业率", panel: 4, axis: "right", chartType: "line", color: "#f2cf67", calc: NONE },
   { key: "fred:PAYEMS::diff", displayName: "新增非农就业人数", panel: 4, axis: "left", chartType: "bar", color: "#9ea68b", calc: DIFF_MONTH },

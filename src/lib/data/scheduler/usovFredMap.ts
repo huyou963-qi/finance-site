@@ -3,11 +3,9 @@ export const USOV_FRED_SERIES_BY_CODE: Record<string, string> = {
   usov_c01_nasdaq: "NASDAQCOM",
   usov_c02_dow: "DJIA",
   usov_c03_sp500: "SP500",
-  usov_c05_comex_gold: "GOLDAMGBD228NLBM",
+  // c05 COMEX 黄金改由 Yahoo GC=F 更新（FRED GOLDAMGBD228NLBM 已下架，HTTP 400）；
+  // c07–c09 已退役（日频 xlsx 被挂月频 GS10/GS2），见 usOverviewStandardSeries.ts。
   usov_c06_wti: "DCOILWTICO",
-  usov_c07_gs10: "GS10",
-  usov_c08_gs2: "GS2",
-  usov_c09_10y2y: "T10Y2Y",
   usov_c10_fedfunds_target: "DFEDTARU",
   usov_c11_effr: "EFFR",
   // c13/c16–c22 已退役（见 usOverviewStandardSeries.ts）：xlsx 预变换值与 FRED 水平值混存，

@@ -56,6 +56,23 @@
 - DB 侧：系统模板覆盖、自定义系统模板、用户工作区与用户模板中的旧键替换为标准键（保留图位与样式），c21 删除。
 - 顺带修复：`buildExtractQueryFromKeys` 在模板含 `mds:` 键时会丢弃全部 `fred:` 键；模板目录过滤不识别 `::变换` 虚拟键。
 
+## 5. 第二批（2026-09-11 下午）：收益率与黄金
+
+| code | 问题 | 处置 | 替代 |
+|---|---|---|---|
+| usov_c07_gs10 国债收益率:10年 | 日频 xlsx 挂 FRED 月频 GS10，月初值混入、日值停在 2026-05-29 | 退役 | `fred:DGS10`（日频 H.15，us.frb.h15_rates） |
+| usov_c08_gs2 国债收益率:2年 | 同上（GS2） | 退役 | `fred:DGS2`（同上） |
+| usov_c09_10y2y 10年-2年 | 用户要求删除 | 退役 | —（不再单列利差） |
+| usov_c05_comex_gold 期货收盘价(连续):COMEX黄金 | FRED GOLDAMGBD228NLBM 已下架（HTTP 400），停在 2026-05-29 | 改订阅 | 行情接口 Yahoo `GC=F`（COMEX 连续合约，口径一致） |
+| goldov_c02_london_gold 伦敦金现:IDC | 无订阅，停在 2026-06-05 | 改订阅（用户确认口径变更） | Yahoo `GC=F` 续接 |
+
+- 行情接口 = /markets 行情页同源的 Yahoo v8 chart（`src/lib/equity/yahooChart.ts`，已过滤节假日全 0 占位行）。
+  新增调度适配器 `yahoo_chart`（`metadata.scrape.symbol`），数据源 `yahoo-chart`，probe_interval 24h，
+  发布包 `us.yahoo.comex_gold`；seed：`data:seed -- --catalog=yahoo-gold-prices`。
+- 伦敦现货在行情接口不可得（`XAUUSD=X` 等 404；stooq 有人机验证，不绕过）。伦敦金现 2026-06-05 前为 IDC 现货历史，
+  此后为 COMEX 连续期货（通常高于现货 0.5%–1%），黄金模板「期现差」自此不再有期现含义。只续接不回写历史。
+- 遗留：`usov_c04_spx_gld`（SPX/GLD 复合）同样依赖已下架的 GOLDAMGBD228NLBM，订阅在报 HTTP 400，未在本次范围内。
+
 ## 6. 数据（验收）
 
 - [x] 复用门：七条 sched_fred_* 在库、订阅启用、发布包齐全

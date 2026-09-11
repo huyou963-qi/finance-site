@@ -220,6 +220,10 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "yahoo_chart") {
+        const { fetchYahooChartIncremental } = await import("./adapters/yahooChartAdapter");
+        return fetchYahooChartIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       if (scrapeObj.provider === "gold_etf_holdings") {
         const { fetchGoldEtfHoldingsIncremental } = await import(
           "./adapters/goldEtfHoldingsAdapter"

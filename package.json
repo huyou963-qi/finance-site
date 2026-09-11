@@ -127,6 +127,8 @@
     "data:verify-multpl-sp500-pe": "dotenv -e .env.local -- tsx scripts/data-worker/verify-multpl-sp500-pe.ts",
     "data:seed-usov-retire": "dotenv -e .env.local -- tsx scripts/data-worker/seed-usov-retire.ts",
     "data:verify-usov-retire": "dotenv -e .env.local -- tsx scripts/data-worker/verify-usov-retire.ts",
+    "data:seed-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/seed-yahoo-gold-prices.ts",
+    "data:verify-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/verify-yahoo-gold-prices.ts",
     "data:seed-caixin-pmi-te": "dotenv -e .env.local -- tsx scripts/data-worker/seed-caixin-pmi-te.ts",
     "data:sync-caixin-pmi-te": "dotenv -e .env.local -- tsx scripts/data-worker/sync-caixin-pmi-te.ts",
     "data:verify-caixin-pmi": "dotenv -e .env.local -- tsx scripts/data-worker/verify-caixin-pmi.ts",
