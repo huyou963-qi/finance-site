@@ -30,16 +30,6 @@ const EXPECTED = [
     unit: "吨",
   },
   {
-    code: "goldov_c11_global_reserve",
-    sourceId: "imf-il",
-    seriesKey: "G001.RGV_REVS.FTO.M:legacy_avoirdupois_million_ounces",
-    minPoints: 800,
-    packageId: "intl.imf.international_liquidity_gold",
-    maxLagDays: 100,
-    freqLabel: "月",
-    unit: "百万盎司",
-  },
-  {
     code: "goldov_c17_spdr_etf",
     sourceId: "spdr-gold-shares",
     seriesKey: "GLD:tonnes-of-gold",
@@ -152,34 +142,8 @@ async function main() {
         ` next=${instrument.dataSubscription.nextRunAt?.toISOString() ?? "—"}`,
     );
   }
-  const [tons, ounces] = await Promise.all([
-    prisma.instrument.findUnique({
-      where: { code: "goldov_c24_global_reserve_tons" },
-      select: { macroPoints: { select: { obsDate: true, value: true } } },
-    }),
-    prisma.instrument.findUnique({
-      where: { code: "goldov_c11_global_reserve" },
-      select: { macroPoints: { select: { obsDate: true, value: true } } },
-    }),
-  ]);
-  const tonsByDate = new Map(
-    (tons?.macroPoints ?? []).map((point) => [point.obsDate.getTime(), point.value]),
-  );
-  let formulaErrors = 0;
-  for (const point of ounces?.macroPoints ?? []) {
-    const upstream = tonsByDate.get(point.obsDate.getTime());
-    if (upstream == null) continue;
-    const expected = (upstream * 35.2739619495804) / 1_000;
-    if (Math.abs(point.value - expected) > 1e-9) formulaErrors++;
-  }
-  if (formulaErrors) {
-    errors += formulaErrors;
-    console.error(`异常 c11/c24 派生公式 dates=${formulaErrors}`);
-  } else {
-    console.log("✓ c11 = c24 × 35.2739619495804 / 1,000（全部重叠日期）");
-  }
   if (errors) throw new Error(`[verify-gold-market] 失败：${errors}`);
-  console.log("[verify-gold-market] 已确认自动来源=11");
+  console.log(`[verify-gold-market] 已确认自动来源=${EXPECTED.length}`);
 }
 
 main()

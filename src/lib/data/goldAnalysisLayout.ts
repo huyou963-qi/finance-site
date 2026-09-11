@@ -1,4 +1,5 @@
 import type { MacroSeriesChartType } from "@/lib/macroChartOption";
+import type { MacroDerivedCalc, MacroSeriesCalcConfig } from "@/lib/data/macroPresetTemplates";
 
 export type GoldAnalysisSeriesDef = {
   /** xlsx 中的列序号（0 为时间列） */
@@ -42,18 +43,8 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     chartType: "line",
     color: "#4bc0c8",
   },
-  {
-    columnIndex: 3,
-    displayName: "期现差",
-    code: "goldov_c03_basis",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: null,
-    catalogCategory: "黄金价格",
-    axis: "left",
-    chartType: "line",
-    color: "#9aa7b3",
-  },
+  // col 3/7–11/16/25（期现差、库存/ETF/储备单位换算、环比、ETF 合计）为计算型二次指标，已退役
+  // （retiredIndicators.ts）；期现差与库存环比见下方 GOLD_ANALYSIS_TEMPLATE_EXTRAS 的指标运算。
   {
     columnIndex: 6,
     displayName: "期货和期权(新版):管理基金:净持仓",
@@ -65,78 +56,6 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     axis: "left",
     chartType: "line",
     color: "#d75a68",
-  },
-  {
-    columnIndex: 7,
-    displayName: "COMEX:库存量:黄金:百万",
-    code: "goldov_c07_comex_stock",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 4,
-    catalogCategory: "库存",
-    axis: "left",
-    chartType: "area",
-    color: "#d9534f",
-  },
-  {
-    columnIndex: 8,
-    displayName: "COMEX:库存量:黄金:百万:环比增加",
-    code: "goldov_c08_comex_stock_wow",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 4,
-    catalogCategory: "库存",
-    axis: "right",
-    chartType: "line",
-    color: "#8a6d3b",
-  },
-  {
-    columnIndex: 9,
-    displayName: "总:黄金ETF:持有量(百万盎司)",
-    code: "goldov_c09_etf_holding",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 5,
-    catalogCategory: "ETF与储备",
-    axis: "left",
-    chartType: "area",
-    color: "#8f74c8",
-  },
-  {
-    columnIndex: 10,
-    displayName: "总:黄金ETF:持有量(百万盎司):环比增加",
-    code: "goldov_c10_etf_holding_wow",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 5,
-    catalogCategory: "ETF与储备",
-    axis: "right",
-    chartType: "line",
-    color: "#5b8fc9",
-  },
-  {
-    columnIndex: 11,
-    displayName: "全球:黄金储备:当月值:(百万盎司)",
-    code: "goldov_c11_global_reserve",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 6,
-    catalogCategory: "ETF与储备",
-    axis: "left",
-    chartType: "bar",
-    color: "#e8a04e",
-  },
-  {
-    columnIndex: 16,
-    displayName: "总:黄金ETF:持有量(吨):环比增加",
-    code: "goldov_c16_etf_tons_wow",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: null,
-    catalogCategory: "ETF与储备",
-    axis: "right",
-    chartType: "line",
-    color: "#5b8fc9",
   },
   {
     columnIndex: 17,
@@ -216,10 +135,10 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     code: "goldov_c23_comex_stock_oz",
     countryCode: "US",
     countryNameZh: "美国",
-    panel: null,
+    panel: 4,
     catalogCategory: "库存",
     axis: "left",
-    chartType: "line",
+    chartType: "area",
     color: "#d9534f",
   },
   {
@@ -228,23 +147,11 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     code: "goldov_c24_global_reserve_tons",
     countryCode: "US",
     countryNameZh: "美国",
-    panel: null,
+    panel: 6,
     catalogCategory: "ETF与储备",
     axis: "left",
     chartType: "bar",
     color: "#e8a04e",
-  },
-  {
-    columnIndex: 25,
-    displayName: "总:黄金ETF:持有量(吨)",
-    code: "goldov_c25_etf_holding_tons",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: null,
-    catalogCategory: "ETF与储备",
-    axis: "left",
-    chartType: "line",
-    color: "#8f74c8",
   },
   {
     columnIndex: 27,
@@ -271,6 +178,45 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     color: "#8a6d3b",
   },
 ] as const;
+
+export type GoldAnalysisTemplateExtra = {
+  key: string;
+  displayName: string;
+  panel: 1 | 2 | 3 | 4 | 5 | 6 | null;
+  axis: "left" | "right";
+  chartType: MacroSeriesChartType;
+  color: string;
+  calc?: MacroSeriesCalcConfig;
+  derived?: MacroDerivedCalc;
+};
+
+/** 黄金模板中的指标运算（替代已退役的 xlsx 计算列；id 与 retiredIndicators.ts 一致） */
+export const GOLD_ANALYSIS_TEMPLATE_EXTRAS: readonly GoldAnalysisTemplateExtra[] = [
+  {
+    key: "mds:goldov_c23_comex_stock_oz::diff",
+    displayName: "COMEX:库存量:黄金:环比增加",
+    panel: 4,
+    axis: "right",
+    chartType: "line",
+    color: "#8a6d3b",
+    calc: { op: "diff", frequency: "keep", unit: "keep", resampleMethod: "end" },
+  },
+  {
+    key: "calc:gold-basis",
+    displayName: "期现差",
+    panel: null,
+    axis: "left",
+    chartType: "line",
+    color: "#9aa7b3",
+    derived: {
+      id: "gold-basis",
+      name: "期现差",
+      op: "sub",
+      leftKey: "mds:goldov_c01_comex_active",
+      rightKey: "mds:goldov_c02_london_gold",
+    },
+  },
+];
 
 export const GOLD_ANALYSIS_BY_CODE = new Map(
   GOLD_ANALYSIS_SERIES.map((row) => [row.code, row]),

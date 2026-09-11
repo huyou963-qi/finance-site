@@ -136,6 +136,7 @@ npm run data:sync-catalog-layout -- --keys=fred:<ID1>,fred:<ID2>
 
 ## 硬约束
 
+- **宏观数据库约束**（AGENTS.md）：只抓取入库页面原样发布的基础数据；页面上的派生值若能由已入库基础序列算出，不另存，改在模板「指标运算」中实现。单位规整只在 parser 内做一次。robots.txt 全站 Disallow 或条款禁止复制/转载的商业门户（如东方财富 push2his）不得抓取。
 - 禁止使用付费 API Key 写入仓库；禁止跳过 fixture 直接写 parser；禁止未 `known` 就参与调度（与 TE 流程三禁令一致）。
 - 禁止只 seed 不归类：新指标必须完成步骤 9（或已确认无 `MacroCatalogLayout`、且 `catalogCategory` 落点正确），不得交付「未分配」状态。
 - 请求必须带超时（30s）与限频（`DataSource.rateLimit.minIntervalMs`）；不重试风暴（backoff 由 `releaseRule.computeBackoffRunAt` 处理）。

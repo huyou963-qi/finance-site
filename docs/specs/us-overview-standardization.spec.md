@@ -73,6 +73,33 @@
   此后为 COMEX 连续期货（通常高于现货 0.5%–1%），黄金模板「期现差」自此不再有期现含义。只续接不回写历史。
 - 遗留：`usov_c04_spx_gld`（SPX/GLD 复合）同样依赖已下架的 GOLDAMGBD228NLBM，订阅在报 HTTP 400，未在本次范围内。
 
+## 5b. 第三批（2026-09-11 晚）：计算型二次指标全部退役 + 宏观数据库约束
+
+新约束写入 AGENTS.md「宏观数据库约束（强制）」与 Agent B/C 手册：库里只存有明确来源、稳定更新方式的标准基础数据；
+二次指标在「指标运算」中实现（模板 `derivedCalcs` / `seriesCalcConfig`）。
+
+| 退役 code | 原计算 | 模板处理 |
+|---|---|---|
+| usov_c04_spx_gld SPX/GLD | FRED SP500 ÷ 已下架金价 | 指标运算 `calc:usov-spx-gld` = 标普500 ÷ COMEX 金 |
+| usov_c12_2y_effr 2年-EFFR | FRED GS2 − EFFR | 指标运算 `calc:usov-2y-effr` = DGS2 − EFFR |
+| usov_c25 美国国债环比增加 | TREAST 周环比% | `mds:usov_c24_fed_treasuries::pct`（环比%） |
+| usov_c26 环比增加 MA4 | 4 周均值 | 删除（无 MA 算子） |
+| usov_c27 Fed Net Liquidity | WALCL − TREAST | 指标运算 `calc:usov-fed-net-liquidity` |
+| goldov_c03 期现差 | c01 − c02 | 指标运算 `calc:gold-basis` |
+| goldov_c07 COMEX 库存（百万） | c23 / 1e6 | 改用 c23（盎司） |
+| goldov_c08 库存环比 | c07 差分 | `mds:goldov_c23_comex_stock_oz::diff` |
+| goldov_c11 全球储备（百万盎司） | c24 × 35.27/1000 | 改用 c24（吨） |
+| goldov_c09/c10/c16/c25 ETF 合计/换算/环比 | 六只 ETF 求和（PHAU 月频） | 删除（多序列同日合计无法用二元运算表达） |
+| fiscal_primary_deficit_gdp | FYFSGDA188S − FYOIGDA188S | 指标运算 `calc:fiscal-primary-deficit-gdp` |
+| fiscal_fgcec1_yoy | 调度器 YoY | `fred:FGCEC1::yoy`（FGCEC1 补入 FRED_US_ITEMS） |
+| fiscal 其余 4 个比率 | FRED/Treasury 复合 | 删除（无模板引用） |
+| sec_us_insider_buy_* 2 条 | Form 4 汇总 | 删除；cron 去掉 build-insider-sentiment |
+
+- 代码侧：usov/fiscal/treasury 复合登记清空、`fredTransform` 恒为 none、IMF c11 换算分支、xlsx 派生列、seed 中的复合/YoY 段全部移除。
+- 保留（不属于库内计算）：`quant_regime_*`（不存值，模型实时投影）、`jpov_*` 同比/环比（日本官方发布）。
+- 遗留：期现差与 COMEX 库存依赖的 `goldov_c01_comex_active` / `goldov_c23_comex_stock_oz` 为 xlsx 历史存量（CME 授权待定，无自动更新）。
+- 现货金价：LBMA（IBA 授权）、东方财富/新浪（robots Disallow + 条款禁止）、Yahoo/stooq/德国央行/富途 OpenAPI 均不可用；待 FMP 配额恢复验证 XAUUSD 日线后接入。
+
 ## 6. 数据（验收）
 
 - [x] 复用门：七条 sched_fred_* 在库、订阅启用、发布包齐全

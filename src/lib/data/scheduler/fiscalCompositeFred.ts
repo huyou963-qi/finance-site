@@ -2,16 +2,11 @@ import type { UsovCompositeSpec } from "./usovCompositeFred";
 import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 
 /** 财政 FRED 复合序列（worker 内多序列拉取后计算） */
-export const FISCAL_COMPOSITE_FRED: Record<string, UsovCompositeSpec> = {
-  /** FYFSGDA188S − FYOIGDA188S：初级赤字占 GDP % */
-  fiscal_primary_deficit_gdp: { kind: "spread", a: "FYFSGDA188S", b: "FYOIGDA188S" },
-  /** FYOIGDA188S / FYONGDA188S × 100：利息占净支出 %（年频 OMB 代理） */
-  fiscal_interest_share_outlays_annual: {
-    kind: "ratio",
-    num: "FYOIGDA188S",
-    den: "FYONGDA188S",
-  },
-};
+/**
+ * 宏观数据库约束：库内不存二次计算指标。原初级赤字/GDP、利息占净支出（年）已退役，
+ * 初级赤字改在财政模板「指标运算」中由 FYFSGDA188S − FYOIGDA188S 计算。勿再新增。
+ */
+export const FISCAL_COMPOSITE_FRED: Record<string, UsovCompositeSpec> = {};
 
 export function fiscalCompositeSpec(instrumentCode: string): UsovCompositeSpec | null {
   return FISCAL_COMPOSITE_FRED[instrumentCode] ?? null;
@@ -45,28 +40,7 @@ export type FiscalCompositeSeedRow = {
   sourceUpdateNote: string;
 };
 
-export const FISCAL_COMPOSITE_SERIES: readonly FiscalCompositeSeedRow[] = [
-  {
-    code: "fiscal_primary_deficit_gdp",
-    roleId: "us-primary-deficit-gdp",
-    name: "联邦初级赤字/GDP %",
-    displayName: "联邦初级赤字/GDP %",
-    freqLabel: "年",
-    granularity: "ANNUAL",
-    unit: "%",
-    sourceUpdateNote: "FRED 复合：FYFSGDA188S − FYOIGDA188S（同日期 spread）",
-  },
-  {
-    code: "fiscal_interest_share_outlays_annual",
-    roleId: "us-outlays-net-interest-share-annual",
-    name: "净利息占联邦净支出比例（年）",
-    displayName: "净利息占联邦净支出比例（年）",
-    freqLabel: "年",
-    granularity: "ANNUAL",
-    unit: "比率",
-    sourceUpdateNote: "FRED 复合：FYOIGDA188S / FYONGDA188S（OMB 年频；非 MTS 现金月频）",
-  },
-] as const;
+export const FISCAL_COMPOSITE_SERIES: readonly FiscalCompositeSeedRow[] = [];
 
 export function buildFiscalCompositeInstrumentMetadata(
   row: FiscalCompositeSeedRow,

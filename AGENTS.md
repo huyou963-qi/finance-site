@@ -249,6 +249,16 @@ npm run events:import-ingest -- <file.json>
 
 所有新功能必须遵守 [数据底层复用与单一事实源设计原则](./docs/DATA_FOUNDATION_REUSE_PRINCIPLES.md)：先复用已有 Source Adapter、scheduler、canonical fact store、统一 writer 和查询/计算服务，再考虑新增底层。不得为宏观、量化、美股行业或单个页面另建同源抓取器、同义事实表、复权/as-of/Regime/因子算法。确需新增表或底层能力时，设计文档必须先说明它表达的新事实、与现有底层的主从关系、上游血缘和重建方式。
 
+## 宏观数据库约束（强制）
+
+宏观数据库（`mds.Instrument` / `MacroObservation`）**只存标准基础数据**：每条指标必须有明确的一手来源（官方机构、已授权数据商或公开许可数据集）和稳定的自动更新方式（`DataSubscription` + 发布包）。
+
+- **二次指标一律不入库**：利差/比值（A−B、A/B）、环比/同比/差分、移动平均、单位换算、多序列合计、占比、模型输出等，统一在「指标运算」中实现——模板 `derivedCalcs`（二元运算，可链式、可 `scale`）或 `seriesCalcConfig`（`fred:X::yoy`、`mds:X::diff` 等单序列变换）。
+- 禁止新增库内复合/变换：`usovCompositeFred` / `fiscalCompositeFred` / `fiscalTreasuryComposite` 保持为空，`fredTransform` 恒为 none，不写 xlsx 派生列或 `metadata.derivation`，不把统计汇总结果写成宏观序列。
+- 源端本身发布的比率/增速（官方公布的同比、不良率、PMI 等）属于基础数据，可以入库；单位规整（如分数 ×100、盎司→吨）只在 parser 内做一次，不另存换算序列。
+- 无合规来源（条款禁止抓取、需授权而未购买、需绕过访问控制）的指标不入库，宁缺勿滥。
+- 已退役指标登记在 `src/lib/data/retiredIndicators.ts`，由 `data:seed -- --catalog=retired-indicators` 随部署幂等清理并把模板引用替换为标准指标/指标运算；`data:verify -- --catalog=retired-indicators` 断言库内无复合订阅与派生标记。
+
 ## AI 工作检查清单
 
 完成任务前确认：
@@ -260,6 +270,7 @@ npm run events:import-ingest -- <file.json>
 - [ ] 本地 `npm run build` 通过（或说明为何 CI 会通过）
 - [ ] 若改 schema：PR 中写明 `npm run db:migrate` 步骤
 - [ ] 新功能已列出底层复用项；未新增平行 adapter、事实表、writer 或重复计算链
+- [ ] 新增宏观指标是有明确来源 + 稳定更新方式的标准基础数据；二次指标走指标运算，未入库复合/派生序列
 
 ## 禁区
 

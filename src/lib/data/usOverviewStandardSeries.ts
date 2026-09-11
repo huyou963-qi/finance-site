@@ -1,5 +1,5 @@
 import type { MacroSeriesChartType } from "@/lib/macroChartOption";
-import type { MacroSeriesCalcConfig } from "@/lib/data/macroPresetTemplates";
+import type { MacroDerivedCalc, MacroSeriesCalcConfig } from "@/lib/data/macroPresetTemplates";
 
 /**
  * US_Overview 中不符合项目入库标准的 9 条 xlsx 序列已退役（2026-09-11）。
@@ -18,6 +18,7 @@ export type UsOverviewReplacement = {
 const NONE: MacroSeriesCalcConfig = { op: "none", frequency: "keep", unit: "keep", resampleMethod: "avg" };
 const YOY_MONTH: MacroSeriesCalcConfig = { op: "yoy", frequency: "month", unit: "keep", resampleMethod: "end" };
 const DIFF_MONTH: MacroSeriesCalcConfig = { op: "diff", frequency: "month", unit: "keep", resampleMethod: "end" };
+const PCT_KEEP: MacroSeriesCalcConfig = { op: "pctChange", frequency: "keep", unit: "keep", resampleMethod: "end" };
 
 export const US_SP500_PE_CODE = "us_sp500_pe";
 
@@ -39,10 +40,6 @@ export const RETIRED_USOV_REPLACEMENTS: Readonly<Record<string, UsOverviewReplac
 };
 
 export const RETIRED_USOV_CODES = Object.keys(RETIRED_USOV_REPLACEMENTS);
-
-const REPLACEMENT_BY_KEY = new Map(
-  Object.entries(RETIRED_USOV_REPLACEMENTS).map(([code, repl]) => [`mds:${code}`, repl]),
-);
 
 export type UsOverviewStandardSeriesDef = {
   key: string;
@@ -66,109 +63,33 @@ export const US_OVERVIEW_STANDARD_SERIES: readonly UsOverviewStandardSeriesDef[]
   { key: "fred:PCEPI::yoy", displayName: "PCE 同比", panel: 5, axis: "left", chartType: "line", color: "#d89b4e", calc: YOY_MONTH },
   { key: "fred:PCEPILFE::yoy", displayName: "核心PCE 同比", panel: 5, axis: "left", chartType: "dashedLine", color: "#7fc8c5", calc: YOY_MONTH },
   { key: `mds:${US_SP500_PE_CODE}`, displayName: "标普500市盈率", panel: 1, axis: "right", chartType: "line", color: "#5f76b8", calc: NONE },
+  // 原计算型列 c25「持有国债环比增加」→ 基础序列 c24 + 指标运算环比%
+  { key: "mds:usov_c24_fed_treasuries::pct", displayName: "持有国债 环比%", panel: 6, axis: "left", chartType: "line", color: "#8f9bab", calc: PCT_KEEP },
 ];
 
 export const US_OVERVIEW_STANDARD_BY_KEY = new Map(US_OVERVIEW_STANDARD_SERIES.map((row) => [row.key, row]));
 
-type JsonObject = Record<string, unknown>;
+export type UsOverviewDerivedDef = {
+  calc: MacroDerivedCalc;
+  panel: 1 | 2 | 3 | 4 | 5 | 6;
+  axis: "left" | "right";
+  chartType: MacroSeriesChartType;
+  color: string;
+};
 
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+/** 原 xlsx 计算型列（SPX/GLD、2年-EFFR、Fed 净流动性）改为指标运算，id 与 retiredIndicators.ts 一致 */
+export const US_OVERVIEW_STANDARD_DERIVED: readonly UsOverviewDerivedDef[] = [
+  {
+    calc: { id: "usov-spx-gld", name: "SPX/GLD", op: "div", leftKey: "mds:usov_c03_sp500", rightKey: "mds:usov_c05_comex_gold" },
+    panel: 1, axis: "left", chartType: "line", color: "#f2cf67",
+  },
+  {
+    calc: { id: "usov-fed-net-liquidity", name: "Fed Net Liquidity", op: "sub", leftKey: "mds:usov_c23_fed_assets", rightKey: "mds:usov_c24_fed_treasuries" },
+    panel: 1, axis: "left", chartType: "line", color: "#61dbe1",
+  },
+  {
+    calc: { id: "usov-2y-effr", name: "2年-EFFR", op: "sub", leftKey: "fred:DGS2", rightKey: "mds:usov_c11_effr" },
+    panel: 2, axis: "left", chartType: "line", color: "#d75a68",
+  },
+];
 
-/** 旧键 → 新键；`null` = 删除；未退役键原样返回 */
-function nextKey(key: string): string | null {
-  if (!REPLACEMENT_BY_KEY.has(key)) return key;
-  return REPLACEMENT_BY_KEY.get(key)?.key ?? null;
-}
-
-function remapKeyList(list: unknown[]): unknown[] {
-  const seen = new Set<string>();
-  const out: unknown[] = [];
-  for (const item of list) {
-    if (typeof item !== "string") {
-      out.push(item);
-      continue;
-    }
-    const k = nextKey(item);
-    if (k === null || seen.has(k)) continue;
-    seen.add(k);
-    out.push(k);
-  }
-  return out;
-}
-
-function remapRecord(record: JsonObject): JsonObject {
-  const out: JsonObject = {};
-  for (const [key, value] of Object.entries(record)) {
-    const k = nextKey(key);
-    if (k === null) continue;
-    // 新键已有自己的配置时不被旧键覆盖
-    if (k !== key && Object.prototype.hasOwnProperty.call(record, k)) continue;
-    out[k] = value;
-  }
-  return out;
-}
-
-/**
- * 把模板/工作区 JSON 中退役 usov 键替换为标准指标键（幂等）。
- * 覆盖 selectedKeys、selectedListItems、slotAssignment、seriesVisualMap、seriesCalcConfigMap、
- * indicatorIntroNotes、displayConfig.slotSeriesOrder、derivedCalcs；替换键写入对应计算配置。
- */
-export function rewriteRetiredUsovKeys(input: JsonObject): { value: JsonObject; changed: boolean } {
-  const before = JSON.stringify(input);
-  if (![...REPLACEMENT_BY_KEY.keys()].some((key) => before.includes(`"${key}"`))) {
-    return { value: input, changed: false };
-  }
-  const out = JSON.parse(before) as JsonObject;
-  const replaced = new Set<string>();
-  for (const [oldKey, repl] of REPLACEMENT_BY_KEY) {
-    if (repl && before.includes(`"${oldKey}"`)) replaced.add(repl.key);
-  }
-
-  if (Array.isArray(out.selectedKeys)) out.selectedKeys = remapKeyList(out.selectedKeys);
-
-  if (Array.isArray(out.selectedListItems)) {
-    const seen = new Set<string>();
-    out.selectedListItems = out.selectedListItems.flatMap((item) => {
-      if (!isObject(item) || typeof item.key !== "string") return [item];
-      const k = nextKey(item.key);
-      if (k === null || seen.has(k)) return [];
-      seen.add(k);
-      return [{ ...item, key: k }];
-    });
-  }
-
-  for (const field of ["slotAssignment", "seriesVisualMap", "seriesCalcConfigMap", "indicatorIntroNotes"]) {
-    if (isObject(out[field])) out[field] = remapRecord(out[field] as JsonObject);
-  }
-
-  if (isObject(out.displayConfig) && isObject(out.displayConfig.slotSeriesOrder)) {
-    const order = out.displayConfig.slotSeriesOrder as JsonObject;
-    const next: JsonObject = {};
-    for (const [slot, keys] of Object.entries(order)) {
-      next[slot] = Array.isArray(keys) ? remapKeyList(keys) : keys;
-    }
-    out.displayConfig = { ...out.displayConfig, slotSeriesOrder: next };
-  }
-
-  if (Array.isArray(out.derivedCalcs)) {
-    out.derivedCalcs = out.derivedCalcs.flatMap((calc) => {
-      if (!isObject(calc)) return [calc];
-      const left = typeof calc.leftKey === "string" ? nextKey(calc.leftKey) : calc.leftKey;
-      const right = typeof calc.rightKey === "string" ? nextKey(calc.rightKey) : calc.rightKey;
-      if (left === null || right === null) return [];
-      return [{ ...calc, leftKey: left, rightKey: right }];
-    });
-  }
-
-  if (replaced.size > 0) {
-    const calcMap = isObject(out.seriesCalcConfigMap) ? { ...(out.seriesCalcConfigMap as JsonObject) } : {};
-    for (const repl of Object.values(RETIRED_USOV_REPLACEMENTS)) {
-      if (repl && replaced.has(repl.key)) calcMap[repl.key] = repl.calc;
-    }
-    out.seriesCalcConfigMap = calcMap;
-  }
-
-  return { value: out, changed: JSON.stringify(out) !== before };
-}

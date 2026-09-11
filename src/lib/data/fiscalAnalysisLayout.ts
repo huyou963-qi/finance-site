@@ -1,6 +1,7 @@
 import type { MacroSeriesChartType } from "@/lib/macroChartOption";
 import type {
   MacroChartTemplate,
+  MacroDerivedCalcOp,
   MacroSeriesCalcConfig,
   MacroSeriesCalcConfigMap,
 } from "@/lib/data/macroPresetTemplates";
@@ -21,6 +22,8 @@ export type FiscalAnalysisSeriesDef = {
   roleId?: string;
   fredId?: string;
   mdsCode?: string;
+  /** 指标运算（virtualKey 为 `calc:<id>`）：二次指标不入库，在模板中由基础序列计算 */
+  derived?: { op: MacroDerivedCalcOp; leftKey: string; rightKey: string };
 };
 
 export function fiscalFredKey(fredId: string, variant?: string): string {
@@ -54,6 +57,7 @@ export function buildFiscalSeriesCalcConfigMap(
 ): MacroSeriesCalcConfigMap {
   const out: MacroSeriesCalcConfigMap = {};
   for (const row of series) {
+    if (row.derived) continue;
     out[row.virtualKey] = calcConfigFor(row.calcOp, row.resampleToMonth);
   }
   return out;
@@ -104,8 +108,9 @@ export const FISCAL_OVERVIEW_SERIES: readonly FiscalAnalysisSeriesDef[] = [
     calcOp: "none",
   },
   {
-    virtualKey: fiscalMdsKey("fiscal_primary_deficit_gdp"),
-    mdsCode: "fiscal_primary_deficit_gdp",
+    // 原库内复合 fiscal_primary_deficit_gdp 已退役：指标运算 赤字/GDP − 利息/GDP
+    virtualKey: "calc:fiscal-primary-deficit-gdp",
+    derived: { op: "sub", leftKey: fiscalFredKey("FYFSGDA188S"), rightKey: fiscalFredKey("FYOIGDA188S") },
     roleId: "us-primary-deficit-gdp",
     displayName: "联邦初级赤字/GDP %",
     panel: 2,
@@ -235,15 +240,16 @@ export const FISCAL_STRUCTURE_SERIES: readonly FiscalAnalysisSeriesDef[] = [
     calcOp: "yoy",
   },
   {
-    virtualKey: fiscalMdsKey("fiscal_fgcec1_yoy"),
-    mdsCode: "fiscal_fgcec1_yoy",
+    // 原调度器同比 fiscal_fgcec1_yoy 已退役：基础序列 FGCEC1 + 指标运算同比
+    virtualKey: fiscalFredKey("FGCEC1", "yoy"),
+    fredId: "FGCEC1",
     roleId: "us-gov-investment-yoy",
     displayName: "联邦消费+总投资 YoY",
     panel: 4,
     axis: "right",
     chartType: "dashedLine",
     color: "#5f76b8",
-    calcOp: "none",
+    calcOp: "yoy",
   },
 ];
 
@@ -381,7 +387,16 @@ export const FISCAL_HIGHFREQ_CHART_INTRO: Record<string, string> = {
 };
 
 function fiscalSelectedKeys(series: readonly FiscalAnalysisSeriesDef[]): string[] {
-  return series.map((r) => r.virtualKey);
+  // calc: 键由 derivedCalcs 生成，不进已选指标
+  return series.filter((r) => !r.derived).map((r) => r.virtualKey);
+}
+
+function fiscalDerivedCalcs(series: readonly FiscalAnalysisSeriesDef[]) {
+  return series.flatMap((r) =>
+    r.derived
+      ? [{ id: r.virtualKey.slice("calc:".length), name: r.displayName, ...r.derived }]
+      : [],
+  );
 }
 
 function buildFiscalSlotAssignment(
@@ -448,6 +463,7 @@ export function buildFiscalBuiltinTemplate(opts: {
     slotAssignment: buildFiscalSlotAssignment(opts.series),
     seriesVisualMap: buildFiscalVisualMap(opts.series),
     seriesCalcConfigMap: buildFiscalSeriesCalcConfigMap(opts.series),
+    derivedCalcs: fiscalDerivedCalcs(opts.series),
     displayConfig: {
       ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
       legendPosition: "bottom",

@@ -96,7 +96,7 @@ npm run data:worker           # 到期订阅试跑一轮
 
 | 源 | 要点 |
 |----|------|
-| FRED | 复用 `fredAdapter` + 限频器；合成序列（A−B、A/B）参考 `fredComposite.ts` + `fiscalCompositeFred.ts` 模式 |
+| FRED | 复用 `fredAdapter` + 限频器；**只入库原始序列**，合成（A−B、A/B）/同比等二次指标不入库，在模板指标运算中实现 |
 | World Bank | 年频为主；`worldbankAdapter`；参考 `seed-phase3-wb.ts` |
 | Treasury FiscalData | `sourceId: "treasury-fiscal-data"`；`sourceSeriesKey` 见 `treasuryFiscalData/client.ts`；参考 `seed-fiscal.ts` |
 | CFTC COT | `sourceId: "cftc-cot"`；参考 `seed-cot.ts` |
@@ -105,6 +105,7 @@ npm run data:worker           # 到期订阅试跑一轮
 
 ## 硬约束
 
+- **宏观数据库约束**（AGENTS.md）：只入库有明确来源、稳定更新方式的标准基础数据；利差/比值/同比/环比/MA/单位换算/合计等二次指标一律在模板「指标运算」（`derivedCalcs` / `seriesCalcConfig`）中实现，禁止复合订阅、调度器变换或派生列入库。无合规来源（条款禁止、需授权未购买）的指标不入库。
 - 不动 `prisma/migrations`（现有 schema 足够，不需要新表；若真需要 → 停下报人工）。
 - 不改现有 seed catalog / 发布包成员，只新增。
 - `.env.local` 密钥不写入任何文件。

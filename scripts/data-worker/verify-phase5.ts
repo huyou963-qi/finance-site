@@ -15,7 +15,7 @@ import {
   mergedUsovFredMap,
   USOV_FRED_PHASE5_EXTRA,
 } from "../../src/lib/data/scheduler/usovFredMap";
-import { USOV_COMPOSITE_FRED, usovCompositeSpec } from "../../src/lib/data/scheduler/usovCompositeFred";
+import { USOV_COMPOSITE_FRED } from "../../src/lib/data/scheduler/usovCompositeFred";
 import { RETIRED_USOV_CODES } from "../../src/lib/data/usOverviewStandardSeries";
 
 loadEnvConfig(process.cwd());
@@ -32,9 +32,10 @@ async function main() {
     console.error(`  ✗ 已退役序列仍有 FRED 映射：${retiredMapped.join(", ")}`);
     errors++;
   }
-  if (usovCompositeSpec("usov_c12_2y_effr")?.kind === "spread") {
-    console.log("  ✓ 复合 spread 识别");
+  if (Object.keys(USOV_COMPOSITE_FRED).length === 0) {
+    console.log("  ✓ usov 无库内复合序列（二次指标走指标运算）");
   } else {
+    console.error(`  ✗ usov 仍有库内复合：${Object.keys(USOV_COMPOSITE_FRED).join(", ")}`);
     errors++;
   }
   const autoCount =

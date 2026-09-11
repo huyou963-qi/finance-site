@@ -99,23 +99,11 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
   },
   // goldov_c02_london_gold 已改由行情接口 GC=F 续接（用户确认口径变更），见 seed-yahoo-gold-prices.ts
   {
-    code: "goldov_c09_etf_holding",
-    method: "derived_upstream_endpoint_required",
-    methodLabel: "六只 legacy 黄金 ETF 合计的常衡盎司换算（PHAU 月表接入待授权会话）",
-    message: "已复原为 c25 × 35.2739619495804 / 1000；legacy 标签虽写盎司，实际为常衡盎司。六只上游均已接通，但 PHAU 是月频，只有六只严格同一官方 as-of 日期时才允许刷新聚合。",
-  },
-  {
     code: "goldov_c23_comex_stock_oz",
     method: "licensed_cme_report_feed",
     methodLabel: "CME Gold Stocks 授权报告/数据源",
     officialUrl: "https://www.cmegroup.com/solutions/clearing/operations-and-deliveries/nymex-delivery-notices.html",
     message: "精确口径为 CME Gold Stocks；网站数据条款明确禁止脚本抓取，需取得报告/API 许可。",
-  },
-  {
-    code: "goldov_c25_etf_holding_tons",
-    method: "derived_upstream_endpoint_required",
-    methodLabel: "六只 legacy 黄金 ETF 吨数合计（PHAU 月表接入待授权会话）",
-    message: "已复原为 c17+c18+c19+c20+c21+c22；4039 个重叠日最大差 0.02 吨。六只上游均已接通，但 PHAU 是月频；禁止前向填充，只有六只严格同一官方 as-of 日期时才刷新。",
   },
   {
     code: "goldov_c27_brent",
@@ -129,16 +117,11 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
 /** 已由其他美元指数覆盖的 legacy 工作簿序列；部署时幂等清理并留下 tombstone。 */
 const RETIRED_SERIES = ["goldov_c26_dxy"] as const;
 
-const DERIVED_SERIES: ReadonlyArray<{ code: string; formula: string }> = [
-  { code: "goldov_c03_basis", formula: "goldov_c01_comex_active - goldov_c02_london_gold" },
-  { code: "goldov_c07_comex_stock", formula: "goldov_c23_comex_stock_oz / 1000000" },
-  { code: "goldov_c08_comex_stock_wow", formula: "goldov_c07_comex_stock(t) - goldov_c07_comex_stock(t-1)" },
-  { code: "goldov_c09_etf_holding", formula: "goldov_c25_etf_holding_tons * 35.2739619495804 / 1000" },
-  { code: "goldov_c10_etf_holding_wow", formula: "goldov_c09_etf_holding(t) - goldov_c09_etf_holding(t-1)" },
-  { code: "goldov_c11_global_reserve", formula: "goldov_c24_global_reserve_tons * 35.2739619495804 / 1000" },
-  { code: "goldov_c16_etf_tons_wow", formula: "goldov_c25_etf_holding_tons(t) - goldov_c25_etf_holding_tons(t-1)" },
-  { code: "goldov_c25_etf_holding_tons", formula: "goldov_c17_spdr_etf + goldov_c18_ishares_etf + goldov_c19_gbs_etf + goldov_c20_phau_etf + goldov_c21_sgbs_etf + goldov_c22_gold_etf" },
-];
+/**
+ * 宏观数据库约束：库内不存派生列。原 c03/c07/c08/c09/c10/c11/c16/c25 已退役（retiredIndicators.ts），
+ * 期现差、库存环比等改在黄金模板「指标运算」中实现。勿再新增。
+ */
+const DERIVED_SERIES: ReadonlyArray<{ code: string; formula: string }> = [];
 
 function existingMetadata(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata)
@@ -386,13 +369,6 @@ async function seedImfOfficialGoldReserves() {
       sourceSeriesKey: `${IMF_IL_GOLD_KEY}:metric_tons`,
       transform: "metric_tons",
       message: "IMF IL 官方 World (G001) Gold reserves volume；原始 fine troy ounces 按 32,150.74656862798 盎司/吨换算。",
-    },
-    {
-      code: "goldov_c11_global_reserve",
-      unit: "百万盎司",
-      sourceSeriesKey: `${IMF_IL_GOLD_KEY}:legacy_avoirdupois_million_ounces`,
-      transform: "legacy_avoirdupois_million_ounces",
-      message: "严格由 c24 × 35.2739619495804 / 1,000 派生，保留 legacy 常衡盎司口径。",
     },
   ] as const;
   const rule = { type: "probe_interval" as const, intervalHours: 72 };

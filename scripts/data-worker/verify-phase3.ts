@@ -24,8 +24,8 @@ async function main() {
     console.error("  ✗ YoY 计算异常", yoy);
     errors++;
   }
-  if (fredTransformForInstrument("example_cpi_yoy") === "yoy_pct") {
-    console.log("  ✓ code 后缀 _yoy 识别");
+  if (fredTransformForInstrument("example_cpi_yoy") === "none") {
+    console.log("  ✓ 调度器不再对 _yoy 代码做库内同比（二次指标走指标运算）");
   } else {
     errors++;
   }

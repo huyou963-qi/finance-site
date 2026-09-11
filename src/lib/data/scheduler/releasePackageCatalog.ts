@@ -837,9 +837,6 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
         "treasury_mts_m09_outlay_medicare",
         "treasury_mts_m09_mandatory_proxy",
         "treasury_mts_m09_discretionary_proxy",
-        "fiscal_individual_tax_share_receipts",
-        "fiscal_net_interest_share_outlays",
-        "fiscal_ss_medicare_share_outlays",
       ],
     },
   }),
@@ -881,7 +878,6 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
         "FYGFGDQ188S",
         "GFDEGDQ188S",
       ],
-      instrumentCodes: ["fiscal_primary_deficit_gdp", "fiscal_interest_share_outlays_annual"],
     },
   }),
   pkg("us.bea.personal_income", "美国个人收入与支出", {
@@ -1117,7 +1113,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 72,
     sortOrder: 243,
     members: {
-      instrumentCodes: ["goldov_c24_global_reserve_tons", "goldov_c11_global_reserve"],
+      instrumentCodes: ["goldov_c24_global_reserve_tons"],
     },
   }),
   probePkg("cn.pbc.monetary-credit", "中国人民银行货币与信用", {

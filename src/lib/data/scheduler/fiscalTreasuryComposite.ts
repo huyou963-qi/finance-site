@@ -7,26 +7,11 @@ export type TreasuryCompositeSpec =
   | { kind: "ratio"; numCode: string; denCode: string; scalePercent?: boolean }
   | { kind: "ratio_sum"; numCodes: string[]; denCode: string; scalePercent?: boolean };
 
-export const FISCAL_TREASURY_COMPOSITE: Record<string, TreasuryCompositeSpec> = {
-  fiscal_individual_tax_share_receipts: {
-    kind: "ratio",
-    numCode: "treasury_mts_m09_rcpt_individual",
-    denCode: "treasury_mts_m01_receipts",
-    scalePercent: true,
-  },
-  fiscal_net_interest_share_outlays: {
-    kind: "ratio",
-    numCode: "treasury_mts_m09_outlay_interest",
-    denCode: "treasury_mts_m01_outlays",
-    scalePercent: true,
-  },
-  fiscal_ss_medicare_share_outlays: {
-    kind: "ratio_sum",
-    numCodes: ["treasury_mts_m09_outlay_social_security", "treasury_mts_m09_outlay_medicare"],
-    denCode: "treasury_mts_m01_outlays",
-    scalePercent: true,
-  },
-};
+/**
+ * 宏观数据库约束：库内不存二次计算指标。原个税/净利息/社保+医保占比已退役，
+ * 需要时在模板「指标运算」中由 MTS 基础序列计算。勿再新增。
+ */
+export const FISCAL_TREASURY_COMPOSITE: Record<string, TreasuryCompositeSpec> = {};
 
 export function fiscalTreasuryCompositeSpec(instrumentCode: string): TreasuryCompositeSpec | null {
   return FISCAL_TREASURY_COMPOSITE[instrumentCode] ?? null;
@@ -43,39 +28,7 @@ export type FiscalTreasuryCompositeSeedRow = {
   sourceUpdateNote: string;
 };
 
-export const FISCAL_TREASURY_COMPOSITE_SERIES: readonly FiscalTreasuryCompositeSeedRow[] = [
-  {
-    code: "fiscal_individual_tax_share_receipts",
-    roleId: "us-receipts-individual-share",
-    name: "个人所得税占联邦收入比例（月）",
-    displayName: "个人所得税占联邦收入比例（月）",
-    freqLabel: "月",
-    granularity: "MONTHLY",
-    unit: "%",
-    sourceUpdateNote: "Treasury 复合：MTS Table 9 个税 / Table 1 总收入 × 100",
-  },
-  {
-    code: "fiscal_net_interest_share_outlays",
-    roleId: "us-outlays-net-interest-share",
-    name: "净利息占联邦支出比例（月）",
-    displayName: "净利息占联邦支出比例（月）",
-    freqLabel: "月",
-    granularity: "MONTHLY",
-    unit: "%",
-    sourceUpdateNote: "Treasury 复合：MTS Table 9 净利息 / Table 1 总支出 × 100",
-  },
-  {
-    code: "fiscal_ss_medicare_share_outlays",
-    roleId: "us-outlays-ss-medicare-share",
-    name: "社保+医保占联邦支出比例（月）",
-    displayName: "社保+医保占联邦支出比例（月）",
-    freqLabel: "月",
-    granularity: "MONTHLY",
-    unit: "%",
-    sourceUpdateNote:
-      "Treasury 复合：(MTS Table 9 社保 + 医保) / Table 1 总支出 × 100",
-  },
-] as const;
+export const FISCAL_TREASURY_COMPOSITE_SERIES: readonly FiscalTreasuryCompositeSeedRow[] = [];
 
 function sourceKeyForInstrumentCode(code: string): string {
   const row = TREASURY_FISCAL_SERIES.find((r) => r.code === code);

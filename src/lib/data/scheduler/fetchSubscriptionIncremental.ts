@@ -344,10 +344,8 @@ export async function fetchSubscriptionIncremental(
     }
     if (sub.sourceId === "imf-il") {
       const { fetchImfIlGoldIncremental } = await import("./adapters/imfIlGoldAdapter");
-      const transform = sub.instrument.code === "goldov_c11_global_reserve"
-        ? "legacy_avoirdupois_million_ounces"
-        : "metric_tons";
-      return fetchImfIlGoldIncremental(fetchStart, transform);
+      // 只存 IMF 原始量的公吨规整值；原 c11「百万常衡盎司」换算已退役（二次指标走指标运算）
+      return fetchImfIlGoldIncremental(fetchStart, "metric_tons");
     }
     return fetchBisIncremental(sub.sourceSeriesKey, fetchStart);
   }

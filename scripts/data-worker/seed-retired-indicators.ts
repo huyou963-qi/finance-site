@@ -1,20 +1,18 @@
 /**
- * 退役 US_Overview 不合规 xlsx 序列（幂等；部署时随 data:apply 执行）
+ * 退役不合规 / 计算型指标（幂等；部署时随 data:apply 执行）
  *
- * npm run data:seed -- --catalog=usov-retire [-- --dry-run]
+ * npm run data:seed -- --catalog=retired-indicators [-- --dry-run]
  *
- * 对 RETIRED_USOV_CODES 逐条执行与管理端「删除指标」（/api/admin/catalog-layout/item）相同的清理：
+ * 宏观数据库约束：库里只存有明确来源、稳定更新方式的标准基础数据；二次计算指标在指标运算中实现。
+ * 对 RETIRED_INDICATOR_CODES 逐条执行与管理端「删除指标」（/api/admin/catalog-layout/item）相同的清理：
  * 写 tombstone → 删抓取记录、发布包成员、订阅、仪器（级联删除观测与版本账本）→ 布局去幽灵引用。
- * 另把系统模板覆盖与用户工作区/模板里的旧键替换为标准指标（usOverviewStandardSeries.ts）。
+ * 另把系统模板覆盖与用户工作区/模板里的旧键替换为标准指标或指标运算（retiredIndicators.ts）。
  */
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 import { Prisma, PrismaClient } from "@prisma/client";
-import {
-  RETIRED_USOV_CODES,
-  rewriteRetiredUsovKeys,
-} from "../../src/lib/data/usOverviewStandardSeries";
+import { RETIRED_INDICATOR_CODES, rewriteRetiredKeys } from "../../src/lib/data/retiredIndicators";
 import { buildBaseCatalogCountries, clearFredCatalogCache } from "../../src/lib/data/fredCatalog";
 import {
   loadMacroCatalogLayout,
@@ -23,7 +21,7 @@ import {
 } from "../../src/lib/data/catalogLayout";
 
 const prisma = new PrismaClient();
-const ACTOR = "data:seed-usov-retire";
+const ACTOR = "data:seed-retired-indicators";
 
 type JsonObject = Record<string, unknown>;
 
@@ -32,21 +30,21 @@ function isObject(value: unknown): value is JsonObject {
 }
 
 async function retireInstruments(dryRun: boolean) {
-  for (const code of RETIRED_USOV_CODES) {
+  for (const code of RETIRED_INDICATOR_CODES) {
     const key = `mds:${code}`;
     const instrument = await prisma.instrument.findUnique({ where: { code }, select: { id: true } });
     const obs = instrument
       ? await prisma.macroObservation.count({ where: { instrumentId: instrument.id } })
       : 0;
     if (dryRun) {
-      console.log(`  ~ ${code}${instrument ? `（${obs} 条观测）` : "（已不存在）"}`);
+      if (instrument) console.log(`  ~ ${code}（${obs} 条观测）`);
       continue;
     }
     await prisma.$transaction(async (tx) => {
       await tx.macroCatalogExcludedKey.upsert({
         where: { catalogKey: key },
         create: { catalogKey: key, deletedBy: ACTOR },
-        update: { deletedAt: new Date(), deletedBy: ACTOR },
+        update: {},
       });
       if (!instrument) return;
       await tx.fetchRun.deleteMany({ where: { subscription: { instrumentId: instrument.id } } });
@@ -54,7 +52,7 @@ async function retireInstruments(dryRun: boolean) {
       await tx.dataSubscription.deleteMany({ where: { instrumentId: instrument.id } });
       await tx.instrument.delete({ where: { id: instrument.id } });
     });
-    console.log(instrument ? `  ✓ 已退役并删除 ${code}（${obs} 条观测）` : `  · ${code} 已不存在（tombstone 已确认）`);
+    if (instrument) console.log(`  ✓ 已退役并删除 ${code}（${obs} 条观测）`);
   }
 }
 
@@ -63,7 +61,7 @@ function rewriteTemplateList(list: unknown): { value: unknown; changed: boolean 
   let changed = false;
   const value = list.map((tpl) => {
     if (!isObject(tpl)) return tpl;
-    const r = rewriteRetiredUsovKeys(tpl);
+    const r = rewriteRetiredKeys(tpl);
     changed ||= r.changed;
     return r.value;
   });
@@ -82,7 +80,7 @@ async function rewriteTemplates(dryRun: boolean) {
           overrides[id] = tpl;
           continue;
         }
-        const r = rewriteRetiredUsovKeys(tpl);
+        const r = rewriteRetiredKeys(tpl);
         if (r.changed) console.log(`  ✓ 系统模板覆盖 ${id} 已替换退役键`);
         changed ||= r.changed;
         overrides[id] = r.value;
@@ -104,7 +102,7 @@ async function rewriteTemplates(dryRun: boolean) {
   const users = await prisma.userMacroChartPrefs.findMany();
   for (const row of users) {
     if (!isObject(row.prefs)) continue;
-    const top = rewriteRetiredUsovKeys(row.prefs as JsonObject);
+    const top = rewriteRetiredKeys(row.prefs as JsonObject);
     const prefs = { ...top.value };
     const templates = rewriteTemplateList(prefs.templates);
     prefs.templates = templates.value;
@@ -130,12 +128,12 @@ async function reconcileLayout(dryRun: boolean) {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  console.log(`[data:seed-usov-retire] 退役 ${RETIRED_USOV_CODES.length} 条 US_Overview xlsx 序列${dryRun ? "（dry-run）" : ""}…`);
+  console.log(`[data:seed-retired-indicators] 退役 ${RETIRED_INDICATOR_CODES.length} 条指标${dryRun ? "（dry-run）" : ""}…`);
   await retireInstruments(dryRun);
-  console.log("[data:seed-usov-retire] 模板替换为标准指标…");
+  console.log("[data:seed-retired-indicators] 模板替换为标准指标 / 指标运算…");
   await rewriteTemplates(dryRun);
   await reconcileLayout(dryRun);
-  console.log("[data:seed-usov-retire] 完成");
+  console.log("[data:seed-retired-indicators] 完成");
 }
 
 main()

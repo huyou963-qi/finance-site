@@ -26,11 +26,13 @@ import {
 } from "@/lib/data/usOverviewLayout";
 import {
   US_OVERVIEW_STANDARD_BY_KEY,
+  US_OVERVIEW_STANDARD_DERIVED,
   US_OVERVIEW_STANDARD_SERIES,
 } from "@/lib/data/usOverviewStandardSeries";
 import { unifiedKeyInAllowlist } from "@/lib/data/fredCatalog";
 import {
   GOLD_ANALYSIS_SERIES,
+  GOLD_ANALYSIS_TEMPLATE_EXTRAS,
   goldAnalysisMdsKey,
 } from "@/lib/data/goldAnalysisLayout";
 import {
@@ -405,13 +407,20 @@ export const BUILTIN_DEBT_CAPACITY_TEMPLATE: MacroChartTemplate = {
 
 /** 黄金分析模板：金价/美元、利率与通胀、管理基金持仓、COMEX 库存、ETF、全球储备 */
 function buildGoldAnalysisSelectedKeys(): string[] {
-  return GOLD_ANALYSIS_SERIES.map((row) => goldAnalysisMdsKey(row.code));
+  return [
+    ...GOLD_ANALYSIS_SERIES.map((row) => goldAnalysisMdsKey(row.code)),
+    // calc: 键由 derivedCalcs 生成，不进已选指标
+    ...GOLD_ANALYSIS_TEMPLATE_EXTRAS.filter((row) => !row.derived).map((row) => row.key),
+  ];
 }
 
 function buildGoldAnalysisSlotAssignment(): MacroSlotAssignment {
   const out: MacroSlotAssignment = {};
   for (const row of GOLD_ANALYSIS_SERIES) {
     out[goldAnalysisMdsKey(row.code)] = row.panel == null ? null : row.panel - 1;
+  }
+  for (const row of GOLD_ANALYSIS_TEMPLATE_EXTRAS) {
+    out[row.key] = row.panel == null ? null : row.panel - 1;
   }
   return out;
 }
@@ -427,6 +436,17 @@ function buildGoldAnalysisVisualMap(): MacroSeriesVisualConfigMap {
       ...(row.stackGroup ? { stackGroup: row.stackGroup } : {}),
     };
   }
+  for (const row of GOLD_ANALYSIS_TEMPLATE_EXTRAS) {
+    out[row.key] = { axis: row.axis, chartType: row.chartType, color: row.color, showEndLabel: true };
+  }
+  return out;
+}
+
+function buildGoldAnalysisCalcConfigMap(): MacroSeriesCalcConfigMap {
+  const out: MacroSeriesCalcConfigMap = {};
+  for (const row of GOLD_ANALYSIS_TEMPLATE_EXTRAS) {
+    if (row.calc) out[row.key] = row.calc;
+  }
   return out;
 }
 
@@ -439,6 +459,8 @@ export const BUILTIN_GOLD_ANALYSIS_TEMPLATE: MacroChartTemplate = {
   layoutMode: 6,
   slotAssignment: buildGoldAnalysisSlotAssignment(),
   seriesVisualMap: buildGoldAnalysisVisualMap(),
+  seriesCalcConfigMap: buildGoldAnalysisCalcConfigMap(),
+  derivedCalcs: GOLD_ANALYSIS_TEMPLATE_EXTRAS.flatMap((row) => (row.derived ? [row.derived] : [])),
   displayConfig: {
     ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
     legendPosition: "bottom",
@@ -535,10 +557,19 @@ function usOverviewDefForKey(key: string) {
   return US_OVERVIEW_STANDARD_BY_KEY.get(key) ?? (code ? US_OVERVIEW_BY_CODE.get(code) : undefined);
 }
 
+/** 输入序列都在模板内时才启用的指标运算（SPX/GLD、Fed 净流动性、2年-EFFR） */
+function usOverviewDerivedFor(keys: string[]) {
+  const set = new Set(keys);
+  return US_OVERVIEW_STANDARD_DERIVED.filter((d) => set.has(d.calc.leftKey) && set.has(d.calc.rightKey));
+}
+
 function buildUsOverviewSlotAssignment(keys: string[]): MacroSlotAssignment {
   const out: MacroSlotAssignment = {};
   for (const key of keys) {
     out[key] = (usOverviewDefForKey(key)?.panel ?? 1) - 1;
+  }
+  for (const d of usOverviewDerivedFor(keys)) {
+    out[`calc:${d.calc.id}`] = d.panel - 1;
   }
   return out;
 }
@@ -554,6 +585,9 @@ function buildUsOverviewVisualMap(keys: string[]): MacroSeriesVisualConfigMap {
       color: def.color,
       showEndLabel: true,
     };
+  }
+  for (const d of usOverviewDerivedFor(keys)) {
+    out[`calc:${d.calc.id}`] = { axis: d.axis, chartType: d.chartType, color: d.color, showEndLabel: true };
   }
   return out;
 }
@@ -709,6 +743,7 @@ export function resolveBuiltinTemplate(
             ...(tpl.seriesCalcConfigMap ?? {}),
             ...buildUsOverviewCalcConfigMap(keys),
           },
+          derivedCalcs: [...(tpl.derivedCalcs ?? []), ...usOverviewDerivedFor(keys).map((d) => d.calc)],
         }
       : {}),
     layoutMode: 6,

@@ -311,6 +311,8 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "FYGFGDQ188S", label: "公众持有债务/GDP（%）", category: "财政", frequency: "季度" },
   { id: "FYFRGDA188S", label: "联邦收入/GDP（%）", category: "财政", frequency: "年" },
   { id: "FYONGDA188S", label: "联邦净支出/GDP（%）", category: "财政", frequency: "年" },
+  // 原 fiscal_fgcec1_yoy（调度器同比）已退役；基础序列入目录，同比在财政模板指标运算中计算
+  { id: "FGCEC1", label: "实际联邦消费支出与总投资（十亿美元）", category: "财政", frequency: "季度" },
   { id: "FYOIGDA188S", label: "联邦利息支出/GDP（%）", category: "财政", frequency: "年" },
   { id: "A091RC1Q027SBEA", label: "联邦利息支出 NIPA（十亿美元，季调年化）", category: "财政", frequency: "季度" },
   { id: "CSUSHPINSA", label: "标普/Case-Shiller 房价指数", category: "固定资产与地产", frequency: "月" },

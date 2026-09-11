@@ -145,22 +145,11 @@ export const FISCAL_FRED_SERIES: readonly FiscalFredSeedRow[] = [
   ),
 ] as const;
 
-/** FGCEC1 同比 % — instrument code 含 _yoy 触发 fredTransform */
-export const FISCAL_FRED_YOY_SERIES: readonly FiscalFredSeedRow[] = [
-  {
-    ...fiscalFredRow(
-      "FGCEC1",
-      "联邦消费支出与总投资同比 %",
-      "us-gov-investment-yoy",
-      "季",
-      "QUARTERLY",
-      "%",
-      "BEA/FRED",
-      "由 FGCEC1 水平值在 worker 内计算 YoY %",
-    ),
-    code: "fiscal_fgcec1_yoy",
-  },
-] as const;
+/**
+ * 宏观数据库约束：库内不存调度器计算的同比。原 fiscal_fgcec1_yoy 已退役，
+ * 财政模板改用 fred:FGCEC1::yoy（指标运算 seriesCalcConfig）。勿再新增。
+ */
+export const FISCAL_FRED_YOY_SERIES: readonly FiscalFredSeedRow[] = [];
 
 export function buildFiscalFredInstrumentMetadata(
   row: FiscalFredSeedRow,

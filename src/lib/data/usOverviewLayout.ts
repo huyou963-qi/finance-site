@@ -43,16 +43,7 @@ export const US_OVERVIEW_SERIES: readonly UsOverviewSeriesDef[] = [
     chartType: "line",
     color: "#5f76b8",
   },
-  {
-    columnIndex: 4,
-    displayName: "SPX/GLD",
-    code: "usov_c04_spx_gld",
-    panel: 1,
-    catalogCategory: "证券市场",
-    axis: "left",
-    chartType: "line",
-    color: "#f2cf67",
-  },
+  // col 4 SPX/GLD、12 2年-EFFR、25–27 国债环比/MA4/净流动性为计算型二次指标，已退役（retiredIndicators.ts）。
   {
     columnIndex: 5,
     displayName: "期货收盘价(连续):COMEX黄金",
@@ -94,16 +85,6 @@ export const US_OVERVIEW_SERIES: readonly UsOverviewSeriesDef[] = [
     chartType: "line",
     color: "#4bc0c8",
   },
-  {
-    columnIndex: 12,
-    displayName: "2年-EFFR",
-    code: "usov_c12_2y_effr",
-    panel: 2,
-    catalogCategory: "利率与债券",
-    axis: "left",
-    chartType: "line",
-    color: "#d75a68",
-  },
   // col 13/16–22/28（GDP、CPI/PCE 同比、失业率、新增非农、标普500 PE）已退役，
   // 由 usOverviewStandardSeries.ts 的标准指标替代；xlsx 重导入不再恢复这些列。
   {
@@ -126,36 +107,6 @@ export const US_OVERVIEW_SERIES: readonly UsOverviewSeriesDef[] = [
     chartType: "line",
     color: "#8f74c8",
   },
-  {
-    columnIndex: 25,
-    displayName: "持有证券:美国国债:环比增加",
-    code: "usov_c25_fed_treasuries_wow",
-    panel: 6,
-    catalogCategory: "银行与货币",
-    axis: "left",
-    chartType: "line",
-    color: "#8f9bab",
-  },
-  {
-    columnIndex: 26,
-    displayName: "持有证券:美国国债:环比增加:MA4",
-    code: "usov_c26_fed_treasuries_wow_ma4",
-    panel: 6,
-    catalogCategory: "银行与货币",
-    axis: "left",
-    chartType: "line",
-    color: "#6bcad1",
-  },
-  {
-    columnIndex: 27,
-    displayName: "Fed Net Liqudity",
-    code: "usov_c27_fed_net_liquidity",
-    panel: 1,
-    catalogCategory: "银行与货币",
-    axis: "left",
-    chartType: "line",
-    color: "#61dbe1",
-  },
 ] as const;
 
 export const US_OVERVIEW_BY_CODE = new Map(US_OVERVIEW_SERIES.map((row) => [row.code, row]));
@@ -176,11 +127,7 @@ export function normalizeUsOverviewName(name: string): string {
 export function matchUsOverviewHeader(headerName: string, def: UsOverviewSeriesDef): boolean {
   const h = normalizeUsOverviewName(headerName);
   const d = normalizeUsOverviewName(def.displayName);
-  if (h === d) return true;
-  if (def.code === "usov_c27_fed_net_liquidity") {
-    return /fednetliq/i.test(h.replace(/[^a-z0-9]/gi, ""));
-  }
-  return false;
+  return h === d;
 }
 
 export function usOverviewMdsKey(code: string): string {

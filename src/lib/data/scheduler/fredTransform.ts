@@ -2,9 +2,12 @@ import type { ObservationPoint } from "./types";
 
 export type FredSeriesTransform = "none" | "yoy_pct" | "mom_pct";
 
-/** usov 等 code 后缀 → 同比变换 */
+/**
+ * 宏观数据库约束：库内只存 FRED 原始值，调度器不再按 code 后缀做同比等二次计算
+ * （原 usov_*_yoy / fiscal_fgcec1_yoy 已退役）。同比一律在指标运算 seriesCalcConfig 中实现。
+ */
 export function fredTransformForInstrument(code: string): FredSeriesTransform {
-  if (/_yoy(_sa)?$/i.test(code) || code.includes("_yoy_")) return "yoy_pct";
+  void code;
   return "none";
 }
 
