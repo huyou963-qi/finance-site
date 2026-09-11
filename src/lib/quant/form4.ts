@@ -130,7 +130,6 @@ export function parseForm4Xml(xml: string): Form4Transaction[] {
     const planText = footnotes.join(" ");
     const explicitPlan = /(?:pursuant to|under|in accordance with)[\s\S]{0,100}(?:10b5-1|10b5–1)/i.test(planText);
     const explicitNotPlan = /(?:not (?:made |executed )?pursuant to|not under)[\s\S]{0,80}10b5-1/i.test(planText);
-    const planDateMatch = planText.match(/(?:adopted|entered into|established)(?: on)?\s+([A-Z][a-z]+ \d{1,2},? \d{4}|\d{4}-\d{2}-\d{2})/);
     const formFlag = root.aff10b5One ?? root.aff10B5One;
     const direction = pluckValue(ownershipNature?.directOrIndirectOwnership);
     out.push({
@@ -140,7 +139,7 @@ export function parseForm4Xml(xml: string): Form4Transaction[] {
         remarks: pluckValue(root.remarks) ?? "",
         formPlan: formFlag == null ? null : pluckFlag(formFlag),
         plan: explicitNotPlan ? false : explicitPlan ? true : null,
-        planAdoptionDate: planDateMatch ? parseOwnershipDate(planDateMatch[1]) : null,
+        planAdoptionDate: extractPlanAdoptionDate(footnotes),
         derivative: false, underlyingShares: null, underlyingSecurity: null },
       issuerCik,
       issuerSymbol,
@@ -167,13 +166,43 @@ export function collectFootnoteIds(node: unknown): string[] {
   const here = o.footnoteId == null ? [] : toArray(o.footnoteId).map(f => String((f as Record<string, unknown>)["@_id"] ?? ""));
   return [...new Set([...here, ...Object.entries(o).filter(([k]) => k !== "footnoteId").flatMap(([,v]) => collectFootnoteIds(v))])].filter(Boolean);
 }
+// 10b5-1 计划采纳日：2023 修订后 Form 4 勾选 10b5-1 时须披露采纳日，措辞多为
+// "plan adopted by the reporting person on November 20, 2025"——动词与日期之间夹词。
+// 只在提到 10b5-1 / trading plan 的句子里找，且动词到日期之间不许出现其他数字，
+// 避免抓到别处（信托设立日、加权均价区间、计划截止日）的日期。
+const PLAN_DATE = String.raw`\b((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},?\s+\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})\b`;
+const PLAN_GAP = String.raw`(?:10b5[-–‑]1(?:\([a-z0-9]+\))*|[^\d;])`;
+const PLAN_ANCHOR = /10b5[-–‑]\s?1|trading (?:plan|arrangement)/i;
+const ADOPTED_THEN_DATE = new RegExp(String.raw`\b(?:adopted|entered into|established|dated|adoption date)\b${PLAN_GAP}{0,60}?${PLAN_DATE}`, "i");
+const DATE_THEN_ADOPTED = new RegExp(String.raw`\bOn\s+${PLAN_DATE},?[^;]{0,80}?\b(?:adopted|entered into|established)\b`, "i");
+// 修改数量/价格/时点视同终止并采纳新计划（Rule 10b5-1(c)(1)(iv)），10-K/10-Q 按修改日登记。
+const MODIFIED_THEN_DATE = new RegExp(String.raw`\b(?:modified|amended)\b${PLAN_GAP}{0,60}?${PLAN_DATE}`, "gi");
+// 句末句点：后接空白+大写；排除称谓/公司后缀/单字母缩写（Mr. / Inc. / L.P. / Michael N.）。月份缩写后接数字，不受影响。
+const SENTENCE_BREAK = /(?<!\b(?:Mr|Mrs|Ms|Dr|Inc|Corp|Co|Ltd|Jr|Sr|No|[A-Z]))\.(?=\s+[A-Z("])|;/;
+
+export function extractPlanAdoptionDate(footnotes: string[]): string | null {
+  for (const sentence of footnotes.flatMap(f => f.split(SENTENCE_BREAK))) {
+    if (!PLAN_ANCHOR.test(sentence)) continue;
+    const match = ADOPTED_THEN_DATE.exec(sentence) ?? DATE_THEN_ADOPTED.exec(sentence);
+    const adopted = match ? parseOwnershipDate(match[1]) : null;
+    if (!match || !adopted) continue;
+    const rest = sentence.slice(match.index + match[0].length);
+    const modified = [...rest.matchAll(MODIFIED_THEN_DATE)].map(m => parseOwnershipDate(m[1])).filter((d): d is string => !!d && d >= adopted);
+    return modified.at(-1) ?? adopted;
+  }
+  return null;
+}
+
 export function parseOwnershipDate(raw: string): string | null {
   const text = raw.trim().replace(/^On /i, "");
-  const iso = /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
-  const match = /^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/.exec(text);
+  const named = /^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(text);
+  const numeric = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text); // 美式 M/D/YYYY
   const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
-  const month = match ? months.findIndex(m=>m===match[1].toLowerCase() || m.slice(0,3)===match[1].toLowerCase()) : -1;
-  const day = iso ?? (match && month>=0 ? `${match[3]}-${String(month+1).padStart(2,"0")}-${match[2].padStart(2,"0")}` : null);
+  const month = named && named[1].length>=3 ? months.findIndex(m=>m.startsWith(named[1].toLowerCase())) : -1;
+  const pad = (v: string | number) => String(v).padStart(2,"0");
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(text) ? text
+    : named && month>=0 ? `${named[3]}-${pad(month+1)}-${pad(named[2])}`
+    : numeric ? `${numeric[3]}-${pad(numeric[1])}-${pad(numeric[2])}` : null;
   return day && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0,10)===day ? day : null;
 }
 /** Forms 3/4/5 holdings share the exact Table I parser and retain account footnotes. */
