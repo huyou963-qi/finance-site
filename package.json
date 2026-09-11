@@ -264,6 +264,7 @@
     "quant:verify-timing": "dotenv -e .env.local -- tsx scripts/quant/verify-timing.ts",
     "pack:company-milestone": "node scripts/pack-company-milestone.mjs",
     "articles:import": "dotenv -e .env.local -- tsx scripts/articles/import-article.ts",
+    "seo:baidu-push": "dotenv -e .env.local -- tsx scripts/seo/baidu-push-sitemap.ts",
     "test": "node scripts/test/run-test-suite.mjs --scope=all",
     "test:unit": "node scripts/test/run-test-suite.mjs --scope=unit",
     "test:architecture": "node scripts/test/run-test-suite.mjs --scope=architecture",

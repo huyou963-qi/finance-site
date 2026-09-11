@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api/eventAuth";
 import {
   deleteArticle,
   getArticleById,
   updateArticle,
 } from "@/lib/articles/articleStore";
+import { pushPublishedArticle } from "@/lib/seo/baiduPush";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -36,6 +37,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     await requireAdmin(req);
     const article = await updateArticle((await context.params).id, await req.json());
     if (!article) return NextResponse.json({ error: "文章不存在" }, { status: 404 });
+    if (article.status === "published") after(() => pushPublishedArticle(article.slug));
     return NextResponse.json({ article });
   } catch (error) {
     return errorResponse(error);

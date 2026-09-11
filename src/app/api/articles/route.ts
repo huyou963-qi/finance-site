@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api/eventAuth";
 import { createArticle, listArticles } from "@/lib/articles/articleStore";
+import { pushPublishedArticle } from "@/lib/seo/baiduPush";
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "文章操作失败";
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin(req);
     const article = await createArticle(await req.json(), admin.id);
+    if (article.status === "published") after(() => pushPublishedArticle(article.slug));
     return NextResponse.json({ article }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
