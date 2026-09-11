@@ -13,6 +13,12 @@ import { isDay } from "./ownershipReviewValidation";
 const OWNERSHIP_FORMS = new Set(["3","3/A","4","4/A","5","5/A"]);
 const PLAN_FORMS = new Set(["10-Q","10-Q/A","10-K","10-K/A"]);
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+/**
+ * 解析器语义变更时递增：缓存版本不符的申报会在下次同步时重解析。Form 3/4/5 用缓存的 rawXml
+ * 本地重跑、不访问 SEC；10-Q/10-K 计划披露不存 rawXml，会重新抓取。
+ * 6：10b5-1 计划采纳日支持动词与日期间夹词（"adopted by the reporting person on …"）及修改日。
+ */
+const PARSER_VERSION = 6;
 
 /**
  * 这份申报确实挂在本公司 CIK 下，但发行人是另一家公司——不是解析失败。
@@ -40,7 +46,7 @@ export async function ingestOwnershipDocument(ctx: { cik: string; symbol: string
   if (rows.some(t=>Number(t.issuerCik)!==Number(ctx.cik))) throw new ForeignIssuerFilingError();
   const derivativeRows = isOwnership ? parseDerivativeTransactions(text) : [];
   const document: OwnershipDocument & { derivativeRows: typeof derivativeRows } = {
-    version:2,parserVersion:5,sourceHash:createHash("sha256").update(text).digest("hex"),sourceUrl,parsedAt:new Date().toISOString(),
+    version:2,parserVersion:PARSER_VERSION,sourceHash:createHash("sha256").update(text).digest("hex"),sourceUrl,parsedAt:new Date().toISOString(),
     holdings:isOwnership ? parseOwnershipHoldings(text) : [], plans:isOwnership ? [] : parseTradingPlans(text,sourceUrl,ctx.filedAt),
     warnings:[], derivativeRows, ...(isOwnership ? {rawXml:text} : {}),
   };
@@ -76,7 +82,7 @@ export async function syncOwnershipSymbol(symbol: string, options: { since: stri
     for (const row of targets) {
       const filing = await writeSecFilingIndex(cik,symbol,row);
       const cached = filing.ownershipData as unknown as OwnershipDocument | null;
-      if (cached?.version===2 && cached.parserVersion===5 && !options.force) { coverage.parsed++; continue; }
+      if (cached?.version===2 && cached.parserVersion===PARSER_VERSION && !options.force) { coverage.parsed++; continue; }
       try {
         const text = cached?.rawXml && !options.force ? cached.rawXml : await fetchSecText(secDocumentUrl(cik,row.accession,row.primaryDocument,OWNERSHIP_FORMS.has(row.form)));
         await ingestOwnershipDocument({cik,symbol,...row},text);
