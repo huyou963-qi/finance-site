@@ -7,6 +7,12 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-estat-labor": { script: "seed-jp-estat-labor", labelZh: "日本e-Stat劳动力调查" },
+  "jp-estat-cpi": { script: "seed-jp-estat-cpi", labelZh: "日本e-Stat全国与东京CPI" },
+  "jp-meti-iip": { script: "seed-jp-meti-iip", labelZh: "日本工业生产与库存" },
+  "jp-esri-gdp": { script: "seed-jp-esri-gdp", labelZh: "日本季度GDP" },
+  "jp-boj-macro": { script: "seed-jp-boj-macro", labelZh: "日本银行宏观统计" },
+  "japan-mof-jgb": { script: "seed-japan-mof-jgb", labelZh: "日本财务省国债收益率" },
   p0: { script: "seed-p0", labelZh: "P0 试点（机构 + 10 条 FRED）" },
   "release-packages": { script: "seed-release-packages", labelZh: "发布包目录与成员链接" },
   phase2: { script: "seed-phase2", labelZh: "Phase 2 扩展订阅" },
@@ -104,6 +110,12 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-estat-labor": { script: "verify-jp-estat-labor", labelZh: "日本e-Stat劳动力调查自检", verifyNeedsDb: true },
+  "jp-estat-cpi": { script: "verify-jp-estat-cpi", labelZh: "日本e-Stat全国与东京CPI自检", verifyNeedsDb: true },
+  "jp-meti-iip": { script: "verify-jp-meti-iip", labelZh: "日本工业生产与库存自检", verifyNeedsDb: true },
+  "jp-esri-gdp": { script: "verify-jp-esri-gdp", labelZh: "日本季度GDP自检", verifyNeedsDb: true },
+  "jp-boj-macro": { script: "verify-jp-boj-macro", labelZh: "日本银行宏观统计自检", verifyNeedsDb: true },
+  "japan-mof-jgb": { script: "verify-japan-mof-jgb", labelZh: "日本财务省国债收益率自检", verifyNeedsDb: true },
   catalog: { script: "verify-catalog", labelZh: "目录获取方式自检", verifyNeedsDb: true },
   phase1: { script: "verify-phase1", labelZh: "Phase 1 自检" },
   phase2: { script: "verify-phase2", labelZh: "Phase 2 自检" },

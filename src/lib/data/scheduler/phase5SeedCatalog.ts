@@ -23,9 +23,14 @@ export const PHASE5_DATA_SOURCES = {
     name: "日本 e-Stat API",
     adapterKind: SourceAdapterKind.REST_API,
     baseUrl: "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData",
-    termsUrl: "https://www.e-stat.go.jp/api/",
+    termsUrl: "https://www.e-stat.go.jp/api/en/terms-of-use",
     rateLimit: { minIntervalMs: 1200 },
-    metadata: { requiresEnv: "ESTAT_APP_ID" },
+    metadata: {
+      requiresEnv: "ESTAT_APP_ID",
+      publicServiceCreditRequired: true,
+      publicServiceCredit: "This service uses API functions from e-Stat, however its contents are not guaranteed by government.",
+      creditUrl: "https://www.e-stat.go.jp/api/en/api-info/credit/",
+    },
   },
 } as const;
 

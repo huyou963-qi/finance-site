@@ -63,8 +63,24 @@ export async function fetchSubscriptionIncremental(
 
   if (sub.source.adapterKind === SourceAdapterKind.REST_API) {
     await sleep(minIntervalMs(sub.source));
+    if (sub.source.id === "boj-time-series") {
+      const { fetchBojIncremental } = await import("./adapters/bojAdapter");
+      return fetchBojIncremental(sub.instrument.code);
+    }
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
     if (scrapeObj) {
+      if (scrapeObj.provider === "jp_meti_iip") {
+        const { fetchJpMetiIipIncremental } = await import("./adapters/jpMetiIipAdapter");
+        return fetchJpMetiIipIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
+      if (scrapeObj.provider === "jp_esri_gdp") {
+        const { fetchJpEsriGdpIncremental } = await import("./adapters/jpEsriGdpAdapter");
+        return fetchJpEsriGdpIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
+      if (scrapeObj.provider === "japan_mof_jgb") {
+        const { fetchJapanMofJgbIncremental } = await import("./adapters/japanMofJgbAdapter");
+        return fetchJapanMofJgbIncremental(sub.instrument.code, fetchStart);
+      }
       if (scrapeObj.provider === "ism_official") {
         const { fetchIsmOfficialIncremental } = await import(
           "./adapters/ismOfficialAdapter"
@@ -302,7 +318,7 @@ export async function fetchSubscriptionIncremental(
     }
     if (sub.sourceId === "estat-jp") {
       const { fetchEStatIncremental } = await import("./adapters/eStatAdapter");
-      return fetchEStatIncremental(sub.sourceSeriesKey, fetchStart);
+      return fetchEStatIncremental(sub.sourceSeriesKey, fetchStart, sub.instrument.metadata);
     }
     if (sub.sourceId === "treasury-fiscal-data") {
       const { fiscalTreasuryCompositeSpec, fetchTreasuryCompositeIncremental } = await import(

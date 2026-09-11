@@ -4,6 +4,7 @@ import { buildUsCatalogLayoutCountry } from "./buildUsCatalogLayout";
 import type { CatalogLayoutCategory, CatalogLayoutCountry } from "./catalogLayout";
 import type { UnifiedCatalogCountry, UnifiedCatalogItem } from "./fredCatalog";
 import { US_CATALOG_TOP_LEVEL, type UsCatalogTopLevel } from "./usCatalogTaxonomy";
+import { BOJ_SERIES } from "./scheduler/boj/catalog";
 
 /** A leaf (a subgroup's direct indicators) must remain scannable in the picker. */
 export const MAX_CATALOG_LEAF_ITEMS = 48;
@@ -67,6 +68,20 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
 
 /** Maps every country's source category into the same top-level taxonomy as the US. */
 export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement {
+  if (item.countryCode === "JP") {
+    const code = item.key.startsWith("mds:") ? item.key.slice(4) : "";
+    if (code.startsWith("jp_estat_lfs_")) return p("劳动力市场", /participation_rate|employment_rate/.test(code) ? "劳动参与率与就业率" : "就业与失业人数");
+    if (code.startsWith("jp_estat_cpi_2025_")) return p("通胀与价格", code.includes("_tokyo_") ? "CPI：东京区部（2025基期）" : "CPI：全国（2025基期）");
+    if (code.startsWith("meti_jp_iip_")) return p("国民经济", "工业生产、出货与库存");
+    if (code.startsWith("esri_jp_gdp_")) {
+      if (code.endsWith("_deflator_sa")) return p("通胀与价格", "GDP平减指数");
+      if (code.endsWith("_real_qoq_sa") || code.endsWith("_real_contribution_sa")) return p("国民经济", "GDP：实际增长与贡献");
+      return p("国民经济", "GDP：支出法季调年率");
+    }
+    const boj = BOJ_SERIES.find((row) => row.instrumentCode === code);
+    if (boj) return p(boj.category, boj.subgroup);
+    if (code.startsWith("mof_jp_jgb_") || /^jpov_c0[678]_/.test(code)) return p("利率与信用市场", "国债收益率曲线");
+  }
   // 来源根目录下仍按九大经济主题展开；这里为跨国/市场数据源补足稳定的业务落点。
   if (item.countryCode === "SRC_CFTC") return p("对外与汇率", "商品期货持仓");
   if (item.countryCode === "SRC_WTO") return p("对外与汇率", "国际贸易与关税");

@@ -39,11 +39,16 @@ async function main() {
   console.log("[verify-phase5] e-Stat 解析");
   const sample = {
     GET_STATS_DATA: {
+      RESULT: { STATUS: 0 },
       STATISTICAL_DATA: {
+        CLASS_INF: { CLASS_OBJ: { "@id": "time", CLASS: [
+          { "@code": "2024000101", "@name": "2024年1月" },
+          { "@code": "2024000202", "@name": "2024年2月" },
+        ] } },
         DATA_INF: {
           VALUE: [
-            { "@time": "202401", $: "102.5" },
-            { "@time": "202402", $: "103.1" },
+            { "@time": "2024000101", $: "102.5" },
+            { "@time": "2024000202", $: "103.1" },
           ],
         },
       },
