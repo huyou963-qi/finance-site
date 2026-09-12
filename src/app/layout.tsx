@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SiteHeaderShell } from "@/components/SiteHeaderShell";
 import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
-import { PageViewTracker } from "@/components/analytics/PageViewTracker";
+import { BaiduPageView } from "@/components/analytics/BaiduPageView";
 import { BaiduTongjiScript } from "@/components/analytics/BaiduTongjiScript";
 import "./globals.css";
 
@@ -32,7 +32,7 @@ export default function RootLayout({
           {children}
         </main>
         <GlobalErrorListeners />
-        <PageViewTracker />
+        <BaiduPageView />
         <BaiduTongjiScript />
       </body>
     </html>

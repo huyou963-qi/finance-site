@@ -174,12 +174,6 @@ function UserMenu({
             active={adminErrorsActive}
             onClick={onClose}
           />
-          <MenuRow
-            label="流量统计"
-            href="/admin/analytics"
-            active={pathname === "/admin/analytics" || pathname.startsWith("/admin/analytics/")}
-            onClick={onClose}
-          />
         </>
       ) : null}
 

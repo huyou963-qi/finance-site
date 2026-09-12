@@ -384,26 +384,6 @@ model ErrorReport {
   @@schema("public")
 }
 
-/// 页面浏览埋点（自建流量统计）。不存 IP；访客 ID 为浏览器 localStorage 随机串。
-model PageView {
-  id           BigInt   @id @default(autoincrement())
-  createdAt    DateTime @default(now()) @map("created_at")
-  path         String   @db.VarChar(300)
-  visitorId    String   @map("visitor_id") @db.VarChar(64)
-  /// 30 分钟无活动即切新会话
-  sessionId    String   @map("session_id") @db.VarChar(64)
-  /// 会话首个页面；来源 referrer 只记在这一行
-  isEntry      Boolean  @default(false) @map("is_entry")
-  referrerHost String?  @map("referrer_host") @db.VarChar(255)
-  /// mobile | tablet | desktop
-  device       String   @db.VarChar(16)
-  userId       String?  @map("user_id")
-
-  @@index([createdAt])
-  @@index([visitorId, createdAt])
-  @@map("page_view")
-  @@schema("public")
-}
 
 enum EventImportance {
   LOW

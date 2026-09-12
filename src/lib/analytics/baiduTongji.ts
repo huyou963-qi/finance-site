@@ -1,8 +1,9 @@
-/**
- * 百度统计站点 ID（hm.js?<32 位 hex>）。NEXT_PUBLIC_ 变量在 next build 时内联，改动后需重新 build。
- * 未配置或格式不对时返回 null，整站不加载百度统计。
- */
-export function baiduTongjiId(): string | null {
-  const id = process.env.NEXT_PUBLIC_BAIDU_TONGJI_ID?.trim();
-  return id && /^[a-f0-9]{32}$/i.test(id) ? id : null;
+/** 百度统计站点 ID：tongji.baidu.com →「代码管理 / 代码获取」里 hm.js? 后面那段。 */
+export const BAIDU_TONGJI_ID = "70717b1e158e3c0cedbe167596f141c6";
+
+/** 后台与接口不计入统计 */
+const EXCLUDED_PREFIXES = ["/admin", "/api"];
+
+export function isTrackedPath(path: string): boolean {
+  return !EXCLUDED_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
