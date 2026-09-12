@@ -1,3 +1,5 @@
+import { checkFeatureAccess } from "@/lib/access/featureAccess";
+import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { UsMacroFrameworkClient } from "@/components/macro-framework/UsMacroFrameworkClient";
 import { INDICATORS } from "@/lib/macro-framework/data";
 import { fetchFrameworkIndicatorsFromDb } from "@/lib/macro-framework/fetchIndicatorsFromDb";
@@ -14,6 +16,12 @@ export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 export default async function MacroFrameworkPage() {
+  const gate = await checkFeatureAccess("macro-framework");
+  if (!gate.allowed) {
+    return (
+      <FeatureLocked featureId="macro-framework" needsPro={gate.needsPro} viewer={gate.viewer} />
+    );
+  }
   let indicators = INDICATORS;
   try {
     const payload = await fetchFrameworkIndicatorsFromDb();

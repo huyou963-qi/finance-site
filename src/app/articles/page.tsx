@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { checkFeatureAccess } from "@/lib/access/featureAccess";
+import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { listArticles } from "@/lib/articles/articleStore";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +16,12 @@ function dateLabel(value: string | null): string {
 }
 
 export default async function ArticlesPage() {
+  const gate = await checkFeatureAccess("articles");
+  if (!gate.allowed) {
+    return (
+      <FeatureLocked featureId="articles" needsPro={gate.needsPro} viewer={gate.viewer} />
+    );
+  }
   const articles = await listArticles();
   return (
     <div className="min-h-full bg-fs-bg px-4 py-8 sm:px-6 lg:px-10">

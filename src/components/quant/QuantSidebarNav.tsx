@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 
 export const QUANT_NAV = [
-  { href: "/quant/regime", label: "Regime" },
-  { href: "/quant/factor-research", label: "因子研究" },
-  { href: "/quant/screener", label: "选股器" },
-  { href: "/quant/backtest", label: "回测" },
-  { href: "/quant/robustness", label: "稳健性" },
+  { href: "/quant/regime", label: "Regime", featureId: "quant-regime" },
+  { href: "/quant/factor-research", label: "因子研究", featureId: "quant-factor-research" },
+  { href: "/quant/screener", label: "选股器", featureId: "quant-screener" },
+  { href: "/quant/backtest", label: "回测", featureId: "quant-backtest" },
+  { href: "/quant/robustness", label: "稳健性", featureId: "quant-robustness" },
 ] as const;
 
 function isNavActive(pathname: string, href: string): boolean {
@@ -17,10 +18,11 @@ function isNavActive(pathname: string, href: string): boolean {
 
 export function QuantSidebarNav() {
   const pathname = usePathname();
+  const features = useVisibleFeatures();
 
   return (
     <nav className="flex flex-col gap-0.5 p-3" aria-label="量化研究分页">
-      {QUANT_NAV.map((item) => {
+      {QUANT_NAV.filter((item) => features.can(item.featureId)).map((item) => {
         const active = isNavActive(pathname, item.href);
         return (
           <Link

@@ -324,6 +324,17 @@ model MacroCatalogLayout {
   @@schema("public")
 }
 
+/// 功能页可见性策略（管理员编辑）；全局单例 id=default。见 src/lib/access/featureCatalog.ts
+model FeatureAccessPolicy {
+  id        String   @id @default("default")
+  policy    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by")
+
+  @@map("feature_access_policy")
+  @@schema("public")
+}
+
 /// 管理员从目录树彻底删除的宏观指标。作为 tombstone 防止静态目录/后续 seed 再次展示或调度该指标。
 model MacroCatalogExcludedKey {
   catalogKey String   @id @map("catalog_key") @db.VarChar(192)

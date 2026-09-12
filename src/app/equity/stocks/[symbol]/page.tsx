@@ -1,11 +1,19 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { checkFeatureAccess } from "@/lib/access/featureAccess";
+import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { loadStockContext } from "@/lib/equity/stockDetail";
 import { StockDetailClient } from "./StockDetailClient";
 
 type Props = { params: Promise<{ symbol: string }> };
 
 export default async function StockDetailPage({ params }: Props) {
+  const gate = await checkFeatureAccess("markets");
+  if (!gate.allowed) {
+    return (
+      <FeatureLocked featureId="markets" needsPro={gate.needsPro} viewer={gate.viewer} />
+    );
+  }
   const { symbol } = await params;
   const stock = await loadStockContext(symbol);
   if (!stock) notFound();

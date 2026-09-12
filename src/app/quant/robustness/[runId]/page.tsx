@@ -1,4 +1,7 @@
+import { FeatureGate } from "@/components/access/FeatureGate";
 import { EquityRobustnessReportClient } from "@/components/equity/EquityRobustnessReportClient";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = { title: "稳健性报告" };
 
@@ -8,5 +11,9 @@ export default async function QuantRobustnessReportPage({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  return <EquityRobustnessReportClient runId={runId} />;
+  return (
+    <FeatureGate featureId="quant-robustness">
+      <EquityRobustnessReportClient runId={runId} />
+    </FeatureGate>
+  );
 }

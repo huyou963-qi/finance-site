@@ -154,6 +154,15 @@ function UserMenu({
             onClick={onClose}
           />
           <MenuRow
+            label="功能页权限"
+            href="/admin/feature-access"
+            active={
+              pathname === "/admin/feature-access" ||
+              pathname.startsWith("/admin/feature-access/")
+            }
+            onClick={onClose}
+          />
+          <MenuRow
             label="订单确认"
             href="/admin/orders"
             active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}

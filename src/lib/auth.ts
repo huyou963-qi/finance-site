@@ -600,6 +600,20 @@ export async function getUserAccessRecord(userId: string) {
   };
 }
 
+/** cookie 名（供 next/headers 的服务端组件读取会话，避免各处硬编码） */
+export const SESSION_COOKIE_NAME = COOKIE_NAME;
+
+/**
+ * 按会话 token 取用户的权限记录（角色 + 套餐 + 试用/到期 + 积分）。
+ * 服务端组件用 `cookies()` 取 token 后调用；无效/过期会话返回 null。
+ */
+export async function getAccessUserByToken(token: string | null | undefined) {
+  if (!token) return null;
+  const session = await prisma.session.findUnique({ where: { token } });
+  if (!session || session.expiresAt.getTime() <= Date.now()) return null;
+  return getUserAccessRecord(session.userId);
+}
+
 export function getSessionToken(req: NextRequest): string | null {
   return req.cookies.get(COOKIE_NAME)?.value ?? null;
 }

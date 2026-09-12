@@ -55,6 +55,12 @@ finance-site/
 - 系统内置模板（全局）→ `SystemMacroChartPrefs`（admin 写入）
 - API：`/api/tools/macro-chart-prefs`
 
+### 功能页权限
+
+- 管理员在 `/admin/feature-access` 配置「普通用户 / Pro 用户」分别能看到哪些功能页；落 `public.feature_access_policy` 单例
+- 目录与判定：`src/lib/access/featureCatalog.ts`（纯函数，有单测）；页面守卫 `<FeatureGate featureId>`；导航过滤 `useVisibleFeatures()`
+- 只控制页面入口，页面内部的 Pro 权益仍走 `requireProUser`；新增功能页需同步登记，详见 [docs/FEATURE_ACCESS.md](./docs/FEATURE_ACCESS.md)
+
 ## 环境变量
 
 复制 `.env.example` → `.env.local`（**勿提交**）。最少需要：

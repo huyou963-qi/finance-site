@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleMarkdown } from "@/components/articles/ArticleMarkdown";
+import { checkFeatureAccess } from "@/lib/access/featureAccess";
+import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { getPublishedArticleBySlug } from "@/lib/articles/articleStore";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +30,12 @@ function dateTime(value: string | null): string {
 }
 
 export default async function ArticleDetailPage({ params }: PageProps) {
+  const gate = await checkFeatureAccess("articles");
+  if (!gate.allowed) {
+    return (
+      <FeatureLocked featureId="articles" needsPro={gate.needsPro} viewer={gate.viewer} />
+    );
+  }
   const article = await getPublishedArticleBySlug((await params).slug);
   if (!article) notFound();
   return (
