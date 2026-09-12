@@ -7,6 +7,8 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-mhlw-monthly-labour": { script: "seed-jp-mhlw-monthly-labour", labelZh: "日本每月勤劳统计工资与工时" },
+  "jp-estat-household": { script: "seed-jp-estat-household", labelZh: "日本e-Stat家计调查" },
   "jp-estat-labor": { script: "seed-jp-estat-labor", labelZh: "日本e-Stat劳动力调查" },
   "jp-estat-cpi": { script: "seed-jp-estat-cpi", labelZh: "日本e-Stat全国与东京CPI" },
   "jp-meti-iip": { script: "seed-jp-meti-iip", labelZh: "日本工业生产与库存" },
@@ -113,6 +115,8 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-mhlw-monthly-labour": { script: "verify-jp-mhlw-monthly-labour", labelZh: "日本每月勤劳统计工资与工时自检", verifyNeedsDb: true },
+  "jp-estat-household": { script: "verify-jp-estat-household", labelZh: "日本e-Stat家计调查自检", verifyNeedsDb: true },
   "jp-estat-labor": { script: "verify-jp-estat-labor", labelZh: "日本e-Stat劳动力调查自检", verifyNeedsDb: true },
   "jp-estat-cpi": { script: "verify-jp-estat-cpi", labelZh: "日本e-Stat全国与东京CPI自检", verifyNeedsDb: true },
   "jp-meti-iip": { script: "verify-jp-meti-iip", labelZh: "日本工业生产与库存自检", verifyNeedsDb: true },

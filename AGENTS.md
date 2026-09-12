@@ -120,7 +120,9 @@ Windows 计划任务建议：每小时 `data:sync-calendar`，每 5 分钟 `data
 
 ## 常用命令
 
-日本 e-Stat API 需服务端 `ESTAT_APP_ID`：`data:seed-jp-estat-cpi` / `data:sync-jp-estat-cpi` / `data:verify-jp-estat-cpi -- --db`；`data:seed-jp-estat-labor` / `data:sync-jp-estat-labor` / `data:verify-jp-estat-labor -- --db`。CPI 使用 2025 基期官方接续指数；劳动力本批从 2018-01 开始，不能与更早人口基准数据硬拼。
+日本 e-Stat API 需服务端 `ESTAT_APP_ID`：`data:seed-jp-estat-cpi` / `data:sync-jp-estat-cpi` / `data:verify-jp-estat-cpi -- --db`；`data:seed-jp-estat-labor` / `data:sync-jp-estat-labor` / `data:verify-jp-estat-labor -- --db`；`data:seed-jp-estat-household` / `data:sync-jp-estat-household` / `data:verify-jp-estat-household -- --db`。CPI 使用 2025 基期官方接续指数；劳动力本批从 2018-01 开始，不能与更早人口基准数据硬拼；家计调查仅保存官方名义、未季调、每户月均金额，日文“实收入”不是实际收入指数。
+
+日本厚生劳动省每月勤劳统计：`data:seed-jp-mhlw-monthly-labour` / `data:sync-jp-mhlw-monthly-labour` / `data:verify-jp-mhlw-monthly-labour -- --db`；走 e-Stat 官方长期时序 Excel，接入调查产业计、5人以上、就业形态计的2020基期工资/工时/常用雇用指数。旧 e-Stat 数据库表已停更，不得用于持续更新；长期表不与最新月速報硬拼。
 
 **日本官方宏观数据（分批接入）**：`data:seed-jp-boj-macro` / `data:sync-jp-boj-macro` / `data:verify-jp-boj-macro -- --db`（BOJ API）；`data:seed-jp-meti-iip` / `data:sync-jp-meti-iip` / `data:verify-jp-meti-iip -- --db`（e-Stat公开METI历史Excel，无需key）；`data:seed-jp-esri-gdp` / `data:sync-jp-esri-gdp` / `data:verify-jp-esri-gdp -- --db`（ESRI季度GDP官方CSV）；`data:seed-japan-mof-jgb` / `data:sync-japan-mof-jgb` / `data:verify-japan-mof-jgb -- --db`（财务省15期限国债曲线，复用原jpov 2年/10年）。均注册统一seed/verify，配发布包和九主题目录；详细范围、修订口径与进度见 [JAPAN_DATA_ONBOARDING_PROGRESS.md](docs/research/JAPAN_DATA_ONBOARDING_PROGRESS.md)。GDP季调年率不得与旧jpov未折年季度金额拼接；BOJ短观2003Q4/2004Q1有官方口径断点；当前版本账本仅证明抓取时点可见，不是历史首发PIT。
 

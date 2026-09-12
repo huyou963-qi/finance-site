@@ -73,6 +73,16 @@ export async function fetchSubscriptionIncremental(
         const { fetchJpMetiIipIncremental } = await import("./adapters/jpMetiIipAdapter");
         return fetchJpMetiIipIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "jp_mhlw_monthly_labour") {
+        const { fetchJpMhlwMonthlyLabourIncremental } = await import(
+          "./adapters/jpMhlwMonthlyLabourAdapter"
+        );
+        return fetchJpMhlwMonthlyLabourIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "jp_esri_gdp") {
         const { fetchJpEsriGdpIncremental } = await import("./adapters/jpEsriGdpAdapter");
         return fetchJpEsriGdpIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);

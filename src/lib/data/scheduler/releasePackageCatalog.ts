@@ -147,6 +147,14 @@ const JOLTS_FRED_IDS = ["JTSJOR", "JTSQUR", "JTSHIR", "JTSJOL"];
  * 勿在 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 新增项。
  */
 export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
+  probePkg("jp.mhlw.monthly_labour", "日本每月勤劳统计", {
+    countryCode: "JP", agencyId: "jp-mhlw", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodePatterns: ["mhlw_jp_mls_*"] },
+  }),
+  probePkg("jp.sbj.household_survey", "日本家计调查", {
+    countryCode: "JP", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodePatterns: ["jp_estat_household_*"] },
+  }),
   probePkg("jp.stat.labor_force", "日本劳动力调查", {
     countryCode: "JP", granularity: "MONTHLY", intervalHours: 24,
     members: { instrumentCodePatterns: ["jp_estat_lfs_*"] },

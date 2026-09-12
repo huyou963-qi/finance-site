@@ -301,7 +301,13 @@
     "data:verify-jp-estat-cpi": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-estat-cpi.ts",
     "data:seed-jp-estat-labor": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-estat-labor.ts",
     "data:sync-jp-estat-labor": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-estat-labor.ts",
-    "data:verify-jp-estat-labor": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-estat-labor.ts"
+    "data:verify-jp-estat-labor": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-estat-labor.ts",
+    "data:seed-jp-estat-household": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-estat-household.ts",
+    "data:sync-jp-estat-household": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-estat-household.ts",
+    "data:verify-jp-estat-household": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-estat-household.ts",
+    "data:seed-jp-mhlw-monthly-labour": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-mhlw-monthly-labour.ts",
+    "data:sync-jp-mhlw-monthly-labour": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-mhlw-monthly-labour.ts",
+    "data:verify-jp-mhlw-monthly-labour": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-mhlw-monthly-labour.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

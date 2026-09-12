@@ -72,6 +72,8 @@ export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalC
     const code = item.key.startsWith("mds:") ? item.key.slice(4) : "";
     if (code.startsWith("jp_estat_lfs_")) return p("劳动力市场", /participation_rate|employment_rate/.test(code) ? "劳动参与率与就业率" : "就业与失业人数");
     if (code.startsWith("jp_estat_cpi_2025_")) return p("通胀与价格", code.includes("_tokyo_") ? "CPI：东京区部（2025基期）" : "CPI：全国（2025基期）");
+    if (code.startsWith("jp_estat_household_")) return p("国民经济", "家庭消费与收入");
+    if (code.startsWith("mhlw_jp_mls_")) return p("劳动力市场", "就业、失业与工资");
     if (code.startsWith("meti_jp_iip_")) return p("国民经济", "工业生产、出货与库存");
     if (code.startsWith("esri_jp_gdp_")) {
       if (code.endsWith("_deflator_sa")) return p("通胀与价格", "GDP平减指数");
