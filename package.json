@@ -319,7 +319,16 @@
     "data:verify-jp-cao-economy-watchers": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-cao-economy-watchers.ts",
     "data:seed-jp-meti-retail": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-meti-retail.ts",
     "data:sync-jp-meti-retail": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-meti-retail.ts",
-    "data:verify-jp-meti-retail": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-meti-retail.ts"
+    "data:verify-jp-meti-retail": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-meti-retail.ts",
+    "data:seed-jp-esri-machinery-orders": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-esri-machinery-orders.ts",
+    "data:sync-jp-esri-machinery-orders": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-esri-machinery-orders.ts",
+    "data:verify-jp-esri-machinery-orders": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-esri-machinery-orders.ts",
+    "data:seed-jp-mof-reserves": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-mof-reserves.ts",
+    "data:sync-jp-mof-reserves": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-mof-reserves.ts",
+    "data:verify-jp-mof-reserves": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-mof-reserves.ts",
+    "data:seed-jp-jnto-visitor-arrivals": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-jnto-visitor-arrivals.ts",
+    "data:sync-jp-jnto-visitor-arrivals": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-jnto-visitor-arrivals.ts",
+    "data:verify-jp-jnto-visitor-arrivals": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-jnto-visitor-arrivals.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -7,6 +7,9 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-jnto-visitor-arrivals": { script: "seed-jp-jnto-visitor-arrivals", labelZh: "日本政府观光局访日外客人数" },
+  "jp-esri-machinery-orders": { script: "seed-jp-esri-machinery-orders", labelZh: "日本内阁府机械订单" },
+  "jp-mof-reserves": { script: "seed-jp-mof-reserves", labelZh: "日本财务省外汇储备" },
   "jp-cao-economy-watchers": { script: "seed-jp-cao-economy-watchers", labelZh: "日本内阁府景气观察者调查" },
   "jp-meti-retail": { script: "seed-jp-meti-retail", labelZh: "日本经济产业省零售销售" },
   "jp-boj-bop": { script: "seed-jp-boj-bop", labelZh: "日本银行国际收支" },
@@ -119,6 +122,9 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-jnto-visitor-arrivals": { script: "verify-jp-jnto-visitor-arrivals", labelZh: "日本政府观光局访日外客人数自检", verifyNeedsDb: true },
+  "jp-esri-machinery-orders": { script: "verify-jp-esri-machinery-orders", labelZh: "日本内阁府机械订单自检", verifyNeedsDb: true },
+  "jp-mof-reserves": { script: "verify-jp-mof-reserves", labelZh: "日本财务省外汇储备自检", verifyNeedsDb: true },
   "jp-cao-economy-watchers": { script: "verify-jp-cao-economy-watchers", labelZh: "日本内阁府景气观察者调查自检", verifyNeedsDb: true },
   "jp-meti-retail": { script: "verify-jp-meti-retail", labelZh: "日本经济产业省零售销售自检", verifyNeedsDb: true },
   "jp-boj-bop": { script: "verify-jp-boj-bop", labelZh: "日本银行国际收支自检", verifyNeedsDb: true },

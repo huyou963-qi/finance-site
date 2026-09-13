@@ -103,6 +103,16 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "jp_esri_machinery_orders") {
+        const { fetchJpEsriMachineryOrdersIncremental } = await import(
+          "./adapters/jpEsriMachineryOrdersAdapter"
+        );
+        return fetchJpEsriMachineryOrdersIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "jp_esri_gdp") {
         const { fetchJpEsriGdpIncremental } = await import("./adapters/jpEsriGdpAdapter");
         return fetchJpEsriGdpIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
@@ -396,6 +406,26 @@ export async function fetchSubscriptionIncremental(
         "./adapters/jpMetiRetailAdapter"
       );
       return fetchJpMetiRetailIncremental(
+        sub.instrument.metadata,
+        sub.instrument.code,
+        fetchStart,
+      );
+    }
+    if (scrapeObj?.provider === "jp_mof_reserves") {
+      const { fetchJpMofReservesIncremental } = await import(
+        "./adapters/jpMofReservesAdapter"
+      );
+      return fetchJpMofReservesIncremental(
+        sub.instrument.metadata,
+        sub.instrument.code,
+        fetchStart,
+      );
+    }
+    if (scrapeObj?.provider === "jp_jnto_visitor_arrivals") {
+      const { fetchJpJntoVisitorArrivalsIncremental } = await import(
+        "./adapters/jpJntoVisitorArrivalsAdapter"
+      );
+      return fetchJpJntoVisitorArrivalsIncremental(
         sub.instrument.metadata,
         sub.instrument.code,
         fetchStart,

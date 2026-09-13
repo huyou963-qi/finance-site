@@ -14,6 +14,9 @@ import { JP_ESRI_CONSUMER_CONFIDENCE_SERIES } from "./scheduler/jpEsriConsumerCo
 import { JP_BOJ_BOP_SERIES } from "./scheduler/bojExternal/catalog";
 import { JP_CAO_WATCHERS_SERIES } from "./scheduler/jpCabinetEconomyWatchers/catalog";
 import { JP_METI_RETAIL_SERIES } from "./scheduler/jpMetiRetail/catalog";
+import { JP_ESRI_MACHINERY_ORDERS_SERIES } from "./scheduler/jpEsriMachineryOrders/catalog";
+import { JP_MOF_RESERVES_SERIES } from "./scheduler/jpMofReserves/catalog";
+import { JP_JNTO_VISITOR_ARRIVALS_SERIES } from "./scheduler/jpJntoVisitorArrivals/catalog";
 
 test("Japan source facts retain economic placement despite ambiguous names", () => {
   const items: UnifiedCatalogItem[] = [
@@ -29,6 +32,9 @@ test("Japan source facts retain economic placement despite ambiguous names", () 
     ...JP_BOJ_BOP_SERIES.map((r) => ({ key: `mds:${r.instrumentCode}`, label: r.displayName, frequency: "月" as const, provider: "mds" as const, countryCode: "JP", categoryName: "对外与汇率" })),
     ...JP_CAO_WATCHERS_SERIES.map((r) => ({ key: `mds:${r.instrumentCode}`, label: r.label, frequency: "月" as const, provider: "mds" as const, countryCode: "JP", categoryName: "国民经济" })),
     ...JP_METI_RETAIL_SERIES.map((r) => ({ key: `mds:${r.instrumentCode}`, label: r.label, frequency: "月" as const, provider: "mds" as const, countryCode: "JP", categoryName: "国民经济" })),
+    ...JP_ESRI_MACHINERY_ORDERS_SERIES.map((r) => ({ key: `mds:${r.instrumentCode}`, label: r.label, frequency: "月" as const, provider: "mds" as const, countryCode: "JP", categoryName: "国民经济" })),
+    ...JP_MOF_RESERVES_SERIES.map((r) => ({ key: `mds:${r.instrumentCode}`, label: r.label, frequency: "月" as const, provider: "mds" as const, countryCode: "JP", categoryName: "对外与汇率" })),
+    ...JP_JNTO_VISITOR_ARRIVALS_SERIES.map((r) => ({ key: `mds:${r.instrumentCode}`, label: r.label, frequency: "月" as const, provider: "mds" as const, countryCode: "JP", categoryName: "对外与汇率" })),
   ];
   // GDP residential investment remains an expenditure account; not housing-market data.
   assert.equal(resolveGlobalCatalogPlacement(items.find((i) => i.key === "mds:esri_jp_gdp_private_residential_real_saar")!).category, "国民经济");
@@ -36,7 +42,7 @@ test("Japan source facts retain economic placement despite ambiguous names", () 
   const country = buildGlobalCatalogLayout([{ code: "JP", name: "日本", categories: [{ name: "source", items }] }])[0]!;
   const leaves = country.categories.flatMap((c) => c.subgroups);
   const keys = leaves.flatMap((s) => s.itemKeys);
-  assert.equal(keys.length, 148);
+  assert.equal(keys.length, 177);
   assert.equal(new Set(keys).size, keys.length);
   assert(leaves.every((s) => s.itemKeys.length <= 48 && /（[月季日]频）$/.test(s.name)));
   assert(country.categories.every((c) => c.itemKeys.length === 0));

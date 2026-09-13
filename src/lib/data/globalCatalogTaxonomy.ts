@@ -77,6 +77,9 @@ export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalC
     if (code.startsWith("esri_jp_consumer_conf_") || code === "jpov_c15_consumer_conf_sa") return p("国民经济", "消费者信心");
     if (code.startsWith("cao_jp_watchers_")) return p("国民经济", "景气调查");
     if (code.startsWith("meti_jp_retail_")) return p("国民经济", "零售销售");
+    if (code.startsWith("esri_jp_machinery_orders_")) return p("国民经济", "设备投资与机械订单");
+    if (code.startsWith("mof_jp_reserves_")) return p("对外与汇率", "外汇储备");
+    if (code.startsWith("jnto_jp_visitor_arrivals_")) return p("对外与汇率", "入境旅游");
     if (code.startsWith("mhlw_jp_mls_")) return p("劳动力市场", "就业、失业与工资");
     if (code.startsWith("meti_jp_iip_")) return p("国民经济", "工业生产、出货与库存");
     if (code.startsWith("esri_jp_gdp_")) {
