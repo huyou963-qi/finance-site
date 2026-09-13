@@ -1,6 +1,10 @@
 import type { DataGranularity } from "@prisma/client";
 import { BOJ_SERIES } from "./boj/catalog";
 import { JGB_SERIES } from "./japanMofJgb/catalog";
+import { JP_ESRI_CONSUMER_CONFIDENCE_SERIES } from "./jpEsriConsumerConfidence/catalog";
+import { JP_BOJ_BOP_PACKAGE_ID, JP_BOJ_BOP_SERIES } from "./bojExternal/catalog";
+import { JP_CAO_WATCHERS_RELEASE_PACKAGE_ID, JP_CAO_WATCHERS_SERIES } from "./jpCabinetEconomyWatchers/catalog";
+import { JP_METI_RETAIL_PACKAGE_ID, JP_METI_RETAIL_SERIES } from "./jpMetiRetail/catalog";
 import { CPI_FRED_SERIES } from "./cpiFredSeedCatalog";
 import { PPI_FRED_IDS } from "./ppiFredSeedCatalog";
 import { LABOR_FRED_SERIES } from "./laborFredSeedCatalog";
@@ -150,6 +154,22 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg("jp.mhlw.monthly_labour", "日本每月勤劳统计", {
     countryCode: "JP", agencyId: "jp-mhlw", granularity: "MONTHLY", intervalHours: 24,
     members: { instrumentCodePatterns: ["mhlw_jp_mls_*"] },
+  }),
+  probePkg("jp.esri.consumer_confidence", "日本消费者信心调查", {
+    countryCode: "JP", agencyId: "jp-esri", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_ESRI_CONSUMER_CONFIDENCE_SERIES.map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_BOJ_BOP_PACKAGE_ID, "日本国际收支", {
+    countryCode: "JP", agencyId: "jp-boj", granularity: "MONTHLY", intervalHours: 72,
+    members: { instrumentCodes: JP_BOJ_BOP_SERIES.map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_CAO_WATCHERS_RELEASE_PACKAGE_ID, "日本景气观察者调查", {
+    countryCode: "JP", agencyId: "jp-cao", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_CAO_WATCHERS_SERIES.map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_METI_RETAIL_PACKAGE_ID, "日本商业动态统计（零售销售）", {
+    countryCode: "JP", agencyId: "jp-meti", granularity: "MONTHLY", intervalHours: 72,
+    members: { instrumentCodes: JP_METI_RETAIL_SERIES.map((series) => series.instrumentCode) },
   }),
   probePkg("jp.sbj.household_survey", "日本家计调查", {
     countryCode: "JP", granularity: "MONTHLY", intervalHours: 24,

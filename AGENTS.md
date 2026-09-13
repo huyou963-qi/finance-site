@@ -126,6 +126,8 @@ Windows 计划任务建议：每小时 `data:sync-calendar`，每 5 分钟 `data
 
 **日本官方宏观数据（分批接入）**：`data:seed-jp-boj-macro` / `data:sync-jp-boj-macro` / `data:verify-jp-boj-macro -- --db`（BOJ API）；`data:seed-jp-meti-iip` / `data:sync-jp-meti-iip` / `data:verify-jp-meti-iip -- --db`（e-Stat公开METI历史Excel，无需key）；`data:seed-jp-esri-gdp` / `data:sync-jp-esri-gdp` / `data:verify-jp-esri-gdp -- --db`（ESRI季度GDP官方CSV）；`data:seed-japan-mof-jgb` / `data:sync-japan-mof-jgb` / `data:verify-japan-mof-jgb -- --db`（财务省15期限国债曲线，复用原jpov 2年/10年）。均注册统一seed/verify，配发布包和九主题目录；详细范围、修订口径与进度见 [JAPAN_DATA_ONBOARDING_PROGRESS.md](docs/research/JAPAN_DATA_ONBOARDING_PROGRESS.md)。GDP季调年率不得与旧jpov未折年季度金额拼接；BOJ短观2003Q4/2004Q1有官方口径断点；当前版本账本仅证明抓取时点可见，不是历史首发PIT。
 
+日本后续月频域：`data:seed-jp-esri-consumer-confidence` / `data:sync-jp-esri-consumer-confidence` / `data:verify-jp-esri-consumer-confidence -- --db`；`data:seed-jp-cao-economy-watchers` / `data:sync-jp-cao-economy-watchers` / `data:verify-jp-cao-economy-watchers -- --db`；`data:seed-jp-boj-bop` / `data:sync-jp-boj-bop` / `data:verify-jp-boj-bop -- --db`；`data:seed-jp-meti-retail` / `data:sync-jp-meti-retail` / `data:verify-jp-meti-retail -- --db`。消费者信心和景气观察者使用全国季调指数；BOP只保存BOJ直接公布的净额；METI零售只保存名义未季调金额并保留2020/2025水准断点。当前均按发布包低频探测并完整回读历史以捕获修订。
+
 ```bash
 npm install
 npm run dev              # http://localhost:3000

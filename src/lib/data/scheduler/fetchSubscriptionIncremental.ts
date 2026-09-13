@@ -83,6 +83,26 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "jp_esri_consumer_confidence") {
+        const { fetchJpEsriConsumerConfidenceIncremental } = await import(
+          "./adapters/jpEsriConsumerConfidenceAdapter"
+        );
+        return fetchJpEsriConsumerConfidenceIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
+      if (scrapeObj.provider === "jp_cao_economy_watchers") {
+        const { fetchJpCaoEconomyWatchersIncremental } = await import(
+          "./adapters/jpCaoEconomyWatchersAdapter"
+        );
+        return fetchJpCaoEconomyWatchersIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "jp_esri_gdp") {
         const { fetchJpEsriGdpIncremental } = await import("./adapters/jpEsriGdpAdapter");
         return fetchJpEsriGdpIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
@@ -370,6 +390,17 @@ export async function fetchSubscriptionIncremental(
   }
 
   if (sub.source.adapterKind === SourceAdapterKind.BULK_FILE) {
+    const scrapeObj = readScrapeObject(sub.instrument.metadata);
+    if (scrapeObj?.provider === "jp_meti_retail") {
+      const { fetchJpMetiRetailIncremental } = await import(
+        "./adapters/jpMetiRetailAdapter"
+      );
+      return fetchJpMetiRetailIncremental(
+        sub.instrument.metadata,
+        sub.instrument.code,
+        fetchStart,
+      );
+    }
     const template = overviewTemplateForInstrument(sub.instrument.code);
     if (!template) {
       throw new Error(`BULK_FILE 未识别仪器 ${sub.instrument.code}`);

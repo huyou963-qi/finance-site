@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { BOJ_API_BASE, type BojSeries } from "./catalog";
+import { BOJ_API_BASE } from "./catalog";
+import type { BojApiSeriesDefinition } from "./seriesDefinition";
 
 let queue: Promise<unknown> = Promise.resolve();
 let lastRequest = 0;
@@ -10,7 +11,7 @@ const cache = new Map<string, { at: number; result: unknown }>();
 /** Full official history on each refresh captures revisions, including pre-window revisions.
  * Single-series requests avoid BOJ's 250-series/60,000-point pagination threshold.
  */
-export function fetchBojSeries(row: BojSeries): Promise<unknown> {
+export function fetchBojSeries(row: BojApiSeriesDefinition): Promise<unknown> {
   const key = `${row.db}:${row.seriesCode}`;
   const task = queue.then(async () => {
     const cached = cache.get(key);

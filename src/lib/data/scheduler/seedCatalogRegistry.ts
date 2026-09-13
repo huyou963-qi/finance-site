@@ -7,6 +7,10 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-cao-economy-watchers": { script: "seed-jp-cao-economy-watchers", labelZh: "日本内阁府景气观察者调查" },
+  "jp-meti-retail": { script: "seed-jp-meti-retail", labelZh: "日本经济产业省零售销售" },
+  "jp-boj-bop": { script: "seed-jp-boj-bop", labelZh: "日本银行国际收支" },
+  "jp-esri-consumer-confidence": { script: "seed-jp-esri-consumer-confidence", labelZh: "日本内阁府消费者信心" },
   "jp-mhlw-monthly-labour": { script: "seed-jp-mhlw-monthly-labour", labelZh: "日本每月勤劳统计工资与工时" },
   "jp-estat-household": { script: "seed-jp-estat-household", labelZh: "日本e-Stat家计调查" },
   "jp-estat-labor": { script: "seed-jp-estat-labor", labelZh: "日本e-Stat劳动力调查" },
@@ -115,6 +119,10 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-cao-economy-watchers": { script: "verify-jp-cao-economy-watchers", labelZh: "日本内阁府景气观察者调查自检", verifyNeedsDb: true },
+  "jp-meti-retail": { script: "verify-jp-meti-retail", labelZh: "日本经济产业省零售销售自检", verifyNeedsDb: true },
+  "jp-boj-bop": { script: "verify-jp-boj-bop", labelZh: "日本银行国际收支自检", verifyNeedsDb: true },
+  "jp-esri-consumer-confidence": { script: "verify-jp-esri-consumer-confidence", labelZh: "日本内阁府消费者信心自检", verifyNeedsDb: true },
   "jp-mhlw-monthly-labour": { script: "verify-jp-mhlw-monthly-labour", labelZh: "日本每月勤劳统计工资与工时自检", verifyNeedsDb: true },
   "jp-estat-household": { script: "verify-jp-estat-household", labelZh: "日本e-Stat家计调查自检", verifyNeedsDb: true },
   "jp-estat-labor": { script: "verify-jp-estat-labor", labelZh: "日本e-Stat劳动力调查自检", verifyNeedsDb: true },

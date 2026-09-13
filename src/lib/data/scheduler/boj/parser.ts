@@ -1,7 +1,7 @@
 import type { FetchIncrementalResult } from "../types";
-import type { BojSeries } from "./catalog";
+import type { BojApiSeriesDefinition } from "./seriesDefinition";
 
-export function parseBojResponse(input: unknown, row: BojSeries): FetchIncrementalResult {
+export function parseBojResponse(input: unknown, row: BojApiSeriesDefinition): FetchIncrementalResult {
   const body = input as { STATUS?: number; MESSAGE?: string; NEXTPOSITION?: unknown; RESULTSET?: Array<{ SERIES_CODE: string; FREQUENCY: string; UNIT: string; VALUES: { SURVEY_DATES: unknown[]; VALUES: unknown[] } }> };
   if (body?.STATUS !== 200 || !Array.isArray(body.RESULTSET)) throw new Error(`BOJ response: ${body?.MESSAGE ?? "invalid schema"}`);
   // One series is far below the 60,000 point limit. Fail closed if this changes.

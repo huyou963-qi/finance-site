@@ -307,7 +307,19 @@
     "data:verify-jp-estat-household": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-estat-household.ts",
     "data:seed-jp-mhlw-monthly-labour": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-mhlw-monthly-labour.ts",
     "data:sync-jp-mhlw-monthly-labour": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-mhlw-monthly-labour.ts",
-    "data:verify-jp-mhlw-monthly-labour": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-mhlw-monthly-labour.ts"
+    "data:verify-jp-mhlw-monthly-labour": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-mhlw-monthly-labour.ts",
+    "data:seed-jp-esri-consumer-confidence": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-esri-consumer-confidence.ts",
+    "data:sync-jp-esri-consumer-confidence": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-esri-consumer-confidence.ts",
+    "data:verify-jp-esri-consumer-confidence": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-esri-consumer-confidence.ts",
+    "data:seed-jp-boj-bop": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-boj-bop.ts",
+    "data:sync-jp-boj-bop": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-boj-bop.ts",
+    "data:verify-jp-boj-bop": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-boj-bop.ts",
+    "data:seed-jp-cao-economy-watchers": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-cao-economy-watchers.ts",
+    "data:sync-jp-cao-economy-watchers": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-cao-economy-watchers.ts",
+    "data:verify-jp-cao-economy-watchers": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-cao-economy-watchers.ts",
+    "data:seed-jp-meti-retail": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-meti-retail.ts",
+    "data:sync-jp-meti-retail": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-meti-retail.ts",
+    "data:verify-jp-meti-retail": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-meti-retail.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -5,6 +5,7 @@ import type { CatalogLayoutCategory, CatalogLayoutCountry } from "./catalogLayou
 import type { UnifiedCatalogCountry, UnifiedCatalogItem } from "./fredCatalog";
 import { US_CATALOG_TOP_LEVEL, type UsCatalogTopLevel } from "./usCatalogTaxonomy";
 import { BOJ_SERIES } from "./scheduler/boj/catalog";
+import { JP_BOJ_BOP_SERIES } from "./scheduler/bojExternal/catalog";
 
 /** A leaf (a subgroup's direct indicators) must remain scannable in the picker. */
 export const MAX_CATALOG_LEAF_ITEMS = 48;
@@ -73,6 +74,9 @@ export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalC
     if (code.startsWith("jp_estat_lfs_")) return p("劳动力市场", /participation_rate|employment_rate/.test(code) ? "劳动参与率与就业率" : "就业与失业人数");
     if (code.startsWith("jp_estat_cpi_2025_")) return p("通胀与价格", code.includes("_tokyo_") ? "CPI：东京区部（2025基期）" : "CPI：全国（2025基期）");
     if (code.startsWith("jp_estat_household_")) return p("国民经济", "家庭消费与收入");
+    if (code.startsWith("esri_jp_consumer_conf_") || code === "jpov_c15_consumer_conf_sa") return p("国民经济", "消费者信心");
+    if (code.startsWith("cao_jp_watchers_")) return p("国民经济", "景气调查");
+    if (code.startsWith("meti_jp_retail_")) return p("国民经济", "零售销售");
     if (code.startsWith("mhlw_jp_mls_")) return p("劳动力市场", "就业、失业与工资");
     if (code.startsWith("meti_jp_iip_")) return p("国民经济", "工业生产、出货与库存");
     if (code.startsWith("esri_jp_gdp_")) {
@@ -80,7 +84,7 @@ export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalC
       if (code.endsWith("_real_qoq_sa") || code.endsWith("_real_contribution_sa")) return p("国民经济", "GDP：实际增长与贡献");
       return p("国民经济", "GDP：支出法季调年率");
     }
-    const boj = BOJ_SERIES.find((row) => row.instrumentCode === code);
+    const boj = [...BOJ_SERIES, ...JP_BOJ_BOP_SERIES].find((row) => row.instrumentCode === code);
     if (boj) return p(boj.category, boj.subgroup);
     if (code.startsWith("mof_jp_jgb_") || /^jpov_c0[678]_/.test(code)) return p("利率与信用市场", "国债收益率曲线");
   }
