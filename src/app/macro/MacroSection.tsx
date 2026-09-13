@@ -2454,7 +2454,11 @@ export function MacroSection() {
         .filter(Boolean),
     );
     setExtractedSet(extractedKeys);
-    setRequestedQuery(seriesQuery);
+    // 与上次相同 query 时仍触发重新拉取（否则上次失败后再点无任何反应）
+    setRequestedQuery(null);
+    window.setTimeout(() => {
+      setRequestedQuery(seriesQuery);
+    }, 0);
   }
 
   function locateIndicatorInSidebar(key: string) {
@@ -3718,7 +3722,13 @@ export function MacroSection() {
                     className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-fs-border/90 bg-fs-bg/60"
                     suppressHydrationWarning
                   >
-                    {displayPayload ? (
+                    {loading ? (
+                      <p className="px-3 py-6 text-center text-xs text-fs-muted">正在加载…</p>
+                    ) : error ? (
+                      <p className="px-3 py-6 text-center text-xs text-amber-500">
+                        加载失败：{error}
+                      </p>
+                    ) : displayPayload ? (
                       <MacroExtractedDataTable
                         payload={displayPayload}
                         columns={tableColumns}
