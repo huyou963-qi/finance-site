@@ -16,6 +16,7 @@ import {
   type MacroMobileTab,
 } from "@/components/macro/mobile/MacroMobileLayout";
 import { MacroMobileSelectedPanel } from "@/components/macro/mobile/MacroMobileSelectedPanel";
+import { MacroMobileTemplatesPanel } from "@/components/macro/mobile/MacroMobileTemplatesPanel";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
 import { IconInfo } from "@/components/mobile/mobileIcons";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -3363,38 +3364,7 @@ export function MacroSection() {
                               </>
                             );
 
-  const templatesPanel = (
-            <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-              <div className="rounded-xl border border-fs-border/80 bg-fs-elevated/40 p-4">
-                <MacroSystemTemplateBrowser
-                  templates={builtInTemplates}
-                  folderIdByTemplate={builtinTemplateFolderIds}
-                  loading={loading}
-                  emptyText="暂无系统模板。"
-                  renderActions={(tpl) => (
-                    <div className="flex w-full flex-col gap-1">
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={() => applyTemplateAndExtract(tpl)}
-                        className="w-full rounded-md border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        加载
-                      </button>
-                      {isAdmin ? (
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => deleteSystemTemplate(tpl)}
-                          className="w-full rounded-md border border-fs-negative/50 bg-fs-elevated px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          删除
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
-                />
-                {isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
+  const hiddenBuiltinRestore = isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
                   <div className="mt-3 rounded-lg border border-fs-border bg-fs-bg/40 px-2 py-2">
                     <p className="text-[10px] font-medium text-fs-muted">已隐藏的内置系统模板</p>
                     <ul className="mt-1.5 flex flex-wrap gap-1.5">
@@ -3413,9 +3383,9 @@ export function MacroSection() {
                       ))}
                     </ul>
                   </div>
-                ) : null}
-              </div>
+                ) : null;
 
+  const userTemplatesPanel = (
               <div className="rounded-lg border border-fs-border/90 bg-fs-bg/60 p-3">
                 <h3 className="text-sm font-medium text-fs-text">我的模板</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -3520,6 +3490,43 @@ export function MacroSection() {
                   )}
                 />
               </div>
+  );
+
+  const templatesPanel = (
+            <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+              <div className="rounded-xl border border-fs-border/80 bg-fs-elevated/40 p-4">
+                <MacroSystemTemplateBrowser
+                  templates={builtInTemplates}
+                  folderIdByTemplate={builtinTemplateFolderIds}
+                  loading={loading}
+                  emptyText="暂无系统模板。"
+                  renderActions={(tpl) => (
+                    <div className="flex w-full flex-col gap-1">
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => applyTemplateAndExtract(tpl)}
+                        className="w-full rounded-md border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        加载
+                      </button>
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => deleteSystemTemplate(tpl)}
+                          className="w-full rounded-md border border-fs-negative/50 bg-fs-elevated px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          删除
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                />
+                {hiddenBuiltinRestore}
+              </div>
+
+              {userTemplatesPanel}
             </section>
   );
 
@@ -3811,7 +3818,18 @@ export function MacroSection() {
             </>
           }
           charts={mobileChartsPanel}
-          templates={templatesPanel}
+          templates={
+            <MacroMobileTemplatesPanel
+              templates={builtInTemplates}
+              folderIdByTemplate={builtinTemplateFolderIds}
+              loading={loading}
+              activeTemplateId={activeTemplateId}
+              onLoad={applyTemplateAndExtract}
+              onDelete={isAdmin ? deleteSystemTemplate : undefined}
+              adminExtra={hiddenBuiltinRestore}
+              userPanel={userTemplatesPanel}
+            />
+          }
         />
         <MacroMobileCalcSheet
           open={mobileCalcOpen}
