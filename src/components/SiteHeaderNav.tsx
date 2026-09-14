@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CommonLinksMenu } from "@/components/CommonLinksMenu";
 import { ReportBugButton } from "@/components/errors/ReportBugButton";
 import { UserAccountMenu } from "@/components/UserAccountMenu";
+import { IconClose, IconMenu } from "@/components/mobile/mobileIcons";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 
 const linkBase =
@@ -73,10 +75,83 @@ function matchesAny(pathname: string, bases: readonly string[]): boolean {
   return bases.some((b) => pathname === b || pathname.startsWith(`${b}/`));
 }
 
+type MobileNavLink = { href: string; label: string; active: boolean };
+
+/** 手机端（< 768px）导航抽屉：顶栏入口收进右侧抽屉 */
+function MobileNavDrawer({
+  open,
+  onClose,
+  links,
+  toolLinks,
+}: {
+  open: boolean;
+  onClose: () => void;
+  links: MobileNavLink[];
+  toolLinks: MobileNavLink[];
+}) {
+  if (!open) return null;
+
+  const row = (item: MobileNavLink) => (
+    <Link
+      key={item.href}
+      href={item.href}
+      onClick={onClose}
+      aria-current={item.active ? "page" : undefined}
+      className={`flex h-12 items-center rounded-lg px-3 text-base transition ${
+        item.active
+          ? "bg-fs-accent-soft font-semibold text-fs-accent-text"
+          : "text-fs-text active:bg-fs-elevated"
+      }`}
+    >
+      {item.label}
+    </Link>
+  );
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] md:hidden">
+      <button
+        type="button"
+        aria-label="关闭菜单"
+        className="absolute inset-0 bg-black/45"
+        onClick={onClose}
+      />
+      <nav
+        aria-label="站点导航"
+        className="absolute inset-y-0 right-0 flex w-[min(300px,calc(100vw-64px))] flex-col bg-fs-bg shadow-2xl"
+      >
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-fs-border pl-4 pr-1">
+          <span className="text-sm font-semibold text-fs-text">导航</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭菜单"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated"
+          >
+            <IconClose size={22} />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+          <div className="flex flex-col gap-0.5">{links.map(row)}</div>
+          {toolLinks.length > 0 ? (
+            <>
+              <p className="mt-3 px-3 pb-1 text-xs font-medium text-fs-muted">工具</p>
+              <div className="flex flex-col gap-0.5">{toolLinks.map(row)}</div>
+            </>
+          ) : null}
+          <div className="mx-3 my-3 h-px bg-fs-border" />
+          {row({ href: "/pricing", label: "Pro 会员", active: false })}
+        </div>
+      </nav>
+    </div>,
+    document.body,
+  );
+}
+
 export function SiteHeaderNav() {
   const pathname = usePathname();
   const [me, setMe] = useState<{ username: string; role: "admin" | "user" } | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
   const features = useVisibleFeatures();
 
@@ -102,6 +177,7 @@ export function SiteHeaderNav() {
 
   useEffect(() => {
     setToolsOpen(false);
+    setMobileNavOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -144,9 +220,41 @@ export function SiteHeaderNav() {
         );
       });
 
+  const mainMobileLinks = (items: readonly (typeof MAIN_LINKS)[number][]): MobileNavLink[] =>
+    items
+      .filter((item) => features.can(item.featureId))
+      .map((item) => ({
+        href: item.href,
+        label: item.label,
+        active: matchesAny(pathname, item.match),
+      }));
+
+  const mobileLinks: MobileNavLink[] = [
+    ...(features.can("macro-framework")
+      ? [{ href: "/macro/framework", label: "宏观框架", active: macroFrameworkActive }]
+      : []),
+    ...mainMobileLinks(beforeQuant),
+    ...(quantHref ? [{ href: quantHref, label: "量化", active: quantActive }] : []),
+    ...mainMobileLinks(afterQuant),
+    ...(features.can("articles") || isAdmin
+      ? [
+          {
+            href: isAdmin ? "/articles/editor" : "/articles",
+            label: isAdmin ? "发布文章" : "专题文章",
+            active: articlesActive,
+          },
+        ]
+      : []),
+  ];
+  const mobileToolLinks: MobileNavLink[] = visibleTools.map((item) => ({
+    href: item.href,
+    label: item.label,
+    active: matchesAny(pathname, [item.href]),
+  }));
+
   return (
     <nav className="flex min-w-0 flex-1 items-center gap-1">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 max-md:hidden">
         {features.can("macro-framework") ? (
           <Link
             href="/macro/framework"
@@ -220,7 +328,7 @@ export function SiteHeaderNav() {
         ) : null}
         {isAdmin ? <CommonLinksMenu me={me} /> : null}
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 max-md:gap-0.5">
         <Link
           href="/pricing"
           className={linkClass(matchesAny(pathname, ["/pricing"]))}
@@ -229,7 +337,22 @@ export function SiteHeaderNav() {
         </Link>
         <ReportBugButton />
         <UserAccountMenu />
+        <button
+          type="button"
+          onClick={() => setMobileNavOpen(true)}
+          aria-label="打开导航菜单"
+          aria-expanded={mobileNavOpen}
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated md:hidden"
+        >
+          <IconMenu size={22} />
+        </button>
       </div>
+      <MobileNavDrawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        links={mobileLinks}
+        toolLinks={mobileToolLinks}
+      />
     </nav>
   );
 }

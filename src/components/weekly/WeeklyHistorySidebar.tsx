@@ -56,18 +56,23 @@ function SidebarCard({
 }
 
 const pillBase =
-  "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition";
+  "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition max-md:px-3.5 max-md:py-1.5 max-md:text-[13px]";
 
 export function WeeklyHistorySidebar({
   list,
   total,
   selectedId,
   onSelect,
+  variant = "sidebar",
+  className = "",
 }: {
   list: WeeklyReportListItem[];
   total: number;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** sidebar：桌面左栏；sheet：手机底部弹出面板内全宽展示 */
+  variant?: "sidebar" | "sheet";
+  className?: string;
 }) {
   const [weekInput, setWeekInput] = useState("");
   const [jumpError, setJumpError] = useState<string | null>(null);
@@ -152,8 +157,13 @@ export function WeeklyHistorySidebar({
     [onSelect],
   );
 
+  const asideClass =
+    variant === "sheet"
+      ? "flex h-full w-full flex-col bg-fs-bg"
+      : "flex w-72 shrink-0 flex-col border-r border-fs-border bg-fs-elevated lg:w-80";
+
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-r border-fs-border bg-fs-elevated lg:w-80">
+    <aside className={`${asideClass} ${className}`}>
       <div className="shrink-0 border-b border-fs-border p-3">
         <div className="flex gap-2">
           <input
@@ -163,19 +173,19 @@ export function WeeklyHistorySidebar({
               setWeekInput(e.target.value);
               setJumpError(null);
             }}
-            className="min-w-0 flex-1 rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-xs text-fs-text outline-none focus:border-fs-accent/40 focus:ring-1 focus:ring-fs-accent/30"
+            className="min-w-0 flex-1 rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-xs text-fs-text outline-none focus:border-fs-accent/40 focus:ring-1 focus:ring-fs-accent/30 max-md:h-11"
             aria-label="选择 ISO 周"
           />
           <button
             type="button"
             onClick={handleJump}
-            className="shrink-0 rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-xs font-medium text-fs-text transition hover:border-fs-border hover:bg-fs-border hover:text-fs-text"
+            className="shrink-0 rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-xs font-medium text-fs-text transition hover:border-fs-border hover:bg-fs-border hover:text-fs-text max-md:h-11 max-md:px-4 max-md:text-sm"
           >
             跳转
           </button>
         </div>
         {jumpError ? <p className="mt-1.5 text-[11px] text-amber-400/90">{jumpError}</p> : null}
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap gap-1.5 max-md:gap-2">
           <button
             type="button"
             onClick={() => applyQuick("latest")}

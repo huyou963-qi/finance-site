@@ -43,18 +43,19 @@ export function EventDetailDrawer({ event, onClose }: EventDetailDrawerProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[10000] flex justify-end">
+    <div className="fixed inset-0 z-[10000] flex justify-end max-md:flex-col">
       <button
         type="button"
         className="absolute inset-0 bg-black/45"
         aria-label="关闭详情"
         onClick={onClose}
       />
+      {/* 手机端改为底部弹出面板 */}
       <aside
         role="dialog"
         aria-modal
         aria-labelledby="event-detail-title"
-        className="relative flex h-full w-full max-w-md flex-col border-l border-fs-border bg-fs-bg shadow-2xl"
+        className="relative flex h-full w-full max-w-md flex-col border-l border-fs-border bg-fs-bg shadow-2xl max-md:h-[88dvh] max-md:max-w-none max-md:overflow-hidden max-md:rounded-t-2xl max-md:border-l-0"
       >
         <header className="shrink-0 border-b border-fs-border px-4 py-3">
           <div className="flex items-start justify-between gap-3">

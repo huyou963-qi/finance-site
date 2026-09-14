@@ -146,11 +146,26 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
     setIsDragging(false);
   };
 
+  /** 以视口中心为锚点缩放（手机端没有滚轮，用按钮代替） */
+  const zoomBy = (step: number) => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const centerX = el.clientWidth / 2;
+    const oldZoom = zoomRef.current;
+    const newZoom = clamp(oldZoom + step, MIN_ZOOM, MAX_ZOOM);
+    if (newZoom === oldZoom) return;
+    const newPan = centerX - (centerX - panXRef.current) * (newZoom / oldZoom);
+    zoomRef.current = newZoom;
+    panXRef.current = newPan;
+    setZoom(newZoom);
+    setPanX(newPan);
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div
         ref={viewportRef}
-        className={`relative min-h-0 flex-1 overflow-hidden bg-fs-bg select-none ${
+        className={`relative min-h-0 flex-1 touch-none overflow-hidden bg-fs-bg select-none ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
         onPointerDown={onPointerDown}
@@ -161,6 +176,26 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
       >
         <div className="pointer-events-none absolute right-3 top-3 z-[55]">
           <TimelineFilterPopover filters={filters} onChange={setFilters} />
+        </div>
+
+        <div className="absolute bottom-16 right-3 z-[56] flex flex-col overflow-hidden rounded-lg border border-fs-border bg-white shadow-md md:hidden">
+          <button
+            type="button"
+            onClick={() => zoomBy(0.2)}
+            aria-label="放大"
+            className="flex h-11 w-11 items-center justify-center text-xl text-fs-secondary active:bg-fs-elevated"
+          >
+            +
+          </button>
+          <span className="h-px bg-fs-border" aria-hidden />
+          <button
+            type="button"
+            onClick={() => zoomBy(-0.2)}
+            aria-label="缩小"
+            className="flex h-11 w-11 items-center justify-center text-xl text-fs-secondary active:bg-fs-elevated"
+          >
+            −
+          </button>
         </div>
 
         <div

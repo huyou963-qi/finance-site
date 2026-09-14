@@ -49,7 +49,7 @@ function ExpandToggle({
         e.stopPropagation();
         onToggle();
       }}
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-fs-border/90 bg-fs-elevated/90 text-[13px] leading-none font-medium text-fs-secondary hover:border-fs-border hover:bg-fs-border/90 hover:text-fs-text disabled:opacity-40"
+      className="flex h-5 w-5 shrink-0 items-center justify-center max-md:h-8 max-md:w-8 rounded border border-fs-border/90 bg-fs-elevated/90 text-[13px] leading-none font-medium text-fs-secondary hover:border-fs-border hover:bg-fs-border/90 hover:text-fs-text disabled:opacity-40"
     >
       {open ? "−" : "+"}
     </button>
@@ -73,14 +73,14 @@ function TreeSectionHeader({
 }) {
   const levelClass =
     level === "country"
-      ? "text-sm font-semibold text-fs-text"
+      ? "text-sm font-semibold text-fs-text max-md:text-base"
       : level === "category"
-        ? "text-xs font-medium text-fs-secondary"
-        : "text-[11px] font-medium text-fs-muted";
+        ? "text-xs font-medium text-fs-secondary max-md:text-sm"
+        : "text-[11px] font-medium text-fs-muted max-md:text-[13px]";
 
   return (
     <div
-      className={`flex items-center gap-2 ${level === "country" ? "px-3 py-2" : "px-2 py-1.5"}`}
+      className={`flex items-center gap-2 ${level === "country" ? "px-3 py-2" : "px-2 py-1.5"} max-md:py-2`}
     >
       <ExpandToggle open={open} onToggle={onToggle} label={label} disabled={disabled} />
       <button
@@ -135,20 +135,20 @@ function IndicatorPickRow({
           onDoubleClickAdd?.();
         }}
         title={onDoubleClickAdd ? "双击选择原值/同比/环比后添加" : undefined}
-        className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition ${
+        className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition max-md:flex-nowrap max-md:gap-2 max-md:py-1.5 ${
           disabled ? "opacity-40" : "hover:bg-fs-elevated/90"
         } ${highlighted ? "bg-cyan-950/45 ring-1 ring-cyan-500/50" : ""}`}
       >
-        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-1.5">
+        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-1.5 max-md:items-center max-md:gap-2.5">
           <input
             type="checkbox"
-            className="mt-0.5 shrink-0 accent-fs-accent"
+            className="mt-0.5 shrink-0 accent-fs-accent max-md:mt-0 max-md:h-5 max-md:w-5"
             checked={checked}
             disabled={disabled || (!checked && atLimit)}
             onChange={onToggle}
           />
           <span className="min-w-0 flex-1">
-            <span className="block text-[11px] leading-snug text-fs-secondary">{label}</span>
+            <span className="block text-[11px] leading-snug text-fs-secondary max-md:text-[15px]">{label}</span>
             {showEn ? (
               <span className="mt-0.5 block truncate text-[9px] leading-snug text-fs-muted">
                 {labelEn}
@@ -165,10 +165,22 @@ function IndicatorPickRow({
               {badge}
             </span>
           ) : null}
-          <span className="shrink-0 rounded border border-fs-border/90 px-1 py-0 text-[9px] text-fs-muted">
+          <span className="shrink-0 rounded border border-fs-border/90 px-1 py-0 text-[9px] text-fs-muted max-md:px-1.5 max-md:text-[11px]">
             {frequency}
           </span>
         </label>
+        {onDoubleClickAdd ? (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onDoubleClickAdd}
+            aria-label="选择原值/同比/环比后添加"
+            title="选择原值/同比/环比后添加"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-fs-border bg-white text-lg leading-none text-fs-secondary active:bg-fs-elevated disabled:opacity-40 md:hidden"
+          >
+            +
+          </button>
+        ) : null}
       </div>
     </li>
   );
@@ -674,7 +686,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
           placeholder="例如：中国、GDP、通胀、利率、贸易…"
           disabled={disabled}
           aria-label="搜索指标"
-          className="w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text placeholder:text-fs-secondary focus:border-fs-border focus:outline-none disabled:opacity-40"
+          className="w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm max-md:py-2.5 text-fs-text placeholder:text-fs-secondary focus:border-fs-border focus:outline-none disabled:opacity-40"
         />
       </label>
       {isSearchMode ? (

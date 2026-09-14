@@ -73,6 +73,8 @@ export type MacroMultiChartGridProps = {
   rangeCacheKey?: string | null;
   /** 用户拖动时间导航条后的本地范围，供工作区临时缓存。 */
   onRangePctChange?: (range: { start: number; end: number }) => void;
+  /** 手机端：多图纵向堆叠、每张固定高度，由外层容器滚动 */
+  stacked?: boolean;
 };
 
 function categoriesOfChart(chart: EChartsType): string[] {
@@ -219,6 +221,7 @@ export function MacroMultiChartGrid({
   initialRangePct = null,
   rangeCacheKey = null,
   onRangePctChange: onCachedRangePctChange,
+  stacked = false,
 }: MacroMultiChartGridProps) {
   const buckets = useMemo(
     () =>
@@ -745,8 +748,9 @@ export function MacroMultiChartGrid({
     );
   }
 
-  const gridClass =
-    layoutMode === 2
+  const gridClass = stacked
+    ? "flex w-full flex-col gap-3"
+    : layoutMode === 2
       ? `grid min-h-0 w-full flex-1 grid-rows-2 gap-2`
       : layoutMode === 3
         ? `grid min-h-0 w-full flex-1 grid-rows-3 gap-2`
@@ -755,8 +759,14 @@ export function MacroMultiChartGrid({
           : `grid min-h-0 w-full flex-1 grid-cols-2 grid-rows-3 gap-2`;
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-1 overflow-hidden">
-      <div className={`${gridClass} min-h-0 min-w-0 flex-1 overflow-hidden`}>
+    <div
+      className={
+        stacked
+          ? "flex w-full flex-col gap-2"
+          : "flex min-h-0 w-full flex-1 flex-col gap-1 overflow-hidden"
+      }
+    >
+      <div className={stacked ? gridClass : `${gridClass} min-h-0 min-w-0 flex-1 overflow-hidden`}>
         {Array.from({ length: layoutMode }, (_, i) => {
           const slice = sliceForSlot(i);
           const mode = slotModeFor(i);
@@ -764,7 +774,11 @@ export function MacroMultiChartGrid({
           return (
             <div
               key={`${layoutMode}-slot-${i}`}
-              className="min-h-0 min-w-0 overflow-hidden"
+              className={
+                stacked
+                  ? "h-[300px] min-w-0 shrink-0 overflow-hidden"
+                  : "min-h-0 min-w-0 overflow-hidden"
+              }
             >
               <MacroChartPanel
                 slice={slice}

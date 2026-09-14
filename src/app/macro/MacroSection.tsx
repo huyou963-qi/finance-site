@@ -10,6 +10,15 @@ import {
 import { MacroTemplateFolderSection } from "@/components/MacroTemplateFolderSection";
 import { MacroChartDrawingToolbar } from "@/components/MacroChartDrawingToolbar";
 import { MacroMultiChartGrid } from "@/components/MacroMultiChartGrid";
+import { MacroMobileCalcSheet } from "@/components/macro/mobile/MacroMobileCalcSheet";
+import {
+  MacroMobileLayout,
+  type MacroMobileTab,
+} from "@/components/macro/mobile/MacroMobileLayout";
+import { MacroMobileSelectedPanel } from "@/components/macro/mobile/MacroMobileSelectedPanel";
+import { MobileSheet } from "@/components/mobile/MobileSheet";
+import { IconInfo } from "@/components/mobile/mobileIcons";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
 import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
@@ -654,6 +663,12 @@ export function MacroSection() {
   const [macroCrosshairTimeLabel, setMacroCrosshairTimeLabel] = useState<string | null>(null);
   const [macroVisibleFromLabel, setMacroVisibleFromLabel] = useState<string | null>(null);
   const [macroVisibleToLabel, setMacroVisibleToLabel] = useState<string | null>(null);
+  /** 手机模式（< 768px）：底部标签布局；桌面渲染路径不变 */
+  const isMobile = useIsMobile();
+  /** 手机底部标签「指标 / 已选 / 数据」三者共用 mainTab="selected" */
+  const [mobileSubTab, setMobileSubTab] = useState<"tree" | "selected" | "data">("selected");
+  const [mobileCalcOpen, setMobileCalcOpen] = useState(false);
+  const [mobileChartSettingsOpen, setMobileChartSettingsOpen] = useState(false);
 
   const [selectedListItems, setSelectedListItems] = useState<MacroSelectedListItem[]>(() => {
     const replaceKey = readMacroReplaceKey();
@@ -3268,6 +3283,619 @@ export function MacroSection() {
     [chartSettingsWidthPx],
   );
 
+  // 桌面与手机布局共用的面板片段
+  const extractedDataBody = loading ? (
+                      <p className="px-3 py-6 text-center text-xs text-fs-muted">正在加载…</p>
+                    ) : error ? (
+                      <p className="px-3 py-6 text-center text-xs text-amber-500">
+                        加载失败：{error}
+                      </p>
+                    ) : displayPayload ? (
+                      <MacroExtractedDataTable
+                        payload={displayPayload}
+                        columns={tableColumns}
+                        valueByKey={tableValueByKey}
+                        rowIndices={sortedTableRowIndices}
+                        widths={tableColumnWidths}
+                        timeSort={tableTimeSort}
+                        onToggleTimeSort={toggleTableTimeSort}
+                      />
+                    ) : (
+                      <p className="px-3 py-6 text-center text-xs text-fs-muted">
+                        点击「提取数据」后，各指标数值将显示在此处。
+                      </p>
+                    );
+
+  const chartSidePanelBody = chartSidePanelTab === "events" ? (
+                              <EventChartSidePanel
+                                variant="embedded"
+                                rangeFrom={macroEventRangeFrom}
+                                rangeTo={macroEventRangeTo}
+                                trackDate={macroEventContextDate}
+                                contextCountries={macroEventContextCountries}
+                                contextMacroKeys={macroEventContextMacroKeys}
+                                className="h-full min-h-[12rem]"
+                              />
+                            ) : chartSidePanelTab === "intro" ? (
+                              <MacroTemplateIntroPanel
+                                templateName={introTemplateMeta.name}
+                                templateDescription={introTemplateMeta.description}
+                                chartSections={introChartSections ?? undefined}
+                                indicators={introChartSections ? [] : introIndicators}
+                                notes={mergedIntroNotes}
+                                onNoteChange={onIntroNoteChange}
+                                onDescriptionChange={
+                                  isAdmin && activeTemplate?.builtIn
+                                    ? onIntroDescriptionChange
+                                    : undefined
+                                }
+                                editable={isAdmin}
+                                className="h-full min-h-[12rem]"
+                              />
+                            ) : (
+                              <>
+                            <MacroChartIndicatorAssignment
+                              layoutMode={layoutMode}
+                              selectedKeys={chartPropertyKeys}
+                              displayLabelByKey={chartSettingsLabelByKey}
+                              slotAssignment={resolvedAssignment}
+                              onAssign={assignSlot}
+                              seriesVisualMap={effectiveSeriesVisualMap}
+                              onUpdateSeriesVisual={updateSeriesVisual}
+                              displayConfig={displayConfig}
+                              onUpdateDisplayConfig={(patch) =>
+                                setDisplayConfig((prev) => ({ ...prev, ...patch }))
+                              }
+                              availableYears={chartAvailableYears}
+                              chartPayload={displayPayload}
+                              tab={chartPropsTab}
+                            />
+                            {chartPropsTab === "global" ? (
+                              <div className="mt-3 border-t border-fs-border pt-3">
+                                <p className="mb-2 text-[10px] leading-relaxed text-fs-muted">
+                                  常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图、瀑布图、热力图、XY散点、箱线图、雷达图。季节图仅支持单指标（月度/季度）；瀑布图按槽内顺序拆解增减（末项为合计）；热力图为指标相关矩阵；XY散点需恰好 2 个指标；雷达图需 ≥3 个指标并按历史区间归一化；饼图/瀑布图/雷达图可切换数据年份；并支持任意序列切到右轴。
+                                </p>
+                                <div className="rounded-md border border-fs-border/90 bg-fs-elevated/80 p-2 text-[10px] text-fs-muted">
+                                  建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。
+                                </div>
+                              </div>
+                            ) : null}
+                              </>
+                            );
+
+  const templatesPanel = (
+            <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+              <div className="rounded-xl border border-fs-border/80 bg-fs-elevated/40 p-4">
+                <MacroSystemTemplateBrowser
+                  templates={builtInTemplates}
+                  folderIdByTemplate={builtinTemplateFolderIds}
+                  loading={loading}
+                  emptyText="暂无系统模板。"
+                  renderActions={(tpl) => (
+                    <div className="flex w-full flex-col gap-1">
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => applyTemplateAndExtract(tpl)}
+                        className="w-full rounded-md border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        加载
+                      </button>
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => deleteSystemTemplate(tpl)}
+                          className="w-full rounded-md border border-fs-negative/50 bg-fs-elevated px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          删除
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                />
+                {isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-fs-border bg-fs-bg/40 px-2 py-2">
+                    <p className="text-[10px] font-medium text-fs-muted">已隐藏的内置系统模板</p>
+                    <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                      {hiddenHardcodedBuiltinTemplates.map((tpl) => (
+                        <li key={tpl.id}>
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => restoreSystemTemplate(tpl.id)}
+                            className="rounded border border-fs-border px-2 py-0.5 text-[10px] text-fs-secondary hover:border-fs-accent/40 hover:text-fs-accent-text disabled:opacity-40"
+                            title={`恢复「${tpl.name}」到系统模板列表`}
+                          >
+                            恢复「{tpl.name}」
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-lg border border-fs-border/90 bg-fs-bg/60 p-3">
+                <h3 className="text-sm font-medium text-fs-text">我的模板</h3>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    placeholder="模板名称"
+                    className="min-w-[10rem] flex-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-fs-accent focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      isAdmin
+                        ? openSaveTemplateDialog({
+                            defaultMode: "user",
+                            defaultName: newTemplateName,
+                          })
+                        : saveCurrentAsTemplate(
+                            newTemplateName,
+                            newTemplateFolderId.trim() ? newTemplateFolderId.trim() : null,
+                          )
+                    }
+                    className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent"
+                  >
+                    保存当前配置
+                  </button>
+                </div>
+
+                <MacroTemplateFolderSection
+                  templates={savedTemplates}
+                  folders={userFolders}
+                  getFolderId={(tpl) => tpl.folderId ?? null}
+                  onAssignFolder={assignUserTemplateFolder}
+                  onCreateFolder={addUserTemplateFolder}
+                  onRenameFolder={renameUserTemplateFolder}
+                  onDeleteFolder={deleteUserTemplateFolder}
+                  emptyText="还没有自定义模板。"
+                  renderActions={(tpl) => (
+                    <>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => applyTemplateAndExtract(tpl)}
+                        className="rounded border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        加载
+                      </button>
+                      <div className="flex gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTemplateId(tpl.id);
+                            if (window.confirm(`用当前配置覆盖模板「${tpl.name}」？`)) {
+                              setSavedTemplates((prev) =>
+                                prev.map((x) =>
+                                  x.id === tpl.id
+                                    ? {
+                                        ...x,
+                                        selectedKeys: [...orderedSelectedKeys],
+                                        selectedListItems: selectedListItems.map((i) =>
+                                          i.type === "divider"
+                                            ? {
+                                                type: "divider" as const,
+                                                id: i.id,
+                                                ...(i.label ? { label: i.label } : {}),
+                                              }
+                                            : { type: i.type, key: i.key },
+                                        ),
+                                        layoutMode,
+                                        slotAssignment: { ...slotAssignment },
+                                        seriesVisualMap: { ...seriesVisualMap },
+                                        displayConfig: { ...displayConfig },
+                                        seriesCalcConfigMap: { ...seriesCalcConfigMap },
+                                        derivedCalcs: [...derivedCalcs],
+                                        createdAtIso: new Date().toISOString(),
+                                      }
+                                    : x,
+                                ),
+                              );
+                            }
+                          }}
+                          className="flex-1 rounded border border-fs-border text-fs-secondary hover:border-fs-border"
+                        >
+                          覆盖
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTemplateId(tpl.id);
+                            if (window.confirm(`删除模板「${tpl.name}」？`)) {
+                              setSavedTemplates((prev) => prev.filter((x) => x.id !== tpl.id));
+                              setActiveTemplateId((prev) => (prev === tpl.id ? null : prev));
+                            }
+                          }}
+                          className="flex-1 rounded border border-fs-negative/50 bg-white font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    </>
+                  )}
+                />
+              </div>
+            </section>
+  );
+
+  const templateNameDialog = templateNameDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-fs-bg/75 px-4">
+          <div className="w-full max-w-md rounded-lg border border-fs-border bg-fs-elevated p-4 shadow-2xl">
+            <h3 className="text-sm font-medium text-fs-text">保存模板</h3>
+            <p className="mt-1 text-xs text-fs-muted">
+              {templateSaveMode === "builtin" && isAdmin
+                ? "保存为系统模板后，所有用户均可在「系统模板」中加载。"
+                : "保存为我的模板，仅自己可见。"}
+            </p>
+            {isAdmin ? (
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-fs-secondary">
+                <label className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="template-save-mode"
+                    checked={templateSaveMode === "user"}
+                    onChange={() => {
+                      setTemplateSaveMode("user");
+                      if (activeTemplate && !activeTemplate.builtIn) {
+                        setNewTemplateFolderId(activeTemplate.folderId ?? "");
+                      } else {
+                        setNewTemplateFolderId("");
+                      }
+                    }}
+                    className="h-3 w-3 border-fs-border"
+                  />
+                  我的模板
+                </label>
+                <label className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="template-save-mode"
+                    checked={templateSaveMode === "builtin"}
+                    onChange={() => {
+                      setTemplateSaveMode("builtin");
+                      if (activeTemplate?.builtIn) {
+                        setNewTemplateFolderId(builtinTemplateFolderIds[activeTemplate.id] ?? "");
+                      } else {
+                        setNewTemplateFolderId("");
+                      }
+                    }}
+                    className="h-3 w-3 border-fs-border"
+                  />
+                  系统模板
+                </label>
+              </div>
+            ) : null}
+            <form
+              className="mt-3 flex flex-col gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                confirmSaveTemplateByDialog();
+              }}
+            >
+              <input
+                type="text"
+                value={templateNameDraft}
+                onChange={(e) => setTemplateNameDraft(e.target.value)}
+                placeholder="例如：美国总览-利率通胀版"
+                autoFocus
+                className="rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-sm text-fs-text placeholder:text-fs-muted focus:border-fs-accent focus:outline-none"
+              />
+              <label className="flex items-center gap-2 text-xs text-fs-muted">
+                <span className="shrink-0">保存到文件夹</span>
+                <select
+                  value={newTemplateFolderId}
+                  onChange={(e) => setNewTemplateFolderId(e.target.value)}
+                  className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-xs text-fs-text"
+                >
+                  <option value="">未分类</option>
+                  {(templateSaveMode === "builtin" ? builtinFolders : userFolders).map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={cancelSaveTemplateDialog}
+                  className="rounded border border-fs-border px-3 py-1.5 text-xs text-fs-secondary hover:border-fs-border"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={!templateNameDraft.trim()}
+                  className="rounded border border-fs-accent/50 bg-fs-accent-soft px-3 py-1.5 text-xs font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {templateSaveMode === "builtin" && isAdmin ? "保存为系统模板" : "保存为我的模板"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null;
+
+  if (isMobile) {
+    const mobileTab: MacroMobileTab =
+      mainTab === "charts" ? "charts" : mainTab === "templates" ? "templates" : mobileSubTab;
+    const onMobileTabChange = (tab: MacroMobileTab) => {
+      if (tab === "charts" || tab === "templates") {
+        setMainTab(tab);
+        return;
+      }
+      setMobileSubTab(tab);
+      setMainTab("selected");
+    };
+    const mobileSegClass = (active: boolean) =>
+      `h-9 flex-1 rounded-md text-sm font-medium transition ${
+        active
+          ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
+          : "text-fs-secondary"
+      }`;
+
+    const mobileChartsPanel = (
+      <div className="flex flex-col pb-4">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <label className="flex shrink-0 items-center gap-1.5 text-[13px] text-fs-muted">
+            图表
+            <select
+              value={layoutMode}
+              onChange={(e) => setLayoutMode(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)}
+              className="h-9 rounded-md border border-fs-border bg-white px-2 text-fs-text"
+            >
+              <option value={1}>1 张</option>
+              <option value={2}>2 张</option>
+              <option value={3}>3 张</option>
+              <option value={4}>4 张</option>
+              <option value={5}>5 张</option>
+              <option value={6}>6 张</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            aria-pressed={Boolean(displayConfig.showRecessionShading)}
+            onClick={() =>
+              setDisplayConfig((prev) => ({
+                ...prev,
+                showRecessionShading: !prev.showRecessionShading,
+              }))
+            }
+            className={`h-9 shrink-0 rounded-full border px-3 text-[13px] font-medium ${
+              displayConfig.showRecessionShading
+                ? "border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text"
+                : "border-fs-border bg-white text-fs-text"
+            }`}
+          >
+            美国衰退
+          </button>
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => {
+              setChartSidePanelTab("settings");
+              setMobileChartSettingsOpen(true);
+            }}
+            className="h-9 shrink-0 rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text"
+          >
+            设置
+          </button>
+        </div>
+        <p className="flex items-center gap-1.5 px-3 pb-2 text-xs text-fs-muted">
+          <IconInfo size={14} />
+          画线、截图、页面同步请在电脑端使用
+        </p>
+        {loading ? (
+          <div className="flex min-h-[200px] items-center justify-center text-sm text-fs-muted">
+            正在加载…
+          </div>
+        ) : chartGridPayload ? (
+          <div className="flex flex-col gap-2 px-2">
+            {error ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {error}
+              </div>
+            ) : null}
+            <MacroMultiChartGrid
+              key={`macro-grid-mobile-${layoutMode}`}
+              payload={chartGridPayload}
+              layoutMode={layoutMode}
+              slotAssignment={extractedAssignment}
+              seriesVisualMap={effectiveSeriesVisualMap}
+              displayConfig={effectiveDisplayConfig}
+              recessionBands={displayConfig.showRecessionShading ? recessionBands : undefined}
+              regimeBands={regimeShadingEnabled ? regimeBands : undefined}
+              singleChartHeight="340px"
+              stacked
+              onCrosshairTimeLabel={onMacroCrosshairTimeLabel}
+              onVisibleRangeLabels={onMacroVisibleRangeLabels}
+              initialRangePct={cachedChartRangePct}
+              rangeCacheKey={chartRangeDatasetKey}
+              onRangePctChange={cacheCurrentChartRange}
+            />
+          </div>
+        ) : (
+          <div className="mx-3 rounded-lg border border-dashed border-fs-border p-8 text-center text-sm text-fs-muted">
+            {error ? `加载失败：${error}` : "暂无数据"}
+          </div>
+        )}
+      </div>
+    );
+
+    return (
+      <>
+        <MacroMobileLayout
+          tab={mobileTab}
+          onTabChange={onMobileTabChange}
+          subtitle={activeTemplate ? activeTemplate.name : `${orderedDisplayKeys.length} 个指标`}
+          selectedBadge={orderedDisplayKeys.length}
+          onExtract={() => {
+            handleExtractData();
+            if (mobileTab === "tree" || mobileTab === "selected") onMobileTabChange("data");
+          }}
+          extractDisabled={loading || selectedKeys.size === 0}
+          extracting={loading}
+          onCreateTemplate={createNewTemplateDraft}
+          onSaveTemplate={quickSaveTemplateToMine}
+          onDeleteTemplate={
+            activeTemplate && (activeTemplate.builtIn ? isAdmin : true)
+              ? deleteActiveTemplate
+              : undefined
+          }
+          tree={
+            <UnifiedMacroSidebar
+              selectedKeys={selectedKeys}
+              onChange={onSelectedKeysChange}
+              catalogCountries={catalogCountries}
+              catalogError={catalogLoadError}
+              locateKey={sidebarLocateKey}
+              onLocateKeyHandled={handleSidebarLocateKeyHandled}
+              onCatalogRefresh={refreshCatalog}
+              onAllowlistExpand={expandAllowlistForKey}
+              onAllowlistExpandMany={expandAllowlistMany}
+            />
+          }
+          selected={
+            <MacroMobileSelectedPanel
+              items={selectedListItems}
+              rowByKey={selectedRowByKey}
+              onChange={setSelectedListItems}
+              onRemoveKey={removeSelectedListKey}
+              onRenameKey={renameSelectedListKey}
+              onLocateKey={(key) => {
+                onMobileTabChange("tree");
+                locateIndicatorInSidebar(key);
+              }}
+              displayCount={orderedDisplayKeys.length}
+              rawCount={selectedKeys.size}
+              maxSeries={MACRO_MAX_SERIES}
+              onOpenCalc={() => setMobileCalcOpen(true)}
+              showSource={isAdmin}
+            />
+          }
+          data={
+            <>
+              <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-fs-text">提取数据</p>
+                  <p className="mt-0.5 text-xs text-fs-muted">表格可左右滑动</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!displayPayload}
+                  onClick={() => exportExtractedData("csv")}
+                  className="h-9 shrink-0 rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text disabled:opacity-40"
+                >
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  disabled={!displayPayload}
+                  onClick={() => exportExtractedData("xlsx")}
+                  className="h-9 shrink-0 rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text disabled:opacity-40"
+                >
+                  XLSX
+                </button>
+              </div>
+              <div
+                className="min-h-0 flex-1 overflow-hidden border-t border-fs-border"
+                suppressHydrationWarning
+              >
+                {extractedDataBody}
+              </div>
+            </>
+          }
+          charts={mobileChartsPanel}
+          templates={templatesPanel}
+        />
+        <MacroMobileCalcSheet
+          open={mobileCalcOpen}
+          onClose={() => setMobileCalcOpen(false)}
+          options={selectedKeyOptions}
+          targetKey={calcTargetKey}
+          onTargetKeyChange={setCalcTargetKey}
+          draft={calcDraft}
+          onDraftChange={(patch) => setCalcDraft((prev) => ({ ...prev, ...patch }))}
+          onApply={applyCalcConfigToKey}
+          onReset={() => {
+            if (calcTargetKey) resetCalcConfigForKey(calcTargetKey);
+          }}
+          leftKey={derivedLeftKey}
+          onLeftKeyChange={setDerivedLeftKey}
+          rightKey={derivedRightKey}
+          onRightKeyChange={setDerivedRightKey}
+          op={derivedOp}
+          onOpChange={setDerivedOp}
+          name={derivedName}
+          onNameChange={setDerivedName}
+          onAddDerived={addDerivedCalc}
+        />
+        <MobileSheet
+          open={mobileChartSettingsOpen}
+          onClose={() => setMobileChartSettingsOpen(false)}
+          title="图表设置"
+          size="full"
+        >
+          <div className="sticky top-0 z-10 flex flex-col gap-2 border-b border-fs-border bg-fs-bg px-3 py-2.5">
+            <div className="flex gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
+              {(
+                [
+                  ["settings", "图形设置"],
+                  ["events", "事件记录"],
+                  ["intro", "模板介绍"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setChartSidePanelTab(id)}
+                  className={mobileSegClass(chartSidePanelTab === id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {chartSidePanelTab === "settings" ? (
+              <div className="flex gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
+                {(
+                  [
+                    ["global", "全图设置"],
+                    ["single", "单图设置"],
+                    ["axis", "轴设置"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setChartPropsTab(id)}
+                    className={mobileSegClass(chartPropsTab === id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div
+            className={
+              chartSidePanelTab === "settings"
+                ? "px-3 py-3 text-xs text-fs-muted"
+                : "flex h-[calc(100dvh-8rem)] flex-col px-3 py-3 text-xs text-fs-muted"
+            }
+          >
+            {chartSidePanelBody}
+          </div>
+        </MobileSheet>
+        {templateNameDialog}
+      </>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-0">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-fs-border px-4 pb-1.5 pt-1 lg:px-6">
@@ -3722,27 +4350,7 @@ export function MacroSection() {
                     className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-fs-border/90 bg-fs-bg/60"
                     suppressHydrationWarning
                   >
-                    {loading ? (
-                      <p className="px-3 py-6 text-center text-xs text-fs-muted">正在加载…</p>
-                    ) : error ? (
-                      <p className="px-3 py-6 text-center text-xs text-amber-500">
-                        加载失败：{error}
-                      </p>
-                    ) : displayPayload ? (
-                      <MacroExtractedDataTable
-                        payload={displayPayload}
-                        columns={tableColumns}
-                        valueByKey={tableValueByKey}
-                        rowIndices={sortedTableRowIndices}
-                        widths={tableColumnWidths}
-                        timeSort={tableTimeSort}
-                        onToggleTimeSort={toggleTableTimeSort}
-                      />
-                    ) : (
-                      <p className="px-3 py-6 text-center text-xs text-fs-muted">
-                        点击「提取数据」后，各指标数值将显示在此处。
-                      </p>
-                    )}
+                    {extractedDataBody}
                   </div>
                 </div>
               </div>
@@ -3886,62 +4494,7 @@ export function MacroSection() {
                                 : "overflow-y-auto px-2 py-2"
                             }`}
                           >
-                            {chartSidePanelTab === "events" ? (
-                              <EventChartSidePanel
-                                variant="embedded"
-                                rangeFrom={macroEventRangeFrom}
-                                rangeTo={macroEventRangeTo}
-                                trackDate={macroEventContextDate}
-                                contextCountries={macroEventContextCountries}
-                                contextMacroKeys={macroEventContextMacroKeys}
-                                className="h-full min-h-[12rem]"
-                              />
-                            ) : chartSidePanelTab === "intro" ? (
-                              <MacroTemplateIntroPanel
-                                templateName={introTemplateMeta.name}
-                                templateDescription={introTemplateMeta.description}
-                                chartSections={introChartSections ?? undefined}
-                                indicators={introChartSections ? [] : introIndicators}
-                                notes={mergedIntroNotes}
-                                onNoteChange={onIntroNoteChange}
-                                onDescriptionChange={
-                                  isAdmin && activeTemplate?.builtIn
-                                    ? onIntroDescriptionChange
-                                    : undefined
-                                }
-                                editable={isAdmin}
-                                className="h-full min-h-[12rem]"
-                              />
-                            ) : (
-                              <>
-                            <MacroChartIndicatorAssignment
-                              layoutMode={layoutMode}
-                              selectedKeys={chartPropertyKeys}
-                              displayLabelByKey={chartSettingsLabelByKey}
-                              slotAssignment={resolvedAssignment}
-                              onAssign={assignSlot}
-                              seriesVisualMap={effectiveSeriesVisualMap}
-                              onUpdateSeriesVisual={updateSeriesVisual}
-                              displayConfig={displayConfig}
-                              onUpdateDisplayConfig={(patch) =>
-                                setDisplayConfig((prev) => ({ ...prev, ...patch }))
-                              }
-                              availableYears={chartAvailableYears}
-                              chartPayload={displayPayload}
-                              tab={chartPropsTab}
-                            />
-                            {chartPropsTab === "global" ? (
-                              <div className="mt-3 border-t border-fs-border pt-3">
-                                <p className="mb-2 text-[10px] leading-relaxed text-fs-muted">
-                                  常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图、瀑布图、热力图、XY散点、箱线图、雷达图。季节图仅支持单指标（月度/季度）；瀑布图按槽内顺序拆解增减（末项为合计）；热力图为指标相关矩阵；XY散点需恰好 2 个指标；雷达图需 ≥3 个指标并按历史区间归一化；饼图/瀑布图/雷达图可切换数据年份；并支持任意序列切到右轴。
-                                </p>
-                                <div className="rounded-md border border-fs-border/90 bg-fs-elevated/80 p-2 text-[10px] text-fs-muted">
-                                  建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。
-                                </div>
-                              </div>
-                            ) : null}
-                              </>
-                            )}
+                            {chartSidePanelBody}
                           </div>
                         </aside>
                       </>
@@ -4004,264 +4557,12 @@ export function MacroSection() {
               )}
             </section>
           ) : (
-            <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-              <div className="rounded-xl border border-fs-border/80 bg-fs-elevated/40 p-4">
-                <MacroSystemTemplateBrowser
-                  templates={builtInTemplates}
-                  folderIdByTemplate={builtinTemplateFolderIds}
-                  loading={loading}
-                  emptyText="暂无系统模板。"
-                  renderActions={(tpl) => (
-                    <div className="flex w-full flex-col gap-1">
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={() => applyTemplateAndExtract(tpl)}
-                        className="w-full rounded-md border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        加载
-                      </button>
-                      {isAdmin ? (
-                        <button
-                          type="button"
-                          disabled={loading}
-                          onClick={() => deleteSystemTemplate(tpl)}
-                          className="w-full rounded-md border border-fs-negative/50 bg-fs-elevated px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          删除
-                        </button>
-                      ) : null}
-                    </div>
-                  )}
-                />
-                {isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
-                  <div className="mt-3 rounded-lg border border-fs-border bg-fs-bg/40 px-2 py-2">
-                    <p className="text-[10px] font-medium text-fs-muted">已隐藏的内置系统模板</p>
-                    <ul className="mt-1.5 flex flex-wrap gap-1.5">
-                      {hiddenHardcodedBuiltinTemplates.map((tpl) => (
-                        <li key={tpl.id}>
-                          <button
-                            type="button"
-                            disabled={loading}
-                            onClick={() => restoreSystemTemplate(tpl.id)}
-                            className="rounded border border-fs-border px-2 py-0.5 text-[10px] text-fs-secondary hover:border-fs-accent/40 hover:text-fs-accent-text disabled:opacity-40"
-                            title={`恢复「${tpl.name}」到系统模板列表`}
-                          >
-                            恢复「{tpl.name}」
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="rounded-lg border border-fs-border/90 bg-fs-bg/60 p-3">
-                <h3 className="text-sm font-medium text-fs-text">我的模板</h3>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={newTemplateName}
-                    onChange={(e) => setNewTemplateName(e.target.value)}
-                    placeholder="模板名称"
-                    className="min-w-[10rem] flex-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-fs-accent focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      isAdmin
-                        ? openSaveTemplateDialog({
-                            defaultMode: "user",
-                            defaultName: newTemplateName,
-                          })
-                        : saveCurrentAsTemplate(
-                            newTemplateName,
-                            newTemplateFolderId.trim() ? newTemplateFolderId.trim() : null,
-                          )
-                    }
-                    className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent"
-                  >
-                    保存当前配置
-                  </button>
-                </div>
-
-                <MacroTemplateFolderSection
-                  templates={savedTemplates}
-                  folders={userFolders}
-                  getFolderId={(tpl) => tpl.folderId ?? null}
-                  onAssignFolder={assignUserTemplateFolder}
-                  onCreateFolder={addUserTemplateFolder}
-                  onRenameFolder={renameUserTemplateFolder}
-                  onDeleteFolder={deleteUserTemplateFolder}
-                  emptyText="还没有自定义模板。"
-                  renderActions={(tpl) => (
-                    <>
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={() => applyTemplateAndExtract(tpl)}
-                        className="rounded border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        加载
-                      </button>
-                      <div className="flex gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTemplateId(tpl.id);
-                            if (window.confirm(`用当前配置覆盖模板「${tpl.name}」？`)) {
-                              setSavedTemplates((prev) =>
-                                prev.map((x) =>
-                                  x.id === tpl.id
-                                    ? {
-                                        ...x,
-                                        selectedKeys: [...orderedSelectedKeys],
-                                        selectedListItems: selectedListItems.map((i) =>
-                                          i.type === "divider"
-                                            ? {
-                                                type: "divider" as const,
-                                                id: i.id,
-                                                ...(i.label ? { label: i.label } : {}),
-                                              }
-                                            : { type: i.type, key: i.key },
-                                        ),
-                                        layoutMode,
-                                        slotAssignment: { ...slotAssignment },
-                                        seriesVisualMap: { ...seriesVisualMap },
-                                        displayConfig: { ...displayConfig },
-                                        seriesCalcConfigMap: { ...seriesCalcConfigMap },
-                                        derivedCalcs: [...derivedCalcs],
-                                        createdAtIso: new Date().toISOString(),
-                                      }
-                                    : x,
-                                ),
-                              );
-                            }
-                          }}
-                          className="flex-1 rounded border border-fs-border text-fs-secondary hover:border-fs-border"
-                        >
-                          覆盖
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTemplateId(tpl.id);
-                            if (window.confirm(`删除模板「${tpl.name}」？`)) {
-                              setSavedTemplates((prev) => prev.filter((x) => x.id !== tpl.id));
-                              setActiveTemplateId((prev) => (prev === tpl.id ? null : prev));
-                            }
-                          }}
-                          className="flex-1 rounded border border-fs-negative/50 bg-white font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
-                        >
-                          删除
-                        </button>
-                      </div>
-                    </>
-                  )}
-                />
-              </div>
-            </section>
+            templatesPanel
           )}
         </div>
       </div>
 
-      {templateNameDialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-fs-bg/75 px-4">
-          <div className="w-full max-w-md rounded-lg border border-fs-border bg-fs-elevated p-4 shadow-2xl">
-            <h3 className="text-sm font-medium text-fs-text">保存模板</h3>
-            <p className="mt-1 text-xs text-fs-muted">
-              {templateSaveMode === "builtin" && isAdmin
-                ? "保存为系统模板后，所有用户均可在「系统模板」中加载。"
-                : "保存为我的模板，仅自己可见。"}
-            </p>
-            {isAdmin ? (
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-fs-secondary">
-                <label className="flex cursor-pointer items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name="template-save-mode"
-                    checked={templateSaveMode === "user"}
-                    onChange={() => {
-                      setTemplateSaveMode("user");
-                      if (activeTemplate && !activeTemplate.builtIn) {
-                        setNewTemplateFolderId(activeTemplate.folderId ?? "");
-                      } else {
-                        setNewTemplateFolderId("");
-                      }
-                    }}
-                    className="h-3 w-3 border-fs-border"
-                  />
-                  我的模板
-                </label>
-                <label className="flex cursor-pointer items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name="template-save-mode"
-                    checked={templateSaveMode === "builtin"}
-                    onChange={() => {
-                      setTemplateSaveMode("builtin");
-                      if (activeTemplate?.builtIn) {
-                        setNewTemplateFolderId(builtinTemplateFolderIds[activeTemplate.id] ?? "");
-                      } else {
-                        setNewTemplateFolderId("");
-                      }
-                    }}
-                    className="h-3 w-3 border-fs-border"
-                  />
-                  系统模板
-                </label>
-              </div>
-            ) : null}
-            <form
-              className="mt-3 flex flex-col gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                confirmSaveTemplateByDialog();
-              }}
-            >
-              <input
-                type="text"
-                value={templateNameDraft}
-                onChange={(e) => setTemplateNameDraft(e.target.value)}
-                placeholder="例如：美国总览-利率通胀版"
-                autoFocus
-                className="rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-sm text-fs-text placeholder:text-fs-muted focus:border-fs-accent focus:outline-none"
-              />
-              <label className="flex items-center gap-2 text-xs text-fs-muted">
-                <span className="shrink-0">保存到文件夹</span>
-                <select
-                  value={newTemplateFolderId}
-                  onChange={(e) => setNewTemplateFolderId(e.target.value)}
-                  className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-xs text-fs-text"
-                >
-                  <option value="">未分类</option>
-                  {(templateSaveMode === "builtin" ? builtinFolders : userFolders).map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={cancelSaveTemplateDialog}
-                  className="rounded border border-fs-border px-3 py-1.5 text-xs text-fs-secondary hover:border-fs-border"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={!templateNameDraft.trim()}
-                  className="rounded border border-fs-accent/50 bg-fs-accent-soft px-3 py-1.5 text-xs font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {templateSaveMode === "builtin" && isAdmin ? "保存为系统模板" : "保存为我的模板"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      {templateNameDialog}
     </div>
   );
 }

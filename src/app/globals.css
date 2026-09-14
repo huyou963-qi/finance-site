@@ -41,6 +41,15 @@ body {
   min-height: 100dvh;
 }
 
+/* 手机模式（< 768px）：输入控件 16px，避免 iOS Safari 聚焦时自动放大页面 */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 .weekly-md {
   color: var(--fs-text);
   font-size: 0.875rem;

@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { WeeklyReportDetail, WeeklyReportListItem } from "@/lib/data/weeklyReports";
 import { WeeklyMarkdown } from "@/components/weekly/WeeklyMarkdown";
 import { WeeklyHistorySidebar } from "@/components/weekly/WeeklyHistorySidebar";
+import { MobileSheet } from "@/components/mobile/MobileSheet";
+import {
+  IconCalendar,
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+} from "@/components/mobile/mobileIcons";
 import Link from "next/link";
 
 function kpiTone(label: string, dir: "up" | "down" | "flat"): string {
@@ -30,6 +37,8 @@ function WeeklyClientInner() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
+  /** 手机端：历史周报底部面板 */
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const selectReport = useCallback(
     (id: string) => {
@@ -162,6 +171,11 @@ function WeeklyClientInner() {
 
   const activeMeta = detail?.meta ?? list.find((x) => x.id === selectedId)?.meta;
 
+  // 列表按截至日期倒序：下标越大越早
+  const selectedIndex = list.findIndex((x) => x.id === selectedId);
+  const olderReportId = selectedIndex >= 0 ? (list[selectedIndex + 1]?.id ?? null) : null;
+  const newerReportId = selectedIndex > 0 ? (list[selectedIndex - 1]?.id ?? null) : null;
+
   const emptyState = useMemo(() => {
     if (listLoading) return "加载中…";
     if (error) return error;
@@ -176,15 +190,55 @@ function WeeklyClientInner() {
           {emptyState}
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+          {/* 手机端：历史周报收进底部面板，顶部放期数切换 */}
+          <div className="flex min-h-13 shrink-0 items-center gap-2 border-b border-fs-border py-1 pl-3 pr-1 md:hidden">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex h-9 min-w-0 items-center gap-1.5 rounded-md border border-fs-border bg-white px-2.5 text-sm font-semibold text-fs-text active:bg-fs-elevated"
+            >
+              <IconCalendar size={16} className="shrink-0 text-fs-muted" />
+              <span className="truncate tabular-nums">
+                {activeMeta ? `截至 ${activeMeta.weekEnding}` : "历史周报"}
+              </span>
+              <IconChevronDown size={16} className="shrink-0 text-fs-muted" />
+            </button>
+            {activeMeta ? (
+              <span className="shrink-0 rounded bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-secondary max-[374px]:hidden">
+                {activeMeta.scope}
+              </span>
+            ) : null}
+            <span className="flex-1" />
+            <button
+              type="button"
+              disabled={!olderReportId}
+              onClick={() => olderReportId && selectReport(olderReportId)}
+              aria-label="上一期"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated disabled:opacity-30"
+            >
+              <IconChevronLeft size={22} />
+            </button>
+            <button
+              type="button"
+              disabled={!newerReportId}
+              onClick={() => newerReportId && selectReport(newerReportId)}
+              aria-label="下一期"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated disabled:opacity-30"
+            >
+              <IconChevronRight size={22} />
+            </button>
+          </div>
+
           <WeeklyHistorySidebar
             list={list}
             total={total}
             selectedId={selectedId}
             onSelect={selectReport}
+            className="max-md:hidden"
           />
 
-          <main className="min-w-0 flex-1 overflow-y-auto px-4 py-4 lg:px-8 lg:py-5">
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 max-md:px-3 lg:px-8 lg:py-5">
             {detailLoading && !detail ? (
               <div className="text-sm text-fs-muted">加载报告…</div>
             ) : detail && activeMeta ? (
@@ -198,11 +252,11 @@ function WeeklyClientInner() {
                     阅读全文。
                   </div>
                 ) : null}
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold text-fs-text">
+                <div className="mb-4 flex flex-wrap items-center gap-2 max-md:mb-0">
+                  <h2 className="text-lg font-semibold text-fs-text max-md:hidden">
                     截至 {activeMeta.weekEnding}
                   </h2>
-                  <span className="rounded bg-fs-elevated px-2 py-0.5 text-xs text-fs-secondary">
+                  <span className="rounded bg-fs-elevated px-2 py-0.5 text-xs text-fs-secondary max-md:hidden">
                     {activeMeta.scope}
                   </span>
                   {isAdmin ? (
@@ -210,18 +264,24 @@ function WeeklyClientInner() {
                       type="button"
                       onClick={() => void deleteSelected()}
                       disabled={deleting}
-                      className="ml-auto rounded-md border border-fs-negative/40 px-2.5 py-1 text-xs font-medium text-fs-negative hover:bg-fs-negative/10 disabled:opacity-50"
+                      className="ml-auto rounded-md border border-fs-negative/40 px-2.5 py-1 text-xs font-medium text-fs-negative hover:bg-fs-negative/10 disabled:opacity-50 max-md:mb-3"
                     >
                       {deleting ? "删除中…" : "删除本期"}
                     </button>
                   ) : null}
                 </div>
-                <p className="text-sm text-fs-muted">
+                <h1 className="text-xl font-semibold leading-snug text-fs-text md:hidden">
+                  {activeMeta.title}
+                </h1>
+                <p className="mt-1.5 text-xs tabular-nums text-fs-muted md:hidden">
+                  生成 {activeMeta.generatedAt}
+                </p>
+                <p className="text-sm text-fs-muted max-md:hidden">
                   {activeMeta.title} · 生成 {activeMeta.generatedAt}
                 </p>
                 {error ? <p className="mt-2 text-sm text-fs-negative">{error}</p> : null}
 
-                <div className="mt-4 rounded-lg border border-fs-border bg-fs-elevated/80 px-4 py-3">
+                <div className="mt-4 rounded-lg border border-fs-border bg-fs-elevated/80 px-4 py-3 max-md:px-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium text-fs-text">
                       Regime: {activeMeta.regime}
@@ -233,13 +293,13 @@ function WeeklyClientInner() {
                   <p className="mt-2 text-sm text-fs-muted">{activeMeta.summaryOneLiner}</p>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div className="mt-4 flex flex-wrap gap-3 max-md:grid max-md:grid-cols-3 max-md:gap-2">
                   {activeMeta.kpis.map((k) => (
                     <div
                       key={k.label}
-                      className="min-w-[7.5rem] rounded-lg border border-fs-border bg-fs-elevated px-3 py-2"
+                      className="min-w-[7.5rem] rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 max-md:min-w-0 max-md:px-2.5"
                     >
-                      <div className="text-[11px] text-fs-muted">{k.label}</div>
+                      <div className="truncate text-[11px] text-fs-muted">{k.label}</div>
                       <div className={`text-base font-semibold ${kpiTone(k.label, k.dir)}`}>
                         {k.value}
                       </div>
@@ -256,6 +316,24 @@ function WeeklyClientInner() {
               <div className="text-sm text-fs-muted">请选择左侧周报</div>
             )}
           </main>
+
+          <MobileSheet
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            title="历史周报"
+            size="tall"
+          >
+            <WeeklyHistorySidebar
+              variant="sheet"
+              list={list}
+              total={total}
+              selectedId={selectedId}
+              onSelect={(id) => {
+                selectReport(id);
+                setHistoryOpen(false);
+              }}
+            />
+          </MobileSheet>
         </div>
       )}
     </div>
