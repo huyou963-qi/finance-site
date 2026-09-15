@@ -9,6 +9,7 @@
 | 改动 | 真正存在哪 | 同步方式 |
 |------|-----------|----------|
 | 内置模板 / 图表定义 / 分析文档 | **代码（git）**——模板硬编码在 `.ts`，不在 DB（`SystemMacroChartPrefs` 只存管理员覆盖项） | 现有 `git→build→deploy` 已全自动，零额外操作 |
+| 系统模板管理员覆盖（`SystemMacroChartPrefs`） | **生产 DB 是事实来源**；git 快照 `data/system-macro-chart-prefs.json` | 服务器 `npm run data:export-system-macro-chart-prefs` → 提交快照 → 本地 `data:import-system-macro-chart-prefs`。不接入 `data:apply`，避免部署覆盖生产端未导出的改动 |
 | Prisma schema（如新增表） | migrations（git） | `npm run db:migrate`（= `prisma migrate deploy`） |
 | 指标 / 订阅 / 发布包 / 元数据 | DB，但**完全由 git 的 seed catalog 决定** | `npm run data:seed`（幂等 upsert）+ `data:seed-release-packages` |
 | 目录分类布局 | DB（`MacroCatalogLayout`） | `npm run data:rebuild-global-catalog-layout`；`data:apply` 自动执行。所有国家按代码中的统一九大主题和子层级重建，避免本机与云端漂移 |

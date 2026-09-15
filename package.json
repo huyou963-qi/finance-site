@@ -126,6 +126,8 @@
     "data:sync-multpl-sp500-pe": "dotenv -e .env.local -- tsx scripts/data-worker/sync-multpl-sp500-pe.ts",
     "data:verify-multpl-sp500-pe": "dotenv -e .env.local -- tsx scripts/data-worker/verify-multpl-sp500-pe.ts",
     "data:seed-retired-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/seed-retired-indicators.ts",
+    "data:export-system-macro-chart-prefs": "dotenv -e .env.local -- tsx scripts/data-worker/sync-system-macro-chart-prefs.ts --export",
+    "data:import-system-macro-chart-prefs": "dotenv -e .env.local -- tsx scripts/data-worker/sync-system-macro-chart-prefs.ts --import",
     "data:verify-retired-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/verify-retired-indicators.ts",
     "data:seed-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/seed-yahoo-gold-prices.ts",
     "data:verify-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/verify-yahoo-gold-prices.ts",
