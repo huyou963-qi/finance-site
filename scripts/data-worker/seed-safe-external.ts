@@ -2,7 +2,7 @@ import { loadEnvConfig } from "@next/env";
 import { DataFetchMethod, DataGranularity, InstrumentKind, PrismaClient, SourceAdapterKind } from "@prisma/client";
 import { mergeFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
 import { computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
-import { fetchSafeExternalHistory } from "../../src/lib/data/scheduler/safeExternal/client";
+import { fetchSafeExternalHistoryTolerant } from "../../src/lib/data/scheduler/safeExternal/client";
 import { SAFE_DATASETS, SAFE_EXTERNAL_SOURCE, SAFE_EXTERNAL_SYNC_SCRIPT, type SafeDataset } from "../../src/lib/data/scheduler/safeExternal/catalog";
 import { upsertMacroObservations } from "../../src/lib/data/scheduler/upsertObservations";
 
@@ -18,7 +18,11 @@ const rule = (freq: "月" | "季" | "年") => freq === "月" ? { type: "calendar
 async function main() {
   await prisma.statisticalAgency.upsert({ where: { id: "cn-safe" }, create: { id: "cn-safe", countryCode: "CN", nameZh: "国家外汇管理局", nameEn: "State Administration of Foreign Exchange", websiteUrl: "https://www.safe.gov.cn/" }, update: { countryCode: "CN", nameZh: "国家外汇管理局", nameEn: "State Administration of Foreign Exchange", websiteUrl: "https://www.safe.gov.cn/" } });
   await prisma.dataSource.upsert({ where: { id: SAFE_EXTERNAL_SOURCE.id }, create: { ...SAFE_EXTERNAL_SOURCE, adapterKind: SourceAdapterKind.REST_API, rateLimit: { requestsPerMinute: 12, minIntervalMs: 5_000 } }, update: { agencyId: "cn-safe", name: SAFE_EXTERNAL_SOURCE.name, adapterKind: SourceAdapterKind.REST_API, baseUrl: SAFE_EXTERNAL_SOURCE.baseUrl, termsUrl: SAFE_EXTERNAL_SOURCE.termsUrl, rateLimit: { requestsPerMinute: 12, minIntervalMs: 5_000 } } });
-  const history = await fetchSafeExternalHistory(requestedDatasets ? { datasets: requestedDatasets } : undefined); const probedAt = new Date().toISOString();
+  const { history, unavailable } = await fetchSafeExternalHistoryTolerant(requestedDatasets ? { datasets: requestedDatasets } : undefined); const probedAt = new Date().toISOString();
+  // A withdrawn official page must not fail the deploy gate nor wipe that dataset's existing series.
+  for (const item of unavailable) console.warn(`[data:seed-safe-external] ⚠ 跳过 dataset=${item.dataset}（官方页面已下线，保留库内已有序列）：${item.message}`);
+  const unavailableKeys = new Set(unavailable.map((item) => item.dataset));
+  const scannedDatasets = (requestedDatasets ?? SAFE_DATASETS.map((dataset) => dataset.key)).filter((dataset) => !unavailableKeys.has(dataset));
   // Series codes are derived from the stable official table identity. If a
   // parser correction changes that identity, leave no obsolete synthetic
   // series behind in the database or the catalog tree.
@@ -26,9 +30,7 @@ async function main() {
   const stale = await prisma.instrument.findMany({
     where: {
       AND: [
-        requestedDatasets?.length
-          ? { OR: requestedDatasets.map((dataset) => ({ code: { startsWith: `safe_cn_${dataset}_` } })) }
-          : { code: { startsWith: "safe_cn_" } },
+        { OR: scannedDatasets.map((dataset) => ({ code: { startsWith: `safe_cn_${dataset}_` } })) },
         { code: { notIn: activeCodes } },
       ],
     },

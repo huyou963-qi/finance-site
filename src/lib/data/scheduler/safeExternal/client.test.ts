@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as XLSX from "xlsx";
-import { parseSafeExternalSheet } from "./client";
+import { collectSafeExternalHistory, parseSafeExternalSheet, SafePageUnavailableError, type SafeLoaders } from "./client";
+import { SAFE_DATASETS } from "./catalog";
 
 test("parses SAFE workbook rows and preserves monthly official values", () => {
   const sheet = XLSX.utils.aoa_to_sheet([["银行结售汇（以人民币计价）"], ["单位：亿元人民币"], ["项目", 45292, 45323], ["一、结汇", 18889, 19001]]);
@@ -39,4 +40,25 @@ test("parses SAFE quarterly BOP headers and assigns stable canonical codes", () 
   ]);
   assert.equal(series[0]?.freqLabel, "季");
   assert.deepEqual(series[0]?.points.map((point) => point.obsDate.toISOString().slice(0, 10)), ["2025-03-01", "2025-06-01", "2025-09-01", "2025-12-01"]);
+});
+
+test("skips datasets whose official page was withdrawn without dropping the others", async () => {
+  const settlement = SAFE_DATASETS.find((dataset) => dataset.key === "settlement")!;
+  const debt = SAFE_DATASETS.find((dataset) => dataset.key === "debt")!;
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([["单位：亿美元"], ["项目", 2024, 2025], ["外债余额", 24000, 24500]]), "Sheet1");
+  const loaders = (pageError: Error): SafeLoaders => ({
+    attachmentUrls: async (page) => { if (settlement.pages.includes(page)) throw pageError; return [`${page}.xlsx`]; },
+    workbook: async () => book,
+  });
+  const withdrawn = new SafePageUnavailableError(settlement.pages[0]!, 404);
+
+  const result = await collectSafeExternalHistory([settlement, debt], { skipUnavailable: true }, loaders(withdrawn));
+  assert.deepEqual(result.unavailable.map((item) => item.dataset), ["settlement"]);
+  assert.ok(result.history.size > 0);
+  assert.ok([...result.history.values()].every((series) => series.dataset === "debt"));
+
+  await assert.rejects(collectSafeExternalHistory([settlement, debt], { skipUnavailable: false }, loaders(withdrawn)), SafePageUnavailableError);
+  await assert.rejects(collectSafeExternalHistory([settlement, debt], { skipUnavailable: true }, loaders(new Error("外管局页面 HTTP 503"))), /HTTP 503/);
+  await assert.rejects(collectSafeExternalHistory([settlement], { skipUnavailable: true }, loaders(withdrawn)), /未解析出任何时间序列/);
 });

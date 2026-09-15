@@ -6,7 +6,7 @@ import { SAFE_DATASETS, type SafeDataset } from "./catalog";
 
 export type SafeSeries = { code: string; key: string; dataset: SafeDataset; label: string; category: string; unit: string; freqLabel: "月" | "季" | "年"; points: ObservationPoint[] };
 type History = Map<string, SafeSeries>;
-const cache = new Map<string, { at: number; values: History }>();
+const cache = new Map<string, { at: number; values: SafeHistoryResult }>();
 const HEADERS = { "User-Agent": process.env.SAFE_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0" };
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -57,7 +57,11 @@ function seriesCode(dataset: SafeDataset, sheetName: string, label: string, key:
   }
   return codeFor(dataset, key);
 }
-async function text(url: string): Promise<string> { const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) }); if (!response.ok) throw new Error(`外管局页面 HTTP ${response.status}: ${url}`); return response.text(); }
+/** The official landing page was withdrawn (404/410), as opposed to a transient network or server failure. */
+export class SafePageUnavailableError extends Error {
+  constructor(readonly url: string, readonly status: number) { super(`外管局页面 HTTP ${status}: ${url}`); this.name = "SafePageUnavailableError"; }
+}
+async function text(url: string): Promise<string> { const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) }); if (response.status === 404 || response.status === 410) throw new SafePageUnavailableError(url, response.status); if (!response.ok) throw new Error(`外管局页面 HTTP ${response.status}: ${url}`); return response.text(); }
 async function attachmentUrls(page: string): Promise<string[]> { const html = await text(page); const output: string[] = []; for (const match of html.matchAll(/href=["']([^"']+\.(?:xlsx?|xls))["']/gi)) output.push(new URL(match[1]!, page).toString()); return [...new Set(output)]; }
 async function workbook(url: string): Promise<XLSX.WorkBook> { const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(60_000) }); if (!response.ok) throw new Error(`外管局表格 HTTP ${response.status}: ${url}`); return XLSX.read(Buffer.from(await response.arrayBuffer()), { type: "buffer", cellDates: false }); }
 
@@ -92,21 +96,51 @@ export function parseSafeExternalSheet(dataset: typeof SAFE_DATASETS[number], sh
   return output;
 }
 
-/** Reads the official time-series workbooks. Existing rows are updated by stable dataset/sheet/label keys. */
-export async function fetchSafeExternalHistory(options?: { datasets?: readonly SafeDataset[] }): Promise<History> {
-  const selected = options?.datasets?.length ? SAFE_DATASETS.filter((dataset) => options.datasets!.includes(dataset.key)) : SAFE_DATASETS;
-  const cacheKey = selected.map((dataset) => dataset.key).sort().join(",");
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) return cached.values;
-  const history: History = new Map();
-  for (const dataset of selected) for (const page of dataset.pages) {
-    for (const url of await attachmentUrls(page)) {
-      await sleep(400); const book = await workbook(url);
-      for (const sheetName of book.SheetNames) for (const series of parseSafeExternalSheet(dataset, sheetName, book.Sheets[sheetName]!)) {
-        const prior = history.get(series.code);
-        if (!prior) history.set(series.code, series); else { const merged = new Map([...prior.points, ...series.points].map((point) => [point.obsDate.getTime(), point])); prior.points = [...merged.values()].sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime()); }
+export type SafeHistoryResult = { history: History; unavailable: { dataset: SafeDataset; message: string }[] };
+export type SafeLoaders = { attachmentUrls: (page: string) => Promise<string[]>; workbook: (url: string) => Promise<XLSX.WorkBook> };
+const defaultLoaders: SafeLoaders = { attachmentUrls, workbook: async (url) => { await sleep(400); return workbook(url); } };
+
+/**
+ * Collects every selected dataset. With skipUnavailable, a dataset whose official page was withdrawn
+ * is reported in `unavailable` (and contributes nothing) instead of failing the whole run.
+ */
+export async function collectSafeExternalHistory(selected: readonly (typeof SAFE_DATASETS)[number][], options: { skipUnavailable: boolean }, loaders: SafeLoaders = defaultLoaders): Promise<SafeHistoryResult> {
+  const history: History = new Map(); const unavailable: SafeHistoryResult["unavailable"] = [];
+  for (const dataset of selected) {
+    const local: SafeSeries[] = [];
+    try {
+      for (const page of dataset.pages) for (const url of await loaders.attachmentUrls(page)) {
+        const book = await loaders.workbook(url);
+        for (const sheetName of book.SheetNames) local.push(...parseSafeExternalSheet(dataset, sheetName, book.Sheets[sheetName]!));
       }
+    } catch (error) {
+      if (!options.skipUnavailable || !(error instanceof SafePageUnavailableError)) throw error;
+      unavailable.push({ dataset: dataset.key, message: error.message }); continue;
+    }
+    for (const series of local) {
+      const prior = history.get(series.code);
+      if (!prior) history.set(series.code, series); else { const merged = new Map([...prior.points, ...series.points].map((point) => [point.obsDate.getTime(), point])); prior.points = [...merged.values()].sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime()); }
     }
   }
-  if (!history.size) throw new Error("外管局公开表格未解析出任何时间序列"); cache.set(cacheKey, { at: Date.now(), values: history }); return history;
+  if (!history.size) throw new Error(`外管局公开表格未解析出任何时间序列${unavailable.length ? `（${unavailable.map((item) => item.message).join("；")}）` : ""}`);
+  return { history, unavailable };
+}
+
+async function cachedHistory(options: { datasets?: readonly SafeDataset[] } | undefined, skipUnavailable: boolean): Promise<SafeHistoryResult> {
+  const selected = options?.datasets?.length ? SAFE_DATASETS.filter((dataset) => options.datasets!.includes(dataset.key)) : SAFE_DATASETS;
+  const cacheKey = `${skipUnavailable ? "tolerant" : "strict"}:${selected.map((dataset) => dataset.key).sort().join(",")}`;
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.at < 24 * 60 * 60 * 1000) return cached.values;
+  const result = await collectSafeExternalHistory(selected, { skipUnavailable });
+  cache.set(cacheKey, { at: Date.now(), values: result }); return result;
+}
+
+/** Reads the official time-series workbooks. Existing rows are updated by stable dataset/sheet/label keys. */
+export async function fetchSafeExternalHistory(options?: { datasets?: readonly SafeDataset[] }): Promise<History> {
+  return (await cachedHistory(options, false)).history;
+}
+
+/** Like fetchSafeExternalHistory, but skips datasets whose official page was withdrawn and reports them. */
+export async function fetchSafeExternalHistoryTolerant(options?: { datasets?: readonly SafeDataset[] }): Promise<SafeHistoryResult> {
+  return cachedHistory(options, true);
 }
