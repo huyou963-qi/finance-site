@@ -74,3 +74,8 @@ export function defaultRecentRangePct(
   from.setUTCFullYear(from.getUTCFullYear() - years);
   return rangePctFromDates(categories, from.toISOString().slice(0, 10), lastIso);
 }
+
+/** `YYYY-MM-DD` → `YY/MM`；手机端紧凑触发按钮用，字符串切片避免时区解析 */
+export function shortMacroDate(iso: string): string {
+  return `${iso.slice(2, 4)}/${iso.slice(5, 7)}`;
+}

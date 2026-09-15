@@ -23,10 +23,11 @@ import {
   datesFromRangePct,
   defaultRecentRangePct,
   rangePctFromDates,
+  shortMacroDate,
   type MacroChartRangePct,
 } from "@/lib/macroChartDateRange";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
-import { IconInfo } from "@/components/mobile/mobileIcons";
+import { IconCalendar, IconInfo } from "@/components/mobile/mobileIcons";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
@@ -678,6 +679,7 @@ export function MacroSection() {
   const [mobileSubTab, setMobileSubTab] = useState<"tree" | "selected" | "data">("selected");
   const [mobileCalcOpen, setMobileCalcOpen] = useState(false);
   const [mobileChartSettingsOpen, setMobileChartSettingsOpen] = useState(false);
+  const [mobileDateRangeOpen, setMobileDateRangeOpen] = useState(false);
 
   const [selectedListItems, setSelectedListItems] = useState<MacroSelectedListItem[]>(() => {
     const replaceKey = readMacroReplaceKey();
@@ -3690,22 +3692,25 @@ export function MacroSection() {
 
     const mobileChartsPanel = (
       <div className="flex flex-col pb-4">
-        <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-          {chartDateRange ? (
-            <MacroChartDateRangeControl
-              variant="mobile"
-              from={chartDateRange.from}
-              to={chartDateRange.to}
-              min={chartDateRange.min}
-              max={chartDateRange.max}
-              onChange={applyChartDateRange}
-            />
+        <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {chartDateRange?.from && chartDateRange.to ? (
+            <button
+              type="button"
+              onClick={() => setMobileDateRangeOpen(true)}
+              className="flex h-9 shrink-0 items-center gap-1 rounded-md border border-fs-border bg-white px-2 text-[13px] font-medium text-fs-text"
+            >
+              <IconCalendar size={14} className="shrink-0 text-fs-muted" />
+              <span className="tabular-nums">
+                {shortMacroDate(chartDateRange.from)}–{shortMacroDate(chartDateRange.to)}
+              </span>
+            </button>
           ) : null}
-          <label className="flex shrink-0 items-center gap-1.5 text-[13px] text-fs-muted">
-            图表
+          <label className="flex shrink-0 items-center text-[13px] text-fs-muted">
+            <span className="sr-only">图表数量</span>
             <select
               value={layoutMode}
               onChange={(e) => setLayoutMode(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)}
+              aria-label="图表数量"
               className="h-9 rounded-md border border-fs-border bg-white px-2 text-fs-text"
             >
               <option value={1}>1 张</option>
@@ -3719,6 +3724,8 @@ export function MacroSection() {
           <button
             type="button"
             aria-pressed={Boolean(displayConfig.showRecessionShading)}
+            aria-label="美国衰退阴影"
+            title="叠加 NBER 美国衰退区间"
             onClick={() =>
               setDisplayConfig((prev) => ({
                 ...prev,
@@ -3731,7 +3738,7 @@ export function MacroSection() {
                 : "border-fs-border bg-white text-fs-text"
             }`}
           >
-            美国衰退
+            衰退
           </button>
           <span className="flex-1" />
           <button
@@ -3962,6 +3969,33 @@ export function MacroSection() {
           >
             {chartSidePanelBody}
           </div>
+        </MobileSheet>
+        <MobileSheet
+          open={mobileDateRangeOpen}
+          onClose={() => setMobileDateRangeOpen(false)}
+          title="图表时间区间"
+          footer={
+            <button
+              type="button"
+              onClick={() => setMobileDateRangeOpen(false)}
+              className="h-11 w-full rounded-lg border border-fs-accent/30 bg-fs-accent-soft text-base font-medium text-fs-accent-text"
+            >
+              完成
+            </button>
+          }
+        >
+          {chartDateRange ? (
+            <div className="px-4 py-4">
+              <MacroChartDateRangeControl
+                variant="mobile"
+                from={chartDateRange.from}
+                to={chartDateRange.to}
+                min={chartDateRange.min}
+                max={chartDateRange.max}
+                onChange={applyChartDateRange}
+              />
+            </div>
+          ) : null}
         </MobileSheet>
         {templateNameDialog}
       </>
