@@ -2,6 +2,11 @@
 
 import { useEffect } from "react";
 import { reportClientError } from "@/lib/errorReports/clientReport";
+import {
+  isChunkLoadError,
+  isLikelyCorruptedScriptSyntaxError,
+  reloadStaleAssetOnce,
+} from "@/lib/errorReports/chunkReload";
 
 export default function GlobalError({
   error,
@@ -11,6 +16,12 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    if (
+      (isChunkLoadError(error) || isLikelyCorruptedScriptSyntaxError({ message: error.message })) &&
+      reloadStaleAssetOnce()
+    ) {
+      return;
+    }
     void reportClientError({
       source: "auto_crash",
       message: error.message || "根布局错误",

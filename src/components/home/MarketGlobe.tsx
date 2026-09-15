@@ -20,6 +20,28 @@ const MARKETS: Market[] = [
   { city: "悉尼", exchange: "Australian Securities Exchange", code: "AU", symbol: "^AXJO", lon: 151.209, lat: -33.869, session: "10:00–16:00 AET" },
 ];
 
+/** CanvasRenderingContext2D.roundRect 在部分较旧浏览器（如 Chrome < 99）上不存在，手动画路径兜底。 */
+function roundRectPath(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  if (typeof context.roundRect === "function") {
+    context.roundRect(x, y, width, height, radius);
+    return;
+  }
+  const r = Math.min(radius, width / 2, height / 2);
+  context.moveTo(x + r, y);
+  context.arcTo(x + width, y, x + width, y + height, r);
+  context.arcTo(x + width, y + height, x, y + height, r);
+  context.arcTo(x, y + height, x, y, r);
+  context.arcTo(x, y, x + width, y, r);
+  context.closePath();
+}
+
 const MARKET_LABEL_OFFSET_Y: Record<string, number> = {
   UK: -11,
   DE: 11,
@@ -373,7 +395,7 @@ export function MarketGlobe() {
           context.stroke();
 
           context.beginPath();
-          context.roundRect(boxX, boxY, boxWidth, boxHeight, 7 * dpr);
+          roundRectPath(context, boxX, boxY, boxWidth, boxHeight, 7 * dpr);
           context.fillStyle = "rgba(8, 18, 38, 0.84)";
           context.shadowColor = "rgba(2, 8, 23, 0.28)";
           context.shadowBlur = 8 * dpr;

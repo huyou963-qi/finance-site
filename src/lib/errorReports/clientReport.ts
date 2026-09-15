@@ -42,7 +42,19 @@ function markSent(key: string) {
 
 const AUTO_SOURCES = new Set<ErrorReportSource>(["auto_crash", "auto_window"]);
 
-/** 浏览器上报；自动类同一 digest/指纹本会话只发一次。 */
+/**
+ * 爬虫/探针类 UA：发布窗口期间抓取到旧 chunk 会报错，但它们不是真实用户，
+ * 重试几秒后自己就好了，报告到人工处理队列里只会制造噪音。
+ */
+const BOT_UA_RE =
+  /bot|crawl|spider|slurp|googleother|bingpreview|facebookexternalhit|whatsapp|telegrambot|headlesschrome|lighthouse|pingdom|uptimerobot|ahrefsbot|semrushbot|mj12bot|petalbot|bytespider|yandex|baiduspider/i;
+
+function isLikelyBot(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return BOT_UA_RE.test(navigator.userAgent || "");
+}
+
+/** 浏览器上报；自动类同一 digest/指纹本会话只发一次；自动类且 UA 疑似爬虫时直接跳过。 */
 export async function reportClientError(
   input: ClientErrorReportInput,
 ): Promise<{ id?: string; skipped?: boolean; error?: string }> {
@@ -51,6 +63,10 @@ export async function reportClientError(
     (typeof window !== "undefined" ? window.location.href : "");
   const message = (input.message || "未知错误").trim().slice(0, 2000);
   if (!pageUrl || !message) return { error: "缺少 pageUrl 或 message" };
+
+  if (AUTO_SOURCES.has(input.source) && isLikelyBot()) {
+    return { skipped: true };
+  }
 
   const key = dedupeKey({ ...input, pageUrl, message });
   if (AUTO_SOURCES.has(input.source) && alreadySent(key)) {

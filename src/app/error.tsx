@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { reportClientError } from "@/lib/errorReports/clientReport";
+import {
+  isChunkLoadError,
+  isLikelyCorruptedScriptSyntaxError,
+  reloadStaleAssetOnce,
+} from "@/lib/errorReports/chunkReload";
 
 export default function Error({
   error,
@@ -16,6 +21,12 @@ export default function Error({
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    if (
+      (isChunkLoadError(error) || isLikelyCorruptedScriptSyntaxError({ message: error.message })) &&
+      reloadStaleAssetOnce()
+    ) {
+      return;
+    }
     void reportClientError({
       source: "auto_crash",
       message: error.message || "页面渲染错误",
