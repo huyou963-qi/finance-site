@@ -1,0 +1,14 @@
+{
+  "weekEnding": "2026-09-11",
+  "title": "油价逼近百美元，利率冲击令小盘与市场宽度失守",
+  "regime": "Stagflation fear / Selective AI resilience",
+  "regimeConfidence": "H",
+  "scope": "Global",
+  "generatedAt": "2026-09-12 12:20 CST",
+  "summaryOneLiner": "FROM 小盘、材料与医疗 → TO 能源、半导体与少数平台股；油价和5%长端收益率是首要风险",
+  "kpis": [
+    { "label": "HY OAS", "value": "270bp", "delta": "+5bp", "dir": "up" },
+    { "label": "10Y-2Y", "value": "0.33%", "delta": "-8bp", "dir": "down" },
+    { "label": "VIX", "value": "15.84", "delta": "+1.31", "dir": "up" }
+  ]
+}

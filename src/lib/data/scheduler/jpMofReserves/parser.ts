@@ -64,6 +64,7 @@ export function parseJpMofReservesCsv(text: string, now = new Date()) {
   let currentYear: number | undefined;
   let previousDate = 0;
   let dataRows = 0;
+  let latestRawCells: string[] = [];
   for (const line of lines) {
     const cells = line.split(",");
     const monthMatch = MONTH.exec(cells[1]?.trim() ?? "");
@@ -85,6 +86,7 @@ export function parseJpMofReservesCsv(text: string, now = new Date()) {
       if (obsDate.getTime() !== expected) throw new Error("MOF reserves monthly history has a gap");
     }
     previousDate = obsDate.getTime();
+    latestRawCells = cells;
     dataRows++;
     for (const series of JP_MOF_RESERVES_SERIES) {
       const value = parseValue(cells[series.column] ?? "", series.sourceName);
@@ -108,14 +110,19 @@ export function parseJpMofReservesCsv(text: string, now = new Date()) {
   }
 
   const latest = (key: string) => output[`mof_jp_reserves_${key}`].at(-1)!.value;
+  const latestRaw = (column: number, name: string) => {
+    const value = parseValue(latestRawCells[column] ?? "", name);
+    if (value === undefined) throw new Error(`MOF reserves latest value missing: ${name}`);
+    return value;
+  };
   const tolerance = 1;
   if (Math.abs(latest("foreign_currency") - latest("securities") - latest("deposits")) > tolerance) {
     throw new Error("MOF reserves latest foreign-currency subtotal identity failed");
   }
   if (
     Math.abs(
-      latest("total") - latest("foreign_currency") - latest("imf_position") - latest("sdr") -
-        latest("gold_value") - latest("other_reserve_assets"),
+      latest("total") - latest("foreign_currency") - latestRaw(14, "IMF reserve position") -
+        latestRaw(15, "SDRs") - latest("gold_value") - latestRaw(18, "other reserve assets"),
     ) > tolerance
   ) {
     throw new Error("MOF reserves latest official-assets subtotal identity failed");

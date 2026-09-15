@@ -3,6 +3,12 @@ import { BOJ_SERIES } from "./boj/catalog";
 import { JGB_SERIES } from "./japanMofJgb/catalog";
 import { JP_ESRI_CONSUMER_CONFIDENCE_SERIES } from "./jpEsriConsumerConfidence/catalog";
 import { JP_BOJ_BOP_PACKAGE_ID, JP_BOJ_BOP_SERIES } from "./bojExternal/catalog";
+import {
+  JP_BOJ_CALL_RATE_PACKAGE_ID,
+  JP_BOJ_CORE_SERIES,
+  JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID,
+  JP_BOJ_FX_PACKAGE_ID,
+} from "./bojCore/catalog";
 import { JP_CAO_WATCHERS_RELEASE_PACKAGE_ID, JP_CAO_WATCHERS_SERIES } from "./jpCabinetEconomyWatchers/catalog";
 import { JP_METI_RETAIL_PACKAGE_ID, JP_METI_RETAIL_SERIES } from "./jpMetiRetail/catalog";
 import { JP_ESRI_MACHINERY_ORDERS_PACKAGE_ID, JP_ESRI_MACHINERY_ORDERS_SERIES } from "./jpEsriMachineryOrders/catalog";
@@ -166,6 +172,18 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     countryCode: "JP", agencyId: "jp-boj", granularity: "MONTHLY", intervalHours: 72,
     members: { instrumentCodes: JP_BOJ_BOP_SERIES.map((series) => series.instrumentCode) },
   }),
+  probePkg(JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID, "日本银行资金循环（核心部门）", {
+    countryCode: "JP", agencyId: "jp-boj", granularity: "QUARTERLY", intervalHours: 168,
+    members: { instrumentCodes: JP_BOJ_CORE_SERIES.filter((series) => series.db === "FF").map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_BOJ_CALL_RATE_PACKAGE_ID, "日本银行无担保隔夜拆借利率（月均）", {
+    countryCode: "JP", agencyId: "jp-boj", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_BOJ_CORE_SERIES.filter((series) => series.releasePackageId === JP_BOJ_CALL_RATE_PACKAGE_ID).map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_BOJ_FX_PACKAGE_ID, "日本银行美元兑日元汇率（月均）", {
+    countryCode: "JP", agencyId: "jp-boj", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_BOJ_CORE_SERIES.filter((series) => series.releasePackageId === JP_BOJ_FX_PACKAGE_ID).map((series) => series.instrumentCode) },
+  }),
   probePkg(JP_CAO_WATCHERS_RELEASE_PACKAGE_ID, "日本景气观察者调查", {
     countryCode: "JP", agencyId: "jp-cao", granularity: "MONTHLY", intervalHours: 24,
     members: { instrumentCodes: JP_CAO_WATCHERS_SERIES.map((series) => series.instrumentCode) },
@@ -197,10 +215,6 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg("jp.sbj.cpi", "日本全国CPI", {
     countryCode: "JP", granularity: "MONTHLY", intervalHours: 72,
     members: { instrumentCodePatterns: ["jp_estat_cpi_2025_national_*"] },
-  }),
-  probePkg("jp.sbj.tokyo_cpi", "日本东京区部CPI", {
-    countryCode: "JP", granularity: "MONTHLY", intervalHours: 72,
-    members: { instrumentCodePatterns: ["jp_estat_cpi_2025_tokyo_*"] },
   }),
   probePkg("jp.meti.iip", "日本工业生产、出货与库存", {
     countryCode: "JP", granularity: "MONTHLY", intervalHours: 72,

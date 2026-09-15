@@ -5,8 +5,8 @@ import { PrismaClient } from "@prisma/client";
 import { JP_ESTAT_CPI_SERIES, JP_ESTAT_CPI_SOURCE_ID } from "../../src/lib/data/scheduler/eStat/cpiCatalog";
 loadEnvConfig(process.cwd());
 async function main() {
-  assert.equal(JP_ESTAT_CPI_SERIES.length, 26);
-  assert.equal(new Set(JP_ESTAT_CPI_SERIES.map(s => s.instrumentCode)).size, 26);
+  assert.equal(JP_ESTAT_CPI_SERIES.length, 13);
+  assert.equal(new Set(JP_ESTAT_CPI_SERIES.map(s => s.instrumentCode)).size, 13);
   const meta = JSON.parse(fs.readFileSync("scripts/data-worker/fixtures/jp-estat-cpi/meta.json", "utf8")).METADATA_INF;
   const dimensions = meta.CLASS_INF.CLASS_OBJ as { "@id": string; CLASS: { "@code": string }[] }[];
   for (const s of JP_ESTAT_CPI_SERIES) for (const [key, value] of Object.entries(s.eStat.filters)) {

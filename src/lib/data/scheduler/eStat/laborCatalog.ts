@@ -1,3 +1,5 @@
+import { isJapanRetiredDetailCode } from "../japanCoreScope";
+
 /** Official API metadata verified 2026-09-10; do not extend before 2018 without rebasing audit. */
 export const JP_ESTAT_LABOR_SOURCE_ID = "estat-jp";
 export const JP_ESTAT_LABOR_PACKAGE_ID = "jp.stat.labor_force";
@@ -15,7 +17,7 @@ export const JP_ESTAT_LABOR_SERIES = concepts.flatMap(c => sexes.map(s => ({
   label: `${c.label}：${s.label}（15岁及以上，未季调）`,
   concept: c.key, sex: s.key, unit: c.unit,
   eStat: { statsDataId: c.statsDataId, filters: { cdTab: c.tab, cdCat01: "000", cdCat02: c.status, cdCat03: s.code, cdArea: "00000" }, frequency: "M" as const, expectedUnit: c.expectedUnit, historyStart: JP_ESTAT_LABOR_HISTORY_START },
-})));
+}))).filter(s => !isJapanRetiredDetailCode(s.instrumentCode));
 export function buildJpEStatLaborMetadata(s: typeof JP_ESTAT_LABOR_SERIES[number]) {
   return {
     countryCode: "JP", countryNameZh: "日本", catalogKey: `mds:${s.instrumentCode}`,

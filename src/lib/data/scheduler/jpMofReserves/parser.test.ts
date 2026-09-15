@@ -9,7 +9,7 @@ const fixture = readFileSync(path.join(__dirname, "fixtures", "historical.csv"))
 
 test("parses the official MOF international-reserves history and component identities", () => {
   const parsed = parseJpMofReservesCsv(decodeJpMofReservesCsv(fixture));
-  assert.equal(Object.keys(parsed).length, 10);
+  assert.equal(Object.keys(parsed).length, 6);
   assert.equal(parsed.mof_jp_reserves_total.length, 317);
   assert.equal(parsed.mof_jp_reserves_total[0].obsDate.toISOString().slice(0, 10), "2000-04-01");
   assert.equal(parsed.mof_jp_reserves_total.at(-1)?.obsDate.toISOString().slice(0, 10), "2026-08-01");
@@ -19,8 +19,6 @@ test("parses the official MOF international-reserves history and component ident
   assert.equal(parsed.mof_jp_reserves_deposits.at(-1)?.value, 155_417);
   assert.equal(parsed.mof_jp_reserves_gold_value.at(-1)?.value, 124_103);
   assert.equal(parsed.mof_jp_reserves_gold_volume.at(-1)?.value, 27.2);
-  assert.equal(parsed.mof_jp_reserves_other_reserve_assets.length, 246);
-  assert.equal(parsed.mof_jp_reserves_other_foreign_currency_assets.length, 216);
 });
 
 test("fails closed when the selected official header column moves", () => {

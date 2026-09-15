@@ -21,9 +21,9 @@ test("discovers the one official seasonally adjusted workbook", () => {
   assert.throws(() => parseJpCaoWatchersIndexPage(indexFixture + indexFixture));
 });
 
-test("parses eight national current/outlook DI histories", () => {
+test("parses the two national headline current/outlook DI histories", () => {
   const parsed = parseJpCaoWatchersWorkbook(fixture, asOf);
-  assert.equal(Object.keys(parsed.series).length, 8);
+  assert.equal(Object.keys(parsed.series).length, 2);
   assert.equal(parsed.sourceLatestObsDate.toISOString(), "2026-08-01T00:00:00.000Z");
   for (const target of JP_CAO_WATCHERS_SERIES) {
     const points = parsed.series[target.instrumentCode];
@@ -33,7 +33,6 @@ test("parses eight national current/outlook DI histories", () => {
   }
   assert.equal(parsed.series.cao_jp_watchers_current_total_di_sa.at(-1)!.value, 46.4);
   assert.equal(parsed.series.cao_jp_watchers_outlook_total_di_sa.at(-1)!.value, 48.3);
-  assert.equal(parsed.series.cao_jp_watchers_current_employment_di_sa.at(-1)!.value, 48.8);
 });
 
 test("fails closed on a missing sheet or changed scope/header", () => {
@@ -45,7 +44,7 @@ test("fails closed on a missing sheet or changed scope/header", () => {
     workbook.Sheets["分野別（現状）"].B1.v = "原数値";
   }), asOf));
   assert.throws(() => parseJpCaoWatchersWorkbook(mutate((workbook) => {
-    workbook.Sheets["分野別（現状）"].E4.v = "別分類";
+    workbook.Sheets["分野別（現状）"].D4.v = "別分類";
   }), asOf));
 });
 

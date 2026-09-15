@@ -7,6 +7,8 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "japan-core-scope": { script: "seed-japan-core-scope", labelZh: "日本核心范围：物理下线79条细分序列" },
+  "jp-boj-core": { script: "seed-jp-boj-core", labelZh: "日本银行资金循环、短端利率与汇率" },
   "jp-jnto-visitor-arrivals": { script: "seed-jp-jnto-visitor-arrivals", labelZh: "日本政府观光局访日外客人数" },
   "jp-esri-machinery-orders": { script: "seed-jp-esri-machinery-orders", labelZh: "日本内阁府机械订单" },
   "jp-mof-reserves": { script: "seed-jp-mof-reserves", labelZh: "日本财务省外汇储备" },
@@ -122,6 +124,8 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "japan-core-scope": { script: "verify-japan-core-scope", labelZh: "日本核心范围退役序列自检", verifyNeedsDb: true },
+  "jp-boj-core": { script: "verify-jp-boj-core", labelZh: "日本银行资金循环、短端利率与汇率自检", verifyNeedsDb: true },
   "jp-jnto-visitor-arrivals": { script: "verify-jp-jnto-visitor-arrivals", labelZh: "日本政府观光局访日外客人数自检", verifyNeedsDb: true },
   "jp-esri-machinery-orders": { script: "verify-jp-esri-machinery-orders", labelZh: "日本内阁府机械订单自检", verifyNeedsDb: true },
   "jp-mof-reserves": { script: "verify-jp-mof-reserves", labelZh: "日本财务省外汇储备自检", verifyNeedsDb: true },

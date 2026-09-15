@@ -14,7 +14,7 @@ export const JP_CABINET_OFFICE_TERMS_URL = "https://www.cao.go.jp/notice/rule.ht
  * published by ESRI; in particular, the ex-ships/ex-volatile aggregates must
  * not be reconstructed by summing independently adjusted components.
  */
-export const JP_ESRI_MACHINERY_ORDERS_SERIES = [
+const JP_ESRI_MACHINERY_ORDERS_ALL_SERIES = [
   {
     instrumentCode: "esri_jp_machinery_orders_total_sa",
     column: 2,
@@ -94,6 +94,19 @@ export const JP_ESRI_MACHINERY_ORDERS_SERIES = [
     headerFingerprint: "内 需 | Domestic | demand",
   },
 ] as const;
+
+const JP_ESRI_MACHINERY_ORDERS_CORE_CODES = new Set([
+  "esri_jp_machinery_orders_overseas_sa",
+  "esri_jp_machinery_orders_private_ex_volatile_sa",
+  "esri_jp_machinery_orders_manufacturing_sa",
+  "esri_jp_machinery_orders_nonmanufacturing_ex_volatile_sa",
+  "esri_jp_machinery_orders_domestic_sa",
+]);
+
+export const JP_ESRI_MACHINERY_ORDERS_SERIES =
+  JP_ESRI_MACHINERY_ORDERS_ALL_SERIES.filter((series) =>
+    JP_ESRI_MACHINERY_ORDERS_CORE_CODES.has(series.instrumentCode),
+  );
 
 export type JpEsriMachineryOrdersSeries =
   (typeof JP_ESRI_MACHINERY_ORDERS_SERIES)[number];

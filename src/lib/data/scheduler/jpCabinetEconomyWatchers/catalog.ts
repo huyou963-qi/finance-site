@@ -24,7 +24,7 @@ const COMPONENTS = [
   ["employment", "就业相关", "雇用関連", 12],
 ] as const;
 
-export const JP_CAO_WATCHERS_SERIES: readonly JpCaoWatchersSeries[] = [
+const JP_CAO_WATCHERS_ALL_SERIES: readonly JpCaoWatchersSeries[] = [
   ...COMPONENTS.map(([component, componentZh, componentJa, column]) => ({
     instrumentCode: `cao_jp_watchers_current_${component}_di_sa`,
     label: `日本:景气观察者调查:现状判断DI:${componentZh}（季调）`,
@@ -44,3 +44,7 @@ export const JP_CAO_WATCHERS_SERIES: readonly JpCaoWatchersSeries[] = [
     column,
   })),
 ];
+
+export const JP_CAO_WATCHERS_SERIES = JP_CAO_WATCHERS_ALL_SERIES.filter(
+  (series) => series.component === "total",
+);

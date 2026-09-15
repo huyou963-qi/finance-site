@@ -17,6 +17,14 @@ import {
 } from "@/components/macro/mobile/MacroMobileLayout";
 import { MacroMobileSelectedPanel } from "@/components/macro/mobile/MacroMobileSelectedPanel";
 import { MacroMobileTemplatesPanel } from "@/components/macro/mobile/MacroMobileTemplatesPanel";
+import { MacroChartDateRangeControl } from "@/components/macro/MacroChartDateRangeControl";
+import {
+  categoryToIsoDate,
+  datesFromRangePct,
+  defaultRecentRangePct,
+  rangePctFromDates,
+  type MacroChartRangePct,
+} from "@/lib/macroChartDateRange";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
 import { IconInfo } from "@/components/mobile/mobileIcons";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -2301,6 +2309,40 @@ export function MacroSection() {
     [chartRangeDatasetKey],
   );
 
+  /** 未调整过时间窗的数据集默认展示近 3 年 */
+  const defaultChartRangePct = useMemo(
+    () => (chartGridPayload ? defaultRecentRangePct(chartGridPayload.categories, 3) : null),
+    [chartGridPayload],
+  );
+  const chartInitialRangePct = cachedChartRangePct ?? defaultChartRangePct;
+
+  /** 开始 / 结束日期控件提交的时间窗；version 递增通知图表应用 */
+  const [chartRangeOverride, setChartRangeOverride] = useState<{
+    range: MacroChartRangePct;
+    version: number;
+  } | null>(null);
+
+  const chartDateRange = useMemo(() => {
+    const categories = chartGridPayload?.categories ?? [];
+    if (categories.length === 0) return null;
+    return {
+      ...datesFromRangePct(categories, chartInitialRangePct ?? { start: 0, end: 100 }),
+      min: categoryToIsoDate(categories[0]!),
+      max: categoryToIsoDate(categories.at(-1)!),
+    };
+  }, [chartGridPayload, chartInitialRangePct]);
+
+  const applyChartDateRange = useCallback(
+    (from: string, to: string) => {
+      if (!chartGridPayload) return;
+      const range = rangePctFromDates(chartGridPayload.categories, from, to);
+      if (!range) return;
+      cacheCurrentChartRange(range);
+      setChartRangeOverride((prev) => ({ range, version: (prev?.version ?? 0) + 1 }));
+    },
+    [chartGridPayload, cacheCurrentChartRange],
+  );
+
   const chartAvailableYears = useMemo(
     () => extractYearsFromCategories(displayPayload?.categories ?? []),
     [displayPayload?.categories],
@@ -3648,7 +3690,17 @@ export function MacroSection() {
 
     const mobileChartsPanel = (
       <div className="flex flex-col pb-4">
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+          {chartDateRange ? (
+            <MacroChartDateRangeControl
+              variant="mobile"
+              from={chartDateRange.from}
+              to={chartDateRange.to}
+              min={chartDateRange.min}
+              max={chartDateRange.max}
+              onChange={applyChartDateRange}
+            />
+          ) : null}
           <label className="flex shrink-0 items-center gap-1.5 text-[13px] text-fs-muted">
             图表
             <select
@@ -3721,8 +3773,10 @@ export function MacroSection() {
               stacked
               onCrosshairTimeLabel={onMacroCrosshairTimeLabel}
               onVisibleRangeLabels={onMacroVisibleRangeLabels}
-              initialRangePct={cachedChartRangePct}
+              initialRangePct={chartInitialRangePct}
               rangeCacheKey={chartRangeDatasetKey}
+              rangeOverride={chartRangeOverride?.range ?? null}
+              rangeOverrideVersion={chartRangeOverride?.version ?? 0}
               onRangePctChange={cacheCurrentChartRange}
             />
           </div>
@@ -4101,6 +4155,15 @@ export function MacroSection() {
         ) : null}
         {mainTab === "charts" ? (
           <>
+            {chartDateRange ? (
+              <MacroChartDateRangeControl
+                from={chartDateRange.from}
+                to={chartDateRange.to}
+                min={chartDateRange.min}
+                max={chartDateRange.max}
+                onChange={applyChartDateRange}
+              />
+            ) : null}
             <span
               className="hidden h-5 w-px shrink-0 bg-fs-border/90 sm:block"
               aria-hidden
@@ -4423,8 +4486,10 @@ export function MacroSection() {
                         onDrawInteraction={onMacroDrawInteraction}
                         onCrosshairTimeLabel={onMacroCrosshairTimeLabel}
                         onVisibleRangeLabels={onMacroVisibleRangeLabels}
-                        initialRangePct={cachedChartRangePct}
+                        initialRangePct={chartInitialRangePct}
                         rangeCacheKey={chartRangeDatasetKey}
+                        rangeOverride={chartRangeOverride?.range ?? null}
+                        rangeOverrideVersion={chartRangeOverride?.version ?? 0}
                         onRangePctChange={cacheCurrentChartRange}
                       />
                     </div>

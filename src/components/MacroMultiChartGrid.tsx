@@ -75,6 +75,9 @@ export type MacroMultiChartGridProps = {
   onRangePctChange?: (range: { start: number; end: number }) => void;
   /** 手机端：多图纵向堆叠、每张固定高度，由外层容器滚动 */
   stacked?: boolean;
+  /** 外部（开始 / 结束日期控件）提交的时间窗；仅在 version 变化时应用 */
+  rangeOverride?: { start: number; end: number } | null;
+  rangeOverrideVersion?: number;
 };
 
 function categoriesOfChart(chart: EChartsType): string[] {
@@ -222,6 +225,8 @@ export function MacroMultiChartGrid({
   rangeCacheKey = null,
   onRangePctChange: onCachedRangePctChange,
   stacked = false,
+  rangeOverride = null,
+  rangeOverrideVersion = 0,
 }: MacroMultiChartGridProps) {
   const buckets = useMemo(
     () =>
@@ -251,6 +256,21 @@ export function MacroMultiChartGrid({
     // initialRangePct 只在当前数据集首次进入图表区时读取；用户拖动后不应被父级回传值覆盖。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoriesFingerprint, rangeCacheKey]);
+
+  /** 挂载时的 version 视为已应用：重新挂载（切换布局 / 标签）不重放旧的日期区间 */
+  const appliedOverrideVersionRef = useRef(rangeOverrideVersion);
+  useEffect(() => {
+    if (!rangeOverride || rangeOverrideVersion === appliedOverrideVersionRef.current) return;
+    appliedOverrideVersionRef.current = rangeOverrideVersion;
+    setRangePct((prev) =>
+      Math.abs(prev.start - rangeOverride.start) < 0.02 &&
+      Math.abs(prev.end - rangeOverride.end) < 0.02
+        ? prev
+        : rangeOverride,
+    );
+    // 仅在父级提交新区间（version 变化）时应用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeOverrideVersion]);
 
   const { i0, i1, visibleCategories } = useMemo(() => {
     const len = payload.categories.length;

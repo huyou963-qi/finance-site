@@ -23,7 +23,9 @@ const rows = [
   ["nonstore", "無店舗小売業", "无店铺零售销售额", "2015-07-01"],
 ] as const;
 
-export const JP_METI_RETAIL_SERIES = rows.map(([key, sourceName, label, historyStart]) => ({
+const CORE_KEYS = new Set(["retail_total", "food_beverages", "motor_vehicles", "fuel", "nonstore"]);
+
+export const JP_METI_RETAIL_SERIES = rows.filter(([key]) => CORE_KEYS.has(key)).map(([key, sourceName, label, historyStart]) => ({
   instrumentCode: `meti_jp_retail_${key}_value_nsa`,
   key,
   sourceName,
@@ -37,4 +39,3 @@ export function jpMetiRetailEStatDownloadUrl(statInfId: string) {
   if (!/^\d{12}$/.test(statInfId)) throw new Error(`invalid e-Stat statInfId: ${statInfId}`);
   return `https://www.e-stat.go.jp/stat-search/file-download?statInfId=${statInfId}&fileKind=0`;
 }
-

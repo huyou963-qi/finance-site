@@ -6,8 +6,8 @@ import { JP_ESTAT_LABOR_SERIES, JP_ESTAT_LABOR_PACKAGE_ID, JP_ESTAT_LABOR_HISTOR
 import { fetchEStatIncremental, parseEStatObservations } from "../../src/lib/data/scheduler/adapters/eStatAdapter";
 loadEnvConfig(process.cwd());
 async function main() {
-  assert.equal(JP_ESTAT_LABOR_SERIES.length, 12);
-  assert.equal(new Set(JP_ESTAT_LABOR_SERIES.map(s => s.instrumentCode)).size, 12);
+  assert.equal(JP_ESTAT_LABOR_SERIES.length, 4);
+  assert.equal(new Set(JP_ESTAT_LABOR_SERIES.map(s => s.instrumentCode)).size, 4);
   for (const s of JP_ESTAT_LABOR_SERIES) {
     assert.equal(Object.keys(s.eStat.filters).length, 5);
     assert.equal(s.eStat.historyStart, JP_ESTAT_LABOR_HISTORY_START);

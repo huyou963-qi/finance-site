@@ -20,6 +20,8 @@ export const ESRI_COMPONENTS = [
   ["imports", "Imports", "货物与服务进口"],
 ] as const;
 export type EsriSeries = { code: string; table: EsriTable; component: string; header: string; name: string; unit: string; category: string; subgroup: string };
+import { isJapanRetiredDetailCode } from "../japanCoreScope";
+
 export const JP_ESRI_GDP_SERIES: EsriSeries[] = JP_ESRI_GDP_TABLES.flatMap((table) => ESRI_COMPONENTS.flatMap(([component, header, label]) => {
   // Legacy jpov nominal GDP is unannualised (2026Q1 169881.5); this is SAAR (680104.3).
   if (table === "def-qk" && ["private_inventories", "public_inventories", "net_exports"].includes(component)) return [];
@@ -30,4 +32,4 @@ export const JP_ESRI_GDP_SERIES: EsriSeries[] = JP_ESRI_GDP_TABLES.flatMap((tabl
     category: table === "def-qk" ? "通胀与价格" : "国民经济",
     subgroup: table === "def-qk" ? "GDP平减指数" : table === "kiyo-jk" ? "GDP：实际增长与贡献" : "GDP：支出法季调年率",
   }];
-}));
+})).filter((series) => !isJapanRetiredDetailCode(series.code));

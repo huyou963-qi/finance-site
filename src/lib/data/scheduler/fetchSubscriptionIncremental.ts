@@ -64,6 +64,11 @@ export async function fetchSubscriptionIncremental(
   if (sub.source.adapterKind === SourceAdapterKind.REST_API) {
     await sleep(minIntervalMs(sub.source));
     if (sub.source.id === "boj-time-series") {
+      const { findJpBojCoreSeries } = await import("./bojCore/catalog");
+      if (findJpBojCoreSeries(sub.instrument.code)) {
+        const { fetchJpBojCoreIncremental } = await import("./adapters/bojCoreAdapter");
+        return fetchJpBojCoreIncremental(sub.instrument.code);
+      }
       const { fetchBojIncremental } = await import("./adapters/bojAdapter");
       return fetchBojIncremental(sub.instrument.code);
     }

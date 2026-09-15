@@ -13,9 +13,9 @@ function mutate(edit: (workbook: XLSX.WorkBook) => void) {
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
-test("parses ten official nominal retail sales levels without derived growth", () => {
+test("parses five core official nominal retail sales levels without derived growth", () => {
   const parsed = parseJpMetiRetailWorkbook(fixture, asOf);
-  assert.equal(Object.keys(parsed).length, 10);
+  assert.equal(Object.keys(parsed).length, 5);
   assert.equal(parsed.meti_jp_retail_retail_total_value_nsa.length, 558);
   assert.equal(parsed.meti_jp_retail_retail_total_value_nsa[0].value, 6396);
   assert.equal(parsed.meti_jp_retail_retail_total_value_nsa.at(-1)!.value, 13034);
@@ -38,4 +38,3 @@ test("internal gaps, truncated history and future periods fail closed", () => {
   assert.throws(() => parseJpMetiRetailWorkbook(mutate((workbook) => { workbook.Sheets["販売額（value）(月次M)"]["!ref"] = "A1:AI400"; }), asOf));
   assert.throws(() => parseJpMetiRetailWorkbook(fixture, new Date("2026-05-01T00:00:00Z")));
 });
-

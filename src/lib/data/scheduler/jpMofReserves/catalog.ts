@@ -22,7 +22,9 @@ const rows = [
   ["other_foreign_currency_assets", "其他外币资产", "Other foreign currency assets", 22, "百万美元", "2008-09-01"],
 ] as const;
 
-export const JP_MOF_RESERVES_SERIES = rows.map(
+const CORE_KEYS = new Set(["total", "foreign_currency", "securities", "deposits", "gold_value", "gold_volume"]);
+
+export const JP_MOF_RESERVES_SERIES = rows.filter(([key]) => CORE_KEYS.has(key)).map(
   ([key, label, sourceName, column, unit, historyStart]) => ({
     instrumentCode: `mof_jp_reserves_${key}`,
     key,

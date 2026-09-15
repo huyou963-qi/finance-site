@@ -11,7 +11,7 @@ test("official 1974 CSV excerpt matches MOF published values", () => {
   const parsed = parseJgbCsv(text);
   assert.equal(parsed.get(2)![0]!.value, 9.362);
   assert.equal(parsed.get(10)!.length, 0);
-  assert.equal(parsed.get(1)!.length, 3);
+  assert.equal(parsed.get(2)!.length, 3);
 });
 test("named tenors, negative yields and missing long tenor", () => {
   const p = parseJgbCsv(header + row, new Date("2026-09-09"));

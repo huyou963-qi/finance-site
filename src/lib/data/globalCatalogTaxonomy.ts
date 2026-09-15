@@ -6,6 +6,7 @@ import type { UnifiedCatalogCountry, UnifiedCatalogItem } from "./fredCatalog";
 import { US_CATALOG_TOP_LEVEL, type UsCatalogTopLevel } from "./usCatalogTaxonomy";
 import { BOJ_SERIES } from "./scheduler/boj/catalog";
 import { JP_BOJ_BOP_SERIES } from "./scheduler/bojExternal/catalog";
+import { JP_BOJ_CORE_SERIES } from "./scheduler/bojCore/catalog";
 
 /** A leaf (a subgroup's direct indicators) must remain scannable in the picker. */
 export const MAX_CATALOG_LEAF_ITEMS = 48;
@@ -87,7 +88,7 @@ export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalC
       if (code.endsWith("_real_qoq_sa") || code.endsWith("_real_contribution_sa")) return p("国民经济", "GDP：实际增长与贡献");
       return p("国民经济", "GDP：支出法季调年率");
     }
-    const boj = [...BOJ_SERIES, ...JP_BOJ_BOP_SERIES].find((row) => row.instrumentCode === code);
+    const boj = [...BOJ_SERIES, ...JP_BOJ_BOP_SERIES, ...JP_BOJ_CORE_SERIES].find((row) => row.instrumentCode === code);
     if (boj) return p(boj.category, boj.subgroup);
     if (code.startsWith("mof_jp_jgb_") || /^jpov_c0[678]_/.test(code)) return p("利率与信用市场", "国债收益率曲线");
   }

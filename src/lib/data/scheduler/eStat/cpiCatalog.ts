@@ -1,3 +1,5 @@
+import { isJapanRetiredDetailCode } from "../japanCoreScope";
+
 /** Verified against e-Stat getMetaInfo 0004052037 on 2026-09-10.
  * Index levels only; legacy jpov CPI YoY/MoM are different measures.
  * Never splice 2020-base values into this 2025-base official linked history.
@@ -22,5 +24,5 @@ export const JP_ESTAT_CPI_SERIES = ([
   label: `CPI：${regionLabel}：${label}（2025=100）`, region, releasePackageId,
   unit: "指数（2025=100）", category: "通胀与价格",
   eStat: { statsDataId: JP_ESTAT_CPI_TABLE, filters: { cdTab: "1", cdCat01: item, cdArea: area }, frequency: "M" as const },
-})));
+}))).filter((series) => !isJapanRetiredDetailCode(series.instrumentCode));
 

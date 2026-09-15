@@ -10,7 +10,7 @@ const csv = (name: string) => new TextDecoder("shift_jis", { fatal: true }).deco
 const asOf = new Date("2026-09-09T00:00:00Z");
 
 test("official full-history CSV: quarter starts, SAAR units, GDP growth and contribution units", () => {
-  const expected = { "gaku-mk": [11, 130, 689219.1], "gaku-jk": [11, 130, 598950.5], "def-qk": [8, 130, 115.1], "kiyo-jk": [11, 129, 0.4] };
+  const expected = { "gaku-mk": [1, 130, 689219.1], "gaku-jk": [8, 130, 598950.5], "def-qk": [4, 130, 115.1], "kiyo-jk": [7, 129, 0.4] };
   for (const table of JP_ESRI_GDP_TABLES) {
     const parsed = parseEsriGdpCsv(csv(table), table, asOf);
     const [count, length, latest] = expected[table];

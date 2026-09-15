@@ -22,7 +22,7 @@ describe("ESRI machinery orders parser", () => {
     assert.throws(() => discoverJpEsriMachineryOrdersWorkbookUrl("<html></html>"));
   });
 
-  it("parses all 13 SA order aggregates with continuous monthly history", async () => {
+  it("parses the five core SA order aggregates with continuous monthly history", async () => {
     const buffer = await import("node:fs/promises").then((fs) => fs.readFile(workbook));
     for (const series of JP_ESRI_MACHINERY_ORDERS_SERIES) {
       const points = parseJpEsriMachineryOrdersWorkbook(buffer, series);
@@ -32,7 +32,7 @@ describe("ESRI machinery orders parser", () => {
     }
     const core = parseJpEsriMachineryOrdersWorkbook(
       buffer,
-      JP_ESRI_MACHINERY_ORDERS_SERIES[6],
+      JP_ESRI_MACHINERY_ORDERS_SERIES[1],
     );
     assert.equal(core.at(-1)?.value, 1_055_761.76106);
   });
