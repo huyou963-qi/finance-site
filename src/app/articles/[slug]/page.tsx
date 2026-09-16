@@ -5,6 +5,7 @@ import { ArticleMarkdown } from "@/components/articles/ArticleMarkdown";
 import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { getPublishedArticleBySlug } from "@/lib/articles/articleStore";
+import { absoluteUrl } from "@/lib/seo/siteUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +37,27 @@ export default async function ArticleDetailPage({ params }: PageProps) {
       <FeatureLocked featureId="articles" needsPro={gate.needsPro} viewer={gate.viewer} />
     );
   }
-  const article = await getPublishedArticleBySlug((await params).slug);
+  const { slug } = await params;
+  const article = await getPublishedArticleBySlug(slug);
   if (!article) notFound();
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: article.title,
+    description: article.summary,
+    articleSection: article.category,
+    datePublished: article.publishedAt,
+    dateModified: article.updatedAt,
+    author: { "@type": "Person", name: article.author },
+    publisher: { "@type": "Organization", name: "GekkoTech" },
+    mainEntityOfPage: absoluteUrl(`/articles/${slug}`),
+  };
   return (
     <div className="min-h-full bg-fs-bg px-4 py-8 sm:px-6 lg:px-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <article className="mx-auto max-w-4xl">
         <Link href="/articles" className="text-sm text-fs-accent-text hover:underline">
           ← 返回专题文章

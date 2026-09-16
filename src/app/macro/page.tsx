@@ -1,8 +1,14 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { FeatureGate } from "@/components/access/FeatureGate";
 import { MacroSection } from "./MacroSection";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "宏观仪表盘 — 通胀、增长、货币与信贷 — GekkoTech",
+  description: "CPI、GDP、就业、利率与信贷等核心宏观指标的实时仪表盘，含 regime 状态与历史对比。",
+};
 
 export default function MacroPage() {
   return (
