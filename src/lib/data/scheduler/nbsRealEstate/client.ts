@@ -130,9 +130,9 @@ export function parseNbsPropertyWorkbook(workbook: XLSX.WorkBook, sourceText: st
 }
 
 function parsePriceTable(table: string[][], market: "新建商品住宅" | "二手住宅", obsDate: Date, output: NbsRealEstateHistory) {
-  const thirdMeasure = /定基|2020年\s*=\s*100/.test(table[1]?.join(" ") ?? "")
-    ? ["base_index", "定基指数（2020年=100）"] as const
-    : ["ytd_average_index", "年内平均指数（上年同期=100）"] as const;
+  // 2022 年的过渡表曾给出「2020 年=100」定基指数，但该口径随后被官方撤回，
+  // 不能继续作为可调度指标入库。当前稳定发布的第三列是年内平均指数。
+  const thirdMeasure = ["ytd_average_index", "年内平均指数（上年同期=100）"] as const;
   for (const row of table.slice(2)) {
     // Every official price table has two city/value blocks in each data row.
     for (const offset of [0, 4]) {

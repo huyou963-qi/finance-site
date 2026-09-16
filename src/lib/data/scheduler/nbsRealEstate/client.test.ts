@@ -60,8 +60,9 @@ function testPrice() {
   const newHome = [...parsed.values()].find((item) => item.label === "70城房价：新建商品住宅：城1：环比指数（上月=100）");
   assert.equal(newHome?.points[0]?.value, 99.7);
   assert.ok([...parsed.values()].some((item) => item.label === "70城房价：二手住宅：城70：年内平均指数（上年同期=100）"));
-  const base = parseNbs70CityPriceArticle(`<title>2022年12月份70个大中城市商品住宅销售价格变动情况</title>${fullPriceTable(0, "2020年=100")}${fullPriceTable(0, "2020年=100")}`);
-  assert.ok([...base.values()].some((item) => item.label === "70城房价：新建商品住宅：城1：定基指数（2020年=100）"));
+  const transitional = parseNbs70CityPriceArticle(`<title>2022年12月份70个大中城市商品住宅销售价格变动情况</title>${fullPriceTable(0, "2020年=100")}${fullPriceTable(0, "2020年=100")}`);
+  assert.ok([...transitional.values()].some((item) => item.label === "70城房价：新建商品住宅：城1：年内平均指数（上年同期=100）"));
+  assert.ok(![...transitional.values()].some((item) => item.label.includes("定基指数")));
 }
 
 testProperty();

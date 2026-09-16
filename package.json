@@ -170,6 +170,7 @@
     "data:sync-gacc-commodity": "dotenv -e .env.local -- tsx scripts/data-worker/sync-gacc-commodity.ts",
     "data:verify-gacc-commodity": "dotenv -e .env.local -- tsx scripts/data-worker/verify-gacc-commodity.ts",
     "data:drop-mofcom-composition": "dotenv -e .env.local -- tsx scripts/data-worker/drop-mofcom-composition.ts",
+    "data:drop-nbs-realestate-base-index": "dotenv -e .env.local -- tsx scripts/data-worker/drop-nbs-realestate-base-index.ts",
     "data:drop-japan-details": "dotenv -e .env.local -- tsx scripts/data-worker/drop-japan-details.ts",
     "data:seed-japan-core-scope": "dotenv -e .env.local -- tsx scripts/data-worker/seed-japan-core-scope.ts",
     "data:verify-japan-core-scope": "dotenv -e .env.local -- tsx scripts/data-worker/verify-japan-core-scope.ts",
