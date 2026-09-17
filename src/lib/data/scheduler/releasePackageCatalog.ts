@@ -387,8 +387,30 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       excludeKeywords: ["core", "control"],
     },
     members: {
-      // RSAFS=含餐饮总额；RSXFS=零售贸易（消费域，口径互补）
-      fredSeriesIds: ["RSAFS", "RSXFS"],
+      // RSAFS=含餐饮总额；RSXFS=零售贸易（消费域，口径互补）；
+      // 其余为 Census Advance MRTS by kind of business 分项 + 排除口径加总，同一份 Advance 报告同刻发布
+      fredSeriesIds: [
+        "RSAFS",
+        "RSXFS",
+        "RSFSXMV",
+        "MARTSSM44Z72USS",
+        "MARTSSM44W72USS",
+        "RSMVPD",
+        "RSAOMV",
+        "RSFHFS",
+        "RSEAS",
+        "RSBMGESD",
+        "RSDBS",
+        "RSGCS",
+        "RSHPCS",
+        "RSGASS",
+        "RSCCAS",
+        "RSSGHBMS",
+        "RSGMS",
+        "RSMSR",
+        "RSNSR",
+        "RSFSDP",
+      ],
     },
   }),
   pkg("us.bls.housing_starts", "美国新屋开工", {

@@ -101,6 +101,8 @@
     "data:verify-cycle-risk": "dotenv -e .env.local -- tsx scripts/data-worker/verify-cycle-risk.ts",
     "data:seed-consumer-balance": "dotenv -e .env.local -- tsx scripts/data-worker/seed-consumer-balance.ts",
     "data:verify-consumer-balance": "dotenv -e .env.local -- tsx scripts/data-worker/verify-consumer-balance.ts",
+    "data:seed-us-retail-sales": "dotenv -e .env.local -- tsx scripts/data-worker/seed-us-retail-sales.ts",
+    "data:verify-us-retail-sales": "dotenv -e .env.local -- tsx scripts/data-worker/verify-us-retail-sales.ts",
     "data:seed-external-dollar": "dotenv -e .env.local -- tsx scripts/data-worker/seed-external-dollar.ts",
     "data:verify-external-dollar": "dotenv -e .env.local -- tsx scripts/data-worker/verify-external-dollar.ts",
     "data:seed-us-balance-of-payments": "dotenv -e .env.local -- tsx scripts/data-worker/seed-us-balance-of-payments.ts",

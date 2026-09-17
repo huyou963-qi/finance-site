@@ -66,6 +66,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "cycle-risk": { script: "seed-cycle-risk", labelZh: "美国增长动能与衰退风险" },
   "regime-macro": { script: "seed-regime-macro", labelZh: "宏观 Regime 图表只读投影" },
   "consumer-balance": { script: "seed-consumer-balance", labelZh: "美国消费与居民资产负债" },
+  "us-retail-sales": { script: "seed-us-retail-sales", labelZh: "美国零售销售分项（Census Advance MRTS）" },
   "external-dollar": { script: "seed-external-dollar", labelZh: "美国对外部门与美元" },
   "us-balance-of-payments": {
     script: "seed-us-balance-of-payments",
@@ -193,6 +194,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "consumer-balance": {
     script: "verify-consumer-balance",
     labelZh: "消费与居民资产负债自检",
+    verifyNeedsDb: true,
+  },
+  "us-retail-sales": {
+    script: "verify-us-retail-sales",
+    labelZh: "美国零售销售分项自检",
     verifyNeedsDb: true,
   },
   "external-dollar": {
