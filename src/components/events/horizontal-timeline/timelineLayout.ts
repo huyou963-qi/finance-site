@@ -14,9 +14,19 @@ import {
   type EventContentSection,
 } from "@/lib/data/eventContentDisplay";
 
-export const TIMELINE_ORIGIN_YEAR = 1776;
-export const TIMELINE_END_YEAR = 2026;
-export const BASE_PX_PER_YEAR = 14;
+import {
+  fractionalYear,
+  TIMELINE_END_YEAR,
+  TIMELINE_ORIGIN_YEAR,
+} from "@/components/events/horizontal-timeline/timelinePacking";
+
+export {
+  BASE_PX_PER_YEAR,
+  contentWidth,
+  TIMELINE_END_YEAR,
+  TIMELINE_ORIGIN_YEAR,
+  yearToX,
+} from "@/components/events/horizontal-timeline/timelinePacking";
 
 export type EraBand = {
   id: string;
@@ -35,8 +45,8 @@ export type EraBand = {
 export type TimelineEventNode = {
   event: MarketEventDto;
   year: number;
-  x: number;
-  lane: "above" | "below";
+  /** 小数年（精确到日），决定横坐标 */
+  t: number;
   eraTag: string | null;
   summary: string;
   impact: string | null;
@@ -71,14 +81,6 @@ function eraEndYear(dateTo: string): number {
   const raw = dateTo.trim();
   if (raw === "present" || raw === "今") return TIMELINE_END_YEAR;
   return parseYear(raw);
-}
-
-export function yearToX(year: number, pxPerYear: number): number {
-  return (year - TIMELINE_ORIGIN_YEAR) * pxPerYear;
-}
-
-export function contentWidth(pxPerYear: number): number {
-  return yearToX(TIMELINE_END_YEAR, pxPerYear) + 120;
 }
 
 export function buildEraBands(groups: TimelineEraGroup[]): EraBand[] {
@@ -121,7 +123,6 @@ function eraTagForYear(year: number, bands: EraBand[]): string | null {
 
 export function buildTimelineEventNodes(
   events: MarketEventDto[],
-  pxPerYear: number,
   bands: EraBand[],
 ): TimelineEventNode[] {
   const model = buildEventTimeline(events);
@@ -130,10 +131,10 @@ export function buildTimelineEventNodes(
     : events.filter((e) => !isEraHeaderEvent(e));
 
   const sorted = [...leafEvents].sort(
-    (a, b) => parseYear(a.occurredAt) - parseYear(b.occurredAt) || a.id.localeCompare(b.id),
+    (a, b) => fractionalYear(a.occurredAt) - fractionalYear(b.occurredAt) || a.id.localeCompare(b.id),
   );
 
-  return sorted.map((event, idx) => {
+  return sorted.map((event) => {
     const year = parseYear(event.occurredAt);
     const meta = parseEventMarkers(event.content);
     const parentTag = meta.eraParent
@@ -147,8 +148,7 @@ export function buildTimelineEventNodes(
     return {
       event,
       year,
-      x: yearToX(year, pxPerYear),
-      lane: idx % 2 === 0 ? "above" : "below",
+      t: fractionalYear(event.occurredAt),
       eraTag,
       summary:
         extractEventSection(event.content, "事件概述") ??
@@ -156,13 +156,4 @@ export function buildTimelineEventNodes(
       impact: extractEventSection(event.content, "主要影响"),
     };
   });
-}
-
-export function tickYears(pxPerYear: number): { year: number; x: number; major: boolean }[] {
-  const step = pxPerYear >= 18 ? 10 : pxPerYear >= 10 ? 25 : pxPerYear >= 5 ? 50 : 100;
-  const ticks: { year: number; x: number; major: boolean }[] = [];
-  for (let y = TIMELINE_ORIGIN_YEAR; y <= TIMELINE_END_YEAR; y += step) {
-    ticks.push({ year: y, x: yearToX(y, pxPerYear), major: y % 50 === 0 });
-  }
-  return ticks;
 }

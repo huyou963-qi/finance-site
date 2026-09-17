@@ -9,11 +9,7 @@ import {
   eventPreviewContent,
   extractEventSection,
 } from "@/lib/data/eventContentDisplay";
-import {
-  catalogEventImage,
-  eventSeedKey,
-  resolveEventTimelineImage,
-} from "@/lib/data/eventTimelineMedia";
+import { resolveEventTimelineImage, staticEventImage } from "@/lib/data/eventTimelineMedia";
 
 /** 浅色底的重要性标签（桌面 EventImportanceBadge 沿用深色主题配色） */
 const IMPORTANCE_STYLE: Record<EventImportance, string> = {
@@ -39,9 +35,7 @@ type TimelineSection = {
 function EventThumb({ event, eraTag }: { event: MarketEventDto; eraTag: string | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(() =>
-    catalogEventImage(eventSeedKey(event.content)),
-  );
+  const [imageUrl, setImageUrl] = useState<string | null>(() => staticEventImage(event));
   const [broken, setBroken] = useState(false);
 
   // 事件可能上千条：只在接近视口时才去解析维基缩略图
@@ -62,7 +56,13 @@ function EventThumb({ event, eraTag }: { event: MarketEventDto; eraTag: string |
     if (!near || imageUrl) return;
     const ac = new AbortController();
     resolveEventTimelineImage(
-      { content: event.content, title: event.title, sourceUrl: event.sourceUrl, eraTag },
+      {
+        content: event.content,
+        title: event.title,
+        sourceUrl: event.sourceUrl,
+        externalId: event.externalId,
+        eraTag,
+      },
       ac.signal,
     )
       .then((url) => {
@@ -70,7 +70,7 @@ function EventThumb({ event, eraTag }: { event: MarketEventDto; eraTag: string |
       })
       .catch(() => {});
     return () => ac.abort();
-  }, [near, imageUrl, event.content, event.title, event.sourceUrl, eraTag]);
+  }, [near, imageUrl, event.content, event.title, event.sourceUrl, event.externalId, eraTag]);
 
   return (
     <div

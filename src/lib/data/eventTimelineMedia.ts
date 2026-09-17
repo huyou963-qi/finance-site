@@ -1,5 +1,9 @@
 import { EVENT_TIMELINE_IMAGE_BY_SEED_KEY } from "@/lib/data/eventTimelineImageCatalog";
 import { EVENT_TIMELINE_IMAGE_PATCH } from "@/lib/data/eventTimelineImagePatch";
+import {
+  EVENT_SEED_IMAGE_OVERRIDES,
+  EVENT_TOPIC_IMAGE_RULES,
+} from "@/lib/data/eventTopicImageCatalog";
 
 /** 从 Wikipedia 链接解析词条标题 */
 export function wikipediaTitleFromUrl(url: string | null | undefined): string | null {
@@ -19,14 +23,49 @@ export function eventSeedKey(content: string | null | undefined): string | null 
   return m?.[1] ?? null;
 }
 
-/** 按 seedKey 查静态图库（生成目录 + 手工补丁） */
+/** 按 seedKey 查静态图库（人工覆盖 → 生成目录 → 手工补丁） */
 export function catalogEventImage(seedKey: string | null | undefined): string | null {
   if (!seedKey) return null;
   return (
+    EVENT_SEED_IMAGE_OVERRIDES[seedKey] ??
     EVENT_TIMELINE_IMAGE_BY_SEED_KEY[seedKey] ??
     EVENT_TIMELINE_IMAGE_PATCH[seedKey] ??
     null
   );
+}
+
+/** 规则匹配键：去掉 `ai:` 前缀的 externalId + 标题（与 scripts/build-event-topic-images.mjs 一致） */
+export function eventTopicKey(externalId: string | null | undefined, title: string | null | undefined): string | null {
+  if (!externalId) return null;
+  return `${externalId.replace(/^ai:/, "")} ${title ?? ""}`;
+}
+
+function stableHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** AI 入库事件按主题规则配图；同主题多图时按 externalId 稳定轮换 */
+export function topicEventImage(
+  externalId: string | null | undefined,
+  title: string | null | undefined,
+): string | null {
+  const key = eventTopicKey(externalId, title);
+  if (!key) return null;
+  for (const [re, urls] of EVENT_TOPIC_IMAGE_RULES) {
+    if (re.test(key) && urls.length > 0) return urls[stableHash(externalId!) % urls.length];
+  }
+  return null;
+}
+
+/** 无需联网即可确定的配图：seed 图库 → 主题规则 */
+export function staticEventImage(event: {
+  content: string;
+  externalId: string | null;
+  title: string | null;
+}): string | null {
+  return catalogEventImage(eventSeedKey(event.content)) ?? topicEventImage(event.externalId, event.title);
 }
 
 /** 维基百科 REST 摘要缩略图（客户端调用） */
@@ -96,18 +135,19 @@ export function fallbackEventImage(
   return null;
 }
 
-/** 时间轴卡片图片：目录 → 维基缩略图 → 关键词/时代占位 */
+/** 时间轴卡片图片：目录 → 主题规则 → 维基缩略图 → 关键词/时代占位 */
 export async function resolveEventTimelineImage(
   opts: {
     content: string;
     title: string | null | undefined;
     sourceUrl: string | null | undefined;
+    externalId?: string | null;
     eraTag?: string | null;
   },
   signal?: AbortSignal,
 ): Promise<string | null> {
   const seedKey = eventSeedKey(opts.content);
-  const catalog = catalogEventImage(seedKey);
+  const catalog = catalogEventImage(seedKey) ?? topicEventImage(opts.externalId, opts.title);
   if (catalog) return catalog;
 
   const wikiTitle = wikipediaTitleFromUrl(opts.sourceUrl);
