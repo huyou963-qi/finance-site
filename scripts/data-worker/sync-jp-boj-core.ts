@@ -4,6 +4,7 @@ import {
   JP_BOJ_CORE_SERIES,
   JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID,
   JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT,
+  JP_BOJ_FOF_NEXT_FETCH_AT,
 } from "../../src/lib/data/scheduler/bojCore/catalog";
 import { runDataSubscription } from "../../src/lib/data/scheduler/runSubscription";
 
@@ -41,22 +42,22 @@ async function main() {
 
   // The next official FOF release is known exactly. A forced pre-release
   // backfill would otherwise advance the generic weekly probe beyond it.
-  const officialRelease = new Date(JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT);
-  if (officialRelease.getTime() > Date.now() && rows.some((row) => row.db === "FF")) {
+  const scheduledFetch = new Date(JP_BOJ_FOF_NEXT_FETCH_AT);
+  if (scheduledFetch.getTime() > Date.now() && rows.some((row) => row.db === "FF")) {
     const flowCodes = rows.filter((row) => row.db === "FF").map((row) => row.instrumentCode);
     await prisma.dataSubscription.updateMany({
       where: { instrument: { code: { in: flowCodes } } },
-      data: { nextRunAt: officialRelease },
+      data: { nextRunAt: scheduledFetch },
     });
     await prisma.releasePackage.update({
       where: { id: JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID },
-      data: { nextRunAt: officialRelease },
+      data: { nextRunAt: scheduledFetch },
     });
     console.log(
       JSON.stringify({
         package: JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID,
-        nextRunAt: officialRelease.toISOString(),
-        basis: "BOJ official release schedule",
+        nextRunAt: scheduledFetch.toISOString(),
+        basis: "BOJ official release schedule plus API-availability buffer",
       }),
     );
   }

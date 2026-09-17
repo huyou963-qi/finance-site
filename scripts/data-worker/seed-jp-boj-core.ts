@@ -14,6 +14,7 @@ import {
 import {
   JP_BOJ_CORE_SERIES,
   JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT,
+  JP_BOJ_FOF_NEXT_FETCH_AT,
 } from "../../src/lib/data/scheduler/bojCore/catalog";
 import { mergeFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
 
@@ -140,7 +141,7 @@ async function main() {
         instrumentId: instrument.id,
         ...subscription,
         nextRunAt: isFlowOfFunds
-          ? new Date(JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT)
+          ? new Date(JP_BOJ_FOF_NEXT_FETCH_AT)
           : new Date(),
       },
       update: subscription,

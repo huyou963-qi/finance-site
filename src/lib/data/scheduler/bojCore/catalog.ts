@@ -10,6 +10,12 @@ export const JP_BOJ_FX_PACKAGE_ID = "jp.boj.foreign_exchange_monthly";
 
 /** 2026Q2 preliminary FOF release: 2026-09-17 08:50 JST / 07:50 HKT. */
 export const JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT = "2026-09-16T23:50:00.000Z";
+/**
+ * BOJ's announcement clock can precede API availability by a few minutes.
+ * Fetch after a small fixed buffer rather than recording a spurious HTTP 400
+ * and falling into the worker's much longer failure backoff.
+ */
+export const JP_BOJ_FOF_NEXT_FETCH_AT = "2026-09-17T00:05:00.000Z";
 
 type Category =
   | "金融条件与银行"
