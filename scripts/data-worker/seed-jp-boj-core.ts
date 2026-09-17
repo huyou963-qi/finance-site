@@ -13,7 +13,6 @@ import {
 } from "../../src/lib/data/scheduler/boj/catalog";
 import {
   JP_BOJ_CORE_SERIES,
-  JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT,
   JP_BOJ_FOF_NEXT_FETCH_AT,
 } from "../../src/lib/data/scheduler/bojCore/catalog";
 import { mergeFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";

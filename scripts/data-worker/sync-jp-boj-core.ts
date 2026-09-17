@@ -3,7 +3,6 @@ import { PrismaClient } from "@prisma/client";
 import {
   JP_BOJ_CORE_SERIES,
   JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID,
-  JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT,
   JP_BOJ_FOF_NEXT_FETCH_AT,
 } from "../../src/lib/data/scheduler/bojCore/catalog";
 import { runDataSubscription } from "../../src/lib/data/scheduler/runSubscription";
