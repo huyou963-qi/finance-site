@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CPI_MOM_MATRIX_ROWS,
   CPI_MOM_MATRIX_FRED_IDS,
-  CPI_WEIGHT_META,
   cpiWeightForFredId,
   type CpiMomMatrixRow,
 } from "@/lib/data/cpi/cpiMomMatrixCatalog";
@@ -97,27 +96,6 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
   const [payload, setPayload] = useState<UnifiedPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) return false;
-        const j = (await r.json().catch(() => ({}))) as { user?: { role?: string } };
-        return String(j.user?.role ?? "").trim().toLowerCase() === "admin";
-      })
-      .then((admin) => {
-        if (!cancelled) setIsAdmin(admin);
-      })
-      .catch(() => {
-        /* ignore */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     const series = CPI_MOM_MATRIX_FRED_IDS.map(fredKey).join(",");
@@ -185,7 +163,6 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
     );
   }
 
-  const hasFootnote = CPI_MOM_MATRIX_ROWS.some((r) => r.footnote);
   const yoyTitle = latestPeriod
     ? `相对最新月（${formatMacroPeriodDisplay(latestPeriod, columns)}）的去年同月`
     : "相对最新月的去年同月";
@@ -232,7 +209,6 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
                     )} ${row.emphasize ? "font-semibold text-fs-text" : "text-fs-secondary"}`}
                   >
                     <span className="whitespace-nowrap">{row.labelZh}</span>
-                    {row.footnote ? <sup className="ml-0.5 text-fs-muted">*</sup> : null}
                     <span className="ml-2 hidden text-[10px] text-fs-muted sm:inline">
                       {row.labelEn}
                     </span>
@@ -266,28 +242,6 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
             })}
           </tbody>
         </table>
-      </div>
-
-      <div className="flex flex-col gap-1 text-[11px] text-fs-muted">
-        {hasFootnote ? (
-          <p>
-            * {CPI_MOM_MATRIX_ROWS.find((r) => r.footnote)?.footnote}
-          </p>
-        ) : null}
-        <p>
-          {isAdmin ? (
-            <>
-              环比 = 季调指数（BLS/FRED，SA）相邻月变动；同比 = 最新月季调指数相对去年同月；正值（通胀走热）红色、负值绿色。权重为{" "}
-              {CPI_WEIGHT_META.source}（{CPI_WEIGHT_META.asOf}，{CPI_WEIGHT_META.weightBase}
-              ，CPI-U，占全部项目 %）。
-            </>
-          ) : (
-            <>
-              环比 = 季调指数相邻月变动；同比 = 最新月相对去年同月；正值（通胀走热）红色、负值绿色。权重为相对重要性（
-              {CPI_WEIGHT_META.asOf}，CPI-U，占全部项目 %）。
-            </>
-          )}
-        </p>
       </div>
     </div>
   );

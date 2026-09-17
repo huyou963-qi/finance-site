@@ -734,7 +734,10 @@ export function MacroMultiChartGrid({
             waterfallYear={waterfallYearForSlot(0)}
             radarYear={radarYearForSlot(0)}
             seasonalYearCount={seasonalYearCountForSlot(0)}
-            chartAreaHeight={singleChartHeight ?? "100%"}
+            chartAreaHeight={
+              // CPI 分项矩阵是表格：手机端固定高度会只露出几行，改为随内容自然撑开
+              hideNavigator && singleChartHeight ? undefined : (singleChartHeight ?? "100%")
+            }
             className="h-full min-h-0 w-full"
             drawTool={isAltSlotMode(0) ? "cursor" : drawTool}
             drawStyle={drawStyle}
