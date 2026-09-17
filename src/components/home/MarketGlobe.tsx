@@ -122,7 +122,8 @@ export function MarketGlobe() {
   useEffect(() => {
     const controller = new AbortController();
     const loadMarketChanges = async () => {
-      const results = await Promise.allSettled(MARKETS.map(async (market) => {
+      // 不用 Promise.allSettled / Array.prototype.at：部分旧 WebKit 内核浏览器（如傲游 5）缺失，会直接抛未捕获异常
+      const results = await Promise.all(MARKETS.map(async (market) => {
         const params = new URLSearchParams({
           symbol: market.symbol,
           interval: "1d",
@@ -136,14 +137,14 @@ export function MarketGlobe() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json() as { candles?: Array<{ close?: number }> };
         const candles = payload.candles ?? [];
-        const previous = candles.at(-2)?.close;
-        const latest = candles.at(-1)?.close;
+        const previous = candles[candles.length - 2]?.close;
+        const latest = candles[candles.length - 1]?.close;
         if (typeof previous !== "number" || typeof latest !== "number" || previous === 0) return null;
         return [market.code, (latest / previous - 1) * 100] as const;
-      }));
+      }).map((task) => task.catch(() => null)));
       if (controller.signal.aborted) return;
       marketChangesRef.current = Object.fromEntries(
-        results.flatMap((result) => result.status === "fulfilled" && result.value ? [result.value] : []),
+        results.flatMap((result) => result ? [result] : []),
       );
     };
     void loadMarketChanges();
