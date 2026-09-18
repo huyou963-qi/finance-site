@@ -30,6 +30,7 @@ type Article = {
   category: string;
   tags: string[];
   bodyMarkdown: string;
+  coverImageUrl: string | null;
   status: "draft" | "published";
   dataCutoff: string | null;
   sourceManifest: ArticleSource[];
@@ -45,6 +46,7 @@ type EditorDraft = {
   category: string;
   tags: string;
   bodyMarkdown: string;
+  coverImageUrl: string;
   dataCutoff: string;
   sourceManifestJson: string;
 };
@@ -72,6 +74,7 @@ function defaultDraft(): EditorDraft {
     category: "policy-analysis",
     tags: "",
     bodyMarkdown: "# 核心结论\n\n\n\n## 数据与传导机制\n\n\n\n## 情景与风险\n\n",
+    coverImageUrl: "",
     dataCutoff: "",
     sourceManifestJson: EMPTY_SOURCES,
   };
@@ -92,6 +95,7 @@ function articleToDraft(article: Article): EditorDraft {
     category: article.category,
     tags: article.tags.join(", "),
     bodyMarkdown: article.bodyMarkdown,
+    coverImageUrl: article.coverImageUrl ?? "",
     dataCutoff: dateTimeLocal(article.dataCutoff),
     sourceManifestJson: JSON.stringify(article.sourceManifest, null, 2),
   };
@@ -182,6 +186,7 @@ export function ArticleEditorClient() {
       category: draft.category,
       tags: draft.tags.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean),
       bodyMarkdown: draft.bodyMarkdown,
+      coverImageUrl: draft.coverImageUrl.trim() || null,
       dataCutoff: draft.dataCutoff ? new Date(draft.dataCutoff).toISOString() : null,
       sourceManifest,
     };
@@ -374,6 +379,9 @@ export function ArticleEditorClient() {
                 </label>
                 <label className="text-xs font-medium text-fs-muted">标签（逗号分隔）
                   <input value={draft.tags} onChange={(e) => setDraft({ ...draft, tags: e.target.value })} className="mt-1 w-full rounded-md border border-fs-border px-3 py-2 text-sm text-fs-text outline-none focus:border-fs-accent" />
+                </label>
+                <label className="sm:col-span-2 text-xs font-medium text-fs-muted">封面图地址（留空则用正文第一张图）
+                  <input value={draft.coverImageUrl} onChange={(e) => setDraft({ ...draft, coverImageUrl: e.target.value })} placeholder="/api/article-assets/..." className="mt-1 w-full rounded-md border border-fs-border px-3 py-2 text-sm text-fs-text outline-none focus:border-fs-accent" />
                 </label>
               </div>
               <label className="block text-xs font-medium text-fs-muted">摘要

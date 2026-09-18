@@ -69,8 +69,22 @@ async function main() {
       throw new Error(`正文未使用图表占位符：${asset.placeholder}`);
     }
   }
+  // coverImageUrl 可写 {{chart:name}}，落库后替换为对应资产地址。
+  const coverPlaceholder =
+    typeof bundle.coverImageUrl === "string" && bundle.coverImageUrl.startsWith("{{chart:")
+      ? bundle.coverImageUrl
+      : null;
+  if (coverPlaceholder && !assets.some((asset) => asset.placeholder === coverPlaceholder)) {
+    throw new Error(`封面占位符不在 assets 中：${coverPlaceholder}`);
+  }
   const requestedStatus = publish ? "published" : "draft";
-  const parsed = parseArticleWriteInput({ ...bundle, status: requestedStatus, bodyMarkdown });
+  const parsed = parseArticleWriteInput({
+    ...bundle,
+    status: requestedStatus,
+    bodyMarkdown,
+    coverImageUrl: coverPlaceholder ? null : bundle.coverImageUrl,
+  });
+  let coverImageUrl = parsed.coverImageUrl;
   if (dryRun) {
     console.log(`[articles] validation ok: ${parsed.slug}, ${assets.length} asset(s), status=${requestedStatus}`);
     return;
@@ -135,6 +149,7 @@ async function main() {
         select: { id: true },
       });
     }
+    if (asset.placeholder === coverPlaceholder) coverImageUrl = `/api/article-assets/${stored.id}`;
     const alt = asset.alt?.trim() || "文章数据图表";
     bodyMarkdown = bodyMarkdown.replaceAll(
       asset.placeholder,
@@ -150,6 +165,7 @@ async function main() {
       category: parsed.category,
       tags: parsed.tags,
       bodyMarkdown,
+      coverImageUrl,
       status: requestedStatus,
       dataCutoff: parsed.dataCutoff,
       sourceManifest,

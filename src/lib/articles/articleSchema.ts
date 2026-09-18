@@ -16,6 +16,7 @@ export type ArticleWriteInput = {
   category: string;
   tags: string[];
   bodyMarkdown: string;
+  coverImageUrl: string | null;
   status: ArticleStatus;
   dataCutoff: Date | null;
   sourceManifest: ArticleSource[];
@@ -60,6 +61,27 @@ function parseSourceUrl(value: unknown, index: number): string {
     // 统一走下方错误。
   }
   throw new Error(`sourceManifest[${index}].url 必须是站内路径或 http(s) URL`);
+}
+
+function parseCoverImageUrl(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const url = text(value, "coverImageUrl", 2000, true);
+  if (!url) return null;
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return url;
+  } catch {
+    // 统一走下方错误。
+  }
+  throw new Error("coverImageUrl 必须是站内路径或 http(s) URL");
+}
+
+/** 列表封面：显式封面优先，否则取正文第一张 Markdown 图片。 */
+export function resolveArticleCover(coverImageUrl: string | null, bodyMarkdown: string): string | null {
+  if (coverImageUrl) return coverImageUrl;
+  const match = /!\[[^\]]*\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)/.exec(bodyMarkdown);
+  return match?.[1] ?? null;
 }
 
 export function parseArticleSourceManifest(value: unknown): ArticleSource[] {
@@ -111,6 +133,7 @@ export function parseArticleWriteInput(raw: unknown): ArticleWriteInput {
     category: text(row.category ?? "policy-analysis", "category", 64),
     tags: parseTags(row.tags),
     bodyMarkdown: text(row.bodyMarkdown ?? "", "bodyMarkdown", 200_000, true),
+    coverImageUrl: parseCoverImageUrl(row.coverImageUrl),
     status,
     dataCutoff: parseDate(row.dataCutoff),
     sourceManifest: parseArticleSourceManifest(row.sourceManifest),

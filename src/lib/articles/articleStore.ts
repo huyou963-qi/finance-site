@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   parseArticleSourceManifest,
   parseArticleWriteInput,
+  resolveArticleCover,
   type ArticleWriteInput,
 } from "@/lib/articles/articleSchema";
 
@@ -38,6 +39,7 @@ function serializeArticle(row: {
   category: string;
   tags: string[];
   bodyMarkdown?: string;
+  coverImageUrl: string | null;
   status: string;
   dataCutoff: Date | null;
   sourceManifest: Prisma.JsonValue;
@@ -55,6 +57,7 @@ function serializeArticle(row: {
     category: row.category,
     tags: row.tags,
     bodyMarkdown: row.bodyMarkdown ?? "",
+    coverImageUrl: row.coverImageUrl,
     status: row.status,
     dataCutoff: iso(row.dataCutoff),
     sourceManifest: parseArticleSourceManifest(row.sourceManifest),
@@ -93,6 +96,7 @@ function writeData(input: ArticleWriteInput) {
     category: input.category,
     tags: input.tags,
     bodyMarkdown: input.bodyMarkdown,
+    coverImageUrl: input.coverImageUrl,
     status: input.status,
     dataCutoff: input.dataCutoff,
     sourceManifest: input.sourceManifest as unknown as Prisma.InputJsonValue,
@@ -112,6 +116,8 @@ export async function listArticles(options?: { manage?: boolean }) {
       summary: true,
       category: true,
       tags: true,
+      bodyMarkdown: true,
+      coverImageUrl: true,
       status: true,
       dataCutoff: true,
       sourceManifest: true,
@@ -121,7 +127,11 @@ export async function listArticles(options?: { manage?: boolean }) {
       author: { select: { username: true } },
     },
   });
-  return rows.map((row) => serializeArticle(row));
+  // 列表不下发正文，只下发解析后的封面。
+  return rows.map(({ bodyMarkdown, ...row }) => ({
+    ...serializeArticle(row),
+    coverUrl: resolveArticleCover(row.coverImageUrl, bodyMarkdown),
+  }));
 }
 
 export async function getArticleById(id: string) {

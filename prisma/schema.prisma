@@ -469,6 +469,8 @@ model Article {
   category       String         @default("policy-analysis") @db.VarChar(64)
   tags           String[]       @default([])
   bodyMarkdown   String         @map("body_markdown") @db.Text
+  /// 列表封面图（站内 /api/article-assets/{id} 或 http(s)）；为空时取正文第一张图。
+  coverImageUrl  String?        @map("cover_image_url") @db.Text
   status         String         @default("draft") @db.VarChar(16)
   dataCutoff     DateTime?      @map("data_cutoff")
   sourceManifest Json           @map("source_manifest")

@@ -4,6 +4,7 @@ import {
   createArticleSlug,
   parseArticleSourceManifest,
   parseArticleWriteInput,
+  resolveArticleCover,
 } from "./articleSchema";
 
 test("draft permits incomplete content", () => {
@@ -45,4 +46,13 @@ test("source manifest only accepts internal paths or http urls", () => {
 
 test("generated slug is stable-shaped", () => {
   assert.equal(createArticleSlug(new Date("2026-09-07T00:00:00Z"), 0), "article-20260907-000000");
+});
+
+test("article cover prefers explicit url and falls back to first body image", () => {
+  assert.equal(resolveArticleCover("/api/article-assets/a", "![x](/api/article-assets/b)"), "/api/article-assets/a");
+  assert.equal(resolveArticleCover(null, "正文\n\n![图 1](/api/article-assets/b)\n\n![图 2](/c)"), "/api/article-assets/b");
+  assert.equal(resolveArticleCover(null, "没有图片"), null);
+  assert.equal(parseArticleWriteInput({ slug: "a", title: "t", coverImageUrl: "" }).coverImageUrl, null);
+  assert.throws(() => parseArticleWriteInput({ slug: "a", title: "t", coverImageUrl: "javascript:alert(1)" }), /coverImageUrl/);
+  assert.throws(() => parseArticleWriteInput({ slug: "a", title: "t", coverImageUrl: "//evil.example/x.png" }), /coverImageUrl/);
 });
