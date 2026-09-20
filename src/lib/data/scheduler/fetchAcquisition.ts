@@ -25,9 +25,10 @@ export function isExcelOnlyFetchAcquisition(
   record: FetchAcquisitionRecord | null | undefined,
 ): boolean {
   if (!record) return false;
-  if (EXCEL_ONLY_METHODS.has(record.method ?? "")) return true;
-  if (record.methodLabel?.includes("Excel")) return true;
-  return false;
+  // A human-readable label such as "官方长期时序 Excel" describes a real
+  // network publication.  Only the explicit bootstrap methods mean that the
+  // file was supplied locally and cannot be refreshed by the scheduler.
+  return EXCEL_ONLY_METHODS.has(record.method ?? "");
 }
 
 /** 仪器是否来自 Excel 导入 / overview xlsx 模板（含 chov/jpov 等 sourceTag） */
