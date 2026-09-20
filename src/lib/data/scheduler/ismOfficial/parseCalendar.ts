@@ -9,7 +9,7 @@
  */
 import type { EconomicCalendarEvent } from "../economicCalendar/types";
 import { ISM_OFFICIAL_PACKAGE_IDS, type IsmOfficialReportKind } from "./catalog";
-import { civilTimeInZoneToUtc } from "./civilTime";
+import { civilTimeInZoneToUtc } from "../civilTime";
 
 export const ISM_RELEASE_HOUR_ET = 10;
 export const ISM_RELEASE_MINUTE_ET = 0;

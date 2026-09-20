@@ -50,8 +50,16 @@ export type ReleaseRule =
     }
   | {
       type: "economic_calendar";
-      /** 日历提供方；官方有稳定年历时优先使用官方来源。 */
-      calendarProvider?: "tradingeconomics" | "ism_official" | "nbs_official";
+      /**
+       * 日历提供方；官方有稳定年历时优先使用官方来源。
+       * `fred_release` 用于全部 sched_fred_* 发布包——数据本来就读 FRED，
+       * 用 FRED 自己的 `/fred/release/dates` 排期才是同源对齐。
+       */
+      calendarProvider?:
+        | "tradingeconomics"
+        | "ism_official"
+        | "nbs_official"
+        | "fred_release";
       /** 发布后持续探测间隔（小时），直至抓到新数据或下一日历事件 */
       postReleaseProbeHours: number;
       /** 相对发布时刻的延迟（分钟），避免源端尚未入库 */

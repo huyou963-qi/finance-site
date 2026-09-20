@@ -49,6 +49,24 @@ import {
   parseNbsOfficialCalendarPage,
   type NbsOfficialRelease,
 } from "./nbsOfficialCalendar/parseCalendar";
+import {
+  resolvePackageNextRunAt,
+  type PackageRunState,
+  type PackageScheduleDecision,
+} from "./packageScheduleGuard";
+import { packageUsesFredReleaseCalendar } from "./fredReleaseCalendar/catalog";
+import {
+  defaultFredCalendarWindow,
+  fetchFredReleaseCalendar,
+  type FredReleaseCalendar,
+} from "./fredReleaseCalendar/client";
+import {
+  fredReleaseOccurrencesForPackage,
+  fredReleaseToCalendarEvent,
+  lastFredReleaseBefore,
+  nextFredRelease,
+} from "./fredReleaseCalendar/parseCalendar";
+import { loadPackageRunStates } from "./packageRunState";
 
 export type CalendarSyncRow = {
   subscriptionId?: string;
@@ -62,6 +80,8 @@ export type CalendarSyncRow = {
   releaseAt?: string;
   message?: string;
   syncStatus?: CalendarSyncMeta["status"];
+  /** 护栏生效时的原因；未生效（正常跟随日历）为 undefined */
+  holdReason?: PackageScheduleDecision["reason"];
 };
 
 export type CalendarSyncResult = {
@@ -92,7 +112,7 @@ function patchCalendarRule(
     calendarMatch?: CalendarMatchSnapshot;
     calendarSync: CalendarSyncMeta;
     clearCalendarMatch?: boolean;
-    calendarProvider?: "tradingeconomics" | "ism_official" | "nbs_official";
+    calendarProvider?: "tradingeconomics" | "ism_official" | "nbs_official" | "fred_release";
   },
 ): Extract<ReleaseRule, { type: "economic_calendar" }> {
   const base = asEconomicCalendarRule(rule);
@@ -161,6 +181,8 @@ async function persistPackageSchedule(
   data: {
     scheduleState: ReleasePackageScheduleState;
     nextRunAt: Date | null;
+    /** 护栏决策，写入审计便于事后追查「为什么这一轮没有跟着日历走」 */
+    holdReason?: PackageScheduleDecision["reason"];
   },
   dryRun?: boolean,
 ) {
@@ -187,10 +209,16 @@ async function persistPackageSchedule(
     previousNextRunAt: previous?.nextRunAt,
     nextRunAt: data.nextRunAt,
     source: "calendar_sync",
-    reason: data.scheduleState.calendarSync?.status
-      ? `calendar_${data.scheduleState.calendarSync.status}`
-      : "calendar_schedule_update",
-    metadata: { memberSchedulePropagated: data.nextRunAt != null },
+    reason:
+      data.holdReason && data.holdReason !== "calendar"
+        ? `calendar_${data.holdReason}`
+        : data.scheduleState.calendarSync?.status
+          ? `calendar_${data.scheduleState.calendarSync.status}`
+          : "calendar_schedule_update",
+    metadata: {
+      memberSchedulePropagated: data.nextRunAt != null,
+      ...(data.holdReason ? { holdReason: data.holdReason } : {}),
+    },
   });
 }
 
@@ -200,12 +228,20 @@ async function applyCalendarMatchToPackage(
     id: string;
     labelZh: string;
     releaseTemplate: unknown;
+    nextRunAt?: Date | null;
+    scheduleState?: unknown;
     _count?: { members: number };
   },
   memberCount: number,
   nextEvent: EconomicCalendarEvent,
   now: Date,
-  options?: { dryRun?: boolean; calendarSource?: CalendarMatchSnapshot["source"] },
+  options?: {
+    dryRun?: boolean;
+    calendarSource?: CalendarMatchSnapshot["source"];
+    runState?: PackageRunState;
+    /** 日历源能给出的「上一次已发生的发布时刻」；TE 给不出，传 undefined 即可 */
+    previousReleaseAt?: Date | null;
+  },
 ): Promise<CalendarSyncRow> {
   const template = parsePackageReleaseTemplate(pkg.releaseTemplate);
   const snapshot: CalendarMatchSnapshot = {
@@ -222,17 +258,39 @@ async function applyCalendarMatchToPackage(
       syncedAt: now.toISOString(),
     },
   };
-  const nextRunAt = template
+  const computedNextRunAt = template
     ? nextRunAtFromCalendarRule(
         { ...template, calendarMatch: snapshot, calendarSync: scheduleState.calendarSync },
         now,
       )
     : null;
 
+  // 护栏：日历算出的「下一期」不得把一次该跑而没跑的任务往后推。
+  // previousReleaseAt 优先用日历源给的真实上一期发布时刻（FRED 有；TE 没有），
+  // 退而求其次用上一轮同步记下的 calendarMatch.releaseAt。
+  const previousState = parsePackageScheduleState(pkg.scheduleState);
+  const priorMatchReleaseAt = previousState.calendarMatch?.releaseAt
+    ? new Date(previousState.calendarMatch.releaseAt)
+    : null;
+  const previousReleaseAt =
+    options?.previousReleaseAt ??
+    (priorMatchReleaseAt && !Number.isNaN(priorMatchReleaseAt.getTime())
+      ? priorMatchReleaseAt
+      : null);
+
+  const decision = resolvePackageNextRunAt({
+    computedNextRunAt,
+    currentNextRunAt: pkg.nextRunAt ?? null,
+    previousReleaseAt,
+    runState: options?.runState ?? { lastSuccessAt: null, sourceVerifiedAt: null },
+    now,
+  });
+  const nextRunAt = decision.nextRunAt;
+
   await persistPackageSchedule(
     prisma,
     pkg.id,
-    { scheduleState, nextRunAt },
+    { scheduleState, nextRunAt, holdReason: decision.reason },
     options?.dryRun,
   );
 
@@ -246,6 +304,7 @@ async function applyCalendarMatchToPackage(
     eventTitle: nextEvent.title,
     releaseAt: snapshot.releaseAt,
     syncStatus: "matched",
+    holdReason: decision.reason === "calendar" ? undefined : decision.reason,
   };
 }
 
@@ -458,9 +517,26 @@ export async function syncSubscriptionsFromEconomicCalendars(
     }
   }
 
+  // FRED 发布日历：覆盖全部 sched_fred_* 发布包（美国 60 个包 / 314 条成员）。
+  // 与 TE 相比它是官方 JSON API、时刻不依赖 cookie 时区，且同时给出过去的发布日，
+  // 从而支持「上一期漏抓 → 立即补」。
+  let fredCalendar: FredReleaseCalendar | null = null;
+  let fredCalWarning: string | undefined;
+  const packagesUsingFred = packages.filter((pkg) => packageUsesFredReleaseCalendar(pkg.id));
+  if (packagesUsingFred.length > 0) {
+    try {
+      fredCalendar = await fetchFredReleaseCalendar(defaultFredCalendarWindow());
+    } catch (err) {
+      fredCalWarning = err instanceof Error ? err.message : String(err);
+    }
+  }
+
   const window = defaultCalendarWindow();
   const packagesUsingTe = packages.filter(
-    (pkg) => pkg.agencyId !== "cn-nbs" && packageIdToIsmKind(pkg.id) == null,
+    (pkg) =>
+      pkg.agencyId !== "cn-nbs" &&
+      packageIdToIsmKind(pkg.id) == null &&
+      !(fredCalendar && packageUsesFredReleaseCalendar(pkg.id)),
   );
   const legacySubscriptions = subs.filter((sub) => !sub.releasePackageId);
   const countryCodes = [
@@ -481,9 +557,30 @@ export async function syncSubscriptionsFromEconomicCalendars(
   const fetchFailed = events.length === 0 && Boolean(fetchResult.warning);
   const rows: CalendarSyncRow[] = [];
   const now = new Date();
+  const runStates = await loadPackageRunStates(prisma);
+  const runStateFor = (packageId: string): PackageRunState =>
+    runStates.get(packageId) ?? { lastSuccessAt: null, sourceVerifiedAt: null };
 
   for (const pkg of packages) {
     const memberCount = countByPackage.get(pkg.id) ?? 0;
+
+    if (fredCalendar && packageUsesFredReleaseCalendar(pkg.id)) {
+      const occurrences = fredReleaseOccurrencesForPackage(fredCalendar, pkg.id);
+      const next = nextFredRelease(occurrences, now);
+      if (next) {
+        rows.push(
+          await applyCalendarMatchToPackage(prisma, pkg, memberCount, fredReleaseToCalendarEvent(next), now, {
+            dryRun: options?.dryRun,
+            calendarSource: "fred_release",
+            runState: runStateFor(pkg.id),
+            previousReleaseAt: lastFredReleaseBefore(occurrences, now)?.releaseAt ?? null,
+          }),
+        );
+        continue;
+      }
+      // 窗口内没有下一次发布（罕见：不定期 release）——不改动现有排期，
+      // 交给下面的 TE / fallback 分支，避免把已到期的探测点推走。
+    }
     if (pkg.agencyId === "cn-nbs") {
       const template = parsePackageReleaseTemplate(pkg.releaseTemplate);
       if (!template || !isNbsOfficialPackage(pkg.id)) {
@@ -549,7 +646,11 @@ export async function syncSubscriptionsFromEconomicCalendars(
             memberCount,
             nbsOfficialReleaseToCalendarEvent(nextOfficial),
             now,
-            { dryRun: options?.dryRun, calendarSource: "nbs_official" },
+            {
+              dryRun: options?.dryRun,
+              calendarSource: "nbs_official",
+              runState: runStateFor(pkg.id),
+            },
           ),
         );
         continue;
@@ -602,7 +703,11 @@ export async function syncSubscriptionsFromEconomicCalendars(
             memberCount,
             ismOfficialReleaseToCalendarEvent(nextOfficial),
             now,
-            { dryRun: options?.dryRun, calendarSource: "ism_official" },
+            {
+              dryRun: options?.dryRun,
+              calendarSource: "ism_official",
+              runState: runStateFor(pkg.id),
+            },
           ),
         );
         continue;
@@ -710,14 +815,10 @@ export async function syncSubscriptionsFromEconomicCalendars(
     }
 
     rows.push(
-      await applyCalendarMatchToPackage(
-        prisma,
-        pkg,
-        memberCount,
-        nextEvent,
-        now,
-        options,
-      ),
+      await applyCalendarMatchToPackage(prisma, pkg, memberCount, nextEvent, now, {
+        ...options,
+        runState: runStateFor(pkg.id),
+      }),
     );
   }
 
@@ -737,9 +838,13 @@ export async function syncSubscriptionsFromEconomicCalendars(
 
   return {
     eventsFetched:
-      events.length + (nbsReleases?.length ?? 0) + (ismReleases?.length ?? 0),
+      events.length +
+      (nbsReleases?.length ?? 0) +
+      (ismReleases?.length ?? 0) +
+      (fredCalendar?.rowCount ?? 0),
     source:
       [
+        fredCalendar ? "FRED发布日历" : null,
         nbsReleases ? "国家统计局官网" : null,
         ismReleases ? "ISM官网" : null,
         needsTeCalendar ? fetchResult.source : null,
@@ -747,6 +852,10 @@ export async function syncSubscriptionsFromEconomicCalendars(
         .filter(Boolean)
         .join(" + ") || "no_calendar_requested",
     warning: [
+      fredCalWarning ? `FRED 发布日历：${fredCalWarning}（该批发布包本轮回退 TE）` : null,
+      fredCalendar?.failedReleaseIds.length
+        ? `FRED 发布日历：release ${fredCalendar.failedReleaseIds.join("/")} 拉取失败，相关发布包本轮回退 TE`
+        : null,
       nbsCalWarning ? `国家统计局官网日历：${nbsCalWarning}` : null,
       ismCalWarning ? `ISM官网日历：${ismCalWarning}` : null,
       fetchResult.warning,

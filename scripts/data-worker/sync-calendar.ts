@@ -92,7 +92,19 @@ async function main() {
     const members =
       row.memberCount != null && row.memberCount > 0 ? ` · ${row.memberCount} 指标` : "";
     const extra = row.eventTitle ? ` ← ${row.eventTitle}` : row.message ? ` (${row.message})` : "";
-    console.log(`  ${mark} ${name}${members} nextRunAt=${when}${extra}`);
+    // 护栏生效时要显式打出来，否则「日历说下个月、实际排在今天」看起来像 bug
+    const hold = row.holdReason ? ` [护栏:${row.holdReason}]` : "";
+    console.log(`  ${mark} ${name}${members} nextRunAt=${when}${extra}${hold}`);
+  }
+
+  const held = result.rows.filter((r) => r.holdReason);
+  if (held.length > 0) {
+    const byReason = new Map<string, number>();
+    for (const r of held) byReason.set(r.holdReason!, (byReason.get(r.holdReason!) ?? 0) + 1);
+    console.log(
+      `[data:sync-calendar] 护栏生效 ${held.length} 个发布包：` +
+        [...byReason].map(([k, v]) => `${k}×${v}`).join("，"),
+    );
   }
 
   const calendarEligible = result.rows.filter((r) => r.syncStatus !== "probe_only");

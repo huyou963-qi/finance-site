@@ -1,6 +1,7 @@
 /**
  * 把指定 IANA 时区的墙上时钟转成 UTC Date（无第三方库）。
- * ISM 发布时刻为 America/New_York 10:00。
+ * 调用方：ISM 官网年历（America/New_York 10:00）、FRED 发布日历（只有日期，
+ * 需要按美东配置的时刻还原 UTC）。
  */
 export function civilTimeInZoneToUtc(
   year: number,

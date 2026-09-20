@@ -71,6 +71,7 @@
     "data:verify-framework": "dotenv -e .env.local -- tsx scripts/verify-framework-indicators.ts",
     "data:seed-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase2.ts",
     "data:verify-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/verify-phase2.ts",
+    "data:verify-fred-release-map": "dotenv -e .env.local -- tsx scripts/data-worker/verify-fred-release-map.ts",
     "data:refetch-debtcap": "dotenv -e .env.local -- tsx scripts/data-worker/refetch-debtcap-bis.ts",
     "data:retag-debtcap": "dotenv -e .env.local -- tsx scripts/data-worker/retag-debtcap-source.ts",
     "data:cleanup-dead-fred-placeholders": "dotenv -e .env.local -- tsx scripts/data-worker/cleanup-dead-fred-placeholders.ts",
