@@ -67,10 +67,24 @@ export function resolveAcquisitionStatus(params: {
       : null;
   const excelBootstrap = isExcelBootstrap(params.metadata);
 
-  if (
-    params.adapterKind === SourceAdapterKind.BULK_FILE ||
-    params.adapterKind === SourceAdapterKind.MANUAL
-  ) {
+  if (params.adapterKind === SourceAdapterKind.MANUAL) {
+    return "bootstrap_only";
+  }
+
+  // BULK_FILE is also used for rolling official CSV/XLSX publications.  Those
+  // sources are network-fetchable when the catalogue records a concrete
+  // official URL; only the explicit Excel-bootstrap variants stay inert.
+  if (params.adapterKind === SourceAdapterKind.BULK_FILE) {
+    const fa = readFetchAcquisition(params.metadata);
+    if (
+      params.subscriptionEnabled &&
+      params.sourceSeriesKey?.trim() &&
+      md?.bootstrapOnly !== true &&
+      fa?.status === "known" &&
+      !isExcelOnlyFetchAcquisition(fa)
+    ) {
+      return "ready";
+    }
     return "bootstrap_only";
   }
 
