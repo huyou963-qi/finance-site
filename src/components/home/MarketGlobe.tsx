@@ -1,11 +1,21 @@
 "use client";
 
-import type { FeatureCollection, MultiLineString } from "geojson";
+import type { FeatureCollection, MultiLineString, Polygon } from "geojson";
 import type { GeometryObject, Topology } from "topojson-specification";
-import { geoGraticule, geoOrthographic, geoPath, geoRotation } from "d3-geo";
+import { geoCircle, geoGraticule, geoOrthographic, geoPath, geoRotation } from "d3-geo";
 import { feature, mesh } from "topojson-client";
 import countriesTopology from "world-atlas/countries-110m.json";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  buildGlobeGeometry,
+  clamp01,
+  NIGHT_BANDS,
+  PIXEL_BITS,
+  smoothstep,
+  TEXEL_FRACTION_BITS,
+  TWILIGHT_BANDS,
+  type GlobeGeometry,
+} from "./globeLighting";
 
 type Market = { city: string; exchange: string; code: string; symbol: string; lon: number; lat: number; session: string };
 
@@ -65,13 +75,6 @@ const topology = countriesTopology as unknown as Topology;
 const countryObject = countriesTopology.objects.countries as unknown as GeometryObject;
 const countries = feature(topology, countryObject) as FeatureCollection;
 const borders = mesh(topology, countryObject, (a, b) => a !== b) as MultiLineString;
-
-function clamp01(value: number) { return Math.max(0, Math.min(1, value)); }
-
-function smoothstep(edge0: number, edge1: number, value: number) {
-  const t = clamp01((value - edge0) / (edge1 - edge0));
-  return t * t * (3 - 2 * t);
-}
 
 function solarPosition(date: Date) {
   const yearStart = Date.UTC(date.getUTCFullYear(), 0, 0);
@@ -165,17 +168,27 @@ export function MarketGlobe() {
     const textureSourceContext = textureSource.getContext("2d", { willReadFrequently: true });
     const textureGlobe = document.createElement("canvas");
     const textureGlobeContext = textureGlobe.getContext("2d");
-    let texturePixels: ImageData | null = null;
+    /** 源贴图的 Uint32 视图；每帧只从这里按行查表 */
+    let textureWords: Uint32Array | null = null;
+    let textureWidth = 0;
+    let textureHeight = 0;
     earthTexture.decoding = "async";
     earthTexture.onload = () => {
       if (!textureSourceContext) return;
       textureSource.width = earthTexture.naturalWidth;
       textureSource.height = earthTexture.naturalHeight;
+      // 调色一次性烘焙进贴图。原先是每帧给 drawImage 挂 filter，而 Canvas2D 的
+      // filter 会强制额外一遍离屏合成，对 ~950px 的图每帧要花掉好几毫秒。
+      textureSourceContext.filter = "contrast(1.06) saturate(1.04)";
       textureSourceContext.drawImage(earthTexture, 0, 0);
-      texturePixels = textureSourceContext.getImageData(0, 0, textureSource.width, textureSource.height);
+      textureSourceContext.filter = "none";
+      const pixels = textureSourceContext.getImageData(0, 0, textureSource.width, textureSource.height);
+      textureWords = new Uint32Array(pixels.data.buffer);
+      textureWidth = textureSource.width;
+      textureHeight = textureSource.height;
     };
     earthTexture.src = "/earth-blue-marble-v1.png";
-    const projection = geoOrthographic().precision(0.35).clipAngle(90);
+    const projection = geoOrthographic().precision(0.7).clipAngle(90);
     const path = geoPath(projection, context);
     const minorGraticule = geoGraticule().stepMinor([10, 10]).stepMajor([90, 360])();
     const majorGraticule = geoGraticule().stepMinor([30, 30]).stepMajor([90, 360])();
@@ -185,15 +198,102 @@ export function MarketGlobe() {
     }));
     let frame = 0;
     let last = performance.now();
-    let lastPaint = 0;
+    let geometry: GlobeGeometry | null = null;
+    let globePixels: ImageData | null = null;
+    let globeWords: Uint32Array | null = null;
+    /** 拖动中倾角 φ 每帧都在变，用低分辨率重建（约 7ms）避开满分辨率的 ~34ms 卡顿 */
+    const DRAG_GEOMETRY_SIZE = 400;
+
+    // 尺寸改用 ResizeObserver：原先每帧 getBoundingClientRect 会强制一次同步布局
+    let cssWidth = canvas.clientWidth || 320;
+    let cssHeight = canvas.clientHeight || 320;
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      cssWidth = rect.width || cssWidth;
+      cssHeight = rect.height || cssHeight;
+    });
+    observer.observe(canvas);
 
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 1.35);
-      const width = Math.max(320, Math.round(rect.width * dpr));
-      const height = Math.max(320, Math.round(rect.height * dpr));
+      const width = Math.max(320, Math.round(cssWidth * dpr));
+      const height = Math.max(320, Math.round(cssHeight * dpr));
       if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
       return { width, height, dpr };
+    };
+
+    /** 夜灯辉光预渲染成 sprite：原先每盏灯一次 shadowBlur，35 盏就是 35 遍离屏模糊 */
+    const cityLightSprite = document.createElement("canvas");
+    cityLightSprite.width = 64;
+    cityLightSprite.height = 64;
+    const cityLightSpriteContext = cityLightSprite.getContext("2d");
+    if (cityLightSpriteContext) {
+      const glow = cityLightSpriteContext.createRadialGradient(32, 32, 0, 32, 32, 32);
+      glow.addColorStop(0, "rgba(255, 219, 150, 1)");
+      glow.addColorStop(0.18, "rgba(255, 201, 105, 0.95)");
+      glow.addColorStop(0.45, "rgba(255, 170, 72, 0.34)");
+      glow.addColorStop(1, "rgba(255, 170, 72, 0)");
+      cityLightSpriteContext.fillStyle = glow;
+      cityLightSpriteContext.fillRect(0, 0, 64, 64);
+    }
+
+    /** 边缘减光是屏幕空间的径向渐变，与经纬无关，只随半径变，缓存起来复用 */
+    let limbGradient: CanvasGradient | null = null;
+    let limbGradientKey = "";
+    const getLimbGradient = (cx: number, cy: number, radius: number) => {
+      const key = `${cx.toFixed(1)}:${cy.toFixed(1)}:${radius.toFixed(1)}`;
+      if (limbGradient && limbGradientKey === key) return limbGradient;
+      const gradient = context.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      for (let i = 0; i <= 10; i += 1) {
+        const t = i / 10;
+        const z = Math.sqrt(Math.max(0, 1 - t * t));
+        // 原逐像素式：limb = 0.7 + 0.3 * smoothstep(0.02, 0.72, z)，以黑色叠加即等价于乘法
+        gradient.addColorStop(t, `rgba(0, 0, 0, ${(0.3 * (1 - smoothstep(0.02, 0.72, z))).toFixed(4)})`);
+      }
+      limbGradient = gradient;
+      limbGradientKey = key;
+      return gradient;
+    };
+
+    /**
+     * 夜半球那 30 多档是逐档整盘 alpha 混合，成本在**填充面积**而非顶点数：
+     * 满分辨率下约 1950 万像素/帧，实测 13ms。而昼夜明暗本身是低频渐变，
+     * 放在低分辨率离屏画好再放大即可，像素量降一个量级，边缘变柔反而更自然。
+     */
+    const NIGHT_LAYER_SIZE = 320;
+    const nightCanvas = document.createElement("canvas");
+    nightCanvas.width = NIGHT_LAYER_SIZE;
+    nightCanvas.height = NIGHT_LAYER_SIZE;
+    const nightContext = nightCanvas.getContext("2d");
+    // precision 是**重采样容差**：值越小插的点越多。这层只有 320px 且会被平滑放大，
+    // 没必要按亚像素精度重采样。
+    const nightProjection = geoOrthographic().precision(2).clipAngle(90)
+      .translate([NIGHT_LAYER_SIZE / 2, NIGHT_LAYER_SIZE / 2])
+      .scale(NIGHT_LAYER_SIZE / 2);
+    const nightPath = nightContext ? geoPath(nightProjection, nightContext) : null;
+
+    /**
+     * 覆盖层的多边形只跟对日点有关，而太阳每分钟才走 0.25°，没必要每帧重算 30 多个
+     * geoCircle。按 0.1°（约 24 秒）量化缓存，移动超过这个量级才重建。
+     */
+    type LightingShapes = { night: Polygon[]; twilight: Array<[Polygon, Polygon]> };
+    let lightingShapes: LightingShapes | null = null;
+    let lightingShapesKey = "";
+    const getLightingShapes = (sun: { lon: number; lat: number }) => {
+      const key = `${Math.round(sun.lon * 10)}:${Math.round(sun.lat * 10)}`;
+      if (lightingShapes && lightingShapesKey === key) return lightingShapes;
+      const antisolar: [number, number] = [sun.lon + 180, -sun.lat];
+      // geoCircle 默认每 6° 取一点；单档对比度仅约 2.4%，又要整层放大平滑，
+      // 取粗到 18° 也看不出棱角，顶点数直接降到三分之一
+      const circle = (radius: number) =>
+        geoCircle().center(antisolar).radius(radius).precision(18)() as Polygon;
+      lightingShapes = {
+        night: NIGHT_BANDS.map((band) => circle(band.radius)),
+        twilight: TWILIGHT_BANDS.map((band) => [circle(band.outer), circle(band.inner)] as [Polygon, Polygon]),
+      };
+      lightingShapesKey = key;
+      return lightingShapes;
     };
     const isVisible = (lon: number, lat: number) => {
       const rotated = geoRotation(rotationRef.current)([lon, lat]);
@@ -204,58 +304,47 @@ export function MarketGlobe() {
       cx: number,
       cy: number,
       radius: number,
-      sun: { lon: number; lat: number },
     ) => {
-      if (!texturePixels || !textureGlobeContext) return false;
-      // Project at the globe's real backing-store diameter instead of creating a
-      // small intermediate bitmap that the canvas has to upscale.
+      if (!textureWords || !textureGlobeContext) return false;
+      // 量化到 32 的倍数，免得滚轮缩放每动一格都重建一次几何缓存
       const size = Math.min(
-        texturePixels.height,
-        Math.max(320, Math.round(radius * 2)),
+        textureHeight,
+        Math.max(320, Math.ceil(radius * 2 / 32) * 32),
       );
-      if (textureGlobe.width !== size || textureGlobe.height !== size) {
-        textureGlobe.width = size;
-        textureGlobe.height = size;
+      const phi = rotationRef.current[1];
+      // 倾角在拖动中逐帧变化，满分辨率重建约 34ms 会丢帧，降一档分辨率、松手后补回；
+      // 横向拖动不改 φ，不触发重建，画质保持不变
+      const phiChanged = geometry != null && geometry.phi !== phi;
+      const targetSize = dragRef.current && phiChanged ? Math.min(DRAG_GEOMETRY_SIZE, size) : size;
+      if (!geometry || geometry.size !== targetSize || geometry.phi !== phi) {
+        geometry = buildGlobeGeometry(targetSize, phi, textureWidth, textureHeight);
       }
-      const globePixels = textureGlobeContext.createImageData(size, size);
-      const sampleProjection = geoOrthographic()
-        .precision(0.6)
-        .clipAngle(90)
-        .translate([size / 2, size / 2])
-        .scale(size * 0.495)
-        .rotate(rotationRef.current);
-      const source = texturePixels.data;
-      const output = globePixels.data;
-      const sampleRadius = size * 0.495;
+      if (textureGlobe.width !== targetSize || textureGlobe.height !== targetSize) {
+        textureGlobe.width = targetSize;
+        textureGlobe.height = targetSize;
+        globePixels = null;
+      }
+      if (!globePixels || globePixels.width !== targetSize) {
+        // 复用同一块缓冲：原先每帧 createImageData 会新分配约 3MB，持续制造 GC 压力
+        globePixels = textureGlobeContext.createImageData(targetSize, targetSize);
+        globeWords = new Uint32Array(globePixels.data.buffer);
+      }
+      if (!globeWords) return false;
 
-      for (let y = 0; y < size; y += 1) {
-        const ny = (y + 0.5 - size / 2) / sampleRadius;
-        for (let x = 0; x < size; x += 1) {
-          const nx = (x + 0.5 - size / 2) / sampleRadius;
-          const rr = nx * nx + ny * ny;
-          if (rr > 1) continue;
-          const coordinates = sampleProjection.invert?.([x + 0.5, y + 0.5]);
-          if (!coordinates) continue;
-          const [lon, lat] = coordinates;
-          const sourceX = Math.min(
-            texturePixels.width - 1,
-            Math.floor((((lon + 180) % 360 + 360) % 360) / 360 * texturePixels.width),
-          );
-          const sourceY = Math.min(
-            texturePixels.height - 1,
-            Math.max(0, Math.floor((90 - lat) / 180 * texturePixels.height)),
-          );
-          const sourceIndex = (sourceY * texturePixels.width + sourceX) * 4;
-          const outputIndex = (y * size + x) * 4;
-          const light = illumination(lon, lat, sun);
-          const daylight = 0.22 + 0.78 * smoothstep(-0.2, 0.34, light);
-          const twilight = 0.13 * (1 - smoothstep(0.01, 0.18, Math.abs(light)));
-          const limb = 0.7 + 0.3 * smoothstep(0.02, 0.72, Math.sqrt(1 - rr));
-          output[outputIndex] = Math.min(255, source[sourceIndex] * daylight * limb + 80 * twilight);
-          output[outputIndex + 1] = Math.min(255, source[sourceIndex + 1] * daylight * limb + 34 * twilight);
-          output[outputIndex + 2] = Math.min(255, source[sourceIndex + 2] * daylight * limb + 8 * twilight);
-          output[outputIndex + 3] = Math.min(255, 255 * smoothstep(1, 0.985, rr));
-        }
+      const { count, dst, srcRow, baseFixed, alphaBits } = geometry;
+      const { rgbMask } = PIXEL_BITS;
+      const source = textureWords;
+      const output = globeWords;
+      const fixedWidth = textureWidth << TEXEL_FRACTION_BITS;
+      let shift = Math.round(-rotationRef.current[0] / 360 * fixedWidth) % fixedWidth;
+      if (shift < 0) shift += fixedWidth;
+      output.fill(0);
+      // 昼夜明暗已移到覆盖层，这里只剩一次横向查表：
+      // 整帧无三角函数、无浮点取模、无逐通道运算
+      for (let k = 0; k < count; k += 1) {
+        let fixed = baseFixed[k] + shift;
+        if (fixed >= fixedWidth) fixed -= fixedWidth;
+        output[dst[k]] = (source[srcRow[k] + (fixed >> TEXEL_FRACTION_BITS)] & rgbMask) | alphaBits[k];
       }
       textureGlobeContext.putImageData(globePixels, 0, 0);
       target.save();
@@ -264,18 +353,69 @@ export function MarketGlobe() {
       target.clip();
       target.imageSmoothingEnabled = true;
       target.imageSmoothingQuality = "high";
-      target.filter = "contrast(1.06) saturate(1.04)";
       target.drawImage(textureGlobe, cx - radius, cy - radius, radius * 2, radius * 2);
       target.restore();
       return true;
     };
 
+    /**
+     * 昼夜与边缘减光：以对日点为圆心叠若干张 geoCircle 圆盘逼近原来的 smoothstep 曲线。
+     * 每张只是一次 canvas fill，取代了原先 60 余万次逐像素光照运算。
+     */
+    const drawLighting = (
+      cx: number,
+      cy: number,
+      radius: number,
+      sun: { lon: number; lat: number },
+    ) => {
+      const shapes = getLightingShapes(sun);
+      context.save();
+      context.beginPath();
+      context.arc(cx, cy, radius, 0, Math.PI * 2);
+      context.clip();
+
+      if (nightContext && nightPath) {
+        nightProjection.rotate(rotationRef.current);
+        nightContext.clearRect(0, 0, NIGHT_LAYER_SIZE, NIGHT_LAYER_SIZE);
+        nightContext.fillStyle = "rgb(6, 14, 32)";
+        shapes.night.forEach((shape, index) => {
+          nightContext.beginPath();
+          nightPath(shape);
+          nightContext.globalAlpha = NIGHT_BANDS[index].alpha;
+          nightContext.fill();
+        });
+        nightContext.globalAlpha = 1;
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.drawImage(nightCanvas, cx - radius, cy - radius, radius * 2, radius * 2);
+      }
+
+      // 晨昏线暖色辉光：外圆 + 内圆用 evenodd 取环带
+      context.globalCompositeOperation = "lighter";
+      context.fillStyle = "rgb(255, 170, 72)";
+      shapes.twilight.forEach(([outer, inner], index) => {
+        context.beginPath();
+        path(outer);
+        path(inner);
+        context.globalAlpha = TWILIGHT_BANDS[index].alpha;
+        context.fill("evenodd");
+      });
+      context.globalAlpha = 1;
+      context.globalCompositeOperation = "source-over";
+
+      context.beginPath();
+      context.arc(cx, cy, radius, 0, Math.PI * 2);
+      context.fillStyle = getLimbGradient(cx, cy, radius);
+      context.fill();
+      context.restore();
+    };
+
     const draw = (time: number) => {
       frame = requestAnimationFrame(draw);
-      if (time - lastPaint < 42) return;
+      // 原先有个 42ms 闸门把帧率压到 24fps，配 60Hz 的 rAF 会让实际间隔在 50/33ms
+      // 之间来回跳，本身就是肉眼可见的顿挫。渲染成本降下来之后不再需要它。
       const elapsed = Math.min(90, time - last);
       last = time;
-      lastPaint = time;
       if (!dragRef.current && time > pauseUntilRef.current) {
         rotationRef.current[0] = (rotationRef.current[0] + elapsed * 0.0017) % 360;
       }
@@ -306,7 +446,7 @@ export function MarketGlobe() {
       context.restore();
 
       const sun = solarPosition(new Date());
-      const textureDrawn = drawTexturedEarth(context, cx, cy, radius, sun);
+      const textureDrawn = drawTexturedEarth(context, cx, cy, radius);
       if (!textureDrawn) {
         const sunPoint = projection([sun.lon, sun.lat]);
         const oceanGradient = context.createRadialGradient(
@@ -331,6 +471,7 @@ export function MarketGlobe() {
           context.fill();
         });
       }
+      drawLighting(cx, cy, radius, sun);
       context.beginPath(); path(minorGraticule);
       context.strokeStyle = "rgba(42, 86, 112, 0.095)"; context.lineWidth = Math.max(0.55, 0.55 * dpr); context.stroke();
       context.beginPath(); path(majorGraticule);
@@ -345,17 +486,19 @@ export function MarketGlobe() {
       context.beginPath(); path(borders);
       context.strokeStyle = "rgba(255, 255, 255, 0.58)"; context.lineWidth = Math.max(0.55, 0.62 * dpr); context.stroke();
 
+      context.save();
       CITY_LIGHTS.forEach(([lon, lat]) => {
         if (!isVisible(lon, lat)) return;
         const darkness = clamp01((-illumination(lon, lat, sun) - 0.02) * 2.5);
         if (darkness <= 0) return;
         const point = projection([lon, lat]);
         if (!point) return;
-        context.beginPath(); context.arc(point[0], point[1], (0.8 + darkness * 1.1) * dpr, 0, Math.PI * 2);
-        context.fillStyle = `rgba(255, 201, 105, ${0.3 + darkness * 0.6})`;
-        context.shadowColor = "rgba(255, 170, 72, 0.9)"; context.shadowBlur = 7 * dpr; context.fill();
+        // 预渲染 sprite 代替 shadowBlur：同样的光晕，但不必每盏灯跑一遍离屏模糊
+        const glowSize = (0.8 + darkness * 1.1) * 7 * dpr;
+        context.globalAlpha = 0.3 + darkness * 0.6;
+        context.drawImage(cityLightSprite, point[0] - glowSize / 2, point[1] - glowSize / 2, glowSize, glowSize);
       });
-      context.shadowBlur = 0;
+      context.restore();
       const pulse = (Math.sin(time / 500) + 1) / 2;
       MARKETS.forEach((market) => {
         if (!isVisible(market.lon, market.lat)) return;
@@ -433,6 +576,7 @@ export function MarketGlobe() {
     frame = requestAnimationFrame(draw);
     return () => {
       earthTexture.onload = null;
+      observer.disconnect();
       cancelAnimationFrame(frame);
     };
   }, []);
