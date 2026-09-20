@@ -3,14 +3,26 @@ import { SiteHeaderShell } from "@/components/SiteHeaderShell";
 import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
 import { BaiduPageView } from "@/components/analytics/BaiduPageView";
 import { BaiduTongjiScript } from "@/components/analytics/BaiduTongjiScript";
+import { getSiteUrl } from "@/lib/seo/siteUrl";
 import "./globals.css";
 
 /** 百度搜索资源平台「HTML 标签验证」的 content 值（codeva-xxx） */
 const baiduSiteVerification = process.env.BAIDU_SITE_VERIFICATION?.trim();
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
   title: "GekkoTech — 宏观与行情研究",
   description: "宏观仪表盘、多资产行情与 AI 周度观察",
+  openGraph: {
+    siteName: "GekkoTech",
+    type: "website",
+    locale: "zh_CN",
+    url: siteUrl,
+  },
+  twitter: {
+    site: "@GekkoQ30180",
+  },
   ...(baiduSiteVerification
     ? { verification: { other: { "baidu-site-verification": baiduSiteVerification } } }
     : {}),

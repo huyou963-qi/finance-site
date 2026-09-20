@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArticleMarkdown } from "@/components/articles/ArticleMarkdown";
 import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
+import { resolveArticleCover } from "@/lib/articles/articleSchema";
 import { getPublishedArticleBySlug } from "@/lib/articles/articleStore";
 import { absoluteUrl } from "@/lib/seo/siteUrl";
 
@@ -13,9 +14,39 @@ type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const article = await getPublishedArticleBySlug((await params).slug);
-  return article
-    ? { title: `${article.title} — GekkoTech`, description: article.summary }
-    : { title: "文章不存在 — GekkoTech" };
+  if (!article) {
+    return { title: "文章不存在 — GekkoTech" };
+  }
+
+  const url = absoluteUrl(`/articles/${article.slug}`);
+  const cover = resolveArticleCover(article.coverImageUrl, article.bodyMarkdown);
+  const image = cover?.startsWith("/") ? absoluteUrl(cover) : cover;
+  const images = image ? [image] : [];
+
+  return {
+    title: `${article.title} — GekkoTech`,
+    description: article.summary,
+    // Next 的 metadata 合并是浅层的：这里的 openGraph/twitter 会整体覆盖根布局的同名对象，
+    // 站点级字段必须重复一遍，否则文章页会丢掉 site_name / locale / twitter:site。
+    openGraph: {
+      title: article.title,
+      description: article.summary,
+      siteName: "GekkoTech",
+      locale: "zh_CN",
+      type: "article",
+      url,
+      images,
+      publishedTime: article.publishedAt ?? undefined,
+      authors: [article.author],
+    },
+    twitter: {
+      card: "summary_large_image",
+      site: "@GekkoQ30180",
+      title: article.title,
+      description: article.summary,
+      images,
+    },
+  };
 }
 
 function dateTime(value: string | null): string {
