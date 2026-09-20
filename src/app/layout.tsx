@@ -3,7 +3,7 @@ import { SiteHeaderShell } from "@/components/SiteHeaderShell";
 import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
 import { BaiduPageView } from "@/components/analytics/BaiduPageView";
 import { BaiduTongjiScript } from "@/components/analytics/BaiduTongjiScript";
-import { CANONICAL_SITE_URL, DEFAULT_OG_IMAGE_PATH } from "@/lib/seo/siteUrl";
+import { CANONICAL_SITE_URL, DEFAULT_OG_IMAGE } from "@/lib/seo/siteUrl";
 import "./globals.css";
 
 /** 百度搜索资源平台「HTML 标签验证」的 content 值（codeva-xxx） */
@@ -20,12 +20,20 @@ export const metadata: Metadata = {
     siteName: "GekkoTech",
     type: "website",
     locale: "zh_CN",
-    images: [DEFAULT_OG_IMAGE_PATH],
+    // 带上尺寸，抓取方不必下载图片就能判定可用大图卡。
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE.path,
+        width: DEFAULT_OG_IMAGE.width,
+        height: DEFAULT_OG_IMAGE.height,
+        alt: DEFAULT_OG_IMAGE.alt,
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     site: "@GekkoQ30180",
-    images: [DEFAULT_OG_IMAGE_PATH],
+    images: [{ url: DEFAULT_OG_IMAGE.path, alt: DEFAULT_OG_IMAGE.alt }],
   },
   ...(baiduSiteVerification
     ? { verification: { other: { "baidu-site-verification": baiduSiteVerification } } }

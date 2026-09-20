@@ -6,8 +6,17 @@
  */
 export const CANONICAL_SITE_URL = "https://www.gekkotech.cn";
 
-/** 站点默认分享图（1200×630），用于没有自带配图的页面。 */
-export const DEFAULT_OG_IMAGE_PATH = "/brand/og-default.png";
+/**
+ * 站点默认分享图，用于没有自带配图的页面。
+ * 必须是无 alpha 的 JPEG：社交卡片渲染器无法把带透明通道的图合成到卡片背景上，
+ * 会直接弃用并把大图卡降级成无图小卡（X 上实测过）。
+ */
+export const DEFAULT_OG_IMAGE = {
+  path: "/brand/og-default.jpg",
+  width: 1200,
+  height: 630,
+  alt: "GekkoTech — 宏观与行情研究",
+} as const;
 
 /** 站点对外根地址（无尾斜杠）；与邮件确认链接共用 APP_BASE_URL。 */
 export function getSiteUrl(): string {

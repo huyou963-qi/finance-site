@@ -6,7 +6,7 @@ import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { resolveArticleCover } from "@/lib/articles/articleSchema";
 import { getPublishedArticleBySlug } from "@/lib/articles/articleStore";
-import { absoluteUrl, DEFAULT_OG_IMAGE_PATH } from "@/lib/seo/siteUrl";
+import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/seo/siteUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const cover = resolveArticleCover(article.coverImageUrl, article.bodyMarkdown);
   const image = cover?.startsWith("/") ? absoluteUrl(cover) : cover;
   // 全文一张图都没有时退回站点默认分享图，保证每篇文章都有卡片配图。
-  const images = [image ?? DEFAULT_OG_IMAGE_PATH];
+  const images = [image ?? DEFAULT_OG_IMAGE.path];
 
   return {
     title: `${article.title} — GekkoTech`,
