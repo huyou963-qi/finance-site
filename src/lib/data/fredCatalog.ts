@@ -632,7 +632,6 @@ export const FRED_CATALOG_MACRO_MAX = 30;
 
 type CatalogCache = {
   countries: UnifiedCatalogCountry[];
-  groups: UnifiedCatalogGroup[];
   allowlist: Set<string>;
   /** 不在目录树中但仍需展示标签的键（待完善草稿等） */
   labelExtras: Record<string, string>;
@@ -827,19 +826,6 @@ export async function getFredCatalogCached(): Promise<CatalogCache> {
   // 收尾：美国 CPI 统一「同比」呈现 + 合并为单一 CPI 子层。必须在布局之后，
   // 否则存量布局按原始基键匹配不到 ::yoy 变体。
   const countries = presentUsCpiAsYoy(laidOut);
-  const groups = countries.flatMap((country) =>
-    country.categories.flatMap((category) => {
-      const direct = {
-        name: `${country.name} / ${category.name}`,
-        items: category.items,
-      };
-      const sub = (category.subgroups ?? []).map((sg) => ({
-        name: `${country.name} / ${category.name} / ${sg.name}`,
-        items: sg.items,
-      }));
-      return [direct, ...sub].filter((g) => g.items.length > 0);
-    }),
-  );
   const allowlist = new Set<string>();
   const addToAllowlist = (key: string) => {
     allowlist.add(key);
@@ -864,7 +850,6 @@ export async function getFredCatalogCached(): Promise<CatalogCache> {
   for (const key of pending.keys) addToAllowlist(key);
   catalogCache = {
     countries,
-    groups,
     allowlist,
     labelExtras: pending.labels,
     builtAt: Date.now(),
