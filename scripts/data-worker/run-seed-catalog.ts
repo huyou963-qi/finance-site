@@ -49,6 +49,19 @@ function main() {
     shell: true,
   });
 
+  if ((result.status ?? 1) === 0) {
+    // seed 脚本只建 Instrument + DataSubscription，**不写**
+    // metadata.fetchAcquisition；而调度器要求它等于 "known" 才会选中订阅。
+    // 漏跑探测的话新种的序列会被静默跳过（2026-07~09 就这样漏了 410 条）。
+    console.info(
+      `[data:seed] 完成。新种的订阅还不会被调度器选中，请接着跑：
+` +
+        `  npm run data:probe-sources -- --skip-known
+` +
+        `  npm run data:verify-catalog -- --db   # 确认「ready 但不会被调度」为 0`,
+    );
+  }
+
   process.exit(result.status ?? 1);
 }
 

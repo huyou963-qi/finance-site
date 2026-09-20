@@ -2,6 +2,16 @@
  * 数据目录自检：
  * - Excel bootstrap 指标须配置网络自动源（非 BULK）且 fetchAcquisition=known
  * - 禁止仅 BULK_FILE / MANUAL 作为唯一订阅
+ * - **订阅必须真的会被调度器选中**（见下）
+ *
+ * 关于第三条：`resolveAcquisitionStatus()` 只看适配器/序列键，FRED 订阅即便
+ * 从没探测过也返回 "ready"；而调度器 `listDueSubscriptions()` 用的是
+ * `isNetworkAcquisitionConfirmed()`，额外要求 `fetchAcquisition.status === "known"`。
+ * 两者结论相反时，订阅会被**静默跳过**：不报错、不计失败、包级也看不出来
+ * （受影响的发布包往往还有别的已探测成员，照常调度成功）。
+ * 2026-07-20 ~ 09-11 用 seed 脚本种下的 140 条 sched_fred_* 就是这样漏了两个月，
+ * 其中 116 条一条数据都没有，而本自检当时报 ready 5477、PASS。
+ * 所以这里必须按调度器的口径判定，不能只看 acquisitionStatus。
  *
  * npm run data:verify-catalog -- --db
  */
@@ -9,10 +19,12 @@ import { loadEnvConfig } from "@next/env";
 import { InstrumentKind, Prisma, PrismaClient, SourceAdapterKind } from "@prisma/client";
 import {
   isExcelBootstrap,
+  isNetworkAcquisitionConfirmed,
   needsNetworkSource,
   resolveAcquisitionStatus,
   resolveUpdateStatus,
 } from "../../src/lib/data/scheduler/catalogAcquisition";
+import { readFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
 import { parseReleaseRule } from "../../src/lib/data/scheduler/releaseRule";
 
 loadEnvConfig(process.cwd());
@@ -83,7 +95,9 @@ async function main() {
   let stale = 0;
   let sourceCurrent = 0;
   let ready = 0;
+  let unscheduled = 0;
   const failures: string[] = [];
+  const unscheduledByTag = new Map<string, number>();
 
   for (const inst of instruments) {
     const sub = inst.dataSubscription;
@@ -117,6 +131,28 @@ async function main() {
 
     if (acquisitionStatus === "ready") {
       ready += 1;
+
+      // 调度器口径：ready 还不够，还要 fetchAcquisition=known 才会被选中。
+      const fa = readFetchAcquisition(inst.metadata);
+      const scheduled = isNetworkAcquisitionConfirmed({
+        inDatabase: true,
+        acquisitionStatus,
+        fetchAcquisitionStatus: fa?.status ?? null,
+      });
+      if (!scheduled) {
+        unscheduled += 1;
+        // sched_wb_* 这类 metadata 整个是 NULL，按 sourceTag 分组只会得到一堆
+        // "(无 sourceTag)"，看不出该找谁；回落到 sourceId 才指得出源头。
+        const tag =
+          (inst.metadata as Record<string, unknown> | null)?.sourceTag?.toString() ??
+          (sub ? `source:${sub.sourceId}` : "(无订阅)");
+        unscheduledByTag.set(tag, (unscheduledByTag.get(tag) ?? 0) + 1);
+        failures.push(
+          `${inst.code}: acquisition=ready 但 fetchAcquisition=${fa?.status ?? "缺失"}，` +
+            `调度器不会选中它（sourceTag=${tag}）。修：npm run data:probe-sources -- --prefix=${inst.code} --skip-known`,
+        );
+      }
+
       const rule = sub ? parseReleaseRule(sub.releaseRule) : null;
       const calendarMatch = rule?.type === "economic_calendar" ? rule.calendarMatch : undefined;
       const sourceSync = rule?.type === "economic_calendar" ? rule.sourceSync : undefined;
@@ -144,6 +180,15 @@ async function main() {
   console.log(`[verify-catalog] Excel bootstrap ${excelBootstrap}，待配网络源 ${excelNeedsNetwork}`);
   console.log(`[verify-catalog] BULK/MANUAL 订阅 ${bulkOnly} 条（应为 0）`);
   console.log(`[verify-catalog] ready ${ready}，stale ${stale}，source_current ${sourceCurrent}`);
+  console.log(
+    `[verify-catalog] ready 但不会被调度 ${unscheduled} 条（应为 0）` +
+      (unscheduled > 0
+        ? `：${[...unscheduledByTag]
+            .sort((a, b) => b[1] - a[1])
+            .map(([tag, n]) => `${tag}×${n}`)
+            .join("，")}`
+        : ""),
+  );
 
   if (failures.length) {
     console.log("\n失败项:");

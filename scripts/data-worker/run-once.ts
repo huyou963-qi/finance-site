@@ -8,7 +8,11 @@
  */
 import { loadEnvConfig } from "@next/env";
 import { FetchRunStatus, PrismaClient, SchedulerInvocationStatus } from "@prisma/client";
-import { listDueSubscriptions, runDataSubscription } from "../../src/lib/data/scheduler/runSubscription";
+import {
+  listDueSubscriptions,
+  runDataSubscription,
+  type UnschedulableSubscription,
+} from "../../src/lib/data/scheduler/runSubscription";
 import {
   recordScheduleChange,
   recoverAbandonedSchedulerRuns,
@@ -65,7 +69,32 @@ async function main() {
   let skipped = 0;
   let fail = 0;
   try {
-    let subs = await listDueSubscriptions(prisma, limit, { forceAll: force });
+    // 到期却因 fetchAcquisition 未确认被丢弃的订阅原本完全静默。seed 脚本
+    // 只建订阅、不写 fetchAcquisition，忘跑 data:probe-sources 就会这样无声无息
+    // 漏掉（2026-07~09 漏了 410 条，其中 116 条零数据）。这里打进日志，
+    // seed 完当轮就能看见。
+    let unschedulable: UnschedulableSubscription[] = [];
+    let subs = await listDueSubscriptions(prisma, limit, {
+      forceAll: force,
+      onUnschedulable: (rows) => {
+        unschedulable = rows;
+      },
+    });
+    if (unschedulable.length > 0) {
+      const bySource = new Map<string, number>();
+      for (const row of unschedulable) {
+        bySource.set(row.sourceId, (bySource.get(row.sourceId) ?? 0) + 1);
+      }
+      console.warn(
+        `[data:worker] ⚠ ${unschedulable.length} 条订阅已到期但获取方式未确认，被跳过：` +
+          [...bySource].map(([src, n]) => `${src}×${n}`).join("，") +
+          `；示例 ${unschedulable
+            .slice(0, 5)
+            .map((r) => `${r.instrumentCode}(${r.fetchAcquisitionStatus})`)
+            .join(", ")}` +
+          `。修：npm run data:probe-sources -- --prefix=<code前缀> --skip-known`,
+      );
+    }
     if (sourceId) {
       subs = subs.filter((s) => s.sourceId === sourceId);
       if (force) {

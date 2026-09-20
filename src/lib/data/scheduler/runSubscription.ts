@@ -13,6 +13,7 @@ import {
   parseReleaseRule,
 } from "./releaseRule";
 import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
+import { readFetchAcquisition } from "./fetchAcquisition";
 import {
   applyFredTransform,
   fredTransformForInstrument,
@@ -413,10 +414,28 @@ export async function runDataSubscription(
   }
 }
 
+/**
+ * 到期但因 `fetchAcquisition` 未确认而被丢弃的订阅。
+ *
+ * 这类丢弃原本是完全静默的：不报错、不计失败，包级也看不出来（受影响的发布包
+ * 往往还有别的已探测成员，照常调度成功）。2026-07 ~ 09 用 seed 脚本种下的
+ * 410 条序列就这样漏了两个月，其中 116 条一条数据都没有。
+ * 这里把它抖出来，调用方（data:worker）会打进日志，seed 完当轮就能看见。
+ */
+export type UnschedulableSubscription = {
+  instrumentCode: string;
+  sourceId: string;
+  fetchAcquisitionStatus: string;
+};
+
 export async function listDueSubscriptions(
   prisma: PrismaClient,
   limit: number,
-  options?: { forceAll?: boolean },
+  options?: {
+    forceAll?: boolean;
+    /** 收集「到期但不合格」的订阅，用于日志告警；不影响选择结果 */
+    onUnschedulable?: (rows: UnschedulableSubscription[]) => void;
+  },
 ) {
   const now = new Date();
   const subs = await prisma.dataSubscription.findMany({
@@ -451,6 +470,23 @@ export async function listDueSubscriptions(
         metadata: sub.instrument.metadata,
       }),
     );
+
+  if (options?.onUnschedulable) {
+    const eligibleIds = new Set(eligible.map((s) => s.id));
+    const dropped = subs
+      .filter((sub) => !eligibleIds.has(sub.id))
+      .map((sub) => ({
+        instrumentCode: sub.instrument.code,
+        sourceId: sub.sourceId,
+        fetchAcquisitionStatus:
+          readFetchAcquisition(sub.instrument.metadata)?.status ?? "缺失",
+      }))
+      // 只报「从没探测过」。`pending` 是探测跑过且明确失败（如世行已停发该指标），
+      // 属于已登记状态，probe 报告与 verify-catalog 都看得到；若一并告警，
+      // 那几十条永久停更的序列会把这条日志刷成噪音，反而盖住真正的新漏洞。
+      .filter((row) => row.fetchAcquisitionStatus === "缺失");
+    if (dropped.length > 0) options.onUnschedulable(dropped);
+  }
 
   // 发布包是一个原子工作单元。旧实现按“指标条数”截断：例如固投包 280 条只跑
   // 前 20 条，第一条又会推进整包 nextRunAt，剩余 260 条因此永远错过本期。

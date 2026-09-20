@@ -54,6 +54,28 @@ function extractWorldBankIndicator(text: string): string | null {
   return m?.[0] ?? null;
 }
 
+/**
+ * 世行订阅键 `AU:BX.KLT.DINV.WD.GD.ZS` → { countryCode, indicatorId }。
+ *
+ * `sched_wb_*` 这批仪器的 `metadata` 整个是 NULL，所以按 metadata 里的
+ * agency / source 找指标码必然落空，探测会一路掉到「缺少来源机构与获取路径
+ * 信息」的兜底分支返回 pending。但国家与指标码本来就完整写在订阅键里，
+ * 与 FRED 走 `fredFromCode` 的做法对称，这里直接从订阅键取。
+ */
+export function worldBankTargetFromSubscriptionKey(
+  sourceSeriesKey: string | null | undefined,
+): { countryCode: string; indicatorId: string } | null {
+  const raw = sourceSeriesKey?.trim();
+  if (!raw) return null;
+  const idx = raw.indexOf(":");
+  if (idx <= 0) return null;
+  const countryCode = raw.slice(0, idx).trim().toUpperCase();
+  const indicatorId = raw.slice(idx + 1).trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(countryCode)) return null;
+  if (!/^[A-Z0-9]{2,}(\.[A-Z0-9]+)+$/.test(indicatorId)) return null;
+  return { countryCode, indicatorId };
+}
+
 function pending(
   partial: Omit<ProbeOutcome, "status" | "probedAt"> & { message: string },
 ): ProbeOutcome {
@@ -366,12 +388,21 @@ export async function probeInstrumentAcquisition(
     if (xlsx.status === "pending" && !inst.code.startsWith("usov_")) return xlsx;
   }
 
-  // 6) 世行指标码
+  // 6) 世行指标码：先按 metadata，再回落到订阅键（sched_wb_* 的 metadata 为空）
   const wbId =
     extractWorldBankIndicator(agency) ||
     extractWorldBankIndicator(String(meta.source ?? ""));
   if (wbId && countryCode.length === 2) {
     return probeWorldBank(countryCode, wbId);
+  }
+  const wbFromKey = worldBankTargetFromSubscriptionKey(
+    inst.dataSubscription?.sourceSeriesKey,
+  );
+  if (
+    wbFromKey &&
+    inst.dataSubscription?.source.adapterKind === SourceAdapterKind.WORLD_BANK_API
+  ) {
+    return probeWorldBank(wbFromKey.countryCode, wbFromKey.indicatorId);
   }
 
   // 7) 美国机构 → FRED 搜索
@@ -470,6 +501,9 @@ export async function loadInstrumentsForProbe(
             { code: { startsWith: "usov_" } },
             { code: { startsWith: "debtcap_" } },
             { code: { startsWith: "sched_fred_" } },
+            // sched_wb_* 长期漏在这个白名单外：默认 scope 够不着它们，
+            // 270 条世行序列因此从未被探测，也就从未被调度器选中。
+            { code: { startsWith: "sched_wb_" } },
             { code: { startsWith: "m_" } },
           ],
         };
