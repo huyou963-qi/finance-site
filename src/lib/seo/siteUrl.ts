@@ -1,3 +1,14 @@
+/**
+ * 对外规范域名。会被静态预渲染的位置（如根布局 metadata）只能用这个字面量：
+ * 预渲染产物在 CI 里构建、直接打包上线（服务器不跑 next build），那时
+ * APP_BASE_URL 是 localhost，读环境变量会把错误地址固化进线上 HTML。
+ * 运行时代码请用 getSiteUrl() / absoluteUrl()。
+ */
+export const CANONICAL_SITE_URL = "https://www.gekkotech.cn";
+
+/** 站点默认分享图（1200×630），用于没有自带配图的页面。 */
+export const DEFAULT_OG_IMAGE_PATH = "/brand/og-default.png";
+
 /** 站点对外根地址（无尾斜杠）；与邮件确认链接共用 APP_BASE_URL。 */
 export function getSiteUrl(): string {
   const raw =
