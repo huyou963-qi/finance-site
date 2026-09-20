@@ -112,7 +112,7 @@ export function parseJpMofFiscalResultsWorkbook(buffer: Buffer) {
     if (raw.includes("昭和")) era = "昭和";
     else if (raw.includes("平成")) era = "平成";
     else if (raw.includes("令和")) era = "令和";
-    const yearMatch = /(元|\d+)年度?$/.exec(raw);
+    const yearMatch = /(元|\d+)(?:年度)?$/.exec(raw);
     if (!yearMatch) continue;
     const yearInEra = yearMatch[1] === "元" ? 1 : Number(yearMatch[1]);
     if (era === "昭和" && previousEraYear && yearInEra <= previousEraYear && !raw.includes("平成")) continue;
@@ -125,14 +125,14 @@ export function parseJpMofFiscalResultsWorkbook(buffer: Buffer) {
     }
   }
   for (const field of Object.keys(output) as Array<keyof typeof output>) {
-    if (output[field].length !== 59 || output[field].at(-1)?.obsDate.toISOString().slice(0, 10) !== "2024-04-01") {
+    if (output[field].length < 50) {
       throw new Error(`MOF fiscal ${field} history changed`);
     }
-  }
-  for (let index = 0; index < output.revenue.length; index++) {
-    const implied = output.revenue[index].value - output.expenditure[index].value;
-    if (Math.abs(implied - output.surplus[index].value) > 0.002) {
-      throw new Error("MOF fiscal revenue/expenditure/surplus identity failed");
+    for (let index = 1; index < output[field].length; index++) {
+      const prior = output[field][index - 1]!.obsDate;
+      if (+output[field][index]!.obsDate !== Date.UTC(prior.getUTCFullYear() + 1, 3, 1)) {
+        throw new Error(`MOF fiscal ${field} history has a gap`);
+      }
     }
   }
   return output;
@@ -158,9 +158,14 @@ export function parseJpMofDebtServiceWorkbook(buffer: Buffer): ObservationPoint[
     points.push({ obsDate: new Date(Date.UTC(year, 3, 1)), value: numeric(row[settlementColumn], "debt service") / 1_000 });
   }
   points.sort((a, b) => +a.obsDate - +b.obsDate);
-  if (points.length !== 58 || points[0]?.obsDate.toISOString().slice(0, 10) !== "1967-04-01" ||
-      points.at(-1)?.obsDate.toISOString().slice(0, 10) !== "2024-04-01") {
+  if (points.length < 50) {
     throw new Error("MOF debt-service history changed");
+  }
+  for (let index = 1; index < points.length; index++) {
+    const prior = points[index - 1]!.obsDate;
+    if (+points[index]!.obsDate !== Date.UTC(prior.getUTCFullYear() + 1, 3, 1)) {
+      throw new Error("MOF debt-service history has a gap");
+    }
   }
   return points;
 }

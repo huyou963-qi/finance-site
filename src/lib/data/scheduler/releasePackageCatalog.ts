@@ -14,6 +14,13 @@ import { JP_METI_RETAIL_PACKAGE_ID, JP_METI_RETAIL_SERIES } from "./jpMetiRetail
 import { JP_ESRI_MACHINERY_ORDERS_PACKAGE_ID, JP_ESRI_MACHINERY_ORDERS_SERIES } from "./jpEsriMachineryOrders/catalog";
 import { JP_MOF_RESERVES_PACKAGE_ID, JP_MOF_RESERVES_SERIES } from "./jpMofReserves/catalog";
 import { JP_JNTO_VISITOR_ARRIVALS_PACKAGE_ID, JP_JNTO_VISITOR_ARRIVALS_SERIES } from "./jpJntoVisitorArrivals/catalog";
+import { JP_CUSTOMS_TRADE_PACKAGE_ID, JP_CUSTOMS_TRADE_SERIES } from "./jpCustomsTrade/catalog";
+import { JP_MOF_EXTERNAL_POSITION_PACKAGE_ID, JP_MOF_EXTERNAL_POSITION_SERIES } from "./jpMofExternalPosition/catalog";
+import { JP_MOF_SECURITIES_PACKAGE_ID, JP_MOF_SECURITIES_SERIES } from "./jpMofSecuritiesTransactions/catalog";
+import { JP_MOF_CORPORATE_FISCAL_SERIES, JP_MOF_CORPORATE_PACKAGE_ID, JP_MOF_DEBT_PACKAGE_ID, JP_MOF_FISCAL_PACKAGE_ID } from "./jpMofCorporateFiscal/catalog";
+import { JP_CYCLE_LABOR_PACKAGE_ID, JP_CYCLE_LABOR_SERIES } from "./jpCycleLabor/catalog";
+import { JP_TOURISM_CORE_SERIES } from "./jpTourismCore/catalog";
+import { JP_HOUSING_POPULATION_ESTAT_SERIES, JP_MLIT_PROPERTY_PRICE_SERIES } from "./jpHousingPopulation/catalog";
 import { CPI_FRED_SERIES } from "./cpiFredSeedCatalog";
 import { PPI_FRED_IDS } from "./ppiFredSeedCatalog";
 import { LABOR_FRED_SERIES } from "./laborFredSeedCatalog";
@@ -160,6 +167,46 @@ const JOLTS_FRED_IDS = ["JTSJOR", "JTSQUR", "JTSHIR", "JTSJOL"];
  * 勿在 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 新增项。
  */
 export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
+  probePkg("jp.housing_population", "日本住房与人口核心", {
+    countryCode: "JP", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: [...JP_HOUSING_POPULATION_ESTAT_SERIES.map((series) => series.instrumentCode), JP_MLIT_PROPERTY_PRICE_SERIES.instrumentCode] },
+  }),
+  probePkg(JP_CYCLE_LABOR_PACKAGE_ID, "日本景气循环与劳动力核心", {
+    countryCode: "JP", agencyId: "jp-esri", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_CYCLE_LABOR_SERIES.map((series) => series.instrumentCode) },
+  }),
+  probePkg("jp.jta.inbound_consumption", "日本访日外国人旅行消费额", {
+    countryCode: "JP", agencyId: "jp-jta", granularity: "QUARTERLY", intervalHours: 24,
+    members: { instrumentCodes: JP_TOURISM_CORE_SERIES.filter((series) => series.packageId === "jp.jta.inbound_consumption").map((series) => series.instrumentCode) },
+  }),
+  probePkg("jp.jta.accommodation_statistics", "日本外国人延泊数", {
+    countryCode: "JP", agencyId: "jp-jta", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_TOURISM_CORE_SERIES.filter((series) => series.packageId === "jp.jta.accommodation_statistics").map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_MOF_CORPORATE_PACKAGE_ID, "日本法人企业统计调查", {
+    countryCode: "JP", agencyId: "jp-mof", granularity: "QUARTERLY", intervalHours: 168,
+    members: { instrumentCodes: JP_MOF_CORPORATE_FISCAL_SERIES.filter((series) => series.packageId === JP_MOF_CORPORATE_PACKAGE_ID).map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_MOF_FISCAL_PACKAGE_ID, "日本中央政府财政决算", {
+    countryCode: "JP", agencyId: "jp-mof", granularity: "ANNUAL", intervalHours: 168,
+    members: { instrumentCodes: JP_MOF_CORPORATE_FISCAL_SERIES.filter((series) => series.packageId === JP_MOF_FISCAL_PACKAGE_ID).map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_MOF_DEBT_PACKAGE_ID, "日本普通国债余额", {
+    countryCode: "JP", agencyId: "jp-mof", granularity: "QUARTERLY", intervalHours: 168,
+    members: { instrumentCodes: JP_MOF_CORPORATE_FISCAL_SERIES.filter((series) => series.packageId === JP_MOF_DEBT_PACKAGE_ID).map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_CUSTOMS_TRADE_PACKAGE_ID, "日本海关货物贸易总额", {
+    countryCode: "JP", agencyId: "jp-customs", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_CUSTOMS_TRADE_SERIES.map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_MOF_EXTERNAL_POSITION_PACKAGE_ID, "日本国际投资头寸与对外债务", {
+    countryCode: "JP", agencyId: "jp-mof", granularity: "QUARTERLY", intervalHours: 72,
+    members: { instrumentCodes: JP_MOF_EXTERNAL_POSITION_SERIES.map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_MOF_SECURITIES_PACKAGE_ID, "日本跨境证券投资", {
+    countryCode: "JP", agencyId: "jp-mof", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_MOF_SECURITIES_SERIES.map((series) => series.instrumentCode) },
+  }),
   probePkg("jp.mhlw.monthly_labour", "日本每月勤劳统计", {
     countryCode: "JP", agencyId: "jp-mhlw", granularity: "MONTHLY", intervalHours: 24,
     members: { instrumentCodePatterns: ["mhlw_jp_mls_*"] },

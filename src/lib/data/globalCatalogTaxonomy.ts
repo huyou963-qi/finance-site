@@ -80,7 +80,20 @@ export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalC
     if (code.startsWith("meti_jp_retail_")) return p("国民经济", "零售销售");
     if (code.startsWith("esri_jp_machinery_orders_")) return p("国民经济", "设备投资与机械订单");
     if (code.startsWith("mof_jp_reserves_")) return p("对外与汇率", "外汇储备");
+    if (code.startsWith("customs_jp_trade_")) return p("对外与汇率", "货物贸易：总额");
+    if (code.startsWith("mof_jp_iip_") || code.startsWith("mof_jp_external_debt_")) return p("对外与汇率", "国际投资头寸与外债");
+    if (code.startsWith("mof_jp_securities_")) return p("对外与汇率", "跨境证券投资");
+    if (code.startsWith("mof_jp_corporate_")) return p("国民经济", "企业财务");
+    if (code.startsWith("esri_jp_ci_")) return p("国民经济", "景气循环");
+    if (code.startsWith("jp_mlit_housing_starts_")) return p("地产与建筑", "住宅开工");
+    if (code === "jp_mlit_residential_property_price_index_sa") return p("地产与建筑", "住宅价格");
+    if (code.startsWith("jp_sbj_population_")) return p("劳动力市场", "人口估计");
+    if (code.startsWith("jp_mhlw_vital_")) return p("劳动力市场", "人口动态");
+    if (code === "jp_stat_lfs_unemployment_rate_sa" || code === "jp_mhlw_active_job_openings_ratio_sa") return p("劳动力市场", "就业与失业人数");
+    if (code.startsWith("mof_jp_fiscal_")) return p("财政与公共债务", "中央政府财政决算");
+    if (code === "mof_jp_general_bonds_outstanding") return p("财政与公共债务", "中央政府债务");
     if (code.startsWith("jnto_jp_visitor_arrivals_")) return p("对外与汇率", "入境旅游");
+    if (code.startsWith("jta_jp_")) return p("对外与汇率", "入境旅游");
     if (code.startsWith("mhlw_jp_mls_")) return p("劳动力市场", "就业、失业与工资");
     if (code.startsWith("meti_jp_iip_")) return p("国民经济", "工业生产、出货与库存");
     if (code.startsWith("esri_jp_gdp_")) {

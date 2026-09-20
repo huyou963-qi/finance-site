@@ -74,6 +74,10 @@ export async function fetchSubscriptionIncremental(
     }
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
     if (scrapeObj) {
+      if (scrapeObj.provider === "jp_mof_corporate_fiscal") {
+        const { fetchJpMofCorporateFiscalIncremental } = await import("./adapters/jpMofCorporateFiscalAdapter");
+        return fetchJpMofCorporateFiscalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       if (scrapeObj.provider === "jp_meti_iip") {
         const { fetchJpMetiIipIncremental } = await import("./adapters/jpMetiIipAdapter");
         return fetchJpMetiIipIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
@@ -435,6 +439,35 @@ export async function fetchSubscriptionIncremental(
         sub.instrument.code,
         fetchStart,
       );
+    }
+    if (scrapeObj?.provider === "jp_customs_trade") {
+      const { fetchJpCustomsTradeIncremental } = await import("./adapters/jpCustomsTradeAdapter");
+      return fetchJpCustomsTradeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+    }
+    if (scrapeObj?.provider === "jp_mof_external_position") {
+      const { fetchJpMofExternalPositionIncremental } = await import("./adapters/jpMofExternalPositionAdapter");
+      return fetchJpMofExternalPositionIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+    }
+    if (scrapeObj?.provider === "jp_mof_securities_transactions") {
+      const { fetchJpMofSecuritiesTransactionsIncremental } = await import("./adapters/jpMofSecuritiesTransactionsAdapter");
+      return fetchJpMofSecuritiesTransactionsIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+    }
+    if (scrapeObj?.provider === "jp_mof_corporate_fiscal") {
+      const { fetchJpMofCorporateFiscalIncremental } = await import("./adapters/jpMofCorporateFiscalAdapter");
+      return fetchJpMofCorporateFiscalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+    }
+    if (scrapeObj?.provider === "jp_cycle_labor") {
+      const { fetchJpCycleLaborIncremental } = await import("./adapters/jpCycleLaborAdapter");
+      return fetchJpCycleLaborIncremental(sub.instrument.metadata, sub.instrument.code);
+    }
+    if (scrapeObj?.provider === "jp_tourism_core") {
+      const { fetchJpTourismCoreIncremental } = await import("./adapters/jpTourismCoreAdapter");
+      return fetchJpTourismCoreIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+    }
+    if (scrapeObj?.provider === "jp_mlit_property_price") {
+      const { fetchJpMlitPropertyPriceWorkbook, parseJpMlitNationalResidentialPriceIndex } = await import("./jpHousingPopulation/propertyPrice");
+      const points = parseJpMlitNationalResidentialPriceIndex(await fetchJpMlitPropertyPriceWorkbook());
+      return { points: points.filter((point) => point.obsDate >= new Date(`${fetchStart}T00:00:00Z`)), sourceLatestObsDate: points.at(-1)?.obsDate ?? null, skippedInvalid: 0 };
     }
     const template = overviewTemplateForInstrument(sub.instrument.code);
     if (!template) {

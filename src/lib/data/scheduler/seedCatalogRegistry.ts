@@ -7,6 +7,13 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-housing-population": { script: "seed-jp-housing-population", labelZh: "日本住房与人口核心" },
+  "jp-tourism-core": { script: "seed-jp-tourism-core", labelZh: "日本观光厅入境旅游核心" },
+  "jp-cycle-labor": { script: "seed-jp-cycle-labor", labelZh: "日本景气循环与劳动力核心" },
+  "jp-mof-corporate-fiscal": { script: "seed-jp-mof-corporate-fiscal", labelZh: "日本财务省企业财务与中央政府财政" },
+  "jp-customs-trade": { script: "seed-jp-customs-trade", labelZh: "日本海关货物贸易总额" },
+  "jp-mof-external-position": { script: "seed-jp-mof-external-position", labelZh: "日本财务省国际投资头寸与对外债务" },
+  "jp-mof-securities-transactions": { script: "seed-jp-mof-securities-transactions", labelZh: "日本财务省跨境证券投资" },
   "japan-core-scope": { script: "seed-japan-core-scope", labelZh: "日本核心范围：物理下线79条细分序列" },
   "jp-boj-core": { script: "seed-jp-boj-core", labelZh: "日本银行资金循环、短端利率与汇率" },
   "jp-jnto-visitor-arrivals": { script: "seed-jp-jnto-visitor-arrivals", labelZh: "日本政府观光局访日外客人数" },
@@ -125,6 +132,13 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "jp-housing-population": { script: "verify-jp-housing-population", labelZh: "日本住房与人口核心自检", verifyNeedsDb: true },
+  "jp-tourism-core": { script: "verify-jp-tourism-core", labelZh: "日本观光厅入境旅游核心自检", verifyNeedsDb: true },
+  "jp-cycle-labor": { script: "verify-jp-cycle-labor", labelZh: "日本景气循环与劳动力核心自检", verifyNeedsDb: true },
+  "jp-mof-corporate-fiscal": { script: "verify-jp-mof-corporate-fiscal", labelZh: "日本企业财务与中央政府财政自检", verifyNeedsDb: true },
+  "jp-customs-trade": { script: "verify-jp-customs-trade", labelZh: "日本海关货物贸易总额自检", verifyNeedsDb: true },
+  "jp-mof-external-position": { script: "verify-jp-mof-external-position", labelZh: "日本国际投资头寸与对外债务自检", verifyNeedsDb: true },
+  "jp-mof-securities-transactions": { script: "verify-jp-mof-securities-transactions", labelZh: "日本跨境证券投资自检", verifyNeedsDb: true },
   "japan-core-scope": { script: "verify-japan-core-scope", labelZh: "日本核心范围退役序列自检", verifyNeedsDb: true },
   "jp-boj-core": { script: "verify-jp-boj-core", labelZh: "日本银行资金循环、短端利率与汇率自检", verifyNeedsDb: true },
   "jp-jnto-visitor-arrivals": { script: "verify-jp-jnto-visitor-arrivals", labelZh: "日本政府观光局访日外客人数自检", verifyNeedsDb: true },
