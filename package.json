@@ -137,6 +137,8 @@
     "data:verify-retired-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/verify-retired-indicators.ts",
     "data:seed-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/seed-yahoo-gold-prices.ts",
     "data:verify-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/verify-yahoo-gold-prices.ts",
+    "data:seed-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/seed-gold-prices.ts",
+    "data:verify-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/verify-gold-prices.ts",
     "data:seed-caixin-pmi-te": "dotenv -e .env.local -- tsx scripts/data-worker/seed-caixin-pmi-te.ts",
     "data:sync-caixin-pmi-te": "dotenv -e .env.local -- tsx scripts/data-worker/sync-caixin-pmi-te.ts",
     "data:verify-caixin-pmi": "dotenv -e .env.local -- tsx scripts/data-worker/verify-caixin-pmi.ts",

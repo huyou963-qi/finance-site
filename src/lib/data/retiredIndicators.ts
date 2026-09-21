@@ -1,5 +1,6 @@
 import type { MacroDerivedCalcOp, MacroSeriesCalcConfig } from "@/lib/data/macroPresetTemplates";
 import { RETIRED_USOV_REPLACEMENTS, type UsOverviewReplacement } from "@/lib/data/usOverviewStandardSeries";
+import { GOLD_FUTURES_CODE, GOLD_SPOT_CODE, GOLD_SUPERSEDED_BY } from "@/lib/data/scheduler/goldPrices/catalog";
 
 /**
  * 已退役指标登记表（单一真源）——数据库只存有明确来源、稳定更新方式的标准基础数据（AGENTS.md「宏观数据库约束」）。
@@ -32,7 +33,7 @@ const YOY_MONTH: MacroSeriesCalcConfig = { op: "yoy", frequency: "month", unit: 
 export const RETIRED_COMPUTED_REPLACEMENTS: Readonly<Record<string, RetiredReplacement>> = {
   // US_Overview：FRED 复合（usovCompositeFred）
   usov_c04_spx_gld: {
-    derived: { id: "usov-spx-gld", name: "SPX/GLD", op: "div", leftKey: "mds:usov_c03_sp500", rightKey: "mds:usov_c05_comex_gold" },
+    derived: { id: "usov-spx-gld", name: "SPX/GLD", op: "div", leftKey: "mds:usov_c03_sp500", rightKey: `mds:${GOLD_FUTURES_CODE}` },
   },
   usov_c12_2y_effr: {
     derived: { id: "usov-2y-effr", name: "2年-EFFR", op: "sub", leftKey: "fred:DGS2", rightKey: "mds:usov_c11_effr" },
@@ -50,7 +51,7 @@ export const RETIRED_COMPUTED_REPLACEMENTS: Readonly<Record<string, RetiredRepla
   },
   // 黄金分析：xlsx 派生列
   goldov_c03_basis: {
-    derived: { id: "gold-basis", name: "期现差", op: "sub", leftKey: "mds:goldov_c01_comex_active", rightKey: "mds:goldov_c02_london_gold" },
+    derived: { id: "gold-basis", name: "期现差", op: "sub", leftKey: `mds:${GOLD_FUTURES_CODE}`, rightKey: `mds:${GOLD_SPOT_CODE}` },
   },
   goldov_c07_comex_stock: { key: "mds:goldov_c23_comex_stock_oz", calc: NONE },
   goldov_c08_comex_stock_wow: { key: "mds:goldov_c23_comex_stock_oz::diff", calc: DIFF_KEEP },
@@ -143,6 +144,21 @@ export const RETIRED_INDICATOR_REPLACEMENTS: Readonly<Record<string, RetiredRepl
 export const RETIRED_INDICATOR_CODES = Object.keys(RETIRED_INDICATOR_REPLACEMENTS);
 
 /**
+ * 被标准序列取代、但**历史保留**的旧列（2026-09-21 黄金现货/期货，见 goldPrices/catalog.ts）。
+ *
+ * 模板替换与上面的退役键相同（rewriteRetiredKeys：键 → 标准键），但仪器与观测不删：
+ * 只写 tombstone（目录隐藏 + 调度器跳过），同 SOURCE_ENDED_HIDDEN_CODES。
+ * 这些是 Wind/IDC 的拼接历史，无法从可自动更新的源复现，删了不可逆。
+ */
+const NONE_CALC: MacroSeriesCalcConfig = { op: "none", frequency: "keep", unit: "keep", resampleMethod: "avg" };
+export const SUPERSEDED_KEEP_HISTORY_REPLACEMENTS: Readonly<Record<string, UsOverviewReplacement>> =
+  Object.fromEntries(
+    Object.entries(GOLD_SUPERSEDED_BY).map(([code, target]) => [code, { key: `mds:${target}`, calc: NONE_CALC }]),
+  );
+
+export const SUPERSEDED_KEEP_HISTORY_CODES = Object.keys(SUPERSEDED_KEEP_HISTORY_REPLACEMENTS);
+
+/**
  * 源端已停更，但**历史数据真实有效**：从目录隐藏、停止抓取，观测一条不删。
  *
  * 与 RETIRED_INDICATOR_CODES 的区别是**只写 tombstone、不删任何东西**
@@ -184,12 +200,14 @@ type Resolved =
   | { kind: "derived"; calcKey: string; def: RetiredDerived };
 
 const RESOLVED_BY_KEY = new Map<string, Resolved>(
-  Object.entries(RETIRED_INDICATOR_REPLACEMENTS).map(([code, repl]): [string, Resolved] => {
-    const key = `mds:${code}`;
-    if (!repl) return [key, { kind: "remove" }];
-    if ("derived" in repl) return [key, { kind: "derived", calcKey: `calc:${repl.derived.id}`, def: repl.derived }];
-    return [key, { kind: "key", key: repl.key, calc: repl.calc }];
-  }),
+  Object.entries({ ...RETIRED_INDICATOR_REPLACEMENTS, ...SUPERSEDED_KEEP_HISTORY_REPLACEMENTS }).map(
+    ([code, repl]): [string, Resolved] => {
+      const key = `mds:${code}`;
+      if (!repl) return [key, { kind: "remove" }];
+      if ("derived" in repl) return [key, { kind: "derived", calcKey: `calc:${repl.derived.id}`, def: repl.derived }];
+      return [key, { kind: "key", key: repl.key, calc: repl.calc }];
+    },
+  ),
 );
 
 function resolve(key: string): Resolved {

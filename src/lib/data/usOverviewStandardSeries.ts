@@ -1,5 +1,6 @@
 import type { MacroSeriesChartType } from "@/lib/macroChartOption";
 import type { MacroDerivedCalc, MacroSeriesCalcConfig } from "@/lib/data/macroPresetTemplates";
+import { GOLD_FUTURES_CODE } from "@/lib/data/scheduler/goldPrices/catalog";
 
 /**
  * US_Overview 中不符合项目入库标准的 9 条 xlsx 序列已退役（2026-09-11）。
@@ -63,6 +64,8 @@ export const US_OVERVIEW_STANDARD_SERIES: readonly UsOverviewStandardSeriesDef[]
   { key: "fred:PCEPI::yoy", displayName: "PCE 同比", panel: 5, axis: "left", chartType: "line", color: "#d89b4e", calc: YOY_MONTH },
   { key: "fred:PCEPILFE::yoy", displayName: "核心PCE 同比", panel: 5, axis: "left", chartType: "dashedLine", color: "#7fc8c5", calc: YOY_MONTH },
   { key: `mds:${US_SP500_PE_CODE}`, displayName: "标普500市盈率", panel: 1, axis: "right", chartType: "line", color: "#5f76b8", calc: NONE },
+  // 原 col 5 COMEX黄金连续（Wind 历史 + GC=F 续接）→ 标准序列 GC=F 全量
+  { key: `mds:${GOLD_FUTURES_CODE}`, displayName: "COMEX黄金期货", panel: 1, axis: "right", chartType: "line", color: "#d86a7a", calc: NONE },
   // 原计算型列 c25「持有国债环比增加」→ 基础序列 c24 + 指标运算环比%
   { key: "mds:usov_c24_fed_treasuries::pct", displayName: "持有国债 环比%", panel: 6, axis: "left", chartType: "line", color: "#8f9bab", calc: PCT_KEEP },
 ];
@@ -80,7 +83,7 @@ export type UsOverviewDerivedDef = {
 /** 原 xlsx 计算型列（SPX/GLD、2年-EFFR、Fed 净流动性）改为指标运算，id 与 retiredIndicators.ts 一致 */
 export const US_OVERVIEW_STANDARD_DERIVED: readonly UsOverviewDerivedDef[] = [
   {
-    calc: { id: "usov-spx-gld", name: "SPX/GLD", op: "div", leftKey: "mds:usov_c03_sp500", rightKey: "mds:usov_c05_comex_gold" },
+    calc: { id: "usov-spx-gld", name: "SPX/GLD", op: "div", leftKey: "mds:usov_c03_sp500", rightKey: `mds:${GOLD_FUTURES_CODE}` },
     panel: 1, axis: "left", chartType: "line", color: "#f2cf67",
   },
   {

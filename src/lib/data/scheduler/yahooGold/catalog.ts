@@ -1,18 +1,17 @@
 /**
- * 黄金价格——改由行情接口（Yahoo v8 chart，/markets 行情页同源）更新（2026-09-11）。
+ * 行情接口（Yahoo v8 chart，/markets 行情页同源）。
  *
- * - usov_c05_comex_gold「期货收盘价(连续):COMEX黄金」：原挂 FRED GOLDAMGBD228NLBM（已下架，HTTP 400），
- *   停在 2026-05-29；GC=F 即 COMEX 黄金连续合约，口径一致。
- * - goldov_c02_london_gold「伦敦金现:IDC」：原无订阅、停在 2026-06-05。行情接口无伦敦现货
- *   （XAUUSD=X 已下架），经用户确认改用 GC=F：2026-06-05 前为 IDC 伦敦金现历史，此后为 COMEX
- *   连续期货收盘价（通常高于现货 0.5%–1%），黄金模板「期现差」自此失去期现含义。
+ * 黄金：COMEX 期货与现货已改为标准仪器 comex_gold_futures（GC=F 全量）/ wgc_gold_price_usd，
+ * 见 goldPrices/catalog.ts；旧 xlsx 列 usov_c05 / goldov_c01 / goldov_c02 已被取代（保留历史、目录隐藏）。
  *
+ * 此处 YAHOO_GOLD_SERIES 只剩 xlsx 历史 + 行情续接的旧列：
  * - goldov_c27_brent「期货结算价(连续):布伦特原油」（黄金分析模板的油价序列）：原无订阅、停在
  *   2026-06-05。xlsx 历史与 Yahoo BZ=F **逐日精确相等**（2024-01 起重叠 605 天，605 天全部相等、
  *   最大差 0.015%），而与 EIA 布伦特现货 DCOILBRENTEU 平均差 2.07%、最大 22%——口径就是
  *   BZ=F，续接无断层（2026-09-21）。
  *
  * 只做增量续接（从库内最后观测往后），不覆盖 xlsx 历史。
+ * 包 us.yahoo.comex_gold 还包含 comex_gold_futures（全量 GC=F，无 continueAfter）。
  */
 export const YAHOO_CHART_SOURCE = {
   id: "yahoo-chart",
@@ -30,23 +29,9 @@ export const BRENT_FUTURES_SYMBOL = "BZ=F";
 
 /**
  * continueAfter = xlsx 历史最后一日（本机与香港一致）。适配器丢弃该日及之前的行情点，
- * 否则调度器的修订回看窗口会把 xlsx 历史（伦敦金现为 IDC 现货）覆盖成期货价。
+ * 否则调度器的修订回看窗口会把 xlsx 历史覆盖成行情接口的值。
  */
 export const YAHOO_GOLD_SERIES = [
-  {
-    code: "usov_c05_comex_gold",
-    symbol: COMEX_GOLD_SYMBOL,
-    continueAfter: "2026-05-29",
-    source: "COMEX（Yahoo 行情 GC=F）",
-    note: "COMEX 黄金连续合约收盘价，行情接口 GC=F 日更",
-  },
-  {
-    code: "goldov_c02_london_gold",
-    symbol: COMEX_GOLD_SYMBOL,
-    continueAfter: "2026-06-05",
-    source: "IDC 伦敦金现（至 2026-06-05）；此后 COMEX 连续期货（Yahoo GC=F）",
-    note: "口径变更：2026-06-05 后以 COMEX 连续期货收盘价续接（行情接口无伦敦现货），期现差不再有期现含义",
-  },
   {
     code: "goldov_c27_brent",
     symbol: BRENT_FUTURES_SYMBOL,

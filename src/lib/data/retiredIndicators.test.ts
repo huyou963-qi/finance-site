@@ -96,7 +96,7 @@ describe("rewriteRetiredKeys · 计算型指标改为指标运算", () => {
     ]);
   });
 
-  it("rebuilds the gold template: basis as calc, stock/reserve units as base series, ETF sums dropped", () => {
+  it("rebuilds the gold template: prices to standard series, basis as calc, stock/reserve units as base series, ETF sums dropped", () => {
     const { value } = rewriteRetiredKeys({
       selectedKeys: [
         "mds:goldov_c01_comex_active", "mds:goldov_c02_london_gold", "mds:goldov_c03_basis",
@@ -106,7 +106,7 @@ describe("rewriteRetiredKeys · 计算型指标改为指标运算", () => {
       slotAssignment: { "mds:goldov_c03_basis": null, "mds:goldov_c07_comex_stock": 3, "mds:goldov_c08_comex_stock_wow": 3, "mds:goldov_c09_etf_holding": 4, "mds:goldov_c11_global_reserve": 5 },
     });
     assert.deepEqual(value.selectedKeys, [
-      "mds:goldov_c01_comex_active", "mds:goldov_c02_london_gold", "mds:goldov_c23_comex_stock_oz",
+      "mds:comex_gold_futures", "mds:wgc_gold_price_usd", "mds:goldov_c23_comex_stock_oz",
       "mds:goldov_c23_comex_stock_oz::diff", "mds:goldov_c24_global_reserve_tons",
     ]);
     assert.deepEqual(value.slotAssignment, {
@@ -115,7 +115,32 @@ describe("rewriteRetiredKeys · 计算型指标改为指标运算", () => {
       "mds:goldov_c23_comex_stock_oz::diff": 3,
       "mds:goldov_c24_global_reserve_tons": 5,
     });
-    assert.equal((value.derivedCalcs as Array<{ id: string }>)[0]?.id, "gold-basis");
+    assert.deepEqual((value.derivedCalcs as Array<Record<string, string>>)[0], {
+      id: "gold-basis", name: "期现差", op: "sub", leftKey: "mds:comex_gold_futures", rightKey: "mds:wgc_gold_price_usd",
+    });
     assert.equal((value.seriesCalcConfigMap as Record<string, { op: string }>)["mds:goldov_c23_comex_stock_oz::diff"]?.op, "diff");
+  });
+});
+
+describe("rewriteRetiredKeys · 被标准序列取代的金价旧列", () => {
+  it("maps old price keys to standard keys everywhere, including existing calcs that reference them", () => {
+    const { value, changed } = rewriteRetiredKeys({
+      selectedKeys: ["mds:usov_c03_sp500", "mds:usov_c05_comex_gold", "mds:goldov_c02_london_gold"],
+      slotAssignment: { "mds:usov_c05_comex_gold": 0, "mds:goldov_c02_london_gold": 0 },
+      seriesVisualMap: { "mds:goldov_c02_london_gold": { color: "#4bc0c8" } },
+      derivedCalcs: [
+        { id: "usov-spx-gld", name: "SPX/GLD", op: "div", leftKey: "mds:usov_c03_sp500", rightKey: "mds:usov_c05_comex_gold" },
+      ],
+    });
+    assert.equal(changed, true);
+    assert.deepEqual(value.selectedKeys, ["mds:usov_c03_sp500", "mds:comex_gold_futures", "mds:wgc_gold_price_usd"]);
+    assert.deepEqual(value.slotAssignment, { "mds:comex_gold_futures": 0, "mds:wgc_gold_price_usd": 0 });
+    assert.deepEqual(value.seriesVisualMap, { "mds:wgc_gold_price_usd": { color: "#4bc0c8" } });
+    assert.equal((value.derivedCalcs as Array<{ rightKey: string }>)[0]?.rightKey, "mds:comex_gold_futures");
+  });
+
+  it("is idempotent once keys are rewritten", () => {
+    const once = rewriteRetiredKeys({ selectedKeys: ["mds:goldov_c01_comex_active"] }).value;
+    assert.equal(rewriteRetiredKeys(once).changed, false);
   });
 });

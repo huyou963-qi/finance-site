@@ -44,16 +44,7 @@ export const US_OVERVIEW_SERIES: readonly UsOverviewSeriesDef[] = [
     color: "#5f76b8",
   },
   // col 4 SPX/GLD、12 2年-EFFR、25–27 国债环比/MA4/净流动性为计算型二次指标，已退役（retiredIndicators.ts）。
-  {
-    columnIndex: 5,
-    displayName: "期货收盘价(连续):COMEX黄金",
-    code: "usov_c05_comex_gold",
-    panel: 1,
-    catalogCategory: "综合",
-    axis: "right",
-    chartType: "line",
-    color: "#d86a7a",
-  },
+  // col 5 COMEX黄金连续已被标准序列 comex_gold_futures 取代（见 usOverviewStandardSeries.ts）。
   {
     columnIndex: 6,
     displayName: "期货结算价(连续):WTI原油",

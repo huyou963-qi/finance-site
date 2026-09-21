@@ -10,6 +10,9 @@
  *
  * 第二类：SOURCE_ENDED_HIDDEN_CODES —— 源端已停更但历史真实有效的序列，
  * **只写 tombstone、不删数据**（从目录隐藏 + 调度器跳过，删掉 tombstone 即可恢复）。
+ *
+ * 第三类：SUPERSEDED_KEEP_HISTORY_CODES —— 被标准序列取代的旧 xlsx 列（如黄金现货/期货）：
+ * 模板键替换为标准键，仪器与观测同第二类只隐藏不删。
  */
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
@@ -18,6 +21,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import {
   RETIRED_INDICATOR_CODES,
   SOURCE_ENDED_HIDDEN_CODES,
+  SUPERSEDED_KEEP_HISTORY_CODES,
   rewriteRetiredKeys,
 } from "../../src/lib/data/retiredIndicators";
 import { buildBaseCatalogCountries, clearFredCatalogCache } from "../../src/lib/data/fredCatalog";
@@ -75,7 +79,8 @@ async function retireInstruments(dryRun: boolean) {
  * 恢复方式：删掉该 tombstone 行，数据与订阅都还在。
  */
 async function hideSourceEndedInstruments(dryRun: boolean) {
-  for (const code of SOURCE_ENDED_HIDDEN_CODES) {
+  // 被标准序列取代的旧列同样只隐藏不删（模板键由 rewriteTemplates 替换）
+  for (const code of [...SOURCE_ENDED_HIDDEN_CODES, ...SUPERSEDED_KEEP_HISTORY_CODES]) {
     const key = `mds:${code}`;
     const instrument = await prisma.instrument.findUnique({
       where: { code },
@@ -180,7 +185,7 @@ async function main() {
   console.log(`[data:seed-retired-indicators] 退役 ${RETIRED_INDICATOR_CODES.length} 条指标${dryRun ? "（dry-run）" : ""}…`);
   await retireInstruments(dryRun);
   console.log(
-    `[data:seed-retired-indicators] 源端停更但历史有效 ${SOURCE_ENDED_HIDDEN_CODES.length} 条：从目录隐藏、保留观测…`,
+    `[data:seed-retired-indicators] 源端停更 ${SOURCE_ENDED_HIDDEN_CODES.length} 条 + 被标准序列取代 ${SUPERSEDED_KEEP_HISTORY_CODES.length} 条：从目录隐藏、保留观测…`,
   );
   await hideSourceEndedInstruments(dryRun);
   console.log("[data:seed-retired-indicators] 模板替换为标准指标 / 指标运算…");

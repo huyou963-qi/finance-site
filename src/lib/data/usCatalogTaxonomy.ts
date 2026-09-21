@@ -24,7 +24,7 @@ export type UsCatalogPlacement = {
 /** 各大类下的子类顺序（布局重建用） */
 export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> = {
   国民经济: ["核算", "工业", "消费与国内需求", "景气综合", "物流与出行"],
-  通胀与价格: ["CPI", "PCE与PPI", "通胀预期与能源"],
+  通胀与价格: ["CPI", "PCE与PPI", "通胀预期与能源", "黄金与贵金属"],
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
   货币政策与流动性: ["政策利率", "联储资产负债表", "财政部账户与货币市场"],
   利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场"],
@@ -280,6 +280,10 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   }
   if (code.startsWith("ism_") || code.startsWith("ism_svc_")) {
     return p("国民经济", "景气综合");
+  }
+  // 黄金现货/期货标准序列（goldPrices/catalog.ts）
+  if (code === "wgc_gold_price_usd" || code === "comex_gold_futures") {
+    return p("通胀与价格", "黄金与贵金属");
   }
   if (code.startsWith("goldov_")) {
     return p("利率与信用市场", "市场情绪");

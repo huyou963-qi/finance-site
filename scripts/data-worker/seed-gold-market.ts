@@ -90,14 +90,7 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
   officialUrl?: string;
   message: string;
 }> = [
-  {
-    code: "goldov_c01_comex_active",
-    method: "licensed_cme_market_data",
-    methodLabel: "CME 授权市场数据",
-    officialUrl: "https://www.cmegroup.com/market-data.html",
-    message: "活跃合约结算价需要 CME 数据许可；网站数据条款禁止自动抓取。",
-  },
-  // goldov_c02_london_gold 已改由行情接口 GC=F 续接（用户确认口径变更），见 seed-yahoo-gold-prices.ts
+  // goldov_c01 / goldov_c02 已被标准序列 comex_gold_futures / wgc_gold_price_usd 取代，见 goldPrices/catalog.ts
   {
     code: "goldov_c23_comex_stock_oz",
     method: "licensed_cme_report_feed",
@@ -105,13 +98,8 @@ const PENDING_RAW_SERIES: ReadonlyArray<{
     officialUrl: "https://www.cmegroup.com/solutions/clearing/operations-and-deliveries/nymex-delivery-notices.html",
     message: "精确口径为 CME Gold Stocks；网站数据条款明确禁止脚本抓取，需取得报告/API 许可。",
   },
-  {
-    code: "goldov_c27_brent",
-    method: "licensed_ice_futures_data",
-    methodLabel: "ICE Brent 连续期货结算价授权数据",
-    officialUrl: "https://www.ice.com/brent-crude",
-    message: "必须使用 ICE 连续期货结算价；EIA/FRED 布伦特现货不是同一口径。",
-  },
+  // goldov_c27_brent 已由行情接口 BZ=F 续接（xlsx 历史与 BZ=F 逐日相等），见 yahooGold/catalog.ts；
+  // 留在这里会与 seed-yahoo-gold-prices 互相覆盖 fetchAcquisition（pending ↔ known）。
 ];
 
 /** 已由其他美元指数覆盖的 legacy 工作簿序列；部署时幂等清理并留下 tombstone。 */

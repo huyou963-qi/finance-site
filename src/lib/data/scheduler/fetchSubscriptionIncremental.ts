@@ -273,6 +273,10 @@ export async function fetchSubscriptionIncremental(
         const { fetchYahooChartIncremental } = await import("./adapters/yahooChartAdapter");
         return fetchYahooChartIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
       }
+      if (scrapeObj.provider === "wgc_gold_price") {
+        const { fetchWgcGoldPriceIncremental } = await import("./adapters/wgcGoldPriceAdapter");
+        return fetchWgcGoldPriceIncremental(sub.instrument.metadata, fetchStart);
+      }
       if (scrapeObj.provider === "gold_etf_holdings") {
         const { fetchGoldEtfHoldingsIncremental } = await import(
           "./adapters/goldEtfHoldingsAdapter"

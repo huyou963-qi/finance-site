@@ -16,6 +16,8 @@ import { FISCAL_FRED_YOY_SERIES } from "../../src/lib/data/scheduler/fiscalFredS
 import {
   RETIRED_INDICATOR_CODES,
   RETIRED_INDICATOR_REPLACEMENTS,
+  SUPERSEDED_KEEP_HISTORY_CODES,
+  SUPERSEDED_KEEP_HISTORY_REPLACEMENTS,
 } from "../../src/lib/data/retiredIndicators";
 import { US_OVERVIEW_SERIES } from "../../src/lib/data/usOverviewLayout";
 import { GOLD_ANALYSIS_SERIES } from "../../src/lib/data/goldAnalysisLayout";
@@ -44,8 +46,8 @@ async function main() {
   else console.log("  ✓ 无库内复合/调度器变换定义");
   const mapped = Object.keys(mergedUsovFredMap()).filter((code) => RETIRED_INDICATOR_CODES.includes(code));
   if (mapped.length > 0) fail(`退役序列仍挂 FRED 映射：${mapped.join(", ")}`);
-  const inLayout = [...US_OVERVIEW_SERIES, ...GOLD_ANALYSIS_SERIES].filter((row) =>
-    RETIRED_INDICATOR_CODES.includes(row.code),
+  const inLayout = [...US_OVERVIEW_SERIES, ...GOLD_ANALYSIS_SERIES].filter(
+    (row) => RETIRED_INDICATOR_CODES.includes(row.code) || SUPERSEDED_KEEP_HISTORY_CODES.includes(row.code),
   );
   if (inLayout.length > 0) fail(`xlsx 布局仍含退役列：${inLayout.map((r) => r.code).join(", ")}`);
   else console.log("  ✓ xlsx 布局已移除退役列");
@@ -65,11 +67,12 @@ async function main() {
     if (left.length > 0) fail(`退役仪器仍在库：${left.map((r) => r.code).join(", ")}`);
     else console.log(`  ✓ ${RETIRED_INDICATOR_CODES.length} 条退役仪器已删除`);
 
+    const hiddenCodes = [...RETIRED_INDICATOR_CODES, ...SUPERSEDED_KEEP_HISTORY_CODES];
     const tombstones = await prisma.macroCatalogExcludedKey.count({
-      where: { catalogKey: { in: RETIRED_INDICATOR_CODES.map((code) => `mds:${code}`) } },
+      where: { catalogKey: { in: hiddenCodes.map((code) => `mds:${code}`) } },
     });
-    if (tombstones !== RETIRED_INDICATOR_CODES.length) fail(`tombstone ${tombstones}/${RETIRED_INDICATOR_CODES.length}`);
-    else console.log("  ✓ 目录 tombstone 齐全");
+    if (tombstones !== hiddenCodes.length) fail(`tombstone ${tombstones}/${hiddenCodes.length}`);
+    else console.log("  ✓ 目录 tombstone 齐全（含被取代旧列）");
 
     // 库侧约束：不得再有复合订阅或派生标记的仪器
     const compositeSubs = await prisma.dataSubscription.findMany({
@@ -84,7 +87,7 @@ async function main() {
     if (derivedRows.length > 0) fail(`仍有派生标记仪器：${derivedRows.map((r) => r.code).join(", ")}`);
     else console.log("  ✓ 无派生标记仪器");
 
-    const retiredKeyPattern = RETIRED_INDICATOR_CODES.map((code) => `"mds:${code}`);
+    const retiredKeyPattern = hiddenCodes.map((code) => `"mds:${code}`);
     const system = await prisma.systemMacroChartPrefs.findUnique({ where: { id: "default" } });
     const systemText = JSON.stringify(system?.prefs ?? {});
     const users = await prisma.userMacroChartPrefs.findMany();
@@ -101,7 +104,7 @@ async function main() {
     // 替代键：基础序列须在库、订阅启用、有观测，并在目录允许列表内（否则模板会被过滤掉）
     const { allowlist } = await getFredCatalogCached();
     const targets = new Set<string>();
-    for (const repl of Object.values(RETIRED_INDICATOR_REPLACEMENTS)) {
+    for (const repl of [...Object.values(RETIRED_INDICATOR_REPLACEMENTS), ...Object.values(SUPERSEDED_KEEP_HISTORY_REPLACEMENTS)]) {
       if (!repl) continue;
       if ("derived" in repl) {
         targets.add(repl.derived.leftKey);

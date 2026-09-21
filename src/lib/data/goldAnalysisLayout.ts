@@ -1,5 +1,6 @@
 import type { MacroSeriesChartType } from "@/lib/macroChartOption";
 import type { MacroDerivedCalc, MacroSeriesCalcConfig } from "@/lib/data/macroPresetTemplates";
+import { GOLD_FUTURES_CODE, GOLD_SPOT_CODE } from "@/lib/data/scheduler/goldPrices/catalog";
 
 export type GoldAnalysisSeriesDef = {
   /** xlsx 中的列序号（0 为时间列） */
@@ -19,30 +20,8 @@ export type GoldAnalysisSeriesDef = {
 
 /** 黄金期货头寸.xlsx 工作表 R1 列顺序（col 1–28） */
 export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
-  {
-    columnIndex: 1,
-    displayName: "期货收盘价(活跃合约):COMEX黄金",
-    code: "goldov_c01_comex_active",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: null,
-    catalogCategory: "黄金价格",
-    axis: "left",
-    chartType: "line",
-    color: "#d86a7a",
-  },
-  {
-    columnIndex: 2,
-    displayName: "伦敦金现:IDC",
-    code: "goldov_c02_london_gold",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 1,
-    catalogCategory: "黄金价格",
-    axis: "left",
-    chartType: "line",
-    color: "#4bc0c8",
-  },
+  // col 1/2（COMEX 活跃合约、伦敦金现 IDC）已被标准序列取代（历史保留、目录隐藏），
+  // 模板改用下方 GOLD_ANALYSIS_TEMPLATE_EXTRAS 的 comex_gold_futures / wgc_gold_price_usd。
   // col 3/7–11/16/25（期现差、库存/ETF/储备单位换算、环比、ETF 合计）为计算型二次指标，已退役
   // （retiredIndicators.ts）；期现差与库存环比见下方 GOLD_ANALYSIS_TEMPLATE_EXTRAS 的指标运算。
   {
@@ -192,6 +171,23 @@ export type GoldAnalysisTemplateExtra = {
 
 /** 黄金模板中的指标运算（替代已退役的 xlsx 计算列；id 与 retiredIndicators.ts 一致） */
 export const GOLD_ANALYSIS_TEMPLATE_EXTRAS: readonly GoldAnalysisTemplateExtra[] = [
+  // 金价标准序列（goldPrices/catalog.ts），图位/样式沿用原 col 2 / col 1
+  {
+    key: `mds:${GOLD_SPOT_CODE}`,
+    displayName: "伦敦金现(LBMA)",
+    panel: 1,
+    axis: "left",
+    chartType: "line",
+    color: "#4bc0c8",
+  },
+  {
+    key: `mds:${GOLD_FUTURES_CODE}`,
+    displayName: "COMEX黄金期货",
+    panel: null,
+    axis: "left",
+    chartType: "line",
+    color: "#d86a7a",
+  },
   {
     key: "mds:goldov_c23_comex_stock_oz::diff",
     displayName: "COMEX:库存量:黄金:环比增加",
@@ -212,8 +208,8 @@ export const GOLD_ANALYSIS_TEMPLATE_EXTRAS: readonly GoldAnalysisTemplateExtra[]
       id: "gold-basis",
       name: "期现差",
       op: "sub",
-      leftKey: "mds:goldov_c01_comex_active",
-      rightKey: "mds:goldov_c02_london_gold",
+      leftKey: `mds:${GOLD_FUTURES_CODE}`,
+      rightKey: `mds:${GOLD_SPOT_CODE}`,
     },
   },
 ];
