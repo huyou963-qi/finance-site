@@ -110,6 +110,7 @@ jobs:
           install -m 0644 scripts/ops/finance-site-quant-monthly.cron /etc/cron.d/finance-site-quant-monthly
           install -m 0644 scripts/ops/finance-site-ownership.cron /etc/cron.d/finance-site-ownership
           install -m 0644 scripts/ops/finance-site-dera-insider.cron /etc/cron.d/finance-site-dera-insider
+          install -m 0644 scripts/ops/finance-site-gold-futures.cron /etc/cron.d/finance-site-gold-futures
           install -m 0644 scripts/ops/finance-site-data.logrotate /etc/logrotate.d/finance-site-data
           chmod +x scripts/ops/host-diagnostics-snapshot.sh scripts/ops/host-diagnostics-boot.sh
 

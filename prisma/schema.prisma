@@ -1152,6 +1152,40 @@ model EquityDailyBar {
   @@schema("mds")
 }
 
+/// 期货逐合约日线：每个交割月是一条独立序列（用于期限结构 / 期现差研究）。
+/// 与宏观目录「一条仪器一条长序列」不同，每个合约只存在一两年，故单独成表、不进宏观目录。
+/// 主力合约与期现差属于派生量，不在此存储（见宏观库只存标准基础数据的约束）。
+/// 唯一键含 source：Yahoo 每日快照与盈透历史回填可对同一合约同一天并存，便于互相校验。
+model FuturesContractBar {
+  id            String   @id @default(uuid()) @db.Uuid
+  /// 品种代码，如 GC（COMEX 黄金）
+  root          String   @db.VarChar(8)
+  exchange      String   @db.VarChar(16)
+  /// 交割月 YYYY-MM
+  deliveryMonth String   @map("delivery_month") @db.VarChar(7)
+  /// 源端代码，如 Yahoo 的 GCZ26.CMX
+  symbol        String   @db.VarChar(24)
+  date          DateTime @db.Date
+  open          Float?
+  high          Float?
+  low           Float?
+  close         Float?
+  /// 交易所结算价（Yahoo 不提供；盈透可提供）
+  settle        Float?
+  /// 成交量为 0 的远月「收盘价」多为结算估值而非真实成交，研究时应据此过滤
+  volume        Float?
+  openInterest  Float?   @map("open_interest")
+  /// yahoo | ibkr
+  source        String   @db.VarChar(16)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([root, deliveryMonth, date, source])
+  @@index([root, date])
+  @@map("futures_contract_bar")
+  @@schema("mds")
+}
+
 /// 退市/移出清单（从 SP500 历史成分消失的 symbol 反推；供回测消除幸存者偏差）。
 /// delistDate 优先取 Wikipedia 变更表移出生效日，缺行时退化为最后出现的月末；
 /// 历史 symbol 与价格库同口径（改名公司按现 ticker，见 SP500_TICKER_ALIASES）。

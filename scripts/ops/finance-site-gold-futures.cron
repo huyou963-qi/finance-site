@@ -1,0 +1,10 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Shanghai
+FINANCE_SITE_PATH=/opt/finance-site
+
+# 每日：COMEX 黄金逐合约日线快照（Yahoo）→ mds.futures_contract_bar。
+# Yahoo 只保留当前挂牌合约、到期即不可用，所以期限结构历史只能每天攒；今天不存明天就没了。
+# COMEX 纽约 17:00 收盘 = 北京时间次日 05:00（夏令时）/ 06:00（冬令时），07:40 时日 K 已定稿。
+# 每次取最近 10 天、按唯一键幂等写入，周末空跑或偶尔漏跑都能自愈。
+40 7 * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs && flock -n /tmp/finance-gold-futures.lock npm run futures:snapshot-gold >> logs/gold-futures.log 2>&1
