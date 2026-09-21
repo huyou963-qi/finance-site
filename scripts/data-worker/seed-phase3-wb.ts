@@ -67,9 +67,18 @@ async function main() {
   const targets = listWorldBankSeedTargets();
   let created = 0;
   let skipped = 0;
+  // 已退役/隐藏（写了 tombstone）的不再重建——否则每次部署都「建出来 → 被退役 seed 删掉」空转
+  const tombstoned = new Set(
+    (await prisma.macroCatalogExcludedKey.findMany({ where: { catalogKey: { startsWith: "mds:sched_wb_" } }, select: { catalogKey: true } }))
+      .map((row) => row.catalogKey.slice(4)),
+  );
 
   for (const row of targets) {
     const code = wbInstrumentCode(row.countryCode, row.indicatorId);
+    if (tombstoned.has(code)) {
+      skipped++;
+      continue;
+    }
     const exists = await prisma.dataSubscription.findFirst({
       where: { instrument: { code } },
     });

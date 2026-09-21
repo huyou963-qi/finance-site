@@ -223,9 +223,15 @@ async function seedDebtcapBis() {
 async function seedWorldBankPilot() {
   console.log("[seed-phase2] World Bank 试点…");
   let n = 0;
+  // 已退役/隐藏（写了 tombstone）的不再重建，见 seed-phase3-wb.ts
+  const tombstoned = new Set(
+    (await prisma.macroCatalogExcludedKey.findMany({ where: { catalogKey: { startsWith: "mds:sched_wb_" } }, select: { catalogKey: true } }))
+      .map((row) => row.catalogKey.slice(4)),
+  );
   for (const cc of PHASE2_WB_PILOT_COUNTRIES) {
     for (const ind of PHASE2_WB_PILOT_INDICATORS) {
       const code = `sched_wb_${cc}_${ind.id.replace(/\./g, "_")}`;
+      if (tombstoned.has(code)) continue;
       const wbKey = `${cc}:${ind.id}`;
       const rule = releaseRuleForPhase2("worldbank", wbKey, "ANNUAL");
 

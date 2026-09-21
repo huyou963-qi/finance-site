@@ -14,6 +14,14 @@ const EXPECTED_START_MAX: Record<string, string> = {
 
 const MIN_COUNT = 120;
 
+/** 最新观测允许的最大滞后天数：Cass 月初发上月；BTS 运输服务指数滞后 2–3 个月 */
+const MAX_LAG_DAYS: Record<string, number> = {
+  FRGSHPUSM649NCIS: 75,
+  FRGEXPUSM649NCIS: 75,
+  RAILFRTCARLOADSD11: 130,
+  RAILFRTINTERMODALD11: 130,
+};
+
 function daysAgo(days: number): Date {
   const value = new Date();
   value.setUTCDate(value.getUTCDate() - days);
@@ -106,7 +114,7 @@ async function main() {
         first > EXPECTED_START_MAX[item.fredId]! ||
         aggregate._count < MIN_COUNT ||
         !latest ||
-        aggregate._max.obsDate! < daysAgo(75)
+        aggregate._max.obsDate! < daysAgo(MAX_LAG_DAYS[item.fredId] ?? 75)
       ) {
         console.error(
           `  ✗ ${item.fredId} 历史/时效不完整 count=${aggregate._count} first=${first} latest=${latest}`,
