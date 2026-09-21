@@ -57,8 +57,30 @@ npm run data:apply -- --skip-migrate --skip-verify  # 按需跳过
 tar -xzf deploy.tar.gz
 npm run db:migrate || echo "[deploy] db:migrate 失败…"
 npm run data:apply -- --skip-migrate || echo "[deploy] data:apply 有失败项…"
+sh scripts/ops/sync-cron-checkout.sh "$DEPLOY_PATH" /opt/finance-site-jp-data
 pm2 restart finance-site
 ```
+
+### 两个检出：部署路径 ≠ cron 路径
+
+香港生产机上有**两个检出**，务必分清：
+
+| 路径 | 跑什么 | 谁更新它 |
+|---|---|---|
+| `/opt/finance-site` | `next start` + 预构建 `.next`（pm2 进程 `finance-site`） | `deploy.yml` 的 `DEPLOY_PATH`，解压部署包 |
+| `/opt/finance-site-jp-data` | **cron 的 `data:worker`（每 5 分钟）与 `data:sync-calendar`（每小时）**，tsx 直跑源码 | 部署里的 `sync-cron-checkout.sh` |
+
+`DEPLOY_PATH` 只有前者。2026-09 之前 cron 检出靠手工 rsync：忘了就会**线上调度器继续跑旧代码，而部署是绿的、没有任何提示**——调度器修复因此连续几次需要手工补同步。现在由 `scripts/ops/sync-cron-checkout.sh` 在部署里自动完成，并在结尾比对 `src/`、`scripts/` 的 md5，不一致即让部署失败。
+
+该脚本只同步源码（`src scripts prisma data` + `package.json` / `package-lock.json` / `tsconfig.json` / `next.config.ts`），**刻意不碰**：
+
+- `node_modules`、`.env.local` —— 它们是指向 `/opt/finance-site` 的**符号链接**
+- `.data` —— 14M 运行态源缓存（boj / e-stat / jgb…），不在部署包里
+- `.next`、`public` —— cron 检出不跑 web
+
+用 `rsync --delete` 而非 tar 叠加，确保被删除/移动的模块真的消失（否则如 `ismOfficial/civilTime.ts → scheduler/civilTime.ts` 会留下重复旧副本）。换文件前先取 `/tmp/finance-data-worker.lock` 与 `/tmp/finance-sync-calendar.lock`，避免在 tsx 读盘中途抽走源码。
+
+手工补跑：`sh scripts/ops/sync-cron-checkout.sh`（参数可省，默认就是上面两个路径）。
 
 `data:apply` 传 `--skip-migrate`，因前一步已单独跑过 `db:migrate`。两步失败**只打日志、不阻断重启**（末尾 `curl` 健康检查兜底）；若新指标无数据，请 SSH 查 deploy 日志并手动 `npm run data:apply`。
 

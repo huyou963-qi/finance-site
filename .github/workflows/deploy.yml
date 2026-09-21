@@ -121,6 +121,12 @@ jobs:
           npm run db:migrate
           npm run data:apply -- --skip-migrate --skip-equity --skip-calendar --skip-backfill --skip-verify
 
+          # cron 的数据 worker 与日历同步跑在独立检出 /opt/finance-site-jp-data
+          # （见 crontab），DEPLOY_PATH 覆盖不到它。不同步的话线上调度器会继续跑
+          # 旧代码，而部署是绿的、毫无提示。放在 migrate/data:apply 之后：只有
+          # schema 与目录定义都就位了，才让调度器前进到新代码。
+          sh scripts/ops/sync-cron-checkout.sh "${DEPLOY_PATH}" /opt/finance-site-jp-data
+
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start
           pm2 save
           site_stopped=0
