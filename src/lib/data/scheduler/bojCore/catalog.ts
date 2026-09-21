@@ -7,6 +7,7 @@
 export const JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID = "jp.boj.flow_of_funds_core";
 export const JP_BOJ_CALL_RATE_PACKAGE_ID = "jp.boj.call_rate_monthly";
 export const JP_BOJ_FX_PACKAGE_ID = "jp.boj.foreign_exchange_monthly";
+export const JP_BOJ_ACCOUNTS_PACKAGE_ID = "jp.boj.accounts_monthly";
 
 /** 2026Q2 preliminary FOF release: 2026-09-17 08:50 JST / 07:50 HKT. */
 export const JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT = "2026-09-16T23:50:00.000Z";
@@ -18,13 +19,14 @@ export const JP_BOJ_FOF_NEXT_OFFICIAL_RELEASE_AT = "2026-09-16T23:50:00.000Z";
 export const JP_BOJ_FOF_NEXT_FETCH_AT = "2026-09-17T00:05:00.000Z";
 
 type Category =
+  | "货币政策与流动性"
   | "金融条件与银行"
   | "财政与公共债务"
   | "利率与信用市场"
   | "对外与汇率";
 
 type SeriesInput = {
-  db: "FF" | "FM02" | "FM08";
+  db: "FF" | "FM02" | "FM08" | "BS01";
   seriesCode: string;
   key: string;
   instrumentCode: string;
@@ -202,6 +204,39 @@ export const JP_BOJ_CORE_SERIES = [
     releasePackageId: JP_BOJ_FX_PACKAGE_ID,
     unit: "日元/美元",
     sourceUnit: "Yen per U.S. Dollar",
+  }),
+  // 日本银行勘定（BS01，月末）：取代 Japan_Overview xlsx 的按旬 c19/c20（2026-05 后停更）。
+  // 2026-09 实测：持有日本政府证券月末值与 xlsx 3/31 旬末值逐值相同（530.87 万亿日元）；
+  // 资产总额月末结算值比旬报高约 0.1%（663.03 vs 662.13），口径为正式月末账目。
+  monthly({
+    db: "BS01",
+    seriesCode: "MABJMTA",
+    key: "boj_accounts_total_assets",
+    instrumentCode: "boj_jp_accounts_total_assets",
+    displayName: "日本银行：资产总额（月末）",
+    category: "货币政策与流动性",
+    subgroup: "央行资产负债表",
+    sourceName: "Bank of Japan Accounts/Assets/Total (Assets, or Liabilities and Net Assets) (s)",
+    notes: "日本银行勘定月末余额（BS01），1998-04 起；不含按旬营业报告的旬末值。",
+    startPeriod: "199804",
+    releasePackageId: JP_BOJ_ACCOUNTS_PACKAGE_ID,
+    unit: "亿日元",
+    sourceUnit: "100 million yen",
+  }),
+  monthly({
+    db: "BS01",
+    seriesCode: "MABJMA5",
+    key: "boj_accounts_jgs_holdings",
+    instrumentCode: "boj_jp_accounts_jgs_holdings",
+    displayName: "日本银行：持有日本政府证券（月末）",
+    category: "货币政策与流动性",
+    subgroup: "央行资产负债表",
+    sourceName: "Bank of Japan Accounts/Assets/Japanese Government Securities (f)",
+    notes: "日本银行勘定资产项「日本政府证券」月末余额（含国债与短期国库券），1998-04 起。",
+    startPeriod: "199804",
+    releasePackageId: JP_BOJ_ACCOUNTS_PACKAGE_ID,
+    unit: "亿日元",
+    sourceUnit: "100 million yen",
   }),
 ] as const;
 

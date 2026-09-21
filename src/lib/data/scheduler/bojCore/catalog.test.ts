@@ -27,10 +27,10 @@ test("BOJ core catalogue exactly matches selected official metadata", () => {
   const metadata = JSON.parse(
     readFileSync(join(fixtureDir, "metadata-selected.json"), "utf8"),
   ) as MetadataRow[];
-  assert.equal(JP_BOJ_CORE_SERIES.length, 10);
+  assert.equal(JP_BOJ_CORE_SERIES.length, 12);
   assert.equal(JP_BOJ_FLOW_OF_FUNDS_SERIES.length, 8);
-  assert.equal(new Set(JP_BOJ_CORE_SERIES.map((row) => row.instrumentCode)).size, 10);
-  assert.equal(new Set(JP_BOJ_CORE_SERIES.map((row) => `${row.db}:${row.seriesCode}`)).size, 10);
+  assert.equal(new Set(JP_BOJ_CORE_SERIES.map((row) => row.instrumentCode)).size, 12);
+  assert.equal(new Set(JP_BOJ_CORE_SERIES.map((row) => `${row.db}:${row.seriesCode}`)).size, 12);
   for (const row of JP_BOJ_CORE_SERIES) {
     const official = metadata.find(
       (candidate) => candidate.SERIES_CODE === row.seriesCode,
@@ -62,6 +62,8 @@ test("official BOJ fixtures parse into complete monthly and quarterly histories"
       { count: 494, first: "1985-07-01", last: "2026-08-01" },
     ],
     ["usd_jpy_monthly_average", { count: 644, first: "1973-01-01", last: "2026-08-01" }],
+    ["boj_accounts_total_assets", { count: 341, first: "1998-04-01", last: "2026-08-01" }],
+    ["boj_accounts_jgs_holdings", { count: 341, first: "1998-04-01", last: "2026-08-01" }],
   ]);
   for (const row of JP_BOJ_CORE_SERIES) {
     const body = JSON.parse(readFileSync(join(fixtureDir, `${row.key}.json`), "utf8"));

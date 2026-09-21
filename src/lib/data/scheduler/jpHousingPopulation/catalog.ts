@@ -14,6 +14,8 @@ export const JP_MLIT_PROPERTY_PRICE_URL =
 
 type EStatCoreSeries = {
   instrumentCode: string;
+  /** 数据改读国交省月度时系列 Excel（e-Stat 文件区）的列；DB 表一年才更新一次 */
+  timeSeriesColumn?: "total" | "floor_area" | "owner_occupied" | "rental" | "for_sale";
   label: string;
   unit: string;
   freqLabel: "月" | "年";
@@ -30,15 +32,22 @@ type EStatCoreSeries = {
   note: string;
 };
 
-const housingStarts = (key: string, label: string, tab: "18" | "13", use: "11" | "12" | "13" | "15", unit: string): EStatCoreSeries => ({
+const housingStarts = (
+  key: "total" | "floor_area" | "owner_occupied" | "rental" | "for_sale",
+  label: string,
+  tab: "18" | "13",
+  use: "11" | "12" | "13" | "15",
+  unit: string,
+): EStatCoreSeries => ({
   instrumentCode: `jp_mlit_housing_starts_${key}_nsa`,
+  timeSeriesColumn: key,
   label: `新设住宅开工：${label}（全国、未季调）`,
   unit,
   freqLabel: "月",
   subcategory: "住宅开工",
   source: "日本国土交通省 / e-Stat",
   officialUrl: "https://www.mlit.go.jp/statistics/details/jutaku_tk_000002.html",
-  note: "国土交通省建筑着工统计调查表10；全国、新设、结构计。直接保存官方户数或总楼地板面积，未季调、不年率化。官方表会回溯修订，完整回读历史。",
+  note: "国土交通省住宅着工统计 时系列表（月次）「利用関係別戸数，床面積」；全国、新设。直接保存官方户数或总楼地板面积，未季调、不年率化。e-Stat 数据库表一年才批量更新一次，故改读每月更新的官方时系列 Excel，完整回读历史（1965 年起）。",
   eStat: {
     statsDataId: "0003114514",
     filters: { cdTab: tab, cdCat01: "11", cdCat02: use, cdCat03: "12" },
@@ -134,7 +143,14 @@ export function buildJpHousingPopulationMetadata(series: EStatCoreSeries) {
     sourceTag: "jp-housing-population", source: series.source, officialUrl: series.officialUrl, sourceUrl: series.officialUrl,
     unit: series.unit, freqLabel: series.freqLabel, geography: "日本全国", eStat: series.eStat,
     sourceUpdateNote: series.note,
-    fetchAcquisition: { status: "known", method: "estat_api", methodLabel: "e-Stat 官方 API（固定全国维度）", fetchUrl: "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData", officialUrl: series.officialUrl },
+    ...(series.timeSeriesColumn
+      ? {
+          scrape: { provider: "mlit_housing_starts_ts", column: series.timeSeriesColumn },
+          fetchAcquisition: { status: "known", method: "mlit_housing_starts_ts", methodLabel: "国交省住宅着工时系列表（e-Stat 文件区，月更）", fetchUrl: "https://api.e-stat.go.jp/rest/3.0/app/json/getDataCatalog", officialUrl: series.officialUrl },
+        }
+      : {
+          fetchAcquisition: { status: "known", method: "estat_api", methodLabel: "e-Stat 官方 API（固定全国维度）", fetchUrl: "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData", officialUrl: series.officialUrl },
+        }),
     attribution: "Source: Government of Japan statistics via e-Stat. Chinese labels translated by finance-site.",
   };
 }

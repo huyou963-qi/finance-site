@@ -178,5 +178,37 @@
     "END_OF_THE_TIME_SERIES": "202608",
     "LAST_UPDATE": "20260903",
     "NOTES": "See note(a)."
+  },
+  {
+    "SERIES_CODE": "MABJMA5",
+    "NAME_OF_TIME_SERIES": "Bank of Japan Accounts/Assets/Japanese Government Securities (f)",
+    "UNIT": "100 million yen",
+    "FREQUENCY": "MONTHLY",
+    "CATEGORY": "Bank of Japan Accounts",
+    "LAYER1": 1,
+    "LAYER2": 6,
+    "LAYER3": 0,
+    "LAYER4": 0,
+    "LAYER5": 0,
+    "START_OF_THE_TIME_SERIES": "199804",
+    "END_OF_THE_TIME_SERIES": "202608",
+    "LAST_UPDATE": "20260903",
+    "NOTES": "See note(f)."
+  },
+  {
+    "SERIES_CODE": "MABJMTA",
+    "NAME_OF_TIME_SERIES": "Bank of Japan Accounts/Assets/Total (Assets, or Liabilities and Net Assets) (s)",
+    "UNIT": "100 million yen",
+    "FREQUENCY": "MONTHLY",
+    "CATEGORY": "Bank of Japan Accounts",
+    "LAYER1": 1,
+    "LAYER2": 27,
+    "LAYER3": 0,
+    "LAYER4": 0,
+    "LAYER5": 0,
+    "START_OF_THE_TIME_SERIES": "199804",
+    "END_OF_THE_TIME_SERIES": "202608",
+    "LAST_UPDATE": "20260903",
+    "NOTES": "See note(s)."
   }
 ]

@@ -12,7 +12,6 @@ import { readFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisit
 import { mergedUsovFredMap } from "../../src/lib/data/scheduler/usovFredMap";
 import {
   YAHOO_CHART_SOURCE,
-  YAHOO_GOLD_PACKAGE_ID,
   YAHOO_GOLD_SERIES,
 } from "../../src/lib/data/scheduler/yahooGold/catalog";
 
@@ -50,8 +49,8 @@ async function main() {
       }
       if (readFetchAcquisition(inst.metadata)?.status !== "known") fail(`${row.code} fetchAcquisition 非 known`);
       const sub = inst.dataSubscription;
-      if (!sub?.enabled || sub.sourceId !== YAHOO_CHART_SOURCE.id || sub.releasePackageId !== YAHOO_GOLD_PACKAGE_ID) {
-        fail(`${row.code} 订阅=${sub?.sourceId ?? "无"}/${sub?.enabled}/${sub?.releasePackageId ?? "无包"}（应 ${YAHOO_CHART_SOURCE.id}/启用/${YAHOO_GOLD_PACKAGE_ID}）`);
+      if (!sub?.enabled || sub.sourceId !== YAHOO_CHART_SOURCE.id || sub.releasePackageId !== row.packageId) {
+        fail(`${row.code} 订阅=${sub?.sourceId ?? "无"}/${sub?.enabled}/${sub?.releasePackageId ?? "无包"}（应 ${YAHOO_CHART_SOURCE.id}/启用/${row.packageId}）`);
       }
       const last = await prisma.macroObservation.findFirst({
         where: { instrumentId: inst.id },

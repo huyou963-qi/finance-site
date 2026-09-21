@@ -144,18 +144,7 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     chartType: "line",
     color: "#8f9bab",
   },
-  {
-    columnIndex: 28,
-    displayName: "美国:实际利率",
-    code: "goldov_c28_real_rate",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: 2,
-    catalogCategory: "利率与通胀",
-    axis: "right",
-    chartType: "line",
-    color: "#8a6d3b",
-  },
+  // col 28「美国:实际利率」（世行年度，只到 2021）已被 fred:DFII10 取代，见 GOLD_ANALYSIS_TEMPLATE_EXTRAS
 ] as const;
 
 export type GoldAnalysisTemplateExtra = {
@@ -187,6 +176,15 @@ export const GOLD_ANALYSIS_TEMPLATE_EXTRAS: readonly GoldAnalysisTemplateExtra[]
     axis: "left",
     chartType: "line",
     color: "#d86a7a",
+  },
+  // 美国实际利率：10 年期 TIPS 收益率（日频），图位/样式沿用原 col 28
+  {
+    key: "fred:DFII10",
+    displayName: "美国:10年期TIPS实际收益率",
+    panel: 2,
+    axis: "right",
+    chartType: "line",
+    color: "#8a6d3b",
   },
   {
     key: "mds:goldov_c23_comex_stock_oz::diff",

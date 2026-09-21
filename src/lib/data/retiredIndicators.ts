@@ -1,6 +1,7 @@
 import type { MacroDerivedCalcOp, MacroSeriesCalcConfig } from "@/lib/data/macroPresetTemplates";
 import { RETIRED_USOV_REPLACEMENTS, type UsOverviewReplacement } from "@/lib/data/usOverviewStandardSeries";
 import { GOLD_FUTURES_CODE, GOLD_SPOT_CODE, GOLD_SUPERSEDED_BY } from "@/lib/data/scheduler/goldPrices/catalog";
+import { JAPAN_OVERVIEW_STANDARD_DERIVED, JAPAN_OVERVIEW_SUPERSEDED } from "@/lib/data/japanOverviewStandardSeries";
 
 /**
  * 已退役指标登记表（单一真源）——数据库只存有明确来源、稳定更新方式的标准基础数据（AGENTS.md「宏观数据库约束」）。
@@ -78,6 +79,8 @@ export const RETIRED_COMPUTED_REPLACEMENTS: Readonly<Record<string, RetiredRepla
   // 内部统计：由 Form 4 汇总计算的月度序列
   sec_us_insider_buy_share_monthly: null,
   sec_us_insider_buy_filings_monthly: null,
+  // Japan_Overview：xlsx 利差列（2026-09-21）——可由 c06、c07 逐日精确重算，改为指标运算
+  jpov_c08_jgb_10y2y: { derived: JAPAN_OVERVIEW_STANDARD_DERIVED[0]!.calc },
 };
 
 /**
@@ -133,6 +136,11 @@ const RETIRED_SOURCE_DISCONTINUED_REPLACEMENTS: Readonly<Record<string, RetiredR
   // FM.LBL.BMNY.GD.ZS（广义货币占 GDP）× 2 国
   sched_wb_DE_FM_LBL_BMNY_GD_ZS: null,
   sched_wb_FR_FM_LBL_BMNY_GD_ZS: null,
+  // AAR 周度铁路运量（2026-09-21）：aar.org 对机房 IP 下发人机验证，从未取到一个观测点；
+  // 抓取模块已移除，改接 BTS 月度 fred:RAILFRTCARLOADSD11 / fred:RAILFRTINTERMODALD11。
+  // 无模板引用，直接移除（不设键替换，免得部署末自检要求替代序列当场有观测）。
+  aar_us_rail_carloads_weekly: null,
+  aar_us_rail_intermodal_weekly: null,
 };
 
 export const RETIRED_INDICATOR_REPLACEMENTS: Readonly<Record<string, RetiredReplacement>> = {
@@ -144,17 +152,25 @@ export const RETIRED_INDICATOR_REPLACEMENTS: Readonly<Record<string, RetiredRepl
 export const RETIRED_INDICATOR_CODES = Object.keys(RETIRED_INDICATOR_REPLACEMENTS);
 
 /**
- * 被标准序列取代、但**历史保留**的旧列（2026-09-21 黄金现货/期货，见 goldPrices/catalog.ts）。
+ * 被标准序列取代、但**历史保留**的旧列（2026-09-21）：
+ * - 黄金现货/期货 goldov_c01 / goldov_c02 / usov_c05，见 goldPrices/catalog.ts；
+ * - goldov_c28_real_rate「美国实际利率」：世行 FR.INR.RINR（年度，贷款利率减 GDP 平减），
+ *   世行对美国只发布到 2021 年（2026-07 更新后仍无新值）→ 黄金模板改用日频 10 年期 TIPS
+ *   实际收益率 fred:DFII10（模板里本就选了它），图位沿用 c28 的。
+ * - Japan_Overview 16 列 → 日本官方标准序列（+ 同比/环比运算），见 japanOverviewStandardSeries.ts。
  *
  * 模板替换与上面的退役键相同（rewriteRetiredKeys：键 → 标准键），但仪器与观测不删：
  * 只写 tombstone（目录隐藏 + 调度器跳过），同 SOURCE_ENDED_HIDDEN_CODES。
  * 这些是 Wind/IDC 的拼接历史，无法从可自动更新的源复现，删了不可逆。
  */
 const NONE_CALC: MacroSeriesCalcConfig = { op: "none", frequency: "keep", unit: "keep", resampleMethod: "avg" };
-export const SUPERSEDED_KEEP_HISTORY_REPLACEMENTS: Readonly<Record<string, UsOverviewReplacement>> =
-  Object.fromEntries(
+export const SUPERSEDED_KEEP_HISTORY_REPLACEMENTS: Readonly<Record<string, UsOverviewReplacement>> = {
+  ...Object.fromEntries(
     Object.entries(GOLD_SUPERSEDED_BY).map(([code, target]) => [code, { key: `mds:${target}`, calc: NONE_CALC }]),
-  );
+  ),
+  goldov_c28_real_rate: { key: "fred:DFII10", calc: NONE_CALC },
+  ...JAPAN_OVERVIEW_SUPERSEDED,
+};
 
 export const SUPERSEDED_KEEP_HISTORY_CODES = Object.keys(SUPERSEDED_KEEP_HISTORY_REPLACEMENTS);
 
@@ -191,6 +207,27 @@ export const SOURCE_ENDED_HIDDEN_CODES: readonly string[] = [
   "sched_wb_CA_FS_AST_DOMS_GD_ZS", // 17 个观测
   "sched_wb_ID_GC_DOD_TOTL_GD_ZS", // 14 个观测
   "sched_wb_DE_GC_DOD_TOTL_GD_ZS", // 1 个观测
+  // 世行对这些国家只发布到 2021/2022（2026-07 世行更新后仍无新值），2026-09-21 核实
+  "sched_wb_IN_FM_LBL_BMNY_GD_ZS", // 32 个观测，1990–2021
+  "sched_wb_AU_GC_DOD_TOTL_GD_ZS", // 33 个观测，1990–2022
+  "sched_wb_IN_FR_INR_RINR", // 33 个观测，1990–2022
+  "sched_wb_GB_CM_MKT_LCAP_GD_ZS", // 27 个观测，1990–2022
+  "sched_wb_CA_NV_IND_TOTL_ZS", // 26 个观测，1997–2022
+  // 国家统计局 2024 年起改称「新建商品房销售…」，旧名称 8 条停在 2023-12（各 10 个观测）；
+  // 新名称 8 条（2024-02 起）持续更新，前台只留新名称
+  "nbs_cn_realestate_2cfe302f12bf136739", // 商品房销售面积：住宅同比增长
+  "nbs_cn_realestate_3b744b20a3fe471257", // 商品房销售额同比增长
+  "nbs_cn_realestate_564f77767bf15ef8f4", // 商品房销售额累计值
+  "nbs_cn_realestate_65a3108d2d7d09617f", // 商品房销售额：住宅累计值
+  "nbs_cn_realestate_7ad3dada50839fae51", // 商品房销售额：住宅同比增长
+  "nbs_cn_realestate_7f47f35f551ca4f008", // 商品房销售面积累计值
+  "nbs_cn_realestate_d24a466b3345ff3af4", // 商品房销售面积：住宅累计值
+  "nbs_cn_realestate_f60baac774a3ae2174", // 商品房销售面积同比增长
+  // 国家统计局 2019 年起不再按集体/合作企业分组发布工业增加值，停在 2018-12
+  "nbs_cn_industrial_collective_cyoy",
+  "nbs_cn_industrial_collective_yoy",
+  "nbs_cn_industrial_cooperative_cyoy",
+  "nbs_cn_industrial_cooperative_yoy",
 ];
 
 type Resolved =
@@ -244,7 +281,7 @@ function remapDisplayList(list: unknown[]): unknown[] {
   return out;
 }
 
-function remapRecord(record: JsonObject): JsonObject {
+function remapRecord(record: JsonObject, opts?: { keepDrawnSlot?: boolean }): JsonObject {
   const out: JsonObject = {};
   for (const [key, value] of Object.entries(record)) {
     const k = displayKey(key);
@@ -252,6 +289,14 @@ function remapRecord(record: JsonObject): JsonObject {
     // 新键已有自己的配置时不被旧键覆盖
     if (k !== key && Object.prototype.hasOwnProperty.call(record, k)) continue;
     out[k] = value;
+  }
+  if (!opts?.keepDrawnSlot) return out;
+  // 图位例外：新键已选但未画（null）、旧键画在某个图位时沿用旧图位，
+  // 否则替换后那条线就从图上消失了
+  for (const [key, value] of Object.entries(record)) {
+    const k = displayKey(key);
+    if (k === null || k === key || value == null) continue;
+    if (out[k] == null) out[k] = value;
   }
   return out;
 }
@@ -317,7 +362,9 @@ export function rewriteRetiredKeys(input: JsonObject): { value: JsonObject; chan
   }
 
   for (const field of ["slotAssignment", "seriesVisualMap", "seriesCalcConfigMap", "indicatorIntroNotes"]) {
-    if (isObject(out[field])) out[field] = remapRecord(out[field] as JsonObject);
+    if (isObject(out[field])) {
+      out[field] = remapRecord(out[field] as JsonObject, { keepDrawnSlot: field === "slotAssignment" });
+    }
   }
 
   if (isObject(out.displayConfig) && isObject(out.displayConfig.slotSeriesOrder)) {

@@ -4,6 +4,7 @@ import { JGB_SERIES } from "./japanMofJgb/catalog";
 import { JP_ESRI_CONSUMER_CONFIDENCE_SERIES } from "./jpEsriConsumerConfidence/catalog";
 import { JP_BOJ_BOP_PACKAGE_ID, JP_BOJ_BOP_SERIES } from "./bojExternal/catalog";
 import {
+  JP_BOJ_ACCOUNTS_PACKAGE_ID,
   JP_BOJ_CALL_RATE_PACKAGE_ID,
   JP_BOJ_CORE_SERIES,
   JP_BOJ_FLOW_OF_FUNDS_PACKAGE_ID,
@@ -230,6 +231,10 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg(JP_BOJ_FX_PACKAGE_ID, "日本银行美元兑日元汇率（月均）", {
     countryCode: "JP", agencyId: "jp-boj", granularity: "MONTHLY", intervalHours: 24,
     members: { instrumentCodes: JP_BOJ_CORE_SERIES.filter((series) => series.releasePackageId === JP_BOJ_FX_PACKAGE_ID).map((series) => series.instrumentCode) },
+  }),
+  probePkg(JP_BOJ_ACCOUNTS_PACKAGE_ID, "日本银行勘定（月末资产）", {
+    countryCode: "JP", agencyId: "jp-boj", granularity: "MONTHLY", intervalHours: 24,
+    members: { instrumentCodes: JP_BOJ_CORE_SERIES.filter((series) => series.releasePackageId === JP_BOJ_ACCOUNTS_PACKAGE_ID).map((series) => series.instrumentCode) },
   }),
   probePkg(JP_CAO_WATCHERS_RELEASE_PACKAGE_ID, "日本景气观察者调查", {
     countryCode: "JP", agencyId: "jp-cao", granularity: "MONTHLY", intervalHours: 24,
@@ -815,6 +820,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 204,
     members: { instrumentCodes: ["comex_gold_futures", "goldov_c27_brent"] },
   }),
+  // 行情接口（Yahoo ^N225）：Japan_Overview 日经 225 续接
+  probePkg("jp.yahoo.nikkei225", "日经225指数（行情接口）", {
+    labelEn: "Nikkei 225 (Yahoo ^N225)",
+    countryCode: "JP",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 206,
+    members: { instrumentCodes: ["jpov_c01_nikkei225"] },
+  }),
   // 世界黄金协会 LBMA 金价：黄金现货标准序列
   probePkg("intl.wgc.gold_price", "黄金现货（世界黄金协会 LBMA 金价）", {
     labelEn: "LBMA Gold Price (World Gold Council)",
@@ -1213,6 +1227,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 72,
     sortOrder: 236,
     members: { fredSeriesIds: ["FRGSHPUSM649NCIS", "FRGEXPUSM649NCIS"] },
+  }),
+  // BTS 运输服务指数里的铁路货运（汇总自 AAR 周报，月度、滞后约 2 个月）；替代已移除的 AAR 周度抓取
+  probePkg("us.bts.rail_freight", "美国铁路货运（BTS）", {
+    labelEn: "Rail Freight (BTS Transportation Services Index)",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 237,
+    members: { fredSeriesIds: ["RAILFRTCARLOADSD11", "RAILFRTINTERMODALD11"] },
   }),
   // BIS 无「某日宣布」式日历，按官方数据流（= 官方发布批次）分两组
   probePkg("intl.bis.total_credit", "BIS 总信贷（杠杆率 / %GDP）", {

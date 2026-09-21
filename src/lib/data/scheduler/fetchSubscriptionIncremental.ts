@@ -361,15 +361,19 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
-      if (scrapeObj.provider === "aar_rail_carloads" || scrapeObj.provider === "aar_rail_intermodal") {
-        const { fetchAarRailTrafficIncremental } = await import(
-          "./adapters/aarRailTrafficAdapter"
+      // 国交省住宅着工时系列表（e-Stat 文件区）：e-Stat DB 表一年才更新一次，见 housingStartsTimeSeries.ts
+      if (scrapeObj.provider === "mlit_housing_starts_ts") {
+        const { fetchHousingStartsTimeSeries, isHousingStartsColumn } = await import(
+          "./jpHousingPopulation/housingStartsTimeSeries"
         );
-        return fetchAarRailTrafficIncremental(
-          sub.instrument.metadata,
-          sub.instrument.code,
-          fetchStart,
-        );
+        if (!isHousingStartsColumn(scrapeObj.column)) throw new Error(`mlit_housing_starts_ts：未知列 ${String(scrapeObj.column)}`);
+        const all = (await fetchHousingStartsTimeSeries())[scrapeObj.column];
+        const from = new Date(`${fetchStart}T00:00:00Z`);
+        return {
+          points: all.filter((p) => p.obsDate >= from),
+          sourceLatestObsDate: all.at(-1)?.obsDate ?? null,
+          skippedInvalid: 0,
+        };
       }
       const { fetchWebScrapeIncremental } = await import("./adapters/webScrapeAdapter");
       return fetchWebScrapeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);

@@ -486,59 +486,7 @@ async function seedCftcNet() {
   console.log(`  ✓ ${code} ← CFTC Socrata API`);
 }
 
-async function seedWorldBankRealRate() {
-  const code = "goldov_c28_real_rate";
-  const existing = await prisma.instrument.findUnique({ where: { code } });
-  if (!existing) throw new Error(`${code} 不存在；请先导入黄金分析历史工作簿`);
-  const acquisition = {
-    status: "known" as const,
-    probedAt: new Date().toISOString(),
-    method: "worldbank_api",
-    methodLabel: "World Bank Open Data API（FR.INR.RINR）",
-    officialUrl: "https://data.worldbank.org/indicator/FR.INR.RINR?locations=US",
-    fetchUrl: "https://api.worldbank.org/v2/country/US/indicator/FR.INR.RINR?format=json",
-    message: "工作簿数值与 World Bank 年度值四舍五入至两位小数一致；保留年末观测日期",
-  };
-  const metadata = mergeFetchAcquisition(
-    {
-      ...existingMetadata(existing.metadata),
-      worldbank: { annualObservationDate: "year_end", historyStartYear: 1961 },
-    },
-    acquisition,
-  );
-  const rule = defaultReleaseRuleForGranularity(DataGranularity.ANNUAL);
-  const instrument = await prisma.instrument.update({
-    where: { id: existing.id },
-    data: { metadata },
-  });
-  await prisma.dataSubscription.upsert({
-    where: { instrumentId: instrument.id },
-    create: {
-      instrumentId: instrument.id,
-      sourceId: WORLD_BANK_SOURCE.id,
-      sourceSeriesKey: "US:FR.INR.RINR",
-      fetchMethod: DataFetchMethod.API,
-      granularity: DataGranularity.ANNUAL,
-      releaseRule: rule,
-      nextRunAt: computeNextRunAt(rule),
-      lastObsDate: await latestObsDate(instrument.id),
-      enabled: true,
-      priority: 5,
-      revisionLookback: 24,
-    },
-    update: {
-      sourceId: WORLD_BANK_SOURCE.id,
-      sourceSeriesKey: "US:FR.INR.RINR",
-      granularity: DataGranularity.ANNUAL,
-      releaseRule: rule,
-      enabled: true,
-      priority: 5,
-      revisionLookback: 24,
-      lastObsDate: await latestObsDate(instrument.id),
-    },
-  });
-  console.log(`  ✓ ${code} ← World Bank FR.INR.RINR`);
-}
+// goldov_c28_real_rate（世行美国实际利率，只到 2021）已被 fred:DFII10 取代，见 retiredIndicators.ts
 
 async function markPendingAndDerived() {
   const probedAt = new Date().toISOString();
@@ -595,7 +543,6 @@ async function main() {
   await deleteRetiredSeries();
   await ensureSources();
   await seedCftcNet();
-  await seedWorldBankRealRate();
   await markPendingAndDerived();
   await seedGoldEtfHoldings();
   await seedImfOfficialGoldReserves();

@@ -190,9 +190,9 @@ npm run db:studio        # Prisma Studio
 
 「TSA 安检口日度旅客通过人数」：`data:seed-tsa-passenger-volumes` → `data:sync-tsa-passenger-volumes` / `data:verify-tsa-passenger-volumes -- --db`；`tsa.gov/travel/passenger-volumes` 当年滚动窗口 + `/travel/passenger-volumes/{year}` 年度归档（2019 起，页面本身无更早归档，回填深度上限即此），非 FRED 序列，日频 `probe_interval` 探测。
 
-「AAR 美国铁路周度装车量/多式联运量」：`data:seed-aar-rail-traffic` → `data:sync-aar-rail-traffic` / `data:verify-aar-rail-traffic -- --db`；`aar.org` 每周三新闻稿正文抓取（归档列表 `/aar_news/weekly-rail-traffic-data/page/{n}/` 分页发现 URL，`sync` 支持 `--no-resume`/`--max-pages` 断点续抓），拆分 carloads/intermodal 两条仪器，回填深度上限 2019-01（正文句式核实置信度限制）；与 FRED 的 `RAILFRTCARLOADS`/`RAILFRTINTERMODAL`（BTS 按周汇总折算月频、滞后约 2 个月）口径与时效均不同，非重复口径，周频 `probe_interval` 探测。
+「AAR 美国铁路周度装车量/多式联运量」：**已移除（2026-09-21）**。aar.org 对机房 IP 下发人机验证（403 challenge），属反爬、不绕过，上线以来零观测；改用 BTS 月度 `fred:RAILFRTCARLOADSD11` / `fred:RAILFRTINTERMODALD11`（汇总自 AAR 周报，季调，2000 年起，滞后约 2 个月），并入 `cass-freight-index` seed，发布包 `us.bts.rail_freight`。
 
-「Cass 货运指数（Shipments/Expenditures）」：`data:seed-cass-freight-index` / `data:verify-cass-freight-index -- --db`；Cass Information Systems 编制、原生落在 FRED（`FRGSHPUSM649NCIS`/`FRGEXPUSM649NCIS`，Release「Cass Freight Index Report」rid=280，历史起 2016-01），走常规 FRED_API 接入，无需抓取；两条序列同源同批发布，月频 `probe_interval`（72 小时）探测，见 `us.cass.freight_index` 发布包。
+「Cass 货运指数（Shipments/Expenditures）」：`data:seed-cass-freight-index` / `data:verify-cass-freight-index -- --db`；Cass Information Systems 编制、原生落在 FRED（`FRGSHPUSM649NCIS`/`FRGEXPUSM649NCIS`，Release「Cass Freight Index Report」rid=280，历史起 2016-01），走常规 FRED_API 接入，无需抓取；两条序列同源同批发布，月频 `probe_interval`（72 小时）探测，见 `us.cass.freight_index` 发布包。同一 seed 还管 BTS 铁路货运两条；四条都在 `FRED_US_ITEMS` 里、显式归「国民经济 > 物流与出行」。
 
 「海外PMI（中国制造业 PMI 民间口径 + 欧元区综合 PMI）」：`data:seed-caixin-pmi-te` / `data:seed-euro-composite-pmi-te` → `data:sync-caixin-pmi-te` / `data:sync-euro-composite-pmi-te` → `data:sync-calendar` / `data:verify-caixin-pmi` / `data:verify-euro-composite-pmi`（加 `--db`）；S&P Global 编制（中国序列 TE 页现冠名 RatingDog，2025 年前为 Caixin/财新；FRED 均无镜像，已核实），走 TE 指标页叙述段抓取（页面无 `#calendar`/历史表），归入美国「对外与汇率 · 海外PMI」（比照 CFTC COT 惯例，用于美股外需传导分析），历史仅自接入起累积。
 

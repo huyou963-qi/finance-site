@@ -18,7 +18,6 @@ const EXPECTED = [
     freqLabel: "周",
     unit: "张",
   },
-  { code: "goldov_c28_real_rate", sourceId: "worldbank", seriesKey: "US:FR.INR.RINR", minPoints: 60 },
   {
     code: "goldov_c24_global_reserve_tons",
     sourceId: "imf-il",

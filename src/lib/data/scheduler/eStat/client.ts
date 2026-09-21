@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-export type EStatMethod = "getStatsList" | "getMetaInfo" | "getStatsData";
+export type EStatMethod = "getStatsList" | "getMetaInfo" | "getStatsData" | "getDataCatalog";
 export type JsonRecord = Record<string, unknown>;
 export const record = (v: unknown): JsonRecord => v && typeof v === "object" && !Array.isArray(v) ? v as JsonRecord : {};
 export const list = (v: unknown): JsonRecord[] => (Array.isArray(v) ? v : v == null ? [] : [v]).map(record);
-const roots = { getStatsList: "GET_STATS_LIST", getMetaInfo: "GET_META_INFO", getStatsData: "GET_STATS_DATA" };
+const roots = { getStatsList: "GET_STATS_LIST", getMetaInfo: "GET_META_INFO", getStatsData: "GET_STATS_DATA", getDataCatalog: "GET_DATA_CATALOG" };
 let queue: Promise<unknown> = Promise.resolve();
 let lastRequest = 0;
 const cache = new Map<string, { at: number; value: JsonRecord }>();

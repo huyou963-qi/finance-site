@@ -21,6 +21,7 @@ import {
 } from "../../src/lib/data/retiredIndicators";
 import { US_OVERVIEW_SERIES } from "../../src/lib/data/usOverviewLayout";
 import { GOLD_ANALYSIS_SERIES } from "../../src/lib/data/goldAnalysisLayout";
+import { JAPAN_OVERVIEW_SERIES } from "../../src/lib/data/japanOverviewLayout";
 import { getFredCatalogCached, unifiedKeyInAllowlist } from "../../src/lib/data/fredCatalog";
 
 function baseCode(key: string): string {
@@ -46,7 +47,7 @@ async function main() {
   else console.log("  ✓ 无库内复合/调度器变换定义");
   const mapped = Object.keys(mergedUsovFredMap()).filter((code) => RETIRED_INDICATOR_CODES.includes(code));
   if (mapped.length > 0) fail(`退役序列仍挂 FRED 映射：${mapped.join(", ")}`);
-  const inLayout = [...US_OVERVIEW_SERIES, ...GOLD_ANALYSIS_SERIES].filter(
+  const inLayout = [...US_OVERVIEW_SERIES, ...GOLD_ANALYSIS_SERIES, ...JAPAN_OVERVIEW_SERIES].filter(
     (row) => RETIRED_INDICATOR_CODES.includes(row.code) || SUPERSEDED_KEEP_HISTORY_CODES.includes(row.code),
   );
   if (inLayout.length > 0) fail(`xlsx 布局仍含退役列：${inLayout.map((r) => r.code).join(", ")}`);

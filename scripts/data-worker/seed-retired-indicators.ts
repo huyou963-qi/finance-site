@@ -106,6 +106,11 @@ async function hideSourceEndedInstruments(dryRun: boolean) {
       create: { catalogKey: key, deletedBy: ACTOR },
       update: {},
     });
+    // 被取代的旧列同时停用订阅（tombstone 已让调度器跳过；停用让管理端状态一致，
+    // 也防止别的 seed 把它当活跃序列继续维护）
+    if (SUPERSEDED_KEEP_HISTORY_CODES.includes(code)) {
+      await prisma.dataSubscription.updateMany({ where: { instrumentId: instrument.id, enabled: true }, data: { enabled: false } });
+    }
     console.log(`  ✓ ${code} 已从目录隐藏并停止抓取，保留 ${obs} 条观测`);
   }
 }

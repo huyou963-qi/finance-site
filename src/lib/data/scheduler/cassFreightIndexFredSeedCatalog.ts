@@ -11,15 +11,16 @@ import type { ReleaseRule } from "./releaseRule";
  * 走常规 FRED 接入路径（非抓取）：已核实两条序列均为原生 FRED_API 序列，
  * 无需网页抓取 provider（对齐 AGENTS.md「TSA/AAR」条目中记录的复用检查结论）。
  *
- * 目录归类：`usCatalogTaxonomy` 的 `国民经济` 大类下新增过一个「物流与出行」
- * 子类（分支 `claude/magical-ishizaka-97c958` 提交 8b11540，服务于 TSA/AAR
- * 抓取指标），但该分支尚未合入本分支，此处不预先改 `usCatalogTaxonomy.ts`
- * 以免与之产生冲突。改用既有「景气综合」子类（`legacyCategory: "景气调查"`，
- * 与 `regionalFedSurveysFredSeedCatalog.ts` 同法）——货运量/运费本身也是常见
- * 的经济活动领先指标，落在「景气综合」下语义上不违和。待「物流与出行」子类
- * 合入后，可把这两条序列的 `legacyCategory` 改挂过去（或在
- * `usCatalogTaxonomy.ts` 的 `placementFromFredId` 里为 FRGSHPUSM649NCIS /
- * FRGEXPUSM649NCIS 加显式映射）。
+ * 同一目录还收 BTS 铁路货运月度两条（RAILFRTCARLOADSD11 车皮数 / RAILFRTINTERMODALD11
+ * 联运箱量，季调，2000 年起），2026-09-21 替代已移除的 AAR 周度抓取：aar.org 对机房 IP
+ * 下发人机验证（403 challenge），属反爬、不绕过；BTS 这两条本身就汇总自 AAR 周报。
+ * 每行自带 releasePackageId（Cass 与 BTS 各一个包）。
+ *
+ * 目录归类：`usCatalogTaxonomy.placementFromFredId` 对这 4 个 ID 显式映射到
+ * 「国民经济 > 物流与出行」；前台经 `FRED_US_ITEMS` 以 `fred:<ID>` 呈现。
+ *
+ * seed 同时写入 `fetchAcquisition: known`（FRED 序列 ID 已人工核实存在），
+ * 否则新序列要等单独跑 data:probe-sources 才会被调度器选中。
  */
 export type CassFreightIndexFredSeedRow = {
   fredId: string;
@@ -62,6 +63,32 @@ export const CASS_FREIGHT_INDEX_FRED_SERIES: readonly CassFreightIndexFredSeedRo
     sourceUpdateNote: "每月上旬发布上月数据（Cass Freight Index Report，rid=280）",
     releasePackageId: "us.cass.freight_index",
   },
+  {
+    fredId: "RAILFRTCARLOADSD11",
+    code: "sched_fred_RAILFRTCARLOADSD11",
+    name: "Rail Freight Carloads",
+    displayName: "铁路货运车皮数（季调）",
+    freqLabel: "月",
+    granularity: "MONTHLY",
+    unit: "车皮",
+    category: "物流与出行",
+    source: "U.S. Bureau of Transportation Statistics/FRED",
+    sourceUpdateNote: "BTS 运输服务指数（TSI）月度数据，汇总自 AAR 周报，季调；滞后约 2 个月",
+    releasePackageId: "us.bts.rail_freight",
+  },
+  {
+    fredId: "RAILFRTINTERMODALD11",
+    code: "sched_fred_RAILFRTINTERMODALD11",
+    name: "Rail Freight Intermodal Traffic",
+    displayName: "铁路联运箱量（季调）",
+    freqLabel: "月",
+    granularity: "MONTHLY",
+    unit: "集装箱及挂车",
+    category: "物流与出行",
+    source: "U.S. Bureau of Transportation Statistics/FRED",
+    sourceUpdateNote: "BTS 运输服务指数（TSI）月度数据，汇总自 AAR 周报，季调；滞后约 2 个月",
+    releasePackageId: "us.bts.rail_freight",
+  },
 ] as const;
 
 export function buildCassFreightIndexInstrumentMetadata(
@@ -89,6 +116,16 @@ export function buildCassFreightIndexInstrumentMetadata(
     unit: item.unit,
     catalogKey: `fred:${item.fredId}`,
   };
+  if (!metadata.fetchAcquisition) {
+    metadata.fetchAcquisition = {
+      status: "known",
+      method: "subscription_fred",
+      methodLabel: "FRED 定时订阅 API",
+      officialUrl: `https://fred.stlouisfed.org/series/${item.fredId}`,
+      probedAt: new Date().toISOString(),
+      message: "FRED 序列 ID 已人工核实存在（seed 预标 known）",
+    };
+  }
   if (opts?.dataLastObsDateIso) metadata.dataLastObsDateIso = opts.dataLastObsDateIso;
   return metadata;
 }

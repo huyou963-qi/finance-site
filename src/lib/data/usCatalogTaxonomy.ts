@@ -212,8 +212,12 @@ export function mdsCodeFromCatalogKey(key: string): string | null {
   return key.slice(4);
 }
 
+/** 货运：Cass 货运指数 + BTS 铁路货运（车皮 / 联运），见 cassFreightIndexFredSeedCatalog.ts */
+const FRED_LOGISTICS = new Set(["FRGSHPUSM649NCIS", "FRGEXPUSM649NCIS", "RAILFRTCARLOADSD11", "RAILFRTINTERMODALD11"]);
+
 function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   const id = fredId.toUpperCase();
+  if (FRED_LOGISTICS.has(id)) return p("国民经济", "物流与出行");
   if (FRED_CPI.has(id)) return p("通胀与价格", "CPI");
   if (id.startsWith("CUSR0000") || id.startsWith("CPIL")) return p("通胀与价格", "CPI");
   if (FRED_PCE_PPI.has(id)) return p("通胀与价格", "PCE与PPI");
@@ -320,7 +324,7 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   if (code === "us_sp500_pe") {
     return p("利率与信用市场", "市场情绪");
   }
-  if (code.startsWith("tsa_") || code.startsWith("aar_")) {
+  if (code.startsWith("tsa_")) {
     return p("国民经济", "物流与出行");
   }
   // 海外制造业/服务业景气调查（S&P Global 编制，TE 抓取）——对美股外需传导信号，

@@ -102,10 +102,6 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-tsa-passenger-volumes",
     labelZh: "TSA 安检口日度旅客通过人数（抓取）",
   },
-  "aar-rail-traffic": {
-    script: "seed-aar-rail-traffic",
-    labelZh: "AAR 美国铁路周度装车量/多式联运量（抓取）",
-  },
   "cass-freight-index": {
     script: "seed-cass-freight-index",
     labelZh: "Cass 货运指数（Shipments/Expenditures）",
@@ -257,11 +253,6 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "tsa-passenger-volumes": {
     script: "verify-tsa-passenger-volumes",
     labelZh: "TSA 安检口日度旅客通过人数自检",
-    verifyNeedsDb: true,
-  },
-  "aar-rail-traffic": {
-    script: "verify-aar-rail-traffic",
-    labelZh: "AAR 美国铁路周度装车量/多式联运量自检",
     verifyNeedsDb: true,
   },
   "cass-freight-index": {

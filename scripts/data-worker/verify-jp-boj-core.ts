@@ -9,14 +9,19 @@ import { readFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisit
 
 loadEnvConfig(process.cwd());
 
+/** 季度资金循环 1997Q4 起；日本银行勘定（BS01）1998-04 起；其余月度 1985 年前起 */
+function minPointsFor(row: (typeof JP_BOJ_CORE_SERIES)[number]): number {
+  return row.db === "FF" ? 110 : row.db === "BS01" ? 330 : 490;
+}
+
 async function main() {
-  assert.equal(JP_BOJ_CORE_SERIES.length, 10);
-  assert.equal(new Set(JP_BOJ_CORE_SERIES.map((row) => row.instrumentCode)).size, 10);
+  assert.equal(JP_BOJ_CORE_SERIES.length, 12);
+  assert.equal(new Set(JP_BOJ_CORE_SERIES.map((row) => row.instrumentCode)).size, 12);
 
   if (process.argv.includes("--live")) {
     for (const row of JP_BOJ_CORE_SERIES) {
       const parsed = parseBojResponse(await fetchBojSeries(row), row);
-      assert.ok(parsed.points.length >= (row.db === "FF" ? 110 : 490));
+      assert.ok(parsed.points.length >= minPointsFor(row));
       const maxAgeDays = row.db === "FF" ? 300 : 75;
       assert.ok(
         Date.now() - parsed.points.at(-1)!.obsDate.getTime() < maxAgeDays * 86_400_000,
@@ -79,7 +84,7 @@ async function main() {
         where: { instrumentId: instrument.id },
         orderBy: { obsDate: "asc" },
       });
-      assert.ok(observations.length >= (row.db === "FF" ? 110 : 490));
+      assert.ok(observations.length >= minPointsFor(row));
       const maxAgeDays = row.db === "FF" ? 300 : 75;
       assert.ok(
         Date.now() - observations.at(-1)!.obsDate.getTime() < maxAgeDays * 86_400_000,

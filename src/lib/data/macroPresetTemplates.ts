@@ -29,6 +29,11 @@ import {
   US_OVERVIEW_STANDARD_DERIVED,
   US_OVERVIEW_STANDARD_SERIES,
 } from "@/lib/data/usOverviewStandardSeries";
+import {
+  JAPAN_OVERVIEW_STANDARD_BY_KEY,
+  JAPAN_OVERVIEW_STANDARD_DERIVED,
+  JAPAN_OVERVIEW_STANDARD_SERIES,
+} from "@/lib/data/japanOverviewStandardSeries";
 import { unifiedKeyInAllowlist } from "@/lib/data/fredCatalog";
 import {
   GOLD_ANALYSIS_SERIES,
@@ -628,12 +633,24 @@ function buildChinaOverviewVisualMap(keys: string[]): MacroSeriesVisualConfigMap
   return out;
 }
 
+function japanOverviewDefForKey(key: string) {
+  const code = japanOverviewCodeFromMdsKey(key);
+  return JAPAN_OVERVIEW_STANDARD_BY_KEY.get(key) ?? (code ? JAPAN_OVERVIEW_BY_CODE.get(code) : undefined);
+}
+
+/** 输入序列都在模板内时才启用的指标运算（国债 10年-2年） */
+function japanOverviewDerivedFor(keys: string[]) {
+  const set = new Set(keys);
+  return JAPAN_OVERVIEW_STANDARD_DERIVED.filter((d) => set.has(d.calc.leftKey) && set.has(d.calc.rightKey));
+}
+
 function buildJapanOverviewSlotAssignment(keys: string[]): MacroSlotAssignment {
   const out: MacroSlotAssignment = {};
   for (const key of keys) {
-    const code = japanOverviewCodeFromMdsKey(key);
-    const panel = code ? (JAPAN_OVERVIEW_BY_CODE.get(code)?.panel ?? 1) : 1;
-    out[key] = panel - 1;
+    out[key] = (japanOverviewDefForKey(key)?.panel ?? 1) - 1;
+  }
+  for (const d of japanOverviewDerivedFor(keys)) {
+    out[`calc:${d.calc.id}`] = d.panel - 1;
   }
   return out;
 }
@@ -641,8 +658,7 @@ function buildJapanOverviewSlotAssignment(keys: string[]): MacroSlotAssignment {
 function buildJapanOverviewVisualMap(keys: string[]): MacroSeriesVisualConfigMap {
   const out: MacroSeriesVisualConfigMap = {};
   for (const key of keys) {
-    const code = japanOverviewCodeFromMdsKey(key);
-    const def = code ? JAPAN_OVERVIEW_BY_CODE.get(code) : undefined;
+    const def = japanOverviewDefForKey(key);
     if (!def) continue;
     out[key] = {
       axis: def.axis,
@@ -650,6 +666,19 @@ function buildJapanOverviewVisualMap(keys: string[]): MacroSeriesVisualConfigMap
       color: def.color,
       showEndLabel: true,
     };
+  }
+  for (const d of japanOverviewDerivedFor(keys)) {
+    out[`calc:${d.calc.id}`] = { axis: d.axis, chartType: d.chartType, color: d.color, showEndLabel: true };
+  }
+  return out;
+}
+
+/** 标准指标（mds:X::yoy 等虚拟键）的图表侧计算配置 */
+function buildJapanOverviewCalcConfigMap(keys: string[]): MacroSeriesCalcConfigMap {
+  const out: MacroSeriesCalcConfigMap = {};
+  for (const key of keys) {
+    const def = JAPAN_OVERVIEW_STANDARD_BY_KEY.get(key);
+    if (def) out[key] = def.calc;
   }
   return out;
 }
@@ -730,9 +759,15 @@ export function resolveBuiltinTemplate(
               (k) => catalogAllowlist && catalogAllowlist.size > 0 && unifiedKeyInAllowlist(k, catalogAllowlist),
             ),
           ]
-        : JAPAN_OVERVIEW_CHART_SERIES.map((row) => japanOverviewMdsKey(row.code)).filter((k) =>
-            keysRaw.includes(k),
-          );
+        : [
+            ...JAPAN_OVERVIEW_CHART_SERIES.map((row) => japanOverviewMdsKey(row.code)).filter((k) =>
+              keysRaw.includes(k),
+            ),
+            // 被取代 xlsx 列的日本官方标准序列（mds:X / mds:X::yoy 虚拟键）
+            ...JAPAN_OVERVIEW_STANDARD_SERIES.map((row) => row.key).filter(
+              (k) => catalogAllowlist && catalogAllowlist.size > 0 && unifiedKeyInAllowlist(k, catalogAllowlist),
+            ),
+          ];
 
   return {
     ...tpl,
@@ -745,7 +780,15 @@ export function resolveBuiltinTemplate(
           },
           derivedCalcs: [...(tpl.derivedCalcs ?? []), ...usOverviewDerivedFor(keys).map((d) => d.calc)],
         }
-      : {}),
+      : tpl.id === BUILTIN_JAPAN_OVERVIEW_TEMPLATE.id
+        ? {
+            seriesCalcConfigMap: {
+              ...(tpl.seriesCalcConfigMap ?? {}),
+              ...buildJapanOverviewCalcConfigMap(keys),
+            },
+            derivedCalcs: [...(tpl.derivedCalcs ?? []), ...japanOverviewDerivedFor(keys).map((d) => d.calc)],
+          }
+        : {}),
     layoutMode: 6,
     slotAssignment:
       tpl.id === BUILTIN_US_OVERVIEW_TEMPLATE.id
