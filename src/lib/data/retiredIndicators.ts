@@ -79,9 +79,65 @@ export const RETIRED_COMPUTED_REPLACEMENTS: Readonly<Record<string, RetiredRepla
   sec_us_insider_buy_filings_monthly: null,
 };
 
+/**
+ * 源端已停发（2026-09-21）。
+ *
+ * 与上面两批的退役理由**不同**：usov / 计算型是「本来就不该进库」，这批是
+ * 世界银行真的把指标下架了——`data:probe-sources` 对它们一律返回
+ * 「世行 API 无有效观测」，`resolveAcquisitionStatus` 因此判 `probe_failed`。
+ *
+ * **只收零观测的那些。** 同批停发的序列里还有 12 条握着 1990–2019 的真实历史
+ * （如 `sched_wb_AU_FR_INR_RINR` 30 个点），而本文件的退役是**硬删除**
+ * （seed-retired-indicators 会连 Instrument 带观测一起删），删掉就不可逆，
+ * 所以那 12 条不放进来——它们是「已停更但历史有效」，另行决定如何呈现。
+ * 往这里加条目前请先确认该 code 的 `MacroObservation` 计数为 0。
+ */
+const RETIRED_SOURCE_DISCONTINUED_REPLACEMENTS: Readonly<Record<string, RetiredReplacement>> = {
+  // GC.BAL.CASH.GD.ZS（财政现金收支差额占 GDP）× 15 国
+  sched_wb_AU_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_BR_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_CA_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_CH_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_CN_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_DE_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_FR_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_GB_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_ID_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_IN_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_JP_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_KR_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_MX_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_SA_GC_BAL_CASH_GD_ZS: null,
+  sched_wb_ZA_GC_BAL_CASH_GD_ZS: null,
+  // FS.AST.DOMS.GD.ZS（银行部门国内信贷占 GDP）× 10 国
+  sched_wb_AU_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_BR_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_CH_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_CN_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_DE_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_FR_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_GB_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_IN_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_KR_FS_AST_DOMS_GD_ZS: null,
+  sched_wb_SA_FS_AST_DOMS_GD_ZS: null,
+  // GC.DOD.TOTL.GD.ZS（政府债务占 GDP）× 4 国
+  sched_wb_CN_GC_DOD_TOTL_GD_ZS: null,
+  sched_wb_FR_GC_DOD_TOTL_GD_ZS: null,
+  sched_wb_JP_GC_DOD_TOTL_GD_ZS: null,
+  sched_wb_SA_GC_DOD_TOTL_GD_ZS: null,
+  // FR.INR.RINR（实际利率）× 3 国
+  sched_wb_DE_FR_INR_RINR: null,
+  sched_wb_FR_FR_INR_RINR: null,
+  sched_wb_SA_FR_INR_RINR: null,
+  // FM.LBL.BMNY.GD.ZS（广义货币占 GDP）× 2 国
+  sched_wb_DE_FM_LBL_BMNY_GD_ZS: null,
+  sched_wb_FR_FM_LBL_BMNY_GD_ZS: null,
+};
+
 export const RETIRED_INDICATOR_REPLACEMENTS: Readonly<Record<string, RetiredReplacement>> = {
   ...RETIRED_USOV_REPLACEMENTS,
   ...RETIRED_COMPUTED_REPLACEMENTS,
+  ...RETIRED_SOURCE_DISCONTINUED_REPLACEMENTS,
 };
 
 export const RETIRED_INDICATOR_CODES = Object.keys(RETIRED_INDICATOR_REPLACEMENTS);
