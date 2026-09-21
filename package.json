@@ -71,6 +71,7 @@
     "data:verify-framework": "dotenv -e .env.local -- tsx scripts/verify-framework-indicators.ts",
     "data:seed-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/seed-phase2.ts",
     "data:verify-phase2": "dotenv -e .env.local -- tsx scripts/data-worker/verify-phase2.ts",
+    "futures:import-csv": "dotenv -e .env.local -- tsx scripts/data-worker/import-futures-csv.ts",
     "futures:snapshot-gold": "dotenv -e .env.local -- tsx scripts/data-worker/snapshot-gold-futures.ts",
     "data:verify-fred-granularity": "dotenv -e .env.local -- tsx scripts/data-worker/verify-fred-granularity.ts",
     "data:verify-fred-release-map": "dotenv -e .env.local -- tsx scripts/data-worker/verify-fred-release-map.ts",
