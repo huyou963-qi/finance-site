@@ -142,6 +142,41 @@ export const RETIRED_INDICATOR_REPLACEMENTS: Readonly<Record<string, RetiredRepl
 
 export const RETIRED_INDICATOR_CODES = Object.keys(RETIRED_INDICATOR_REPLACEMENTS);
 
+/**
+ * 源端已停更，但**历史数据真实有效**：从目录隐藏、停止抓取，观测一条不删。
+ *
+ * 与 RETIRED_INDICATOR_CODES 的区别是**只写 tombstone、不删任何东西**
+ * （见 seed-retired-indicators.ts 的 hideSourceEndedInstruments）。tombstone 落在
+ * `public.macro_catalog_excluded_key`，键 `mds:<code>`，同时起两个作用：
+ *   1. `loadExcludedCatalogKeys()` 把它从宏观目录里滤掉；
+ *   2. `runDataSubscription()` 开头的 `isCatalogKeyExcluded()` 让调度器直接跳过，
+ *      不再每轮对一个 2022 年就停更的序列做无用请求。
+ * 想恢复：删掉对应的 tombstone 行即可，数据一直在。
+ *
+ * 为什么不直接删：这些是经典的、仍有历史分析价值的序列。
+ * - TEDRATE：TED Spread，8853 个观测、1986-01-02 → 2022-01-21，FRED 已标 DISCONTINUED。
+ *   它本身**不在目录里**（sched_fred_* 被目录按前缀排除），所以此处的意义是止住每轮空抓。
+ * - sched_wb_* 12 条：世行已下架的指标，共 272 个观测点、1990–2019，在目录
+ *   `SRC_WORLDBANK/偿债能力` 下可见。
+ */
+export const SOURCE_ENDED_HIDDEN_CODES: readonly string[] = [
+  // FRED 标注 DISCONTINUED；8853 个观测，1986-01-02 → 2022-01-21
+  "sched_fred_TEDRATE",
+  // 世行已下架但留有历史，合计 272 个观测、1990–2019
+  "sched_wb_AU_FR_INR_RINR", // 30 个观测
+  "sched_wb_FR_CM_MKT_LCAP_GD_ZS", // 29 个观测
+  "sched_wb_IN_GC_DOD_TOTL_GD_ZS", // 29 个观测
+  "sched_wb_CA_FR_INR_RINR", // 28 个观测
+  "sched_wb_SA_FM_LBL_BMNY_GD_ZS", // 28 个观测
+  "sched_wb_CH_FM_LBL_BMNY_GD_ZS", // 27 个观测
+  "sched_wb_GB_FR_INR_RINR", // 25 个观测
+  "sched_wb_JP_FR_INR_RINR", // 25 个观测
+  "sched_wb_CA_FM_LBL_BMNY_GD_ZS", // 19 个观测
+  "sched_wb_CA_FS_AST_DOMS_GD_ZS", // 17 个观测
+  "sched_wb_ID_GC_DOD_TOTL_GD_ZS", // 14 个观测
+  "sched_wb_DE_GC_DOD_TOTL_GD_ZS", // 1 个观测
+];
+
 type Resolved =
   | { kind: "keep" }
   | { kind: "remove" }

@@ -7,12 +7,19 @@
  * 对 RETIRED_INDICATOR_CODES 逐条执行与管理端「删除指标」（/api/admin/catalog-layout/item）相同的清理：
  * 写 tombstone → 删抓取记录、发布包成员、订阅、仪器（级联删除观测与版本账本）→ 布局去幽灵引用。
  * 另把系统模板覆盖与用户工作区/模板里的旧键替换为标准指标或指标运算（retiredIndicators.ts）。
+ *
+ * 第二类：SOURCE_ENDED_HIDDEN_CODES —— 源端已停更但历史真实有效的序列，
+ * **只写 tombstone、不删数据**（从目录隐藏 + 调度器跳过，删掉 tombstone 即可恢复）。
  */
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 import { Prisma, PrismaClient } from "@prisma/client";
-import { RETIRED_INDICATOR_CODES, rewriteRetiredKeys } from "../../src/lib/data/retiredIndicators";
+import {
+  RETIRED_INDICATOR_CODES,
+  SOURCE_ENDED_HIDDEN_CODES,
+  rewriteRetiredKeys,
+} from "../../src/lib/data/retiredIndicators";
 import { buildBaseCatalogCountries, clearFredCatalogCache } from "../../src/lib/data/fredCatalog";
 import {
   loadMacroCatalogLayout,
@@ -53,6 +60,48 @@ async function retireInstruments(dryRun: boolean) {
       await tx.instrument.delete({ where: { id: instrument.id } });
     });
     if (instrument) console.log(`  ✓ 已退役并删除 ${code}（${obs} 条观测）`);
+  }
+}
+
+/**
+ * 源端已停更但历史有效：**只写 tombstone，不删任何东西**。
+ *
+ * 与 retireInstruments() 的关键区别——那边是硬删除（连 Instrument 带观测一起删）。
+ * 这里只往 macro_catalog_excluded_key 写一行，同时达到两个效果：
+ *   1. loadExcludedCatalogKeys() 把它从宏观目录滤掉（用户不再看到一条停更序列
+ *      混在活跃指标里）；
+ *   2. runDataSubscription() 开头的 isCatalogKeyExcluded() 让调度器跳过，
+ *      不再每轮对早已停更的序列做无用请求。
+ * 恢复方式：删掉该 tombstone 行，数据与订阅都还在。
+ */
+async function hideSourceEndedInstruments(dryRun: boolean) {
+  for (const code of SOURCE_ENDED_HIDDEN_CODES) {
+    const key = `mds:${code}`;
+    const instrument = await prisma.instrument.findUnique({
+      where: { code },
+      select: { id: true },
+    });
+    if (!instrument) {
+      console.log(`  · ${code} 不在库中，跳过`);
+      continue;
+    }
+    const obs = await prisma.macroObservation.count({
+      where: { instrumentId: instrument.id },
+    });
+    const already = await prisma.macroCatalogExcludedKey.findUnique({
+      where: { catalogKey: key },
+      select: { catalogKey: true },
+    });
+    if (dryRun) {
+      console.log(`  ~ ${code}（保留 ${obs} 条观测${already ? "，tombstone 已存在" : "，将写入 tombstone"}）`);
+      continue;
+    }
+    await prisma.macroCatalogExcludedKey.upsert({
+      where: { catalogKey: key },
+      create: { catalogKey: key, deletedBy: ACTOR },
+      update: {},
+    });
+    console.log(`  ✓ ${code} 已从目录隐藏并停止抓取，保留 ${obs} 条观测`);
   }
 }
 
@@ -130,6 +179,10 @@ async function main() {
   const dryRun = process.argv.includes("--dry-run");
   console.log(`[data:seed-retired-indicators] 退役 ${RETIRED_INDICATOR_CODES.length} 条指标${dryRun ? "（dry-run）" : ""}…`);
   await retireInstruments(dryRun);
+  console.log(
+    `[data:seed-retired-indicators] 源端停更但历史有效 ${SOURCE_ENDED_HIDDEN_CODES.length} 条：从目录隐藏、保留观测…`,
+  );
+  await hideSourceEndedInstruments(dryRun);
   console.log("[data:seed-retired-indicators] 模板替换为标准指标 / 指标运算…");
   await rewriteTemplates(dryRun);
   await reconcileLayout(dryRun);
