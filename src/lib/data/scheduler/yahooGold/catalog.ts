@@ -38,6 +38,8 @@ export const YAHOO_GOLD_SERIES = [
     continueAfter: "2026-06-05",
     source: "ICE 布伦特原油连续期货（Yahoo 行情 BZ=F）",
     note: "布伦特原油连续期货收盘价，行情接口 BZ=F 日更；xlsx 历史与 BZ=F 逐日精确一致",
+    /** 自检的最新值合理区间（美元/桶） */
+    valueRange: [10, 500],
   },
 ] as const;
 

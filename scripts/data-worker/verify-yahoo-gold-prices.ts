@@ -1,5 +1,5 @@
 /**
- * 黄金收盘价（行情接口 Yahoo GC=F）——自检
+ * 行情接口 Yahoo 续接序列（布伦特 BZ=F）——自检
  *
  * npm run data:verify-yahoo-gold-prices
  * npm run data:verify-yahoo-gold-prices -- --db
@@ -60,7 +60,7 @@ async function main() {
       const lagDays = last ? (Date.now() - last.obsDate.getTime()) / 86_400_000 : Infinity;
       if (!last || lagDays > 7) {
         fail(`${row.code} 最新观测 ${last?.obsDate.toISOString().slice(0, 10) ?? "无"}（滞后 ${Math.round(lagDays)} 天，应 ≤7）`);
-      } else if (last.value < 100 || last.value > 20_000) {
+      } else if (last.value < row.valueRange[0] || last.value > row.valueRange[1]) {
         fail(`${row.code} 最新值 ${last.value} 超出合理区间`);
       } else {
         console.log(

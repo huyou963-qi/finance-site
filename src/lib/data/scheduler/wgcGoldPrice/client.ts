@@ -1,7 +1,13 @@
 import { WGC_GOLD_PRICE_SOURCE } from "./catalog";
 
-/** 超过约一年的窗口会被接口降采样（每次最多约 250 点），分段取 */
+/**
+ * 接口按窗口长度决定粒度（2026-09-21 实测）：
+ * - 约 30 天以内 → 每 30 分钟的**盘中实时价**（含周末），不是 LBMA 定盘价；
+ * - 30 天到约两年 → 日度定盘价（时间戳为 UTC 零点）；更长会被降采样。
+ * 所以每段窗口限定在 [MIN, MAX] 天之间：尾段不足 MIN 时往前延伸（重叠部分按日期去重）。
+ */
 export const WGC_MAX_WINDOW_DAYS = 300;
+export const WGC_MIN_WINDOW_DAYS = 60;
 
 const DAY_MS = 86_400_000;
 
@@ -9,7 +15,10 @@ type WgcChartResponse = {
   chartData?: Record<string, unknown> & { asOfDate?: unknown };
 };
 
-/** 解析 `chartData.<CCY> = [[毫秒时间戳, 价格], ...]` → 按日期去重排序的点 */
+/**
+ * 解析 `chartData.<CCY> = [[毫秒时间戳, 价格], ...]` → 按日期去重排序的点。
+ * 只收 UTC 零点的点（日度定盘价）；盘中点即便混进来也丢弃，不会被当成当日定盘价写库。
+ */
 export function parseWgcGoldPrice(
   json: unknown,
   currency: string,
@@ -21,16 +30,18 @@ export function parseWgcGoldPrice(
     if (!Array.isArray(row) || row.length < 2) continue;
     const [ts, value] = row as [unknown, unknown];
     if (typeof ts !== "number" || typeof value !== "number" || !Number.isFinite(value) || value <= 0) continue;
+    if (ts % DAY_MS !== 0) continue;
     byDate.set(new Date(ts).toISOString().slice(0, 10), value);
   }
   return [...byDate].sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }));
 }
 
-/** 把 [start, end] 切成 ≤ WGC_MAX_WINDOW_DAYS 天的窗口（毫秒） */
+/** 把 [start, end] 切成长度在 [MIN, MAX] 天之间的窗口（毫秒）；过短的尾段往前延伸 */
 export function wgcWindows(startMs: number, endMs: number): Array<[number, number]> {
   const out: Array<[number, number]> = [];
   for (let s = startMs; s <= endMs; s += WGC_MAX_WINDOW_DAYS * DAY_MS) {
-    out.push([s, Math.min(endMs, s + WGC_MAX_WINDOW_DAYS * DAY_MS - 1)]);
+    const e = Math.min(endMs, s + WGC_MAX_WINDOW_DAYS * DAY_MS - 1);
+    out.push([Math.min(s, e - WGC_MIN_WINDOW_DAYS * DAY_MS), e]);
   }
   return out;
 }
