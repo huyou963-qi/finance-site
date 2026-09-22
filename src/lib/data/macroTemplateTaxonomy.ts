@@ -256,6 +256,7 @@ const FOLDER_ID_TO_DIMENSION: Record<string, MacroTemplateDimensionId> = {
 const BUILTIN_PLACEMENT: Record<string, MacroTemplatePlacement> = {
   "builtin-debt-capacity-4country": { scope: "global", dimensionId: "economy" },
   "builtin-gold-analysis": { scope: "global", dimensionId: "topic" },
+  "builtin-cftc-cot-report": { scope: "global", dimensionId: "topic" },
   "builtin-us-overview": { scope: "US", dimensionId: "economy" },
   "builtin-china-overview": { scope: "CN", dimensionId: "economy" },
   "builtin-japan-overview": { scope: "JP", dimensionId: "economy" },

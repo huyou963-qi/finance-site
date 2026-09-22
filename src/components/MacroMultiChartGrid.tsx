@@ -9,6 +9,7 @@ import { partitionMacroSeries, type MacroSlotAssignment } from "@/lib/macroParti
 import type { MacroChartSlice } from "@/lib/macroChartOption";
 import {
   isAltMacroSlotMode,
+  isSelfFetchingSlotMode,
   resolveMacroSlotTitle,
   resolveSlotPieYear,
   resolveSlotRadarYear,
@@ -717,7 +718,7 @@ export function MacroMultiChartGrid({
   );
 
   if (layoutMode === 1) {
-    const hideNavigator = slotModeFor(0) === "cpiMomMatrix";
+    const hideNavigator = isSelfFetchingSlotMode(slotModeFor(0));
     return (
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-h-0 w-full flex-1 flex-col">

@@ -77,7 +77,13 @@ export type MacroChartSlotMode =
   | "xyScatter"
   | "boxplot"
   | "radar"
-  | "cpiMomMatrix";
+  | "cpiMomMatrix"
+  | "cotReport";
+
+/** 自带数据源的表格槽位（CPI 环比表 / 期货持仓表）：不需要拖入指标 */
+export function isSelfFetchingSlotMode(mode: MacroChartSlotMode | undefined): boolean {
+  return mode === "cpiMomMatrix" || mode === "cotReport";
+}
 
 export const DEFAULT_SEASONAL_YEAR_COUNT = 5;
 

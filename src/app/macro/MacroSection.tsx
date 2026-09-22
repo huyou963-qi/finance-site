@@ -86,6 +86,7 @@ import {
   BUILTIN_CN_ECONOMY_OVERVIEW_POLICY_TEMPLATE,
   BUILTIN_CN_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
   BUILTIN_GOLD_ANALYSIS_TEMPLATE,
+  BUILTIN_COT_REPORT_TEMPLATE,
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
   BUILTIN_US_CPI_DRIVERS_TEMPLATE,
   BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
@@ -151,6 +152,7 @@ import type {
 import {
   DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
   extractYearsFromCategories,
+  isSelfFetchingSlotMode,
 } from "@/lib/macroChartOption";
 import {
   getOrCreateMacroSyncTabId,
@@ -1195,6 +1197,7 @@ export function MacroSection() {
       BUILTIN_CHINA_OVERVIEW_TEMPLATE,
       BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
       BUILTIN_GOLD_ANALYSIS_TEMPLATE,
+      BUILTIN_COT_REPORT_TEMPLATE,
       BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
       BUILTIN_US_ECON_DEMAND_TEMPLATE,
       BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
@@ -1243,6 +1246,7 @@ export function MacroSection() {
       BUILTIN_CHINA_OVERVIEW_TEMPLATE,
       BUILTIN_JAPAN_OVERVIEW_TEMPLATE,
       BUILTIN_GOLD_ANALYSIS_TEMPLATE,
+      BUILTIN_COT_REPORT_TEMPLATE,
       BUILTIN_US_ECON_OVERVIEW_TEMPLATE,
       BUILTIN_US_ECON_DEMAND_TEMPLATE,
       BUILTIN_US_CPI_OVERVIEW_TEMPLATE,
@@ -1441,7 +1445,7 @@ export function MacroSection() {
       if (!query) {
         const isCpiMomMatrixTpl =
           tpl.id === "builtin-us-cpi-subitems" ||
-          resolvedTpl.displayConfig?.slotModes?.[0] === "cpiMomMatrix";
+          isSelfFetchingSlotMode(resolvedTpl.displayConfig?.slotModes?.[0]);
         if (isCpiMomMatrixTpl) {
           setError(null);
           setPayload(null);
@@ -2275,7 +2279,7 @@ export function MacroSection() {
   /** CPI 环比表槽位自拉数据，允许无 selectedKeys 时仍进入图表区 */
   const chartsAllowEmptyPayload = useMemo(() => {
     for (let i = 0; i < layoutMode; i++) {
-      if (displayConfig.slotModes?.[i] === "cpiMomMatrix") return true;
+      if (isSelfFetchingSlotMode(displayConfig.slotModes?.[i])) return true;
     }
     return false;
   }, [displayConfig.slotModes, layoutMode]);

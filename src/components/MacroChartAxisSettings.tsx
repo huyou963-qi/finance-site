@@ -44,6 +44,7 @@ const ALT_AXIS_HINT: Partial<Record<MacroChartSlotMode, string>> = {
   boxplot: "箱线图无传统左右 Y 轴范围设置",
   radar: "雷达图无传统左右 Y 轴范围设置",
   cpiMomMatrix: "CPI 环比表无 Y 轴范围设置",
+  cotReport: "期货持仓表无 Y 轴范围设置",
 };
 
 function slotRanges(

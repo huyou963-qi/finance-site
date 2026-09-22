@@ -482,6 +482,29 @@ export const BUILTIN_GOLD_ANALYSIS_TEMPLATE: MacroChartTemplate = {
   builtIn: true,
 };
 
+/** 全球 · 期货持仓报告：CFTC 管理基金持仓表（槽位自拉 /api/tools/cot-report，无需指标） */
+export const BUILTIN_COT_REPORT_TEMPLATE: MacroChartTemplate = {
+  id: "builtin-cftc-cot-report",
+  name: "期货持仓报告",
+  description:
+    "CFTC Disaggregated（期货+期权合并）管理基金持仓：能源/金属/谷物/软商品/畜牧各品种多空、净仓及周变化、净仓走势与一年持仓极值。",
+  chartIntroNotes: {
+    "0": "净仓 = 管理基金多头 − 空头；Relative to max 为当前净仓在一年区间中的位置，≥85% 偏拥挤做多、≤25% 偏拥挤做空。",
+  },
+  selectedKeys: [],
+  layoutMode: 1,
+  slotAssignment: {},
+  seriesVisualMap: {},
+  displayConfig: {
+    ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG,
+    slotModes: { 0: "cotReport" },
+    slotTitles: { 0: "CFTC 管理基金持仓（Managed Money）" },
+    slotShowTitles: { 0: true },
+  },
+  createdAtIso: "2026-09-22T00:00:00.000Z",
+  builtIn: true,
+};
+
 export const BUILTIN_US_OVERVIEW_TEMPLATE: MacroChartTemplate = {
   id: "builtin-us-overview",
   name: "US_Overview",
@@ -696,6 +719,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   BUILTIN_CHINA_OVERVIEW_TEMPLATE.id,
   BUILTIN_JAPAN_OVERVIEW_TEMPLATE.id,
   BUILTIN_GOLD_ANALYSIS_TEMPLATE.id,
+  BUILTIN_COT_REPORT_TEMPLATE.id,
   ...BUILTIN_US_CPI_TEMPLATE_IDS,
   ...BUILTIN_US_LABOR_TEMPLATE_IDS,
   ...BUILTIN_US_ECON_TEMPLATE_IDS,

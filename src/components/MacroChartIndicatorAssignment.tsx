@@ -297,6 +297,7 @@ export function MacroChartIndicatorAssignment({
 
   function slotModeHint(mode: MacroChartSlotMode, count: number): string | null {
     if (mode === "cpiMomMatrix") return "此模式使用固定 CPI 分项目录，无需拖入指标";
+    if (mode === "cotReport") return "此模式使用 CFTC 管理基金持仓报告，无需拖入指标";
     if (mode === "waterfall" && count < 2) return "瀑布图至少 2 个指标（首项起点，末项合计）";
     if (mode === "heatmap" && count < 2) return "热力图至少 2 个指标";
     if (mode === "xyScatter" && count !== 2) return "XY 散点需要恰好 2 个指标（第 1=X，第 2=Y）";
@@ -588,6 +589,7 @@ export function MacroChartIndicatorAssignment({
                 <option value="boxplot">箱线图</option>
                 <option value="radar">雷达图</option>
                 <option value="cpiMomMatrix">CPI 环比表</option>
+                <option value="cotReport">期货持仓表</option>
               </select>
               {slotMode(slot) === "seasonal" ? (
                 <label className="flex shrink-0 items-center gap-0.5 text-[10px] text-fs-muted" title="展示近几年">
