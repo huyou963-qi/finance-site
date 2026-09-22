@@ -353,8 +353,8 @@
         "fred:PCEPILFE::yoy": 4,
         "mds:usov_c03_sp500": 0,
         "fred:A191RL1Q225SBEA": 2,
-        "mds:ism_us_ism_headline": 2,
         "mds:comex_gold_futures": null,
+        "mds:ism_us_ism_headline": 2,
         "mds:usov_c23_fed_assets": 5,
         "mds:ism_svc_us_svc_headline": 2,
         "mds:usov_c24_fed_treasuries": 5
@@ -421,14 +421,14 @@
         "fred:A191RL1Q225SBEA": {
           "axis": "right"
         },
-        "mds:ism_us_ism_headline": {
-          "chartType": "stepLine"
-        },
         "mds:comex_gold_futures": {
           "axis": "right",
           "color": "#d86a7a",
           "chartType": "line",
           "showEndLabel": true
+        },
+        "mds:ism_us_ism_headline": {
+          "chartType": "stepLine"
         },
         "mds:usov_c23_fed_assets": {
           "axis": "left",
@@ -602,186 +602,8 @@
         },
         "mds:comex_gold_futures": {
           "op": "none",
-          "frequency": "keep",
-          "unit": "keep",
-          "resampleMethod": "avg"
-        }
-      }
-    },
-    "builtin-gold-analysis": {
-      "name": "黄金分析",
-      "layoutMode": 6,
-      "description": "由 黄金期货头寸.xlsx 导入的 28 项黄金市场指标：金价/美元、利率与通胀、管理基金持仓、COMEX 库存、黄金 ETF 与全球储备。",
-      "derivedCalcs": [
-        {
-          "id": "gold-basis",
-          "op": "sub",
-          "name": "期现差",
-          "leftKey": "mds:comex_gold_futures",
-          "rightKey": "mds:wgc_gold_price_usd"
-        }
-      ],
-      "selectedKeys": [
-        "mds:comex_gold_futures",
-        "mds:wgc_gold_price_usd",
-        "fred:DFII10",
-        "mds:goldov_c06_mm_net",
-        "mds:goldov_c23_comex_stock_oz",
-        "mds:goldov_c23_comex_stock_oz::diff",
-        "mds:goldov_c24_global_reserve_tons",
-        "mds:goldov_c17_spdr_etf"
-      ],
-      "updatedAtIso": "2026-09-02T07:05:58.681Z",
-      "displayConfig": {
-        "lineWidth": 1.6,
-        "lineSmooth": false,
-        "showLegend": true,
-        "symbolSize": 7,
-        "areaOpacity": 0.25,
-        "barMaxWidth": 14,
-        "showSymbols": false,
-        "showTooltip": true,
-        "xLabelRotate": 24,
-        "showGridLines": true,
-        "legendPosition": "bottom",
-        "xLabelFontSize": 10,
-        "yLabelFontSize": 10,
-        "endLabelDecimals": 2,
-        "showRegimeShading": false,
-        "showRecessionShading": false
-      },
-      "slotAssignment": {
-        "fred:DFII10": null,
-        "calc:gold-basis": null,
-        "mds:goldov_c06_mm_net": 2,
-        "mds:goldov_c17_spdr_etf": null,
-        "mds:wgc_gold_price_usd": 0,
-        "mds:comex_gold_futures": null,
-        "mds:goldov_c23_comex_stock_oz": null,
-        "mds:goldov_c24_global_reserve_tons": null,
-        "mds:goldov_c23_comex_stock_oz::diff": 3
-      },
-      "seriesVisualMap": {
-        "calc:gold-basis": {
-          "axis": "left",
-          "color": "#9aa7b3",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:goldov_c06_mm_net": {
-          "axis": "left",
-          "color": "#d75a68",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:goldov_c17_spdr_etf": {
-          "axis": "left",
-          "color": "#f2cf67",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:wgc_gold_price_usd": {
-          "axis": "left",
-          "color": "#4bc0c8",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:comex_gold_futures": {
-          "axis": "left",
-          "color": "#d86a7a",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:goldov_c23_comex_stock_oz": {
-          "axis": "left",
-          "color": "#d9534f",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:goldov_c24_global_reserve_tons": {
-          "axis": "left",
-          "color": "#e8a04e",
-          "chartType": "bar",
-          "showEndLabel": true
-        },
-        "mds:goldov_c23_comex_stock_oz::diff": {
-          "axis": "right",
-          "color": "#8a6d3b",
-          "chartType": "line",
-          "showEndLabel": true
-        }
-      },
-      "selectedListItems": [
-        {
-          "key": "mds:comex_gold_futures",
-          "type": "series"
-        },
-        {
-          "key": "mds:wgc_gold_price_usd",
-          "type": "series"
-        },
-        {
-          "key": "calc:gold-basis",
-          "type": "derived"
-        },
-        {
-          "id": "div-mtjmpgxm-39cw",
-          "type": "divider"
-        },
-        {
-          "key": "fred:DFII10",
-          "type": "series"
-        },
-        {
-          "key": "mds:goldov_c06_mm_net",
-          "type": "series"
-        },
-        {
-          "key": "mds:goldov_c23_comex_stock_oz",
-          "type": "series"
-        },
-        {
-          "key": "mds:goldov_c23_comex_stock_oz::diff",
-          "type": "series"
-        },
-        {
-          "key": "mds:goldov_c24_global_reserve_tons",
-          "type": "series"
-        },
-        {
-          "key": "mds:goldov_c17_spdr_etf",
-          "type": "series"
-        }
-      ],
-      "seriesCalcConfigMap": {
-        "mds:goldov_c23_comex_stock_oz": {
-          "op": "none",
           "unit": "keep",
           "frequency": "keep",
-          "resampleMethod": "avg"
-        },
-        "mds:goldov_c24_global_reserve_tons": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
-        },
-        "mds:goldov_c23_comex_stock_oz::diff": {
-          "op": "diff",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:wgc_gold_price_usd": {
-          "op": "none",
-          "frequency": "keep",
-          "unit": "keep",
-          "resampleMethod": "avg"
-        },
-        "mds:comex_gold_futures": {
-          "op": "none",
-          "frequency": "keep",
-          "unit": "keep",
           "resampleMethod": "avg"
         }
       }
