@@ -7,6 +7,8 @@ import {
 } from "./adapters/overviewXlsxAdapter";
 import { fetchWorldBankIncremental } from "./adapters/worldbankAdapter";
 import { fetchFredCompositeIncremental } from "./fredComposite";
+import { fredFastChannelFor } from "./fredFastChannel/catalog";
+import { extendWithFastChannel } from "./fredFastChannel/fetchFastChannel";
 import { fiscalCompositeSpec } from "./fiscalCompositeFred";
 import { usovCompositeSpec } from "./usovCompositeFred";
 import type { SubscriptionWithRelations } from "./runSubscription";
@@ -58,7 +60,12 @@ export async function fetchSubscriptionIncremental(
     if (composite) {
       return fetchFredCompositeIncremental(composite, apiKey, fetchStart);
     }
-    return fetchFredIncremental(sub.sourceSeriesKey, apiKey, fetchStart);
+    const fred = await fetchFredIncremental(sub.sourceSeriesKey, apiKey, fetchStart);
+    // H.15 / TIPS / VIX 等：原发布机构当天就公布同一组数字，补上 FRED 还没转载的最新几天
+    const fastChannel = fredFastChannelFor(sub.sourceSeriesKey);
+    return fastChannel
+      ? extendWithFastChannel(sub.sourceSeriesKey, fastChannel, fred, fetchStart)
+      : fred;
   }
 
   if (sub.source.adapterKind === SourceAdapterKind.REST_API) {

@@ -1,5 +1,5 @@
 /**
- * 黄金现货 / COMEX 期货标准序列——自检
+ * 黄金现货 / COMEX 期货、NYMEX WTI 原油期货标准序列——自检
  *
  * npm run data:verify-gold-prices           # 静态：目录、发布包、退役登记、模板布局一致
  * npm run data:verify-gold-prices -- --db   # 加查仪器、订阅、包、历史起点、最新观测、目录可见
@@ -12,6 +12,8 @@ import { GOLD_ANALYSIS_SERIES, GOLD_ANALYSIS_TEMPLATE_EXTRAS } from "../../src/l
 import { SUPERSEDED_KEEP_HISTORY_CODES } from "../../src/lib/data/retiredIndicators";
 import { readFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
 import { GOLD_PRICE_INSTRUMENTS, GOLD_SUPERSEDED_BY } from "../../src/lib/data/scheduler/goldPrices/catalog";
+import { OIL_PRICE_INSTRUMENTS, WTI_FUTURES_CODE } from "../../src/lib/data/scheduler/oilPrices/catalog";
+import { REGIME_NOWCAST_INPUT_CODES } from "../../src/lib/quant/macroRegime";
 import { RELEASE_PACKAGE_CATALOG } from "../../src/lib/data/scheduler/releasePackageCatalog";
 import { YAHOO_GOLD_SERIES } from "../../src/lib/data/scheduler/yahooGold/catalog";
 import { resolveUsCatalogPlacement } from "../../src/lib/data/usCatalogTaxonomy";
@@ -40,6 +42,19 @@ async function main() {
       ok(`${row.code} → ${row.packageId} · 通胀与价格/黄金与贵金属`);
     }
   }
+
+  for (const row of OIL_PRICE_INSTRUMENTS) {
+    const pkg = RELEASE_PACKAGE_CATALOG.find((p) => p.id === row.packageId);
+    if (!pkg?.members.instrumentCodes?.includes(row.code)) fail(`${row.code} 不在发布包 ${row.packageId} 的成员里`);
+    const placement = resolveUsCatalogPlacement({ key: `mds:${row.code}` });
+    if (placement.category !== "通胀与价格" || placement.subgroup !== "通胀预期与能源") {
+      fail(`${row.code} 目录归类 ${JSON.stringify(placement)}（应 通胀与价格/通胀预期与能源）`);
+    } else {
+      ok(`${row.code} → ${row.packageId} · 通胀与价格/通胀预期与能源`);
+    }
+  }
+  if (!REGIME_NOWCAST_INPUT_CODES.includes(WTI_FUTURES_CODE)) fail(`高频判断未使用 ${WTI_FUTURES_CODE}`);
+  if (REGIME_NOWCAST_INPUT_CODES.includes("sched_fred_DCOILWTICO")) fail("高频判断仍在用周更的 sched_fred_DCOILWTICO");
 
   // 旧列：已登记为「被取代、保留历史」，且不再由任何目录/包/布局管理（否则 seed 会把订阅改回去）
   const superseded = Object.keys(GOLD_SUPERSEDED_BY);
@@ -71,7 +86,7 @@ async function main() {
   if (process.argv.includes("--db")) {
     const prisma = new PrismaClient();
     try {
-      for (const row of GOLD_PRICE_INSTRUMENTS) {
+      for (const row of [...GOLD_PRICE_INSTRUMENTS, ...OIL_PRICE_INSTRUMENTS]) {
         const inst = await prisma.instrument.findUnique({ where: { code: row.code }, include: { dataSubscription: true } });
         if (!inst) {
           fail(`缺 Instrument ${row.code}`);

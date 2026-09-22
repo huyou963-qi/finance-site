@@ -139,6 +139,7 @@
     "data:seed-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/seed-yahoo-gold-prices.ts",
     "data:verify-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/verify-yahoo-gold-prices.ts",
     "data:seed-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/seed-gold-prices.ts",
+    "data:verify-fred-fast-channel": "dotenv -e .env.local -- tsx scripts/data-worker/verify-fred-fast-channel.ts",
     "data:verify-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/verify-gold-prices.ts",
     "data:seed-caixin-pmi-te": "dotenv -e .env.local -- tsx scripts/data-worker/seed-caixin-pmi-te.ts",
     "data:sync-caixin-pmi-te": "dotenv -e .env.local -- tsx scripts/data-worker/sync-caixin-pmi-te.ts",

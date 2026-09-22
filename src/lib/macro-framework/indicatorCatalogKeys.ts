@@ -80,7 +80,8 @@ export const FRAMEWORK_INDICATOR_CATALOG_KEYS: Record<string, string> = {
   "breakeven-5y": "fred:T5YIE",
   "breakeven-10y": "fred:T10YIE",
   "headline-cpi": "fred:CPIAUCSL",
-  wti: "fred:DCOILWTICO",
+  // NYMEX 期货（Yahoo CL=F）当日更新；FRED DCOILWTICO 是 EIA 现货、每周三才更新
+  wti: "mds:nymex_wti_futures",
 };
 
 export const FRAMEWORK_SPARKLINE_POINTS = 6;

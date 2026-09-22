@@ -217,11 +217,15 @@ export const MONETARY_FRED_REUSED: readonly {
 
 export const MONETARY_FRED_IDS = new Set(MONETARY_FRED_SERIES.map((x) => x.fredId));
 
-/** 全维度无发布日历事件：按粒度 probe_interval（日 24h / 周 24h / 月 72h / 季 168h） */
+/**
+ * 全维度无发布日历事件：按粒度 probe_interval（日 6h / 周 24h / 月 72h / 季 168h）。
+ * 日频曾是 24h：H.15（DGS2/DGS10/DFII10）在美东 16:15 才上 FRED，24h 探测点固定落在
+ * 美东上午，每次都 SKIPPED 再等一天，库里比 FRED 再慢一个交易日（2026-09-22 实测）。
+ */
 export function releaseRuleForMonetaryFred(granularity: DataGranularity) {
   switch (granularity) {
     case "DAILY":
-      return { type: "probe_interval" as const, intervalHours: 24 };
+      return { type: "probe_interval" as const, intervalHours: 6 };
     case "WEEKLY":
       return { type: "probe_interval" as const, intervalHours: 24 };
     case "MONTHLY":

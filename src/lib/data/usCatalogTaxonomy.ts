@@ -289,6 +289,10 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   if (code === "wgc_gold_price_usd" || code === "comex_gold_futures") {
     return p("通胀与价格", "黄金与贵金属");
   }
+  // WTI 原油期货标准序列（oilPrices/catalog.ts），与 FRED WTI 现货同组
+  if (code === "nymex_wti_futures") {
+    return p("通胀与价格", "通胀预期与能源");
+  }
   if (code.startsWith("goldov_")) {
     return p("利率与信用市场", "市场情绪");
   }

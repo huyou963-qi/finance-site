@@ -1,5 +1,5 @@
 /**
- * 黄金现货（WGC LBMA 金价）/ COMEX 黄金期货（Yahoo GC=F）标准序列——种子
+ * 黄金现货（WGC LBMA 金价）/ COMEX 黄金期货（Yahoo GC=F）/ NYMEX WTI 原油期货（Yahoo CL=F）标准序列——种子
  *
  * npm run data:seed -- --catalog=gold-prices
  * npm run data:seed-gold-prices -- --dry-run
@@ -22,12 +22,16 @@ import {
   GOLD_SUPERSEDED_BY,
   type GoldPriceInstrumentDef,
 } from "../../src/lib/data/scheduler/goldPrices/catalog";
+import { OIL_PRICE_INSTRUMENTS } from "../../src/lib/data/scheduler/oilPrices/catalog";
 import { computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
 import { usMetadataCatalogCategory } from "../../src/lib/data/usCatalogTaxonomy";
 import { WGC_GOLD_PRICE_SOURCE } from "../../src/lib/data/scheduler/wgcGoldPrice/catalog";
 import { YAHOO_CHART_SOURCE } from "../../src/lib/data/scheduler/yahooGold/catalog";
 
 const prisma = new PrismaClient();
+
+const INSTRUMENTS: readonly GoldPriceInstrumentDef[] = [...GOLD_PRICE_INSTRUMENTS, ...OIL_PRICE_INSTRUMENTS];
+const OIL_CODES = new Set(OIL_PRICE_INSTRUMENTS.map((row) => row.code));
 
 async function ensureSources() {
   await prisma.statisticalAgency.upsert({
@@ -91,7 +95,7 @@ function buildMetadata(row: GoldPriceInstrumentDef, prev: Record<string, unknown
   return mergeFetchAcquisition(
     {
       ...prev,
-      sourceTag: "gold-prices",
+      sourceTag: OIL_CODES.has(row.code) ? "oil-prices" : "gold-prices",
       bootstrapOnly: false,
       source: row.source.name,
       providerNote: row.description,
@@ -103,7 +107,7 @@ function buildMetadata(row: GoldPriceInstrumentDef, prev: Record<string, unknown
       catalogCategory: usMetadataCatalogCategory({ code: row.code }),
       freqLabel: row.freqLabel,
       unit: row.unit,
-      sourceUpdateNote: `${row.acquisitionLabel}，日频，每日探测`,
+      sourceUpdateNote: `${row.acquisitionLabel}，日频，每 ${row.releaseRule.intervalHours} 小时探测`,
       scrape: row.scrape,
     },
     {
@@ -132,7 +136,7 @@ async function main() {
   console.log(`[data:seed-gold-prices] 数据源${dryRun ? "（dry-run）" : ""}…`);
   if (!dryRun) await ensureSources();
 
-  for (const row of GOLD_PRICE_INSTRUMENTS) {
+  for (const row of INSTRUMENTS) {
     const existing = await prisma.instrument.findUnique({ where: { code: row.code } });
     const prev =
       existing?.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)

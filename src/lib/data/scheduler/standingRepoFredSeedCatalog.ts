@@ -138,7 +138,10 @@ export function buildStandingRepoInstrumentMetadata(
   return metadata;
 }
 
-/** 纽约联储每个工作日操作后发布结果；按同 Release 的现有包每 24 小时探测。 */
+/**
+ * 纽约联储每个工作日操作后发布结果（美东约 14:00 上 FRED）；6h 探测当天即可入库。
+ * 24h 时探测点常落在发布前，库里比 FRED 晚一天（2026-09-22 实测 RRP 停在 09-18、FRED 已有 09-21）。
+ */
 export function releaseRuleForStandingRepo(): ReleaseRule {
-  return { type: "probe_interval", intervalHours: 24 };
+  return { type: "probe_interval", intervalHours: 6 };
 }

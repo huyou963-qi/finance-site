@@ -264,7 +264,8 @@ export function releaseRuleForExternalDollarFred(row: ExternalDollarFredSeedRow)
     return defaultEconomicCalendarRule(row.granularity);
   }
   if (row.granularity === "DAILY") {
-    return { type: "probe_interval" as const, intervalHours: 24 };
+    // 与其他日频市场序列一致 6h：H.10 美东 16:15 才上 FRED，24h 探测会整晚一天
+    return { type: "probe_interval" as const, intervalHours: 6 };
   }
   return defaultReleaseRuleForGranularity(row.granularity);
 }

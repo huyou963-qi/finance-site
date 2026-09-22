@@ -590,7 +590,8 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     },
     members: {
       fredSeriesIds: ["FEDFUNDS", "DFEDTARU"],
-      instrumentCodes: usovCodesForFred("DFEDTARU", "EFFR"),
+      // EFFR 的 usov 列不放这里：FOMC 日历按美东 8:30 探测，而 EFFR 9:00 才发布，每天扑空晚一天
+      instrumentCodes: usovCodesForFred("DFEDTARU"),
     },
   }),
   pkg("us.fed.h41", "美联储 H.4.1 资产负债表", {
@@ -869,6 +870,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 204,
     members: { instrumentCodes: ["comex_gold_futures", "goldov_c27_brent"] },
   }),
+  // 行情接口（Yahoo CL=F）：WTI 原油期货标准序列（高频判断输入，替代周更的 FRED DCOILWTICO）
+  probePkg("us.yahoo.nymex_wti", "NYMEX WTI 原油期货收盘价（行情接口）", {
+    labelEn: "NYMEX WTI Crude Oil Futures (Yahoo CL=F)",
+    granularity: "DAILY",
+    intervalHours: 6,
+    sortOrder: 205,
+    members: { instrumentCodes: ["nymex_wti_futures"] },
+  }),
   // 行情接口（Yahoo ^N225）：Japan_Overview 日经 225 续接
   probePkg("jp.yahoo.nikkei225", "日经225指数（行情接口）", {
     labelEn: "Nikkei 225 (Yahoo ^N225)",
@@ -930,7 +939,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "DAILY",
     intervalHours: 24,
     sortOrder: 204,
-    members: { fredSeriesIds: ["EFFR"] },
+    members: { fredSeriesIds: ["EFFR"], instrumentCodes: usovCodesForFred("EFFR") },
   }),
   probePkg("us.nyfed.rrp", "纽约联储：临时公开市场操作（回购/逆回购）", {
     labelEn: "Temporary Open Market Operations",
