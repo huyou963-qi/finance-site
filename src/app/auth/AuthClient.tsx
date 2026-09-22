@@ -8,6 +8,8 @@ import {
 } from "@/components/auth/AuthPageShell";
 import { AccountProfileClient } from "./AccountProfileClient";
 
+const SERVICE_NOTICE_STORAGE_KEY = "gekko-tech-service-notice-shown";
+
 export function AuthClient() {
   const searchParams = useSearchParams();
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -18,6 +20,7 @@ export function AuthClient() {
   const [password, setPassword] = useState("");
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showServiceNotice, setShowServiceNotice] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -30,6 +33,25 @@ export function AuthClient() {
       setMode("register");
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (loggedIn !== false) return;
+
+    try {
+      if (window.localStorage.getItem(SERVICE_NOTICE_STORAGE_KEY)) return;
+      window.localStorage.setItem(SERVICE_NOTICE_STORAGE_KEY, "1");
+      setShowServiceNotice(true);
+    } catch {
+      // 如果浏览器禁用了本地存储，提示仍可正常展示。
+      setShowServiceNotice(true);
+    }
+  }, [loggedIn]);
+
+  useEffect(() => {
+    if (!showServiceNotice) return;
+    const timeoutId = window.setTimeout(() => setShowServiceNotice(false), 5_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [showServiceNotice]);
 
   const submit = async () => {
     setLoading(true);
@@ -73,6 +95,41 @@ export function AuthClient() {
 
   return (
     <AuthPageShell>
+      {showServiceNotice ? (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="service-notice-title"
+            className="w-full max-w-md rounded-xl border border-amber-300/70 bg-white p-6 shadow-2xl"
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-lg font-bold text-amber-700"
+                aria-hidden
+              >
+                !
+              </span>
+              <div>
+                <h2 id="service-notice-title" className="text-lg font-semibold text-fs-text">
+                  服务提示
+                </h2>
+                <p className="mt-2 text-base font-semibold leading-7 text-fs-secondary">
+                  用户网站迭代开发中，可能会出现短暂服务不可用，请稍等会再试！
+                </p>
+                <p className="mt-3 text-xs text-fs-muted">此提示将在 5 秒后自动关闭。</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowServiceNotice(false)}
+              className="mt-5 w-full rounded-md border border-fs-border px-4 py-2 text-sm font-medium text-fs-secondary transition hover:bg-fs-elevated"
+            >
+              我知道了
+            </button>
+          </section>
+        </div>
+      ) : null}
       <h1 className="text-xl font-semibold text-fs-text">
         {mode === "login" ? "欢迎回来" : "创建账户"}
       </h1>
