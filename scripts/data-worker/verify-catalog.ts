@@ -1,8 +1,10 @@
 /**
  * 数据目录自检：
  * - Excel bootstrap 指标须配置网络自动源（非 BULK）且 fetchAcquisition=known
- * - 禁止仅 BULK_FILE / MANUAL 作为唯一订阅
+ * - 禁止仅 MANUAL / 无抓取器的 BULK_FILE 作为唯一订阅（官方文件源配了抓取器 = 自动更新，合格）
  * - **订阅必须真的会被调度器选中**（见下）
+ * - 已写目录 tombstone（退役 / 源端停更 / 被取代 / legacy-m 隐藏）的是**有意冻结的历史存量**，
+ *   不参与以上检查，只单独计数（2026-09-22）
  *
  * 关于第三条：`resolveAcquisitionStatus()` 只看适配器/序列键，FRED 订阅即便
  * 从没探测过也返回 "ready"；而调度器 `listDueSubscriptions()` 用的是
@@ -31,6 +33,17 @@ loadEnvConfig(process.cwd());
 
 const prisma = new PrismaClient();
 
+/**
+ * 仍在系统模板里展示、但**确认没有可合规自动抓取的源**的历史序列：只警告不判失败。
+ * 加条目必须写明查证过的理由；找到合规源后就接入并从这里删掉。
+ */
+const ACCEPTED_NO_AUTOMATION: Record<string, string> = {
+  // 2026-09-22 核对：CME Gold_Stocks.xls 对服务器返回 403，CME 条款禁止抓取，库存数据属 CME 授权
+  goldov_c23_comex_stock_oz: "COMEX 黄金库存（CME 授权数据，无可合规抓取的源），保留历史存量",
+  // 2026-09-22 核对：IMF Historical Public Debt 年度口径（1955 起）；DataMapper 同指标混入 WEO 预测年，不能直接替换
+  jpov_c22_public_debt_gdp: "日本一般政府债务/GDP（年度 IMF 历史口径；DataMapper 含预测值不可直接替换），保留历史存量",
+};
+
 function argFlag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }
@@ -48,6 +61,11 @@ async function main() {
       dataSubscription: { include: { source: true } },
     },
   });
+
+  // tombstone = 有意从目录隐藏并停止抓取的历史存量，不再要求它有自动源
+  const hiddenKeys = new Set(
+    (await prisma.macroCatalogExcludedKey.findMany({ select: { catalogKey: true } })).map((r) => r.catalogKey),
+  );
 
   const subInstrumentIds = instruments
     .map((i) => i.id)
@@ -96,10 +114,21 @@ async function main() {
   let sourceCurrent = 0;
   let ready = 0;
   let unscheduled = 0;
+  let hiddenFrozen = 0;
   const failures: string[] = [];
+  const acceptedWarnings: string[] = [];
   const unscheduledByTag = new Map<string, number>();
 
   for (const inst of instruments) {
+    if (hiddenKeys.has(`mds:${inst.code}`)) {
+      hiddenFrozen += 1;
+      continue;
+    }
+    const accepted = ACCEPTED_NO_AUTOMATION[inst.code];
+    if (accepted) {
+      acceptedWarnings.push(`${inst.code}: ${accepted}`);
+      continue;
+    }
     const sub = inst.dataSubscription;
     const acquisitionStatus = resolveAcquisitionStatus({
       subscriptionEnabled: sub?.enabled ?? false,
@@ -118,14 +147,21 @@ async function main() {
       }
     }
 
+    // BULK_FILE 本身不是问题：官方 CSV/Excel 源配了抓取器（metadata.scrape.provider）且获取已确认，
+    // 就是在自动更新（如日本海关、财务省储备）。只有 MANUAL 或无抓取器的文件订阅才真的不会更新。
+    const scrapeProvider = (inst.metadata as { scrape?: { provider?: unknown } } | null)?.scrape?.provider;
+    const automatedFile =
+      sub?.source.adapterKind === SourceAdapterKind.BULK_FILE &&
+      typeof scrapeProvider === "string" &&
+      readFetchAcquisition(inst.metadata)?.status === "known";
     if (
       sub?.enabled &&
-      (sub.source.adapterKind === SourceAdapterKind.BULK_FILE ||
-        sub.source.adapterKind === SourceAdapterKind.MANUAL)
+      (sub.source.adapterKind === SourceAdapterKind.MANUAL ||
+        (sub.source.adapterKind === SourceAdapterKind.BULK_FILE && !automatedFile))
     ) {
       bulkOnly += 1;
       failures.push(
-        `${inst.code}: 订阅为 ${sub.source.adapterKind}，不可作为定期自动更新源`,
+        `${inst.code}: 订阅为 ${sub.source.adapterKind}（无自动抓取器），不可作为定期自动更新源`,
       );
     }
 
@@ -176,9 +212,9 @@ async function main() {
     }
   }
 
-  console.log(`[verify-catalog] 指标 ${instruments.length} 条`);
+  console.log(`[verify-catalog] 指标 ${instruments.length} 条（其中目录隐藏的历史存量 ${hiddenFrozen} 条，不参与检查）`);
   console.log(`[verify-catalog] Excel bootstrap ${excelBootstrap}，待配网络源 ${excelNeedsNetwork}`);
-  console.log(`[verify-catalog] BULK/MANUAL 订阅 ${bulkOnly} 条（应为 0）`);
+  console.log(`[verify-catalog] 无抓取器的 BULK/MANUAL 订阅 ${bulkOnly} 条（应为 0）`);
   console.log(`[verify-catalog] ready ${ready}，stale ${stale}，source_current ${sourceCurrent}`);
   console.log(
     `[verify-catalog] ready 但不会被调度 ${unscheduled} 条（应为 0）` +
@@ -189,6 +225,11 @@ async function main() {
             .join("，")}`
         : ""),
   );
+
+  if (acceptedWarnings.length) {
+    console.log("\n已登记、接受现状的无自动源序列（仅警告）:");
+    for (const w of acceptedWarnings) console.log(`  ! ${w}`);
+  }
 
   if (failures.length) {
     console.log("\n失败项:");
