@@ -138,19 +138,22 @@ jobs:
           # A successful home-page response alone can mask an incomplete Next
           # artifact. The route can become available a few seconds after PM2
           # reports the process online, so retry before declaring it missing.
-          # Without a session the endpoint is expected to return 401, not 404.
+          # System templates are public (the single copy admins maintain in the
+          # DB), so without a session the endpoint must return 200 with the
+          # system template payload: not 401 (visitors would fall back to code
+          # defaults) and not 404 (missing route).
           macro_prefs_status=""
           for attempt in {1..12}; do
             macro_prefs_status=\$(curl -sS --connect-timeout 2 --max-time 5 \
-              -o /dev/null -w "%{http_code}" \
+              -o /tmp/macro-prefs-check.json -w "%{http_code}" \
               http://127.0.0.1:3000/api/tools/macro-chart-prefs || true)
-            if [ "\$macro_prefs_status" = "401" ]; then
+            if [ "\$macro_prefs_status" = "200" ] && grep -q '"builtinTemplateOverrides"' /tmp/macro-prefs-check.json; then
               break
             fi
             sleep 2
           done
-          if [ "\$macro_prefs_status" != "401" ]; then
-            echo "[deploy] macro template preferences API unavailable (HTTP \$macro_prefs_status)"
+          if [ "\$macro_prefs_status" != "200" ] || ! grep -q '"builtinTemplateOverrides"' /tmp/macro-prefs-check.json; then
+            echo "[deploy] public system template API unavailable (HTTP \$macro_prefs_status)"
             pm2 logs finance-site --lines 40 --nostream
             exit 1
           fi
