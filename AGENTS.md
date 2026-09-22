@@ -57,7 +57,8 @@ finance-site/
 
 ### 功能页权限
 
-- 管理员在 `/admin/feature-access` 配置「普通用户 / Pro 用户」分别能看到哪些功能页；落 `public.feature_access_policy` 单例
+- 四类用户：游客 / 普通用户 / Pro（付费或 7 天试用）/ 管理员（永远最高权限）；管理员在 `/admin/feature-access` 配置，落 `public.feature_access_policy` 单例
+- 每页两种状态：**开发中**按游客/普通/Pro 三列控制可见；**已上线**所有人可见，只配「Pro 专属」（游客引导注册送试用、普通用户引导升级）
 - 目录与判定：`src/lib/access/featureCatalog.ts`（纯函数，有单测）；页面守卫 `<FeatureGate featureId>`；导航过滤 `useVisibleFeatures()`
 - 只控制页面入口，页面内部的 Pro 权益仍走 `requireProUser`；新增功能页需同步登记，详见 [docs/FEATURE_ACCESS.md](./docs/FEATURE_ACCESS.md)
 

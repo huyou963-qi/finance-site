@@ -17,9 +17,9 @@ export const fetchCache = "force-no-store";
 
 export default async function MacroFrameworkPage() {
   const gate = await checkFeatureAccess("macro-framework");
-  if (!gate.allowed) {
+  if (gate.state !== "allowed") {
     return (
-      <FeatureLocked featureId="macro-framework" needsPro={gate.needsPro} viewer={gate.viewer} />
+      <FeatureLocked featureId="macro-framework" state={gate.state} viewer={gate.viewer} />
     );
   }
   let indicators = INDICATORS;

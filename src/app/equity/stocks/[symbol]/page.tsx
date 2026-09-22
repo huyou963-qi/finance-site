@@ -26,9 +26,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function StockDetailPage({ params }: Props) {
   const gate = await checkFeatureAccess("markets");
-  if (!gate.allowed) {
+  if (gate.state !== "allowed") {
     return (
-      <FeatureLocked featureId="markets" needsPro={gate.needsPro} viewer={gate.viewer} />
+      <FeatureLocked featureId="markets" state={gate.state} viewer={gate.viewer} />
     );
   }
   const { symbol } = await params;

@@ -17,9 +17,9 @@ function dateLabel(value: string | null): string {
 
 export default async function ArticlesPage() {
   const gate = await checkFeatureAccess("articles");
-  if (!gate.allowed) {
+  if (gate.state !== "allowed") {
     return (
-      <FeatureLocked featureId="articles" needsPro={gate.needsPro} viewer={gate.viewer} />
+      <FeatureLocked featureId="articles" state={gate.state} viewer={gate.viewer} />
     );
   }
   const articles = await listArticles();

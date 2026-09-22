@@ -71,11 +71,20 @@ const QUANT_MATCH = [
   "/equity/regime",
 ] as const;
 
+/** 已上线的 Pro 专属功能、当前身份无权时，在入口旁加的小标记 */
+function ProMark() {
+  return (
+    <span className="ml-1 rounded-sm bg-linear-to-r from-[#00c8ad] to-[#075f78] px-1 text-[10px] font-semibold leading-4 tracking-normal text-white">
+      Pro
+    </span>
+  );
+}
+
 function matchesAny(pathname: string, bases: readonly string[]): boolean {
   return bases.some((b) => pathname === b || pathname.startsWith(`${b}/`));
 }
 
-type MobileNavLink = { href: string; label: string; active: boolean };
+type MobileNavLink = { href: string; label: string; active: boolean; pro?: boolean };
 
 /** 手机端（< 768px）导航抽屉：顶栏入口收进右侧抽屉 */
 function MobileNavDrawer({
@@ -104,6 +113,7 @@ function MobileNavDrawer({
       }`}
     >
       {item.label}
+      {item.pro ? <ProMark /> : null}
     </Link>
   );
 
@@ -216,6 +226,7 @@ export function SiteHeaderNav() {
             aria-current={active ? "page" : undefined}
           >
             {item.label}
+            {features.locked(item.featureId) ? <ProMark /> : null}
           </Link>
         );
       });
@@ -227,6 +238,7 @@ export function SiteHeaderNav() {
         href: item.href,
         label: item.label,
         active: matchesAny(pathname, item.match),
+        pro: features.locked(item.featureId),
       }));
 
   const mobileLinks: MobileNavLink[] = [
@@ -250,6 +262,7 @@ export function SiteHeaderNav() {
     href: item.href,
     label: item.label,
     active: matchesAny(pathname, [item.href]),
+    pro: features.locked(item.featureId),
   }));
 
   return (
@@ -319,6 +332,7 @@ export function SiteHeaderNav() {
                       onClick={() => setToolsOpen(false)}
                     >
                       {item.label}
+                      {features.locked(item.featureId) ? <ProMark /> : null}
                     </Link>
                   );
                 })}

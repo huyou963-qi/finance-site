@@ -10,12 +10,13 @@ import {
 import { userHasProAccess } from "@/lib/billing/access";
 import {
   defaultFeatureAccessPolicy,
-  isFeatureVisibleTo,
-  isProOnlyFeature,
   normalizeFeatureAccessPolicy,
-  visibleFeatureIds,
+  resolveFeatureAccess,
+  viewerFeatureMap,
   type FeatureAccessPolicy,
+  type FeatureAccessState,
   type FeatureViewer,
+  type ViewerFeatureMap,
 } from "@/lib/access/featureCatalog";
 
 const CACHE_TTL_MS = 15_000;
@@ -62,7 +63,9 @@ function toViewer(
   access: { role: "admin" | "user"; plan: string; planExpiresAt: Date | null; trialEndsAt: Date | null } | null,
 ): FeatureViewer {
   if (!access) return { role: null, hasProAccess: false };
-  return { role: access.role, hasProAccess: userHasProAccess(access) };
+  const hasProAccess = userHasProAccess(access);
+  const trialEnded = Boolean(access.trialEndsAt && access.trialEndsAt.getTime() <= Date.now());
+  return { role: access.role, hasProAccess, trialEnded };
 }
 
 /** 服务端组件 / 页面守卫用：从 cookie 解析访问者身份。 */
@@ -82,8 +85,8 @@ export async function getViewerFromRequest(req: NextRequest): Promise<FeatureVie
 
 export type FeatureGateResult = {
   allowed: boolean;
-  /** 未通过时：该功能是否只是「需要 Pro」（用于展示升级引导而非纯 404 文案） */
-  needsPro: boolean;
+  /** 未通过时的原因：hidden（开发中）/ needs-register（游客）/ needs-upgrade（普通用户） */
+  state: FeatureAccessState;
   viewer: FeatureViewer;
 };
 
@@ -93,19 +96,15 @@ export async function checkFeatureAccess(featureId: string): Promise<FeatureGate
     loadFeatureAccessPolicy(),
     getViewerFromCookies(),
   ]);
-  const allowed = isFeatureVisibleTo(policy, featureId, viewer);
-  return {
-    allowed,
-    needsPro: !allowed && isProOnlyFeature(policy, featureId),
-    viewer,
-  };
+  const state = resolveFeatureAccess(policy, featureId, viewer);
+  return { allowed: state === "allowed", state, viewer };
 }
 
-/** 当前访问者可见的功能 id 列表（导航栏按此过滤）。 */
-export async function listVisibleFeatureIdsForRequest(req: NextRequest): Promise<string[]> {
+/** 当前访问者的导航入口（listed）与需要 Pro 的入口（locked）。 */
+export async function featureMapForRequest(req: NextRequest): Promise<ViewerFeatureMap> {
   const [policy, viewer] = await Promise.all([
     loadFeatureAccessPolicy(),
     getViewerFromRequest(req),
   ]);
-  return visibleFeatureIds(policy, viewer);
+  return viewerFeatureMap(policy, viewer);
 }

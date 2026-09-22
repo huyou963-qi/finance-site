@@ -36,6 +36,11 @@ export function QuantSidebarNav() {
             aria-current={active ? "page" : undefined}
           >
             {item.label}
+            {features.locked(item.featureId) ? (
+              <span className="ml-1.5 rounded-sm bg-linear-to-r from-[#00c8ad] to-[#075f78] px-1 text-[10px] font-semibold leading-4 text-white">
+                Pro
+              </span>
+            ) : null}
           </Link>
         );
       })}
