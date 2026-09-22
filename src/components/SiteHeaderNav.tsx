@@ -11,7 +11,7 @@ import { IconClose, IconMenu } from "@/components/mobile/mobileIcons";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 
 const linkBase =
-  "rounded-md px-2.5 py-1 text-sm font-medium transition outline-none focus-visible:ring-2 focus-visible:ring-fs-accent/50";
+  "relative inline-flex min-h-12 items-center px-2.5 text-[15px] font-semibold tracking-[0.025em] transition-colors outline-none after:absolute after:bottom-1 after:left-2.5 after:right-2.5 after:h-0.5 after:rounded-full after:bg-linear-to-r after:from-[#00c8ad] after:to-[#075f78] after:opacity-0 after:transition-opacity focus-visible:ring-2 focus-visible:ring-fs-accent/50 max-md:min-h-10 max-md:rounded-md max-md:text-sm";
 
 const TOOL_LINKS = [
   { href: "/markets-tools", label: "K线区间统计", featureId: "tools-kline-range" },
@@ -194,8 +194,8 @@ export function SiteHeaderNav() {
   const linkClass = (active: boolean) =>
     `${linkBase} ${
       active
-        ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/25"
-        : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
+        ? "text-[#062f42] after:opacity-100"
+        : "text-fs-muted hover:text-[#062f42]"
     }`;
 
   // 宏观数据 / 美股行业 之间要插入其余主入口，保持原有顺序：宏观、美股行业、持股监控、
