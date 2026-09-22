@@ -34,6 +34,7 @@ import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
 import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPaymentsFredSeedCatalog";
 import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPmiCatalog";
 import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
+import { ECB_CORE_SERIES, EUROSTAT_CORE_SERIES } from "./europeCore/catalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -168,6 +169,54 @@ const JOLTS_FRED_IDS = ["JTSJOR", "JTSQUR", "JTSHIR", "JTSJOL"];
  * 勿在 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 新增项。
  */
 export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
+  pkg("eu.eurostat.gdp", "欧洲季度GDP", {
+    labelEn: "Eurostat Quarterly GDP",
+    countryCode: "EU", agencyId: "eu-eurostat", granularity: "QUARTERLY", sortOrder: 40,
+    calendar: { countryCodes: ["EU"], keywords: ["gdp growth rate", "gdp"] },
+    members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.gdp").map((series) => series.instrumentCode) },
+  }),
+  pkg("eu.eurostat.hicp", "欧洲HICP通胀", {
+    labelEn: "Eurostat HICP Inflation",
+    countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 41,
+    calendar: { countryCodes: ["EU"], keywords: ["inflation rate", "harmonised inflation", "hicp"] },
+    members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.hicp").map((series) => series.instrumentCode) },
+  }),
+  pkg("eu.eurostat.unemployment", "欧洲月度失业率", {
+    labelEn: "Eurostat Monthly Unemployment",
+    countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 42,
+    calendar: { countryCodes: ["EU"], keywords: ["unemployment rate"] },
+    members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.unemployment").map((series) => series.instrumentCode) },
+  }),
+  pkg("eu.eurostat.industrial_production", "欧洲工业生产", {
+    labelEn: "Eurostat Industrial Production",
+    countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 43,
+    calendar: { countryCodes: ["EU"], keywords: ["industrial production"] },
+    members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.industrial_production").map((series) => series.instrumentCode) },
+  }),
+  pkg("eu.eurostat.retail_trade", "欧洲零售销售量", {
+    labelEn: "Eurostat Retail Trade Volume",
+    countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 44,
+    calendar: { countryCodes: ["EU"], keywords: ["retail sales", "retail trade"] },
+    members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.retail_trade").map((series) => series.instrumentCode) },
+  }),
+  pkg("eu.eurostat.government_debt", "欧洲季度政府债务", {
+    labelEn: "Eurostat Quarterly Government Debt",
+    countryCode: "EU", agencyId: "eu-eurostat", granularity: "QUARTERLY", sortOrder: 45,
+    calendar: { countryCodes: ["EU"], keywords: ["government debt", "government debt to gdp"] },
+    members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.government_debt").map((series) => series.instrumentCode) },
+  }),
+  pkg("eu.ecb.key_rates", "ECB关键政策利率", {
+    labelEn: "ECB Key Interest Rates",
+    countryCode: "EU", agencyId: "eu-ecb", granularity: "DAILY", sortOrder: 46,
+    calendar: { countryCodes: ["EU"], keywords: ["ecb interest rate decision", "deposit facility rate"] },
+    members: { instrumentCodes: ECB_CORE_SERIES.filter((series) => series.packageId === "eu.ecb.key_rates").map((series) => series.instrumentCode) },
+  }),
+  pkg("eu.ecb.monetary_aggregates", "ECB货币总量", {
+    labelEn: "ECB Monetary Aggregates",
+    countryCode: "EU", agencyId: "eu-ecb", granularity: "MONTHLY", sortOrder: 47,
+    calendar: { countryCodes: ["EU"], keywords: ["money supply m3", "m3 money supply"] },
+    members: { instrumentCodes: ECB_CORE_SERIES.filter((series) => series.packageId === "eu.ecb.monetary_aggregates").map((series) => series.instrumentCode) },
+  }),
   probePkg("jp.housing_population", "日本住房与人口核心", {
     countryCode: "JP", granularity: "MONTHLY", intervalHours: 24,
     members: { instrumentCodes: [...JP_HOUSING_POPULATION_ESTAT_SERIES.map((series) => series.instrumentCode), JP_MLIT_PROPERTY_PRICE_SERIES.instrumentCode] },

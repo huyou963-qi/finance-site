@@ -70,6 +70,19 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
 
 /** Maps every country's source category into the same top-level taxonomy as the US. */
 export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement {
+  if (["EU", "EA", "DE", "FR", "IT", "ES", "NL", "PL"].includes(item.countryCode)) {
+    const code = item.key.startsWith("mds:") ? item.key.slice(4) : "";
+    if (code.startsWith("eurostat_") || code.startsWith("ecb_ea_")) {
+      if (code.endsWith("_gdp_real_index_sa")) return p("国民经济", "GDP：实际总量");
+      if (code.endsWith("_hicp_all_items")) return p("通胀与价格", "HICP");
+      if (code.endsWith("_unemployment_rate_sa")) return p("劳动力市场", "失业率");
+      if (code.endsWith("_industrial_production_sa")) return p("国民经济", "工业生产");
+      if (code.endsWith("_retail_volume_sa")) return p("国民经济", "零售销售");
+      if (code.endsWith("_government_debt")) return p("财政与公共债务", "政府债务");
+      if (code === "ecb_ea_deposit_facility_rate") return p("利率与信用市场", "ECB政策利率");
+      if (code === "ecb_ea_m3_stock") return p("货币政策与流动性", "货币存量");
+    }
+  }
   if (item.countryCode === "JP") {
     const code = item.key.startsWith("mds:") ? item.key.slice(4) : "";
     if (code.startsWith("jp_estat_lfs_")) return p("劳动力市场", /participation_rate|employment_rate/.test(code) ? "劳动参与率与就业率" : "就业与失业人数");

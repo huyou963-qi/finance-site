@@ -63,6 +63,14 @@ export async function fetchSubscriptionIncremental(
 
   if (sub.source.adapterKind === SourceAdapterKind.REST_API) {
     await sleep(minIntervalMs(sub.source));
+    if (sub.source.id === "eurostat") {
+      const { fetchEurostatIncremental } = await import("./adapters/eurostatAdapter");
+      return fetchEurostatIncremental(sub.instrument.code, fetchStart);
+    }
+    if (sub.source.id === "ecb-data") {
+      const { fetchEcbIncremental } = await import("./adapters/ecbAdapter");
+      return fetchEcbIncremental(sub.instrument.code, fetchStart);
+    }
     if (sub.source.id === "boj-time-series") {
       const { findJpBojCoreSeries } = await import("./bojCore/catalog");
       if (findJpBojCoreSeries(sub.instrument.code)) {

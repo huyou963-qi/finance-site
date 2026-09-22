@@ -114,6 +114,10 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     script: "seed-euro-composite-pmi-te",
     labelZh: "欧元区综合PMI（TE 抓取）",
   },
+  "europe-core": {
+    script: "seed-europe-core",
+    labelZh: "欧洲核心宏观（Eurostat + ECB）",
+  },
   "corporate-bond-financing": {
     script: "seed-corporate-bond-financing",
     labelZh: "美国非金融企业公司债存量/净发行（Z.1）",
@@ -268,6 +272,11 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "euro-composite-pmi": {
     script: "verify-euro-composite-pmi",
     labelZh: "欧元区综合PMI自检",
+    verifyNeedsDb: true,
+  },
+  "europe-core": {
+    script: "verify-europe-core",
+    labelZh: "欧洲核心宏观自检",
     verifyNeedsDb: true,
   },
   "corporate-bond-financing": {
