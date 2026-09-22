@@ -20,11 +20,6 @@ const TOOL_LINKS = [
     label: "统计分析",
     featureId: "tools-statistical-analysis",
   },
-  {
-    href: "/tools/futures-positions",
-    label: "期货持仓报告",
-    featureId: "tools-futures-positions",
-  },
 ] as const;
 
 /** 量化下的分页：顶栏「量化」入口指向第一个可见项 */

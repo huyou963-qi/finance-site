@@ -26,7 +26,6 @@ export const STATIC_SITEMAP_PAGES: readonly {
   { path: "/weekly", changeFrequency: "weekly", priority: 0.8 },
   { path: "/articles", changeFrequency: "daily", priority: 0.8 },
   { path: "/pricing", changeFrequency: "monthly", priority: 0.5 },
-  { path: "/tools/futures-positions", changeFrequency: "weekly", priority: 0.5 },
   { path: "/tools/statistical-analysis", changeFrequency: "monthly", priority: 0.4 },
 ];
 

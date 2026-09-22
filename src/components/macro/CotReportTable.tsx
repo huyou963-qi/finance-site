@@ -121,7 +121,7 @@ function DataRow({ row }: { row: CotReportRow }) {
 const SECTOR_ORDER: CotSector[] = ["energy", "metals", "grains", "softs", "livestock"];
 
 /** 拉取 CFTC Managed Money 持仓报告（/api/tools/cot-report） */
-export function useCotReport() {
+function useCotReport() {
   const [data, setData] = useState<CotReportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,8 +149,8 @@ export function useCotReport() {
   return { data, error, loading, load };
 }
 
-/** 期货持仓报告主表：工具页与宏观模板「期货持仓表」槽位共用 */
-export function CotReportTableView({
+/** 期货持仓报告主表（宏观模板「期货持仓表」槽位） */
+function CotReportTableView({
   data,
   loading,
 }: {

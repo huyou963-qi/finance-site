@@ -180,14 +180,6 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     description: "序列统计分析工具",
     defaults: IN_DEVELOPMENT,
   },
-  {
-    id: "tools-futures-positions",
-    label: "工具 · 期货持仓报告",
-    group: "工具",
-    paths: ["/tools/futures-positions"],
-    description: "CFTC 持仓报告工具",
-    defaults: IN_DEVELOPMENT,
-  },
 ] as const;
 
 export const FEATURE_GROUP_ORDER: readonly string[] = ["宏观", "美股", "量化", "内容", "工具"];
