@@ -1,0 +1,64 @@
+name: Sync system templates from production
+
+# 系统模板只由 admin 在 HK 线上界面编辑，唯一真源是生产库 SystemMacroChartPrefs。
+# 本任务每天把它导出成 data/system-macro-chart-prefs.json（+ .meta.json）并提交回仓库，
+# 让本机拉代码时总能拿到线上最新的模板，不会用旧快照覆盖线上改动。
+# 用 GITHUB_TOKEN 推送的提交不会触发其他工作流，所以不会引发部署；提交信息另带 [skip ci]。
+
+on:
+  schedule:
+    - cron: "30 18 * * *" # 每天北京时间 02:30
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-system-templates
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_USER: root
+      DEPLOY_PORT: "22"
+      APP_PATH: /opt/finance-site
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add server to known_hosts
+        run: ssh-keyscan -H -p "${DEPLOY_PORT}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Export system templates on server
+        run: |
+          ssh -p "${DEPLOY_PORT}" -o ConnectTimeout=30 "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" \
+            "cd ${APP_PATH} && rm -rf /tmp/system-templates-sync && npm run -s data:export-system-macro-chart-prefs -- --out-dir=/tmp/system-templates-sync"
+          scp -P "${DEPLOY_PORT}" \
+            "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:/tmp/system-templates-sync/system-macro-chart-prefs.json" \
+            "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:/tmp/system-templates-sync/system-macro-chart-prefs.meta.json" \
+            data/
+          node -e "const j=require('./data/system-macro-chart-prefs.json'); if (j.version !== 1 || !j.builtinTemplateOverrides) { console.error('unexpected snapshot'); process.exit(1); }"
+
+      - name: Commit if changed
+        run: |
+          # 只在模板内容变化时提交；仅导出时间变化不提交
+          if git diff --quiet -- data/system-macro-chart-prefs.json; then
+            git checkout -- data/system-macro-chart-prefs.meta.json 2>/dev/null || true
+            echo "system templates unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/system-macro-chart-prefs.json data/system-macro-chart-prefs.meta.json
+          git commit -m "chore(macro): sync system templates from HK production [skip ci]"
+          git push origin HEAD:main

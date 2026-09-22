@@ -271,6 +271,16 @@ npm run events:import-ingest -- <file.json>
 - 无合规来源（条款禁止抓取、需授权而未购买、需绕过访问控制）的指标不入库，宁缺勿滥。
 - 已退役指标登记在 `src/lib/data/retiredIndicators.ts`，由 `data:seed -- --catalog=retired-indicators` 随部署幂等清理并把模板引用替换为标准指标/指标运算；`data:verify -- --catalog=retired-indicators` 断言库内无复合订阅与派生标记。
 
+## 系统模板（强制）
+
+宏观页的系统模板**只有一份：HK 生产库 `SystemMacroChartPrefs`，只能由 admin 在线上界面（gekkotech.cn/macro 模板库）编辑**。所有人（含未登录访客）读的都是这一份。
+
+- 代码里的 `BUILTIN_*_TEMPLATE` / `*Layout.ts` 只是库里缺失时的兜底；37 个内置模板已全部在库里有 admin 版本（2026-09-22 固化），**改代码不会改变线上模板，也不要靠改代码来改模板**。新增的内置模板上线后同样要由 admin 保存一次进库。
+- 写入路径：admin 界面（`/api/tools/macro-chart-prefs` PUT，系统部分仅 admin）；`data:seed -- --catalog=retired-indicators` 会自动把库内模板里的退役键替换成标准键（维护这唯一一份，不算第二份）。
+- `data/system-macro-chart-prefs.json` 是**镜像**：GitHub Action `sync-system-templates` 每天从 HK 导出并自动提交（不触发部署）。本机提交前先 `git pull`。部署**不会**导入快照。
+- `npm run data:import-system-macro-chart-prefs` 会整行覆盖库；若库在快照导出（`.meta.json` 的 `dbUpdatedAt`）之后又被改过会拒绝，除非 `--force`——不要对生产用旧快照 `--force`。
+- 改模板前先在 HK 备份：`select prefs from public."SystemMacroChartPrefs" where id='default'` 导出到 `/root/deploy-bak/`。
+
 ## AI 工作检查清单
 
 完成任务前确认：

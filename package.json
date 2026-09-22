@@ -134,6 +134,7 @@
     "data:seed-retired-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/seed-retired-indicators.ts",
     "data:export-system-macro-chart-prefs": "dotenv -e .env.local -- tsx scripts/data-worker/sync-system-macro-chart-prefs.ts --export",
     "data:import-system-macro-chart-prefs": "dotenv -e .env.local -- tsx scripts/data-worker/sync-system-macro-chart-prefs.ts --import",
+    "data:freeze-builtin-templates": "dotenv -e .env.local -- tsx scripts/data-worker/freeze-builtin-templates.ts",
     "data:verify-retired-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/verify-retired-indicators.ts",
     "data:seed-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/seed-yahoo-gold-prices.ts",
     "data:verify-yahoo-gold-prices": "dotenv -e .env.local -- tsx scripts/data-worker/verify-yahoo-gold-prices.ts",

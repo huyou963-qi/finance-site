@@ -347,7 +347,11 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
   const selectedKeys = Array.isArray(o.selectedKeys)
     ? o.selectedKeys.map((x) => String(x).trim()).filter(Boolean)
     : [];
-  if (selectedKeys.length === 0) return null;
+  // 零指标只允许特殊视图（如 CPI 分项环比矩阵：displayConfig.slotModes 里带 cpiMomMatrix，本就不选指标）
+  const rawDisplay = o.displayConfig && typeof o.displayConfig === "object" ? (o.displayConfig as Record<string, unknown>) : null;
+  const slotModes = rawDisplay?.slotModes;
+  const hasSpecialSlot = Boolean(slotModes) && typeof slotModes === "object" && Object.keys(slotModes as object).length > 0;
+  if (selectedKeys.length === 0 && !hasSpecialSlot) return null;
   const selectedListItems = sanitizeSelectedListItems(o.selectedListItems);
   const slotAssignment =
     o.slotAssignment && typeof o.slotAssignment === "object"
