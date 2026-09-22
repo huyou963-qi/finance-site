@@ -20,7 +20,7 @@ async function main() {
   await prisma.dataSource.upsert({ where: { id: SAFE_EXTERNAL_SOURCE.id }, create: { ...SAFE_EXTERNAL_SOURCE, adapterKind: SourceAdapterKind.REST_API, rateLimit: { requestsPerMinute: 12, minIntervalMs: 5_000 } }, update: { agencyId: "cn-safe", name: SAFE_EXTERNAL_SOURCE.name, adapterKind: SourceAdapterKind.REST_API, baseUrl: SAFE_EXTERNAL_SOURCE.baseUrl, termsUrl: SAFE_EXTERNAL_SOURCE.termsUrl, rateLimit: { requestsPerMinute: 12, minIntervalMs: 5_000 } } });
   const { history, unavailable } = await fetchSafeExternalHistoryTolerant(requestedDatasets ? { datasets: requestedDatasets } : undefined); const probedAt = new Date().toISOString();
   // A withdrawn official page must not fail the deploy gate nor wipe that dataset's existing series.
-  for (const item of unavailable) console.warn(`[data:seed-safe-external] ⚠ 跳过 dataset=${item.dataset}（官方页面已下线，保留库内已有序列）：${item.message}`);
+  for (const item of unavailable) console.warn(`[data:seed-safe-external] ⚠ 跳过 dataset=${item.dataset}（官方来源不可用或结构已变化，保留库内已有序列）：${item.message}`);
   const unavailableKeys = new Set(unavailable.map((item) => item.dataset));
   const scannedDatasets = (requestedDatasets ?? SAFE_DATASETS.map((dataset) => dataset.key)).filter((dataset) => !unavailableKeys.has(dataset));
   // Series codes are derived from the stable official table identity. If a

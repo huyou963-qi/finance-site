@@ -62,11 +62,74 @@ export class SafePageUnavailableError extends Error {
   constructor(readonly url: string, readonly status: number) { super(`外管局页面 HTTP ${status}: ${url}`); this.name = "SafePageUnavailableError"; }
 }
 async function text(url: string): Promise<string> { const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(30_000) }); if (response.status === 404 || response.status === 410) throw new SafePageUnavailableError(url, response.status); if (!response.ok) throw new Error(`外管局页面 HTTP ${response.status}: ${url}`); return response.text(); }
-async function attachmentUrls(page: string): Promise<string[]> { const html = await text(page); const output: string[] = []; for (const match of html.matchAll(/href=["']([^"']+\.(?:xlsx?|xls))["']/gi)) output.push(new URL(match[1]!, page).toString()); return [...new Set(output)]; }
+/** The official source is reachable but no longer matches the expected attachment or table layout. */
+export class SafeSourceChangedError extends Error {
+  constructor(message: string) { super(message); this.name = "SafeSourceChangedError"; }
+}
+type SafeDatasetEntry = (typeof SAFE_DATASETS)[number];
+/** Workbook links on a landing page; `titleFilter` keeps only anchors whose title or text matches. */
+export function pickAttachmentUrls(html: string, page: string, titleFilter?: RegExp): string[] {
+  const output: string[] = [];
+  for (const match of html.matchAll(/<a\b([^>]*?)href=["']([^"']+\.xlsx?)["']([^>]*)>([^<]*)/gi)) {
+    const title = /title=["']([^"']*)["']/i.exec(`${match[1]} ${match[3]}`)?.[1] ?? "";
+    if (titleFilter && !titleFilter.test(title) && !titleFilter.test(compact(match[4]))) continue;
+    output.push(new URL(match[2]!, page).toString());
+  }
+  if (titleFilter && !output.length) throw new SafeSourceChangedError(`外管局页面未找到匹配 ${titleFilter} 的表格附件: ${page}`);
+  return [...new Set(output)];
+}
+async function attachmentUrls(page: string, dataset?: SafeDatasetEntry): Promise<string[]> { return pickAttachmentUrls(await text(page), page, dataset?.attachmentTitle); }
+
+// SAFE withdrew the Chinese settlement time-series page (2026-09); the English workbook carries the
+// identical table. Translating it back to the Chinese sheet/row/unit identity keeps series codes stable.
+const SETTLEMENT_EN_SHEETS: Readonly<Record<string, { sheet: string; enUnit: string; cnUnit: string }>> = {
+  "in RMB (Annual)": { sheet: "以人民币计价（年度）", enUnit: "Unit: RMB 100 million", cnUnit: "单位：亿元人民币" },
+  "in RMB (Monthly)": { sheet: "以人民币计价（月度）", enUnit: "Unit: RMB 100 million", cnUnit: "单位：亿元人民币" },
+  "in USD (Annual)": { sheet: "以美元计价（年度）", enUnit: "Unit: USD 100 million", cnUnit: "单位：亿美元" },
+  "in USD (Monthly)": { sheet: "以美元计价（月度）", enUnit: "Unit: USD 100 million", cnUnit: "单位：亿美元" },
+};
+const SETTLEMENT_FLOW_EN = ["(I) by banks for themselves", "(II) by banks for customers", "1. Current Account", "1.1 Trade in goods", "1.2. Trade in services", "1.3 Income and current transfer", "2. Capital and Financial Account", "Including: Direct investment", "Portfolio investment"];
+const SETTLEMENT_FLOW_CN = ["(一）银行自身", "(二）银行代客", "1.经常项目", "1.1货物贸易", "1.2服务贸易", "1.3收益和经常转移", "2.资本与金融项目", "其中: 直接投资", "证券投资"];
+const SETTLEMENT_EN_ROWS = [
+  "I. Foreign exchange settlement", ...SETTLEMENT_FLOW_EN, "II. Foreign exchange sales", ...SETTLEMENT_FLOW_EN, "III. Balance", ...SETTLEMENT_FLOW_EN,
+  "IV. Newly Signed Contract Amount of Forward Foreign Exchange Settlement and Sales", "V. Unwind Amount of Forward Foreign Exchange Settlement and Sales",
+  "VI. Rolling Amount of Forward Foreign Exchange Settlement and Sales", "VII. Outstanding Amount of Forward Foreign Exchange Settlement and Sales by the End of the Current Period",
+  "VIII. Net Delta Exposure of Outstanding Options",
+];
+const SETTLEMENT_CN_ROWS = [
+  "一、结汇", ...SETTLEMENT_FLOW_CN, "二、售汇", ...SETTLEMENT_FLOW_CN, "三、差额", ...SETTLEMENT_FLOW_CN,
+  "四、远期结售汇签约额", "五、远期结售汇平仓额", "六、远期结售汇展期额", "七、本期末远期结售汇累计未到期额", "八、未到期期权Delta净敞口",
+];
+
+/** Maps an English settlement sheet onto the original Chinese layout; any drift fails closed. */
+export function translateSettlementEnglishRows(sheetName: string, rows: unknown[][]): { sheetName: string; rows: unknown[][] } {
+  const target = SETTLEMENT_EN_SHEETS[compact(sheetName)];
+  if (!target) throw new SafeSourceChangedError(`外管局英文结售汇表出现未知工作表: ${sheetName}`);
+  const headerIndex = rows.findIndex((row) => compact(row[0]) === "Item");
+  if (headerIndex < 0) throw new SafeSourceChangedError(`外管局英文结售汇表缺少 Item 表头: ${sheetName}`);
+  if (!rows.slice(0, headerIndex).flat().some((cell) => compact(cell) === target.enUnit)) throw new SafeSourceChangedError(`外管局英文结售汇表单位变化（期望 ${target.enUnit}）: ${sheetName}`);
+  const labels = rows.slice(headerIndex + 1).map((row) => compact(row[0])).filter(Boolean);
+  if (labels.length !== SETTLEMENT_EN_ROWS.length || labels.some((label, index) => label !== SETTLEMENT_EN_ROWS[index])) {
+    const at = labels.findIndex((label, index) => label !== SETTLEMENT_EN_ROWS[index]);
+    throw new SafeSourceChangedError(`外管局英文结售汇表行结构变化: ${sheetName} 第 ${at < 0 ? labels.length : at + 1} 行 "${labels[at] ?? ""}"（共 ${labels.length} 行）`);
+  }
+  let position = 0;
+  const translated = rows.map((row, index) => {
+    if (index < headerIndex) return row.map((cell) => (compact(cell) === target.enUnit ? target.cnUnit : cell));
+    if (index === headerIndex) return ["项目", ...row.slice(1)];
+    return compact(row[0]) ? [SETTLEMENT_CN_ROWS[position++]!, ...row.slice(1)] : row;
+  });
+  return { sheetName: target.sheet, rows: translated };
+}
 async function workbook(url: string): Promise<XLSX.WorkBook> { const response = await fetchChinaOfficial(url, { headers: HEADERS, signal: AbortSignal.timeout(60_000) }); if (!response.ok) throw new Error(`外管局表格 HTTP ${response.status}: ${url}`); return XLSX.read(Buffer.from(await response.arrayBuffer()), { type: "buffer", cellDates: false }); }
 
 export function parseSafeExternalSheet(dataset: typeof SAFE_DATASETS[number], sheetName: string, sheet: XLSX.WorkSheet): SafeSeries[] {
   const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: true });
+  if (dataset.translate === "settlement-en") { const translated = translateSettlementEnglishRows(sheetName, rows); return parseSafeExternalRows(dataset, translated.sheetName, translated.rows); }
+  return parseSafeExternalRows(dataset, sheetName, rows);
+}
+
+function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName: string, rows: unknown[][]): SafeSeries[] {
   // Date serials and monetary values are both numbers in Excel. A valid header is
   // therefore restricted to the source's explicit “项目” row (or a blank leading cell
   // in the quarterly tables), never a numeric data row.
@@ -97,7 +160,7 @@ export function parseSafeExternalSheet(dataset: typeof SAFE_DATASETS[number], sh
 }
 
 export type SafeHistoryResult = { history: History; unavailable: { dataset: SafeDataset; message: string }[] };
-export type SafeLoaders = { attachmentUrls: (page: string) => Promise<string[]>; workbook: (url: string) => Promise<XLSX.WorkBook> };
+export type SafeLoaders = { attachmentUrls: (page: string, dataset: SafeDatasetEntry) => Promise<string[]>; workbook: (url: string) => Promise<XLSX.WorkBook> };
 const defaultLoaders: SafeLoaders = { attachmentUrls, workbook: async (url) => { await sleep(400); return workbook(url); } };
 
 /**
@@ -109,12 +172,12 @@ export async function collectSafeExternalHistory(selected: readonly (typeof SAFE
   for (const dataset of selected) {
     const local: SafeSeries[] = [];
     try {
-      for (const page of dataset.pages) for (const url of await loaders.attachmentUrls(page)) {
+      for (const page of dataset.pages) for (const url of await loaders.attachmentUrls(page, dataset)) {
         const book = await loaders.workbook(url);
         for (const sheetName of book.SheetNames) local.push(...parseSafeExternalSheet(dataset, sheetName, book.Sheets[sheetName]!));
       }
     } catch (error) {
-      if (!options.skipUnavailable || !(error instanceof SafePageUnavailableError)) throw error;
+      if (!options.skipUnavailable || !(error instanceof SafePageUnavailableError || error instanceof SafeSourceChangedError)) throw error;
       unavailable.push({ dataset: dataset.key, message: error.message }); continue;
     }
     for (const series of local) {
