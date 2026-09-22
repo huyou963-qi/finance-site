@@ -323,6 +323,13 @@ export function resolveMacroSeriesLabel(
     return key.slice(5).replace(/-/g, " ");
   }
 
+  // 模板里的 `mds:X::yoy` / `::pct` 等变体虚拟键：名称取基础序列的；
+  // 「同比% · 季频」等变换后缀由调用方按 seriesCalcConfig 另行追加
+  if (key.startsWith("mds:")) {
+    const sep = key.indexOf("::");
+    if (sep > 0) return resolveMacroSeriesLabel(key.slice(0, sep), opts);
+  }
+
   if (key.startsWith("fred:")) {
     const rest = key.slice(5);
     const sep = rest.indexOf("::");
