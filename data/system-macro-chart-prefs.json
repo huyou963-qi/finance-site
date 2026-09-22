@@ -217,10 +217,12 @@
     "builtin-us-overview": "folder-builtin-us-economy",
     "builtin-gold-analysis": null,
     "builtin-us-cpi-level0": "folder-builtin-us-cpi",
+    "builtin-japan-overview": null,
     "builtin-us-cpi-drivers": "folder-builtin-us-cpi",
     "builtin-us-econ-demand": "folder-builtin-us-economy",
     "builtin-custom-mtnqpztc": "folder-builtin-us-economy",
     "builtin-us-cpi-overview": "folder-builtin-us-cpi",
+    "builtin-us-cpi-subitems": "folder-builtin-us-cpi",
     "builtin-us-macro-regime": "folder-builtin-us-cycle-risk",
     "builtin-us-cpi-cost-push": "folder-builtin-us-cpi",
     "builtin-us-cpi-structure": "folder-builtin-us-cpi",
@@ -608,6 +610,582 @@
         }
       }
     },
+    "builtin-gold-analysis": {
+      "name": "黄金分析",
+      "layoutMode": 6,
+      "description": "由 黄金期货头寸.xlsx 导入的 28 项黄金市场指标：金价/美元、利率与通胀、管理基金持仓、COMEX 库存、黄金 ETF 与全球储备。",
+      "derivedCalcs": [
+        {
+          "id": "gold-basis",
+          "op": "sub",
+          "name": "期现差",
+          "leftKey": "mds:comex_gold_futures",
+          "rightKey": "mds:wgc_gold_price_usd"
+        }
+      ],
+      "selectedKeys": [
+        "mds:goldov_c06_mm_net",
+        "mds:goldov_c17_spdr_etf",
+        "mds:goldov_c18_ishares_etf",
+        "mds:goldov_c19_gbs_etf",
+        "mds:goldov_c20_phau_etf",
+        "mds:goldov_c21_sgbs_etf",
+        "mds:goldov_c22_gold_etf",
+        "mds:goldov_c23_comex_stock_oz",
+        "mds:goldov_c24_global_reserve_tons",
+        "mds:goldov_c27_brent",
+        "mds:wgc_gold_price_usd",
+        "mds:comex_gold_futures",
+        "fred:DFII10",
+        "mds:goldov_c23_comex_stock_oz::diff"
+      ],
+      "updatedAtIso": "2026-09-22T03:03:40.890Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "symbolSize": 7,
+        "areaOpacity": 0.25,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:DFII10": 1,
+        "calc:gold-basis": null,
+        "mds:goldov_c27_brent": null,
+        "mds:goldov_c06_mm_net": 2,
+        "mds:comex_gold_futures": null,
+        "mds:goldov_c19_gbs_etf": 4,
+        "mds:wgc_gold_price_usd": 0,
+        "mds:goldov_c17_spdr_etf": 4,
+        "mds:goldov_c20_phau_etf": 4,
+        "mds:goldov_c21_sgbs_etf": 4,
+        "mds:goldov_c22_gold_etf": 4,
+        "mds:goldov_c18_ishares_etf": 4,
+        "mds:goldov_c23_comex_stock_oz": 3,
+        "mds:goldov_c24_global_reserve_tons": 5,
+        "mds:goldov_c23_comex_stock_oz::diff": 3
+      },
+      "seriesVisualMap": {
+        "fred:DFII10": {
+          "axis": "right",
+          "color": "#8a6d3b",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:gold-basis": {
+          "axis": "left",
+          "color": "#9aa7b3",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c27_brent": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c06_mm_net": {
+          "axis": "left",
+          "color": "#d75a68",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:comex_gold_futures": {
+          "axis": "left",
+          "color": "#d86a7a",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c19_gbs_etf": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:wgc_gold_price_usd": {
+          "axis": "left",
+          "color": "#4bc0c8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c17_spdr_etf": {
+          "axis": "left",
+          "color": "#f2cf67",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c20_phau_etf": {
+          "axis": "left",
+          "color": "#8f74c8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c21_sgbs_etf": {
+          "axis": "left",
+          "color": "#5cb85c",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c22_gold_etf": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c18_ishares_etf": {
+          "axis": "left",
+          "color": "#6f84c0",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:goldov_c23_comex_stock_oz": {
+          "axis": "left",
+          "color": "#d9534f",
+          "chartType": "area",
+          "showEndLabel": true
+        },
+        "mds:goldov_c24_global_reserve_tons": {
+          "axis": "left",
+          "color": "#e8a04e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:goldov_c23_comex_stock_oz::diff": {
+          "axis": "right",
+          "color": "#8a6d3b",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:goldov_c06_mm_net",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c17_spdr_etf",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c18_ishares_etf",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c19_gbs_etf",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c20_phau_etf",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c21_sgbs_etf",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c22_gold_etf",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c23_comex_stock_oz",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c24_global_reserve_tons",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c27_brent",
+          "type": "series"
+        },
+        {
+          "key": "mds:wgc_gold_price_usd",
+          "type": "series"
+        },
+        {
+          "key": "mds:comex_gold_futures",
+          "type": "series"
+        },
+        {
+          "key": "fred:DFII10",
+          "type": "series"
+        },
+        {
+          "key": "mds:goldov_c23_comex_stock_oz::diff",
+          "type": "series"
+        },
+        {
+          "key": "calc:gold-basis",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:goldov_c23_comex_stock_oz::diff": {
+          "op": "diff",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-japan-overview": {
+      "name": "Japan_Overview",
+      "layoutMode": 6,
+      "description": "由 Japan_Overview.xlsx 导入的日本总览图组。点击后自动从数据库读取并按预置样式绘制。",
+      "derivedCalcs": [
+        {
+          "id": "jpov-jgb-10y2y",
+          "op": "sub",
+          "name": "国债利率:10年-2年",
+          "leftKey": "mds:jpov_c06_jgb_10y",
+          "rightKey": "mds:jpov_c07_jgb_2y"
+        }
+      ],
+      "selectedKeys": [
+        "mds:jpov_c01_nikkei225",
+        "mds:jpov_c06_jgb_10y",
+        "mds:jpov_c07_jgb_2y",
+        "mds:jpov_c15_consumer_conf_sa",
+        "mds:jpov_c22_public_debt_gdp",
+        "mds:esri_jp_gdp_gdp_real_saar::yoy",
+        "mds:esri_jp_gdp_gdp_nominal_saar::yoy",
+        "mds:boj_jp_uncollateralized_overnight_call_rate_monthly_average",
+        "mds:jp_estat_cpi_2025_national_all::yoy",
+        "mds:boj_jp_cgpi::yoy",
+        "mds:jp_stat_lfs_unemployment_rate_sa",
+        "mds:boj_jp_monetary_base::yoy",
+        "mds:boj_jp_m1::yoy",
+        "mds:boj_jp_m2::yoy",
+        "mds:boj_jp_accounts_total_assets",
+        "mds:boj_jp_accounts_jgs_holdings",
+        "mds:cao_jp_watchers_outlook_total_di_sa",
+        "mds:cao_jp_watchers_current_total_di_sa"
+      ],
+      "updatedAtIso": "2026-09-22T03:14:21.800Z",
+      "displayConfig": {
+        "lineWidth": 1.8,
+        "lineSmooth": true,
+        "showLegend": true,
+        "symbolSize": 7,
+        "areaOpacity": 0.2,
+        "barMaxWidth": 16,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:boj_jp_m1::yoy": 3,
+        "mds:boj_jp_m2::yoy": 3,
+        "calc:jpov-jgb-10y2y": 1,
+        "mds:jpov_c07_jgb_2y": 1,
+        "mds:boj_jp_cgpi::yoy": 2,
+        "mds:jpov_c06_jgb_10y": 1,
+        "mds:jpov_c01_nikkei225": 0,
+        "mds:jpov_c22_public_debt_gdp": 4,
+        "mds:boj_jp_monetary_base::yoy": 3,
+        "mds:jpov_c15_consumer_conf_sa": 5,
+        "mds:boj_jp_accounts_jgs_holdings": 4,
+        "mds:boj_jp_accounts_total_assets": 4,
+        "mds:esri_jp_gdp_gdp_real_saar::yoy": 0,
+        "mds:jp_stat_lfs_unemployment_rate_sa": 2,
+        "mds:esri_jp_gdp_gdp_nominal_saar::yoy": 0,
+        "mds:cao_jp_watchers_current_total_di_sa": 5,
+        "mds:cao_jp_watchers_outlook_total_di_sa": 5,
+        "mds:jp_estat_cpi_2025_national_all::yoy": 2,
+        "mds:boj_jp_uncollateralized_overnight_call_rate_monthly_average": 1
+      },
+      "seriesVisualMap": {
+        "mds:boj_jp_m1::yoy": {
+          "axis": "left",
+          "color": "#d99545",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:boj_jp_m2::yoy": {
+          "axis": "left",
+          "color": "#8f79c4",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:jpov-jgb-10y2y": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:jpov_c07_jgb_2y": {
+          "axis": "left",
+          "color": "#9da8b6",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:boj_jp_cgpi::yoy": {
+          "axis": "left",
+          "color": "#66a090",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:jpov_c06_jgb_10y": {
+          "axis": "left",
+          "color": "#f0d36d",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:jpov_c01_nikkei225": {
+          "axis": "right",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:jpov_c22_public_debt_gdp": {
+          "axis": "right",
+          "color": "#d86a7a",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:boj_jp_monetary_base::yoy": {
+          "axis": "left",
+          "color": "#8e9bb2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:jpov_c15_consumer_conf_sa": {
+          "axis": "left",
+          "color": "#3f4f86",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:boj_jp_accounts_jgs_holdings": {
+          "axis": "left",
+          "color": "#8f74c8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:boj_jp_accounts_total_assets": {
+          "axis": "left",
+          "color": "#61dbe1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:esri_jp_gdp_gdp_real_saar::yoy": {
+          "axis": "left",
+          "color": "#f39c3d",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:jp_stat_lfs_unemployment_rate_sa": {
+          "axis": "right",
+          "color": "#f2cf67",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:esri_jp_gdp_gdp_nominal_saar::yoy": {
+          "axis": "left",
+          "color": "#2aa7b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:cao_jp_watchers_current_total_di_sa": {
+          "axis": "left",
+          "color": "#67b36d",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:cao_jp_watchers_outlook_total_di_sa": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:jp_estat_cpi_2025_national_all::yoy": {
+          "axis": "left",
+          "color": "#e3c44c",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:boj_jp_uncollateralized_overnight_call_rate_monthly_average": {
+          "axis": "left",
+          "color": "#d75a68",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:jpov_c01_nikkei225",
+          "type": "series"
+        },
+        {
+          "key": "mds:jpov_c06_jgb_10y",
+          "type": "series"
+        },
+        {
+          "key": "mds:jpov_c07_jgb_2y",
+          "type": "series"
+        },
+        {
+          "key": "mds:jpov_c15_consumer_conf_sa",
+          "type": "series"
+        },
+        {
+          "key": "mds:jpov_c22_public_debt_gdp",
+          "type": "series"
+        },
+        {
+          "key": "mds:esri_jp_gdp_gdp_real_saar::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:esri_jp_gdp_gdp_nominal_saar::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:boj_jp_uncollateralized_overnight_call_rate_monthly_average",
+          "type": "series"
+        },
+        {
+          "key": "mds:jp_estat_cpi_2025_national_all::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:boj_jp_cgpi::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:jp_stat_lfs_unemployment_rate_sa",
+          "type": "series"
+        },
+        {
+          "key": "mds:boj_jp_monetary_base::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:boj_jp_m1::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:boj_jp_m2::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:boj_jp_accounts_total_assets",
+          "type": "series"
+        },
+        {
+          "key": "mds:boj_jp_accounts_jgs_holdings",
+          "type": "series"
+        },
+        {
+          "key": "mds:cao_jp_watchers_outlook_total_di_sa",
+          "type": "series"
+        },
+        {
+          "key": "mds:cao_jp_watchers_current_total_di_sa",
+          "type": "series"
+        },
+        {
+          "key": "calc:jpov-jgb-10y2y",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:boj_jp_m1::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:boj_jp_m2::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:boj_jp_cgpi::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:boj_jp_monetary_base::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:boj_jp_accounts_jgs_holdings": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "mds:boj_jp_accounts_total_assets": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "mds:esri_jp_gdp_gdp_real_saar::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "mds:jp_stat_lfs_unemployment_rate_sa": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "mds:esri_jp_gdp_gdp_nominal_saar::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "mds:cao_jp_watchers_current_total_di_sa": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "mds:cao_jp_watchers_outlook_total_di_sa": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "mds:jp_estat_cpi_2025_national_all::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:boj_jp_uncollateralized_overnight_call_rate_monthly_average": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        }
+      }
+    },
     "builtin-us-cpi-drivers": {
       "name": "CPI 驱动 · 外生与政策",
       "layoutMode": 4,
@@ -942,6 +1520,314 @@
         }
       }
     },
+    "builtin-us-cpi-overview": {
+      "name": "CPI 诊断 · 总览",
+      "layoutMode": 4,
+      "description": "【第一步 · 通常够用】按图 1→4 回答：总通胀多高？差在能源/食品还是核心？粘性在 OER、商品还是服务？发布月补看环比。写清 1–2 条主因即可；若要追油价/PPI/工资/预期 → 加载「CPI 驱动 · 外生与政策」。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:CPIAUCSL::yoy",
+        "fred:CPILFESL::yoy",
+        "fred:CPIENGSL::yoy",
+        "fred:CPIFABSL::yoy",
+        "fred:CUSR0000SEHC::yoy",
+        "fred:CUSR0000SACL1E::yoy",
+        "fred:CUSR0000SASLE::yoy",
+        "fred:CPIAUCSL::mom",
+        "fred:CPILFESL::mom"
+      ],
+      "updatedAtIso": "2026-09-22T03:08:21.947Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "总水平：Headline vs Core",
+          "1": "边缘冲击：能源 vs 食品",
+          "2": "结构：OER vs 商品 vs 服务",
+          "3": "发布月动能：环比"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:CPIAUCSL::mom": 3,
+        "fred:CPIAUCSL::yoy": 0,
+        "fred:CPIENGSL::yoy": 1,
+        "fred:CPIFABSL::yoy": 1,
+        "fred:CPILFESL::mom": 3,
+        "fred:CPILFESL::yoy": 0,
+        "fred:CUSR0000SEHC::yoy": 2,
+        "fred:CUSR0000SASLE::yoy": 2,
+        "fred:CUSR0000SACL1E::yoy": 2
+      },
+      "seriesVisualMap": {
+        "fred:CPIAUCSL::mom": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "fred:CPIAUCSL::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CPIENGSL::yoy": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CPIFABSL::yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CPILFESL::mom": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "fred:CPILFESL::yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CUSR0000SEHC::yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CUSR0000SASLE::yoy": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CUSR0000SACL1E::yoy": {
+          "axis": "left",
+          "color": "#f4b165",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:CPIAUCSL::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CPILFESL::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CPIENGSL::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CPIFABSL::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CUSR0000SEHC::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CUSR0000SACL1E::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CUSR0000SASLE::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CPIAUCSL::mom",
+          "type": "series"
+        },
+        {
+          "key": "fred:CPILFESL::mom",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:CPIAUCSL::mom": {
+          "op": "pctChange",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CPIAUCSL::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CPIENGSL::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CPIFABSL::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CPILFESL::mom": {
+          "op": "pctChange",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CPILFESL::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CUSR0000SEHC::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CUSR0000SASLE::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CUSR0000SACL1E::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-cpi-subitems": {
+      "name": "CPI 分项 · 环比矩阵",
+      "layoutMode": 1,
+      "description": "BLS Table A 风格分项季调环比矩阵：按食品/能源/核心商品与服务层级展示近月环比、最新月同比与相对重要性权重，用于快速定位当月通胀驱动。",
+      "derivedCalcs": [],
+      "selectedKeys": [],
+      "updatedAtIso": "2026-09-22T03:38:02.931Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "slotModes": {
+          "0": "cpiMomMatrix"
+        },
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "CPI 分项季调环比（BLS Table A）"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "slotShowTitles": {
+          "0": true
+        },
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {},
+      "seriesVisualMap": {},
+      "seriesCalcConfigMap": {}
+    },
+    "builtin-us-macro-regime": {
+      "name": "宏观 Regime · 增长与通胀四象限",
+      "layoutMode": 1,
+      "description": "量化页与宏观页共用 mds.MacroRegime：蓝线为增长 z，橙线为通胀动量 z；背景色带为增长方向 × 通胀方向的 Dalio 四象限。全程近似 PIT，月度生产任务更新后两处同步生效。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "mds:quant_regime_growth_z",
+        "mds:quant_regime_inflation_mom_z",
+        "mds:quant_regime_quadrant_band"
+      ],
+      "updatedAtIso": "2026-09-22T03:10:32.403Z",
+      "displayConfig": {
+        "lineWidth": 1.8,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "宏观 Regime：增长 z 与通胀动量 z"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 22,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 0,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 11,
+        "yLabelFontSize": 11,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:quant_regime_growth_z": 0,
+        "mds:quant_regime_quadrant_band": null,
+        "mds:quant_regime_inflation_mom_z": 0
+      },
+      "seriesVisualMap": {
+        "mds:quant_regime_growth_z": {
+          "axis": "left",
+          "color": "#3987e5",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:quant_regime_inflation_mom_z": {
+          "axis": "left",
+          "color": "#c98500",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:quant_regime_growth_z",
+          "type": "series"
+        },
+        {
+          "key": "mds:quant_regime_inflation_mom_z",
+          "type": "series"
+        },
+        {
+          "key": "mds:quant_regime_quadrant_band",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {}
+    },
     "builtin-us-econ-overview": {
       "name": "经济 Overview · 四支柱快照",
       "layoutMode": 4,
@@ -1142,6 +2028,376 @@
         }
       }
     },
+    "builtin-us-labor-drivers": {
+      "name": "就业驱动 · 流动与领先",
+      "layoutMode": 4,
+      "description": "【第二步 · 按需】不重复 U-3/非农/参与率/时薪。图 1–2 看 JOLTS 紧张与流动，图 3 初请领先，图 4 失业久期与工时。与模板 ① 合并成劳动力叙事。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:JTSJOR",
+        "fred:JTSQUR::tight",
+        "fred:JTSHIR",
+        "fred:JTSQUR::flow",
+        "fred:ICSA::avg",
+        "fred:UEMPMEAN",
+        "fred:AWHNONAG"
+      ],
+      "updatedAtIso": "2026-09-22T03:05:57.857Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "紧张度：空缺 vs 离职",
+          "1": "流动：雇佣 vs 离职",
+          "2": "领先：初请失业金",
+          "3": "深度：久期 vs 工时"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:JTSHIR": 1,
+        "fred:JTSJOR": 0,
+        "fred:AWHNONAG": 3,
+        "fred:UEMPMEAN": 3,
+        "fred:ICSA::avg": 2,
+        "fred:JTSQUR::flow": 1,
+        "fred:JTSQUR::tight": 0
+      },
+      "seriesVisualMap": {
+        "fred:JTSHIR": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:JTSJOR": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:AWHNONAG": {
+          "axis": "right",
+          "color": "#6ccad1",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "fred:UEMPMEAN": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:ICSA::avg": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:JTSQUR::flow": {
+          "axis": "right",
+          "color": "#c9a227",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "fred:JTSQUR::tight": {
+          "axis": "right",
+          "color": "#c9a227",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:JTSJOR",
+          "type": "series"
+        },
+        {
+          "key": "fred:JTSQUR::tight",
+          "type": "series"
+        },
+        {
+          "key": "fred:JTSHIR",
+          "type": "series"
+        },
+        {
+          "key": "fred:JTSQUR::flow",
+          "type": "series"
+        },
+        {
+          "key": "fred:ICSA::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:UEMPMEAN",
+          "type": "series"
+        },
+        {
+          "key": "fred:AWHNONAG",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:JTSHIR": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:JTSJOR": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:AWHNONAG": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:UEMPMEAN": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:ICSA::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:JTSQUR::flow": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:JTSQUR::tight": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        }
+      }
+    },
+    "builtin-cn-fiscal-revenue": {
+      "name": "财政收入 · 税基、央地与土地财力",
+      "layoutMode": 4,
+      "description": "【第二步 · 收入解释】总收入增速已在总览模板，本模板只拆税收/非税、中央/地方本级收入、主要税基和土地财力。地方本级收入不含中央转移支付，不能直接与地方支出相减。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "mds:mof_cn_fiscal_tax_revenue_yoy",
+        "mds:mof_cn_fiscal_nontax_revenue_yoy",
+        "mds:mof_cn_fiscal_general_revenue_central_yoy",
+        "mds:mof_cn_fiscal_general_revenue_local_yoy",
+        "mds:mof_cn_fiscal_vat_yoy",
+        "mds:mof_cn_fiscal_corporate_income_tax_yoy",
+        "mds:mof_cn_fiscal_personal_income_tax_yoy",
+        "mds:mof_cn_fiscal_fund_revenue_local_yoy",
+        "mds:mof_cn_fiscal_land_transfer_revenue_yoy"
+      ],
+      "updatedAtIso": "2026-09-22T03:13:56.657Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "一般公共预算收入质量：税收 vs 非税",
+          "1": "中央与地方本级收入累计同比",
+          "2": "主要税基：增值税、企业所得税、个人所得税",
+          "3": "地方基金与土地出让收入累计同比"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:mof_cn_fiscal_vat_yoy": 2,
+        "mds:mof_cn_fiscal_tax_revenue_yoy": 0,
+        "mds:mof_cn_fiscal_nontax_revenue_yoy": 0,
+        "mds:mof_cn_fiscal_fund_revenue_local_yoy": 3,
+        "mds:mof_cn_fiscal_personal_income_tax_yoy": 2,
+        "mds:mof_cn_fiscal_corporate_income_tax_yoy": 2,
+        "mds:mof_cn_fiscal_general_revenue_local_yoy": 1,
+        "mds:mof_cn_fiscal_land_transfer_revenue_yoy": 3,
+        "mds:mof_cn_fiscal_general_revenue_central_yoy": 1
+      },
+      "seriesVisualMap": {
+        "mds:mof_cn_fiscal_vat_yoy": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_tax_revenue_yoy": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_nontax_revenue_yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_revenue_local_yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_personal_income_tax_yoy": {
+          "axis": "left",
+          "color": "#c97b84",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_corporate_income_tax_yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_revenue_local_yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_land_transfer_revenue_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_revenue_central_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:mof_cn_fiscal_tax_revenue_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_nontax_revenue_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_revenue_central_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_revenue_local_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_vat_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_corporate_income_tax_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_personal_income_tax_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_revenue_local_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_land_transfer_revenue_yoy",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:mof_cn_fiscal_vat_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_tax_revenue_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_nontax_revenue_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_revenue_local_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_personal_income_tax_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_corporate_income_tax_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_revenue_local_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_land_transfer_revenue_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_revenue_central_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
     "builtin-us-labor-overview": {
       "name": "就业诊断 · 总览",
       "layoutMode": 4,
@@ -1287,6 +2543,694 @@
           "op": "yoy",
           "unit": "keep",
           "frequency": "month",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-cn-fiscal-overview": {
+      "name": "财政全景 · 双账本增速与赤字",
+      "layoutMode": 4,
+      "description": "【第一步 · 财政总览】图 1–2 比较一般公共预算、政府性基金预算各自的收支累计同比；图 3 看两账本各自及合并可观察赤字代理；图 4 才用年度名义 GDP 标准化。代理未处理调入调出、结转结余及账间重复，不等于官方赤字率。",
+      "derivedCalcs": [
+        {
+          "id": "cn-fiscal-general-deficit-proxy",
+          "op": "sub",
+          "name": "一般公共预算赤字代理（亿元）",
+          "leftKey": "mds:mof_cn_fiscal_general_expenditure_amount",
+          "rightKey": "mds:mof_cn_fiscal_general_revenue_amount"
+        },
+        {
+          "id": "cn-fiscal-fund-deficit-proxy",
+          "op": "sub",
+          "name": "政府性基金预算赤字代理（亿元）",
+          "leftKey": "mds:mof_cn_fiscal_fund_expenditure_amount",
+          "rightKey": "mds:mof_cn_fiscal_fund_revenue_amount"
+        },
+        {
+          "id": "cn-fiscal-two-book-expenditure-total",
+          "op": "add",
+          "name": "两账本支出合计（中间值）",
+          "hidden": true,
+          "leftKey": "mds:mof_cn_fiscal_general_expenditure_amount",
+          "rightKey": "mds:mof_cn_fiscal_fund_expenditure_amount"
+        },
+        {
+          "id": "cn-fiscal-two-book-revenue-total",
+          "op": "add",
+          "name": "两账本收入合计（中间值）",
+          "hidden": true,
+          "leftKey": "mds:mof_cn_fiscal_general_revenue_amount",
+          "rightKey": "mds:mof_cn_fiscal_fund_revenue_amount"
+        },
+        {
+          "id": "cn-fiscal-two-book-deficit-proxy",
+          "op": "sub",
+          "name": "两账本合并可观察赤字代理（亿元）",
+          "leftKey": "calc:cn-fiscal-two-book-expenditure-total",
+          "rightKey": "calc:cn-fiscal-two-book-revenue-total"
+        },
+        {
+          "id": "cn-fiscal-two-book-expenditure-total-year",
+          "op": "add",
+          "name": "两账本年度支出合计（中间值）",
+          "hidden": true,
+          "leftKey": "mds:mof_cn_fiscal_general_expenditure_amount::year-end",
+          "rightKey": "mds:mof_cn_fiscal_fund_expenditure_amount::year-end"
+        },
+        {
+          "id": "cn-fiscal-two-book-revenue-total-year",
+          "op": "add",
+          "name": "两账本年度收入合计（中间值）",
+          "hidden": true,
+          "leftKey": "mds:mof_cn_fiscal_general_revenue_amount::year-end",
+          "rightKey": "mds:mof_cn_fiscal_fund_revenue_amount::year-end"
+        },
+        {
+          "id": "cn-fiscal-two-book-deficit-year",
+          "op": "sub",
+          "name": "两账本年度可观察赤字（中间值）",
+          "hidden": true,
+          "leftKey": "calc:cn-fiscal-two-book-expenditure-total-year",
+          "rightKey": "calc:cn-fiscal-two-book-revenue-total-year"
+        },
+        {
+          "id": "cn-fiscal-two-book-deficit-gdp",
+          "op": "ratio",
+          "name": "两账本合并可观察赤字/GDP（%）",
+          "scale": 100,
+          "leftKey": "calc:cn-fiscal-two-book-deficit-year",
+          "rightKey": "mds:nbs_cn_gdp_a_headline_nominal::year"
+        }
+      ],
+      "selectedKeys": [
+        "mds:mof_cn_fiscal_general_revenue_yoy",
+        "mds:mof_cn_fiscal_general_expenditure_yoy",
+        "mds:mof_cn_fiscal_fund_revenue_yoy",
+        "mds:mof_cn_fiscal_fund_expenditure_yoy",
+        "mds:mof_cn_fiscal_general_revenue_amount",
+        "mds:mof_cn_fiscal_general_expenditure_amount",
+        "mds:mof_cn_fiscal_fund_revenue_amount",
+        "mds:mof_cn_fiscal_fund_expenditure_amount",
+        "mds:mof_cn_fiscal_general_revenue_amount::year-end",
+        "mds:mof_cn_fiscal_general_expenditure_amount::year-end",
+        "mds:mof_cn_fiscal_fund_revenue_amount::year-end",
+        "mds:mof_cn_fiscal_fund_expenditure_amount::year-end",
+        "mds:nbs_cn_gdp_a_headline_nominal",
+        "mds:nbs_cn_gdp_a_headline_nominal::year"
+      ],
+      "updatedAtIso": "2026-09-22T03:13:33.175Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "一般公共预算收支累计同比",
+          "1": "政府性基金预算收支累计同比",
+          "2": "两账本赤字代理（正值=支出高于收入）",
+          "3": "两账本合并可观察赤字/GDP（年度）"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "calc:cn-fiscal-fund-deficit-proxy": 2,
+        "mds:nbs_cn_gdp_a_headline_nominal": null,
+        "mds:mof_cn_fiscal_fund_revenue_yoy": 1,
+        "calc:cn-fiscal-two-book-deficit-gdp": 3,
+        "calc:cn-fiscal-general-deficit-proxy": 2,
+        "calc:cn-fiscal-two-book-deficit-proxy": 2,
+        "mds:mof_cn_fiscal_fund_revenue_amount": null,
+        "mds:mof_cn_fiscal_general_revenue_yoy": 0,
+        "mds:mof_cn_fiscal_fund_expenditure_yoy": 1,
+        "mds:nbs_cn_gdp_a_headline_nominal::year": null,
+        "mds:mof_cn_fiscal_general_revenue_amount": null,
+        "mds:mof_cn_fiscal_fund_expenditure_amount": null,
+        "mds:mof_cn_fiscal_general_expenditure_yoy": 0,
+        "mds:mof_cn_fiscal_general_expenditure_amount": null,
+        "mds:mof_cn_fiscal_fund_revenue_amount::year-end": null,
+        "mds:mof_cn_fiscal_general_revenue_amount::year-end": null,
+        "mds:mof_cn_fiscal_fund_expenditure_amount::year-end": null,
+        "mds:mof_cn_fiscal_general_expenditure_amount::year-end": null
+      },
+      "seriesVisualMap": {
+        "calc:cn-fiscal-fund-deficit-proxy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_a_headline_nominal": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_revenue_yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-fiscal-two-book-deficit-gdp": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-fiscal-general-deficit-proxy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "calc:cn-fiscal-two-book-deficit-proxy": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_revenue_amount": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_revenue_yoy": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_a_headline_nominal::year": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_revenue_amount": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_amount": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_expenditure_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_revenue_amount::year-end": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_revenue_amount::year-end": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_amount::year-end": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount::year-end": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:mof_cn_fiscal_general_revenue_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_expenditure_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_revenue_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_expenditure_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_revenue_amount",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_expenditure_amount",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_revenue_amount",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_expenditure_amount",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_revenue_amount::year-end",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_expenditure_amount::year-end",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_revenue_amount::year-end",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_expenditure_amount::year-end",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_a_headline_nominal",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_a_headline_nominal::year",
+          "type": "series"
+        },
+        {
+          "key": "calc:cn-fiscal-general-deficit-proxy",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-fiscal-fund-deficit-proxy",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-fiscal-two-book-deficit-proxy",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-fiscal-two-book-deficit-gdp",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:nbs_cn_gdp_a_headline_nominal": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_revenue_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_revenue_amount": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_revenue_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_a_headline_nominal::year": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "year",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_revenue_amount": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_amount": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_expenditure_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_revenue_amount::year-end": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "year",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_revenue_amount::year-end": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "year",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_amount::year-end": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "year",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount::year-end": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "year",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-fiscal-highfreq": {
+      "name": "高频跟踪 · 现金流与融资",
+      "layoutMode": 5,
+      "description": "【第三步 · 发布月/周】MTS 月表（现金）、TGA 与 DTS 日频、Debt to the Penny 周净增发。FY 日历 10/1–9/30；DTS 日净流 = Deposits−Withdrawals（百万美元），非 BEA 权责赤字。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "mds:treasury_mts_m01_deficit",
+        "mds:treasury_mts_m01_receipts",
+        "mds:treasury_mts_m01_outlays",
+        "mds:treasury_dts_tga_balance",
+        "mds:treasury_dts_daily_net_cash",
+        "mds:treasury_debt_penny_net_weekly"
+      ],
+      "updatedAtIso": "2026-09-22T03:09:51.285Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "F5a MTS 月赤字（现金）",
+          "1": "F5a MTS 月收入 vs 支出（水平）",
+          "2": "F5b TGA 余额",
+          "3": "F5b DTS 日净现金流",
+          "4": "F5c 周净发债"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:treasury_dts_tga_balance": 2,
+        "mds:treasury_mts_m01_deficit": 0,
+        "mds:treasury_mts_m01_outlays": 1,
+        "mds:treasury_mts_m01_receipts": 1,
+        "mds:treasury_dts_daily_net_cash": 3,
+        "mds:treasury_debt_penny_net_weekly": 4
+      },
+      "seriesVisualMap": {
+        "mds:treasury_dts_tga_balance": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m01_deficit": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m01_outlays": {
+          "axis": "right",
+          "color": "#ef6461",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m01_receipts": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:treasury_dts_daily_net_cash": {
+          "axis": "left",
+          "color": "#9ea68b",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:treasury_debt_penny_net_weekly": {
+          "axis": "left",
+          "color": "#6f84c0",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:treasury_mts_m01_deficit",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_receipts",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_outlays",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_tga_balance",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_daily_net_cash",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_debt_penny_net_weekly",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:treasury_dts_tga_balance": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m01_deficit": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m01_outlays": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m01_receipts": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_dts_daily_net_cash": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_debt_penny_net_weekly": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-fiscal-overview": {
+      "name": "财政总览 · 存量与流量",
+      "layoutMode": 3,
+      "description": "【第一步 · 初学者入口】按图 1→3 写 L0（≤150 字）：债务负担、赤字/GDP、初级赤字与利息。口径：OMB/FRED 为权责/GDP 比率；MTS/DTS 在视图 C。若问「为什么赤字变」→ 加载「财政结构 · 收支拆解」。",
+      "derivedCalcs": [
+        {
+          "id": "fiscal-primary-deficit-gdp",
+          "op": "sub",
+          "name": "联邦初级赤字/GDP %",
+          "leftKey": "fred:FYFSGDA188S",
+          "rightKey": "fred:FYOIGDA188S"
+        }
+      ],
+      "selectedKeys": [
+        "fred:GFDEGDQ188S",
+        "fred:GFDEBTN",
+        "fred:FYFSGDA188S",
+        "fred:FYOIGDA188S"
+      ],
+      "updatedAtIso": "2026-09-22T03:09:26.171Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "F1a 存量：债务/GDP 与债务总额",
+          "1": "F2 流量：赤字/GDP 与初级赤字",
+          "2": "F1b 负担：利息/GDP"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:GFDEBTN": 0,
+        "fred:FYFSGDA188S": 1,
+        "fred:FYOIGDA188S": 2,
+        "fred:GFDEGDQ188S": 0,
+        "calc:fiscal-primary-deficit-gdp": 1
+      },
+      "seriesVisualMap": {
+        "fred:GFDEBTN": {
+          "axis": "right",
+          "color": "#5f76b8",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "fred:FYFSGDA188S": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:FYOIGDA188S": {
+          "axis": "left",
+          "color": "#d75a68",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:GFDEGDQ188S": {
+          "axis": "left",
+          "color": "#6f84c0",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:fiscal-primary-deficit-gdp": {
+          "axis": "right",
+          "color": "#9ea68b",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:GFDEGDQ188S",
+          "type": "series"
+        },
+        {
+          "key": "fred:GFDEBTN",
+          "type": "series"
+        },
+        {
+          "key": "fred:FYFSGDA188S",
+          "type": "series"
+        },
+        {
+          "key": "fred:FYOIGDA188S",
+          "type": "series"
+        },
+        {
+          "key": "calc:fiscal-primary-deficit-gdp",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:GFDEBTN": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:FYFSGDA188S": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:FYOIGDA188S": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:GFDEGDQ188S": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
           "resampleMethod": "end"
         }
       }
@@ -1458,6 +3402,364 @@
           "resampleMethod": "end"
         },
         "fred:CES0500000003::yoy-labor": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-fiscal-structure": {
+      "name": "财政结构 · 收支拆解",
+      "layoutMode": 4,
+      "description": "【第二步 · 解释为什么】图 1–2 为 Treasury **现金制** MTS Table 9；mandatory/discretionary 为 **功能分类代理**，图表须标注 ≠ CBO 法定口径。图 3–4 对照总收/总支与 NIPA 政府侧。与视图 A **不重复** 债务/GDP、赤字/GDP。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "mds:treasury_mts_m09_rcpt_individual",
+        "mds:treasury_mts_m09_rcpt_corporate",
+        "mds:treasury_mts_m09_rcpt_payroll",
+        "mds:treasury_mts_m09_mandatory_proxy",
+        "mds:treasury_mts_m09_discretionary_proxy",
+        "mds:treasury_mts_m09_outlay_interest",
+        "mds:treasury_mts_m01_receipts",
+        "mds:treasury_mts_m01_outlays",
+        "fred:GCEC1::yoy",
+        "fred:FGCEC1::yoy"
+      ],
+      "updatedAtIso": "2026-09-22T03:09:38.717Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "F3b 收入分项（MTS Table 9 现金）",
+          "1": "F4b 支出结构（MTS 代理；≠ CBO 法定口径）",
+          "2": "F3a/F4a MTS 总收/总支 YoY",
+          "3": "F4c 政府消费 vs 联邦消费+投资 YoY"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:GCEC1::yoy": 3,
+        "fred:FGCEC1::yoy": 3,
+        "mds:treasury_mts_m01_outlays": 2,
+        "mds:treasury_mts_m01_receipts": 2,
+        "mds:treasury_mts_m09_rcpt_payroll": 0,
+        "mds:treasury_mts_m09_rcpt_corporate": 0,
+        "mds:treasury_mts_m09_mandatory_proxy": 1,
+        "mds:treasury_mts_m09_outlay_interest": 1,
+        "mds:treasury_mts_m09_rcpt_individual": 0,
+        "mds:treasury_mts_m09_discretionary_proxy": 1
+      },
+      "seriesVisualMap": {
+        "fred:GCEC1::yoy": {
+          "axis": "left",
+          "color": "#6f84c0",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:FGCEC1::yoy": {
+          "axis": "right",
+          "color": "#5f76b8",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m01_outlays": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m01_receipts": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m09_rcpt_payroll": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "stackBar",
+          "stackGroup": "fiscal-rcpt",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m09_rcpt_corporate": {
+          "axis": "left",
+          "color": "#7fc8c5",
+          "chartType": "stackBar",
+          "stackGroup": "fiscal-rcpt",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m09_mandatory_proxy": {
+          "axis": "left",
+          "color": "#c97b84",
+          "chartType": "stackBar",
+          "stackGroup": "fiscal-outlay",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m09_outlay_interest": {
+          "axis": "left",
+          "color": "#d75a68",
+          "chartType": "stackBar",
+          "stackGroup": "fiscal-outlay",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m09_rcpt_individual": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "stackBar",
+          "stackGroup": "fiscal-rcpt",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m09_discretionary_proxy": {
+          "axis": "left",
+          "color": "#f4b165",
+          "chartType": "stackBar",
+          "stackGroup": "fiscal-outlay",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:treasury_mts_m09_rcpt_individual",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_rcpt_corporate",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_rcpt_payroll",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_mandatory_proxy",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_discretionary_proxy",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_outlay_interest",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_receipts",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_outlays",
+          "type": "series"
+        },
+        {
+          "key": "fred:GCEC1::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:FGCEC1::yoy",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:GCEC1::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:FGCEC1::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m01_outlays": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m01_receipts": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m09_rcpt_payroll": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m09_rcpt_corporate": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m09_mandatory_proxy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m09_outlay_interest": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m09_rcpt_individual": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m09_discretionary_proxy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-housing-activity": {
+      "name": "住房 · 供需与景气",
+      "layoutMode": 4,
+      "description": "【第一步 · 量端】按图 1→4 走地产链：许可/开工（领先）→ 新屋销售 → 库存月数 → 完工。判断周期在扩张/见顶/收缩哪一段 → 加载「住房 · 价格与融资」看价与利率。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:PERMIT::yoy",
+        "fred:HOUST1F::yoy",
+        "fred:HSN1F::yoy",
+        "fred:MSACSR",
+        "fred:COMPUTSA::yoy"
+      ],
+      "updatedAtIso": "2026-09-22T03:06:35.576Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L1 领先：许可 vs 单户开工",
+          "1": "L2 销售：新屋销售",
+          "2": "L3 库存：新屋可售月数",
+          "3": "L4 完工：住房完工"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:MSACSR": 2,
+        "fred:HSN1F::yoy": 1,
+        "fred:PERMIT::yoy": 0,
+        "fred:HOUST1F::yoy": 0,
+        "fred:COMPUTSA::yoy": 3
+      },
+      "seriesVisualMap": {
+        "fred:MSACSR": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:HSN1F::yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:PERMIT::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:HOUST1F::yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:COMPUTSA::yoy": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:PERMIT::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:HOUST1F::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:HSN1F::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:MSACSR",
+          "type": "series"
+        },
+        {
+          "key": "fred:COMPUTSA::yoy",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:MSACSR": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:HSN1F::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:PERMIT::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:HOUST1F::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:COMPUTSA::yoy": {
           "op": "yoy",
           "unit": "keep",
           "frequency": "month",
@@ -1694,6 +3996,265 @@
           "unit": "keep",
           "frequency": "month",
           "resampleMethod": "avg"
+        }
+      }
+    },
+    "builtin-cn-fiscal-expenditure": {
+      "name": "财政支出 · 执行、投向与刚性约束",
+      "layoutMode": 4,
+      "description": "【第三步 · 支出解释】从总览模板的一般公共预算总支出进入中央本级与地方执行、民生和发展投向，再看预算内债务付息增速与付息占比。付息约束不能用于估计隐性债务。",
+      "derivedCalcs": [
+        {
+          "id": "cn-fiscal-interest-share-expenditure-ytd",
+          "op": "ratio",
+          "name": "债务付息/一般公共预算支出（%）",
+          "scale": 100,
+          "leftKey": "mds:mof_cn_fiscal_debt_interest_amount",
+          "rightKey": "mds:mof_cn_fiscal_general_expenditure_amount::interest-share-base"
+        }
+      ],
+      "selectedKeys": [
+        "mds:mof_cn_fiscal_general_expenditure_central_yoy",
+        "mds:mof_cn_fiscal_general_expenditure_local_yoy",
+        "mds:mof_cn_fiscal_social_security_yoy",
+        "mds:mof_cn_fiscal_education_yoy",
+        "mds:mof_cn_fiscal_health_yoy",
+        "mds:mof_cn_fiscal_science_yoy",
+        "mds:mof_cn_fiscal_agriculture_yoy",
+        "mds:mof_cn_fiscal_transport_yoy",
+        "mds:mof_cn_fiscal_debt_interest_yoy",
+        "mds:mof_cn_fiscal_debt_interest_amount",
+        "mds:mof_cn_fiscal_general_expenditure_amount::interest-share-base"
+      ],
+      "updatedAtIso": "2026-09-22T03:14:09.211Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "中央本级与地方支出执行",
+          "1": "民生托底：社保、教育、卫生",
+          "2": "发展支出：科技、农林水、交通",
+          "3": "债务付息增速与付息占比"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:mof_cn_fiscal_health_yoy": 1,
+        "mds:mof_cn_fiscal_science_yoy": 2,
+        "mds:mof_cn_fiscal_education_yoy": 1,
+        "mds:mof_cn_fiscal_transport_yoy": 2,
+        "mds:mof_cn_fiscal_agriculture_yoy": 2,
+        "mds:mof_cn_fiscal_debt_interest_yoy": 3,
+        "mds:mof_cn_fiscal_social_security_yoy": 1,
+        "mds:mof_cn_fiscal_debt_interest_amount": null,
+        "calc:cn-fiscal-interest-share-expenditure-ytd": 3,
+        "mds:mof_cn_fiscal_general_expenditure_local_yoy": 0,
+        "mds:mof_cn_fiscal_general_expenditure_central_yoy": 0,
+        "mds:mof_cn_fiscal_general_expenditure_amount::interest-share-base": null
+      },
+      "seriesVisualMap": {
+        "mds:mof_cn_fiscal_health_yoy": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_science_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_education_yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_transport_yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_agriculture_yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_debt_interest_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_social_security_yoy": {
+          "axis": "left",
+          "color": "#c97b84",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_debt_interest_amount": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-fiscal-interest-share-expenditure-ytd": {
+          "axis": "right",
+          "color": "#3e4d83",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_expenditure_local_yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_expenditure_central_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount::interest-share-base": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:mof_cn_fiscal_general_expenditure_central_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_expenditure_local_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_social_security_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_education_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_health_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_science_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_agriculture_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_transport_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_debt_interest_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_debt_interest_amount",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_expenditure_amount::interest-share-base",
+          "type": "series"
+        },
+        {
+          "key": "calc:cn-fiscal-interest-share-expenditure-ytd",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:mof_cn_fiscal_health_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_science_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_education_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_transport_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_agriculture_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_debt_interest_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_social_security_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_debt_interest_amount": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_expenditure_local_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_expenditure_central_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount::interest-share-base": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
         }
       }
     },
@@ -2140,6 +4701,2821 @@
         }
       ],
       "seriesCalcConfigMap": {}
+    },
+    "builtin-us-cycle-risk-momentum": {
+      "name": "增长动能 · 硬数据确认",
+      "layoutMode": 4,
+      "description": "【第二步 · 硬数据】NBER 同步硬数据看增长动能：实际收入 → 实际销售 → 可支配收入 → 最终需求。同比转负是衰退实质确认，与信号模板合并成周期定位结论。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:W875RX1::yoy",
+        "fred:CMRMTSPL::yoy",
+        "fred:DSPIC96::yoy",
+        "fred:FINSLC1::yoy"
+      ],
+      "updatedAtIso": "2026-09-22T03:10:19.831Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L5 实际个人收入(除转移)",
+          "1": "L6 实际制造与贸易销售",
+          "2": "L5 实际可支配收入",
+          "3": "L7 实际最终销售"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:DSPIC96::yoy": 2,
+        "fred:FINSLC1::yoy": 3,
+        "fred:W875RX1::yoy": 0,
+        "fred:CMRMTSPL::yoy": 1
+      },
+      "seriesVisualMap": {
+        "fred:DSPIC96::yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:FINSLC1::yoy": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:W875RX1::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CMRMTSPL::yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:W875RX1::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CMRMTSPL::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:DSPIC96::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:FINSLC1::yoy",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:DSPIC96::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:FINSLC1::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:W875RX1::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:CMRMTSPL::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-monetary-conditions": {
+      "name": "金融条件 · 信贷与压力",
+      "layoutMode": 4,
+      "description": "【第二步 · 传导确认】按图 1→4 追踪政策向金融体系与实体信贷的传导：综合条件 → 信用定价 → 银行信贷量价 → 拖欠损伤。与立场模板结论合并成「政策-传导」完整叙事。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:NFCI::avg",
+        "fred:BAMLH0A0HYM2::avg",
+        "fred:BAMLC0A0CM::avg",
+        "fred:DRTSCILM",
+        "fred:BUSLOANS::yoy",
+        "fred:DRCCLACBS",
+        "fred:DRBLACBS"
+      ],
+      "updatedAtIso": "2026-09-22T03:08:47.092Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L5 金融条件：NFCI",
+          "1": "L6 信用利差：HY vs IG",
+          "2": "L7 银行信贷：SLOOS vs 贷款增速",
+          "3": "L8 信用质量：拖欠率"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:DRBLACBS": 3,
+        "fred:DRTSCILM": 2,
+        "fred:DRCCLACBS": 3,
+        "fred:NFCI::avg": 0,
+        "fred:BUSLOANS::yoy": 2,
+        "fred:BAMLC0A0CM::avg": 1,
+        "fred:BAMLH0A0HYM2::avg": 1
+      },
+      "seriesVisualMap": {
+        "fred:DRBLACBS": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DRTSCILM": {
+          "axis": "left",
+          "color": "#9da8b6",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "fred:DRCCLACBS": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:NFCI::avg": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:BUSLOANS::yoy": {
+          "axis": "right",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:BAMLC0A0CM::avg": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:BAMLH0A0HYM2::avg": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:NFCI::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:BAMLH0A0HYM2::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:BAMLC0A0CM::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:DRTSCILM",
+          "type": "series"
+        },
+        {
+          "key": "fred:BUSLOANS::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:DRCCLACBS",
+          "type": "series"
+        },
+        {
+          "key": "fred:DRBLACBS",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:DRBLACBS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:DRTSCILM": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:DRCCLACBS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:NFCI::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:BUSLOANS::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:BAMLC0A0CM::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:BAMLH0A0HYM2::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        }
+      }
+    },
+    "builtin-us-housing-price-finance": {
+      "name": "住房 · 价格与融资",
+      "layoutMode": 4,
+      "description": "【第二步 · 价端】按图 1→4 走价与融资：Case-Shiller 房价 → 抵押利率 → 自有率 → 单户抵押拖欠率。回答利率压制强度与信用风险，与量端合并成完整地产判断。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:CSUSHPINSA::yoy",
+        "fred:MORTGAGE30US::avg",
+        "fred:MORTGAGE15US::avg",
+        "fred:RHORUSQ156N",
+        "fred:DRSFRMACBS"
+      ],
+      "updatedAtIso": "2026-09-22T03:06:48.128Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L5 房价：Case-Shiller",
+          "1": "L6 融资：30Y vs 15Y 抵押利率",
+          "2": "L7 自有住房率",
+          "3": "L8 信用：单户抵押贷款拖欠率"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:DRSFRMACBS": 3,
+        "fred:RHORUSQ156N": 2,
+        "fred:CSUSHPINSA::yoy": 0,
+        "fred:MORTGAGE15US::avg": 1,
+        "fred:MORTGAGE30US::avg": 1
+      },
+      "seriesVisualMap": {
+        "fred:DRSFRMACBS": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:RHORUSQ156N": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CSUSHPINSA::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:MORTGAGE15US::avg": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:MORTGAGE30US::avg": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:CSUSHPINSA::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:MORTGAGE30US::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:MORTGAGE15US::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:RHORUSQ156N",
+          "type": "series"
+        },
+        {
+          "key": "fred:DRSFRMACBS",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:DRSFRMACBS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:RHORUSQ156N": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:CSUSHPINSA::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:MORTGAGE15US::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:MORTGAGE30US::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        }
+      }
+    },
+    "builtin-cn-economy-overview-growth": {
+      "name": "中国经济 Overview · 增长脉冲",
+      "layoutMode": 4,
+      "description": "从实际/名义 GDP 与精确隐含平减指数判断量价组合，再拆三大需求贡献、观察 PMI 新订单，并用工业、社零和固投验证月度增长脉冲。",
+      "derivedCalcs": [
+        {
+          "id": "cn-overview-gdp-deflator-yoy",
+          "op": "ratio",
+          "name": "隐含 GDP 平减指数季度同比",
+          "postOp": "yoy",
+          "leftKey": "mds:nbs_cn_gdp_q_headline_nominal::overview-level",
+          "rightKey": "mds:nbs_cn_gdp_q_headline_real::overview-level"
+        }
+      ],
+      "selectedKeys": [
+        "mds:nbs_cn_gdp_q_headline_real_yoy",
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-yoy",
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-level",
+        "mds:nbs_cn_gdp_q_headline_real::overview-level",
+        "mds:nbs_cn_gdp_q_final_consumption_contribution",
+        "mds:nbs_cn_gdp_q_capital_formation_contribution",
+        "mds:nbs_cn_gdp_q_net_exports_contribution",
+        "mds:nbs_cn_mfg_new_orders",
+        "mds:nbs_cn_non_mfg_new_orders",
+        "mds:nbs_cn_industrial_headline_yoy",
+        "mds:nbs_cn_retail_h_yoy",
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8"
+      ],
+      "updatedAtIso": "2026-09-22T03:12:26.398Z",
+      "displayConfig": {
+        "lineWidth": 1.7,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "GDP 量价组合：实际、名义与平减指数同比",
+          "1": "GDP 增长贡献：消费、资本形成与净出口",
+          "2": "领先需求：制造业与非制造业新订单",
+          "3": "月度增长验证：工业、社零与固定资产投资"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:nbs_cn_retail_h_yoy": 3,
+        "mds:nbs_cn_mfg_new_orders": 2,
+        "mds:nbs_cn_non_mfg_new_orders": 2,
+        "calc:cn-overview-gdp-deflator-yoy": 0,
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8": 3,
+        "mds:nbs_cn_gdp_q_headline_real_yoy": 0,
+        "mds:nbs_cn_industrial_headline_yoy": 3,
+        "mds:nbs_cn_gdp_q_net_exports_contribution": 1,
+        "mds:nbs_cn_gdp_q_headline_real::overview-level": null,
+        "mds:nbs_cn_gdp_q_capital_formation_contribution": 1,
+        "mds:nbs_cn_gdp_q_final_consumption_contribution": 1,
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-yoy": 0,
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-level": null
+      },
+      "seriesVisualMap": {
+        "mds:nbs_cn_retail_h_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_mfg_new_orders": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_non_mfg_new_orders": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-overview-gdp-deflator-yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "dashedLine",
+          "lineWidth": 2,
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_q_headline_real_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "lineWidth": 2.2,
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_industrial_headline_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_q_net_exports_contribution": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_q_headline_real::overview-level": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_q_capital_formation_contribution": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_q_final_consumption_contribution": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "lineWidth": 2,
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-level": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:nbs_cn_gdp_q_headline_real_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_q_headline_nominal::overview-yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_q_headline_nominal::overview-level",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_q_headline_real::overview-level",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_q_final_consumption_contribution",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_q_capital_formation_contribution",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_gdp_q_net_exports_contribution",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_mfg_new_orders",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_non_mfg_new_orders",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_industrial_headline_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_retail_h_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_fai_m_5129067b_7e570cf8",
+          "type": "series"
+        },
+        {
+          "key": "calc:cn-overview-gdp-deflator-yoy",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:nbs_cn_retail_h_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_mfg_new_orders": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_non_mfg_new_orders": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_q_headline_real_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_industrial_headline_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_q_net_exports_contribution": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_q_headline_real::overview-level": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_q_capital_formation_contribution": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_q_final_consumption_contribution": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_gdp_q_headline_nominal::overview-level": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-cn-economy-overview-policy": {
+      "name": "中国经济 Overview · 需求结构与政策支撑",
+      "layoutMode": 4,
+      "description": "先比较总固投与制造业、基建、房地产三大领域的驱动方向，再观察两本账合计的广义财政支出，最后用 CPI/PPI 与出口/进口验证名义环境和内外需。",
+      "derivedCalcs": [
+        {
+          "id": "cn-overview-broad-fiscal-expenditure",
+          "op": "add",
+          "name": "广义财政支出累计额",
+          "leftKey": "mds:mof_cn_fiscal_general_expenditure_amount",
+          "rightKey": "mds:mof_cn_fiscal_fund_expenditure_amount"
+        },
+        {
+          "id": "cn-overview-broad-fiscal-expenditure-yoy",
+          "op": "add",
+          "name": "广义财政支出累计同比",
+          "postOp": "yoy",
+          "leftKey": "mds:mof_cn_fiscal_general_expenditure_amount",
+          "rightKey": "mds:mof_cn_fiscal_fund_expenditure_amount"
+        }
+      ],
+      "selectedKeys": [
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8",
+        "mds:nbs_cn_fai_m_90028595_d1771824",
+        "mds:nbs_cn_fai_m_infrastructure_yoy",
+        "mds:nbs_cn_realestate_4035448cce98117aa2",
+        "mds:mof_cn_fiscal_general_expenditure_amount",
+        "mds:mof_cn_fiscal_fund_expenditure_amount",
+        "mds:nbs_cn_cpi_headline_yoy",
+        "mds:nbs_cn_ppi_headline_yoy",
+        "mds:mofcom_cn_trade_cabe8908b163088537",
+        "mds:mofcom_cn_trade_a02519f634eb068d5a"
+      ],
+      "updatedAtIso": "2026-09-22T03:12:38.978Z",
+      "displayConfig": {
+        "lineWidth": 1.7,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "固投及三大领域驱动（2026年基建口径断点）",
+          "1": "广义财政支出：两本账合计规模与同比",
+          "2": "名义环境：CPI vs PPI",
+          "3": "外需与进口验证：出口 vs 进口"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:nbs_cn_cpi_headline_yoy": 2,
+        "mds:nbs_cn_ppi_headline_yoy": 2,
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8": 0,
+        "mds:nbs_cn_fai_m_90028595_d1771824": 0,
+        "mds:nbs_cn_fai_m_infrastructure_yoy": 0,
+        "mds:mofcom_cn_trade_a02519f634eb068d5a": 3,
+        "mds:mofcom_cn_trade_cabe8908b163088537": 3,
+        "mds:nbs_cn_realestate_4035448cce98117aa2": 0,
+        "calc:cn-overview-broad-fiscal-expenditure": 1,
+        "mds:mof_cn_fiscal_fund_expenditure_amount": null,
+        "mds:mof_cn_fiscal_general_expenditure_amount": null,
+        "calc:cn-overview-broad-fiscal-expenditure-yoy": 1
+      },
+      "seriesVisualMap": {
+        "mds:nbs_cn_cpi_headline_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_ppi_headline_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "lineWidth": 2.4,
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_fai_m_90028595_d1771824": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_fai_m_infrastructure_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:mofcom_cn_trade_a02519f634eb068d5a": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:mofcom_cn_trade_cabe8908b163088537": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:nbs_cn_realestate_4035448cce98117aa2": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "calc:cn-overview-broad-fiscal-expenditure": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "lineWidth": 2,
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_amount": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "calc:cn-overview-broad-fiscal-expenditure-yoy": {
+          "axis": "right",
+          "color": "#ef6461",
+          "chartType": "line",
+          "lineWidth": 2,
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:nbs_cn_fai_m_5129067b_7e570cf8",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_fai_m_90028595_d1771824",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_fai_m_infrastructure_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_realestate_4035448cce98117aa2",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_general_expenditure_amount",
+          "type": "series"
+        },
+        {
+          "key": "mds:mof_cn_fiscal_fund_expenditure_amount",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_cpi_headline_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:nbs_cn_ppi_headline_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:mofcom_cn_trade_cabe8908b163088537",
+          "type": "series"
+        },
+        {
+          "key": "mds:mofcom_cn_trade_a02519f634eb068d5a",
+          "type": "series"
+        },
+        {
+          "key": "calc:cn-overview-broad-fiscal-expenditure",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-overview-broad-fiscal-expenditure-yoy",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:nbs_cn_cpi_headline_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_ppi_headline_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_fai_m_5129067b_7e570cf8": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_fai_m_90028595_d1771824": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_fai_m_infrastructure_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mofcom_cn_trade_a02519f634eb068d5a": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mofcom_cn_trade_cabe8908b163088537": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:nbs_cn_realestate_4035448cce98117aa2": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_fund_expenditure_amount": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:mof_cn_fiscal_general_expenditure_amount": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-external-dollar-balance": {
+      "name": "对外 · 外部均衡与贸易条件",
+      "layoutMode": 4,
+      "description": "【第二步 · 均衡与价格】按图 1→4：经常账户 → 净国际头寸 → 进出口价格同比 → 贸易条件。回答外部融资需求与相对价格冲击。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:IEABC",
+        "fred:IIPUSNETIQ",
+        "fred:IQ::yoy",
+        "fred:IR::yoy",
+        "fred:W369RG3Q066SBEA"
+      ],
+      "updatedAtIso": "2026-09-22T03:07:41.716Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L5 经常账户",
+          "1": "L6 净国际投资头寸",
+          "2": "L7 贸易价格：出口 vs 进口",
+          "3": "L8 贸易条件"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:IEABC": 0,
+        "fred:IQ::yoy": 2,
+        "fred:IR::yoy": 2,
+        "fred:IIPUSNETIQ": 1,
+        "fred:W369RG3Q066SBEA": 3
+      },
+      "seriesVisualMap": {
+        "fred:IEABC": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:IQ::yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:IR::yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:IIPUSNETIQ": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:W369RG3Q066SBEA": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:IEABC",
+          "type": "series"
+        },
+        {
+          "key": "fred:IIPUSNETIQ",
+          "type": "series"
+        },
+        {
+          "key": "fred:IQ::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:IR::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:W369RG3Q066SBEA",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:IEABC": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:IQ::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:IR::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:IIPUSNETIQ": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:W369RG3Q066SBEA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        }
+      }
+    },
+    "builtin-us-external-dollar-overview": {
+      "name": "对外 · 美元与贸易流量",
+      "layoutMode": 4,
+      "description": "【第一步 · 汇率与流量】按图 1→4：广义美元 → 发达/新兴结构 → 贸易差额 → 进出口同比。判断美元周期与贸易动能 → 加载「对外 · 外部均衡与贸易条件」。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:DTWEXBGS::avg",
+        "fred:DTWEXAFEGS::avg",
+        "fred:DTWEXEMEGS::avg",
+        "fred:BOPGSTB",
+        "fred:BOPTEXP::yoy",
+        "fred:BOPTIMP::yoy"
+      ],
+      "updatedAtIso": "2026-09-22T03:07:29.138Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L1 美元广义：贸易加权",
+          "1": "L2 美元结构：发达 vs 新兴",
+          "2": "L3 贸易差额：商品与服务",
+          "3": "L4 贸易流量：出口 vs 进口"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:BOPGSTB": 2,
+        "fred:BOPTEXP::yoy": 3,
+        "fred:BOPTIMP::yoy": 3,
+        "fred:DTWEXBGS::avg": 0,
+        "fred:DTWEXAFEGS::avg": 1,
+        "fred:DTWEXEMEGS::avg": 1
+      },
+      "seriesVisualMap": {
+        "fred:BOPGSTB": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:BOPTEXP::yoy": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:BOPTIMP::yoy": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DTWEXBGS::avg": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DTWEXAFEGS::avg": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DTWEXEMEGS::avg": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:DTWEXBGS::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:DTWEXAFEGS::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:DTWEXEMEGS::avg",
+          "type": "series"
+        },
+        {
+          "key": "fred:BOPGSTB",
+          "type": "series"
+        },
+        {
+          "key": "fred:BOPTEXP::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:BOPTIMP::yoy",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:BOPGSTB": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:BOPTEXP::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:BOPTIMP::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:DTWEXBGS::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:DTWEXAFEGS::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:DTWEXEMEGS::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        }
+      }
+    },
+    "builtin-us-industry-inventory-cycle": {
+      "name": "制造业 · 产出库存与产能",
+      "layoutMode": 4,
+      "description": "【第二步 · 库存周期】制造产出 → 库存水平 → 库销比 → 产能利用率。定位主动补库 / 被动积压 / 主动去库与过热风险。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:IPMAN::yoy",
+        "fred:BUSINV::yoy",
+        "fred:AMTMTI::yoy",
+        "fred:ISRATIO",
+        "fred:MNFCTRIRSA",
+        "fred:MCUMFN"
+      ],
+      "updatedAtIso": "2026-09-22T03:06:10.425Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L5 产出：制造业工业生产",
+          "1": "L6 库存：总商业 vs 制造业",
+          "2": "L7 库销比：总量 vs 制造业",
+          "3": "L8 产能：制造业产能利用率"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:MCUMFN": 3,
+        "fred:ISRATIO": 2,
+        "fred:IPMAN::yoy": 0,
+        "fred:MNFCTRIRSA": 2,
+        "fred:AMTMTI::yoy": 1,
+        "fred:BUSINV::yoy": 1
+      },
+      "seriesVisualMap": {
+        "fred:MCUMFN": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:ISRATIO": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:IPMAN::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:MNFCTRIRSA": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:AMTMTI::yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:BUSINV::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:IPMAN::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:BUSINV::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:AMTMTI::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:ISRATIO",
+          "type": "series"
+        },
+        {
+          "key": "fred:MNFCTRIRSA",
+          "type": "series"
+        },
+        {
+          "key": "fred:MCUMFN",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:MCUMFN": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:ISRATIO": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:IPMAN::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:MNFCTRIRSA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:AMTMTI::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:BUSINV::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-consumer-balance-spending": {
+      "name": "消费 · 支出与景气",
+      "layoutMode": 4,
+      "description": "【第一步 · 支出】按图 1→4 看消费动能：零售贸易 → PCE 耐用品/服务结构 → 密歇根信心 → 储蓄率。判断支出冷热与缓冲 → 加载「居民 · 资产负债与信用」。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:RSXFS::yoy",
+        "fred:PCEDGC96::yoy",
+        "fred:PCESC96::yoy",
+        "fred:UMCSENT",
+        "fred:PSAVERT"
+      ],
+      "updatedAtIso": "2026-09-22T03:05:20.204Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L1 高频：零售贸易",
+          "1": "L2 PCE 结构：耐用品 vs 服务",
+          "2": "L3 信心：密歇根",
+          "3": "L4 储蓄缓冲"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:PSAVERT": 3,
+        "fred:UMCSENT": 2,
+        "fred:RSXFS::yoy": 0,
+        "fred:PCESC96::yoy": 1,
+        "fred:PCEDGC96::yoy": 1
+      },
+      "seriesVisualMap": {
+        "fred:PSAVERT": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:UMCSENT": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:RSXFS::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:PCESC96::yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:PCEDGC96::yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:RSXFS::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCEDGC96::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCESC96::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:UMCSENT",
+          "type": "series"
+        },
+        {
+          "key": "fred:PSAVERT",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:PSAVERT": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:UMCSENT": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:RSXFS::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:PCESC96::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:PCEDGC96::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-industry-inventory-orders": {
+      "name": "制造业 · 景气与订单",
+      "layoutMode": 4,
+      "description": "【第一步 · 订单链】ISM 软景气 → Census 硬订单 → 核心资本品 → 积压/ISM 库存。判断制造需求是领先扩张还是假信号。说不清时加载「产出库存与产能」。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "mds:ism_us_ism_headline",
+        "mds:ism_us_ism_new_orders",
+        "fred:DGORDER::yoy",
+        "fred:ADXTNO::yoy",
+        "fred:NEWORDER::yoy",
+        "fred:AMDMUO::yoy",
+        "mds:ism_us_ism_inventories"
+      ],
+      "updatedAtIso": "2026-09-22T03:06:22.988Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L1 软景气：ISM PMI vs 新订单",
+          "1": "L2 硬订单：耐用品 vs 除运输",
+          "2": "L3 资本品：核心资本品新订单",
+          "3": "L4 积压：未完成订单 vs ISM 库存"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:ADXTNO::yoy": 1,
+        "fred:AMDMUO::yoy": 3,
+        "fred:DGORDER::yoy": 1,
+        "fred:NEWORDER::yoy": 2,
+        "mds:ism_us_ism_headline": 0,
+        "mds:ism_us_ism_new_orders": 0,
+        "mds:ism_us_ism_inventories": 3
+      },
+      "seriesVisualMap": {
+        "fred:ADXTNO::yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:AMDMUO::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DGORDER::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:NEWORDER::yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:ism_us_ism_headline": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:ism_us_ism_new_orders": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:ism_us_ism_inventories": {
+          "axis": "right",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:ism_us_ism_headline",
+          "type": "series"
+        },
+        {
+          "key": "mds:ism_us_ism_new_orders",
+          "type": "series"
+        },
+        {
+          "key": "fred:DGORDER::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:ADXTNO::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:NEWORDER::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:AMDMUO::yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:ism_us_ism_inventories",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:ADXTNO::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:AMDMUO::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:DGORDER::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:NEWORDER::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "mds:ism_us_ism_headline": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "mds:ism_us_ism_new_orders": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "mds:ism_us_ism_inventories": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        }
+      }
+    },
+    "builtin-cn-financial-liquidity-credit": {
+      "name": "金融条件 · 信用扩张与融资结构",
+      "layoutMode": 4,
+      "description": "【第二步 · 信用与结构】从社融和人民币贷款存量同比进入贷存扩张，再拆人民币贷款、政府债券、企业债券与股票融资占社融增量累计的比重，区分私人信用修复、政府融资托底和直接融资接力。占比是年内累计口径，每年 1 月重置且不构成完整 100%。",
+      "derivedCalcs": [
+        {
+          "id": "cn-financial-loan-deposit-growth-gap",
+          "op": "sub",
+          "name": "贷款−存款增速差（百分点）",
+          "leftKey": "mds:pbc_cn_rmb_loan_yoy",
+          "rightKey": "mds:pbc_cn_rmb_deposit_yoy"
+        },
+        {
+          "id": "cn-financial-tsf-rmb-loan-share",
+          "op": "ratio",
+          "name": "社融口径人民币贷款占社融增量累计（%）",
+          "scale": 100,
+          "leftKey": "mds:pbc_cn_social_financing_rmb_loan_cumulative",
+          "rightKey": "mds:pbc_cn_social_financing_cumulative"
+        },
+        {
+          "id": "cn-financial-tsf-government-bond-share",
+          "op": "ratio",
+          "name": "政府债券融资占社融增量累计（%）",
+          "scale": 100,
+          "leftKey": "mds:pbc_cn_government_bond_financing_cumulative",
+          "rightKey": "mds:pbc_cn_social_financing_cumulative"
+        },
+        {
+          "id": "cn-financial-tsf-corporate-bond-share",
+          "op": "ratio",
+          "name": "企业债券融资占社融增量累计（%）",
+          "scale": 100,
+          "leftKey": "mds:pbc_cn_corporate_bond_financing_cumulative",
+          "rightKey": "mds:pbc_cn_social_financing_cumulative"
+        },
+        {
+          "id": "cn-financial-tsf-equity-share",
+          "op": "ratio",
+          "name": "非金融企业境内股票融资占社融增量累计（%）",
+          "scale": 100,
+          "leftKey": "mds:pbc_cn_domestic_equity_financing_cumulative",
+          "rightKey": "mds:pbc_cn_social_financing_cumulative"
+        }
+      ],
+      "selectedKeys": [
+        "mds:pbc_cn_social_financing_stock_yoy",
+        "mds:pbc_cn_rmb_loan_yoy",
+        "mds:pbc_cn_rmb_deposit_yoy",
+        "mds:pbc_cn_social_financing_cumulative",
+        "mds:pbc_cn_social_financing_rmb_loan_cumulative",
+        "mds:pbc_cn_government_bond_financing_cumulative",
+        "mds:pbc_cn_corporate_bond_financing_cumulative",
+        "mds:pbc_cn_domestic_equity_financing_cumulative"
+      ],
+      "updatedAtIso": "2026-09-22T03:13:08.033Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "信用总量：社融存量 vs 人民币贷款同比",
+          "1": "银行资产负债：存款同比与贷存增速差",
+          "2": "融资渠道：银行信贷 vs 政府债券占比",
+          "3": "直接融资：企业债券 vs 股票融资占比"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:pbc_cn_rmb_loan_yoy": 0,
+        "mds:pbc_cn_rmb_deposit_yoy": 1,
+        "calc:cn-financial-tsf-equity-share": 3,
+        "calc:cn-financial-tsf-rmb-loan-share": 2,
+        "mds:pbc_cn_social_financing_stock_yoy": 0,
+        "mds:pbc_cn_social_financing_cumulative": null,
+        "calc:cn-financial-loan-deposit-growth-gap": 1,
+        "calc:cn-financial-tsf-corporate-bond-share": 3,
+        "calc:cn-financial-tsf-government-bond-share": 2,
+        "mds:pbc_cn_corporate_bond_financing_cumulative": null,
+        "mds:pbc_cn_domestic_equity_financing_cumulative": null,
+        "mds:pbc_cn_government_bond_financing_cumulative": null,
+        "mds:pbc_cn_social_financing_rmb_loan_cumulative": null
+      },
+      "seriesVisualMap": {
+        "mds:pbc_cn_rmb_loan_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_rmb_deposit_yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-financial-tsf-equity-share": {
+          "axis": "left",
+          "color": "#c97b84",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-financial-tsf-rmb-loan-share": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_social_financing_stock_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_social_financing_cumulative": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-financial-loan-deposit-growth-gap": {
+          "axis": "right",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "calc:cn-financial-tsf-corporate-bond-share": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-financial-tsf-government-bond-share": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_corporate_bond_financing_cumulative": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_domestic_equity_financing_cumulative": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_government_bond_financing_cumulative": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_social_financing_rmb_loan_cumulative": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:pbc_cn_social_financing_stock_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_rmb_loan_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_rmb_deposit_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_social_financing_cumulative",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_social_financing_rmb_loan_cumulative",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_government_bond_financing_cumulative",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_corporate_bond_financing_cumulative",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_domestic_equity_financing_cumulative",
+          "type": "series"
+        },
+        {
+          "key": "calc:cn-financial-loan-deposit-growth-gap",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-financial-tsf-rmb-loan-share",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-financial-tsf-government-bond-share",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-financial-tsf-corporate-bond-share",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-financial-tsf-equity-share",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:pbc_cn_rmb_loan_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_rmb_deposit_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_social_financing_stock_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_social_financing_cumulative": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_corporate_bond_financing_cumulative": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_domestic_equity_financing_cumulative": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_government_bond_financing_cumulative": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_social_financing_rmb_loan_cumulative": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-cn-financial-liquidity-funding": {
+      "name": "金融条件 · 资金价格与货币活性",
+      "layoutMode": 4,
+      "description": "【第一步 · 资金与货币活性】从 1 年期/5 年以上 LPR、银行间有担保/无担保资金价格，进入 M1/M2 与 M1−M2 增速差，判断流动性是否由价格和总量宽松进一步转成交易性资金活跃。月均回购利率不是 DR007，M1−M2 也不是官方指数。",
+      "derivedCalcs": [
+        {
+          "id": "cn-financial-unsecured-secured-spread",
+          "op": "sub",
+          "name": "无担保−有担保资金价差代理（百分点）",
+          "leftKey": "mds:pbc_cn_interbank_lending_rate",
+          "rightKey": "mds:pbc_cn_repo_rate"
+        },
+        {
+          "id": "cn-financial-m1-m2-gap",
+          "op": "sub",
+          "name": "M1−M2 增速差（百分点）",
+          "leftKey": "mds:pbc_cn_m1_yoy",
+          "rightKey": "mds:pbc_cn_m2_yoy"
+        }
+      ],
+      "selectedKeys": [
+        "mds:pbc_cn_lpr_1y",
+        "mds:pbc_cn_lpr_5y",
+        "mds:pbc_cn_repo_rate",
+        "mds:pbc_cn_interbank_lending_rate",
+        "mds:pbc_cn_m1_yoy",
+        "mds:pbc_cn_m2_yoy"
+      ],
+      "updatedAtIso": "2026-09-22T03:13:20.612Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "贷款报价利率：1年期 vs 5年以上 LPR",
+          "1": "银行间资金价格与无担保−有担保价差",
+          "2": "货币增速：M1 vs M2",
+          "3": "货币活化代理：M1−M2 增速差"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:pbc_cn_lpr_1y": 0,
+        "mds:pbc_cn_lpr_5y": 0,
+        "mds:pbc_cn_m1_yoy": 2,
+        "mds:pbc_cn_m2_yoy": 2,
+        "mds:pbc_cn_repo_rate": 1,
+        "calc:cn-financial-m1-m2-gap": 3,
+        "mds:pbc_cn_interbank_lending_rate": 1,
+        "calc:cn-financial-unsecured-secured-spread": 1
+      },
+      "seriesVisualMap": {
+        "mds:pbc_cn_lpr_1y": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "stepLine",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_lpr_5y": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "stepLine",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_m1_yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_m2_yoy": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_repo_rate": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-financial-m1-m2-gap": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:pbc_cn_interbank_lending_rate": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:cn-financial-unsecured-secured-spread": {
+          "axis": "right",
+          "color": "#3e4d83",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:pbc_cn_lpr_1y",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_lpr_5y",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_repo_rate",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_interbank_lending_rate",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_m1_yoy",
+          "type": "series"
+        },
+        {
+          "key": "mds:pbc_cn_m2_yoy",
+          "type": "series"
+        },
+        {
+          "key": "calc:cn-financial-unsecured-secured-spread",
+          "type": "derived"
+        },
+        {
+          "key": "calc:cn-financial-m1-m2-gap",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:pbc_cn_lpr_1y": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_lpr_5y": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_m1_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_m2_yoy": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_repo_rate": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:pbc_cn_interbank_lending_rate": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-cn-balance-of-payments-overview": {
+      "name": "中国国际收支 · 总账、资本流动与外部缓冲",
+      "layoutMode": 4,
+      "description": "把国际收支总账、跨境资金高频体感和外部资产负债表放在同一套四图中：先辨认经常账户盈余来源，再按 BPM6 符号判断金融账户资本净流向，随后用月度结售汇与涉外收付款验证压力，最后以净国际投资头寸和储备资产对外债覆盖率衡量外部缓冲。",
+      "derivedCalcs": [
+        {
+          "id": "cn-bop-reserve-assets-to-external-debt",
+          "op": "ratio",
+          "name": "储备资产/外债总额（%）",
+          "scale": 100,
+          "leftKey": "mds:safe_cn_iip_dd88370f3f43",
+          "rightKey": "mds:safe_cn_debt_ce941250bdad"
+        }
+      ],
+      "selectedKeys": [
+        "mds:safe_cn_bop_current_account",
+        "mds:safe_cn_bop_goods_balance",
+        "mds:safe_cn_bop_services_balance",
+        "mds:safe_cn_bop_direct_investment_net",
+        "mds:safe_cn_bop_portfolio_investment_net",
+        "mds:safe_cn_bop_other_investment_net",
+        "mds:safe_cn_settlement_6b1b40a90c3a",
+        "mds:safe_cn_payments_36f49c28853c",
+        "mds:safe_cn_debt_ce941250bdad",
+        "mds:safe_cn_iip_0cb2d91933ba",
+        "mds:safe_cn_iip_dd88370f3f43"
+      ],
+      "updatedAtIso": "2026-09-22T03:18:14.176Z",
+      "displayConfig": {
+        "lineWidth": 1.7,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "经常账户及来源：总差额、货物与服务",
+          "1": "非储备资本流动：直接、证券与其他投资",
+          "2": "月度跨境资金压力：外汇供求 vs 收付款",
+          "3": "外部净资产与缓冲"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "mds:safe_cn_iip_0cb2d91933ba": 3,
+        "mds:safe_cn_iip_dd88370f3f43": null,
+        "mds:safe_cn_bop_goods_balance": 0,
+        "mds:safe_cn_debt_ce941250bdad": null,
+        "mds:safe_cn_bop_current_account": 0,
+        "mds:safe_cn_bop_services_balance": 0,
+        "mds:safe_cn_payments_36f49c28853c": 2,
+        "mds:safe_cn_settlement_6b1b40a90c3a": 2,
+        "mds:safe_cn_bop_other_investment_net": 1,
+        "mds:safe_cn_bop_direct_investment_net": 1,
+        "mds:safe_cn_bop_portfolio_investment_net": 1,
+        "calc:cn-bop-reserve-assets-to-external-debt": 3
+      },
+      "seriesVisualMap": {
+        "mds:safe_cn_iip_0cb2d91933ba": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "lineWidth": 2.4,
+          "showEndLabel": true
+        },
+        "mds:safe_cn_iip_dd88370f3f43": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_bop_goods_balance": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_debt_ce941250bdad": {
+          "axis": "left",
+          "color": "#8f9bab",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_bop_current_account": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "lineWidth": 2.4,
+          "showEndLabel": true
+        },
+        "mds:safe_cn_bop_services_balance": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_payments_36f49c28853c": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_settlement_6b1b40a90c3a": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_bop_other_investment_net": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_bop_direct_investment_net": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:safe_cn_bop_portfolio_investment_net": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "calc:cn-bop-reserve-assets-to-external-debt": {
+          "axis": "right",
+          "color": "#ef6461",
+          "chartType": "dashedLine",
+          "lineWidth": 2,
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "mds:safe_cn_bop_current_account",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_bop_goods_balance",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_bop_services_balance",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_bop_direct_investment_net",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_bop_portfolio_investment_net",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_bop_other_investment_net",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_settlement_6b1b40a90c3a",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_payments_36f49c28853c",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_iip_0cb2d91933ba",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_iip_dd88370f3f43",
+          "type": "series"
+        },
+        {
+          "key": "mds:safe_cn_debt_ce941250bdad",
+          "type": "series"
+        },
+        {
+          "key": "calc:cn-bop-reserve-assets-to-external-debt",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "mds:safe_cn_iip_0cb2d91933ba": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_iip_8d7e57a2760c": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_iip_d2af2fbaf002": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_iip_dd88370f3f43": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_bop_goods_balance": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_debt_ce941250bdad": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_bop_current_account": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_bop_services_balance": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_payments_36f49c28853c": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_settlement_6b1b40a90c3a": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_bop_other_investment_net": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_bop_direct_investment_net": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:safe_cn_bop_portfolio_investment_net": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-balance-of-payments-overview": {
+      "name": "国际收支 · 经常账户结构与外部融资",
+      "layoutMode": 4,
+      "description": "从经常账户的非货物缓冲、跨境资金的资产负债两端、外部融资的工具结构和外部负债存量四步，判断美国对外融资依赖的来源、稳定性与潜在脆弱点。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:IEABCS",
+        "fred:IEABCPI",
+        "fred:IEABCSI",
+        "fred:IEAA",
+        "fred:IEAI",
+        "fred:IEANLF",
+        "fred:IEAIDI",
+        "fred:IEAIPI",
+        "fred:IEAIOI",
+        "fred:IIPDIRELMVQ",
+        "fred:IIPPORTLQ",
+        "fred:IIPOTHELQ"
+      ],
+      "updatedAtIso": "2026-09-22T03:07:54.282Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "经常账户非货物项：服务、初次收入与二次收入",
+          "1": "跨境资金两端：资产取得、负债发生与净借贷",
+          "2": "外部融资流量结构：直接、证券与其他投资",
+          "3": "外部负债存量结构：直接、证券与其他投资"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.28,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:IEAA": 1,
+        "fred:IEAI": 1,
+        "fred:IEABCS": 0,
+        "fred:IEAIDI": 2,
+        "fred:IEAIOI": 2,
+        "fred:IEAIPI": 2,
+        "fred:IEANLF": 1,
+        "fred:IEABCPI": 0,
+        "fred:IEABCSI": 0,
+        "fred:IIPOTHELQ": 3,
+        "fred:IIPPORTLQ": 3,
+        "fred:IIPDIRELMVQ": 3
+      },
+      "seriesVisualMap": {
+        "fred:IEAA": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "bar",
+          "showEndLabel": false
+        },
+        "fred:IEAI": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": false
+        },
+        "fred:IEABCS": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": false
+        },
+        "fred:IEAIDI": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "stackBar",
+          "stackGroup": "us-bop-liability-flow",
+          "showEndLabel": false
+        },
+        "fred:IEAIOI": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "stackBar",
+          "stackGroup": "us-bop-liability-flow",
+          "showEndLabel": false
+        },
+        "fred:IEAIPI": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "stackBar",
+          "stackGroup": "us-bop-liability-flow",
+          "showEndLabel": false
+        },
+        "fred:IEANLF": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "lineWidth": 2.4,
+          "showEndLabel": true
+        },
+        "fred:IEABCPI": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "bar",
+          "showEndLabel": false
+        },
+        "fred:IEABCSI": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": false
+        },
+        "fred:IIPOTHELQ": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "stackArea",
+          "stackGroup": "us-bop-liability-stock",
+          "showEndLabel": false
+        },
+        "fred:IIPPORTLQ": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "stackArea",
+          "stackGroup": "us-bop-liability-stock",
+          "showEndLabel": false
+        },
+        "fred:IIPDIRELMVQ": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "stackArea",
+          "stackGroup": "us-bop-liability-stock",
+          "showEndLabel": false
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:IEABCS",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEABCPI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEABCSI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAA",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEANLF",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAIDI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAIPI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAIOI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IIPDIRELMVQ",
+          "type": "series"
+        },
+        {
+          "key": "fred:IIPPORTLQ",
+          "type": "series"
+        },
+        {
+          "key": "fred:IIPOTHELQ",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:IEAA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEAI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEABCS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEAIDI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEAIOI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEAIPI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEANLF": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEABCPI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IEABCSI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IIPOTHELQ": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IIPPORTLQ": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:IIPDIRELMVQ": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        }
+      }
+    },
+    "builtin-us-consumer-balance-balance-sheet": {
+      "name": "居民 · 资产负债与信用",
+      "layoutMode": 4,
+      "description": "【第二步 · 资产负债表】按图 1→4 看财务与信用：家庭净财富 → 偿债比率 → 消费信贷增速 → 信用卡核销。回答财富效应与信用风险。",
+      "derivedCalcs": [],
+      "selectedKeys": [
+        "fred:TNWBSHNO::yoy",
+        "fred:TDSP",
+        "fred:TOTALSL::yoy",
+        "fred:REVOLSL::yoy",
+        "fred:CORCCACBS"
+      ],
+      "updatedAtIso": "2026-09-22T03:05:32.788Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "L5 净财富",
+          "1": "L6 偿债压力",
+          "2": "L7 消费信贷：总量 vs 循环",
+          "3": "L8 信用质量：信用卡核销"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:TDSP": 1,
+        "fred:CORCCACBS": 3,
+        "fred:REVOLSL::yoy": 2,
+        "fred:TOTALSL::yoy": 2,
+        "fred:TNWBSHNO::yoy": 0
+      },
+      "seriesVisualMap": {
+        "fred:TDSP": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:CORCCACBS": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:REVOLSL::yoy": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:TOTALSL::yoy": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:TNWBSHNO::yoy": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:TNWBSHNO::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:TDSP",
+          "type": "series"
+        },
+        {
+          "key": "fred:TOTALSL::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:REVOLSL::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CORCCACBS",
+          "type": "series"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:TDSP": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:CORCCACBS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "avg"
+        },
+        "fred:REVOLSL::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:TOTALSL::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:TNWBSHNO::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        }
+      }
     }
   },
   "hiddenBuiltinTemplateIds": [
