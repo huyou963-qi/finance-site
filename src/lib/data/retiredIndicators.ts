@@ -81,6 +81,16 @@ export const RETIRED_COMPUTED_REPLACEMENTS: Readonly<Record<string, RetiredRepla
   sec_us_insider_buy_filings_monthly: null,
   // Japan_Overview：xlsx 利差列（2026-09-21）——可由 c06、c07 逐日精确重算，改为指标运算
   jpov_c08_jgb_10y2y: { derived: JAPAN_OVERVIEW_STANDARD_DERIVED[0]!.calc },
+  // 日本海关：贸易差额由官方出口 − 进口算出（CSV 无官方差额列），2026-09-22 退役改指标运算
+  customs_jp_trade_balance_nsa: {
+    derived: {
+      id: "jp-trade-balance",
+      name: "日本：货物贸易差额",
+      op: "sub",
+      leftKey: "mds:customs_jp_trade_exports_total_nsa",
+      rightKey: "mds:customs_jp_trade_imports_total_nsa",
+    },
+  },
 };
 
 /**

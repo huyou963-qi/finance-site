@@ -59,7 +59,7 @@ test("Japan source facts retain economic placement despite ambiguous names", () 
   const country = buildGlobalCatalogLayout([{ code: "JP", name: "日本", categories: [{ name: "source", items }] }])[0]!;
   const leaves = country.categories.flatMap((c) => c.subgroups);
   const keys = leaves.flatMap((s) => s.itemKeys);
-  assert.equal(keys.length, 151);
+  assert.equal(keys.length, 150);
   assert.equal(new Set(keys).size, keys.length);
   assert(leaves.every((s) => s.itemKeys.length <= 48 && /（[年月季日]频）$/.test(s.name)));
   assert(country.categories.every((c) => c.itemKeys.length === 0));

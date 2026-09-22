@@ -17,8 +17,8 @@ function parsePositiveInteger(raw: string, label: string) {
 /**
  * Parse the official world monthly time-series CSV. The file is Shift-JIS and
  * contains zero-filled future months. Those placeholders are excluded. Values
- * are converted from thousand yen to 100 million yen. Trade balance is derived
- * exactly as exports minus imports from the two official total columns.
+ * are converted from thousand yen to 100 million yen. Only the two official
+ * total columns are stored; the trade balance is a chart-side calc.
  */
 export function parseJpCustomsTradeCsv(
   text: string,
@@ -66,7 +66,6 @@ export function parseJpCustomsTradeCsv(
     const imports = importsThousandYen / 100_000;
     output.customs_jp_trade_exports_total_nsa.push({ obsDate, value: exports });
     output.customs_jp_trade_imports_total_nsa.push({ obsDate, value: imports });
-    output.customs_jp_trade_balance_nsa.push({ obsDate, value: exports - imports });
   }
   for (const [code, points] of Object.entries(output)) {
     if (points.length < minimumPoints) throw new Error(`Japan Customs history truncated: ${code}`);

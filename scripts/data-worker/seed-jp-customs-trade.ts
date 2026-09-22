@@ -58,8 +58,11 @@ async function main() {
     const existing = await prisma.instrument.findUnique({ where: { code: series.instrumentCode } });
     const previous = existing?.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
       ? existing.metadata : {};
+    // 旧版写过 derivation 字段（出口/进口为 null）——宏观库不允许派生标记，连同键一起去掉
+    const { derivation: _legacyDerivation, ...previousClean } = previous as Record<string, unknown>;
+    void _legacyDerivation;
     const metadata = {
-      ...previous,
+      ...previousClean,
       sourceTag: "jp-customs-world-monthly-official-csv",
       countryCode: "JP",
       countryNameZh: "日本",
@@ -81,10 +84,9 @@ async function main() {
       referencePeriod: "month",
       geography: "日本全国（对世界）",
       sourceColumn: series.sourceColumn,
-      derivation: series.derivation,
       historyStart: "1979-01-01",
       sourceUpdateNote:
-        "海关世界月度CSV自1979年起，原值单位千日元；入库除以100,000转为亿日元。文件会预置未来月份为0，解析时丢弃。贸易差额严格由同一行官方出口减进口；不接国别、地区、品目或行业。历年数会按速報、确报、确々报、确定依次修订，因此每次完整回读。",
+        "海关世界月度CSV自1979年起，原值单位千日元；入库除以100,000转为亿日元。文件会预置未来月份为0，解析时丢弃。只存官方出口、进口两列，贸易差额在图表侧用指标运算；不接国别、地区、品目或行业。历年数会按速報、确报、确々报、确定依次修订，因此每次完整回读。",
       scrape: {
         provider: JP_CUSTOMS_TRADE_PROVIDER,
         url: JP_CUSTOMS_TRADE_CSV,
