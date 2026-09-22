@@ -55,9 +55,12 @@ export type JapanOverviewStandardSeriesDef = {
   calc: MacroSeriesCalcConfig;
 };
 
-/** 内置 Japan_Overview 模板里替代旧列的标准指标（图位/样式沿用原列；原不画的环比列不进模板） */
+/**
+ * 内置 Japan_Overview 模板里替代旧列的标准指标（图位/样式沿用原列；原不画的环比列不进模板）。
+ * 名义 GDP 水平值不进模板：标准序列是年率（≈62 万亿日元级，旧列为季度值 ≈15 万），与日经 225 同在
+ * 图 1 右轴会把日经压成一条直线；图 1 已有名义/实际 GDP 同比。
+ */
 export const JAPAN_OVERVIEW_STANDARD_SERIES: readonly JapanOverviewStandardSeriesDef[] = [
-  { key: "mds:esri_jp_gdp_gdp_nominal_saar", displayName: "GDP:名义季调年率", panel: 1, axis: "right", chartType: "line", color: "#9f8fc7", calc: NONE },
   { key: "mds:esri_jp_gdp_gdp_real_saar::yoy", displayName: "实际GDP 同比", panel: 1, axis: "left", chartType: "line", color: "#f39c3d", calc: YOY_QUARTER },
   { key: "mds:esri_jp_gdp_gdp_nominal_saar::yoy", displayName: "名义GDP 同比", panel: 1, axis: "left", chartType: "line", color: "#2aa7b8", calc: YOY_QUARTER },
   { key: "mds:boj_jp_uncollateralized_overnight_call_rate_monthly_average", displayName: "无担保隔夜拆借利率(月均)", panel: 2, axis: "left", chartType: "line", color: "#d75a68", calc: NONE },
