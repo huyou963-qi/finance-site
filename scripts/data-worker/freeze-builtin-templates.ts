@@ -43,6 +43,7 @@ function toOverride(tpl: MacroChartTemplate): BuiltinTemplateOverride {
   return {
     name: tpl.name,
     description: tpl.description,
+    ...(tpl.introText ? { introText: tpl.introText } : {}),
     ...(tpl.indicatorIntroNotes ? { indicatorIntroNotes: tpl.indicatorIntroNotes } : {}),
     ...(tpl.chartIntroNotes ? { chartIntroNotes: tpl.chartIntroNotes } : {}),
     selectedKeys: [...tpl.selectedKeys],

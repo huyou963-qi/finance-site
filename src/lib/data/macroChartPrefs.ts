@@ -44,6 +44,8 @@ export type MacroChartPrefs = {
 export type BuiltinTemplateOverride = {
   name?: string;
   description?: string;
+  /** 模板介绍正文（自由文本） */
+  introText?: string;
   indicatorIntroNotes?: Record<string, string>;
   chartIntroNotes?: Record<string, string>;
   selectedKeys: string[];
@@ -83,6 +85,14 @@ const DERIVED_OPS = new Set<MacroDerivedCalc["op"]>([
   "spread",
 ]);
 const FOLDER_SCOPES = new Set<MacroTemplateFolderScope>(["builtin", "user"]);
+
+const INTRO_TEXT_MAX_LEN = 20000;
+
+function sanitizeIntroText(input: unknown): string | undefined {
+  if (typeof input !== "string") return undefined;
+  const text = input.trim().slice(0, INTRO_TEXT_MAX_LEN);
+  return text ? text : undefined;
+}
 
 function sanitizeIndicatorIntroNotes(input: unknown, maxKeys = 80): Record<string, string> {
   if (!input || typeof input !== "object") return {};
@@ -240,6 +250,7 @@ function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTempla
         id,
         name,
         description,
+        introText: sanitizeIntroText(t.introText),
         indicatorIntroNotes:
           Object.keys(indicatorIntroNotes).length > 0 ? indicatorIntroNotes : undefined,
         chartIntroNotes:
@@ -380,6 +391,7 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
   return {
     name,
     description,
+    introText: sanitizeIntroText(o.introText),
     indicatorIntroNotes:
       Object.keys(indicatorIntroNotes).length > 0 ? indicatorIntroNotes : undefined,
     chartIntroNotes:
@@ -473,6 +485,7 @@ export function mergeBuiltinTemplateOverride(
     ...base,
     name: override.name?.trim() || base.name,
     description: override.description ?? base.description,
+    introText: override.introText ?? base.introText,
     indicatorIntroNotes: override.indicatorIntroNotes ?? base.indicatorIntroNotes,
     chartIntroNotes: override.chartIntroNotes ?? base.chartIntroNotes,
     selectedKeys: [...override.selectedKeys],

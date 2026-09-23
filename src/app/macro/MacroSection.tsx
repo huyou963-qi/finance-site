@@ -208,6 +208,8 @@ const INTRO_WORKSPACE_TEMPLATE_ID = "__workspace__";
 
 const INTRO_DESCRIPTION_MAX_LEN = 8000;
 
+const INTRO_TEXT_MAX_LEN = 20000;
+
 function buildBuiltinOverrideFromTemplate(
   tpl: MacroChartTemplate,
   patch: Partial<BuiltinTemplateOverride> = {},
@@ -215,6 +217,7 @@ function buildBuiltinOverrideFromTemplate(
   return {
     name: tpl.name,
     description: tpl.description,
+    introText: tpl.introText,
     selectedKeys: [...tpl.selectedKeys],
     selectedListItems: tpl.selectedListItems,
     layoutMode: tpl.layoutMode,
@@ -2981,6 +2984,7 @@ export function MacroSection() {
       return {
         name: null as string | null,
         description: null as string | null,
+        introText: null as string | null,
         keys: orderedSelectedKeys,
       };
     }
@@ -2988,6 +2992,7 @@ export function MacroSection() {
     return {
       name: resolved.name,
       description: resolved.description ?? null,
+      introText: resolved.introText ?? null,
       keys: resolved.selectedKeys.length > 0 ? resolved.selectedKeys : orderedSelectedKeys,
     };
   }, [activeTemplate, orderedSelectedKeys, resolveTemplateConfig]);
@@ -3035,25 +3040,6 @@ export function MacroSection() {
     templateIndicatorNotes,
   ]);
 
-  const onIntroNoteChange = useCallback(
-    (key: string, text: string) => {
-      setTemplateIndicatorNotes((prev) => {
-        const row = { ...(prev[introTemplateId] ?? {}) };
-        const trimmed = text.trim();
-        if (trimmed) row[key] = text.slice(0, 8000);
-        else delete row[key];
-        if (Object.keys(row).length === 0) {
-          if (!(introTemplateId in prev)) return prev;
-          const next = { ...prev };
-          delete next[introTemplateId];
-          return next;
-        }
-        return { ...prev, [introTemplateId]: row };
-      });
-    },
-    [introTemplateId],
-  );
-
   const flushIntroDescriptionSave = useCallback(async () => {
     if (!isAdmin) return;
     const pending = introDescPendingSaveRef.current;
@@ -3070,14 +3056,11 @@ export function MacroSection() {
     }
   }, [isAdmin, persistBuiltinTemplateOverrides, persistSystemTemplateData]);
 
-  const onIntroDescriptionChange = useCallback(
-    (text: string) => {
+  /** admin 修改系统模板的简介 / 介绍正文：写入系统模板并防抖保存 */
+  const patchBuiltinTemplateIntro = useCallback(
+    (patch: { description?: string | undefined; introText?: string | undefined }) => {
       if (!isAdmin || !activeTemplate?.builtIn) return;
       const templateId = activeTemplate.id;
-      const trimmed = text.trim();
-      const nextDescription = trimmed
-        ? text.slice(0, INTRO_DESCRIPTION_MAX_LEN)
-        : undefined;
 
       if (HARDCODED_BUILTIN_TEMPLATE_IDS.has(templateId)) {
         setBuiltinTemplateOverrides((prev) => {
@@ -3085,7 +3068,7 @@ export function MacroSection() {
             prev[templateId] ?? buildBuiltinOverrideFromTemplate(activeTemplate);
           const merged: BuiltinTemplateOverride = {
             ...base,
-            description: nextDescription,
+            ...patch,
             updatedAtIso: new Date().toISOString(),
           };
           const next = { ...prev, [templateId]: merged };
@@ -3094,9 +3077,7 @@ export function MacroSection() {
         });
       } else if (templateId.startsWith("builtin-custom-")) {
         setCustomBuiltinTemplates((prev) => {
-          const next = prev.map((t) =>
-            t.id === templateId ? { ...t, description: nextDescription } : t,
-          );
+          const next = prev.map((t) => (t.id === templateId ? { ...t, ...patch } : t));
           introDescPendingSaveRef.current = { kind: "custom", templates: next };
           return next;
         });
@@ -3110,6 +3091,26 @@ export function MacroSection() {
       }, 450);
     },
     [activeTemplate, flushIntroDescriptionSave, isAdmin],
+  );
+
+  const onIntroDescriptionChange = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      patchBuiltinTemplateIntro({
+        description: trimmed ? text.slice(0, INTRO_DESCRIPTION_MAX_LEN) : undefined,
+      });
+    },
+    [patchBuiltinTemplateIntro],
+  );
+
+  const onIntroTextChange = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      patchBuiltinTemplateIntro({
+        introText: trimmed ? text.slice(0, INTRO_TEXT_MAX_LEN) : undefined,
+      });
+    },
+    [patchBuiltinTemplateIntro],
   );
 
   useEffect(() => {
@@ -3367,12 +3368,18 @@ export function MacroSection() {
                               />
                             ) : chartSidePanelTab === "intro" ? (
                               <MacroTemplateIntroPanel
+                                key={introTemplateId}
                                 templateName={introTemplateMeta.name}
                                 templateDescription={introTemplateMeta.description}
+                                introText={introTemplateMeta.introText}
                                 chartSections={introChartSections ?? undefined}
                                 indicators={introChartSections ? [] : introIndicators}
                                 notes={mergedIntroNotes}
-                                onNoteChange={onIntroNoteChange}
+                                onIntroTextChange={
+                                  isAdmin && activeTemplate?.builtIn
+                                    ? onIntroTextChange
+                                    : undefined
+                                }
                                 onDescriptionChange={
                                   isAdmin && activeTemplate?.builtIn
                                     ? onIntroDescriptionChange
