@@ -137,8 +137,28 @@ function parseOptionalPhone(
   return validatePhone(trimmed);
 }
 
-function phoneRequiredForUser(user: { role: Role }): boolean {
-  return user.role !== "admin";
+/** 邮箱/手机号是否必填：管理员与微信扫码注册的账号可不填（后者由微信实名兜底） */
+function phoneRequiredForUser(user: { role: string; wechatOpenId?: string | null }): boolean {
+  return user.role !== "admin" && !user.wechatOpenId;
+}
+
+/** 微信扫码注册的账号没有密码（passHash 为空），此时不可用密码登录，设置首个密码也无需当前密码 */
+function userHasPassword(user: { passHash: string }): boolean {
+  return user.passHash !== "";
+}
+
+function wechatSummary(u: {
+  wechatOpenId: string | null;
+  wechatNickname: string | null;
+  wechatBoundAt: Date | null;
+  passHash: string;
+}) {
+  return {
+    wechatBound: !!u.wechatOpenId,
+    wechatNickname: u.wechatNickname ?? "",
+    wechatBoundAt: u.wechatBoundAt ? u.wechatBoundAt.toISOString() : null,
+    hasPassword: userHasPassword(u),
+  };
 }
 
 export async function registerUser(
@@ -364,27 +384,146 @@ export async function loginUser(
   });
   if (!user) throw new Error("用户名或密码错误");
 
+  if (!userHasPassword(user)) throw new Error("该账号通过微信注册，请使用微信扫码登录");
   const passHash = hashPassword(passwordRaw, user.passSalt);
   if (!safeEqHex(passHash, user.passHash)) {
     throw new Error("用户名或密码错误");
   }
 
+  return {
+    cookie: await createSessionCookie(user.id),
+    user: { id: user.id, username: user.username, role: user.role as Role },
+  };
+}
+
+/** 为已通过身份校验的用户建会话，返回 Set-Cookie 值（密码登录与微信登录共用） */
+export async function createSessionCookie(userId: string): Promise<string> {
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const token = crypto.randomBytes(32).toString("hex");
-
   await prisma.session.create({
     data: {
       token,
-      userId: user.id,
+      userId,
       createdAt: new Date(),
       expiresAt,
     },
   });
+  return makeCookie(token, expiresAt.toISOString());
+}
+
+export type WechatIdentity = {
+  openId: string;
+  unionId: string | null;
+  nickname: string | null;
+};
+
+async function findUserByWechat(identity: WechatIdentity) {
+  if (identity.unionId) {
+    const byUnion = await prisma.user.findUnique({ where: { wechatUnionId: identity.unionId } });
+    if (byUnion) return byUnion;
+  }
+  return prisma.user.findUnique({ where: { wechatOpenId: identity.openId } });
+}
+
+async function generateWechatUsername(): Promise<string> {
+  for (let i = 0; i < 10; i += 1) {
+    const candidate = `wx_${crypto.randomBytes(4).toString("hex")}`;
+    const exists = await prisma.user.findFirst({
+      where: { username: { equals: candidate, mode: "insensitive" } },
+    });
+    if (!exists) return candidate;
+  }
+  throw new Error("生成用户名失败，请重试");
+}
+
+/**
+ * 微信扫码：已绑定则登录，未绑定则自动注册（与邮箱注册一样赠送试用期）。
+ * 新账号无密码、无邮箱手机号，可在个人账户页补充。
+ */
+export async function loginOrRegisterWechat(
+  identity: WechatIdentity,
+): Promise<{ cookie: string; created: boolean; user: { id: string; username: string; role: Role } }> {
+  await ensureAdminSeed();
+  await prisma.session.deleteMany({ where: { expiresAt: { lte: new Date() } } });
+
+  let user = await findUserByWechat(identity);
+  let created = false;
+  if (user) {
+    // 刷新昵称；早期只有 openid 的记录补上 unionid
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        wechatNickname: identity.nickname ?? user.wechatNickname,
+        wechatUnionId: user.wechatUnionId ?? identity.unionId,
+      },
+    });
+  } else {
+    user = await prisma.user.create({
+      data: {
+        id: uid(),
+        username: await generateWechatUsername(),
+        passHash: "",
+        passSalt: "",
+        role: "user",
+        plan: "standard",
+        trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
+        wechatOpenId: identity.openId,
+        wechatUnionId: identity.unionId,
+        wechatNickname: identity.nickname,
+        wechatBoundAt: new Date(),
+        createdAt: new Date(),
+      },
+    });
+    created = true;
+  }
 
   return {
-    cookie: makeCookie(token, expiresAt.toISOString()),
+    cookie: await createSessionCookie(user.id),
+    created,
     user: { id: user.id, username: user.username, role: user.role as Role },
   };
+}
+
+/** 已登录用户绑定微信；该微信已绑其他账号时报错 */
+export async function bindWechatToUser(userId: string, identity: WechatIdentity): Promise<void> {
+  const owner = await findUserByWechat(identity);
+  if (owner && owner.id !== userId) {
+    throw new Error("该微信已绑定其他账号，请先用微信登录该账号解绑");
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("用户不存在");
+  if (user.wechatOpenId && user.wechatOpenId !== identity.openId) {
+    throw new Error("当前账号已绑定其他微信，请先解绑");
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      wechatOpenId: identity.openId,
+      wechatUnionId: identity.unionId,
+      wechatNickname: identity.nickname,
+      wechatBoundAt: user.wechatBoundAt ?? new Date(),
+    },
+  });
+}
+
+/** 解绑微信；没有密码的账号解绑后将无法登录，故要求先设置密码与联系方式 */
+export async function unbindWechatFromUser(userId: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("用户不存在");
+  if (!user.wechatOpenId) throw new Error("当前账号未绑定微信");
+  if (!userHasPassword(user)) throw new Error("请先设置登录密码再解绑微信，否则将无法登录");
+  if (user.role !== "admin" && (!user.email || !user.phone)) {
+    throw new Error("请先补充邮箱和手机号再解绑微信");
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      wechatOpenId: null,
+      wechatUnionId: null,
+      wechatNickname: null,
+      wechatBoundAt: null,
+    },
+  });
 }
 
 export async function logoutByToken(token: string): Promise<void> {
@@ -429,6 +568,7 @@ export async function listUsers() {
       trialEndsAt: u.trialEndsAt,
       creditBalance: u.creditBalance,
     }),
+    wechatBound: !!u.wechatOpenId,
     createdAt: u.createdAt.toISOString(),
   }));
 }
@@ -455,6 +595,7 @@ export async function getUserProfile(userId: string) {
       trialEndsAt: user.trialEndsAt,
       creditBalance: user.creditBalance,
     }),
+    ...wechatSummary(user),
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -488,7 +629,7 @@ export async function updateUserAccount(
 
   if (patch.email !== undefined) {
     const email = parseOptionalEmail(patch.email, {
-      required: phoneRequiredForUser(user as { role: Role }),
+      required: phoneRequiredForUser(user),
     });
     if (email) {
       const existsEmail = await prisma.user.findFirst({
@@ -507,7 +648,7 @@ export async function updateUserAccount(
 
   if (patch.phone !== undefined) {
     const phone = parseOptionalPhone(patch.phone, {
-      required: phoneRequiredForUser(user as { role: Role }),
+      required: phoneRequiredForUser(user),
     });
     if (phone) {
       const existsPhone = await prisma.user.findFirst({
@@ -522,7 +663,7 @@ export async function updateUserAccount(
 
   if (patch.password !== undefined && patch.password.trim()) {
     const password = validatePassword(patch.password);
-    if (!options?.byAdmin) {
+    if (!options?.byAdmin && userHasPassword(user)) {
       const current = options?.currentPassword ?? "";
       if (!current) throw new Error("修改密码需提供当前密码");
       const passHash = hashPassword(current, user.passSalt);
@@ -582,6 +723,7 @@ export async function updateUserAccount(
       trialEndsAt: updated.trialEndsAt,
       creditBalance: updated.creditBalance,
     }),
+    ...wechatSummary(updated),
     createdAt: updated.createdAt.toISOString(),
   };
 }

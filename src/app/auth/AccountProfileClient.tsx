@@ -7,6 +7,7 @@ import {
   authInputClass,
   authReadonlyInputClass,
 } from "@/components/auth/AuthPageShell";
+import { WechatQrPanel } from "@/components/auth/WechatQrPanel";
 
 type UserProfile = {
   id: string;
@@ -20,6 +21,9 @@ type UserProfile = {
   creditBalance?: number;
   hasProAccess?: boolean;
   isTrial?: boolean;
+  wechatBound?: boolean;
+  wechatNickname?: string;
+  hasPassword?: boolean;
   createdAt: string;
 };
 
@@ -33,7 +37,13 @@ function fmtDate(iso: string | null | undefined) {
   return iso.slice(0, 10);
 }
 
-export function AccountProfileClient() {
+export function AccountProfileClient({
+  wechatStatus,
+  wechatError,
+}: {
+  wechatStatus?: string | null;
+  wechatError?: string | null;
+} = {}) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,6 +52,17 @@ export function AccountProfileClient() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [binding, setBinding] = useState(false);
+  const [wechatEnabled, setWechatEnabled] = useState(false);
+  const [wechatHint, setWechatHint] = useState<string | null>(
+    wechatError
+      ? `微信操作失败：${wechatError}`
+      : wechatStatus === "welcome"
+        ? "微信注册成功，已赠送 Pro 试用。建议补充邮箱、手机号并设置密码。"
+        : wechatStatus === "bound"
+          ? "微信绑定成功，之后可直接扫码登录"
+          : null,
+  );
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -57,6 +78,10 @@ export function AccountProfileClient() {
         setPhone(u.phone);
       })
       .catch((e) => setHint(e instanceof Error ? e.message : "加载失败"));
+    fetch("/api/auth/wechat/config?probe=1", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ enabled?: boolean }>)
+      .then((j) => setWechatEnabled(!!j.enabled))
+      .catch(() => setWechatEnabled(false));
   }, []);
 
   const save = async () => {
@@ -65,7 +90,7 @@ export function AccountProfileClient() {
       setHint("两次输入的新密码不一致");
       return;
     }
-    if (newPassword && !currentPassword) {
+    if (newPassword && !currentPassword && profile.hasPassword !== false) {
       setHint("修改密码需填写当前密码");
       return;
     }
@@ -82,7 +107,10 @@ export function AccountProfileClient() {
           currentPassword: currentPassword || undefined,
         }),
       });
-      const payload = (await res.json()) as { user?: UserProfile; error?: string };
+      const payload = (await res.json()) as {
+        user?: UserProfile;
+        error?: string;
+      };
       if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
       if (payload.user) {
         setProfile(payload.user);
@@ -97,6 +125,23 @@ export function AccountProfileClient() {
       setHint(e instanceof Error ? e.message : "保存失败");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const unbind = async () => {
+    if (!window.confirm("解绑后将无法使用该微信扫码登录，确定解绑？")) return;
+    setWechatHint(null);
+    try {
+      const res = await fetch("/api/auth/wechat/unbind", { method: "POST" });
+      const payload = (await res.json()) as {
+        user?: UserProfile;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
+      if (payload.user) setProfile(payload.user);
+      setWechatHint("已解绑微信");
+    } catch (e) {
+      setWechatHint(e instanceof Error ? e.message : "解绑失败");
     }
   };
 
@@ -116,11 +161,15 @@ export function AccountProfileClient() {
     );
   }
 
+  // 与服务端 phoneRequiredForUser 一致：管理员、微信注册账号可不填联系方式
+  const contactOptional = profile.role === "admin" || !!profile.wechatBound;
+  const hasPassword = profile.hasPassword !== false;
+
   const membershipLabel = profile.hasProAccess
     ? profile.isTrial
       ? `试用中（至 ${fmtDate(profile.trialEndsAt)}）`
       : `Pro（至 ${fmtDate(profile.planExpiresAt)}）`
-    : PLAN_LABELS[profile.plan] ?? profile.plan;
+    : (PLAN_LABELS[profile.plan] ?? profile.plan);
 
   return (
     <AuthPageShell>
@@ -133,9 +182,7 @@ export function AccountProfileClient() {
         <p className="text-fs-text">
           会员状态：<span className="font-medium">{membershipLabel}</span>
         </p>
-        <p className="mt-1 text-xs text-fs-muted">
-          回测积分余额：{profile.creditBalance ?? 0}
-        </p>
+        <p className="mt-1 text-xs text-fs-muted">回测积分余额：{profile.creditBalance ?? 0}</p>
         <Link
           href="/pricing"
           className="mt-2 inline-block text-sm font-medium text-fs-accent-text underline"
@@ -168,40 +215,44 @@ export function AccountProfileClient() {
           />
         </label>
         <label className="block text-sm text-fs-secondary">
-          邮箱{profile.role === "admin" ? "（选填）" : ""}
+          邮箱{contactOptional ? "（选填）" : ""}
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={authInputClass}
-            required={profile.role !== "admin"}
+            required={!contactOptional}
           />
         </label>
         <label className="block text-sm text-fs-secondary">
-          手机号{profile.role === "admin" ? "（选填）" : ""}
+          手机号{contactOptional ? "（选填）" : ""}
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder={profile.role === "admin" ? "可选" : "11 位中国大陆手机号"}
+            placeholder={contactOptional ? "可选" : "11 位中国大陆手机号"}
             className={authInputClass}
-            required={profile.role !== "admin"}
+            required={!contactOptional}
           />
         </label>
 
         <div className="rounded-lg border border-fs-border bg-fs-bg px-4 py-3">
-          <p className="text-xs font-medium text-fs-muted">修改密码（可选）</p>
+          <p className="text-xs font-medium text-fs-muted">
+            {hasPassword ? "修改密码（可选）" : "设置登录密码（可选，设置后也可用用户名密码登录）"}
+          </p>
           <div className="mt-3 space-y-3">
-            <label className="block text-sm text-fs-secondary">
-              当前密码
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className={authInputClass}
-                autoComplete="current-password"
-              />
-            </label>
+            {hasPassword ? (
+              <label className="block text-sm text-fs-secondary">
+                当前密码
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className={authInputClass}
+                  autoComplete="current-password"
+                />
+              </label>
+            ) : null}
             <label className="block text-sm text-fs-secondary">
               新密码
               <input
@@ -235,6 +286,53 @@ export function AccountProfileClient() {
           {loading ? "保存中…" : "保存"}
         </button>
       </form>
+
+      {wechatEnabled || profile.wechatBound ? (
+        <section className="mt-8 rounded-lg border border-fs-border bg-fs-bg px-4 py-3">
+          <p className="text-xs font-medium text-fs-muted">微信登录</p>
+          {profile.wechatBound ? (
+            <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+              <span className="text-fs-text">
+                已绑定
+                {profile.wechatNickname ? `：${profile.wechatNickname}` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={() => unbind().catch(() => {})}
+                className="rounded-md border border-fs-border px-3 py-1.5 text-xs text-fs-secondary hover:bg-fs-elevated"
+              >
+                解绑
+              </button>
+            </div>
+          ) : binding ? (
+            <div className="mt-3">
+              <WechatQrPanel mode="bind" />
+              <button
+                type="button"
+                onClick={() => setBinding(false)}
+                className="mt-2 w-full text-xs text-fs-muted underline"
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+              <span className="text-fs-muted">未绑定，绑定后可扫码登录本账号</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setBinding(true);
+                  setWechatHint(null);
+                }}
+                className="rounded-md border border-fs-border px-3 py-1.5 text-xs text-fs-secondary hover:bg-fs-elevated"
+              >
+                绑定微信
+              </button>
+            </div>
+          )}
+          {wechatHint ? <p className="mt-2 text-sm text-fs-secondary">{wechatHint}</p> : null}
+        </section>
+      ) : null}
     </AuthPageShell>
   );
 }

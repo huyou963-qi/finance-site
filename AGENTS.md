@@ -72,7 +72,7 @@ finance-site/
 | `FMP_API_KEY` | 宏观 unified / TTM PE |
 | `APP_BASE_URL` | 邮件验证链接 |
 
-可选：`FRED_API_KEY`、`IBKR_*`、`SMTP_*`。详见 `.env.example` 注释。
+可选：`FRED_API_KEY`、`IBKR_*`、`SMTP_*`、`WECHAT_OPEN_APPID`/`WECHAT_OPEN_SECRET`（微信扫码登录，`src/lib/auth/wechat.ts`）。详见 `.env.example` 注释。
 
 ## 按计划更新宏观数据（P0）
 

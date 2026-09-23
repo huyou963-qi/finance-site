@@ -30,6 +30,12 @@ model User {
   trialEndsAt     DateTime? @map("trial_ends_at")
   /// 回测等用量积分余额（非 Pro 可用积分抵扣；Pro 不扣减）
   creditBalance   Int       @default(0) @map("credit_balance")
+  /// 微信开放平台网站应用 openid（扫码登录；同一 AppID 下唯一）
+  wechatOpenId    String?   @unique @map("wechat_openid")
+  /// 微信 unionid（开放平台账号下跨应用唯一；绑定开放平台账号后才有）
+  wechatUnionId   String?   @unique @map("wechat_unionid")
+  wechatNickname  String?   @map("wechat_nickname")
+  wechatBoundAt   DateTime? @map("wechat_bound_at")
   createdAt       DateTime
 
   sessions            Session[]
