@@ -60,3 +60,6 @@ next-build.tar.gz
 # Python bytecode
 __pycache__/
 *.pyc
+
+# 本地周报草稿（历史周目录已在库中，仅忽略该周）
+/.codex/weekly-reports/2026-09-18/
