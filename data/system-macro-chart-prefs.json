@@ -261,23 +261,15 @@
       "name": "US_Overview",
       "layoutMode": 6,
       "description": "由 US_Overview.xlsx 导入的美国总览图组。点击后自动从数据库读取并按预置样式绘制。",
-      "derivedCalcs": [
-        {
-          "id": "usov-2y-effr",
-          "op": "sub",
-          "name": "2年-EFFR",
-          "leftKey": "fred:DGS2",
-          "rightKey": "mds:usov_c11_effr"
-        }
-      ],
+      "derivedCalcs": [],
       "selectedKeys": [
         "mds:usov_c03_sp500",
         "mds:us_sp500_pe",
-        "mds:comex_gold_futures",
-        "fred:DGS10",
+        "mds:wgc_gold_price_usd",
         "fred:DGS2",
         "fred:T10Y2Y",
         "mds:usov_c11_effr",
+        "fred:DFII10",
         "mds:ism_svc_us_svc_headline",
         "mds:ism_us_ism_headline",
         "fred:A191RL1Q225SBEA",
@@ -287,14 +279,21 @@
         "fred:PCEPILFE::yoy",
         "fred:UNRATE",
         "fred:PAYEMS::diff",
-        "mds:usov_c23_fed_assets",
-        "mds:usov_c24_fed_treasuries"
+        "mds:usov_c24_fed_treasuries",
+        "mds:usov_c23_fed_assets"
       ],
-      "updatedAtIso": "2026-09-15T07:18:30.816Z",
+      "updatedAtIso": "2026-09-23T02:13:01.879Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
         "showLegend": true,
+        "slotHidden": {
+          "0": false,
+          "1": false,
+          "2": false,
+          "3": false,
+          "4": false
+        },
         "slotTitles": {
           "0": "市场",
           "1": "收益率",
@@ -317,14 +316,13 @@
           "0": [
             "mds:usov_c03_sp500",
             "mds:us_sp500_pe",
-            "mds:comex_gold_futures"
+            "mds:wgc_gold_price_usd"
           ],
           "1": [
-            "fred:DGS10",
             "fred:DGS2",
             "mds:usov_c11_effr",
             "fred:T10Y2Y",
-            "calc:usov-2y-effr"
+            "fred:DFII10"
           ],
           "2": [
             "mds:ism_us_ism_headline",
@@ -333,7 +331,15 @@
           ],
           "3": [
             "fred:PAYEMS::diff",
+            "mds:comex_gold_futures",
             "fred:UNRATE"
+          ],
+          "4": [
+            "fred:PPIFIS::yoy",
+            "fred:CPIAUCSL::yoy",
+            "mds:comex_gold_futures",
+            "fred:CPILFESL::yoy",
+            "fred:PCEPILFE::yoy"
           ]
         },
         "endLabelDecimals": 2,
@@ -342,12 +348,11 @@
       },
       "slotAssignment": {
         "fred:DGS2": 1,
-        "fred:DGS10": 1,
+        "fred:DFII10": 1,
         "fred:T10Y2Y": 1,
         "fred:UNRATE": 3,
         "mds:us_sp500_pe": 0,
-        "fred:PPIFIS::yoy": null,
-        "calc:usov-2y-effr": 1,
+        "fred:PPIFIS::yoy": 4,
         "fred:PAYEMS::diff": 3,
         "mds:usov_c11_effr": 1,
         "fred:CPIAUCSL::yoy": 4,
@@ -355,7 +360,7 @@
         "fred:PCEPILFE::yoy": 4,
         "mds:usov_c03_sp500": 0,
         "fred:A191RL1Q225SBEA": 2,
-        "mds:comex_gold_futures": null,
+        "mds:wgc_gold_price_usd": null,
         "mds:ism_us_ism_headline": 2,
         "mds:usov_c23_fed_assets": 5,
         "mds:ism_svc_us_svc_headline": 2,
@@ -365,12 +370,6 @@
         "fred:DGS2": {
           "axis": "right",
           "color": "#9da8b6",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:DGS10": {
-          "axis": "right",
-          "color": "#f0d36d",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -423,12 +422,6 @@
         "fred:A191RL1Q225SBEA": {
           "axis": "right"
         },
-        "mds:comex_gold_futures": {
-          "axis": "right",
-          "color": "#d86a7a",
-          "chartType": "line",
-          "showEndLabel": true
-        },
         "mds:ism_us_ism_headline": {
           "chartType": "stepLine"
         },
@@ -458,17 +451,13 @@
           "type": "series"
         },
         {
-          "key": "mds:comex_gold_futures",
+          "key": "mds:wgc_gold_price_usd",
           "type": "series"
         },
         {
           "id": "div-mti011ol-zdqp",
           "type": "divider",
           "label": "分组"
-        },
-        {
-          "key": "fred:DGS10",
-          "type": "series"
         },
         {
           "key": "fred:DGS2",
@@ -483,8 +472,8 @@
           "type": "series"
         },
         {
-          "key": "calc:usov-2y-effr",
-          "type": "derived"
+          "key": "fred:DFII10",
+          "type": "series"
         },
         {
           "id": "div-mti016e4-m91k",
@@ -504,7 +493,8 @@
         },
         {
           "id": "div-mti01aa3-1bx7",
-          "type": "divider"
+          "type": "divider",
+          "label": "分组"
         },
         {
           "key": "fred:CPIAUCSL::yoy",
@@ -539,22 +529,16 @@
           "type": "divider"
         },
         {
-          "key": "mds:usov_c23_fed_assets",
+          "key": "mds:usov_c24_fed_treasuries",
           "type": "series"
         },
         {
-          "key": "mds:usov_c24_fed_treasuries",
+          "key": "mds:usov_c23_fed_assets",
           "type": "series"
         }
       ],
       "seriesCalcConfigMap": {
         "fred:DGS2": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
-        },
-        "fred:DGS10": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
@@ -601,12 +585,6 @@
           "unit": "keep",
           "frequency": "keep",
           "resampleMethod": "avg"
-        },
-        "mds:comex_gold_futures": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
         }
       }
     },
@@ -624,22 +602,22 @@
         }
       ],
       "selectedKeys": [
+        "mds:wgc_gold_price_usd",
+        "mds:comex_gold_futures",
+        "fred:DTWEXBGS",
+        "fred:DFII10",
+        "mds:cot_mm_gold_long",
+        "mds:cot_mm_gold_short",
         "mds:goldov_c06_mm_net",
+        "mds:goldov_c24_global_reserve_tons",
         "mds:goldov_c17_spdr_etf",
         "mds:goldov_c18_ishares_etf",
         "mds:goldov_c19_gbs_etf",
-        "mds:goldov_c20_phau_etf",
         "mds:goldov_c21_sgbs_etf",
         "mds:goldov_c22_gold_etf",
-        "mds:goldov_c23_comex_stock_oz",
-        "mds:goldov_c24_global_reserve_tons",
-        "mds:goldov_c27_brent",
-        "mds:wgc_gold_price_usd",
-        "mds:comex_gold_futures",
-        "fred:DFII10",
-        "mds:goldov_c23_comex_stock_oz::diff"
+        "mds:goldov_c20_phau_etf"
       ],
-      "updatedAtIso": "2026-09-22T03:03:40.890Z",
+      "updatedAtIso": "2026-09-23T04:06:49.744Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -660,20 +638,20 @@
       },
       "slotAssignment": {
         "fred:DFII10": 1,
+        "fred:DTWEXBGS": null,
         "calc:gold-basis": null,
-        "mds:goldov_c27_brent": null,
+        "mds:cot_mm_gold_long": null,
+        "mds:cot_mm_gold_short": null,
         "mds:goldov_c06_mm_net": 2,
         "mds:comex_gold_futures": null,
         "mds:goldov_c19_gbs_etf": 4,
         "mds:wgc_gold_price_usd": 0,
         "mds:goldov_c17_spdr_etf": 4,
-        "mds:goldov_c20_phau_etf": 4,
+        "mds:goldov_c20_phau_etf": null,
         "mds:goldov_c21_sgbs_etf": 4,
         "mds:goldov_c22_gold_etf": 4,
         "mds:goldov_c18_ishares_etf": 4,
-        "mds:goldov_c23_comex_stock_oz": 3,
-        "mds:goldov_c24_global_reserve_tons": 5,
-        "mds:goldov_c23_comex_stock_oz::diff": 3
+        "mds:goldov_c24_global_reserve_tons": 5
       },
       "seriesVisualMap": {
         "fred:DFII10": {
@@ -685,12 +663,6 @@
         "calc:gold-basis": {
           "axis": "left",
           "color": "#9aa7b3",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:goldov_c27_brent": {
-          "axis": "left",
-          "color": "#8f9bab",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -724,12 +696,6 @@
           "chartType": "line",
           "showEndLabel": true
         },
-        "mds:goldov_c20_phau_etf": {
-          "axis": "left",
-          "color": "#8f74c8",
-          "chartType": "line",
-          "showEndLabel": true
-        },
         "mds:goldov_c21_sgbs_etf": {
           "axis": "left",
           "color": "#5cb85c",
@@ -748,29 +714,65 @@
           "chartType": "line",
           "showEndLabel": true
         },
-        "mds:goldov_c23_comex_stock_oz": {
-          "axis": "left",
-          "color": "#d9534f",
-          "chartType": "area",
-          "showEndLabel": true
-        },
         "mds:goldov_c24_global_reserve_tons": {
           "axis": "left",
           "color": "#e8a04e",
           "chartType": "bar",
           "showEndLabel": true
-        },
-        "mds:goldov_c23_comex_stock_oz::diff": {
-          "axis": "right",
-          "color": "#8a6d3b",
-          "chartType": "line",
-          "showEndLabel": true
         }
       },
       "selectedListItems": [
         {
+          "key": "mds:wgc_gold_price_usd",
+          "type": "series"
+        },
+        {
+          "key": "mds:comex_gold_futures",
+          "type": "series"
+        },
+        {
+          "key": "calc:gold-basis",
+          "type": "derived"
+        },
+        {
+          "id": "div-mudi9wsc-7xl2",
+          "type": "divider"
+        },
+        {
+          "key": "fred:DTWEXBGS",
+          "type": "series"
+        },
+        {
+          "key": "fred:DFII10",
+          "type": "series"
+        },
+        {
+          "id": "div-mudigr7x-ln8j",
+          "type": "divider"
+        },
+        {
+          "key": "mds:cot_mm_gold_long",
+          "type": "series"
+        },
+        {
+          "key": "mds:cot_mm_gold_short",
+          "type": "series"
+        },
+        {
           "key": "mds:goldov_c06_mm_net",
           "type": "series"
+        },
+        {
+          "id": "div-mudihe6t-6ip5",
+          "type": "divider"
+        },
+        {
+          "key": "mds:goldov_c24_global_reserve_tons",
+          "type": "series"
+        },
+        {
+          "id": "div-mudinu8k-gekj",
+          "type": "divider"
         },
         {
           "key": "mds:goldov_c17_spdr_etf",
@@ -785,10 +787,6 @@
           "type": "series"
         },
         {
-          "key": "mds:goldov_c20_phau_etf",
-          "type": "series"
-        },
-        {
           "key": "mds:goldov_c21_sgbs_etf",
           "type": "series"
         },
@@ -797,46 +795,11 @@
           "type": "series"
         },
         {
-          "key": "mds:goldov_c23_comex_stock_oz",
+          "key": "mds:goldov_c20_phau_etf",
           "type": "series"
-        },
-        {
-          "key": "mds:goldov_c24_global_reserve_tons",
-          "type": "series"
-        },
-        {
-          "key": "mds:goldov_c27_brent",
-          "type": "series"
-        },
-        {
-          "key": "mds:wgc_gold_price_usd",
-          "type": "series"
-        },
-        {
-          "key": "mds:comex_gold_futures",
-          "type": "series"
-        },
-        {
-          "key": "fred:DFII10",
-          "type": "series"
-        },
-        {
-          "key": "mds:goldov_c23_comex_stock_oz::diff",
-          "type": "series"
-        },
-        {
-          "key": "calc:gold-basis",
-          "type": "derived"
         }
       ],
-      "seriesCalcConfigMap": {
-        "mds:goldov_c23_comex_stock_oz::diff": {
-          "op": "diff",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        }
-      }
+      "seriesCalcConfigMap": {}
     },
     "builtin-japan-overview": {
       "name": "Japan_Overview",
@@ -2406,12 +2369,13 @@
       "selectedKeys": [
         "fred:UNRATE",
         "fred:U6RATE",
+        "fred:PAYEMS",
         "fred:PAYEMS::mom",
         "fred:CIVPART",
         "fred:LNS11300060",
         "fred:CES0500000003::yoy"
       ],
-      "updatedAtIso": "2026-06-19T12:36:56.260Z",
+      "updatedAtIso": "2026-09-23T04:17:42.356Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -2432,11 +2396,18 @@
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "1": [
+            "fred:PAYEMS",
+            "fred:PAYEMS::mom"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
       },
       "slotAssignment": {
+        "fred:PAYEMS": 1,
         "fred:U6RATE": 0,
         "fred:UNRATE": 0,
         "fred:CIVPART": 2,
@@ -2470,8 +2441,8 @@
           "showEndLabel": true
         },
         "fred:PAYEMS::mom": {
-          "axis": "left",
-          "color": "#5f76b8",
+          "axis": "right",
+          "color": "#3acf82",
           "chartType": "bar",
           "showEndLabel": true
         },
@@ -2489,6 +2460,10 @@
         },
         {
           "key": "fred:U6RATE",
+          "type": "series"
+        },
+        {
+          "key": "fred:PAYEMS",
           "type": "series"
         },
         {
@@ -2956,7 +2931,7 @@
     },
     "builtin-us-fiscal-highfreq": {
       "name": "高频跟踪 · 现金流与融资",
-      "layoutMode": 5,
+      "layoutMode": 4,
       "description": "【第三步 · 发布月/周】MTS 月表（现金）、TGA 与 DTS 日频、Debt to the Penny 周净增发。FY 日历 10/1–9/30；DTS 日净流 = Deposits−Withdrawals（百万美元），非 BEA 权责赤字。",
       "derivedCalcs": [],
       "selectedKeys": [
@@ -2967,7 +2942,7 @@
         "mds:treasury_dts_daily_net_cash",
         "mds:treasury_debt_penny_net_weekly"
       ],
-      "updatedAtIso": "2026-09-22T03:09:51.285Z",
+      "updatedAtIso": "2026-09-23T13:26:10.293Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -2989,6 +2964,12 @@
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "2": [
+            "mds:treasury_dts_tga_balance",
+            "mds:treasury_debt_penny_net_weekly"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
@@ -2999,7 +2980,7 @@
         "mds:treasury_mts_m01_outlays": 1,
         "mds:treasury_mts_m01_receipts": 1,
         "mds:treasury_dts_daily_net_cash": 3,
-        "mds:treasury_debt_penny_net_weekly": 4
+        "mds:treasury_debt_penny_net_weekly": 2
       },
       "seriesVisualMap": {
         "mds:treasury_dts_tga_balance": {
@@ -3033,7 +3014,7 @@
           "showEndLabel": true
         },
         "mds:treasury_debt_penny_net_weekly": {
-          "axis": "left",
+          "axis": "right",
           "color": "#6f84c0",
           "chartType": "line",
           "showEndLabel": true
@@ -3108,22 +3089,13 @@
       "name": "财政总览 · 存量与流量",
       "layoutMode": 3,
       "description": "【第一步 · 初学者入口】按图 1→3 写 L0（≤150 字）：债务负担、赤字/GDP、初级赤字与利息。口径：OMB/FRED 为权责/GDP 比率；MTS/DTS 在视图 C。若问「为什么赤字变」→ 加载「财政结构 · 收支拆解」。",
-      "derivedCalcs": [
-        {
-          "id": "fiscal-primary-deficit-gdp",
-          "op": "sub",
-          "name": "联邦初级赤字/GDP %",
-          "leftKey": "fred:FYFSGDA188S",
-          "rightKey": "fred:FYOIGDA188S"
-        }
-      ],
+      "derivedCalcs": [],
       "selectedKeys": [
         "fred:GFDEGDQ188S",
         "fred:GFDEBTN",
-        "fred:FYFSGDA188S",
         "fred:FYOIGDA188S"
       ],
-      "updatedAtIso": "2026-09-22T03:09:26.171Z",
+      "updatedAtIso": "2026-09-23T14:55:29.353Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -3149,22 +3121,14 @@
       },
       "slotAssignment": {
         "fred:GFDEBTN": 0,
-        "fred:FYFSGDA188S": 1,
         "fred:FYOIGDA188S": 2,
-        "fred:GFDEGDQ188S": 0,
-        "calc:fiscal-primary-deficit-gdp": 1
+        "fred:GFDEGDQ188S": 0
       },
       "seriesVisualMap": {
         "fred:GFDEBTN": {
           "axis": "right",
           "color": "#5f76b8",
           "chartType": "dashedLine",
-          "showEndLabel": true
-        },
-        "fred:FYFSGDA188S": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "line",
           "showEndLabel": true
         },
         "fred:FYOIGDA188S": {
@@ -3178,12 +3142,6 @@
           "color": "#6f84c0",
           "chartType": "line",
           "showEndLabel": true
-        },
-        "calc:fiscal-primary-deficit-gdp": {
-          "axis": "right",
-          "color": "#9ea68b",
-          "chartType": "dashedLine",
-          "showEndLabel": true
         }
       },
       "selectedListItems": [
@@ -3196,26 +3154,12 @@
           "type": "series"
         },
         {
-          "key": "fred:FYFSGDA188S",
-          "type": "series"
-        },
-        {
           "key": "fred:FYOIGDA188S",
           "type": "series"
-        },
-        {
-          "key": "calc:fiscal-primary-deficit-gdp",
-          "type": "derived"
         }
       ],
       "seriesCalcConfigMap": {
         "fred:GFDEBTN": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "fred:FYFSGDA188S": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
@@ -3784,7 +3728,6 @@
         "fred:SOFR",
         "fred:IORB",
         "fred:EFFR",
-        "fred:FEDFUNDS",
         "fred:DGS2::avg",
         "fred:DGS10::avg",
         "fred:T10Y3M::avg",
@@ -3794,16 +3737,16 @@
         "fred:WALCL::avg",
         "fred:RRPONTSYD::avg",
         "mds:treasury_dts_tga_balance",
-        "fred:DTWEXBGS"
+        "fred:RPONTSYSAD"
       ],
-      "updatedAtIso": "2026-09-01T11:50:14.946Z",
+      "updatedAtIso": "2026-09-23T04:28:41.440Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
           "0": "L1 政策利率：有效 vs 市场定价",
-          "1": "美元指数",
+          "1": "国债 vs 信用",
           "2": "L3 量的工具：联储资产 vs RRP",
           "3": "L4 期限结构：10Y vs 10Y-3M"
         },
@@ -3818,15 +3761,29 @@
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
         "slotSeriesOrder": {
+          "0": [
+            "fred:SOFR",
+            "fred:IORB",
+            "fred:EFFR",
+            "fred:DGS2::avg",
+            "calc:d-mt55qeuk-gpn9b"
+          ],
           "1": [
-            "fred:DTWEXBGS",
+            "fred:DGS10::avg",
+            "fred:DGS2::avg",
+            "fred:DFII10",
+            "fred:T10Y3M::avg",
             "fred:BAMLH0A0HYM2"
           ],
+          "2": [
+            "fred:WALCL::avg",
+            "fred:WRESBAL",
+            "mds:treasury_dts_tga_balance",
+            "fred:RRPONTSYD::avg"
+          ],
           "3": [
-            "fred:DFII10",
-            "fred:DGS10::avg",
-            "fred:BAMLH0A0HYM2",
-            "fred:T10Y3M::avg"
+            "fred:RPONTSYSAD",
+            "fred:RRPONTSYD::avg"
           ]
         },
         "endLabelDecimals": 2,
@@ -3837,24 +3794,27 @@
         "fred:EFFR": 0,
         "fred:IORB": 0,
         "fred:SOFR": 0,
-        "fred:DFII10": 3,
+        "fred:DFII10": 1,
         "fred:WRESBAL": 2,
-        "fred:DTWEXBGS": 1,
-        "fred:FEDFUNDS": 0,
-        "fred:DGS2::avg": 0,
-        "fred:DGS10::avg": 3,
+        "fred:DGS2::avg": 1,
+        "fred:DGS10::avg": 1,
+        "fred:RPONTSYSAD": 3,
         "fred:WALCL::avg": 2,
-        "fred:T10Y3M::avg": 3,
-        "fred:BAMLH0A0HYM2": 3,
-        "fred:RRPONTSYD::avg": 2,
+        "fred:T10Y3M::avg": 1,
+        "fred:BAMLH0A0HYM2": 1,
+        "fred:RRPONTSYD::avg": 3,
+        "calc:d-mt55qeuk-gpn9b": 0,
         "mds:treasury_dts_tga_balance": 2
       },
       "seriesVisualMap": {
         "fred:EFFR": {
           "chartType": "stepLine"
         },
-        "fred:FEDFUNDS": {
-          "color": "#778a19"
+        "fred:DFII10": {
+          "color": "#f31b26"
+        },
+        "fred:WRESBAL": {
+          "axis": "right"
         },
         "fred:DGS2::avg": {
           "axis": "left",
@@ -3864,7 +3824,7 @@
         },
         "fred:DGS10::avg": {
           "axis": "left",
-          "color": "#ef6461",
+          "color": "#f221d6",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -3881,13 +3841,20 @@
           "showEndLabel": true
         },
         "fred:BAMLH0A0HYM2": {
-          "axis": "right"
+          "axis": "right",
+          "color": "#68ee71"
         },
         "fred:RRPONTSYD::avg": {
           "axis": "right",
           "color": "#8f9bab",
           "chartType": "dashedLine",
           "showEndLabel": true
+        },
+        "calc:d-mt55qeuk-gpn9b": {
+          "axis": "right"
+        },
+        "mds:treasury_dts_tga_balance": {
+          "axis": "right"
         }
       },
       "selectedListItems": [
@@ -3904,8 +3871,8 @@
           "type": "series"
         },
         {
-          "key": "fred:FEDFUNDS",
-          "type": "series"
+          "key": "calc:d-mt55qeuk-gpn9b",
+          "type": "derived"
         },
         {
           "id": "div-msn7p93n-48ab",
@@ -3956,7 +3923,7 @@
           "type": "divider"
         },
         {
-          "key": "fred:DTWEXBGS",
+          "key": "fred:RPONTSYSAD",
           "type": "series"
         }
       ],
