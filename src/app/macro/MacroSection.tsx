@@ -769,6 +769,8 @@ export function MacroSection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requestedQuery, setRequestedQuery] = useState<string | null>(null);
+  /** 每次提取递增，保证同一 query 也会重新拉取（替代「先置 null 再 setTimeout」） */
+  const [extractNonce, setExtractNonce] = useState(0);
   /** URL `?mds=` 或程序化加载本地库序列时使用 */
   const [requestedMdsInstruments, setRequestedMdsInstruments] = useState<string | null>(null);
   const [extractedSet, setExtractedSet] = useState<Set<string>>(new Set());
@@ -1486,12 +1488,12 @@ export function MacroSection() {
       setRequestedMdsInstruments(null);
       setExtractedSet(extractedKeys);
       setMainTab("charts");
-
-      // 与上次相同 query 时仍触发重新拉取
-      setRequestedQuery(null);
-      window.setTimeout(() => {
-        setRequestedQuery(query);
-      }, 0);
+      // 旧模板的数据不能配新模板的分图渲染（否则各图全是「此图暂无序列」），
+      // 直接进入加载态，等新数据到达。
+      setPayload(null);
+      setLoading(true);
+      setRequestedQuery(query);
+      setExtractNonce((n) => n + 1);
     },
     [applyTemplate, catalogAllowlist, resolveTemplateConfig],
   );
@@ -2447,7 +2449,7 @@ export function MacroSection() {
     return () => {
       cancelled = true;
     };
-  }, [requestedMdsInstruments, requestedQuery]);
+  }, [requestedMdsInstruments, requestedQuery, extractNonce]);
 
   /** 勾选「美国衰退」时拉取 FRED USREC，压成 NBER 区间供时序图 markArea */
   useEffect(() => {
@@ -2522,11 +2524,38 @@ export function MacroSection() {
     );
     setExtractedSet(extractedKeys);
     // 与上次相同 query 时仍触发重新拉取（否则上次失败后再点无任何反应）
-    setRequestedQuery(null);
-    window.setTimeout(() => {
-      setRequestedQuery(seriesQuery);
-    }, 0);
+    setRequestedQuery(seriesQuery);
+    setExtractNonce((n) => n + 1);
   }
+
+  /**
+   * 手机端没有桌面那样常驻的「提取数据」流程：进入「图表」时若当前已选指标还没提取过
+   * （打开页面恢复了上次模板、在已选里改过指标等），自动提取一次。
+   * 只看「已选是否被上次提取覆盖」，模板多带的键（如 Regime 叠加）不会触发重复拉取。
+   */
+  const autoExtractedQueryRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isMobile || mainTab !== "charts" || loading) return;
+    if (!seriesQuery || requestedMdsInstruments) return;
+    const requested = new Set(
+      (requestedQuery ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    const keys = seriesQuery
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (keys.every((key) => requested.has(key))) return;
+    // 同一组指标只自动提取一次，失败后不反复重试（用户仍可手动点「提取数据」）
+    if (autoExtractedQueryRef.current === seriesQuery) return;
+    autoExtractedQueryRef.current = seriesQuery;
+    setRequestedMdsInstruments(null);
+    setExtractedSet(new Set(keys));
+    setRequestedQuery(seriesQuery);
+    setExtractNonce((n) => n + 1);
+  }, [isMobile, loading, mainTab, requestedMdsInstruments, requestedQuery, seriesQuery]);
 
   function locateIndicatorInSidebar(key: string) {
     if (key.startsWith("calc:")) return;
