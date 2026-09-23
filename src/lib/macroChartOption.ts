@@ -138,6 +138,8 @@ export type MacroChartDisplayConfig = {
   slotTitles?: Partial<Record<number, string>>;
   /** 各图槽是否在图表上显示标题，默认 true */
   slotShowTitles?: Partial<Record<number, boolean>>;
+  /** 各图槽是否隐藏（不绘制），默认 false；隐藏后图表区按剩余图数自动收敛布局 */
+  slotHidden?: Partial<Record<number, boolean>>;
   /** 各图槽左右 Y 轴范围（时序图 / 季节图） */
   slotAxisRanges?: Partial<Record<number, MacroSlotAxisRanges>>;
   /** 各图槽内的指标展示顺序（同时控制曲线、图例及顺序敏感图形） */
@@ -259,6 +261,40 @@ function macroValueAxisLabel(fontSize: number) {
     fontSize,
     formatter: (value: number) => formatMacroDisplayValue(value),
   };
+}
+
+/** 该图槽是否被用户关闭显示 */
+export function isMacroSlotHidden(
+  displayConfig: MacroChartDisplayConfig | undefined,
+  slot: number,
+): boolean {
+  return displayConfig?.slotHidden?.[slot] === true;
+}
+
+/** 当前布局下实际要绘制的图槽下标（升序） */
+export function visibleMacroSlots(
+  layoutMode: number,
+  displayConfig?: MacroChartDisplayConfig,
+): number[] {
+  const slots: number[] = [];
+  for (let slot = 0; slot < layoutMode; slot += 1) {
+    if (!isMacroSlotHidden(displayConfig, slot)) slots.push(slot);
+  }
+  return slots;
+}
+
+/**
+ * 按「实际绘制的图数」收敛网格布局：
+ * 6→6、5→6（保持 2x3 不塌陷）、4→4、3→3、2→2、1→1。
+ */
+export function effectiveMacroLayoutMode(
+  layoutMode: 1 | 2 | 3 | 4 | 5 | 6,
+  visibleCount: number,
+): 1 | 2 | 3 | 4 | 5 | 6 {
+  if (visibleCount >= layoutMode) return layoutMode;
+  if (visibleCount <= 1) return 1;
+  if (visibleCount === 5) return 6;
+  return visibleCount as 1 | 2 | 3 | 4 | 5 | 6;
 }
 
 /** 解析图槽在图表上显示的标题；返回 undefined 表示不显示 */

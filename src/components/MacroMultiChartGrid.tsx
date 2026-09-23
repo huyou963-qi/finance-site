@@ -8,6 +8,7 @@ import { MacroTimeRangeNavigator } from "@/components/MacroTimeRangeNavigator";
 import { partitionMacroSeries, type MacroSlotAssignment } from "@/lib/macroPartition";
 import type { MacroChartSlice } from "@/lib/macroChartOption";
 import {
+  effectiveMacroLayoutMode,
   isAltMacroSlotMode,
   isSelfFetchingSlotMode,
   resolveMacroSlotTitle,
@@ -15,6 +16,7 @@ import {
   resolveSlotRadarYear,
   resolveSlotSeasonalYearCount,
   resolveSlotWaterfallYear,
+  visibleMacroSlots,
   type MacroChartDisplayConfig,
   type MacroChartSlotMode,
   type MacroSeriesVisualConfigMap,
@@ -239,7 +241,13 @@ export function MacroMultiChartGrid({
       ),
     [payload, layoutMode, slotAssignment, displayConfig?.slotSeriesOrder],
   );
-  const compact = layoutMode > 1;
+  /** 用户在「单图设置」里关闭显示的图槽不绘制；剩余图数决定实际网格布局 */
+  const visibleSlots = useMemo(
+    () => visibleMacroSlots(layoutMode, displayConfig),
+    [layoutMode, displayConfig],
+  );
+  const gridLayout = effectiveMacroLayoutMode(layoutMode, visibleSlots.length);
+  const compact = gridLayout > 1;
 
   /** 底部导航条：0–100，与全量类目对齐；切片后所有子图共用同一时间窗 */
   const [rangePct, setRangePct] = useState(
@@ -717,51 +725,64 @@ export function MacroMultiChartGrid({
     />
   );
 
-  if (layoutMode === 1) {
-    const hideNavigator = isSelfFetchingSlotMode(slotModeFor(0));
+  if (visibleSlots.length === 0) {
+    return (
+      <div className="flex min-h-[200px] w-full flex-1 items-center justify-center rounded-lg border border-dashed border-fs-border text-sm text-fs-muted">
+        所有图形已在「单图设置」中关闭显示。
+      </div>
+    );
+  }
+
+  if (gridLayout === 1) {
+    const only = visibleSlots[0];
+    const hideNavigator = isSelfFetchingSlotMode(slotModeFor(only));
     return (
       <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-h-0 w-full flex-1 flex-col">
           <MacroChartPanel
-            slice={sliceForSlot(0)}
+            slice={sliceForSlot(only)}
             compact={false}
             seriesVisualMap={seriesVisualMap}
             displayConfig={displayConfig}
             recessionBands={recessionBands}
             regimeBands={regimeBands}
-            slotMode={slotModeFor(0)}
-            slotIndex={0}
-            pieYear={pieYearForSlot(0)}
-            waterfallYear={waterfallYearForSlot(0)}
-            radarYear={radarYearForSlot(0)}
-            seasonalYearCount={seasonalYearCountForSlot(0)}
+            slotMode={slotModeFor(only)}
+            slotIndex={only}
+            pieYear={pieYearForSlot(only)}
+            waterfallYear={waterfallYearForSlot(only)}
+            radarYear={radarYearForSlot(only)}
+            seasonalYearCount={seasonalYearCountForSlot(only)}
             chartAreaHeight={
               // CPI 分项矩阵是表格：手机端固定高度会只露出几行，改为随内容自然撑开
               hideNavigator && singleChartHeight ? undefined : (singleChartHeight ?? "100%")
             }
             className="h-full min-h-0 w-full"
-            drawTool={isAltSlotMode(0) ? "cursor" : drawTool}
+            drawTool={isAltSlotMode(only) ? "cursor" : drawTool}
             drawStyle={drawStyle}
-            drawings={isAltSlotMode(0) ? [] : (drawingsBySlot[0] ?? [])}
-            selectedDrawingId={isAltSlotMode(0) ? null : (selectedDrawingBySlot[0] ?? null)}
+            drawings={isAltSlotMode(only) ? [] : (drawingsBySlot[only] ?? [])}
+            selectedDrawingId={
+              isAltSlotMode(only) ? null : (selectedDrawingBySlot[only] ?? null)
+            }
             onDrawingsChange={
-              isAltSlotMode(0) || !onDrawingsChange
+              isAltSlotMode(only) || !onDrawingsChange
                 ? undefined
-                : (drawings) => onDrawingsChange(0, drawings)
+                : (drawings) => onDrawingsChange(only, drawings)
             }
             onSelectDrawing={
-              isAltSlotMode(0) || !onSelectDrawing
+              isAltSlotMode(only) || !onSelectDrawing
                 ? undefined
-                : (id) => onSelectDrawing(0, id)
+                : (id) => onSelectDrawing(only, id)
             }
             onInteraction={
-              isAltSlotMode(0) || !onDrawInteraction ? undefined : () => onDrawInteraction(0)
+              isAltSlotMode(only) || !onDrawInteraction
+                ? undefined
+                : () => onDrawInteraction(only)
             }
             cursorLink={
-              isAltSlotMode(0)
+              isAltSlotMode(only)
                 ? undefined
                 : {
-                    slotIndex: 0,
+                    slotIndex: only,
                     onRegister: onRegisterChart,
                   }
             }
@@ -774,11 +795,11 @@ export function MacroMultiChartGrid({
 
   const gridClass = stacked
     ? "flex w-full flex-col gap-3"
-    : layoutMode === 2
+    : gridLayout === 2
       ? `grid min-h-0 w-full flex-1 grid-rows-2 gap-2`
-      : layoutMode === 3
+      : gridLayout === 3
         ? `grid min-h-0 w-full flex-1 grid-rows-3 gap-2`
-        : layoutMode === 4
+        : gridLayout === 4
           ? `grid min-h-0 w-full flex-1 grid-cols-2 grid-rows-2 gap-2`
           : `grid min-h-0 w-full flex-1 grid-cols-2 grid-rows-3 gap-2`;
 
@@ -791,13 +812,13 @@ export function MacroMultiChartGrid({
       }
     >
       <div className={stacked ? gridClass : `${gridClass} min-h-0 min-w-0 flex-1 overflow-hidden`}>
-        {Array.from({ length: layoutMode }, (_, i) => {
+        {visibleSlots.map((i) => {
           const slice = sliceForSlot(i);
           const mode = slotModeFor(i);
           const isAlt = isAltSlotMode(i);
           return (
             <div
-              key={`${layoutMode}-slot-${i}`}
+              key={`${gridLayout}-slot-${i}`}
               className={
                 stacked
                   ? "h-[300px] min-w-0 shrink-0 overflow-hidden"

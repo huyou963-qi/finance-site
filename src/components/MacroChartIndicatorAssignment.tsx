@@ -19,6 +19,7 @@ import type {
 import {
   defaultMacroSeriesColor,
   DEFAULT_SEASONAL_YEAR_COUNT,
+  effectiveMacroLayoutMode,
   isAltMacroSlotMode,
   resolveSlotSeasonalYearCount,
 } from "@/lib/macroChartOption";
@@ -307,6 +308,20 @@ export function MacroChartIndicatorAssignment({
     return null;
   }
 
+  const hiddenSlotCount = Array.from({ length: layoutMode }, (_, slot) => slot).filter(
+    (slot) => displayConfig.slotHidden?.[slot] === true,
+  ).length;
+
+  function slotHidden(slot: number): boolean {
+    return displayConfig.slotHidden?.[slot] === true;
+  }
+
+  function setSlotHidden(slot: number, hidden: boolean) {
+    onUpdateDisplayConfig({
+      slotHidden: { ...displayConfig.slotHidden, [slot]: hidden },
+    });
+  }
+
   function slotShowTitle(slot: number): boolean {
     return displayConfig.slotShowTitles?.[slot] ?? true;
   }
@@ -547,6 +562,43 @@ export function MacroChartIndicatorAssignment({
         </>
       ) : (
         <>
+      <div
+        {...dragProps({ kind: "pool" })}
+        className={`rounded-md border border-dashed px-2 py-2 transition-colors ${
+          dropActive({ kind: "pool" })
+            ? "border-amber-500 bg-amber-950/25"
+            : "border-fs-border bg-fs-elevated"
+        }`}
+      >
+        <div className="mb-1.5 flex items-start justify-between gap-2">
+          <span className="shrink-0 text-[11px] font-medium text-fs-muted">待选集</span>
+          <p className="min-w-0 flex-1 text-right text-[11px] leading-relaxed text-fs-secondary">
+            拖指标到各图绘制；拖到待选集则不绘制。
+            {hiddenSlotCount > 0
+              ? `已关闭 ${hiddenSlotCount} 图，当前按 ${effectiveMacroLayoutMode(layoutMode, layoutMode - hiddenSlotCount)} 图布局绘制。`
+              : ""}
+          </p>
+        </div>
+        <div className="flex min-h-[24px] flex-wrap gap-1">
+          {pool.length === 0 ? (
+            <span className="text-[11px] text-fs-secondary">无</span>
+          ) : (
+            pool.map((key) => (
+              <button
+                key={key}
+                type="button"
+                draggable
+                onDragStart={startDrag(key)}
+                className="cursor-grab rounded border border-fs-border bg-fs-bg px-1.5 py-0.5 text-left text-[11px] text-fs-secondary active:cursor-grabbing"
+                title={key}
+              >
+                {displayNameForKey(key)}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-2">
         {Array.from({ length: layoutMode }, (_, slot) => (
           <div
@@ -555,10 +607,25 @@ export function MacroChartIndicatorAssignment({
             className={`rounded-md border px-2 py-1.5 transition-colors ${
               dropActive({ kind: "slot", slot })
                 ? "border-fs-accent bg-fs-accent-soft"
-                : "border-fs-border bg-fs-elevated/40"
+                : slotHidden(slot)
+                  ? "border-dashed border-fs-border bg-fs-elevated/20 opacity-60"
+                  : "border-fs-border bg-fs-elevated/40"
             }`}
           >
             <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSlotHidden(slot, !slotHidden(slot))}
+                title={slotHidden(slot) ? "显示此图" : "关闭此图的显示"}
+                aria-pressed={!slotHidden(slot)}
+                className={`shrink-0 rounded border px-1 py-0.5 text-[10px] leading-none ${
+                  slotHidden(slot)
+                    ? "border-fs-border bg-fs-bg text-fs-muted"
+                    : "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
+                }`}
+              >
+                {slotHidden(slot) ? "隐藏" : "显示"}
+              </button>
               <input
                 type="checkbox"
                 checked={slotShowTitle(slot)}
@@ -787,39 +854,6 @@ export function MacroChartIndicatorAssignment({
         ))}
       </div>
 
-      <div
-        {...dragProps({ kind: "pool" })}
-        className={`rounded-md border border-dashed px-2 py-2 transition-colors ${
-          dropActive({ kind: "pool" })
-            ? "border-amber-500 bg-amber-950/25"
-            : "border-fs-border bg-fs-elevated"
-        }`}
-      >
-        <div className="mb-1.5 flex items-start justify-between gap-2">
-          <span className="shrink-0 text-[11px] font-medium text-fs-muted">待选集</span>
-          <p className="min-w-0 flex-1 text-right text-[11px] leading-relaxed text-fs-secondary">
-            拖指标到各图绘制；拖到待选集则不绘制。
-          </p>
-        </div>
-        <div className="flex min-h-[24px] flex-wrap gap-1">
-          {pool.length === 0 ? (
-            <span className="text-[11px] text-fs-secondary">无</span>
-          ) : (
-            pool.map((key) => (
-              <button
-                key={key}
-                type="button"
-                draggable
-                onDragStart={startDrag(key)}
-                className="cursor-grab rounded border border-fs-border bg-fs-bg px-1.5 py-0.5 text-left text-[11px] text-fs-secondary active:cursor-grabbing"
-                title={key}
-              >
-                {displayNameForKey(key)}
-              </button>
-            ))
-          )}
-        </div>
-      </div>
         </>
       )}
     </div>
