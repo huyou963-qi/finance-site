@@ -223,7 +223,7 @@ export function SelectedIndicatorsList({
             key={item.key}
             {...dropTargetProps(index)}
             title={[
-              item.key,
+              ...(showSource ? [item.key] : []),
               ...visibleMeta.map(([label, value]) => `${label}：${value}`),
               isDerived ? "拖动调整顺序" : "拖动调整顺序；双击定位到左侧指标树",
             ].join("\n")}

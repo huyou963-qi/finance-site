@@ -1,4 +1,4 @@
-import type { FetchIncrementalResult } from "../types";
+import type { FetchIncrementalResult, ObservationPoint } from "../types";
 import {
   fetchOfficialFile,
   fetchOfficialHtml,
@@ -12,7 +12,37 @@ import {
   WGC_GOLD_ETF_PAGE_URL,
   fetchWgcGoldEtfWorkbook,
 } from "../goldEtfHoldings/client";
-import { parseGlobalXGoldHoldings, parseIauCurrentTonnes, parseSpdrGldArchive, parseWgcPhauMonthlyHoldings, parseWisdomTreeBarListPdf } from "../goldEtfHoldings/parse";
+import {
+  parseGlobalXGoldHoldings,
+  parseIauCurrentTonnes,
+  parseSpdrGldArchive,
+  parseWgcMonthlyHoldingsByTicker,
+  parseWgcPhauMonthlyHoldings,
+  parseWisdomTreeBarListPdf,
+} from "../goldEtfHoldings/parse";
+
+/**
+ * IAU/GBS/SGBS 的官方页面只暴露当日快照、无历史可查；若某次调度错过（如
+ * worker 队列拥堵），那一天就永久缺失。用同一份已授权的 WGC 月度工作簿
+ * （本就为 PHAU 拉取）按 ticker 取月度直接吨数做缺口回填与长期兜底，失败
+ * 不影响当日快照写入——这只是补充，不是主源。
+ */
+async function fetchWgcMonthlyBackfill(ticker: string, start: Date): Promise<ObservationPoint[]> {
+  try {
+    const buffer = await fetchWgcGoldEtfWorkbook();
+    const parsed = parseWgcMonthlyHoldingsByTicker(buffer, ticker);
+    return parsed.points.filter((point) => point.obsDate >= start);
+  } catch {
+    return [];
+  }
+}
+
+/** 按 obsDate 去重，靠后的覆盖靠前的——用于让当日快照优先于月度回填。 */
+function dedupeByDate(points: ObservationPoint[]): ObservationPoint[] {
+  const byDate = new Map<string, ObservationPoint>();
+  for (const point of points) byDate.set(point.obsDate.toISOString().slice(0, 10), point);
+  return [...byDate.values()].sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime());
+}
 
 function config(metadata: unknown): { product?: string; url?: string; entitlementUrl?: string; fixturePath?: string; entitlementFixturePath?: string; sourceStartDate?: string } {
   if (!metadata || typeof metadata !== "object") return {};
@@ -46,8 +76,10 @@ export async function fetchGoldEtfHoldingsIncremental(
   }
   if (product === "iau") {
     const point = parseIauCurrentTonnes(await fetchOfficialHtml(url ?? ISHARES_IAU_PAGE_URL, fixturePath));
+    const monthly = fixturePath ? [] : await fetchWgcMonthlyBackfill("iau us equity", start);
+    const points = dedupeByDate([...monthly, ...(point.obsDate >= start ? [point] : [])]);
     return {
-      points: point.obsDate >= start ? [point] : [],
+      points,
       sourceLatestObsDate: point.obsDate,
       skippedInvalid: 0,
     };
@@ -71,8 +103,11 @@ export async function fetchGoldEtfHoldingsIncremental(
     const kind = product === "wisdomtree-gbs-barlist" ? "gbs" : "sgbs";
     const defaultUrl = kind === "gbs" ? WISDOMTREE_GBS_BARLIST_URL : WISDOMTREE_SGBS_BARLIST_URL;
     const point = await parseWisdomTreeBarListPdf(await fetchOfficialFile(url ?? defaultUrl, fixturePath), kind);
+    const ticker = kind === "gbs" ? "gbs ln equity" : "sgbs ln equity";
+    const monthly = fixturePath ? [] : await fetchWgcMonthlyBackfill(ticker, start);
+    const points = dedupeByDate([...monthly, ...(point.obsDate >= start ? [point] : [])]);
     return {
-      points: point.obsDate >= start ? [point] : [],
+      points,
       sourceLatestObsDate: point.obsDate,
       skippedInvalid: 0,
     };

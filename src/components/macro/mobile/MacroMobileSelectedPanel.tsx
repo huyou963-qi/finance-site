@@ -160,7 +160,7 @@ export function MacroMobileSelectedPanel({
                     {row.label}
                   </p>
                   <p className="mt-0.5 truncate text-xs tabular-nums text-fs-muted">
-                    {metaLine(row, showSource) || item.key}
+                    {metaLine(row, showSource) || (showSource ? item.key : "")}
                   </p>
                 </div>
                 {isDerived ? (

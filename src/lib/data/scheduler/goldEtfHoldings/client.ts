@@ -87,11 +87,21 @@ export async function discoverWgcGoldEtfXlsxUrl(
   return new URL(path, pageUrl).href;
 }
 
+const WGC_WORKBOOK_CACHE_TTL_MS = 10 * 60_000;
+let wgcWorkbookCache: { fetchedAt: number; buffer: Buffer } | null = null;
+
+/**
+ * 月表按月更新，同一 worker 进程内 PHAU 与 IAU/GBS/SGBS 的回填校验都会调用；
+ * 缓存避免同一次调度批次里重复下载/解析同一份大工作簿。
+ */
 export async function fetchWgcGoldEtfWorkbook(
   pageUrl = WGC_GOLD_ETF_PAGE_URL,
   fixturePath?: string,
 ): Promise<Buffer> {
   if (fixturePath) return readFile(fixturePath);
+  if (wgcWorkbookCache && Date.now() - wgcWorkbookCache.fetchedAt < WGC_WORKBOOK_CACHE_TTL_MS) {
+    return wgcWorkbookCache.buffer;
+  }
   const url = await discoverWgcGoldEtfXlsxUrl(pageUrl);
   const response = await fetchWgc(url);
   if (!response.ok) throw new Error(`WGC Gold ETF 月表下载失败 HTTP ${response.status}`);
@@ -99,5 +109,6 @@ export async function fetchWgcGoldEtfWorkbook(
   if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) {
     throw new Error("WGC Gold ETF 月表响应不是 XLSX 文件");
   }
+  wgcWorkbookCache = { fetchedAt: Date.now(), buffer };
   return buffer;
 }

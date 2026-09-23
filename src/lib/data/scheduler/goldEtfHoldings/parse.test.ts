@@ -1,7 +1,27 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import * as XLSX from "xlsx";
-import { parseGlobalXGoldHoldings, parseIauCurrentTonnes, parseSpdrGldArchive, parseWgcPhauMonthlyHoldings, parseWisdomTreeBarListText } from "./parse";
+import {
+  parseGlobalXGoldHoldings,
+  parseIauCurrentTonnes,
+  parseSpdrGldArchive,
+  parseWgcMonthlyHoldingsByTicker,
+  parseWgcPhauMonthlyHoldings,
+  parseWisdomTreeBarListText,
+} from "./parse";
+
+function wgcMultiFundFixture(): Buffer {
+  const workbook = XLSX.utils.book_new();
+  const rows: unknown[][] = [
+    ["ticker", "", "", "", "", "gld us equity", "iau us equity"],
+    [], [], [], [],
+    ["Date", "Gold, US$/oz", "Ounces", "Tonnes", "Value (USD)", "SPDR Gold Shares", "iShares Gold Trust"],
+    [new Date(Date.UTC(2026, 5, 30)), "", "", "", "", 1006.67748173, 461.49054696],
+    [new Date(Date.UTC(2026, 6, 31)), "", "", "", "", 1042.02834608, 460.40229052],
+  ];
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), "Holdings by month");
+  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+}
 
 function wgcFixture(duplicate = false): Buffer {
   const workbook = XLSX.utils.book_new();
@@ -85,5 +105,20 @@ describe("gold ETF official parsers", () => {
       ["2026-07-31", 51.82077299],
     ]);
     assert.throws(() => parseWgcPhauMonthlyHoldings(wgcFixture(true)), /必须唯一匹配/);
+  });
+
+  it("parses WGC monthly holdings for other funds by ticker column", () => {
+    const buffer = wgcMultiFundFixture();
+    const gld = parseWgcMonthlyHoldingsByTicker(buffer, "gld us equity");
+    assert.deepEqual(gld.points.map((point) => [point.obsDate.toISOString().slice(0, 10), point.value]), [
+      ["2026-06-30", 1006.67748173],
+      ["2026-07-31", 1042.02834608],
+    ]);
+    const iau = parseWgcMonthlyHoldingsByTicker(buffer, "iau us equity");
+    assert.deepEqual(iau.points.map((point) => [point.obsDate.toISOString().slice(0, 10), point.value]), [
+      ["2026-06-30", 461.49054696],
+      ["2026-07-31", 460.40229052],
+    ]);
+    assert.throws(() => parseWgcMonthlyHoldingsByTicker(buffer, "sgbs ln equity"), /必须唯一匹配/);
   });
 });

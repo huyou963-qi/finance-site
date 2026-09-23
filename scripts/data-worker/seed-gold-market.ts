@@ -212,6 +212,7 @@ async function seedGoldEtfHoldings() {
       code: "goldov_c17_spdr_etf",
       product: "gld",
       sourceId: "spdr-gold-shares",
+      sourceZh: "世界黄金信托服务（SPDR Gold Shares 官方历史档案）",
       sourceSeriesKey: "GLD:tonnes-of-gold",
       url: SPDR_GLD_ARCHIVE_URL,
       method: "issuer_archive_xlsx",
@@ -223,6 +224,7 @@ async function seedGoldEtfHoldings() {
       code: "goldov_c18_ishares_etf",
       product: "iau",
       sourceId: "ishares-gold-trust",
+      sourceZh: "贝莱德（iShares Gold Trust 官方产品页）",
       sourceSeriesKey: "IAU:tonnes-in-trust",
       url: ISHARES_IAU_PAGE_URL,
       method: "issuer_product_disclosure",
@@ -234,6 +236,7 @@ async function seedGoldEtfHoldings() {
       code: "goldov_c19_gbs_etf",
       product: "wisdomtree-gbs-barlist",
       sourceId: "wisdomtree-dataspan",
+      sourceZh: "WisdomTree Dataspan（GBS 独立托管账户 bar list）",
       sourceSeriesKey: "GB00B00FHZ82:allocated-fine-ounces",
       url: WISDOMTREE_GBS_BARLIST_URL,
       method: "issuer_custodian_barlist_pdf",
@@ -245,6 +248,7 @@ async function seedGoldEtfHoldings() {
       code: "goldov_c21_sgbs_etf",
       product: "wisdomtree-sgbs-barlist",
       sourceId: "wisdomtree-dataspan",
+      sourceZh: "WisdomTree Dataspan（SGBS 独立托管账户 bar list）",
       sourceSeriesKey: "JE00B588CD74:allocated-fine-ounces",
       url: WISDOMTREE_SGBS_BARLIST_URL,
       method: "issuer_custodian_barlist_pdf",
@@ -256,6 +260,7 @@ async function seedGoldEtfHoldings() {
       code: "goldov_c20_phau_etf",
       product: "wgc-phau-monthly",
       sourceId: "wgc-goldhub",
+      sourceZh: "世界黄金协会 Goldhub（PHAU 月度持仓）",
       sourceSeriesKey: "JE00B1VS3770:WGC-monthly-holdings-tonnes",
       url: WGC_GOLD_ETF_PAGE_URL,
       method: "licensed_wgc_monthly_xlsx",
@@ -268,6 +273,7 @@ async function seedGoldEtfHoldings() {
       code: "goldov_c22_gold_etf",
       product: "globalx-gold",
       sourceId: "globalx-australia",
+      sourceZh: "Global X 澳大利亚（官方基金文件）",
       sourceSeriesKey: "AU00000GOLD7:UOI*metal-entitlement",
       url: GLOBAL_X_GOLD_PAGE_URL,
       method: "issuer_nav_and_metal_entitlement_xlsx",
@@ -293,6 +299,9 @@ async function seedGoldEtfHoldings() {
     const metadata = mergeFetchAcquisition(
       {
         ...existingMetadata(existing.metadata),
+        // 覆盖历史工作簿导入时留下的过期「来源」单元格（如 Wind）；
+        // 该系列现由上方 issuer/WGC 官方源自动更新，展示应反映实际口径。
+        source: row.sourceZh,
         ...(monthly
           ? {
               frequencyTransition: {
@@ -376,6 +385,9 @@ async function seedImfOfficialGoldReserves() {
     const metadata = mergeFetchAcquisition(
       {
         ...existingMetadata(existing.metadata),
+        // 覆盖历史工作簿导入时留下的过期「来源」单元格（如「根据新闻整理」）；
+        // 该系列现由 IMF SDMX 3.0 官方 API 自动更新。
+        source: "国际货币基金组织（IMF）International Liquidity",
         sourceTag: "imf-il-gold",
         countryCode: "SRC_IMF",
         countryNameZh: "国际货币基金组织（IMF）",

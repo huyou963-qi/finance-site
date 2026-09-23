@@ -223,3 +223,43 @@ export function parseWgcPhauMonthlyHoldings(buffer: Buffer): {
   if (!points.length) throw new Error("WGC PHAU 月表没有有效吨数观测");
   return { points, skippedInvalid };
 }
+
+/**
+ * WGC monthly all-fund table：按 `ticker` 行（第 0 行）精确匹配任意基金列。
+ * 官方页面本身无历史的产品（IAU/GBS/SGBS 仅暴露当日快照）用这个月度直接吨数
+ * 做缺口回填与调度卡顿时的兜底，不作为主源；单产品列必须唯一匹配。
+ */
+export function parseWgcMonthlyHoldingsByTicker(
+  buffer: Buffer,
+  ticker: string,
+): { points: ObservationPoint[]; skippedInvalid: number } {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const sheet = workbook.Sheets["Holdings by month"];
+  if (!sheet) throw new Error("WGC ETF 月表缺少 Holdings by month 工作表");
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    raw: true,
+    defval: "",
+  });
+  const tickerRow = rows[0] ?? [];
+  const matches: number[] = [];
+  for (let column = 0; column < tickerRow.length; column++) {
+    if (String(tickerRow[column] ?? "").trim().toLowerCase() === ticker) matches.push(column);
+  }
+  if (matches.length !== 1) {
+    throw new Error(`WGC 月表 ticker 列必须唯一匹配 ${ticker}，实际 ${matches.length} 列`);
+  }
+  const productColumn = matches[0];
+  const points: ObservationPoint[] = [];
+  let skippedInvalid = 0;
+  for (const row of rows.slice(6)) {
+    const obsDate = excelSerialDate(row[0]);
+    const value = numberValue(row[productColumn]);
+    if (!obsDate || value == null || value < 0) {
+      if (row[0] || row[productColumn]) skippedInvalid += 1;
+      continue;
+    }
+    points.push({ obsDate, value: Number(value.toFixed(12)) });
+  }
+  return { points, skippedInvalid };
+}
