@@ -477,6 +477,14 @@ export async function fetchSubscriptionIncremental(
       const { fetchJpCustomsTradeIncremental } = await import("./adapters/jpCustomsTradeAdapter");
       return fetchJpCustomsTradeIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }
+    if (scrapeObj?.provider === "us_census_trade_detail") {
+      const { fetchUsTradeDetailIncremental } = await import("./adapters/usTradeDetailAdapter");
+      return fetchUsTradeDetailIncremental(sub.instrument.metadata, sub.instrument.code);
+    }
+    if (scrapeObj?.provider === "manheim_muvvi_licensed_file") {
+      const { fetchManheimMuvviIncremental } = await import("./adapters/manheimMuvviAdapter");
+      return fetchManheimMuvviIncremental(sub.instrument.metadata, sub.instrument.code);
+    }
     if (scrapeObj?.provider === "jp_mof_external_position") {
       const { fetchJpMofExternalPositionIncremental } = await import("./adapters/jpMofExternalPositionAdapter");
       return fetchJpMofExternalPositionIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);

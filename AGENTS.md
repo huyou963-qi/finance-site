@@ -154,6 +154,8 @@ npm run db:studio        # Prisma Studio
 
 「美国对外部门与美元」：`data:seed-external-dollar` / `data:verify-external-dollar`（加 `--db`）；文档 [docs/US_EXTERNAL_DOLLAR_ANALYSIS.md](./docs/US_EXTERNAL_DOLLAR_ANALYSIS.md)。
 
+「美国货物贸易商品分项与伙伴国」：`data:seed-us-trade-detail` 建立 Census FT-900 End-Use 明细、选定伙伴国季调及全伙伴国未季调序列并写最新值；`data:sync-us-trade-detail` 完整回填与重读修订；`data:verify-us-trade-detail -- --db` 自检。归入「对外与汇率」的贸易商品/贸易伙伴叶组，复用 `us.census.international_trade` 发布包；详见 [docs/US_TRADE_DETAIL.md](./docs/US_TRADE_DETAIL.md)。
+
 「美国国际收支」：`data:seed-us-balance-of-payments` / `data:verify-us-balance-of-payments -- --db`；BOP现行标准口径108条（本域 seed 107条、复用 `IEABC` 1条）按 `us.bea.international_transactions` 发布日历更新，IIP精选4条按 `us.bea.iip` 每168小时探测；文档 [docs/US_BALANCE_OF_PAYMENTS_ANALYSIS.md](./docs/US_BALANCE_OF_PAYMENTS_ANALYSIS.md)，Spec [docs/specs/us-balance-of-payments.spec.md](./docs/specs/us-balance-of-payments.spec.md)。
 「美国制造业与库存周期」：`data:seed-industry-inventory` / `data:verify-industry-inventory`（加 `--db`）；文档 [docs/US_INDUSTRY_INVENTORY_ANALYSIS.md](./docs/US_INDUSTRY_INVENTORY_ANALYSIS.md)。
 
@@ -190,7 +192,7 @@ npm run db:studio        # Prisma Studio
 「NY Fed 全球供应链压力指数（GSCPI）」：`data:seed-nyfed-gscpi` → `data:sync-nyfed-gscpi` / `data:verify-nyfed-gscpi`（加 `--db`）；运输成本+制造业指标 PCA 合成的供应链压力标准化指数，走纽约联储官方 `gscpi_data.xlsx` 月度全历史（1998-01 起），非 FRED 序列（已核实），月频 `probe_interval`（72h）探测；归入「国民经济」目录。
 
 「CPI 分项高频代理」（2026-09 为 CPI 分项 nowcast 补齐的底层数据，共 9 条）：① BLS CPI 四条并入 `data:seed-cpi` / 发布包 `us.bls.cpi`：机票 `CUSR0000SETG01`、外宿 `CUSR0000SEHB`、未季调汽油 `CUUR0000SETB01`、未季调核心 `CPILFENS`（`us.bls.cpi` 成员改为按 seed 行 `sourceUpdateNote==="BLS CPI 月报"` 判定，不再用 ID 前缀白名单）；② EIA 能源价格经 FRED：`data:seed-eia-energy-prices` / `data:verify-eia-energy-prices -- --db`，周度零售汽油 `GASREGW`（包 `us.eia.gasoline_diesel`，12h）、亨利港 `DHHNGSP`（包 `us.eia.natural_gas_spot`）、航油 `DJFUELUSGULF` 与取暖油 `DHOILNYH`（并入 `us.eia.spot_prices`，日频 6h），归「通胀与价格 > 通胀预期与能源」；EIA 现货早年本身稀疏（1998–2006 每年仅数十个报价日），不是漏抓；③ Zillow 观测租金指数：`data:seed-zillow-zori` → `data:sync-zillow-zori` / `data:verify-zillow-zori -- --db`，Zillow Research 公开 CSV（`files.zillowstatic.com`，免费公开使用须署名；zillow.com 网页有人机验证，不访问不绕过）取全美平滑季调行，2015-01 起，包 `us.zillow.zori`（probe 72h，每月中旬整表重发并修订历史），归「地产与建筑 > 房价与可负担性」。
-⚠ **Manheim 二手车批发价指数不入库**：Cox Automotive 访客协议明文禁止自动抓取、存储大量内容和再分发（`coxautoinc.com/visitor-agreement`），官网 xlsx 也停在 2025-11；需授权请联系 manheim.data@coxautoinc.com。克利夫兰联储 inflation nowcast 是第三方模型输出、逐日改写，也不作宏观序列入库。
+「Manheim 二手车批发价指数」：从用户授权的本地 Wind XLSX（`MANHEIM_MUVVI_FILE`）入库；不访问 Cox 数据文件页。`data:seed-manheim-muvvi` / `data:sync-manheim-muvvi` / `data:verify-manheim-muvvi -- --db`；目录「通胀与价格 > 二手车批发价格」，发布包 `us.cox.manheim_muvvi`，详见 [docs/US_MANHEIM_MUVVI.md](./docs/US_MANHEIM_MUVVI.md)。克利夫兰联储 inflation nowcast 是第三方模型输出、逐日改写，也不作宏观序列入库。
 
 「TSA 安检口日度旅客通过人数」：`data:seed-tsa-passenger-volumes` → `data:sync-tsa-passenger-volumes` / `data:verify-tsa-passenger-volumes -- --db`；`tsa.gov/travel/passenger-volumes` 当年滚动窗口 + `/travel/passenger-volumes/{year}` 年度归档（2019 起，页面本身无更早归档，回填深度上限即此），非 FRED 序列，日频 `probe_interval` 探测。
 

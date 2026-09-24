@@ -35,6 +35,7 @@ import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPayment
 import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPmiCatalog";
 import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
 import { ECB_CORE_SERIES, EUROSTAT_CORE_SERIES } from "./europeCore/catalog";
+import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -552,7 +553,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       keywords: ["balance of trade", "trade balance"],
       excludeKeywords: ["goods"],
     },
-    members: { fredSeriesIds: ["BOPGSTB", "BOPTEXP", "BOPTIMP"] },
+    members: { fredSeriesIds: ["BOPGSTB", "BOPTEXP", "BOPTIMP"], instrumentCodePatterns: ["census_us_trade_*"] },
   }),
   pkg("us.bls.import_export_prices", "美国进出口价格指数", {
     labelEn: "U.S. Import and Export Price Indexes",
@@ -1135,6 +1136,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 168,
     sortOrder: 257,
     members: { fredSeriesIds: ["CBLBSNNCB", "NCBCBLQ027S"] },
+  }),
+  probePkg(MANHEIM_MUVVI_PACKAGE_ID, "美国 Manheim 二手车批发价格指数", {
+    labelEn: "Manheim Used Vehicle Value Index (licensed Wind file)",
+    agencyId: "us-cox-automotive",
+    granularity: "MONTHLY",
+    intervalHours: 24,
+    sortOrder: 257,
+    members: { instrumentCodes: [MANHEIM_MUVVI_CODE] },
   }),
   probePkg("us.finra.margin_statistics", "美国 FINRA 客户融资余额统计", {
     labelEn: "FINRA Customer Margin Statistics",

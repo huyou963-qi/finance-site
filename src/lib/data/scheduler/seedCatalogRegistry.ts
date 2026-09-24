@@ -78,6 +78,8 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "consumer-balance": { script: "seed-consumer-balance", labelZh: "美国消费与居民资产负债" },
   "us-retail-sales": { script: "seed-us-retail-sales", labelZh: "美国零售销售分项（Census Advance MRTS）" },
   "external-dollar": { script: "seed-external-dollar", labelZh: "美国对外部门与美元" },
+  "us-trade-detail": { script: "seed-us-trade-detail", labelZh: "美国货物贸易商品分项与伙伴国" },
+  "manheim-muvvi": { script: "seed-manheim-muvvi", labelZh: "Manheim 二手车批发价格指数（授权文件）" },
   "us-balance-of-payments": {
     script: "seed-us-balance-of-payments",
     labelZh: "美国国际收支",
@@ -226,6 +228,8 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
     labelZh: "对外部门与美元自检",
     verifyNeedsDb: true,
   },
+  "us-trade-detail": { script: "verify-us-trade-detail", labelZh: "美国货物贸易商品分项与伙伴国自检", verifyNeedsDb: true },
+  "manheim-muvvi": { script: "verify-manheim-muvvi", labelZh: "Manheim 二手车批发价格指数自检", verifyNeedsDb: true },
   "us-balance-of-payments": {
     script: "verify-us-balance-of-payments",
     labelZh: "美国国际收支自检",

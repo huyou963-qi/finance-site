@@ -7,6 +7,8 @@ import { US_CATALOG_TOP_LEVEL, type UsCatalogTopLevel } from "./usCatalogTaxonom
 import { BOJ_SERIES } from "./scheduler/boj/catalog";
 import { JP_BOJ_BOP_SERIES } from "./scheduler/bojExternal/catalog";
 import { JP_BOJ_CORE_SERIES } from "./scheduler/bojCore/catalog";
+import { usTradePlacement } from "./scheduler/usTradeDetail/catalog";
+import { MANHEIM_MUVVI_CODE } from "./scheduler/manheimMuvvi/catalog";
 
 /** A leaf (a subgroup's direct indicators) must remain scannable in the picker. */
 export const MAX_CATALOG_LEAF_ITEMS = 48;
@@ -70,6 +72,12 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
 
 /** Maps every country's source category into the same top-level taxonomy as the US. */
 export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement {
+  if (item.countryCode === "US" && item.key === `mds:${MANHEIM_MUVVI_CODE}`) {
+    return p("通胀与价格", "二手车批发价格");
+  }
+  if (item.countryCode === "US" && item.key.startsWith("mds:census_us_trade_")) {
+    return p("对外与汇率", usTradePlacement(item.key.slice(4)) ?? "贸易");
+  }
   if (["EU", "EA", "DE", "FR", "IT", "ES", "NL", "PL"].includes(item.countryCode)) {
     const code = item.key.startsWith("mds:") ? item.key.slice(4) : "";
     if (code.startsWith("eurostat_") || code.startsWith("ecb_ea_")) {
