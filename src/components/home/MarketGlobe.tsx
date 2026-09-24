@@ -175,17 +175,31 @@ export function MarketGlobe() {
     earthTexture.decoding = "async";
     earthTexture.onload = () => {
       if (!textureSourceContext) return;
-      textureSource.width = earthTexture.naturalWidth;
-      textureSource.height = earthTexture.naturalHeight;
-      // 调色一次性烘焙进贴图。原先是每帧给 drawImage 挂 filter，而 Canvas2D 的
-      // filter 会强制额外一遍离屏合成，对 ~950px 的图每帧要花掉好几毫秒。
-      textureSourceContext.filter = "contrast(1.06) saturate(1.04)";
-      textureSourceContext.drawImage(earthTexture, 0, 0);
-      textureSourceContext.filter = "none";
-      const pixels = textureSourceContext.getImageData(0, 0, textureSource.width, textureSource.height);
-      textureWords = new Uint32Array(pixels.data.buffer);
-      textureWidth = textureSource.width;
-      textureHeight = textureSource.height;
+      const sourceWidth = earthTexture.naturalWidth;
+      const sourceHeight = earthTexture.naturalHeight;
+      // 部分 Android Chrome 会在图片被回收/解码异常时以 0 尺寸触发 load。
+      // getImageData 不接受零宽高；此时保留矢量地球降级渲染即可。
+      if (sourceWidth <= 0 || sourceHeight <= 0) return;
+      try {
+        textureSource.width = sourceWidth;
+        textureSource.height = sourceHeight;
+        // 调色一次性烘焙进贴图。原先是每帧给 drawImage 挂 filter，而 Canvas2D 的
+        // filter 会强制额外一遍离屏合成，对 ~950px 的图每帧要花掉好几毫秒。
+        textureSourceContext.filter = "contrast(1.06) saturate(1.04)";
+        textureSourceContext.drawImage(earthTexture, 0, 0);
+        textureSourceContext.filter = "none";
+        const pixels = textureSourceContext.getImageData(0, 0, sourceWidth, sourceHeight);
+        textureWords = new Uint32Array(pixels.data.buffer);
+        textureWidth = sourceWidth;
+        textureHeight = sourceHeight;
+      } catch {
+        // 贴图像素读取失败不应成为全局未捕获异常；draw 会自动走矢量地球。
+        textureWords = null;
+        textureWidth = 0;
+        textureHeight = 0;
+      } finally {
+        textureSourceContext.filter = "none";
+      }
     };
     earthTexture.src = "/earth-blue-marble-v1.png";
     const projection = geoOrthographic().precision(0.7).clipAngle(90);

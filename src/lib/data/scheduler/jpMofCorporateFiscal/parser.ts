@@ -1,4 +1,4 @@
-import xlsx from "xlsx";
+import * as XLSX from "xlsx";
 import type { ObservationPoint } from "../types";
 import { list, record } from "../eStat/client";
 import {
@@ -72,10 +72,10 @@ export function parseJpMofCorporateResponse(
 }
 
 type SheetRows = unknown[][];
-function rows(workbook: xlsx.WorkBook, name: string): SheetRows {
+function rows(workbook: XLSX.WorkBook, name: string): SheetRows {
   const sheet = workbook.Sheets[name];
   if (!sheet) throw new Error(`MOF workbook sheet missing: ${name}`);
-  return xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as SheetRows;
+  return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" }) as SheetRows;
 }
 
 function eraYear(era: "昭和" | "平成" | "令和", year: number): number {
@@ -90,7 +90,7 @@ function findUniqueRow(table: SheetRows, label: string) {
 
 /** Fiscal-year observations are dated April 1 of the named Japanese fiscal year. */
 export function parseJpMofFiscalResultsWorkbook(buffer: Buffer) {
-  const workbook = xlsx.read(buffer, { type: "buffer", raw: false });
+  const workbook = XLSX.read(buffer, { type: "buffer", raw: false });
   const table = rows(workbook, "昭和41-令和6");
   const header = table.find((row) => row.some((cell) => String(cell).includes("昭和41年度")));
   if (!header || !String(table.flat().find((cell) => String(cell).includes("単位：千円")) ?? "")) {
@@ -145,7 +145,7 @@ function fiscalYearFromSheet(name: string): number | undefined {
 }
 
 export function parseJpMofDebtServiceWorkbook(buffer: Buffer): ObservationPoint[] {
-  const workbook = xlsx.read(buffer, { type: "buffer", raw: false });
+  const workbook = XLSX.read(buffer, { type: "buffer", raw: false });
   const points: ObservationPoint[] = [];
   for (const name of workbook.SheetNames) {
     const year = fiscalYearFromSheet(name);
@@ -171,7 +171,7 @@ export function parseJpMofDebtServiceWorkbook(buffer: Buffer): ObservationPoint[
 }
 
 export function parseJpMofDebtWorkbook(buffer: Buffer): ObservationPoint[] {
-  const workbook = xlsx.read(buffer, { type: "buffer", raw: false });
+  const workbook = XLSX.read(buffer, { type: "buffer", raw: false });
   if (workbook.SheetNames.length !== 1) throw new Error("MOF central debt workbook sheets changed");
   const table = rows(workbook, workbook.SheetNames[0]);
   const header = table.find((row) => row.some((cell) => /2021 September/.test(String(cell))));
