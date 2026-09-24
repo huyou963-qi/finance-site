@@ -265,27 +265,6 @@ function probeXlsxReimport(meta: Record<string, unknown>): ProbeOutcome | null {
   });
 }
 
-function probeLegacyH(meta: Record<string, unknown>, obsCount: number): ProbeOutcome {
-  const note = String(meta.providerNote ?? "").trim();
-  const url = note ? officialUrlForAgency(note) : undefined;
-  if (obsCount > 0) {
-    return pending({
-      method: "legacy_h_snapshot",
-      methodLabel: "历史库 h 迁移快照",
-      agencyHint: note || undefined,
-      officialUrl: url,
-      message:
-        "数据来自 MySQL h 库迁移，在线自动更新方式待对接（需确认原 Wind/来源 API）",
-    });
-  }
-  return pending({
-    method: "legacy_h_snapshot",
-    methodLabel: "历史库 h 迁移",
-    message: "无观测点",
-    error: "no_observations",
-  });
-}
-
 function dbSourceLabel(meta: Record<string, unknown>): string | null {
   const s = String(meta.source ?? meta.providerNote ?? "").trim();
   return s && s !== "-" ? s : null;
@@ -418,11 +397,6 @@ export async function probeInstrumentAcquisition(
 
   // 8) xlsx pending（usov 等：文件缺失时仍返回 pending）
   if (xlsx?.status === "pending") return xlsx;
-
-  // 9) legacy m_
-  if (inst.code.startsWith("m_")) {
-    return probeLegacyH(meta, inst.observationCount);
-  }
 
   // 11) 国际清算银行（非 debtcap 或未映射）
   if (agency === "国际清算银行") {

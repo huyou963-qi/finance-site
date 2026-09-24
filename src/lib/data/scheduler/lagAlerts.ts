@@ -56,8 +56,6 @@ export async function collectLagAlerts(
 
   const alerts: LagAlertRow[] = [];
   for (const sub of subs) {
-    if (sub.sourceId === "legacy-m") continue;
-
     const lastRun = await prisma.fetchRun.findFirst({
       where: { subscriptionId: sub.id },
       orderBy: { startedAt: "desc" },

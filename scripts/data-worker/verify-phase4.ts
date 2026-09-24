@@ -63,11 +63,8 @@ async function main() {
       const jp = await prisma.dataSubscription.count({
         where: { sourceId: "overview-japan" },
       });
-      const leg = await prisma.dataSubscription.count({
-        where: { sourceId: "legacy-m" },
-      });
       console.log(
-        `[verify-phase4] DB overview-china ${cn} · overview-japan ${jp} · legacy-m ${leg}`,
+        `[verify-phase4] DB overview-china ${cn} · overview-japan ${jp}`,
       );
     } catch (e) {
       console.error(`  ✗ ${e instanceof Error ? e.message : e}`);

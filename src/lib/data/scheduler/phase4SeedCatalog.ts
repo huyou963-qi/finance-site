@@ -23,16 +23,6 @@ export const PHASE4_DATA_SOURCES = {
     rateLimit: { minIntervalMs: 100 },
     metadata: { template: "japan", xlsxEnvVar: "JAPAN_OVERVIEW_XLSX_PATH" },
   },
-  "legacy-m": {
-    id: "legacy-m",
-    agencyId: null as string | null,
-    name: "Legacy m_ 快照",
-    adapterKind: SourceAdapterKind.MANUAL,
-    baseUrl: null as string | null,
-    termsUrl: null as string | null,
-    rateLimit: { minIntervalMs: 0 },
-    metadata: { note: "MySQL h 库迁移序列，在线 API 待对接" },
-  },
 } as const;
 
 export function releaseRuleForOverview(freqLabel: string | null | undefined) {
@@ -46,10 +36,6 @@ export function releaseRuleForOverview(freqLabel: string | null | undefined) {
     intervalHours: 12,
     probeUntilDay: 20,
   };
-}
-
-export function releaseRuleForLegacyM(): { type: "manual" } {
-  return { type: "manual" };
 }
 
 export function granularityForInstrument(freqLabel: string | null | undefined): DataGranularity {

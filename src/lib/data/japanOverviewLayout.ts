@@ -47,16 +47,6 @@ export const JAPAN_OVERVIEW_SERIES: readonly JapanOverviewSeriesDef[] = [
     chartType: "line",
     color: "#3f4f86",
   },
-  {
-    columnIndex: 22,
-    displayName: "占GDP比重:公共部门债务:一般政府",
-    code: "jpov_c22_public_debt_gdp",
-    panel: 5,
-    catalogCategory: "财政",
-    axis: "right",
-    chartType: "line",
-    color: "#d86a7a",
-  },
 ] as const;
 
 export const JAPAN_OVERVIEW_CHART_SERIES = JAPAN_OVERVIEW_SERIES.filter(
