@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { US_TRADE_FILES, usTradePlacement, type UsTradeSeries } from "./catalog";
 
 type Rows = (string | number | null | undefined)[][];
@@ -9,9 +11,24 @@ async function rowsFromUrl(url: string): Promise<Rows> {
   const old = cache.get(url);
   if (old && Date.now() - old.at < 3_600_000) return old.promise;
   const promise = (async () => {
-    const response = await fetch(url, { headers: { "User-Agent": "finance-site/1.0 (official Census trade data)" }, signal: AbortSignal.timeout(60_000) });
-    if (!response.ok) throw new Error(`Census trade ${response.status}: ${url}`);
-    const workbook = XLSX.read(Buffer.from(await response.arrayBuffer()), { type: "buffer", sheetRows: url.endsWith("ctyseasonal.xlsx") ? 1000 : url.endsWith("country.xlsx") ? 10_000 : undefined });
+    let bytes: Buffer;
+    try {
+      const response = await fetch(url, { headers: { "User-Agent": "finance-site/1.0 (official Census trade data)" }, signal: AbortSignal.timeout(60_000) });
+      if (!response.ok) throw new Error(`Census trade ${response.status}: ${url}`);
+      bytes = Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      const dataDir = process.env.US_TRADE_DATA_DIR?.trim();
+      if (!dataDir) throw error;
+      const filename = new URL(url).pathname.split("/").at(-1)!;
+      if (!Object.values(US_TRADE_FILES).some((sourceUrl) => sourceUrl === url)) throw error;
+      try {
+        bytes = await readFile(join(dataDir, filename));
+      } catch {
+        throw new Error(`Census trade source unavailable and local snapshot missing: ${filename}`, { cause: error });
+      }
+      console.warn(`[us-trade-detail] Census direct fetch unavailable; using local official snapshot ${filename}`);
+    }
+    const workbook = XLSX.read(bytes, { type: "buffer", sheetRows: url.endsWith("ctyseasonal.xlsx") ? 1000 : url.endsWith("country.xlsx") ? 10_000 : undefined });
     const sheet = workbook.Sheets[workbook.SheetNames[0]!];
     if (!sheet) throw new Error(`Census workbook missing first sheet: ${url}`);
     return XLSX.utils.sheet_to_json<Rows[number]>(sheet, { header: 1, defval: null, blankrows: false });
