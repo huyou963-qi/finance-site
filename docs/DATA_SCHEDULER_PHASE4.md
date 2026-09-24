@@ -5,7 +5,7 @@
 | # | 任务 | 交付 |
 |---|------|------|
 | 4.1 | jpov/chov xlsx 适配器 | `overviewXlsxAdapter.ts` + `BULK_FILE` worker |
-| 4.2 | Phase 4 seed | `npm run data:seed-phase4`（chov/jpov/m_ 订阅） |
+| 4.2 | Phase 4 seed | `npm run data:seed-phase4`（chov/jpov 订阅） |
 | 4.3 | 滞后告警 | `lagAlerts.ts` + 邮件/webhook |
 | 4.4 | 日历映射管理 | `.data/calendar-mapping-overrides.json` + Admin API/UI |
 | 4.5 | 自检 | `npm run data:verify-phase4` |
@@ -42,7 +42,7 @@ DATA_LAG_ALERT_AFTER_WORKER=1   # worker 结束后自动检测并通知
 
 ## legacy m_
 
-`m_*` 仪器登记为 `legacy-m` + `MANUAL` 发布规则，worker 默认跳过；仅用于目录追踪与 probe。
+旧 `m_<hash>` 历史快照及手工订阅已永久删除，Phase 4 不再登记它们。
 
 ## Phase 6 预览
 

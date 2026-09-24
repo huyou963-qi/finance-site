@@ -144,6 +144,7 @@
     "data:verify-multpl-sp500-pe": "dotenv -e .env.local -- tsx scripts/data-worker/verify-multpl-sp500-pe.ts",
     "data:seed-retired-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/seed-retired-indicators.ts",
     "data:remove-excel-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/remove-excel-indicators.ts",
+    "data:remove-legacy-manual-indicators": "dotenv -e .env.local -- tsx scripts/data-worker/remove-legacy-manual-indicators.ts",
     "data:export-system-macro-chart-prefs": "dotenv -e .env.local -- tsx scripts/data-worker/sync-system-macro-chart-prefs.ts --export",
     "data:import-system-macro-chart-prefs": "dotenv -e .env.local -- tsx scripts/data-worker/sync-system-macro-chart-prefs.ts --import",
     "data:freeze-builtin-templates": "dotenv -e .env.local -- tsx scripts/data-worker/freeze-builtin-templates.ts",

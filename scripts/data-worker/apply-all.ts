@@ -186,7 +186,7 @@ function buildPlan(flags: Flags): Step[] {
     });
   }
 
-  // 7) 各域自检（门禁）——排除全局 verify-catalog（含 legacy MANUAL 噪音，会误报）
+  // 7) 各域自检（门禁）——全局 verify-catalog 单独运行。
   if (!flags.skipVerify) {
     const verifyNames = listVerifyCatalogNames().filter((n) => n !== "catalog");
     const verifySelected = flags.only

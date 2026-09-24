@@ -3,7 +3,7 @@
  * - Excel bootstrap 指标须配置网络自动源（非 BULK）且 fetchAcquisition=known
  * - 禁止仅 MANUAL / 无抓取器的 BULK_FILE 作为唯一订阅（官方文件源配了抓取器 = 自动更新，合格）
  * - **订阅必须真的会被调度器选中**（见下）
- * - 已写目录 tombstone（退役 / 源端停更 / 被取代 / legacy-m 隐藏）的是**有意冻结的历史存量**，
+ * - 已写目录 tombstone（退役 / 源端停更 / 被取代）的是**有意冻结的历史存量**，
  *   不参与以上检查，只单独计数（2026-09-22）
  *
  * 关于第三条：`resolveAcquisitionStatus()` 只看适配器/序列键，FRED 订阅即便
@@ -40,8 +40,6 @@ const prisma = new PrismaClient();
 const ACCEPTED_NO_AUTOMATION: Record<string, string> = {
   // 2026-09-22 核对：CME Gold_Stocks.xls 对服务器返回 403，CME 条款禁止抓取，库存数据属 CME 授权
   goldov_c23_comex_stock_oz: "COMEX 黄金库存（CME 授权数据，无可合规抓取的源），保留历史存量",
-  // 2026-09-22 核对：IMF Historical Public Debt 年度口径（1955 起）；DataMapper 同指标混入 WEO 预测年，不能直接替换
-  jpov_c22_public_debt_gdp: "日本一般政府债务/GDP（年度 IMF 历史口径；DataMapper 含预测值不可直接替换），保留历史存量",
 };
 
 function argFlag(name: string): boolean {

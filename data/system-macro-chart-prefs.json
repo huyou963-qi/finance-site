@@ -818,7 +818,6 @@
         "mds:jpov_c06_jgb_10y",
         "mds:jpov_c07_jgb_2y",
         "mds:jpov_c15_consumer_conf_sa",
-        "mds:jpov_c22_public_debt_gdp",
         "mds:esri_jp_gdp_gdp_real_saar::yoy",
         "mds:esri_jp_gdp_gdp_nominal_saar::yoy",
         "mds:boj_jp_uncollateralized_overnight_call_rate_monthly_average",
@@ -859,7 +858,6 @@
         "mds:jpov_c07_jgb_2y": 1,
         "mds:boj_jp_cgpi::yoy": 2,
         "mds:jpov_c06_jgb_10y": 1,
-        "mds:jpov_c22_public_debt_gdp": 4,
         "mds:boj_jp_monetary_base::yoy": 3,
         "mds:jpov_c15_consumer_conf_sa": 5,
         "mds:boj_jp_accounts_jgs_holdings": 4,
@@ -906,12 +904,6 @@
         "mds:jpov_c06_jgb_10y": {
           "axis": "left",
           "color": "#f0d36d",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:jpov_c22_public_debt_gdp": {
-          "axis": "right",
-          "color": "#d86a7a",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -993,10 +985,6 @@
         },
         {
           "key": "mds:jpov_c15_consumer_conf_sa",
-          "type": "series"
-        },
-        {
-          "key": "mds:jpov_c22_public_debt_gdp",
           "type": "series"
         },
         {

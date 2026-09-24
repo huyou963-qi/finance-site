@@ -48,12 +48,33 @@ async function main() {
     return;
   }
 
+  const inds = await prisma.$queryRaw<HInd[]>`
+    SELECT wd_id, indname, freq, unit, starttime, endtime, refreshtime, source, country, cat_id
+    FROM h."Ind_Info"
+  `;
+  const excluded = new Set((await prisma.macroCatalogExcludedKey.findMany({ select: { catalogKey: true } })).map((row) => row.catalogKey));
+  const activeInds = inds.filter((row) => !excluded.has(`mds:${instrumentCodeFromSeriesKey(row.wd_id)}`));
+  if (!activeInds.length) {
+    console.info("All legacy h indicators are excluded; no categories or indicators to import.");
+    return;
+  }
+
   const cats = await prisma.$queryRaw<HCat[]>`
     SELECT name, cat_id, parent_id, skip FROM h."Category"
   `;
+  const byLegacyId = new Map(cats.map((row) => [String(row.cat_id), row]));
+  const needed = new Set<string>();
+  for (const row of activeInds) {
+    let id = row.cat_id == null ? null : String(row.cat_id);
+    while (id && !needed.has(id)) {
+      needed.add(id);
+      const parent = byLegacyId.get(id)?.parent_id;
+      id = parent == null ? null : String(parent);
+    }
+  }
   const catKeyToUuid = new Map<string, string>();
 
-  const pending = new Map<string, HCat>(cats.map((c) => [String(c.cat_id), c]));
+  const pending = new Map<string, HCat>(cats.filter((row) => needed.has(String(row.cat_id))).map((c) => [String(c.cat_id), c]));
   let guard = 0;
   while (pending.size > 0 && guard++ < 5000) {
     let progressed = false;
@@ -97,13 +118,8 @@ async function main() {
 
   console.info(`Synced ${catKeyToUuid.size} macro categories.`);
 
-  const inds = await prisma.$queryRaw<HInd[]>`
-    SELECT wd_id, indname, freq, unit, starttime, endtime, refreshtime, source, country, cat_id
-    FROM h."Ind_Info"
-  `;
-
   let n = 0;
-  for (const r of inds) {
+  for (const r of activeInds) {
     const code = instrumentCodeFromSeriesKey(r.wd_id);
     const categoryId =
       r.cat_id != null ? catKeyToUuid.get(String(r.cat_id)) ?? null : null;

@@ -14,7 +14,6 @@
  * 第三类：SUPERSEDED_KEEP_HISTORY_CODES —— 被标准序列取代的旧 xlsx 列（如黄金现货/期货）：
  * 模板键替换为标准键，仪器与观测同第二类只隐藏不删。
  *
- * 第四类：legacy-m（数据源 legacy-m 的 m_<hash> 历史导入）——按规则而非清单：零观测删、有观测只隐藏。
  */
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
@@ -117,49 +116,6 @@ async function hideSourceEndedInstruments(dryRun: boolean) {
   }
 }
 
-/**
- * legacy-m：早年 xlsx 批量导入的 `m_<hash>` 序列（458 条，2026-09-22 核对），订阅是 MANUAL、
- * 从无采集器，多数冻结在 2025-05；不进前台目录（metadata 缺 countryCode），任何系统/用户模板都不引用，
- * 却让 verify-catalog 常年报「MANUAL 订阅」。按规则幂等处理：
- *   - 零观测 → 与退役相同的硬删除（tombstone + 删订阅/仪器）；
- *   - 有观测 → 只写 tombstone + 停用订阅，历史观测保留（删掉 tombstone、重新启用订阅即可恢复）。
- */
-async function retireLegacyM(dryRun: boolean) {
-  const subs = await prisma.dataSubscription.findMany({
-    where: { sourceId: "legacy-m" },
-    select: { id: true, enabled: true, instrument: { select: { id: true, code: true } } },
-  });
-  let deleted = 0;
-  let hidden = 0;
-  for (const sub of subs) {
-    const { id: instrumentId, code } = sub.instrument;
-    const key = `mds:${code}`;
-    const obs = await prisma.macroObservation.count({ where: { instrumentId } });
-    if (dryRun) {
-      if (obs === 0) deleted++;
-      else hidden++;
-      continue;
-    }
-    if (obs === 0) {
-      await prisma.$transaction(async (tx) => {
-        await tx.macroCatalogExcludedKey.upsert({ where: { catalogKey: key }, create: { catalogKey: key, deletedBy: ACTOR }, update: {} });
-        await tx.fetchRun.deleteMany({ where: { subscriptionId: sub.id } });
-        await tx.releasePackageMember.deleteMany({ where: { instrumentId } });
-        await tx.dataSubscription.delete({ where: { id: sub.id } });
-        await tx.instrument.delete({ where: { id: instrumentId } });
-      });
-      deleted++;
-    } else {
-      await prisma.macroCatalogExcludedKey.upsert({ where: { catalogKey: key }, create: { catalogKey: key, deletedBy: ACTOR }, update: {} });
-      if (sub.enabled) await prisma.dataSubscription.update({ where: { id: sub.id }, data: { enabled: false } });
-      hidden++;
-    }
-  }
-  console.log(
-    `  ${dryRun ? "~" : "✓"} legacy-m：零观测删除 ${deleted} 条，有历史的隐藏并停用订阅 ${hidden} 条（观测保留）`,
-  );
-}
-
 function rewriteTemplateList(list: unknown): { value: unknown; changed: boolean } {
   if (!Array.isArray(list)) return { value: list, changed: false };
   let changed = false;
@@ -238,8 +194,6 @@ async function main() {
     `[data:seed-retired-indicators] 源端停更 ${SOURCE_ENDED_HIDDEN_CODES.length} 条 + 被标准序列取代 ${SUPERSEDED_KEEP_HISTORY_CODES.length} 条：从目录隐藏、保留观测…`,
   );
   await hideSourceEndedInstruments(dryRun);
-  console.log("[data:seed-retired-indicators] legacy-m 历史导入（无采集器）…");
-  await retireLegacyM(dryRun);
   console.log("[data:seed-retired-indicators] 模板替换为标准指标 / 指标运算…");
   await rewriteTemplates(dryRun);
   await reconcileLayout(dryRun);
