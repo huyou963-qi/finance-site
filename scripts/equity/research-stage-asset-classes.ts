@@ -574,7 +574,7 @@ async function longRun() {
   );
   const [{ closes }, gold, oil] = await Promise.all([
     getDailyClosesDbFirst(yahooSymbols, 20_000),
-    loadMacroPriceSeries("goldov_c02_london_gold"),
+    loadMacroPriceSeries("wgc_gold_price_usd"),
     loadMacroPriceSeries("sched_fred_DCOILWTICO"),
   ]);
   closes.GOLD_LONDON = gold;
@@ -724,7 +724,7 @@ async function leadLagRun() {
   ];
   const [{ closes }, gold, oil] = await Promise.all([
     getDailyClosesDbFirst(yahooSymbols, 20_000),
-    loadMacroPriceSeries("goldov_c02_london_gold"),
+    loadMacroPriceSeries("wgc_gold_price_usd"),
     loadMacroPriceSeries("sched_fred_DCOILWTICO"),
   ]);
   closes.GOLD_LONDON = gold;

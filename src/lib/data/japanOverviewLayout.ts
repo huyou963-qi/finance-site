@@ -14,19 +14,9 @@ export type JapanOverviewSeriesDef = {
 
 /**
  * Japan_Overview.xlsx R2 列顺序（col 1–22）。
- * col 2–5、8–14、16–21 已被日本官方标准序列取代（历史保留、目录隐藏），见 japanOverviewStandardSeries.ts。
+ * 旧 Excel 列 1–5、8–14、16–21 已删除；图表使用官方标准序列。
  */
 export const JAPAN_OVERVIEW_SERIES: readonly JapanOverviewSeriesDef[] = [
-  {
-    columnIndex: 1,
-    displayName: "东京日经225指数",
-    code: "jpov_c01_nikkei225",
-    panel: 1,
-    catalogCategory: "证券市场",
-    axis: "right",
-    chartType: "line",
-    color: "#5f76b8",
-  },
   {
     columnIndex: 6,
     displayName: "国债利率:10年",

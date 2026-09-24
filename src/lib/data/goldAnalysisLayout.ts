@@ -134,18 +134,6 @@ export const GOLD_ANALYSIS_SERIES: readonly GoldAnalysisSeriesDef[] = [
     chartType: "bar",
     color: "#e8a04e",
   },
-  {
-    columnIndex: 27,
-    displayName: "期货结算价(连续):布伦特原油",
-    code: "goldov_c27_brent",
-    countryCode: "US",
-    countryNameZh: "美国",
-    panel: null,
-    catalogCategory: "商品价格",
-    axis: "left",
-    chartType: "line",
-    color: "#8f9bab",
-  },
   // col 28「美国:实际利率」（世行年度，只到 2021）已被 fred:DFII10 取代，见 GOLD_ANALYSIS_TEMPLATE_EXTRAS
 ] as const;
 

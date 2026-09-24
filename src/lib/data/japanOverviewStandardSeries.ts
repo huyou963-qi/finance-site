@@ -6,7 +6,7 @@ import type { MacroDerivedCalc, MacroSeriesCalcConfig } from "@/lib/data/macroPr
  *
  * 这些 jpov_* 是 xlsx 一次性导入、从未接网络源的拼接列，多数停在 2026-04/05；其中同比/环比/利差
  * 本就是二次指标（AGENTS.md「宏观数据库约束」）。项目里已有同口径的官方自动源，故模板改用
- * 标准基础序列 + 指标运算，旧列只隐藏不删（历史保留，见 retiredIndicators.ts）。
+ * 标准基础序列 + 指标运算；旧 Excel 列现已删除。
  *
  * 2015 年起逐月核对（旧列 vs 标准序列现算）：
  * - 基础货币/M1/M2 同比、企业物价同比/环比、失业率：几乎逐值相等（差 ≤0.05）；
@@ -16,8 +16,7 @@ import type { MacroDerivedCalc, MacroSeriesCalcConfig } from "@/lib/data/macroPr
  * - 政策利率：旧列只记到 2025-12 的 0.75%，漏掉 2026 年加息；改用 BOJ 无担保隔夜拆借利率月均；
  * - 日本银行资产：旧列为旬报（万亿日元），标准序列为 BOJ 勘定月末（亿日元）。
  *
- * 不迁移：c01 日经 225（改由行情接口 ^N225 续接，历史与 Yahoo 585/585 逐日相等）、
- * c06/c07 国债利率（财务省源在更新）、c15 消费者信心（ESRI 源在更新）、c22 政府债务（IMF 年度）。
+ * c06/c07 国债利率、c15 消费者信心及 c22 政府债务不在本次删除范围。
  */
 export type JapanOverviewReplacement = { key: string; calc: MacroSeriesCalcConfig };
 
@@ -26,6 +25,7 @@ const YOY_MONTH: MacroSeriesCalcConfig = { op: "yoy", frequency: "month", unit: 
 const YOY_QUARTER: MacroSeriesCalcConfig = { op: "yoy", frequency: "quarter", unit: "keep", resampleMethod: "end" };
 const PCT_KEEP: MacroSeriesCalcConfig = { op: "pctChange", frequency: "keep", unit: "keep", resampleMethod: "end" };
 
+/** Legacy preference migration only; the old Excel instruments have been deleted. */
 export const JAPAN_OVERVIEW_SUPERSEDED: Readonly<Record<string, JapanOverviewReplacement>> = {
   jpov_c02_gdp_nominal: { key: "mds:esri_jp_gdp_gdp_nominal_saar", calc: NONE },
   jpov_c03_gdp_real_yoy_q: { key: "mds:esri_jp_gdp_gdp_real_saar::yoy", calc: YOY_QUARTER },

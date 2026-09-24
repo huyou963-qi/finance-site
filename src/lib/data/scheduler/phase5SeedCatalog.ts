@@ -1,20 +1,9 @@
 import { SourceAdapterKind } from "@prisma/client";
 
-/** e-Stat statsDataId 试点（需 ESTAT_APP_ID） */
-export const PHASE5_ESTAT_JPOV = [
-  {
-    instrumentCode: "jpov_c09_cpi_yoy",
-    statsDataId: "0003410379",
-    cdCat01: "0000010101",
-    label: "CPI 指数（同比在 worker 内计算）",
-  },
-  {
-    instrumentCode: "jpov_c21_unrate_sa",
-    statsDataId: "0000010101",
-    cdCat01: "002005002001-002005002015",
-    label: "失业率（季调）",
-  },
-] as const;
+/** 旧 jpov Excel 试点已删除；日本 CPI/失业率使用标准序列。 */
+export const PHASE5_ESTAT_JPOV: readonly {
+  instrumentCode: string; statsDataId: string; cdCat01: string; label: string;
+}[] = [];
 
 export const PHASE5_DATA_SOURCES = {
   "estat-jp": {

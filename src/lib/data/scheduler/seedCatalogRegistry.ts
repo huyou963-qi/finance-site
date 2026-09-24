@@ -56,6 +56,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "shiller-cape": { script: "seed-shiller-cape", labelZh: "Shiller CAPE 周期调整市盈率（抓取）" },
   "multpl-sp500-pe": { script: "seed-multpl-sp500-pe", labelZh: "标普500 市盈率（multpl 抓取）" },
   "retired-indicators": { script: "seed-retired-indicators", labelZh: "退役不合规/计算型指标并替换模板引用" },
+  "remove-excel-indicators": { script: "remove-excel-indicators", labelZh: "彻底删除22条旧Excel指标及全部历史" },
   "yahoo-gold-prices": { script: "seed-yahoo-gold-prices", labelZh: "黄金收盘价（行情接口 Yahoo GC=F）" },
   "gold-prices": { script: "seed-gold-prices", labelZh: "黄金现货（WGC LBMA）/ COMEX 黄金（GC=F）/ NYMEX WTI（CL=F）标准序列" },
   "cboe-vix9d-vvix": { script: "seed-cboe-vix9d-vvix", labelZh: "CBOE VIX9D / VVIX（抓取）" },

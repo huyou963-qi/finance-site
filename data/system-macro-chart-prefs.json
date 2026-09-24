@@ -815,7 +815,6 @@
         }
       ],
       "selectedKeys": [
-        "mds:jpov_c01_nikkei225",
         "mds:jpov_c06_jgb_10y",
         "mds:jpov_c07_jgb_2y",
         "mds:jpov_c15_consumer_conf_sa",
@@ -860,7 +859,6 @@
         "mds:jpov_c07_jgb_2y": 1,
         "mds:boj_jp_cgpi::yoy": 2,
         "mds:jpov_c06_jgb_10y": 1,
-        "mds:jpov_c01_nikkei225": 0,
         "mds:jpov_c22_public_debt_gdp": 4,
         "mds:boj_jp_monetary_base::yoy": 3,
         "mds:jpov_c15_consumer_conf_sa": 5,
@@ -908,12 +906,6 @@
         "mds:jpov_c06_jgb_10y": {
           "axis": "left",
           "color": "#f0d36d",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:jpov_c01_nikkei225": {
-          "axis": "right",
-          "color": "#5f76b8",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -991,10 +983,6 @@
         }
       },
       "selectedListItems": [
-        {
-          "key": "mds:jpov_c01_nikkei225",
-          "type": "series"
-        },
         {
           "key": "mds:jpov_c06_jgb_10y",
           "type": "series"
