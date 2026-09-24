@@ -184,3 +184,14 @@
 \* FRED 无单独「Fuel oil（季调）」序列，采用「Fuel oil and other fuels（SA）」`CUSR0000SEHE`，权重口径随之为 0.140。
 
 其余行（All items / 核心 CPI / 能源 / 核心商品·服务 / 新车 / 二手车 / Shelter）复用已在库序列。
+
+### 分项 nowcast 补充序列（2026-09-24）
+
+| FRED ID | 用途 |
+| --- | --- |
+| CUSR0000SETG01 | CPI 机票（季调）——航油代理的目标分项 |
+| CUSR0000SEHB | CPI 外宿（季调）——酒店分项 |
+| CUUR0000SETB01 | CPI 汽油（未季调）——零售油价先映射到未季调口径，再叠加季节因子差 |
+| CPILFENS | 核心 CPI（未季调）——季调环比换算回官方未季调同比 |
+
+高频代理本身：EIA 周度零售汽油 `GASREGW`、亨利港 `DHHNGSP`、航油 `DJFUELUSGULF`、取暖油 `DHOILNYH`（`data:seed-eia-energy-prices`），Zillow 观测租金指数 `mds:zillow_us_zori_sa`（`data:seed-zillow-zori`）。月均、环比、残差分项等全部在指标运算或研究脚本里计算，不入库。

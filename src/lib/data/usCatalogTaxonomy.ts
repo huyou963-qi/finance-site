@@ -79,6 +79,11 @@ const FRED_INFLATION_EXPECT_ENERGY = new Set([
   "T10YIE",
   "T5YIFR",
   "DCOILWTICO",
+  // EIA 能源价格（eiaEnergyPricesFredSeedCatalog.ts）：CPI 能源分项的高频代理
+  "GASREGW",
+  "DHHNGSP",
+  "DJFUELUSGULF",
+  "DHOILNYH",
 ]);
 
 const FRED_NATIONAL_ACCOUNTS = new Set([
@@ -219,7 +224,10 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   const id = fredId.toUpperCase();
   if (FRED_LOGISTICS.has(id)) return p("国民经济", "物流与出行");
   if (FRED_CPI.has(id)) return p("通胀与价格", "CPI");
-  if (id.startsWith("CUSR0000") || id.startsWith("CPIL")) return p("通胀与价格", "CPI");
+  // CUSR0000 = CPI-U 季调分项，CUUR0000 = CPI-U 未季调分项
+  if (id.startsWith("CUSR0000") || id.startsWith("CUUR0000") || id.startsWith("CPIL")) {
+    return p("通胀与价格", "CPI");
+  }
   if (FRED_PCE_PPI.has(id)) return p("通胀与价格", "PCE与PPI");
   if (FRED_INFLATION_EXPECT_ENERGY.has(id)) return p("通胀与价格", "通胀预期与能源");
   if (FRED_NATIONAL_ACCOUNTS.has(id)) return p("国民经济", "核算");
@@ -327,6 +335,10 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   // 标普500 市盈率（multpl 抓取）：股票估值/情绪类，与 VIX、融资余额同组
   if (code === "us_sp500_pe") {
     return p("利率与信用市场", "市场情绪");
+  }
+  // Zillow 观测租金指数（zillowZori/catalog.ts）：市场租金，与 Case-Shiller 同属市场价格口径
+  if (code.startsWith("zillow_")) {
+    return p("地产与建筑", "房价与可负担性");
   }
   if (code.startsWith("tsa_")) {
     return p("国民经济", "物流与出行");

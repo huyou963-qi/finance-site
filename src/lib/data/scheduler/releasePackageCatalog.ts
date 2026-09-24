@@ -40,12 +40,6 @@ function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
 }
 
-function fredIdsFromCpi(
-  filter: (fredId: string) => boolean,
-): string[] {
-  return CPI_FRED_SERIES.map((r) => r.fredId).filter(filter);
-}
-
 function fredIdsFromLabor(filter: (fredId: string) => boolean): string[] {
   return LABOR_FRED_SERIES.map((r) => r.fredId).filter(filter);
 }
@@ -131,17 +125,14 @@ function probePkg(
   };
 }
 
-const CPI_COMPONENT_FRED_IDS = fredIdsFromCpi(
-  (id) =>
-    id.startsWith("CUSR") ||
-    id === "CPIENGSL" ||
-    id === "CPIFABSL" ||
-    id === "CPIMEDSL" ||
-    id === "CPIAUCSL" ||
-    id === "CPILFESL" ||
-    id === "CPIUFDSL" ||
-    id === "CPIAPPSL",
-);
+/**
+ * BLS CPI 月报里的全部序列（季调 CUSR 前缀、未季调 CUUR 前缀与 CPILFENS、各聚合）。
+ * 按 seed 行的发布来源判定而非 ID 前缀：前缀白名单曾两次漏掉非 CUSR 开头的
+ * ID（CPIUFDSL、CPIAPPSL），导致新序列「日历未匹配」。
+ */
+const CPI_COMPONENT_FRED_IDS = CPI_FRED_SERIES.filter(
+  (r) => r.sourceUpdateNote === "BLS CPI 月报",
+).map((r) => r.fredId);
 
 const EMPLOYMENT_FRED_IDS = fredIdsFromLabor(
   (id) =>
@@ -917,7 +908,22 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "DAILY",
     intervalHours: 24,
     sortOrder: 202,
-    members: { fredSeriesIds: ["DCOILWTICO"] },
+    // 同一 FRED release 212「Spot Prices」：WTI + 航空煤油 + 取暖油（eiaEnergyPricesFredSeedCatalog.ts）
+    members: { fredSeriesIds: ["DCOILWTICO", "DJFUELUSGULF", "DHOILNYH"] },
+  }),
+  probePkg("us.eia.natural_gas_spot", "EIA 天然气现货（亨利港）", {
+    labelEn: "Natural Gas Spot and Futures Prices (NYMEX)",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 202,
+    members: { fredSeriesIds: ["DHHNGSP"] },
+  }),
+  probePkg("us.eia.gasoline_diesel", "EIA 汽油与柴油零售价（周度）", {
+    labelEn: "Gasoline and Diesel Fuel Update",
+    granularity: "WEEKLY",
+    intervalHours: 12,
+    sortOrder: 202,
+    members: { fredSeriesIds: ["GASREGW"] },
   }),
   probePkg("us.ice.bofa_indices", "ICE BofA 债券利差指数", {
     labelEn: "ICE BofA Indices",
@@ -1285,6 +1291,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 72,
     sortOrder: 236,
     members: { fredSeriesIds: ["FRGSHPUSM649NCIS", "FRGEXPUSM649NCIS"] },
+  }),
+  // Zillow Research 每月中旬整表重发 ZORI（无固定日历，修订全部历史）
+  probePkg("us.zillow.zori", "Zillow 观测租金指数（ZORI）", {
+    labelEn: "Zillow Observed Rent Index",
+    agencyId: "us-zillow",
+    granularity: "MONTHLY",
+    intervalHours: 72,
+    sortOrder: 238,
+    members: { instrumentCodes: ["zillow_us_zori_sa"] },
   }),
   // BTS 运输服务指数里的铁路货运（汇总自 AAR 周报，月度、滞后约 2 个月）；替代已移除的 AAR 周度抓取
   probePkg("us.bts.rail_freight", "美国铁路货运（BTS）", {

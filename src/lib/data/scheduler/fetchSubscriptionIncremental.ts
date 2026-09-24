@@ -205,6 +205,16 @@ export async function fetchSubscriptionIncremental(
           fetchStart,
         );
       }
+      if (scrapeObj.provider === "zillow_zori") {
+        const { fetchZillowZoriIncremental } = await import(
+          "./adapters/zillowZoriAdapter"
+        );
+        return fetchZillowZoriIncremental(
+          sub.instrument.metadata,
+          sub.instrument.code,
+          fetchStart,
+        );
+      }
       if (scrapeObj.provider === "nyfed_gscpi") {
         const { fetchNyFedGscpiIncremental } = await import(
           "./adapters/nyFedGscpiAdapter"

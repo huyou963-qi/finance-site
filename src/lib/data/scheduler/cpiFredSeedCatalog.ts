@@ -141,6 +141,13 @@ export const CPI_FRED_SERIES: readonly CpiFredSeedRow[] = [
   cpiFredRow("CUSR0000SAM1", "CPI 医疗护理商品", "CPI 分项", "月", "MONTHLY", "指数"),
   cpiFredRow("CUSR0000SAS4", "CPI 交通运输服务", "CPI 分项", "月", "MONTHLY", "指数"),
   cpiFredRow("CUSR0000SAM2", "CPI 医疗护理服务", "CPI 分项", "月", "MONTHLY", "指数"),
+  // —— CPI 分项 nowcast 所需（2026-09-24 FRED 校验，release 10，最新 obs 2026-08） ——
+  // 机票、外宿是有高频代理（航油、酒店）的服务分项；两条未季调序列用于把
+  // 「零售油价→未季调汽油 CPI」与「季调环比→未季调同比」换算回官方口径。
+  cpiFredRow("CUSR0000SETG01", "CPI 机票", "CPI 分项", "月", "MONTHLY", "指数"),
+  cpiFredRow("CUSR0000SEHB", "CPI 外宿（酒店等）", "CPI 分项", "月", "MONTHLY", "指数"),
+  cpiFredRow("CUUR0000SETB01", "CPI 汽油（全部类型，未季调）", "CPI 分项", "月", "MONTHLY", "指数"),
+  cpiFredRow("CPILFENS", "核心 CPI（未季调）", "CPI 综合", "月", "MONTHLY", "指数"),
   cpiFredRow("DCOILWTICO", "WTI 原油现货", "通胀驱动因子", "日", "DAILY", "美元/桶"),
   cpiFredRow("PPIFIS", "PPI 最终需求", "通胀驱动因子", "月", "MONTHLY", "指数"),
   cpiFredRow("CES0500000003", "平均时薪（私营部门）", "通胀驱动因子", "月", "MONTHLY", "美元/小时"),

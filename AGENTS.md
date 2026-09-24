@@ -189,6 +189,9 @@ npm run db:studio        # Prisma Studio
 
 「NY Fed 全球供应链压力指数（GSCPI）」：`data:seed-nyfed-gscpi` → `data:sync-nyfed-gscpi` / `data:verify-nyfed-gscpi`（加 `--db`）；运输成本+制造业指标 PCA 合成的供应链压力标准化指数，走纽约联储官方 `gscpi_data.xlsx` 月度全历史（1998-01 起），非 FRED 序列（已核实），月频 `probe_interval`（72h）探测；归入「国民经济」目录。
 
+「CPI 分项高频代理」（2026-09 为 CPI 分项 nowcast 补齐的底层数据，共 9 条）：① BLS CPI 四条并入 `data:seed-cpi` / 发布包 `us.bls.cpi`：机票 `CUSR0000SETG01`、外宿 `CUSR0000SEHB`、未季调汽油 `CUUR0000SETB01`、未季调核心 `CPILFENS`（`us.bls.cpi` 成员改为按 seed 行 `sourceUpdateNote==="BLS CPI 月报"` 判定，不再用 ID 前缀白名单）；② EIA 能源价格经 FRED：`data:seed-eia-energy-prices` / `data:verify-eia-energy-prices -- --db`，周度零售汽油 `GASREGW`（包 `us.eia.gasoline_diesel`，12h）、亨利港 `DHHNGSP`（包 `us.eia.natural_gas_spot`）、航油 `DJFUELUSGULF` 与取暖油 `DHOILNYH`（并入 `us.eia.spot_prices`，日频 6h），归「通胀与价格 > 通胀预期与能源」；EIA 现货早年本身稀疏（1998–2006 每年仅数十个报价日），不是漏抓；③ Zillow 观测租金指数：`data:seed-zillow-zori` → `data:sync-zillow-zori` / `data:verify-zillow-zori -- --db`，Zillow Research 公开 CSV（`files.zillowstatic.com`，免费公开使用须署名；zillow.com 网页有人机验证，不访问不绕过）取全美平滑季调行，2015-01 起，包 `us.zillow.zori`（probe 72h，每月中旬整表重发并修订历史），归「地产与建筑 > 房价与可负担性」。
+⚠ **Manheim 二手车批发价指数不入库**：Cox Automotive 访客协议明文禁止自动抓取、存储大量内容和再分发（`coxautoinc.com/visitor-agreement`），官网 xlsx 也停在 2025-11；需授权请联系 manheim.data@coxautoinc.com。克利夫兰联储 inflation nowcast 是第三方模型输出、逐日改写，也不作宏观序列入库。
+
 「TSA 安检口日度旅客通过人数」：`data:seed-tsa-passenger-volumes` → `data:sync-tsa-passenger-volumes` / `data:verify-tsa-passenger-volumes -- --db`；`tsa.gov/travel/passenger-volumes` 当年滚动窗口 + `/travel/passenger-volumes/{year}` 年度归档（2019 起，页面本身无更早归档，回填深度上限即此），非 FRED 序列，日频 `probe_interval` 探测。
 
 「AAR 美国铁路周度装车量/多式联运量」：**已移除（2026-09-21）**。aar.org 对机房 IP 下发人机验证（403 challenge），属反爬、不绕过，上线以来零观测；改用 BTS 月度 `fred:RAILFRTCARLOADSD11` / `fred:RAILFRTINTERMODALD11`（汇总自 AAR 周报，季调，2000 年起，滞后约 2 个月），并入 `cass-freight-index` seed，发布包 `us.bts.rail_freight`。

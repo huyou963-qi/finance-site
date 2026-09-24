@@ -73,7 +73,11 @@ export const FRED_RELEASE_IDS_BY_PACKAGE: Readonly<Record<string, readonly numbe
   "us.dol.continuing_claims": [180],
   /** Unemployment Insurance Weekly Claims Report (release:180:1) */
   "us.dol.weekly_claims": [180],
-  /** Spot Prices (release:212:1) */
+  /** Gasoline and Diesel Fuel Update (release:183) */
+  "us.eia.gasoline_diesel": [183],
+  /** Natural Gas Spot and Futures Prices (NYMEX) (release:342) */
+  "us.eia.natural_gas_spot": [342],
+  /** Spot Prices (release:212:3) */
   "us.eia.spot_prices": [212],
   /** H.15 Selected Interest Rates + FOMC Press Release (release:18:1, 101:1) */
   "us.fed.fomc": [18, 101],
@@ -166,6 +170,7 @@ export const FRED_RELEASE_NAMES: Readonly<Record<number, string>> = {
   97: "New Residential Sales",
   101: "FOMC Press Release",
   180: "Unemployment Insurance Weekly Claims Report",
+  183: "Gasoline and Diesel Fuel Update",
   185: "Interest Rate on Reserve Balances",
   187: "St. Louis Fed Financial Stress Index",
   188: "U.S. Import and Export Price Indexes",
@@ -188,6 +193,7 @@ export const FRED_RELEASE_NAMES: Readonly<Record<number, string>> = {
   296: "Housing Vacancies and Homeownership",
   304: "Interest Rate Spreads",
   321: "Empire State Manufacturing Survey",
+  342: "Natural Gas Spot and Futures Prices (NYMEX)",
   351: "Manufacturing Business Outlook Survey",
   359: "U.S. International Investment Position",
   374: "Texas Manufacturing Outlook Survey",
