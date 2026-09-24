@@ -1770,7 +1770,7 @@
     "builtin-us-econ-overview": {
       "name": "经济 Overview · 四支柱快照",
       "layoutMode": 4,
-      "description": "【第一步 · 通常够用】按图 1→4 回答：增长动能、就业松紧、通胀相对 2% 偏离、政策立场与曲线。写清 1–2 条主因即可；若需求/ISM 需专章 → 加载「经济 Overview · 需求与景气」。CPI 结构 → 美国通胀分析模板。",
+      "description": "【第一步 · 通常够用】按图 1→4 看总量增长、就业、通胀锚与政策/曲线。写清 1–2 条主因即可。若需拆分消费/投w · 支出法结构」。ISM 调查从目录自选",
       "derivedCalcs": [],
       "selectedKeys": [
         "fred:A191RL1Q225SBEA",
@@ -1784,7 +1784,7 @@
         "fred:GS10",
         "fred:DFII10"
       ],
-      "updatedAtIso": "2026-07-30T10:52:04.945Z",
+      "updatedAtIso": "2026-09-24T03:56:20.497Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -2907,8 +2907,8 @@
     },
     "builtin-us-fiscal-highfreq": {
       "name": "高频跟踪 · 现金流与融资",
-      "layoutMode": 4,
-      "description": "【第三步 · 发布月/周】MTS 月表（现金）、TGA 与 DTS 日频、Debt to the Penny 周净增发。FY 日历 10/1–9/30；DTS 日净流 = Deposits−Withdrawals（百万美元），非 BEA 权责赤字。",
+      "layoutMode": 5,
+      "description": "五图依次看MTS月赤字、月收入与支出、TGA余额、DTS日净现金流，以及Debt to the Penny周净发债。月度现金制、日度资金流和周度债务变化口径不同，不能直接相加。",
       "derivedCalcs": [],
       "selectedKeys": [
         "mds:treasury_mts_m01_deficit",
@@ -2918,7 +2918,7 @@
         "mds:treasury_dts_daily_net_cash",
         "mds:treasury_debt_penny_net_weekly"
       ],
-      "updatedAtIso": "2026-09-23T13:26:10.293Z",
+      "updatedAtIso": "2026-09-24T09:47:13.305Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -2941,8 +2941,20 @@
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
         "slotSeriesOrder": {
+          "0": [
+            "mds:treasury_mts_m01_deficit"
+          ],
+          "1": [
+            "mds:treasury_mts_m01_receipts",
+            "mds:treasury_mts_m01_outlays"
+          ],
           "2": [
-            "mds:treasury_dts_tga_balance",
+            "mds:treasury_dts_tga_balance"
+          ],
+          "3": [
+            "mds:treasury_dts_daily_net_cash"
+          ],
+          "4": [
             "mds:treasury_debt_penny_net_weekly"
           ]
         },
@@ -2956,7 +2968,7 @@
         "mds:treasury_mts_m01_outlays": 1,
         "mds:treasury_mts_m01_receipts": 1,
         "mds:treasury_dts_daily_net_cash": 3,
-        "mds:treasury_debt_penny_net_weekly": 2
+        "mds:treasury_debt_penny_net_weekly": 4
       },
       "seriesVisualMap": {
         "mds:treasury_dts_tga_balance": {
@@ -2990,7 +3002,7 @@
           "showEndLabel": true
         },
         "mds:treasury_debt_penny_net_weekly": {
-          "axis": "right",
+          "axis": "left",
           "color": "#6f84c0",
           "chartType": "line",
           "showEndLabel": true
@@ -3063,23 +3075,28 @@
     },
     "builtin-us-fiscal-overview": {
       "name": "财政总览 · 存量与流量",
-      "layoutMode": 3,
-      "description": "【第一步 · 初学者入口】按图 1→3 写 L0（≤150 字）：债务负担、赤字/GDP、初级赤字与利息。口径：OMB/FRED 为权责/GDP 比率；MTS/DTS 在视图 C。若问「为什么赤字变」→ 加载「财政结构 · 收支拆解」。",
+      "layoutMode": 4,
+      "description": "四图优先看最新官方观测：Debt to the Penny 每日公共债务存量、MTS 每月财年累计赤字与收支、MTS 月度净利息。债务是存量，MTS 是现金流；FYTD 每年 10 月重置。这里不把现金赤字冒充年度赤字/GDP，也不以日度债务除以滞后的季度 GDP。",
       "derivedCalcs": [],
       "selectedKeys": [
-        "fred:GFDEGDQ188S",
-        "fred:GFDEBTN",
-        "fred:FYOIGDA188S"
+        "mds:treasury_debt_penny_total_daily",
+        "mds:treasury_debt_penny_held_public_daily",
+        "mds:treasury_mts_m01_deficit_fytd",
+        "mds:treasury_mts_m01_receipts_fytd",
+        "mds:treasury_mts_m01_outlays_fytd",
+        "mds:treasury_mts_m09_outlay_interest",
+        "mds:treasury_mts_m01_deficit"
       ],
-      "updatedAtIso": "2026-09-23T14:55:29.353Z",
+      "updatedAtIso": "2026-09-24T10:41:27.906Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
-          "0": "F1a 存量：债务/GDP 与债务总额",
-          "1": "F2 流量：赤字/GDP 与初级赤字",
-          "2": "F1b 负担：利息/GDP"
+          "0": "债务存量：总额与公众持有（日）",
+          "1": "当期缺口：MTS 财年累计赤字（月）",
+          "2": "收支两端：MTS 财年累计收入与支出（月）",
+          "3": "利息压力：月度净利息与月赤字（月）"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
@@ -3096,58 +3113,132 @@
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:GFDEBTN": 0,
-        "fred:FYOIGDA188S": 2,
-        "fred:GFDEGDQ188S": 0
+        "mds:treasury_mts_m01_deficit": 3,
+        "mds:treasury_mts_m01_deficit_fytd": 1,
+        "mds:treasury_mts_m01_outlays_fytd": 2,
+        "mds:treasury_mts_m01_receipts_fytd": 2,
+        "mds:treasury_debt_penny_total_daily": 0,
+        "mds:treasury_mts_m09_outlay_interest": 3,
+        "mds:treasury_debt_penny_held_public_daily": 0
+      },
+      "chartIntroNotes": {
+        "0": "Debt to the Penny 每个工作日公布总债务及公众持有债务，两条线均为美元面值、共用左轴。两者的差额主要对应政府内部持有；绝对额上升不等于债务/GDP 同步上升。",
+        "1": "MTS 财年累计现金赤字按每年 10 月至次年 9 月累加，正值表示赤字。比较不同年份时要对齐相同财年月份；10 月重置不是财政状况突然改善。",
+        "2": "MTS 财年累计收入和支出共用同一美元轴；两线距离对应图 2 的累计赤字。收入变化可受报税季影响，先比较同一财年月份，再到财政结构模板看税种和支出分项。",
+        "3": "MTS 月度净利息支出与月赤字均为现金流、共用美元轴。观察利息是否持续上升，以及赤字波动是否由利息以外的收支推动；月赤字可受缴税时点影响，不能用单月外推全年。"
       },
       "seriesVisualMap": {
-        "fred:GFDEBTN": {
-          "axis": "right",
-          "color": "#5f76b8",
+        "mds:treasury_mts_m01_deficit": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m01_deficit_fytd": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "bar",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m01_outlays_fytd": {
+          "axis": "left",
+          "color": "#ef6461",
           "chartType": "dashedLine",
           "showEndLabel": true
         },
-        "fred:FYOIGDA188S": {
+        "mds:treasury_mts_m01_receipts_fytd": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:treasury_debt_penny_total_daily": {
+          "axis": "left",
+          "color": "#6f84c0",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:treasury_mts_m09_outlay_interest": {
           "axis": "left",
           "color": "#d75a68",
           "chartType": "line",
           "showEndLabel": true
         },
-        "fred:GFDEGDQ188S": {
+        "mds:treasury_debt_penny_held_public_daily": {
           "axis": "left",
-          "color": "#6f84c0",
-          "chartType": "line",
+          "color": "#5f76b8",
+          "chartType": "dashedLine",
           "showEndLabel": true
         }
       },
       "selectedListItems": [
         {
-          "key": "fred:GFDEGDQ188S",
+          "key": "mds:treasury_debt_penny_total_daily",
           "type": "series"
         },
         {
-          "key": "fred:GFDEBTN",
+          "key": "mds:treasury_debt_penny_held_public_daily",
           "type": "series"
         },
         {
-          "key": "fred:FYOIGDA188S",
+          "key": "mds:treasury_mts_m01_deficit_fytd",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_receipts_fytd",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_outlays_fytd",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_outlay_interest",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_deficit",
           "type": "series"
         }
       ],
       "seriesCalcConfigMap": {
-        "fred:GFDEBTN": {
+        "mds:treasury_mts_m01_deficit": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
           "resampleMethod": "end"
         },
-        "fred:FYOIGDA188S": {
+        "mds:treasury_mts_m01_deficit_fytd": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
           "resampleMethod": "end"
         },
-        "fred:GFDEGDQ188S": {
+        "mds:treasury_mts_m01_outlays_fytd": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m01_receipts_fytd": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_debt_penny_total_daily": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_mts_m09_outlay_interest": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:treasury_debt_penny_held_public_daily": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
@@ -3690,7 +3781,7 @@
     "builtin-us-monetary-overview": {
       "name": "货币政策 · 立场与流动性",
       "layoutMode": 4,
-      "description": "【第一步 · 政策立场】按图 1→4 回答：政策多紧？紧缩来自实际利率还是通胀预期？QT 与体系流动性到哪一步？曲线定价的衰退风险多大？判断传导是否到位 → 加载「金融条件 · 信贷与压力」。",
+      "description": "四图依次判断短端政策与资金价格、实际利率和通胀补偿、联储资产负债表与资金缓冲、长端收益率和期限曲线。短端日度利率在此取月均；量的工具分别读轴，不把资产减负债项机械相加为净流动性。信用利差留给“金融条件·信贷与压力”。",
       "derivedCalcs": [
         {
           "id": "d-mt55qeuk-gpn9b",
@@ -3707,24 +3798,23 @@
         "fred:DGS2::avg",
         "fred:DGS10::avg",
         "fred:T10Y3M::avg",
-        "fred:BAMLH0A0HYM2",
         "fred:DFII10",
         "fred:WRESBAL",
         "fred:WALCL::avg",
         "fred:RRPONTSYD::avg",
         "mds:treasury_dts_tga_balance",
-        "fred:RPONTSYSAD"
+        "fred:T10YIE::avg"
       ],
-      "updatedAtIso": "2026-09-23T04:28:41.440Z",
+      "updatedAtIso": "2026-09-24T09:40:01.623Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
-          "0": "L1 政策利率：有效 vs 市场定价",
-          "1": "国债 vs 信用",
-          "2": "L3 量的工具：联储资产 vs RRP",
-          "3": "L4 期限结构：10Y vs 10Y-3M"
+          "0": "L1 政策利率、2Y定价与SOFR−IORB",
+          "1": "L2 10Y实际利率与通胀补偿",
+          "2": "L3 联储资产、准备金、TGA与RRP",
+          "3": "L4 10Y收益率与10Y−3M曲线"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
@@ -3738,18 +3828,15 @@
         "yLabelFontSize": 10,
         "slotSeriesOrder": {
           "0": [
-            "fred:SOFR",
-            "fred:IORB",
             "fred:EFFR",
+            "fred:IORB",
+            "fred:SOFR",
             "fred:DGS2::avg",
             "calc:d-mt55qeuk-gpn9b"
           ],
           "1": [
-            "fred:DGS10::avg",
-            "fred:DGS2::avg",
             "fred:DFII10",
-            "fred:T10Y3M::avg",
-            "fred:BAMLH0A0HYM2"
+            "fred:T10YIE::avg"
           ],
           "2": [
             "fred:WALCL::avg",
@@ -3758,8 +3845,8 @@
             "fred:RRPONTSYD::avg"
           ],
           "3": [
-            "fred:RPONTSYSAD",
-            "fred:RRPONTSYD::avg"
+            "fred:DGS10::avg",
+            "fred:T10Y3M::avg"
           ]
         },
         "endLabelDecimals": 2,
@@ -3772,15 +3859,20 @@
         "fred:SOFR": 0,
         "fred:DFII10": 1,
         "fred:WRESBAL": 2,
-        "fred:DGS2::avg": 1,
-        "fred:DGS10::avg": 1,
-        "fred:RPONTSYSAD": 3,
+        "fred:DGS2::avg": 0,
+        "fred:DGS10::avg": 3,
         "fred:WALCL::avg": 2,
-        "fred:T10Y3M::avg": 1,
-        "fred:BAMLH0A0HYM2": 1,
-        "fred:RRPONTSYD::avg": 3,
+        "fred:T10Y3M::avg": 3,
+        "fred:T10YIE::avg": 1,
+        "fred:RRPONTSYD::avg": 2,
         "calc:d-mt55qeuk-gpn9b": 0,
         "mds:treasury_dts_tga_balance": 2
+      },
+      "chartIntroNotes": {
+        "0": "EFFR、IORB、SOFR与2Y国债收益率取月均比较当前政策执行、担保融资和市场路径；SOFR−IORB为资金价格相对准备金利率的价差，短时跳升需核验季末等因素。",
+        "1": "10Y TIPS实际收益率与10Y盈亏平衡通胀分别显示实际利率和市场通胀补偿。盈亏平衡还包含风险与流动性溢价，不能当作纯通胀预期。",
+        "2": "联储资产、银行准备金和TGA按百万美元放左轴，ON RRP按十亿美元放右轴。观察QT期间各项如何变化；这些余额并非可直接相加减的完整“净流动性”。",
+        "3": "10Y名义收益率与10Y−3M利差分轴看水平和期限结构。利差上升要辨别短端下降还是长端上行；曲线变化本身不是衰退确认。"
       },
       "seriesVisualMap": {
         "fred:EFFR": {
@@ -3790,7 +3882,7 @@
           "color": "#f31b26"
         },
         "fred:WRESBAL": {
-          "axis": "right"
+          "axis": "left"
         },
         "fred:DGS2::avg": {
           "axis": "left",
@@ -3816,9 +3908,11 @@
           "chartType": "dashedLine",
           "showEndLabel": true
         },
-        "fred:BAMLH0A0HYM2": {
-          "axis": "right",
-          "color": "#68ee71"
+        "fred:T10YIE::avg": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
         },
         "fred:RRPONTSYD::avg": {
           "axis": "right",
@@ -3830,7 +3924,7 @@
           "axis": "right"
         },
         "mds:treasury_dts_tga_balance": {
-          "axis": "right"
+          "axis": "left"
         }
       },
       "selectedListItems": [
@@ -3847,14 +3941,6 @@
           "type": "series"
         },
         {
-          "key": "calc:d-mt55qeuk-gpn9b",
-          "type": "derived"
-        },
-        {
-          "id": "div-msn7p93n-48ab",
-          "type": "divider"
-        },
-        {
           "key": "fred:DGS2::avg",
           "type": "series"
         },
@@ -3867,16 +3953,8 @@
           "type": "series"
         },
         {
-          "key": "fred:BAMLH0A0HYM2",
-          "type": "series"
-        },
-        {
           "key": "fred:DFII10",
           "type": "series"
-        },
-        {
-          "id": "div-msn7pf8h-cvfz",
-          "type": "divider"
         },
         {
           "key": "fred:WRESBAL",
@@ -3895,20 +3973,40 @@
           "type": "series"
         },
         {
-          "id": "div-msn7ppbc-91eq",
-          "type": "divider"
-        },
-        {
-          "key": "fred:RPONTSYSAD",
+          "key": "fred:T10YIE::avg",
           "type": "series"
         }
       ],
       "seriesCalcConfigMap": {
+        "fred:EFFR": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:IORB": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
         "fred:SOFR": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:DFII10": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "fred:WRESBAL": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
         },
         "fred:DGS2::avg": {
           "op": "none",
@@ -3934,7 +4032,19 @@
           "frequency": "month",
           "resampleMethod": "avg"
         },
+        "fred:T10YIE::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
         "fred:RRPONTSYD::avg": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "avg"
+        },
+        "mds:treasury_dts_tga_balance": {
           "op": "none",
           "unit": "keep",
           "frequency": "month",
@@ -4204,7 +4314,7 @@
     "builtin-us-cycle-risk-signals": {
       "name": "衰退风险 · 概率与规则",
       "layoutMode": 4,
-      "description": "【第一步 · 衰退信号】四种探测法对照：模型概率(NY Fed 曲线 + 平滑因子) → Sahm 劳动规则 → CFNAI 活动综合 → NBER 历史校准。看谁先亮灯、几种共振。信号亮 → 加载「增长动能 · 硬数据确认」证实。",
+      "description": "四图分别看未来12个月的收益率曲线衰退概率与同步平滑概率、Sahm劳动规则、CFNAI月度活动指数和NBER历史衰退标记。CFNAI的-0.7历史阈值针对三个月移动均值，不应用于本图的原始月值。",
       "derivedCalcs": [],
       "selectedKeys": [
         "mds:nyfed_us_recession_prob",
@@ -4213,7 +4323,7 @@
         "fred:CFNAI",
         "fred:USREC"
       ],
-      "updatedAtIso": "2026-09-01T00:12:29.331Z",
+      "updatedAtIso": "2026-09-24T09:40:01.623Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -4221,7 +4331,7 @@
         "slotTitles": {
           "0": "L1 模型概率：NY Fed vs 平滑",
           "1": "L2 Sahm 规则（≥0.5 触发）",
-          "2": "L3 活动综合：CFNAI（<-0.7 衰退）",
+          "2": "L3 活动综合：CFNAI 月值",
           "3": "L4 校准：NBER 衰退期"
         },
         "symbolSize": 7,
@@ -4234,6 +4344,21 @@
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "0": [
+            "mds:nyfed_us_recession_prob",
+            "fred:RECPROUSM156N::x100"
+          ],
+          "1": [
+            "fred:SAHMREALTIME"
+          ],
+          "2": [
+            "fred:CFNAI"
+          ],
+          "3": [
+            "fred:USREC"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": true
@@ -4244,6 +4369,12 @@
         "fred:SAHMREALTIME": 1,
         "fred:RECPROUSM156N::x100": 0,
         "mds:nyfed_us_recession_prob": 0
+      },
+      "chartIntroNotes": {
+        "0": "纽约联储收益率曲线模型给出未来12个月衰退概率；Chauvet-Piger平滑概率偏同步识别。两者预测期限不同，不把数值高低直接排名。",
+        "1": "Sahm实时值为三个月平均失业率相对前12个月低点的升幅；达到0.5个百分点是规则触发，接近阈值应结合就业和收入核验。",
+        "2": "CFNAI此图为原始月值：零附近代表接近趋势增长，负值代表低于趋势。历史上常用的-0.7预警阈值属于CFNAI三个月移动均值，不直接应用于本图。",
+        "3": "NBER衰退标记是事后公布的历史校准，不是实时预测；用于观察前面三类信号的领先与误报。"
       },
       "seriesVisualMap": {
         "fred:CFNAI": {
@@ -4271,7 +4402,7 @@
           "showEndLabel": true
         },
         "mds:nyfed_us_recession_prob": {
-          "axis": "right",
+          "axis": "left",
           "color": "#ef6461",
           "chartType": "line",
           "showEndLabel": true
