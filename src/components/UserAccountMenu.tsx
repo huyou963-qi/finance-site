@@ -79,8 +79,13 @@ function GuestMenu({ onClose }: { onClose: () => void }) {
       <MenuRow label="登录" href="/auth" onClick={onClose} />
       <MenuRow label="注册" href="/auth?register=1" hint="7天试用" onClick={onClose} />
       <MenuRow label="查看定价" href="/pricing" onClick={onClose} />
-      <div className="border-t border-fs-border px-4 py-2.5 text-xs text-fs-muted">
-        忘记密码请在登录页联系管理员
+      <div className="flex items-center justify-between border-t border-fs-border px-4 py-2.5 text-xs">
+        <Link href="/auth/recover?kind=username" onClick={onClose} className="text-fs-muted hover:text-fs-text">
+          找回用户名
+        </Link>
+        <Link href="/auth/recover?kind=password" onClick={onClose} className="text-fs-muted hover:text-fs-text">
+          忘记密码
+        </Link>
       </div>
     </div>
   );

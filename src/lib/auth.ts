@@ -29,6 +29,10 @@ export type UserRecord = {
 const COOKIE_NAME = "finance_sid";
 const SESSION_DAYS = 30;
 const REGISTER_TOKEN_MINUTES = 30;
+const RECOVERY_TOKEN_MINUTES = 30;
+const RECOVERY_COOLDOWN_SECONDS = 60;
+
+export type AccountRecoveryKind = "username" | "password";
 
 function nowIso() {
   return new Date().toISOString();
@@ -47,6 +51,10 @@ function safeEqHex(aHex: string, bHex: string): boolean {
   const b = Buffer.from(bHex, "hex");
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+function hashRecoveryToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 function makeCookie(token: string, expiresAt: string): string {
@@ -369,31 +377,110 @@ export async function verifyRegistrationToken(
 }
 
 export async function loginUser(
-  usernameRaw: string,
+  identifierRaw: string,
   passwordRaw: string,
 ): Promise<{ cookie: string; user: { id: string; username: string; role: Role } }> {
-  const username = usernameRaw.trim();
+  const identifier = identifierRaw.trim();
   await ensureAdminSeed();
 
   await prisma.session.deleteMany({
     where: { expiresAt: { lte: new Date() } },
   });
 
-  const user = await prisma.user.findFirst({
-    where: { username: { equals: username, mode: "insensitive" } },
+  const normalizedPhone = (() => {
+    try {
+      return validatePhone(identifier);
+    } catch {
+      return null;
+    }
+  })();
+  const candidates = await prisma.user.findMany({
+    where: {
+      OR: [
+        { username: { equals: identifier, mode: "insensitive" } },
+        { email: { equals: identifier.toLowerCase(), mode: "insensitive" } },
+        ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+      ],
+    },
   });
-  if (!user) throw new Error("用户名或密码错误");
-
-  if (!userHasPassword(user)) throw new Error("该账号通过微信注册，请使用微信扫码登录");
-  const passHash = hashPassword(passwordRaw, user.passSalt);
-  if (!safeEqHex(passHash, user.passHash)) {
-    throw new Error("用户名或密码错误");
+  const user = candidates.find(
+    (candidate) =>
+      userHasPassword(candidate) &&
+      safeEqHex(hashPassword(passwordRaw, candidate.passSalt), candidate.passHash),
+  );
+  if (!user) {
+    if (candidates.length > 0 && candidates.every((candidate) => !userHasPassword(candidate))) {
+      throw new Error("该账号未设置密码，请使用微信扫码登录或通过邮箱重置密码");
+    }
+    throw new Error("账号或密码错误");
   }
 
   return {
     cookie: await createSessionCookie(user.id),
     user: { id: user.id, username: user.username, role: user.role as Role },
   };
+}
+
+/**
+ * 创建邮箱恢复请求。找不到邮箱时返回 null，由 API 统一返回成功文案，避免泄露注册状态。
+ * 60 秒内的重复请求也返回 null，防止同一邮箱被连续轰炸。
+ */
+export async function requestAccountRecovery(
+  emailRaw: string,
+  kind: AccountRecoveryKind,
+): Promise<{ email: string; username: string; token: string | null } | null> {
+  const email = validateEmail(emailRaw);
+  await ensureAdminSeed();
+  await prisma.accountRecoveryRequest.deleteMany({ where: { expiresAt: { lte: new Date() } } });
+
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+  if (!user) return null;
+
+  const existing = await prisma.accountRecoveryRequest.findUnique({
+    where: { userId_kind: { userId: user.id, kind } },
+  });
+  if (
+    existing &&
+    Date.now() - existing.createdAt.getTime() < RECOVERY_COOLDOWN_SECONDS * 1000
+  ) {
+    return null;
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashRecoveryToken(token);
+  const expiresAt = new Date(Date.now() + RECOVERY_TOKEN_MINUTES * 60 * 1000);
+  await prisma.accountRecoveryRequest.upsert({
+    where: { userId_kind: { userId: user.id, kind } },
+    update: { tokenHash, createdAt: new Date(), expiresAt },
+    create: { userId: user.id, kind, tokenHash, expiresAt },
+  });
+
+  return { email: user.email!, username: user.username, token: kind === "password" ? token : null };
+}
+
+/** 使用一次性邮件令牌重置密码，并注销该账户全部旧会话。 */
+export async function resetPasswordWithToken(tokenRaw: string, passwordRaw: string): Promise<void> {
+  const token = tokenRaw.trim();
+  if (!/^[a-f0-9]{64}$/i.test(token)) throw new Error("重置链接无效或已过期");
+  const password = validatePassword(passwordRaw);
+  const tokenHash = hashRecoveryToken(token);
+  const request = await prisma.accountRecoveryRequest.findUnique({ where: { tokenHash } });
+  if (!request || request.kind !== "password" || request.expiresAt.getTime() <= Date.now()) {
+    if (request) await prisma.accountRecoveryRequest.delete({ where: { id: request.id } });
+    throw new Error("重置链接无效或已过期");
+  }
+
+  const salt = crypto.randomBytes(16).toString("hex");
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: request.userId },
+      data: { passSalt: salt, passHash: hashPassword(password, salt) },
+    }),
+    prisma.session.deleteMany({ where: { userId: request.userId } }),
+    prisma.accountRecoveryRequest.deleteMany({ where: { userId: request.userId } }),
+  ]);
 }
 
 /** 为已通过身份校验的用户建会话，返回 Set-Cookie 值（密码登录与微信登录共用） */

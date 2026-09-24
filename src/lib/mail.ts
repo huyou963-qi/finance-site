@@ -18,12 +18,36 @@ export function buildVerifyUrl(token: string): string {
   return `${base}/auth/verify?token=${encodeURIComponent(token)}`;
 }
 
+export function buildPasswordResetUrl(token: string): string {
+  const base = getBaseUrl().replace(/\/+$/, "");
+  return `${base}/auth/reset-password?token=${encodeURIComponent(token)}`;
+}
+
 async function appendOutbox(text: string) {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.appendFile(OUTBOX_FILE, `${new Date().toISOString()} ${text}\n`, "utf8");
 }
 
-export async function sendRegisterVerifyEmail(to: string, verifyUrl: string) {
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    const replacements: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return replacements[char];
+  });
+}
+
+async function sendAuthEmail(options: {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  fallbackTag: string;
+}) {
   const host = process.env.SMTP_HOST?.trim();
   const user = process.env.SMTP_USER?.trim();
   const pass = process.env.SMTP_PASS?.trim();
@@ -32,24 +56,49 @@ export async function sendRegisterVerifyEmail(to: string, verifyUrl: string) {
   const secure = (process.env.SMTP_SECURE?.trim() || "false").toLowerCase() === "true";
 
   if (!host || !user || !pass) {
-    await appendOutbox(`[MAIL_FALLBACK] to=${to} verify=${verifyUrl}`);
+    await appendOutbox(`[${options.fallbackTag}] to=${options.to}\n${options.text}`);
     return { delivered: false as const, fallback: true as const };
   }
 
-  const transport = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  });
+  const transport = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
   await transport.sendMail({
     from,
+    to: options.to,
+    subject: options.subject,
+    text: options.text,
+    html: options.html,
+  });
+  return { delivered: true as const, fallback: false as const };
+}
+
+export async function sendRegisterVerifyEmail(to: string, verifyUrl: string) {
+  return sendAuthEmail({
     to,
     subject: "请确认你的注册邮箱",
     text: `请点击以下链接完成注册（30 分钟内有效）：\n${verifyUrl}`,
-    html: `<p>请点击以下链接完成注册（30 分钟内有效）：</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+    html: `<p>请点击以下链接完成注册（30 分钟内有效）：</p><p><a href="${escapeHtml(verifyUrl)}">${escapeHtml(verifyUrl)}</a></p>`,
+    fallbackTag: "MAIL_FALLBACK",
   });
-  return { delivered: true as const, fallback: false as const };
+}
+
+export async function sendUsernameRecoveryEmail(to: string, username: string) {
+  return sendAuthEmail({
+    to,
+    subject: "你的 GekkoTech 用户名",
+    text: `你申请找回的用户名是：${username}\n\n如果这不是你的操作，可以忽略本邮件。`,
+    html: `<p>你申请找回的用户名是：</p><p><strong>${escapeHtml(username)}</strong></p><p>如果这不是你的操作，可以忽略本邮件。</p>`,
+    fallbackTag: "USERNAME_RECOVERY",
+  });
+}
+
+export async function sendPasswordResetEmail(to: string, resetUrl: string) {
+  return sendAuthEmail({
+    to,
+    subject: "重置你的 GekkoTech 密码",
+    text: `请点击以下链接重置密码（30 分钟内有效，且只能使用一次）：\n${resetUrl}\n\n如果这不是你的操作，可以忽略本邮件。`,
+    html: `<p>请点击以下链接重置密码（30 分钟内有效，且只能使用一次）：</p><p><a href="${escapeHtml(resetUrl)}">重置密码</a></p><p>如果这不是你的操作，可以忽略本邮件。</p>`,
+    fallbackTag: "PASSWORD_RESET",
+  });
 }
 
 export async function sendDataLagAlertEmail(

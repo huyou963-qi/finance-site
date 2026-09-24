@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AuthPageShell, authInputClass } from "@/components/auth/AuthPageShell";
 import { WechatQrPanel } from "@/components/auth/WechatQrPanel";
@@ -70,7 +71,12 @@ export function AuthClient() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, email, phone }),
+        body: JSON.stringify({
+          ...(mode === "login" ? { identifier: username } : { username }),
+          password,
+          email,
+          phone,
+        }),
       });
       const payload = (await res.json()) as {
         error?: string;
@@ -154,7 +160,7 @@ export function AuthClient() {
         {method === "wechat"
           ? "打开手机微信扫一扫，未注册的微信将自动创建账户"
           : mode === "login"
-            ? "使用用户名与密码登录 GekkoTech"
+            ? "使用用户名、手机号或邮箱与密码登录 GekkoTech"
             : "填写信息并完成邮箱验证"}
       </p>
 
@@ -202,13 +208,13 @@ export function AuthClient() {
           }}
         >
           <label className="block text-sm text-fs-secondary">
-            用户名
+            {mode === "login" ? "账号" : "用户名"}
             <input
               type="text"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="请输入用户名"
+              placeholder={mode === "login" ? "用户名 / 手机号 / 邮箱" : "请输入用户名"}
               className={authInputClass}
             />
           </label>
@@ -266,6 +272,17 @@ export function AuthClient() {
           >
             {loading ? "提交中…" : mode === "login" ? "登录" : "注册并发送验证邮件"}
           </button>
+
+          {mode === "login" ? (
+            <div className="flex items-center justify-between text-sm">
+              <Link href="/auth/recover?kind=username" className="text-fs-accent-text hover:underline">
+                找回用户名
+              </Link>
+              <Link href="/auth/recover?kind=password" className="text-fs-accent-text hover:underline">
+                忘记密码
+              </Link>
+            </div>
+          ) : null}
         </form>
       )}
 
