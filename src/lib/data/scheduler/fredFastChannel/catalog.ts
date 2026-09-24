@@ -10,7 +10,7 @@
  * 未登记（没有逐日相等的更快渠道，源头本身就是 T+1）：ICE BofA OAS（ICE 授权仅 FRED 转载）、
  * H.10 汇率与美元指数（美联储次日发布）、SOFR/EFFR（纽约联储次日 8:00 发布）。
  * WTI/布伦特现货（EIA 周更）没有同源更快渠道，市场实时口径用独立标准序列
- * nymex_wti_futures（oilPrices/catalog.ts）/ goldov_c27_brent（BZ=F）。
+ * nymex_wti_futures（oilPrices/catalog.ts）。
  */
 
 export const TREASURY_RATES_CSV_BASE =

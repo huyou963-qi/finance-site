@@ -854,13 +854,13 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 201,
     members: { fredSeriesIds: ["T5YIE", "T10YIE", "T5YIFR", "T10Y3M"] },
   }),
-  // 行情接口（Yahoo）日频收盘价：COMEX 黄金期货连续（标准序列）+ 黄金分析布伦特续接
+  // 行情接口（Yahoo）日频收盘价：COMEX 黄金期货标准序列
   probePkg("us.yahoo.comex_gold", "COMEX 黄金期货收盘价（行情接口）", {
     labelEn: "COMEX Gold Futures (Yahoo GC=F)",
     granularity: "DAILY",
     intervalHours: 24,
     sortOrder: 204,
-    members: { instrumentCodes: ["comex_gold_futures", "goldov_c27_brent"] },
+    members: { instrumentCodes: ["comex_gold_futures"] },
   }),
   // 行情接口（Yahoo CL=F）：WTI 原油期货标准序列（高频判断输入，替代周更的 FRED DCOILWTICO）
   probePkg("us.yahoo.nymex_wti", "NYMEX WTI 原油期货收盘价（行情接口）", {
@@ -869,15 +869,6 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 6,
     sortOrder: 205,
     members: { instrumentCodes: ["nymex_wti_futures"] },
-  }),
-  // 行情接口（Yahoo ^N225）：Japan_Overview 日经 225 续接
-  probePkg("jp.yahoo.nikkei225", "日经225指数（行情接口）", {
-    labelEn: "Nikkei 225 (Yahoo ^N225)",
-    countryCode: "JP",
-    granularity: "DAILY",
-    intervalHours: 24,
-    sortOrder: 206,
-    members: { instrumentCodes: ["jpov_c01_nikkei225"] },
   }),
   // 世界黄金协会 LBMA 金价：黄金现货标准序列
   probePkg("intl.wgc.gold_price", "黄金现货（世界黄金协会 LBMA 金价）", {

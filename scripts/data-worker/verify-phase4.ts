@@ -23,7 +23,7 @@ async function main() {
   } else {
     errors++;
   }
-  if (overviewTemplateForInstrument("jpov_c01_nikkei225") === "japan") {
+  if (overviewTemplateForInstrument("jpov_c06_jgb_10y") === "japan") {
     console.log("  ✓ jpov 模板识别");
   } else {
     errors++;

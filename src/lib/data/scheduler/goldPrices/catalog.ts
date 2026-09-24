@@ -98,6 +98,7 @@ export const GOLD_PRICE_INSTRUMENTS: readonly GoldPriceInstrumentDef[] = [
 ];
 
 /** 被标准序列取代的旧 xlsx 模板列 → 标准仪器代码 */
+/** Legacy chart preference keys; these instruments have been deleted. */
 export const GOLD_SUPERSEDED_BY: Readonly<Record<string, string>> = {
   goldov_c02_london_gold: GOLD_SPOT_CODE,
   goldov_c01_comex_active: GOLD_FUTURES_CODE,
