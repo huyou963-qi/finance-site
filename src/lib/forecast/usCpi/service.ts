@@ -3,6 +3,7 @@
  * 结果是模型输出，按约束不写入宏观库；进程内缓存 30 分钟（输入最快 6 小时更新一次）。
  */
 import { accuracy, correlation, errorBand, runBacktest, type AccuracyStats } from "./backtest";
+import { CLEVELAND_NOWCAST_PAGE, loadClevelandNowcast } from "./clevelandFed";
 import { CPI_NOWCAST_COMPONENTS, type ComponentGroup } from "./components";
 import { HF_CUTOFF_DAY, loadUsCpiNowcastInputs, type InputFreshness } from "./inputs";
 import { nowcastMonth, prepareModel, toNsaYoy, type AggregateKey, type LeafKey } from "./model";
@@ -42,7 +43,10 @@ export type ComponentForecast = {
   correlation: number;
 };
 
-export type BenchmarkAccuracy = Record<"model" | "lastMonth" | "mean12", AccuracyStats>;
+export type BenchmarkAccuracy = Record<"model" | "lastMonth" | "mean12", AccuracyStats> & {
+  /** 克利夫兰联储（每月 22 日口径）；源站不可达时缺省 */
+  cleveland?: AccuracyStats;
+};
 
 export type UsCpiNowcastPayload = {
   generatedAt: string;
@@ -56,6 +60,8 @@ export type UsCpiNowcastPayload = {
   components: ComponentForecast[];
   /** 本月回归无法估计、退回 12 个月均值的分项（正常为空） */
   fallbackComponents: string[];
+  /** 克利夫兰联储对目标月的最新 nowcast（对照用，不入库）；读取失败为 null */
+  cleveland: { all: number; core: number; label: string; sourceUrl: string } | null;
   backtest: {
     from: string;
     to: string;
@@ -66,6 +72,8 @@ export type UsCpiNowcastPayload = {
       actualAll: number;
       forecastCore: number;
       actualCore: number;
+      clevelandAll: number | null;
+      clevelandCore: number | null;
     }>;
     accuracy: Record<"exCovid" | "recent", { ALL: BenchmarkAccuracy; CORE: BenchmarkAccuracy; n: number }>;
   };
@@ -82,7 +90,7 @@ export async function getUsCpiNowcast(opts?: { force?: boolean }): Promise<UsCpi
 }
 
 export async function computeUsCpiNowcast(): Promise<UsCpiNowcastPayload> {
-  const loaded = await loadUsCpiNowcastInputs();
+  const [loaded, cleveland] = await Promise.all([loadUsCpiNowcastInputs(), loadClevelandNowcast()]);
   const model = prepareModel(loaded.inputs);
   const T = model.months.length - 1;
   const prev = T - 1;
@@ -136,14 +144,21 @@ export async function computeUsCpiNowcast(): Promise<UsCpiNowcastPayload> {
     };
   });
 
+  const cfAsOf = (month: string, key: "ALL" | "CORE") => {
+    const p = cleveland?.get(month)?.asOf;
+    return p ? (key === "ALL" ? p.all : p.core) : NaN;
+  };
   const bench = (subset: typeof rows, key: "ALL" | "CORE"): BenchmarkAccuracy => {
     const a = subset.map((r) => r.actual[key]);
+    const cf = subset.map((r) => cfAsOf(r.month, key));
     return {
       model: accuracy(subset.map((r) => r.forecast[key]), a),
       lastMonth: accuracy(subset.map((r) => r.lastMonth[key]), a),
       mean12: accuracy(subset.map((r) => r.mean12[key]), a),
+      ...(cf.some(Number.isFinite) ? { cleveland: accuracy(cf, a) } : {}),
     };
   };
+  const cfNow = cleveland?.get(loaded.targetMonth)?.latest ?? null;
   const recent = exCovid.filter((r) => r.month >= RECENT_FROM);
 
   const agg = (k: Exclude<AggregateKey, "ALL" | "CORE">) => ({ forecast: now[k], prevActual: model.mom[k]![prev]! });
@@ -159,6 +174,7 @@ export async function computeUsCpiNowcast(): Promise<UsCpiNowcastPayload> {
     aggregates: { FOOD: agg("FOOD"), ENE: agg("ENE"), CG: agg("CG"), CS: agg("CS") },
     components,
     fallbackComponents: fallbacks,
+    cleveland: cfNow ? { ...cfNow, sourceUrl: CLEVELAND_NOWCAST_PAGE } : null,
     backtest: {
       from: rows[0]?.month ?? BACKTEST_FROM,
       to: rows[rows.length - 1]?.month ?? loaded.latestCpiMonth,
@@ -169,6 +185,8 @@ export async function computeUsCpiNowcast(): Promise<UsCpiNowcastPayload> {
         actualAll: r.actual.ALL,
         forecastCore: r.forecast.CORE,
         actualCore: r.actual.CORE,
+        clevelandAll: Number.isFinite(cfAsOf(r.month, "ALL")) ? cfAsOf(r.month, "ALL") : null,
+        clevelandCore: Number.isFinite(cfAsOf(r.month, "CORE")) ? cfAsOf(r.month, "CORE") : null,
       })),
       accuracy: {
         exCovid: { ALL: bench(exCovid, "ALL"), CORE: bench(exCovid, "CORE"), n: exCovid.length },

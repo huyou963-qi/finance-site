@@ -7,7 +7,7 @@
 import { Fragment, useMemo, useState } from "react";
 import type { AccuracyStats } from "@/lib/forecast/usCpi/backtest";
 import type { HeadlineForecast, UsCpiNowcastPayload } from "@/lib/forecast/usCpi/service";
-import { BacktestChart, ContributionChart, GROUP_COLOR } from "./UsCpiNowcastCharts";
+import { BacktestChart, CLEVELAND_LINE, ContributionChart, GROUP_COLOR } from "./UsCpiNowcastCharts";
 
 const monthZh = (iso: string) => `${iso.slice(0, 4)} 年 ${Number(iso.slice(5, 7))} 月`;
 const pct = (v: number, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "—");
@@ -47,8 +47,9 @@ function headlineSub(h: HeadlineForecast, prevLabel: string) {
 }
 
 function AccuracyTable({ data }: { data: UsCpiNowcastPayload["backtest"]["accuracy"] }) {
-  const rows: Array<{ key: "model" | "mean12" | "lastMonth"; label: string }> = [
+  const rows: Array<{ key: "model" | "cleveland" | "mean12" | "lastMonth"; label: string }> = [
     { key: "model", label: "本模型" },
+    { key: "cleveland", label: "克利夫兰联储 nowcast" },
     { key: "mean12", label: "过去 12 个月均值" },
     { key: "lastMonth", label: "上月值" },
   ];
@@ -82,12 +83,16 @@ function AccuracyTable({ data }: { data: UsCpiNowcastPayload["backtest"]["accura
                     {period === "exCovid" ? `2018 年以来，剔除 2020 年 3–6 月（N=${data.exCovid.n}）` : `2023 年以来（N=${data.recent.n}）`}
                   </td>
                 </tr>
-                {rows.map((r) => (
-                  <tr key={r.key} className={r.key === "model" ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}>
-                    <td className="px-2.5 py-2">{r.label}</td>
-                    {cells(data[period][k][r.key])}
-                  </tr>
-                ))}
+                {rows.map((r) => {
+                  const stats = data[period][k][r.key];
+                  if (!stats) return null;
+                  return (
+                    <tr key={r.key} className={r.key === "model" ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}>
+                      <td className="px-2.5 py-2">{r.label}</td>
+                      {cells(stats)}
+                    </tr>
+                  );
+                })}
               </Fragment>
             )),
           )}
@@ -110,6 +115,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
         month: r.month,
         forecast: backtestKey === "ALL" ? r.forecastAll : r.forecastCore,
         actual: backtestKey === "ALL" ? r.actualAll : r.actualCore,
+        cleveland: backtestKey === "ALL" ? r.clevelandAll : r.clevelandCore,
       })),
     [data.backtest.rows, backtestKey],
   );
@@ -158,6 +164,21 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
             </div>
           ))}
         </div>
+        {data.cleveland ? (
+          <p className="flex flex-wrap items-baseline gap-x-2 text-[13px] text-fs-secondary">
+            <span className="inline-block h-0 w-4 border-t-2 border-dashed" style={{ borderColor: CLEVELAND_LINE }} />
+            <span>
+              对照：克利夫兰联储 {data.cleveland.label} 对 {target} 的 nowcast 为总体{" "}
+              <span className="font-mono tabular-nums text-fs-text">{pct(data.cleveland.all)}%</span>、核心{" "}
+              <span className="font-mono tabular-nums text-fs-text">{pct(data.cleveland.core)}%</span>
+              （本模型 {pct(data.headline.mom)}% / {pct(data.core.mom)}%，差{" "}
+              {signed(data.headline.mom - data.cleveland.all)} / {signed(data.core.mom - data.cleveland.core)} 个百分点）。
+            </span>
+            <a href={data.cleveland.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-fs-accent-text hover:underline">
+              来源
+            </a>
+          </p>
+        ) : null}
         {data.fallbackComponents.length > 0 ? (
           <p className="rounded-md border border-[#f1c40f]/40 bg-[#fdf6d8] px-3 py-2 text-[13px] text-fs-secondary">
             以下分项本月代理数据不足，已退回过去 12 个月均值：
@@ -277,7 +298,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
         </div>
         <p className="max-w-3xl text-xs leading-relaxed text-fs-muted">
           「取整命中」指预测与公布值四舍五入到 0.1 后完全相同；公布值落在 0.05 边界附近时，误差 0.03 也会翻格，因此更应看区间。
-          研究阶段同期对照克利夫兰联储 nowcast（同为每月 22 日口径）：总体 MAE 0.124、核心 0.099，本模型分别为 0.089、0.077。
+          克利夫兰联储取每个目标月 {data.hfCutoffDay} 日（含）之前的最后一次 nowcast，与本模型同一信息时点；其数据为第三方模型输出，仅作对照、不入库。
         </p>
       </section>
 

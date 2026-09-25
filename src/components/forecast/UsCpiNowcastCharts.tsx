@@ -23,6 +23,7 @@ const INK_MUTED = "#6b6b66";
 const GRID = "#ececea";
 const ACTUAL_BAR = "#c9c9c4";
 const MODEL_LINE = "#0b6bcb";
+export const CLEVELAND_LINE = "#9b59b6";
 
 function useChart(option: echarts.EChartsCoreOption, height: number) {
   const ref = useRef<HTMLDivElement>(null);
@@ -117,10 +118,11 @@ export function ContributionChart({ items, prevLabel }: { items: ContributionIte
   return useChart(option, Math.max(360, sorted.length * 26 + 60));
 }
 
-export type BacktestPoint = { month: string; forecast: number; actual: number };
+export type BacktestPoint = { month: string; forecast: number; actual: number; cleveland: number | null };
 
-/** 回测：灰柱 = 实际公布环比，蓝线 = 当月 22 日的模型预测 */
+/** 回测：灰柱 = 实际公布环比，蓝线 = 当月 22 日的模型预测，紫色虚线 = 同口径克利夫兰联储 */
 export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[]; height?: number }) {
+  const hasCleveland = points.some((p) => p.cleveland != null);
   const option = useMemo<echarts.EChartsCoreOption>(
     () => ({
       animation: false,
@@ -131,7 +133,7 @@ export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[
         itemWidth: 14,
         itemHeight: 8,
         textStyle: { color: INK_MUTED, fontSize: 12 },
-        data: ["实际", "模型预测"],
+        data: hasCleveland ? ["实际", "模型预测", "克利夫兰联储"] : ["实际", "模型预测"],
       },
       tooltip: {
         trigger: "axis",
@@ -165,10 +167,25 @@ export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[
           lineStyle: { color: MODEL_LINE, width: 2 },
           itemStyle: { color: MODEL_LINE },
           data: points.map((p) => (Number.isFinite(p.forecast) ? +p.forecast.toFixed(3) : null)),
+          z: 3,
         },
+        ...(hasCleveland
+          ? [
+              {
+                name: "克利夫兰联储",
+                type: "line",
+                symbol: "none",
+                connectNulls: false,
+                lineStyle: { color: CLEVELAND_LINE, width: 1.5, type: "dashed" },
+                itemStyle: { color: CLEVELAND_LINE },
+                data: points.map((p) => (p.cleveland != null ? +p.cleveland.toFixed(3) : null)),
+                z: 2,
+              },
+            ]
+          : []),
       ],
     }),
-    [points],
+    [points, hasCleveland],
   );
   return useChart(option, height);
 }
