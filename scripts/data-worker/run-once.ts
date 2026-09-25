@@ -122,6 +122,12 @@ async function main() {
     }
 
     const failedPackages = new Map<string, { memberCode: string; error: string }>();
+    // listDueSubscriptions 会把一个到期发布包完整展开。首个成员已将本包的
+    // nextRunAt 扇出给全部订阅；后续成员若重复做相同扇出，会把 N 个成员放大为
+    // N² 次数据库更新。Census 伙伴国包约 800 条，曾因此运行超过 6 小时并被
+    // abandoned-run audit 误判为中断。包内其余成员仍需拉取和写入自身观测，只需
+    // 保留已经由首个成员确定的包级排期。
+    const scheduledPackages = new Set<string>();
     for (const sub of subs) {
       const label = `${sub.instrument.code} ← ${sub.sourceSeriesKey}`;
       process.stdout.write(`  ${label} … `);
@@ -150,7 +156,14 @@ async function main() {
         console.log(`skipped (发布包成员 ${packageFailure.memberCode} 已失败，本轮不重复请求同源)`);
         continue;
       }
-      const result = await runDataSubscription(prisma, sub, { force });
+      const preservePackageSchedule = Boolean(
+        sub.releasePackageId && scheduledPackages.has(sub.releasePackageId),
+      );
+      const result = await runDataSubscription(prisma, sub, {
+        force,
+        preserveNextRunAt: preservePackageSchedule,
+      });
+      if (sub.releasePackageId) scheduledPackages.add(sub.releasePackageId);
       if (result.status === "failed") {
         fail += 1;
         console.log(`FAIL: ${result.error}`);
