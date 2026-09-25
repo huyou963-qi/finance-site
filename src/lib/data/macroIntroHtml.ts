@@ -1,4 +1,5 @@
 import sanitizeHtml from "sanitize-html";
+import type { MacroChartTemplate } from "@/lib/data/macroPresetTemplates";
 
 export const INTRO_HTML_MAX_LEN = 60000;
 
@@ -34,4 +35,15 @@ export function sanitizeMacroIntroHtml(input: unknown): string | undefined {
     },
   });
   return clean.trim();
+}
+
+/** Snapshot the visible introduction when a template is saved, including an unsaved editor draft. */
+export function templateIntroSnapshot(template: MacroChartTemplate | null, draftHtml?: string) {
+  return {
+    description: template?.description,
+    introText: template?.introText,
+    introHtml: draftHtml === undefined ? template?.introHtml : sanitizeMacroIntroHtml(draftHtml),
+    indicatorIntroNotes: template?.indicatorIntroNotes,
+    chartIntroNotes: template?.chartIntroNotes,
+  };
 }

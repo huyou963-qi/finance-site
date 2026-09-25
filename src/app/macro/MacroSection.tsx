@@ -33,6 +33,7 @@ import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
 import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
 import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
+import { sanitizeMacroIntroHtml, templateIntroSnapshot } from "@/lib/data/macroIntroHtml";
 import type {
   MacroDrawing,
   MacroDrawingStyle,
@@ -789,6 +790,9 @@ export function MacroSection() {
   const saveTimerRef = useRef<number | null>(null);
   const saveIdleRef = useRef<number | null>(null);
   const introDescSaveTimerRef = useRef<number | null>(null);
+  const introSaveInFlightRef = useRef<Promise<void> | null>(null);
+  const introDraftTimerRef = useRef<number | null>(null);
+  const introDraftRef = useRef<{ template: MacroChartTemplate; html: string } | null>(null);
   const introDescPendingSaveRef = useRef<
     | { kind: "hardcoded"; overrides: Record<string, BuiltinTemplateOverride> }
     | { kind: "custom"; templates: MacroChartTemplate[] }
@@ -1604,9 +1608,16 @@ export function MacroSection() {
 
       const validFolderId =
         folderId && systemBuiltinFolders.some((f) => f.id === folderId) ? folderId : null;
+      const introDraft = introDraftRef.current;
+      const intro = templateIntroSnapshot(
+        activeTemplate,
+        introDraft && activeTemplate && introDraft.template.id === activeTemplate.id
+          ? introDraft.html : undefined,
+      );
 
       const templatePayload = {
         name: trimmed,
+        ...intro,
         selectedKeys: [...orderedSelectedKeys],
         selectedListItems: selectedListItems.map((i) =>
           i.type === "divider"
@@ -1651,12 +1662,46 @@ export function MacroSection() {
         return;
       }
 
+      // The explicit save includes the latest editor draft. Cancel older delayed writes
+      // so they cannot replace the newly saved template with a stale snapshot.
+      const consumedDraft = activeTemplate?.builtIn && introDraftRef.current?.template.id === activeTemplate.id
+        ? introDraftRef.current : null;
+      if (activeTemplate?.builtIn && introDraftRef.current?.template.id === activeTemplate.id) {
+        if (introDraftTimerRef.current) window.clearTimeout(introDraftTimerRef.current);
+        introDraftTimerRef.current = null;
+        introDraftRef.current = null;
+      }
+      if (introDescSaveTimerRef.current) window.clearTimeout(introDescSaveTimerRef.current);
+      introDescSaveTimerRef.current = null;
+      const pendingIntroSave = introDescPendingSaveRef.current;
+      introDescPendingSaveRef.current = null;
+      const currentOverrides = pendingIntroSave?.kind === "hardcoded"
+        ? pendingIntroSave.overrides : builtinTemplateOverrides;
+      const currentCustom = pendingIntroSave?.kind === "custom"
+        ? pendingIntroSave.templates : customBuiltinTemplates;
+      if (introSaveInFlightRef.current) await introSaveInFlightRef.current;
+      const persistTemplateWithIntro = async (patch: Parameters<typeof persistSystemTemplateData>[0]) => {
+        try {
+          await persistSystemTemplateData(patch);
+        } catch (error) {
+          if (consumedDraft && !introDraftRef.current) introDraftRef.current = consumedDraft;
+          if (pendingIntroSave && !introDescPendingSaveRef.current) {
+            introDescPendingSaveRef.current = pendingIntroSave;
+          }
+          throw error;
+        }
+      };
+
       const nextFolderIds = { ...builtinTemplateFolderIds };
 
       if (targetId && HARDCODED_BUILTIN_TEMPLATE_IDS.has(targetId)) {
+        const source = activeTemplate?.id === targetId
+          ? activeTemplate : builtInTemplates.find((template) => template.id === targetId);
         const override: BuiltinTemplateOverride = {
+          ...currentOverrides[targetId],
           name: trimmed,
-          description: activeTemplate?.description,
+          ...templateIntroSnapshot(source ?? null),
+          introHtml: source?.id === activeTemplate?.id ? intro.introHtml : source?.introHtml,
           selectedKeys: templatePayload.selectedKeys,
           selectedListItems: templatePayload.selectedListItems,
           layoutMode: templatePayload.layoutMode,
@@ -1668,8 +1713,9 @@ export function MacroSection() {
           updatedAtIso: new Date().toISOString(),
         };
         nextFolderIds[targetId] = validFolderId;
-        await persistSystemTemplateData({
-          builtinTemplateOverrides: { ...builtinTemplateOverrides, [targetId]: override },
+        await persistTemplateWithIntro({
+          builtinTemplateOverrides: { ...currentOverrides, [targetId]: override },
+          ...(pendingIntroSave?.kind === "custom" ? { customBuiltinTemplates: currentCustom } : {}),
           builtinTemplateFolderIds: nextFolderIds,
         });
         setActiveTemplateId(targetId);
@@ -1679,7 +1725,7 @@ export function MacroSection() {
 
       let nextCustom: MacroChartTemplate[];
       if (targetId?.startsWith("builtin-custom-")) {
-        nextCustom = customBuiltinTemplates.map((t) =>
+        nextCustom = currentCustom.map((t) =>
           t.id === targetId
             ? {
                 ...t,
@@ -1696,23 +1742,22 @@ export function MacroSection() {
             id,
             ...templatePayload,
           },
-          ...customBuiltinTemplates,
+          ...currentCustom,
         ].slice(0, 30);
         targetId = id;
       }
 
       nextFolderIds[targetId] = validFolderId;
-      await persistSystemTemplateData({
+      await persistTemplateWithIntro({
         customBuiltinTemplates: nextCustom,
+        ...(pendingIntroSave?.kind === "hardcoded" ? { builtinTemplateOverrides: currentOverrides } : {}),
         builtinTemplateFolderIds: nextFolderIds,
       });
       setActiveTemplateId(targetId);
       setMainTab("templates");
     },
     [
-      activeTemplate?.builtIn,
-      activeTemplate?.description,
-      activeTemplate?.id,
+      activeTemplate,
       builtinTemplateFolderIds,
       builtinTemplateOverrides,
       builtInTemplates,
@@ -1738,6 +1783,12 @@ export function MacroSection() {
     const existing = savedTemplates.find((t) => t.name.trim() === trimmed);
     const validFolderId =
       folderId && userFolders.some((f) => f.id === folderId) ? folderId : null;
+    const introDraft = introDraftRef.current;
+    const intro = templateIntroSnapshot(
+      activeTemplate,
+      introDraft && activeTemplate && introDraft.template.id === activeTemplate.id
+        ? introDraft.html : undefined,
+    );
     const introId = activeTemplateId ?? INTRO_WORKSPACE_TEMPLATE_ID;
     const mergedIntroForSave = {
       ...(activeTemplate?.indicatorIntroNotes ?? {}),
@@ -1750,6 +1801,7 @@ export function MacroSection() {
     }
     const payload = {
       name: trimmed,
+      ...intro,
       selectedKeys: [...orderedSelectedKeys],
       selectedListItems: selectedListItems.map((i) =>
         i.type === "divider"
@@ -1762,7 +1814,8 @@ export function MacroSection() {
       displayConfig: { ...displayConfig },
       seriesCalcConfigMap: { ...seriesCalcConfigMap },
       derivedCalcs: [...derivedCalcs],
-      ...(Object.keys(indicatorIntroNotes).length > 0 ? { indicatorIntroNotes } : {}),
+      indicatorIntroNotes: Object.keys(indicatorIntroNotes).length > 0
+        ? indicatorIntroNotes : undefined,
       createdAtIso: new Date().toISOString(),
     };
 
@@ -1797,10 +1850,7 @@ export function MacroSection() {
     setActiveTemplateId(id);
     setNewTemplateName("");
   }, [
-    activeTemplate?.id,
-    activeTemplate?.builtIn,
-    activeTemplate?.indicatorIntroNotes,
-    activeTemplate?.name,
+    activeTemplate,
     activeTemplateId,
     derivedCalcs,
     displayConfig,
@@ -3073,27 +3123,34 @@ export function MacroSection() {
     const pending = introDescPendingSaveRef.current;
     if (!pending) return;
     introDescPendingSaveRef.current = null;
-    try {
-      if (pending.kind === "hardcoded") {
-        await persistBuiltinTemplateOverrides(pending.overrides);
-      } else {
-        await persistSystemTemplateData({ customBuiltinTemplates: pending.templates });
+    const previousSave = introSaveInFlightRef.current;
+    const save = (async () => {
+      if (previousSave) await previousSave;
+      try {
+        if (pending.kind === "hardcoded") {
+          await persistBuiltinTemplateOverrides(pending.overrides);
+        } else {
+          await persistSystemTemplateData({ customBuiltinTemplates: pending.templates });
+        }
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : "保存总介绍失败");
       }
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : "保存总介绍失败");
-    }
+    })();
+    introSaveInFlightRef.current = save;
+    await save;
+    if (introSaveInFlightRef.current === save) introSaveInFlightRef.current = null;
   }, [isAdmin, persistBuiltinTemplateOverrides, persistSystemTemplateData]);
 
   /** admin 修改系统模板的介绍富文本：写入系统模板并防抖保存 */
   const patchBuiltinTemplateIntro = useCallback(
-    (patch: { introHtml: string }) => {
-      if (!isAdmin || !activeTemplate?.builtIn) return;
-      const templateId = activeTemplate.id;
+    (template: MacroChartTemplate, patch: { introHtml: string }) => {
+      if (!isAdmin || !template.builtIn) return;
+      const templateId = template.id;
 
       if (HARDCODED_BUILTIN_TEMPLATE_IDS.has(templateId)) {
         setBuiltinTemplateOverrides((prev) => {
           const base =
-            prev[templateId] ?? buildBuiltinOverrideFromTemplate(activeTemplate);
+            prev[templateId] ?? buildBuiltinOverrideFromTemplate(template);
           const merged: BuiltinTemplateOverride = {
             ...base,
             ...patch,
@@ -3118,22 +3175,37 @@ export function MacroSection() {
         void flushIntroDescriptionSave();
       }, 450);
     },
-    [activeTemplate, flushIntroDescriptionSave, isAdmin],
+    [flushIntroDescriptionSave, isAdmin],
   );
+
+  const flushIntroDraft = useCallback(() => {
+    if (introDraftTimerRef.current) window.clearTimeout(introDraftTimerRef.current);
+    introDraftTimerRef.current = null;
+    const draft = introDraftRef.current;
+    introDraftRef.current = null;
+    if (!draft || !isAdmin) return;
+    const introHtml = sanitizeMacroIntroHtml(draft.html) ?? "";
+    if (draft.template.builtIn) {
+      patchBuiltinTemplateIntro(draft.template, { introHtml });
+    } else {
+      setSavedTemplates((prev) => prev.map((tpl) =>
+        tpl.id === draft.template.id ? { ...tpl, introHtml } : tpl,
+      ));
+    }
+  }, [isAdmin, patchBuiltinTemplateIntro]);
 
   const onIntroHtmlChange = useCallback(
     (html: string) => {
       if (!isAdmin || !activeTemplate) return;
-      if (activeTemplate.builtIn) {
-        patchBuiltinTemplateIntro({ introHtml: html });
-      } else {
-        setSavedTemplates((prev) => prev.map((tpl) =>
-          tpl.id === activeTemplate.id ? { ...tpl, introHtml: html } : tpl,
-        ));
-      }
+      if (introDraftRef.current?.template.id !== activeTemplate.id) flushIntroDraft();
+      introDraftRef.current = { template: activeTemplate, html };
+      if (introDraftTimerRef.current) window.clearTimeout(introDraftTimerRef.current);
+      introDraftTimerRef.current = window.setTimeout(flushIntroDraft, 550);
     },
-    [activeTemplate, isAdmin, patchBuiltinTemplateIntro],
+    [activeTemplate, flushIntroDraft, isAdmin],
   );
+
+  useEffect(() => () => flushIntroDraft(), [activeTemplateId, flushIntroDraft]);
 
   useEffect(() => {
     return () => {

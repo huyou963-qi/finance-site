@@ -88,10 +88,11 @@ export function MacroTemplateIntroPanel({ templateName, templateDescription, int
       editor.innerHTML = lastValidRef.current;
       return;
     }
-    const clean = sanitizeMacroIntroHtml(editor.innerHTML) ?? "";
+    // Keep typing local to the editor. The parent sanitizes and persists after a pause.
+    const html = editor.innerHTML;
     dirtyRef.current = true;
-    lastValidRef.current = clean;
-    onIntroHtmlChange?.(clean);
+    lastValidRef.current = html;
+    onIntroHtmlChange?.(html);
     rememberSelection();
   }
 
