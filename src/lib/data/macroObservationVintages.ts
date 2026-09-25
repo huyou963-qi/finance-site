@@ -22,6 +22,14 @@ export const REGIME_VINTAGE_INPUT_CODES = [
   REGIME_CODES.pce,
 ] as const;
 
+/**
+ * 指标预测（/forecast/*）需要真实时点回测的序列：非农首发值与 ADP 首发值。
+ * 由通用 ALFRED 编排器回填历史，之后每次入库由统一 writer 自动追加抓取时点版本。
+ */
+export const FORECAST_FRED_VINTAGE_CODES = ["sched_fred_PAYEMS", "sched_fred_ADPMNUSNERSA"] as const;
+/** 非农 nowcast 的训练期从 2004 年起，需要 2002 年以来的版本 */
+export const FORECAST_VINTAGE_REALTIME_START = "2002-01-01";
+
 /** FRED 官方 real-time max；避免亚洲已跨日而 FRED 服务器仍处前一 UTC 日时请求失败。 */
 export const FRED_REALTIME_MAX = "9999-12-31";
 
@@ -105,6 +113,20 @@ export async function syncRegimeMacroVintages(options: {
   return syncFredMacroVintages({
     instrumentCodes: REGIME_FRED_VINTAGE_CODES,
     ...options,
+  });
+}
+
+/** 指标预测的版本回填（幂等：唯一键去重，随 data:apply 执行） */
+export async function syncForecastMacroVintages(options: {
+  realtimeStart?: string;
+  realtimeEnd?: string;
+  apiKey?: string;
+} = {}): Promise<SyncFredMacroVintagesResult> {
+  return syncFredMacroVintages({
+    instrumentCodes: FORECAST_FRED_VINTAGE_CODES,
+    realtimeStart: options.realtimeStart ?? FORECAST_VINTAGE_REALTIME_START,
+    ...(options.realtimeEnd ? { realtimeEnd: options.realtimeEnd } : {}),
+    ...(options.apiKey ? { apiKey: options.apiKey } : {}),
   });
 }
 

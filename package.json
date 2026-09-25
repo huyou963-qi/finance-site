@@ -55,6 +55,8 @@
     "data:probe-sources": "dotenv -e .env.local -- tsx scripts/data-worker/probe-all-sources.ts",
     "data:sync-calendar": "dotenv -e .env.local -- tsx scripts/data-worker/sync-calendar.ts",
     "data:sync-regime-vintages": "dotenv -e .env.local -- tsx scripts/data-worker/sync-regime-macro-vintages.ts",
+    "data:seed-forecast-vintages": "dotenv -e .env.local -- tsx scripts/data-worker/seed-forecast-vintages.ts",
+    "data:verify-forecast-vintages": "dotenv -e .env.local -- tsx scripts/data-worker/verify-forecast-vintages.ts",
     "data:seed-release-packages": "dotenv -e .env.local -- tsx scripts/data-worker/seed-release-packages.ts",
     "data:sync-all-stale": "dotenv -e .env.local -- tsx scripts/data-worker/sync-all-stale.ts",
     "data:verify-catalog": "dotenv -e .env.local -- tsx scripts/data-worker/verify-catalog.ts",

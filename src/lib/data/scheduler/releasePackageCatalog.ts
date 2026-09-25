@@ -371,6 +371,18 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       instrumentCodes: usovCodesForFred("UNRATE", "PAYEMS"),
     },
   }),
+  // ADP 全国就业报告：非农前两天（周三）发布；FRED release 194，日历由 FRED 发布日程驱动
+  pkg("us.adp.ner", "ADP 全国就业报告", {
+    labelEn: "ADP National Employment Report",
+    granularity: "MONTHLY",
+    sortOrder: 21,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["adp nonfarm employment change", "adp employment change", "adp national employment"],
+      excludeKeywords: ["weekly", "4-week"],
+    },
+    members: { fredSeriesIds: ["ADPMNUSNERSA"] },
+  }),
   pkg("us.bls.jolts", "美国 JOLTS", {
     agencyId: "us-bls",
     granularity: "MONTHLY",

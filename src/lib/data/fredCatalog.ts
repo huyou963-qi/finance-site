@@ -206,6 +206,7 @@ const FRED_US_ITEMS: readonly FredDef[] = [
   { id: "DHOILNYH", label: "2 号取暖油现货价格（纽约港）", category: "通胀驱动因子", frequency: "日" },
   { id: "UNRATE", label: "失业率（U-3，季调）", category: "就业与工资", frequency: "月" },
   { id: "PAYEMS", label: "非农就业人数（千人）", category: "就业与工资", frequency: "月" },
+  { id: "ADPMNUSNERSA", label: "ADP 私营部门就业人数", category: "就业与工资", frequency: "月" },
   { id: "U6RATE", label: "U-6 广义失业率", category: "就业与工资", frequency: "月" },
   { id: "CIVPART", label: "劳动参与率", category: "就业与工资", frequency: "月" },
   { id: "LNS11300060", label: "25–54 岁劳动参与率", category: "就业与工资", frequency: "月" },

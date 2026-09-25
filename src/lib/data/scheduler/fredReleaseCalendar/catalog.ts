@@ -41,6 +41,8 @@ export const FRED_RELEASE_IDS_BY_PACKAGE: Readonly<Record<string, readonly numbe
   "us.bls.industrial_production": [13],
   /** Job Openings and Labor Turnover Survey (release:192:4) */
   "us.bls.jolts": [192],
+  /** ADP National Employment Report (release:194) */
+  "us.adp.ner": [194],
   /** Producer Price Index (release:46:20) */
   "us.bls.ppi": [46],
   /** Advance Monthly Sales for Retail and Food Services (release:9:20) */
@@ -177,6 +179,7 @@ export const FRED_RELEASE_NAMES: Readonly<Record<number, string>> = {
   190: "Primary Mortgage Market Survey",
   191: "Senior Loan Officer Opinion Survey on Bank Lending Practices",
   192: "Job Openings and Labor Turnover Survey",
+  194: "ADP National Employment Report",
   199: "S&P Cotality Case-Shiller Home Price Indices",
   200: "CBOE Market Statistics",
   209: "ICE BofA Indices",

@@ -32,7 +32,10 @@ const QUANT_LINKS = [
 ] as const;
 
 /** 指标预测下的分页：顶栏「指标预测」入口指向第一个可见项 */
-const FORECAST_LINKS = [{ href: "/forecast/us-cpi", featureId: "forecast-us-cpi" }] as const;
+const FORECAST_LINKS = [
+  { href: "/forecast/us-cpi", featureId: "forecast-us-cpi" },
+  { href: "/forecast/us-nfp", featureId: "forecast-us-nfp" },
+] as const;
 
 /** 顶栏主入口：featureId 由管理员在 /admin/feature-access 控制可见性 */
 const MAIN_LINKS = [

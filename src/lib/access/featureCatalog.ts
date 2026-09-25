@@ -77,6 +77,14 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     defaults: RELEASED,
   },
   {
+    id: "forecast-us-nfp",
+    label: "指标预测 · 美国非农",
+    group: "预测",
+    paths: ["/forecast/us-nfp"],
+    description: "非农新增就业 nowcast（周度申领 + 实时版本回测，ADP/SPF 对照）",
+    defaults: RELEASED,
+  },
+  {
     id: "equity-sectors",
     label: "美股行业",
     group: "美股",

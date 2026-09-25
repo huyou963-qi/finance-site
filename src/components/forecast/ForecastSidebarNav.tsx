@@ -6,6 +6,7 @@ import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 
 export const FORECAST_NAV = [
   { href: "/forecast/us-cpi", label: "美国 CPI 预测", featureId: "forecast-us-cpi" },
+  { href: "/forecast/us-nfp", label: "美国非农预测", featureId: "forecast-us-nfp" },
 ] as const;
 
 export function ForecastSidebarNav() {

@@ -122,6 +122,7 @@ const FRED_LABOR_UNEMP = new Set([
 ]);
 const FRED_LABOR_PAYROLL = new Set([
   "PAYEMS",
+  "ADPMNUSNERSA",
   "CES0500000003",
   "AHETPI",
   "AWHNONAG",
