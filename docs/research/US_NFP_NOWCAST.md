@@ -60,5 +60,5 @@
 ## 数据与调度
 
 - ADP：`seed-labor` 目录的 `ADPMNUSNERSA`，发布包 `us.adp.ner`（FRED release 194 日历），目录「劳动力市场 > 就业与工资」。
-- 版本账本：`data:seed-forecast-vintages`（`FORECAST_FRED_VINTAGE_CODES`：PAYEMS、ADPMNUSNERSA，ALFRED 自 2002 年起回填，幂等，随 `data:apply` 执行）；之后每次入库由统一 writer 自动追加版本。自检 `data:verify-forecast-vintages -- --db`。
+- 版本账本：`data:seed-forecast-vintages`（统一 seed 目录名 `labor-vintages`；`FORECAST_FRED_VINTAGE_CODES`：PAYEMS、ADPMNUSNERSA，ALFRED 自 2002 年起回填，幂等，随 `data:apply` 执行）。⚠ `data:apply` 按目录名字母序执行，目录名必须排在 `labor` 之后，否则首次部署时 ADP 序列尚未创建；之后每次入库由统一 writer 自动追加版本。自检 `data:verify-forecast-vintages -- --db`。
 - SPF：服务端读取、缓存 24 小时、注明来源，不入库。

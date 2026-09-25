@@ -42,13 +42,18 @@ async function main() {
       orderBy: { obsDate: "desc" },
       select: { obsDate: true },
     });
+    if (!latest) {
+      console.error(`  ✗ ${check.code} 没有任何观测（先 data:sync-one ${check.code} --force）`);
+      errors++;
+      continue;
+    }
     const rows = await prisma.macroObservationVintage.findMany({
       where: { instrumentId: inst.id, obsDate: { gte: new Date(`${check.from}T00:00:00Z`) } },
       select: { obsDate: true },
       distinct: ["obsDate"],
     });
     const have = new Set(rows.map((r) => r.obsDate.toISOString().slice(0, 10)));
-    const want = monthsBetween(check.from, latest?.obsDate.toISOString().slice(0, 10) ?? check.from);
+    const want = monthsBetween(check.from, latest.obsDate.toISOString().slice(0, 10));
     const missing = want.filter((m) => !have.has(m));
     const total = await prisma.macroObservationVintage.count({ where: { instrumentId: inst.id } });
     if (missing.length > check.maxMissing) {
