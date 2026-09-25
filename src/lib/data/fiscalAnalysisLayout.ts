@@ -75,10 +75,10 @@ function layoutModeForPanels(maxPanel: number): 1 | 2 | 3 | 4 | 5 | 6 {
 /** 视图 A：财政总览 · 存量与流量 */
 export const FISCAL_OVERVIEW_SERIES: readonly FiscalAnalysisSeriesDef[] = [
   {
-    virtualKey: fiscalFredKey("GFDEGDQ188S"),
-    fredId: "GFDEGDQ188S",
-    roleId: "us-federal-debt-gdp",
-    displayName: "联邦公共债务/GDP %",
+    virtualKey: fiscalMdsKey("treasury_debt_penny_total_daily"),
+    mdsCode: "treasury_debt_penny_total_daily",
+    roleId: "us-federal-debt-total-daily",
+    displayName: "公共债务总额（日）",
     panel: 1,
     axis: "left",
     chartType: "line",
@@ -86,48 +86,69 @@ export const FISCAL_OVERVIEW_SERIES: readonly FiscalAnalysisSeriesDef[] = [
     calcOp: "none",
   },
   {
-    virtualKey: fiscalFredKey("GFDEBTN"),
-    fredId: "GFDEBTN",
-    roleId: "us-federal-debt-total",
-    displayName: "联邦公共债务总额",
+    virtualKey: fiscalMdsKey("treasury_debt_penny_held_public_daily"),
+    mdsCode: "treasury_debt_penny_held_public_daily",
+    roleId: "us-federal-debt-held-public-daily",
+    displayName: "公众持有联邦债务（日）",
     panel: 1,
-    axis: "right",
+    axis: "left",
     chartType: "dashedLine",
     color: "#5f76b8",
     calcOp: "none",
   },
   {
-    virtualKey: fiscalFredKey("FYFSGDA188S"),
-    fredId: "FYFSGDA188S",
-    roleId: "us-federal-deficit-gdp",
-    displayName: "联邦赤字/GDP %",
+    virtualKey: fiscalMdsKey("treasury_mts_m01_deficit_fytd"),
+    mdsCode: "treasury_mts_m01_deficit_fytd",
+    roleId: "us-mts-deficit-fytd",
+    displayName: "MTS 财年累计赤字（现金）",
     panel: 2,
     axis: "left",
-    chartType: "line",
+    chartType: "bar",
     color: "#ef6461",
     calcOp: "none",
   },
   {
-    // 原库内复合 fiscal_primary_deficit_gdp 已退役：指标运算 赤字/GDP − 利息/GDP
-    virtualKey: "calc:fiscal-primary-deficit-gdp",
-    derived: { op: "sub", leftKey: fiscalFredKey("FYFSGDA188S"), rightKey: fiscalFredKey("FYOIGDA188S") },
-    roleId: "us-primary-deficit-gdp",
-    displayName: "联邦初级赤字/GDP %",
-    panel: 2,
-    axis: "right",
-    chartType: "dashedLine",
-    color: "#9ea68b",
-    calcOp: "none",
-  },
-  {
-    virtualKey: fiscalFredKey("FYOIGDA188S"),
-    fredId: "FYOIGDA188S",
-    roleId: "us-net-interest-gdp",
-    displayName: "联邦利息支出/GDP %",
+    virtualKey: fiscalMdsKey("treasury_mts_m01_receipts_fytd"),
+    mdsCode: "treasury_mts_m01_receipts_fytd",
+    roleId: "us-mts-receipts-fytd",
+    displayName: "MTS 财年累计收入（现金）",
     panel: 3,
     axis: "left",
     chartType: "line",
+    color: "#56b6c2",
+    calcOp: "none",
+  },
+  {
+    virtualKey: fiscalMdsKey("treasury_mts_m01_outlays_fytd"),
+    mdsCode: "treasury_mts_m01_outlays_fytd",
+    roleId: "us-mts-outlays-fytd",
+    displayName: "MTS 财年累计支出（现金）",
+    panel: 3,
+    axis: "left",
+    chartType: "dashedLine",
+    color: "#ef6461",
+    calcOp: "none",
+  },
+  {
+    virtualKey: fiscalMdsKey("treasury_mts_m09_outlay_interest"),
+    mdsCode: "treasury_mts_m09_outlay_interest",
+    roleId: "us-outlays-net-interest",
+    displayName: "MTS 月度净利息支出（现金）",
+    panel: 4,
+    axis: "left",
+    chartType: "line",
     color: "#d75a68",
+    calcOp: "none",
+  },
+  {
+    virtualKey: fiscalMdsKey("treasury_mts_m01_deficit"),
+    mdsCode: "treasury_mts_m01_deficit",
+    roleId: "us-mts-deficit",
+    displayName: "MTS 月度赤字（现金）",
+    panel: 4,
+    axis: "left",
+    chartType: "bar",
+    color: "#d89b4e",
     calcOp: "none",
   },
 ];
@@ -324,9 +345,10 @@ export const FISCAL_HIGHFREQ_SERIES: readonly FiscalAnalysisSeriesDef[] = [
 ];
 
 export const FISCAL_OVERVIEW_SLOT_TITLES: Record<number, string> = {
-  0: "F1a 存量：债务/GDP 与债务总额",
-  1: "F2 流量：赤字/GDP 与初级赤字",
-  2: "F1b 负担：利息/GDP",
+  0: "债务存量：总额与公众持有（日）",
+  1: "当期缺口：MTS 财年累计赤字（月）",
+  2: "收支两端：MTS 财年累计收入与支出（月）",
+  3: "利息压力：月度净利息与月赤字（月）",
 };
 
 export const FISCAL_STRUCTURE_SLOT_TITLES: Record<number, string> = {
@@ -345,7 +367,7 @@ export const FISCAL_HIGHFREQ_SLOT_TITLES: Record<number, string> = {
 };
 
 export const FISCAL_OVERVIEW_DESCRIPTION =
-  "【第一步 · 初学者入口】按图 1→3 写 L0（≤150 字）：债务负担、赤字/GDP、初级赤字与利息。口径：OMB/FRED 为权责/GDP 比率；MTS/DTS 在视图 C。若问「为什么赤字变」→ 加载「财政结构 · 收支拆解」。";
+  "四图优先看最新官方观测：Debt to the Penny 每日公共债务存量、MTS 每月财年累计赤字与收支、MTS 月度净利息。债务是存量，MTS 是现金流；FYTD 每年 10 月重置。这里不把现金赤字冒充年度赤字/GDP，也不以日度债务除以滞后的季度 GDP。";
 
 export const FISCAL_STRUCTURE_DESCRIPTION =
   "【第二步 · 解释为什么】图 1–2 为 Treasury **现金制** MTS Table 9；mandatory/discretionary 为 **功能分类代理**，图表须标注 ≠ CBO 法定口径。图 3–4 对照总收/总支与 NIPA 政府侧。与视图 A **不重复** 债务/GDP、赤字/GDP。";
@@ -355,11 +377,13 @@ export const FISCAL_HIGHFREQ_DESCRIPTION =
 
 export const FISCAL_OVERVIEW_CHART_INTRO: Record<string, string> = {
   "0":
-    "左轴公共债务/GDP %、右轴债务总额：存量负担是否抬升。债务/GDP 升而总额稳 → 看名义 GDP；双升 → 五问 ① 与 F5 融资。",
+    "Debt to the Penny 每个工作日公布总债务及公众持有债务，两条线均为美元面值、共用左轴。两者的差额主要对应政府内部持有；绝对额上升不等于债务/GDP 同步上升。",
   "1":
-    "左轴赤字/GDP %、右轴初级赤字/GDP %：总赤字宽、初级窄 → **利息** 渠道（看图 3）；初级也宽 → 收入或刚性支出（视图 B）。",
+    "MTS 财年累计现金赤字按每年 10 月至次年 9 月累加，正值表示赤字。比较不同年份时要对齐相同财年月份；10 月重置不是财政状况突然改善。",
   "2":
-    "利息/GDP %：高利率环境下「第二财政」。对照视图 B 净利息现金支出与视图 C 周净发债。",
+    "MTS 财年累计收入和支出共用同一美元轴；两线距离对应图 2 的累计赤字。收入变化可受报税季影响，先比较同一财年月份，再到财政结构模板看税种和支出分项。",
+  "3":
+    "MTS 月度净利息支出与月赤字均为现金流、共用美元轴。观察利息是否持续上升，以及赤字波动是否由利息以外的收支推动；月赤字可受缴税时点影响，不能用单月外推全年。",
 };
 
 export const FISCAL_STRUCTURE_CHART_INTRO: Record<string, string> = {

@@ -1062,6 +1062,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 216,
     members: { instrumentCodes: ["treasury_debt_penny_net_weekly"] },
   }),
+  probePkg("us.treasury.debt_daily", "美国每日公共债务存量（Debt to the Penny）", {
+    labelEn: "Debt to the Penny — Daily Debt Levels",
+    granularity: "DAILY",
+    intervalHours: 24,
+    sortOrder: 218,
+    members: {
+      instrumentCodes: ["treasury_debt_penny_total_daily", "treasury_debt_penny_held_public_daily"],
+    },
+  }),
   probePkg("us.treasury.debt_levels", "美国联邦债务存量（季）", {
     labelEn: "Treasury Bulletin Debt",
     granularity: "QUARTERLY",
