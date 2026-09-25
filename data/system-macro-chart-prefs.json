@@ -259,6 +259,7 @@
   "builtinTemplateOverrides": {
     "builtin-us-overview": {
       "name": "US_Overview",
+      "introHtml": "",
       "layoutMode": 6,
       "description": "由 US_Overview.xlsx 导入的美国总览图组。点击后自动从数据库读取并按预置样式绘制。",
       "derivedCalcs": [],
@@ -282,7 +283,7 @@
         "mds:usov_c24_fed_treasuries",
         "mds:usov_c23_fed_assets"
       ],
-      "updatedAtIso": "2026-09-23T02:13:01.879Z",
+      "updatedAtIso": "2026-09-25T05:51:33.129Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
@@ -1769,6 +1770,7 @@
     },
     "builtin-us-econ-overview": {
       "name": "经济 Overview · 四支柱快照",
+      "introHtml": "<p></p><span style=\"font-size:16px\"><span style=\"font-size:12px\"><p>【第一步 · 通常够用】按图 1→4 看总量增长、就业、通胀锚与政策/曲线。写清 1–2 条主因即可。若需拆分消费/投w · 支出法结构」。ISM 调查从目录自选</p><p></p></span></span><p><br /></p>",
       "layoutMode": 4,
       "description": "【第一步 · 通常够用】按图 1→4 看总量增长、就业、通胀锚与政策/曲线。写清 1–2 条主因即可。若需拆分消费/投w · 支出法结构」。ISM 调查从目录自选",
       "derivedCalcs": [],
@@ -1784,7 +1786,7 @@
         "fred:GS10",
         "fred:DFII10"
       ],
-      "updatedAtIso": "2026-09-24T03:56:20.497Z",
+      "updatedAtIso": "2026-09-25T07:05:12.073Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -1820,6 +1822,12 @@
         "fred:CPIAUCSL::yoy": 2,
         "fred:PCEPILFE::yoy": 2,
         "fred:A191RL1Q225SBEA": 0
+      },
+      "chartIntroNotes": {
+        "0": "GDP 环比折年率 + 工业生产 YoY：周期锚。若走弱 → 加载模板 ② 定位是 C/I/G/X 哪一侧拖累。",
+        "1": "失业率 + 新增非农（PAYEMS 月差分）：劳动力松紧。工资细节 → 就业/ CPI 模板。",
+        "2": "CPI YoY vs 核心 PCE YoY：相对 2% 偏离。分项结构 → CPI 模板。",
+        "3": "联邦基金目标 + 10Y-2Y 利差：政策立场与衰退预警。"
       },
       "seriesVisualMap": {
         "fred:GS10": {
