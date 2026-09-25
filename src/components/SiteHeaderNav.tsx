@@ -31,6 +31,9 @@ const QUANT_LINKS = [
   { href: "/quant/robustness", featureId: "quant-robustness" },
 ] as const;
 
+/** 指标预测下的分页：顶栏「指标预测」入口指向第一个可见项 */
+const FORECAST_LINKS = [{ href: "/forecast/us-cpi", featureId: "forecast-us-cpi" }] as const;
+
 /** 顶栏主入口：featureId 由管理员在 /admin/feature-access 控制可见性 */
 const MAIN_LINKS = [
   { featureId: "macro", href: "/macro", label: "宏观数据", match: ["/macro"] },
@@ -169,6 +172,8 @@ export function SiteHeaderNav() {
     TOOL_LINKS.map((t) => t.href),
   );
   const quantHref = QUANT_LINKS.find((q) => features.can(q.featureId))?.href ?? null;
+  const forecastActive = matchesAny(pathname, ["/forecast"]);
+  const forecastHref = FORECAST_LINKS.find((f) => features.can(f.featureId))?.href ?? null;
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -203,9 +208,10 @@ export function SiteHeaderNav() {
         : "text-fs-muted hover:text-[#062f42]"
     }`;
 
-  // 宏观数据 / 美股行业 之间要插入其余主入口，保持原有顺序：宏观、美股行业、持股监控、
-  // 行情、投资记录、量化、时间线、AI周度观察、文章。
-  const beforeQuant = MAIN_LINKS.slice(0, 5);
+  // 主入口顺序：宏观、指标预测、美股行业、持股监控、行情、投资记录、量化、时间线、
+  // AI周度观察、文章。指标预测与量化是带分页的分组入口，插在对应位置。
+  const macroLinks = MAIN_LINKS.slice(0, 1);
+  const beforeQuant = MAIN_LINKS.slice(1, 5);
   const afterQuant = MAIN_LINKS.slice(5);
 
   const renderMain = (items: readonly (typeof MAIN_LINKS)[number][]) =>
@@ -240,6 +246,8 @@ export function SiteHeaderNav() {
     ...(features.can("macro-framework")
       ? [{ href: "/macro/framework", label: "宏观框架", active: macroFrameworkActive }]
       : []),
+    ...mainMobileLinks(macroLinks),
+    ...(forecastHref ? [{ href: forecastHref, label: "指标预测", active: forecastActive }] : []),
     ...mainMobileLinks(beforeQuant),
     ...(quantHref ? [{ href: quantHref, label: "量化", active: quantActive }] : []),
     ...mainMobileLinks(afterQuant),
@@ -270,6 +278,16 @@ export function SiteHeaderNav() {
             aria-current={macroFrameworkActive ? "page" : undefined}
           >
             宏观框架
+          </Link>
+        ) : null}
+        {renderMain(macroLinks)}
+        {forecastHref ? (
+          <Link
+            href={forecastHref}
+            className={linkClass(forecastActive)}
+            aria-current={forecastActive ? "page" : undefined}
+          >
+            指标预测
           </Link>
         ) : null}
         {renderMain(beforeQuant)}

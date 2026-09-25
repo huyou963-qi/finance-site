@@ -69,6 +69,14 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     defaults: IN_DEVELOPMENT,
   },
   {
+    id: "forecast-us-cpi",
+    label: "指标预测 · 美国 CPI",
+    group: "预测",
+    paths: ["/forecast/us-cpi"],
+    description: "CPI 分项高频代理 nowcast 与历史回测",
+    defaults: RELEASED,
+  },
+  {
     id: "equity-sectors",
     label: "美股行业",
     group: "美股",
@@ -182,7 +190,7 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
   },
 ] as const;
 
-export const FEATURE_GROUP_ORDER: readonly string[] = ["宏观", "美股", "量化", "内容", "工具"];
+export const FEATURE_GROUP_ORDER: readonly string[] = ["宏观", "预测", "美股", "量化", "内容", "工具"];
 
 export const FEATURE_AUDIENCE_LABELS: Record<FeatureAudience, string> = {
   visitor: "游客",
