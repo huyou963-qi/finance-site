@@ -20,6 +20,7 @@ import {
 } from "@/lib/data/macroPresetTemplates";
 import { sanitizeSelectedListItems, type MacroSelectedListItem } from "@/lib/macroSelectedList";
 import { prisma } from "@/lib/prisma";
+import { sanitizeMacroIntroHtml } from "@/lib/data/macroIntroHtml";
 
 export type MacroChartPrefs = {
   version: 2;
@@ -46,6 +47,7 @@ export type BuiltinTemplateOverride = {
   description?: string;
   /** 模板介绍正文（自由文本） */
   introText?: string;
+  introHtml?: string;
   indicatorIntroNotes?: Record<string, string>;
   chartIntroNotes?: Record<string, string>;
   selectedKeys: string[];
@@ -251,6 +253,7 @@ function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTempla
         name,
         description,
         introText: sanitizeIntroText(t.introText),
+        introHtml: sanitizeMacroIntroHtml(t.introHtml),
         indicatorIntroNotes:
           Object.keys(indicatorIntroNotes).length > 0 ? indicatorIntroNotes : undefined,
         chartIntroNotes:
@@ -392,6 +395,7 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
     name,
     description,
     introText: sanitizeIntroText(o.introText),
+    introHtml: sanitizeMacroIntroHtml(o.introHtml),
     indicatorIntroNotes:
       Object.keys(indicatorIntroNotes).length > 0 ? indicatorIntroNotes : undefined,
     chartIntroNotes:
@@ -486,6 +490,7 @@ export function mergeBuiltinTemplateOverride(
     name: override.name?.trim() || base.name,
     description: override.description ?? base.description,
     introText: override.introText ?? base.introText,
+    introHtml: override.introHtml ?? base.introHtml,
     indicatorIntroNotes: override.indicatorIntroNotes ?? base.indicatorIntroNotes,
     chartIntroNotes: override.chartIntroNotes ?? base.chartIntroNotes,
     selectedKeys: [...override.selectedKeys],

@@ -191,6 +191,8 @@ export type MacroChartTemplate = {
   description?: string;
   /** 模板介绍正文：自由撰写「模板中各个图怎么看」，支持多段落 */
   introText?: string;
+  /** 单一富文本模板介绍；旧模板回退到 description + introText。 */
+  introHtml?: string;
   /** 各指标解读说明（indicatorKey → 文本） */
   indicatorIntroNotes?: Record<string, string>;
   /** 各图位解读说明（slotIndex 字符串 "0"… → 文本；与 displayConfig.slotTitles 对应） */

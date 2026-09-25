@@ -206,10 +206,6 @@ type ChartSidePanelTab = "settings" | "events" | "intro";
 
 const INTRO_WORKSPACE_TEMPLATE_ID = "__workspace__";
 
-const INTRO_DESCRIPTION_MAX_LEN = 8000;
-
-const INTRO_TEXT_MAX_LEN = 20000;
-
 function buildBuiltinOverrideFromTemplate(
   tpl: MacroChartTemplate,
   patch: Partial<BuiltinTemplateOverride> = {},
@@ -218,6 +214,7 @@ function buildBuiltinOverrideFromTemplate(
     name: tpl.name,
     description: tpl.description,
     introText: tpl.introText,
+    introHtml: tpl.introHtml,
     selectedKeys: [...tpl.selectedKeys],
     selectedListItems: tpl.selectedListItems,
     layoutMode: tpl.layoutMode,
@@ -3014,6 +3011,7 @@ export function MacroSection() {
         name: null as string | null,
         description: null as string | null,
         introText: null as string | null,
+        introHtml: null as string | null,
         keys: orderedSelectedKeys,
       };
     }
@@ -3022,6 +3020,7 @@ export function MacroSection() {
       name: resolved.name,
       description: resolved.description ?? null,
       introText: resolved.introText ?? null,
+      introHtml: resolved.introHtml ?? null,
       keys: resolved.selectedKeys.length > 0 ? resolved.selectedKeys : orderedSelectedKeys,
     };
   }, [activeTemplate, orderedSelectedKeys, resolveTemplateConfig]);
@@ -3085,9 +3084,9 @@ export function MacroSection() {
     }
   }, [isAdmin, persistBuiltinTemplateOverrides, persistSystemTemplateData]);
 
-  /** admin 修改系统模板的简介 / 介绍正文：写入系统模板并防抖保存 */
+  /** admin 修改系统模板的介绍富文本：写入系统模板并防抖保存 */
   const patchBuiltinTemplateIntro = useCallback(
-    (patch: { description?: string | undefined; introText?: string | undefined }) => {
+    (patch: { introHtml: string }) => {
       if (!isAdmin || !activeTemplate?.builtIn) return;
       const templateId = activeTemplate.id;
 
@@ -3122,24 +3121,18 @@ export function MacroSection() {
     [activeTemplate, flushIntroDescriptionSave, isAdmin],
   );
 
-  const onIntroDescriptionChange = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      patchBuiltinTemplateIntro({
-        description: trimmed ? text.slice(0, INTRO_DESCRIPTION_MAX_LEN) : undefined,
-      });
+  const onIntroHtmlChange = useCallback(
+    (html: string) => {
+      if (!isAdmin || !activeTemplate) return;
+      if (activeTemplate.builtIn) {
+        patchBuiltinTemplateIntro({ introHtml: html });
+      } else {
+        setSavedTemplates((prev) => prev.map((tpl) =>
+          tpl.id === activeTemplate.id ? { ...tpl, introHtml: html } : tpl,
+        ));
+      }
     },
-    [patchBuiltinTemplateIntro],
-  );
-
-  const onIntroTextChange = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      patchBuiltinTemplateIntro({
-        introText: trimmed ? text.slice(0, INTRO_TEXT_MAX_LEN) : undefined,
-      });
-    },
-    [patchBuiltinTemplateIntro],
+    [activeTemplate, isAdmin, patchBuiltinTemplateIntro],
   );
 
   useEffect(() => {
@@ -3401,17 +3394,13 @@ export function MacroSection() {
                                 templateName={introTemplateMeta.name}
                                 templateDescription={introTemplateMeta.description}
                                 introText={introTemplateMeta.introText}
+                                introHtml={introTemplateMeta.introHtml}
                                 chartSections={introChartSections ?? undefined}
                                 indicators={introChartSections ? [] : introIndicators}
                                 notes={mergedIntroNotes}
-                                onIntroTextChange={
-                                  isAdmin && activeTemplate?.builtIn
-                                    ? onIntroTextChange
-                                    : undefined
-                                }
-                                onDescriptionChange={
-                                  isAdmin && activeTemplate?.builtIn
-                                    ? onIntroDescriptionChange
+                                onIntroHtmlChange={
+                                  isAdmin && activeTemplate
+                                    ? onIntroHtmlChange
                                     : undefined
                                 }
                                 editable={isAdmin}
