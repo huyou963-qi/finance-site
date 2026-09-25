@@ -6,7 +6,7 @@
  * 其他交通服务、其他核心服务）由上级指数减去已建模分项倒推，保证加总与官方口径一致。
  *
  * 信息集约定（与回测一致，杜绝前视）：CPI、PPI、Manheim、ZORI 截至 t−1 月；日/周频价格
- * （零售汽油、航油、天然气、取暖油）取 t 月 1–22 日均值。每个 t 只用 t 之前的样本重新估计。
+ * （零售汽油、航油、天然气、取暖油）取 t 月「已观测天数」内的均值（回测按同一截止日）。每个 t 只用 t 之前的样本重新估计。
  *
  * 研究与验证过程见 docs/research/US_CPI_NOWCAST.md。
  */
@@ -26,7 +26,7 @@ export const LEVEL_KEYS = [
 ] as const;
 export type LevelKey = (typeof LEVEL_KEYS)[number];
 
-/** 高频代理（已折成月值：日/周频为当月 1–22 日均值；Manheim、ZORI 为月值） */
+/** 高频代理（已折成月值：日/周频为当月截止日内均值；Manheim、ZORI 为月值） */
 export const HF_KEYS = ["GASRETAIL", "HEATOIL", "JET", "HH", "MANHEIM", "ZORI"] as const;
 export type HfKey = (typeof HF_KEYS)[number];
 

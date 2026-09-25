@@ -12,6 +12,8 @@ import { BacktestChart, CLEVELAND_LINE, ContributionChart, GROUP_COLOR } from ".
 const monthZh = (iso: string) => `${iso.slice(0, 4)} 年 ${Number(iso.slice(5, 7))} 月`;
 const pct = (v: number, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "—");
 const signed = (v: number, d = 2) => (Number.isFinite(v) ? (v > 0 ? "+" : "") + v.toFixed(d) : "—");
+/** 截止日文案：31 表示全月 */
+const cutoffText = (d: number) => (d >= 31 ? "全月" : d <= 0 ? "尚无当月数据" : `1–${d} 日`);
 const rate = (v: number) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "—");
 
 const INPUT_LABELS: Record<string, string> = {
@@ -129,7 +131,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-6">
       <header className="flex flex-col gap-2 border-b border-fs-border pb-5">
         <p className="font-mono text-xs uppercase tracking-[0.08em] text-fs-accent-text">
-          CPI-U · 目标月 {target} · 高频数据截至当月 {data.hfCutoffDay} 日
+          CPI-U · 目标月 {target} · 高频数据已观测{cutoffText(data.cutoffDay)}
         </p>
         <h1 className="text-2xl font-semibold text-balance text-fs-text">美国 CPI 预测</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-fs-secondary">
@@ -187,6 +189,49 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
               .join("、")}
           </p>
         ) : null}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold text-fs-text">当月看到的数据越多，预测越准</h2>
+        <p className="max-w-3xl text-sm text-fs-secondary">
+          总体 CPI 的误差主要来自汽油，取决于当月已经看到几周零售油价。本次预测用到{" "}
+          <span className="font-medium text-fs-text">{cutoffText(data.cutoffDay)}</span>
+          {data.observedThrough ? `（零售汽油价最新至 ${data.observedThrough}）` : ""}，误差区间按同样的观测天数回测校准：
+          月初区间更宽，月末到 CPI 公布前用满整月数据。核心 CPI 主要靠住房和二手车的滞后数据，基本不随观测天数变化。
+        </p>
+        <div className="overflow-x-auto rounded-md border border-fs-border">
+          <table className="w-full min-w-[560px] border-collapse text-[13px]">
+            <thead className="bg-fs-elevated text-xs text-fs-muted">
+              <tr>
+                <th className="px-2.5 py-2 text-left font-medium">当月高频数据截至</th>
+                <th className="px-2.5 py-2 text-right font-medium">总体 MAE</th>
+                <th className="px-2.5 py-2 text-right font-medium">总体 80% 区间宽度</th>
+                <th className="px-2.5 py-2 text-right font-medium">核心 MAE</th>
+                <th className="px-2.5 py-2 text-right font-medium">克利夫兰联储 总体 MAE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.cutoffCurve.map((c) => (
+                <tr
+                  key={c.cutoffDay}
+                  className={`border-t border-fs-border ${c.current ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}`}
+                >
+                  <td className="px-2.5 py-2">
+                    {cutoffText(c.cutoffDay)}
+                    {c.current ? <span className="ml-2 text-xs text-fs-accent-text">本次</span> : null}
+                  </td>
+                  <td className="px-2.5 py-2 text-right font-mono tabular-nums">{pct(c.allMae, 3)}</td>
+                  <td className="px-2.5 py-2 text-right font-mono tabular-nums">±{pct(c.allBandWidth / 2, 2)}</td>
+                  <td className="px-2.5 py-2 text-right font-mono tabular-nums">{pct(c.coreMae, 3)}</td>
+                  <td className="px-2.5 py-2 text-right font-mono tabular-nums">
+                    {c.clevelandAllMae == null ? "—" : pct(c.clevelandAllMae, 3)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-fs-muted">2018 年以来逐月样本外回测，剔除 2020 年 3–6 月；单位为百分点。</p>
       </section>
 
       <section className="flex flex-col gap-3">
@@ -285,7 +330,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
         </div>
         <p className="max-w-3xl text-sm text-fs-secondary">
           {data.backtest.from.slice(0, 7)} 至 {data.backtest.to.slice(0, 7)} 逐月滚动：每个月只用当时可得的数据重新估计（CPI 截至上月、
-          高频价格截至当月 {data.hfCutoffDay} 日），预测当月再与公布值比较。剔除疫情月后，总体环比平均误差{" "}
+          高频价格与本月同样只取当月{cutoffText(data.cutoffDay)}），预测当月再与公布值比较。剔除疫情月后，总体环比平均误差{" "}
           <span className="font-mono tabular-nums text-fs-text">{pct(accEx.ALL.model.mae, 3)}</span> 个百分点（12 个月均值基准{" "}
           {pct(accEx.ALL.mean12.mae, 3)}），核心{" "}
           <span className="font-mono tabular-nums text-fs-text">{pct(accEx.CORE.model.mae, 3)}</span>（基准 {pct(accEx.CORE.mean12.mae, 3)}）。
@@ -298,7 +343,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
         </div>
         <p className="max-w-3xl text-xs leading-relaxed text-fs-muted">
           「取整命中」指预测与公布值四舍五入到 0.1 后完全相同；公布值落在 0.05 边界附近时，误差 0.03 也会翻格，因此更应看区间。
-          克利夫兰联储取每个目标月 {data.hfCutoffDay} 日（含）之前的最后一次 nowcast，与本模型同一信息时点；其数据为第三方模型输出，仅作对照、不入库。
+          克利夫兰联储取每个目标月同一截止日（含）之前的最后一次 nowcast，与本模型同一信息时点；其数据为第三方模型输出，仅作对照、不入库。
         </p>
       </section>
 
@@ -323,7 +368,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPayload }) {
       <details className="rounded-md border border-fs-border bg-fs-elevated/50 px-4 py-3 text-sm text-fs-secondary">
         <summary className="cursor-pointer font-medium text-fs-text">方法与局限</summary>
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 leading-relaxed">
-          <li>汽油：零售油价月均环比几乎一一对应未季调汽油 CPI，再加上过去 3 年同月「季调 − 未季调」差，得到季调口径。</li>
+          <li>汽油：零售油价月均环比几乎一一对应未季调汽油 CPI，再加上过去 3 年同月「季调 − 未季调」差，得到季调口径。当月尚无油价时沿用上月末价格（视为持平）。</li>
           <li>住房：Zillow 观测租金领先 CPI 租金约 9–12 个月（CPI 按 6 个月一轮的存量租约采价）。</li>
           <li>残差分项（其他核心商品 / 交通服务 / 核心服务）由上级指数减已建模分项倒推，保证加总与官方一致。</li>
           <li>回测使用当前版本季调数据；BLS 每年 2 月修订过去 5 年季节因子，历史误差可能略被低估。</li>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseClevelandNowcast } from "./clevelandFed";
+import { clevelandAsOf, parseClevelandNowcast } from "./clevelandFed";
 
 const block = {
   chart: { subcaption: "2026-9" },
@@ -21,10 +21,13 @@ const block = {
   ],
 };
 
-test("aligns data to non-vline labels and picks the last nowcast on or before day 22", () => {
+test("aligns data to non-vline labels and picks the last nowcast on or before the cutoff day", () => {
   const m = parseClevelandNowcast([block]).get("2026-09-01")!;
-  assert.deepEqual(m.asOf, { all: 0.43, core: 0.2, label: "09/22" });
-  assert.deepEqual(m.latest, { all: 0.45, core: 0.19, label: "09/24" });
+  assert.equal(clevelandAsOf(m, 22)?.label, "09/22");
+  assert.equal(clevelandAsOf(m, 22)?.all, 0.43);
+  assert.equal(clevelandAsOf(m, 10)?.label, "09/01");
+  assert.equal(clevelandAsOf(m, 31)?.label, "09/24");
+  assert.equal(m.latest?.label, "09/24");
 });
 
 test("empty values are skipped and labels outside the target month never count as as-of", () => {
@@ -38,7 +41,7 @@ test("empty values are skipped and labels outside the target month never count a
       ],
     },
   ]).get("2013-07-01")!;
-  assert.equal(m.asOf, null);
+  assert.equal(clevelandAsOf(m, 31), null);
   assert.equal(m.latest?.label, "08/02");
 });
 

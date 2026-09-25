@@ -4,7 +4,7 @@
  * 它是第三方模型输出、每个交易日改写，按宏观库约束**不入库**；服务端读取官网图表数据
  * （公开 JSON，每个目标月一个块，含逐日 nowcast），进程内缓存 6 小时，失败时页面不画该线。
  *
- * 口径：与本模型同一信息时点——取目标月内 22 日（含）之前的最后一次 nowcast。
+ * 口径：与本模型同一信息时点——取目标月内截止日（含）之前的最后一次 nowcast（`clevelandAsOf`）。
  * 数组按「非 vline」类别对齐（vline 是 CPI/PCE 发布标记，不带数据点）。
  * 来源：https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting
  */
@@ -15,14 +15,25 @@ export const CLEVELAND_NOWCAST_PAGE = "https://www.clevelandfed.org/indicators-a
 const CACHE_TTL_MS = 6 * 3_600_000;
 const FAILURE_RETRY_MS = 10 * 60_000;
 
+export type ClevelandPoint = { all: number; core: number; label: string; mm: number; dd: number };
+
 export type ClevelandMonth = {
   /** 目标月 YYYY-MM-01 */
   month: string;
-  /** 22 日（含）之前最后一次 nowcast（季调环比 %）及其日期 MM/DD */
-  asOf: { all: number; core: number; label: string } | null;
+  /** 逐日 nowcast（季调环比 %），按发布顺序 */
+  points: ClevelandPoint[];
   /** 该目标月最新一次 nowcast */
-  latest: { all: number; core: number; label: string } | null;
+  latest: ClevelandPoint | null;
 };
+
+/** 目标月内 cutoffDay 日（含）之前最后一次 nowcast；cutoffDay ≥ 31 取目标月最后一次 */
+export function clevelandAsOf(m: ClevelandMonth | undefined, cutoffDay: number): ClevelandPoint | null {
+  if (!m) return null;
+  const targetMm = Number(m.month.slice(5, 7));
+  let hit: ClevelandPoint | null = null;
+  for (const p of m.points) if (p.mm === targetMm && p.dd <= cutoffDay) hit = p;
+  return hit;
+}
 
 type RawBlock = {
   chart?: { subcaption?: string };
@@ -30,30 +41,27 @@ type RawBlock = {
   dataset?: Array<{ seriesname?: string; data?: Array<{ value?: string }> }>;
 };
 
-export function parseClevelandNowcast(raw: unknown, cutoffDay = 22): Map<string, ClevelandMonth> {
+export function parseClevelandNowcast(raw: unknown): Map<string, ClevelandMonth> {
   const out = new Map<string, ClevelandMonth>();
   if (!Array.isArray(raw)) throw new Error("克利夫兰联储 nowcast：根节点不是数组（源结构可能已变）");
   for (const block of raw as RawBlock[]) {
     const m = /^(\d{4})-(\d{1,2})$/.exec(block.chart?.subcaption?.trim() ?? "");
     if (!m) continue;
     const month = `${m[1]}-${m[2]!.padStart(2, "0")}-01`;
-    const targetMm = Number(m[2]);
     const labels = (block.categories?.[0]?.category ?? []).filter((c) => !c.vline).map((c) => c.label ?? "");
     const series = (name: string) => block.dataset?.find((s) => s.seriesname === name)?.data ?? [];
     const cpi = series("CPI Inflation");
     const core = series("Core CPI Inflation");
-    let asOf: ClevelandMonth["asOf"] = null;
-    let latest: ClevelandMonth["latest"] = null;
+    const points: ClevelandPoint[] = [];
     labels.forEach((label, i) => {
       const a = Number(cpi[i]?.value);
       const c = Number(core[i]?.value);
-      if (cpi[i]?.value === "" || core[i]?.value === "" || !Number.isFinite(a) || !Number.isFinite(c)) return;
-      const point = { all: a, core: c, label };
-      latest = point;
       const [mm, dd] = label.split("/").map(Number);
-      if (mm === targetMm && dd !== undefined && dd <= cutoffDay) asOf = point;
+      if (cpi[i]?.value === "" || core[i]?.value === "" || !Number.isFinite(a) || !Number.isFinite(c)) return;
+      if (!Number.isFinite(mm) || !Number.isFinite(dd)) return;
+      points.push({ all: a, core: c, label, mm: mm!, dd: dd! });
     });
-    out.set(month, { month, asOf, latest });
+    out.set(month, { month, points, latest: points[points.length - 1] ?? null });
   }
   return out;
 }

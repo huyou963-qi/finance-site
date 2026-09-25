@@ -47,8 +47,10 @@ export const HF_SOURCES: Record<HfKey, { kind: "fred"; id: string } | { kind: "m
   ZORI: { kind: "mds", code: "zillow_us_zori_sa" },
 };
 
-/** 日/周频折月：只取当月 1–22 日的观测（回测与实时一致的信息截止日） */
-export const HF_CUTOFF_DAY = 22;
+/** 截止日取 31 即全月（CPI 公布前，目标月已结束时） */
+export const FULL_MONTH_CUTOFF = 31;
+/** 目标月没有任何观测时，最多沿用月初前多少天内的最后一个价格（视为当月持平） */
+const CARRY_FORWARD_DAYS = 10;
 const START_MONTH = "1990-01-01";
 
 export type InputFreshness = {
@@ -58,7 +60,12 @@ export type InputFreshness = {
 };
 
 export type LoadedInputs = {
-  inputs: ModelInputs;
+  months: string[];
+  levels: Record<LevelKey, number[]>;
+  /** 日/周频原始观测（按截止日再折月） */
+  hfDaily: Partial<Record<HfKey, Map<string, number | null>>>;
+  /** 月频代理（Manheim、ZORI），与截止日无关 */
+  hfMonthly: Partial<Record<HfKey, number[]>>;
   /** 最新已公布 CPI 月（YYYY-MM-01） */
   latestCpiMonth: string;
   /** nowcast 目标月 = 最新 CPI 月的下一个月 */
@@ -78,11 +85,14 @@ export function monthRange(from: string, to: string): string[] {
   return out;
 }
 
-/** 日/周频观测 → 各月「1–22 日」均值 */
+/**
+ * 日/周频观测 → 各月「1..cutoffDay 日」均值。某月截止日前没有任何观测时（如月初第一个周度
+ * 价格还没出），沿用月初前 10 天内的最后一个价格——即假设当月持平，而非缺值。
+ */
 export function monthlyAsOfAverage(
   obs: Map<string, number | null>,
   months: readonly string[],
-  cutoffDay = HF_CUTOFF_DAY,
+  cutoffDay: number,
 ): number[] {
   const sums = new Map<string, { s: number; n: number }>();
   for (const [date, v] of obs) {
@@ -94,10 +104,49 @@ export function monthlyAsOfAverage(
     cur.n += 1;
     sums.set(key, cur);
   }
+  const sorted = [...obs.entries()]
+    .filter((e): e is [string, number] => e[1] != null && Number.isFinite(e[1]))
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  const lastBefore = (month: string): number => {
+    const floor = new Date(Date.parse(`${month}T00:00:00Z`) - CARRY_FORWARD_DAYS * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const [d, v] = sorted[i]!;
+      if (d < month) return d >= floor ? v : NaN;
+    }
+    return NaN;
+  };
   return months.map((m) => {
     const c = sums.get(m);
-    return c ? c.s / c.n : NaN;
+    return c ? c.s / c.n : lastBefore(m);
   });
+}
+
+/** 当月已观测到第几天：目标月已结束 → 全月；否则取零售汽油价（主导输入）在当月的最新日期 */
+export function observedCutoffDay(
+  targetMonth: string,
+  gasoline: Map<string, number | null>,
+  today: Date,
+): { cutoffDay: number; observedThrough: string | null } {
+  const [y, m] = targetMonth.split("-").map(Number) as [number, number];
+  const monthEnd = new Date(Date.UTC(y, m, 0));
+  let observedThrough: string | null = null;
+  for (const [d, v] of gasoline) {
+    if (v != null && d.startsWith(targetMonth.slice(0, 7)) && (!observedThrough || d > observedThrough)) observedThrough = d;
+  }
+  if (today > monthEnd) return { cutoffDay: FULL_MONTH_CUTOFF, observedThrough };
+  return { cutoffDay: observedThrough ? Number(observedThrough.slice(8, 10)) : 0, observedThrough };
+}
+
+/** 按截止日把日/周频代理折成月值，组装模型输入 */
+export function buildModelInputs(loaded: LoadedInputs, cutoffDay: number): ModelInputs {
+  const hf = {} as Record<HfKey, number[]>;
+  for (const k of HF_KEYS) {
+    const daily = loaded.hfDaily[k];
+    hf[k] = daily ? monthlyAsOfAverage(daily, loaded.months, cutoffDay) : loaded.hfMonthly[k]!;
+  }
+  return { months: loaded.months, levels: loaded.levels, hf };
 }
 
 function monthlyFromMap(obs: Map<string, number | null>, months: readonly string[]): number[] {
@@ -147,20 +196,21 @@ export async function loadUsCpiNowcastInputs(): Promise<LoadedInputs> {
     latestDate: latestDate(get(LEVEL_FRED_IDS[k])),
   }));
 
-  const hf = {} as Record<HfKey, number[]>;
+  const hfDaily: LoadedInputs["hfDaily"] = {};
+  const hfMonthly: LoadedInputs["hfMonthly"] = {};
   for (const k of HF_KEYS) {
     const src = HF_SOURCES[k];
     if (src.kind === "fred") {
       const obs = get(src.id);
-      hf[k] = monthlyAsOfAverage(obs, months);
+      hfDaily[k] = obs;
       freshness.push({ key: k, seriesKey: `fred:${src.id}`, latestDate: latestDate(obs) });
     } else {
       const series = await loadMonthlySeriesByCode(src.code);
       const obs = new Map<string, number | null>(series.months.map((m, i) => [m, series.values[i]!]));
-      hf[k] = monthlyFromMap(obs, months);
+      hfMonthly[k] = monthlyFromMap(obs, months);
       freshness.push({ key: k, seriesKey: `mds:${src.code}`, latestDate: latestDate(obs) });
     }
   }
 
-  return { inputs: { months, levels, hf }, latestCpiMonth, targetMonth, freshness };
+  return { months, levels, hfDaily, hfMonthly, latestCpiMonth, targetMonth, freshness };
 }

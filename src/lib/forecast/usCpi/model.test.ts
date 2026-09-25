@@ -15,7 +15,7 @@ import {
   type ModelInputs,
 } from "./model";
 import { accuracy, runBacktest } from "./backtest";
-import { monthRange, monthlyAsOfAverage } from "./inputs";
+import { monthRange, monthlyAsOfAverage, observedCutoffDay } from "./inputs";
 
 test("rollMean matches pandas shift(lag).rolling(n, min_periods).mean()", () => {
   const a = [1, 2, NaN, 4, 5, 6];
@@ -47,6 +47,30 @@ test("monthlyAsOfAverage only uses observations dated on or before the cutoff da
     ["2026-09-28", 100],
   ]);
   assert.deepEqual(monthlyAsOfAverage(obs, ["2026-09-01"], 22), [4.5]);
+});
+
+test("a month with no observation before the cutoff carries the last recent price forward (flat)", () => {
+  const obs = new Map<string, number | null>([
+    ["2026-08-31", 4.2],
+    ["2026-09-07", 4.4],
+  ]);
+  assert.deepEqual(monthlyAsOfAverage(obs, ["2026-09-01"], 3), [4.2]);
+  // 距月初超过 10 天的旧价格不沿用
+  const stale = new Map<string, number | null>([["2026-08-10", 4.2]]);
+  assert.ok(Number.isNaN(monthlyAsOfAverage(stale, ["2026-09-01"], 3)[0]!));
+});
+
+test("observed cutoff follows the latest gasoline print and becomes full month once the month ends", () => {
+  const gas = new Map<string, number | null>([
+    ["2026-09-14", 4.3],
+    ["2026-09-21", 4.5],
+  ]);
+  assert.deepEqual(observedCutoffDay("2026-09-01", gas, new Date("2026-09-24T00:00:00Z")), {
+    cutoffDay: 21,
+    observedThrough: "2026-09-21",
+  });
+  assert.equal(observedCutoffDay("2026-09-01", gas, new Date("2026-10-05T00:00:00Z")).cutoffDay, 31);
+  assert.equal(observedCutoffDay("2026-10-01", gas, new Date("2026-10-02T00:00:00Z")).cutoffDay, 0);
 });
 
 /** 合成数据：各分项按固定趋势 + 噪声增长，高频代理与目标同步 */
