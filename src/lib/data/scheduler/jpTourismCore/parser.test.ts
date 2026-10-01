@@ -19,6 +19,14 @@ test("only discovers official quarterly-result PDFs", () => {
   assert.deepEqual(urls, [{ url: "https://www.mlit.go.jp/kankocho/content/a.pdf", label: "4-6月期 調査結果（1次速報）の概要" }]);
 });
 
+test("accepts the JTA current short-label quarterly result PDFs", () => {
+  const urls = discoverInboundConsumptionResultPdfs(`
+    <a href="/kankocho/content/a.pdf">1-3月期(2次速報)</a>
+    <a href="/kankocho/content/b.pdf">1-3月期 集計表</a>
+    <a href="/kankocho/content/c.pdf">2026年報告書</a>`, "https://www.mlit.go.jp/kankocho/tokei_hakusyo/gaikokujinshohidoko.html");
+  assert.deepEqual(urls, [{ url: "https://www.mlit.go.jp/kankocho/content/a.pdf", label: "1-3月期(2次速報)" }]);
+});
+
 test("fails closed when the spending total loses its official currency unit", () => {
   assert.throws(
     () => parseInboundConsumptionSummaryText("2026年4-6月期 訪日外国人旅行消費額 25096"),

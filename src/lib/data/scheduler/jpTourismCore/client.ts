@@ -40,15 +40,21 @@ function discoverTransitionWorkbookUrl(html: string): string {
   return new URL(links[0].href, JP_JTA_ACCOMMODATION_PAGE_URL).toString();
 }
 
-export async function fetchJpTourismCore(fixtureDir?: string): Promise<{ consumptionTexts: Array<{ text: string; label?: string }>; accommodationWorkbook: Buffer }> {
-  if (fixtureDir) return {
-    consumptionTexts: [{ text: await readFile(path.join(fixtureDir, "inbound-consumption-summary.txt"), "utf8") }],
-    accommodationWorkbook: await readFile(path.join(fixtureDir, "accommodation-transition.xlsx")),
-  };
+export async function fetchInboundConsumptionResultTexts(
+  fixtureDir?: string,
+): Promise<Array<{ text: string; label?: string }>> {
+  if (fixtureDir) {
+    return [{ text: await readFile(path.join(fixtureDir, "inbound-consumption-summary.txt"), "utf8") }];
+  }
   const consumptionPage = await (await officialFetch(JP_JTA_INBOUND_CONSUMPTION_PAGE_URL, "text/html")).text();
   const pdfUrls = discoverInboundConsumptionResultPdfs(consumptionPage, JP_JTA_INBOUND_CONSUMPTION_PAGE_URL);
   const consumptionTexts: Array<{ text: string; label: string }> = [];
   for (const pdf of pdfUrls) consumptionTexts.push({ text: await pdfText(Buffer.from(await (await officialFetch(pdf.url, "application/pdf")).arrayBuffer())), label: pdf.label });
+  return consumptionTexts;
+}
+
+export async function fetchForeignGuestNightsWorkbook(fixtureDir?: string): Promise<Buffer> {
+  if (fixtureDir) return readFile(path.join(fixtureDir, "accommodation-transition.xlsx"));
   const accommodationPage = await (await officialFetch(JP_JTA_ACCOMMODATION_PAGE_URL, "text/html")).text();
   const workbookUrl = discoverTransitionWorkbookUrl(accommodationPage);
   const accommodationWorkbook = Buffer.from(await (await officialFetch(workbookUrl, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")).arrayBuffer());
@@ -57,5 +63,5 @@ export async function fetchJpTourismCore(fixtureDir?: string): Promise<{ consump
   await mkdir(snapshotDir, { recursive: true });
   const sha256 = createHash("sha256").update(accommodationWorkbook).digest("hex");
   await writeFile(path.join(snapshotDir, `${sha256}.xlsx`), accommodationWorkbook, { flag: "wx" }).catch((error: NodeJS.ErrnoException) => { if (error.code !== "EEXIST") throw error; });
-  return { consumptionTexts, accommodationWorkbook };
+  return accommodationWorkbook;
 }

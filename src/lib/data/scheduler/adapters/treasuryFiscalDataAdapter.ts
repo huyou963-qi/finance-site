@@ -224,6 +224,8 @@ export async function fetchTreasuryFiscalIncremental(
   } else if (spec.rowSelector === "debt_penny_weekly") {
     const daily = rowsToPointsDebtPennyDaily(rows, spec.valueField);
     allPoints = debtPennyToWeeklyNet(daily);
+  } else if (spec.rowSelector === "debt_penny_daily") {
+    allPoints = rowsToPointsDebtPennyDaily(rows, spec.valueField);
   } else {
     throw new Error(`未知 rowSelector: ${spec.rowSelector}`);
   }
