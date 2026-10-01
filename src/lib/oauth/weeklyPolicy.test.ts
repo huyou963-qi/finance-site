@@ -60,5 +60,7 @@ test("form body limits, exact content type and consent origin fail closed", asyn
   await assert.rejects(form(req("x".repeat(8193))));
   await assert.rejects(form(req("a=b", "text/plain")));
   assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin: ISSUER } })), true);
+  assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin: ISSUER, "sec-fetch-site": "none" } })), true);
+  assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin: ISSUER, "sec-fetch-site": "cross-site" } })), false);
   for (const origin of ["null", "https://evil.invalid", "https://gekkotech.cn.evil.invalid"]) assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin } })), false);
 });
