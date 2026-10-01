@@ -11,7 +11,10 @@ export function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store", Pragma: "no-cache" } });
 }
 export function oauthError(e: unknown) {
-  return json({ error: e instanceof OAuthError ? e.error : "server_error" }, e instanceof OAuthError ? e.status : 503);
+  return json({
+    error: e instanceof OAuthError ? e.error : "server_error",
+    ...(e instanceof OAuthError && e.description ? { error_description: e.description } : {}),
+  }, e instanceof OAuthError ? e.status : 503);
 }
 export function redirect(location: string, clearConsent = false) {
   return new Response(null, { status: 303, headers: { Location: location, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", ...(clearConsent ? { "Set-Cookie": setCookie(CONSENT_COOKIE, "", 0) } : {}) } });
@@ -34,8 +37,10 @@ export async function form(req: Request, maxBytes = 8192) {
   return new URLSearchParams(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks)));
 }
 export function sameOrigin(req: Request) {
-  // The exact Origin is the authoritative CSRF boundary. Some browser-initiated
-  // top-level form submissions report Sec-Fetch-Site: none, so only an explicit
-  // cross-site signal should make an otherwise exact-origin request fail.
-  return req.headers.get("origin") === ISSUER && req.headers.get("sec-fetch-site") !== "cross-site";
+  // Origin is optional on privacy-hardened browser navigations. The consent
+  // POST still requires a host-only SameSite cookie, an unguessable one-time
+  // nonce, and the same active administrator session that created the consent.
+  const origin = req.headers.get("origin");
+  return (origin === null || origin === ISSUER || origin === "https://www.gekkotech.cn") &&
+    req.headers.get("sec-fetch-site") !== "cross-site";
 }

@@ -27,7 +27,7 @@ export type AuthorizationInput = {
   clientId: string; redirectUri: string; resource: string; scope: string; state: string; codeChallenge: string;
 };
 export class OAuthError extends Error {
-  constructor(public readonly error: string, public readonly status = 400) { super(error); }
+  constructor(public readonly error: string, public readonly status = 400, public readonly description?: string) { super(error); }
 }
 export function fail(error = "invalid_request"): never { throw new OAuthError(error); }
 export function uniqueParams(p: URLSearchParams, allowed: string[]) {

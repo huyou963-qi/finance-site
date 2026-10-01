@@ -31,13 +31,13 @@ export async function authorize(req: Request, d: Dependencies = deps) {
       });
     }
     if (req.method !== "POST") throw new OAuthError("invalid_request", 405);
-    if (!sameOrigin(req)) throw new OAuthError("access_denied", 403);
+    if (!sameOrigin(req)) throw new OAuthError("access_denied", 403, "consent_origin");
     const p = await form(req);
     uniqueParams(p, ["nonce", "decision"]);
     const nonce = p.get("nonce");
     if (!nonce || nonce !== cookie(req, CONSENT_COOKIE) || !["approve", "deny"].includes(p.get("decision") ?? "")) fail();
     const session = await d.store.adminSession(cookie(req, "finance_sid"));
-    if (!session || session.role !== "admin") throw new OAuthError("access_denied", 403);
+    if (!session || session.role !== "admin") throw new OAuthError("access_denied", 403, "admin_session");
     await d.validateClient();
     const { consent, code } = await d.store.approve(nonce, session.id, session.sessionHash, p.get("decision") === "approve");
     // Defense in depth against corrupted stored destinations.
