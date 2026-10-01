@@ -2,7 +2,10 @@ import { CLIENT_ID, REDIRECT_URI, fail } from "./weeklyPolicy";
 
 export async function validateChatGptClient(fetcher: typeof fetch = fetch) {
   // No arbitrary URL fetch, credentials, redirects or cookies: no CIMD SSRF surface.
-  const r = await fetcher(CLIENT_ID, { redirect: "error", cache: "no-store", headers: { Accept: "application/json" }, signal: AbortSignal.timeout(5000) });
+  // The fixed ChatGPT CIMD endpoint can take several seconds from the production
+  // region. Keep a bounded timeout, but leave enough headroom for normal TLS and
+  // cross-region latency so legitimate authorization requests do not fail closed.
+  const r = await fetcher(CLIENT_ID, { redirect: "error", cache: "no-store", headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15_000) });
   if (!r.ok || !r.headers.get("content-type")?.includes("application/json") || !r.body) fail("invalid_client");
   const reader = r.body.getReader();
   let raw = "";
