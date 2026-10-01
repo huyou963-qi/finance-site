@@ -108,11 +108,13 @@ test("PostgreSQL migration and OAuth lifecycle: atomic exchange, replay, rotatio
       const page = await authorize(new Request(authUrl, { headers: { cookie: "finance_sid=" + session } }), d);
       assert.equal(page.status, 200); assert.ok(page.headers.get("content-security-policy")?.includes("frame-ancestors 'none'"));
       const html = await page.text(); const nonce = /name="nonce" value="([A-Za-z0-9_-]{43})"/.exec(html)![1];
-      const post = (body: string, origin = ISSUER, cs = nonce) => new Request(ISSUER + AUTHORIZE_PATH, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin, cookie: `finance_sid=${session}; ${CONSENT_COOKIE}=${cs}` }, body });
-      assert.equal((await authorize(post(`nonce=${nonce}&decision=approve`, "https://evil.invalid"), d)).status, 403);
-      assert.equal((await authorize(post(`nonce=${nonce}&decision=approve`, ISSUER, "wrong"), d)).status, 400);
+      const post = (body: string, cs = nonce, headers = {}) => new Request(ISSUER + AUTHORIZE_PATH, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", cookie: `finance_sid=${session}; ${CONSENT_COOKIE}=${cs}`, ...headers }, body });
+      assert.equal((await authorize(post(`nonce=${nonce}&decision=approve`, "wrong"), d)).status, 400);
       assert.equal((await authorize(post(`nonce=${nonce}&decision=approve&redirect_uri=https://evil.invalid`), d)).status, 400);
-      const approved = await authorize(post(`nonce=${nonce}&decision=approve`), d);
+      // ChatGPT's top-level OAuth navigation can legitimately preserve a
+      // cross-site initiator. The nonce, consent cookie and session binding are
+      // the actual CSRF boundary and must still allow that browser request.
+      const approved = await authorize(post(`nonce=${nonce}&decision=approve`, nonce, { origin: "https://chatgpt.com", "sec-fetch-site": "cross-site" }), d);
       const cb = new URL(approved.headers.get("location")!);
       assert.equal(cb.origin + cb.pathname, REDIRECT_URI); assert.equal(cb.searchParams.get("state"), input.state); assert.equal(cb.searchParams.get("iss"), ISSUER);
       const tokenBody = new URLSearchParams({ grant_type: "authorization_code", client_id: CLIENT_ID, resource: RESOURCE, redirect_uri: REDIRECT_URI, code: cb.searchParams.get("code")!, code_verifier: verifier });

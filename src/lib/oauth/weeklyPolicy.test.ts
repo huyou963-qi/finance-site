@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CLIENT_ID, REDIRECT_URI, ISSUER, RESOURCE, SCOPE, AUTHORIZE_PATH, OAuthError, parseAuthorization, safeReturnPath, authorizationServerMetadata, protectedResourceMetadata } from "./weeklyPolicy";
 import { ensureChatGptClient, validateChatGptClient } from "./weeklyClient";
-import { form, oauthError, sameOrigin } from "./weeklyHttp";
+import { form, oauthError } from "./weeklyHttp";
 export const validParams = () => new URLSearchParams({ response_type: "code", client_id: CLIENT_ID, redirect_uri: REDIRECT_URI, resource: RESOURCE, scope: SCOPE, state: "opaque-state%+", code_challenge: "A".repeat(43), code_challenge_method: "S256" });
 test("metadata advertises fixed resource, CIMD, public PKCE and issuer identification", () => {
   assert.equal(protectedResourceMetadata.resource, RESOURCE);
@@ -54,17 +54,11 @@ test("CIMD validates exact identity, redirects and negotiated none with bounded 
 test("pre-registered ChatGPT client is available without runtime network discovery", async () => {
   await ensureChatGptClient();
 });
-test("form body limits, exact content type and consent origin fail closed", async () => {
+test("form body limits and exact content type fail closed", async () => {
   const req = (body: string, type = "application/x-www-form-urlencoded") => new Request(ISSUER, { method: "POST", headers: { "content-type": type }, body });
   assert.equal((await form(req("a=b"))).get("a"), "b");
   await assert.rejects(form(req("x".repeat(8193))));
   await assert.rejects(form(req("a=b", "text/plain")));
-  assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin: ISSUER } })), true);
-  assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin: ISSUER, "sec-fetch-site": "none" } })), true);
-  assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin: "https://www.gekkotech.cn", "sec-fetch-site": "same-site" } })), true);
-  assert.equal(sameOrigin(new Request(ISSUER, { headers: { "sec-fetch-site": "none" } })), true);
-  assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin: ISSUER, "sec-fetch-site": "cross-site" } })), false);
-  for (const origin of ["null", "https://evil.invalid", "https://gekkotech.cn.evil.invalid"]) assert.equal(sameOrigin(new Request(ISSUER, { headers: { origin } })), false);
 });
 test("safe OAuth diagnostics identify the failing consent stage", async () => {
   const response = oauthError(new OAuthError("access_denied", 403, "admin_session"));

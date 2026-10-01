@@ -1,4 +1,4 @@
-import { CONSENT_COOKIE, ISSUER, OAuthError } from "./weeklyPolicy";
+import { CONSENT_COOKIE, OAuthError } from "./weeklyPolicy";
 export function cookie(req: Request, name: string) {
   const parts = (req.headers.get("cookie") ?? "").split(";").map(x => x.trim()).filter(x => x.startsWith(name + "="));
   if (parts.length !== 1) return null;
@@ -35,12 +35,4 @@ export async function form(req: Request, maxBytes = 8192) {
     }
   } finally { reader.releaseLock(); }
   return new URLSearchParams(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks)));
-}
-export function sameOrigin(req: Request) {
-  // Origin is optional on privacy-hardened browser navigations. The consent
-  // POST still requires a host-only SameSite cookie, an unguessable one-time
-  // nonce, and the same active administrator session that created the consent.
-  const origin = req.headers.get("origin");
-  return (origin === null || origin === ISSUER || origin === "https://www.gekkotech.cn") &&
-    req.headers.get("sec-fetch-site") !== "cross-site";
 }
