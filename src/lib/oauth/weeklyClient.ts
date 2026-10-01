@@ -28,10 +28,13 @@ export async function validateChatGptClient(fetcher: typeof fetch = fetch) {
       (m.grant_types && (!Array.isArray(m.grant_types) || !m.grant_types.includes("authorization_code"))) ||
       (m.response_types && (!Array.isArray(m.response_types) || !m.response_types.includes("code")))) fail("invalid_client");
 }
-let cachedUntil = 0;
-let inFlight: Promise<void> | undefined;
 export async function ensureChatGptClient() {
-  if (Date.now() < cachedUntil) return;
-  if (!inFlight) inFlight = validateChatGptClient().then(() => { cachedUntil = Date.now() + 300_000; }).finally(() => { inFlight = undefined; });
-  try { await inFlight; } catch { fail("invalid_client"); }
+  // This private integration pre-registers ChatGPT's stable CIMD identity and
+  // redirect URI in weeklyPolicy. Authorization codes are still bound to that
+  // exact client, redirect, resource, scope and PKCE challenge. Do not make the
+  // authorization path depend on live egress to chatgpt.com: the production
+  // host cannot reliably reach that endpoint, while the code can only be sent
+  // to ChatGPT's fixed HTTPS callback.
+  if (CLIENT_ID !== "https://chatgpt.com/oauth/client.json" ||
+      REDIRECT_URI !== "https://chatgpt.com/connector_platform_oauth_redirect") fail("invalid_client");
 }

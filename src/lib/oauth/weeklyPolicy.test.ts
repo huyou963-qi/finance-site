@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CLIENT_ID, REDIRECT_URI, ISSUER, RESOURCE, SCOPE, AUTHORIZE_PATH, parseAuthorization, safeReturnPath, authorizationServerMetadata, protectedResourceMetadata } from "./weeklyPolicy";
-import { validateChatGptClient } from "./weeklyClient";
+import { ensureChatGptClient, validateChatGptClient } from "./weeklyClient";
 import { form, sameOrigin } from "./weeklyHttp";
 export const validParams = () => new URLSearchParams({ response_type: "code", client_id: CLIENT_ID, redirect_uri: REDIRECT_URI, resource: RESOURCE, scope: SCOPE, state: "opaque-state%+", code_challenge: "A".repeat(43), code_challenge_method: "S256" });
 test("metadata advertises fixed resource, CIMD, public PKCE and issuer identification", () => {
@@ -50,6 +50,9 @@ test("CIMD validates exact identity, redirects and negotiated none with bounded 
   for (const m of [{ ...clientMetadata, client_id: "https://evil.invalid" }, { ...clientMetadata, redirect_uris: [] }, { ...clientMetadata, token_endpoint_auth_methods_supported: ["private_key_jwt"] }, { ...clientMetadata, grant_types: ["client_credentials"] }, { ...clientMetadata, response_types: ["token"] }]) await assert.rejects(validateChatGptClient(async () => Response.json(m)));
   await assert.rejects(validateChatGptClient(async () => new Response("x".repeat(32769), { headers: { "content-type": "application/json" } })));
   await assert.rejects(validateChatGptClient(async () => new Response("{}", { status: 302 })));
+});
+test("pre-registered ChatGPT client is available without runtime network discovery", async () => {
+  await ensureChatGptClient();
 });
 test("form body limits, exact content type and consent origin fail closed", async () => {
   const req = (body: string, type = "application/x-www-form-urlencoded") => new Request(ISSUER, { method: "POST", headers: { "content-type": type }, body });
