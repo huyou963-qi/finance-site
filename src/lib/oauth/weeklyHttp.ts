@@ -34,5 +34,8 @@ export async function form(req: Request, maxBytes = 8192) {
   return new URLSearchParams(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks)));
 }
 export function sameOrigin(req: Request) {
-  return req.headers.get("origin") === ISSUER && !["cross-site", "none"].includes(req.headers.get("sec-fetch-site") ?? "");
+  // The exact Origin is the authoritative CSRF boundary. Some browser-initiated
+  // top-level form submissions report Sec-Fetch-Site: none, so only an explicit
+  // cross-site signal should make an otherwise exact-origin request fail.
+  return req.headers.get("origin") === ISSUER && req.headers.get("sec-fetch-site") !== "cross-site";
 }
