@@ -221,6 +221,8 @@ export async function fetchTreasuryFiscalIncremental(
     );
   } else if (spec.rowSelector === "dts_tga_net") {
     allPoints = rowsToPointsDtsTgaNet(rows, spec.valueField);
+  } else if (spec.rowSelector === "debt_penny_daily") {
+    allPoints = rowsToPointsDebtPennyDaily(rows, spec.valueField);
   } else if (spec.rowSelector === "debt_penny_weekly") {
     const daily = rowsToPointsDebtPennyDaily(rows, spec.valueField);
     allPoints = debtPennyToWeeklyNet(daily);

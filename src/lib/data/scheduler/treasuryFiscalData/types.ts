@@ -6,6 +6,7 @@ export type TreasuryRowSelector =
   | "account_type"
   | "mts9_sum"
   | "dts_tga_net"
+  | "debt_penny_daily"
   | "debt_penny_weekly";
 
 /** MTS Table 9 功能分类支出（record_type_cd=F）求和口径 */
@@ -155,6 +156,18 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
     endpoint: "v2/accounting/od/debt_to_penny",
     rowSelector: "debt_penny_weekly",
     valueField: "tot_pub_debt_out_amt",
+    fetchStartFloor: "2010-01-01",
+  },
+  "debt:penny_total_daily": {
+    endpoint: "v2/accounting/od/debt_to_penny",
+    rowSelector: "debt_penny_daily",
+    valueField: "tot_pub_debt_out_amt",
+    fetchStartFloor: "2010-01-01",
+  },
+  "debt:penny_held_public_daily": {
+    endpoint: "v2/accounting/od/debt_to_penny",
+    rowSelector: "debt_penny_daily",
+    valueField: "debt_held_public_amt",
     fetchStartFloor: "2010-01-01",
   },
   "mts9:mandatory_proxy": {
