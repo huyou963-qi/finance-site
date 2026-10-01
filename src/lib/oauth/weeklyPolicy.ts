@@ -34,14 +34,18 @@ export function uniqueParams(p: URLSearchParams, allowed: string[]) {
   for (const key of p.keys()) if (!allowed.includes(key) || p.getAll(key).length !== 1) fail();
 }
 export function parseAuthorization(p: URLSearchParams): AuthorizationInput {
-  uniqueParams(p, ["response_type", "client_id", "redirect_uri", "resource", "scope", "state", "code_challenge", "code_challenge_method"]);
+  uniqueParams(p, ["response_type", "client_id", "redirect_uri", "resource", "scope", "state", "code_challenge", "code_challenge_method", "ui_locales"]);
   if (p.get("response_type") !== "code" || p.get("client_id") !== CLIENT_ID ||
       p.get("redirect_uri") !== REDIRECT_URI || p.get("resource") !== RESOURCE ||
       p.get("scope") !== SCOPE || p.get("code_challenge_method") !== "S256") fail();
   const state = p.get("state") ?? "";
   const codeChallenge = p.get("code_challenge") ?? "";
+  const uiLocales = p.get("ui_locales");
   // Opaque state is echoed byte-for-byte; printable ASCII only, bounded and nonempty.
   if (!/^[\x21-\x7e]{1,512}$/.test(state) || !/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(codeChallenge)) fail();
+  // RFC 5646 language tags supplied by ChatGPT are display hints only. Accept a
+  // short, space-separated list while rejecting control characters and abuse.
+  if (uiLocales !== null && !/^[A-Za-z0-9-]{1,35}(?: [A-Za-z0-9-]{1,35}){0,4}$/.test(uiLocales)) fail();
   return { clientId: CLIENT_ID, redirectUri: REDIRECT_URI, resource: RESOURCE, scope: SCOPE, state, codeChallenge };
 }
 export function safeReturnPath(value: string | null): string | null {

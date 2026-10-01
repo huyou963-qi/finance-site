@@ -15,6 +15,8 @@ test("metadata advertises fixed resource, CIMD, public PKCE and issuer identific
 });
 test("strict auth input rejects duplicate, extra, missing and manipulated identifiers", () => {
   assert.equal(parseAuthorization(validParams()).state, "opaque-state%+");
+  const localized = validParams(); localized.set("ui_locales", "zh-CN en-US");
+  assert.equal(parseAuthorization(localized).state, "opaque-state%+");
   for (const [key, values] of Object.entries({
     client_id: ["https://attacker.invalid/client.json", CLIENT_ID + "?x=1", "https://chatgpt.com@evil.invalid/oauth/client.json"],
     redirect_uri: ["https://evil.invalid/", REDIRECT_URI + "/", REDIRECT_URI + "?next=https://evil.invalid", "//evil.invalid", "https://chatgpt.com/connector/oauth/unknown"],
@@ -27,6 +29,11 @@ test("strict auth input rejects duplicate, extra, missing and manipulated identi
     const duplicate = validParams(); duplicate.append(key, duplicate.get(key)!); assert.throws(() => parseAuthorization(duplicate));
   }
   const extra = validParams(); extra.set("next", "https://evil.invalid"); assert.throws(() => parseAuthorization(extra));
+  for (const value of ["", "zh_CN", "zh-CN\n", "x".repeat(36), "zh-CN en-US fr-FR de-DE ja-JP ko-KR"]) {
+    const invalidLocale = validParams(); invalidLocale.set("ui_locales", value); assert.throws(() => parseAuthorization(invalidLocale));
+  }
+  const duplicateLocale = validParams(); duplicateLocale.append("ui_locales", "zh-CN"); duplicateLocale.append("ui_locales", "en-US");
+  assert.throws(() => parseAuthorization(duplicateLocale));
 });
 test("login continuation can only return to a fully validated site OAuth path", () => {
   const good = AUTHORIZE_PATH + "?" + validParams();
