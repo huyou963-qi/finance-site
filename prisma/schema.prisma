@@ -38,6 +38,7 @@ model User {
   wechatBoundAt   DateTime? @map("wechat_bound_at")
   createdAt       DateTime
 
+  weeklyOAuthGrants   WeeklyOAuthGrant[]
   sessions            Session[]
   recoveryRequests    AccountRecoveryRequest[]
   assetTemplateState  UserAssetTemplateState?
@@ -1727,4 +1728,52 @@ model DeraInsiderOwner {
   @@index([ownerName])
   @@map("dera_insider_owner")
   @@schema("mds")
+}
+
+/// Pending admin approval, bound to the existing login session and browser nonce.
+model WeeklyOAuthConsent {
+  nonceHash   String   @id @db.VarChar(64)
+  userId      String
+  sessionHash String   @db.VarChar(64)
+  clientId    String
+  redirectUri String
+  resource    String
+  scope       String
+  state       String   @db.VarChar(512)
+  codeChallenge String @db.VarChar(43)
+  expiresAt   DateTime
+  @@index([expiresAt])
+  @@index([userId])
+  @@schema("public")
+}
+
+/// Administrator consent; revocation invalidates all associated credentials.
+model WeeklyOAuthGrant {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String
+  resource    String
+  scope       String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  credentials WeeklyOAuthCredential[]
+  @@index([userId])
+  @@schema("public")
+}
+
+/// SHA-256 only; raw code/access/refresh material is never persisted.
+model WeeklyOAuthCredential {
+  hash        String   @id @db.VarChar(64)
+  kind        String   @db.VarChar(16)
+  grantId     String
+  grant       WeeklyOAuthGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  redirectUri String?
+  codeChallenge String? @db.VarChar(43)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  @@index([grantId])
+  @@index([expiresAt])
+  @@schema("public")
 }

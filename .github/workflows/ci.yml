@@ -44,3 +44,42 @@ jobs:
         env:
           # Next 构建时部分路由需要占位环境变量
           APP_BASE_URL: http://localhost:3000
+
+  oauth-integration:
+    name: OAuth PostgreSQL security tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: oauth_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d oauth_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/oauth_test
+      OAUTH_TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/oauth_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Create isolated baseline and exercise the actual new migration
+        run: |
+          npx prisma db push --skip-generate
+          node --input-type=module <<'JS'
+          import pg from 'pg';
+          import { readFileSync } from 'node:fs';
+          const db = new pg.Client({ connectionString: process.env.OAUTH_TEST_DATABASE_URL });
+          await db.connect();
+          await db.query('DROP TABLE public."WeeklyOAuthCredential", public."WeeklyOAuthGrant", public."WeeklyOAuthConsent"');
+          await db.query(readFileSync('prisma/migrations/20261001070000_weekly_report_oauth/migration.sql', 'utf8'));
+          await db.end();
+          JS
+      - name: Actual PostgreSQL consent, code and refresh race/replay tests
+        run: node --import tsx --test src/lib/oauth/weeklyStore.integration.test.ts

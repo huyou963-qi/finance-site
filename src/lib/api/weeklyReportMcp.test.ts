@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { handleWeeklyReportMcp } from "./weeklyReportMcp";
 
 const fixtureCredential = "fixture-only-not-a-production-credential";
-const options = { expectedToken: fixtureCredential };
+const accessFixture = "oauth-access-fixture-not-ingest";
+const options = { ingestToken: fixtureCredential, authenticate: async (a: string | null) => a === "Bearer " + accessFixture };
 const args = {
   meta: {
     weekEnding: "2026-09-25", title: "测试周报", regime: "测试", regimeConfidence: "L",
@@ -15,7 +16,7 @@ const args = {
 function request(message: unknown, headers: Record<string, string> = {}, method = "POST") {
   return new Request("https://gekkotech.cn/api/weekly-reports/mcp", {
     method,
-    headers: { Authorization: "Bearer " + fixtureCredential, "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...headers },
+    headers: { Authorization: "Bearer " + accessFixture, "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...headers },
     ...(method === "POST" ? { body: JSON.stringify(message) } : {}),
   });
 }
@@ -24,18 +25,21 @@ function call(argumentsValue: unknown = args, name = "publishWeeklyMarketReport"
 }
 
 test("MCP fails closed for absent, old, and non-Bearer credentials", async () => {
-  for (const authorization of ["", "Bearer previous-fixture", fixtureCredential]) {
+  for (const authorization of ["", "Bearer previous-fixture", fixtureCredential, "Bearer " + fixtureCredential]) {
     const r = await handleWeeklyReportMcp(request(call(), { Authorization: authorization }), options);
-    assert.equal(r.status, 401);
-    assert.ok(!(await r.text()).includes(fixtureCredential));
+    assert.equal(r.status, 200);
+    const result = (await r.json()).result;
+    assert.equal(result.isError, true);
+    assert.ok(result._meta["mcp/www_authenticate"][0].includes("oauth-protected-resource"));
+    assert.ok(!JSON.stringify(result).includes(fixtureCredential));
   }
-  const r = await handleWeeklyReportMcp(request(call()), { expectedToken: undefined });
-  assert.equal(r.status, 503);
+  const r = await handleWeeklyReportMcp(request(call()), { ...options, ingestToken: undefined });
+  assert.equal((await r.json()).result.isError, true);
 });
 
 test("origin and HTTP transport are restricted", async () => {
   assert.equal((await handleWeeklyReportMcp(request(call(), { Origin: "https://untrusted.invalid" }), options)).status, 403);
-  assert.equal((await handleWeeklyReportMcp(request({}, {}, "GET"), options)).status, 405);
+  assert.equal((await handleWeeklyReportMcp(request({}, {}, "GET"), options)).status, 401);
   assert.equal((await handleWeeklyReportMcp(request({}, {}, "DELETE"), options)).status, 405);
   assert.equal((await handleWeeklyReportMcp(request({}, { "Content-Type": "text/plain" }), options)).status, 415);
   assert.equal((await handleWeeklyReportMcp(request({}, { Accept: "text/html" }), options)).status, 406);
@@ -50,6 +54,8 @@ test("initialize, ping and tool discovery expose exactly one write tool", async 
   assert.deepEqual(tools.map((t: { name: string }) => t.name), ["publishWeeklyMarketReport"]);
   assert.deepEqual(tools[0].inputSchema.required, ["meta", "bodyMarkdown"]);
   assert.equal(tools[0].annotations.readOnlyHint, false);
+  assert.deepEqual(tools[0].securitySchemes, [{ type: "oauth2", scopes: ["weekly-report:write"] }]);
+  assert.deepEqual(tools[0]._meta.securitySchemes, tools[0].securitySchemes);
   const ping = await handleWeeklyReportMcp(request({ jsonrpc: "2.0", id: 3, method: "ping" }), options);
   assert.deepEqual((await ping.json()).result, {});
 });
@@ -82,7 +88,7 @@ test("reject incomplete/invalid reports and caller-supplied destinations before 
 test("oversized and malformed JSON are rejected without publication", async () => {
   const huge = await handleWeeklyReportMcp(request(call({ ...args, bodyMarkdown: "x".repeat(1024 * 1024) })), options);
   assert.equal(huge.status, 413);
-  const malformed = new Request("https://gekkotech.cn/api/weekly-reports/mcp", { method: "POST", headers: { Authorization: "Bearer " + fixtureCredential, "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: "{" });
+  const malformed = new Request("https://gekkotech.cn/api/weekly-reports/mcp", { method: "POST", headers: { Authorization: "Bearer " + accessFixture, "Content-Type": "application/json", Accept: "application/json, text/event-stream" }, body: "{" });
   assert.equal((await handleWeeklyReportMcp(malformed, options)).status, 400);
 });
 

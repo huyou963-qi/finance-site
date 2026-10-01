@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { challenge, securitySchemes } from "../oauth/weeklyPolicy";
 
 const ENDPOINT = "https://gekkotech.cn/api/weekly-reports";
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"];
@@ -33,10 +33,12 @@ export const weeklyReportTool = {
     required: ["meta", "bodyMarkdown"],
     properties: { meta: metaSchema, bodyMarkdown: textField },
   },
+  securitySchemes,
+  _meta: { securitySchemes },
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
 };
 
-type Options = { expectedToken: string | undefined; fetcher?: typeof fetch };
+type Options = { ingestToken: string | undefined; authenticate: (authorization: string | null) => Promise<boolean>; fetcher?: typeof fetch };
 type RpcId = string | number | null;
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -104,14 +106,10 @@ async function readBody(req: Request) {
 export async function handleWeeklyReportMcp(req: Request, options: Options): Promise<Response> {
   const origin = req.headers.get("origin");
   if (origin !== null && origin !== "https://gekkotech.cn") return json({ error: "Origin 不允许" }, 403);
-  const expected = options.expectedToken?.trim();
-  if (!expected) return json({ error: "发布服务尚未配置" }, 503);
-  const authorization = req.headers.get("authorization") ?? "";
-  const digest = (value: string) => createHash("sha256").update(value).digest();
-  if (!timingSafeEqual(digest(authorization), digest("Bearer " + expected))) {
-    return json({ error: "需要有效 Bearer 凭证" }, 401, { "WWW-Authenticate": 'Bearer realm="weekly-report-publisher"' });
+  if (req.method !== "POST") {
+    if (req.method === "GET") return json({ error: "需要 OAuth 授权" }, 401, { "WWW-Authenticate": challenge });
+    return json({ error: "仅支持 POST" }, 405, { Allow: "POST" });
   }
-  if (req.method !== "POST") return json({ error: "仅支持 POST" }, 405, { Allow: "POST" });
   if (!req.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return json({ error: "需要 application/json" }, 415);
   const accept = req.headers.get("accept") ?? "";
   if (!accept.includes("application/json") || !accept.includes("text/event-stream")) return json({ error: "需要 MCP Accept 内容类型" }, 406);
@@ -138,18 +136,27 @@ export async function handleWeeklyReportMcp(req: Request, options: Options): Pro
       return result(id, {
         protocolVersion: VERSIONS.includes(params.protocolVersion) ? params.protocolVersion : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "gekkotech-weekly-report-publisher", version: "1.0.0" },
+        serverInfo: { name: "gekkotech-weekly-report-publisher", version: "2.0.0" },
       });
     case "ping": return result(id, {});
     case "tools/list": return result(id, { tools: [weeklyReportTool] });
     case "tools/call": {
+      let authorized: boolean;
+      try { authorized = await options.authenticate(req.headers.get("authorization")); }
+      catch { return toolFailure(id, null, "授权服务暂不可用"); }
+      if (!authorized) return json({ jsonrpc: "2.0", id, result: {
+        isError: true, content: [{ type: "text", text: "需要管理员 OAuth 授权" }],
+        _meta: { "mcp/www_authenticate": [challenge] },
+      } }, 200, { "WWW-Authenticate": challenge });
+      const expected = options.ingestToken?.trim();
+      if (!expected) return toolFailure(id, null, "发布服务尚未配置");
       if (params.name !== weeklyReportTool.name) return error(id, -32602, "不支持的工具");
       if (!validArguments(params.arguments)) return error(id, -32602, "需要完整且有效的 meta 和 bodyMarkdown");
       try {
         // Fixed host/path/method; redirects are refused so credentials cannot leave this endpoint.
         const upstream = await (options.fetcher ?? fetch)(ENDPOINT, {
           method: "POST", redirect: "error", cache: "no-store",
-          headers: { "Content-Type": "application/json", Authorization: authorization },
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + expected },
           body: JSON.stringify(params.arguments),
           signal: AbortSignal.timeout(30_000),
         });

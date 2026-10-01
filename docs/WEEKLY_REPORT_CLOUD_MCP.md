@@ -10,7 +10,7 @@ Redirects are refused. No caller-controlled destination, read tool, deletion too
 GET/DELETE return 405; initialize, notifications, ping, and tools/list are protocol operations only.
 
 Reuse: existing POST route, `parseWeeklyReportMeta`, `upsertWeeklyReport`, and `WeeklyReport` storage.
-New: transport adapter plus mock contract/security tests. No migration, parallel writer or report store.
+New: transport adapter, OAuth authorization records, and contract/security tests. No parallel report writer or report store.
 
 The tool updates an existing report for the same weekEnding, matching the current ingest API; it is not append-only.
 Success requires actual upstream HTTP 200/201 plus id and the matching weekEnding.
@@ -18,16 +18,16 @@ It returns `{ httpStatus, id, weekEnding }`. Failures and uncertain timeouts are
 
 ## Credentials
 
-The owner must rotate `WEEKLY_REPORT_INGEST_TOKEN` in the production runtime outside source control, then personally enter the same value in the host's Bearer authentication settings.
-No credential value belongs in a manifest, MCP tool argument, prompt, skill, report, source, or log.
-The adapter never logs requests, headers, report bodies, exceptions or upstream error bodies.
-It validates Bearer only, uses constant-time digest comparison, and fails closed if runtime configuration is absent.
-It cannot prove rotation from source; a retired-credential rejection and new-credential connection test must be verified privately.
+The MCP endpoint uses administrator-approved OAuth 2.1, never the ingest credential.
+See [OAuth design and operations](WEEKLY_REPORT_OAUTH.md).
+Only the server-internal forwarding POST reads the existing production
+`WEEKLY_REPORT_INGEST_TOKEN`. No credential belongs in an MCP header configuration,
+manifest, prompt, report or tool argument. No new production secret is required.
 
 ## Deploy and acceptance
 
 Use the repository feature branch/PR/CI process and existing Actions production deployment.
-After deployment, connect the plugin to the endpoint and enter authentication through the host UI.
+After deployment, connect the plugin to the endpoint and complete OAuth through the host UI and personally approve using the site admin session.
 Preserve the private plugin identity and the existing weekly-market-scan-web Skill and research references.
 A packaged OpenAPI file alone does not establish an executable tool.
 

@@ -1,3 +1,4 @@
+import { RETURN_COOKIE } from "@/lib/oauth/weeklyPolicy";
 import { NextRequest } from "next/server";
 import { bindWechatToUser, getUserByRequest, loginOrRegisterWechat } from "@/lib/auth";
 import {
@@ -34,7 +35,9 @@ export async function GET(req: NextRequest) {
     }
 
     const { cookie, created } = await loginOrRegisterWechat(identity);
-    const res = created
+    const res = req.cookies.has(RETURN_COOKIE)
+      ? wechatResultRedirect({ path: "/api/oauth/weekly/resume" })
+      : created
       ? wechatResultRedirect({ status: "welcome" })
       : wechatResultRedirect({ path: "/" });
     res.headers.append("Set-Cookie", cookie);
