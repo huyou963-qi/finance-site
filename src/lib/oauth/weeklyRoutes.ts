@@ -1,5 +1,5 @@
 import { AUTHORIZE_PATH, CLIENT_ID, CONSENT_COOKIE, ISSUER, REDIRECT_URI, RESOURCE, RETURN_COOKIE, SCOPE, OAuthError, parseAuthorization, safeReturnPath, uniqueParams, fail } from "./weeklyPolicy";
-import { cookie, form, json, oauthError, redirect, sameOrigin, setCookie } from "./weeklyHttp";
+import { cookie, form, json, oauthError, redirect, setCookie } from "./weeklyHttp";
 import { ensureChatGptClient } from "./weeklyClient";
 import { weeklyStore } from "./weeklyStore";
 
@@ -31,10 +31,13 @@ export async function authorize(req: Request, d: Dependencies = deps) {
       });
     }
     if (req.method !== "POST") throw new OAuthError("invalid_request", 405);
-    if (!sameOrigin(req)) throw new OAuthError("access_denied", 403, "consent_origin");
     const p = await form(req);
     uniqueParams(p, ["nonce", "decision"]);
     const nonce = p.get("nonce");
+    // OAuth top-level navigations may preserve ChatGPT as a cross-site initiator,
+    // so Origin/Sec-Fetch-Site cannot be a reliable consent gate. CSRF is instead
+    // enforced by this host-only SameSite cookie, an unguessable one-time nonce,
+    // and the same active administrator session that created the consent.
     if (!nonce || nonce !== cookie(req, CONSENT_COOKIE) || !["approve", "deny"].includes(p.get("decision") ?? "")) fail();
     const session = await d.store.adminSession(cookie(req, "finance_sid"));
     if (!session || session.role !== "admin") throw new OAuthError("access_denied", 403, "admin_session");
