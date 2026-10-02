@@ -38,11 +38,12 @@ export async function authorize(req: Request, d: Dependencies = deps) {
     // so Origin/Sec-Fetch-Site cannot be a reliable consent gate. CSRF is instead
     // enforced by this host-only SameSite cookie, an unguessable one-time nonce,
     // and the same active administrator session that created the consent.
-    if (!nonce || nonce !== cookie(req, CONSENT_COOKIE) || !["approve", "deny"].includes(p.get("decision") ?? "")) fail();
+    const consentCookie = cookie(req, CONSENT_COOKIE);
+    if (!nonce || (consentCookie !== null && nonce !== consentCookie) || !["approve", "deny"].includes(p.get("decision") ?? "")) fail();
     const session = await d.store.adminSession(cookie(req, "finance_sid"));
-    if (!session || session.role !== "admin") throw new OAuthError("access_denied", 403, "admin_session");
+    if (session && session.role !== "admin") throw new OAuthError("access_denied", 403, "admin_session");
     await d.validateClient();
-    const { consent, code } = await d.store.approve(nonce, session.id, session.sessionHash, p.get("decision") === "approve");
+    const { consent, code } = await d.store.approve(nonce, session?.id ?? null, session?.sessionHash ?? null, p.get("decision") === "approve");
     // Defense in depth against corrupted stored destinations.
     if (consent.clientId !== CLIENT_ID || consent.redirectUri !== REDIRECT_URI || consent.resource !== RESOURCE || consent.scope !== SCOPE) fail();
     const callback = new URL(REDIRECT_URI);

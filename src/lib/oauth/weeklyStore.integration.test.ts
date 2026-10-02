@@ -34,11 +34,15 @@ test("PostgreSQL migration and OAuth lifecycle: atomic exchange, replay, rotatio
       const denied = await store.approve(nonce, userId, hash(session), false);
       assert.equal(denied.code, null);
       await assert.rejects(store.approve(nonce, userId, hash(session), true));
+      const cookieElided = await store.createConsent(input, userId, hash(session));
+      assert.equal((await store.approve(cookieElided, null, null, false)).code, null);
       const expired = await store.createConsent(input, userId, hash(session));
       await db.weeklyOAuthConsent.update({ where: { nonceHash: hash(expired) }, data: { expiresAt: new Date(0) } });
       await assert.rejects(store.approve(expired, userId, hash(session), true));
+      const inactiveSession = await store.createConsent(input, userId, hash(session));
       await db.session.update({ where: { token: session }, data: { expiresAt: new Date(0) } });
       assert.equal(await store.adminSession(session), null);
+      await assert.rejects(store.approve(inactiveSession, null, null, true));
       await db.session.update({ where: { token: session }, data: { expiresAt: new Date(Date.now() + 3600_000) } });
     });
     await t.test("PKCE/binding mismatch cannot consume code; only digests persisted", async () => {
@@ -112,9 +116,9 @@ test("PostgreSQL migration and OAuth lifecycle: atomic exchange, replay, rotatio
       assert.equal((await authorize(post(`nonce=${nonce}&decision=approve`, "wrong"), d)).status, 400);
       assert.equal((await authorize(post(`nonce=${nonce}&decision=approve&redirect_uri=https://evil.invalid`), d)).status, 400);
       // ChatGPT's top-level OAuth navigation can legitimately preserve a
-      // cross-site initiator. The nonce, consent cookie and session binding are
-      // the actual CSRF boundary and must still allow that browser request.
-      const approved = await authorize(post(`nonce=${nonce}&decision=approve`, nonce, { origin: "https://chatgpt.com", "sec-fetch-site": "cross-site" }), d);
+      // cross-site initiator and omit SameSite=Lax cookies. The one-time nonce
+      // plus the still-active originating admin session remain the CSRF boundary.
+      const approved = await authorize(new Request(ISSUER + AUTHORIZE_PATH, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://chatgpt.com", "sec-fetch-site": "cross-site" }, body: `nonce=${nonce}&decision=approve` }), d);
       const cb = new URL(approved.headers.get("location")!);
       assert.equal(cb.origin + cb.pathname, REDIRECT_URI); assert.equal(cb.searchParams.get("state"), input.state); assert.equal(cb.searchParams.get("iss"), ISSUER);
       const tokenBody = new URLSearchParams({ grant_type: "authorization_code", client_id: CLIENT_ID, resource: RESOURCE, redirect_uri: REDIRECT_URI, code: cb.searchParams.get("code")!, code_verifier: verifier });
