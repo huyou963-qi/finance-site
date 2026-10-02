@@ -110,6 +110,8 @@ function UserMenu({
   const adminUsersActive = pathname === "/admin/users" || pathname.startsWith("/admin/users/");
   const adminErrorsActive =
     pathname === "/admin/error-reports" || pathname.startsWith("/admin/error-reports/");
+  const adminAnnouncementActive =
+    pathname === "/admin/site-announcement" || pathname.startsWith("/admin/site-announcement/");
 
   const displayEmail = user.email || user.username;
 
@@ -165,6 +167,12 @@ function UserMenu({
               pathname === "/admin/feature-access" ||
               pathname.startsWith("/admin/feature-access/")
             }
+            onClick={onClose}
+          />
+          <MenuRow
+            label="首页公告"
+            href="/admin/site-announcement"
+            active={adminAnnouncementActive}
             onClick={onClose}
           />
           <MenuRow

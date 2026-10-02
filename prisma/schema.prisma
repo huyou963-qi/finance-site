@@ -359,6 +359,22 @@ model FeatureAccessPolicy {
   @@schema("public")
 }
 
+/// 首页站点公告（管理员编辑）；全局单例 id=default。
+model SiteAnnouncement {
+  id        String   @id @default("default")
+  enabled   Boolean  @default(false)
+  title     String   @db.VarChar(80)
+  content   String   @db.Text
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.VarChar(64)
+
+  @@map("site_announcement")
+  @@schema("public")
+}
+
 /// 管理员从目录树彻底删除的宏观指标。作为 tombstone 防止静态目录/后续 seed 再次展示或调度该指标。
 model MacroCatalogExcludedKey {
   catalogKey String   @id @map("catalog_key") @db.VarChar(192)

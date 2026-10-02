@@ -4,8 +4,10 @@ import Link from "next/link";
 import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 import { MarketGlobe } from "@/components/home/MarketGlobe";
 import { useEffect, useState } from "react";
+import { SiteAnnouncementDialog } from "@/components/home/SiteAnnouncementDialog";
+import type { ActiveSiteAnnouncement } from "@/lib/siteAnnouncement";
 
-export function HomeLanding() {
+export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnouncement | null }) {
   const [macroSeriesCount, setMacroSeriesCount] = useState<string>("—");
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export function HomeLanding() {
 
   return (
     <div className="relative mx-auto flex min-h-full w-full max-w-[1840px] flex-1 flex-col overflow-hidden">
+      {announcement ? <SiteAnnouncementDialog announcement={announcement} /> : null}
       <div className="pointer-events-none absolute left-[43%] top-[18%] h-80 w-80 rounded-full bg-blue-50/80 blur-3xl" />
       <section className="relative grid flex-1 items-center gap-5 py-4 lg:grid-cols-[0.8fr_1.2fr] lg:gap-2 lg:py-2">
         <div className="relative z-10 max-w-[660px] lg:-translate-y-3 lg:pl-12 xl:pl-16">
