@@ -99,9 +99,20 @@ jobs:
           trap restore_site EXIT
           site_stopped=1
           pm2 stop finance-site || true
+          # 已打开的旧版页面仍会按旧 manifest 请求带哈希的 chunk。
+          # 保留最近 30 天的静态资源，避免发布后这些请求直接 404。
+          # archive 位于 .next 外，不能被下面的清理删除。
+          mkdir -p .next-static-archive
+          if [ -d .next/static ]; then
+            cp -an .next/static/. .next-static-archive/
+          fi
+          find .next-static-archive -type f -mtime +30 -delete
+          find .next-static-archive -depth -mindepth 1 -type d -empty -delete
           rm -rf .next node_modules
           tar -xzf deploy.tar.gz
           rm -f deploy.tar.gz
+          # -n 确保本次构建的同名文件始终优先。
+          cp -an .next-static-archive/. .next/static/
 
           # Stage H 只在部署时幂等安装 cron 定义；外部数据获取仍由 cron 执行，
           # 不进入部署 SSH 会话。heartbeat monitor 与日常任务使用独立 flock。

@@ -50,6 +50,7 @@ npm run data:apply -- --skip-migrate --skip-verify  # 按需跳过
 ## 已挂进部署流水线
 
 `.github/workflows/deploy.yml` 在 `main` push 后自动：CI 构建 → `deploy.tar.gz` → `scp` 到 `/opt/finance-site` → 解压 → 落库 → `pm2 restart`。
+部署会把旧版 `.next/static` 归档到 `/opt/finance-site/.next-static-archive`，并在解压后补回最近 30 天的文件。这样发布前已打开的页面仍能加载旧哈希 chunk；同名文件以新构建为准。过期文件在后续部署时清理。
 
 服务器 SSH 块（节选）已包含：
 
