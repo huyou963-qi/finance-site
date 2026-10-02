@@ -30,18 +30,27 @@ export function weeklyStore(db: PrismaClient = weeklyOAuthDb) {
     });
     return nonce;
   }
-  async function approve(nonce: string, userId: string, sessionHash: string, approved: boolean) {
+  async function approve(nonce: string, userId: string | null, sessionHash: string | null, approved: boolean) {
     if (!validCredential(nonce)) fail();
     const code = randomCredential();
     return db.$transaction(async tx => {
       const consent = await tx.weeklyOAuthConsent.findUnique({ where: { nonceHash: hash(nonce) } });
-      if (!consent || consent.userId !== userId || consent.sessionHash !== sessionHash || consent.expiresAt.getTime() <= Date.now()) fail();
-      const removed = await tx.weeklyOAuthConsent.deleteMany({ where: { nonceHash: consent.nonceHash, userId, sessionHash, expiresAt: { gt: new Date() } } });
+      const now = new Date();
+      if (!consent || consent.expiresAt <= now) fail();
+      if (userId === null && sessionHash === null) {
+        // SameSite=Lax cookies can be omitted on an OAuth form POST whose
+        // top-level navigation began on ChatGPT. The form nonce remains a
+        // 256-bit one-time secret; additionally require that the exact admin
+        // session which created it is still active in the database.
+        const sessions = await tx.session.findMany({ where: { userId: consent.userId, expiresAt: { gt: now } }, select: { token: true } });
+        if (!sessions.some(session => hash(session.token) === consent.sessionHash)) fail("access_denied");
+      } else if (!userId || !sessionHash || consent.userId !== userId || consent.sessionHash !== sessionHash) fail();
+      const user = await tx.user.findUnique({ where: { id: consent.userId }, select: { role: true } });
+      if (user?.role !== "admin") fail("access_denied");
+      const removed = await tx.weeklyOAuthConsent.deleteMany({ where: { nonceHash: consent.nonceHash, userId: consent.userId, sessionHash: consent.sessionHash, expiresAt: { gt: now } } });
       if (removed.count !== 1) fail();
       if (approved) {
-        const user = await tx.user.findUnique({ where: { id: userId }, select: { role: true } });
-        if (user?.role !== "admin") fail("access_denied");
-        const grant = await tx.weeklyOAuthGrant.create({ data: { userId, clientId: consent.clientId, resource: consent.resource, scope: consent.scope, expiresAt: new Date(Date.now() + GRANT_MS) } });
+        const grant = await tx.weeklyOAuthGrant.create({ data: { userId: consent.userId, clientId: consent.clientId, resource: consent.resource, scope: consent.scope, expiresAt: new Date(now.getTime() + GRANT_MS) } });
         await tx.weeklyOAuthCredential.create({ data: { hash: hash(code), kind: "code", grantId: grant.id, redirectUri: consent.redirectUri, codeChallenge: consent.codeChallenge, expiresAt: new Date(Date.now() + 120_000) } });
       }
       return { consent, code: approved ? code : null };
