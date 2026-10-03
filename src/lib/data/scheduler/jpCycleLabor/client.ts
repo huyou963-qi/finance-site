@@ -10,7 +10,7 @@ let cache = new Map<JpCycleLaborSource, { at: number; value: Buffer }>();
 /** The ESRI release page names the rolling CI workbook YYYYci.xlsx. */
 export function discoverEsriCiWorkbookUrl(page: string): string {
   const matches = [...page.matchAll(/href=["']([^"']+)["']/gi)]
-    .map((match) => new URL(match[1], JP_ESRI_CI_URL).toString())
+    .map((match) => new URL(match[1]!, JP_ESRI_CI_URL).toString())
     .filter((url) => /\/\d{4}ci\.xlsx(?:$|[?#])/i.test(url));
   if (matches.length !== 1) throw new Error("ESRI CI historical workbook link missing or ambiguous");
   return matches[0]!;
