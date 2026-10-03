@@ -97,12 +97,12 @@ async function grantCredits(userId: string, delta: number, reason: string, order
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user) throw new Error("用户不存在");
-    const balanceAfter = user.creditBalance + delta;
-    if (balanceAfter < 0) throw new Error("积分不足");
-    await tx.user.update({
+    const updated = await tx.user.update({
       where: { id: userId },
-      data: { creditBalance: balanceAfter },
+      data: { creditBalance: { increment: delta } },
     });
+    const balanceAfter = updated.creditBalance;
+    if (balanceAfter < 0) throw new Error("积分不足");
     await tx.creditLedgerEntry.create({
       data: {
         userId,
@@ -120,83 +120,35 @@ export async function consumeBacktestCredit(userId: string): Promise<number> {
   return grantCredits(userId, -1, "consume_backtest");
 }
 
-export async function activatePaidOrder(orderId: string, confirmedBy: string) {
-  const order = await prisma.paymentOrder.findUnique({ where: { id: orderId } });
-  if (!order) throw new Error("订单不存在");
-  if (order.status === "paid") return serializeOrder(order);
-  if (order.status !== "pending") throw new Error("订单状态不可确认");
-  if (order.expiresAt && order.expiresAt.getTime() < Date.now()) {
-    await prisma.paymentOrder.update({
-      where: { id: orderId },
-      data: { status: "expired" },
-    });
-    throw new Error("订单已过期，请重新下单");
-  }
-
+export async function activatePaidOrder(orderId: string, actor: { id: string; username: string }, reason: string) {
   const now = new Date();
-
-  if (order.productType === "credits") {
-    const updated = await prisma.$transaction(async (tx) => {
-      const o = await tx.paymentOrder.update({
-        where: { id: orderId },
-        data: {
-          status: "paid",
-          paidAt: now,
-          confirmedBy,
-          channel: order.channel === "manual" ? "admin" : order.channel,
-        },
-      });
-      const user = await tx.user.findUnique({ where: { id: order.userId } });
-      if (!user) throw new Error("用户不存在");
-      const balanceAfter = user.creditBalance + order.credits;
-      await tx.user.update({
-        where: { id: order.userId },
-        data: { creditBalance: balanceAfter },
-      });
-      await tx.creditLedgerEntry.create({
-        data: {
-          userId: order.userId,
-          reason: "purchase",
-          delta: order.credits,
-          balanceAfter,
-          orderId: order.id,
-        },
-      });
-      return o;
-    });
-    return serializeOrder(updated);
-  }
-
-  const period = (order.period ?? "month") as BillingPeriod;
-  const user = await prisma.user.findUnique({ where: { id: order.userId } });
-  if (!user) throw new Error("用户不存在");
-
-  const base =
-    user.plan === "pro" && user.planExpiresAt && user.planExpiresAt.getTime() > now.getTime()
-      ? user.planExpiresAt
-      : now;
-  const planExpiresAt = addBillingPeriod(base, period);
-
+  const expired = await prisma.paymentOrder.updateMany({ where: { id: orderId, status: "pending", expiresAt: { lt: now } }, data: { status: "expired" } });
+  if (expired.count) throw new Error("订单已过期，请重新下单");
   const updated = await prisma.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: order.userId },
-      data: {
-        plan: "pro",
-        planExpiresAt,
-        trialEndsAt: null,
-      },
-    });
-    return tx.paymentOrder.update({
-      where: { id: orderId },
-      data: {
-        status: "paid",
-        paidAt: now,
-        confirmedBy,
-        channel: order.channel === "manual" ? "admin" : order.channel,
-      },
-    });
-  });
-
+    const order = await tx.paymentOrder.findUnique({ where: { id: orderId } });
+    if (!order) throw new Error("订单不存在");
+    if (order.status === "paid") return order;
+    if (order.status !== "pending") throw new Error("订单状态不可确认");
+    if (order.expiresAt && order.expiresAt < now) throw new Error("订单已过期，请重新下单");
+    const claimed = await tx.paymentOrder.updateMany({ where: { id: orderId, status: "pending" }, data: {
+      status: "paid", paidAt: now, confirmedBy: actor.username, channel: order.channel === "manual" ? "admin" : order.channel,
+    } });
+    if (claimed.count !== 1) throw new Error("订单已被其他管理员确认");
+    const user = await tx.user.findUnique({ where: { id: order.userId } });
+    if (!user) throw new Error("用户不存在");
+    if (user.status === "closed") throw new Error("用户已关闭，不能确认订单");
+    if (order.productType === "credits") {
+      const updatedUser = await tx.user.update({ where: { id: user.id }, data: { creditBalance: { increment: order.credits } } });
+      const balanceAfter = updatedUser.creditBalance;
+      await tx.creditLedgerEntry.create({ data: { userId: user.id, reason: "purchase", delta: order.credits, balanceAfter, orderId } });
+    } else {
+      const base = user.plan === "pro" && user.planExpiresAt && user.planExpiresAt > now ? user.planExpiresAt : now;
+      await tx.user.update({ where: { id: user.id }, data: { plan: "pro", planExpiresAt: addBillingPeriod(base, (order.period ?? "month") as BillingPeriod), trialEndsAt: null } });
+    }
+    await tx.adminUserAudit.create({ data: { actorId: actor.id, actorUsername: actor.username, targetUserId: user.id,
+      targetUsername: user.username, action: "order-confirm", reason, before: { orderNo: order.orderNo, status: order.status }, after: { orderNo: order.orderNo, status: "paid" } } });
+    return tx.paymentOrder.findUniqueOrThrow({ where: { id: orderId } });
+  }, { isolationLevel: "Serializable" });
   return serializeOrder(updated);
 }
 

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, adminErrorResponse } from "@/lib/auth/requireAdmin";
+import { requireAdminPermission, adminErrorResponse } from "@/lib/auth/requireAdmin";
 import { activatePaidOrder, listAllOrders } from "@/lib/billing/orders";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminCredentials } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin(req);
+    await requireAdminPermission(req, "orders:write");
     const status = req.nextUrl.searchParams.get("status") ?? undefined;
     const orders = await listAllOrders({ status: status || undefined, limit: 200 });
     return NextResponse.json({ orders });
@@ -17,8 +18,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const admin = await requireAdmin(req);
-    const body = (await req.json()) as { orderId?: string; orderNo?: string };
+    const admin = await requireAdminPermission(req, "orders:write");
+    const body = (await req.json()) as { orderId?: string; orderNo?: string; reason?: string; adminPassword?: string; adminTotpCode?: string };
+    if (!body.reason?.trim() || body.reason.trim().length > 500) throw new Error("请填写不超过 500 字的确认原因");
+    await verifyAdminCredentials(admin.id, body.adminPassword ?? "", body.adminTotpCode ?? "");
     let orderId = body.orderId?.trim();
     if (!orderId && body.orderNo?.trim()) {
       const row = await prisma.paymentOrder.findUnique({
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
       orderId = row.id;
     }
     if (!orderId) return NextResponse.json({ error: "缺少 orderId 或 orderNo" }, { status: 400 });
-    const order = await activatePaidOrder(orderId, admin.username);
+    const order = await activatePaidOrder(orderId, admin, body.reason.trim());
     return NextResponse.json({ order });
   } catch (e) {
     const { message, status } = adminErrorResponse(e);

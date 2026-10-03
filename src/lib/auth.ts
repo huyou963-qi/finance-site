@@ -1,12 +1,17 @@
 import crypto from "node:crypto";
 import type { NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { accessSummary, userHasProAccess } from "@/lib/billing/access";
 import { TRIAL_DAYS } from "@/lib/billing/pricing";
+import { decryptTotpSecret, encryptTotpSecret, newTotpSecret, verifyTotp } from "@/lib/auth/adminMfa";
+import { checkLoginThrottle, clearLoginFailures, recordLoginFailure } from "@/lib/auth/loginThrottle";
 import {
   parseUserPlan,
   validateUserPlan,
   USER_PLAN_LABELS,
+  isStaffRole,
+  STAFF_ROLES,
   type Role,
   type UserPlan,
 } from "@/lib/auth/types";
@@ -62,7 +67,7 @@ function makeCookie(token: string, expiresAt: string): string {
     0,
     Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000),
   );
-  return `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+  return `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 
 export function clearCookie(): string {
@@ -74,7 +79,10 @@ async function ensureAdminSeed(): Promise<void> {
   const count = await prisma.user.count();
   if (count > 0) return;
   const adminUser = process.env.ADMIN_USERNAME?.trim() || "admin";
-  const adminPass = process.env.ADMIN_PASSWORD?.trim() || "admin123456";
+  const adminPass = process.env.ADMIN_PASSWORD?.trim();
+  if (!adminPass || adminPass.length < 12) {
+    throw new Error("首次创建管理员前须配置至少 12 位 ADMIN_PASSWORD");
+  }
   const salt = crypto.randomBytes(16).toString("hex");
   await prisma.user.create({
     data: {
@@ -147,7 +155,7 @@ function parseOptionalPhone(
 
 /** 邮箱/手机号是否必填：管理员与微信扫码注册的账号可不填（后者由微信实名兜底） */
 function phoneRequiredForUser(user: { role: string; wechatOpenId?: string | null }): boolean {
-  return user.role !== "admin" && !user.wechatOpenId;
+  return !isStaffRole(user.role) && !user.wechatOpenId;
 }
 
 /** 微信扫码注册的账号没有密码（passHash 为空），此时不可用密码登录，设置首个密码也无需当前密码 */
@@ -177,6 +185,7 @@ export async function registerUser(
   phoneRaw: string,
   emailVerifiedAt?: string,
   planRaw: UserPlan = "standard",
+  tx?: Prisma.TransactionClient,
 ): Promise<{
   id: string;
   username: string;
@@ -187,31 +196,32 @@ export async function registerUser(
 }> {
   const username = validateUsername(usernameRaw);
   const password = validatePassword(passwordRaw);
-  const isAdmin = role === "admin";
-  const email = parseOptionalEmail(emailRaw, { required: !isAdmin });
+  const isAdmin = isStaffRole(role);
+  const email = parseOptionalEmail(emailRaw, { required: true });
   const phone = parseOptionalPhone(phoneRaw, { required: !isAdmin });
   const plan = validateUserPlan(planRaw);
-  await ensureAdminSeed();
+  if (!tx) await ensureAdminSeed();
+  const db = tx ?? prisma;
 
-  const existsName = await prisma.user.findFirst({
+  const existsName = await db.user.findFirst({
     where: { username: { equals: username, mode: "insensitive" } },
   });
   if (existsName) throw new Error("用户名已存在");
 
   if (email) {
-    const existsEmail = await prisma.user.findFirst({ where: { email } });
+    const existsEmail = await db.user.findFirst({ where: { email } });
     if (existsEmail) throw new Error("邮箱已被注册");
   }
 
   if (phone) {
-    const existsPhone = await prisma.user.findFirst({ where: { phone } });
+    const existsPhone = await db.user.findFirst({ where: { phone } });
     if (existsPhone) throw new Error("手机号已被注册");
   }
 
   const salt = crypto.randomBytes(16).toString("hex");
   const planExpiresAt =
     plan === "pro" ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) : null;
-  const user = await prisma.user.create({
+  const user = await db.user.create({
     data: {
       id: uid(),
       username,
@@ -379,9 +389,15 @@ export async function verifyRegistrationToken(
 export async function loginUser(
   identifierRaw: string,
   passwordRaw: string,
-): Promise<{ cookie: string; user: { id: string; username: string; role: Role } }> {
+  totpCodeRaw = "",
+): Promise<
+  | { kind: "signed-in"; cookie: string; user: { id: string; username: string; role: Role } }
+  | { kind: "mfa-required" }
+  | { kind: "mfa-setup"; setupToken: string; secret: string; uri: string }
+> {
   const identifier = identifierRaw.trim();
   await ensureAdminSeed();
+  await checkLoginThrottle(identifier);
 
   await prisma.session.deleteMany({
     where: { expiresAt: { lte: new Date() } },
@@ -403,22 +419,145 @@ export async function loginUser(
       ],
     },
   });
+  for (const candidate of candidates) await checkLoginThrottle(candidate.id);
   const user = candidates.find(
     (candidate) =>
       userHasPassword(candidate) &&
       safeEqHex(hashPassword(passwordRaw, candidate.passSalt), candidate.passHash),
   );
   if (!user) {
+    await recordLoginFailure(identifier);
+    for (const candidate of candidates) await recordLoginFailure(candidate.id);
     if (candidates.length > 0 && candidates.every((candidate) => !userHasPassword(candidate))) {
       throw new Error("该账号未设置密码，请使用微信扫码登录或通过邮箱重置密码");
     }
     throw new Error("账号或密码错误");
   }
 
+  if (user.status !== "active") {
+    await recordLoginFailure(identifier);
+    await recordLoginFailure(user.id);
+    throw new Error("账号或密码错误");
+  }
+
+  if (isStaffRole(user.role)) {
+    if (!user.adminTotpSecret) {
+      const secret = newTotpSecret();
+      const setupToken = crypto.randomBytes(32).toString("hex");
+      await prisma.adminMfaChallenge.deleteMany({ where: { userId: user.id } });
+      await prisma.adminMfaChallenge.create({
+        data: {
+          tokenHash: hashRecoveryToken(setupToken),
+          userId: user.id,
+          secret: encryptTotpSecret(secret),
+          expiresAt: new Date(Date.now() + 10 * 60_000),
+        },
+      });
+      return {
+        kind: "mfa-setup",
+        setupToken,
+        secret,
+        uri: `otpauth://totp/${encodeURIComponent(`GekkoTech:${user.username}`)}?secret=${secret}&issuer=GekkoTech&digits=6&period=30`,
+      };
+    }
+    if (!totpCodeRaw) return { kind: "mfa-required" };
+    const code = totpCodeRaw.trim().toUpperCase();
+    let verified = verifyTotp(decryptTotpSecret(user.adminTotpSecret), code);
+    let recoveryUsed = false;
+    if (!verified && /^[A-F0-9]{16}$/.test(code)) {
+      const used = await prisma.adminMfaRecoveryCode.deleteMany({
+        where: { userId: user.id, codeHash: hashRecoveryToken(code) },
+      });
+      verified = used.count === 1;
+      recoveryUsed = verified;
+    }
+    if (!verified) {
+      await recordLoginFailure(identifier);
+      await recordLoginFailure(user.id);
+      throw new Error("账号、密码或验证码错误");
+    }
+    await clearLoginFailures(identifier);
+    await clearLoginFailures(user.id);
+    return {
+      kind: "signed-in",
+      cookie: await createSessionCookie(user.id, recoveryUsed ? "recovery_code_login" : "password_login"),
+      user: { id: user.id, username: user.username, role: user.role as Role },
+    };
+  }
+
+  await clearLoginFailures(identifier);
+  await clearLoginFailures(user.id);
+
   return {
-    cookie: await createSessionCookie(user.id),
+    kind: "signed-in",
+    cookie: await createSessionCookie(user.id, "password_login"),
     user: { id: user.id, username: user.username, role: user.role as Role },
   };
+}
+
+export async function completeAdminMfaSetup(tokenRaw: string, codeRaw: string) {
+  const token = tokenRaw.trim();
+  if (!/^[a-f0-9]{64}$/i.test(token)) throw new Error("设置会话已过期，请重新登录");
+  const challenge = await prisma.adminMfaChallenge.findUnique({
+    where: { tokenHash: hashRecoveryToken(token) },
+    include: { user: true },
+  });
+  if (!challenge || challenge.expiresAt.getTime() <= Date.now() || challenge.user.status !== "active" || !isStaffRole(challenge.user.role) || challenge.user.adminTotpSecret) {
+    throw new Error("设置会话已过期，请重新登录");
+  }
+  await checkLoginThrottle(challenge.userId);
+  if (!verifyTotp(decryptTotpSecret(challenge.secret), codeRaw.trim())) {
+    await recordLoginFailure(challenge.userId);
+    throw new Error("验证码错误，请核对验证器时间后重试");
+  }
+  const recoveryCodes = Array.from({ length: 8 }, () => crypto.randomBytes(8).toString("hex").toUpperCase());
+  await prisma.$transaction(async (tx) => {
+    const consumed = await tx.adminMfaChallenge.deleteMany({
+      where: { tokenHash: challenge.tokenHash, expiresAt: { gt: new Date() } },
+    });
+    if (consumed.count !== 1) throw new Error("设置会话已过期，请重新登录");
+    const enabled = await tx.user.updateMany({
+      where: { id: challenge.userId, role: { in: ["admin", ...STAFF_ROLES] }, status: "active", adminTotpSecret: null },
+      data: { adminTotpSecret: challenge.secret },
+    });
+    if (enabled.count !== 1) throw new Error("管理员双重验证已经绑定");
+    await tx.adminMfaRecoveryCode.createMany({ data: recoveryCodes.map((code) => ({ userId: challenge.userId, codeHash: hashRecoveryToken(code) })) });
+    await tx.session.deleteMany({ where: { userId: challenge.userId } });
+  });
+  await clearLoginFailures(challenge.userId);
+  return {
+    cookie: await createSessionCookie(challenge.userId, "admin_mfa_setup"),
+    user: { id: challenge.userId, username: challenge.user.username, role: challenge.user.role as Role },
+    recoveryCodes,
+  };
+}
+
+export async function requestAdminPasswordReset(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.email) throw new Error("该账号没有邮箱，无法发送重置链接");
+  if (user.status === "closed") throw new Error("已关闭账号不能发送重置链接");
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashRecoveryToken(token);
+  const expiresAt = new Date(Date.now() + RECOVERY_TOKEN_MINUTES * 60_000);
+  await prisma.accountRecoveryRequest.upsert({
+    where: { userId_kind: { userId, kind: "password" } },
+    create: { userId, kind: "password", tokenHash, expiresAt },
+    update: { tokenHash, createdAt: new Date(), expiresAt },
+  });
+  return { token, email: user.email, username: user.username };
+}
+
+export async function verifyAdminCredentials(userId: string, password: string, code: string) {
+  await checkLoginThrottle(userId);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !isStaffRole(user.role) || user.status !== "active" || !user.adminTotpSecret) {
+    throw new Error("无管理员权限");
+  }
+  if (!safeEqHex(hashPassword(password, user.passSalt), user.passHash) || !verifyTotp(decryptTotpSecret(user.adminTotpSecret), code.trim())) {
+    await recordLoginFailure(userId);
+    throw new Error("管理员密码或验证码错误");
+  }
+  await clearLoginFailures(userId);
 }
 
 /**
@@ -466,7 +605,7 @@ export async function resetPasswordWithToken(tokenRaw: string, passwordRaw: stri
   if (!/^[a-f0-9]{64}$/i.test(token)) throw new Error("重置链接无效或已过期");
   const password = validatePassword(passwordRaw);
   const tokenHash = hashRecoveryToken(token);
-  const request = await prisma.accountRecoveryRequest.findUnique({ where: { tokenHash } });
+  const request = await prisma.accountRecoveryRequest.findUnique({ where: { tokenHash }, include: { user: true } });
   if (!request || request.kind !== "password" || request.expiresAt.getTime() <= Date.now()) {
     if (request) await prisma.accountRecoveryRequest.delete({ where: { id: request.id } });
     throw new Error("重置链接无效或已过期");
@@ -480,21 +619,26 @@ export async function resetPasswordWithToken(tokenRaw: string, passwordRaw: stri
     }),
     prisma.session.deleteMany({ where: { userId: request.userId } }),
     prisma.accountRecoveryRequest.deleteMany({ where: { userId: request.userId } }),
+    prisma.accountAuthEvent.create({ data: { userId: request.userId, kind: "password_reset" } }),
   ]);
+  await Promise.allSettled([request.userId, request.user.username, request.user.email, request.user.phone]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => clearLoginFailures(value)));
 }
 
 /** 为已通过身份校验的用户建会话，返回 Set-Cookie 值（密码登录与微信登录共用） */
-export async function createSessionCookie(userId: string): Promise<string> {
+export async function createSessionCookie(userId: string, method = "password_login"): Promise<string> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, status: true, adminTotpSecret: true } });
+  if (!user || user.status !== "active" || (isStaffRole(user.role) && !user.adminTotpSecret)) {
+    throw new Error("账号暂不可登录");
+  }
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const token = crypto.randomBytes(32).toString("hex");
-  await prisma.session.create({
-    data: {
-      token,
-      userId,
-      createdAt: new Date(),
-      expiresAt,
-    },
-  });
+  await prisma.$transaction([
+    prisma.session.create({ data: { token, userId, createdAt: new Date(), expiresAt } }),
+    prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } }),
+    prisma.accountAuthEvent.create({ data: { userId, kind: method } }),
+  ]);
   return makeCookie(token, expiresAt.toISOString());
 }
 
@@ -564,8 +708,11 @@ export async function loginOrRegisterWechat(
     created = true;
   }
 
+  if (isStaffRole(user.role)) throw new Error("管理员请使用密码与双重验证码登录");
+  if (user.status !== "active") throw new Error("账号暂不可登录");
+
   return {
-    cookie: await createSessionCookie(user.id),
+    cookie: await createSessionCookie(user.id, "wechat_login"),
     created,
     user: { id: user.id, username: user.username, role: user.role as Role },
   };
@@ -599,7 +746,7 @@ export async function unbindWechatFromUser(userId: string): Promise<void> {
   if (!user) throw new Error("用户不存在");
   if (!user.wechatOpenId) throw new Error("当前账号未绑定微信");
   if (!userHasPassword(user)) throw new Error("请先设置登录密码再解绑微信，否则将无法登录");
-  if (user.role !== "admin" && (!user.email || !user.phone)) {
+  if (!isStaffRole(user.role) && (!user.email || !user.phone)) {
     throw new Error("请先补充邮箱和手机号再解绑微信");
   }
   await prisma.user.update({
@@ -630,7 +777,7 @@ export async function getUserByRequest(req: NextRequest): Promise<{
   if (!session || session.expiresAt.getTime() <= Date.now()) return null;
 
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  if (!user) return null;
+  if (!user || user.status !== "active" || (isStaffRole(user.role) && !user.adminTotpSecret)) return null;
   return { id: user.id, username: user.username, role: user.role as Role };
 }
 
@@ -696,10 +843,11 @@ export async function updateUserAccount(
     role?: Role;
     plan?: UserPlan;
   },
-  options?: { currentPassword?: string; byAdmin?: boolean },
+  options?: { currentPassword?: string; byAdmin?: boolean; tx?: Prisma.TransactionClient },
 ) {
-  await ensureAdminSeed();
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!options?.tx) await ensureAdminSeed();
+  const db = options?.tx ?? prisma;
+  const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("用户不存在");
 
   const data: {
@@ -708,6 +856,7 @@ export async function updateUserAccount(
     passHash?: string;
     passSalt?: string;
     role?: string;
+    adminTotpSecret?: string | null;
     plan?: string;
     planExpiresAt?: Date | null;
     trialEndsAt?: Date | null;
@@ -719,13 +868,13 @@ export async function updateUserAccount(
       required: phoneRequiredForUser(user),
     });
     if (email) {
-      const existsEmail = await prisma.user.findFirst({
+      const existsEmail = await db.user.findFirst({
         where: { email, NOT: { id: userId } },
       });
       if (existsEmail) throw new Error("邮箱已被注册");
       data.email = email;
       if (email !== (user.email ?? "")) {
-        data.emailVerifiedAt = options?.byAdmin ? new Date() : null;
+        data.emailVerifiedAt = null;
       }
     } else {
       data.email = null;
@@ -738,7 +887,7 @@ export async function updateUserAccount(
       required: phoneRequiredForUser(user),
     });
     if (phone) {
-      const existsPhone = await prisma.user.findFirst({
+      const existsPhone = await db.user.findFirst({
         where: { phone, NOT: { id: userId } },
       });
       if (existsPhone) throw new Error("手机号已被注册");
@@ -765,10 +914,11 @@ export async function updateUserAccount(
 
   if (patch.role !== undefined) {
     if (!options?.byAdmin) throw new Error("无权修改角色");
-    if (patch.role !== "admin" && patch.role !== "user") {
+    if (patch.role !== "admin" && patch.role !== "user" && !STAFF_ROLES.includes(patch.role)) {
       throw new Error("角色不合法");
     }
     data.role = patch.role;
+    if (patch.role === "user") data.adminTotpSecret = null;
   }
 
   if (patch.plan !== undefined) {
@@ -787,7 +937,7 @@ export async function updateUserAccount(
     throw new Error("没有可更新的字段");
   }
 
-  const updated = await prisma.user.update({
+  const updated = await db.user.update({
     where: { id: userId },
     data,
   });
@@ -817,7 +967,7 @@ export async function updateUserAccount(
 
 export async function getUserAccessRecord(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return null;
+  if (!user || user.status !== "active" || (isStaffRole(user.role) && !user.adminTotpSecret)) return null;
   return {
     id: user.id,
     username: user.username,

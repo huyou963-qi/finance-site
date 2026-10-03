@@ -8,6 +8,7 @@ import {
   getUserByRequest,
 } from "@/lib/auth";
 import { userHasProAccess } from "@/lib/billing/access";
+import type { Role } from "@/lib/auth/types";
 import {
   defaultFeatureAccessPolicy,
   normalizeFeatureAccessPolicy,
@@ -60,12 +61,12 @@ export async function saveFeatureAccessPolicy(
 }
 
 function toViewer(
-  access: { role: "admin" | "user"; plan: string; planExpiresAt: Date | null; trialEndsAt: Date | null } | null,
+  access: { role: Role; plan: string; planExpiresAt: Date | null; trialEndsAt: Date | null } | null,
 ): FeatureViewer {
   if (!access) return { role: null, hasProAccess: false };
   const hasProAccess = userHasProAccess(access);
   const trialEnded = Boolean(access.trialEndsAt && access.trialEndsAt.getTime() <= Date.now());
-  return { role: access.role, hasProAccess, trialEnded };
+  return { role: access.role === "admin" ? "admin" : "user", hasProAccess, trialEnded };
 }
 
 /** 服务端组件 / 页面守卫用：从 cookie 解析访问者身份。 */

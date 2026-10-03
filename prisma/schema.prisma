@@ -22,6 +22,12 @@ model User {
   passHash        String
   passSalt        String
   role            String
+  /// admin=最高管理员；其余 admin_* 为限定后台岗位
+  tags            String[]  @default([])
+  status          String    @default("active") @db.VarChar(16)
+  suspendedAt     DateTime? @map("suspended_at")
+  suspensionReason String?  @map("suspension_reason") @db.VarChar(500)
+  adminTotpSecret String?   @map("admin_totp_secret") @db.Text
   /// standard=普通用户，pro=付费 Pro 用户
   plan            String    @default("standard")
   /// Pro 付费到期时间；过期后视为 standard（试用另见 trialEndsAt）
@@ -37,9 +43,13 @@ model User {
   wechatNickname  String?   @map("wechat_nickname")
   wechatBoundAt   DateTime? @map("wechat_bound_at")
   createdAt       DateTime
+  lastLoginAt     DateTime? @map("last_login_at")
 
   weeklyOAuthGrants   WeeklyOAuthGrant[]
   sessions            Session[]
+  authEvents          AccountAuthEvent[]
+  adminMfaChallenges  AdminMfaChallenge[]
+  adminMfaRecoveryCodes AdminMfaRecoveryCode[]
   recoveryRequests    AccountRecoveryRequest[]
   assetTemplateState  UserAssetTemplateState?
   macroChartPrefsRow  UserMacroChartPrefs?
@@ -51,6 +61,10 @@ model User {
   creditLedger        CreditLedgerEntry[]
   articles            Article[]      @relation("ArticleAuthor")
   articleAssets       ArticleAsset[] @relation("ArticleAssetUploader")
+
+  @@index([status, createdAt])
+  @@index([role, createdAt])
+  @@index([plan, planExpiresAt])
 
   @@schema("public")
 }
@@ -267,6 +281,72 @@ model Session {
   expiresAt DateTime
 
   @@index([userId])
+  @@schema("public")
+}
+
+model AccountAuthEvent {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("account_auth_event")
+  @@schema("public")
+}
+
+model AdminMfaChallenge {
+  tokenHash String   @id @map("token_hash") @db.VarChar(64)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  secret    String   @db.Text
+  expiresAt DateTime @map("expires_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("admin_mfa_challenge")
+  @@schema("public")
+}
+
+model AdminMfaRecoveryCode {
+  codeHash  String   @id @map("code_hash") @db.VarChar(64)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("admin_mfa_recovery_code")
+  @@schema("public")
+}
+
+model AuthAttempt {
+  keyHash     String   @id @map("key_hash") @db.VarChar(64)
+  attempts    Int      @default(0)
+  windowStart DateTime @map("window_start")
+  lockedUntil DateTime? @map("locked_until")
+
+  @@index([lockedUntil])
+  @@index([windowStart])
+  @@map("auth_attempt")
+  @@schema("public")
+}
+
+model AdminUserAudit {
+  id            String   @id @default(cuid())
+  actorId       String   @map("actor_id")
+  actorUsername String   @map("actor_username") @db.VarChar(64)
+  targetUserId  String   @map("target_user_id")
+  targetUsername String  @map("target_username") @db.VarChar(64)
+  action        String   @db.VarChar(48)
+  reason        String?  @db.VarChar(500)
+  before        Json?
+  after         Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([targetUserId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("admin_user_audit")
   @@schema("public")
 }
 

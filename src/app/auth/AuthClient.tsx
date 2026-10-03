@@ -17,6 +17,11 @@ export function AuthClient() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaSetup, setMfaSetup] = useState<{ token: string; secret: string; uri: string } | null>(null);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -51,13 +56,14 @@ export function AuthClient() {
     setLoading(true);
     setHint(null);
     try {
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const endpoint = mfaSetup ? "/api/auth/admin-mfa-setup" : mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(mode === "login" ? { identifier: username } : { username }),
+          ...(mfaSetup ? { setupToken: mfaSetup.token, code: totpCode } : mode === "login" ? { identifier: username } : { username }),
           password,
+          totpCode,
           email,
           phone,
         }),
@@ -65,8 +71,28 @@ export function AuthClient() {
       const payload = (await res.json()) as {
         error?: string;
         message?: string;
+        mfaRequired?: boolean;
+        mfaSetup?: boolean;
+        setupToken?: string;
+        secret?: string;
+        uri?: string;
+        recoveryCodes?: string[];
       };
       if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
+      if (payload.mfaRequired) {
+        setMfaRequired(true);
+        setHint("请输入验证器中的 6 位动态验证码");
+        return;
+      }
+      if (payload.mfaSetup && payload.setupToken && payload.secret && payload.uri) {
+        setMfaSetup({ token: payload.setupToken, secret: payload.secret, uri: payload.uri });
+        setHint("管理员首次登录：请在验证器中添加下方密钥，然后输入动态验证码完成绑定");
+        return;
+      }
+      if (payload.recoveryCodes) {
+        setRecoveryCodes(payload.recoveryCodes);
+        return;
+      }
       setHint(
         mode === "login"
           ? "登录成功，正在跳转…"
@@ -89,6 +115,17 @@ export function AuthClient() {
         <p className="text-sm text-fs-muted">加载中…</p>
       </AuthPageShell>
     );
+  }
+
+  if (recoveryCodes) {
+    return <AuthPageShell>
+      <h1 className="text-xl font-semibold text-fs-text">管理员双重验证已启用</h1>
+      <p className="mt-3 text-sm text-fs-secondary">请立即将以下一次性恢复码保存在安全位置。每个恢复码只能使用一次，关闭此页后不会再次显示。</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 rounded-md border border-fs-border bg-fs-elevated p-4 font-mono text-sm text-fs-text">
+        {recoveryCodes.map((code) => <code key={code}>{code}</code>)}
+      </div>
+      <button type="button" onClick={() => { window.location.href = "/"; }} className="mt-5 rounded-md bg-fs-accent px-4 py-2 text-sm text-white">已保存，进入首页</button>
+    </AuthPageShell>;
   }
 
   if (loggedIn) {
@@ -131,6 +168,9 @@ export function AuthClient() {
             aria-selected={mode === tab.id}
             onClick={() => {
               setMode(tab.id);
+              setMfaRequired(false);
+              setMfaSetup(null);
+              setUseRecoveryCode(false);
               setHint(null);
             }}
             className={`rounded-md px-3 py-2 text-sm font-medium transition ${
@@ -197,6 +237,14 @@ export function AuthClient() {
             </>
           ) : null}
 
+          {mfaSetup ? (
+            <div className="rounded-md border border-fs-border bg-fs-elevated p-3 text-sm text-fs-secondary">
+              <p>验证器密钥（仅本次显示，请妥善保存）：</p>
+              <code className="mt-1 block break-all text-fs-text">{mfaSetup.secret}</code>
+              <p className="mt-2 text-xs">在验证器中手动添加 TOTP 账户，名称为 GekkoTech。绑定会话 10 分钟后过期。</p>
+            </div>
+          ) : null}
+
           <label className="block text-sm text-fs-secondary">
             密码
             <input
@@ -206,20 +254,40 @@ export function AuthClient() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder={mode === "login" ? "请输入密码" : "至少 8 位，含字母与数字"}
               className={authInputClass}
+              disabled={!!mfaSetup}
             />
           </label>
+
+          {mfaRequired || mfaSetup ? (
+            <label className="block text-sm text-fs-secondary">
+              双重验证码
+              <input
+                inputMode={useRecoveryCode ? "text" : "numeric"}
+                autoComplete="one-time-code"
+                pattern={useRecoveryCode ? "[A-Fa-f0-9]{16}" : "[0-9]{6}"}
+                maxLength={useRecoveryCode ? 16 : 6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(useRecoveryCode ? e.target.value.replace(/[^a-fA-F0-9]/g, "").toUpperCase() : e.target.value.replace(/\D/g, ""))}
+                placeholder={useRecoveryCode ? "16 位一次性恢复码" : "6 位动态验证码"}
+                className={authInputClass}
+                required
+              />
+            </label>
+          ) : null}
+          {mfaRequired && !mfaSetup ? <button type="button" className="text-sm text-fs-accent-text" onClick={() => { setUseRecoveryCode((value) => !value); setTotpCode(""); }}>{useRecoveryCode ? "使用动态验证码" : "使用一次性恢复码"}</button> : null}
 
           <button
             type="submit"
             disabled={
               loading ||
               !username.trim() ||
-              !password ||
+              (!password && !mfaSetup) ||
+              ((mfaRequired || mfaSetup) && totpCode.length !== (useRecoveryCode ? 16 : 6)) ||
               (mode === "register" && (!email.trim() || !phone.trim()))
             }
             className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
           >
-            {loading ? "提交中…" : mode === "login" ? "登录" : "注册并发送验证邮件"}
+            {loading ? "提交中…" : mfaSetup ? "完成验证并登录" : mode === "login" ? "登录" : "注册并发送验证邮件"}
           </button>
 
           {mode === "login" ? (

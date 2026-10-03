@@ -18,7 +18,7 @@ export function weeklyStore(db: PrismaClient = weeklyOAuthDb) {
   async function adminSession(sessionToken: string | null) {
     if (!sessionToken) return null;
     const s = await db.session.findUnique({ where: { token: sessionToken }, include: { user: true } });
-    if (!s || s.expiresAt.getTime() <= Date.now()) return null;
+    if (!s || s.expiresAt.getTime() <= Date.now() || s.user.status !== "active" || !s.user.adminTotpSecret) return null;
     return { id: s.userId, role: s.user.role, sessionHash: hash(sessionToken) };
   }
   async function createConsent(input: AuthorizationInput, userId: string, sessionHash: string) {
@@ -45,8 +45,8 @@ export function weeklyStore(db: PrismaClient = weeklyOAuthDb) {
         const sessions = await tx.session.findMany({ where: { userId: consent.userId, expiresAt: { gt: now } }, select: { token: true } });
         if (!sessions.some(session => hash(session.token) === consent.sessionHash)) fail("access_denied");
       } else if (!userId || !sessionHash || consent.userId !== userId || consent.sessionHash !== sessionHash) fail();
-      const user = await tx.user.findUnique({ where: { id: consent.userId }, select: { role: true } });
-      if (user?.role !== "admin") fail("access_denied");
+      const user = await tx.user.findUnique({ where: { id: consent.userId }, select: { role: true, status: true, adminTotpSecret: true } });
+      if (user?.role !== "admin" || user.status !== "active" || !user.adminTotpSecret) fail("access_denied");
       const removed = await tx.weeklyOAuthConsent.deleteMany({ where: { nonceHash: consent.nonceHash, userId: consent.userId, sessionHash: consent.sessionHash, expiresAt: { gt: now } } });
       if (removed.count !== 1) fail();
       if (approved) {
@@ -56,8 +56,8 @@ export function weeklyStore(db: PrismaClient = weeklyOAuthDb) {
       return { consent, code: approved ? code : null };
     });
   }
-  const grantActive = (g: WeeklyOAuthGrant, role: string, now: Date) =>
-    !g.revokedAt && g.expiresAt > now && g.clientId === CLIENT_ID && g.resource === RESOURCE && g.scope === SCOPE && role === "admin";
+  const grantActive = (g: WeeklyOAuthGrant, user: { role: string; status: string; adminTotpSecret: string | null }, now: Date) =>
+    !g.revokedAt && g.expiresAt > now && g.clientId === CLIENT_ID && g.resource === RESOURCE && g.scope === SCOPE && user.role === "admin" && user.status === "active" && !!user.adminTotpSecret;
 
   async function exchange(input: { kind: "code" | "refresh"; credential: string; clientId: string; resource: string; redirectUri?: string; verifier?: string; scope?: string }) {
     if (input.clientId !== CLIENT_ID || input.resource !== RESOURCE) fail("invalid_grant");
@@ -71,9 +71,9 @@ export function weeklyStore(db: PrismaClient = weeklyOAuthDb) {
       if (!first || first.kind !== input.kind) return false;
       // Serialize code exchange, refresh rotation and revocation per grant.
       await tx.$queryRaw`SELECT "id" FROM "public"."WeeklyOAuthGrant" WHERE "id" = ${first.grantId} FOR UPDATE`;
-      const c = await tx.weeklyOAuthCredential.findUnique({ where: { hash: first.hash }, include: { grant: { include: { user: { select: { role: true } } } } } });
+      const c = await tx.weeklyOAuthCredential.findUnique({ where: { hash: first.hash }, include: { grant: { include: { user: { select: { role: true, status: true, adminTotpSecret: true } } } } } });
       const now = new Date();
-      if (!c || !grantActive(c.grant, c.grant.user.role, now)) return false;
+      if (!c || !grantActive(c.grant, c.grant.user, now)) return false;
       if (input.kind === "code" && (c.redirectUri !== input.redirectUri || !c.codeChallenge || !timingSafeEqual(Buffer.from(c.codeChallenge), Buffer.from(pkce(input.verifier!))))) return false;
       if (c.consumedAt) {
         // Replay compromises the family, including already issued access tokens.
@@ -95,9 +95,9 @@ export function weeklyStore(db: PrismaClient = weeklyOAuthDb) {
   async function authenticate(authorization: string | null) {
     const match = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(authorization ?? "");
     if (!match) return false;
-    const c = await db.weeklyOAuthCredential.findUnique({ where: { hash: hash(match[1]) }, include: { grant: { include: { user: { select: { role: true } } } } } });
+    const c = await db.weeklyOAuthCredential.findUnique({ where: { hash: hash(match[1]) }, include: { grant: { include: { user: { select: { role: true, status: true, adminTotpSecret: true } } } } } });
     const now = new Date();
-    return !!c && c.kind === "access" && !c.consumedAt && c.expiresAt > now && grantActive(c.grant, c.grant.user.role, now);
+    return !!c && c.kind === "access" && !c.consumedAt && c.expiresAt > now && grantActive(c.grant, c.grant.user, now);
   }
   async function revoke(credential: string, clientId: string) {
     if (clientId !== CLIENT_ID) fail("invalid_client");

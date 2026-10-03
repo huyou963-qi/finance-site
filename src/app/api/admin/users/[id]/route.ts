@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByRequest, updateUserAccount } from "@/lib/auth";
+import { verifyAdminCredentials } from "@/lib/auth";
+import { getAdminUserDetail, updateAdminUser } from "@/lib/auth/adminUsers";
+import { requireAdminPermission } from "@/lib/auth/requireAdmin";
+import type { Role } from "@/lib/auth/types";
 
-async function requireAdmin(req: NextRequest) {
-  const me = await getUserByRequest(req);
-  if (!me) throw new Error("未登录");
-  if (me.role !== "admin") throw new Error("无管理员权限");
-  return me;
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  try {
+    const actor = await requireAdminPermission(req, "users:read");
+    const { id } = await ctx.params;
+    return NextResponse.json(await getAdminUserDetail(id, actor.role));
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "未知错误";
+    return NextResponse.json({ error: msg }, { status: msg === "用户不存在" ? 404 : msg.includes("未登录") ? 401 : 403 });
+  }
 }
 
 export async function PATCH(
@@ -13,26 +23,22 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireAdmin(req);
+    const actor = await requireAdminPermission(req, "users:write");
     const { id } = await ctx.params;
     const body = (await req.json()) as {
       email?: string;
       phone?: string;
-      password?: string;
-      role?: "admin" | "user";
-      plan?: "standard" | "pro";
+      role?: Role;
+      adminPassword?: string;
+      adminTotpCode?: string;
+      reason?: string;
     };
-    const user = await updateUserAccount(
-      id,
-      {
+    await verifyAdminCredentials(actor.id, body.adminPassword ?? "", body.adminTotpCode ?? "");
+    const user = await updateAdminUser(id, actor, {
         email: body.email,
         phone: body.phone,
-        password: body.password,
         role: body.role,
-        plan: body.plan,
-      },
-      { byAdmin: true },
-    );
+      }, body.reason ?? "");
     return NextResponse.json({ user });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "未知错误";
