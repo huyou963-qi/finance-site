@@ -12,7 +12,7 @@
 
 `npm run data:audit-freshness -- --live-fred --strict --json=.data/audits/macro-latest.json`
 
-GitHub Actions `Audit macro data freshness` 每天北京时间 10:15 独立 SSH 到香港运行。`--strict` 遇到关键失败或 worker/日历无近期完成记录会使工作流失败。完整逐条结果保存在香港 cron 检出的 `.data/audits/`；Actions 日志输出分类计数、最严重的数据源/发布包和前 30 条示例。可用 `workflow_dispatch` 手工运行。
+GitHub Actions `Audit macro data freshness` 每天北京时间 10:15 独立 SSH 到香港运行：先审计、再限量自动回补有 FRED 源端证据的落后序列、最后重新审计。`--strict` 遇到剩余关键失败或 worker/日历无近期完成记录会使工作流失败。完整逐条结果保存在香港 cron 检出的 `.data/audits/`；Actions 日志输出分类计数、最严重的数据源/发布包和前 30 条示例。可用 `workflow_dispatch` 手工运行。
 
 对已用实时 FRED 数据证明本地落后的序列，可运行 `npm run data:repair-fred-freshness -- --report=.data/audits/macro-latest.json --apply`。默认只预览、每次最多 50 条；仅处理近 366 天的源端最新期，使用统一 writer，且保留同包其他成员的排期。修复后重跑审计验证，不把“已发起抓取”当作修复成功。
 
@@ -28,6 +28,8 @@ GitHub Actions `Audit macro data freshness` 每天北京时间 10:15 独立 SSH 
 ## 2026-10-03 香港生产基线
 
 首次只读实跑：6,421 条宏观指标、31 条目录隐藏历史存量、6,390 条可见指标；**755 个关键发现（可在同一序列上重叠）**，其中 539 条保留抓取错误、112 条无实际观测、48 条不能被 worker 选中、52 条超过频率宽限仍未推进。另有 1,081 条订阅末期与观测表不一致，多数是历史导入后从未写回订阅状态，不能算作缺数据。需按发布包汇总排障；`cn.nbs.real-estate` 的一个成员失败传播到数百个同包成员，不应人工逐条修 463 次。
+
+首次 FRED 源端核对发现 21 条末期落后和 8 条同期期末值不同，去重后定向回补 28 条，重检时上述 28 条全部对齐；剩余 `IEASAD` 是源端止于 2019 年、本地无观测的历史序列，不能靠反复补抓当期数据解决。重检时仍有 757 个关键发现（含 539 条抓取错误），全站健康状态尚未达标。
 
 优先处理顺序：
 

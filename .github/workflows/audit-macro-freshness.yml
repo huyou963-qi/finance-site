@@ -37,4 +37,19 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=6 "root@${DEPLOY_HOST}" \
-            'cd /opt/finance-site-jp-data && PATH=/usr/bin:$PATH npm run data:audit-freshness -- --live-fred --strict --json=.data/audits/macro-latest.json'
+            'cd /opt/finance-site-jp-data && PATH=/usr/bin:$PATH npm run data:audit-freshness -- --live-fred --json=.data/audits/macro-latest.json'
+
+      - name: Repair FRED series with proven source lag
+        continue-on-error: true
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=6 "root@${DEPLOY_HOST}" \
+            'cd /opt/finance-site-jp-data && PATH=/usr/bin:$PATH npm run data:repair-fred-freshness -- --report=.data/audits/macro-latest.json --apply'
+
+      - name: Verify after repair and fail on remaining critical findings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=6 "root@${DEPLOY_HOST}" \
+            'cd /opt/finance-site-jp-data && PATH=/usr/bin:$PATH npm run data:audit-freshness -- --live-fred --strict --json=.data/audits/macro-verified.json'
