@@ -1,3 +1,5 @@
+import { hasEmploymentReleaseObservation } from "./employmentReleaseFreshness";
+
 /**
  * 发布包 nextRunAt 护栏：日历同步**不得**把一次该跑而没跑的任务往后推。
  *
@@ -21,6 +23,8 @@ export type PackageRunState = {
    * 用来区分「跑过但源端还没出数」和「这一期真的消费完了」。
    */
   sourceVerifiedAt: Date | null;
+  /** PAYEMS/ADP 关键序列的最新观测月；用于防止源站延迟时误判本期已消费。 */
+  requiredSeriesLatestObsDate?: Date | null;
 };
 
 export type PackageScheduleDecision = {
@@ -54,7 +58,15 @@ function graceMinutes(override?: number): number {
 export function releaseConsumed(
   runState: PackageRunState,
   previousReleaseAt: Date,
+  packageId?: string,
 ): boolean {
+  if (runState.requiredSeriesLatestObsDate !== undefined) {
+    return hasEmploymentReleaseObservation(
+      packageId,
+      previousReleaseAt,
+      runState.requiredSeriesLatestObsDate,
+    ) && (runState.lastSuccessAt?.getTime() ?? 0) >= previousReleaseAt.getTime();
+  }
   const verified = runState.sourceVerifiedAt;
   if (verified) return verified.getTime() >= previousReleaseAt.getTime();
   // 包内没有任何成员写过 sourceSync（例如刚接入的源）时退化为「跑过就算数」，
@@ -79,6 +91,7 @@ export function releaseConsumed(
  * 把包钉死在上一期。
  */
 export function resolvePackageNextRunAt(params: {
+  packageId?: string;
   computedNextRunAt: Date | null;
   currentNextRunAt: Date | null;
   previousReleaseAt: Date | null;
@@ -97,7 +110,7 @@ export function resolvePackageNextRunAt(params: {
   const nowMs = now.getTime();
 
   if (previousReleaseAt && previousReleaseAt.getTime() <= nowMs) {
-    if (releaseConsumed(runState, previousReleaseAt)) {
+    if (releaseConsumed(runState, previousReleaseAt, params.packageId)) {
       // 1c：上一期已确认消费，现有 nextRunAt 只是发布后的冗余探测点，
       // 放心跟随日历；否则会被下面的 hold_due_run 永久钉在上一期。
       return { nextRunAt: computedNextRunAt, reason: "calendar" };
