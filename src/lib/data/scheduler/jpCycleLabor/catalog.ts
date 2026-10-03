@@ -2,7 +2,9 @@ export const JP_CYCLE_LABOR_SOURCE_ID = "jp-cycle-labor-official";
 export const JP_CYCLE_LABOR_PACKAGE_ID = "jp.cycle_labor.monthly";
 
 export const JP_ESRI_CI_URL = "https://www.esri.cao.go.jp/en/stat/di/di-e.html";
-export const JP_ESRI_CI_FILE_URL = "https://www.esri.cao.go.jp/jp/stat/di/0907ci.xlsx";
+// The monthly historical-workbook filename changes at every release.  The
+// client discovers the current file from this official release page.
+export const JP_ESRI_CI_FILE_URL = JP_ESRI_CI_URL;
 export const JP_LFS_SA_URL = "https://www.stat.go.jp/data/roudou/2.html";
 export const JP_LFS_SA_FILE_URL = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031831358&fileKind=0";
 export const JP_JOB_RATIO_URL = "https://www.mhlw.go.jp/toukei/list/114-1.html";

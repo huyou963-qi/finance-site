@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { JP_CYCLE_LABOR_SERIES } from "./catalog";
+import { discoverEsriCiWorkbookUrl } from "./client";
 import { parseJpCycleLaborWorkbook } from "./parser";
 
 const fixture = (name: string) => path.join(process.cwd(), "src/lib/data/scheduler/jpCycleLabor/fixtures", name);
@@ -16,6 +17,12 @@ test("parses the three official ESRI composite indexes", async () => {
     assert.equal(points[0]?.obsDate.toISOString().slice(0, 10), "1985-01-01");
     assert.equal(points.at(-1)?.obsDate.toISOString().slice(0, 10), "2026-07-01");
   }
+});
+
+test("discovers the rolling ESRI historical CI workbook from the official page", () => {
+  const page = '<a href="../../../jp/stat/di/0929ci.xlsx">Historical Data</a><a href="0929ci1.xlsx">Leading</a>';
+  assert.equal(discoverEsriCiWorkbookUrl(page), "https://www.esri.cao.go.jp/jp/stat/di/0929ci.xlsx");
+  assert.throws(() => discoverEsriCiWorkbookUrl('<a href="0929ci1.xlsx">Leading</a>'));
 });
 
 test("parses national seasonally adjusted unemployment and job-openings ratio", async () => {
