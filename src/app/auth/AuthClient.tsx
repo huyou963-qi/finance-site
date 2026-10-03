@@ -46,12 +46,6 @@ export function AuthClient() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    if (loggedIn && searchParams.get("weekly_oauth") === "1") {
-      window.location.href = "/api/oauth/weekly/resume";
-    }
-  }, [loggedIn, searchParams]);
-
   const submit = async () => {
     setLoading(true);
     setHint(null);
@@ -99,7 +93,7 @@ export function AuthClient() {
           : (payload.message ?? "注册请求已提交，请查收邮箱并点击确认链接"),
       );
       if (mode === "login") {
-        window.location.href = searchParams.get("weekly_oauth") === "1" ? "/api/oauth/weekly/resume" : "/";
+        window.location.href = "/";
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "未知错误";

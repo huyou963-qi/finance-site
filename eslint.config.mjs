@@ -19,6 +19,7 @@ const eslintConfig = [
       "dist/**",
       "out/**",
       "coverage/**",
+      ".claude/worktrees/**",
     ],
   },
   ...compat.extends("next/core-web-vitals"),

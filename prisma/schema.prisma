@@ -45,6 +45,7 @@ model User {
   createdAt       DateTime
   lastLoginAt     DateTime? @map("last_login_at")
 
+  // Legacy cloud weekly-report OAuth tables are retained for migration compatibility.
   weeklyOAuthGrants   WeeklyOAuthGrant[]
   sessions            Session[]
   authEvents          AccountAuthEvent[]
@@ -1826,7 +1827,8 @@ model DeraInsiderOwner {
   @@schema("mds")
 }
 
-/// Pending admin approval, bound to the existing login session and browser nonce.
+/// Legacy cloud weekly-report OAuth schema; runtime endpoints were retired.
+/// Keep the models aligned with the already-applied migration until a separate cleanup migration.
 model WeeklyOAuthConsent {
   nonceHash   String   @id @db.VarChar(64)
   userId      String

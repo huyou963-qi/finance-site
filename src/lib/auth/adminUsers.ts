@@ -201,7 +201,6 @@ export async function updateAdminUser(
     if (isStaffRole(before.role) && !isStaffRole(after.role)) {
       await tx.adminMfaRecoveryCode.deleteMany({ where: { userId } });
       await tx.adminMfaChallenge.deleteMany({ where: { userId } });
-      await tx.weeklyOAuthGrant.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
     }
     await tx.adminUserAudit.create({ data: {
       actorId: actor.id, actorUsername: actor.username, targetUserId: userId,
@@ -245,9 +244,6 @@ export async function performAdminUserAction(
     }
     if (action === "suspend" || action === "close" || action === "revoke-sessions" || action === "reset-admin-mfa") {
       await tx.session.deleteMany({ where: { userId } });
-    }
-    if (action === "suspend" || action === "close" || action === "reset-admin-mfa") {
-      await tx.weeklyOAuthGrant.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
     }
     const after = await tx.user.findUniqueOrThrow({ where: { id: userId } });
     await tx.adminUserAudit.create({ data: {
