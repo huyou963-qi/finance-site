@@ -14,14 +14,20 @@ export async function loadPackageRunStates(
 ): Promise<Map<string, PackageRunState>> {
   const rows = await prisma.dataSubscription.findMany({
     where: { releasePackageId: { not: null }, enabled: true },
-    select: { releasePackageId: true, lastSuccessAt: true, releaseRule: true },
+    select: {
+      releasePackageId: true,
+      lastSuccessAt: true,
+      lastObsDate: true,
+      releaseRule: true,
+      instrument: { select: { code: true } },
+    },
   });
 
   const map = new Map<string, PackageRunState>();
   for (const row of rows) {
     const packageId = row.releasePackageId;
     if (!packageId) continue;
-    const state =
+    const state: PackageRunState =
       map.get(packageId) ?? { lastSuccessAt: null, sourceVerifiedAt: null };
 
     if (
@@ -29,6 +35,13 @@ export async function loadPackageRunStates(
       (!state.lastSuccessAt || row.lastSuccessAt > state.lastSuccessAt)
     ) {
       state.lastSuccessAt = row.lastSuccessAt;
+    }
+
+    if (
+      (packageId === "us.bls.employment_situation" && row.instrument.code === "sched_fred_PAYEMS") ||
+      (packageId === "us.adp.ner" && row.instrument.code === "sched_fred_ADPMNUSNERSA")
+    ) {
+      state.requiredSeriesLatestObsDate = row.lastObsDate;
     }
 
     const verifiedAt = sourceVerifiedAtFromRule(row.releaseRule);
