@@ -40,11 +40,13 @@ test("a reversed series uses its own inverse axis without changing source values
     { seriesVisualMap: { reversed: { inverse: true } } },
   );
 
-  const axes = option.yAxis as Array<{ inverse?: boolean }>;
+  const axes = option.yAxis as Array<{ inverse?: boolean; show?: boolean }>;
   const series = option.series as Array<{ yAxisIndex?: number; data?: unknown[] }>;
   assert.equal(axes.length, 2);
   assert.equal(axes[series[0]!.yAxisIndex ?? 0]?.inverse, false);
   assert.equal(axes[series[1]!.yAxisIndex ?? 0]?.inverse, true);
+  assert.equal(axes[series[0]!.yAxisIndex ?? 0]?.show, true);
+  assert.equal(axes[series[1]!.yAxisIndex ?? 0]?.show, false);
   assert.deepEqual(series[1]!.data, [10, 20]);
 });
 
@@ -66,7 +68,14 @@ test("a chart-level latest-value setting overrides every series in that slot", (
     },
   );
 
-  const series = option.series as Array<{ endLabel?: { show?: boolean } }>;
+  const series = option.series as Array<{
+    lineStyle?: { color?: string };
+    endLabel?: { show?: boolean; color?: string; borderColor?: string };
+  }>;
   assert.equal(series[0]!.endLabel?.show, true);
   assert.equal(series[1]!.endLabel?.show, true);
+  assert.equal(series[0]!.endLabel?.color, series[0]!.lineStyle?.color);
+  assert.equal(series[0]!.endLabel?.borderColor, series[0]!.lineStyle?.color);
+  assert.equal(series[1]!.endLabel?.color, series[1]!.lineStyle?.color);
+  assert.equal(series[1]!.endLabel?.borderColor, series[1]!.lineStyle?.color);
 });
