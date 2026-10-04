@@ -113,6 +113,7 @@ import {
   BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+  BUILTIN_US_OIL_DIESEL_TEMPLATE,
   BUILTIN_US_OVERVIEW_TEMPLATE,
   HARDCODED_BUILTIN_TEMPLATE_IDS,
   resolveBuiltinTemplate,
@@ -139,6 +140,7 @@ import { CONSUMER_BALANCE_VIRTUAL_KEY_LABELS } from "@/lib/data/consumerBalanceA
 import { EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS } from "@/lib/data/externalDollarAnalysisLayout";
 import { US_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS } from "@/lib/data/usBalanceOfPaymentsAnalysisLayout";
 import { INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS } from "@/lib/data/industryInventoryAnalysisLayout";
+import { OIL_DIESEL_VIRTUAL_KEY_LABELS } from "@/lib/data/oilDieselAnalysisLayout";
 import { CN_FISCAL_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFiscalAnalysisLayout";
 import { CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFinancialLiquidityAnalysisLayout";
 import { CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/cnEconomyOverviewAnalysisLayout";
@@ -175,6 +177,8 @@ import {
   decorateMacroSeriesDisplayName,
   effectiveMacroSeriesUnit,
 } from "@/lib/macroSeriesDisplayName";
+import { applyMacroDerivedValue } from "@/lib/macroDerivedCalc";
+import { trailingMean } from "@/lib/macroRolling";
 import { formatMacroDisplayNumber } from "@/lib/formatMacroValue";
 import {
   compareMacroPeriodLabels,
@@ -498,7 +502,7 @@ function deriveSeries(
   op: MacroDerivedCalcOp,
   name: string,
   key: string,
-  scale = 1,
+  options?: { leftScale?: number; rightScale?: number; scale?: number },
 ): SeriesWorking {
   const leftMap = seriesToAlignedValueMap(left.categories, left.data);
   const rightMap = seriesToAlignedValueMap(right.categories, right.data);
@@ -507,11 +511,7 @@ function deriveSeries(
     const a = leftMap.get(c) ?? null;
     const b = rightMap.get(c) ?? null;
     if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) return null;
-    if (op === "add") return (a + b) * scale;
-    if (op === "sub" || op === "spread") return (a - b) * scale;
-    if (op === "mul") return a * b * scale;
-    if ((op === "div" || op === "ratio") && b !== 0) return (a / b) * scale;
-    return null;
+    return applyMacroDerivedValue(a, b, op, options);
   });
   return { key, name, categories: cats, data: vals };
 }
@@ -1228,6 +1228,7 @@ export function MacroSection() {
       BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+      BUILTIN_US_OIL_DIESEL_TEMPLATE,
       BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
       BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
       BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
@@ -1277,6 +1278,7 @@ export function MacroSection() {
       BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+      BUILTIN_US_OIL_DIESEL_TEMPLATE,
       BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
       BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
       BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
@@ -1376,6 +1378,7 @@ export function MacroSection() {
       ...EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS,
       ...US_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS,
       ...INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS,
+      ...OIL_DIESEL_VIRTUAL_KEY_LABELS,
       ...CN_FISCAL_VIRTUAL_KEY_LABELS,
       ...CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS,
       ...CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS,
@@ -2239,11 +2242,16 @@ export function MacroSection() {
         const key = s.key?.trim();
         if (!key) return null;
         const cfg = resolveSeriesCalcConfig(key, seriesCalcConfigMap);
-        const scaled = s.data.map((v) => applyUnitAdjust(v, cfg.unit));
+        const scaled = s.data.map((v) => {
+          const adjusted = applyUnitAdjust(v, cfg.unit);
+          return adjusted == null ? null : adjusted * (cfg.scale ?? 1);
+        });
         // 先重采样再算 YoY/环比：unified 拉取会把日频（WTI）与月频（CPI）并到同一
         // 时间轴；若在日频轴上 idx-12 做同比，1986 年后 WTI 插入日点后会全部失效。
         let outCategories = rawPayload.categories;
-        let outValues = scaled;
+        let outValues = cfg.rollingWindow
+          ? trailingMean(scaled, cfg.rollingWindow)
+          : scaled;
         if (cfg.frequency !== "keep") {
           const sampled = resampleSeries(
             outCategories,
@@ -2280,7 +2288,11 @@ export function MacroSection() {
       const right = byKey.get(calc.rightKey);
       if (!left || !right) continue;
       const key = `calc:${calc.id}`;
-      const derived = deriveSeries(left, right, calc.op, calc.name, key, calc.scale ?? 1);
+      const derived = deriveSeries(left, right, calc.op, calc.name, key, {
+        leftScale: calc.leftScale,
+        rightScale: calc.rightScale,
+        scale: calc.scale,
+      });
       if (calc.postOp) derived.data = applyMacroSeriesOp(derived.categories, derived.data, calc.postOp);
       // 允许后续 calc 引用前序 calc，支持 (A+B)−(C+D) 这类多步公式。
       byKey.set(key, derived);

@@ -443,6 +443,14 @@ export async function fetchSubscriptionIncremental(
 
   if (sub.source.adapterKind === SourceAdapterKind.BULK_FILE) {
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
+    if (scrapeObj?.provider === "eia_wpsr_xls") {
+      const { fetchEiaWpsrIncremental } = await import("./adapters/eiaWpsrAdapter");
+      return fetchEiaWpsrIncremental(
+        sub.instrument.metadata,
+        sub.instrument.code,
+        fetchStart,
+      );
+    }
     if (scrapeObj?.provider === "jp_meti_retail") {
       const { fetchJpMetiRetailIncremental } = await import(
         "./adapters/jpMetiRetailAdapter"

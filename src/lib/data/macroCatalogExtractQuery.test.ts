@@ -21,4 +21,12 @@ describe("buildExtractQueryFromKeys", () => {
   it("returns null when nothing is extractable", () => {
     assert.equal(buildExtractQueryFromKeys(["mds:usov_c22_nfp"], allowlist), null);
   });
+
+  it("keeps an mds rolling variant when its verified base key is allowed", () => {
+    const oilAllowlist = new Set(["mds:eia_wpsr_wdiupus2"]);
+    assert.equal(
+      buildExtractQueryFromKeys(["mds:eia_wpsr_wdiupus2::ma4"], oilAllowlist),
+      "mds:eia_wpsr_wdiupus2::ma4",
+    );
+  });
 });

@@ -111,6 +111,11 @@ import {
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATES,
 } from "@/lib/data/industryInventoryAnalysisLayout";
 import {
+  BUILTIN_US_OIL_DIESEL_TEMPLATE,
+  BUILTIN_US_OIL_DIESEL_TEMPLATE_IDS,
+  BUILTIN_US_OIL_DIESEL_TEMPLATES,
+} from "@/lib/data/oilDieselAnalysisLayout";
+import {
   BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
   BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
   BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
@@ -171,6 +176,8 @@ export {
   BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATES,
+  BUILTIN_US_OIL_DIESEL_TEMPLATE,
+  BUILTIN_US_OIL_DIESEL_TEMPLATES,
   BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
   BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
   BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
@@ -230,6 +237,12 @@ export type MacroSeriesCalcConfig = {
   frequency: MacroFrequencyAdjust;
   unit: MacroUnitAdjust;
   resampleMethod: MacroResampleMethod;
+  /** 模板显示层的最终数值缩放，不写回数据库。 */
+  scale?: number;
+  /** 缩放后展示单位；例如千桶乘 0.001 后标为百万桶。 */
+  unitLabel?: string;
+  /** 原始观测点上的向后移动平均；窗口不足时输出空值。 */
+  rollingWindow?: number;
 };
 
 export type MacroSeriesCalcConfigMap = Record<string, MacroSeriesCalcConfig>;
@@ -242,6 +255,9 @@ export type MacroDerivedCalc = {
   rightKey: string;
   op: MacroDerivedCalcOp;
   name: string;
+  /** 二元运算前分别缩放左右输入；例如成品油美元/加仑乘 42 后再减原油美元/桶。 */
+  leftScale?: number;
+  rightScale?: number;
   /** 对二元运算结果做最终缩放，例如比例转百分数时使用 100。 */
   scale?: number;
   /** 对二元结果按同一日历期执行同比；缺少上年同期时保留空值。 */
@@ -269,6 +285,11 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
   {
     id: "folder-builtin-us-industry-inventory",
     name: "美国制造业与库存周期",
+    scope: "builtin",
+  },
+  {
+    id: "folder-builtin-us-oil-diesel",
+    name: "全球原油与成品油",
     scope: "builtin",
   },
   { id: "folder-builtin-cn-fiscal", name: "中国财政分析", scope: "builtin" },
@@ -313,6 +334,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-us-balance-of-payments-overview": "folder-builtin-us-balance-of-payments",
   "builtin-us-industry-inventory-orders": "folder-builtin-us-industry-inventory",
   "builtin-us-industry-inventory-cycle": "folder-builtin-us-industry-inventory",
+  "builtin-us-oil-diesel-monitor": "folder-builtin-us-oil-diesel",
   "builtin-cn-fiscal-overview": "folder-builtin-cn-fiscal",
   "builtin-cn-fiscal-revenue": "folder-builtin-cn-fiscal",
   "builtin-cn-fiscal-expenditure": "folder-builtin-cn-fiscal",
@@ -736,6 +758,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATE_IDS,
   ...BUILTIN_US_BALANCE_OF_PAYMENTS_TEMPLATE_IDS,
   ...BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
+  ...BUILTIN_US_OIL_DIESEL_TEMPLATE_IDS,
   ...BUILTIN_CN_FISCAL_TEMPLATE_IDS,
   ...BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,
   ...BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATE_IDS,

@@ -84,6 +84,10 @@ const FRED_INFLATION_EXPECT_ENERGY = new Set([
   "T10YIE",
   "T5YIFR",
   "DCOILWTICO",
+  "DCOILBRENTEU",
+  "DDFUELNYH",
+  "DGASNYH",
+  "GASDESLSW",
   // EIA 能源价格（eiaEnergyPricesFredSeedCatalog.ts）：CPI 能源分项的高频代理
   "GASREGW",
   "DHHNGSP",
@@ -224,7 +228,14 @@ export function mdsCodeFromCatalogKey(key: string): string | null {
 }
 
 /** 货运：Cass 货运指数 + BTS 铁路货运（车皮 / 联运），见 cassFreightIndexFredSeedCatalog.ts */
-const FRED_LOGISTICS = new Set(["FRGSHPUSM649NCIS", "FRGEXPUSM649NCIS", "RAILFRTCARLOADSD11", "RAILFRTINTERMODALD11"]);
+const FRED_LOGISTICS = new Set([
+  "FRGSHPUSM649NCIS",
+  "FRGEXPUSM649NCIS",
+  "RAILFRTCARLOADSD11",
+  "RAILFRTINTERMODALD11",
+  "TSIFRGHT",
+  "TRUCKD11",
+]);
 
 function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   const id = fredId.toUpperCase();
@@ -305,6 +316,9 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   }
   // WTI 原油期货标准序列（oilPrices/catalog.ts），与 FRED WTI 现货同组
   if (code === "nymex_wti_futures") {
+    return p("通胀与价格", "通胀预期与能源");
+  }
+  if (code.startsWith("eia_wpsr_")) {
     return p("通胀与价格", "通胀预期与能源");
   }
   if (code.startsWith("goldov_")) {

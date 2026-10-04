@@ -36,6 +36,7 @@ import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPm
 import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
 import { ECB_CORE_SERIES, EUROSTAT_CORE_SERIES } from "./europeCore/catalog";
 import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
+import { EIA_WPSR_PACKAGE_ID, EIA_WPSR_SERIES } from "./eiaWpsr/catalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -910,10 +911,19 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg("us.eia.spot_prices", "EIA 现货价格", {
     labelEn: "Spot Prices",
     granularity: "DAILY",
-    intervalHours: 24,
+    intervalHours: 6,
     sortOrder: 202,
-    // 同一 FRED release 212「Spot Prices」：WTI + 航空煤油 + 取暖油（eiaEnergyPricesFredSeedCatalog.ts）
-    members: { fredSeriesIds: ["DCOILWTICO", "DJFUELUSGULF", "DHOILNYH"] },
+    // 同一 FRED release 212「Spot Prices」：原油 + 汽柴油 + 航空煤油（eiaEnergyPricesFredSeedCatalog.ts）
+    members: {
+      fredSeriesIds: [
+        "DCOILWTICO",
+        "DCOILBRENTEU",
+        "DGASNYH",
+        "DDFUELNYH",
+        "DJFUELUSGULF",
+        "DHOILNYH",
+      ],
+    },
   }),
   probePkg("us.eia.natural_gas_spot", "EIA 天然气现货（亨利港）", {
     labelEn: "Natural Gas Spot and Futures Prices (NYMEX)",
@@ -927,7 +937,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "WEEKLY",
     intervalHours: 12,
     sortOrder: 202,
-    members: { fredSeriesIds: ["GASREGW"] },
+    members: { fredSeriesIds: ["GASREGW", "GASDESLSW"] },
+  }),
+  probePkg(EIA_WPSR_PACKAGE_ID, "EIA 周度石油状况报告（WPSR）", {
+    labelEn: "EIA Weekly Petroleum Status Report",
+    agencyId: "us-eia",
+    granularity: "WEEKLY",
+    intervalHours: 12,
+    sortOrder: 202,
+    members: { instrumentCodes: EIA_WPSR_SERIES.map((row) => row.code) },
   }),
   probePkg("us.ice.bofa_indices", "ICE BofA 债券利差指数", {
     labelEn: "ICE BofA Indices",
@@ -1313,13 +1331,20 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 238,
     members: { instrumentCodes: ["zillow_us_zori_sa"] },
   }),
-  // BTS 运输服务指数里的铁路货运（汇总自 AAR 周报，月度、滞后约 2 个月）；替代已移除的 AAR 周度抓取
-  probePkg("us.bts.rail_freight", "美国铁路货运（BTS）", {
-    labelEn: "Rail Freight (BTS Transportation Services Index)",
+  // BTS 运输服务指数：货运 TSI、卡车及两条铁路货运序列（月度、滞后约 2 个月）
+  probePkg("us.bts.rail_freight", "美国运输服务指数（BTS）", {
+    labelEn: "BTS Transportation Services Index and Seasonally-Adjusted Transportation Data",
     granularity: "MONTHLY",
     intervalHours: 72,
     sortOrder: 237,
-    members: { fredSeriesIds: ["RAILFRTCARLOADSD11", "RAILFRTINTERMODALD11"] },
+    members: {
+      fredSeriesIds: [
+        "RAILFRTCARLOADSD11",
+        "RAILFRTINTERMODALD11",
+        "TSIFRGHT",
+        "TRUCKD11",
+      ],
+    },
   }),
   // BIS 无「某日宣布」式日历，按官方数据流（= 官方发布批次）分两组
   probePkg("intl.bis.total_credit", "BIS 总信贷（杠杆率 / %GDP）", {

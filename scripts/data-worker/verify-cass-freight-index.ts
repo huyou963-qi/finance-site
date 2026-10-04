@@ -10,6 +10,8 @@ const EXPECTED_START_MAX: Record<string, string> = {
   FRGEXPUSM649NCIS: "2016-01-01",
   RAILFRTCARLOADSD11: "2000-01-01",
   RAILFRTINTERMODALD11: "2000-01-01",
+  TSIFRGHT: "2000-01-01",
+  TRUCKD11: "2000-01-01",
 };
 
 const MIN_COUNT = 120;
@@ -20,6 +22,8 @@ const MAX_LAG_DAYS: Record<string, number> = {
   FRGEXPUSM649NCIS: 75,
   RAILFRTCARLOADSD11: 130,
   RAILFRTINTERMODALD11: 130,
+  TSIFRGHT: 130,
+  TRUCKD11: 130,
 };
 
 function daysAgo(days: number): Date {
@@ -31,7 +35,7 @@ function daysAgo(days: number): Date {
 async function main() {
   const useDb = process.argv.includes("--db");
   console.log(
-    `[verify-cass-freight-index] ${CASS_FREIGHT_INDEX_FRED_SERIES.length} 条；月频；Cass Freight Index Report (rid=280) + BTS 铁路货运`,
+    `[verify-cass-freight-index] ${CASS_FREIGHT_INDEX_FRED_SERIES.length} 条；月频；Cass Freight Index Report (rid=280) + BTS 运输服务指数 (rid=349)`,
   );
   if (!useDb) {
     console.log("[verify-cass-freight-index] 静态目录通过（加 --db 检查数据库）");

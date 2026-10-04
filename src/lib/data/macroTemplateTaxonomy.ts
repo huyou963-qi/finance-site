@@ -249,6 +249,7 @@ const FOLDER_ID_TO_DIMENSION: Record<string, MacroTemplateDimensionId> = {
   "folder-builtin-us-external-dollar": "external-dollar",
   "folder-builtin-us-balance-of-payments": "external-dollar",
   "folder-builtin-us-industry-inventory": "industry-inventory",
+  "folder-builtin-us-oil-diesel": "topic",
   "folder-builtin-cn-balance-of-payments": "external-dollar",
 };
 
@@ -295,6 +296,7 @@ const BUILTIN_PLACEMENT: Record<string, MacroTemplatePlacement> = {
     scope: "US",
     dimensionId: "industry-inventory",
   },
+  "builtin-us-oil-diesel-monitor": { scope: "global", dimensionId: "topic" },
 };
 
 function dimensionFromFolderId(folderId: string | null | undefined): MacroTemplateDimensionId | null {

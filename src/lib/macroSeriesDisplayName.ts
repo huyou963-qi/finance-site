@@ -26,6 +26,8 @@ export function buildMacroSeriesCalcSuffix(cfg: MacroSeriesCalcConfig): string {
   if (cfg.unit !== "keep") {
     parts.push(cfg.unit === "x0.01" ? "x0.01" : "x100");
   }
+  if (cfg.scale !== undefined && cfg.scale !== 1) parts.push(`x${cfg.scale}`);
+  if (cfg.rollingWindow && cfg.rollingWindow > 1) parts.push(`${cfg.rollingWindow}期均值`);
   return parts.join(" · ");
 }
 
@@ -35,6 +37,7 @@ export function effectiveMacroSeriesUnit(
   mdsUnitByKey?: ReadonlyMap<string, string>,
 ): string | null {
   if (cfg.op === "yoy" || cfg.op === "pctChange") return "%";
+  if (cfg.unitLabel?.trim()) return cfg.unitLabel.trim();
   const lookupKey = key.startsWith("fred:") ? fredCatalogBaseKey(key) : key;
   const raw = mdsUnitByKey?.get(key) ?? mdsUnitByKey?.get(lookupKey);
   if (!raw || raw.trim() === "" || raw === "-") return null;

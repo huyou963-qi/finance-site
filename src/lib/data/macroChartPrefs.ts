@@ -167,11 +167,20 @@ function sanitizeSeriesCalcConfigMap(input: unknown): MacroSeriesCalcConfigMap {
     const frequency = String(row.frequency ?? "").trim() as MacroFrequencyAdjust;
     const unit = String(row.unit ?? "").trim() as MacroUnitAdjust;
     const resampleMethod = String(row.resampleMethod ?? "").trim() as MacroResampleMethod;
+    const scale = Number(row.scale);
+    const unitLabel = typeof row.unitLabel === "string" ? row.unitLabel.trim() : "";
+    const rollingWindowRaw = Number(row.rollingWindow);
+    const rollingWindow = Number.isInteger(rollingWindowRaw)
+      ? Math.min(260, Math.max(1, rollingWindowRaw))
+      : null;
     const cfg: MacroSeriesCalcConfig = {
       op: SERIES_OPS.has(op) ? op : "none",
       frequency: FREQ_OPS.has(frequency) ? frequency : "keep",
       unit: UNIT_OPS.has(unit) ? unit : "keep",
       resampleMethod: RESAMPLE_METHODS.has(resampleMethod) ? resampleMethod : "end",
+      ...(Number.isFinite(scale) ? { scale } : {}),
+      ...(unitLabel ? { unitLabel } : {}),
+      ...(rollingWindow != null ? { rollingWindow } : {}),
     };
     out[k] = cfg;
   }
@@ -220,6 +229,8 @@ function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTempla
               const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
               const dname = String(x.name ?? "").trim();
               if (!did || !leftKey || !rightKey || !dname || !DERIVED_OPS.has(op)) return null;
+              const leftScale = Number(x.leftScale);
+              const rightScale = Number(x.rightScale);
               const scale = Number(x.scale);
               return {
                 id: did,
@@ -227,6 +238,8 @@ function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTempla
                 rightKey,
                 op,
                 name: dname,
+                ...(Number.isFinite(leftScale) ? { leftScale } : {}),
+                ...(Number.isFinite(rightScale) ? { rightScale } : {}),
                 ...(Number.isFinite(scale) ? { scale } : {}),
                 ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
                 ...(x.hidden === true ? { hidden: true } : {}),
@@ -311,6 +324,8 @@ function sanitize(input: unknown): MacroChartPrefs | null {
           const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
           const name = String(x.name ?? "").trim();
           if (!id || !leftKey || !rightKey || !name || !DERIVED_OPS.has(op)) return null;
+          const leftScale = Number(x.leftScale);
+          const rightScale = Number(x.rightScale);
           const scale = Number(x.scale);
           return {
             id,
@@ -318,6 +333,8 @@ function sanitize(input: unknown): MacroChartPrefs | null {
             rightKey,
             op,
             name,
+            ...(Number.isFinite(leftScale) ? { leftScale } : {}),
+            ...(Number.isFinite(rightScale) ? { rightScale } : {}),
             ...(Number.isFinite(scale) ? { scale } : {}),
             ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
             ...(x.hidden === true ? { hidden: true } : {}),
@@ -418,6 +435,8 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
             const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
             const dname = String(x.name ?? "").trim();
             if (!id || !leftKey || !rightKey || !dname || !DERIVED_OPS.has(op)) return null;
+            const leftScale = Number(x.leftScale);
+            const rightScale = Number(x.rightScale);
             const scale = Number(x.scale);
             return {
               id,
@@ -425,9 +444,11 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
               rightKey,
               op,
               name: dname,
-            ...(Number.isFinite(scale) ? { scale } : {}),
-            ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
-            ...(x.hidden === true ? { hidden: true } : {}),
+              ...(Number.isFinite(leftScale) ? { leftScale } : {}),
+              ...(Number.isFinite(rightScale) ? { rightScale } : {}),
+              ...(Number.isFinite(scale) ? { scale } : {}),
+              ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
+              ...(x.hidden === true ? { hidden: true } : {}),
             } as MacroDerivedCalc;
           })
           .filter((x): x is MacroDerivedCalc => Boolean(x))
