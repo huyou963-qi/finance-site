@@ -332,6 +332,18 @@ export function MacroChartIndicatorAssignment({
     });
   }
 
+  function slotShowEndLabels(slot: number): boolean {
+    const explicit = displayConfig.slotShowEndLabels?.[slot];
+    if (typeof explicit === "boolean") return explicit;
+    return bySlot[slot].some((key) => seriesVisualMap[key]?.showEndLabel === true);
+  }
+
+  function setSlotShowEndLabels(slot: number, show: boolean) {
+    onUpdateDisplayConfig({
+      slotShowEndLabels: { ...displayConfig.slotShowEndLabels, [slot]: show },
+    });
+  }
+
   function setSlotTitle(slot: number, text: string) {
     onUpdateDisplayConfig({
       slotTitles: { ...displayConfig.slotTitles, [slot]: text },
@@ -641,6 +653,20 @@ export function MacroChartIndicatorAssignment({
                 placeholder={`图 ${slot + 1}`}
                 className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-1.5 py-0.5 text-[11px] text-fs-secondary placeholder:text-fs-secondary disabled:opacity-40"
               />
+              {slotMode(slot) === "timeSeries" ? (
+                <label
+                  className="flex shrink-0 items-center gap-0.5 text-[10px] text-fs-muted"
+                  title="显示此图中所有指标的最新值标签"
+                >
+                  <input
+                    type="checkbox"
+                    checked={slotShowEndLabels(slot)}
+                    onChange={(e) => setSlotShowEndLabels(slot, e.target.checked)}
+                    className="accent-fs-accent"
+                  />
+                  末值
+                </label>
+              ) : null}
               <select
                 value={slotMode(slot)}
                 onChange={(e) => setSlotMode(slot, e.target.value as MacroChartSlotMode)}
@@ -752,7 +778,7 @@ export function MacroChartIndicatorAssignment({
                     <div
                       key={key}
                       {...indicatorDragProps(slot, key)}
-                      className={`flex items-center gap-1 rounded border bg-white/95 px-1 py-0.5 ${
+                      className={`flex flex-wrap items-center gap-1 rounded border bg-white/95 px-1 py-0.5 ${
                         dragOver?.kind === "indicator" &&
                         dragOver.slot === slot &&
                         dragOver.key === key
@@ -768,7 +794,7 @@ export function MacroChartIndicatorAssignment({
                         draggable
                         onDragStart={startDrag(key)}
                         onDragEnd={() => setDragOver(null)}
-                        className="min-w-0 flex-1 cursor-grab truncate text-left text-[11px] text-fs-secondary active:cursor-grabbing"
+                        className="min-w-0 basis-full flex-1 cursor-grab truncate text-left text-[11px] text-fs-secondary active:cursor-grabbing sm:basis-0"
                       >
                         {displayNameForKey(key)}
                       </button>
@@ -795,6 +821,19 @@ export function MacroChartIndicatorAssignment({
                           >
                             <option value="left">左</option>
                             <option value="right">右</option>
+                          </select>
+                          <select
+                            value={cfg.inverse ? "inverse" : "normal"}
+                            onChange={(e) =>
+                              onUpdateSeriesVisual(key, {
+                                inverse: e.target.value === "inverse",
+                              })
+                            }
+                            className={`${ctrlSelect} w-16`}
+                            title="指标显示方向"
+                          >
+                            <option value="normal">正向</option>
+                            <option value="inverse">反向</option>
                           </select>
                           <select
                             value={cfg.chartType ?? "line"}
