@@ -6,7 +6,9 @@ import type {
   MacroChartTemplate,
   MacroDerivedCalc,
   MacroFrequencyAdjust,
+  MacroMissingValueMethod,
   MacroResampleMethod,
+  MacroSeriesCalcStep,
   MacroSeriesCalcConfig,
   MacroSeriesCalcOp,
   MacroSeriesCalcConfigMap,
@@ -74,10 +76,11 @@ export type SystemMacroChartPrefsPayload = {
   hiddenBuiltinTemplateIds?: string[];
 };
 
-const SERIES_OPS = new Set<MacroSeriesCalcOp>(["none", "pctChange", "yoy", "diff", "cumsum"]);
+const SERIES_OPS = new Set<MacroSeriesCalcOp>(["none", "pctChange", "yoy", "diff", "cumsum", "logReturn"]);
 const FREQ_OPS = new Set<MacroFrequencyAdjust>(["keep", "month", "quarter", "year"]);
 const UNIT_OPS = new Set<MacroUnitAdjust>(["keep", "x0.01", "x100"]);
-const RESAMPLE_METHODS = new Set<MacroResampleMethod>(["avg", "start", "end"]);
+const RESAMPLE_METHODS = new Set<MacroResampleMethod>(["avg", "start", "end", "sum", "min", "max"]);
+const MISSING_METHODS = new Set<MacroMissingValueMethod>(["none", "forward", "backward", "linear"]);
 const DERIVED_OPS = new Set<MacroDerivedCalc["op"]>([
   "add",
   "sub",
@@ -173,6 +176,7 @@ function sanitizeSeriesCalcConfigMap(input: unknown): MacroSeriesCalcConfigMap {
     const rollingWindow = Number.isInteger(rollingWindowRaw)
       ? Math.min(260, Math.max(1, rollingWindowRaw))
       : null;
+    const steps = sanitizeSeriesCalcSteps(row.steps);
     const cfg: MacroSeriesCalcConfig = {
       op: SERIES_OPS.has(op) ? op : "none",
       frequency: FREQ_OPS.has(frequency) ? frequency : "keep",
@@ -181,10 +185,171 @@ function sanitizeSeriesCalcConfigMap(input: unknown): MacroSeriesCalcConfigMap {
       ...(Number.isFinite(scale) ? { scale } : {}),
       ...(unitLabel ? { unitLabel } : {}),
       ...(rollingWindow != null ? { rollingWindow } : {}),
+      ...(steps.length > 0 ? { steps } : {}),
     };
     out[k] = cfg;
   }
   return out;
+}
+
+function clampInteger(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+}
+
+function sanitizeSeriesCalcSteps(input: unknown): MacroSeriesCalcStep[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((value, index): MacroSeriesCalcStep | null => {
+      if (!value || typeof value !== "object") return null;
+      const row = value as Record<string, unknown>;
+      const id = String(row.id ?? `step-${index}`).trim().slice(0, 80) || `step-${index}`;
+      const type = String(row.type ?? "");
+      if (type === "resample") {
+        const frequency = String(row.frequency ?? "month") as MacroFrequencyAdjust;
+        const method = String(row.method ?? "end") as MacroResampleMethod;
+        if (frequency === "keep" || !FREQ_OPS.has(frequency)) return null;
+        return { id, type, frequency, method: RESAMPLE_METHODS.has(method) ? method : "end" };
+      }
+      if (type === "transform") {
+        const op = String(row.op ?? "diff") as MacroSeriesCalcOp;
+        if (op === "none" || !SERIES_OPS.has(op)) return null;
+        return { id, type, op };
+      }
+      if (type === "rollingMean") {
+        const window = clampInteger(row.window, 2, 520, 12);
+        return { id, type, window, minPeriods: clampInteger(row.minPeriods, 1, window, window) };
+      }
+      if (type === "volatility") {
+        const inputOp = String(row.input ?? "pctChange");
+        const input = inputOp === "diff" || inputOp === "logReturn" ? inputOp : "pctChange";
+        const window = clampInteger(row.window, 2, 520, 12);
+        const periodsPerYear = Number(row.periodsPerYear);
+        return {
+          id,
+          type,
+          input,
+          window,
+          minPeriods: clampInteger(row.minPeriods, 2, window, Math.max(2, Math.ceil(window * 0.8))),
+          sample: row.sample !== false,
+          annualize: row.annualize !== false,
+          periodsPerYear: Number.isFinite(periodsPerYear)
+            ? Math.min(366, Math.max(1, periodsPerYear))
+            : 12,
+        };
+      }
+      if (type === "fill") {
+        const method = String(row.method ?? "forward") as MacroMissingValueMethod;
+        if (method === "none" || !MISSING_METHODS.has(method)) return null;
+        return { id, type, method, maxGap: clampInteger(row.maxGap, 1, 120, 3) };
+      }
+      if (type === "scale") {
+        const factor = Number(row.factor);
+        if (!Number.isFinite(factor)) return null;
+        const unitLabel = typeof row.unitLabel === "string" ? row.unitLabel.trim().slice(0, 40) : "";
+        return { id, type, factor, ...(unitLabel ? { unitLabel } : {}) };
+      }
+      return null;
+    })
+    .filter((step): step is MacroSeriesCalcStep => Boolean(step))
+    .slice(0, 12);
+}
+
+function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((row): MacroDerivedCalc | null => {
+      if (!row || typeof row !== "object") return null;
+      const x = row as Record<string, unknown>;
+      const id = String(x.id ?? "").trim();
+      const leftKey = String(x.leftKey ?? "").trim();
+      const rightKey = String(x.rightKey ?? "").trim();
+      const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
+      const name = String(x.name ?? "").trim().slice(0, 160);
+      if (!id || !leftKey || !rightKey || !name || !DERIVED_OPS.has(op)) return null;
+      const leftScale = Number(x.leftScale);
+      const rightScale = Number(x.rightScale);
+      const scale = Number(x.scale);
+      let advanced: MacroDerivedCalc["advanced"];
+      if (x.advanced && typeof x.advanced === "object") {
+        const raw = x.advanced as Record<string, unknown>;
+        const kind = raw.kind === "correlation" ? "correlation" : "formula";
+        const alignmentRaw = raw.alignment && typeof raw.alignment === "object"
+          ? (raw.alignment as Record<string, unknown>)
+          : {};
+        const frequency = String(alignmentRaw.frequency ?? "keep") as MacroFrequencyAdjust;
+        const join = alignmentRaw.join === "union" || alignmentRaw.join === "left" ? alignmentRaw.join : "inner";
+        const inputs = Array.isArray(raw.inputs)
+          ? raw.inputs
+              .map((item, index) => {
+                if (!item || typeof item !== "object") return null;
+                const inputRow = item as Record<string, unknown>;
+                const key = String(inputRow.key ?? "").trim();
+                const alias = String(inputRow.alias ?? String.fromCharCode(65 + index)).trim().toUpperCase();
+                const resampleMethod = String(inputRow.resampleMethod ?? "end") as MacroResampleMethod;
+                const fillMethod = String(inputRow.fillMethod ?? "none") as MacroMissingValueMethod;
+                if (!key || !/^[A-Z][A-Z0-9_]{0,15}$/.test(alias)) return null;
+                return {
+                  key,
+                  alias,
+                  resampleMethod: RESAMPLE_METHODS.has(resampleMethod) ? resampleMethod : "end",
+                  fillMethod: MISSING_METHODS.has(fillMethod) ? fillMethod : "none",
+                  maxGap: clampInteger(inputRow.maxGap, 1, 120, 3),
+                };
+              })
+              .filter((item): item is NonNullable<typeof item> => Boolean(item))
+              .slice(0, 8)
+          : [];
+        if (inputs.length >= 2) {
+          const formula = typeof raw.formula === "string" ? raw.formula.trim().slice(0, 500) : undefined;
+          const correlationRaw = raw.correlation && typeof raw.correlation === "object"
+            ? (raw.correlation as Record<string, unknown>)
+            : {};
+          const window = clampInteger(correlationRaw.window, 2, 520, 24);
+          advanced = {
+            version: 2,
+            kind,
+            inputs,
+            alignment: {
+              frequency: FREQ_OPS.has(frequency) ? frequency : "keep",
+              join,
+            },
+            ...(formula ? { formula } : {}),
+            ...(kind === "correlation"
+              ? {
+                  correlation: {
+                    method: correlationRaw.method === "spearman" ? "spearman" : "pearson",
+                    input:
+                      correlationRaw.input === "diff" ||
+                      correlationRaw.input === "pctChange" ||
+                      correlationRaw.input === "logReturn"
+                        ? correlationRaw.input
+                        : "level",
+                    window,
+                    minPeriods: clampInteger(correlationRaw.minPeriods, 2, window, Math.max(2, Math.ceil(window * 0.8))),
+                    lag: clampInteger(correlationRaw.lag, -120, 120, 0),
+                  },
+                }
+              : {}),
+          };
+        }
+      }
+      return {
+        id,
+        leftKey,
+        rightKey,
+        op,
+        name,
+        ...(Number.isFinite(leftScale) ? { leftScale } : {}),
+        ...(Number.isFinite(rightScale) ? { rightScale } : {}),
+        ...(Number.isFinite(scale) ? { scale } : {}),
+        ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
+        ...(x.hidden === true ? { hidden: true } : {}),
+        ...(advanced ? { advanced } : {}),
+      };
+    })
+    .filter((value): value is MacroDerivedCalc => Boolean(value))
+    .slice(0, 60);
 }
 
 function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTemplate[] {
@@ -218,36 +383,7 @@ function sanitizeMacroChartTemplates(input: unknown, max = 30): MacroChartTempla
           : {}),
       };
       const seriesCalcConfigMap = sanitizeSeriesCalcConfigMap(t.seriesCalcConfigMap);
-      const derivedCalcs = Array.isArray(t.derivedCalcs)
-        ? t.derivedCalcs
-            .map((row) => {
-              if (!row || typeof row !== "object") return null;
-              const x = row as Record<string, unknown>;
-              const did = String(x.id ?? "").trim();
-              const leftKey = String(x.leftKey ?? "").trim();
-              const rightKey = String(x.rightKey ?? "").trim();
-              const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
-              const dname = String(x.name ?? "").trim();
-              if (!did || !leftKey || !rightKey || !dname || !DERIVED_OPS.has(op)) return null;
-              const leftScale = Number(x.leftScale);
-              const rightScale = Number(x.rightScale);
-              const scale = Number(x.scale);
-              return {
-                id: did,
-                leftKey,
-                rightKey,
-                op,
-                name: dname,
-                ...(Number.isFinite(leftScale) ? { leftScale } : {}),
-                ...(Number.isFinite(rightScale) ? { rightScale } : {}),
-                ...(Number.isFinite(scale) ? { scale } : {}),
-                ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
-                ...(x.hidden === true ? { hidden: true } : {}),
-              } as MacroDerivedCalc;
-            })
-            .filter((x): x is MacroDerivedCalc => Boolean(x))
-            .slice(0, 60)
-        : [];
+      const derivedCalcs = sanitizeDerivedCalcs(t.derivedCalcs);
       const createdAtIso = String(t.createdAtIso ?? "").trim() || new Date().toISOString();
       const description =
         typeof t.description === "string" && t.description.trim()
@@ -313,36 +449,7 @@ function sanitize(input: unknown): MacroChartPrefs | null {
       : {}),
   };
   const seriesCalcConfigMap = sanitizeSeriesCalcConfigMap(o.seriesCalcConfigMap);
-  const derivedCalcs = Array.isArray(o.derivedCalcs)
-    ? o.derivedCalcs
-        .map((row) => {
-          if (!row || typeof row !== "object") return null;
-          const x = row as Record<string, unknown>;
-          const id = String(x.id ?? "").trim();
-          const leftKey = String(x.leftKey ?? "").trim();
-          const rightKey = String(x.rightKey ?? "").trim();
-          const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
-          const name = String(x.name ?? "").trim();
-          if (!id || !leftKey || !rightKey || !name || !DERIVED_OPS.has(op)) return null;
-          const leftScale = Number(x.leftScale);
-          const rightScale = Number(x.rightScale);
-          const scale = Number(x.scale);
-          return {
-            id,
-            leftKey,
-            rightKey,
-            op,
-            name,
-            ...(Number.isFinite(leftScale) ? { leftScale } : {}),
-            ...(Number.isFinite(rightScale) ? { rightScale } : {}),
-            ...(Number.isFinite(scale) ? { scale } : {}),
-            ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
-            ...(x.hidden === true ? { hidden: true } : {}),
-          } as MacroDerivedCalc;
-        })
-        .filter((x): x is MacroDerivedCalc => Boolean(x))
-        .slice(0, 60)
-    : [];
+  const derivedCalcs = sanitizeDerivedCalcs(o.derivedCalcs);
   const templates = sanitizeMacroChartTemplates(o.templates);
   const activeTemplateId =
     typeof o.activeTemplateId === "string" && o.activeTemplateId.trim()
@@ -424,36 +531,7 @@ function sanitizeBuiltinTemplateOverride(input: unknown): BuiltinTemplateOverrid
     seriesVisualMap,
     displayConfig,
     seriesCalcConfigMap: sanitizeSeriesCalcConfigMap(o.seriesCalcConfigMap),
-    derivedCalcs: Array.isArray(o.derivedCalcs)
-      ? o.derivedCalcs
-          .map((row) => {
-            if (!row || typeof row !== "object") return null;
-            const x = row as Record<string, unknown>;
-            const id = String(x.id ?? "").trim();
-            const leftKey = String(x.leftKey ?? "").trim();
-            const rightKey = String(x.rightKey ?? "").trim();
-            const op = String(x.op ?? "").trim() as MacroDerivedCalc["op"];
-            const dname = String(x.name ?? "").trim();
-            if (!id || !leftKey || !rightKey || !dname || !DERIVED_OPS.has(op)) return null;
-            const leftScale = Number(x.leftScale);
-            const rightScale = Number(x.rightScale);
-            const scale = Number(x.scale);
-            return {
-              id,
-              leftKey,
-              rightKey,
-              op,
-              name: dname,
-              ...(Number.isFinite(leftScale) ? { leftScale } : {}),
-              ...(Number.isFinite(rightScale) ? { rightScale } : {}),
-              ...(Number.isFinite(scale) ? { scale } : {}),
-              ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
-              ...(x.hidden === true ? { hidden: true } : {}),
-            } as MacroDerivedCalc;
-          })
-          .filter((x): x is MacroDerivedCalc => Boolean(x))
-          .slice(0, 60)
-      : undefined,
+    derivedCalcs: o.derivedCalcs === undefined ? undefined : sanitizeDerivedCalcs(o.derivedCalcs),
     updatedAtIso,
   };
 }

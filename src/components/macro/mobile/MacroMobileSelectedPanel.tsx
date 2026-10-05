@@ -103,7 +103,7 @@ export function MacroMobileSelectedPanel({
           className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text active:bg-fs-elevated disabled:opacity-40"
         >
           <IconSigma size={16} />
-          运算
+          指标运算
         </button>
         <button
           type="button"
