@@ -253,6 +253,13 @@ export type MacroSeriesCalcStep =
     }
   | {
       id: string;
+      type: "zScore";
+      window: number;
+      minPeriods: number;
+      sample: boolean;
+    }
+  | {
+      id: string;
       type: "volatility";
       input: "diff" | "pctChange" | "logReturn";
       window: number;
@@ -312,11 +319,14 @@ export type MacroAdvancedDerivedConfig = {
   /** 安全公式 DSL，仅允许指标别名、数字、白名单函数与算术运算。 */
   formula?: string;
   correlation?: {
+    /** 旧配置无 metric 时按 correlation 处理。 */
+    metric?: "correlation" | "covariance" | "beta";
     method: "pearson" | "spearman";
     input: "level" | "diff" | "pctChange" | "logReturn";
     window: number;
     minPeriods: number;
     lag: number;
+    sample?: boolean;
   };
 };
 
@@ -335,6 +345,10 @@ export type MacroDerivedCalc = {
   postOp?: "yoy";
   /** 仅作为后续派生的中间节点，不进入图表与已选指标列表。 */
   hidden?: boolean;
+  /** 暂停计算但保留定义，依赖它的下游运算也不会产出。 */
+  disabled?: boolean;
+  /** 用户确认或引擎推断的输出单位，仅用于展示与公式单位检查。 */
+  unitLabel?: string;
   /** v2 多指标公式/相关性定义；旧 left/right/op 字段保留作兼容与回退。 */
   advanced?: MacroAdvancedDerivedConfig;
 };

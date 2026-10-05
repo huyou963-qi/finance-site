@@ -220,6 +220,16 @@ function sanitizeSeriesCalcSteps(input: unknown): MacroSeriesCalcStep[] {
         const window = clampInteger(row.window, 2, 520, 12);
         return { id, type, window, minPeriods: clampInteger(row.minPeriods, 1, window, window) };
       }
+      if (type === "zScore") {
+        const window = clampInteger(row.window, 2, 520, 24);
+        return {
+          id,
+          type,
+          window,
+          minPeriods: clampInteger(row.minPeriods, 2, window, Math.max(2, Math.ceil(window * 0.8))),
+          sample: row.sample !== false,
+        };
+      }
       if (type === "volatility") {
         const inputOp = String(row.input ?? "pctChange");
         const input = inputOp === "diff" || inputOp === "logReturn" ? inputOp : "pctChange";
@@ -318,6 +328,10 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
             ...(kind === "correlation"
               ? {
                   correlation: {
+                    metric:
+                      correlationRaw.metric === "covariance" || correlationRaw.metric === "beta"
+                        ? correlationRaw.metric
+                        : "correlation",
                     method: correlationRaw.method === "spearman" ? "spearman" : "pearson",
                     input:
                       correlationRaw.input === "diff" ||
@@ -328,6 +342,7 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
                     window,
                     minPeriods: clampInteger(correlationRaw.minPeriods, 2, window, Math.max(2, Math.ceil(window * 0.8))),
                     lag: clampInteger(correlationRaw.lag, -120, 120, 0),
+                    sample: correlationRaw.sample !== false,
                   },
                 }
               : {}),
@@ -345,6 +360,10 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
         ...(Number.isFinite(scale) ? { scale } : {}),
         ...(x.postOp === "yoy" ? { postOp: "yoy" as const } : {}),
         ...(x.hidden === true ? { hidden: true } : {}),
+        ...(x.disabled === true ? { disabled: true } : {}),
+        ...(typeof x.unitLabel === "string" && x.unitLabel.trim()
+          ? { unitLabel: x.unitLabel.trim().slice(0, 40) }
+          : {}),
         ...(advanced ? { advanced } : {}),
       };
     })

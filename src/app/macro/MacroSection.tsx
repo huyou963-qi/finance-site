@@ -181,6 +181,7 @@ import { applyMacroDerivedValue } from "@/lib/macroDerivedCalc";
 import {
   applyMacroSeriesSteps,
   evaluateAdvancedMacroCalculation,
+  sortMacroDerivedCalculations,
   type MacroCalculationSeries,
 } from "@/lib/macroCalculationEngine";
 import { trailingMean } from "@/lib/macroRolling";
@@ -503,6 +504,7 @@ type SeriesWorking = {
   name: string;
   categories: string[];
   data: (number | null)[];
+  unit?: string | null;
 };
 
 function deriveSeries(
@@ -1313,7 +1315,7 @@ export function MacroSection() {
   useEffect(() => {
     if (!activeTemplate?.derivedCalcs?.length) return;
     const visibleKeys = activeTemplate.derivedCalcs
-      .filter((calc) => !calc.hidden)
+      .filter((calc) => !calc.hidden && !calc.disabled)
       .map((calc) => `calc:${calc.id}`);
     setSlotAssignment((prev) => {
       let changed = false;
@@ -1391,7 +1393,7 @@ export function MacroSection() {
       if (!m.has(k)) m.set(k, v);
     }
     for (const d of derivedCalcs) {
-      if (!d.hidden) m.set(`calc:${d.id}`, d.name);
+      if (!d.hidden && !d.disabled) m.set(`calc:${d.id}`, d.name);
     }
     return m;
   }, [catalogLabelByKey, derivedCalcs]);
@@ -1426,7 +1428,7 @@ export function MacroSection() {
           templateKeys,
           resolvedTpl.selectedListItems,
           (resolvedTpl.derivedCalcs ?? [])
-            .filter((calc) => !calc.hidden)
+            .filter((calc) => !calc.hidden && !calc.disabled)
             .map((calc) => `calc:${calc.id}`),
         ),
       );
@@ -2186,6 +2188,29 @@ export function MacroSection() {
     return m;
   }, [mdsAttrsByKey]);
 
+  const calculationKeyOptions = useMemo(
+    () => [
+      ...selectedKeyOptions.map((option) => ({
+        ...option,
+        unit: effectiveMacroSeriesUnit(
+          option.key,
+          resolveSeriesCalcConfig(option.key, seriesCalcConfigMap),
+          mdsUnitByKey,
+        ),
+        derived: false,
+      })),
+      ...derivedCalcs
+        .filter((calc) => !calc.disabled && !calc.hidden)
+        .map((calc) => ({
+          key: `calc:${calc.id}`,
+          label: calc.name,
+          unit: calc.unitLabel ?? null,
+          derived: true,
+        })),
+    ],
+    [derivedCalcs, mdsUnitByKey, selectedKeyOptions, seriesCalcConfigMap],
+  );
+
   const displayPayload = useMemo<MacroPayload | null>(() => {
     if (!rawPayload) return null;
 
@@ -2251,6 +2276,7 @@ export function MacroSection() {
           name: decorateMacroSeriesDisplayName(baseName, { unit, axis }),
           categories: outCategories,
           data: transformed,
+          unit,
         } as SeriesWorking;
       })
       .filter((x): x is SeriesWorking => Boolean(x));
@@ -2261,7 +2287,8 @@ export function MacroSection() {
 
     const byKey = new Map(work.map((x) => [x.key, x]));
     const derivedSeries: SeriesWorking[] = [];
-    for (const calc of derivedCalcs) {
+    const calculationGraph = sortMacroDerivedCalculations(derivedCalcs);
+    for (const calc of calculationGraph.ordered) {
       const key = `calc:${calc.id}`;
       let derived: SeriesWorking | null = null;
       if (calc.advanced) {
@@ -2270,7 +2297,7 @@ export function MacroSection() {
           byKey as Map<string, MacroCalculationSeries>,
         );
         if (!result.diagnostics.error) {
-          derived = { key, name: calc.name, categories: result.categories, data: result.data };
+          derived = { key, name: calc.name, categories: result.categories, data: result.data, unit: calc.unitLabel ?? result.diagnostics.outputUnit ?? null };
         }
       } else {
         const left = byKey.get(calc.leftKey);
@@ -2284,12 +2311,14 @@ export function MacroSection() {
         if (calc.postOp) derived.data = applyMacroSeriesOp(derived.categories, derived.data, calc.postOp);
       }
       if (!derived) continue;
+      if (calc.unitLabel) derived.unit = calc.unitLabel;
       // 允许后续 calc 引用前序 calc，支持 (A+B)−(C+D) 这类多步公式。
       byKey.set(key, derived);
       derived.name = decorateMacroSeriesDisplayName(calc.name, {
+        unit: derived.unit,
         axis: effectiveSeriesVisualMap[key]?.axis,
       });
-      if (!calc.hidden) derivedSeries.push(derived);
+      if (!calc.hidden && !calc.disabled) derivedSeries.push(derived);
     }
 
     // “提取数据”必须保留所有已选指标；未分配到图表（null）只影响图表分组，
@@ -2427,7 +2456,7 @@ export function MacroSection() {
   const chartPropertyKeys = useMemo(() => {
     const out = new Set<string>(selectedKeys);
     for (const calc of derivedCalcs) {
-      if (!calc.hidden) out.add(`calc:${calc.id}`);
+      if (!calc.hidden && !calc.disabled) out.add(`calc:${calc.id}`);
     }
     return out;
   }, [derivedCalcs, selectedKeys]);
@@ -2659,6 +2688,16 @@ export function MacroSection() {
     setDerivedCalcs((prev) => [calc, ...prev].slice(0, 60));
   }
 
+  function updateWorkbenchDerivedCalc(calc: MacroDerivedCalc) {
+    setDerivedCalcs((prev) => prev.map((item) => (item.id === calc.id ? calc : item)));
+  }
+
+  function toggleWorkbenchDerivedCalc(id: string) {
+    setDerivedCalcs((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, disabled: !item.disabled } : item)),
+    );
+  }
+
   function removeDerivedCalc(id: string) {
     setDerivedCalcs((prev) => prev.filter((x) => x.id !== id));
     const key = `calc:${id}`;
@@ -2839,7 +2878,7 @@ export function MacroSection() {
   }, [displayPayload]);
 
   const visibleDerivedKeys = useMemo(
-    () => derivedCalcs.filter((calc) => !calc.hidden).map((calc) => `calc:${calc.id}`),
+    () => derivedCalcs.filter((calc) => !calc.hidden && !calc.disabled).map((calc) => `calc:${calc.id}`),
     [derivedCalcs],
   );
 
@@ -2889,7 +2928,7 @@ export function MacroSection() {
       });
     }
     for (const calc of derivedCalcs) {
-      if (calc.hidden) continue;
+      if (calc.hidden || calc.disabled) continue;
       const key = `calc:${calc.id}`;
       const extracted = extractedMetaByKey.get(key);
       m.set(key, {
@@ -2897,7 +2936,7 @@ export function MacroSection() {
         label: calc.name,
         frequency: extracted?.frequency,
         range: extracted?.range,
-        unit: undefined,
+        unit: calc.unitLabel,
         country: undefined,
         updatedAt: undefined,
         source: undefined,
@@ -3975,14 +4014,17 @@ export function MacroSection() {
         <MacroCalculationWorkbench
           open={mobileCalcOpen}
           onClose={() => setMobileCalcOpen(false)}
-          options={selectedKeyOptions}
+          options={calculationKeyOptions}
           configMap={seriesCalcConfigMap}
           rawPayload={rawPayload}
           displayPayload={displayPayload}
-          derivedCount={visibleDerivedKeys.length}
+          derivedCalcs={derivedCalcs}
           onApplySingle={applyWorkbenchConfigToKey}
           onResetSingle={resetCalcConfigForKey}
           onAddDerived={addWorkbenchDerivedCalc}
+          onUpdateDerived={updateWorkbenchDerivedCalc}
+          onDeleteDerived={removeDerivedCalc}
+          onToggleDerived={toggleWorkbenchDerivedCalc}
         />
         <MobileSheet
           open={mobileChartSettingsOpen}
@@ -4597,14 +4639,17 @@ export function MacroSection() {
       <MacroCalculationWorkbench
         open={mobileCalcOpen}
         onClose={() => setMobileCalcOpen(false)}
-        options={selectedKeyOptions}
+        options={calculationKeyOptions}
         configMap={seriesCalcConfigMap}
         rawPayload={rawPayload}
         displayPayload={displayPayload}
-        derivedCount={visibleDerivedKeys.length}
+        derivedCalcs={derivedCalcs}
         onApplySingle={applyWorkbenchConfigToKey}
         onResetSingle={resetCalcConfigForKey}
         onAddDerived={addWorkbenchDerivedCalc}
+        onUpdateDerived={updateWorkbenchDerivedCalc}
+        onDeleteDerived={removeDerivedCalc}
+        onToggleDerived={toggleWorkbenchDerivedCalc}
       />
       {templateNameDialog}
     </div>

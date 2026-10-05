@@ -1,5 +1,6 @@
 import type {
   MacroAdvancedDerivedConfig,
+  MacroDerivedCalc,
   MacroFrequencyAdjust,
   MacroMissingValueMethod,
   MacroResampleMethod,
@@ -18,6 +19,7 @@ export type MacroCalculationSeries = {
   name: string;
   categories: string[];
   data: (number | null)[];
+  unit?: string | null;
 };
 
 export type MacroCalculationDiagnostics = {
@@ -27,8 +29,27 @@ export type MacroCalculationDiagnostics = {
   validPoints: number;
   droppedPoints: number;
   warnings: string[];
+  outputUnit?: string;
   error?: string;
 };
+
+export type MacroFormulaFunction = {
+  name: string;
+  signature: string;
+  description: string;
+};
+
+export const MACRO_FORMULA_FUNCTIONS: readonly MacroFormulaFunction[] = [
+  { name: "ABS", signature: "ABS(value)", description: "绝对值" },
+  { name: "SQRT", signature: "SQRT(value)", description: "平方根，输入必须非负" },
+  { name: "LOG", signature: "LOG(value)", description: "自然对数，输入必须大于 0" },
+  { name: "EXP", signature: "EXP(value)", description: "自然指数" },
+  { name: "MIN", signature: "MIN(value1, value2, …)", description: "取最小值" },
+  { name: "MAX", signature: "MAX(value1, value2, …)", description: "取最大值" },
+  { name: "AVG", signature: "AVG(value1, value2, …)", description: "算术平均值" },
+  { name: "POW", signature: "POW(value, power)", description: "乘方" },
+  { name: "COALESCE", signature: "COALESCE(value1, value2, …)", description: "返回第一个有效值" },
+] as const;
 
 export type MacroCalculationResult = {
   categories: string[];
@@ -136,6 +157,26 @@ function rollingMean(values: (number | null)[], window: number, minPeriods: numb
   });
 }
 
+function rollingZScore(
+  values: (number | null)[],
+  window: number,
+  minPeriods: number,
+  sample: boolean,
+) {
+  return values.map((value, index) => {
+    if (!finite(value)) return null;
+    const observations = values
+      .slice(Math.max(0, index - window + 1), index + 1)
+      .filter(finite);
+    if (observations.length < minPeriods || observations.length < (sample ? 2 : 1)) return null;
+    const mean = observations.reduce((sum, item) => sum + item, 0) / observations.length;
+    const divisor = sample ? observations.length - 1 : observations.length;
+    const variance = observations.reduce((sum, item) => sum + (item - mean) ** 2, 0) / divisor;
+    const deviation = Math.sqrt(variance);
+    return deviation === 0 ? null : (value - mean) / deviation;
+  });
+}
+
 function rollingVolatility(
   categories: string[],
   values: (number | null)[],
@@ -169,6 +210,8 @@ export function applyMacroSeriesSteps(
       outData = applyMacroSeriesOp(outCategories, outData, step.op);
     } else if (step.type === "rollingMean") {
       outData = rollingMean(outData, step.window, step.minPeriods);
+    } else if (step.type === "zScore") {
+      outData = rollingZScore(outData, step.window, step.minPeriods, step.sample);
     } else if (step.type === "volatility") {
       outData = rollingVolatility(outCategories, outData, step);
     } else if (step.type === "fill") {
@@ -335,6 +378,7 @@ function evaluateExpr(expression: Expr, values: Record<string, number | null>): 
 
 export function validateMacroFormula(formula: string, aliases: readonly string[]): string | null {
   try {
+    if (formula.length > 500) throw new Error("公式不能超过 500 个字符");
     const expression = new FormulaParser(tokenizeFormula(formula)).parse();
     const allowed = new Set(aliases.map((alias) => alias.toUpperCase()));
     const visit = (node: Expr): void => {
@@ -353,6 +397,102 @@ export function validateMacroFormula(formula: string, aliases: readonly string[]
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : "公式无效";
+  }
+}
+
+function normalizeUnit(unit: string | null | undefined): string | null {
+  const value = unit?.trim();
+  if (!value || value === "-" || value === "—") return null;
+  if (/^(%|％|percent)$/i.test(value)) return "%";
+  if (/^(bp|bps|基点)$/i.test(value)) return "bp";
+  return value.replace(/\s+/g, " ").toLowerCase();
+}
+
+function displayUnit(unit: string | null | undefined): string | null {
+  const normalized = normalizeUnit(unit);
+  if (normalized === "%") return "%";
+  if (normalized === "bp") return "bp";
+  return unit?.trim() || null;
+}
+
+type FormulaUnitResult = {
+  outputUnit: string | null;
+  warnings: string[];
+  error?: string;
+};
+
+function analyzeFormulaUnitNode(
+  expression: Expr,
+  units: ReadonlyMap<string, string | null>,
+  warnings: string[],
+): string | null {
+  if (expression.type === "number") return null;
+  if (expression.type === "variable") return units.get(expression.name) ?? null;
+  if (expression.type === "unary") return analyzeFormulaUnitNode(expression.value, units, warnings);
+  if (expression.type === "binary") {
+    const left = analyzeFormulaUnitNode(expression.left, units, warnings);
+    const right = analyzeFormulaUnitNode(expression.right, units, warnings);
+    if (expression.op === "+" || expression.op === "-") {
+      if (left && right && normalizeUnit(left) !== normalizeUnit(right)) {
+        warnings.push(`公式中的${expression.op === "+" ? "相加" : "相减"}项单位不一致：${left} 与 ${right}`);
+        return null;
+      }
+      return left ?? right;
+    }
+    if (expression.op === "*") {
+      if (!left) return right;
+      if (!right) return left;
+      return `${left}·${right}`;
+    }
+    if (expression.op === "/") {
+      if (!right) return left;
+      if (left && normalizeUnit(left) === normalizeUnit(right)) return null;
+      return left ? `${left}/${right}` : `1/${right}`;
+    }
+    if (right) warnings.push(`幂指数带有单位 ${right}，请确认公式含义`);
+    return left;
+  }
+  const argUnits = expression.args.map((arg) => analyzeFormulaUnitNode(arg, units, warnings));
+  if (expression.name === "LOG" || expression.name === "LN" || expression.name === "EXP") {
+    if (argUnits[0]) warnings.push(`${expression.name} 的输入带有单位 ${argUnits[0]}，通常应先标准化`);
+    return null;
+  }
+  if (expression.name === "SQRT") return argUnits[0] ? `√${argUnits[0]}` : null;
+  if (expression.name === "POW") return argUnits[0] ?? null;
+  if (["MIN", "MAX", "AVG", "AVERAGE", "COALESCE"].includes(expression.name)) {
+    const known = argUnits.filter((unit): unit is string => Boolean(unit));
+    if (known.length > 1 && known.some((unit) => normalizeUnit(unit) !== normalizeUnit(known[0]))) {
+      warnings.push(`${expression.name} 的参数单位不一致：${[...new Set(known)].join("、")}`);
+      return null;
+    }
+    return known[0] ?? null;
+  }
+  return argUnits[0] ?? null;
+}
+
+export function inspectMacroFormula(
+  formula: string,
+  inputs: readonly { alias: string; unit?: string | null }[],
+): FormulaUnitResult {
+  const validation = validateMacroFormula(formula, inputs.map((input) => input.alias));
+  if (validation) return { outputUnit: null, warnings: [], error: validation };
+  try {
+    const expression = new FormulaParser(tokenizeFormula(formula)).parse();
+    const warnings: string[] = [];
+    const units = new Map(
+      inputs.map((input) => [input.alias.toUpperCase(), displayUnit(input.unit)] as const),
+    );
+    const inferredUnit = analyzeFormulaUnitNode(expression, units, warnings);
+    const uniqueWarnings = [...new Set(warnings)];
+    const allInputsHaveUnits = inputs.length > 0 && inputs.every((input) => Boolean(displayUnit(input.unit)));
+    const outputUnit = inferredUnit ?? (allInputsHaveUnits && uniqueWarnings.length === 0 ? "无量纲" : null);
+    return { outputUnit, warnings: uniqueWarnings };
+  } catch (error) {
+    return {
+      outputUnit: null,
+      warnings: [],
+      error: error instanceof Error ? error.message : "公式无效",
+    };
   }
 }
 
@@ -386,6 +526,26 @@ function correlation(left: number[], right: number[], method: "pearson" | "spear
   }
   const denominator = Math.sqrt(xVariance * yVariance);
   return denominator === 0 ? null : covariance / denominator;
+}
+
+function covariance(left: number[], right: number[], sample: boolean) {
+  if (left.length !== right.length || left.length < (sample ? 2 : 1)) return null;
+  const leftMean = left.reduce((sum, value) => sum + value, 0) / left.length;
+  const rightMean = right.reduce((sum, value) => sum + value, 0) / right.length;
+  const numerator = left.reduce(
+    (sum, value, index) => sum + (value - leftMean) * (right[index]! - rightMean),
+    0,
+  );
+  return numerator / (sample ? left.length - 1 : left.length);
+}
+
+function beta(left: number[], right: number[], sample: boolean) {
+  const cov = covariance(left, right, sample);
+  if (cov == null) return null;
+  const mean = right.reduce((sum, value) => sum + value, 0) / right.length;
+  const divisor = sample ? right.length - 1 : right.length;
+  const variance = right.reduce((sum, value) => sum + (value - mean) ** 2, 0) / divisor;
+  return variance === 0 ? null : cov / variance;
 }
 
 function alignedCalendar(
@@ -422,7 +582,7 @@ export function evaluateAdvancedMacroCalculation(
     );
     const map = new Map<string, number | null>();
     sampled.categories.forEach((category, index) => map.set(macroAlignPeriodKey(category), sampled.data[index] ?? null));
-    return { input, sampled, map };
+    return { input, sampled, map, unit: source.unit ?? null };
   });
   const emptyDiagnostics = (): MacroCalculationDiagnostics => ({
     inputPoints,
@@ -452,6 +612,7 @@ export function evaluateAdvancedMacroCalculation(
   }
   let data: (number | null)[] = [];
   let error: string | undefined;
+  let outputUnit: string | undefined;
   try {
     if (config.kind === "formula") {
       const formula = config.formula?.trim() || "";
@@ -459,6 +620,12 @@ export function evaluateAdvancedMacroCalculation(
       const validation = validateMacroFormula(formula, aliases);
       if (validation) throw new Error(validation);
       const expression = new FormulaParser(tokenizeFormula(formula)).parse();
+      const inspection = inspectMacroFormula(
+        formula,
+        prepared.map((item) => ({ alias: item.input.alias, unit: item.unit })),
+      );
+      warnings.push(...inspection.warnings);
+      outputUnit = inspection.outputUnit ?? undefined;
       data = categories.map((_, index) =>
         evaluateExpr(
           expression,
@@ -467,7 +634,8 @@ export function evaluateAdvancedMacroCalculation(
       );
     } else {
       const correlationConfig = config.correlation;
-      if (!correlationConfig || config.inputs.length < 2) throw new Error("相关性至少需要两个输入指标");
+      if (!correlationConfig || config.inputs.length < 2) throw new Error("滚动统计至少需要两个输入指标");
+      const metric = correlationConfig.metric ?? "correlation";
       const leftAlias = config.inputs[0]!.alias.toUpperCase();
       const rightAlias = config.inputs[1]!.alias.toUpperCase();
       let left = valuesByAlias[leftAlias] ?? [];
@@ -487,10 +655,17 @@ export function evaluateAdvancedMacroCalculation(
             y.push(right[i]!);
           }
         }
-        return x.length >= correlationConfig.minPeriods
-          ? correlation(x, y, correlationConfig.method)
-          : null;
+        if (x.length < correlationConfig.minPeriods) return null;
+        if (metric === "covariance") return covariance(x, y, correlationConfig.sample !== false);
+        if (metric === "beta") return beta(x, y, correlationConfig.sample !== false);
+        return correlation(x, y, correlationConfig.method);
       });
+      const leftUnit = prepared[0]?.unit ?? null;
+      const rightUnit = prepared[1]?.unit ?? null;
+      if (metric === "covariance" && leftUnit && rightUnit) outputUnit = `${leftUnit}·${rightUnit}`;
+      if (metric === "beta" && leftUnit && rightUnit && normalizeUnit(leftUnit) !== normalizeUnit(rightUnit)) {
+        outputUnit = `${leftUnit}/${rightUnit}`;
+      }
     }
   } catch (cause) {
     error = cause instanceof Error ? cause.message : "计算失败";
@@ -507,7 +682,56 @@ export function evaluateAdvancedMacroCalculation(
       validPoints,
       droppedPoints: categories.length - validPoints,
       warnings: [...new Set(warnings)],
+      ...(outputUnit ? { outputUnit } : {}),
       ...(error ? { error } : {}),
     },
+  };
+}
+
+export function macroDerivedDependencies(calc: MacroDerivedCalc): string[] {
+  const keys = calc.advanced?.inputs.map((input) => input.key) ?? [calc.leftKey, calc.rightKey];
+  return [...new Set(keys
+    .filter((key) => key.startsWith("calc:"))
+    .map((key) => key.slice("calc:".length))
+    .filter(Boolean))];
+}
+
+/**
+ * 按派生指标依赖关系排序；定义在数组中的位置不再决定执行结果。
+ * 循环节点单独返回，调用方应跳过它们并在编辑器中提示。
+ */
+export function sortMacroDerivedCalculations(calculations: readonly MacroDerivedCalc[]): {
+  ordered: MacroDerivedCalc[];
+  cyclicIds: string[];
+} {
+  const active = calculations.filter((calc) => !calc.disabled);
+  const byId = new Map(active.map((calc) => [calc.id, calc]));
+  const state = new Map<string, "visiting" | "done">();
+  const stack: string[] = [];
+  const cyclic = new Set<string>();
+  const ordered: MacroDerivedCalc[] = [];
+
+  const visit = (id: string) => {
+    if (state.get(id) === "done") return;
+    if (state.get(id) === "visiting") {
+      const cycleStart = stack.lastIndexOf(id);
+      stack.slice(Math.max(0, cycleStart)).forEach((item) => cyclic.add(item));
+      cyclic.add(id);
+      return;
+    }
+    const calc = byId.get(id);
+    if (!calc) return;
+    state.set(id, "visiting");
+    stack.push(id);
+    for (const dependency of macroDerivedDependencies(calc)) visit(dependency);
+    stack.pop();
+    state.set(id, "done");
+    ordered.push(calc);
+  };
+
+  active.forEach((calc) => visit(calc.id));
+  return {
+    ordered: ordered.filter((calc) => !cyclic.has(calc.id)),
+    cyclicIds: [...cyclic],
   };
 }

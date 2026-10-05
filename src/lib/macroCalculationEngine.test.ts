@@ -4,6 +4,8 @@ import {
   applyMacroSeriesSteps,
   evaluateAdvancedMacroCalculation,
   fillMacroSeries,
+  inspectMacroFormula,
+  sortMacroDerivedCalculations,
   validateMacroFormula,
   type MacroCalculationSeries,
 } from "./macroCalculationEngine";
@@ -86,4 +88,70 @@ test("rolling Pearson correlation returns a time series", () => {
   assert.deepEqual(result.data.slice(0, 2), [null, null]);
   assert.ok(Math.abs((result.data[2] ?? 0) - 1) < 1e-12);
   assert.ok(Math.abs((result.data[3] ?? 0) - 1) < 1e-12);
+});
+
+test("rolling z-score uses the configured sample convention", () => {
+  const result = applyMacroSeriesSteps(
+    ["2024-01-01", "2024-02-01", "2024-03-01"],
+    [1, 2, 3],
+    [{ id: "z", type: "zScore", window: 3, minPeriods: 3, sample: false }],
+  );
+  assert.deepEqual(result.data.slice(0, 2), [null, null]);
+  assert.ok(Math.abs((result.data[2] ?? 0) - Math.sqrt(1.5)) < 1e-12);
+});
+
+test("rolling covariance and beta share aligned paired samples", () => {
+  const categories = ["2024-01-01", "2024-02-01", "2024-03-01", "2024-04-01"];
+  const inputs = [
+    { key: "a", alias: "A", resampleMethod: "end" as const, fillMethod: "none" as const, maxGap: 1 },
+    { key: "b", alias: "B", resampleMethod: "end" as const, fillMethod: "none" as const, maxGap: 1 },
+  ];
+  const source = new Map([
+    ["a", { ...series("a", categories, [2, 4, 6, 8]), unit: "%" }],
+    ["b", { ...series("b", categories, [1, 2, 3, 4]), unit: "%" }],
+  ]);
+  const base = {
+    version: 2 as const,
+    kind: "correlation" as const,
+    inputs,
+    alignment: { frequency: "keep" as const, join: "inner" as const },
+  };
+  const covarianceResult = evaluateAdvancedMacroCalculation(
+    { ...base, correlation: { metric: "covariance", method: "pearson", input: "level", window: 4, minPeriods: 4, lag: 0, sample: true } },
+    source,
+  );
+  assert.ok(Math.abs((covarianceResult.data[3] ?? 0) - 10 / 3) < 1e-12);
+  const betaResult = evaluateAdvancedMacroCalculation(
+    { ...base, correlation: { metric: "beta", method: "pearson", input: "level", window: 4, minPeriods: 4, lag: 0, sample: true } },
+    source,
+  );
+  assert.ok(Math.abs((betaResult.data[3] ?? 0) - 2) < 1e-12);
+});
+
+test("formula inspection infers compatible units and warns on incompatible addition", () => {
+  const ratio = inspectMacroFormula("A / B * 100", [
+    { alias: "A", unit: "USD" },
+    { alias: "B", unit: "USD" },
+  ]);
+  assert.equal(ratio.outputUnit, "无量纲");
+  assert.deepEqual(ratio.warnings, []);
+  const invalid = inspectMacroFormula("A + B", [
+    { alias: "A", unit: "USD" },
+    { alias: "B", unit: "%" },
+  ]);
+  assert.ok(invalid.warnings.some((warning) => warning.includes("单位不一致")));
+});
+
+test("derived calculations are topologically ordered and cycles are reported", () => {
+  const base = { id: "base", leftKey: "a", rightKey: "b", op: "add" as const, name: "base" };
+  const dependent = { id: "dependent", leftKey: "calc:base", rightKey: "c", op: "sub" as const, name: "dependent" };
+  const sorted = sortMacroDerivedCalculations([dependent, base]);
+  assert.deepEqual(sorted.ordered.map((calc) => calc.id), ["base", "dependent"]);
+  assert.deepEqual(sorted.cyclicIds, []);
+  const cyclic = sortMacroDerivedCalculations([
+    { ...base, leftKey: "calc:dependent" },
+    dependent,
+  ]);
+  assert.deepEqual(new Set(cyclic.cyclicIds), new Set(["base", "dependent"]));
+  assert.deepEqual(cyclic.ordered, []);
 });

@@ -16,6 +16,7 @@ export function buildMacroSeriesCalcSuffix(cfg: MacroSeriesCalcConfig): string {
           return step.op === "pctChange" ? "变化%" : step.op === "logReturn" ? "对数变化%" : step.op === "yoy" ? "同比%" : step.op === "diff" ? "差分" : "累计";
         }
         if (step.type === "rollingMean") return `${step.window}期均值`;
+        if (step.type === "zScore") return `${step.window}期Z-Score`;
         if (step.type === "volatility") return `${step.window}期${step.annualize ? "年化" : ""}波动率`;
         if (step.type === "fill") return step.method === "forward" ? "前向填充" : step.method === "backward" ? "后向填充" : "线性插值";
         return `x${step.factor}`;
@@ -59,6 +60,7 @@ export function effectiveMacroSeriesUnit(
   if (cfg.steps?.length) {
     const lastUnitStep = [...cfg.steps].reverse().find((step) => step.type === "scale" && step.unitLabel?.trim());
     if (lastUnitStep?.type === "scale" && lastUnitStep.unitLabel?.trim()) return lastUnitStep.unitLabel.trim();
+    if (cfg.steps.some((step) => step.type === "zScore")) return "标准差";
     if (cfg.steps.some((step) => step.type === "volatility" || (step.type === "transform" && (step.op === "yoy" || step.op === "pctChange" || step.op === "logReturn")))) return "%";
   }
   if (cfg.op === "yoy" || cfg.op === "pctChange" || cfg.op === "logReturn") return "%";
