@@ -40,6 +40,12 @@ export type MacroFormulaFunction = {
 };
 
 export const MACRO_FORMULA_FUNCTIONS: readonly MacroFormulaFunction[] = [
+  { name: "IF", signature: "IF(condition, valueIfTrue, valueIfFalse)", description: "条件判断；比较成立返回第二个参数" },
+  { name: "IFERROR", signature: "IFERROR(value, fallback)", description: "值为空或无效时使用备用值" },
+  { name: "NA", signature: "NA()", description: "返回空值" },
+  { name: "AND", signature: "AND(condition1, condition2, …)", description: "所有条件均成立时返回 1" },
+  { name: "OR", signature: "OR(condition1, condition2, …)", description: "任一条件成立时返回 1" },
+  { name: "NOT", signature: "NOT(condition)", description: "条件取反" },
   { name: "ABS", signature: "ABS(value)", description: "绝对值" },
   { name: "SQRT", signature: "SQRT(value)", description: "平方根，输入必须非负" },
   { name: "LOG", signature: "LOG(value)", description: "自然对数，输入必须大于 0" },
@@ -48,6 +54,8 @@ export const MACRO_FORMULA_FUNCTIONS: readonly MacroFormulaFunction[] = [
   { name: "MAX", signature: "MAX(value1, value2, …)", description: "取最大值" },
   { name: "AVG", signature: "AVG(value1, value2, …)", description: "算术平均值" },
   { name: "POW", signature: "POW(value, power)", description: "乘方" },
+  { name: "ROUND", signature: "ROUND(value, digits)", description: "按指定小数位四舍五入" },
+  { name: "CLAMP", signature: "CLAMP(value, lower, upper)", description: "把数值限制在上下界之间" },
   { name: "COALESCE", signature: "COALESCE(value1, value2, …)", description: "返回第一个有效值" },
 ] as const;
 
@@ -157,6 +165,47 @@ function rollingMean(values: (number | null)[], window: number, minPeriods: numb
   });
 }
 
+function quantile(values: number[], probability: number) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const position = Math.min(1, Math.max(0, probability)) * (sorted.length - 1);
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return sorted[lower] ?? null;
+  const fraction = position - lower;
+  return sorted[lower]! + (sorted[upper]! - sorted[lower]!) * fraction;
+}
+
+function rollingQuantile(
+  values: (number | null)[],
+  window: number,
+  minPeriods: number,
+  probability: number,
+) {
+  return values.map((_, index) => {
+    const observations = values
+      .slice(Math.max(0, index - window + 1), index + 1)
+      .filter(finite);
+    return observations.length < minPeriods ? null : quantile(observations, probability);
+  });
+}
+
+function handleOutliers(
+  values: (number | null)[],
+  step: Extract<MacroSeriesCalcStep, { type: "outlier" }>,
+) {
+  const observations = values.filter(finite);
+  if (observations.length === 0) return [...values];
+  const lower = step.method === "clip" ? step.lower : quantile(observations, step.lower);
+  const upper = step.method === "clip" ? step.upper : quantile(observations, step.upper);
+  if (!finite(lower) || !finite(upper) || lower > upper) return values.map(() => null);
+  return values.map((value) => {
+    if (!finite(value)) return null;
+    if (step.method === "null") return value < lower || value > upper ? null : value;
+    return Math.min(upper, Math.max(lower, value));
+  });
+}
+
 function rollingZScore(
   values: (number | null)[],
   window: number,
@@ -212,6 +261,10 @@ export function applyMacroSeriesSteps(
       outData = rollingMean(outData, step.window, step.minPeriods);
     } else if (step.type === "zScore") {
       outData = rollingZScore(outData, step.window, step.minPeriods, step.sample);
+    } else if (step.type === "rollingQuantile") {
+      outData = rollingQuantile(outData, step.window, step.minPeriods, step.quantile);
+    } else if (step.type === "outlier") {
+      outData = handleOutliers(outData, step);
     } else if (step.type === "volatility") {
       outData = rollingVolatility(outCategories, outData, step);
     } else if (step.type === "fill") {
@@ -254,6 +307,12 @@ function tokenizeFormula(source: string): Token[] {
       continue;
     }
     const char = source[index]!;
+    const comparison = /^(?:<=|>=|==|!=|<|>)/.exec(rest);
+    if (comparison) {
+      tokens.push({ type: "operator", value: comparison[0] });
+      index += comparison[0].length;
+      continue;
+    }
     if ("+-*/^".includes(char)) tokens.push({ type: "operator", value: char });
     else if ("(),".includes(char)) tokens.push({ type: "punctuation", value: char });
     else throw new Error(`不支持的字符“${char}”`);
@@ -267,9 +326,18 @@ class FormulaParser {
   constructor(private readonly tokens: Token[]) {}
 
   parse(): Expr {
-    const expression = this.parseAdditive();
+    const expression = this.parseComparison();
     if (this.index !== this.tokens.length) throw new Error("公式末尾存在无法解析的内容");
     return expression;
+  }
+
+  private parseComparison(): Expr {
+    let left = this.parseAdditive();
+    while (["<", "<=", ">", ">=", "==", "!="].some((operator) => this.peek(operator))) {
+      const op = this.take().value;
+      left = { type: "binary", op, left, right: this.parseAdditive() };
+    }
+    return left;
   }
 
   private peek(value?: string) {
@@ -322,7 +390,7 @@ class FormulaParser {
     const token = this.take();
     if (token.type === "number") return { type: "number", value: Number(token.value) };
     if (token.value === "(") {
-      const expression = this.parseAdditive();
+      const expression = this.parseComparison();
       this.take(")");
       return expression;
     }
@@ -332,7 +400,7 @@ class FormulaParser {
     const args: Expr[] = [];
     if (!this.peek(")")) {
       do {
-        args.push(this.parseAdditive());
+        args.push(this.parseComparison());
         if (!this.peek(",")) break;
         this.take(",");
       } while (!this.peek(")"));
@@ -357,10 +425,29 @@ function evaluateExpr(expression: Expr, values: Record<string, number | null>): 
     if (expression.op === "-") return left - right;
     if (expression.op === "*") return left * right;
     if (expression.op === "/") return right === 0 ? null : left / right;
+    if (expression.op === "<") return left < right ? 1 : 0;
+    if (expression.op === "<=") return left <= right ? 1 : 0;
+    if (expression.op === ">") return left > right ? 1 : 0;
+    if (expression.op === ">=") return left >= right ? 1 : 0;
+    if (expression.op === "==") return left === right ? 1 : 0;
+    if (expression.op === "!=") return left !== right ? 1 : 0;
     return left ** right;
+  }
+  if (expression.name === "NA" && expression.args.length === 0) return null;
+  if (expression.name === "IF" && expression.args.length === 3) {
+    const condition = evaluateExpr(expression.args[0]!, values);
+    if (!finite(condition)) return null;
+    return evaluateExpr(condition !== 0 ? expression.args[1]! : expression.args[2]!, values);
+  }
+  if (expression.name === "IFERROR" && expression.args.length === 2) {
+    const value = evaluateExpr(expression.args[0]!, values);
+    return finite(value) ? value : evaluateExpr(expression.args[1]!, values);
   }
   const args = expression.args.map((arg) => evaluateExpr(arg, values));
   if (expression.name === "COALESCE") return args.find(finite) ?? null;
+  if (expression.name === "AND" && args.length > 0) return args.every((value) => finite(value) && value !== 0) ? 1 : 0;
+  if (expression.name === "OR" && args.length > 0) return args.some((value) => finite(value) && value !== 0) ? 1 : 0;
+  if (expression.name === "NOT" && args.length === 1) return finite(args[0]) ? (args[0] === 0 ? 1 : 0) : null;
   if (!args.every(finite)) return null;
   const numbers = args as number[];
   if (expression.name === "ABS" && numbers.length === 1) return Math.abs(numbers[0]!);
@@ -368,6 +455,14 @@ function evaluateExpr(expression: Expr, values: Record<string, number | null>): 
   if ((expression.name === "LOG" || expression.name === "LN") && numbers.length === 1) return numbers[0]! > 0 ? Math.log(numbers[0]!) : null;
   if (expression.name === "EXP" && numbers.length === 1) return Math.exp(numbers[0]!);
   if (expression.name === "POW" && numbers.length === 2) return numbers[0]! ** numbers[1]!;
+  if (expression.name === "ROUND" && numbers.length === 2) {
+    const digits = Math.min(12, Math.max(-12, Math.trunc(numbers[1]!)));
+    const factor = 10 ** digits;
+    return Math.round(numbers[0]! * factor) / factor;
+  }
+  if (expression.name === "CLAMP" && numbers.length === 3) {
+    return Math.min(numbers[2]!, Math.max(numbers[1]!, numbers[0]!));
+  }
   if (expression.name === "MIN" && numbers.length > 0) return Math.min(...numbers);
   if (expression.name === "MAX" && numbers.length > 0) return Math.max(...numbers);
   if ((expression.name === "AVG" || expression.name === "AVERAGE") && numbers.length > 0) {
@@ -439,6 +534,12 @@ function analyzeFormulaUnitNode(
       }
       return left ?? right;
     }
+    if (["<", "<=", ">", ">=", "==", "!="].includes(expression.op)) {
+      if (left && right && normalizeUnit(left) !== normalizeUnit(right)) {
+        warnings.push(`比较项单位不一致：${left} 与 ${right}`);
+      }
+      return null;
+    }
     if (expression.op === "*") {
       if (!left) return right;
       if (!right) return left;
@@ -453,13 +554,24 @@ function analyzeFormulaUnitNode(
     return left;
   }
   const argUnits = expression.args.map((arg) => analyzeFormulaUnitNode(arg, units, warnings));
+  if (expression.name === "NA" || expression.name === "AND" || expression.name === "OR" || expression.name === "NOT") return null;
+  if (expression.name === "IF") {
+    const left = argUnits[1] ?? null;
+    const right = argUnits[2] ?? null;
+    if (left && right && normalizeUnit(left) !== normalizeUnit(right)) {
+      warnings.push(`IF 的两个返回分支单位不一致：${left} 与 ${right}`);
+      return null;
+    }
+    return left ?? right;
+  }
+  if (expression.name === "IFERROR") return argUnits[0] ?? argUnits[1] ?? null;
   if (expression.name === "LOG" || expression.name === "LN" || expression.name === "EXP") {
     if (argUnits[0]) warnings.push(`${expression.name} 的输入带有单位 ${argUnits[0]}，通常应先标准化`);
     return null;
   }
   if (expression.name === "SQRT") return argUnits[0] ? `√${argUnits[0]}` : null;
   if (expression.name === "POW") return argUnits[0] ?? null;
-  if (["MIN", "MAX", "AVG", "AVERAGE", "COALESCE"].includes(expression.name)) {
+  if (["MIN", "MAX", "AVG", "AVERAGE", "COALESCE", "CLAMP"].includes(expression.name)) {
     const known = argUnits.filter((unit): unit is string => Boolean(unit));
     if (known.length > 1 && known.some((unit) => normalizeUnit(unit) !== normalizeUnit(known[0]))) {
       warnings.push(`${expression.name} 的参数单位不一致：${[...new Set(known)].join("、")}`);
@@ -467,6 +579,7 @@ function analyzeFormulaUnitNode(
     }
     return known[0] ?? null;
   }
+  if (expression.name === "ROUND") return argUnits[0] ?? null;
   return argUnits[0] ?? null;
 }
 
@@ -546,6 +659,69 @@ function beta(left: number[], right: number[], sample: boolean) {
   const divisor = sample ? right.length - 1 : right.length;
   const variance = right.reduce((sum, value) => sum + (value - mean) ** 2, 0) / divisor;
   return variance === 0 ? null : cov / variance;
+}
+
+type RegressionFit = {
+  coefficients: number[];
+  intercept: number;
+  rSquared: number | null;
+};
+
+function solveLinearSystem(matrix: number[][], vector: number[]) {
+  const size = vector.length;
+  const augmented = matrix.map((row, index) => [...row, vector[index]!]);
+  for (let column = 0; column < size; column++) {
+    let pivot = column;
+    for (let row = column + 1; row < size; row++) {
+      if (Math.abs(augmented[row]![column]!) > Math.abs(augmented[pivot]![column]!)) pivot = row;
+    }
+    if (Math.abs(augmented[pivot]![column]!) < 1e-12) return null;
+    [augmented[column], augmented[pivot]] = [augmented[pivot]!, augmented[column]!];
+    const divisor = augmented[column]![column]!;
+    for (let index = column; index <= size; index++) augmented[column]![index] = augmented[column]![index]! / divisor;
+    for (let row = 0; row < size; row++) {
+      if (row === column) continue;
+      const factor = augmented[row]![column]!;
+      for (let index = column; index <= size; index++) {
+        augmented[row]![index] = augmented[row]![index]! - factor * augmented[column]![index]!;
+      }
+    }
+  }
+  return augmented.map((row) => row[size]!);
+}
+
+function fitRegression(rows: number[][], dependent: number[], includeIntercept: boolean): RegressionFit | null {
+  if (rows.length !== dependent.length || rows.length === 0 || rows[0]?.length === 0) return null;
+  const design = rows.map((row) => includeIntercept ? [1, ...row] : [...row]);
+  const width = design[0]!.length;
+  if (design.length < width + 1) return null;
+  const xtx = Array.from({ length: width }, () => Array.from({ length: width }, () => 0));
+  const xty = Array.from({ length: width }, () => 0);
+  for (let row = 0; row < design.length; row++) {
+    for (let left = 0; left < width; left++) {
+      xty[left] += design[row]![left]! * dependent[row]!;
+      for (let right = 0; right < width; right++) {
+        xtx[left]![right] += design[row]![left]! * design[row]![right]!;
+      }
+    }
+  }
+  const solved = solveLinearSystem(xtx, xty);
+  if (!solved) return null;
+  const intercept = includeIntercept ? solved[0]! : 0;
+  const coefficients = includeIntercept ? solved.slice(1) : solved;
+  const mean = dependent.reduce((sum, value) => sum + value, 0) / dependent.length;
+  let residualSum = 0;
+  let totalSum = 0;
+  for (let row = 0; row < rows.length; row++) {
+    const predicted = intercept + rows[row]!.reduce((sum, value, index) => sum + value * coefficients[index]!, 0);
+    residualSum += (dependent[row]! - predicted) ** 2;
+    totalSum += (dependent[row]! - mean) ** 2;
+  }
+  return {
+    coefficients,
+    intercept,
+    rSquared: totalSum === 0 ? null : 1 - residualSum / totalSum,
+  };
 }
 
 function alignedCalendar(
@@ -632,7 +808,7 @@ export function evaluateAdvancedMacroCalculation(
           Object.fromEntries(Object.entries(valuesByAlias).map(([alias, values]) => [alias, values[index] ?? null])),
         ),
       );
-    } else {
+    } else if (config.kind === "correlation") {
       const correlationConfig = config.correlation;
       if (!correlationConfig || config.inputs.length < 2) throw new Error("滚动统计至少需要两个输入指标");
       const metric = correlationConfig.metric ?? "correlation";
@@ -666,6 +842,60 @@ export function evaluateAdvancedMacroCalculation(
       if (metric === "beta" && leftUnit && rightUnit && normalizeUnit(leftUnit) !== normalizeUnit(rightUnit)) {
         outputUnit = `${leftUnit}/${rightUnit}`;
       }
+    } else {
+      const regressionConfig = config.regression;
+      if (!regressionConfig || config.inputs.length < 2) throw new Error("回归至少需要因变量 A 和一个解释变量 B");
+      const aliases = config.inputs.map((input) => input.alias.toUpperCase());
+      const transformed = aliases.map((alias) => {
+        const values = valuesByAlias[alias] ?? [];
+        return regressionConfig.input === "level"
+          ? values
+          : applyMacroSeriesOp(categories, values, regressionConfig.input);
+      });
+      const dependent = transformed[0]!.map((_, index) => transformed[0]![index - regressionConfig.lag] ?? null);
+      const predictors = transformed.slice(1);
+      data = categories.map((_, index) => {
+        const start = Math.max(0, index - regressionConfig.window + 1);
+        const rows: number[][] = [];
+        const target: number[] = [];
+        for (let rowIndex = start; rowIndex <= index; rowIndex++) {
+          const y = dependent[rowIndex];
+          const row = predictors.map((values) => values[rowIndex] ?? null);
+          if (finite(y) && row.every(finite)) {
+            target.push(y);
+            rows.push(row as number[]);
+          }
+        }
+        const minimum = Math.max(
+          regressionConfig.minPeriods,
+          predictors.length + (regressionConfig.includeIntercept ? 2 : 1),
+        );
+        if (rows.length < minimum) return null;
+        const fit = fitRegression(rows, target, regressionConfig.includeIntercept);
+        if (!fit) return null;
+        if (regressionConfig.output === "coefficient") return fit.coefficients[0] ?? null;
+        if (regressionConfig.output === "intercept") return fit.intercept;
+        if (regressionConfig.output === "rSquared") return fit.rSquared;
+        const currentPredictors = predictors.map((values) => values[index] ?? null);
+        const currentDependent = dependent[index];
+        if (!currentPredictors.every(finite)) return null;
+        const fitted = fit.intercept + (currentPredictors as number[]).reduce(
+          (sum, value, predictorIndex) => sum + value * fit.coefficients[predictorIndex]!,
+          0,
+        );
+        if (regressionConfig.output === "fitted") return fitted;
+        return finite(currentDependent) ? currentDependent - fitted : null;
+      });
+      const dependentUnit = prepared[0]?.unit ?? null;
+      const firstPredictorUnit = prepared[1]?.unit ?? null;
+      if (regressionConfig.output === "coefficient" && dependentUnit && firstPredictorUnit) {
+        outputUnit = normalizeUnit(dependentUnit) === normalizeUnit(firstPredictorUnit)
+          ? undefined
+          : `${dependentUnit}/${firstPredictorUnit}`;
+      } else if (["intercept", "fitted", "residual"].includes(regressionConfig.output) && dependentUnit) {
+        outputUnit = dependentUnit;
+      }
+      warnings.push("回归结果描述统计关系，不代表因果关系；窗口过短或高度共线会使估计不稳定");
     }
   } catch (cause) {
     error = cause instanceof Error ? cause.message : "计算失败";

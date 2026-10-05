@@ -230,6 +230,33 @@ function sanitizeSeriesCalcSteps(input: unknown): MacroSeriesCalcStep[] {
           sample: row.sample !== false,
         };
       }
+      if (type === "rollingQuantile") {
+        const window = clampInteger(row.window, 2, 520, 24);
+        const rawQuantile = Number(row.quantile);
+        const quantile = Number.isFinite(rawQuantile) ? Math.min(1, Math.max(0, rawQuantile)) : 0.5;
+        return {
+          id,
+          type,
+          window,
+          minPeriods: clampInteger(row.minPeriods, 1, window, Math.max(1, Math.ceil(window * 0.8))),
+          quantile,
+        };
+      }
+      if (type === "outlier") {
+        const method = row.method === "null" || row.method === "clip" ? row.method : "winsorize";
+        const rawLower = Number(row.lower);
+        const rawUpper = Number(row.upper);
+        const lower = Number.isFinite(rawLower) ? rawLower : method === "clip" ? 0 : 0.05;
+        const upper = Number.isFinite(rawUpper) ? rawUpper : method === "clip" ? 100 : 0.95;
+        if (lower >= upper) return null;
+        return {
+          id,
+          type,
+          method,
+          lower: method === "clip" ? lower : Math.min(1, Math.max(0, lower)),
+          upper: method === "clip" ? upper : Math.min(1, Math.max(0, upper)),
+        };
+      }
       if (type === "volatility") {
         const inputOp = String(row.input ?? "pctChange");
         const input = inputOp === "diff" || inputOp === "logReturn" ? inputOp : "pctChange";
@@ -283,7 +310,7 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
       let advanced: MacroDerivedCalc["advanced"];
       if (x.advanced && typeof x.advanced === "object") {
         const raw = x.advanced as Record<string, unknown>;
-        const kind = raw.kind === "correlation" ? "correlation" : "formula";
+        const kind = raw.kind === "correlation" || raw.kind === "regression" ? raw.kind : "formula";
         const alignmentRaw = raw.alignment && typeof raw.alignment === "object"
           ? (raw.alignment as Record<string, unknown>)
           : {};
@@ -336,7 +363,8 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
                     input:
                       correlationRaw.input === "diff" ||
                       correlationRaw.input === "pctChange" ||
-                      correlationRaw.input === "logReturn"
+                      correlationRaw.input === "logReturn" ||
+                      correlationRaw.input === "yoy"
                         ? correlationRaw.input
                         : "level",
                     window,
@@ -345,6 +373,36 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
                     sample: correlationRaw.sample !== false,
                   },
                 }
+              : {}),
+            ...(kind === "regression"
+              ? (() => {
+                  const regressionRaw = raw.regression && typeof raw.regression === "object"
+                    ? (raw.regression as Record<string, unknown>)
+                    : {};
+                  const regressionWindow = clampInteger(regressionRaw.window, 3, 520, 36);
+                  const output = regressionRaw.output === "intercept" ||
+                    regressionRaw.output === "rSquared" ||
+                    regressionRaw.output === "fitted" ||
+                    regressionRaw.output === "residual"
+                    ? regressionRaw.output
+                    : "coefficient";
+                  const input = regressionRaw.input === "diff" ||
+                    regressionRaw.input === "pctChange" ||
+                    regressionRaw.input === "logReturn" ||
+                    regressionRaw.input === "yoy"
+                    ? regressionRaw.input
+                    : "level";
+                  return {
+                    regression: {
+                      output,
+                      input,
+                      window: regressionWindow,
+                      minPeriods: clampInteger(regressionRaw.minPeriods, 3, regressionWindow, Math.max(3, Math.ceil(regressionWindow * 0.8))),
+                      lag: clampInteger(regressionRaw.lag, -120, 120, 0),
+                      includeIntercept: regressionRaw.includeIntercept !== false,
+                    },
+                  };
+                })()
               : {}),
           };
         }

@@ -260,6 +260,22 @@ export type MacroSeriesCalcStep =
     }
   | {
       id: string;
+      type: "rollingQuantile";
+      window: number;
+      minPeriods: number;
+      /** 0–1，例如 0.5 为滚动中位数。 */
+      quantile: number;
+    }
+  | {
+      id: string;
+      type: "outlier";
+      /** winsorize/null 的 lower/upper 为分位数；clip 为数值阈值。 */
+      method: "winsorize" | "null" | "clip";
+      lower: number;
+      upper: number;
+    }
+  | {
+      id: string;
       type: "volatility";
       input: "diff" | "pctChange" | "logReturn";
       window: number;
@@ -310,7 +326,7 @@ export type MacroFormulaInput = {
 
 export type MacroAdvancedDerivedConfig = {
   version: 2;
-  kind: "formula" | "correlation";
+  kind: "formula" | "correlation" | "regression";
   inputs: MacroFormulaInput[];
   alignment: {
     frequency: MacroFrequencyAdjust;
@@ -322,11 +338,20 @@ export type MacroAdvancedDerivedConfig = {
     /** 旧配置无 metric 时按 correlation 处理。 */
     metric?: "correlation" | "covariance" | "beta";
     method: "pearson" | "spearman";
-    input: "level" | "diff" | "pctChange" | "logReturn";
+    input: "level" | "diff" | "pctChange" | "logReturn" | "yoy";
     window: number;
     minPeriods: number;
     lag: number;
     sample?: boolean;
+  };
+  regression?: {
+    /** A 为因变量，B–H 为解释变量；coefficient 输出 B 的系数。 */
+    output: "coefficient" | "intercept" | "rSquared" | "fitted" | "residual";
+    input: "level" | "diff" | "pctChange" | "logReturn" | "yoy";
+    window: number;
+    minPeriods: number;
+    lag: number;
+    includeIntercept: boolean;
   };
 };
 
