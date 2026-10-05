@@ -17,6 +17,8 @@ export function buildMacroSeriesCalcSuffix(cfg: MacroSeriesCalcConfig): string {
         }
         if (step.type === "rollingMean") return `${step.window}期均值`;
         if (step.type === "zScore") return `${step.window}期Z-Score`;
+        if (step.type === "rollingQuantile") return `${step.window}期P${Math.round(step.quantile * 100)}`;
+        if (step.type === "outlier") return step.method === "winsorize" ? "Winsorize" : step.method === "null" ? "极端值置空" : "上下界截断";
         if (step.type === "volatility") return `${step.window}期${step.annualize ? "年化" : ""}波动率`;
         if (step.type === "fill") return step.method === "forward" ? "前向填充" : step.method === "backward" ? "后向填充" : "线性插值";
         return `x${step.factor}`;

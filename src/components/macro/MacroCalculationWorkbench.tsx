@@ -19,9 +19,11 @@ import {
   inspectMacroFormula,
   MACRO_FORMULA_FUNCTIONS,
   sortMacroDerivedCalculations,
+  validateMacroFormula,
   type MacroCalculationResult,
   type MacroCalculationSeries,
 } from "@/lib/macroCalculationEngine";
+import { MACRO_CALCULATION_TEMPLATES, type MacroCalculationTemplate } from "@/lib/macroCalculationTemplates";
 import { IconClose } from "@/components/mobile/mobileIcons";
 
 type KeyOption = { key: string; label: string; unit?: string | null; derived?: boolean };
@@ -65,6 +67,8 @@ function defaultStep(type: MacroSeriesCalcStep["type"]): MacroSeriesCalcStep {
   if (type === "transform") return { id, type, op: "pctChange" };
   if (type === "rollingMean") return { id, type, window: 12, minPeriods: 12 };
   if (type === "zScore") return { id, type, window: 24, minPeriods: 18, sample: true };
+  if (type === "rollingQuantile") return { id, type, window: 24, minPeriods: 18, quantile: 0.5 };
+  if (type === "outlier") return { id, type, method: "winsorize", lower: 0.05, upper: 0.95 };
   if (type === "fill") return { id, type, method: "forward", maxGap: 3 };
   if (type === "scale") return { id, type, factor: 100 };
   return {
@@ -116,6 +120,10 @@ function StepEditor({
           ? "滚动均值"
           : step.type === "zScore"
             ? "滚动 Z-Score"
+          : step.type === "rollingQuantile"
+            ? "滚动分位数"
+          : step.type === "outlier"
+            ? "异常值处理"
           : step.type === "volatility"
             ? "波动率"
             : step.type === "fill"
@@ -167,6 +175,24 @@ function StepEditor({
               <option value="sample">样本标准差</option><option value="population">总体标准差</option>
             </select>
           </Field>
+        </div>
+      ) : null}
+      {step.type === "rollingQuantile" ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <Field label="滚动窗口">{numberInput(step.window, (window) => onChange({ ...step, window: Math.max(2, window) }), 2, 520)}</Field>
+          <Field label="最少有效期数">{numberInput(step.minPeriods, (minPeriods) => onChange({ ...step, minPeriods: Math.max(1, Math.min(step.window, minPeriods)) }), 1, step.window)}</Field>
+          <Field label="分位数（0–100）">{numberInput(Math.round(step.quantile * 100), (quantile) => onChange({ ...step, quantile: Math.min(1, Math.max(0, quantile / 100)) }), 0, 100)}</Field>
+        </div>
+      ) : null}
+      {step.type === "outlier" ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <Field label="处理方式">
+            <select value={step.method} onChange={(event) => onChange({ ...step, method: event.target.value as typeof step.method, lower: event.target.value === "clip" ? 0 : 0.05, upper: event.target.value === "clip" ? 100 : 0.95 })} className={`${inputClass} w-full`}>
+              <option value="winsorize">Winsorize 截尾</option><option value="null">极端值设为空</option><option value="clip">固定上下界</option>
+            </select>
+          </Field>
+          <Field label={step.method === "clip" ? "数值下界" : "下分位数（0–100）"}>{numberInput(step.method === "clip" ? step.lower : Math.round(step.lower * 100), (lower) => onChange({ ...step, lower: step.method === "clip" ? lower : Math.min(1, Math.max(0, lower / 100)) }), step.method === "clip" ? undefined : 0, step.method === "clip" ? undefined : 100)}</Field>
+          <Field label={step.method === "clip" ? "数值上界" : "上分位数（0–100）"}>{numberInput(step.method === "clip" ? step.upper : Math.round(step.upper * 100), (upper) => onChange({ ...step, upper: step.method === "clip" ? upper : Math.min(1, Math.max(0, upper / 100)) }), step.method === "clip" ? undefined : 0, step.method === "clip" ? undefined : 100)}</Field>
         </div>
       ) : null}
       {step.type === "volatility" ? (
@@ -364,27 +390,149 @@ function rawSeriesForKey(payload: MacroPayload | null, key: string): MacroCalcul
   return source ? { key, name: source.name, categories: payload.categories, data: source.data } : null;
 }
 
+type PortableCalculationPackage = {
+  type: "gekko-macro-calculation";
+  version: 1;
+  name?: string;
+  advanced: MacroAdvancedDerivedConfig;
+  outputs?: Array<{ name?: string; formula: string }>;
+};
+
+function encodeSharePackage(value: PortableCalculationPackage) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function decodeSharePackage(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="));
+  return new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+}
+
+function parsePortablePackage(source: string): PortableCalculationPackage {
+  if (source.length > 24_000) throw new Error("导入内容过长");
+  let text = source.trim();
+  if (/^https?:\/\//i.test(text)) {
+    const token = new URL(text).searchParams.get("macroCalc");
+    if (!token) throw new Error("分享链接中没有 macroCalc 参数");
+    text = decodeSharePackage(token);
+  }
+  const parsed = JSON.parse(text) as Partial<PortableCalculationPackage>;
+  if (parsed.type !== "gekko-macro-calculation" || parsed.version !== 1 || !parsed.advanced) {
+    throw new Error("不是受支持的指标运算配置");
+  }
+  const raw = parsed.advanced;
+  if (!["formula", "correlation", "regression"].includes(raw.kind)) throw new Error("运算类型无效");
+  if (!Array.isArray(raw.inputs) || raw.inputs.length < 2 || raw.inputs.length > 8) throw new Error("输入指标数量应为 2–8 个");
+  const resampleMethods = new Set<MacroResampleMethod>(["avg", "start", "end", "sum", "min", "max"]);
+  const fillMethods = new Set<MacroMissingValueMethod>(["none", "forward", "backward", "linear"]);
+  const aliases = new Set<string>();
+  const inputs = raw.inputs.map((input, index) => {
+    const key = String(input.key ?? "").trim().slice(0, 240);
+    const alias = String(input.alias ?? String.fromCharCode(65 + index)).trim().toUpperCase();
+    if (!key || !/^[A-Z][A-Z0-9_]{0,15}$/.test(alias) || aliases.has(alias)) throw new Error("输入指标或别名无效");
+    aliases.add(alias);
+    return {
+      key,
+      alias,
+      resampleMethod: resampleMethods.has(input.resampleMethod) ? input.resampleMethod : "end" as const,
+      fillMethod: fillMethods.has(input.fillMethod) ? input.fillMethod : "none" as const,
+      maxGap: Math.min(120, Math.max(1, Math.trunc(Number(input.maxGap) || 3))),
+    };
+  });
+  const frequency = ["keep", "month", "quarter", "year"].includes(raw.alignment?.frequency)
+    ? raw.alignment.frequency
+    : "keep";
+  const join = ["inner", "union", "left"].includes(raw.alignment?.join) ? raw.alignment.join : "inner";
+  const advanced: MacroAdvancedDerivedConfig = {
+    version: 2,
+    kind: raw.kind,
+    inputs,
+    alignment: { frequency, join },
+  };
+  if (raw.kind === "formula") {
+    const formula = String(raw.formula ?? "").slice(0, 500);
+    const validation = validateMacroFormula(formula, inputs.map((input) => input.alias));
+    if (validation) throw new Error(validation);
+    advanced.formula = formula;
+  }
+  if (raw.kind === "correlation") {
+    const config = raw.correlation;
+    if (!config) throw new Error("滚动统计配置缺失");
+    const window = Math.min(520, Math.max(2, Math.trunc(Number(config.window) || 24)));
+    advanced.correlation = {
+      metric: config.metric === "covariance" || config.metric === "beta" ? config.metric : "correlation",
+      method: config.method === "spearman" ? "spearman" : "pearson",
+      input: ["diff", "pctChange", "logReturn", "yoy"].includes(config.input) ? config.input : "level",
+      window,
+      minPeriods: Math.min(window, Math.max(2, Math.trunc(Number(config.minPeriods) || Math.ceil(window * 0.8)))),
+      lag: Math.min(120, Math.max(-120, Math.trunc(Number(config.lag) || 0))),
+      sample: config.sample !== false,
+    };
+  }
+  if (raw.kind === "regression") {
+    const config = raw.regression;
+    if (!config) throw new Error("回归配置缺失");
+    const window = Math.min(520, Math.max(3, Math.trunc(Number(config.window) || 36)));
+    advanced.regression = {
+      output: ["coefficient", "intercept", "rSquared", "fitted", "residual"].includes(config.output) ? config.output : "residual",
+      input: ["diff", "pctChange", "logReturn", "yoy"].includes(config.input) ? config.input : "level",
+      window,
+      minPeriods: Math.min(window, Math.max(3, Math.trunc(Number(config.minPeriods) || Math.ceil(window * 0.8)))),
+      lag: Math.min(120, Math.max(-120, Math.trunc(Number(config.lag) || 0))),
+      includeIntercept: config.includeIntercept !== false,
+    };
+  }
+  const outputs = Array.isArray(parsed.outputs)
+    ? parsed.outputs.slice(0, 8).map((output, index) => {
+        const formula = String(output.formula ?? "").slice(0, 500);
+        const validation = validateMacroFormula(formula, inputs.map((input) => input.alias));
+        if (validation) throw new Error(`输出 ${index + 1}：${validation}`);
+        return { name: typeof output.name === "string" ? output.name.trim().slice(0, 160) : undefined, formula };
+      })
+    : undefined;
+  return {
+    type: "gekko-macro-calculation",
+    version: 1,
+    name: typeof parsed.name === "string" ? parsed.name.trim().slice(0, 160) : undefined,
+    advanced,
+    ...(outputs?.length ? { outputs } : {}),
+  };
+}
+
 export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps) {
   const { open, onClose } = props;
   const [mode, setMode] = useState<"single" | "derived">("single");
   const [targetKey, setTargetKey] = useState("");
   const [steps, setSteps] = useState<MacroSeriesCalcStep[]>([]);
-  const [kind, setKind] = useState<"formula" | "correlation">("formula");
+  const [kind, setKind] = useState<"formula" | "correlation" | "regression">("formula");
   const [inputKeys, setInputKeys] = useState<string[]>([]);
   const [inputMethods, setInputMethods] = useState<Record<string, { resample: MacroResampleMethod; fill: MacroMissingValueMethod; maxGap: number }>>({});
   const [frequency, setFrequency] = useState<MacroFrequencyAdjust>("keep");
   const [join, setJoin] = useState<"inner" | "union" | "left">("inner");
   const [formula, setFormula] = useState("A / B * 100");
   const [name, setName] = useState("");
+  const [extraOutputs, setExtraOutputs] = useState<Array<{ id: string; name: string; formula: string }>>([]);
   const [corrMethod, setCorrMethod] = useState<"pearson" | "spearman">("pearson");
   const [statMetric, setStatMetric] = useState<"correlation" | "covariance" | "beta">("correlation");
   const [statSample, setStatSample] = useState(true);
-  const [corrInput, setCorrInput] = useState<"level" | "diff" | "pctChange" | "logReturn">("pctChange");
+  const [corrInput, setCorrInput] = useState<"level" | "diff" | "pctChange" | "logReturn" | "yoy">("pctChange");
   const [corrWindow, setCorrWindow] = useState(24);
   const [corrMinPeriods, setCorrMinPeriods] = useState(18);
   const [corrLag, setCorrLag] = useState(0);
+  const [regressionOutput, setRegressionOutput] = useState<"coefficient" | "intercept" | "rSquared" | "fitted" | "residual">("residual");
+  const [regressionWindow, setRegressionWindow] = useState(36);
+  const [regressionMinPeriods, setRegressionMinPeriods] = useState(24);
+  const [regressionIntercept, setRegressionIntercept] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(true);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferText, setTransferText] = useState("");
+  const [transferStatus, setTransferStatus] = useState("");
+  const importedShareRef = useRef("");
   const singleOptions = useMemo(() => props.options.filter((option) => !option.derived), [props.options]);
   const availableInputOptions = useMemo(
     () => props.options.filter((option) => option.key !== (editingId ? `calc:${editingId}` : "")),
@@ -417,6 +565,17 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     setManageOpen(false);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const token = new URLSearchParams(window.location.search).get("macroCalc") ?? "";
+    if (!token || importedShareRef.current === token) return;
+    importedShareRef.current = token;
+    setMode("derived");
+    setTransferOpen(true);
+    setTransferText(window.location.href);
+    setTransferStatus("检测到分享配置，点击“导入配置”后检查预览并保存");
+  }, [open]);
+
   const aliases = inputKeys.map((_, index) => String.fromCharCode(65 + index));
   const advancedConfig = useMemo<MacroAdvancedDerivedConfig>(() => ({
     version: 2,
@@ -428,7 +587,8 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     alignment: { frequency, join },
     ...(kind === "formula" ? { formula } : {}),
     ...(kind === "correlation" ? { correlation: { metric: statMetric, method: corrMethod, input: corrInput, window: corrWindow, minPeriods: corrMinPeriods, lag: corrLag, sample: statSample } } : {}),
-  }), [aliases, corrInput, corrLag, corrMethod, corrMinPeriods, corrWindow, formula, frequency, inputKeys, inputMethods, join, kind, statMetric, statSample]);
+    ...(kind === "regression" ? { regression: { output: regressionOutput, input: corrInput, window: regressionWindow, minPeriods: regressionMinPeriods, lag: corrLag, includeIntercept: regressionIntercept } } : {}),
+  }), [aliases, corrInput, corrLag, corrMethod, corrMinPeriods, corrWindow, formula, frequency, inputKeys, inputMethods, join, kind, regressionIntercept, regressionMinPeriods, regressionOutput, regressionWindow, statMetric, statSample]);
 
   const formulaInputs = useMemo(
     () => inputKeys.map((key, index) => ({
@@ -448,9 +608,13 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     if (!source) return null;
     const result = applyMacroSeriesSteps(source.categories, source.data, steps);
     const validPoints = result.data.filter((value) => value != null && Number.isFinite(value)).length;
+    const warnings = [
+      ...(steps.some((step) => step.type === "outlier" && step.method !== "clip") ? ["全样本分位数异常值处理会使用当前区间的全部数据，仅适合历史分析"] : []),
+      ...(steps.some((step) => step.type === "fill" && (step.method === "backward" || step.method === "linear")) ? ["当前补值方法可能包含前视信息"] : []),
+    ];
     return {
       ...result,
-      diagnostics: { inputPoints: { A: source.data.filter((value) => value != null && Number.isFinite(value)).length }, filledPoints: {}, alignedPoints: result.categories.length, validPoints, droppedPoints: result.categories.length - validPoints, warnings: [] },
+      diagnostics: { inputPoints: { A: source.data.filter((value) => value != null && Number.isFinite(value)).length }, filledPoints: {}, alignedPoints: result.categories.length, validPoints, droppedPoints: result.categories.length - validPoints, warnings },
     };
   }, [props.rawPayload, steps, targetKey]);
 
@@ -484,19 +648,124 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
       return { ...previous, [id]: { ...current, ...patch } };
     });
   };
+  const applyAdvancedToState = (advanced: MacroAdvancedDerivedConfig, importedName = "", outputs: PortableCalculationPackage["outputs"] = []) => {
+    const missing = advanced.inputs.find((input) => !props.options.some((option) => option.key === input.key));
+    if (missing) throw new Error(`当前工作区没有输入指标 ${missing.key}`);
+    setMode("derived");
+    setEditingId(null);
+    setInputKeys(advanced.inputs.map((input) => input.key));
+    setInputMethods(Object.fromEntries(advanced.inputs.map((input, index) => [`${index}:${input.key}`, { resample: input.resampleMethod, fill: input.fillMethod, maxGap: input.maxGap }])));
+    setFrequency(advanced.alignment.frequency);
+    setJoin(advanced.alignment.join);
+    setKind(advanced.kind);
+    setName(importedName);
+    setFormula(advanced.formula ?? "A - B");
+    setExtraOutputs((outputs ?? []).slice(1, 8).map((output) => ({ id: stepId(), name: output.name ?? "", formula: output.formula.slice(0, 500) })));
+    const rolling = advanced.correlation;
+    setStatMetric(rolling?.metric ?? "correlation");
+    setStatSample(rolling?.sample !== false);
+    setCorrMethod(rolling?.method ?? "pearson");
+    setCorrInput(rolling?.input ?? advanced.regression?.input ?? "pctChange");
+    setCorrWindow(rolling?.window ?? 24);
+    setCorrMinPeriods(rolling?.minPeriods ?? 18);
+    setCorrLag(rolling?.lag ?? advanced.regression?.lag ?? 0);
+    const regression = advanced.regression;
+    setRegressionOutput(regression?.output ?? "residual");
+    setRegressionWindow(regression?.window ?? 36);
+    setRegressionMinPeriods(regression?.minPeriods ?? 24);
+    setRegressionIntercept(regression?.includeIntercept !== false);
+  };
+  const applyCalculationTemplate = (template: MacroCalculationTemplate) => {
+    setTransferStatus(`已载入模板“${template.title}”`);
+    if (template.mode === "single") {
+      setMode("single");
+      setSteps(template.steps.map((step) => ({ ...step, id: stepId() })));
+      return;
+    }
+    setMode("derived");
+    setKind(template.kind);
+    setName(template.title);
+    setExtraOutputs([]);
+    if (template.formula) setFormula(template.formula);
+    if (template.correlation) {
+      setCorrInput(template.correlation.input);
+      setCorrWindow(template.correlation.window);
+      setCorrMinPeriods(template.correlation.minPeriods);
+      setStatMetric("correlation");
+      setCorrMethod("pearson");
+    }
+    if (template.regression) {
+      setRegressionOutput(template.regression.output);
+      setCorrInput(template.regression.input);
+      setRegressionWindow(template.regression.window);
+      setRegressionMinPeriods(template.regression.minPeriods);
+    }
+  };
+  const portablePackage = (): PortableCalculationPackage => ({
+    type: "gekko-macro-calculation",
+    version: 1,
+    name: name.trim() || undefined,
+    advanced: advancedConfig,
+    ...(kind === "formula" ? { outputs: [{ name: name.trim() || undefined, formula }, ...extraOutputs.map((output) => ({ name: output.name.trim() || undefined, formula: output.formula }))] } : {}),
+  });
+  const exportCalculation = () => {
+    setTransferText(JSON.stringify(portablePackage(), null, 2));
+    setTransferStatus("已生成可移植 JSON");
+  };
+  const importCalculation = () => {
+    try {
+      const imported = parsePortablePackage(transferText);
+      applyAdvancedToState(imported.advanced, imported.name ?? "", imported.outputs);
+      setTransferStatus("导入成功，请检查预览后保存");
+    } catch (error) {
+      setTransferStatus(error instanceof Error ? error.message : "导入失败");
+    }
+  };
+  const copyShareLink = async () => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("macroCalc", encodeSharePackage(portablePackage()));
+      await navigator.clipboard.writeText(url.toString());
+      setTransferText(url.toString());
+      setTransferStatus("分享链接已复制；接收方可在导入框中直接粘贴");
+    } catch {
+      setTransferStatus("无法写入剪贴板，分享链接已显示在文本框中");
+      const url = new URL(window.location.href);
+      url.searchParams.set("macroCalc", encodeSharePackage(portablePackage()));
+      setTransferText(url.toString());
+    }
+  };
   const submitDerived = () => {
     if (inputKeys.length < 2 || derivedPreview?.diagnostics.error) return;
-    const id = editingId ?? `d-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
     const leftKey = inputKeys[0]!;
     const rightKey = inputKeys[1]!;
     const metricLabel = statMetric === "covariance" ? "协方差" : statMetric === "beta" ? "Beta" : "相关性";
+    const regressionLabel = regressionOutput === "coefficient" ? "回归系数" : regressionOutput === "intercept" ? "回归截距" : regressionOutput === "rSquared" ? "R²" : regressionOutput === "fitted" ? "回归拟合值" : "回归残差";
     const autoName = kind === "correlation"
       ? `${props.options.find((option) => option.key === leftKey)?.label ?? "A"} / ${props.options.find((option) => option.key === rightKey)?.label ?? "B"} · ${corrWindow}期${metricLabel}`
+      : kind === "regression"
+        ? `${props.options.find((option) => option.key === leftKey)?.label ?? "A"} · ${regressionWindow}期${regressionLabel}`
       : `公式：${formula}`;
-    const next: MacroDerivedCalc = { id, leftKey, rightKey, op: "div", name: name.trim() || autoName, advanced: advancedConfig, ...(derivedPreview?.diagnostics.outputUnit ? { unitLabel: derivedPreview.diagnostics.outputUnit } : {}) };
-    if (editingId) props.onUpdateDerived({ ...next, disabled: props.derivedCalcs.find((calc) => calc.id === editingId)?.disabled });
-    else props.onAddDerived(next);
+    const outputDefinitions = kind === "formula"
+      ? [{ name: name.trim() || autoName, formula }, ...extraOutputs.map((output, index) => ({ name: output.name.trim() || `公式输出 ${index + 2}`, formula: output.formula }))]
+      : [{ name: name.trim() || autoName, formula: "" }];
+    const invalidOutput = outputDefinitions.find((output) => kind === "formula" && validateMacroFormula(output.formula, aliases));
+    if (invalidOutput) {
+      setTransferStatus(`“${invalidOutput.name}”公式无效：${validateMacroFormula(invalidOutput.formula, aliases)}`);
+      return;
+    }
+    outputDefinitions.forEach((output, index) => {
+      const id = index === 0 && editingId ? editingId : `d-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 7)}`;
+      const config = kind === "formula" ? { ...advancedConfig, formula: output.formula } : advancedConfig;
+      const inferredUnit = kind === "formula"
+        ? inspectMacroFormula(output.formula, formulaInputs).outputUnit
+        : index === 0 ? derivedPreview?.diagnostics.outputUnit : undefined;
+      const next: MacroDerivedCalc = { id, leftKey, rightKey, op: "div", name: output.name, advanced: config, ...(inferredUnit ? { unitLabel: inferredUnit } : {}) };
+      if (index === 0 && editingId) props.onUpdateDerived({ ...next, disabled: props.derivedCalcs.find((calc) => calc.id === editingId)?.disabled });
+      else props.onAddDerived(next);
+    });
     setEditingId(null);
+    setExtraOutputs([]);
     props.onClose();
   };
   const editDerived = (calc: MacroDerivedCalc) => {
@@ -518,6 +787,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     setJoin(advanced.alignment.join);
     setKind(advanced.kind);
     setFormula(advanced.formula ?? fallbackFormula);
+    setExtraOutputs([]);
     const rolling = advanced.correlation;
     setStatMetric(rolling?.metric ?? "correlation");
     setStatSample(rolling?.sample !== false);
@@ -526,6 +796,11 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     setCorrWindow(rolling?.window ?? 24);
     setCorrMinPeriods(rolling?.minPeriods ?? 18);
     setCorrLag(rolling?.lag ?? 0);
+    const regression = advanced.regression;
+    setRegressionOutput(regression?.output ?? "residual");
+    setRegressionWindow(regression?.window ?? 36);
+    setRegressionMinPeriods(regression?.minPeriods ?? 24);
+    setRegressionIntercept(regression?.includeIntercept !== false);
   };
   const duplicateDerived = (calc: MacroDerivedCalc) => {
     props.onAddDerived({
@@ -552,6 +827,22 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-5">
+          <section className="mb-4 rounded-xl border border-fs-border bg-white">
+            <button type="button" onClick={() => setTemplateOpen((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
+              <span className="flex-1 text-sm font-semibold text-fs-text">计算模板库</span>
+              <span className="text-xs text-fs-muted">{MACRO_CALCULATION_TEMPLATES.length} 个模板 · {templateOpen ? "收起" : "展开"}</span>
+            </button>
+            {templateOpen ? (
+              <div className="grid gap-2 border-t border-fs-border p-3 sm:grid-cols-2 lg:grid-cols-4">
+                {MACRO_CALCULATION_TEMPLATES.map((template) => (
+                  <button key={template.id} type="button" onClick={() => applyCalculationTemplate(template)} className="rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 text-left hover:border-fs-accent/50">
+                    <span className="block text-sm font-medium text-fs-text">{template.title}</span>
+                    <span className="mt-0.5 block text-[11px] leading-4 text-fs-muted">{template.description}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </section>
           {mode === "single" ? (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="min-w-0">
@@ -567,7 +858,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                   ))}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {(["resample", "transform", "rollingMean", "zScore", "volatility", "fill", "scale"] as const).map((type) => <button key={type} type="button" onClick={() => setSteps((current) => [...current, defaultStep(type)])} className="rounded-lg border border-fs-border bg-white px-3 py-2 text-xs font-medium text-fs-text hover:border-fs-accent/50">+ {type === "resample" ? "变频" : type === "transform" ? "变化" : type === "rollingMean" ? "滚动均值" : type === "zScore" ? "Z-Score" : type === "volatility" ? "波动率" : type === "fill" ? "补值" : "缩放"}</button>)}
+                  {(["resample", "transform", "rollingMean", "rollingQuantile", "zScore", "outlier", "volatility", "fill", "scale"] as const).map((type) => <button key={type} type="button" onClick={() => setSteps((current) => [...current, defaultStep(type)])} className="rounded-lg border border-fs-border bg-white px-3 py-2 text-xs font-medium text-fs-text hover:border-fs-accent/50">+ {type === "resample" ? "变频" : type === "transform" ? "变化" : type === "rollingMean" ? "滚动均值" : type === "rollingQuantile" ? "分位数" : type === "zScore" ? "Z-Score" : type === "outlier" ? "异常值" : type === "volatility" ? "波动率" : type === "fill" ? "补值" : "缩放"}</button>)}
                 </div>
               </div>
               <PreviewPanel result={singlePreview} />
@@ -586,7 +877,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                         <div key={calc.id} className={`flex flex-wrap items-center gap-2 border-b border-fs-border/70 px-3 py-2 last:border-0 ${calc.disabled ? "bg-fs-elevated opacity-70" : ""}`}>
                           <div className="min-w-0 flex-1 basis-48">
                             <p className="truncate text-sm font-medium text-fs-text">{calc.name}</p>
-                            <p className="truncate text-[11px] text-fs-muted">{calc.disabled ? "已停用" : calc.advanced?.kind === "correlation" ? `${calc.advanced.correlation?.window ?? 24} 期滚动${calc.advanced.correlation?.metric === "beta" ? " Beta" : calc.advanced.correlation?.metric === "covariance" ? "协方差" : "相关性"}` : calc.advanced?.formula ?? "旧版二元运算"}</p>
+                            <p className="truncate text-[11px] text-fs-muted">{calc.disabled ? "已停用" : calc.advanced?.kind === "correlation" ? `${calc.advanced.correlation?.window ?? 24} 期滚动${calc.advanced.correlation?.metric === "beta" ? " Beta" : calc.advanced.correlation?.metric === "covariance" ? "协方差" : "相关性"}` : calc.advanced?.kind === "regression" ? `${calc.advanced.regression?.window ?? 36} 期滚动回归 · ${calc.advanced.regression?.output ?? "residual"}` : calc.advanced?.formula ?? "旧版二元运算"}</p>
                           </div>
                           <button type="button" onClick={() => editDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">编辑</button>
                           <button type="button" onClick={() => duplicateDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">复制</button>
@@ -600,6 +891,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                 <div className="flex rounded-lg border border-fs-border bg-fs-elevated p-0.5">
                   <button type="button" onClick={() => setKind("formula")} className={`h-9 flex-1 rounded-md text-sm font-medium ${kind === "formula" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>多指标公式</button>
                   <button type="button" onClick={() => setKind("correlation")} className={`h-9 flex-1 rounded-md text-sm font-medium ${kind === "correlation" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>滚动统计</button>
+                  <button type="button" onClick={() => setKind("regression")} className={`h-9 flex-1 rounded-md text-sm font-medium ${kind === "regression" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>回归分析</button>
                 </div>
                 <section className="rounded-xl border border-fs-border bg-white p-3">
                   <div className="mb-3 flex items-center"><h3 className="flex-1 text-sm font-semibold text-fs-text">输入指标</h3><button type="button" disabled={inputKeys.length >= 8 || availableInputOptions.length === 0} onClick={() => setInputKeys((current) => [...current, availableInputOptions.find((option) => !current.includes(option.key))?.key ?? availableInputOptions[0]!.key])} className="text-xs font-medium text-fs-accent-text disabled:opacity-30">+ 添加输入</button></div>
@@ -628,24 +920,55 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                 </section>
                 {kind === "formula" ? (
                   <section className="rounded-xl border border-fs-border bg-white p-3">
-                    <Field label="公式"><FormulaEditor value={formula} onChange={setFormula} inputs={formulaInputs} /></Field>
+                    <div className="mb-3 flex items-center gap-2"><h3 className="flex-1 text-sm font-semibold text-fs-text">批量公式输出</h3><button type="button" disabled={extraOutputs.length >= 7} onClick={() => setExtraOutputs((current) => [...current, { id: stepId(), name: "", formula: "A - B" }])} className="text-xs font-medium text-fs-accent-text disabled:opacity-40">+ 添加输出</button></div>
+                    <Field label="输出 1 公式"><FormulaEditor value={formula} onChange={setFormula} inputs={formulaInputs} /></Field>
                     {formulaInspection?.outputUnit ? <p className="mt-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs text-emerald-800">推断输出单位：{formulaInspection.outputUnit}</p> : null}
                     {formulaInspection?.warnings.map((warning) => <p key={warning} className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">{warning}</p>)}
+                    {extraOutputs.map((output, index) => (
+                      <div key={output.id} className="mt-3 rounded-lg border border-fs-border bg-fs-elevated p-2.5">
+                        <div className="mb-2 flex items-center gap-2"><span className="flex-1 text-xs font-semibold text-fs-text">输出 {index + 2}</span><button type="button" onClick={() => setExtraOutputs((current) => current.filter((item) => item.id !== output.id))} className="text-xs text-red-600">删除</button></div>
+                        <div className="grid gap-2 sm:grid-cols-[180px_minmax(0,1fr)]">
+                          <Field label="名称"><input value={output.name} onChange={(event) => setExtraOutputs((current) => current.map((item) => item.id === output.id ? { ...item, name: event.target.value } : item))} className={`${inputClass} w-full`} placeholder={`公式输出 ${index + 2}`} /></Field>
+                          <Field label="公式"><input value={output.formula} onChange={(event) => setExtraOutputs((current) => current.map((item) => item.id === output.id ? { ...item, formula: event.target.value.slice(0, 500) } : item))} className={`${inputClass} w-full font-mono`} aria-label={`输出 ${index + 2} 公式`} /></Field>
+                        </div>
+                        {validateMacroFormula(output.formula, aliases) ? <p className="mt-1 text-xs text-red-600">{validateMacroFormula(output.formula, aliases)}</p> : null}
+                      </div>
+                    ))}
                   </section>
-                ) : (
+                ) : kind === "correlation" ? (
                   <section className="rounded-xl border border-fs-border bg-white p-3">
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                       <Field label="统计指标"><select value={statMetric} onChange={(event) => setStatMetric(event.target.value as typeof statMetric)} className={`${inputClass} w-full`}><option value="correlation">相关性</option><option value="covariance">协方差</option><option value="beta">Beta（A 对 B）</option></select></Field>
                       {statMetric === "correlation" ? <Field label="相关方法"><select value={corrMethod} onChange={(event) => setCorrMethod(event.target.value as typeof corrMethod)} className={`${inputClass} w-full`}><option value="pearson">Pearson</option><option value="spearman">Spearman</option></select></Field> : <Field label="估计口径"><select value={statSample ? "sample" : "population"} onChange={(event) => setStatSample(event.target.value === "sample")} className={`${inputClass} w-full`}><option value="sample">样本</option><option value="population">总体</option></select></Field>}
-                      <Field label="输入变换"><select value={corrInput} onChange={(event) => setCorrInput(event.target.value as typeof corrInput)} className={`${inputClass} w-full`}><option value="level">水平值</option><option value="diff">差分</option><option value="pctChange">百分比变化</option><option value="logReturn">对数变化</option></select></Field>
+                      <Field label="输入变换"><select value={corrInput} onChange={(event) => setCorrInput(event.target.value as typeof corrInput)} className={`${inputClass} w-full`}><option value="level">水平值</option><option value="diff">差分</option><option value="pctChange">百分比变化</option><option value="yoy">同比变化</option><option value="logReturn">对数变化</option></select></Field>
                       <Field label="滚动窗口">{numberInput(corrWindow, (value) => setCorrWindow(Math.max(2, value)), 2, 520)}</Field>
                       <Field label="最少有效期数">{numberInput(corrMinPeriods, (value) => setCorrMinPeriods(Math.max(2, Math.min(corrWindow, value))), 2, corrWindow)}</Field>
                       <Field label="A 领先期数">{numberInput(corrLag, setCorrLag, -120, 120)}</Field>
                     </div>
                     <p className="mt-2 text-xs text-fs-muted">正数表示 A 领先 B。Beta = Cov(A,B) / Var(B)；水平值统计可能受共同趋势影响。</p>
                   </section>
+                ) : (
+                  <section className="rounded-xl border border-fs-border bg-white p-3">
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                      <Field label="回归输出"><select value={regressionOutput} onChange={(event) => setRegressionOutput(event.target.value as typeof regressionOutput)} className={`${inputClass} w-full`}><option value="residual">残差</option><option value="fitted">拟合值</option><option value="coefficient">B 的回归系数</option><option value="intercept">截距</option><option value="rSquared">R²</option></select></Field>
+                      <Field label="输入变换"><select value={corrInput} onChange={(event) => setCorrInput(event.target.value as typeof corrInput)} className={`${inputClass} w-full`}><option value="level">水平值</option><option value="diff">差分</option><option value="pctChange">百分比变化</option><option value="yoy">同比变化</option><option value="logReturn">对数变化</option></select></Field>
+                      <Field label="模型"><select value={regressionIntercept ? "intercept" : "origin"} onChange={(event) => setRegressionIntercept(event.target.value === "intercept")} className={`${inputClass} w-full`}><option value="intercept">包含截距</option><option value="origin">过原点</option></select></Field>
+                      <Field label="滚动窗口">{numberInput(regressionWindow, (value) => setRegressionWindow(Math.max(3, value)), 3, 520)}</Field>
+                      <Field label="最少有效期数">{numberInput(regressionMinPeriods, (value) => setRegressionMinPeriods(Math.max(3, Math.min(regressionWindow, value))), 3, regressionWindow)}</Field>
+                      <Field label="A 领先期数">{numberInput(corrLag, setCorrLag, -120, 120)}</Field>
+                    </div>
+                    <p className="mt-2 text-xs text-fs-muted">A 为因变量，B–H 为解释变量；正数表示 A 领先解释变量。滚动回归用于统计关系分析，不代表因果。</p>
+                  </section>
                 )}
                 <Field label="输出名称（可选）"><input value={name} onChange={(event) => setName(event.target.value)} className={`${inputClass} w-full`} placeholder="留空则自动生成" /></Field>
+                <section className="rounded-xl border border-fs-border bg-white">
+                  <button type="button" onClick={() => setTransferOpen((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left"><span className="flex-1 text-sm font-semibold text-fs-text">导入、导出与共享</span><span className="text-xs text-fs-muted">{transferOpen ? "收起" : "展开"}</span></button>
+                  {transferOpen ? <div className="space-y-2 border-t border-fs-border p-3">
+                    <textarea value={transferText} onChange={(event) => setTransferText(event.target.value)} rows={5} className="w-full resize-y rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 font-mono text-xs text-fs-text outline-none focus:border-fs-accent" placeholder="粘贴导出的 JSON 或分享链接" aria-label="运算配置导入导出" />
+                    <div className="flex flex-wrap gap-2"><button type="button" onClick={exportCalculation} className="rounded-lg border border-fs-border px-3 py-2 text-xs text-fs-text">生成 JSON</button><button type="button" onClick={importCalculation} disabled={!transferText.trim()} className="rounded-lg border border-fs-border px-3 py-2 text-xs text-fs-text disabled:opacity-40">导入配置</button><button type="button" onClick={copyShareLink} className="rounded-lg border border-fs-accent/30 bg-fs-accent-soft px-3 py-2 text-xs font-medium text-fs-accent-text">复制分享链接</button></div>
+                    {transferStatus ? <p className="text-xs text-fs-muted">{transferStatus}</p> : null}
+                  </div> : null}
+                </section>
               </div>
               <PreviewPanel result={derivedPreview} title="对齐与结果诊断" />
             </div>
@@ -656,7 +979,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
           {mode === "derived" && editingId ? <button type="button" onClick={() => { setEditingId(null); setName(""); }} className="h-10 rounded-lg border border-fs-border px-4 text-sm text-fs-text">退出编辑</button> : null}
           <span className="flex-1" />
           <button type="button" onClick={props.onClose} className="h-10 rounded-lg border border-fs-border px-4 text-sm text-fs-text">取消</button>
-          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { const previous = props.configMap[targetKey] ?? { op: "none", frequency: "keep", unit: "keep", resampleMethod: "end" }; props.onApplySingle(targetKey, { ...previous, steps }); props.onClose(); }} className="h-10 rounded-lg bg-fs-accent px-5 text-sm font-medium text-white disabled:opacity-40">应用运算链</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-10 rounded-lg bg-fs-accent px-5 text-sm font-medium text-white disabled:opacity-40">{editingId ? "保存修改" : "添加派生指标"}</button>}
+          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { const previous = props.configMap[targetKey] ?? { op: "none", frequency: "keep", unit: "keep", resampleMethod: "end" }; props.onApplySingle(targetKey, { ...previous, steps }); props.onClose(); }} className="h-10 rounded-lg bg-fs-accent px-5 text-sm font-medium text-white disabled:opacity-40">应用运算链</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-10 rounded-lg bg-fs-accent px-5 text-sm font-medium text-white disabled:opacity-40">{editingId ? (kind === "formula" && extraOutputs.length ? `保存并新增 ${extraOutputs.length} 项` : "保存修改") : kind === "formula" && extraOutputs.length ? `添加 ${extraOutputs.length + 1} 个派生指标` : "添加派生指标"}</button>}
         </footer>
       </div>
     </div>,
