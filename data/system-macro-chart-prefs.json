@@ -75,6 +75,11 @@
       "id": "folder-builtin-cn-balance-of-payments",
       "name": "中国国际收支分析",
       "scope": "builtin"
+    },
+    {
+      "id": "folder-builtin-us-oil-diesel",
+      "name": "全球原油与成品油",
+      "scope": "builtin"
     }
   ],
   "customBuiltinTemplates": [
@@ -239,6 +244,7 @@
     "builtin-us-monetary-overview": "folder-builtin-us-monetary",
     "builtin-cn-fiscal-expenditure": "folder-builtin-cn-fiscal",
     "builtin-us-cycle-risk-signals": "folder-builtin-us-cycle-risk",
+    "builtin-us-oil-diesel-monitor": "folder-builtin-us-oil-diesel",
     "builtin-debt-capacity-4country": null,
     "builtin-us-cycle-risk-momentum": "folder-builtin-us-cycle-risk",
     "builtin-us-monetary-conditions": "folder-builtin-us-monetary",
@@ -4471,6 +4477,298 @@
         }
       }
     },
+    "builtin-us-oil-diesel-monitor": {
+      "name": "美国原油与柴油短缺监测",
+      "introHtml": "<p>六层观察：原油价格 → 成品油裂解 → 库存 → 炼厂 → 需求/货运 → 战略储备。先区分原油冲击、炼化瓶颈与需求变化，再判断短缺是否扩散。</p><p>图 1 · 1 原油价格：WTI vs Brent<br />WTI 代表美国内陆原油，Brent 代表全球海运原油。两者同时抬升更像全球供给冲击；Brent 相对更强通常提示海运与地缘风险溢价。</p><p>图 2 · 2 成品油裂解：ULSD−WTI<br />ULSD 裂解价差 = 42×纽约港 ULSD（美元/加仑）−WTI（美元/桶），只在模板显示层按同日数据计算。价差急升而原油平稳，更接近炼化或柴油局部短缺。</p><p>图 3 · 3 库存：战略 vs 商业<br />SPR 是政策缓冲垫，不等于商业库存。释放可缓解原油端压力，但未必同步解决炼厂产能或柴油品种短缺。总馏分油库存与 ≤15ppm ULSD 库存同时下降，且裂解价差走阔，才是柴油紧张增强的组合信号。单周库存受季节与物流扰动，避免孤立解读。</p><p>图 4 · 4 炼厂：产能利用率<br />炼厂利用率用于定位炼化瓶颈：利用率下降且裂解走阔，常见于检修、事故或区域炼能受限；高利用率下仍短缺则需检查需求与物流。</p><p>图 5 · 5 需求：馏分油 <br />馏分油 product supplied 同时展示官方周值和模板层 4 周均值；</p><p style=\"line-height:1\">图 6 · 6 需求：货运<br />BTS 与 Cass 是较慢的月度货运需求代理。货运转弱但裂解仍走阔时，优先检查供给端。</p>",
+      "layoutMode": 6,
+      "description": "六层观察：原油价格 → 成品油裂解 → 库存 → 炼厂 → 需求/货运 → 战略储备。先区分原油冲击、炼化瓶颈与需求变化，再判断短缺是否扩散。",
+      "derivedCalcs": [
+        {
+          "id": "oil-diesel-ulsd-crack",
+          "op": "sub",
+          "name": "ULSD 裂解价差（美元/桶）",
+          "leftKey": "fred:DDFUELNYH",
+          "rightKey": "fred:DCOILWTICO",
+          "leftScale": 42
+        }
+      ],
+      "selectedKeys": [
+        "fred:DCOILWTICO",
+        "fred:DCOILBRENTEU",
+        "fred:DDFUELNYH",
+        "fred:TSIFRGHT",
+        "fred:FRGSHPUSM649NCIS",
+        "mds:eia_wpsr_wdistus1",
+        "mds:eia_wpsr_wd0st_nus_1",
+        "mds:eia_wpsr_wpuleus3",
+        "mds:eia_wpsr_wdiupus2",
+        "mds:eia_wpsr_wdiupus2::ma4",
+        "mds:eia_wpsr_wcsstus1"
+      ],
+      "updatedAtIso": "2026-10-04T09:53:37.735Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "1 原油价格：WTI vs Brent",
+          "1": "2 成品油裂解：ULSD−WTI",
+          "2": "3 库存：战略 vs 商业",
+          "3": "4 炼厂：产能利用率",
+          "4": "5 需求：馏分油 ",
+          "5": "6 5 需求：货运"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "2": [
+            "mds:eia_wpsr_wcsstus1",
+            "mds:eia_wpsr_wdistus1",
+            "mds:eia_wpsr_wd0st_nus_1"
+          ],
+          "5": [
+            "fred:FRGSHPUSM649NCIS",
+            "fred:TSIFRGHT"
+          ]
+        },
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:TSIFRGHT": 5,
+        "fred:DDFUELNYH": null,
+        "fred:DCOILWTICO": 0,
+        "fred:DCOILBRENTEU": 0,
+        "fred:FRGSHPUSM649NCIS": 5,
+        "mds:eia_wpsr_wcsstus1": 2,
+        "mds:eia_wpsr_wdistus1": 2,
+        "mds:eia_wpsr_wdiupus2": 4,
+        "mds:eia_wpsr_wpuleus3": 3,
+        "mds:eia_wpsr_wd0st_nus_1": 2,
+        "calc:oil-diesel-ulsd-crack": 1,
+        "mds:eia_wpsr_wdiupus2::ma4": 4
+      },
+      "chartIntroNotes": {
+        "0": "WTI 代表美国内陆原油，Brent 代表全球海运原油。两者同时抬升更像全球供给冲击；Brent 相对更强通常提示海运与地缘风险溢价。",
+        "1": "ULSD 裂解价差 = 42×纽约港 ULSD（美元/加仑）−WTI（美元/桶），只在模板显示层按同日数据计算。价差急升而原油平稳，更接近炼化或柴油局部短缺。",
+        "2": "总馏分油库存与 ≤15ppm ULSD 库存同时下降，且裂解价差走阔，才是柴油紧张增强的组合信号。单周库存受季节与物流扰动，避免孤立解读。",
+        "3": "炼厂利用率用于定位炼化瓶颈：利用率下降且裂解走阔，常见于检修、事故或区域炼能受限；高利用率下仍短缺则需检查需求与物流。",
+        "4": "馏分油 product supplied 同时展示官方周值和模板层 4 周均值；BTS 与 Cass 是较慢的月度货运需求代理。货运转弱但裂解仍走阔时，优先检查供给端。",
+        "5": "SPR 是政策缓冲垫，不等于商业库存。释放可缓解原油端压力，但未必同步解决炼厂产能或柴油品种短缺。"
+      },
+      "seriesVisualMap": {
+        "fred:TSIFRGHT": {
+          "axis": "right",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DDFUELNYH": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DCOILWTICO": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DCOILBRENTEU": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "fred:FRGSHPUSM649NCIS": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wcsstus1": {
+          "axis": "right",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wdistus1": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wdiupus2": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wpuleus3": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wd0st_nus_1": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:oil-diesel-ulsd-crack": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wdiupus2::ma4": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:DCOILWTICO",
+          "type": "series"
+        },
+        {
+          "key": "fred:DCOILBRENTEU",
+          "type": "series"
+        },
+        {
+          "key": "fred:DDFUELNYH",
+          "type": "series"
+        },
+        {
+          "key": "fred:TSIFRGHT",
+          "type": "series"
+        },
+        {
+          "key": "fred:FRGSHPUSM649NCIS",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wdistus1",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wd0st_nus_1",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wpuleus3",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wdiupus2",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wdiupus2::ma4",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wcsstus1",
+          "type": "series"
+        },
+        {
+          "key": "calc:oil-diesel-ulsd-crack",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:TSIFRGHT": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:DDFUELNYH": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:DCOILWTICO": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:DCOILBRENTEU": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:FRGSHPUSM649NCIS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wcsstus1": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wdistus1": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wdiupus2": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶/日",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wpuleus3": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wd0st_nus_1": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wdiupus2::ma4": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶/日",
+          "rollingWindow": 4,
+          "resampleMethod": "end"
+        }
+      }
+    },
     "builtin-debt-capacity-4country": {
       "name": "四国偿债能力（美日中德）",
       "layoutMode": 4,
@@ -4500,13 +4798,16 @@
         "mds:debtcap_de_debt_service_private_non_financial",
         "mds:debtcap_de_debt_service_non_financial_corporate"
       ],
-      "updatedAtIso": "2026-06-07T09:24:31.764Z",
+      "updatedAtIso": "2026-10-04T13:36:09.171Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
         "showLegend": true,
         "slotTitles": {
-          "0": "美国杠杆率"
+          "0": "美国杠杆率",
+          "1": "日本杠杆率",
+          "2": "中国杠杆率",
+          "3": "德国杠杆率"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
@@ -4520,6 +4821,9 @@
         "yLabelFontSize": 11,
         "endLabelDecimals": 2,
         "showRegimeShading": false,
+        "slotShowEndLabels": {
+          "3": true
+        },
         "showRecessionShading": false
       },
       "slotAssignment": {
@@ -4577,13 +4881,13 @@
         },
         "mds:debtcap_de_debt_service_household": {
           "axis": "right",
-          "color": "#f4b165",
+          "color": "#1ce3e0",
           "chartType": "line",
           "showEndLabel": true
         },
         "mds:debtcap_jp_debt_service_household": {
           "axis": "right",
-          "color": "#f4b165",
+          "color": "#db7e14",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -4609,7 +4913,7 @@
         },
         "mds:debtcap_jp_leverage_nominal_government": {
           "axis": "left",
-          "color": "#d9b15c",
+          "color": "#ecac22",
           "chartType": "stackBar",
           "stackGroup": "debtcap-leverage",
           "showEndLabel": true
@@ -4657,7 +4961,7 @@
         },
         "mds:debtcap_de_debt_service_private_non_financial": {
           "axis": "right",
-          "color": "#6ccad1",
+          "color": "#19fb09",
           "chartType": "dashedLine",
           "showEndLabel": true
         },
@@ -4675,7 +4979,7 @@
         },
         "mds:debtcap_de_debt_service_non_financial_corporate": {
           "axis": "right",
-          "color": "#f5f6fa",
+          "color": "#f24207",
           "chartType": "line",
           "showEndLabel": true
         },
