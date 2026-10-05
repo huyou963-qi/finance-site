@@ -10,7 +10,7 @@ import {
 import { MacroTemplateFolderSection } from "@/components/MacroTemplateFolderSection";
 import { MacroChartDrawingToolbar } from "@/components/MacroChartDrawingToolbar";
 import { MacroMultiChartGrid } from "@/components/MacroMultiChartGrid";
-import { MacroMobileCalcSheet } from "@/components/macro/mobile/MacroMobileCalcSheet";
+import { MacroCalculationWorkbench } from "@/components/macro/MacroCalculationWorkbench";
 import {
   MacroMobileLayout,
   type MacroMobileTab,
@@ -178,6 +178,11 @@ import {
   effectiveMacroSeriesUnit,
 } from "@/lib/macroSeriesDisplayName";
 import { applyMacroDerivedValue } from "@/lib/macroDerivedCalc";
+import {
+  applyMacroSeriesSteps,
+  evaluateAdvancedMacroCalculation,
+  type MacroCalculationSeries,
+} from "@/lib/macroCalculationEngine";
 import { trailingMean } from "@/lib/macroRolling";
 import { formatMacroDisplayNumber } from "@/lib/formatMacroValue";
 import {
@@ -436,6 +441,10 @@ function resampleSeries(
       const vals = buckets.get(x) ?? [];
       if (vals.length === 0) return null;
       if (method === "start") return vals[0] ?? null;
+      if (method === "end") return vals[vals.length - 1] ?? null;
+      if (method === "sum") return vals.reduce((acc, n) => acc + n, 0);
+      if (method === "min") return Math.min(...vals);
+      if (method === "max") return Math.max(...vals);
       if (method === "avg") {
         const sum = vals.reduce((acc, n) => acc + n, 0);
         return sum / vals.length;
@@ -733,12 +742,6 @@ export function MacroSection() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [seriesCalcConfigMap, setSeriesCalcConfigMap] = useState<MacroSeriesCalcConfigMap>({});
   const [derivedCalcs, setDerivedCalcs] = useState<MacroDerivedCalc[]>([]);
-  const [calcTargetKey, setCalcTargetKey] = useState("");
-  const [calcDraft, setCalcDraft] = useState<MacroSeriesCalcConfig>(DEFAULT_SERIES_CALC_CONFIG);
-  const [derivedLeftKey, setDerivedLeftKey] = useState("");
-  const [derivedRightKey, setDerivedRightKey] = useState("");
-  const [derivedOp, setDerivedOp] = useState<MacroDerivedCalcOp>("ratio");
-  const [derivedName, setDerivedName] = useState("");
   const [templateNameDialogOpen, setTemplateNameDialogOpen] = useState(false);
   const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [templateSaveMode, setTemplateSaveMode] = useState<"user" | "builtin">("user");
@@ -1879,12 +1882,6 @@ export function MacroSection() {
     setDisplayConfig({ ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG });
     setSeriesCalcConfigMap({});
     setDerivedCalcs([]);
-    setCalcTargetKey("");
-    setCalcDraft(DEFAULT_SERIES_CALC_CONFIG);
-    setDerivedLeftKey("");
-    setDerivedRightKey("");
-    setDerivedOp("ratio");
-    setDerivedName("");
     setExtractedSet(new Set());
     setPayload(null);
     setError(null);
@@ -2179,32 +2176,6 @@ export function MacroSection() {
     [orderedSelectedKeys, resolveSeriesLabel],
   );
 
-  useEffect(() => {
-    if (selectedKeyOptions.length === 0) {
-      setCalcTargetKey("");
-      setDerivedLeftKey("");
-      setDerivedRightKey("");
-      return;
-    }
-    if (!calcTargetKey || !selectedKeys.has(calcTargetKey)) {
-      setCalcTargetKey(selectedKeyOptions[0]!.key);
-    }
-    if (!derivedLeftKey || !selectedKeys.has(derivedLeftKey)) {
-      setDerivedLeftKey(selectedKeyOptions[0]!.key);
-    }
-    if (!derivedRightKey || !selectedKeys.has(derivedRightKey)) {
-      setDerivedRightKey(selectedKeyOptions[Math.min(1, selectedKeyOptions.length - 1)]!.key);
-    }
-  }, [calcTargetKey, derivedLeftKey, derivedRightKey, selectedKeyOptions, selectedKeys]);
-
-  useEffect(() => {
-    if (!calcTargetKey) return;
-    setCalcDraft({
-      ...DEFAULT_SERIES_CALC_CONFIG,
-      ...(seriesCalcConfigMap[calcTargetKey] ?? {}),
-    });
-  }, [calcTargetKey, seriesCalcConfigMap]);
-
   const rawPayload = payload;
 
   const mdsUnitByKey = useMemo(() => {
@@ -2246,23 +2217,30 @@ export function MacroSection() {
           const adjusted = applyUnitAdjust(v, cfg.unit);
           return adjusted == null ? null : adjusted * (cfg.scale ?? 1);
         });
-        // 先重采样再算 YoY/环比：unified 拉取会把日频（WTI）与月频（CPI）并到同一
-        // 时间轴；若在日频轴上 idx-12 做同比，1986 年后 WTI 插入日点后会全部失效。
+        // v2 运算链按用户排列顺序执行；没有 steps 的历史模板继续走原有固定管线。
+        // 历史管线保持“滚动均值 → 重采样 → 变换”的语义，避免旧模板结果漂移。
         let outCategories = rawPayload.categories;
-        let outValues = cfg.rollingWindow
-          ? trailingMean(scaled, cfg.rollingWindow)
-          : scaled;
-        if (cfg.frequency !== "keep") {
-          const sampled = resampleSeries(
-            outCategories,
-            outValues,
-            cfg.frequency,
-            cfg.resampleMethod,
-          );
-          outCategories = sampled.categories;
-          outValues = sampled.data;
+        let transformed: (number | null)[];
+        if (cfg.steps?.length) {
+          const stepped = applyMacroSeriesSteps(outCategories, scaled, cfg.steps);
+          outCategories = stepped.categories;
+          transformed = stepped.data;
+        } else {
+          let outValues = cfg.rollingWindow
+            ? trailingMean(scaled, cfg.rollingWindow)
+            : scaled;
+          if (cfg.frequency !== "keep") {
+            const sampled = resampleSeries(
+              outCategories,
+              outValues,
+              cfg.frequency,
+              cfg.resampleMethod,
+            );
+            outCategories = sampled.categories;
+            outValues = sampled.data;
+          }
+          transformed = applyMacroSeriesOp(outCategories, outValues, cfg.op);
         }
-        const transformed = applyMacroSeriesOp(outCategories, outValues, cfg.op);
         const label = resolveSeriesLabel(key) || catalogLabelByKey.get(key) || s.name;
         const suffix = buildMacroSeriesCalcSuffix(cfg);
         const baseName = suffix ? `${label}（${suffix}）` : label;
@@ -2284,16 +2262,28 @@ export function MacroSection() {
     const byKey = new Map(work.map((x) => [x.key, x]));
     const derivedSeries: SeriesWorking[] = [];
     for (const calc of derivedCalcs) {
-      const left = byKey.get(calc.leftKey);
-      const right = byKey.get(calc.rightKey);
-      if (!left || !right) continue;
       const key = `calc:${calc.id}`;
-      const derived = deriveSeries(left, right, calc.op, calc.name, key, {
-        leftScale: calc.leftScale,
-        rightScale: calc.rightScale,
-        scale: calc.scale,
-      });
-      if (calc.postOp) derived.data = applyMacroSeriesOp(derived.categories, derived.data, calc.postOp);
+      let derived: SeriesWorking | null = null;
+      if (calc.advanced) {
+        const result = evaluateAdvancedMacroCalculation(
+          calc.advanced,
+          byKey as Map<string, MacroCalculationSeries>,
+        );
+        if (!result.diagnostics.error) {
+          derived = { key, name: calc.name, categories: result.categories, data: result.data };
+        }
+      } else {
+        const left = byKey.get(calc.leftKey);
+        const right = byKey.get(calc.rightKey);
+        if (!left || !right) continue;
+        derived = deriveSeries(left, right, calc.op, calc.name, key, {
+          leftScale: calc.leftScale,
+          rightScale: calc.rightScale,
+          scale: calc.scale,
+        });
+        if (calc.postOp) derived.data = applyMacroSeriesOp(derived.categories, derived.data, calc.postOp);
+      }
+      if (!derived) continue;
       // 允许后续 calc 引用前序 calc，支持 (A+B)−(C+D) 这类多步公式。
       byKey.set(key, derived);
       derived.name = decorateMacroSeriesDisplayName(calc.name, {
@@ -2630,7 +2620,14 @@ export function MacroSection() {
       delete out[key];
       return out;
     });
-    setDerivedCalcs((prev) => prev.filter((x) => x.leftKey !== key && x.rightKey !== key));
+    setDerivedCalcs((prev) =>
+      prev.filter(
+        (calc) =>
+          calc.leftKey !== key &&
+          calc.rightKey !== key &&
+          !calc.advanced?.inputs.some((input) => input.key === key),
+      ),
+    );
   }
 
   function removeSelectedListKey(key: string) {
@@ -2645,15 +2642,6 @@ export function MacroSection() {
     setSlotAssignment((prev) => ({ ...prev, [key]: slotIndex }));
   }
 
-  function applyCalcConfigToKey() {
-    const key = calcTargetKey.trim();
-    if (!key) return;
-    setSeriesCalcConfigMap((prev) => ({
-      ...prev,
-      [key]: { ...DEFAULT_SERIES_CALC_CONFIG, ...calcDraft },
-    }));
-  }
-
   function resetCalcConfigForKey(key: string) {
     setSeriesCalcConfigMap((prev) => {
       const out = { ...prev };
@@ -2662,34 +2650,13 @@ export function MacroSection() {
     });
   }
 
-  function addDerivedCalc() {
-    const left = derivedLeftKey.trim();
-    const right = derivedRightKey.trim();
-    if (!left || !right || left === right) return;
-    const leftLabel = selectedKeyOptions.find((x) => x.key === left)?.label ?? left;
-    const rightLabel = selectedKeyOptions.find((x) => x.key === right)?.label ?? right;
-    const opLabel =
-      derivedOp === "add"
-        ? "+"
-        : derivedOp === "sub"
-          ? "-"
-          : derivedOp === "mul"
-            ? "×"
-            : derivedOp === "div"
-              ? "÷"
-              : derivedOp === "ratio"
-                ? "比值"
-                : "差值";
-    const name =
-      derivedName.trim() ||
-      (derivedOp === "ratio"
-        ? `${leftLabel}/${rightLabel}`
-        : derivedOp === "spread"
-          ? `${leftLabel}-${rightLabel}`
-          : `${leftLabel} ${opLabel} ${rightLabel}`);
-    const id = `d-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-    setDerivedCalcs((prev) => [{ id, leftKey: left, rightKey: right, op: derivedOp, name }, ...prev].slice(0, 60));
-    setDerivedName("");
+  function applyWorkbenchConfigToKey(key: string, config: MacroSeriesCalcConfig) {
+    if (!key.trim()) return;
+    setSeriesCalcConfigMap((prev) => ({ ...prev, [key]: config }));
+  }
+
+  function addWorkbenchDerivedCalc(calc: MacroDerivedCalc) {
+    setDerivedCalcs((prev) => [calc, ...prev].slice(0, 60));
   }
 
   function removeDerivedCalc(id: string) {
@@ -4005,27 +3972,17 @@ export function MacroSection() {
             />
           }
         />
-        <MacroMobileCalcSheet
+        <MacroCalculationWorkbench
           open={mobileCalcOpen}
           onClose={() => setMobileCalcOpen(false)}
           options={selectedKeyOptions}
-          targetKey={calcTargetKey}
-          onTargetKeyChange={setCalcTargetKey}
-          draft={calcDraft}
-          onDraftChange={(patch) => setCalcDraft((prev) => ({ ...prev, ...patch }))}
-          onApply={applyCalcConfigToKey}
-          onReset={() => {
-            if (calcTargetKey) resetCalcConfigForKey(calcTargetKey);
-          }}
-          leftKey={derivedLeftKey}
-          onLeftKeyChange={setDerivedLeftKey}
-          rightKey={derivedRightKey}
-          onRightKeyChange={setDerivedRightKey}
-          op={derivedOp}
-          onOpChange={setDerivedOp}
-          name={derivedName}
-          onNameChange={setDerivedName}
-          onAddDerived={addDerivedCalc}
+          configMap={seriesCalcConfigMap}
+          rawPayload={rawPayload}
+          displayPayload={displayPayload}
+          derivedCount={visibleDerivedKeys.length}
+          onApplySingle={applyWorkbenchConfigToKey}
+          onResetSingle={resetCalcConfigForKey}
+          onAddDerived={addWorkbenchDerivedCalc}
         />
         <MobileSheet
           open={mobileChartSettingsOpen}
@@ -4130,175 +4087,20 @@ export function MacroSection() {
           onDeleteActiveTemplate={deleteActiveTemplate}
         />
         {mainTab === "selected" ? (
-          <div className="ml-3 min-w-0 flex-1 rounded-md border border-fs-border/90 bg-fs-elevated px-2 py-1 sm:ml-4">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-              <span className="shrink-0 text-xs font-bold text-fs-muted">
-                单指标运算
+          <button
+            type="button"
+            disabled={selectedKeyOptions.length === 0}
+            onClick={() => setMobileCalcOpen(true)}
+            className="ml-3 inline-flex h-9 items-center gap-2 rounded-lg border border-fs-accent/30 bg-fs-accent-soft px-4 text-sm font-semibold text-fs-accent-text hover:border-fs-accent disabled:opacity-40 sm:ml-4"
+          >
+            <span aria-hidden>Σ</span>
+            指标运算
+            {visibleDerivedKeys.length > 0 ? (
+              <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[11px]">
+                {visibleDerivedKeys.length}
               </span>
-              <label className="text-fs-muted">
-                指标
-                <select
-                  value={calcTargetKey}
-                  onChange={(e) => setCalcTargetKey(e.target.value)}
-                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  {selectedKeyOptions.map((x) => (
-                    <option key={x.key} value={x.key}>
-                      {x.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                运算
-                <select
-                  value={calcDraft.op}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({ ...prev, op: e.target.value as MacroSeriesCalcOp }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="none">原始</option>
-                  <option value="pctChange">环比%</option>
-                  <option value="yoy">同比%</option>
-                  <option value="diff">差分</option>
-                  <option value="cumsum">累计</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                频率
-                <select
-                  value={calcDraft.frequency}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({
-                      ...prev,
-                      frequency: e.target.value as MacroFrequencyAdjust,
-                    }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="keep">原始</option>
-                  <option value="month">月</option>
-                  <option value="quarter">季</option>
-                  <option value="year">年</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                变频
-                <select
-                  value={calcDraft.resampleMethod}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({
-                      ...prev,
-                      resampleMethod: e.target.value as MacroResampleMethod,
-                    }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="avg">平均</option>
-                  <option value="start">期初</option>
-                  <option value="end">期末</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                单位
-                <select
-                  value={calcDraft.unit}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({ ...prev, unit: e.target.value as MacroUnitAdjust }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="keep">原始</option>
-                  <option value="x0.01">x0.01</option>
-                  <option value="x100">x100</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={applyCalcConfigToKey}
-                className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[11px] font-medium text-fs-accent-text hover:border-fs-accent"
-              >
-                应用
-              </button>
-              <button
-                type="button"
-                onClick={() => calcTargetKey && resetCalcConfigForKey(calcTargetKey)}
-                className="rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-secondary hover:border-fs-border"
-              >
-                重置
-              </button>
-
-              <span
-                className="ml-3 mr-1 hidden h-6 w-px shrink-0 self-center bg-fs-border/80 sm:inline-block"
-                aria-hidden
-              />
-
-              <span className="ml-2 shrink-0 text-xs font-bold text-fs-muted sm:ml-0">
-                指标间运算
-              </span>
-              <label className="text-fs-muted">
-                左
-                <select
-                  value={derivedLeftKey}
-                  onChange={(e) => setDerivedLeftKey(e.target.value)}
-                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  {selectedKeyOptions.map((x) => (
-                    <option key={`l-${x.key}`} value={x.key}>
-                      {x.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                运算
-                <select
-                  value={derivedOp}
-                  onChange={(e) => setDerivedOp(e.target.value as MacroDerivedCalcOp)}
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="ratio">A/B</option>
-                  <option value="spread">A-B</option>
-                  <option value="add">A+B</option>
-                  <option value="sub">A-B</option>
-                  <option value="mul">A×B</option>
-                  <option value="div">A÷B</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                右
-                <select
-                  value={derivedRightKey}
-                  onChange={(e) => setDerivedRightKey(e.target.value)}
-                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  {selectedKeyOptions.map((x) => (
-                    <option key={`r-${x.key}`} value={x.key}>
-                      {x.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                名称
-                <input
-                  type="text"
-                  value={derivedName}
-                  onChange={(e) => setDerivedName(e.target.value)}
-                  placeholder="自动"
-                  className="ml-1 w-24 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={addDerivedCalc}
-                className="rounded border border-fs-accent/30 bg-fs-accent-soft px-2 py-0.5 text-[11px] text-fs-accent-text hover:border-fs-accent"
-              >
-                添加
-              </button>
-            </div>
-          </div>
+            ) : null}
+          </button>
         ) : null}
         {mainTab === "charts" ? (
           <>
@@ -4792,6 +4594,18 @@ export function MacroSection() {
         </div>
       </div>
 
+      <MacroCalculationWorkbench
+        open={mobileCalcOpen}
+        onClose={() => setMobileCalcOpen(false)}
+        options={selectedKeyOptions}
+        configMap={seriesCalcConfigMap}
+        rawPayload={rawPayload}
+        displayPayload={displayPayload}
+        derivedCount={visibleDerivedKeys.length}
+        onApplySingle={applyWorkbenchConfigToKey}
+        onResetSingle={resetCalcConfigForKey}
+        onAddDerived={addWorkbenchDerivedCalc}
+      />
       {templateNameDialog}
     </div>
   );

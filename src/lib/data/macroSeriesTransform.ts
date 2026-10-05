@@ -34,6 +34,11 @@ export function applyMacroSeriesOp(
     const previous = index > 0 ? values[index - 1] : null;
     if (op === "diff") return previous == null || !Number.isFinite(previous) ? null : value - previous;
     if (op === "pctChange") return previous == null || !Number.isFinite(previous) || previous === 0 ? null : ((value - previous) / Math.abs(previous)) * 100;
+    if (op === "logReturn") {
+      return previous == null || !Number.isFinite(previous) || previous <= 0 || value <= 0
+        ? null
+        : Math.log(value / previous) * 100;
+    }
     if (op === "yoy") {
       const priorKey = previousYearKey(categories[index]!);
       const prior = priorKey ? byCategory.get(priorKey) ?? null : null;

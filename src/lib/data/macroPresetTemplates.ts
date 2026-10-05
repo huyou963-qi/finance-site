@@ -227,10 +227,52 @@ export type MacroTemplateFolder = {
   scope: MacroTemplateFolderScope;
 };
 
-export type MacroSeriesCalcOp = "none" | "pctChange" | "yoy" | "diff" | "cumsum";
+export type MacroSeriesCalcOp = "none" | "pctChange" | "yoy" | "diff" | "cumsum" | "logReturn";
 export type MacroFrequencyAdjust = "keep" | "month" | "quarter" | "year";
 export type MacroUnitAdjust = "keep" | "x0.01" | "x100";
-export type MacroResampleMethod = "avg" | "start" | "end";
+export type MacroResampleMethod = "avg" | "start" | "end" | "sum" | "min" | "max";
+export type MacroMissingValueMethod = "none" | "forward" | "backward" | "linear";
+
+export type MacroSeriesCalcStep =
+  | {
+      id: string;
+      type: "resample";
+      frequency: Exclude<MacroFrequencyAdjust, "keep">;
+      method: MacroResampleMethod;
+    }
+  | {
+      id: string;
+      type: "transform";
+      op: Exclude<MacroSeriesCalcOp, "none">;
+    }
+  | {
+      id: string;
+      type: "rollingMean";
+      window: number;
+      minPeriods: number;
+    }
+  | {
+      id: string;
+      type: "volatility";
+      input: "diff" | "pctChange" | "logReturn";
+      window: number;
+      minPeriods: number;
+      sample: boolean;
+      annualize: boolean;
+      periodsPerYear: number;
+    }
+  | {
+      id: string;
+      type: "fill";
+      method: Exclude<MacroMissingValueMethod, "none">;
+      maxGap: number;
+    }
+  | {
+      id: string;
+      type: "scale";
+      factor: number;
+      unitLabel?: string;
+    };
 
 export type MacroSeriesCalcConfig = {
   op: MacroSeriesCalcOp;
@@ -243,11 +285,40 @@ export type MacroSeriesCalcConfig = {
   unitLabel?: string;
   /** 原始观测点上的向后移动平均；窗口不足时输出空值。 */
   rollingWindow?: number;
+  /** v2 可排序运算链；存在时按数组顺序执行，旧字段继续兼容历史模板。 */
+  steps?: MacroSeriesCalcStep[];
 };
 
 export type MacroSeriesCalcConfigMap = Record<string, MacroSeriesCalcConfig>;
 
 export type MacroDerivedCalcOp = "add" | "sub" | "mul" | "div" | "ratio" | "spread";
+
+export type MacroFormulaInput = {
+  key: string;
+  alias: string;
+  resampleMethod: MacroResampleMethod;
+  fillMethod: MacroMissingValueMethod;
+  maxGap: number;
+};
+
+export type MacroAdvancedDerivedConfig = {
+  version: 2;
+  kind: "formula" | "correlation";
+  inputs: MacroFormulaInput[];
+  alignment: {
+    frequency: MacroFrequencyAdjust;
+    join: "inner" | "union" | "left";
+  };
+  /** 安全公式 DSL，仅允许指标别名、数字、白名单函数与算术运算。 */
+  formula?: string;
+  correlation?: {
+    method: "pearson" | "spearman";
+    input: "level" | "diff" | "pctChange" | "logReturn";
+    window: number;
+    minPeriods: number;
+    lag: number;
+  };
+};
 
 export type MacroDerivedCalc = {
   id: string;
@@ -264,6 +335,8 @@ export type MacroDerivedCalc = {
   postOp?: "yoy";
   /** 仅作为后续派生的中间节点，不进入图表与已选指标列表。 */
   hidden?: boolean;
+  /** v2 多指标公式/相关性定义；旧 left/right/op 字段保留作兼容与回退。 */
+  advanced?: MacroAdvancedDerivedConfig;
 };
 
 /** 代码内置系统模板文件夹（DB 无配置时合并） */

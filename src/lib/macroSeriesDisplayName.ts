@@ -4,6 +4,24 @@ import type { MacroSeriesAxis } from "@/lib/macroChartOption";
 
 /** 计算变换后缀（同比%、月频-期末等） */
 export function buildMacroSeriesCalcSuffix(cfg: MacroSeriesCalcConfig): string {
+  if (cfg.steps?.length) {
+    return cfg.steps
+      .map((step) => {
+        if (step.type === "resample") {
+          const frequency = step.frequency === "month" ? "月频" : step.frequency === "quarter" ? "季频" : "年频";
+          const method = step.method === "avg" ? "平均" : step.method === "start" ? "期初" : step.method === "sum" ? "合计" : step.method === "min" ? "最小" : step.method === "max" ? "最大" : "期末";
+          return `${frequency}-${method}`;
+        }
+        if (step.type === "transform") {
+          return step.op === "pctChange" ? "变化%" : step.op === "logReturn" ? "对数变化%" : step.op === "yoy" ? "同比%" : step.op === "diff" ? "差分" : "累计";
+        }
+        if (step.type === "rollingMean") return `${step.window}期均值`;
+        if (step.type === "volatility") return `${step.window}期${step.annualize ? "年化" : ""}波动率`;
+        if (step.type === "fill") return step.method === "forward" ? "前向填充" : step.method === "backward" ? "后向填充" : "线性插值";
+        return `x${step.factor}`;
+      })
+      .join(" → ");
+  }
   const parts: string[] = [];
   if (cfg.op !== "none") {
     parts.push(
@@ -13,7 +31,9 @@ export function buildMacroSeriesCalcSuffix(cfg: MacroSeriesCalcConfig): string {
           ? "同比%"
           : cfg.op === "diff"
             ? "差分"
-            : "累计",
+            : cfg.op === "logReturn"
+              ? "对数变化%"
+              : "累计",
     );
   }
   if (cfg.frequency !== "keep") {
@@ -36,7 +56,12 @@ export function effectiveMacroSeriesUnit(
   cfg: MacroSeriesCalcConfig,
   mdsUnitByKey?: ReadonlyMap<string, string>,
 ): string | null {
-  if (cfg.op === "yoy" || cfg.op === "pctChange") return "%";
+  if (cfg.steps?.length) {
+    const lastUnitStep = [...cfg.steps].reverse().find((step) => step.type === "scale" && step.unitLabel?.trim());
+    if (lastUnitStep?.type === "scale" && lastUnitStep.unitLabel?.trim()) return lastUnitStep.unitLabel.trim();
+    if (cfg.steps.some((step) => step.type === "volatility" || (step.type === "transform" && (step.op === "yoy" || step.op === "pctChange" || step.op === "logReturn")))) return "%";
+  }
+  if (cfg.op === "yoy" || cfg.op === "pctChange" || cfg.op === "logReturn") return "%";
   if (cfg.unitLabel?.trim()) return cfg.unitLabel.trim();
   const lookupKey = key.startsWith("fred:") ? fredCatalogBaseKey(key) : key;
   const raw = mdsUnitByKey?.get(key) ?? mdsUnitByKey?.get(lookupKey);
