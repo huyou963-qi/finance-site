@@ -374,6 +374,11 @@ export type MacroDerivedCalc = {
   disabled?: boolean;
   /** 用户确认或引擎推断的输出单位，仅用于展示与公式单位检查。 */
   unitLabel?: string;
+  /** 单指标运算链；输入原序列保持不变，结果以新的派生指标保存。 */
+  single?: {
+    inputKey: string;
+    steps: MacroSeriesCalcStep[];
+  };
   /** v2 多指标公式/相关性定义；旧 left/right/op 字段保留作兼容与回退。 */
   advanced?: MacroAdvancedDerivedConfig;
 };

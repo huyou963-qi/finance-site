@@ -307,6 +307,13 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
       const leftScale = Number(x.leftScale);
       const rightScale = Number(x.rightScale);
       const scale = Number(x.scale);
+      let single: MacroDerivedCalc["single"];
+      if (x.single && typeof x.single === "object") {
+        const raw = x.single as Record<string, unknown>;
+        const inputKey = String(raw.inputKey ?? "").trim();
+        const steps = sanitizeSeriesCalcSteps(raw.steps);
+        if (inputKey && steps.length > 0) single = { inputKey, steps };
+      }
       let advanced: MacroDerivedCalc["advanced"];
       if (x.advanced && typeof x.advanced === "object") {
         const raw = x.advanced as Record<string, unknown>;
@@ -422,7 +429,7 @@ function sanitizeDerivedCalcs(input: unknown): MacroDerivedCalc[] {
         ...(typeof x.unitLabel === "string" && x.unitLabel.trim()
           ? { unitLabel: x.unitLabel.trim().slice(0, 40) }
           : {}),
-        ...(advanced ? { advanced } : {}),
+        ...(single ? { single } : advanced ? { advanced } : {}),
       };
     })
     .filter((value): value is MacroDerivedCalc => Boolean(value))
