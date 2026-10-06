@@ -59,6 +59,10 @@ const AT_VERBS =
   "remained unchanged|was unchanged|held steady|stayed unchanged|came in|stood";
 
 function matchHeadline(text: string): TeEuroCompositePmiPoint | null {
+  const comparisonRe = new RegExp(
+    `Composite PMI (?:${TO_VERBS}) to ([\\d.]+)(?:\\s*points)? in ([A-Za-z]+) from [\\d.]+(?:\\s*points)? in [A-Za-z]+ of (\\d{4})`,
+    "i",
+  );
   const toRe = new RegExp(
     `Composite PMI (?:${TO_VERBS}) to ([\\d.]+)(?:\\s*points)? in ([A-Za-z]+ \\d{4})`,
     "i",
@@ -68,6 +72,13 @@ function matchHeadline(text: string): TeEuroCompositePmiPoint | null {
     "i",
   );
 
+  const comparison = comparisonRe.exec(text);
+  if (comparison) {
+    const value = Number(comparison[1]);
+    const referenceText = `${comparison[2]} ${comparison[3]}`;
+    const obsDate = referenceTextToObsDate(referenceText);
+    if (Number.isFinite(value) && obsDate) return { value, referenceText, obsDate };
+  }
   const m = toRe.exec(text) ?? atRe.exec(text);
   if (!m) return null;
 

@@ -28,6 +28,14 @@ test("parses headline from narrative (to-verb pattern)", () => {
   assert.equal(parsed.headline.referenceText, "May 2025");
 });
 
+test("parses comparison wording whose year follows the prior month", () => {
+  const parsed = parseTradingEconomicsEuroCompositePmiPage(descriptionHtml(
+    "Composite PMI In the Euro Area increased to 53.10 points in September from 52 points in August of 2026.",
+  ));
+  assert.equal(parsed.headline.value, 53.1);
+  assert.equal(parsed.headline.referenceText, "September 2026");
+});
+
 test("throws when #description anchor is missing", () => {
   assert.throws(() =>
     parseTradingEconomicsEuroCompositePmiPage("<html><body>no anchor</body></html>"),
