@@ -106,6 +106,29 @@ function parseGlanceRows(
   return out;
 }
 
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Newer PR Newswire pages can render the comparison table as non-tabular
+ * blocks.  Their official summary still carries each index as "X Index at
+ * NN.N%"; use it only to fill rows missing from the structured table. */
+function fillNarrativePoints(
+  html: string,
+  defs: readonly IsmOfficialSeriesDef[],
+  obsDate: Date,
+  points: Map<string, ObservationPoint>,
+): void {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ");
+  for (const def of defs) {
+    if (!def.prNewswireLabel || points.has(def.code)) continue;
+    const label = escapeRegex(def.prNewswireLabel).replace(/\\ /g, "\\s+");
+    const match = new RegExp(`${label}(?:®)?(?:\\s+Index)?\\s+(?:at|registered)\\s+([\\d.]+)\\s*%`, "i").exec(text);
+    const value = match ? Number(match[1]) : NaN;
+    if (Number.isFinite(value) && value >= 0 && value <= 100) points.set(def.code, { obsDate, value });
+  }
+}
+
 export function parsePrNewswireReport(
   html: string,
   kind: IsmOfficialReportKind,
@@ -137,6 +160,7 @@ export function parsePrNewswireReport(
   }
 
   const pointsByCode = parseGlanceRows(rows, defs, title.obsDate);
+  fillNarrativePoints(html, defs, title.obsDate, pointsByCode);
   const headlineCode = defs.find((d) => d.sector === "headline")?.code ?? defs[0]?.code;
   if (!headlineCode || !pointsByCode.has(headlineCode)) {
     throw new Error("PR Newswire 报告：未解析到 headline 分项");
