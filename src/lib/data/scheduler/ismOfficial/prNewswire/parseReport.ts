@@ -123,7 +123,10 @@ function fillNarrativePoints(
   for (const def of defs) {
     if (!def.prNewswireLabel || points.has(def.code)) continue;
     const label = escapeRegex(def.prNewswireLabel).replace(/\\ /g, "\\s+");
-    const match = new RegExp(`${label}(?:®)?(?:\\s+Index)?\\s+(?:at|registered)\\s+([\\d.]+)\\s*%`, "i").exec(text);
+    const match = new RegExp(
+      `${label}(?:®)?(?:\\s+Index)?[^.]{0,220}?(?:at|registered|registering|to|reading of)\\s+([\\d.]+)\\s*%`,
+      "i",
+    ).exec(text);
     const value = match ? Number(match[1]) : NaN;
     if (Number.isFinite(value) && value >= 0 && value <= 100) points.set(def.code, { obsDate, value });
   }
