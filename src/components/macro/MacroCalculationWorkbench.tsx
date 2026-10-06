@@ -45,8 +45,8 @@ export type MacroCalculationWorkbenchProps = {
 };
 
 const inputClass =
-  "h-10 min-w-0 rounded-lg border border-fs-border bg-white px-2.5 text-sm text-fs-text outline-none focus:border-fs-accent focus:ring-1 focus:ring-fs-accent/20";
-const labelClass = "mb-1 block text-xs font-medium text-fs-muted";
+  "h-9 min-w-0 rounded-md border border-fs-border bg-white px-2 text-[13px] text-fs-text outline-none focus:border-fs-accent focus:ring-1 focus:ring-fs-accent/20";
+const labelClass = "mb-0.5 block text-[11px] font-medium text-fs-muted";
 
 function Field({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
@@ -130,15 +130,15 @@ function StepEditor({
               ? "缺失值处理"
               : "数值缩放";
   return (
-    <div className="rounded-xl border border-fs-border bg-white p-3 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
+    <div className="rounded-lg border border-fs-border bg-white p-2.5 shadow-sm">
+      <div className="mb-2 flex items-center gap-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fs-accent-soft text-xs font-semibold text-fs-accent-text">
           {index + 1}
         </span>
-        <span className="flex-1 text-sm font-semibold text-fs-text">{title}</span>
-        <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="h-8 px-2 text-sm text-fs-muted disabled:opacity-25">↑</button>
-        <button type="button" disabled={index === total - 1} onClick={() => onMove(1)} className="h-8 px-2 text-sm text-fs-muted disabled:opacity-25">↓</button>
-        <button type="button" onClick={onRemove} className="h-8 px-2 text-sm text-red-600">删除</button>
+        <span className="flex-1 text-[13px] font-semibold text-fs-text">{title}</span>
+        <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="h-7 px-2 text-xs text-fs-muted disabled:opacity-25">↑</button>
+        <button type="button" disabled={index === total - 1} onClick={() => onMove(1)} className="h-7 px-2 text-xs text-fs-muted disabled:opacity-25">↓</button>
+        <button type="button" onClick={onRemove} className="h-7 px-2 text-xs text-red-600">删除</button>
       </div>
       {step.type === "resample" ? (
         <div className="grid grid-cols-2 gap-3">
@@ -263,9 +263,9 @@ function PreviewPanel({ result, title = "结果预览" }: { result: MacroCalcula
       .reverse();
   }, [result]);
   return (
-    <aside className="rounded-xl border border-fs-border bg-fs-elevated p-3 lg:sticky lg:top-0 lg:self-start">
-      <h3 className="text-sm font-semibold text-fs-text">{title}</h3>
-      {!result ? <p className="mt-3 text-sm text-fs-muted">选择指标并配置运算后显示预览。</p> : (
+    <aside className="rounded-lg border border-fs-border bg-fs-elevated p-2.5 lg:sticky lg:top-0 lg:self-start">
+      <h3 className="text-[13px] font-semibold text-fs-text">{title}</h3>
+      {!result ? <p className="mt-2.5 text-[13px] text-fs-muted">选择指标并配置运算后显示预览。</p> : (
         <>
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <Metric label="对齐期数" value={result.diagnostics.alignedPoints} />
@@ -294,7 +294,7 @@ function PreviewPanel({ result, title = "结果预览" }: { result: MacroCalcula
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-lg border border-fs-border bg-white px-1 py-2"><div className="text-base font-semibold text-fs-text">{value}</div><div className="text-[11px] text-fs-muted">{label}</div></div>;
+  return <div className="rounded-lg border border-fs-border bg-white px-1 py-1.5"><div className="text-sm font-semibold text-fs-text">{value}</div><div className="text-[10px] text-fs-muted">{label}</div></div>;
 }
 
 function FormulaEditor({
@@ -357,7 +357,7 @@ function FormulaEditor({
         }}
         onClick={(event) => updatePrefix(event.currentTarget.value, event.currentTarget.selectionStart)}
         rows={3}
-        className="w-full resize-y rounded-lg border border-fs-border bg-white px-3 py-2 font-mono text-sm text-fs-text outline-none focus:border-fs-accent"
+        className="w-full resize-y rounded-md border border-fs-border bg-white px-2.5 py-1.5 font-mono text-[13px] text-fs-text outline-none focus:border-fs-accent"
         placeholder="例如：(A - B) / C * 100"
         aria-label="公式"
       />
@@ -815,28 +815,28 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/45 p-0 lg:items-center lg:p-6">
       <button type="button" aria-label="关闭" className="absolute inset-0" onClick={props.onClose} />
       <div role="dialog" aria-modal aria-label="指标运算工作台" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-fs-bg shadow-2xl lg:h-[min(820px,92dvh)] lg:max-w-6xl lg:rounded-2xl">
-        <header className="flex h-14 shrink-0 items-center border-b border-fs-border px-4 lg:px-5">
-          <div className="min-w-0 flex-1"><h2 className="truncate text-lg font-semibold text-fs-text">指标运算工作台</h2><p className="hidden text-xs text-fs-muted sm:block">按顺序处理、对齐并预览，计算定义会随模板保存</p></div>
+        <header className="flex h-12 shrink-0 items-center border-b border-fs-border px-3.5 lg:px-4">
+          <div className="min-w-0 flex-1"><h2 className="truncate text-base font-semibold text-fs-text">指标运算工作台</h2><p className="hidden text-[11px] text-fs-muted sm:block">按顺序处理、对齐并预览，计算定义会随模板保存</p></div>
           <button type="button" onClick={() => { setMode("derived"); setManageOpen((value) => !value); }} className="mr-2 rounded-full bg-fs-elevated px-2.5 py-1 text-xs text-fs-muted hover:text-fs-text">运算管理 {props.derivedCalcs.length}</button>
-          <button type="button" onClick={props.onClose} aria-label="关闭" className="flex h-10 w-10 items-center justify-center rounded-lg text-fs-muted hover:bg-fs-elevated"><IconClose size={22} /></button>
+          <button type="button" onClick={props.onClose} aria-label="关闭" className="flex h-9 w-9 items-center justify-center rounded-md text-fs-muted hover:bg-fs-elevated"><IconClose size={20} /></button>
         </header>
-        <div className="shrink-0 border-b border-fs-border px-4 pt-2 lg:px-5">
+        <div className="shrink-0 border-b border-fs-border px-3.5 pt-1 lg:px-4">
           <div className="flex gap-1">
             <TabButton active={mode === "single"} onClick={() => setMode("single")}>单指标运算</TabButton>
             <TabButton active={mode === "derived"} onClick={() => setMode("derived")}>指标间运算</TabButton>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-5">
-          <section className="mb-4 rounded-xl border border-fs-border bg-white">
-            <button type="button" onClick={() => setTemplateOpen((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
-              <span className="flex-1 text-sm font-semibold text-fs-text">计算模板库</span>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 lg:p-4">
+          <section className="mb-3 rounded-lg border border-fs-border bg-white">
+            <button type="button" onClick={() => setTemplateOpen((value) => !value)} className="flex w-full items-center gap-2 px-2.5 py-2 text-left">
+              <span className="flex-1 text-[13px] font-semibold text-fs-text">计算模板库</span>
               <span className="text-xs text-fs-muted">{MACRO_CALCULATION_TEMPLATES.length} 个模板 · {templateOpen ? "收起" : "展开"}</span>
             </button>
             {templateOpen ? (
-              <div className="grid gap-2 border-t border-fs-border p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-2 border-t border-fs-border p-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 {MACRO_CALCULATION_TEMPLATES.map((template) => (
-                  <button key={template.id} type="button" onClick={() => applyCalculationTemplate(template)} className="rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 text-left hover:border-fs-accent/50">
-                    <span className="block text-sm font-medium text-fs-text">{template.title}</span>
+                  <button key={template.id} type="button" onClick={() => applyCalculationTemplate(template)} className="rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-left hover:border-fs-accent/50">
+                    <span className="block text-[13px] font-medium text-fs-text">{template.title}</span>
                     <span className="mt-0.5 block text-[11px] leading-4 text-fs-muted">{template.description}</span>
                   </button>
                 ))}
@@ -844,31 +844,31 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
             ) : null}
           </section>
           {mode === "single" ? (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div className="min-w-0">
                 <Field label="指标">
                   <select value={targetKey} onChange={(event) => setTargetKey(event.target.value)} className={`${inputClass} w-full`}>
                     {singleOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
                   </select>
                 </Field>
-                <div className="mt-4 flex flex-col gap-3">
-                  {steps.length === 0 ? <div className="rounded-xl border border-dashed border-fs-border px-4 py-8 text-center text-sm text-fs-muted">当前为原始序列。用下方按钮添加运算步骤。</div> : null}
+                <div className="mt-3 flex flex-col gap-2.5">
+                  {steps.length === 0 ? <div className="rounded-lg border border-dashed border-fs-border px-3 py-6 text-center text-[13px] text-fs-muted">当前为原始序列。用下方按钮添加运算步骤。</div> : null}
                   {steps.map((step, index) => (
                     <StepEditor key={step.id} step={step} index={index} total={steps.length} onChange={(next) => setSteps((current) => current.map((item) => item.id === step.id ? next : item))} onMove={(offset) => setSteps((current) => { const next = [...current]; const target = index + offset; if (target < 0 || target >= next.length) return current; [next[index], next[target]] = [next[target]!, next[index]!]; return next; })} onRemove={() => setSteps((current) => current.filter((item) => item.id !== step.id))} />
                   ))}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {(["resample", "transform", "rollingMean", "rollingQuantile", "zScore", "outlier", "volatility", "fill", "scale"] as const).map((type) => <button key={type} type="button" onClick={() => setSteps((current) => [...current, defaultStep(type)])} className="rounded-lg border border-fs-border bg-white px-3 py-2 text-xs font-medium text-fs-text hover:border-fs-accent/50">+ {type === "resample" ? "变频" : type === "transform" ? "变化" : type === "rollingMean" ? "滚动均值" : type === "rollingQuantile" ? "分位数" : type === "zScore" ? "Z-Score" : type === "outlier" ? "异常值" : type === "volatility" ? "波动率" : type === "fill" ? "补值" : "缩放"}</button>)}
+                  {(["resample", "transform", "rollingMean", "rollingQuantile", "zScore", "outlier", "volatility", "fill", "scale"] as const).map((type) => <button key={type} type="button" onClick={() => setSteps((current) => [...current, defaultStep(type)])} className="rounded-md border border-fs-border bg-white px-2.5 py-1.5 text-xs font-medium text-fs-text hover:border-fs-accent/50">+ {type === "resample" ? "变频" : type === "transform" ? "变化" : type === "rollingMean" ? "滚动均值" : type === "rollingQuantile" ? "分位数" : type === "zScore" ? "Z-Score" : type === "outlier" ? "异常值" : type === "volatility" ? "波动率" : type === "fill" ? "补值" : "缩放"}</button>)}
                 </div>
               </div>
               <PreviewPanel result={singlePreview} />
             </div>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="min-w-0 space-y-4">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="min-w-0 space-y-3">
                 <section className="rounded-xl border border-fs-border bg-white">
-                  <button type="button" onClick={() => setManageOpen((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left">
-                    <span className="flex-1 text-sm font-semibold text-fs-text">已有运算</span>
+                  <button type="button" onClick={() => setManageOpen((value) => !value)} className="flex w-full items-center gap-2 px-2.5 py-2 text-left">
+                    <span className="flex-1 text-[13px] font-semibold text-fs-text">已有运算</span>
                     <span className="text-xs text-fs-muted">{props.derivedCalcs.length} 项 · {manageOpen ? "收起" : "展开管理"}</span>
                   </button>
                   {manageOpen ? (
@@ -876,7 +876,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                       {props.derivedCalcs.length === 0 ? <p className="px-3 py-5 text-center text-xs text-fs-muted">暂无派生运算</p> : props.derivedCalcs.map((calc) => (
                         <div key={calc.id} className={`flex flex-wrap items-center gap-2 border-b border-fs-border/70 px-3 py-2 last:border-0 ${calc.disabled ? "bg-fs-elevated opacity-70" : ""}`}>
                           <div className="min-w-0 flex-1 basis-48">
-                            <p className="truncate text-sm font-medium text-fs-text">{calc.name}</p>
+                            <p className="truncate text-[13px] font-medium text-fs-text">{calc.name}</p>
                             <p className="truncate text-[11px] text-fs-muted">{calc.disabled ? "已停用" : calc.advanced?.kind === "correlation" ? `${calc.advanced.correlation?.window ?? 24} 期滚动${calc.advanced.correlation?.metric === "beta" ? " Beta" : calc.advanced.correlation?.metric === "covariance" ? "协方差" : "相关性"}` : calc.advanced?.kind === "regression" ? `${calc.advanced.regression?.window ?? 36} 期滚动回归 · ${calc.advanced.regression?.output ?? "residual"}` : calc.advanced?.formula ?? "旧版二元运算"}</p>
                           </div>
                           <button type="button" onClick={() => editDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">编辑</button>
@@ -889,38 +889,38 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                   ) : null}
                 </section>
                 <div className="flex rounded-lg border border-fs-border bg-fs-elevated p-0.5">
-                  <button type="button" onClick={() => setKind("formula")} className={`h-9 flex-1 rounded-md text-sm font-medium ${kind === "formula" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>多指标公式</button>
-                  <button type="button" onClick={() => setKind("correlation")} className={`h-9 flex-1 rounded-md text-sm font-medium ${kind === "correlation" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>滚动统计</button>
-                  <button type="button" onClick={() => setKind("regression")} className={`h-9 flex-1 rounded-md text-sm font-medium ${kind === "regression" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>回归分析</button>
+                  <button type="button" onClick={() => setKind("formula")} className={`h-8 flex-1 rounded text-[13px] font-medium ${kind === "formula" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>多指标公式</button>
+                  <button type="button" onClick={() => setKind("correlation")} className={`h-8 flex-1 rounded text-[13px] font-medium ${kind === "correlation" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>滚动统计</button>
+                  <button type="button" onClick={() => setKind("regression")} className={`h-8 flex-1 rounded text-[13px] font-medium ${kind === "regression" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>回归分析</button>
                 </div>
-                <section className="rounded-xl border border-fs-border bg-white p-3">
-                  <div className="mb-3 flex items-center"><h3 className="flex-1 text-sm font-semibold text-fs-text">输入指标</h3><button type="button" disabled={inputKeys.length >= 8 || availableInputOptions.length === 0} onClick={() => setInputKeys((current) => [...current, availableInputOptions.find((option) => !current.includes(option.key))?.key ?? availableInputOptions[0]!.key])} className="text-xs font-medium text-fs-accent-text disabled:opacity-30">+ 添加输入</button></div>
+                <section className="rounded-lg border border-fs-border bg-white p-2.5">
+                  <div className="mb-2.5 flex items-center"><h3 className="flex-1 text-[13px] font-semibold text-fs-text">输入指标</h3><button type="button" disabled={inputKeys.length >= 8 || availableInputOptions.length === 0} onClick={() => setInputKeys((current) => [...current, availableInputOptions.find((option) => !current.includes(option.key))?.key ?? availableInputOptions[0]!.key])} className="text-xs font-medium text-fs-accent-text disabled:opacity-30">+ 添加输入</button></div>
                   <div className="space-y-3">
                     {inputKeys.map((key, index) => {
                       const settings = inputMethods[`${index}:${key}`] ?? { resample: "end" as const, fill: "none" as const, maxGap: 3 };
                       return <div key={`${index}-${key}`} className="grid grid-cols-[34px_minmax(0,1fr)] items-start gap-2 rounded-lg bg-fs-elevated p-2">
-                        <div className="mt-5 flex h-10 items-center justify-center rounded-lg bg-fs-accent-soft text-sm font-semibold text-fs-accent-text">{aliases[index]}</div>
+                        <div className="mt-4 flex h-9 items-center justify-center rounded-md bg-fs-accent-soft text-[13px] font-semibold text-fs-accent-text">{aliases[index]}</div>
                         <div className="grid min-w-0 grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_110px_140px_72px_36px]">
                           <Field label="指标" className="col-span-2 sm:col-span-1"><select value={key} onChange={(event) => setInputKeys((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} className={`${inputClass} w-full`}>{availableInputOptions.map((option) => <option key={option.key} value={option.key}>{option.derived ? "ƒ " : ""}{option.label}</option>)}</select></Field>
                           <Field label="聚合"><ResampleSelect value={settings.resample} onChange={(resample) => updateInputSettings(index, key, { resample })} /></Field>
                           <Field label="缺失值"><FillSelect value={settings.fill} onChange={(fill) => updateInputSettings(index, key, { fill })} /></Field>
                           <Field label="最大缺口">{numberInput(settings.maxGap, (maxGap) => updateInputSettings(index, key, { maxGap: Math.max(1, maxGap) }), 1, 120)}</Field>
-                          <button type="button" aria-label={`删除输入 ${aliases[index]}`} disabled={inputKeys.length <= 2} onClick={() => setInputKeys((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="h-10 rounded-lg border border-fs-border text-sm text-red-600 disabled:opacity-25">×</button>
+                          <button type="button" aria-label={`删除输入 ${aliases[index]}`} disabled={inputKeys.length <= 2} onClick={() => setInputKeys((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="h-9 rounded-md border border-fs-border text-[13px] text-red-600 disabled:opacity-25">×</button>
                         </div>
                       </div>;
                     })}
                   </div>
                 </section>
-                <section className="rounded-xl border border-fs-border bg-white p-3">
-                  <h3 className="mb-3 text-sm font-semibold text-fs-text">时间对齐</h3>
+                <section className="rounded-lg border border-fs-border bg-white p-2.5">
+                  <h3 className="mb-2.5 text-[13px] font-semibold text-fs-text">时间对齐</h3>
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="目标频率"><select value={frequency} onChange={(event) => setFrequency(event.target.value as MacroFrequencyAdjust)} className={`${inputClass} w-full`}><option value="keep">保持原频率</option><option value="month">月</option><option value="quarter">季</option><option value="year">年</option></select></Field>
                     <Field label="连接方式"><select value={join} onChange={(event) => setJoin(event.target.value as typeof join)} className={`${inputClass} w-full`}><option value="inner">交集（推荐）</option><option value="union">并集</option><option value="left">跟随 A</option></select></Field>
                   </div>
                 </section>
                 {kind === "formula" ? (
-                  <section className="rounded-xl border border-fs-border bg-white p-3">
-                    <div className="mb-3 flex items-center gap-2"><h3 className="flex-1 text-sm font-semibold text-fs-text">批量公式输出</h3><button type="button" disabled={extraOutputs.length >= 7} onClick={() => setExtraOutputs((current) => [...current, { id: stepId(), name: "", formula: "A - B" }])} className="text-xs font-medium text-fs-accent-text disabled:opacity-40">+ 添加输出</button></div>
+                  <section className="rounded-lg border border-fs-border bg-white p-2.5">
+                    <div className="mb-2.5 flex items-center gap-2"><h3 className="flex-1 text-[13px] font-semibold text-fs-text">批量公式输出</h3><button type="button" disabled={extraOutputs.length >= 7} onClick={() => setExtraOutputs((current) => [...current, { id: stepId(), name: "", formula: "A - B" }])} className="text-xs font-medium text-fs-accent-text disabled:opacity-40">+ 添加输出</button></div>
                     <Field label="输出 1 公式"><FormulaEditor value={formula} onChange={setFormula} inputs={formulaInputs} /></Field>
                     {formulaInspection?.outputUnit ? <p className="mt-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs text-emerald-800">推断输出单位：{formulaInspection.outputUnit}</p> : null}
                     {formulaInspection?.warnings.map((warning) => <p key={warning} className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">{warning}</p>)}
@@ -936,7 +936,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                     ))}
                   </section>
                 ) : kind === "correlation" ? (
-                  <section className="rounded-xl border border-fs-border bg-white p-3">
+                  <section className="rounded-lg border border-fs-border bg-white p-2.5">
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                       <Field label="统计指标"><select value={statMetric} onChange={(event) => setStatMetric(event.target.value as typeof statMetric)} className={`${inputClass} w-full`}><option value="correlation">相关性</option><option value="covariance">协方差</option><option value="beta">Beta（A 对 B）</option></select></Field>
                       {statMetric === "correlation" ? <Field label="相关方法"><select value={corrMethod} onChange={(event) => setCorrMethod(event.target.value as typeof corrMethod)} className={`${inputClass} w-full`}><option value="pearson">Pearson</option><option value="spearman">Spearman</option></select></Field> : <Field label="估计口径"><select value={statSample ? "sample" : "population"} onChange={(event) => setStatSample(event.target.value === "sample")} className={`${inputClass} w-full`}><option value="sample">样本</option><option value="population">总体</option></select></Field>}
@@ -948,7 +948,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                     <p className="mt-2 text-xs text-fs-muted">正数表示 A 领先 B。Beta = Cov(A,B) / Var(B)；水平值统计可能受共同趋势影响。</p>
                   </section>
                 ) : (
-                  <section className="rounded-xl border border-fs-border bg-white p-3">
+                  <section className="rounded-lg border border-fs-border bg-white p-2.5">
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                       <Field label="回归输出"><select value={regressionOutput} onChange={(event) => setRegressionOutput(event.target.value as typeof regressionOutput)} className={`${inputClass} w-full`}><option value="residual">残差</option><option value="fitted">拟合值</option><option value="coefficient">B 的回归系数</option><option value="intercept">截距</option><option value="rSquared">R²</option></select></Field>
                       <Field label="输入变换"><select value={corrInput} onChange={(event) => setCorrInput(event.target.value as typeof corrInput)} className={`${inputClass} w-full`}><option value="level">水平值</option><option value="diff">差分</option><option value="pctChange">百分比变化</option><option value="yoy">同比变化</option><option value="logReturn">对数变化</option></select></Field>
@@ -962,7 +962,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                 )}
                 <Field label="输出名称（可选）"><input value={name} onChange={(event) => setName(event.target.value)} className={`${inputClass} w-full`} placeholder="留空则自动生成" /></Field>
                 <section className="rounded-xl border border-fs-border bg-white">
-                  <button type="button" onClick={() => setTransferOpen((value) => !value)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left"><span className="flex-1 text-sm font-semibold text-fs-text">导入、导出与共享</span><span className="text-xs text-fs-muted">{transferOpen ? "收起" : "展开"}</span></button>
+                  <button type="button" onClick={() => setTransferOpen((value) => !value)} className="flex w-full items-center gap-2 px-2.5 py-2 text-left"><span className="flex-1 text-[13px] font-semibold text-fs-text">导入、导出与共享</span><span className="text-xs text-fs-muted">{transferOpen ? "收起" : "展开"}</span></button>
                   {transferOpen ? <div className="space-y-2 border-t border-fs-border p-3">
                     <textarea value={transferText} onChange={(event) => setTransferText(event.target.value)} rows={5} className="w-full resize-y rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 font-mono text-xs text-fs-text outline-none focus:border-fs-accent" placeholder="粘贴导出的 JSON 或分享链接" aria-label="运算配置导入导出" />
                     <div className="flex flex-wrap gap-2"><button type="button" onClick={exportCalculation} className="rounded-lg border border-fs-border px-3 py-2 text-xs text-fs-text">生成 JSON</button><button type="button" onClick={importCalculation} disabled={!transferText.trim()} className="rounded-lg border border-fs-border px-3 py-2 text-xs text-fs-text disabled:opacity-40">导入配置</button><button type="button" onClick={copyShareLink} className="rounded-lg border border-fs-accent/30 bg-fs-accent-soft px-3 py-2 text-xs font-medium text-fs-accent-text">复制分享链接</button></div>
@@ -974,12 +974,12 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
             </div>
           )}
         </div>
-        <footer className="flex shrink-0 gap-2 border-t border-fs-border bg-white px-4 py-3 lg:px-5">
-          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { props.onResetSingle(targetKey); setSteps([]); }} className="h-10 rounded-lg border border-fs-border px-4 text-sm text-fs-text disabled:opacity-40">恢复原始</button> : null}
-          {mode === "derived" && editingId ? <button type="button" onClick={() => { setEditingId(null); setName(""); }} className="h-10 rounded-lg border border-fs-border px-4 text-sm text-fs-text">退出编辑</button> : null}
+        <footer className="flex shrink-0 gap-2 border-t border-fs-border bg-white px-3.5 py-2 lg:px-4">
+          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { props.onResetSingle(targetKey); setSteps([]); }} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text disabled:opacity-40">恢复原始</button> : null}
+          {mode === "derived" && editingId ? <button type="button" onClick={() => { setEditingId(null); setName(""); }} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text">退出编辑</button> : null}
           <span className="flex-1" />
-          <button type="button" onClick={props.onClose} className="h-10 rounded-lg border border-fs-border px-4 text-sm text-fs-text">取消</button>
-          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { const previous = props.configMap[targetKey] ?? { op: "none", frequency: "keep", unit: "keep", resampleMethod: "end" }; props.onApplySingle(targetKey, { ...previous, steps }); props.onClose(); }} className="h-10 rounded-lg bg-fs-accent px-5 text-sm font-medium text-white disabled:opacity-40">应用运算链</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-10 rounded-lg bg-fs-accent px-5 text-sm font-medium text-white disabled:opacity-40">{editingId ? (kind === "formula" && extraOutputs.length ? `保存并新增 ${extraOutputs.length} 项` : "保存修改") : kind === "formula" && extraOutputs.length ? `添加 ${extraOutputs.length + 1} 个派生指标` : "添加派生指标"}</button>}
+          <button type="button" onClick={props.onClose} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text">取消</button>
+          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { const previous = props.configMap[targetKey] ?? { op: "none", frequency: "keep", unit: "keep", resampleMethod: "end" }; props.onApplySingle(targetKey, { ...previous, steps }); props.onClose(); }} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">应用运算链</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? (kind === "formula" && extraOutputs.length ? `保存并新增 ${extraOutputs.length} 项` : "保存修改") : kind === "formula" && extraOutputs.length ? `添加 ${extraOutputs.length + 1} 个派生指标` : "添加派生指标"}</button>}
         </footer>
       </div>
     </div>,
@@ -988,5 +988,5 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" onClick={onClick} className={`h-10 border-b-2 px-4 text-sm font-medium ${active ? "border-fs-accent text-fs-accent-text" : "border-transparent text-fs-muted hover:text-fs-text"}`}>{children}</button>;
+  return <button type="button" onClick={onClick} className={`h-9 border-b-2 px-3 text-[13px] font-medium ${active ? "border-fs-accent text-fs-accent-text" : "border-transparent text-fs-muted hover:text-fs-text"}`}>{children}</button>;
 }

@@ -4133,12 +4133,12 @@ export function MacroSection() {
             type="button"
             disabled={selectedKeyOptions.length === 0}
             onClick={() => setMobileCalcOpen(true)}
-            className="ml-3 inline-flex h-9 items-center gap-2 rounded-lg border border-fs-accent/30 bg-fs-accent-soft px-4 text-sm font-semibold text-fs-accent-text hover:border-fs-accent disabled:opacity-40 sm:ml-4"
+            className="ml-3 inline-flex items-center gap-1.5 rounded-md border border-fs-accent/30 bg-fs-accent-soft px-2.5 py-1 text-xs font-medium text-fs-accent-text transition hover:border-fs-accent disabled:opacity-40 sm:ml-4"
           >
             <span aria-hidden>Σ</span>
             指标运算
             {visibleDerivedKeys.length > 0 ? (
-              <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[11px]">
+              <span className="rounded-full bg-white/80 px-1 py-0 text-[10px] leading-4">
                 {visibleDerivedKeys.length}
               </span>
             ) : null}
