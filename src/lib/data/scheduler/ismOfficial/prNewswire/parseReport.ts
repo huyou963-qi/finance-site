@@ -124,7 +124,7 @@ function fillNarrativePoints(
     if (!def.prNewswireLabel || points.has(def.code)) continue;
     const label = escapeRegex(def.prNewswireLabel).replace(/\\ /g, "\\s+");
     const match = new RegExp(
-      `${label}(?:®)?(?:\\s+Index)?[^.]{0,220}?(?:at|registered|registering|to|reading of)\\s+([\\d.]+)\\s*%`,
+      `${label}(?:®)?(?:\\s+Index)?[^.]{0,220}?(?:at|registered|registering|to|reading of)\\s+([\\d.]+)\\s*(?:%|percent)`,
       "i",
     ).exec(text);
     const value = match ? Number(match[1]) : NaN;
