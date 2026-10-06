@@ -2286,12 +2286,46 @@ export function MacroSection() {
     }
 
     const byKey = new Map(work.map((x) => [x.key, x]));
+    const rawInputByKey = new Map(
+      rawSeriesInputs
+        .map((series) => {
+          const key = series.key?.trim();
+          return key
+            ? [key, {
+                key,
+                name: series.name,
+                categories: rawPayload.categories,
+                data: series.data,
+                unit: effectiveMacroSeriesUnit(key, DEFAULT_SERIES_CALC_CONFIG, mdsUnitByKey),
+              }] as const
+            : null;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+    );
     const derivedSeries: SeriesWorking[] = [];
     const calculationGraph = sortMacroDerivedCalculations(derivedCalcs);
     for (const calc of calculationGraph.ordered) {
       const key = `calc:${calc.id}`;
       let derived: SeriesWorking | null = null;
-      if (calc.advanced) {
+      if (calc.single) {
+        const source = calc.single.inputKey.startsWith("calc:")
+          ? byKey.get(calc.single.inputKey)
+          : rawInputByKey.get(calc.single.inputKey);
+        if (!source) continue;
+        const result = applyMacroSeriesSteps(source.categories, source.data, calc.single.steps);
+        const unit = calc.unitLabel ?? effectiveMacroSeriesUnit(
+          calc.single.inputKey,
+          { ...DEFAULT_SERIES_CALC_CONFIG, steps: calc.single.steps },
+          mdsUnitByKey,
+        ) ?? source.unit ?? null;
+        derived = {
+          key,
+          name: calc.name,
+          categories: result.categories,
+          data: result.data,
+          unit,
+        };
+      } else if (calc.advanced) {
         const result = evaluateAdvancedMacroCalculation(
           calc.advanced,
           byKey as Map<string, MacroCalculationSeries>,
@@ -2669,19 +2703,6 @@ export function MacroSection() {
 
   function assignSlot(key: string, slotIndex: number | null) {
     setSlotAssignment((prev) => ({ ...prev, [key]: slotIndex }));
-  }
-
-  function resetCalcConfigForKey(key: string) {
-    setSeriesCalcConfigMap((prev) => {
-      const out = { ...prev };
-      delete out[key];
-      return out;
-    });
-  }
-
-  function applyWorkbenchConfigToKey(key: string, config: MacroSeriesCalcConfig) {
-    if (!key.trim()) return;
-    setSeriesCalcConfigMap((prev) => ({ ...prev, [key]: config }));
   }
 
   function addWorkbenchDerivedCalc(calc: MacroDerivedCalc) {
@@ -4015,12 +4036,9 @@ export function MacroSection() {
           open={mobileCalcOpen}
           onClose={() => setMobileCalcOpen(false)}
           options={calculationKeyOptions}
-          configMap={seriesCalcConfigMap}
           rawPayload={rawPayload}
           displayPayload={displayPayload}
           derivedCalcs={derivedCalcs}
-          onApplySingle={applyWorkbenchConfigToKey}
-          onResetSingle={resetCalcConfigForKey}
           onAddDerived={addWorkbenchDerivedCalc}
           onUpdateDerived={updateWorkbenchDerivedCalc}
           onDeleteDerived={removeDerivedCalc}
@@ -4640,12 +4658,9 @@ export function MacroSection() {
         open={mobileCalcOpen}
         onClose={() => setMobileCalcOpen(false)}
         options={calculationKeyOptions}
-        configMap={seriesCalcConfigMap}
         rawPayload={rawPayload}
         displayPayload={displayPayload}
         derivedCalcs={derivedCalcs}
-        onApplySingle={applyWorkbenchConfigToKey}
-        onResetSingle={resetCalcConfigForKey}
         onAddDerived={addWorkbenchDerivedCalc}
         onUpdateDerived={updateWorkbenchDerivedCalc}
         onDeleteDerived={removeDerivedCalc}

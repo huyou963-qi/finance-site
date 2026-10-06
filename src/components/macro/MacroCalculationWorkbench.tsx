@@ -9,8 +9,6 @@ import type {
   MacroFrequencyAdjust,
   MacroMissingValueMethod,
   MacroResampleMethod,
-  MacroSeriesCalcConfig,
-  MacroSeriesCalcConfigMap,
   MacroSeriesCalcStep,
 } from "@/lib/data/macroPresetTemplates";
 import {
@@ -24,6 +22,7 @@ import {
   type MacroCalculationSeries,
 } from "@/lib/macroCalculationEngine";
 import { MACRO_CALCULATION_TEMPLATES, type MacroCalculationTemplate } from "@/lib/macroCalculationTemplates";
+import { buildMacroSeriesCalcSuffix } from "@/lib/macroSeriesDisplayName";
 import { IconClose } from "@/components/mobile/mobileIcons";
 
 type KeyOption = { key: string; label: string; unit?: string | null; derived?: boolean };
@@ -32,12 +31,9 @@ export type MacroCalculationWorkbenchProps = {
   open: boolean;
   onClose: () => void;
   options: KeyOption[];
-  configMap: MacroSeriesCalcConfigMap;
   rawPayload: MacroPayload | null;
   displayPayload: MacroPayload | null;
   derivedCalcs: MacroDerivedCalc[];
-  onApplySingle: (key: string, config: MacroSeriesCalcConfig) => void;
-  onResetSingle: (key: string) => void;
   onAddDerived: (calc: MacroDerivedCalc) => void;
   onUpdateDerived: (calc: MacroDerivedCalc) => void;
   onDeleteDerived: (id: string) => void;
@@ -507,6 +503,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
   const [mode, setMode] = useState<"single" | "derived">("single");
   const [targetKey, setTargetKey] = useState("");
   const [steps, setSteps] = useState<MacroSeriesCalcStep[]>([]);
+  const [singleName, setSingleName] = useState("");
   const [kind, setKind] = useState<"formula" | "correlation" | "regression">("formula");
   const [inputKeys, setInputKeys] = useState<string[]>([]);
   const [inputMethods, setInputMethods] = useState<Record<string, { resample: MacroResampleMethod; fill: MacroMissingValueMethod; maxGap: number }>>({});
@@ -546,11 +543,6 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     setTargetKey((current) => current && singleOptions.some((option) => option.key === current) ? current : first);
     if (!editingId) setInputKeys((current) => current.length >= 2 && current.every((key) => props.options.some((option) => option.key === key)) ? current : [first, second].filter(Boolean));
   }, [editingId, open, props.options, singleOptions]);
-
-  useEffect(() => {
-    if (!targetKey) return;
-    setSteps(props.configMap[targetKey]?.steps ?? []);
-  }, [targetKey, props.configMap]);
 
   useEffect(() => {
     if (!open) return;
@@ -618,6 +610,18 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     };
   }, [props.rawPayload, steps, targetKey]);
 
+  const singleAutoName = useMemo(() => {
+    const label = props.options.find((option) => option.key === targetKey)?.label ?? "派生指标";
+    const suffix = buildMacroSeriesCalcSuffix({
+      op: "none",
+      frequency: "keep",
+      unit: "keep",
+      resampleMethod: "end",
+      steps,
+    });
+    return suffix ? `${label}（${suffix}）` : `${label}（派生）`;
+  }, [props.options, steps, targetKey]);
+
   const derivedPreview = useMemo<MacroCalculationResult | null>(() => {
     if ((!props.rawPayload && !props.displayPayload) || inputKeys.length < 2) return null;
     const map = new Map<string, MacroCalculationSeries>();
@@ -679,6 +683,8 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     setTransferStatus(`已载入模板“${template.title}”`);
     if (template.mode === "single") {
       setMode("single");
+      setEditingId(null);
+      setSingleName("");
       setSteps(template.steps.map((step) => ({ ...step, id: stepId() })));
       return;
     }
@@ -768,7 +774,50 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
     setExtraOutputs([]);
     props.onClose();
   };
+  const submitSingle = () => {
+    if (!targetKey || steps.length === 0 || singlePreview?.diagnostics.error) return;
+    const id = editingId ?? `d-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const forcedUnitStep = [...steps].reverse().find((step) => step.type === "scale" && step.unitLabel?.trim());
+    const forcedUnit = forcedUnitStep?.type === "scale" && forcedUnitStep.unitLabel?.trim()
+      ? forcedUnitStep.unitLabel.trim()
+      : steps.some((step) => step.type === "zScore")
+        ? "标准差"
+        : steps.some((step) => step.type === "volatility" || (step.type === "transform" && (step.op === "yoy" || step.op === "pctChange" || step.op === "logReturn")))
+          ? "%"
+          : undefined;
+    const next: MacroDerivedCalc = {
+      id,
+      leftKey: targetKey,
+      rightKey: targetKey,
+      op: "add",
+      name: singleName.trim() || singleAutoName,
+      ...(forcedUnit ? { unitLabel: forcedUnit } : {}),
+      single: {
+        inputKey: targetKey,
+        steps: steps.map((step) => ({ ...step })),
+      },
+    };
+    if (editingId) {
+      const previous = props.derivedCalcs.find((calc) => calc.id === editingId);
+      props.onUpdateDerived({ ...next, ...(previous?.disabled ? { disabled: true } : {}) });
+    } else {
+      props.onAddDerived(next);
+    }
+    setEditingId(null);
+    setSingleName("");
+    setSteps([]);
+    props.onClose();
+  };
   const editDerived = (calc: MacroDerivedCalc) => {
+    if (calc.single) {
+      setMode("single");
+      setManageOpen(false);
+      setEditingId(calc.id);
+      setTargetKey(calc.single.inputKey);
+      setSteps(calc.single.steps.map((step) => ({ ...step })));
+      setSingleName(calc.name);
+      return;
+    }
     const fallbackFormula = calc.op === "add" ? "A + B" : calc.op === "sub" || calc.op === "spread" ? "A - B" : calc.op === "mul" ? "A * B" : "A / B";
     const advanced: MacroAdvancedDerivedConfig = calc.advanced ?? {
       version: 2,
@@ -810,6 +859,14 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
       disabled: false,
     });
   };
+  const switchMode = (nextMode: "single" | "derived") => {
+    if (nextMode !== mode) {
+      setEditingId(null);
+      setName("");
+      setSingleName("");
+    }
+    setMode(nextMode);
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/45 p-0 lg:items-center lg:p-6">
@@ -817,13 +874,13 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
       <div role="dialog" aria-modal aria-label="指标运算工作台" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-fs-bg shadow-2xl lg:h-[min(820px,92dvh)] lg:max-w-6xl lg:rounded-2xl">
         <header className="flex h-12 shrink-0 items-center border-b border-fs-border px-3.5 lg:px-4">
           <div className="min-w-0 flex-1"><h2 className="truncate text-base font-semibold text-fs-text">指标运算工作台</h2><p className="hidden text-[11px] text-fs-muted sm:block">按顺序处理、对齐并预览，计算定义会随模板保存</p></div>
-          <button type="button" onClick={() => { setMode("derived"); setManageOpen((value) => !value); }} className="mr-2 rounded-full bg-fs-elevated px-2.5 py-1 text-xs text-fs-muted hover:text-fs-text">运算管理 {props.derivedCalcs.length}</button>
+          <button type="button" onClick={() => { switchMode("derived"); setManageOpen((value) => !value); }} className="mr-2 rounded-full bg-fs-elevated px-2.5 py-1 text-xs text-fs-muted hover:text-fs-text">运算管理 {props.derivedCalcs.length}</button>
           <button type="button" onClick={props.onClose} aria-label="关闭" className="flex h-9 w-9 items-center justify-center rounded-md text-fs-muted hover:bg-fs-elevated"><IconClose size={20} /></button>
         </header>
         <div className="shrink-0 border-b border-fs-border px-3.5 pt-1 lg:px-4">
           <div className="flex gap-1">
-            <TabButton active={mode === "single"} onClick={() => setMode("single")}>单指标运算</TabButton>
-            <TabButton active={mode === "derived"} onClick={() => setMode("derived")}>指标间运算</TabButton>
+            <TabButton active={mode === "single"} onClick={() => switchMode("single")}>单指标运算</TabButton>
+            <TabButton active={mode === "derived"} onClick={() => switchMode("derived")}>指标间运算</TabButton>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3 lg:p-4">
@@ -851,6 +908,16 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                     {singleOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
                   </select>
                 </Field>
+                <Field label="派生指标名称（可重命名）" className="mt-2 block">
+                  <input
+                    value={singleName}
+                    onChange={(event) => setSingleName(event.target.value)}
+                    className={`${inputClass} w-full`}
+                    placeholder={`留空则使用：${singleAutoName}`}
+                    maxLength={160}
+                  />
+                </Field>
+                <p className="mt-1.5 text-[11px] text-fs-muted">原指标会保留，运算结果将作为新的派生指标添加。</p>
                 <div className="mt-3 flex flex-col gap-2.5">
                   {steps.length === 0 ? <div className="rounded-lg border border-dashed border-fs-border px-3 py-6 text-center text-[13px] text-fs-muted">当前为原始序列。用下方按钮添加运算步骤。</div> : null}
                   {steps.map((step, index) => (
@@ -877,7 +944,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                         <div key={calc.id} className={`flex flex-wrap items-center gap-2 border-b border-fs-border/70 px-3 py-2 last:border-0 ${calc.disabled ? "bg-fs-elevated opacity-70" : ""}`}>
                           <div className="min-w-0 flex-1 basis-48">
                             <p className="truncate text-[13px] font-medium text-fs-text">{calc.name}</p>
-                            <p className="truncate text-[11px] text-fs-muted">{calc.disabled ? "已停用" : calc.advanced?.kind === "correlation" ? `${calc.advanced.correlation?.window ?? 24} 期滚动${calc.advanced.correlation?.metric === "beta" ? " Beta" : calc.advanced.correlation?.metric === "covariance" ? "协方差" : "相关性"}` : calc.advanced?.kind === "regression" ? `${calc.advanced.regression?.window ?? 36} 期滚动回归 · ${calc.advanced.regression?.output ?? "residual"}` : calc.advanced?.formula ?? "旧版二元运算"}</p>
+                            <p className="truncate text-[11px] text-fs-muted">{calc.disabled ? "已停用" : calc.single ? `${calc.single.steps.length} 步单指标运算` : calc.advanced?.kind === "correlation" ? `${calc.advanced.correlation?.window ?? 24} 期滚动${calc.advanced.correlation?.metric === "beta" ? " Beta" : calc.advanced.correlation?.metric === "covariance" ? "协方差" : "相关性"}` : calc.advanced?.kind === "regression" ? `${calc.advanced.regression?.window ?? 36} 期滚动回归 · ${calc.advanced.regression?.output ?? "residual"}` : calc.advanced?.formula ?? "旧版二元运算"}</p>
                           </div>
                           <button type="button" onClick={() => editDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">编辑</button>
                           <button type="button" onClick={() => duplicateDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">复制</button>
@@ -975,11 +1042,11 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
           )}
         </div>
         <footer className="flex shrink-0 gap-2 border-t border-fs-border bg-white px-3.5 py-2 lg:px-4">
-          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { props.onResetSingle(targetKey); setSteps([]); }} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text disabled:opacity-40">恢复原始</button> : null}
-          {mode === "derived" && editingId ? <button type="button" onClick={() => { setEditingId(null); setName(""); }} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text">退出编辑</button> : null}
+          {mode === "single" ? <button type="button" disabled={steps.length === 0} onClick={() => setSteps([])} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text disabled:opacity-40">清空步骤</button> : null}
+          {editingId ? <button type="button" onClick={() => { setEditingId(null); setName(""); setSingleName(""); }} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text">退出编辑</button> : null}
           <span className="flex-1" />
           <button type="button" onClick={props.onClose} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text">取消</button>
-          {mode === "single" ? <button type="button" disabled={!targetKey} onClick={() => { const previous = props.configMap[targetKey] ?? { op: "none", frequency: "keep", unit: "keep", resampleMethod: "end" }; props.onApplySingle(targetKey, { ...previous, steps }); props.onClose(); }} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">应用运算链</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? (kind === "formula" && extraOutputs.length ? `保存并新增 ${extraOutputs.length} 项` : "保存修改") : kind === "formula" && extraOutputs.length ? `添加 ${extraOutputs.length + 1} 个派生指标` : "添加派生指标"}</button>}
+          {mode === "single" ? <button type="button" disabled={!targetKey || steps.length === 0 || Boolean(singlePreview?.diagnostics.error)} onClick={submitSingle} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? "保存修改" : "添加派生指标"}</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? (kind === "formula" && extraOutputs.length ? `保存并新增 ${extraOutputs.length} 项` : "保存修改") : kind === "formula" && extraOutputs.length ? `添加 ${extraOutputs.length + 1} 个派生指标` : "添加派生指标"}</button>}
         </footer>
       </div>
     </div>,

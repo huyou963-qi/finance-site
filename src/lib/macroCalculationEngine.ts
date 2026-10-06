@@ -919,7 +919,9 @@ export function evaluateAdvancedMacroCalculation(
 }
 
 export function macroDerivedDependencies(calc: MacroDerivedCalc): string[] {
-  const keys = calc.advanced?.inputs.map((input) => input.key) ?? [calc.leftKey, calc.rightKey];
+  const keys = calc.single
+    ? [calc.single.inputKey]
+    : calc.advanced?.inputs.map((input) => input.key) ?? [calc.leftKey, calc.rightKey];
   return [...new Set(keys
     .filter((key) => key.startsWith("calc:"))
     .map((key) => key.slice("calc:".length))

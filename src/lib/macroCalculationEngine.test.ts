@@ -9,7 +9,7 @@ import {
   validateMacroFormula,
   type MacroCalculationSeries,
 } from "./macroCalculationEngine";
-import type { MacroAdvancedDerivedConfig } from "./data/macroPresetTemplates";
+import type { MacroAdvancedDerivedConfig, MacroDerivedCalc } from "./data/macroPresetTemplates";
 
 test("single-series steps run in the configured order", () => {
   const result = applyMacroSeriesSteps(
@@ -227,4 +227,28 @@ test("derived calculations are topologically ordered and cycles are reported", (
   ]);
   assert.deepEqual(new Set(cyclic.cyclicIds), new Set(["base", "dependent"]));
   assert.deepEqual(cyclic.ordered, []);
+});
+
+test("single-series derived calculations participate in dependency ordering", () => {
+  const base: MacroDerivedCalc = {
+    id: "base",
+    leftKey: "a",
+    rightKey: "b",
+    op: "add",
+    name: "base",
+  };
+  const single: MacroDerivedCalc = {
+    id: "single",
+    leftKey: "calc:base",
+    rightKey: "calc:base",
+    op: "add",
+    name: "base rolling mean",
+    single: {
+      inputKey: "calc:base",
+      steps: [{ id: "mean", type: "rollingMean", window: 3, minPeriods: 2 }],
+    },
+  };
+  const sorted = sortMacroDerivedCalculations([single, base]);
+  assert.deepEqual(sorted.ordered.map((calc) => calc.id), ["base", "single"]);
+  assert.deepEqual(sorted.cyclicIds, []);
 });
