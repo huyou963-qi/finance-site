@@ -60,7 +60,7 @@ const AT_VERBS =
 
 function matchHeadline(text: string): TeEuroCompositePmiPoint | null {
   const comparisonRe = new RegExp(
-    `Composite PMI (?:${TO_VERBS}) to ([\\d.]+)(?:\\s*points)? in ([A-Za-z]+) from [\\d.]+(?:\\s*points)? in [A-Za-z]+ of (\\d{4})`,
+    `Composite PMI(?:\\s+In the Euro Area)? (?:${TO_VERBS}) to ([\\d.]+)(?:\\s*points)? in ([A-Za-z]+) from [\\d.]+(?:\\s*points)? in [A-Za-z]+ of (\\d{4})`,
     "i",
   );
   const toRe = new RegExp(
