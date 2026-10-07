@@ -736,9 +736,20 @@ export function MacroMultiChartGrid({
   if (gridLayout === 1) {
     const only = visibleSlots[0];
     const hideNavigator = isSelfFetchingSlotMode(slotModeFor(only));
+    // 手机端会传入固定图高，并在外层页面负责滚动。此时不能继续让单图容器
+    // flex-grow / h-full，否则它会占满标签页剩余高度，把时间导航条推到屏幕底部。
+    const fixedHeightLayout = Boolean(singleChartHeight && !hideNavigator);
     return (
-      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-1">
-        <div className="flex min-h-0 w-full flex-1 flex-col">
+      <div
+        className={`flex min-h-0 w-full min-w-0 flex-col gap-1 ${
+          fixedHeightLayout ? "flex-none" : "flex-1"
+        }`}
+      >
+        <div
+          className={`flex min-h-0 w-full flex-col ${
+            fixedHeightLayout ? "flex-none" : "flex-1"
+          }`}
+        >
           <MacroChartPanel
             slice={sliceForSlot(only)}
             compact={false}
@@ -756,7 +767,7 @@ export function MacroMultiChartGrid({
               // CPI 分项矩阵是表格：手机端固定高度会只露出几行，改为随内容自然撑开
               hideNavigator && singleChartHeight ? undefined : (singleChartHeight ?? "100%")
             }
-            className="h-full min-h-0 w-full"
+            className={`${fixedHeightLayout ? "" : "h-full"} min-h-0 w-full`}
             drawTool={isAltSlotMode(only) ? "cursor" : drawTool}
             drawStyle={drawStyle}
             drawings={isAltSlotMode(only) ? [] : (drawingsBySlot[only] ?? [])}
