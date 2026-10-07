@@ -164,6 +164,12 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
     valueField: "tot_pub_debt_out_amt",
     fetchStartFloor: "2010-01-01",
   },
+  "debt:penny_held_public_daily": {
+    endpoint: "v2/accounting/od/debt_to_penny",
+    rowSelector: "debt_penny_daily",
+    valueField: "debt_held_public_amt",
+    fetchStartFloor: "2010-01-01",
+  },
   "mts9:mandatory_proxy": {
     endpoint: "v1/accounting/mts/mts_table_9",
     rowSelector: "mts9_sum",
