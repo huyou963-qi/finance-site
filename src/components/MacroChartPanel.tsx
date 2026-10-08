@@ -587,12 +587,14 @@ export function MacroChartPanel({
   return (
     <div className={`flex min-h-0 min-w-0 flex-col ${className ?? ""}`}>
       <div
-        className={`min-h-0 w-full flex-1 ${chartAreaHeight ? "" : "h-full"} ${drawingActive ? "cursor-crosshair" : selectedDrawingId ? "cursor-grab" : "cursor-default"}`}
+        className={`min-h-0 w-full ${chartAreaHeight ? "flex-none" : "h-full flex-1"} ${drawingActive ? "cursor-crosshair" : selectedDrawingId ? "cursor-grab" : "cursor-default"}`}
         style={chartBoxStyle}
       >
         <ReactECharts
           option={opt}
-          style={{ width: "100%", height: "100%" }}
+          // 显式图高必须传到 ECharts 根节点，避免自动高度的 flex 链中
+          // 100% 无法解析，造成大容器内的画布仍按较小高度初始化。
+          style={{ width: "100%", height: chartAreaHeight ?? "100%" }}
           opts={{ renderer: "canvas" }}
           notMerge
           onEvents={chartEvents}
