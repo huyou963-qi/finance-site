@@ -3916,7 +3916,7 @@ export function MacroSection() {
               displayConfig={effectiveDisplayConfig}
               recessionBands={displayConfig.showRecessionShading ? recessionBands : undefined}
               regimeBands={regimeShadingEnabled ? regimeBands : undefined}
-              singleChartHeight="340px"
+              singleChartHeight="480px"
               stacked
               onCrosshairTimeLabel={onMacroCrosshairTimeLabel}
               onVisibleRangeLabels={onMacroVisibleRangeLabels}
