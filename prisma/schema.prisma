@@ -55,6 +55,7 @@ model User {
   assetTemplateState  UserAssetTemplateState?
   macroChartPrefsRow  UserMacroChartPrefs?
   bookmarkState       UserBookmarkState?
+  marketWatchlist     UserMarketWatchlistItem[]
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
   investmentCases     InvestmentCase[]
@@ -407,6 +408,19 @@ model UserBookmarkState {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   state  Json
 
+  @@schema("public")
+}
+
+/// 行情自选股：逐标的更新，按用户隔离，支持跨设备读取。
+model UserMarketWatchlistItem {
+  userId    String
+  symbol    String @db.VarChar(64)
+  name      String @db.VarChar(200)
+  exchange  String @db.VarChar(100)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, symbol])
   @@schema("public")
 }
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StockChartWorkspace } from "@/components/StockChartWorkspace";
+import { MarketsWatchlist } from "@/components/MarketsWatchlist";
 import {
   isKlineInterval,
   KLINE_INTERVALS,
@@ -486,6 +487,7 @@ export function MarketsClient() {
     useState<HTMLDivElement | null>(null);
 
   return (
+    <MarketsWatchlist symbol={symbol} name={pickedName} onSelect={commitSymbol}>
     <div
       ref={rootRef}
       className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
@@ -724,5 +726,6 @@ export function MarketsClient() {
       </div>
       </div>
     </div>
+    </MarketsWatchlist>
   );
 }
