@@ -56,6 +56,7 @@ model User {
   macroChartPrefsRow  UserMacroChartPrefs?
   bookmarkState       UserBookmarkState?
   marketWatchlist     UserMarketWatchlistItem[]
+  marketWatchlistGroups UserMarketWatchlistGroup[]
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
   investmentCases     InvestmentCase[]
@@ -417,10 +418,25 @@ model UserMarketWatchlistItem {
   symbol    String @db.VarChar(64)
   name      String @db.VarChar(200)
   exchange  String @db.VarChar(100)
+  groupId   String?
+  group     UserMarketWatchlistGroup? @relation(fields: [userId, groupId], references: [userId, id], onDelete: NoAction)
   createdAt DateTime @default(now())
   user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, symbol])
+  @@schema("public")
+}
+
+model UserMarketWatchlistGroup {
+  id        String @default(cuid())
+  userId    String
+  name      String @db.VarChar(30)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     UserMarketWatchlistItem[]
+
+  @@id([userId, id])
+  @@unique([userId, name])
   @@schema("public")
 }
 

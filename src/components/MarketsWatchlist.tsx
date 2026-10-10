@@ -2,9 +2,21 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SymbolSearchItem } from "@/lib/data/symbolSearchTypes";
-import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
-
 import { useMarketsWatchlist } from "@/hooks/useMarketsWatchlist";
+import type { WatchlistGroup, WatchlistGroupChange } from "@/lib/data/marketWatchlist";
+
+function GroupEditor({ group, disabled, onChange }: { group: WatchlistGroup; disabled: boolean; onChange: (change: WatchlistGroupChange) => Promise<boolean> }) {
+  const [name, setName] = useState(group.name);
+  const [deleting, setDeleting] = useState(false);
+  return <div className="space-y-1">
+    <form onSubmit={(event) => { event.preventDefault(); void onChange({ action: "renameGroup", groupId: group.id, name }); }} className="flex items-center gap-1">
+      <input aria-label={`编辑组名 ${group.name}`} value={name} onChange={(event) => setName(event.target.value)} maxLength={30} disabled={disabled} className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1 text-xs" />
+      <button disabled={disabled || name.trim() === group.name} className="min-h-8 px-1 text-xs text-fs-accent-text">保存</button>
+      <button type="button" disabled={disabled} onClick={() => setDeleting((value) => !value)} aria-label={`删除分组 ${group.name}`} className="min-h-8 px-1 text-xs text-fs-muted">删除</button>
+    </form>
+    {deleting ? <div className="rounded border border-fs-border p-2 text-xs"><p>删除后，组内股票移回未分组。</p><button disabled={disabled} onClick={() => void onChange({ action: "deleteGroup", groupId: group.id })} className="mr-3 min-h-8 text-fs-negative">确认删除分组</button><button onClick={() => setDeleting(false)} className="min-h-8 text-fs-muted">取消</button></div> : null}
+  </div>;
+}
 
 export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   children: ReactNode;
@@ -13,49 +25,26 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   onSelect: (symbol: string, name?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { stocks, ready, saving, error: storageError, userId, reload, change } = useMarketsWatchlist();
-
-  const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<SymbolSearchItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const { stocks, groups, ready, saving, error: storageError, reload, change, changeGroup } = useMarketsWatchlist();
+  const [selectedGroup, setSelectedGroup] = useState("all");
+  const [managing, setManaging] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [movingStock, setMovingStock] = useState<string | null>(null);
+  const activeGroup = selectedGroup === "all" || selectedGroup === "" || groups.some((group) => group.id === selectedGroup) ? selectedGroup : "all";
+  const visibleStocks = activeGroup === "all" ? stocks : stocks.filter((stock) => (stock.groupId ?? "") === activeGroup);
 
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (open) { inputRef.current?.focus(); void reload(); }
+    if (open) {
+      closeRef.current?.focus();
+      void reload();
+    }
   }, [open, reload]);
 
-  useEffect(() => {
-    const q = query.trim();
-    if (!q || !open) {
-      setHits([]);
-      setLoading(false);
-      setError("");
-      return;
-    }
-    const controller = new AbortController();
-    setHits([]);
-    setError("");
-    setLoading(true);
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/data/symbol-search?q=${encodeURIComponent(q)}`, { signal: controller.signal });
-        const data = await response.json() as { results?: SymbolSearchItem[]; error?: string };
-        if (!response.ok) throw new Error(data.error ?? "搜索失败");
-        if (!controller.signal.aborted) setHits((data.results ?? []).slice(0, 8));
-      } catch (e) {
-        if (!controller.signal.aborted) setError(symbolSearchErrorForUser(e instanceof Error ? e.message : String(e)));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }, 250);
-    return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [query, open]);
-
   function add(stock: SymbolSearchItem) {
-    if (!stocks.some((item) => item.symbol === stock.symbol)) void change(stock, false);
+    if (!stocks.some((item) => item.symbol === stock.symbol)) void change(stock, false, activeGroup === "all" ? null : activeGroup || null);
   }
 
   function close() {
@@ -75,31 +64,33 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
         {open ? <section id="markets-watchlist-panel" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }} className="absolute inset-y-0 left-0 z-40 flex w-[calc(100%_-_2.5rem)] max-w-80 flex-col border-r border-fs-border bg-fs-bg shadow-xl md:w-72 md:shadow-none">
           <header className="flex shrink-0 items-center justify-between border-b border-fs-border px-3 py-2">
             <h2 className="text-sm font-semibold text-fs-text">☆ 自选股 <span className="text-xs text-fs-muted">{stocks.length}</span></h2>
-            <button type="button" onClick={close} className="min-h-10 rounded px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft">收起 ‹</button>
+            <button ref={closeRef} type="button" onClick={close} className="min-h-10 rounded px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft">收起 ‹</button>
           </header>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-            <label htmlFor="markets-watchlist-search" className="block text-xs text-fs-muted">添加自选股</label>
-            <input ref={inputRef} id="markets-watchlist-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索代码或公司名称" className="w-full rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 text-sm text-fs-text outline-none focus:border-fs-accent" />
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+            <div className="flex items-center gap-1">
+              <select aria-label="自选股分组" value={activeGroup} onChange={(event) => setSelectedGroup(event.target.value)} disabled={!ready || saving} className="min-h-8 min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 text-xs">
+                <option value="all">全部</option><option value="">未分组</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+              </select>
+              <button type="button" disabled={!ready || saving} aria-expanded={managing} onClick={() => setManaging((value) => !value)} className="min-h-8 shrink-0 rounded px-2 text-xs text-fs-accent-text">{managing ? "完成" : "管理分组"}</button>
+            </div>
+            {managing ? <section aria-label="分组管理" className="space-y-2 rounded-lg border border-fs-border bg-fs-elevated/40 p-2">
+              <form onSubmit={async (event) => { event.preventDefault(); if (await changeGroup({ action: "createGroup", name: newGroupName })) setNewGroupName(""); }} className="flex items-center gap-1">
+                <input aria-label="新分组名称" placeholder="新分组名称" maxLength={30} value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} disabled={!ready || saving} className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1 text-xs" />
+                <button disabled={!ready || saving || !newGroupName.trim()} className="min-h-8 shrink-0 px-1 text-xs text-fs-accent-text">新增</button>
+              </form>
+              {groups.map((group) => <GroupEditor key={`${group.id}:${group.name}`} group={group} disabled={!ready || saving} onChange={changeGroup} />)}
+            </section> : null}
             {symbol ? <button type="button" disabled={!ready || saving || currentAdded} onClick={() => add({ symbol, name: name ?? symbol, exchange: "" })} className="min-h-10 w-full rounded-lg border border-fs-border px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">{currentAdded ? `${symbol} 已在自选股中` : `☆ 添加当前标的 ${symbol}`}</button> : null}
-            <div aria-live="polite" className="text-xs text-fs-muted">{loading ? "搜索中…" : error || (query.trim() && !hits.length ? "未找到匹配标的" : "")}</div>
-            {hits.length ? <ul className="max-h-64 overflow-y-auto rounded-lg border border-fs-border">
-              {hits.map((hit) => {
-                const added = stocks.some((stock) => stock.symbol === hit.symbol);
-                return <li key={hit.symbol} className="flex items-center gap-2 border-b border-fs-border p-2 last:border-0">
-                  <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-fs-text">{hit.symbol}</div><div className="truncate text-xs text-fs-muted" title={hit.name}>{hit.name}</div></div>
-                  <button type="button" disabled={added || !ready || saving} aria-label={`${added ? "已添加" : "添加"} ${hit.symbol}`} onClick={() => add(hit)} className="min-h-10 shrink-0 rounded px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">{added ? "已添加" : "+ 添加"}</button>
-                </li>;
-              })}
-            </ul> : null}
-            <div className="border-t border-fs-border pt-3 text-xs text-fs-muted">我的自选 · {stocks.length} 只</div>
-            {!ready ? <p className="text-sm text-fs-muted">加载自选股…</p> : !stocks.length ? <p className="rounded-lg border border-dashed border-fs-border p-4 text-sm leading-6 text-fs-muted">搜索添加你关注的股票，点击列表即可切换行情。</p> : <ul className="space-y-1">
-              {stocks.map((stock) => <li key={stock.symbol} className={`flex items-center rounded-lg border ${symbol === stock.symbol ? "border-fs-accent/30 bg-fs-accent-soft" : "border-transparent bg-fs-elevated/50"}`}>
-                <button type="button" aria-label={`查看 ${stock.symbol} 行情`} aria-pressed={symbol === stock.symbol} onClick={() => { onSelect(stock.symbol, stock.name); if (window.matchMedia("(max-width: 767px)").matches) close(); }} className="min-w-0 flex-1 rounded p-3 text-left hover:text-fs-accent-text"><span className="block text-sm font-semibold">{stock.symbol}</span><span className="block truncate text-xs text-fs-muted" title={stock.name}>{stock.name}</span></button>
-                <button type="button" aria-label={`移除 ${stock.symbol}`} disabled={!ready || saving} onClick={() => void change(stock, true)} className="min-h-10 min-w-10 rounded text-fs-muted hover:bg-fs-elevated hover:text-fs-negative">×</button>
+            {!ready ? <p className="text-sm text-fs-muted">加载自选股…</p> : !visibleStocks.length ? <p className="rounded-lg border border-dashed border-fs-border p-3 text-xs leading-5 text-fs-muted">{stocks.length ? "此分组暂无股票，可在股票卡片中调整分组。" : "在行情页顶部选择标的后，点击添加当前标的。"}</p> : <ul className="space-y-1">
+              {visibleStocks.map((stock) => <li key={stock.symbol} className={`flex flex-wrap items-center rounded-lg border ${symbol === stock.symbol ? "border-fs-accent/30 bg-fs-accent-soft" : "border-transparent bg-fs-elevated/50"}`}>
+                <button type="button" aria-label={`查看 ${stock.symbol} 行情`} aria-pressed={symbol === stock.symbol} onClick={() => { onSelect(stock.symbol, stock.name); if (window.matchMedia("(max-width: 767px)").matches) close(); }} className="min-w-0 flex-1 rounded px-2 py-1.5 text-left hover:text-fs-accent-text"><span className="block text-xs font-semibold leading-4">{stock.symbol}</span><span className="block truncate text-[10px] leading-4 text-fs-muted" title={stock.name}>{stock.name}</span></button>
+                <button type="button" aria-label={`移除 ${stock.symbol}`} disabled={!ready || saving} onClick={() => void change(stock, true)} className="min-h-8 min-w-8 rounded text-xs text-fs-muted md:min-h-7 md:min-w-7 hover:bg-fs-elevated hover:text-fs-negative">×</button>
+                <button type="button" aria-label={`调整 ${stock.symbol} 分组`} aria-expanded={movingStock === stock.symbol} disabled={!ready || saving} onClick={() => setMovingStock((current) => current === stock.symbol ? null : stock.symbol)} className="min-h-8 min-w-8 rounded text-xs text-fs-muted hover:bg-fs-elevated">⋯</button>
+                {movingStock === stock.symbol ? <div className="w-full border-t border-fs-border p-1.5"><select aria-label={`${stock.symbol} 所属分组`} disabled={!ready || saving} value={stock.groupId ?? ""} onChange={async (event) => { if (await changeGroup({ action: "moveStock", symbol: stock.symbol, groupId: event.target.value || null })) setMovingStock(null); }} className="min-h-8 w-full rounded border border-fs-border bg-fs-bg px-2 text-xs"><option value="">未分组</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></div> : null}
               </li>)}
             </ul>}
           </div>
-          <footer className="shrink-0 border-t border-fs-border px-3 py-2 text-xs leading-5 text-fs-muted">{saving ? "正在保存…" : !ready ? "正在连接自选股存储…" : userId ? "已同步到当前账号，可跨设备访问。" : "游客自选保存在本机；登录后使用账号自选。"}{storageError ? <div role="status" className="text-fs-negative">{storageError}<button type="button" disabled={saving} onClick={() => void reload()} className="ml-2 underline">重新加载</button></div> : null}</footer>
+          {storageError ? <div role="status" className="shrink-0 border-t border-fs-border px-3 py-2 text-xs text-fs-negative">{storageError}<button type="button" disabled={saving} onClick={() => void reload()} className="ml-2 underline">重新加载</button></div> : null}
         </section> : null}
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>

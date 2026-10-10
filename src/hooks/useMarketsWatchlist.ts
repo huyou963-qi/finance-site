@@ -1,27 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SymbolSearchItem } from "@/lib/data/symbolSearchTypes";
-import { parseWatchlistItem } from "@/lib/data/marketWatchlist";
+import { applyWatchlistGroupChange, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, type WatchlistData, type WatchlistGroupChange, type WatchlistStock } from "@/lib/data/marketWatchlist";
+import { randomUUID } from "@/lib/randomId";
 
-const STORAGE_KEY = "finance-site:markets-watchlist:v1";
+const STORAGE_KEY = "finance-site:markets-watchlist:v2";
 const ENDPOINT = "/api/tools/market-watchlist";
+const EMPTY: WatchlistData = { stocks: [], groups: [] };
 
-function loadGuestStocks(): SymbolSearchItem[] {
-  const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-  if (!Array.isArray(value)) return [];
-  const stocks = new Map<string, SymbolSearchItem>();
-  for (const item of value) {
+function loadGuest(): WatchlistData {
+  const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem("finance-site:markets-watchlist:v1") ?? "[]");
+  const state: WatchlistData = { stocks: [], groups: [] };
+  for (const item of Array.isArray(value?.groups) ? value.groups : []) {
+    try {
+      const id = parseWatchlistGroupId(item.id);
+      const name = parseWatchlistGroupName(item.name);
+      if (id && !state.groups.some((group) => group.id === id || group.name === name)) state.groups.push({ id, name });
+    } catch { /* 忽略损坏的本地分组 */ }
+  }
+  for (const item of Array.isArray(value) ? value : Array.isArray(value?.stocks) ? value.stocks : []) {
     try {
       const stock = parseWatchlistItem(item);
-      stocks.set(stock.symbol, stock);
-    } catch { /* 忽略旧版本或损坏的本地条目 */ }
+      const groupId = parseWatchlistGroupId(item.groupId);
+      if (!state.stocks.some((existing) => existing.symbol === stock.symbol)) state.stocks.push({ ...stock, groupId: state.groups.some((group) => group.id === groupId) ? groupId : null });
+    } catch { /* 忽略损坏的本地条目 */ }
   }
-  return [...stocks.values()];
+  return state;
 }
 
 export function useMarketsWatchlist() {
-  const [stocks, setStocks] = useState<SymbolSearchItem[]>([]);
+  const [state, setState] = useState<WatchlistData>(EMPTY);
   const [userId, setUserId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -33,15 +41,15 @@ export function useMarketsWatchlist() {
     if (busy.current) return;
     const requestId = ++sequence.current;
     setReady(false);
-    setStocks([]);
+    setState(EMPTY);
     setError("");
     try {
       const response = await fetch(ENDPOINT, { cache: "no-store" });
-      const data = await response.json() as { userId: string | null; stocks: SymbolSearchItem[]; error?: string };
+      const data = await response.json() as WatchlistData & { userId: string | null; error?: string };
       if (!response.ok) throw new Error(data.error ?? "无法加载自选股");
       if (requestId !== sequence.current) return;
       setUserId(data.userId);
-      setStocks(data.userId ? data.stocks : loadGuestStocks());
+      setState(data.userId ? { stocks: data.stocks, groups: data.groups ?? [] } : loadGuest());
       setReady(true);
     } catch (e) {
       if (requestId === sequence.current) setError(e instanceof Error ? e.message : "无法加载自选股，请重试");
@@ -61,41 +69,47 @@ export function useMarketsWatchlist() {
     };
   }, [reload]);
 
-  async function change(stock: SymbolSearchItem, remove: boolean) {
-    if (!ready || busy.current) return;
+  async function mutate(method: string, body: object, guestNext: () => WatchlistData): Promise<boolean> {
+    if (!ready || busy.current) return false;
     setError("");
     if (!userId) {
-      const next = remove ? stocks.filter((item) => item.symbol !== stock.symbol) : [...stocks.filter((item) => item.symbol !== stock.symbol), stock];
-      setStocks(next);
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
-      catch { setError("浏览器无法保存，自选股仅在本次页面中保留。"); }
-      return;
+      try {
+        const next = guestNext();
+        setState(next);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
+        catch { setError("浏览器无法保存，自选股仅在本次页面中保留。"); }
+        return true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "分组操作失败");
+        return false;
+      }
     }
     busy.current = true;
     setSaving(true);
     const requestId = ++sequence.current;
     try {
-      const response = await fetch(ENDPOINT, {
-        method: remove ? "DELETE" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(remove ? { userId, symbol: stock.symbol } : { userId, stock }),
-      });
-      const data = await response.json() as { stocks: SymbolSearchItem[]; error?: string };
+      const response = await fetch(ENDPOINT, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, ...body }) });
+      const data = await response.json() as WatchlistData & { error?: string };
       if (!response.ok) {
-        if (response.status === 401 || response.status === 409) {
-          setStocks([]);
-          setReady(false);
-        }
+        if (response.status === 401 || response.status === 409) { setState(EMPTY); setReady(false); }
         throw new Error(data.error ?? "无法保存自选股");
       }
-      if (requestId === sequence.current) setStocks(data.stocks);
+      if (requestId === sequence.current) setState({ stocks: data.stocks, groups: data.groups ?? [] });
+      return true;
     } catch (e) {
       if (requestId === sequence.current) setError(e instanceof Error ? e.message : "无法保存自选股，请重试");
-    } finally {
-      busy.current = false;
-      setSaving(false);
-    }
+      return false;
+    } finally { busy.current = false; setSaving(false); }
   }
 
-  return { stocks, ready, saving, error, userId, reload, change };
+  function change(stock: WatchlistStock, remove: boolean, groupId: string | null = null) {
+    return mutate(remove ? "DELETE" : "POST", remove ? { symbol: stock.symbol } : { stock, groupId }, () => ({ ...state, stocks: remove ? state.stocks.filter((item) => item.symbol !== stock.symbol) : [...state.stocks.filter((item) => item.symbol !== stock.symbol), { ...stock, groupId }] }));
+  }
+
+  function changeGroup(change: WatchlistGroupChange) {
+    const action = change.action === "createGroup" ? { ...change, groupId: randomUUID() } : change;
+    return mutate("PATCH", change, () => applyWatchlistGroupChange(state, action));
+  }
+
+  return { ...state, ready, saving, error, userId, reload, change, changeGroup };
 }
