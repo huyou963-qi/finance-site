@@ -4,6 +4,14 @@ import { appendMacroObservationVintages } from "./observationVintages";
 
 const BATCH = 200;
 
+/** Observations are authoritative; subscription.lastObsDate is only a cache. */
+export async function readStoredLastObservationDate(prisma: PrismaClient, instrumentId: string): Promise<Date | null> {
+  const row = await prisma.macroObservation.findFirst({
+    where: { instrumentId }, orderBy: { obsDate: "desc" }, select: { obsDate: true },
+  });
+  return row?.obsDate ?? null;
+}
+
 export type UpsertObservationsResult = {
   /** 实际写库的行数（新增 + 值发生变化），不含无变化的空转覆盖 */
   upserted: number;

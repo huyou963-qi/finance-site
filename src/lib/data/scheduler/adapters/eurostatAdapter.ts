@@ -8,6 +8,9 @@ type JsonStatDimension = {
 };
 
 type JsonStatResponse = {
+  status?: Record<string, string>;
+  updated?: string;
+  label?: string;
   id?: string[];
   size?: number[];
   value?: Array<number | null> | Record<string, number>;
@@ -61,7 +64,12 @@ export function parseEurostatJsonStat(payload: JsonStatResponse): FetchIncrement
     points.push({ obsDate, value });
   }
   points.sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime());
-  return { points, sourceLatestObsDate: points.at(-1)?.obsDate ?? null, skippedInvalid };
+  const latestIndex = periods.findIndex((period) => parseEurostatPeriod(period)?.getTime() === points.at(-1)?.obsDate.getTime());
+  return { points, sourceLatestObsDate: points.at(-1)?.obsDate ?? null, skippedInvalid,
+    sourceMetadata: { datasetLabel: payload.label, updated: payload.updated,
+      latestObsStatus: payload.status?.[String(latestIndex)] ?? null,
+      observationStatusByPeriod: Object.fromEntries(Object.entries(payload.status ?? {}).map(([index, flag]) => [periods[Number(index)], flag])) },
+  };
 }
 
 function sincePeriod(fetchStart: string, frequency: string): string {

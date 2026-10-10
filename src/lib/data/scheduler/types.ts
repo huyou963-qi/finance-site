@@ -1,9 +1,13 @@
+import type { Prisma } from "@prisma/client";
+
 export type ObservationPoint = {
   obsDate: Date;
   value: number;
 };
 
 export type FetchIncrementalResult = {
+  /** Official dataset identity and revision/estimate flags, preserved in fetch logs. */
+  sourceMetadata?: Prisma.InputJsonObject;
   points: ObservationPoint[];
   sourceLatestObsDate: Date | null;
   skippedInvalid: number;

@@ -19,6 +19,14 @@ function minIntervalMs(source: DataSource): number {
   return typeof rl?.minIntervalMs === "number" ? rl.minIntervalMs : 500;
 }
 
+/** Real-estate client throttles each actual HTTP request by 5s. Cached package
+ * members are not new source requests; delaying 474 of them costs ~40 minutes.
+ * Keep stronger source limits and all other providers unchanged. */
+export function dispatchDelayMs(source: DataSource, metadata?: unknown): number {
+  const interval = minIntervalMs(source);
+  return source.id === "nbs-realestate" && readScrapeObject(metadata)?.provider === "nbs_realestate" && interval <= 5_000 ? 0 : interval;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -69,7 +77,7 @@ export async function fetchSubscriptionIncremental(
   }
 
   if (sub.source.adapterKind === SourceAdapterKind.REST_API) {
-    await sleep(minIntervalMs(sub.source));
+    await sleep(dispatchDelayMs(sub.source, sub.instrument.metadata));
     if (sub.source.id === "eurostat") {
       const { fetchEurostatIncremental } = await import("./adapters/eurostatAdapter");
       return fetchEurostatIncremental(sub.instrument.code, fetchStart);

@@ -1,5 +1,9 @@
-import { ISO2_TO_ISO3 } from "@/lib/data/macroCatalog";
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
+
+export function worldBankApiCountry(countryCode: string): string | null {
+  // The UI's short country list is not the list of countries supported by WDI.
+  return countryCode === "EA" ? "EMU" : countryCode === "EU" ? "EUU" : /^[A-Z]{2}$/.test(countryCode) ? countryCode : null;
+}
 
 function parseWorldBankSeriesKey(sourceSeriesKey: string): {
   countryCode: string;
@@ -28,7 +32,8 @@ export async function fetchWorldBankIncremental(
   }
 
   const { countryCode, indicatorId } = parsed;
-  const iso3 = ISO2_TO_ISO3[countryCode];
+  // Catalogue regional aliases are not World Bank API country codes.
+  const iso3 = worldBankApiCountry(countryCode);
   if (!iso3) {
     throw new Error(`World Bank 不支持国家代码 ${countryCode}`);
   }
@@ -39,7 +44,7 @@ export async function fetchWorldBankIncremental(
   );
   const endYear = new Date().getUTCFullYear() + 1;
   const url =
-    `https://api.worldbank.org/v2/country/${countryCode}/indicator/${encodeURIComponent(indicatorId)}` +
+    `https://api.worldbank.org/v2/country/${iso3}/indicator/${encodeURIComponent(indicatorId)}` +
     `?format=json&date=${startYear}:${endYear}&per_page=1000`;
 
   const res = await fetch(url, { signal: AbortSignal.timeout(45_000) });
@@ -54,6 +59,7 @@ export async function fetchWorldBankIncremental(
   }
 
   const rows = json[1] as {
+    country?: { id?: string };
     countryiso3code?: string;
     date?: string;
     value?: number | null;
@@ -63,7 +69,7 @@ export async function fetchWorldBankIncremental(
   let skippedInvalid = 0;
 
   for (const row of rows) {
-    if (row.countryiso3code !== iso3 || !row.date) continue;
+    if ((iso3.length === 3 ? row.countryiso3code !== iso3 : row.country?.id !== iso3) || !row.date) continue;
     const v =
       row.value === null || row.value === undefined || Number.isNaN(Number(row.value))
         ? NaN

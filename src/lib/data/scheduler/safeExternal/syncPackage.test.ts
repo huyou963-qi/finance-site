@@ -88,6 +88,7 @@ test("a later package member preserves the database schedule advanced by its lea
   const prisma = {
     $queryRaw: async () => [{ exists: false }],
     fetchRun: { create: async () => ({ id: "run" }), update: async () => ({}) },
+    macroObservation: { findFirst: async () => ({ obsDate: new Date("2026-09-01") }) },
     dataSubscription: {
       findUnique: async () => ({ nextRunAt: currentNext }),
       update: async ({ data }: { data: { nextRunAt: Date } }) => { writes.push(data); return {}; },

@@ -6,6 +6,12 @@ import {
   instrumentMatchesPackageMember,
 } from "./releasePackageCatalog";
 
+test("Eurostat HICP/unemployment probe original API instead of ambiguous TE calendar", () => {
+  for (const id of ["eu.eurostat.hicp", "eu.eurostat.unemployment"]) {
+    assert.deepEqual(RELEASE_PACKAGE_CATALOG.find((p)=>p.id===id)?.release,{type:"probe_interval",intervalHours:6});
+  }
+});
+
 test("headline and core PCE share one release package", () => {
   const headline = { code: "sched_fred_PCEPI", fredSeriesId: "PCEPI" };
   const core = { code: "sched_fred_PCEPILFE", fredSeriesId: "PCEPILFE" };
