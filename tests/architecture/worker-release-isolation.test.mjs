@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, realpathSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 const root = resolve(import.meta.dirname, "../..");
@@ -47,6 +47,13 @@ test("Linux: switching releases preserves the legacy checkout and isolates depen
     assert.notEqual(realpathSync(target), first);
     assert.equal(readFileSync(resolve(first, "src/version"), "utf8"), "one");
     assert.equal(readFileSync(resolve(target, "src/version"), "utf8"), "two");
+    assert.equal(statSync(resolve(first, "node_modules/tsx/index.js")).ino,
+      statSync(resolve(target, "node_modules/tsx/index.js")).ino);
+    writeFileSync(resolve(source, "node_modules/tsx/index.js"), "module.exports = { version: 2 };\n");
+    execFileSync("sh", [script, source, target], { env });
+    assert.notEqual(statSync(resolve(first, "node_modules/tsx/index.js")).ino,
+      statSync(resolve(target, "node_modules/tsx/index.js")).ino);
+    assert.equal(readFileSync(resolve(first, "node_modules/tsx/index.js"), "utf8"), "module.exports = {};\n");
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }

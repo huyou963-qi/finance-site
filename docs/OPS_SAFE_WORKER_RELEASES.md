@@ -13,7 +13,8 @@ GitHub 部署串行执行，后续提交不会取消正在发布的任务。
 `sync-cron-checkout.sh` 创建 `/opt/finance-site-jp-data-releases/release-*`，
 每个目录包含自己的源码与 node_modules；稳定入口 `/opt/finance-site-jp-data`
 在锁内切换。首次迁移把原检出保留为 `legacy-*`，密钥只链接已有文件，
-`.data` 链接到保留的运行态目录。旧版本不自动清理。
+`.data` 链接到保留的运行态目录。旧版本不自动清理；不可变版本之间按内容
+硬链接相同依赖文件以减少重复存储，不与网站目录共享依赖文件。
 
 回滚：在同样的 worker/calendar 锁下，使用临时符号链接和 `mv -Tf` 将稳定入口
 指向上一个 release；不得修改正在执行的目录。数据库变更必须兼容旧版运行代码；

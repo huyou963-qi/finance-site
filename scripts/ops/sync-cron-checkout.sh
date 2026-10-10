@@ -31,7 +31,18 @@ for f in package.json package-lock.json tsconfig.json next.config.ts; do
   if [ -f "$SRC_PATH/$f" ]; then cp -a "$SRC_PATH/$f" "$RELEASE_PATH/$f"; fi
 done
 mkdir -p "$RELEASE_PATH/node_modules"
-rsync -a "$SRC_PATH/node_modules/" "$RELEASE_PATH/node_modules/"
+if [ -L "$JP_PATH" ] && [ -d "$JP_PATH/node_modules" ]; then
+  # 不可变版本之间按内容硬链接相同文件，避免每次发布重复占用约 743MB。
+  # 新文件/改变的文件独立复制；绝不与仍会被网站部署改写的依赖目录硬链接。
+  PREVIOUS_DEPS=$(readlink -f "$JP_PATH/node_modules")
+  case "$PREVIOUS_DEPS" in
+    "$RELEASE_ROOT"/release-*/node_modules)
+      rsync -rclp --link-dest="$PREVIOUS_DEPS" "$SRC_PATH/node_modules/" "$RELEASE_PATH/node_modules/" ;;
+    *) rsync -a "$SRC_PATH/node_modules/" "$RELEASE_PATH/node_modules/" ;;
+  esac
+else
+  rsync -a "$SRC_PATH/node_modules/" "$RELEASE_PATH/node_modules/"
+fi
 
 # 旧检出包含未提交内容：原样保留，绝不 reset/delete。缓存保留在首次迁移的旧目录。
 if [ -d "$JP_PATH" ] && [ ! -L "$JP_PATH" ]; then
