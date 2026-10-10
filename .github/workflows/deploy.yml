@@ -7,14 +7,14 @@ on:
 
 concurrency:
   group: deploy-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     # Deployments publish code and bounded database definitions only. Data
     # acquisition and maintenance run outside the deploy SSH session.
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       DEPLOY_USER: root
       DEPLOY_PATH: /opt/finance-site
@@ -88,6 +88,12 @@ jobs:
             "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" <<EOF
           set -euo pipefail
           cd "${DEPLOY_PATH}"
+          # 覆盖代码、共享依赖或迁移前，等待当前 worker 和 calendar 完成。
+          exec 8>/tmp/finance-data-worker.lock
+          flock -w 1800 8
+          exec 9>/tmp/finance-sync-calendar.lock
+          flock -w 1800 9
+          export SYNC_CRON_CHECKOUT_LOCKED=1
           site_stopped=0
           restore_site() {
             if [ "\$site_stopped" = "1" ]; then

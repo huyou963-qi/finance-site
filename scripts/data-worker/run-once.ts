@@ -17,6 +17,7 @@ import {
   recordScheduleChange,
   recoverAbandonedSchedulerRuns,
 } from "../../src/lib/data/scheduler/schedulerAudit";
+import { syncSafePackage } from "../../src/lib/data/scheduler/safeExternal/syncPackage";
 
 loadEnvConfig(process.cwd());
 
@@ -129,6 +130,22 @@ async function main() {
     // 保留已经由首个成员确定的包级排期。
     const scheduledPackages = new Set<string>();
     for (const sub of subs) {
+      if (sub.sourceId === "safe-external" && sub.releasePackageId) {
+        if (scheduledPackages.has(sub.releasePackageId)) continue;
+        const members = subs.filter((member) => member.releasePackageId === sub.releasePackageId);
+        console.log(`[package] SAFE ${sub.releasePackageId} members=${members.length}`);
+        await syncSafePackage(prisma, members, {
+          force,
+          onMember: (member, result) => {
+            if (result.status === "failed") fail += 1;
+            else if (result.status === "skipped") skipped += 1;
+            else success += 1;
+            console.log(`  ${member.instrument.code} … ${result.status} (+${result.rowsUpserted} upsert)${result.error ? ` ${result.error}` : ""}`);
+          },
+        });
+        scheduledPackages.add(sub.releasePackageId);
+        continue;
+      }
       const label = `${sub.instrument.code} ← ${sub.sourceSeriesKey}`;
       process.stdout.write(`  ${label} … `);
       const packageFailure = sub.releasePackageId
