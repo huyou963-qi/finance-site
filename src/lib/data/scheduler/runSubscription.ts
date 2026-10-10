@@ -24,6 +24,7 @@ import {
   maxObsDate,
   observationWindowForFetch,
   upsertMacroObservations,
+  readStoredLastObservationDate,
 } from "./upsertObservations";
 import {
   effectiveReleaseRule,
@@ -159,8 +160,11 @@ export async function runDataSubscription(
       sub.source.adapterKind === SourceAdapterKind.FRED_API
         ? fredTransformForInstrument(sub.instrument.code)
         : "none";
+    // Seeds/backfills can populate observations without updating this cache.
+    // Null cache must not force a full bootstrap against an unavailable API.
+    const storedLastObsDate = await readStoredLastObservationDate(prisma, sub.instrumentId);
     const { fetchStart, persistStart } = observationWindowForFetch(
-      sub.lastObsDate,
+      storedLastObsDate,
       sub.revisionLookback,
       { yoyTransform: transform === "yoy_pct" },
     );
@@ -184,9 +188,9 @@ export async function runDataSubscription(
 
     const newMax = maxObsDate(fetchResult.points);
     const lastObs =
-      newMax && sub.lastObsDate && newMax <= sub.lastObsDate
-        ? sub.lastObsDate
-        : newMax ?? sub.lastObsDate;
+      newMax && storedLastObsDate && newMax <= storedLastObsDate
+        ? storedLastObsDate
+        : newMax ?? storedLastObsDate;
 
     const sourceLagDays =
       fetchResult.sourceLatestObsDate && lastObs
@@ -219,6 +223,14 @@ export async function runDataSubscription(
     }
 
     const releaseRuleChanged = updatedRule !== rule;
+    // Per-member proof is required even when preserving the package schedule.
+    if (releaseRuleChanged && updatedRule.type === "economic_calendar") {
+      const memberRule = parseReleaseRule(sub.releaseRule);
+      await prisma.dataSubscription.update({
+        where: { id: sub.id },
+        data: { releaseRule: { ...(memberRule.type === "economic_calendar" ? memberRule : { type: "economic_calendar", fallback: memberRule }), sourceSync: updatedRule.sourceSync } as object },
+      });
+    }
 
     // 首个成员可能已经把新排期扇出。不能用本轮选取时的旧快照覆盖它。
     const preservedSchedule = options?.preserveNextRunAt
@@ -323,6 +335,7 @@ export async function runDataSubscription(
           fetchStart,
           persistStart,
           fetched: fetchResult.points.length,
+          ...(fetchResult.sourceMetadata ? { sourceMetadata: fetchResult.sourceMetadata } : {}),
           inserted,
           changed,
           latestObs: latestObsDate?.toISOString().slice(0, 10) ?? null,

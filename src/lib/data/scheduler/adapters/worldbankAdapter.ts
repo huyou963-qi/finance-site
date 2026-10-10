@@ -1,6 +1,10 @@
 import { ISO2_TO_ISO3 } from "@/lib/data/macroCatalog";
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
 
+export function worldBankApiCountry(countryCode: string): string | null {
+  return countryCode === "EA" ? "EMU" : countryCode === "EU" ? "EUU" : ISO2_TO_ISO3[countryCode] ?? null;
+}
+
 function parseWorldBankSeriesKey(sourceSeriesKey: string): {
   countryCode: string;
   indicatorId: string;
@@ -28,7 +32,8 @@ export async function fetchWorldBankIncremental(
   }
 
   const { countryCode, indicatorId } = parsed;
-  const iso3 = ISO2_TO_ISO3[countryCode];
+  // Catalogue regional aliases are not World Bank API country codes.
+  const iso3 = worldBankApiCountry(countryCode);
   if (!iso3) {
     throw new Error(`World Bank 不支持国家代码 ${countryCode}`);
   }
@@ -39,7 +44,7 @@ export async function fetchWorldBankIncremental(
   );
   const endYear = new Date().getUTCFullYear() + 1;
   const url =
-    `https://api.worldbank.org/v2/country/${countryCode}/indicator/${encodeURIComponent(indicatorId)}` +
+    `https://api.worldbank.org/v2/country/${iso3}/indicator/${encodeURIComponent(indicatorId)}` +
     `?format=json&date=${startYear}:${endYear}&per_page=1000`;
 
   const res = await fetch(url, { signal: AbortSignal.timeout(45_000) });

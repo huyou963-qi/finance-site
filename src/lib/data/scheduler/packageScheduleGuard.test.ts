@@ -9,6 +9,23 @@ import {
 const NONE: PackageRunState = { lastSuccessAt: null, sourceVerifiedAt: null };
 const d = (iso: string) => new Date(iso);
 
+test("failed member preserves its bounded retry rather than jumping month or retrying immediately", () => {
+  const retry = d("2026-10-10T13:00:00Z");
+  const result = resolvePackageNextRunAt({ currentNextRunAt:retry, computedNextRunAt:d("2026-11-04T15:03:00Z"),
+    previousReleaseAt:d("2026-10-05T14:00:00Z"), now:d("2026-10-10T11:00:00Z"),
+    runState:{lastSuccessAt:d("2026-09-05Z"),sourceVerifiedAt:null,hasUnresolvedFailures:true} });
+  assert.equal(result.nextRunAt, retry);
+  assert.equal(result.reason,"hold_pending_release");
+});
+
+test("Eurostat overdue timestamp can advance after ALL members freshly caught up", () => {
+  const result = resolvePackageNextRunAt({ currentNextRunAt: d("2026-10-02T09:01:00Z"),
+    previousReleaseAt: d("2026-10-16T09:00:00Z"), computedNextRunAt: d("2026-10-16T09:03:00Z"),
+    now: d("2026-10-10T11:00:00Z"), runState: { lastSuccessAt: d("2026-10-10T10:30:00Z"), sourceVerifiedAt: d("2026-10-10T10:30:00Z") } });
+  assert.equal(result.reason, "calendar");
+  assert.equal(result.nextRunAt?.toISOString(), "2026-10-16T09:03:00.000Z");
+});
+
 test("复刻 us.census.mtis 2026-09-16 事故：这一期没抓到就不许跳到下个月", () => {
   // 生产审计记录：22:00:06 这一轮把 nextRunAt 从 22:03 改成了 10-15 22:03，
   // 而上次成功执行停在 2026-07-09 —— 8 月、9 月两期全丢。

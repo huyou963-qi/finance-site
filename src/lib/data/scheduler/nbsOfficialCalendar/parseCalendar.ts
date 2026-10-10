@@ -31,8 +31,8 @@ const PACKAGE_SCHEDULES: Record<
   },
   "cn.nbs.retail-sales": { titles: ["社会消费品零售总额月度报告"] },
   "cn.nbs.real-estate": {
-    // 同一发布包同时抓房地产开发月报和 70 城房价，取两张官方日程中较早者。
-    titles: ["房地产开发和销售情况月度报告", "商品住宅销售价格指数月度报告"],
+    // 开发数据随国民经济运行稿发布；混合包要等两份来源同月都已发布。
+    titles: ["国民经济运行情况", "商品住宅销售价格指数月度报告"],
   },
 };
 
@@ -210,6 +210,16 @@ export function nextNbsOfficialReleaseForPackage(
   const schedule = PACKAGE_SCHEDULES[packageId];
   if (!schedule) return null;
   const fromMs = from.getTime() - 60_000;
+  if (packageId === "cn.nbs.real-estate") {
+    const candidates = releases.filter((release) => schedule.titles.includes(release.title));
+    for (const month of [...new Set(candidates.map((r) => `${r.releaseYear}-${r.releaseMonth}`))]) {
+      const rows = candidates.filter((r) => `${r.releaseYear}-${r.releaseMonth}` === month);
+      if (!schedule.titles.every((title) => rows.some((r) => r.title === title))) continue;
+      const latest = rows.reduce((a, b) => a.releaseAt > b.releaseAt ? a : b);
+      if (latest.releaseAt.getTime() >= fromMs) return latest;
+    }
+    return null;
+  }
   return (
     releases.find(
       (release) =>

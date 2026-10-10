@@ -2,6 +2,9 @@ import type { DataGranularity } from "@prisma/client";
 
 export const EUROSTAT_SOURCE_ID = "eurostat";
 export const ECB_SOURCE_ID = "ecb-data";
+/** Official API polling avoids ambiguous third-party flash/final calendar matches. */
+export const EUROSTAT_FAST_PROBE_PACKAGES = new Set(["eu.eurostat.hicp", "eu.eurostat.unemployment"]);
+export const EUROSTAT_FAST_PROBE_HOURS = 6;
 export const EUROSTAT_API_BASE =
   "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data";
 export const ECB_API_BASE = "https://data-api.ecb.europa.eu/service/data";
