@@ -305,6 +305,20 @@ export type DailyBarsQuery = {
   limit?: number;
 };
 
+/** 分页是否还有更早的有效日线；不能用清洗后的页长判断历史终点。 */
+export async function hasEarlierDailyBars(symbol: string, beforeSec: number): Promise<boolean> {
+  const row = await prisma.equityDailyBar.findFirst({
+    where: {
+      symbol: normalizeSymbol(symbol),
+      date: { lt: dateOnly(toUtcDayStartSec(beforeSec)) },
+      close: { gt: 0 },
+    },
+    orderBy: { date: "desc" },
+    select: { date: true },
+  });
+  return row != null;
+}
+
 const BAR_SELECT = {
   date: true,
   open: true,

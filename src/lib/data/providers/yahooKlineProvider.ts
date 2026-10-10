@@ -1,6 +1,7 @@
 import type { CandlestickData, UTCTimestamp } from "lightweight-charts";
 import {
   getAdjustedDailyBars,
+  hasEarlierDailyBars,
   normalizeSymbol,
 } from "@/lib/equity/equityPriceStore";
 import type { AdjustedBar } from "@/lib/equity/priceAdjustment";
@@ -224,18 +225,12 @@ export const yahooKlineProvider: KlineMarketDataProvider = {
         if (!found) throw new YahooSymbolNotFoundError(symbol);
 
         const series = isWeek ? aggregate(bars, weekStartSec) : bars;
-        const { page, hasMoreOlder: slicedHasMore } = sliceWindow(series, req);
-        /**
-         * DB 已按 limit 裁剪时，内存里不会再多出「未切片」的更早根，
-         * sliceWindow 的 filtered.length > page.length 会恒为 false。
-         * 改用「是否取满本次 SQL limit」判断：满页则可能还有更早；不满则到头。
-         * 边界刚好整页的假阳性由客户端 merge_no_growth / empty_chunk 收口。
-         */
-        let hasMoreOlder = slicedHasMore;
-        if (barQuery.limit != null && barQuery.limit > 0) {
-          hasMoreOlder = bars.length >= barQuery.limit && page.length > 0;
-        }
+        const { page } = sliceWindow(series, req);
         const { candles, volumes } = toCandles(page);
+        // Yahoo 节假日零价行会被清洗掉，短页仍可能有历史。
+        // 周线使用最早周的周一作边界，避免把同一周的日线当成更早一周。
+        const hasMoreOlder = candles.length > 0 &&
+          await hasEarlierDailyBars(symbol, candles[0]!.time as number);
 
         return {
           source: "yahoo",
