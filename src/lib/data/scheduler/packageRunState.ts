@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { parseReleaseRule } from "./releaseRule";
 import type { PackageRunState } from "./packageScheduleGuard";
+import { loadExcludedCatalogKeys } from "../catalogExclusions";
 
 /**
  * 读取每个发布包的「跑没跑过 / 消费没消费」状态，供 `packageScheduleGuard` 判定。
@@ -13,15 +14,18 @@ import type { PackageRunState } from "./packageScheduleGuard";
 export async function loadPackageRunStates(
   prisma: PrismaClient,
 ): Promise<Map<string, PackageRunState>> {
+  const excluded = await loadExcludedCatalogKeys(prisma);
   const rows = await prisma.dataSubscription.findMany({
     where: { releasePackageId: { not: null }, enabled: true },
-    select: { releasePackageId: true, lastSuccessAt: true, lastError: true, releaseRule: true },
+    select: { releasePackageId: true, lastSuccessAt: true, lastError: true, releaseRule: true,
+      sourceSeriesKey: true, instrument: { select: { code: true } } },
   });
 
   const map = new Map<string, PackageRunState>();
   for (const row of rows) {
     const packageId = row.releasePackageId;
     if (!packageId) continue;
+    if (excluded.has(`mds:${row.instrument.code}`) || excluded.has(`fred:${row.sourceSeriesKey}`)) continue;
     const verifiedAt = sourceVerifiedAtFromRule(row.releaseRule);
     const previous = map.get(packageId);
     const min = (a: Date | null, b: Date | null) => a && b ? a < b ? a : b : null;

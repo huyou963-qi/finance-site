@@ -30,7 +30,7 @@ import {
   effectiveReleaseRule,
   parsePackageScheduleState,
 } from "./releasePackageStore";
-import { isCatalogKeyExcluded } from "../catalogExclusions";
+import { isCatalogKeyExcluded, loadExcludedCatalogKeys } from "../catalogExclusions";
 import { recordScheduleChange } from "./schedulerAudit";
 
 export type SubscriptionWithRelations = DataSubscription & {
@@ -486,7 +486,9 @@ export async function listDueSubscriptions(
     },
   });
 
-  const eligible = subs.filter((sub) =>
+  const excluded = await loadExcludedCatalogKeys(prisma);
+  const deleted = (sub: (typeof subs)[number]) => excluded.has(`mds:${sub.instrument.code}`) || excluded.has(`fred:${sub.sourceSeriesKey}`);
+  const eligible = subs.filter((sub) => !deleted(sub) &&
       subscriptionEligibleForSchedule({
         subscriptionEnabled: sub.enabled,
         adapterKind: sub.source.adapterKind,
@@ -498,7 +500,7 @@ export async function listDueSubscriptions(
   if (options?.onUnschedulable) {
     const eligibleIds = new Set(eligible.map((s) => s.id));
     const dropped = subs
-      .filter((sub) => !eligibleIds.has(sub.id))
+      .filter((sub) => !deleted(sub) && !eligibleIds.has(sub.id))
       .map((sub) => ({
         instrumentCode: sub.instrument.code,
         sourceId: sub.sourceId,
