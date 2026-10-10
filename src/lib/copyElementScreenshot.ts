@@ -6,6 +6,71 @@ export async function copyElementScreenshotToClipboard(
   el: HTMLElement,
   opts?: { backgroundColor?: string; pixelRatio?: number },
 ): Promise<void> {
+  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+    throw new Error("当前浏览器不支持复制图片到剪贴板");
+  }
+
+  // 先在点击事件内提交写入，再异步生成 PNG，保留 Safari 等浏览器要求的用户激活。
+  const png = Promise.resolve().then(() => renderElementScreenshot(el, opts));
+  // write 可能在消费图片前就因失焦被拒绝，仍须处理图片生成失败。
+  void png.catch(() => {});
+  const item = new ClipboardItem({ "image/png": png });
+  try {
+    if (!document.hasFocus()) await waitForScreenshotFocus();
+    try {
+      await navigator.clipboard.write([item]);
+    } catch (e) {
+      if (!isScreenshotFocusError(e)) throw e;
+      // 仅对失焦重试一次，复用本次图片，不重复渲染或循环请求权限。
+      await waitForScreenshotFocus();
+      await navigator.clipboard.write([item]);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const name = e instanceof Error ? e.name : "";
+    throw new Error(
+      isScreenshotFocusError(e)
+        ? "复制失败：页面未获得焦点，请返回图表页面后再次点击截图"
+        : msg.includes("secure") || name === "NotAllowedError" || msg.includes("NotAllowed")
+          ? "复制失败：请在本站页面内操作并允许剪贴板权限"
+          : `复制到剪贴板失败：${msg}`,
+    );
+  }
+}
+
+function isScreenshotFocusError(error: unknown): boolean {
+  return /document is not focused|页面未获得焦点/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+function waitForScreenshotFocus(): Promise<void> {
+  if (document.hasFocus()) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", checkFocus);
+      document.removeEventListener("visibilitychange", checkFocus);
+    };
+    const checkFocus = () => {
+      if (!document.hasFocus()) return;
+      cleanup();
+      resolve();
+    };
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("页面未获得焦点"));
+    }, 1500);
+    window.addEventListener("focus", checkFocus);
+    document.addEventListener("visibilitychange", checkFocus);
+    checkFocus();
+  });
+}
+
+async function renderElementScreenshot(
+  el: HTMLElement,
+  opts?: { backgroundColor?: string; pixelRatio?: number },
+): Promise<Blob> {
   const rootRect = el.getBoundingClientRect();
   const cssW = Math.max(1, Math.round(rootRect.width));
   const cssH = Math.max(1, Math.round(rootRect.height));
@@ -62,27 +127,13 @@ export async function copyElementScreenshotToClipboard(
     }
   }
 
-  const blob = await new Promise<Blob>((resolve, reject) => {
+  return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("导出 PNG 失败"))),
       "image/png",
     );
   });
 
-  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-    throw new Error("当前浏览器不支持复制图片到剪贴板");
-  }
-
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    throw new Error(
-      msg.includes("secure") || msg.includes("NotAllowed")
-        ? "复制失败：请在本站页面内操作并允许剪贴板权限"
-        : `复制到剪贴板失败：${msg}`,
-    );
-  }
 }
 
 function intersects(a: DOMRect, b: DOMRect): boolean {
