@@ -279,6 +279,7 @@ async function applyCalendarMatchToPackage(
       : null);
 
   const decision = resolvePackageNextRunAt({
+    packageId: pkg.id,
     computedNextRunAt,
     currentNextRunAt: pkg.nextRunAt ?? null,
     previousReleaseAt,
