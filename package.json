@@ -60,6 +60,8 @@
     "data:seed-release-packages": "dotenv -e .env.local -- tsx scripts/data-worker/seed-release-packages.ts",
     "data:sync-all-stale": "dotenv -e .env.local -- tsx scripts/data-worker/sync-all-stale.ts",
     "data:verify-catalog": "dotenv -e .env.local -- tsx scripts/data-worker/verify-catalog.ts",
+    "data:audit-freshness": "dotenv -e .env.local -- tsx scripts/data-worker/audit-freshness.ts",
+    "data:repair-fred-freshness": "dotenv -e .env.local -- tsx scripts/data-worker/repair-fred-freshness.ts",
     "data:normalize-excel-acquisition": "dotenv -e .env.local -- tsx scripts/data-worker/normalize-excel-acquisition.ts",
     "data:reset-unconfirmed-schedules": "dotenv -e .env.local -- tsx scripts/data-worker/reset-unconfirmed-schedules.ts",
     "data:seed-ism-te": "dotenv -e .env.local -- tsx scripts/data-worker/seed-ism-te.ts",

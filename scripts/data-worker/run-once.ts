@@ -28,19 +28,22 @@ function parseArgs() {
   let force = false;
   let limit = 20;
   let sourceId: string | undefined;
+  let excludeSourceIds: string[] = [];
   for (const a of args) {
     if (a === "--force") force = true;
     else if (a.startsWith("--limit=")) limit = Math.max(1, parseInt(a.split("=")[1] ?? "20", 10));
     else if (a.startsWith("--source=")) sourceId = a.split("=").slice(1).join("=");
+    else if (a.startsWith("--exclude-source=")) excludeSourceIds = a.slice("--exclude-source=".length).split(",").map((s) => s.trim()).filter(Boolean);
   }
-  return { force, limit, sourceId };
+  if (sourceId && excludeSourceIds.includes(sourceId)) throw new Error("--source 与 --exclude-source 不能包含同一数据源");
+  return { force, limit, sourceId, excludeSourceIds };
 }
 
 async function main() {
-  const { force, limit, sourceId } = parseArgs();
+  const { force, limit, sourceId, excludeSourceIds } = parseArgs();
   const startedAt = new Date();
   console.log(
-    `[data:worker] START ${startedAt.toISOString()} pid=${process.pid} force=${force} limit=${limit} source=${sourceId ?? "all"}`,
+    `[data:worker] START ${startedAt.toISOString()} pid=${process.pid} force=${force} limit=${limit} source=${sourceId ?? "all"} exclude=${excludeSourceIds.join(",") || "none"}`,
   );
   const staleAfterHours = Number(process.env.SCHEDULER_ABANDONED_AFTER_HOURS ?? "6");
   const recovered = await recoverAbandonedSchedulerRuns(prisma, {
@@ -63,6 +66,7 @@ async function main() {
         force,
         limit,
         sourceId: sourceId ?? null,
+        excludeSourceIds,
       },
     },
   });
@@ -77,6 +81,8 @@ async function main() {
     let unschedulable: UnschedulableSubscription[] = [];
     let subs = await listDueSubscriptions(prisma, limit, {
       forceAll: force,
+      sourceId,
+      excludeSourceIds,
       onUnschedulable: (rows) => {
         unschedulable = rows;
       },
@@ -96,22 +102,6 @@ async function main() {
           `。修：npm run data:probe-sources -- --prefix=<code前缀> --skip-known`,
       );
     }
-    if (sourceId) {
-      subs = subs.filter((s) => s.sourceId === sourceId);
-      if (force) {
-        const all = await prisma.dataSubscription.findMany({
-          where: { enabled: true, sourceId },
-          take: limit,
-          orderBy: [{ priority: "desc" }, { nextRunAt: "asc" }],
-          include: {
-            source: true,
-            instrument: { select: { id: true, code: true, name: true, metadata: true } },
-          },
-        });
-        subs = all;
-      }
-    }
-
     await prisma.schedulerInvocation.update({
       where: { id: invocation.id },
       data: { selectedCount: subs.length },
