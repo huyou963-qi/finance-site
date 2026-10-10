@@ -24,6 +24,7 @@ import {
 } from "./tradingEconomicsIndicator/parseIsmPage";
 import { seriesPointForSector as ismSvcSeriesPointForSector } from "./tradingEconomicsIndicator/parseIsmSvcPage";
 import { upsertMacroObservations } from "./upsertObservations";
+import { syncSafePackage } from "./safeExternal/syncPackage";
 
 export type PackageMemberSyncDetail = {
   instrumentCode: string;
@@ -359,6 +360,23 @@ async function syncSequentialPackage(
   const succeeded: PackageMemberSyncDetail[] = [];
   const failed: PackageMemberSyncDetail[] = [];
   const skipped: PackageMemberSyncDetail[] = [];
+
+  if (subs.every((sub) => sub.sourceId === "safe-external")) {
+    const results = await syncSafePackage(prisma, subs, { force });
+    for (const { sub, result } of results) {
+      const detail: PackageMemberSyncDetail = {
+        instrumentCode: sub.instrument.code, instrumentName: sub.instrument.name,
+        status: result.status, rowsUpserted: result.rowsUpserted, error: result.error,
+        inserted: result.inserted, changed: result.changed,
+        latestObsDate: result.latestObsDate, latestValue: result.latestValue,
+      };
+      if (result.status === "failed") failed.push(detail);
+      else if (result.status === "skipped") skipped.push(detail);
+      else succeeded.push(detail);
+      logs.push(`[${result.status}] ${sub.instrument.code} (+${result.rowsUpserted})${result.error ? ` ${result.error}` : ""}`);
+    }
+    return { succeeded, failed, skipped };
+  }
 
   for (const sub of subs) {
     logs.push(`[run] ${sub.instrument.code} 开始`);
