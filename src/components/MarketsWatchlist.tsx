@@ -217,8 +217,8 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
         <div className={`min-h-0 min-w-0 flex-1 flex-col ${isMobile && panelOpen ? "hidden" : "flex"}`}>{children}</div>
       </div>
       {isMobile ? <nav aria-label="行情功能模块" className="flex shrink-0 border-t border-fs-border bg-white/95">
-        <button ref={toggleRef} type="button" onClick={() => setMobileTab("watchlist")} aria-current={panelOpen ? "page" : undefined} className={`flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><span className="text-xl" aria-hidden="true">☆</span><span>自选股</span></button>
-        <button type="button" onClick={() => setMobileTab("chart")} aria-current={!panelOpen ? "page" : undefined} className={`flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${!panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7" /></svg><span>行情</span></button>
+        <button ref={toggleRef} type="button" onClick={() => setMobileTab("watchlist")} aria-current={panelOpen ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><span className="text-base leading-none" aria-hidden="true">☆</span><span>自选股</span></button>
+        <button type="button" onClick={() => setMobileTab("chart")} aria-current={!panelOpen ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${!panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7" /></svg><span>行情</span></button>
       </nav> : null}
     </div>
     </MarketDrawingOwnerContext.Provider>
