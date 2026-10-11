@@ -1,0 +1,55 @@
+name: Audit macro data freshness
+
+on:
+  schedule:
+    - cron: "15 2 * * *" # 10:15 Asia/Shanghai, independent of the data worker
+  workflow_dispatch:
+
+concurrency:
+  group: audit-macro-freshness
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate SSH configuration
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          test -n "$DEPLOY_HOST" || { echo "::error::DEPLOY_HOST is missing"; exit 1; }
+          test -n "$DEPLOY_SSH_KEY" || { echo "::error::DEPLOY_SSH_KEY is missing"; exit 1; }
+
+      - name: Connect to production
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add server host key
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: ssh-keyscan -H -p 22 "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Audit every visible macro indicator and compare FRED with source
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=6 "root@${DEPLOY_HOST}" \
+            'cd /opt/finance-site-jp-data && PATH=/usr/bin:$PATH npm run data:audit-freshness -- --live-fred --json=.data/audits/macro-latest.json'
+
+      - name: Repair FRED series with proven source lag
+        continue-on-error: true
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=6 "root@${DEPLOY_HOST}" \
+            'cd /opt/finance-site-jp-data && PATH=/usr/bin:$PATH npm run data:repair-fred-freshness -- --report=.data/audits/macro-latest.json --apply'
+
+      - name: Verify after repair and fail on remaining critical findings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=6 "root@${DEPLOY_HOST}" \
+            'cd /opt/finance-site-jp-data && PATH=/usr/bin:$PATH npm run data:audit-freshness -- --live-fred --strict --json=.data/audits/macro-verified.json'
