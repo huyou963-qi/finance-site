@@ -185,6 +185,8 @@ export type StockChartWorkspaceProps = {
   onLocalCrosshairTime?: (time: UTCTimestamp | null) => void;
   /** 若设置则将「主图叠加 / 区间统计 / 画图工具 / 清除画线」挂载到该 DOM 节点（如行情页顶栏） */
   toolbarPortalEl?: HTMLElement | null;
+  /** Mobile chart configuration is rendered inside the page's settings panel. */
+  settingsPortalEl?: HTMLElement | null;
   /** 点击事件标记时回调（用于侧栏定位） */
   onEventMarkerClick?: (payload: {
     id: string;
@@ -848,6 +850,7 @@ export function StockChartWorkspace({
   onVisibleTimeRangeChange,
   onLocalCrosshairTime,
   toolbarPortalEl = null,
+  settingsPortalEl = null,
   onEventMarkerClick,
   eventViewFilters: eventViewFiltersProp,
   onEventViewFiltersChange,
@@ -3305,7 +3308,7 @@ export function StockChartWorkspace({
       : null,
   ].filter(Boolean);
 
-  const chartToolbar = (
+  const chartSettings = (
     <>
       <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
         <span className="sr-only">K 线涨跌颜色</span>
@@ -3326,8 +3329,8 @@ export function StockChartWorkspace({
           ))}
         </select>
       </label>
-      <ChartLayersPanel primarySymbol={symbol} layersApi={layersApi} />
-      <div ref={overlayMenuRef} className="relative flex items-center">
+      <ChartLayersPanel primarySymbol={symbol} layersApi={layersApi} inlinePanel={Boolean(settingsPortalEl)} />
+      <div ref={overlayMenuRef} className={`relative flex ${settingsPortalEl ? "w-full flex-col items-start" : "items-center"}`}>
         <button
           type="button"
           onClick={() => setOverlayMenuOpen((o) => !o)}
@@ -3340,7 +3343,7 @@ export function StockChartWorkspace({
           aria-haspopup="menu"
           title="设置主图叠加（MA / BOLL 可同时显示）与各指标参数"
         >
-          <span className="text-fs-muted">指标</span>
+          <span className="text-fs-muted">{settingsPortalEl ? "主图叠加指标" : "指标"}</span>
           <span
             className={
               overlaySummary.length
@@ -3357,7 +3360,7 @@ export function StockChartWorkspace({
         {overlayMenuOpen ? (
           <div
             role="menu"
-            className="absolute left-0 top-[calc(100%+6px)] z-[100] w-[19rem] rounded-md border border-fs-border bg-fs-bg p-3 shadow-xl"
+            className={settingsPortalEl ? "mt-2 w-full rounded-md border border-fs-border bg-fs-bg p-2" : "absolute left-0 top-[calc(100%+6px)] z-[100] w-[19rem] rounded-md border border-fs-border bg-fs-bg p-3 shadow-xl"}
           >
             <div className="mb-1 text-[11px] font-medium text-fs-secondary">
               主图叠加（可同时显示）
@@ -3505,6 +3508,12 @@ export function StockChartWorkspace({
           </div>
         ) : null}
       </div>
+    </>
+  );
+
+  const chartToolbar = (
+    <>
+      {!settingsPortalEl ? chartSettings : null}
       <button
         type="button"
         onClick={() => setRangeStatsEnabled((v) => !v)}
@@ -3514,7 +3523,7 @@ export function StockChartWorkspace({
             ? "关闭区间统计并隐藏面板。开启时：不按 Shift 左键拖拽可左右平移查看更早 K 线；按住 Shift 在主图拖拽划定区间"
             : "开启后在十字模式下：不按 Shift 左键拖拽平移；按住 Shift 拖拽划定区间统计"
         }
-        className={`rounded px-2 py-1 text-[11px] transition-colors ${
+        className={`h-7 shrink-0 whitespace-nowrap rounded px-2 text-[11px] transition-colors md:h-auto md:py-1 ${
           rangeStatsEnabled
             ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30 hover:bg-fs-accent-soft"
             : "bg-fs-elevated text-fs-muted hover:bg-fs-border hover:text-fs-text"
@@ -3527,10 +3536,11 @@ export function StockChartWorkspace({
         onClick={() => void handleScreenshot()}
         disabled={screenshotBusy}
         title="截取主图与副图（含画线）到剪贴板"
-        className="rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] font-medium text-fs-text transition hover:border-fs-accent/40 hover:bg-fs-accent-soft hover:text-fs-accent-text disabled:cursor-wait disabled:opacity-60"
+        className="h-7 shrink-0 whitespace-nowrap rounded border border-fs-border bg-fs-elevated px-2 text-[11px] font-medium text-fs-text transition hover:border-fs-accent/40 hover:bg-fs-accent-soft hover:text-fs-accent-text disabled:cursor-wait disabled:opacity-60 md:h-auto md:py-1"
       >
-        {screenshotBusy ? "截图中…" : screenshotHint ? screenshotHint : "截图"}
+        <span className="md:hidden">截图</span><span className="hidden md:inline">{screenshotBusy ? "截图中…" : screenshotHint ? screenshotHint : "截图"}</span>
       </button>
+      <span role="status" className="sr-only">{screenshotBusy ? "截图中…" : screenshotHint}</span>
       <MarketDrawingToolbar {...drawingApi} tool={tool} onTool={next => { setTool(next); toolRef.current = next; setPlotDraft(null); plotDraftRef.current = null; }} selectedId={selectedDrawingId} onSelect={setSelectedDrawingId} onChange={setDrawings} magnet={magnet} onMagnet={setMagnet} text={annotationText} onText={setAnnotationText} />
       {!eventViewFiltersControlled ? (
         <ChartEventMarkersToolbar
@@ -3545,6 +3555,7 @@ export function StockChartWorkspace({
     <div
       className={`flex flex-col overflow-hidden rounded-lg border border-fs-border bg-fs-bg ${fillHeight ? "h-full min-h-0 flex-1" : ""}`}
     >
+      {settingsPortalEl ? createPortal(chartSettings, settingsPortalEl) : null}
       {toolbarPortalEl ? (
         createPortal(chartToolbar, toolbarPortalEl)
       ) : (

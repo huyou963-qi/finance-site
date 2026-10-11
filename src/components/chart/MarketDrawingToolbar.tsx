@@ -40,18 +40,24 @@ export function MarketDrawingToolbar(p: Props) {
   }, [open]);
   const patch = (id: string, change: Partial<MarketDrawing>) => p.onChange(ds => ds.map(d => d.id === id ? { ...d, ...change } as MarketDrawing : d));
   function edit(d: MarketDrawing) { p.onSelect(d.id); p.onTool("cursor"); setTab("settings"); setOpen(true); }
-  return <div ref={ref} className="relative flex min-w-0 max-w-full flex-wrap items-center gap-1" aria-label="画图工作台">
-    <button className={`${button} ${open ? "bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls={panelId}>画图 · {drawingLabel(p.tool)} ▾</button>
+  const drawingControls = <>
     <button className={button} onClick={p.undo} disabled={!p.ready || !p.canUndo} title="撤销 Ctrl/⌘ Z" aria-label="撤销画图">↶</button>
     <button className={button} onClick={p.redo} disabled={!p.ready || !p.canRedo} title="重做 Ctrl/⌘ Shift Z" aria-label="重做画图">↷</button>
     <button className={`${button} ${p.magnet ? "text-fs-accent-text bg-fs-accent-soft" : ""}`} onClick={() => p.onMagnet(!p.magnet)} aria-pressed={p.magnet} title="接近 K 线开高低收 8 像素时吸附；拖动时按 Alt 暂时关闭">磁吸</button>
     <button className={button} onClick={() => { setTab("objects"); setOpen(true); }}>对象 {p.drawings.length}</button>
     {selected && <button className={button} onClick={() => edit(selected)}>编辑所选</button>}
-    <span role="status" className="max-w-[240px] text-[10px] text-fs-muted">{p.status}</span>
-    <button className="min-h-8 px-1 text-[10px] text-fs-accent-text" onClick={p.retry}>重试／同步</button>
-    {p.conflict && <div className="flex w-full flex-wrap items-center gap-2 text-xs text-fs-negative"><span>同步冲突：本地草稿保留</span><button className={button} onClick={() => void p.resolveConflict(true)}>合并并保留双方图形</button><button className={button} onClick={() => void p.resolveConflict(false)}>采用云端版本</button></div>}
+  </>;
+  return <div ref={ref} className="relative flex shrink-0 items-center gap-1" aria-label="画图工作台">
+    <button className={`h-7 shrink-0 whitespace-nowrap rounded border border-fs-border px-2 text-[11px] text-fs-secondary md:min-h-9 md:text-xs ${open ? "bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls={panelId} aria-label={`画图工具：${drawingLabel(p.tool)}`}><span className="md:hidden">画图 ▾</span><span className="hidden md:inline">画图 · {drawingLabel(p.tool)} ▾</span></button>
+    <div className="hidden items-center gap-1 md:flex">{drawingControls}</div>
     {open && createPortal(<section ref={panelRef} style={panelStyle} id={panelId} aria-label="高级画图工具" className="fixed inset-x-2 bottom-16 z-[110] max-h-[70dvh] overflow-y-auto rounded-xl border border-fs-border bg-fs-bg p-3 text-fs-text shadow-2xl sm:inset-x-auto">
       <header className="mb-3 flex items-center justify-between"><strong className="text-sm">画图工作台</strong><button className={button} onClick={() => setOpen(false)} aria-label="关闭画图面板">✕</button></header>
+      <div className="mb-2 flex flex-wrap items-center gap-1 md:hidden">{drawingControls}</div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+    {!p.status.startsWith("游客") && <span role="status" className="text-[10px] text-fs-muted">{p.status}</span>}
+    <button className="min-h-8 px-1 text-[10px] text-fs-accent-text" onClick={p.retry}>重试／同步</button>
+    {p.conflict && <div className="flex w-full flex-wrap items-center gap-2 text-xs text-fs-negative"><span>同步冲突：本地草稿保留</span><button className={button} onClick={() => void p.resolveConflict(true)}>合并并保留双方图形</button><button className={button} onClick={() => void p.resolveConflict(false)}>采用云端版本</button></div>}
+      </div>
       <nav className="mb-3 flex gap-1" aria-label="画图面板栏目">{([['tools', '工具'], ['objects', '对象管理'], ['settings', '图形设置']] as const).map(([id, title]) => <button key={id} className={`${button} flex-1 ${tab === id ? "bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => setTab(id)} aria-pressed={tab === id}>{title}</button>)}</nav>
       {tab === "tools" && <div className="space-y-3">
         <button className={`${button} w-full`} onClick={() => { p.onTool("cursor"); setOpen(false); }}>十字光标／选择图形</button>

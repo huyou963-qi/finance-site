@@ -490,15 +490,75 @@ export function MarketsClient() {
   const [chartToolbarMount, setChartToolbarMount] =
     useState<HTMLDivElement | null>(null);
 
+  const [mobileSettingsMount, setMobileSettingsMount] = useState<HTMLDivElement | null>(null);
+  const [mobileLayout, setMobileLayout] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => { setMobileLayout(media.matches); setSettingsOpen(false); };
+    update(); media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const close = (e: PointerEvent) => {
+      if (!settingsRef.current?.contains(e.target as Node)) setSettingsOpen(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setSettingsOpen(false); settingsButtonRef.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", close); document.addEventListener("keydown", key);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", key); };
+  }, [settingsOpen]);
+
+  const pageSettings = (
+    <>
+        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
+          <span className="md:hidden">复权类型</span>
+          <select
+            value={effectiveAdjustment}
+            disabled={regionalInstrument?.market === "GOLD"}
+            onChange={(e) =>
+                setPriceAdjustment(e.target.value as PriceAdjustmentMode)
+              }
+              title={regionalInstrument?.market === "GOLD" ? "现货黄金不复权" : regionalInstrument ? "东方财富前复权 / 后复权 / 不复权；以供应商口径为准" : "前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"}
+              aria-label="K 线价格复权"
+              className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+          >
+            <option value="forward">前复权</option>
+            <option value="backward">后复权</option>
+            <option value="none">不复权</option>
+          </select>
+        </label>
+
+        <label
+          className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted"
+          title="多屏幕多页面时间与光标的同步"
+        >
+          <input
+            type="checkbox"
+            checked={pageSync}
+            onChange={(e) => handlePageSyncChange(e.target.checked)}
+            className="h-3 w-3 shrink-0 rounded border-fs-border"
+            aria-label="页面同步：多屏幕多页面时间与光标的同步"
+          />
+          页面同步
+        </label>
+
+    </>
+  );
+
   return (
     <MarketsWatchlist symbol={symbol} name={pickedName} onSelect={commitSymbol}>
     <div
       ref={rootRef}
       className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden md:gap-2">
       <div className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
-        <div className="relative min-h-[26px] min-w-[100px] max-w-[12rem] flex-1">
+        <div className="relative min-h-[28px] min-w-0 flex-1 md:min-h-[26px] md:min-w-[100px] md:max-w-[12rem]">
           <span className="sr-only">代码</span>
           <input
             ref={inputRef}
@@ -524,7 +584,7 @@ export function MarketsClient() {
             }}
             placeholder="搜黄金、沪深京港美股票"
             title="支持现货黄金、A股、B股、北交所、港股、美股；例如 600519.SH、200002.SZ、00700.HK"
-            className="h-[26px] w-full rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+            className="h-7 w-full md:h-[26px] rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
@@ -574,12 +634,21 @@ export function MarketsClient() {
           ) : null}
         </div>
 
-        <div
-          ref={setChartToolbarMount}
-          className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 md:w-auto"
-          aria-label="主图与画线工具"
-        />
-
+        <div ref={settingsRef} className="static shrink-0 md:hidden">
+          <button ref={settingsButtonRef} type="button" onClick={() => { setOpen(false); setSettingsOpen(v => !v); }}
+            className="h-7 rounded border border-fs-border bg-fs-elevated px-3 text-[11px] text-fs-text"
+            aria-expanded={settingsOpen} aria-controls="markets-mobile-settings">设置 ▾</button>
+          <section id="markets-mobile-settings" role="dialog" aria-label="行情设置" hidden={!settingsOpen}
+            className="absolute inset-x-0 top-8 z-[90] max-h-[70dvh] overflow-y-auto rounded-lg border border-fs-border bg-fs-bg p-3 shadow-xl">
+            <header className="mb-3 flex items-center justify-between text-xs font-medium text-fs-text">
+              行情设置<button type="button" aria-label="关闭行情设置" className="h-7 px-2" onClick={() => { setSettingsOpen(false); settingsButtonRef.current?.focus(); }}>✕</button>
+            </header>
+            <div ref={setMobileSettingsMount} className="flex min-w-0 flex-col items-start gap-3" />
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-fs-border pt-3">{pageSettings}</div>
+            {dataHint ? <p className="mt-3 text-[10px] text-fs-muted">{dataHint}</p> : null}
+          </section>
+        </div>
+        <div className="flex w-full min-w-0 items-center gap-1 md:contents" aria-label="行情快捷工具">
         <label className="flex shrink-0 items-center text-[9px] text-fs-muted">
           <select
             value={interval}
@@ -589,7 +658,7 @@ export function MarketsClient() {
             }}
             title="K 线周期"
             aria-label="K 线周期"
-            className="h-[22px] min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+            className="h-7 min-w-[3.75rem] md:h-[22px] md:min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           >
             {KLINE_INTERVALS.map((iv) => (
               <option key={iv} value={iv}>
@@ -599,39 +668,13 @@ export function MarketsClient() {
           </select>
         </label>
 
-        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
-          <select
-            value={effectiveAdjustment}
-            disabled={regionalInstrument?.market === "GOLD"}
-            onChange={(e) =>
-                setPriceAdjustment(e.target.value as PriceAdjustmentMode)
-              }
-              title={regionalInstrument?.market === "GOLD" ? "现货黄金不复权" : regionalInstrument ? "东方财富前复权 / 后复权 / 不复权；以供应商口径为准" : "前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"}
-              aria-label="K 线价格复权"
-              className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
-          >
-            <option value="forward">前复权</option>
-            <option value="backward">后复权</option>
-            <option value="none">不复权</option>
-          </select>
-        </label>
+          <div ref={setChartToolbarMount} className="flex min-w-0 flex-1 items-center gap-1 md:flex-none md:flex-wrap md:gap-2" aria-label="主图与画线工具" />
+        </div>
 
-        <label
-          className="ml-2 flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted"
-          title="多屏幕多页面时间与光标的同步"
-        >
-          <input
-            type="checkbox"
-            checked={pageSync}
-            onChange={(e) => handlePageSyncChange(e.target.checked)}
-            className="h-3 w-3 shrink-0 rounded border-fs-border"
-            aria-label="页面同步：多屏幕多页面时间与光标的同步"
-          />
-          页面同步
-        </label>
+        <div className="hidden md:contents">{pageSettings}</div>
 
         <div
-          className="min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-fs-muted sm:text-[9px]"
+          className={`min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-fs-muted sm:text-[9px] ${dataHint?.includes("缓存") ? "" : "hidden md:block"}`}
           title={dataHint ?? undefined}
         >
           {dataHint ? (
@@ -705,6 +748,7 @@ export function MarketsClient() {
           onLocalCrosshairTime={onLocalCrosshairTime}
           onEventMarkerClick={onEventMarkerClick}
           toolbarPortalEl={chartToolbarMount}
+          settingsPortalEl={mobileLayout ? mobileSettingsMount : null}
           eventViewFilters={eventViewFilters}
           onEventViewFiltersChange={setEventViewFilters}
           forceHideSubPanes={eventShelfOpen}

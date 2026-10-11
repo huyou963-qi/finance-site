@@ -38,9 +38,10 @@ type Props = {
   primarySymbol: string;
   layersApi: UseChartLayersReturn;
   className?: string;
+  inlinePanel?: boolean;
 };
 
-export function ChartLayersPanel({ primarySymbol, layersApi, className }: Props) {
+export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePanel = false }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const [addMode, setAddMode] = useState<"price" | "expr" | "fund">("price");
@@ -130,7 +131,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className }: Props)
   };
 
   return (
-    <div ref={rootRef} className={`relative flex items-center ${className ?? ""}`}>
+    <div ref={rootRef} className={`relative flex ${inlinePanel ? "w-full flex-col items-start" : "items-center"} ${className ?? ""}`}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -143,7 +144,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className }: Props)
         aria-haspopup="menu"
         title="多资产 / 运算 / 基本面叠加与坐标轴"
       >
-        <span className="text-fs-muted">叠加</span>
+        <span className="text-fs-muted">{inlinePanel ? "叠加设置" : "叠加"}</span>
         <span
           className={
             layers.some((l) => l.visible)
@@ -161,7 +162,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className }: Props)
       {open ? (
         <div
           role="menu"
-          className="absolute left-0 top-[calc(100%+6px)] z-[100] max-h-[min(70vh,32rem)] w-[min(92vw,24rem)] overflow-y-auto rounded-md border border-fs-border bg-fs-bg p-3 shadow-xl"
+          className={inlinePanel ? "mt-2 w-full min-w-0 rounded-md border border-fs-border bg-fs-bg p-2" : "absolute left-0 top-[calc(100%+6px)] z-[100] max-h-[min(70vh,32rem)] w-[min(92vw,24rem)] overflow-y-auto rounded-md border border-fs-border bg-fs-bg p-3 shadow-xl"}
         >
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-medium text-fs-secondary">
