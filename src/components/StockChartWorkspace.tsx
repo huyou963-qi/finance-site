@@ -1200,7 +1200,7 @@ export function StockChartWorkspace({
           hasMoreOlder: p.hasMoreOlder,
           historyExhausted: historyExhaustedRef.current,
         });
-        onKlineLoadSuccessRef.current?.();
+        if (p.candles.length > 0) onKlineLoadSuccessRef.current?.();
       })
       .catch((e) => {
         if (cancelled) return;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { normalizeWatchlistTabOrder, validateWatchlistTabOrder, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol } from "@/lib/data/marketWatchlist";
+import { orderWatchlistStocks, validateWatchlistStockOrder, normalizeWatchlistTabOrder, validateWatchlistTabOrder, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol } from "@/lib/data/marketWatchlist";
 
 const headers = { "Cache-Control": "private, no-store" };
 
@@ -10,8 +10,8 @@ async function list(userId: string) {
     where: { userId },
     select: { symbol: true, name: true, exchange: true, groupId: true },
     orderBy: [{ createdAt: "asc" }, { symbol: "asc" }],
-  }), prisma.userMarketWatchlistGroup.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }), prisma.user.findUnique({ where: { id: userId }, select: { marketWatchlistTabOrder: true } })]);
-  return { stocks, groups, tabOrder: normalizeWatchlistTabOrder(groups, user?.marketWatchlistTabOrder) };
+  }), prisma.userMarketWatchlistGroup.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }), prisma.user.findUnique({ where: { id: userId }, select: { marketWatchlistTabOrder: true, marketWatchlistStockOrder: true } })]);
+  return { stocks: orderWatchlistStocks(stocks, user?.marketWatchlistStockOrder), groups, tabOrder: normalizeWatchlistTabOrder(groups, user?.marketWatchlistTabOrder) };
 }
 
 export async function GET(req: NextRequest) {
@@ -55,7 +55,10 @@ async function mutate(req: NextRequest, remove: boolean) {
         update: { name: stock.name, exchange: stock.exchange },
       });
     } else if (symbol) {
-      await prisma.userMarketWatchlistItem.deleteMany({ where: { userId: user.id, symbol } });
+      await prisma.$transaction(async (tx) => {
+        await tx.userMarketWatchlistItem.deleteMany({ where: { userId: user.id, symbol } });
+        await tx.$executeRaw`UPDATE "public"."User" SET "marketWatchlistStockOrder" = array_remove("marketWatchlistStockOrder", ${symbol}) WHERE "id" = ${user.id}`;
+      });
     }
     return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
   } catch (error) {
@@ -75,6 +78,19 @@ export async function PATCH(req: NextRequest) {
     if (!body || typeof body !== "object") return NextResponse.json({ error: "请求格式不正确" }, { status: 400, headers });
     if (body.userId !== user.id) return NextResponse.json({ error: "登录账号已变化，请重新加载自选股" }, { status: 409, headers });
     const action = body.action;
+    if (action === "reorderStocks") {
+      try {
+        await prisma.$transaction(async (tx) => {
+          const stocks = await tx.userMarketWatchlistItem.findMany({ where: { userId: user.id }, select: { symbol: true } });
+          const order = validateWatchlistStockOrder(stocks, body.order);
+          await tx.user.update({ where: { id: user.id }, data: { marketWatchlistStockOrder: order } });
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith("自选股顺序")) return NextResponse.json({ error: error.message }, { status: 400, headers });
+        throw error;
+      }
+      return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
+    }
     if (action === "reorderGroups") {
       const groups = await prisma.userMarketWatchlistGroup.findMany({ where: { userId: user.id }, select: { id: true, name: true } });
       let order: string[];

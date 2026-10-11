@@ -6,6 +6,8 @@ import { useMarketsWatchlist } from "@/hooks/useMarketsWatchlist";
 import { normalizeWatchlistTabOrder, type WatchlistGroup, type WatchlistGroupChange } from "@/lib/data/marketWatchlist";
 import { MarketDrawingOwnerContext } from "@/hooks/useMarketDrawings";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMarketQuotes } from "@/hooks/useMarketQuotes";
+import { useWatchlistStockSort } from "@/hooks/useWatchlistStockSort";
 
 function WatchlistChevron({ collapsed }: { collapsed: boolean }) {
   return <svg viewBox="0 0 10 14" className="h-3 w-2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={collapsed ? "M3.5 2.5 7.5 7l-4 4.5" : "M6.5 2.5 2.5 7l4 4.5"} /></svg>;
@@ -26,10 +28,12 @@ function GroupEditor({ group, disabled, onChange }: { group: WatchlistGroup; dis
   </div>;
 }
 
-export function MarketsWatchlist({ children, symbol, name, onSelect }: {
+export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurrent, onSelect }: {
   children: ReactNode;
+  toolbar: ReactNode;
   symbol: string;
   name?: string;
+  canAddCurrent: boolean;
   onSelect: (symbol: string, name?: string) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -37,7 +41,7 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   const [mobileTab, setMobileTab] = useState<"watchlist" | "chart">("chart");
   const isMobile = useIsMobile();
   const panelOpen = isMobile ? mobileTab === "watchlist" : open;
-  const { stocks, groups, tabOrder, ready, userId, saving, error: storageError, reload, change, changeGroup } = useMarketsWatchlist();
+  const { stocks, groups, tabOrder, ready, userId, saving, error: storageError, reload, change, changeGroup, reorderStocks } = useMarketsWatchlist();
   const [draftOrder, setDraftOrder] = useState<string[] | null>(null);
   const [draggingTab, setDraggingTab] = useState<string | null>(null);
   const orderedIds = normalizeWatchlistTabOrder(groups, draftOrder ?? tabOrder);
@@ -50,7 +54,9 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   const [movingStock, setMovingStock] = useState<string | null>(null);
   const [removingStock, setRemovingStock] = useState<string | null>(null);
   const activeGroup = selectedGroup === "all" || selectedGroup === "" || groups.some((group) => group.id === selectedGroup) ? selectedGroup : "all";
-  const visibleStocks = activeGroup === "all" ? stocks : stocks.filter((stock) => (stock.groupId ?? "") === activeGroup);
+  const stockSort = useWatchlistStockSort(stocks, activeGroup, userId, ready, saving, reorderStocks);
+  const visibleStocks = stockSort.visible;
+  const quotes = useMarketQuotes(visibleStocks.map(stock => stock.symbol).sort(), ready && panelOpen);
 
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -169,12 +175,12 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   const currentAdded = stocks.some((stock) => stock.symbol === symbol);
 
   const panel = (
-    <aside id="markets-watchlist-panel" aria-label="行情自选股" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }} className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-fs-bg md:bg-fs-elevated" style={isMobile ? { flex: "1 1 auto", width: "100%" } : { width: sidebarWidth, maxWidth: 520 }}>
+    <aside id="markets-watchlist-panel" aria-label="行情自选股" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }} className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-white" style={isMobile ? { flex: "1 1 auto", width: "100%" } : { width: sidebarWidth, maxWidth: 520 }}>
           {isMobile ? <div className="flex shrink-0 justify-end px-3"><button ref={closeRef} type="button" onClick={close} className="min-h-11 rounded px-2 text-xs text-fs-accent-text">返回行情</button></div> : null}
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
+          <div data-watchlist-scroll className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
             <div className="flex items-start gap-1">
               <nav ref={tabsRef} aria-label="自选股分组" className="flex min-w-0 flex-1 flex-wrap gap-1 pb-1">
-                {orderedIds.map((id) => <span key={id} data-watchlist-tab={id} className={`flex max-w-full shrink-0 items-center rounded-md border text-xs ${activeGroup === id ? "border-fs-accent/50 bg-fs-accent-soft font-semibold text-fs-accent-text" : "border-fs-border bg-fs-bg text-fs-muted"} ${draggingTab === id ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
+                {orderedIds.map((id) => <span key={id} data-watchlist-tab={id} className={`flex max-w-full shrink-0 items-center rounded-md border bg-white text-xs ${activeGroup === id ? "border-fs-accent/50 font-semibold text-fs-accent-text" : "border-fs-border text-fs-muted"} ${draggingTab === id ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
                   <button type="button" aria-pressed={activeGroup === id} disabled={!ready || saving} onClick={() => { setSelectedGroup(id); setRemovingStock(null); }} onKeyDown={(event) => { if (event.altKey && ["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title={tabNames.get(id)} className="min-h-8 min-w-0 max-w-32 flex-1 truncate pl-2 pr-1">{tabNames.get(id)}</button>
                   <button type="button" aria-label={`拖动 ${tabNames.get(id)} 分组排序`} disabled={!ready || saving} onPointerDown={(event) => startTabDrag(event, id)} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title="拖动排序；方向键前移或后移" className="min-h-8 w-4 cursor-grab touch-none select-none text-fs-muted active:cursor-grabbing">⋮</button>
                 </span>)}
@@ -189,13 +195,30 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
               </form>
               {groups.map((group) => <GroupEditor key={`${group.id}:${group.name}`} group={group} disabled={!ready || saving} onChange={changeGroup} />)}
             </section> : null}
-            {symbol && !currentAdded && ready ? <button type="button" disabled={saving} onClick={() => add({ symbol, name: name ?? symbol, exchange: "" })} className="min-h-10 w-full rounded-lg border border-fs-border px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">☆ 添加当前标的 {symbol}</button> : null}
+            {canAddCurrent && symbol && !currentAdded && ready ? <button type="button" disabled={saving} onClick={() => add({ symbol, name: name ?? symbol, exchange: "" })} className="min-h-10 w-full rounded-lg border border-fs-border px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">☆ 添加当前标的 {symbol}</button> : null}
             {!ready ? <p className="text-sm text-fs-muted">加载自选股…</p> : !visibleStocks.length ? <p className="rounded-lg border border-dashed border-fs-border p-3 text-xs leading-5 text-fs-muted">{stocks.length ? "此分组暂无股票，可在股票卡片中调整分组。" : "在行情页顶部选择标的后，点击添加当前标的。"}</p> : <ul className="space-y-1">
-              {visibleStocks.map((stock) => <li key={stock.symbol} className={`flex flex-wrap items-center rounded-lg border ${symbol === stock.symbol ? "border-fs-accent/30 bg-fs-accent-soft" : "border-transparent bg-fs-elevated/50"}`}>
-                <button type="button" aria-label={`查看 ${stock.symbol} 行情`} aria-pressed={symbol === stock.symbol} onClick={() => { onSelect(stock.symbol, stock.name); if (isMobile) close(); }} className="min-w-0 flex-1 rounded px-2 py-1.5 text-left hover:text-fs-accent-text"><span className="block text-xs font-semibold leading-4">{stock.symbol}</span><span className="block truncate text-[10px] leading-4 text-fs-muted" title={stock.name}>{stock.name}</span></button>
-                <button type="button" aria-label={`移除 ${stock.symbol}`} aria-expanded={removingStock === stock.symbol} disabled={!ready || saving} onClick={() => { setRemovingStock(stock.symbol); setMovingStock(null); }} className="min-h-8 min-w-8 rounded text-xs text-fs-muted md:min-h-7 md:min-w-7 hover:bg-fs-elevated hover:text-fs-negative">×</button>
+              {visibleStocks.map((stock) => <li key={stock.symbol} data-watchlist-stock={stock.symbol} className={`flex flex-wrap items-center rounded-lg border ${symbol === stock.symbol ? "border-fs-accent/30 bg-fs-accent-soft" : "border-transparent bg-fs-elevated/50"} ${stockSort.dragging === stock.symbol ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
+                <button type="button" aria-label={`拖动 ${stock.symbol} 排序`} title="拖动排序；方向键上移或下移" disabled={!ready || saving || visibleStocks.length < 2} onPointerDown={event => stockSort.start(event, stock.symbol)} onKeyDown={event => { if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); stockSort.shift(stock.symbol, event.key === "ArrowUp" ? -1 : 1); } }} className="min-h-11 w-5 shrink-0 cursor-grab touch-none select-none text-xs text-fs-muted active:cursor-grabbing disabled:opacity-30">⋮⋮</button>
+                <button type="button" aria-label={`查看 ${stock.symbol} 行情`} aria-pressed={symbol === stock.symbol} onClick={() => { onSelect(stock.symbol, stock.name); if (isMobile) close(); }} className="min-w-0 flex-1 rounded px-2 py-1.5 text-left hover:text-fs-accent-text">
+                  <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                    <span className="min-w-0 truncate text-xs font-semibold leading-4">{stock.symbol}</span>
+                    <span className="shrink-0 font-mono text-xs tabular-nums text-fs-text" title={quotes[stock.symbol]?.time ? `行情时间：${new Date(quotes[stock.symbol]!.time! * 1000).toLocaleString("zh-CN")} · ${quotes[stock.symbol]?.currency ?? ""}` : quotes[stock.symbol] ? `最新行情 · ${quotes[stock.symbol]?.currency ?? ""}（供应商未提供时间）` : "行情暂不可用"}>
+                      {quotes[stock.symbol]?.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) ?? "—"}
+                    </span>
+                  </span>
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-[10px] leading-4 text-fs-muted" title={stock.name}>{stock.name}</span>
+                    <span className={`shrink-0 font-mono text-[10px] tabular-nums ${(quotes[stock.symbol]?.changePercent ?? 0) > 0 ? "text-fs-positive" : (quotes[stock.symbol]?.changePercent ?? 0) < 0 ? "text-fs-negative" : "text-fs-muted"}`} aria-label={`${stock.symbol} 当天涨跌幅`}>
+                      {quotes[stock.symbol]?.changePercent != null ? `${quotes[stock.symbol]!.changePercent! > 0 ? "+" : ""}${quotes[stock.symbol]!.changePercent!.toFixed(2)}%` : "—"}
+                    </span>
+                  </span>
+                </button>
+                <div className="flex shrink-0 flex-col self-stretch justify-center border-l border-fs-border/50">
+                <button type="button" aria-label={`移除 ${stock.symbol}`} aria-expanded={removingStock === stock.symbol} disabled={!ready || saving} onClick={() => { setRemovingStock(stock.symbol); setMovingStock(null); }} className="h-6 w-8 rounded text-xs text-fs-muted  hover:bg-fs-elevated hover:text-fs-negative">×</button>
+                <button type="button" aria-label={`调整 ${stock.symbol} 分组`} aria-expanded={movingStock === stock.symbol} disabled={!ready || saving} onClick={() => setMovingStock((current) => current === stock.symbol ? null : stock.symbol)} className="h-6 w-8 rounded text-xs text-fs-muted hover:bg-fs-elevated">⋯</button>
+                </div>
                 {removingStock === stock.symbol ? <div role="group" aria-label={`确认移除 ${stock.symbol}`} className="order-last w-full border-t border-fs-border px-2 py-1.5 text-xs" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setRemovingStock(null); } }}><p>确认从自选股移除 {stock.symbol}？</p><div className="flex gap-3"><button type="button" disabled={!ready || saving} onClick={async () => { if (await change(stock, true)) setRemovingStock(null); }} className="min-h-8 text-fs-negative">确认移除</button><button type="button" disabled={saving} onClick={() => setRemovingStock(null)} className="min-h-8 text-fs-muted">取消</button></div></div> : null}
-                <button type="button" aria-label={`调整 ${stock.symbol} 分组`} aria-expanded={movingStock === stock.symbol} disabled={!ready || saving} onClick={() => setMovingStock((current) => current === stock.symbol ? null : stock.symbol)} className="min-h-8 min-w-8 rounded text-xs text-fs-muted hover:bg-fs-elevated">⋯</button>
+
                 {movingStock === stock.symbol ? <div className="w-full border-t border-fs-border p-1.5"><select aria-label={`${stock.symbol} 所属分组`} disabled={!ready || saving} value={stock.groupId ?? ""} onChange={async (event) => { if (await changeGroup({ action: "moveStock", symbol: stock.symbol, groupId: event.target.value || null })) setMovingStock(null); }} className="min-h-8 w-full rounded border border-fs-border bg-fs-bg px-2 text-xs"><option value="">未分组</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></div> : null}
               </li>)}
             </ul>}
@@ -207,6 +230,7 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   return (
     <MarketDrawingOwnerContext.Provider value={{ ready, userId, symbols: stocks.map(stock => stock.symbol) }}>
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="relative z-30 shrink-0 border-b border-fs-border bg-white px-1 pb-2 lg:px-2">{toolbar}</div>
       <div className="flex min-h-0 min-w-0 flex-1 items-stretch overflow-hidden">
         {panelOpen ? panel : null}
         {!isMobile && !open ? <button ref={toggleRef} type="button" onClick={() => setOpen(true)} className="group relative flex w-3 shrink-0 items-stretch border-r border-fs-border bg-fs-elevated/90 transition hover:bg-fs-accent-soft/40" title="展开自选股" aria-label="展开自选股" aria-expanded={false} aria-controls="markets-watchlist-panel"><span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" /><span className={HANDLE_CLASS}><WatchlistChevron collapsed /></span></button> : null}

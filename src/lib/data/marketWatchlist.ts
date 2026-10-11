@@ -6,6 +6,30 @@ export type WatchlistGroup = { id: string; name: string };
 export type WatchlistData = { stocks: WatchlistStock[]; groups: WatchlistGroup[]; tabOrder?: string[] };
 export type WatchlistGroupChange = { action: "createGroup" | "renameGroup" | "deleteGroup" | "moveStock" | "reorderGroups"; groupId?: string | null; name?: string; symbol?: string; order?: string[] };
 
+export function orderWatchlistStocks(stocks: WatchlistStock[], order: unknown): WatchlistStock[] {
+  const remaining = new Map(stocks.map(stock => [stock.symbol, stock]));
+  const result: WatchlistStock[] = [];
+  for (const symbol of Array.isArray(order) ? order : []) {
+    const stock = remaining.get(symbol);
+    if (stock) { result.push(stock); remaining.delete(symbol); }
+  }
+  return [...result, ...remaining.values()];
+}
+
+export function validateWatchlistStockOrder(stocks: Pick<WatchlistStock, "symbol">[], order: unknown): string[] {
+  const symbols = new Set(stocks.map(stock => stock.symbol));
+  if (!Array.isArray(order) || order.length !== symbols.size || new Set(order).size !== symbols.size || order.some(symbol => typeof symbol !== "string" || !symbols.has(symbol))) throw new Error("自选股顺序无效或列表已变化，请重新加载");
+  return order;
+}
+
+/** 分组内排序仅替换这些股票的原有槽位，其他分组的位置保持不变。 */
+export function mergeVisibleStockOrder(stocks: WatchlistStock[], visibleOrder: string[]): string[] {
+  const selected = new Set(visibleOrder);
+  let cursor = 0;
+  const order = stocks.map(stock => selected.has(stock.symbol) ? visibleOrder[cursor++]! : stock.symbol);
+  return validateWatchlistStockOrder(stocks, order);
+}
+
 export function normalizeWatchlistTabOrder(groups: WatchlistGroup[], order: unknown): string[] {
   const available = new Set(["all", "", ...groups.map((group) => group.id)]);
   const result: string[] = [];

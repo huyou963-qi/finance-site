@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { normalizeWatchlistTabOrder, applyWatchlistGroupChange, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, type WatchlistData, type WatchlistGroupChange, type WatchlistStock } from "@/lib/data/marketWatchlist";
+import { orderWatchlistStocks, validateWatchlistStockOrder, normalizeWatchlistTabOrder, applyWatchlistGroupChange, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, type WatchlistData, type WatchlistGroupChange, type WatchlistStock } from "@/lib/data/marketWatchlist";
 import { randomUUID } from "@/lib/randomId";
 
 const STORAGE_KEY = "finance-site:markets-watchlist:v2";
@@ -111,5 +111,9 @@ export function useMarketsWatchlist() {
     return mutate("PATCH", change, () => applyWatchlistGroupChange(state, action));
   }
 
-  return { ...state, ready, saving, error, userId, reload, change, changeGroup };
+  function reorderStocks(order: string[]) {
+    return mutate("PATCH", { action: "reorderStocks", order }, () => ({ ...state, stocks: orderWatchlistStocks(state.stocks, validateWatchlistStockOrder(state.stocks, order)) }));
+  }
+
+  return { ...state, ready, saving, error, userId, reload, change, changeGroup, reorderStocks };
 }

@@ -11,7 +11,12 @@ function setup(t: TestContext) {
   let renders = 0;
   let timer: (() => void) | undefined;
   let cleared = 0;
-  const ctx = { scale() {}, fillRect() {}, drawImage() {} };
+  const watermark: { text: string; x: number; y: number; color: string }[] = [];
+  const ctx = {
+    scale() {}, fillRect() {}, drawImage() {}, save() {}, restore() {},
+    fillStyle: "",
+    fillText(text: string, x: number, y: number) { watermark.push({ text, x, y, color: this.fillStyle }); },
+  };
   const canvas = {
     width: 200, height: 100,
     getBoundingClientRect: () => rect,
@@ -52,7 +57,7 @@ function setup(t: TestContext) {
     });
   }
   return {
-    el, blob, clipboard,
+    el, blob, clipboard, canvas, watermark,
     renders: () => renders,
     cleared: () => cleared,
     setFocus(value: boolean) { focused = value; },
@@ -73,6 +78,14 @@ test("desktop/mobile: clipboard write starts in the click before PNG rendering",
   assert.equal(writes, 1);
   await result;
   assert.equal(s.renders(), 1);
+});
+
+test("watermark overlays the upper left without increasing screenshot dimensions", async (t) => {
+  const s = setup(t);
+  await copyElementScreenshotToClipboard(s.el);
+  assert.equal(s.canvas.width, 200);
+  assert.equal(s.canvas.height, 100);
+  assert.deepEqual(s.watermark, [{ text: "gekkotech.cn", x: 12, y: 12, color: "rgba(26, 26, 24, 0.25)" }]);
 });
 
 test("temporary focus loss retries once with the same image after focus returns", async (t) => {

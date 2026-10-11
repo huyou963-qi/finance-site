@@ -65,6 +65,7 @@ function displayNameForSymbol(sym: string): string | undefined {
 
 export function MarketsClient() {
   const [symbol, setSymbol] = useState("");
+  const [loadedSymbol, setLoadedSymbol] = useState("");
   const regionalInstrument = resolveEastmoneyInstrument(symbol);
   const chartSource = regionalInstrument ? "eastmoney" : "yahoo";
   const [dataHint, setDataHint] = useState<string | null>(null);
@@ -403,7 +404,8 @@ export function MarketsClient() {
 
   const onKlineLoadSuccess = useCallback(() => {
     setOpen(false);
-  }, []);
+    setLoadedSymbol(symbol);
+  }, [symbol]);
 
   useEffect(() => {
     const q = query.trim();
@@ -472,6 +474,7 @@ export function MarketsClient() {
     if (!s) return;
     // 丢弃仍在路上的 symbol-search 响应，否则会再次 setOpen(true) + 空列表 →「无匹配」盖住图表
     reqIdRef.current += 1;
+    if (s !== symbol) setLoadedSymbol("");
     setSymbol(s);
     setQuery(s);
     setPickedName(name ?? displayNameForSymbol(s));
@@ -550,14 +553,8 @@ export function MarketsClient() {
     </>
   );
 
-  return (
-    <MarketsWatchlist symbol={symbol} name={pickedName} onSelect={commitSymbol}>
-    <div
-      ref={rootRef}
-      className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
-    >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden md:gap-2">
-      <div className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
+  const toolbar = (
+      <div ref={rootRef} className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
         <div className="relative min-h-[28px] min-w-0 flex-1 md:min-h-[26px] md:min-w-[100px] md:max-w-[12rem]">
           <span className="sr-only">代码</span>
           <input
@@ -722,7 +719,14 @@ export function MarketsClient() {
           )}
         </div>
       </div>
+  );
 
+  return (
+    <MarketsWatchlist toolbar={toolbar} symbol={symbol} name={pickedName} canAddCurrent={!!symbol && loadedSymbol === symbol && query.trim() === symbol && !searchLoading && !searchError} onSelect={commitSymbol}>
+    <div
+      className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
+    >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden md:gap-2">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <StockChartWorkspace
           key={`${symbol || "none"}-${interval}-${effectiveAdjustment}`}

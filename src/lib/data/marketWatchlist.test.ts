@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeWatchlistTabOrder, validateWatchlistTabOrder, applyWatchlistGroupChange, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol, type WatchlistData } from "./marketWatchlist";
+import { orderWatchlistStocks, validateWatchlistStockOrder, mergeVisibleStockOrder, normalizeWatchlistTabOrder, validateWatchlistTabOrder, applyWatchlistGroupChange, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol, type WatchlistData } from "./marketWatchlist";
+
+test("股票排序保留名称和分组，新增股票追加，过期代码与重复偏好被忽略", () => {
+  const stocks = ["AAPL", "MSFT", "NVDA"].map(symbol => ({ symbol, name: symbol, exchange: "NASDAQ", groupId: "g1" }));
+  const ordered = orderWatchlistStocks(stocks, ["MSFT", "deleted", "MSFT", "AAPL"]);
+  assert.deepEqual(ordered.map(stock => stock.symbol), ["MSFT", "AAPL", "NVDA"]);
+  assert.equal(ordered[0], stocks[1]);
+  assert.deepEqual(stocks.map(stock => stock.symbol), ["AAPL", "MSFT", "NVDA"]);
+  for (const order of [null, ["AAPL"], ["AAPL", "MSFT", "MSFT"], ["AAPL", "MSFT", "OTHER-USER"]]) assert.throws(() => validateWatchlistStockOrder(stocks, order));
+});
+
+test("分组内股票排序仅交换该组槽位，不移动其他组的股票", () => {
+  const stocks = ["AAPL", "JPM", "MSFT", "BAC", "NVDA"].map(symbol => ({ symbol, name: symbol, exchange: "" }));
+  assert.deepEqual(mergeVisibleStockOrder(stocks, ["NVDA", "AAPL", "MSFT"]), ["NVDA", "JPM", "AAPL", "BAC", "MSFT"]);
+  assert.deepEqual(validateWatchlistStockOrder(stocks, ["BAC", "NVDA", "MSFT", "JPM", "AAPL"]), ["BAC", "NVDA", "MSFT", "JPM", "AAPL"]);
+});
 
 test("自选股接受股票、指数、外汇及期货代码并统一大小写", () => {
   for (const [raw, expected] of [[" aapl ", "AAPL"], ["brk-b", "BRK-B"], ["^gspc", "^GSPC"], ["eurusd=x", "EURUSD=X"], ["cl=f", "CL=F"]]) {

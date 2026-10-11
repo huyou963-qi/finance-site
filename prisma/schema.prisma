@@ -81,6 +81,7 @@ model User {
   marketWatchlist     UserMarketWatchlistItem[]
   marketWatchlistGroups UserMarketWatchlistGroup[]
   marketWatchlistTabOrder String[] @default([])
+  marketWatchlistStockOrder String[] @default([])
   marketDrawings     UserMarketDrawing[]
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
