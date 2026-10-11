@@ -3,10 +3,26 @@ import { normalizeTickerSymbol } from "./tickerSymbolNormalize";
 
 export type WatchlistStock = SymbolSearchItem & { groupId?: string | null };
 export type WatchlistGroup = { id: string; name: string };
-export type WatchlistData = { stocks: WatchlistStock[]; groups: WatchlistGroup[] };
-export type WatchlistGroupChange = { action: "createGroup" | "renameGroup" | "deleteGroup" | "moveStock"; groupId?: string | null; name?: string; symbol?: string };
+export type WatchlistData = { stocks: WatchlistStock[]; groups: WatchlistGroup[]; tabOrder?: string[] };
+export type WatchlistGroupChange = { action: "createGroup" | "renameGroup" | "deleteGroup" | "moveStock" | "reorderGroups"; groupId?: string | null; name?: string; symbol?: string; order?: string[] };
+
+export function normalizeWatchlistTabOrder(groups: WatchlistGroup[], order: unknown): string[] {
+  const available = new Set(["all", "", ...groups.map((group) => group.id)]);
+  const result: string[] = [];
+  for (const id of Array.isArray(order) ? order : []) {
+    if (typeof id === "string" && available.delete(id)) result.push(id);
+  }
+  return [...result, ...available];
+}
+
+export function validateWatchlistTabOrder(groups: WatchlistGroup[], order: unknown): string[] {
+  const ids = normalizeWatchlistTabOrder(groups, []);
+  if (!Array.isArray(order) || order.length !== ids.length || new Set(order).size !== ids.length || order.some((id) => typeof id !== "string" || !ids.includes(id))) throw new Error("分组顺序无效或分组已变化，请重新加载");
+  return order;
+}
 
 export function applyWatchlistGroupChange(state: WatchlistData, change: WatchlistGroupChange): WatchlistData {
+  if (change.action === "reorderGroups") return { ...state, tabOrder: validateWatchlistTabOrder(state.groups, change.order) };
   const groupId = parseWatchlistGroupId(change.groupId);
   const group = state.groups.find((item) => item.id === groupId);
   if (change.action !== "createGroup" && groupId && !group) throw new Error("分组不存在");
@@ -18,7 +34,7 @@ export function applyWatchlistGroupChange(state: WatchlistData, change: Watchlis
   }
   if (change.action === "deleteGroup") {
     if (!groupId) throw new Error("不能删除默认分组");
-    return { groups: state.groups.filter((item) => item.id !== groupId), stocks: state.stocks.map((stock) => stock.groupId === groupId ? { ...stock, groupId: null } : stock) };
+    return { ...state, groups: state.groups.filter((item) => item.id !== groupId), stocks: state.stocks.map((stock) => stock.groupId === groupId ? { ...stock, groupId: null } : stock) };
   }
   const symbol = parseWatchlistSymbol(change.symbol);
   if (!state.stocks.some((stock) => stock.symbol === symbol)) throw new Error("自选股不存在");

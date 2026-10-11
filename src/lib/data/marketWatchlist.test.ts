@@ -1,11 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyWatchlistGroupChange, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol, type WatchlistData } from "./marketWatchlist";
+import { normalizeWatchlistTabOrder, validateWatchlistTabOrder, applyWatchlistGroupChange, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol, type WatchlistData } from "./marketWatchlist";
 
 test("自选股接受股票、指数、外汇及期货代码并统一大小写", () => {
   for (const [raw, expected] of [[" aapl ", "AAPL"], ["brk-b", "BRK-B"], ["^gspc", "^GSPC"], ["eurusd=x", "EURUSD=X"], ["cl=f", "CL=F"]]) {
     assert.equal(parseWatchlistSymbol(raw), expected);
   }
+});
+
+test("全部和未分组可排序，新增或删除分组不破坏其他标签顺序", () => {
+  const groups = [{ id: "g1", name: "科技" }, { id: "g2", name: "金融" }];
+  assert.deepEqual(validateWatchlistTabOrder(groups, ["g1", "", "g2", "all"]), ["g1", "", "g2", "all"]);
+  assert.deepEqual(normalizeWatchlistTabOrder(groups, ["", "all", "deleted", "g1", "g1"]), ["", "all", "g1", "g2"]);
+  const state: WatchlistData = { groups, stocks: [] };
+  const changed = applyWatchlistGroupChange(state, { action: "reorderGroups", order: ["g2", "g1", "all", ""] });
+  assert.deepEqual(changed.tabOrder, ["g2", "g1", "all", ""]);
+  assert.deepEqual(state.groups, groups);
+  for (const order of [null, ["all", ""], ["all", "", "g1", "g1"], ["all", "", "g1", "foreign-user-group"]]) assert.throws(() => validateWatchlistTabOrder(groups, order));
 });
 
 test("分组改名保留归属，删除分组保留股票并移回未分组", () => {

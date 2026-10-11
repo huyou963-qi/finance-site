@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { applyWatchlistGroupChange, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, type WatchlistData, type WatchlistGroupChange, type WatchlistStock } from "@/lib/data/marketWatchlist";
+import { normalizeWatchlistTabOrder, applyWatchlistGroupChange, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, type WatchlistData, type WatchlistGroupChange, type WatchlistStock } from "@/lib/data/marketWatchlist";
 import { randomUUID } from "@/lib/randomId";
 
 const STORAGE_KEY = "finance-site:markets-watchlist:v2";
@@ -25,7 +25,7 @@ function loadGuest(): WatchlistData {
       if (!state.stocks.some((existing) => existing.symbol === stock.symbol)) state.stocks.push({ ...stock, groupId: state.groups.some((group) => group.id === groupId) ? groupId : null });
     } catch { /* 忽略损坏的本地条目 */ }
   }
-  return state;
+  return { ...state, tabOrder: normalizeWatchlistTabOrder(state.groups, value?.tabOrder) };
 }
 
 export function useMarketsWatchlist() {
@@ -49,7 +49,7 @@ export function useMarketsWatchlist() {
       if (!response.ok) throw new Error(data.error ?? "无法加载自选股");
       if (requestId !== sequence.current) return;
       setUserId(data.userId);
-      setState(data.userId ? { stocks: data.stocks, groups: data.groups ?? [] } : loadGuest());
+      setState(data.userId ? { stocks: data.stocks, groups: data.groups ?? [], tabOrder: normalizeWatchlistTabOrder(data.groups ?? [], data.tabOrder) } : loadGuest());
       setReady(true);
     } catch (e) {
       if (requestId === sequence.current) setError(e instanceof Error ? e.message : "无法加载自选股，请重试");
@@ -94,7 +94,7 @@ export function useMarketsWatchlist() {
         if (response.status === 401 || response.status === 409) { setState(EMPTY); setReady(false); }
         throw new Error(data.error ?? "无法保存自选股");
       }
-      if (requestId === sequence.current) setState({ stocks: data.stocks, groups: data.groups ?? [] });
+      if (requestId === sequence.current) setState({ stocks: data.stocks, groups: data.groups ?? [], tabOrder: normalizeWatchlistTabOrder(data.groups ?? [], data.tabOrder) });
       return true;
     } catch (e) {
       if (requestId === sequence.current) setError(e instanceof Error ? e.message : "无法保存自选股，请重试");

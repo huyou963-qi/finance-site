@@ -57,6 +57,7 @@ model User {
   bookmarkState       UserBookmarkState?
   marketWatchlist     UserMarketWatchlistItem[]
   marketWatchlistGroups UserMarketWatchlistGroup[]
+  marketWatchlistTabOrder String[] @default([])
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
   investmentCases     InvestmentCase[]
