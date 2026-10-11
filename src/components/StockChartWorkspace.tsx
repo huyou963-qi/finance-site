@@ -985,11 +985,11 @@ export function StockChartWorkspace({
   const [subPane1, setSubPane1] = useState<{
     visible: boolean;
     content: SubPaneContent;
-  }>({ visible: true, content: "volume" });
+  }>({ visible: false, content: "volume" });
   const [subPane2, setSubPane2] = useState<{
     visible: boolean;
     content: SubPaneContent;
-  }>({ visible: true, content: "kdj" });
+  }>({ visible: false, content: "kdj" });
   const savedSubVisibilityRef = useRef<{ v1: boolean; v2: boolean } | null>(
     null,
   );
@@ -2268,9 +2268,9 @@ export function StockChartWorkspace({
       chart.panes()[0]?.setStretchFactor(72);
       chart.panes()[1]?.setStretchFactor(28);
     } else {
-      chart.panes()[0]?.setStretchFactor(55);
+      chart.panes()[0]?.setStretchFactor(64);
       chart.panes()[1]?.setStretchFactor(18);
-      chart.panes()[2]?.setStretchFactor(27);
+      chart.panes()[2]?.setStretchFactor(18);
     }
 
     const initColors = candleColorsRef.current;
