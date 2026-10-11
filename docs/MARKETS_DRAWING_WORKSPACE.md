@@ -4,7 +4,7 @@
 
 参考 TradingView 的 [工具分组](https://www.tradingview.com/support/solutions/43000703396-drawing-tools-available-on-tradingview/)、[同标的图形同步](https://www.tradingview.com/support/solutions/43000629998-my-drawings-do-not-get-synchronized-across-charts-or-layouts/) 与对象管理思路，在既有 Lightweight Charts 上自建 SVG 工作台，不引入第三方图表账户或 SDK。
 
-- 线与趋势：趋势线、射线、延长线、水平线、垂直线、三点平行通道。
+- 线与趋势：线段（连接两点）、直线（两点定向、双向无限延伸）、射线（单向延伸）、水平线、垂直线、三点平行通道。
 - 形状与标注：矩形、椭圆、箭头、文字。
 - 分析与交易计划：有方向的斐波那契回撤及延伸、价差／百分比／自然日测量、三点多头／空头仓位（入场、目标、止损及盈亏比）。仓位图形仅作分析标注。
 - 对象管理：名称、选择、显示／隐藏、锁定／解锁、复制、删除、清空确认；锁定图形不能拖动、修改或删除。
@@ -38,3 +38,5 @@
 - `src/lib/chart/marketDrawings.test.ts`：模型输入、账号隔离、锚点修改、绘制几何、方向和跨周期插值。
 - `npx dotenv -e .env.local -- tsx scripts/test/market-drawings.integration.ts`：只允许本地数据库，创建并清理临时账户，验证会话、跨用户隔离、自选股写入约束、并发冲突和移出后的历史保留。
 - `npm run verify:commit`：完整测试、Prisma、lint 和生产构建。
+
+直线与射线按可见绘图区精确裁剪，缩放／平移后重新计算交点；锚点可以在图表外或同一时间轴上（垂直直线）。已有 `extended` 类型图形继续兼容，工具名称统一为「直线」。

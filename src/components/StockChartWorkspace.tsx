@@ -2504,7 +2504,7 @@ export function StockChartWorkspace({
         const next: DrawingDraftPreview = { tool: tcur, placed: points, hover: null };
         plotDraftRef.current = next; setPlotDraft(next);
       } else {
-        if (["trend", "ray", "extended", "channel"].includes(tcur) && points[0].t === points[1].t) return;
+        if (["trend", "ray", "extended", "channel"].includes(tcur) && points[0].t === points[1].t && points[0].p === points[1].p) return;
         const id = randomUUID();
         const drawing = createDrawing(tcur, points, id, annotationTextRef.current.trim() || "备注");
         drawingApiRef.current.setDrawings(ds => [...ds, drawing]);
@@ -3683,7 +3683,7 @@ export function StockChartWorkspace({
             chart={chartRef.current}
             candleSeries={candleRef.current}
             shapes={svgShapes}
-            width={overlaySize.w}
+            width={chartRef.current?.timeScale().width() ?? overlaySize.w}
             height={Math.max(
               1,
               mainPaneClip?.height ?? overlaySize.h,

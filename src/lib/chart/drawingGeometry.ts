@@ -2,6 +2,20 @@ import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { FIB_LEVELS, drawingPoints, type MarketDrawing } from "./marketDrawings";
 export type Pixel = { x: number; y: number };
 export type Primitive = { kind: "line"; a: Pixel; b: Pixel; label?: string; color?: string } | { kind: "rect" | "ellipse"; a: Pixel; b: Pixel; color?: string } | { kind: "text"; a: Pixel; label: string; color?: string };
+/** Exact intersection of an infinite line (or forward ray) with the plot. */
+export function clipDrawingLine(a: Pixel, b: Pixel, width: number, height: number, both = true): { a: Pixel; b: Pixel } | null {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (Math.hypot(dx, dy) < 1e-9 || width <= 0 || height <= 0) return null;
+  let from = both ? -Infinity : 0, to = Infinity;
+  for (const [position, direction, limit] of [[a.x, dx, width], [a.y, dy, height]]) {
+    if (Math.abs(direction) < 1e-9) { if (position < 0 || position > limit) return null; continue; }
+    const first = -position / direction, last = (limit - position) / direction;
+    from = Math.max(from, Math.min(first, last));
+    to = Math.min(to, Math.max(first, last));
+    if (from > to) return null;
+  }
+  return { a: { x: a.x + from * dx, y: a.y + from * dy }, b: { x: a.x + to * dx, y: a.y + to * dy } };
+}
 export function drawingProjector(chart: IChartApi, candle: ISeriesApi<"Candlestick", Time>) {
   const ts = chart.timeScale();
   const data = candle.data();
@@ -38,13 +52,11 @@ export function drawingGeometry(d: MarketDrawing, project: (t: number, p: number
     const angle = Math.atan2(b.y - a.y, b.x - a.x), length = 12;
     return [line(a, b), line(b, { x: b.x - length * Math.cos(angle - 0.5), y: b.y - length * Math.sin(angle - 0.5) }), line(b, { x: b.x - length * Math.cos(angle + 0.5), y: b.y - length * Math.sin(angle + 0.5) })];
   }
-  const extend = (a: Pixel, b: Pixel, both = true) => {
-    const dx = b.x - a.x, dy = b.y - a.y, n = Math.hypot(dx, dy);
-    if (n < 0.01) return line(a, b);
-    const size = Math.max(w, h, Math.abs(a.x), Math.abs(b.x), Math.abs(a.y), Math.abs(b.y)) * 4;
-    return line(both ? { x: a.x - dx / n * size, y: a.y - dy / n * size } : a, { x: b.x + dx / n * size, y: b.y + dy / n * size });
+  const extend = (a: Pixel, b: Pixel, both = true): Primitive[] => {
+    const clipped = clipDrawingLine(a, b, w, h, both);
+    return clipped ? [line(clipped.a, clipped.b)] : [];
   };
-  if (d.kind === "ray" || d.kind === "extended") return [extend(a, b, d.kind === "extended")];
+  if (d.kind === "ray" || d.kind === "extended") return extend(a, b, d.kind === "extended");
   if (d.kind === "rect" || d.kind === "ellipse") return [{ kind: d.kind, a, b }];
   if (d.kind === "fib") return FIB_LEVELS.flatMap(level => {
     const price = d.p1 + (d.p2 - d.p1) * level, p = project(d.t1, price);
@@ -58,7 +70,7 @@ export function drawingGeometry(d: MarketDrawing, project: (t: number, p: number
     const dx = b.x - a.x, dy = b.y - a.y;
     const parallel = { x: c.x + dx, y: c.y + dy };
     const midA = { x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 };
-    return [extend(a, b), extend(c, parallel), extend(midA, { x: midA.x + dx, y: midA.y + dy })];
+    return [...extend(a, b), ...extend(c, parallel), ...extend(midA, { x: midA.x + dx, y: midA.y + dy })];
   }
   const reward = d.kind === "long" ? d.p2 - d.p1 : d.p1 - d.p2;
   const risk = d.kind === "long" ? d.p1 - d.p3 : d.p3 - d.p1;

@@ -9,7 +9,7 @@ export type MarketDrawing = DrawingStyle & (
   | { id: string; kind: "channel" | "long" | "short"; t1: number; p1: number; t2: number; p2: number; t3: number; p3: number }
 );
 export const DRAWING_GROUPS: { label: string; tools: { id: DrawingTool; label: string; icon: string }[] }[] = [
-  { label: "线与趋势", tools: [{ id: "trend", label: "趋势线", icon: "╱" }, { id: "ray", label: "射线", icon: "↗" }, { id: "extended", label: "延长线", icon: "⤢" }, { id: "hline", label: "水平线", icon: "─" }, { id: "vline", label: "垂直线", icon: "│" }, { id: "channel", label: "平行通道", icon: "∥" }] },
+  { label: "线与趋势", tools: [{ id: "trend", label: "线段", icon: "╱" }, { id: "extended", label: "直线", icon: "⤢" }, { id: "ray", label: "射线", icon: "↗" }, { id: "hline", label: "水平线", icon: "─" }, { id: "vline", label: "垂直线", icon: "│" }, { id: "channel", label: "平行通道", icon: "∥" }] },
   { label: "形状与标注", tools: [{ id: "rect", label: "矩形", icon: "▭" }, { id: "ellipse", label: "椭圆", icon: "◯" }, { id: "arrow", label: "箭头", icon: "➚" }, { id: "text", label: "文字", icon: "T" }] },
   { label: "分析与交易计划", tools: [{ id: "fib", label: "斐波那契回撤", icon: "≋" }, { id: "measure", label: "价差／时间测量", icon: "↔" }, { id: "long", label: "多头仓位", icon: "+" }, { id: "short", label: "空头仓位", icon: "−" }] },
 ];
