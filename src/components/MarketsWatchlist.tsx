@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SymbolSearchItem } from "@/lib/data/symbolSearchTypes";
 import { useMarketsWatchlist } from "@/hooks/useMarketsWatchlist";
 import { normalizeWatchlistTabOrder, type WatchlistGroup, type WatchlistGroupChange } from "@/lib/data/marketWatchlist";
+import { MarketDrawingOwnerContext } from "@/hooks/useMarketDrawings";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 function WatchlistChevron({ collapsed }: { collapsed: boolean }) {
@@ -36,7 +37,7 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   const [mobileTab, setMobileTab] = useState<"watchlist" | "chart">("chart");
   const isMobile = useIsMobile();
   const panelOpen = isMobile ? mobileTab === "watchlist" : open;
-  const { stocks, groups, tabOrder, ready, saving, error: storageError, reload, change, changeGroup } = useMarketsWatchlist();
+  const { stocks, groups, tabOrder, ready, userId, saving, error: storageError, reload, change, changeGroup } = useMarketsWatchlist();
   const [draftOrder, setDraftOrder] = useState<string[] | null>(null);
   const [draggingTab, setDraggingTab] = useState<string | null>(null);
   const orderedIds = normalizeWatchlistTabOrder(groups, draftOrder ?? tabOrder);
@@ -209,6 +210,7 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
   );
 
   return (
+    <MarketDrawingOwnerContext.Provider value={{ ready, userId, symbols: stocks.map(stock => stock.symbol) }}>
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 items-stretch overflow-hidden">
         {panelOpen ? panel : null}
@@ -224,5 +226,6 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
         <button type="button" onClick={() => setMobileTab("chart")} aria-current={!panelOpen ? "page" : undefined} className={`flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${!panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7" /></svg><span>行情</span></button>
       </nav> : null}
     </div>
+    </MarketDrawingOwnerContext.Provider>
   );
 }

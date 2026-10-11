@@ -58,6 +58,7 @@ model User {
   marketWatchlist     UserMarketWatchlistItem[]
   marketWatchlistGroups UserMarketWatchlistGroup[]
   marketWatchlistTabOrder String[] @default([])
+  marketDrawings     UserMarketDrawing[]
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
   investmentCases     InvestmentCase[]
@@ -414,6 +415,18 @@ model UserBookmarkState {
 }
 
 /// 行情自选股：逐标的更新，按用户隔离，支持跨设备读取。
+model UserMarketDrawing {
+  userId     String
+  scope      String @db.VarChar(160)
+  drawings   Json
+  revision   Int @default(1)
+  updatedAt  DateTime @updatedAt
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, scope])
+  @@schema("public")
+}
+
 model UserMarketWatchlistItem {
   userId    String
   symbol    String @db.VarChar(64)

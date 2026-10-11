@@ -571,7 +571,7 @@ export function MarketsClient() {
 
         <div
           ref={setChartToolbarMount}
-          className="flex min-w-0 shrink-0 flex-wrap items-center gap-2"
+          className="flex w-full min-w-0 shrink-0 flex-wrap items-center gap-2 md:w-auto"
           aria-label="主图与画线工具"
         />
 

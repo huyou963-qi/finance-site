@@ -24,6 +24,9 @@ import {
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
 import { ChartEventMarkersToolbar } from "@/components/chart/ChartEventMarkersToolbar";
 import { ChartLayersPanel } from "@/components/chart/ChartLayersPanel";
+import { useMarketDrawings } from "@/hooks/useMarketDrawings";
+import { MarketDrawingToolbar } from "@/components/chart/MarketDrawingToolbar";
+import { createDrawing, pointCount, updateDrawingPoint, type DrawingTool, type MarketDrawing } from "@/lib/chart/marketDrawings";
 import { useChartLayers } from "@/hooks/useChartLayers";
 import {
   layerNeedsLeftScale,
@@ -204,42 +207,13 @@ export type StockChartWorkspaceProps = {
   seekToTimeVersion?: number;
 };
 
-type DrawingTool =
-  | "cursor"
-  | "trend"
-  | "hline"
-  | "vline"
-  | "rect"
-  | "fib"
-  | "channel"
-  | "text";
-
 /** 单个副图：成交量或振荡指标之一 */
 type SubPaneContent = "volume" | "kdj" | "macd" | "rsi" | "ttmpe";
 
 /** 副图指标参数（KDJ / MACD / RSI 由用户设置面板调节） */
 type SubPaneIndicatorParams = Pick<IndicatorSettings, "kdj" | "macd" | "rsi">;
 
-export type PersistedDrawing =
-  | { id: string; kind: "hline"; price: number }
-  | {
-      id: string;
-      kind: "trend";
-      t1: number;
-      p1: number;
-      t2: number;
-      p2: number;
-    }
-  | SvgOverlayShape;
-
-function storageKey(
-  source: string,
-  symbol: string,
-  interval: string,
-  adjustment: PriceAdjustmentMode,
-) {
-  return `kline-drawings-v1:${source}:${symbol}:${interval}:${adjustment}`;
-}
+export type PersistedDrawing = MarketDrawing;
 
 function syntheticVolumes(candles: CandlestickData[]): number[] {
   return candles.map(
@@ -554,17 +528,6 @@ function updateSubPaneSeriesData(
   }
   if (content === "ttmpe" && apis[0]) {
     apis[0].setData(ttmPeLine);
-  }
-}
-
-function parsePersisted(raw: string | null): PersistedDrawing[] {
-  if (!raw) return [];
-  try {
-    const j = JSON.parse(raw) as unknown;
-    if (!Array.isArray(j)) return [];
-    return j.filter(Boolean) as PersistedDrawing[];
-  } catch {
-    return [];
   }
 }
 
@@ -1058,7 +1021,17 @@ export function StockChartWorkspace({
   const [secTtmPeDaily, setSecTtmPeDaily] = useState<LineData[]>([]);
   const [ttmPeError, setTtmPeError] = useState<string | null>(null);
   const [ttmPeSource, setTtmPeSource] = useState<"sec" | "fmp" | null>(null);
-  const [drawings, setDrawings] = useState<PersistedDrawing[]>([]);
+  const drawingApi = useMarketDrawings(source, symbol, interval, priceAdjustment);
+  const { drawings, setDrawings } = drawingApi;
+  const drawingApiRef = useRef(drawingApi);
+  drawingApiRef.current = drawingApi;
+  const [magnet, setMagnet] = useState(true);
+  const magnetRef = useRef(magnet); magnetRef.current = magnet;
+  const [annotationText, setAnnotationText] = useState("备注");
+  const annotationTextRef = useRef(annotationText); annotationTextRef.current = annotationText;
+  const [editingDrawing, setEditingDrawing] = useState<MarketDrawing | null>(null);
+  const editingCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => editingCleanup.current?.(), []);
   const drawingsRef = useRef(drawings);
   drawingsRef.current = drawings;
   const [screenshotBusy, setScreenshotBusy] = useState(false);
@@ -1103,8 +1076,7 @@ export function StockChartWorkspace({
   const rangeDragRef = useRef<{ start: number; cur: number } | null>(null);
   /** 多点画线草稿 + 十字跟随预览（虚线辅助） */
   const [plotDraft, setPlotDraft] = useState<DrawingDraftPreview | null>(null);
-  const [drawToolMenuOpen, setDrawToolMenuOpen] = useState(false);
-  const drawToolMenuRef = useRef<HTMLDivElement>(null);
+  const plotDraftRef = useRef(plotDraft); plotDraftRef.current = plotDraft;
 
   const pageSyncEnabledRef = useRef(false);
   const suppressVisibleRangeBroadcastRef = useRef(false);
@@ -1130,16 +1102,6 @@ export function StockChartWorkspace({
   useEffect(() => {
     toolRef.current = tool;
   }, [tool]);
-
-  useEffect(() => {
-    if (!drawToolMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (drawToolMenuRef.current?.contains(e.target as Node)) return;
-      setDrawToolMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [drawToolMenuOpen]);
 
   useEffect(() => {
     if (!overlayMenuOpen) return;
@@ -1255,26 +1217,7 @@ export function StockChartWorkspace({
     };
   }, [symbol, interval, source, priceAdjustment]);
 
-  useEffect(() => {
-    if (!symbol.trim()) {
-      setDrawings([]);
-      setSelectedDrawingId(null);
-      return;
-    }
-    const key = storageKey(source, symbol, interval, priceAdjustment);
-    setDrawings(parsePersisted(typeof window !== "undefined" ? localStorage.getItem(key) : null));
-    setSelectedDrawingId(null);
-  }, [source, symbol, interval, priceAdjustment]);
-
-  useEffect(() => {
-    if (!symbol.trim()) return;
-    const key = storageKey(source, symbol, interval, priceAdjustment);
-    try {
-      localStorage.setItem(key, JSON.stringify(drawings));
-    } catch {
-      /* ignore */
-    }
-  }, [drawings, source, symbol, interval, priceAdjustment]);
+  useEffect(() => { setSelectedDrawingId(null); setPlotDraft(null); }, [symbol, source, priceAdjustment]);
 
   // 服务端已按 adjust= 精确复权（拆股事件 + 分红因子），客户端直接使用
   const candles = useMemo(() => payload?.candles ?? [], [payload?.candles]);
@@ -2181,15 +2124,21 @@ export function StockChartWorkspace({
       ) {
         return;
       }
+      if ((ev.ctrlKey || ev.metaKey) && ["z", "y"].includes(ev.key.toLowerCase())) {
+        ev.preventDefault();
+        if (ev.shiftKey || ev.key.toLowerCase() === "y") drawingApiRef.current.redo(); else drawingApiRef.current.undo();
+        return;
+      }
       if (ev.key === "Escape") {
+        setTool("cursor");
         clearAllRangeStats();
-        setPlotDraft(null);
+        plotDraftRef.current = null; setPlotDraft(null);
         setSelectedDrawingId(null);
         return;
       }
       if (ev.key === "Delete" || ev.key === "Backspace") {
         const sid = selectedDrawingId;
-        if (sid) {
+        if (sid && !drawingsRef.current.find(d => d.id === sid)?.locked) {
           ev.preventDefault();
           setDrawings((prev) => prev.filter((d) => d.id !== sid));
           setSelectedDrawingId(null);
@@ -2198,11 +2147,11 @@ export function StockChartWorkspace({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [clearAllRangeStats, selectedDrawingId]);
+  }, [clearAllRangeStats, selectedDrawingId, setDrawings]);
 
   const svgShapes = useMemo(
-    () => drawings.filter((d) => d.kind !== "hline" && d.kind !== "trend") as SvgOverlayShape[],
-    [drawings],
+    () => drawings.map(d => editingDrawing?.id === d.id ? editingDrawing : d) as SvgOverlayShape[],
+    [drawings, editingDrawing],
   );
 
   const clearUserNativeOnly = useCallback(
@@ -2219,42 +2168,8 @@ export function StockChartWorkspace({
   const applyPersistedNative = useCallback(
     (chart: IChartApi, candle: ISeriesApi<"Candlestick", Time>) => {
       clearUserNativeOnly(chart, candle);
-      const h = nativeHandlesRef.current;
-      for (const d of drawings) {
-        const sel = d.id === selectedDrawingId;
-        if (d.kind === "hline") {
-          const pl = candle.createPriceLine({
-            price: d.price,
-            color: sel ? "#fda4af" : "#f472b6",
-            lineWidth: sel ? 2 : 1,
-            title: "",
-          });
-          h.userPriceLines.push(pl);
-        }
-        if (d.kind === "trend") {
-          const s = chart.addSeries(
-            LineSeries,
-            {
-              color: sel ? "#fdba74" : "#fb923c",
-              lineWidth: sel ? 3 : 2,
-              priceLineVisible: false,
-              lastValueVisible: false,
-            },
-            0,
-          );
-          const tLo = Math.min(d.t1, d.t2) as UTCTimestamp;
-          const tHi = Math.max(d.t1, d.t2) as UTCTimestamp;
-          const pLo = d.t1 === tLo ? d.p1 : d.p2;
-          const pHi = d.t1 === tLo ? d.p2 : d.p1;
-          s.setData([
-            { time: tLo, value: pLo },
-            { time: tHi, value: pHi },
-          ]);
-          h.userTrendLines.push(s);
-        }
-      }
     },
-    [drawings, selectedDrawingId, clearUserNativeOnly],
+    [clearUserNativeOnly],
   );
 
   useEffect(() => {
@@ -2577,166 +2492,27 @@ export function StockChartWorkspace({
         return;
       }
 
-      if (param.time === undefined) return;
-      const price = se.coordinateToPrice(param.point.y);
+      if (!drawingApiRef.current.ready || param.time === undefined || typeof param.time !== "number") return;
+      let price: number | null = se.coordinateToPrice(param.point.y);
       if (price === null) return;
       const tm = param.time as UTCTimestamp;
-      setSelectedDrawingId(null);
-
-      if (tcur === "hline") {
+      if (magnetRef.current) {
+        const bar = candlesRef.current.find(c => c.time === tm);
+        if (bar) price = [bar.open, bar.high, bar.low, bar.close].reduce((best, value) => Math.abs(value - price!) < Math.abs(best - price!) ? value : best);
+      }
+      const previous = plotDraftRef.current;
+      const placed = previous?.tool === tcur ? previous.placed : [];
+      const points = [...placed, { t: tm, p: price }];
+      if (points.length < pointCount(tcur)) {
+        const next: DrawingDraftPreview = { tool: tcur, placed: points, hover: null };
+        plotDraftRef.current = next; setPlotDraft(next);
+      } else {
+        if (["trend", "ray", "extended", "channel"].includes(tcur) && points[0].t === points[1].t) return;
         const id = randomUUID();
-        setDrawings((prev) => [...prev, { id, kind: "hline", price }]);
-        return;
-      }
-
-      if (tcur === "trend") {
-        setPlotDraft((prev) => {
-          if (!prev || prev.tool !== "trend") {
-            return {
-              tool: "trend",
-              placed: [{ t: tm, p: price }],
-              hover: null,
-            };
-          }
-          const p0 = prev.placed[0]!;
-          const id = randomUUID();
-          setDrawings((prevD) => [
-            ...prevD,
-            {
-              id,
-              kind: "trend",
-              t1: p0.t as number,
-              p1: p0.p,
-              t2: tm as number,
-              p2: price,
-            },
-          ]);
-          return null;
-        });
-        return;
-      }
-
-      if (tcur === "vline") {
-        const id = randomUUID();
-        setDrawings((prev) => [
-          ...prev,
-          { id, kind: "vline", t: tm, color: "#22d3ee" },
-        ]);
-        return;
-      }
-
-      if (tcur === "rect") {
-        setPlotDraft((prev) => {
-          if (!prev || prev.tool !== "rect") {
-            return {
-              tool: "rect",
-              placed: [{ t: tm, p: price }],
-              hover: null,
-            };
-          }
-          const p0 = prev.placed[0]!;
-          const id = randomUUID();
-          setDrawings((prevD) => [
-            ...prevD,
-            {
-              id,
-              kind: "rect",
-              t1: p0.t as UTCTimestamp,
-              p1: p0.p,
-              t2: tm,
-              p2: price,
-              color: "rgba(168,85,247,0.9)",
-            },
-          ]);
-          return null;
-        });
-        return;
-      }
-
-      if (tcur === "fib") {
-        setPlotDraft((prev) => {
-          if (!prev || prev.tool !== "fib") {
-            return {
-              tool: "fib",
-              placed: [{ t: tm, p: price }],
-              hover: null,
-            };
-          }
-          const p0 = prev.placed[0]!;
-          const id = randomUUID();
-          setDrawings((prevD) => [
-            ...prevD,
-            {
-              id,
-              kind: "fib",
-              t1: p0.t as UTCTimestamp,
-              p1: p0.p,
-              t2: tm,
-              p2: price,
-              color: "#f97316",
-            },
-          ]);
-          return null;
-        });
-        return;
-      }
-
-      if (tcur === "channel") {
-        setPlotDraft((prev) => {
-          if (!prev || prev.tool !== "channel") {
-            return {
-              tool: "channel",
-              placed: [{ t: tm, p: price }],
-              hover: null,
-            };
-          }
-          if (prev.placed.length === 1) {
-            return {
-              ...prev,
-              placed: [...prev.placed, { t: tm, p: price }],
-              hover: null,
-            };
-          }
-          if (prev.placed.length === 2) {
-            const p0 = prev.placed[0]!;
-            const p1 = prev.placed[1]!;
-            const id = randomUUID();
-            setDrawings((prevD) => [
-              ...prevD,
-              {
-                id,
-                kind: "channel",
-                t1: p0.t as UTCTimestamp,
-                p1: p0.p,
-                t2: p1.t as UTCTimestamp,
-                p2: p1.p,
-                t3: tm as UTCTimestamp,
-                p3: price,
-                color: "#eab308",
-              },
-            ]);
-            return null;
-          }
-          return prev;
-        });
-        return;
-      }
-
-      if (tcur === "text") {
-        const label = window.prompt("标注文字", "备注");
-        if (!label?.trim()) return;
-        const id = randomUUID();
-        setDrawings((prev) => [
-          ...prev,
-          {
-            id,
-            kind: "text",
-            t: tm,
-            p: price,
-            text: label.trim(),
-            color: "#e2e8f0",
-          },
-        ]);
+        const drawing = createDrawing(tcur, points, id, annotationTextRef.current.trim() || "备注");
+        drawingApiRef.current.setDrawings(ds => [...ds, drawing]);
+        plotDraftRef.current = null; setPlotDraft(null);
+        setSelectedDrawingId(id); setTool("cursor"); toolRef.current = "cursor";
       }
     };
 
@@ -2804,13 +2580,7 @@ export function StockChartWorkspace({
         })),
       });
       setPlotDraft((prev) => {
-        if (
-          !prev ||
-          (prev.tool !== "trend" &&
-            prev.tool !== "rect" &&
-            prev.tool !== "fib" &&
-            prev.tool !== "channel")
-        ) {
+        if (!prev) {
           return prev;
         }
         const pt = param.point;
@@ -3358,10 +3128,29 @@ export function StockChartWorkspace({
     rangeStatsEnabled,
   ]);
 
-  const handleClearDrawings = () => {
-    setPlotDraft(null);
-    setSelectedDrawingId(null);
-    setDrawings([]);
+  const handleDrawingAnchorDrag = (event: React.PointerEvent<SVGCircleElement>, id: string, index: number) => {
+    const original = drawingsRef.current.find(d => d.id === id);
+    const chart = chartRef.current, candle = candleRef.current, wrap = wrapRef.current;
+    if (!original || original.locked || !chart || !candle || !wrap) return;
+    event.preventDefault(); event.stopPropagation();
+    editingCleanup.current?.();
+    const rect = wrap.getBoundingClientRect();
+    let next = original;
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== event.pointerId) return;
+      const x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+      const time = chart.timeScale().coordinateToTime(x);
+      let price: number | null = candle.coordinateToPrice(y);
+      if (typeof time !== "number" || price === null) return;
+      if (magnetRef.current) { const bar = candlesRef.current.find(c => c.time === time); if (bar) price = [bar.open, bar.high, bar.low, bar.close].reduce((best, value) => Math.abs(value - price!) < Math.abs(best - price!) ? value : best); }
+      next = updateDrawingPoint(original, index, { t: time, p: price });
+      setEditingDrawing(next);
+    };
+    const cleanup = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", finish); window.removeEventListener("pointercancel", cancel); editingCleanup.current = null; };
+    const finish = (ev: PointerEvent) => { if (ev.pointerId !== event.pointerId) return; cleanup(); setEditingDrawing(null); if (next !== original) drawingApiRef.current.setDrawings(ds => ds.map(d => d.id === id ? next : d)); };
+    const cancel = () => { cleanup(); setEditingDrawing(null); };
+    editingCleanup.current = cancel;
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", finish); window.addEventListener("pointercancel", cancel);
   };
 
   const handleScreenshot = useCallback(async () => {
@@ -3394,17 +3183,6 @@ export function StockChartWorkspace({
       }
     };
   }, []);
-
-  const tools: { id: DrawingTool; label: string }[] = [
-    { id: "cursor", label: "十字" },
-    { id: "trend", label: "趋势" },
-    { id: "hline", label: "水平" },
-    { id: "vline", label: "垂直" },
-    { id: "rect", label: "矩形" },
-    { id: "fib", label: "斐波" },
-    { id: "channel", label: "平行通道" },
-    { id: "text", label: "文本" },
-  ];
 
   const subModeTabs: { id: SubPaneContent; label: string }[] = [
     { id: "volume", label: "成交量" },
@@ -3698,75 +3476,7 @@ export function StockChartWorkspace({
       >
         {screenshotBusy ? "截图中…" : screenshotHint ? screenshotHint : "截图"}
       </button>
-      <div ref={drawToolMenuRef} className="relative flex items-center">
-        <button
-          type="button"
-          onClick={() => setDrawToolMenuOpen((o) => !o)}
-          className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
-            drawToolMenuOpen
-              ? "bg-fs-border text-fs-text"
-              : "bg-fs-elevated text-fs-secondary hover:bg-fs-border"
-          }`}
-          aria-expanded={drawToolMenuOpen}
-          aria-haspopup="menu"
-        >
-          <span className="text-fs-muted">画图工具</span>
-          <span
-            className={
-              tool === "cursor"
-                ? "text-fs-muted"
-                : "font-medium text-fs-accent-text/95"
-            }
-          >
-            {tools.find((x) => x.id === tool)?.label ?? "十字"}
-          </span>
-          <span className="text-[10px] text-fs-muted" aria-hidden>
-            ▾
-          </span>
-        </button>
-        {drawToolMenuOpen ? (
-          <div
-            role="menu"
-            className="absolute left-0 top-[calc(100%+6px)] z-[100] min-w-[11rem] rounded-md border border-fs-border bg-fs-bg py-1 shadow-xl"
-          >
-            {tools.map((x) => (
-              <button
-                key={x.id}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setTool(x.id);
-                  setPlotDraft(null);
-                  setSelectedDrawingId(null);
-                  setDrawToolMenuOpen(false);
-                }}
-                className={`flex w-full px-3 py-1.5 text-left text-[11px] hover:bg-fs-elevated ${
-                  tool === x.id
-                    ? "bg-fs-accent-soft text-fs-accent-text"
-                    : "text-fs-secondary"
-                }`}
-              >
-                {x.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-      <button
-        type="button"
-        onClick={handleClearDrawings}
-        className="rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-secondary hover:bg-fs-border hover:text-fs-text"
-      >
-        消除所有画线
-      </button>
-      {selectedDrawingId ? (
-        <span
-          className="text-[11px] text-fs-muted"
-          title="按 Delete 或 Backspace 删除"
-        >
-          已选中 · Delete 删除
-        </span>
-      ) : null}
+      <MarketDrawingToolbar {...drawingApi} tool={tool} onTool={next => { setTool(next); toolRef.current = next; setPlotDraft(null); plotDraftRef.current = null; }} selectedId={selectedDrawingId} onSelect={setSelectedDrawingId} onChange={setDrawings} magnet={magnet} onMagnet={setMagnet} text={annotationText} onText={setAnnotationText} />
       {!eventViewFiltersControlled ? (
         <ChartEventMarkersToolbar
           prefs={eventViewFilters}
@@ -3953,6 +3663,7 @@ export function StockChartWorkspace({
             draftPreview={plotDraft}
             selectedShapeId={selectedDrawingId}
             visibleExtrema={visibleExtremaOverlay}
+            onHandlePointerDown={handleDrawingAnchorDrag}
           />
         </div>
         {crosshairOhlcv && overlaySize.w > 0 ? (
