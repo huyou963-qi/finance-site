@@ -8,4 +8,5 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Next.js 的页面和 Route Handler 可能各自打包此模块；生产也需复用进程级连接池。
+globalForPrisma.prisma = prisma;
