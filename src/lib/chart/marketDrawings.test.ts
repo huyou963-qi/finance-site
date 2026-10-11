@@ -55,7 +55,7 @@ test("shape hit tests select borders and skip hidden objects", () => {
   assert.deepEqual(drawingGeometry({ ...d, hidden: true }, project, 500, 300), []);
 });
 test("cross-timeframe anchors interpolate between actual trading bars", () => {
-  const chart = { timeScale: () => ({ timeToCoordinate: () => null, logicalToCoordinate: (v: number) => v * 100 }) } as unknown as IChartApi;
+  const chart = { timeScale: () => ({ timeToCoordinate: (t: number) => t === 100 ? 0 : t === 200 ? 100 : null, logicalToCoordinate: (v: number) => Number.isInteger(v) ? v * 100 : 0 }) } as unknown as IChartApi;
   const candle = { data: () => [{ time: 100 }, { time: 200 }], priceToCoordinate: (p: number) => p } as unknown as ISeriesApi<"Candlestick", Time>;
   assert.deepEqual(drawingProjector(chart, candle)(150, 123), { x: 50, y: 123 });
 });

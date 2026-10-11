@@ -24,6 +24,7 @@ import {
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
 import { ChartEventMarkersToolbar } from "@/components/chart/ChartEventMarkersToolbar";
 import { ChartLayersPanel } from "@/components/chart/ChartLayersPanel";
+import { drawingPointAtPixel, drawingDragPixel, pauseDrawingNavigation } from "@/lib/chart/drawingPointer";
 import { useMarketDrawings } from "@/hooks/useMarketDrawings";
 import { MarketDrawingToolbar } from "@/components/chart/MarketDrawingToolbar";
 import { createDrawing, pointCount, updateDrawingPoint, type DrawingTool, type MarketDrawing } from "@/lib/chart/marketDrawings";
@@ -2493,13 +2494,9 @@ export function StockChartWorkspace({
       }
 
       if (!drawingApiRef.current.ready || param.time === undefined || typeof param.time !== "number") return;
-      let price: number | null = se.coordinateToPrice(param.point.y);
-      if (price === null) return;
-      const tm = param.time as UTCTimestamp;
-      if (magnetRef.current) {
-        const bar = candlesRef.current.find(c => c.time === tm);
-        if (bar) price = [bar.open, bar.high, bar.low, bar.close].reduce((best, value) => Math.abs(value - price!) < Math.abs(best - price!) ? value : best);
-      }
+      const point = drawingPointAtPixel(chart, se, param.point.x, param.point.y, magnetRef.current);
+      if (!point) return;
+      const price = point.p, tm = point.t as UTCTimestamp;
       const previous = plotDraftRef.current;
       const placed = previous?.tool === tcur ? previous.placed : [];
       const points = [...placed, { t: tm, p: price }];
@@ -2595,14 +2592,8 @@ export function StockChartWorkspace({
         if (ph !== null && (pt.y < 0 || pt.y > ph)) {
           return { ...prev, hover: null };
         }
-        const hp = se.coordinateToPrice(pt.y);
-        if (hp === null || param.time === undefined) {
-          return { ...prev, hover: null };
-        }
-        return {
-          ...prev,
-          hover: { t: param.time as UTCTimestamp, p: hp },
-        };
+        const hover = drawingPointAtPixel(chart, se, pt.x, pt.y, magnetRef.current);
+        return { ...prev, hover };
       });
       if (
         pageSyncEnabledRef.current &&
@@ -2711,6 +2702,7 @@ export function StockChartWorkspace({
     queueMicrotask(() => schedulePrefetchOlderBars());
 
     return () => {
+      editingCleanup.current?.();
       if (prefetchOlderTimer != null) window.clearTimeout(prefetchOlderTimer);
       layoutMetricsGenRef.current += 1;
       setCrosshairOhlcv(null);
@@ -3130,27 +3122,63 @@ export function StockChartWorkspace({
 
   const handleDrawingAnchorDrag = (event: React.PointerEvent<SVGCircleElement>, id: string, index: number) => {
     const original = drawingsRef.current.find(d => d.id === id);
-    const chart = chartRef.current, candle = candleRef.current, wrap = wrapRef.current;
-    if (!original || original.locked || !chart || !candle || !wrap) return;
+    const chart = chartRef.current, candle = candleRef.current;
+    const handle = event.currentTarget, svg = handle.ownerSVGElement;
+    if (event.button !== 0 || !drawingApiRef.current.ready || !original || original.locked || !chart || !candle || !svg) return;
     event.preventDefault(); event.stopPropagation();
     editingCleanup.current?.();
-    const rect = wrap.getBoundingClientRect();
-    let next = original;
-    const move = (ev: PointerEvent) => {
-      if (ev.pointerId !== event.pointerId) return;
-      const x = ev.clientX - rect.left, y = ev.clientY - rect.top;
-      const time = chart.timeScale().coordinateToTime(x);
-      let price: number | null = candle.coordinateToPrice(y);
-      if (typeof time !== "number" || price === null) return;
-      if (magnetRef.current) { const bar = candlesRef.current.find(c => c.time === time); if (bar) price = [bar.open, bar.high, bar.low, bar.close].reduce((best, value) => Math.abs(value - price!) < Math.abs(best - price!) ? value : best); }
-      next = updateDrawingPoint(original, index, { t: time, p: price });
-      setEditingDrawing(next);
+    const pointerId = event.pointerId;
+    const toPixel = (clientX: number, clientY: number) => {
+      const matrix = svg.getScreenCTM();
+      return matrix ? new DOMPoint(clientX, clientY).matrixTransform(matrix.inverse()) : null;
     };
-    const cleanup = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", finish); window.removeEventListener("pointercancel", cancel); editingCleanup.current = null; };
-    const finish = (ev: PointerEvent) => { if (ev.pointerId !== event.pointerId) return; cleanup(); setEditingDrawing(null); if (next !== original) drawingApiRef.current.setDrawings(ds => ds.map(d => d.id === id ? next : d)); };
-    const cancel = () => { cleanup(); setEditingDrawing(null); };
+    const start = toPixel(event.clientX, event.clientY);
+    if (!start) return;
+    const offset = { x: start.x - handle.cx.baseVal.value, y: start.y - handle.cy.baseVal.value };
+    const restoreNavigation = pauseDrawingNavigation(chart);
+    handle.setPointerCapture(pointerId);
+    let next = original, moved = false, frame: number | null = null, ended = false;
+    const move = (ev: PointerEvent) => {
+      if (ended || ev.pointerId !== pointerId) return;
+      const pointer = toPixel(ev.clientX, ev.clientY);
+      if (!pointer) return;
+      if (!moved && Math.hypot(pointer.x - start.x, pointer.y - start.y) < 2) return;
+      moved = true;
+      const pixel = drawingDragPixel(pointer, offset);
+      const point = drawingPointAtPixel(chart, candle, pixel.x, pixel.y, magnetRef.current && !ev.altKey);
+      if (!point) return;
+      next = updateDrawingPoint(original, index, point);
+      if (frame === null) frame = requestAnimationFrame(() => { frame = null; if (!ended) setEditingDrawing(next); });
+    };
+    const cleanup = () => {
+      ended = true;
+      if (frame !== null) cancelAnimationFrame(frame);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", cancelPointer);
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", key);
+      handle.removeEventListener("lostpointercapture", cancel);
+      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+      if (chartRef.current === chart) restoreNavigation();
+      editingCleanup.current = null;
+    };
+    const finish = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      if (moved) move(ev);
+      cleanup(); setEditingDrawing(null);
+      if (next !== original) drawingApiRef.current.setDrawings(ds => ds.map(d => d.id === id ? next : d));
+    };
+    const cancel = () => { if (ended) return; cleanup(); setEditingDrawing(null); };
+    const cancelPointer = (ev: PointerEvent) => { if (ev.pointerId === pointerId) cancel(); };
+    const key = (ev: KeyboardEvent) => { if (ev.key === "Escape") cancel(); };
     editingCleanup.current = cancel;
-    window.addEventListener("pointermove", move); window.addEventListener("pointerup", finish); window.addEventListener("pointercancel", cancel);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", cancelPointer);
+    window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", key);
+    handle.addEventListener("lostpointercapture", cancel);
   };
 
   const handleScreenshot = useCallback(async () => {

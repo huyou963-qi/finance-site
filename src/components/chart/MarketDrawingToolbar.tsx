@@ -44,7 +44,7 @@ export function MarketDrawingToolbar(p: Props) {
     <button className={`${button} ${open ? "bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls={panelId}>画图 · {drawingLabel(p.tool)} ▾</button>
     <button className={button} onClick={p.undo} disabled={!p.ready || !p.canUndo} title="撤销 Ctrl/⌘ Z" aria-label="撤销画图">↶</button>
     <button className={button} onClick={p.redo} disabled={!p.ready || !p.canRedo} title="重做 Ctrl/⌘ Shift Z" aria-label="重做画图">↷</button>
-    <button className={`${button} ${p.magnet ? "text-fs-accent-text bg-fs-accent-soft" : ""}`} onClick={() => p.onMagnet(!p.magnet)} aria-pressed={p.magnet} title="吸附到最近 K 线的开高低收">磁吸</button>
+    <button className={`${button} ${p.magnet ? "text-fs-accent-text bg-fs-accent-soft" : ""}`} onClick={() => p.onMagnet(!p.magnet)} aria-pressed={p.magnet} title="接近 K 线开高低收 8 像素时吸附；拖动时按 Alt 暂时关闭">磁吸</button>
     <button className={button} onClick={() => { setTab("objects"); setOpen(true); }}>对象 {p.drawings.length}</button>
     {selected && <button className={button} onClick={() => edit(selected)}>编辑所选</button>}
     <span role="status" className="max-w-[240px] text-[10px] text-fs-muted">{p.status}</span>

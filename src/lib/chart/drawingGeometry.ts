@@ -1,26 +1,22 @@
-import type { IChartApi, ISeriesApi, Time, UTCTimestamp } from "lightweight-charts";
+import type { IChartApi, ISeriesApi, Time } from "lightweight-charts";
 import { FIB_LEVELS, drawingPoints, type MarketDrawing } from "./marketDrawings";
 export type Pixel = { x: number; y: number };
 export type Primitive = { kind: "line"; a: Pixel; b: Pixel; label?: string; color?: string } | { kind: "rect" | "ellipse"; a: Pixel; b: Pixel; color?: string } | { kind: "text"; a: Pixel; label: string; color?: string };
 export function drawingProjector(chart: IChartApi, candle: ISeriesApi<"Candlestick", Time>) {
   const ts = chart.timeScale();
+  const data = candle.data();
   return (t: number, p: number): Pixel | null => {
-    let x = ts.timeToCoordinate(t as UTCTimestamp);
-    // Daily anchors remain visible on weekly/intraday charts: interpolate timestamps
-    // over the chart's actual trading bars rather than discarding non-exact matches.
-    if (x === null) {
-      const data = candle.data();
-      if (!data.length) return null;
-      const seconds = (time: Time) => typeof time === "number" ? time : typeof time === "string" ? Date.parse(time) / 1000 : Date.UTC(time.year, time.month - 1, time.day) / 1000;
-      let lo = 0, hi = data.length - 1;
-      while (lo < hi) { const mid = Math.floor((lo + hi) / 2); if (seconds(data[mid].time) < t) lo = mid + 1; else hi = mid; }
-      const right = Math.max(1, lo), left = right - 1;
-      if (right >= data.length) x = ts.logicalToCoordinate(0 as import("lightweight-charts").Logical);
-      else {
-        const ta = seconds(data[left].time), tb = seconds(data[right].time);
-        x = ts.logicalToCoordinate((left + (t - ta) / Math.max(1, tb - ta)) as import("lightweight-charts").Logical);
-      }
-    }
+    if (!data.length) return null;
+    const seconds = (time: Time) => typeof time === "number" ? time : typeof time === "string" ? Date.parse(time) / 1000 : Date.UTC(time.year, time.month - 1, time.day) / 1000;
+    let lo = 0, hi = data.length - 1;
+    while (lo < hi) { const mid = Math.floor((lo + hi) / 2); if (seconds(data[mid].time) < t) lo = mid + 1; else hi = mid; }
+    const right = Math.min(data.length - 1, Math.max(1, lo)), left = Math.max(0, right - 1);
+    const ax = ts.timeToCoordinate(data[left].time), bx = ts.timeToCoordinate(data[right].time);
+    if (ax === null || bx === null) return null;
+    const ta = seconds(data[left].time), tb = seconds(data[right].time);
+    // The installed chart version rounds coordinateToLogical and rejects fractional
+    // logicalToCoordinate values. Interpolate actual bar pixels ourselves instead.
+    const x = ax + (bx - ax) * (t - ta) / Math.max(1, tb - ta);
     const y = candle.priceToCoordinate(p);
     return x === null || y === null ? null : { x, y };
   };
