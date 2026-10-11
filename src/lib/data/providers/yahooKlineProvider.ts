@@ -243,7 +243,7 @@ export const yahooKlineProvider: KlineMarketDataProvider = {
         };
       }
 
-      // 盘中周期：实时取 Yahoo，不入库
+      // Provider取Yahoo盘中数据，外层共享响应缓存；不写原始历史价格表
       const bars = await fetchIntraday(req);
       const { page, hasMoreOlder } = sliceWindow(bars, {
         ...req,

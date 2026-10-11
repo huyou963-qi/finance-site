@@ -22,6 +22,7 @@ import {
 import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
+import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
 import { MarketsEventShelf } from "@/components/equity/MarketsEventShelf";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
@@ -64,11 +65,14 @@ function displayNameForSymbol(sym: string): string | undefined {
 
 export function MarketsClient() {
   const [symbol, setSymbol] = useState("");
+  const regionalInstrument = resolveEastmoneyInstrument(symbol);
+  const chartSource = regionalInstrument ? "eastmoney" : "yahoo";
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [interval, setKlineInterval] = useState<KlineInterval>("1d");
   const [priceAdjustment, setPriceAdjustment] =
     useState<PriceAdjustmentMode>("forward");
+  const effectiveAdjustment = regionalInstrument?.market === "GOLD" ? "none" : priceAdjustment;
   const [hits, setHits] = useState<SymbolHit[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -518,7 +522,8 @@ export function MarketsClient() {
               }
               if (e.key === "Escape") setOpen(false);
             }}
-            placeholder="输入代码或公司名，实时联想"
+            placeholder="搜黄金、沪深京港美股票"
+            title="支持现货黄金、A股、B股、北交所、港股、美股；例如 600519.SH、200002.SZ、00700.HK"
             className="h-[26px] w-full rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
             autoComplete="off"
             autoCapitalize="none"
@@ -539,7 +544,7 @@ export function MarketsClient() {
               hits.length === 0 &&
               query.trim().length > 0 ? (
                 <li className="px-2 py-1 text-[10px] text-fs-muted">
-                  无匹配标的，可搜股票（AAPL）、大宗商品（黄金 / 原油）、外汇（欧元 / 美元指数）、债券（美债 / 10年）
+                  可搜现货黄金、A股（600519.SH）、B股（900901.SH / 200002.SZ）、港股（00700.HK）、北交所或美股（AAPL）；也可输入完整代码后按 Enter。
                 </li>
               ) : null}
               {hits.map((h, idx) => (
@@ -596,11 +601,12 @@ export function MarketsClient() {
 
         <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
           <select
-            value={priceAdjustment}
+            value={effectiveAdjustment}
+            disabled={regionalInstrument?.market === "GOLD"}
             onChange={(e) =>
                 setPriceAdjustment(e.target.value as PriceAdjustmentMode)
               }
-              title="前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"
+              title={regionalInstrument?.market === "GOLD" ? "现货黄金不复权" : regionalInstrument ? "东方财富前复权 / 后复权 / 不复权；以供应商口径为准" : "前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"}
               aria-label="K 线价格复权"
               className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
           >
@@ -676,10 +682,11 @@ export function MarketsClient() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <StockChartWorkspace
-          key={`${symbol || "none"}-${interval}-${priceAdjustment}`}
+          key={`${symbol || "none"}-${interval}-${effectiveAdjustment}`}
           symbol={symbol}
+          source={chartSource}
           interval={interval}
-          priceAdjustment={priceAdjustment}
+          priceAdjustment={effectiveAdjustment}
           fillHeight
           onAttributionChange={setDataHint}
           onKlineLoadSuccess={onKlineLoadSuccess}

@@ -143,13 +143,14 @@ async function loadLocalCandidates(q: string): Promise<SecTicker[]> {
 export async function searchUsEquitySymbols(
   rawQuery: string,
   limit = 20,
+  includeSec = true,
 ): Promise<SymbolSearchItem[]> {
   const q = rawQuery.trim().toUpperCase();
   if (!q) return [];
 
   let rows: SecTicker[];
   try {
-    rows = await loadSecTickers();
+    rows = includeSec ? await loadSecTickers() : [];
   } catch {
     rows = [];
   }

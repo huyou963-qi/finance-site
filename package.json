@@ -307,6 +307,8 @@
     "seo:baidu-push": "dotenv -e .env.local -- tsx scripts/seo/baidu-push-sitemap.ts",
     "test": "node scripts/test/run-test-suite.mjs --scope=all",
     "test:unit": "node scripts/test/run-test-suite.mjs --scope=unit",
+    "test:kline-cache-integration": "dotenv -e .env.local -- tsx scripts/test/kline-cache.integration.ts",
+    "markets:cache-prune": "dotenv -e .env.local -- tsx scripts/ops/prune-kline-cache.ts",
     "test:architecture": "node scripts/test/run-test-suite.mjs --scope=architecture",
     "test:schema": "node scripts/test/validate-prisma.mjs",
     "verify:quick": "npm run test && npm run test:schema && npm run lint",

@@ -593,15 +593,16 @@ function formatYyyyMmDdUtc(sec: number): string {
   return `${y}/${m}/${day}`;
 }
 
-function formatBarTimeLabel(t: Time, intervalRaw: string): string {
+function formatBarTimeLabel(t: Time, intervalRaw: string, intradayOffsetSec = 0): string {
   const sec = horzTimeToUnixSec(t);
   if (sec == null) return String(t);
   const iv = intervalRaw;
   if (iv === "15m" || iv === "1h" || iv === "4h") {
-    const d = new Date(sec * 1000);
+    const localSec = sec + intradayOffsetSec;
+    const d = new Date(localSec * 1000);
     const h = String(d.getUTCHours()).padStart(2, "0");
     const mi = String(d.getUTCMinutes()).padStart(2, "0");
-    return `${formatYyyyMmDdUtc(sec)} ${h}:${mi}`;
+    return `${formatYyyyMmDdUtc(localSec)} ${h}:${mi}`;
   }
   return formatYyyyMmDdUtc(sec);
 }
@@ -1179,6 +1180,8 @@ export function StockChartWorkspace({
          */
         if (p.candles.length === 0) {
           historyExhaustedRef.current = true;
+        } else if (p.source === "eastmoney" && p.hasMoreOlder === false) {
+          historyExhaustedRef.current = true;
         } else if (p.candles.length < KLINE_INITIAL_LIMIT) {
           historyExhaustedRef.current = false;
         } else if (p.hasMoreOlder === false) {
@@ -1238,8 +1241,15 @@ export function StockChartWorkspace({
   const layersPrefsRef = useRef(layersApi.prefs);
   layersPrefsRef.current = layersApi.prefs;
 
-  const needsTtmPe =
-    subPane1.content === "ttmpe" || subPane2.content === "ttmpe";
+  const needsTtmPe = source !== "eastmoney" &&
+    (subPane1.content === "ttmpe" || subPane2.content === "ttmpe");
+
+  useEffect(() => {
+    const unavailable = (content: SubPaneContent) => (content === "volume" && payload?.volumeAvailable === false)
+      || (content === "ttmpe" && source === "eastmoney");
+    setSubPane1(prev => unavailable(prev.content) ? { ...prev, content: "macd" } : prev);
+    setSubPane2(prev => unavailable(prev.content) ? { ...prev, content: "rsi" } : prev);
+  }, [payload?.volumeAvailable, source]);
 
   useEffect(() => {
     if (!symbol.trim() || !needsTtmPe) {
@@ -1325,11 +1335,12 @@ export function StockChartWorkspace({
 
   const volumes = useMemo(() => {
     const c = payload?.candles ?? [];
+    if (payload?.volumeAvailable === false) return c.map(() => 0);
     if (payload?.volumes && payload.volumes.length === c.length) {
       return payload.volumes;
     }
     return c.length ? syntheticVolumes(c) : [];
-  }, [payload?.candles, payload?.volumes]);
+  }, [payload?.candles, payload?.volumes, payload?.volumeAvailable]);
 
   /** 当前屏幕可见 K 线区间内的最高/最低（随缩放平移更新） */
   const visibleExtremaOverlay = useMemo((): VisibleExtremaOverlay | null => {
@@ -1426,6 +1437,9 @@ export function StockChartWorkspace({
         return;
       }
       const chunk = (await r.json()) as KlinePayload;
+      if (chunk.cache?.state === "stale") {
+        setHint(chunk.attribution ?? "部分历史行情正在更新，暂用缓存");
+      }
       logCandleSeriesReport("client", "loadMore.chunk", chunk.candles, interval, {
         chunkSource: chunk.source,
         chunkHasMoreOlder: chunk.hasMoreOlder,
@@ -1520,6 +1534,9 @@ export function StockChartWorkspace({
     });
 
     candle.setData(candles);
+    if (payload?.pricePrecision != null) candle.applyOptions({ priceFormat: {
+      type: "price", precision: payload.pricePrecision, minMove: 10 ** -payload.pricePrecision,
+    } });
 
     const h = nativeHandlesRef.current;
     const ind = indicatorsRef.current;
@@ -1609,6 +1626,7 @@ export function StockChartWorkspace({
     subPane2.visible,
     subPane2.content,
     ttmPeLine,
+    payload?.pricePrecision,
   ]);
 
   /** Layer 仅数据变化时 setData，不触发 createChart 重建 */
@@ -2207,7 +2225,7 @@ export function StockChartWorkspace({
       localization: {
         locale: "zh-CN",
         dateFormat: "yyyy/MM/dd",
-        timeFormatter: chartTimeFormatter,
+        timeFormatter: source === "eastmoney" ? (t: Time) => formatBarTimeLabel(t, interval, 8 * 3600) : chartTimeFormatter,
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -2231,6 +2249,11 @@ export function StockChartWorkspace({
         textColor: KLINE_CHART_TEXT_COLOR,
       },
       timeScale: {
+        tickMarkFormatter: source === "eastmoney" && interval !== "1d" && interval !== "1w"
+          ? (t: Time, kind: number) => {
+            const label = formatBarTimeLabel(t, interval, 8 * 3600);
+            return kind >= 3 ? label.slice(-5) : label.slice(0, 10);
+          } : undefined,
         borderColor: KLINE.border,
         visible: true,
         timeVisible: interval !== "1d" && interval !== "1w",
@@ -2282,6 +2305,9 @@ export function StockChartWorkspace({
         borderVisible: false,
         wickUpColor: initColors.up,
         wickDownColor: initColors.down,
+        ...(payload?.pricePrecision != null ? { priceFormat: {
+          type: "price" as const, precision: payload.pricePrecision, minMove: 10 ** -payload.pricePrecision,
+        } } : {}),
       },
       0,
     );
@@ -2563,7 +2589,7 @@ export function StockChartWorkspace({
       const vol =
         idx >= 0 ? (volumesRef.current[idx] ?? 0) : 0;
       setCrosshairOhlcv({
-        timeLabel: formatBarTimeLabel(t, intervalRef.current),
+        timeLabel: formatBarTimeLabel(t, intervalRef.current, sourceRefForLog.current === "eastmoney" ? 8 * 3600 : 0),
         open: bar.open,
         high: bar.high,
         low: bar.low,
@@ -2742,6 +2768,7 @@ export function StockChartWorkspace({
     interval,
     schedulePaneLayoutMetrics,
     forceHideSubPanes,
+    payload?.pricePrecision,
   ]);
 
   /** 可见区间内拉取事件标记并打到主图蜡烛上 */
@@ -3003,7 +3030,7 @@ export function StockChartWorkspace({
           const cx =
             chart.timeScale().timeToCoordinate(bar.time as Time) ?? 80;
           setCrosshairOhlcv({
-            timeLabel: formatBarTimeLabel(t, intervalRef.current),
+            timeLabel: formatBarTimeLabel(t, intervalRef.current, sourceRefForLog.current === "eastmoney" ? 8 * 3600 : 0),
             open: bar.open,
             high: bar.high,
             low: bar.low,
@@ -3218,7 +3245,7 @@ export function StockChartWorkspace({
     { id: "macd", label: "MACD" },
     { id: "rsi", label: "RSI" },
     { id: "ttmpe", label: "TTM PE" },
-  ];
+  ].filter(tab => !(tab.id === "volume" && payload?.volumeAvailable === false) && !(tab.id === "ttmpe" && source === "eastmoney")) as { id: SubPaneContent; label: string }[];
 
   if (!symbol.trim()) {
     return (
@@ -3757,10 +3784,10 @@ export function StockChartWorkspace({
                       ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`
                       : "—"}
                   </span>
-                  <span className="text-fs-muted">成交量</span>
-                  <span className="text-right font-mono text-fs-secondary">
-                    {fmtVolumeZh(ch.volume)}
-                  </span>
+                  {payload?.volumeAvailable !== false ? <>
+                    <span className="text-fs-muted">成交量</span>
+                    <span className="text-right font-mono text-fs-secondary">{fmtVolumeZh(ch.volume)}</span>
+                  </> : null}
                   {ch.layers?.map((ly) => (
                     <span key={ly.label} className="contents">
                       <span className="truncate text-fs-muted" style={{ color: ly.color }}>
