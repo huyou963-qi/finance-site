@@ -103,11 +103,6 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
       if (!moved && Math.hypot(pointer.clientX - startX, pointer.clientY - startY) < 5) return;
       moved = true;
       const nav = tabsRef.current;
-      if (nav) {
-        const bounds = nav.getBoundingClientRect();
-        if (pointer.clientX > bounds.right - 24) nav.scrollLeft += 16;
-        else if (pointer.clientX < bounds.left + 24) nav.scrollLeft -= 16;
-      }
       const target = document.elementFromPoint(pointer.clientX, pointer.clientY)?.closest<HTMLElement>("[data-watchlist-tab]");
       const targetId = target?.dataset.watchlistTab;
       if (!target || targetId === undefined || targetId === id || !nav?.contains(target)) return;
@@ -177,10 +172,10 @@ export function MarketsWatchlist({ children, symbol, name, onSelect }: {
     <aside id="markets-watchlist-panel" aria-label="行情自选股" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }} className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-fs-bg md:bg-fs-elevated" style={isMobile ? { flex: "1 1 auto", width: "100%" } : { width: sidebarWidth, maxWidth: 520 }}>
           {isMobile ? <div className="flex shrink-0 justify-end px-3"><button ref={closeRef} type="button" onClick={close} className="min-h-11 rounded px-2 text-xs text-fs-accent-text">返回行情</button></div> : null}
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
-            <div className="flex items-center gap-1">
-              <nav ref={tabsRef} aria-label="自选股分组" className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-1">
-                {orderedIds.map((id) => <span key={id} data-watchlist-tab={id} className={`flex shrink-0 items-center rounded-md border text-xs ${activeGroup === id ? "border-fs-accent/50 bg-fs-accent-soft font-semibold text-fs-accent-text" : "border-fs-border bg-fs-bg text-fs-muted"} ${draggingTab === id ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
-                  <button type="button" aria-pressed={activeGroup === id} disabled={!ready || saving} onClick={() => { setSelectedGroup(id); setRemovingStock(null); }} onKeyDown={(event) => { if (event.altKey && ["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title={tabNames.get(id)} className="min-h-8 max-w-32 truncate pl-2 pr-1">{tabNames.get(id)}</button>
+            <div className="flex items-start gap-1">
+              <nav ref={tabsRef} aria-label="自选股分组" className="flex min-w-0 flex-1 flex-wrap gap-1 pb-1">
+                {orderedIds.map((id) => <span key={id} data-watchlist-tab={id} className={`flex max-w-full shrink-0 items-center rounded-md border text-xs ${activeGroup === id ? "border-fs-accent/50 bg-fs-accent-soft font-semibold text-fs-accent-text" : "border-fs-border bg-fs-bg text-fs-muted"} ${draggingTab === id ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
+                  <button type="button" aria-pressed={activeGroup === id} disabled={!ready || saving} onClick={() => { setSelectedGroup(id); setRemovingStock(null); }} onKeyDown={(event) => { if (event.altKey && ["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title={tabNames.get(id)} className="min-h-8 min-w-0 max-w-32 flex-1 truncate pl-2 pr-1">{tabNames.get(id)}</button>
                   <button type="button" aria-label={`拖动 ${tabNames.get(id)} 分组排序`} disabled={!ready || saving} onPointerDown={(event) => startTabDrag(event, id)} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title="拖动排序；方向键前移或后移" className="min-h-8 w-4 cursor-grab touch-none select-none text-fs-muted active:cursor-grabbing">⋮</button>
                 </span>)}
               </nav>
