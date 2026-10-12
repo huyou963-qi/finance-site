@@ -46,4 +46,4 @@ CPI 拆为 18 个叶子分项，各用最直接的高频代理做滚动 OLS（�
 ## 维护
 
 - **每年 1 月**：BLS 发布上年 12 月相对权重后，在 `relativeImportance.ts` 追加一年（未追加时沿用最近一年）。
-- 输入序列的调度见 AGENTS.md「CPI 分项高频代理」与 [US_MANHEIM_MUVVI.md](../US_MANHEIM_MUVVI.md)（Manheim 依赖授权文件按月更新）。
+- 输入序列的调度见 AGENTS.md「CPI 分项高频代理」与 [US_MANHEIM_MUVVI.md](../US_MANHEIM_MUVVI.md)（Manheim 由 Cox 官方正式月报 XLSX 自动更新）。

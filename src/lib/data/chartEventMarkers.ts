@@ -30,12 +30,16 @@ import {
   type StockEventType,
 } from "@/lib/equity/stockEvents";
 import { prisma } from "@/lib/prisma";
+import { evaluateMacroSurprise } from "@/lib/data/macroEventSurprise";
 
 export type ChartEventMarkerSource = "stock_derived" | "market_event";
 
 export type ChartEventMarker = {
   id: string;
   time: number;
+  datePrecision?: "DATE" | "DATETIME";
+  eventTime?: number;
+  surpriseScore?: number;
   label: string;
   shape: MarkerShape;
   color: string;
@@ -121,6 +125,7 @@ function stockToMarker(ev: StockEvent, symbol: string): ChartEventMarker {
 }
 
 function marketToMarker(ev: MarketEventDto): ChartEventMarker {
+  const surprise = ev.eventType === "macro.release" ? evaluateMacroSurprise(ev.payload) : null;
   const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
   const label =
     ev.markerLabel?.trim() ||
@@ -128,10 +133,12 @@ function marketToMarker(ev: MarketEventDto): ChartEventMarker {
     (ev.title?.slice(0, 4) ?? "事件");
   return {
     id: ev.id,
-    time: isoDateToUnixSec(ev.occurredAt),
+    time: ev.datePrecision === "DATETIME" ? Math.floor(Date.parse(ev.occurredAt) / 1000) : isoDateToUnixSec(ev.occurredAt),
+    datePrecision: ev.datePrecision,
+    surpriseScore: surprise?.score,
     label: label.slice(0, 4),
     shape: markerShapeFor(eventType),
-    color: markerColorFor(eventType, ev.importance),
+    color: surprise?.large ? "#f59e0b" : markerColorFor(eventType, ev.importance),
     importance: ev.importance,
     eventType,
     scope: ev.scope,
@@ -164,7 +171,9 @@ function dedupeSameDay(markers: ChartEventMarker[]): ChartEventMarker[] {
   });
   for (const m of sorted) {
     const day = new Date(m.time * 1000).toISOString().slice(0, 10);
-    const key = `${day}:${normalizeEventType(m.eventType) ?? m.eventType}`;
+    // Macro releases on the same day may represent independent packages.
+    const key = m.source === "market_event" && m.eventType === "macro.release"
+      ? m.id : `${day}:${normalizeEventType(m.eventType) ?? m.eventType}`;
     if (!byDayType.has(key)) byDayType.set(key, m);
   }
   return [...byDayType.values()].sort((a, b) => a.time - b.time);

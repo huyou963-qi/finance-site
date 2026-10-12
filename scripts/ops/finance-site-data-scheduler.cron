@@ -1,0 +1,13 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Shanghai
+FINANCE_SITE_DATA_PATH=/opt/finance-site-jp-data
+FINANCE_SITE_LOG_PATH=/opt/finance-site/logs
+
+# 宏观数据主调度器。独立 cron 检出由 deploy 的 sync-cron-checkout.sh 更新，
+# 避免发布时替换 /opt/finance-site 的 node_modules / 源码与正在运行的采集任务冲突。
+# flock 防止慢源导致重入；日志写回主部署目录，复用 finance-site-data.logrotate。
+*/5 * * * * root cd "$FINANCE_SITE_DATA_PATH" && mkdir -p "$FINANCE_SITE_LOG_PATH" && flock -n /tmp/finance-data-worker.lock npm run data:worker >> "$FINANCE_SITE_LOG_PATH/data-worker.log" 2>&1
+
+# 发布日历只负责刷新 nextRunAt；错开 worker 的整 5 分钟触发点，减少锁与数据库争用。
+2 * * * * root cd "$FINANCE_SITE_DATA_PATH" && mkdir -p "$FINANCE_SITE_LOG_PATH" && flock -n /tmp/finance-sync-calendar.lock npm run data:sync-calendar >> "$FINANCE_SITE_LOG_PATH/sync-calendar.log" 2>&1

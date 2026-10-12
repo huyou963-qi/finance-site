@@ -23,7 +23,8 @@ export type MarketInstrument = {
 
 export const MARKET_INSTRUMENTS: MarketInstrument[] = [
   // ---------------- 大宗商品 ----------------
-  { symbol: "GC=F", name: "黄金", exchange: "COMEX", type: "商品", aliases: ["黄金", "金", "gold", "xau", "au"] },
+  { symbol: "XAUUSD", name: "现货黄金（美元/盎司）", exchange: "现货", type: "商品", aliases: ["黄金", "现货黄金", "伦敦金", "gold", "xau", "xau/usd", "xauusd=x"] },
+  { symbol: "GC=F", name: "COMEX黄金期货", exchange: "COMEX", type: "商品", aliases: ["黄金期货", "黄金", "金", "gold futures", "au"] },
   { symbol: "SI=F", name: "白银", exchange: "COMEX", type: "商品", aliases: ["白银", "银", "silver", "xag"] },
   { symbol: "HG=F", name: "铜", exchange: "COMEX", type: "商品", aliases: ["铜", "copper", "沪铜", "hg"] },
   { symbol: "PL=F", name: "铂金", exchange: "NYMEX", type: "商品", aliases: ["铂金", "铂", "platinum", "xpt"] },

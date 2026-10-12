@@ -1159,7 +1159,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     members: { fredSeriesIds: ["CBLBSNNCB", "NCBCBLQ027S"] },
   }),
   probePkg(MANHEIM_MUVVI_PACKAGE_ID, "美国 Manheim 二手车批发价格指数", {
-    labelEn: "Manheim Used Vehicle Value Index (licensed Wind file)",
+    labelEn: "Manheim Used Vehicle Value Index (Cox official XLSX)",
     agencyId: "us-cox-automotive",
     granularity: "MONTHLY",
     intervalHours: 24,

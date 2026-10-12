@@ -4,6 +4,20 @@ import { prisma } from "@/lib/prisma";
 const WINDOW_MS = 15 * 60_000;
 const MAX_ATTEMPTS = 5;
 
+export class LoginThrottleError extends Error {
+  readonly lockedUntil: Date;
+
+  constructor(lockedUntil: Date) {
+    super("登录尝试过于频繁，请等待倒计时结束后重试");
+    this.name = "LoginThrottleError";
+    this.lockedUntil = lockedUntil;
+  }
+
+  get retryAfterSeconds(): number {
+    return Math.max(1, Math.ceil((this.lockedUntil.getTime() - Date.now()) / 1000));
+  }
+}
+
 function keyHash(identifier: string): string {
   return crypto.createHash("sha256").update(identifier.trim().toLowerCase()).digest("hex");
 }
@@ -15,7 +29,7 @@ export async function checkLoginThrottle(identifier: string): Promise<void> {
   }
   const record = await prisma.authAttempt.findUnique({ where: { keyHash: keyHash(identifier) } });
   if (record?.lockedUntil && record.lockedUntil.getTime() > Date.now()) {
-    throw new Error("登录尝试过于频繁，请稍后重试或通过邮箱重置密码");
+    throw new LoginThrottleError(record.lockedUntil);
   }
 }
 

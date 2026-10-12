@@ -18,7 +18,7 @@ import {
   applyFredTransform,
   fredTransformForInstrument,
 } from "./fredTransform";
-import type { SubscriptionRunResult } from "./types";
+import type { FetchIncrementalResult, SubscriptionRunResult } from "./types";
 import {
   filterPointsFrom,
   maxObsDate,
@@ -52,6 +52,10 @@ export type RunDataSubscriptionOptions = {
    * 把整包 nextRunAt 推进、令其他成员错过本期。
    */
   preserveNextRunAt?: boolean;
+  /** 发布包已获取的官方快照；成员复用同一快照，不重复节流或请求。 */
+  fetchIncremental?: (fetchStart: string) => Promise<FetchIncrementalResult>;
+  /** 各成员计算自己的排期，整包完成后由包执行器统一提交包级排期。 */
+  deferPackageSchedule?: boolean;
 };
 
 function diffDays(a: Date, b: Date): number {
@@ -161,7 +165,9 @@ export async function runDataSubscription(
       { yoyTransform: transform === "yoy_pct" },
     );
 
-    let fetchResult = await fetchSubscriptionIncremental(sub, fetchStart);
+    let fetchResult = await (options?.fetchIncremental
+      ? options.fetchIncremental(fetchStart)
+      : fetchSubscriptionIncremental(sub, fetchStart));
 
     if (transform !== "none") {
       fetchResult = {
@@ -214,8 +220,12 @@ export async function runDataSubscription(
 
     const releaseRuleChanged = updatedRule !== rule;
 
+    // 首个成员可能已经把新排期扇出。不能用本轮选取时的旧快照覆盖它。
+    const preservedSchedule = options?.preserveNextRunAt
+      ? await prisma.dataSubscription.findUnique({ where: { id: sub.id }, select: { nextRunAt: true } })
+      : null;
     let nextRunAt = options?.preserveNextRunAt
-      ? sub.nextRunAt
+      ? preservedSchedule ? preservedSchedule.nextRunAt : sub.nextRunAt
       : scheduleAfterSuccessfulFetch(updatedRule, hadNewData, new Date()) ??
         computeNextRunAt(updatedRule, new Date());
 
@@ -223,6 +233,7 @@ export async function runDataSubscription(
       rule.type === "economic_calendar" &&
       Boolean(rule.calendarMatch?.releaseAt) &&
       !options?.preserveNextRunAt &&
+      !options?.deferPackageSchedule &&
       (hadNewData || status === FetchRunStatus.SUCCESS || sourceCaughtUp);
 
     if (shouldRefreshCalendar && !options?.skipCalendarRefresh) {
@@ -266,7 +277,7 @@ export async function runDataSubscription(
       data: {
         lastSuccessAt: new Date(),
         lastObsDate: lastObs ?? undefined,
-        nextRunAt,
+        ...(options?.preserveNextRunAt ? {} : { nextRunAt }),
         retryCount: 0,
         lastError: null,
         ...(releaseRuleChanged && !shouldRefreshCalendar && !sub.releasePackageId
@@ -276,7 +287,7 @@ export async function runDataSubscription(
     });
 
     let packageScheduleBeforeUpdate: Date | null | undefined;
-    if (!options?.preserveNextRunAt && sub.releasePackageId && nextRunAt) {
+    if (!options?.preserveNextRunAt && !options?.deferPackageSchedule && sub.releasePackageId && nextRunAt) {
       packageScheduleBeforeUpdate = (
         await prisma.releasePackage.findUnique({
           where: { id: sub.releasePackageId },
@@ -336,7 +347,7 @@ export async function runDataSubscription(
         `[scheduler:audit] subscription ${sub.id} 写入失败：${auditError instanceof Error ? auditError.message : String(auditError)}`,
       );
     });
-    if (!options?.preserveNextRunAt && sub.releasePackageId && nextRunAt) {
+    if (!options?.preserveNextRunAt && !options?.deferPackageSchedule && sub.releasePackageId && nextRunAt) {
       await recordScheduleChange(prisma, {
         releasePackageId: sub.releasePackageId,
         previousNextRunAt: packageScheduleBeforeUpdate,

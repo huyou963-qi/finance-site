@@ -43,7 +43,15 @@ export type YahooChartResult = {
 };
 
 type RawResult = {
-  meta?: { symbol?: string; dataGranularity?: string };
+  meta?: {
+    symbol?: string;
+    dataGranularity?: string;
+    regularMarketPrice?: number;
+    regularMarketTime?: number;
+    chartPreviousClose?: number;
+    previousClose?: number;
+    currency?: string;
+  };
   timestamp?: number[];
   events?: {
     splits?: Record<
@@ -237,5 +245,18 @@ export async function fetchYahooChart(
     bars,
     splits: parseSplits(result),
     dividends,
+  };
+}
+
+/** 最新常规交易时段价格与昨收，独立于图表周期和历史复权。 */
+export async function fetchYahooQuote(symbol: string) {
+  const json = await fetchChart(symbol, { range: "1d", interval: "1m" });
+  const meta = json.chart?.result?.[0]?.meta;
+  if (!meta) throw new YahooSymbolNotFoundError(symbol);
+  return {
+    price: meta.regularMarketPrice,
+    previousClose: meta.previousClose ?? meta.chartPreviousClose,
+    time: meta.regularMarketTime,
+    currency: meta.currency,
   };
 }

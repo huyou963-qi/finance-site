@@ -1,6 +1,6 @@
 /**
  * 将 DOM 区域内的 canvas / SVG（ECharts、lightweight-charts、作图叠加层等）
- * 合成 PNG 并写入系统剪贴板。不依赖第三方库。
+ * 合成带 gekkotech.cn 水印的 PNG 并写入系统剪贴板。不依赖第三方库。
  */
 export async function copyElementScreenshotToClipboard(
   el: HTMLElement,
@@ -61,6 +61,14 @@ export async function copyElementScreenshotToClipboard(
       // SVG 序列化失败时跳过
     }
   }
+
+  ctx.save();
+  ctx.font = "600 13px Arial, sans-serif";
+  ctx.fillStyle = "rgba(26, 26, 24, 0.25)";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillText("gekkotech.cn", 12, 12, Math.max(1, cssW - 24));
+  ctx.restore();
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

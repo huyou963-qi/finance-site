@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import {
   fileToReportImage,
   reportClientError,
@@ -134,7 +135,7 @@ export function ReportBugButton() {
             onClick={close}
           >
             <div
-              className="my-auto w-full max-w-md rounded-lg border border-fs-border bg-fs-bg p-4 shadow-xl"
+              className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-fs-border bg-fs-bg p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)]"
               onClick={(e) => e.stopPropagation()}
             >
               <h2 id={titleId} className="mb-1 text-base font-semibold text-fs-text">
@@ -232,6 +233,30 @@ export function ReportBugButton() {
                   ))}
                 </div>
               ) : null}
+
+              <section className="my-3 flex flex-wrap items-center gap-4 border-t border-fs-border pt-3" aria-label="联系方式">
+                <a
+                  href="/contact/wechat-qr.jpg"
+                  download="微信联系方式.jpg"
+                  className="shrink-0 rounded border border-fs-border bg-white p-2"
+                  aria-label="保存微信联系二维码"
+                >
+                  <Image
+                    src="/contact/wechat-qr.jpg"
+                    alt="微信联系方式二维码"
+                    width={694}
+                    height={650}
+                    unoptimized
+                    className="h-auto w-36"
+                  />
+                </a>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-medium text-fs-text">联系方式：微信</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-fs-muted">
+                    扫码添加微信，也可点击二维码保存后，在微信中识别图片。
+                  </p>
+                </div>
+              </section>
 
               {hint ? <p className="mb-2 text-xs text-fs-muted">{hint}</p> : null}
               <div className="flex justify-end gap-2">

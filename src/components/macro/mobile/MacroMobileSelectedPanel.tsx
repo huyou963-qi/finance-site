@@ -47,7 +47,7 @@ function metaLine(row: SelectedIndicatorRowMeta, showSource: boolean): string {
     row.country,
     row.frequency,
     row.unit,
-    row.updatedAt ? `更新 ${row.updatedAt}` : undefined,
+    row.updatedAt ? `观测 ${row.updatedAt}` : undefined,
     showSource ? row.source : undefined,
   ]
     .filter((v): v is string => Boolean(v && v !== "-" && v !== "—"))

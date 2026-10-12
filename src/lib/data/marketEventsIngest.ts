@@ -18,6 +18,7 @@ import {
   type MarketEventInput,
 } from "@/lib/data/marketEvents";
 import { prisma } from "@/lib/prisma";
+import { evaluateMacroSurprise } from "@/lib/data/macroEventSurprise";
 
 export type IngestEventDraft = {
   externalId: string;
@@ -126,6 +127,13 @@ export function validateIngestRun(run: IngestRunOutput): IngestValidationResult 
     }
     if (ev.scope && !VALID_SCOPE.has(ev.scope)) {
       issues.push({ index, field: "scope", message: "scope 不合法" });
+    }
+    if (ev.eventType === "macro.release" && ev.payload?.macroRelease !== undefined) {
+      const result = evaluateMacroSurprise(ev.payload);
+      if (result.status === "invalid") issues.push({ index, field: "payload.macroRelease", message: result.reason });
+      if (result.evidence && (ev.datePrecision !== "DATETIME" || Date.parse(ev.occurredAt) !== Date.parse(result.evidence.releaseAt))) {
+        issues.push({ index, field: "occurredAt", message: "数据发布需 DATETIME 且 occurredAt 与 releaseAt 一致" });
+      }
     }
     const scope = ev.scope ?? "CROSS";
     if (scope === "COMPANY" && !(ev.assets?.length)) {
@@ -241,6 +249,14 @@ export async function findSemanticDuplicate(
   const ratingLike = isRatingLike(ev.eventType);
 
   for (const row of candidates) {
+    const rowPayload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+      ? row.payload as Record<string, unknown> : {};
+    if (ev.eventType === "macro.release" && row.eventType === "macro.release" &&
+      typeof ev.payload?.releaseIdentity === "string" && typeof rowPayload.releaseIdentity === "string") {
+      if (ev.payload.releaseIdentity === rowPayload.releaseIdentity) return row;
+      // Different reports/periods must not merge merely because they share a summary URL.
+      continue;
+    }
     if (url) {
       const rowUrl = normalizeSourceUrl(row.sourceUrl);
       if (rowUrl && rowUrl === url) return row;

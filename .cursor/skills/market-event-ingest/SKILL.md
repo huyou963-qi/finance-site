@@ -2,7 +2,8 @@
 name: market-event-ingest
 description: >-
   Retrieve authoritative sources and generate structured MarketEvent ingest JSON
-  for policy, macro, company news, speeches, ratings, and price targets.
+  for policy, macro releases with actual and survey consensus, company news,
+  speeches, ratings, and price targets.
   Use when backfilling chart events, syncing ratings/targets, recording FOMC/policy
   nodes, or maintaining /events. Never regenerate SEC filings/earnings/splits
   already covered by stockEvents. Deduplicate against DB by externalId and by
@@ -21,6 +22,7 @@ description: >-
 - 「生成某标的 K 线事件」「批量补非 SEC 公司大事」
 - 维护 `/events` 或行情标记数据
 - 「取队列下一格 / 批跑 market-event-ingest」
+- 「用 AI 补宏观发布、实际值、一致预期与预期差」：读 [宏观发布检索规程](reference/macro-release.md)，用 `macro-release` 模式。
 
 ## Modes
 
@@ -28,6 +30,7 @@ description: >-
 |------|------|------------|------|
 | `policy` | 财政/货币/监管/贸易 | COUNTRY / INDUSTRY | |
 | `macro-event` | 地缘、危机、灾害、异动 | COUNTRY / CROSS | |
+| `macro-release` | 美国宏观数据首发、当时调查预期及原始差值 | COUNTRY | 读 `reference/macro-release.md`；政策/讲话无数值调查时保留定性事件 |
 | `company-matter` | SEC **未覆盖**的公司事项 | COMPANY | 先对账 stockEvents；可用 product/capacity/mna/capital/partnership/litigation/supply/ops_news/guidance/management |
 | `ops-news` | 经营新闻叙事 | COMPANY | 排除传闻 |
 | `speech` | 官员/高管/投资人讲话 | 视主体 | |

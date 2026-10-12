@@ -3,6 +3,12 @@ import { describe, it } from "node:test";
 import { eventHitsExplicitFilters } from "./assetEventResolver";
 
 describe("eventHitsExplicitFilters", () => {
+  it("现货黄金关联黄金期货/ETF事件，仍遵守国家收窄", () => {
+    const event = { assets: ["GLD", "GC=F"], industries: [], countries: ["US"] };
+    assert.equal(eventHitsExplicitFilters(event, { assets: ["XAUUSD"], countries: ["US"] }), true);
+    assert.equal(eventHitsExplicitFilters(event, { assets: ["XAUUSD"], countries: ["CN"] }), false);
+    assert.equal(eventHitsExplicitFilters(event, { assets: ["SPY"] }), false);
+  });
   const tslaEv = {
     assets: ["TSLA"],
     industries: ["2510"],

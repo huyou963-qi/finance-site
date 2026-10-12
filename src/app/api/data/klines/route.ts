@@ -12,6 +12,7 @@ import {
   validateKlineWindowForProvider,
 } from "@/lib/data/providers/klineProviderRegistry";
 import type { KlineFetchWindowOptions } from "@/lib/data/types";
+import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
 
 /**
  * GET /api/data/klines?symbol=AAPL&interval=1d&limit=300
@@ -19,12 +20,13 @@ import type { KlineFetchWindowOptions } from "@/lib/data/types";
  * GET ...&before=1690000000              仅拉取早于该 Unix 秒的历史（向左追加）
  * GET ...&fromSec=...&toSec=...          显式区间（与 before 互斥）
  *
- * 数据源固定 Yahoo Finance（免密钥，覆盖全部美股）；source= 参数仅作兼容校验。
+ * 美股走 Yahoo；现货黄金及沪深京港代码自动分流到东方财富。
  */
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const source = (sp.get("source") ?? "yahoo").toLowerCase();
   const sym = (sp.get("symbol") ?? "").trim() || "AAPL";
+  const resolvedSource = resolveEastmoneyInstrument(sym) ? "eastmoney" : source;
   const interval = sp.get("interval") ?? "1d";
   const limit = Number(sp.get("limit") ?? "300");
   const adjustment = parsePriceAdjustmentMode(sp.get("adjust"));
@@ -35,6 +37,10 @@ export async function GET(req: NextRequest) {
 
   const hasRange = fromRaw != null && fromRaw !== "" && toRaw != null && toRaw !== "";
   const hasBefore = beforeRaw != null && beforeRaw !== "";
+
+  if ((fromRaw != null && fromRaw !== "") !== (toRaw != null && toRaw !== "")) {
+    return NextResponse.json({ error: "fromSec/toSec 须同时提供" }, { status: 400 });
+  }
 
   if (hasBefore && hasRange) {
     return NextResponse.json(
@@ -65,16 +71,16 @@ export async function GET(req: NextRequest) {
     windowOpts = { beforeTimeSec: Math.floor(n) };
   }
 
-  if (source !== "yahoo") {
+  if (source !== "yahoo" && source !== "eastmoney") {
     return NextResponse.json(
-      { error: `未知 source：${source}（当前仅支持 yahoo）` },
+      { error: `未知 source：${source}（支持 yahoo / eastmoney）` },
       { status: 400 },
     );
   }
 
-  const provider = getRegisteredKlineProvider("yahoo");
+  const provider = getRegisteredKlineProvider(resolvedSource);
   if (!provider) {
-    return NextResponse.json({ error: "yahoo 提供者未注册" }, { status: 500 });
+    return NextResponse.json({ error: `${resolvedSource} 提供者未注册` }, { status: 500 });
   }
 
   const winErr = validateKlineWindowForProvider(provider, windowOpts);
@@ -83,7 +89,7 @@ export async function GET(req: NextRequest) {
   }
 
   klineDebugLog("api", "request", {
-    source: "yahoo",
+    source: resolvedSource,
     sym,
     interval,
     limit,
@@ -94,7 +100,7 @@ export async function GET(req: NextRequest) {
   });
 
   try {
-    const payload = await fetchKlinesWithProvider("yahoo", {
+    const payload = await fetchKlinesWithProvider(provider.id, {
       symbol: sym,
       interval,
       limit,
@@ -103,7 +109,7 @@ export async function GET(req: NextRequest) {
     });
 
     logCandleSeriesReport("api", "response", payload.candles, interval, {
-      resolvedSource: "yahoo",
+      resolvedSource,
       payloadSource: payload.source,
       symbol: payload.symbol,
       hasMoreOlder: payload.hasMoreOlder,
@@ -111,15 +117,21 @@ export async function GET(req: NextRequest) {
       adjust: adjustment,
     });
 
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, { headers: {
+      // Only the server controls expiry; CDN/browser caching must not obscure freshness.
+      "Cache-Control": "no-store",
+      "X-Kline-Cache": payload.cache?.state ?? "none",
+      ...(payload.cache ? { "X-Kline-Checked-At": payload.cache.checkedAt } : {}),
+    } });
   } catch (e) {
     const message = e instanceof Error ? e.message : "未知错误";
     const clientError =
       message.includes("无效") ||
       message.includes("不支持") ||
+      message.includes("时间范围过大") ||
       message.includes("未找到") ||
       message.includes("不能为空");
-    klineDebugLog("api", "route.error", { source: "yahoo", sym, interval, message });
+    klineDebugLog("api", "route.error", { source: resolvedSource, sym, interval, message });
 
     const body: {
       error: string;

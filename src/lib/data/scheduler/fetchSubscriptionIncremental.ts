@@ -489,9 +489,9 @@ export async function fetchSubscriptionIncremental(
       const { fetchUsTradeDetailIncremental } = await import("./adapters/usTradeDetailAdapter");
       return fetchUsTradeDetailIncremental(sub.instrument.metadata, sub.instrument.code);
     }
-    if (scrapeObj?.provider === "manheim_muvvi_licensed_file") {
+    if (scrapeObj?.provider === "manheim_muvvi_official_xlsx") {
       const { fetchManheimMuvviIncremental } = await import("./adapters/manheimMuvviAdapter");
-      return fetchManheimMuvviIncremental(sub.instrument.metadata, sub.instrument.code);
+      return fetchManheimMuvviIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
     }
     if (scrapeObj?.provider === "jp_mof_external_position") {
       const { fetchJpMofExternalPositionIncremental } = await import("./adapters/jpMofExternalPositionAdapter");

@@ -14,6 +14,7 @@ import {
   type GicsSector,
 } from "@/lib/equity/gicsCatalog";
 import { normalizeAssetTag } from "@/lib/data/marketEvents";
+import { expandEventAssetTags } from "@/lib/data/macroEventSurprise";
 import { normalizeIndustryTag } from "@/lib/data/eventTaxonomy";
 
 /** @deprecated 上卷范围已由显式 tags 取代；保留解析兼容旧 query */
@@ -181,7 +182,7 @@ export function eventHitsExplicitFilters(
   if (hasRelevance) {
     let rel = false;
     if (assets.length) {
-      const assetSet = new Set(assets);
+      const assetSet = new Set(expandEventAssetTags(assets));
       rel = event.assets.some((a) => assetSet.has(normalizeAssetTag(a)));
     }
     if (!rel && industries.length) {
@@ -211,7 +212,7 @@ export function eventHitsAssetContext(
   },
   ctx: AssetEventContext,
 ): boolean {
-  const assetSet = new Set(ctx.assets.map(normalizeAssetTag));
+  const assetSet = new Set(expandEventAssetTags(ctx.assets));
   if (event.assets.some((a) => assetSet.has(normalizeAssetTag(a)))) return true;
 
   if (EXPAND_RANK[ctx.expand] >= EXPAND_RANK.industry) {

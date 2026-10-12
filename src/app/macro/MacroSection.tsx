@@ -2815,7 +2815,9 @@ export function MacroSection() {
             (typeof metadata.sourceTag === "string" && metadata.sourceTag.trim()) ||
             "-";
           const updatedAt =
-            typeof metadata.dataLastObsDateIso === "string"
+            typeof item.latestObsDate === "string"
+              ? item.latestObsDate
+              : typeof metadata.dataLastObsDateIso === "string"
               ? metadata.dataLastObsDateIso
               : typeof metadata.workbookUpdatedAtIso === "string"
                 ? metadata.workbookUpdatedAtIso

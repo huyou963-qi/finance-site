@@ -7,14 +7,14 @@ on:
 
 concurrency:
   group: deploy-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     # Deployments publish code and bounded database definitions only. Data
     # acquisition and maintenance run outside the deploy SSH session.
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       DEPLOY_USER: root
       DEPLOY_PATH: /opt/finance-site
@@ -88,6 +88,12 @@ jobs:
             "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" <<EOF
           set -euo pipefail
           cd "${DEPLOY_PATH}"
+          # 覆盖代码、共享依赖或迁移前，等待当前 worker 和 calendar 完成。
+          exec 8>/tmp/finance-data-worker.lock
+          flock -w 1800 8
+          exec 9>/tmp/finance-sync-calendar.lock
+          flock -w 1800 9
+          export SYNC_CRON_CHECKOUT_LOCKED=1
           site_stopped=0
           restore_site() {
             if [ "\$site_stopped" = "1" ]; then
@@ -123,6 +129,13 @@ jobs:
           install -m 0644 scripts/ops/finance-site-dera-insider.cron /etc/cron.d/finance-site-dera-insider
           install -m 0644 scripts/ops/finance-site-gold-futures.cron /etc/cron.d/finance-site-gold-futures
           install -m 0644 scripts/ops/finance-site-data.logrotate /etc/logrotate.d/finance-site-data
+          # Resource diagnostics survive deployments; validate before graceful reload.
+          if command -v nginx >/dev/null 2>&1; then
+            install -m 0644 scripts/ops/finance-site-asset-diagnostics.conf /etc/nginx/conf.d/finance-site-asset-diagnostics.conf
+            install -m 0644 scripts/ops/finance-site-asset-diagnostics.logrotate /etc/logrotate.d/finance-site-assets
+            nginx -t
+            systemctl reload nginx
+          fi
           chmod +x scripts/ops/host-diagnostics-snapshot.sh scripts/ops/host-diagnostics-boot.sh
 
           # Fast deploy: migrations plus catalog definitions, subscriptions,
@@ -138,6 +151,10 @@ jobs:
           # 旧代码，而部署是绿的、毫无提示。放在 migrate/data:apply 之后：只有
           # schema 与目录定义都就位了，才让调度器前进到新代码。
           sh scripts/ops/sync-cron-checkout.sh "${DEPLOY_PATH}" /opt/finance-site-jp-data
+
+          # 主数据 worker / 发布日历不能依赖服务器上曾经手工写过的 crontab。
+          # 每次部署都从仓库幂等安装；否则订阅与发布包虽完整，nextRunAt 到期后也无人执行。
+          install -m 0644 scripts/ops/finance-site-data-scheduler.cron /etc/cron.d/finance-site-data-scheduler
 
           pm2 restart finance-site || pm2 start npm --name finance-site -- run start
           pm2 save

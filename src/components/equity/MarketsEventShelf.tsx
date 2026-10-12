@@ -30,6 +30,8 @@ import {
   normalizeEventType,
 } from "@/lib/data/eventTaxonomy";
 import { isEraHeaderEvent } from "@/lib/data/marketEventTimeline";
+import { MacroEventResearch } from "@/components/events/MacroEventResearch";
+import { isMacroResearchAsset } from "@/lib/data/macroEventSurprise";
 
 const KIND_DOT: Record<CompanyMilestone["kind"], string> = {
   product: "bg-emerald-500",
@@ -129,6 +131,9 @@ export function MarketsEventShelf({
   const [loading, setLoading] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [drawerEvent, setDrawerEvent] = useState<MarketEventDto | null>(null);
+  const [researchOpen, setResearchOpen] = useState(false);
+  const [rawEvents, setRawEvents] = useState<MarketEventDto[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const onResizePointerDown = useCallback(
     (e: { preventDefault: () => void; clientY: number; pointerId: number; currentTarget: HTMLDivElement }) => {
@@ -280,6 +285,7 @@ export function MarketsEventShelf({
       setLocalOnly([]);
       setSharedEvents([]);
       setSecEvents([]);
+      setRawEvents([]);
       return;
     }
 
@@ -296,6 +302,8 @@ export function MarketsEventShelf({
 
     let cancelled = false;
     setLoading(true);
+    setFetchError(null);
+    setRawEvents([]);
     const url = buildForChartUrl(sym, from, to, viewFilters);
     fetch(url, { cache: "no-store" })
       .then(async (r) => {
@@ -311,6 +319,7 @@ export function MarketsEventShelf({
             fallbackAsset: sym,
           }),
         );
+        setRawEvents(raw);
         const shared: CompanyMilestone[] = [];
         const sec: CompanyMilestone[] = [];
         for (const ev of filtered) {
@@ -325,6 +334,8 @@ export function MarketsEventShelf({
       })
       .catch(() => {
         if (!cancelled) {
+          setFetchError("事件加载失败，请调整筛选或重新展开面板重试。");
+          setRawEvents([]);
           setSharedEvents([]);
           setSecEvents([]);
         }
@@ -399,6 +410,12 @@ export function MarketsEventShelf({
       <div className="flex flex-wrap items-center gap-1.5 border-b border-fs-border px-2 py-1 pt-2.5">
         <span className="text-[11px] font-medium text-fs-text">事件筛选器</span>
         <span className="text-[10px] text-fs-muted">{sym || "未选标的"}</span>
+        {isMacroResearchAsset(sym) && <button type="button" aria-pressed={researchOpen}
+          className={`rounded border px-2 py-0.5 text-[11px] ${researchOpen ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : "border-fs-border text-fs-secondary"}`}
+          onClick={() => {
+            setResearchOpen(v => !v);
+            if (!researchOpen) onViewFiltersChange({ ...viewFilters, typeFamilies: ["macro", "policy", "speech", "market"], includeSec: false, includeMarket: true });
+          }}>宏观研究</button>}
         <label className="ml-1 flex cursor-pointer items-center gap-1 text-[10px] text-fs-muted">
           <input
             type="checkbox"
@@ -489,7 +506,11 @@ export function MarketsEventShelf({
         </div>
       ) : null}
 
-      <div className="relative min-h-0 flex-1">
+      {researchOpen && isMacroResearchAsset(sym) ? <MacroEventResearch
+        events={rawEvents.filter(e => eventMatchesFilters(e, viewFilters, { skipTagContext: true, fallbackAsset: sym }))} loading={loading} error={fetchError}
+        from={rangeFromSec != null ? unixSecToIsoDate(Math.min(rangeFromSec, rangeToSec ?? rangeFromSec)) : null}
+        to={rangeToSec != null ? unixSecToIsoDate(Math.max(rangeToSec, rangeFromSec ?? rangeToSec)) : null}
+      /> : <div className="relative min-h-0 flex-1">
         {visible.length === 0 ? (
           <div className="flex h-full items-center justify-center px-4 text-center text-[11px] text-fs-muted">
             {!sym
@@ -559,9 +580,9 @@ export function MarketsEventShelf({
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      {selected ? (
+      {selected && !(researchOpen && isMacroResearchAsset(sym)) ? (
         <div className="shrink-0 border-t border-fs-border bg-fs-elevated/50 px-2 py-1.5">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="text-[10px] tabular-nums text-fs-muted">
