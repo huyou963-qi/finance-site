@@ -73,6 +73,21 @@ describe("provisional component surprise thresholds", () => {
     const r = classifyMacroEventSurprise({ macroRelease: { ...cpi, label: "PPI剔除食品能源环比", actual: 0.4 } });
     assert.equal(r.level, "small"); assert.equal(r.decisive?.threshold, 0.3);
   });
+  it("separates ADP from BLS private payrolls and catches the August 5 miss", () => {
+    const adp = { ...release, metricId: "private-payrolls-m-m", unit: "人", actual: 44000, consensus: 75000 };
+    const r = classifyMacroEventSurprise({ releaseIdentity: "adp:2026-07", macroRelease: adp });
+    assert.equal(r.level, "large"); assert.equal(r.direction, "below");
+    assert.equal(r.decisive?.threshold, 22500);
+    assert.ok(Math.abs(r.decisive!.relativeDifference! + 41.3333333333) < 1e-8);
+    assert.equal(classifyMacroEventSurprise({ releaseIdentity: "employment:2026-07", macroRelease: adp }).level, "small");
+    const evaluate = (actual: number, consensus: number) => classifyMacroEventSurprise({ releaseIdentity: "adp:2026-07", macroRelease: { ...adp, actual, consensus } });
+    assert.equal(evaluate(22000, 45000).level, "large");
+    assert.equal(evaluate(70000, 100000).level, "large");
+    assert.equal(evaluate(71000, 100000).level, "small");
+    assert.equal(evaluate(15000, 0).level, "small");
+    assert.equal(evaluate(-20000, 0).level, "large");
+    assert.equal(evaluate(-20000, 0).decisive?.relativeDifference, undefined);
+  });
   it("rejects wrong units, invalid sources, different publications and unconfigured metrics", () => {
     for (const override of [{ unit: "指数" }, { metricId: "manufacturing-payrolls-m-m" }, { actualSourceUrl: "javascript:x" }, { isInitialRelease: false }]) {
       assert.equal(classifyMacroEventSurprise({ macroRelease: { ...cpi, actual: 1, ...override } }).level, "unassessed");

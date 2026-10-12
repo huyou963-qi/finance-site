@@ -145,6 +145,8 @@ export type MacroSurpriseComponent = {
   /** Absolute difference / provisional threshold; never a standardized score. */
   strength: number;
   large: boolean;
+  thresholdReason?: string;
+  relativeDifference?: number;
 };
 export type MacroEventSurprise = {
   level: "large" | "small" | "unassessed";
@@ -166,13 +168,19 @@ export function classifyMacroEventSurprise(payload: unknown): MacroEventSurprise
     if (primary && (e.releaseAt !== primary.releaseAt || e.referencePeriod !== primary.referencePeriod)) continue;
     // Econoday uses the same core metric ids for CPI and PPI: resolve their series before selecting a threshold.
     const ppiCore = e.label?.includes("PPI") && ["ex-food-energy-m-m", "ex-food-energy-y-y"].includes(e.metricId);
-    const rule = ppiCore ? { unit: "%", large: e.metricId.endsWith("m-m") ? 0.3 : 0.5 } : MACRO_SURPRISE_THRESHOLDS[e.metricId];
+    const adp = typeof root?.releaseIdentity === "string" && root.releaseIdentity.startsWith("adp:") && e.metricId === "private-payrolls-m-m";
+    // ADP is a separate survey from the BLS private-payrolls component. Require both a meaningful
+    // absolute gap and a relative gap; the floor prevents near-zero consensus inflating percentages.
+    const rule = adp ? { unit: "人", large: Math.max(20000, Math.abs(e.consensus) * 0.3) }
+      : ppiCore ? { unit: "%", large: e.metricId.endsWith("m-m") ? 0.3 : 0.5 } : MACRO_SURPRISE_THRESHOLDS[e.metricId];
     if (!rule || rule.unit !== e.unit || (e.metricId === "index" && !e.label?.includes("PMI"))) continue;
     if (seen.has(e.metricId)) continue;
     seen.add(e.metricId);
     const strength = Math.abs(result.difference) / rule.large;
     components.push({ evidence: e, difference: result.difference, threshold: rule.large, strength,
-      large: strength >= 1 - 1e-9 });
+      large: strength >= 1 - 1e-9,
+      thresholdReason: adp ? "ADP试行规则：绝对偏差至少20,000人，且至少为一致预期绝对值的30%；预期为零时使用20,000人下限" : undefined,
+      relativeDifference: adp && e.consensus !== 0 ? result.difference / Math.abs(e.consensus) * 100 : undefined });
   }
   components.sort((a, b) => b.strength - a.strength);
   const large = components.filter(c => c.large);
