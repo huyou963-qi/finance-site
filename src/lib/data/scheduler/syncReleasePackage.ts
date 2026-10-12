@@ -102,16 +102,21 @@ function packageFetchMetadata(
   };
 }
 
-async function finalizePackageCalendar(
+export async function finalizePackageCalendar(
   prisma: PrismaClient,
   subs: SubscriptionWithRelations[],
   logs: string[],
+  refreshCalendar = true,
 ) {
   try {
-    await syncSubscriptionsFromEconomicCalendars(prisma, {
-      subscriptionIds: subs.map((s) => s.id),
-    });
-    logs.push(`[calendar] 已刷新发布包内 ${subs.length} 条订阅日历`);
+    if (refreshCalendar) {
+      await syncSubscriptionsFromEconomicCalendars(prisma, {
+        subscriptionIds: subs.map((s) => s.id),
+      });
+      logs.push(`[calendar] 已刷新发布包内 ${subs.length} 条订阅日历`);
+    } else {
+      logs.push("[calendar] 存在失败成员，保留最早重试，不推进到下一期发布");
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     logs.push(`[calendar] 刷新失败: ${msg}`);
@@ -129,6 +134,12 @@ async function finalizePackageCalendar(
       where: { id: pkgId },
       data: { nextRunAt: refreshed.nextRunAt },
     });
+    if (!refreshCalendar) {
+      await prisma.dataSubscription.updateMany({
+        where: { releasePackageId: pkgId, enabled: true },
+        data: { nextRunAt: refreshed.nextRunAt },
+      });
+    }
   }
 }
 
@@ -346,7 +357,7 @@ async function syncTeBatchPackage(
     }
   }
 
-  await finalizePackageCalendar(prisma, subs, logs);
+  await finalizePackageCalendar(prisma, subs, logs, failed.length === 0);
   return { succeeded, failed, skipped };
 }
 
@@ -414,7 +425,7 @@ async function syncSequentialPackage(
     }
   }
 
-  await finalizePackageCalendar(prisma, subs, logs);
+  await finalizePackageCalendar(prisma, subs, logs, failed.length === 0);
   return { succeeded, failed, skipped };
 }
 

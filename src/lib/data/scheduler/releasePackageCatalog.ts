@@ -34,7 +34,7 @@ import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
 import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPaymentsFredSeedCatalog";
 import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPmiCatalog";
 import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
-import { ECB_CORE_SERIES, EUROSTAT_CORE_SERIES } from "./europeCore/catalog";
+import { ECB_CORE_SERIES, EUROSTAT_CORE_SERIES, EUROSTAT_FAST_PROBE_HOURS } from "./europeCore/catalog";
 import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
 import { EIA_WPSR_PACKAGE_ID, EIA_WPSR_SERIES } from "./eiaWpsr/catalog";
 
@@ -168,16 +168,16 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     calendar: { countryCodes: ["EU"], keywords: ["gdp growth rate", "gdp"] },
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.gdp").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.eurostat.hicp", "欧洲HICP通胀", {
+  probePkg("eu.eurostat.hicp", "欧洲HICP通胀", {
     labelEn: "Eurostat HICP Inflation",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 41,
-    calendar: { countryCodes: ["EU"], keywords: ["inflation rate", "harmonised inflation", "hicp"] },
+    intervalHours: EUROSTAT_FAST_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.hicp").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.eurostat.unemployment", "欧洲月度失业率", {
+  probePkg("eu.eurostat.unemployment", "欧洲月度失业率", {
     labelEn: "Eurostat Monthly Unemployment",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 42,
-    calendar: { countryCodes: ["EU"], keywords: ["unemployment rate"] },
+    intervalHours: EUROSTAT_FAST_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.unemployment").map((series) => series.instrumentCode) },
   }),
   pkg("eu.eurostat.industrial_production", "欧洲工业生产", {
