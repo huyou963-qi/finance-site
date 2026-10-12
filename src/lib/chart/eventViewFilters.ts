@@ -25,6 +25,7 @@ export type EventViewFilterState = {
   includeSec: boolean;
   includeMarket: boolean;
   showLabel: boolean;
+  largeSurpriseOnly: boolean;
 };
 
 export const DEFAULT_EVENT_VIEW_FILTERS: EventViewFilterState = {
@@ -41,6 +42,7 @@ export const DEFAULT_EVENT_VIEW_FILTERS: EventViewFilterState = {
   includeSec: true,
   includeMarket: true,
   showLabel: true,
+  largeSurpriseOnly: false,
 };
 
 const STORAGE_KEY = "event-view-filters-v1";
@@ -80,6 +82,7 @@ export function sanitizeEventViewFilters(
     : null;
 
   return {
+    largeSurpriseOnly: raw.largeSurpriseOnly === true,
     searchQ: typeof raw.searchQ === "string" ? raw.searchQ : "",
     typeFamilies: families
       ? [...new Set(families)]
@@ -202,6 +205,7 @@ export function hasActiveEventViewContentFilters(
   const allFamilies = isAllTypeFamiliesSelected(f.typeFamilies);
   return Boolean(
     f.searchQ.trim() ||
+      f.largeSurpriseOnly ||
       !allFamilies ||
       f.minImportance !== DEFAULT_EVENT_VIEW_FILTERS.minImportance ||
       f.countries.length ||

@@ -31,7 +31,8 @@ import {
 } from "@/lib/data/eventTaxonomy";
 import { isEraHeaderEvent } from "@/lib/data/marketEventTimeline";
 import { MacroEventResearch } from "@/components/events/MacroEventResearch";
-import { isMacroResearchAsset } from "@/lib/data/macroEventSurprise";
+import { classifyMacroEventSurprise, isMacroResearchAsset, macroSurpriseMarkerColor } from "@/lib/data/macroEventSurprise";
+import { MacroEventSurpriseSummary } from "@/components/events/MacroSurpriseEvidence";
 
 const KIND_DOT: Record<CompanyMilestone["kind"], string> = {
   product: "bg-emerald-500",
@@ -187,8 +188,8 @@ export function MarketsEventShelf({
   }, []);
 
   const merged = useMemo(
-    () => mergeCompanyTimeline(localOnly, sharedEvents, secEvents),
-    [localOnly, sharedEvents, secEvents],
+    () => mergeCompanyTimeline(viewFilters.largeSurpriseOnly ? [] : localOnly, sharedEvents, viewFilters.largeSurpriseOnly ? [] : secEvents),
+    [localOnly, sharedEvents, secEvents, viewFilters.largeSurpriseOnly],
   );
 
   const visible = useMemo(() => {
@@ -269,6 +270,7 @@ export function MarketsEventShelf({
         scopeMode: viewFilters.scopeMode,
         includeSec: viewFilters.includeSec,
         includeMarket: viewFilters.includeMarket,
+        largeSurpriseOnly: viewFilters.largeSurpriseOnly,
         minImportance: viewFilters.minImportance,
         typeFamilies: viewFilters.typeFamilies,
         assets: viewFilters.assets,
@@ -326,6 +328,11 @@ export function MarketsEventShelf({
           const layer = ev.sourceKind === "sec" ? "sec" : "shared";
           const m = marketEventToMilestone(ev, layer);
           if (!m) continue;
+          if (ev.eventType === "macro.release") {
+            const surprise = classifyMacroEventSurprise(ev.payload);
+            m.color = macroSurpriseMarkerColor(surprise) ?? m.color;
+            if (surprise.level === "large") m.markerLabel = `◆${m.markerLabel}`;
+          }
           if (layer === "sec") sec.push(m);
           else shared.push(m);
         }
@@ -352,6 +359,8 @@ export function MarketsEventShelf({
   }, [sym, userId, rangeFromSec, rangeToSec, filterFetchKey]);
 
   const selected = visible.find((m) => m.id === selectedId) ?? visible[0] ?? null;
+  const originalForMilestone = (m: CompanyMilestone) =>
+    rawEvents.find(e => `${m.layer}:${e.id}` === m.id) ?? milestoneToMarketEventDto(m);
 
   const applyLocalItems = useCallback(
     (nextLocal: CompanyMilestone[]) => {
@@ -515,6 +524,8 @@ export function MarketsEventShelf({
           <div className="flex h-full items-center justify-center px-4 text-center text-[11px] text-fs-muted">
             {!sym
               ? "请先在上方选择股票标的。"
+              : viewFilters.largeSurpriseOnly
+                ? "当前区间与筛选下没有大预期差事件，可调整时间范围或取消「仅大预期差」。"
               : merged.length > 0
                 ? "当前筛选或可视区间内无事件，可调整筛选或拖动 K 线时间范围。"
                 : "暂无事件。打开「筛选」调整类型，或「下载SKILL」后「导入经营事件」（仅本地可见）。"}
@@ -541,7 +552,7 @@ export function MarketsEventShelf({
                       <button
                         type="button"
                         onClick={() => onSelect(m)}
-                        onDoubleClick={() => setDrawerEvent(milestoneToMarketEventDto(m))}
+                        onDoubleClick={() => setDrawerEvent(originalForMilestone(m))}
                         className={`flex h-full w-full flex-col rounded border px-1.5 py-1 text-left transition ${
                           active
                             ? "border-fs-accent bg-fs-accent-soft shadow-sm"
@@ -551,6 +562,7 @@ export function MarketsEventShelf({
                         <div className="flex items-center gap-1">
                           <span
                             className={`h-2 w-2 shrink-0 rounded-full ${KIND_DOT[m.kind]}`}
+                            style={{ backgroundColor: m.color }}
                           />
                           <span className="text-[9px] tabular-nums text-fs-muted">
                             {m.occurredAt.slice(0, 7)}
@@ -595,12 +607,13 @@ export function MarketsEventShelf({
             <span className="text-[11px] font-medium text-fs-text">{selected.title}</span>
             <button
               type="button"
-              onClick={() => setDrawerEvent(milestoneToMarketEventDto(selected))}
+              onClick={() => setDrawerEvent(originalForMilestone(selected))}
               className="ml-auto text-[10px] text-fs-accent-text hover:underline"
             >
               详情
             </button>
           </div>
+          {originalForMilestone(selected).eventType === "macro.release" && <div className="max-h-24 overflow-y-auto"><MacroEventSurpriseSummary payload={originalForMilestone(selected).payload} /></div>}
           <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-fs-secondary">
             {selected.impact.summary || selected.content}
           </p>

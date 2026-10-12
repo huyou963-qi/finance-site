@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { formatEventOccurredAt } from "@/lib/data/marketEvents";
 import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
-import { MacroSurpriseEvidence, MacroReleaseComponentsEvidence } from "@/components/events/MacroSurpriseEvidence";
+import { MacroEventSurpriseSummary, MacroSurpriseEvidence, MacroReleaseComponentsEvidence } from "@/components/events/MacroSurpriseEvidence";
 import {
   eventDisplayContent,
   parseEventSections,
@@ -101,7 +101,7 @@ export function EventDetailDrawer({ event, onClose }: EventDetailDrawerProps) {
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {event.eventType === "macro.release" && <div className="mb-4"><MacroSurpriseEvidence payload={event.payload} /></div>}
+          {event.eventType === "macro.release" && <div className="mb-4"><MacroEventSurpriseSummary payload={event.payload} /><MacroSurpriseEvidence payload={event.payload} /></div>}
           {event.eventType === "macro.release" && <div className="mb-4"><MacroReleaseComponentsEvidence payload={event.payload} /></div>}
           {sections.length > 0 ? (
             <div className="space-y-5">

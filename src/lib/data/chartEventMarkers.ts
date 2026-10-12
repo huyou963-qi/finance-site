@@ -30,7 +30,7 @@ import {
   type StockEventType,
 } from "@/lib/equity/stockEvents";
 import { prisma } from "@/lib/prisma";
-import { evaluateMacroSurprise } from "@/lib/data/macroEventSurprise";
+import { classifyMacroEventSurprise, macroSurpriseMarkerColor } from "@/lib/data/macroEventSurprise";
 
 export type ChartEventMarkerSource = "stock_derived" | "market_event";
 
@@ -40,6 +40,8 @@ export type ChartEventMarker = {
   datePrecision?: "DATE" | "DATETIME";
   eventTime?: number;
   surpriseScore?: number;
+  largeSurprise?: boolean;
+  surpriseStrength?: number;
   label: string;
   shape: MarkerShape;
   color: string;
@@ -52,6 +54,7 @@ export type ChartEventMarker = {
 };
 
 export type ChartMarkersQuery = {
+  largeSurpriseOnly?: boolean;
   symbol: string;
   from?: string;
   to?: string;
@@ -124,8 +127,8 @@ function stockToMarker(ev: StockEvent, symbol: string): ChartEventMarker {
   };
 }
 
-function marketToMarker(ev: MarketEventDto): ChartEventMarker {
-  const surprise = ev.eventType === "macro.release" ? evaluateMacroSurprise(ev.payload) : null;
+export function marketToMarker(ev: MarketEventDto): ChartEventMarker {
+  const surprise = classifyMacroEventSurprise(ev.eventType === "macro.release" ? ev.payload : null);
   const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
   const label =
     ev.markerLabel?.trim() ||
@@ -135,10 +138,11 @@ function marketToMarker(ev: MarketEventDto): ChartEventMarker {
     id: ev.id,
     time: ev.datePrecision === "DATETIME" ? Math.floor(Date.parse(ev.occurredAt) / 1000) : isoDateToUnixSec(ev.occurredAt),
     datePrecision: ev.datePrecision,
-    surpriseScore: surprise?.score,
-    label: label.slice(0, 4),
+    largeSurprise: surprise.level === "large",
+    surpriseStrength: surprise.decisive?.strength,
+    label: `${surprise.level === "large" ? "◆" : ""}${label.slice(0, 4)}`,
     shape: markerShapeFor(eventType),
-    color: surprise?.large ? "#f59e0b" : markerColorFor(eventType, ev.importance),
+    color: macroSurpriseMarkerColor(surprise) ?? markerColorFor(eventType, ev.importance),
     importance: ev.importance,
     eventType,
     scope: ev.scope,
@@ -215,7 +219,7 @@ export async function loadChartEventMarkers(
   const profile = await resolveChartSymbolProfile(query.symbol);
   const scopeMode = parseScopeMode(query.scopeMode);
   const tags = resolveTagFilters(query, profile.symbol);
-  const includeSec = query.includeSec !== false;
+  const includeSec = query.includeSec !== false && !query.largeSurpriseOnly;
   const includeMarket = query.includeMarket !== false;
   const minImp = query.minImportance ?? "MEDIUM";
   const limit = Math.min(500, Math.max(1, query.limit ?? 200));
@@ -254,6 +258,7 @@ export async function loadChartEventMarkers(
       if (!meetsImp(ev.importance, minImp)) continue;
       const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
       if (!typeFilterOk(eventType, query.types)) continue;
+      if (query.largeSurpriseOnly && (eventType !== "macro.release" || classifyMacroEventSurprise(ev.payload).level !== "large")) continue;
       out.push(marketToMarker(ev));
     }
   }
@@ -316,6 +321,7 @@ function stockToPanelEvent(ev: StockEvent, symbol: string): MarketEventDto {
  * 重要性/类型亦可在服务端预筛（与图表标记对齐）；客户端仍可再筛 search/人物等。
  */
 export async function loadChartPanelEvents(query: {
+  largeSurpriseOnly?: boolean;
   symbol: string;
   from?: string;
   to?: string;
@@ -341,7 +347,7 @@ export async function loadChartPanelEvents(query: {
   const profile = await resolveChartSymbolProfile(query.symbol);
   const scopeMode = parseScopeMode(query.scopeMode ?? query.mode);
   const tags = resolveTagFilters(query, profile.symbol);
-  const includeSec = query.includeSec !== false;
+  const includeSec = query.includeSec !== false && !query.largeSurpriseOnly;
   const includeMarket = query.includeMarket !== false;
   const minImp = query.minImportance;
   const limit = Math.min(3000, Math.max(1, query.limit ?? 2000));
@@ -382,6 +388,7 @@ export async function loadChartPanelEvents(query: {
       if (minImp && !meetsImp(ev.importance, minImp)) continue;
       const eventType = normalizeEventType(ev.eventType) ?? ev.eventType ?? "other";
       if (query.types?.length && !typeFilterOk(eventType, query.types)) continue;
+      if (query.largeSurpriseOnly && (eventType !== "macro.release" || classifyMacroEventSurprise(ev.payload).level !== "large")) continue;
       out.push(ev);
     }
   }

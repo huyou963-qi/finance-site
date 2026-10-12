@@ -1,4 +1,19 @@
-import { evaluateMacroSurprise } from "@/lib/data/macroEventSurprise";
+import { classifyMacroEventSurprise, evaluateMacroSurprise, macroSurpriseMarkerColor } from "@/lib/data/macroEventSurprise";
+
+export function MacroEventSurpriseSummary({ payload }: { payload: unknown }) {
+  const result = classifyMacroEventSurprise(payload);
+  const c = result.decisive;
+  if (!c) return <p className="text-xs text-fs-muted">预期差未评估：缺少有效数值证据或适用阈值，不能视为符合预期。</p>;
+  const unit = c.evidence.unit === "%" ? "个百分点" : c.evidence.unit;
+  const fmt = (n: number) => Number(n.toPrecision(6)).toLocaleString("zh-CN");
+  return <div className="mb-2 rounded border border-fs-border p-2 text-xs">
+    <strong style={{ color: macroSurpriseMarkerColor(result) }}>{result.level === "large" ? "◆大预期差" : "未达大偏差阈值"}{result.direction === "mixed" ? " · 关键分项方向相反" : ""}</strong>
+    <p className="mt-1">判定分项：{c.evidence.label ?? c.evidence.metricId} · 实际 {fmt(c.evidence.actual)} / 预期 {fmt(c.evidence.consensus)} {c.evidence.unit}</p>
+    <p>差值 {c.difference > 0 ? "+" : ""}{fmt(c.difference)} {unit} · 大偏差阈值 ≥{fmt(c.threshold)} {unit} · 强度 {c.strength.toFixed(2)} 倍阈值</p>
+    {c.evidence.consensusRange && <p className="text-fs-muted">调查范围：{c.evidence.consensusRange}（供参考）</p>}
+    <p className="mt-1 text-fs-muted">关键分项任一达标即入选，不重复累加。试行绝对阈值，非标准差；历史报道用于事后研究，未证明发布前快照。数值方向不代表资产利好／利空。</p>
+  </div>;
+}
 
 export function MacroSurpriseEvidence({ payload, compact = false }: { payload: unknown; compact?: boolean }) {
   const result = evaluateMacroSurprise(payload);

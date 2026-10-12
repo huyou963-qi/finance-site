@@ -134,6 +134,10 @@ export function EventPanelFilters({
 
   const importanceAndMore = (
     <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-1 text-[11px] text-fs-text" title="按关键分项试行阈值筛选，同时作用于列表和K线">
+        <input type="checkbox" checked={filters.largeSurpriseOnly} onChange={e => patch({ largeSurpriseOnly: e.target.checked })} />仅大预期差
+      </label>
+      <span className="text-[10px] text-fs-muted"><span style={{ color: "#e11d48" }}>◆高于</span> / <span style={{ color: "#0891b2" }}>◆低于</span> / <span style={{ color: "#a855f7" }}>◆分项相反</span></span>
       <label className="flex items-center gap-1 text-[10px] text-fs-muted">
         最低重要度
         <select
@@ -178,6 +182,7 @@ export function EventPanelFilters({
             onChange({
               ...filters,
               searchQ: "",
+              largeSurpriseOnly: false,
               typeFamilies: [...DEFAULT_EVENT_VIEW_FILTERS.typeFamilies],
               minImportance: DEFAULT_EVENT_VIEW_FILTERS.minImportance,
               countries: [],
@@ -199,7 +204,7 @@ export function EventPanelFilters({
     <div
       className={`rounded border border-fs-border bg-fs-bg/40 p-1.5 ${
         shelf
-          ? "grid grid-cols-5 gap-1.5"
+          ? "grid grid-cols-2 gap-1.5 sm:grid-cols-5"
           : "grid grid-cols-2 gap-1.5 sm:grid-cols-5"
       }`}
     >

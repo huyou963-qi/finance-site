@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const includeMarket = sp.get("includeMarket");
     const result = await loadChartEventMarkers({
       symbol,
+      largeSurpriseOnly: sp.get("largeSurpriseOnly") === "1",
       from: sp.get("from") ?? undefined,
       to: sp.get("to") ?? undefined,
       expand: sp.get("expand") ?? undefined,

@@ -19,6 +19,7 @@ export function buildForChartUrl(
     scopeMode: filters.scopeMode,
     includeSec: filters.includeSec ? "1" : "0",
     includeMarket: filters.includeMarket ? "1" : "0",
+    largeSurpriseOnly: filters.largeSurpriseOnly ? "1" : "0",
     minImportance: filters.minImportance,
     limit: "2000",
   });

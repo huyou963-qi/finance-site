@@ -2819,6 +2819,7 @@ export function StockChartWorkspace({
         minImportance: eventViewFilters.minImportance,
         includeSec: eventViewFilters.includeSec ? "1" : "0",
         includeMarket: eventViewFilters.includeMarket ? "1" : "0",
+        largeSurpriseOnly: eventViewFilters.largeSurpriseOnly ? "1" : "0",
       });
       if (from) qs.set("from", from);
       if (to) qs.set("to", to);
@@ -2849,7 +2850,7 @@ export function StockChartWorkspace({
           }
           const seriesMarkers: SeriesMarker<Time>[] = [];
           for (const [, list] of byDay) {
-            list.sort((a, b) => Math.abs(b.surpriseScore ?? 0) - Math.abs(a.surpriseScore ?? 0));
+            list.sort((a, b) => Number(Boolean(b.largeSurprise)) - Number(Boolean(a.largeSurprise)) || (b.surpriseStrength ?? 0) - (a.surpriseStrength ?? 0));
             const primary = list[0]!;
             const extra = list.length - 1;
             const text = eventViewFilters.showLabel
@@ -2864,7 +2865,7 @@ export function StockChartWorkspace({
               color: primary.color,
               text,
               id: primary.id,
-              size: 1,
+              size: primary.largeSurprise ? 1.5 : 1,
             });
           }
           seriesMarkers.sort((a, b) => Number(a.time) - Number(b.time));
@@ -2890,6 +2891,7 @@ export function StockChartWorkspace({
     eventViewFilters.markersEnabled,
     eventViewFilters.includeSec,
     eventViewFilters.includeMarket,
+    eventViewFilters.largeSurpriseOnly,
     eventViewFilters.minImportance,
     eventViewFilters.scopeMode,
     eventViewFilters.showLabel,

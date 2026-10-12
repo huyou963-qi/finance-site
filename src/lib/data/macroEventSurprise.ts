@@ -11,6 +11,7 @@ export type MacroReleaseEvidence = {
   consensusEvidenceType?: "contemporaneous-report";
   consensusReportedAt?: string;
   consensusSource: string;
+  consensusRange?: string;
   consensusSourceUrl: string;
   actualSourceUrl: string;
   isInitialRelease: true;
@@ -109,4 +110,78 @@ export function isMacroResearchAsset(symbol: string): boolean {
   const s = symbol.trim().toUpperCase();
   return expandEventAssetTags(["XAUUSD"]).includes(s) ||
     ["DX-Y.NYB", "DX=F", "UUP", "^TNX", "^IRX", "^TYX", "TLT", "IEF", "SHY", "GOVT", "SPY", "QQQ", "DIA", "IWM", "^GSPC", "^IXIC", "^DJI"].includes(s);
+}
+
+/** Provisional absolute thresholds, not z-scores or fitted market-impact estimates. */
+export const MACRO_SURPRISE_THRESHOLDS: Record<string, { unit: string; large: number }> = {
+  "nonfarm-payrolls-m-m": { unit: "人", large: 75000 },
+  "private-payrolls-m-m": { unit: "人", large: 75000 },
+  "unemployment-rate": { unit: "%", large: 0.2 },
+  "average-hourly-earnings-m-m": { unit: "%", large: 0.2 },
+  "average-hourly-earnings-y-y": { unit: "%", large: 0.3 },
+  "ex-food-energy-m-m": { unit: "%", large: 0.2 },
+  "ex-food-energy-y-y": { unit: "%", large: 0.3 },
+  "cpi-m-m": { unit: "%", large: 0.2 },
+  "cpi-y-y": { unit: "%", large: 0.3 },
+  "core-pce-price-index-m-m": { unit: "%", large: 0.2 },
+  "core-pce-price-index-y-y": { unit: "%", large: 0.3 },
+  "pce-price-index-m-m": { unit: "%", large: 0.2 },
+  "pce-price-index-y-y": { unit: "%", large: 0.3 },
+  "ppi-fd-m-m": { unit: "%", large: 0.3 },
+  "ppi-fd-y-y": { unit: "%", large: 0.5 },
+  "ex-food-energy-trade-services-m-m": { unit: "%", large: 0.3 },
+  "ex-food-energy-trade-services-y-y": { unit: "%", large: 0.5 },
+  "retail-sales-m-m": { unit: "%", large: 0.5 },
+  "ex-vehicles-m-m": { unit: "%", large: 0.5 },
+  "ex-vehicles-gas-m-m": { unit: "%", large: 0.5 },
+  "quarter-over-quarter-annual-rate": { unit: "%", large: 0.5 },
+  index: { unit: "指数点", large: 2 },
+};
+
+export type MacroSurpriseComponent = {
+  evidence: MacroReleaseEvidence;
+  difference: number;
+  threshold: number;
+  /** Absolute difference / provisional threshold; never a standardized score. */
+  strength: number;
+  large: boolean;
+};
+export type MacroEventSurprise = {
+  level: "large" | "small" | "unassessed";
+  components: MacroSurpriseComponent[];
+  decisive?: MacroSurpriseComponent;
+  direction?: "above" | "below" | "mixed";
+};
+
+export function classifyMacroEventSurprise(payload: unknown): MacroEventSurprise {
+  const root = object(payload);
+  const components: MacroSurpriseComponent[] = [];
+  const seen = new Set<string>();
+  const primary = object(root?.macroRelease);
+  for (const raw of [primary, ...(Array.isArray(root?.macroReleaseComponents) ? root.macroReleaseComponents : [])]) {
+    const result = evaluateMacroSurprise({ macroRelease: raw });
+    const e = result.evidence;
+    if (!e || result.difference === undefined || !e.metricId) continue;
+    // A component must belong to the same publication, not a different release pasted into its payload.
+    if (primary && (e.releaseAt !== primary.releaseAt || e.referencePeriod !== primary.referencePeriod)) continue;
+    // Econoday uses the same core metric ids for CPI and PPI: resolve their series before selecting a threshold.
+    const ppiCore = e.label?.includes("PPI") && ["ex-food-energy-m-m", "ex-food-energy-y-y"].includes(e.metricId);
+    const rule = ppiCore ? { unit: "%", large: e.metricId.endsWith("m-m") ? 0.3 : 0.5 } : MACRO_SURPRISE_THRESHOLDS[e.metricId];
+    if (!rule || rule.unit !== e.unit || (e.metricId === "index" && !e.label?.includes("PMI"))) continue;
+    if (seen.has(e.metricId)) continue;
+    seen.add(e.metricId);
+    const strength = Math.abs(result.difference) / rule.large;
+    components.push({ evidence: e, difference: result.difference, threshold: rule.large, strength,
+      large: strength >= 1 - 1e-9 });
+  }
+  components.sort((a, b) => b.strength - a.strength);
+  const large = components.filter(c => c.large);
+  const signs = new Set(large.map(c => Math.sign(c.difference)));
+  return { level: large.length ? "large" : components.length ? "small" : "unassessed", components,
+    decisive: components[0], direction: signs.size > 1 ? "mixed" : large.length ? large[0].difference > 0 ? "above" : "below" : undefined };
+}
+
+export function macroSurpriseMarkerColor(result: MacroEventSurprise): string | undefined {
+  if (result.level !== "large") return undefined;
+  return result.direction === "mixed" ? "#a855f7" : result.direction === "above" ? "#e11d48" : "#0891b2";
 }

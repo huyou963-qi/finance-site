@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { evaluateMacroSurprise, expandEventAssetTags, isMacroResearchAsset } from "./macroEventSurprise";
+import { classifyMacroEventSurprise, macroSurpriseMarkerColor, evaluateMacroSurprise, expandEventAssetTags, isMacroResearchAsset } from "./macroEventSurprise";
 
 const release = {
   actual: 230, consensus: 150, unit: "千人", referencePeriod: "2026-09",
@@ -48,5 +48,42 @@ describe("macro surprise evidence", () => {
     assert.ok(expandEventAssetTags(["GLD"]).includes("XAUUSD"));
     assert.deepEqual(expandEventAssetTags(["CL=F"]), ["CL=F"]);
     assert.equal(isMacroResearchAsset("CL=F"), false);
+  });
+});
+
+describe("provisional component surprise thresholds", () => {
+  const cpi = { ...release, metricId: "ex-food-energy-m-m", label: "核心CPI环比", unit: "%", actual: 0.3, consensus: 0.2,
+    consensusAsOf: undefined, consensusEvidenceType: "contemporaneous-report" };
+  it("classifies historical survey evidence without manufacturing a z-score", () => {
+    assert.equal(classifyMacroEventSurprise({ macroRelease: cpi }).level, "small");
+    const r = classifyMacroEventSurprise({ macroRelease: { ...cpi, actual: 0.4 } });
+    assert.equal(r.level, "large"); assert.equal(r.direction, "above"); assert.equal(r.decisive?.strength, 1);
+    assert.equal(evaluateMacroSurprise({ macroRelease: { ...cpi, actual: 0.4 } }).score, undefined);
+  });
+  it("finds a large secondary component, avoids double counting and catches mixed signs", () => {
+    const nfp = { ...release, metricId: "nonfarm-payrolls-m-m", unit: "人", actual: 100000, consensus: 90000 };
+    const unemployment = { ...release, metricId: "unemployment-rate", unit: "%", actual: 4.1, consensus: 4.3 };
+    const r = classifyMacroEventSurprise({ macroRelease: nfp, macroReleaseComponents: [nfp, unemployment] });
+    assert.equal(r.level, "large"); assert.equal(r.decisive?.evidence.metricId, "unemployment-rate");
+    assert.equal(r.components.length, 2); assert.equal(r.direction, "below");
+    const mixed = classifyMacroEventSurprise({ macroRelease: { ...nfp, actual: 170000 }, macroReleaseComponents: [unemployment] });
+    assert.equal(mixed.direction, "mixed"); assert.equal(macroSurpriseMarkerColor(mixed), "#a855f7");
+  });
+  it("does not confuse CPI and PPI metric ids", () => {
+    const r = classifyMacroEventSurprise({ macroRelease: { ...cpi, label: "PPI剔除食品能源环比", actual: 0.4 } });
+    assert.equal(r.level, "small"); assert.equal(r.decisive?.threshold, 0.3);
+  });
+  it("rejects wrong units, invalid sources, different publications and unconfigured metrics", () => {
+    for (const override of [{ unit: "指数" }, { metricId: "manufacturing-payrolls-m-m" }, { actualSourceUrl: "javascript:x" }, { isInitialRelease: false }]) {
+      assert.equal(classifyMacroEventSurprise({ macroRelease: { ...cpi, actual: 1, ...override } }).level, "unassessed");
+    }
+    assert.equal(classifyMacroEventSurprise({ policyOutcome: { actual: 4 } }).level, "unassessed");
+    assert.equal(classifyMacroEventSurprise({ macroRelease: cpi, macroReleaseComponents: [{ ...cpi, actual: 1, referencePeriod: "2026-08" }] }).level, "small");
+    assert.equal(classifyMacroEventSurprise({ macroRelease: { ...cpi, actual: cpi.consensus } }).decisive?.strength, 0);
+  });
+  it("uses deterministic thresholds regardless of later observations or survey range width", () => {
+    const r = classifyMacroEventSurprise({ macroRelease: { ...cpi, actual: 0.4, consensusRange: "0.1% to 0.4%", historicalErrors: history } });
+    assert.equal(r.level, "large"); assert.equal(macroSurpriseMarkerColor(r), "#e11d48");
+    assert.equal(macroSurpriseMarkerColor(classifyMacroEventSurprise({ macroRelease: cpi })), undefined);
   });
 });

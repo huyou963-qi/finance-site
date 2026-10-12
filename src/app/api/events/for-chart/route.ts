@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const minImportance = sp.get("minImportance") as EventImportance | null;
     const result = await loadChartPanelEvents({
       symbol,
+      largeSurpriseOnly: sp.get("largeSurpriseOnly") === "1",
       from: sp.get("from") ?? undefined,
       to: sp.get("to") ?? undefined,
       expand: sp.get("expand") ?? undefined,
