@@ -189,7 +189,9 @@ export function classifyMacroEventSurprise(payload: unknown): MacroEventSurprise
     decisive: components[0], direction: signs.size > 1 ? "mixed" : large.length ? large[0].difference > 0 ? "above" : "below" : undefined };
 }
 
+export const MACRO_SURPRISE_MARKER_COLORS = { above: "#e11d48", below: "#d97706", mixed: "#a855f7" } as const;
+
 export function macroSurpriseMarkerColor(result: MacroEventSurprise): string | undefined {
   if (result.level !== "large") return undefined;
-  return result.direction === "mixed" ? "#a855f7" : result.direction === "above" ? "#e11d48" : "#0891b2";
+  return MACRO_SURPRISE_MARKER_COLORS[result.direction ?? "below"];
 }

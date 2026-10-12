@@ -13,6 +13,7 @@ import {
 } from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
+import { MACRO_SURPRISE_MARKER_COLORS } from "@/lib/data/macroEventSurprise";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
   hasActiveEventViewContentFilters,
@@ -35,7 +36,7 @@ type EventPanelFiltersProps = {
   companyKindFilter?: CompanyKindFilter[];
   onCompanyKindFilterChange?: (next: CompanyKindFilter[]) => void;
   /** shelf：搜索与类型/公司/重要度同一行；panel：纵向（默认） */
-  layout?: "panel" | "shelf";
+  layout?: "panel" | "shelf" | "inline";
 };
 
 export function EventPanelFilters({
@@ -50,7 +51,7 @@ export function EventPanelFilters({
     onChange({ ...filters, ...p });
 
   const companyFamilyOn = filters.typeFamilies.includes("company");
-  const shelf = layout === "shelf";
+  const shelf = layout !== "panel";
   const [moreOpen, setMoreOpen] = useState(!shelf);
 
   const toggleFamily = (id: EventTypeFamilyId) => {
@@ -137,7 +138,7 @@ export function EventPanelFilters({
       <label className="flex items-center gap-1 text-[11px] text-fs-text" title="按关键分项试行阈值筛选，同时作用于列表和K线">
         <input type="checkbox" checked={filters.largeSurpriseOnly} onChange={e => patch({ largeSurpriseOnly: e.target.checked })} />仅大预期差
       </label>
-      <span className="text-[10px] text-fs-muted"><span style={{ color: "#e11d48" }}>◆高于</span> / <span style={{ color: "#0891b2" }}>◆低于</span> / <span style={{ color: "#a855f7" }}>◆分项相反</span></span>
+      <span className="text-[10px] text-fs-muted"><span style={{ color: MACRO_SURPRISE_MARKER_COLORS.above }}>◆高于</span> / <span style={{ color: MACRO_SURPRISE_MARKER_COLORS.below }}>◆低于</span> / <span style={{ color: MACRO_SURPRISE_MARKER_COLORS.mixed }}>◆分项相反</span></span>
       <label className="flex items-center gap-1 text-[10px] text-fs-muted">
         最低重要度
         <select
@@ -173,7 +174,7 @@ export function EventPanelFilters({
           onClick={onResetToSymbolDefault}
           className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
         >
-          重置为标的默认
+          {layout === "inline" ? "重置筛选" : "重置为标的默认"}
         </button>
       ) : hasActiveEventViewContentFilters(filters) ? (
         <button
@@ -202,7 +203,7 @@ export function EventPanelFilters({
 
   const morePanel = moreOpen ? (
     <div
-      className={`rounded border border-fs-border bg-fs-bg/40 p-1.5 ${
+      className={`rounded border border-fs-border bg-fs-bg/40 p-1.5 ${layout === "inline" ? "w-full basis-full " : ""}${
         shelf
           ? "grid grid-cols-2 gap-1.5 sm:grid-cols-5"
           : "grid grid-cols-2 gap-1.5 sm:grid-cols-5"
@@ -256,6 +257,15 @@ export function EventPanelFilters({
       </div>
     </div>
   ) : null;
+
+  if (layout === "inline") {
+    return <div className="contents">
+      <input type="search" value={filters.searchQ} onChange={e => patch({ searchQ: e.target.value })}
+        placeholder="搜索…" aria-label="搜索事件"
+        className="w-28 shrink-0 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary" />
+      {typeChips}{companyChips}{importanceAndMore}{morePanel}
+    </div>;
+  }
 
   if (shelf) {
     return (

@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  CHANNEL_LABELS,
-  COMPANY_KIND_FILTER_LABELS,
   COMPANY_KIND_FILTERS,
   isoDateToUnixSec,
   loadDemoMilestones,
@@ -32,7 +30,6 @@ import {
 import { isEraHeaderEvent } from "@/lib/data/marketEventTimeline";
 import { MacroEventResearch } from "@/components/events/MacroEventResearch";
 import { classifyMacroEventSurprise, isMacroResearchAsset, macroSurpriseMarkerColor } from "@/lib/data/macroEventSurprise";
-import { MacroEventSurpriseSummary } from "@/components/events/MacroSurpriseEvidence";
 
 const KIND_DOT: Record<CompanyMilestone["kind"], string> = {
   product: "bg-emerald-500",
@@ -50,10 +47,10 @@ const LAYER_BADGE: Record<CompanyMilestone["layer"], string> = {
 };
 
 const TEMPLATE_BASE = "/templates/company-milestone";
-const HEIGHT_STORAGE_KEY = "markets-event-shelf-height-v1";
-const MIN_SHELF_HEIGHT = 180;
+const HEIGHT_STORAGE_KEY = "markets-event-shelf-height-v2";
+const MIN_SHELF_HEIGHT = 120;
 const MAX_SHELF_HEIGHT = 640;
-const DEFAULT_SHELF_HEIGHT = 300;
+const DEFAULT_SHELF_HEIGHT = 180;
 
 function clampShelfHeight(h: number): number {
   return Math.min(MAX_SHELF_HEIGHT, Math.max(MIN_SHELF_HEIGHT, Math.round(h)));
@@ -111,12 +108,16 @@ export function MarketsEventShelf({
   height = DEFAULT_SHELF_HEIGHT,
 }: MarketsEventShelfProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(0);
+  const [cardReserve, setCardReserve] = useState(104);
   const fileRef = useRef<HTMLInputElement>(null);
   const [shelfHeight, setShelfHeight] = useState(() =>
     loadShelfHeight(height),
   );
   const shelfHeightRef = useRef(shelfHeight);
-  shelfHeightRef.current = shelfHeight;
+  const renderedHeight = Math.max(shelfHeight, toolbarHeight + cardReserve);
+  shelfHeightRef.current = renderedHeight;
   const [localOnly, setLocalOnly] = useState<CompanyMilestone[]>([]);
   const [sharedEvents, setSharedEvents] = useState<CompanyMilestone[]>([]);
   const [secEvents, setSecEvents] = useState<CompanyMilestone[]>([]);
@@ -130,11 +131,21 @@ export function MarketsEventShelf({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [userId, setUserId] = useState("anon");
   const [loading, setLoading] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [drawerEvent, setDrawerEvent] = useState<MarketEventDto | null>(null);
   const [researchOpen, setResearchOpen] = useState(false);
   const [rawEvents, setRawEvents] = useState<MarketEventDto[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+    const observer = new ResizeObserver(() => {
+      setToolbarHeight(Math.ceil(toolbar.getBoundingClientRect().height));
+      setCardReserve(window.matchMedia("(max-width: 639px)").matches ? 148 : 104);
+    });
+    observer.observe(toolbar);
+    return () => observer.disconnect();
+  }, []);
 
   const onResizePointerDown = useCallback(
     (e: { preventDefault: () => void; clientY: number; pointerId: number; currentTarget: HTMLDivElement }) => {
@@ -404,7 +415,7 @@ export function MarketsEventShelf({
   return (
     <div
       className="relative flex shrink-0 flex-col border-t border-fs-border bg-fs-bg"
-      style={{ height: shelfHeight }}
+      style={{ height: renderedHeight }}
     >
       <div
         role="separator"
@@ -416,7 +427,7 @@ export function MarketsEventShelf({
       >
         <span className="h-0.5 w-10 rounded-full bg-fs-border" aria-hidden />
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-fs-border px-2 py-1 pt-2.5">
+      <div ref={toolbarRef} className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-fs-border px-2 py-1 pt-2.5">
         <span className="text-[11px] font-medium text-fs-text">事件筛选器</span>
         <span className="text-[10px] text-fs-muted">{sym || "未选标的"}</span>
         {isMacroResearchAsset(sym) && <button type="button" aria-pressed={researchOpen}
@@ -439,29 +450,10 @@ export function MarketsEventShelf({
           />
           图上显示
         </label>
-        {onResetToSymbolDefault ? (
-          <button
-            type="button"
-            onClick={onResetToSymbolDefault}
-            className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:bg-fs-elevated"
-          >
-            重置筛选
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setFiltersOpen((v) => !v)}
-          className={`rounded border px-1.5 py-0.5 text-[10px] ${
-            filtersOpen
-              ? "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
-              : "border-fs-border text-fs-muted hover:bg-fs-elevated"
-          }`}
-        >
-          筛选
-          {companyKindFilter.length > 0
-            ? ` · ${companyKindFilter.map((k) => COMPANY_KIND_FILTER_LABELS[k]).join("+")}`
-            : ""}
-        </button>
+        <span className="text-[11px] text-fs-muted">筛选：</span>
+        <EventPanelFilters layout="inline" filters={viewFilters} onChange={onViewFiltersChange}
+          onResetToSymbolDefault={onResetToSymbolDefault} companyKindFilter={companyKindFilter}
+          onCompanyKindFilterChange={setCompanyKindFilter} />
         <span className="text-[10px] tabular-nums text-fs-muted">
           {visible.length} 条
           {localCount > 0 ? ` · 本地 ${localCount}` : ""}
@@ -502,19 +494,6 @@ export function MarketsEventShelf({
         </div>
       </div>
 
-      {filtersOpen ? (
-        <div className="max-h-[160px] shrink-0 overflow-y-auto border-b border-fs-border px-2 py-1.5">
-          <EventPanelFilters
-            layout="shelf"
-            filters={viewFilters}
-            onChange={onViewFiltersChange}
-            onResetToSymbolDefault={onResetToSymbolDefault}
-            companyKindFilter={companyKindFilter}
-            onCompanyKindFilterChange={setCompanyKindFilter}
-          />
-        </div>
-      ) : null}
-
       {researchOpen && isMacroResearchAsset(sym) ? <MacroEventResearch
         events={rawEvents.filter(e => eventMatchesFilters(e, viewFilters, { skipTagContext: true, fallbackAsset: sym }))} loading={loading} error={fetchError}
         from={rangeFromSec != null ? unixSecToIsoDate(Math.min(rangeFromSec, rangeToSec ?? rangeFromSec)) : null}
@@ -528,7 +507,7 @@ export function MarketsEventShelf({
                 ? "当前区间与筛选下没有大预期差事件，可调整时间范围或取消「仅大预期差」。"
               : merged.length > 0
                 ? "当前筛选或可视区间内无事件，可调整筛选或拖动 K 线时间范围。"
-                : "暂无事件。打开「筛选」调整类型，或「下载SKILL」后「导入经营事件」（仅本地可见）。"}
+                : "暂无事件。可调整筛选类型，或「下载SKILL」后「导入经营事件」（仅本地可见）。"}
           </div>
         ) : (
           <div
@@ -548,11 +527,15 @@ export function MarketsEventShelf({
                 {visible.map((m) => {
                   const active = m.id === (selected?.id ?? selectedId);
                   return (
-                    <li key={m.id} data-mid={m.id} className="w-[140px] shrink-0">
+                    <li key={m.id} data-mid={m.id} className="relative w-[140px] shrink-0">
                       <button
                         type="button"
                         onClick={() => onSelect(m)}
                         onDoubleClick={() => setDrawerEvent(originalForMilestone(m))}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") { e.preventDefault(); onSelect(m); setDrawerEvent(originalForMilestone(m)); }
+                        }}
+                        title="双击或按 Enter 查看事件详情"
                         className={`flex h-full w-full flex-col rounded border px-1.5 py-1 text-left transition ${
                           active
                             ? "border-fs-accent bg-fs-accent-soft shadow-sm"
@@ -567,7 +550,7 @@ export function MarketsEventShelf({
                           <span className="text-[9px] tabular-nums text-fs-muted">
                             {m.occurredAt.slice(0, 7)}
                           </span>
-                          <span className="ml-auto text-[8px] text-fs-muted">
+                          <span className="ml-auto hidden text-[8px] text-fs-muted sm:inline">
                             {LAYER_BADGE[m.layer]}
                           </span>
                         </div>
@@ -585,6 +568,9 @@ export function MarketsEventShelf({
                           {m.title || m.impact.summary}
                         </span>
                       </button>
+                      <button type="button" onClick={() => setDrawerEvent(originalForMilestone(m))}
+                        className="absolute right-1 top-1 flex min-h-8 items-center rounded bg-fs-elevated px-1 text-[10px] text-fs-accent-text sm:hidden"
+                        aria-label={`查看详情：${m.title}`}>详情</button>
                     </li>
                   );
                 })}
@@ -593,49 +579,6 @@ export function MarketsEventShelf({
           </div>
         )}
       </div>}
-
-      {selected && !(researchOpen && isMacroResearchAsset(sym)) ? (
-        <div className="shrink-0 border-t border-fs-border bg-fs-elevated/50 px-2 py-1.5">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="text-[10px] tabular-nums text-fs-muted">
-              {selected.occurredAt.slice(0, 10)}
-            </span>
-            <span className="text-[10px] text-fs-muted">{selected.typeLabel}</span>
-            <span className="rounded bg-white px-1 text-[9px] text-fs-muted ring-1 ring-fs-border">
-              {LAYER_BADGE[selected.layer]}
-            </span>
-            <span className="text-[11px] font-medium text-fs-text">{selected.title}</span>
-            <button
-              type="button"
-              onClick={() => setDrawerEvent(originalForMilestone(selected))}
-              className="ml-auto text-[10px] text-fs-accent-text hover:underline"
-            >
-              详情
-            </button>
-          </div>
-          {originalForMilestone(selected).eventType === "macro.release" && <div className="max-h-24 overflow-y-auto"><MacroEventSurpriseSummary payload={originalForMilestone(selected).payload} /></div>}
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-fs-secondary">
-            {selected.impact.summary || selected.content}
-          </p>
-          {selected.impact.channels?.length ? (
-            <div className="mt-0.5 flex flex-wrap gap-1">
-              {selected.impact.channels.map((c) => (
-                <span
-                  key={c}
-                  className="rounded bg-white px-1 text-[9px] text-fs-muted ring-1 ring-fs-border"
-                >
-                  {CHANNEL_LABELS[c] ?? c}
-                </span>
-              ))}
-            </div>
-          ) : null}
-          {selected.layer === "local" ? (
-            <p className="mt-0.5 text-[9px] text-fs-muted">
-              本地导入，仅对本账号可见；全站共享需管理员入库。
-            </p>
-          ) : null}
-        </div>
-      ) : null}
 
       <EventDetailDrawer
         event={drawerEvent}

@@ -77,6 +77,7 @@ describe("provisional component surprise thresholds", () => {
     const adp = { ...release, metricId: "private-payrolls-m-m", unit: "人", actual: 44000, consensus: 75000 };
     const r = classifyMacroEventSurprise({ releaseIdentity: "adp:2026-07", macroRelease: adp });
     assert.equal(r.level, "large"); assert.equal(r.direction, "below");
+    assert.equal(macroSurpriseMarkerColor(r), "#d97706");
     assert.equal(r.decisive?.threshold, 22500);
     assert.ok(Math.abs(r.decisive!.relativeDifference! + 41.3333333333) < 1e-8);
     assert.equal(classifyMacroEventSurprise({ releaseIdentity: "employment:2026-07", macroRelease: adp }).level, "small");
