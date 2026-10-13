@@ -34,7 +34,7 @@ import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
 import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPaymentsFredSeedCatalog";
 import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPmiCatalog";
 import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
-import { ECB_CORE_SERIES, EUROSTAT_CORE_SERIES, EUROSTAT_FAST_PROBE_HOURS } from "./europeCore/catalog";
+import { ECB_CORE_SERIES, ECB_KEY_RATE_PROBE_HOURS, EUROSTAT_CORE_SERIES, EUROSTAT_FAST_PROBE_HOURS } from "./europeCore/catalog";
 import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
 import { EIA_WPSR_PACKAGE_ID, EIA_WPSR_SERIES } from "./eiaWpsr/catalog";
 
@@ -198,10 +198,10 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     calendar: { countryCodes: ["EU"], keywords: ["government debt", "government debt to gdp"] },
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.government_debt").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.ecb.key_rates", "ECB关键政策利率", {
+  probePkg("eu.ecb.key_rates", "ECB关键政策利率", {
     labelEn: "ECB Key Interest Rates",
     countryCode: "EU", agencyId: "eu-ecb", granularity: "DAILY", sortOrder: 46,
-    calendar: { countryCodes: ["EU"], keywords: ["ecb interest rate decision", "deposit facility rate"] },
+    intervalHours: ECB_KEY_RATE_PROBE_HOURS,
     members: { instrumentCodes: ECB_CORE_SERIES.filter((series) => series.packageId === "eu.ecb.key_rates").map((series) => series.instrumentCode) },
   }),
   pkg("eu.ecb.monetary_aggregates", "ECB货币总量", {
