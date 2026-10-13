@@ -86,6 +86,7 @@ function findNearestId(items: CompanyMilestone[], trackDate: string): string | n
 }
 
 export type MarketsEventShelfProps = {
+  onOpenDetail?: (event: MarketEventDto) => void;
   symbol: string;
   viewFilters: EventViewFilterState;
   onViewFiltersChange: (next: EventViewFilterState) => void;
@@ -98,6 +99,7 @@ export type MarketsEventShelfProps = {
 };
 
 export function MarketsEventShelf({
+  onOpenDetail,
   symbol,
   viewFilters,
   onViewFiltersChange,
@@ -372,6 +374,7 @@ export function MarketsEventShelf({
   const selected = visible.find((m) => m.id === selectedId) ?? visible[0] ?? null;
   const originalForMilestone = (m: CompanyMilestone) =>
     rawEvents.find(e => `${m.layer}:${e.id}` === m.id) ?? milestoneToMarketEventDto(m);
+  const openDetail = (event: MarketEventDto) => onOpenDetail ? onOpenDetail(event) : setDrawerEvent(event);
 
   const applyLocalItems = useCallback(
     (nextLocal: CompanyMilestone[]) => {
@@ -495,6 +498,7 @@ export function MarketsEventShelf({
       </div>
 
       {researchOpen && isMacroResearchAsset(sym) ? <MacroEventResearch
+        onOpenDetail={onOpenDetail}
         events={rawEvents.filter(e => eventMatchesFilters(e, viewFilters, { skipTagContext: true, fallbackAsset: sym }))} loading={loading} error={fetchError}
         from={rangeFromSec != null ? unixSecToIsoDate(Math.min(rangeFromSec, rangeToSec ?? rangeFromSec)) : null}
         to={rangeToSec != null ? unixSecToIsoDate(Math.max(rangeToSec, rangeFromSec ?? rangeToSec)) : null}
@@ -530,12 +534,8 @@ export function MarketsEventShelf({
                     <li key={m.id} data-mid={m.id} className="relative w-[140px] shrink-0">
                       <button
                         type="button"
-                        onClick={() => onSelect(m)}
-                        onDoubleClick={() => setDrawerEvent(originalForMilestone(m))}
-                        onKeyDown={e => {
-                          if (e.key === "Enter") { e.preventDefault(); onSelect(m); setDrawerEvent(originalForMilestone(m)); }
-                        }}
-                        title="双击或按 Enter 查看事件详情"
+                        onClick={() => { onSelect(m); openDetail(originalForMilestone(m)); }}
+                        title="单击查看事件详情"
                         className={`flex h-full w-full flex-col rounded border px-1.5 py-1 text-left transition ${
                           active
                             ? "border-fs-accent bg-fs-accent-soft shadow-sm"
@@ -550,7 +550,7 @@ export function MarketsEventShelf({
                           <span className="text-[9px] tabular-nums text-fs-muted">
                             {m.occurredAt.slice(0, 7)}
                           </span>
-                          <span className="ml-auto hidden text-[8px] text-fs-muted sm:inline">
+                          <span className="ml-auto text-[8px] text-fs-muted">
                             {LAYER_BADGE[m.layer]}
                           </span>
                         </div>
@@ -568,9 +568,6 @@ export function MarketsEventShelf({
                           {m.title || m.impact.summary}
                         </span>
                       </button>
-                      <button type="button" onClick={() => setDrawerEvent(originalForMilestone(m))}
-                        className="absolute right-1 top-1 flex min-h-8 items-center rounded bg-fs-elevated px-1 text-[10px] text-fs-accent-text sm:hidden"
-                        aria-label={`查看详情：${m.title}`}>详情</button>
                     </li>
                   );
                 })}

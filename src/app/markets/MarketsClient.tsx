@@ -24,6 +24,8 @@ import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
 import { MarketsEventShelf } from "@/components/equity/MarketsEventShelf";
+import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
+import type { MarketEventDto } from "@/lib/data/marketEvents";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
   loadEventViewFilters,
@@ -64,6 +66,13 @@ function displayNameForSymbol(sym: string): string | undefined {
 }
 
 export function MarketsClient() {
+  const [detailEvent, setDetailEvent] = useState<MarketEventDto | null>(null);
+  const [detailOpenVersion, setDetailOpenVersion] = useState(0);
+  const openEventDetail = useCallback((event: MarketEventDto) => {
+    setDetailEvent(event);
+    setDetailOpenVersion(version => version + 1);
+  }, []);
+  const closeEventDetail = useCallback(() => setDetailEvent(null), []);
   const [symbol, setSymbol] = useState("");
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const regionalInstrument = resolveEastmoneyInstrument(symbol);
@@ -722,7 +731,9 @@ export function MarketsClient() {
   );
 
   return (
-    <MarketsWatchlist toolbar={toolbar} symbol={symbol} name={pickedName} canAddCurrent={!!symbol && loadedSymbol === symbol && query.trim() === symbol && !searchLoading && !searchError} onSelect={commitSymbol}>
+    <MarketsWatchlist toolbar={toolbar} symbol={symbol} name={pickedName} canAddCurrent={!!symbol && loadedSymbol === symbol && query.trim() === symbol && !searchLoading && !searchError} onSelect={commitSymbol}
+      rightPanel={detailEvent ? <EventDetailDrawer event={detailEvent} onClose={closeEventDetail} presentation="sidebar" /> : null}
+      rightPanelOpenVersion={detailOpenVersion}>
     <div
       className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
     >
@@ -759,6 +770,7 @@ export function MarketsClient() {
         />
         {eventShelfOpen ? (
           <MarketsEventShelf
+            onOpenDetail={openEventDetail}
             symbol={symbol}
             viewFilters={eventViewFilters}
             onViewFiltersChange={setEventViewFilters}

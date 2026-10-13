@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { formatEventOccurredAt } from "@/lib/data/marketEvents";
 import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
@@ -21,9 +21,13 @@ function MetaTag({ children }: { children: string }) {
 export type EventDetailDrawerProps = {
   event: MarketEventDto | null;
   onClose: () => void;
+  presentation?: "modal" | "sidebar";
 };
 
-export function EventDetailDrawer({ event, onClose }: EventDetailDrawerProps) {
+export function EventDetailDrawer({ event, onClose, presentation = "modal" }: EventDetailDrawerProps) {
+  const docked = presentation === "sidebar";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (docked) scrollRef.current?.scrollTo({ top: 0 }); }, [docked, event?.id]);
   useEffect(() => {
     if (!event) return;
     const onKey = (e: KeyboardEvent) => {
@@ -43,26 +47,21 @@ export function EventDetailDrawer({ event, onClose }: EventDetailDrawerProps) {
     ...event.assets,
   ];
 
-  return (
-    <div className="fixed inset-0 z-[10000] flex justify-end max-md:flex-col">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/45"
-        aria-label="关闭详情"
-        onClick={onClose}
-      />
-      {/* 手机端改为底部弹出面板 */}
+  const panel = (
       <aside
-        role="dialog"
-        aria-modal
-        aria-labelledby="event-detail-title"
-        className="relative flex h-full w-full max-w-md flex-col border-l border-fs-border bg-fs-bg shadow-2xl max-md:h-[88dvh] max-md:max-w-none max-md:overflow-hidden max-md:rounded-t-2xl max-md:border-l-0"
+        id={docked ? "markets-event-detail-panel" : undefined}
+        role={docked ? "complementary" : "dialog"}
+        aria-label={docked ? "事件详情" : undefined}
+        aria-modal={docked ? undefined : true}
+        aria-labelledby={docked ? undefined : "event-detail-title"}
+        className={docked ? "flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-white [overflow-wrap:anywhere]" : "relative flex h-full w-full max-w-md flex-col border-l border-fs-border bg-fs-bg shadow-2xl max-md:h-[88dvh] max-md:max-w-none max-md:overflow-hidden max-md:rounded-t-2xl max-md:border-l-0"}
       >
-        <header className="shrink-0 border-b border-fs-border px-4 py-3">
+        <div ref={scrollRef} className={docked ? "min-h-0 flex-1 overflow-y-auto px-3 py-3 md:px-4 md:py-4" : "contents"}>
+        <header className={docked ? "border-b border-fs-border pb-3" : "shrink-0 border-b border-fs-border px-4 py-3"}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[10px] uppercase tracking-wide text-fs-muted">事件详情</p>
-              <h2 id="event-detail-title" className="mt-1 text-base font-semibold text-fs-text">
+              <h2 id="event-detail-title" className={`mt-1 font-semibold text-fs-text ${docked ? "text-xs leading-5" : "text-base"}`}>
                 {event.title ?? "未命名事件"}
               </h2>
             </div>
@@ -100,7 +99,7 @@ export function EventDetailDrawer({ event, onClose }: EventDetailDrawerProps) {
           ) : null}
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className={docked ? "py-3" : "min-h-0 flex-1 overflow-y-auto px-4 py-4"}>
           {event.eventType === "macro.release" && <div className="mb-4"><MacroEventSurpriseSummary payload={event.payload} /><MacroSurpriseEvidence payload={event.payload} /></div>}
           {event.eventType === "macro.release" && <div className="mb-4"><MacroReleaseComponentsEvidence payload={event.payload} /></div>}
           {sections.length > 0 ? (
@@ -110,20 +109,20 @@ export function EventDetailDrawer({ event, onClose }: EventDetailDrawerProps) {
                   <h3 className="border-b border-fs-border/60 pb-1 text-xs font-semibold text-fs-text">
                     {sec.title}
                   </h3>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-fs-secondary">
+                  <p className={`mt-2 whitespace-pre-wrap leading-relaxed text-fs-secondary ${docked ? "text-xs" : "text-sm"}`}>
                     {sec.body}
                   </p>
                 </section>
               ))}
             </div>
           ) : (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-fs-secondary">
+            <p className={`whitespace-pre-wrap leading-relaxed text-fs-secondary ${docked ? "text-xs" : "text-sm"}`}>
               {fallback}
             </p>
           )}
         </div>
 
-        <footer className="shrink-0 border-t border-fs-border px-4 py-3">
+        <footer className={docked ? "border-t border-fs-border py-3" : "shrink-0 border-t border-fs-border px-4 py-3"}>
           {event.sourceUrl ? (
             <a
               href={event.sourceUrl}
@@ -140,7 +139,13 @@ export function EventDetailDrawer({ event, onClose }: EventDetailDrawerProps) {
             <p className="mt-2 text-[10px] text-fs-muted">录入：{event.createdByUsername}</p>
           ) : null}
         </footer>
+        </div>
       </aside>
+  );
+  return docked ? panel : (
+    <div className="fixed inset-0 z-[10000] flex justify-end max-md:flex-col">
+      <button type="button" className="absolute inset-0 bg-black/45" aria-label="关闭详情" onClick={onClose} />
+      {panel}
     </div>
   );
 }

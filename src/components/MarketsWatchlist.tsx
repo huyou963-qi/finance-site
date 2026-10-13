@@ -28,19 +28,33 @@ function GroupEditor({ group, disabled, onChange }: { group: WatchlistGroup; dis
   </div>;
 }
 
-export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurrent, onSelect }: {
+export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurrent, onSelect, rightPanel, rightPanelOpenVersion = 0 }: {
   children: ReactNode;
   toolbar: ReactNode;
   symbol: string;
   name?: string;
   canAddCurrent: boolean;
   onSelect: (symbol: string, name?: string) => void;
+  rightPanel?: ReactNode;
+  rightPanelOpenVersion?: number;
 }) {
   const [open, setOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(320);
-  const [mobileTab, setMobileTab] = useState<"watchlist" | "chart">("chart");
+  const [mobileTab, setMobileTab] = useState<"watchlist" | "chart" | "details">("chart");
+  const [rightOpen, setRightOpen] = useState(true);
+  const [rightWidth, setRightWidth] = useState(320);
   const isMobile = useIsMobile();
   const panelOpen = isMobile ? mobileTab === "watchlist" : open;
+  const hasRightPanel = Boolean(rightPanel);
+  const detailsOpen = hasRightPanel && (isMobile ? mobileTab === "details" : rightOpen);
+  useEffect(() => {
+    if (hasRightPanel) {
+      setRightOpen(true);
+      if (isMobile) setMobileTab("details");
+    } else {
+      setMobileTab(tab => tab === "details" ? "chart" : tab);
+    }
+  }, [hasRightPanel, isMobile, rightPanelOpenVersion]);
   const { stocks, groups, tabOrder, ready, userId, saving, error: storageError, reload, change, changeGroup, reorderStocks } = useMarketsWatchlist();
   const [draftOrder, setDraftOrder] = useState<string[] | null>(null);
   const [draggingTab, setDraggingTab] = useState<string | null>(null);
@@ -150,14 +164,17 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
     window.requestAnimationFrame(() => toggleRef.current?.focus());
   }
 
-  function startResize(event: React.MouseEvent) {
+  function startResize(event: React.MouseEvent, side: "left" | "right" = "left") {
     event.preventDefault();
     resizeCleanup.current?.();
     const startX = event.clientX;
-    const startWidth = sidebarWidth;
+    const startWidth = side === "right" ? rightWidth : sidebarWidth;
     const previousCursor = document.body.style.cursor;
     const previousUserSelect = document.body.style.userSelect;
-    const move = (moveEvent: MouseEvent) => setSidebarWidth(Math.min(520, Math.max(200, startWidth + moveEvent.clientX - startX)));
+    const move = (moveEvent: MouseEvent) => {
+      const width = Math.min(520, Math.max(200, startWidth + (moveEvent.clientX - startX) * (side === "right" ? -1 : 1)));
+      if (side === "right") setRightWidth(width); else setSidebarWidth(width);
+    };
     const cleanup = () => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", cleanup);
@@ -238,11 +255,31 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
           <div role="separator" tabIndex={0} aria-label="调整自选股宽度" aria-orientation="vertical" aria-valuemin={200} aria-valuemax={520} aria-valuenow={sidebarWidth} title="拖拽调节自选股宽度" onMouseDown={startResize} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); setSidebarWidth((width) => event.key === "Home" ? 200 : event.key === "End" ? 520 : Math.min(520, Math.max(200, width + (event.key === "ArrowRight" ? 20 : -20)))); } }} className="absolute inset-0 cursor-col-resize hover:bg-fs-accent-soft/60"><span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" /></div>
           <button ref={closeRef} type="button" onClick={close} onKeyDown={(event) => { if (event.key === "Escape") close(); }} onMouseDown={(event) => event.stopPropagation()} className={HANDLE_CLASS} title="折叠自选股" aria-label="折叠自选股" aria-expanded={true} aria-controls="markets-watchlist-panel"><WatchlistChevron collapsed={false} /></button>
         </div> : null}
-        <div className={`min-h-0 min-w-0 flex-1 flex-col ${isMobile && panelOpen ? "hidden" : "flex"}`}>{children}</div>
+        <div className={`min-h-0 min-w-0 flex-1 flex-col ${isMobile && (panelOpen || detailsOpen) ? "hidden" : "flex"}`}>{children}</div>
+        {!isMobile && hasRightPanel ? <div className="group relative flex w-3 shrink-0 items-stretch border-x border-fs-border bg-fs-elevated/90">
+          {rightOpen ? <div role="separator" tabIndex={0} aria-label="调整事件详情宽度" aria-orientation="vertical"
+            aria-valuemin={200} aria-valuemax={520} aria-valuenow={rightWidth} title="拖拽调节事件详情宽度"
+            onMouseDown={event => startResize(event, "right")}
+            onKeyDown={event => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+              event.preventDefault(); setRightWidth(width => event.key === "Home" ? 200 : event.key === "End" ? 520 : Math.min(520, Math.max(200, width + (event.key === "ArrowLeft" ? 20 : -20))));
+            } }} className="absolute inset-0 cursor-col-resize hover:bg-fs-accent-soft/60"><span className="mx-auto block h-full w-px bg-fs-border" /></div> : null}
+          <button type="button" onClick={() => setRightOpen(value => !value)} onMouseDown={event => event.stopPropagation()}
+            className={HANDLE_CLASS} title={rightOpen ? "折叠事件详情" : "展开事件详情"}
+            aria-label={rightOpen ? "折叠事件详情" : "展开事件详情"} aria-expanded={rightOpen} aria-controls="markets-event-detail-panel">
+            <WatchlistChevron collapsed={rightOpen} />
+          </button>
+        </div> : null}
+        {detailsOpen ? <div className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-white"
+          style={isMobile ? { flex: "1 1 auto", width: "100%" } : { width: rightWidth, maxWidth: 520 }}>
+          {isMobile ? <div className="flex shrink-0 justify-end px-3"><button type="button" onClick={() => setMobileTab("chart")} className="min-h-11 rounded px-2 text-xs text-fs-accent-text">返回行情</button></div> : null}
+          {rightPanel}
+        </div> : null}
       </div>
       {isMobile ? <nav aria-label="行情功能模块" className="flex shrink-0 border-t border-fs-border bg-white/95">
         <button ref={toggleRef} type="button" onClick={() => setMobileTab("watchlist")} aria-current={panelOpen ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><span className="text-base leading-none" aria-hidden="true">☆</span><span>自选股</span></button>
-        <button type="button" onClick={() => setMobileTab("chart")} aria-current={!panelOpen ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${!panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7" /></svg><span>行情</span></button>
+        <button type="button" onClick={() => setMobileTab("chart")} aria-current={mobileTab === "chart" ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${mobileTab === "chart" ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7" /></svg><span>行情</span></button>
+        {hasRightPanel ? <button type="button" onClick={() => setMobileTab("details")} aria-current={detailsOpen ? "page" : undefined}
+          className={`flex h-8 flex-1 items-center justify-center text-[11px] ${detailsOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}>事件详情</button> : null}
       </nav> : null}
     </div>
     </MarketDrawingOwnerContext.Provider>

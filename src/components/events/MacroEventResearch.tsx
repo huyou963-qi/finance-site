@@ -8,10 +8,12 @@ import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
 import { MacroEventSurpriseSummary, MacroSurpriseEvidence } from "@/components/events/MacroSurpriseEvidence";
 import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
 
-export function MacroEventResearch({ events, loading, error, from, to }: {
+export function MacroEventResearch({ events, loading, error, from, to, onOpenDetail }: {
+  onOpenDetail?: (event: MarketEventDto) => void;
   events: MarketEventDto[]; loading: boolean; error: string | null; from: string | null; to: string | null;
 }) {
   const [selected, setSelected] = useState<MarketEventDto | null>(null);
+  const openDetail = (event: MarketEventDto) => onOpenDetail ? onOpenDetail(event) : setSelected(event);
   const research = useMemo(() => events.filter(isMacroResearchEvent).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)), [events]);
   const assessed = research.filter(e => e.eventType === "macro.release" && classifyMacroEventSurprise(e.payload).level !== "unassessed");
   const large = assessed.filter(e => classifyMacroEventSurprise(e.payload).level === "large");
@@ -35,9 +37,9 @@ export function MacroEventResearch({ events, loading, error, from, to }: {
             const result = event.eventType === "macro.release" ? classifyMacroEventSurprise(event.payload) : null;
             return <li key={event.id} className={`rounded border p-2 ${result?.level === "large" ? "border-amber-500/70 bg-amber-500/10" : "border-fs-border bg-fs-elevated"}`}>
               <div className="flex flex-wrap items-center gap-2 text-[11px]"><time>{formatEventOccurredAt(event)}</time><EventImportanceBadge importance={event.importance} /></div>
-              <button type="button" onClick={() => setSelected(event)} className="my-1 text-left text-xs font-medium text-fs-text hover:underline">{event.title || event.content.slice(0, 80)}</button>
+              <button type="button" onClick={() => openDetail(event)} className="my-1 text-left text-xs font-medium text-fs-text hover:underline">{event.title || event.content.slice(0, 80)}</button>
               {result ? <><MacroEventSurpriseSummary payload={event.payload} /><MacroSurpriseEvidence payload={event.payload} compact /></> : <p className="text-xs text-fs-muted">政策／新闻背景 · 暂无数值预期差</p>}
-              <button type="button" onClick={() => setSelected(event)} className="mt-2 text-xs text-fs-accent-text underline">详情与来源</button>
+              <button type="button" onClick={() => openDetail(event)} className="mt-2 text-xs text-fs-accent-text underline">详情与来源</button>
             </li>;
           })}
         </ul>}
