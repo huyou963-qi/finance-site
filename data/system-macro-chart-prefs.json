@@ -623,8 +623,6 @@
       "selectedKeys": [
         "mds:wgc_gold_price_usd",
         "mds:comex_gold_futures",
-        "fred:DTWEXBGS",
-        "fred:DFII10",
         "mds:cot_mm_gold_long",
         "mds:cot_mm_gold_short",
         "mds:goldov_c06_mm_net",
@@ -636,7 +634,7 @@
         "mds:goldov_c22_gold_etf",
         "mds:goldov_c20_phau_etf"
       ],
-      "updatedAtIso": "2026-09-23T04:06:49.744Z",
+      "updatedAtIso": "2026-10-14T12:55:27.149Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -656,8 +654,6 @@
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:DFII10": 1,
-        "fred:DTWEXBGS": null,
         "calc:gold-basis": null,
         "mds:cot_mm_gold_long": null,
         "mds:cot_mm_gold_short": null,
@@ -673,12 +669,6 @@
         "mds:goldov_c24_global_reserve_tons": 5
       },
       "seriesVisualMap": {
-        "fred:DFII10": {
-          "axis": "right",
-          "color": "#8a6d3b",
-          "chartType": "line",
-          "showEndLabel": true
-        },
         "calc:gold-basis": {
           "axis": "left",
           "color": "#9aa7b3",
@@ -752,18 +742,6 @@
         {
           "key": "calc:gold-basis",
           "type": "derived"
-        },
-        {
-          "id": "div-mudi9wsc-7xl2",
-          "type": "divider"
-        },
-        {
-          "key": "fred:DTWEXBGS",
-          "type": "series"
-        },
-        {
-          "key": "fred:DFII10",
-          "type": "series"
         },
         {
           "id": "div-mudigr7x-ln8j",
