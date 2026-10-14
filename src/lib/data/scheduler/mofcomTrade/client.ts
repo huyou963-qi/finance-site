@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { ObservationPoint } from "../types";
 import { fetchChinaOfficial } from "../chinaOfficialProxy";
 import { MOFCOM_TRADE_BASE_URL, MOFCOM_TRADE_CATEGORY } from "./catalog";
+import { fetchGaccUsdMonthlySummary, type GaccTotalPoint } from "./gaccTotals";
 
 export type MofcomTradeSeries = {
   code: string;
@@ -13,7 +14,7 @@ export type MofcomTradeSeries = {
 };
 export type MofcomTradeHistory = Map<string, MofcomTradeSeries>;
 type JsonRow = Record<string, unknown>;
-type Options = { historical?: boolean; fetchJson?: (path: string, body?: URLSearchParams) => Promise<unknown> };
+type Options = { historical?: boolean; includePrimaryTotals?: boolean; fetchJson?: (path: string, body?: URLSearchParams) => Promise<unknown>; fetchGaccTotals?: () => Promise<GaccTotalPoint[]> };
 
 const USER_AGENT = "finance-site-data-scheduler/1.0";
 const HISTORY_START = "2000-01-01";
@@ -28,6 +29,10 @@ async function politePause(): Promise<void> {
 }
 
 function codeFor(key: string) { return `mofcom_cn_trade_${createHash("sha1").update(key).digest("hex").slice(0, 18)}`; }
+export function usesGaccTotalAmounts(code: string): boolean {
+  return ["total", "export", "import", "balance"].some(kind =>
+    ["amount", "cumulative_amount"].some(measure => codeFor(`total|${kind}|${measure}`) === code));
+}
 function number(value: unknown): number | null {
   if (value === null || value === undefined || value === "" || value === "-") return null;
   const n = Number(String(value).replace(/,/g, "").trim());
@@ -117,7 +122,8 @@ function months(startYear: number, end: Date): string[] {
  * the latest release month, so it does not repeatedly crawl history.
  */
 export async function fetchMofcomTradeHistory(options: Options = {}): Promise<MofcomTradeHistory> {
-  const cacheKey = options.historical ? "history" : "latest";
+  const includePrimaryTotals = options.includePrimaryTotals !== false;
+  const cacheKey = `${options.historical ? "history" : "latest"}:${includePrimaryTotals ? "primary" : "mirror"}`;
   const saved = !options.fetchJson ? cache.get(cacheKey) : undefined;
   if (saved && Date.now() - saved.at < CACHE_MS) return saved.values;
   const request = options.fetchJson ?? defaultFetch; const output: MofcomTradeHistory = new Map();
@@ -144,6 +150,13 @@ export async function fetchMofcomTradeHistory(options: Options = {}): Promise<Mo
   }
   if (options.historical && (unavailable.tradeMethod || unavailable.country)) {
     console.warn(`[mofcom-trade] 官方分类历史未覆盖的月份：贸易方式=${unavailable.tradeMethod}，国别=${unavailable.country}`);
+  }
+  // Re-read the primary publisher's current/previous-year monthly levels to
+  // catch revisions missing from the MOFCOM mirror, including older Jan data.
+  const primary = includePrimaryTotals ? await (options.fetchGaccTotals ?? fetchGaccUsdMonthlySummary)() : [];
+  for (const row of primary) {
+    const series = output.get(codeFor(row.key));
+    if (series) add(output, { key: series.key, label: series.label, category: series.category, unit: series.unit }, row.point);
   }
   for (const series of output.values()) series.points.sort((a, b) => a.obsDate.getTime() - b.obsDate.getTime());
   if (!output.size) throw new Error("商务部货物贸易：未解析到任何官方序列");

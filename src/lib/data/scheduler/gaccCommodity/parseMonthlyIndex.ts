@@ -41,18 +41,22 @@ function matchesTable(title: string, spec: { no: number; keyword: string }): boo
 }
 
 export function parseGaccMonthlyIndex(html: string, direction: TradeDirection): GaccMonthlyLink[] {
-  const spec = GACC_TABLE_TITLE[direction];
+  return parseGaccMonthlyTableIndex(html, GACC_TABLE_TITLE[direction]);
+}
+
+/** Shared official archive discovery for commodity tables and USD monthly totals. */
+export function parseGaccMonthlyTableIndex(html: string, spec: { no: number; keyword: string; titlePattern?: RegExp }): GaccMonthlyLink[] {
   let cellHtml: string | null = null;
   for (const row of html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = rowCells(row[1] ?? "");
-    if (cells.length >= 2 && matchesTable(cells[0]!.text, spec)) {
+    if (cells.length >= 2 && matchesTable(cells[0]!.text, spec) && (!spec.titlePattern || spec.titlePattern.test(cells[0]!.text))) {
       cellHtml = cells[1]!.html;
       break;
     }
   }
   if (cellHtml === null) {
     throw new Error(
-      `海关月报索引：未找到表(${spec.no}) ${direction} 所在行（索引页结构可能已变）`,
+      `海关月报索引：未找到表(${spec.no}) ${spec.keyword} 所在行（索引页结构可能已变）`,
     );
   }
 
