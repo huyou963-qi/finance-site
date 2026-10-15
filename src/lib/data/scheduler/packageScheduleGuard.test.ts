@@ -9,6 +9,33 @@ import {
 const NONE: PackageRunState = { lastSuccessAt: null, sourceVerifiedAt: null };
 const d = (iso: string) => new Date(iso);
 
+test("CPI early no-change fetch cannot consume the release or skip its bounded retry", () => {
+  const now = d("2026-10-14T14:00:00Z");
+  const future = d("2026-11-10T13:33:00Z");
+  const state: PackageRunState = {
+    lastSuccessAt: d("2026-10-14T12:41:00Z"), sourceVerifiedAt: d("2026-10-14T12:41:00Z"),
+    requiredMonthlyObservation: { oldest: d("2026-08-01"), lagMonths: 1 },
+  };
+  const release = d("2026-10-14T12:30:00Z");
+  assert.equal(releaseConsumed(state, release), false);
+  const params = { computedNextRunAt: future, currentNextRunAt: future, previousReleaseAt: release, runState: state, now };
+  const decision = resolvePackageNextRunAt(params);
+  assert.equal(decision.reason, "hold_pending_release");
+  assert.equal(decision.nextRunAt?.toISOString(), "2026-10-14T16:00:00.000Z");
+  assert.equal(resolvePackageNextRunAt({ ...params, currentNextRunAt: decision.nextRunAt }).nextRunAt, decision.nextRunAt);
+  state.requiredMonthlyObservation!.oldest = d("2026-09-01");
+  assert.equal(releaseConsumed(state, release), true);
+  assert.equal(resolvePackageNextRunAt(params).nextRunAt, future);
+});
+
+test("CPI period proof handles January release, unknown local period and unverified fetch time", () => {
+  const state: PackageRunState = { lastSuccessAt: d("2027-01-14"), sourceVerifiedAt: null,
+    requiredMonthlyObservation: { oldest: d("2026-12-01"), lagMonths: 1 } };
+  assert.equal(releaseConsumed(state, d("2027-01-13")), true);
+  state.requiredMonthlyObservation!.oldest = null;
+  assert.equal(releaseConsumed(state, d("2027-01-13")), false);
+});
+
 test("failed member preserves its bounded retry rather than jumping month or retrying immediately", () => {
   const retry = d("2026-10-10T13:00:00Z");
   const result = resolvePackageNextRunAt({ currentNextRunAt:retry, computedNextRunAt:d("2026-11-04T15:03:00Z"),

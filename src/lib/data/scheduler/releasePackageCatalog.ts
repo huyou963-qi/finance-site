@@ -37,6 +37,7 @@ import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/
 import { ECB_CORE_SERIES, ECB_KEY_RATE_PROBE_HOURS, EUROSTAT_CORE_SERIES, EUROSTAT_FAST_PROBE_HOURS } from "./europeCore/catalog";
 import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
 import { EIA_WPSR_PACKAGE_ID, EIA_WPSR_SERIES } from "./eiaWpsr/catalog";
+import { ZILLOW_ZORI_PROBE_HOURS } from "./zillowZori/catalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -1327,7 +1328,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     labelEn: "Zillow Observed Rent Index",
     agencyId: "us-zillow",
     granularity: "MONTHLY",
-    intervalHours: 72,
+    intervalHours: ZILLOW_ZORI_PROBE_HOURS,
     sortOrder: 238,
     members: { instrumentCodes: ["zillow_us_zori_sa"] },
   }),

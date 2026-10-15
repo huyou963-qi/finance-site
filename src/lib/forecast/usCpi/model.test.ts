@@ -11,6 +11,7 @@ import {
   quantile,
   rollMean,
   solveOls,
+  shelterForecast,
   type LeafKey,
   type ModelInputs,
 } from "./model";
@@ -119,4 +120,60 @@ test("backtest skips the target month and reports finite accuracy", () => {
   assert.ok(rows.length > 90);
   const s = accuracy(rows.map((r) => r.forecast.ALL), rows.map((r) => r.actual.ALL));
   assert.ok(Number.isFinite(s.mae) && s.mae < 0.5);
+});
+
+test("shelter keeps long transmission and gates recent ZORI by publication lag", () => {
+  for (const allowed of [false, true]) {
+    const inputs = syntheticInputs();
+    inputs.allowRecentShelter = allowed;
+    const model = prepareModel(inputs);
+    const t = inputs.months.length - 1;
+    const z = model.specs.RENT!.recentX!.zRecent!;
+    const manual = [0, 1, 2].map((j) => {
+      const i = t - 1 - j;
+      return 100 * Math.log(inputs.hf.ZORI[i]! / inputs.hf.ZORI[i - 1]!);
+    }).reduce((a, b) => a + b, 0) / 3;
+    assert.ok(Math.abs(z[t]! - manual) < 1e-12);
+    const d = shelterForecast(model, "RENT", t).decision;
+    assert.equal(d.publicationGateOpen, allowed);
+    if (!allowed) assert.notEqual(d.mode, "recent-and-lagged");
+  }
+});
+
+test("recent shelter signal must win earlier walk-forward validation, independently per component", () => {
+  const inputs = syntheticInputs();
+  inputs.allowRecentShelter = true;
+  const model = prepareModel(inputs);
+  const spec = model.specs.RENT!;
+  spec.y = spec.recentX!.zRecent!.map((z) => 0.1 + 4 * z);
+  const t = model.months.length - 1;
+  const result = shelterForecast(model, "RENT", t);
+  assert.equal(result.decision.mode, "recent-and-lagged");
+  assert.ok(result.decision.validationPairs >= 18);
+  assert.ok(Math.abs(result.forecast - spec.y[t]!) < 1e-6);
+  // 另一分项仍有自己的目标与验证误差，不共享 RENT 的选择结果。
+  assert.notDeepEqual(shelterForecast(model, "OER", t).decision, result.decision);
+});
+
+test("shelter selection and prediction do not use target or future outcomes and ZORI", () => {
+  const inputs = syntheticInputs();
+  inputs.allowRecentShelter = true;
+  const t = inputs.months.length - 15;
+  const before = shelterForecast(prepareModel(inputs), "RENT", t);
+  for (const k of LEVEL_KEYS) for (let i = t; i < inputs.months.length; i++) inputs.levels[k][i] = 99999 + i;
+  for (let i = t; i < inputs.months.length; i++) inputs.hf.ZORI[i] = 99999 + i;
+  const after = shelterForecast(prepareModel(inputs), "RENT", t);
+  assert.deepEqual(after, before);
+});
+
+test("missing recent ZORI retains lagged model, wholly missing ZORI uses disclosed autoregression", () => {
+  const inputs = syntheticInputs();
+  inputs.hf.ZORI[inputs.months.length - 2] = NaN;
+  inputs.allowRecentShelter = true;
+  const t = inputs.months.length - 1;
+  assert.equal(shelterForecast(prepareModel(inputs), "RENT", t).decision.mode, "lagged");
+  inputs.hf.ZORI.fill(NaN);
+  const result = shelterForecast(prepareModel(inputs), "RENT", t);
+  assert.equal(result.decision.mode, "autoregressive");
+  assert.ok(Number.isFinite(result.forecast));
 });

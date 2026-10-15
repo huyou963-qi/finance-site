@@ -146,7 +146,9 @@ export function buildModelInputs(loaded: LoadedInputs, cutoffDay: number): Model
     const daily = loaded.hfDaily[k];
     hf[k] = daily ? monthlyAsOfAverage(daily, loaded.months, cutoffDay) : loaded.hfMonthly[k]!;
   }
-  return { months: loaded.months, levels: loaded.levels, hf };
+  // 用同一保守发布假设回测和预测；16日可能仍在更新，17日起才允许上月完整表。
+  // 缺失值仍保持 NaN，由模型退回原滞后信号，不沿用旧值伪装新月份。
+  return { months: loaded.months, levels: loaded.levels, hf, allowRecentShelter: cutoffDay >= 17 };
 }
 
 function monthlyFromMap(obs: Map<string, number | null>, months: readonly string[]): number[] {
