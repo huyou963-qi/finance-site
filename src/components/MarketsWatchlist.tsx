@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SymbolSearchItem } from "@/lib/data/symbolSearchTypes";
+import { marketSymbolLabel } from "@/lib/data/marketInstruments";
 import { useMarketsWatchlist } from "@/hooks/useMarketsWatchlist";
 import { normalizeWatchlistTabOrder, type WatchlistGroup, type WatchlistGroupChange } from "@/lib/data/marketWatchlist";
 import { MarketDrawingOwnerContext } from "@/hooks/useMarketDrawings";
@@ -212,13 +213,13 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
               </form>
               {groups.map((group) => <GroupEditor key={`${group.id}:${group.name}`} group={group} disabled={!ready || saving} onChange={changeGroup} />)}
             </section> : null}
-            {canAddCurrent && symbol && !currentAdded && ready ? <button type="button" disabled={saving} onClick={() => add({ symbol, name: name ?? symbol, exchange: "" })} className="min-h-10 w-full rounded-lg border border-fs-border px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">☆ 添加当前标的 {symbol}</button> : null}
+            {canAddCurrent && symbol && !currentAdded && ready ? <button type="button" disabled={saving} onClick={() => add({ symbol, name: name ?? symbol, exchange: "" })} className="min-h-10 w-full rounded-lg border border-fs-border px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">☆ 添加当前标的 {marketSymbolLabel(symbol)}</button> : null}
             {!ready ? <p className="text-sm text-fs-muted">加载自选股…</p> : !visibleStocks.length ? <p className="rounded-lg border border-dashed border-fs-border p-3 text-xs leading-5 text-fs-muted">{stocks.length ? "此分组暂无股票，可在股票卡片中调整分组。" : "在行情页顶部选择标的后，点击添加当前标的。"}</p> : <ul className="space-y-1">
               {visibleStocks.map((stock) => <li key={stock.symbol} data-watchlist-stock={stock.symbol} className={`flex flex-wrap items-center rounded-lg border ${symbol === stock.symbol ? "border-fs-accent/30 bg-fs-accent-soft" : "border-transparent bg-fs-elevated/50"} ${stockSort.dragging === stock.symbol ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
                 <button type="button" aria-label={`拖动 ${stock.symbol} 排序`} title="拖动排序；方向键上移或下移" disabled={!ready || saving || visibleStocks.length < 2} onPointerDown={event => stockSort.start(event, stock.symbol)} onKeyDown={event => { if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); stockSort.shift(stock.symbol, event.key === "ArrowUp" ? -1 : 1); } }} className="min-h-11 w-5 shrink-0 cursor-grab touch-none select-none text-xs text-fs-muted active:cursor-grabbing disabled:opacity-30">⋮⋮</button>
                 <button type="button" aria-label={`查看 ${stock.symbol} 行情`} aria-pressed={symbol === stock.symbol} onClick={() => { onSelect(stock.symbol, stock.name); if (isMobile) close(); }} className="min-w-0 flex-1 rounded px-2 py-1.5 text-left hover:text-fs-accent-text">
                   <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-                    <span className="min-w-0 truncate text-xs font-semibold leading-4">{stock.symbol}</span>
+                    <span className="min-w-0 truncate text-xs font-semibold leading-4" title={`行情源代码：${stock.symbol}`}>{marketSymbolLabel(stock.symbol)}</span>
                     <span className="shrink-0 font-mono text-xs tabular-nums text-fs-text" title={quotes[stock.symbol]?.time ? `行情时间：${new Date(quotes[stock.symbol]!.time! * 1000).toLocaleString("zh-CN")} · ${quotes[stock.symbol]?.currency ?? ""}` : quotes[stock.symbol] ? `最新行情 · ${quotes[stock.symbol]?.currency ?? ""}（供应商未提供时间）` : "行情暂不可用"}>
                       {quotes[stock.symbol]?.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) ?? "—"}
                     </span>

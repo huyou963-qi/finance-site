@@ -1,5 +1,6 @@
 import { yahooKlineProvider } from "@/lib/data/providers/yahooKlineProvider";
 import { eastmoneyKlineProvider } from "./eastmoneyKlineProvider";
+import { macroYieldKlineProvider } from "./macroYieldKlineProvider";
 import { KlineResponseCache } from "../klineResponseCache";
 import { postgresKlineCacheStore, KlineCacheStorageError } from "../postgresKlineCacheStore";
 import { MemoryKlineCacheStore } from "../memoryKlineCacheStore";
@@ -14,6 +15,7 @@ import type { KlineFetchWindowOptions, KlinePayload } from "@/lib/data/types";
 const registry = new Map<KlineProviderId, KlineMarketDataProvider>([
   ["yahoo", yahooKlineProvider],
   ["eastmoney", eastmoneyKlineProvider],
+  ["fred", macroYieldKlineProvider],
 ]);
 
 const responseCache = new KlineResponseCache(postgresKlineCacheStore);

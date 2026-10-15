@@ -119,8 +119,8 @@ export function classifyChartSymbol(symbolRaw: string): ChartSymbolProfile {
   if (instrument) {
     return {
       symbol,
-      kind: "macro_asset",
-      kindLabel: kindLabelOf("macro_asset", instrument.type),
+      kind: instrument.type === "指数" ? "index" : "macro_asset",
+      kindLabel: kindLabelOf(instrument.type === "指数" ? "index" : "macro_asset", instrument.type),
       countries: ["US"],
       industries: [],
       macroType: instrument.type,

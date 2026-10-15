@@ -33,7 +33,7 @@ import {
   type EventViewFilterState,
 } from "@/lib/chart/eventViewFilters";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
-import { findMarketInstrument } from "@/lib/data/marketInstruments";
+import { findMarketInstrument, marketSymbolLabel } from "@/lib/data/marketInstruments";
 import {
   applySymbolDraftToFilters,
   classifyChartSymbol,
@@ -76,13 +76,17 @@ export function MarketsClient() {
   const [symbol, setSymbol] = useState("");
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const regionalInstrument = resolveEastmoneyInstrument(symbol);
-  const chartSource = regionalInstrument ? "eastmoney" : "yahoo";
+  const yieldInstrument = Boolean(findMarketInstrument(symbol)?.fredSeriesId);
+  const chartSource = yieldInstrument ? "fred" : regionalInstrument ? "eastmoney" : "yahoo";
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [interval, setKlineInterval] = useState<KlineInterval>("1d");
   const [priceAdjustment, setPriceAdjustment] =
     useState<PriceAdjustmentMode>("forward");
-  const effectiveAdjustment = regionalInstrument?.market === "GOLD" ? "none" : priceAdjustment;
+  const effectiveAdjustment = regionalInstrument?.market === "GOLD" || yieldInstrument ? "none" : priceAdjustment;
+  useEffect(() => {
+    if (yieldInstrument && interval !== "1d" && interval !== "1w") setKlineInterval("1d");
+  }, [yieldInstrument, interval]);
   const [hits, setHits] = useState<SymbolHit[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -426,7 +430,7 @@ export function MarketsClient() {
     }
 
     /** 已选定标的且输入与当前代码一致时不再打联想（与 K 线加载无关，减少无效请求） */
-    if (symbol.trim() && q === symbol.trim()) {
+    if (symbol.trim() && normalizeTickerSymbol(q) === symbol.trim()) {
       setSearchLoading(false);
       setSearchError(null);
       setHits([]);
@@ -481,11 +485,12 @@ export function MarketsClient() {
   const commitSymbol = (raw: string, name?: string) => {
     const s = normalizeTickerSymbol(raw);
     if (!s) return;
+    if (findMarketInstrument(s)?.fredSeriesId && interval !== "1d" && interval !== "1w") setKlineInterval("1d");
     // 丢弃仍在路上的 symbol-search 响应，否则会再次 setOpen(true) + 空列表 →「无匹配」盖住图表
     reqIdRef.current += 1;
     if (s !== symbol) setLoadedSymbol("");
     setSymbol(s);
-    setQuery(s);
+    setQuery(marketSymbolLabel(s));
     setPickedName(name ?? displayNameForSymbol(s));
     setOpen(false);
     setHits([]);
@@ -531,11 +536,11 @@ export function MarketsClient() {
           <span className="md:hidden">复权类型</span>
           <select
             value={effectiveAdjustment}
-            disabled={regionalInstrument?.market === "GOLD"}
+            disabled={regionalInstrument?.market === "GOLD" || yieldInstrument}
             onChange={(e) =>
                 setPriceAdjustment(e.target.value as PriceAdjustmentMode)
               }
-              title={regionalInstrument?.market === "GOLD" ? "现货黄金不复权" : regionalInstrument ? "东方财富前复权 / 后复权 / 不复权；以供应商口径为准" : "前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"}
+              title={yieldInstrument ? "国债收益率不复权" : regionalInstrument?.market === "GOLD" ? "现货黄金不复权" : regionalInstrument ? "东方财富前复权 / 后复权 / 不复权；以供应商口径为准" : "前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"}
               aria-label="K 线价格复权"
               className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
           >
@@ -588,8 +593,8 @@ export function MarketsClient() {
               }
               if (e.key === "Escape") setOpen(false);
             }}
-            placeholder="搜黄金、沪深京港美股票"
-            title="支持现货黄金、A股、B股、北交所、港股、美股；例如 600519.SH、200002.SZ、00700.HK"
+            placeholder="搜股票、ETF、股指、汇率、美债"
+            title="支持常用代码和中文名称，例如 SOXX、SPX、DXY、US2Y、US10Y、EURUSD、600519.SH、00700.HK"
             className="h-7 w-full md:h-[26px] rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
             autoComplete="off"
             autoCapitalize="none"
@@ -610,7 +615,7 @@ export function MarketsClient() {
               hits.length === 0 &&
               query.trim().length > 0 ? (
                 <li className="px-2 py-1 text-[10px] text-fs-muted">
-                  可搜现货黄金、A股（600519.SH）、B股（900901.SH / 200002.SZ）、港股（00700.HK）、北交所或美股（AAPL）；也可输入完整代码后按 Enter。
+                  可搜股票或ETF、标普500（SPX）、美元指数（DXY）、两年美债（US2Y）、十年美债（US10Y）、欧元美元（EURUSD）、黄金等；也可输入代码后按 Enter。
                 </li>
               ) : null}
               {hits.map((h, idx) => (
@@ -622,7 +627,7 @@ export function MarketsClient() {
                     onClick={() => commitSymbol(h.symbol, h.name)}
                   >
                     <span className="font-mono font-medium text-fs-text">
-                      {h.symbol}
+                      {marketSymbolLabel(h.symbol)}
                     </span>
                     <span className="line-clamp-2 text-[9px] text-fs-muted">
                       <span className="text-fs-secondary">{h.name}</span>
@@ -666,7 +671,7 @@ export function MarketsClient() {
             aria-label="K 线周期"
             className="h-7 min-w-[3.75rem] md:h-[22px] md:min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           >
-            {KLINE_INTERVALS.map((iv) => (
+            {KLINE_INTERVALS.filter(iv => !findMarketInstrument(symbol)?.fredSeriesId || iv === "1d" || iv === "1w").map((iv) => (
               <option key={iv} value={iv}>
                 {INTERVAL_LABEL[iv]}
               </option>
@@ -692,7 +697,7 @@ export function MarketsClient() {
           {symbol ? (
             <>
               <span className="font-mono text-[10px] font-semibold leading-none text-fs-text">
-                {symbol}
+                {marketSymbolLabel(symbol)}
               </span>
               {pickedName ? (
                 <span className="max-w-[min(40vw,220px)] truncate text-[10px] leading-none text-fs-muted">
@@ -731,7 +736,7 @@ export function MarketsClient() {
   );
 
   return (
-    <MarketsWatchlist toolbar={toolbar} symbol={symbol} name={pickedName} canAddCurrent={!!symbol && loadedSymbol === symbol && query.trim() === symbol && !searchLoading && !searchError} onSelect={commitSymbol}
+    <MarketsWatchlist toolbar={toolbar} symbol={symbol} name={pickedName} canAddCurrent={!!symbol && loadedSymbol === symbol && normalizeTickerSymbol(query) === symbol && !searchLoading && !searchError} onSelect={commitSymbol}
       rightPanel={detailEvent ? <EventDetailDrawer event={detailEvent} onClose={closeEventDetail} presentation="sidebar" /> : null}
       rightPanelOpenVersion={detailOpenVersion}>
     <div

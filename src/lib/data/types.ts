@@ -31,7 +31,9 @@ export type MacroPayload = {
 export type KlinePayload = {
   /** Server response cache check time; not the source's latest trade/publication time. */
   cache?: { state: "hit" | "refreshed" | "stale"; checkedAt: string; freshUntil: string; expiresAt: string };
-  source: "yahoo" | "eastmoney";
+  source: "yahoo" | "eastmoney" | "fred";
+  /** 日度点观测只能画折线，不能将传输占位字段解释为开高低收。 */
+  observationOnly?: boolean;
   symbol: string;
   interval: string;
   candles: CandlestickData[];

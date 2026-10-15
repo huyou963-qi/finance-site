@@ -1,11 +1,15 @@
 import { fetchYahooQuote } from "@/lib/equity/yahooChart";
 import { resolveEastmoneyInstrument } from "./eastmoneySymbols";
 import { makeMarketQuote, type MarketQuote } from "./marketQuote";
+import { normalizeTickerSymbol } from "./tickerSymbolNormalize";
+import { findMarketInstrument } from "./marketInstruments";
+import { loadYieldObservations } from "./providers/macroYieldKlineProvider";
 
 const cache = new Map<string, { until: number; value: MarketQuote | null }>();
 const pending = new Map<string, Promise<MarketQuote | null>>();
 
 export async function fetchMarketQuote(symbol: string): Promise<MarketQuote | null> {
+  symbol = normalizeTickerSymbol(symbol);
   const cached = cache.get(symbol);
   if (cached && cached.until > Date.now()) return cached.value;
   const running = pending.get(symbol);
@@ -13,7 +17,12 @@ export async function fetchMarketQuote(symbol: string): Promise<MarketQuote | nu
   const task = (async () => {
     const regional = resolveEastmoneyInstrument(symbol);
     let quote: MarketQuote | null;
-    if (regional) {
+    if (findMarketInstrument(symbol)?.fredSeriesId) {
+      const points = await loadYieldObservations(symbol);
+      const last = points.at(-1);
+      quote = last ? makeMarketQuote(symbol, { price: last.value, previousClose: points.at(-2)?.value,
+        time: last.time, currency: "%（日度收益率）" }) : null;
+    } else if (regional) {
       const url = new URL("https://push2.eastmoney.com/api/qt/stock/get");
       url.search = new URLSearchParams({ secid: regional.secid, fltt: "2", fields: "f43,f60,f124" }).toString();
       const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });

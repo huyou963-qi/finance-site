@@ -863,6 +863,7 @@ export function StockChartWorkspace({
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+  const observationLineRef = useRef<ISeriesApi<"Line", Time> | null>(null);
   const eventMarkersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const eventMarkersDataRef = useRef<ChartEventMarker[]>([]);
   const onEventMarkerClickRef = useRef(onEventMarkerClick);
@@ -1245,15 +1246,15 @@ export function StockChartWorkspace({
   const layersPrefsRef = useRef(layersApi.prefs);
   layersPrefsRef.current = layersApi.prefs;
 
-  const needsTtmPe = source !== "eastmoney" &&
+  const needsTtmPe = source !== "eastmoney" && !payload?.observationOnly &&
     (subPane1.content === "ttmpe" || subPane2.content === "ttmpe");
 
   useEffect(() => {
     const unavailable = (content: SubPaneContent) => (content === "volume" && payload?.volumeAvailable === false)
-      || (content === "ttmpe" && source === "eastmoney");
+      || (content === "ttmpe" && (source === "eastmoney" || payload?.observationOnly === true));
     setSubPane1(prev => unavailable(prev.content) ? { ...prev, content: "macd" } : prev);
     setSubPane2(prev => unavailable(prev.content) ? { ...prev, content: "rsi" } : prev);
-  }, [payload?.volumeAvailable, source]);
+  }, [payload?.volumeAvailable, payload?.observationOnly, source]);
 
   useEffect(() => {
     if (!symbol.trim() || !needsTtmPe) {
@@ -1538,6 +1539,7 @@ export function StockChartWorkspace({
     });
 
     candle.setData(candles);
+    observationLineRef.current?.setData(candles.map(bar => ({ time: bar.time, value: bar.close })));
     if (payload?.pricePrecision != null) candle.applyOptions({ priceFormat: {
       type: "price", precision: payload.pricePrecision, minMove: 10 ** -payload.pricePrecision,
     } });
@@ -2305,6 +2307,7 @@ export function StockChartWorkspace({
       CandlestickSeries,
       {
         upColor: initColors.up,
+        visible: !payload?.observationOnly,
         downColor: initColors.down,
         borderVisible: false,
         wickUpColor: initColors.up,
@@ -2317,6 +2320,12 @@ export function StockChartWorkspace({
     );
     candle.setData(initialCandles);
     candleRef.current = candle;
+    if (payload?.observationOnly) {
+      const line = chart.addSeries(LineSeries, { color: "#2563eb", lineWidth: 2,
+        priceFormat: { type: "price", precision: 2, minMove: 0.01 } }, 0);
+      line.setData(initialCandles.map(bar => ({ time: bar.time, value: bar.close })));
+      observationLineRef.current = line;
+    }
     try {
       eventMarkersPluginRef.current?.detach();
     } catch {
@@ -2747,6 +2756,7 @@ export function StockChartWorkspace({
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
+      observationLineRef.current = null;
       eventMarkersPluginRef.current = null;
       eventMarkersDataRef.current = [];
       nativeHandlesRef.current = {
@@ -2772,6 +2782,7 @@ export function StockChartWorkspace({
     schedulePaneLayoutMetrics,
     forceHideSubPanes,
     payload?.pricePrecision,
+    payload?.observationOnly,
   ]);
 
   /** 可见区间内拉取事件标记并打到主图蜡烛上 */
@@ -3252,7 +3263,7 @@ export function StockChartWorkspace({
     { id: "macd", label: "MACD" },
     { id: "rsi", label: "RSI" },
     { id: "ttmpe", label: "TTM PE" },
-  ].filter(tab => !(tab.id === "volume" && payload?.volumeAvailable === false) && !(tab.id === "ttmpe" && source === "eastmoney")) as { id: SubPaneContent; label: string }[];
+  ].filter(tab => !(tab.id === "volume" && payload?.volumeAvailable === false) && !(tab.id === "ttmpe" && (source === "eastmoney" || payload?.observationOnly))) as { id: SubPaneContent; label: string }[];
 
   if (!symbol.trim()) {
     return (
@@ -3749,6 +3760,7 @@ export function StockChartWorkspace({
             </div>
             {(() => {
               const ch = crosshairOhlcv;
+              if (payload?.observationOnly) return <div className="text-fs-text">日度收益率：<span className="font-mono">{fmtPriceCompact(ch.close)}%</span></div>;
               const delta = ch.close - ch.open;
               const pct =
                 ch.open !== 0 ? (delta / ch.open) * 100 : 0;

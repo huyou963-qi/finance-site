@@ -13,6 +13,8 @@ import {
 } from "@/lib/data/providers/klineProviderRegistry";
 import type { KlineFetchWindowOptions } from "@/lib/data/types";
 import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
+import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
+import { findMarketInstrument } from "@/lib/data/marketInstruments";
 
 /**
  * GET /api/data/klines?symbol=AAPL&interval=1d&limit=300
@@ -25,8 +27,8 @@ import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const source = (sp.get("source") ?? "yahoo").toLowerCase();
-  const sym = (sp.get("symbol") ?? "").trim() || "AAPL";
-  const resolvedSource = resolveEastmoneyInstrument(sym) ? "eastmoney" : source;
+  const sym = normalizeTickerSymbol(sp.get("symbol") ?? "") || "AAPL";
+  const resolvedSource = findMarketInstrument(sym)?.fredSeriesId ? "fred" : resolveEastmoneyInstrument(sym) ? "eastmoney" : source;
   const interval = sp.get("interval") ?? "1d";
   const limit = Number(sp.get("limit") ?? "300");
   const adjustment = parsePriceAdjustmentMode(sp.get("adjust"));
@@ -71,9 +73,9 @@ export async function GET(req: NextRequest) {
     windowOpts = { beforeTimeSec: Math.floor(n) };
   }
 
-  if (source !== "yahoo" && source !== "eastmoney") {
+  if (source !== "yahoo" && source !== "eastmoney" && source !== "fred") {
     return NextResponse.json(
-      { error: `未知 source：${source}（支持 yahoo / eastmoney）` },
+      { error: `未知 source：${source}（支持 yahoo / eastmoney / fred）` },
       { status: 400 },
     );
   }
