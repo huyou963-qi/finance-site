@@ -291,7 +291,7 @@
         "mds:usov_c24_fed_treasuries",
         "mds:usov_c23_fed_assets"
       ],
-      "updatedAtIso": "2026-10-08T04:12:20.870Z",
+      "updatedAtIso": "2026-10-15T08:39:12.846Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
@@ -300,8 +300,9 @@
           "0": false,
           "1": false,
           "2": false,
-          "3": false,
-          "4": false
+          "3": true,
+          "4": false,
+          "5": true
         },
         "slotTitles": {
           "0": "市场",
@@ -330,8 +331,8 @@
           "1": [
             "fred:DGS2",
             "mds:usov_c11_effr",
-            "fred:T10Y2Y",
-            "fred:DFII10"
+            "fred:DFII10",
+            "fred:T10Y2Y"
           ],
           "2": [
             "mds:ism_us_ism_headline",
@@ -379,10 +380,13 @@
       },
       "seriesVisualMap": {
         "fred:DGS2": {
-          "axis": "right",
+          "axis": "left",
           "color": "#9da8b6",
           "chartType": "line",
           "showEndLabel": true
+        },
+        "fred:T10Y2Y": {
+          "axis": "right"
         },
         "fred:UNRATE": {
           "axis": "right",
@@ -401,7 +405,7 @@
           "showEndLabel": true
         },
         "mds:usov_c11_effr": {
-          "axis": "right",
+          "axis": "left",
           "color": "#4bc0c8",
           "chartType": "line",
           "showEndLabel": true
