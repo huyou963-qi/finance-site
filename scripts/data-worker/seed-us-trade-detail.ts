@@ -24,7 +24,8 @@ async function main() {
   };
   await prisma.dataSource.upsert({ where: { id: US_TRADE_SOURCE_ID }, create: { id: US_TRADE_SOURCE_ID, ...source }, update: source });
 
-  const series = await fetchUsTradeDetail();
+  // Explicit historical seed only; an offline snapshot is not live update proof.
+  const series = await fetchUsTradeDetail({ allowLocalSnapshot: true });
   let observations = 0;
   for (const [index, row] of series.entries()) {
     const old = await prisma.instrument.findUnique({ where: { code: row.code }, select: { metadata: true } });

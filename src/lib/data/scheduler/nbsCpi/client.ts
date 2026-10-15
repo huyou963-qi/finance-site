@@ -1,53 +1,14 @@
-import fs from "node:fs";
-import * as XLSX from "xlsx";
 import { NBS_CPI_INDEX_URL } from "./catalog";
-import { fetchChinaOfficial } from "../chinaOfficialProxy";
-
-const DEFAULT_USER_AGENT = "finance-site-data-scheduler/1.0";
-const CACHE_TTL_MS = 60_000;
-let cache: { at: number; result: NbsCpiWorkbookResult } | null = null;
-
-export type NbsCpiWorkbookResult = { workbook: XLSX.WorkBook; articleUrl: string; workbookUrl: string };
-
-function text(value: string) { return value.replace(/<[^>]*>/g, "").replace(/&nbsp;|&#160;/gi, " ").trim(); }
-function links(html: string) {
-  return [...html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
-    .map((match) => ({ href: match[1]!, text: text(match[2]!) }));
-}
-async function get(url: string, accept: string) {
-  const response = await fetchChinaOfficial(url, { headers: { "User-Agent": process.env.NBS_USER_AGENT?.trim() || DEFAULT_USER_AGENT, Accept: accept }, signal: AbortSignal.timeout(30_000) });
-  if (!response.ok) throw new Error(`国家统计局 CPI 抓取 HTTP ${response.status}: ${url}`);
-  return response;
-}
+import { clearPriceWorkbookCache, fetchNbsPriceWorkbook, parsePriceArticleUrl, parsePriceWorkbookUrl,
+  type PriceWorkbookOptions, type PriceWorkbookResult } from "../nbsPriceRelease/client";
+export type NbsCpiWorkbookResult = PriceWorkbookResult;
 export function parseLatestCpiArticleUrl(html: string, indexUrl = NBS_CPI_INDEX_URL) {
-  const hit = links(html).find((link) => /居民消费价格同比/.test(link.text));
-  if (!hit) throw new Error("国家统计局 CPI：发布目录未找到最新 CPI 标题锚点（页面结构可能已变）");
-  return new URL(hit.href, indexUrl).toString();
+  return parsePriceArticleUrl(html, "CPI", indexUrl);
 }
 export function parseCpiWorkbookUrl(html: string, articleUrl: string) {
-  const hit = links(html).find((link) => /相关数据表/.test(link.text) && /\.xlsx?(?:$|[?#])/i.test(link.href));
-  if (!hit) throw new Error("国家统计局 CPI：发布页未找到「相关数据表」Excel 锚点（页面结构可能已变）");
-  return new URL(hit.href, articleUrl).toString();
+  return parsePriceWorkbookUrl(html, articleUrl, "CPI");
 }
-async function latestArticleFromArchive(indexUrl: string): Promise<string> {
-  // Monthly reports can leave page one before the next release. Bound archive
-  // reads and fail explicitly rather than treating an empty page as no change.
-  for (let page = 0; page < 6; page++) {
-    const url = page === 0 ? indexUrl : new URL(`index_${page}.html`, indexUrl).toString();
-    const html = await (await get(url, "text/html,*/*")).text();
-    if (links(html).some((link) => /居民消费价格同比/.test(link.text))) {
-      return parseLatestCpiArticleUrl(html, url);
-    }
-  }
-  throw new Error("国家统计局 CPI：发布归档前6页未找到 CPI 月报，停止更新而非报告无变化");
+export function fetchNbsCpiWorkbook(opts?: PriceWorkbookOptions): Promise<NbsCpiWorkbookResult> {
+  return fetchNbsPriceWorkbook("CPI", { indexUrl: NBS_CPI_INDEX_URL, ...opts });
 }
-export async function fetchNbsCpiWorkbook(opts?: { fixturePath?: string; indexUrl?: string; articleUrl?: string; workbookUrl?: string }): Promise<NbsCpiWorkbookResult> {
-  if (opts?.fixturePath) return { workbook: XLSX.read(fs.readFileSync(opts.fixturePath), { type: "buffer" }), articleUrl: "fixture", workbookUrl: opts.fixturePath };
-  if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache.result;
-  const indexUrl = opts?.indexUrl ?? NBS_CPI_INDEX_URL;
-  const articleUrl = opts?.articleUrl ?? (opts?.workbookUrl ? "direct-workbook-url" : await latestArticleFromArchive(indexUrl));
-  const workbookUrl = opts?.workbookUrl ?? parseCpiWorkbookUrl(await (await get(articleUrl, "text/html,*/*")).text(), articleUrl);
-  const workbook = XLSX.read(Buffer.from(await (await get(workbookUrl, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*")).arrayBuffer()), { type: "buffer" });
-  return (cache = { at: Date.now(), result: { workbook, articleUrl, workbookUrl } }).result;
-}
-export function clearNbsCpiCache() { cache = null; }
+export function clearNbsCpiCache() { clearPriceWorkbookCache("CPI"); }

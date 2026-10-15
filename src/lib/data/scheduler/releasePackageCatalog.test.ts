@@ -5,6 +5,15 @@ import {
   RETIRED_RELEASE_PACKAGE_IDS,
   instrumentMatchesPackageMember,
 } from "./releasePackageCatalog";
+import { officialEuropeProbeHours } from "./europeCore/catalog";
+
+test("ECB daily levels are polled between policy meetings; monthly M3 retains calendar", () => {
+  const policy = RELEASE_PACKAGE_CATALOG.find((pkg) => pkg.id === "eu.ecb.key_rates")!;
+  assert.deepEqual(policy.release, { type: "probe_interval", intervalHours: 6 });
+  assert.equal(officialEuropeProbeHours(policy.id), 6);
+  assert.equal(officialEuropeProbeHours("eu.ecb.monetary_aggregates"), null);
+  assert.equal(RELEASE_PACKAGE_CATALOG.find((pkg) => pkg.id === "eu.ecb.monetary_aggregates")?.release.type, "economic_calendar");
+});
 
 test("Eurostat HICP/unemployment probe original API instead of ambiguous TE calendar", () => {
   for (const id of ["eu.eurostat.hicp", "eu.eurostat.unemployment"]) {

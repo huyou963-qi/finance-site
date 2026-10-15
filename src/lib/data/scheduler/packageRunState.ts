@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { parseReleaseRule } from "./releaseRule";
 import type { PackageRunState } from "./packageScheduleGuard";
 import { loadExcludedCatalogKeys } from "../catalogExclusions";
+import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
 
 /**
  * 读取每个发布包的「跑没跑过 / 消费没消费」状态，供 `packageScheduleGuard` 判定。
@@ -18,7 +19,8 @@ export async function loadPackageRunStates(
   const rows = await prisma.dataSubscription.findMany({
     where: { releasePackageId: { not: null }, enabled: true },
     select: { releasePackageId: true, lastSuccessAt: true, lastError: true, releaseRule: true,
-      sourceSeriesKey: true, instrument: { select: { code: true } } },
+      sourceSeriesKey: true, source: { select: { adapterKind: true } },
+      instrument: { select: { code: true, metadata: true } } },
   });
 
   const map = new Map<string, PackageRunState>();
@@ -26,6 +28,15 @@ export async function loadPackageRunStates(
     const packageId = row.releasePackageId;
     if (!packageId) continue;
     if (excluded.has(`mds:${row.instrument.code}`) || excluded.has(`fred:${row.sourceSeriesKey}`)) continue;
+    // Use the worker's exact eligibility gate. An archived/unconfirmed member
+    // that the worker never selects cannot require a successful run forever.
+    // Eligible failed members still participate in the all-member minimum.
+    if (!row.lastError && !subscriptionEligibleForSchedule({
+      subscriptionEnabled: true,
+      adapterKind: row.source.adapterKind,
+      sourceSeriesKey: row.sourceSeriesKey,
+      metadata: row.instrument.metadata,
+    })) continue;
     const verifiedAt = sourceVerifiedAtFromRule(row.releaseRule);
     const previous = map.get(packageId);
     const min = (a: Date | null, b: Date | null) => a && b ? a < b ? a : b : null;

@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { US_TRADE_FILES, usTradePlacement, type UsTradeSeries } from "./catalog";
 
 type Rows = (string | number | null | undefined)[][];
+export type UsTradeFetchOptions = { allowLocalSnapshot?: boolean };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const cache = new Map<string, { at: number; promise: Promise<Rows> }>();
 
-async function rowsFromUrl(url: string): Promise<Rows> {
-  const old = cache.get(url);
+async function rowsFromUrl(url: string, allowLocalSnapshot: boolean): Promise<Rows> {
+  // Offline seed data must never satisfy a worker's live-source request.
+  const cacheKey = `${allowLocalSnapshot ? "offline" : "live"}:${url}`;
+  const old = cache.get(cacheKey);
   if (old && Date.now() - old.at < 3_600_000) return old.promise;
   const promise = (async () => {
     let bytes: Buffer;
@@ -17,6 +20,10 @@ async function rowsFromUrl(url: string): Promise<Rows> {
       if (!response.ok) throw new Error(`Census trade ${response.status}: ${url}`);
       bytes = Buffer.from(await response.arrayBuffer());
     } catch (error) {
+      if (!allowLocalSnapshot) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(`Census live source unavailable; local snapshot fallback disabled: ${url}; ${reason}`, { cause: error });
+      }
       const dataDir = process.env.US_TRADE_DATA_DIR?.trim();
       if (!dataDir) throw error;
       const filename = new URL(url).pathname.split("/").at(-1)!;
@@ -33,8 +40,8 @@ async function rowsFromUrl(url: string): Promise<Rows> {
     if (!sheet) throw new Error(`Census workbook missing first sheet: ${url}`);
     return XLSX.utils.sheet_to_json<Rows[number]>(sheet, { header: 1, defval: null, blankrows: false });
   })();
-  cache.set(url, { at: Date.now(), promise });
-  try { return await promise; } catch (error) { cache.delete(url); throw error; }
+  cache.set(cacheKey, { at: Date.now(), promise });
+  try { return await promise; } catch (error) { cache.delete(cacheKey); throw error; }
 }
 
 export function parseUsTradeEnduse(rows: Rows, side: "exports" | "imports"): UsTradeSeries[] {
@@ -138,18 +145,21 @@ export function parseUsTradeCountriesNsa(rows: Rows): UsTradeSeries[] {
   return [...byCode.values()];
 }
 
-let parsedCache: { at: number; promise: Promise<UsTradeSeries[]> } | null = null;
+const parsedCache = new Map<boolean, { at: number; promise: Promise<UsTradeSeries[]> }>();
 
-export async function fetchUsTradeDetail(): Promise<UsTradeSeries[]> {
-  if (parsedCache && Date.now() - parsedCache.at < 3_600_000) return parsedCache.promise;
-  const promise = loadUsTradeDetail();
-  parsedCache = { at: Date.now(), promise };
-  try { return await promise; } catch (error) { parsedCache = null; throw error; }
+export async function fetchUsTradeDetail(options: UsTradeFetchOptions = {}): Promise<UsTradeSeries[]> {
+  const allowLocalSnapshot = options.allowLocalSnapshot === true;
+  const old = parsedCache.get(allowLocalSnapshot);
+  if (old && Date.now() - old.at < 3_600_000) return old.promise;
+  const promise = loadUsTradeDetail(allowLocalSnapshot);
+  parsedCache.set(allowLocalSnapshot, { at: Date.now(), promise });
+  try { return await promise; } catch (error) { parsedCache.delete(allowLocalSnapshot); throw error; }
 }
 
-async function loadUsTradeDetail(): Promise<UsTradeSeries[]> {
+async function loadUsTradeDetail(allowLocalSnapshot: boolean): Promise<UsTradeSeries[]> {
   const [exports, imports, countries, countriesNsa] = await Promise.all([
-    rowsFromUrl(US_TRADE_FILES.exports), rowsFromUrl(US_TRADE_FILES.imports), rowsFromUrl(US_TRADE_FILES.countries), rowsFromUrl(US_TRADE_FILES.countriesNsa),
+    rowsFromUrl(US_TRADE_FILES.exports, allowLocalSnapshot), rowsFromUrl(US_TRADE_FILES.imports, allowLocalSnapshot),
+    rowsFromUrl(US_TRADE_FILES.countries, allowLocalSnapshot), rowsFromUrl(US_TRADE_FILES.countriesNsa, allowLocalSnapshot),
   ]);
   return [...parseUsTradeEnduse(exports, "exports"), ...parseUsTradeCountriesNsa(countriesNsa), ...parseUsTradeEnduse(imports, "imports"), ...parseUsTradeCountries(countries)];
 }
