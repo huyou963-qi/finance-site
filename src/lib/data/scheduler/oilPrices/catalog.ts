@@ -24,7 +24,7 @@ export const OIL_PRICE_INSTRUMENTS: readonly GoldPriceInstrumentDef[] = [
     nameEn: "NYMEX WTI Crude Oil Futures Continuous Close (CL=F)",
     shortName: "WTI原油期货",
     description:
-      "NYMEX WTI 原油期货连续合约收盘价（Yahoo 行情 CL=F），美元/桶，日频、当日更新。换月规则由 Yahoo 决定。",
+      "NYMEX WTI 原油期货连续合约已完成交易时段收盘价（Yahoo CL=F），美元/桶；不是交易所最终结算价。换月规则由 Yahoo 决定。",
     unit: "美元/桶",
     freqLabel: "日",
     source: {
@@ -37,11 +37,12 @@ export const OIL_PRICE_INSTRUMENTS: readonly GoldPriceInstrumentDef[] = [
     scrape: {
       provider: "yahoo_chart",
       symbol: WTI_FUTURES_SYMBOL,
+      completedSessionsOnly: "true",
       url: `${YAHOO_CHART_SOURCE.baseUrl}/${encodeURIComponent(WTI_FUTURES_SYMBOL)}`,
     },
     acquisitionMethod: "yahoo_chart",
     acquisitionLabel: `行情接口 Yahoo ${WTI_FUTURES_SYMBOL}`,
-    // 高频判断的输入：6h 探测，收盘后当晚即可入库（当日盘中 bar 由修订回看覆盖为收盘值）
+    // 6h 探测；依上游交易时段结束+15min确认日线，不把未完成 bar 写成收盘价。
     releaseRule: { type: "probe_interval", intervalHours: 6 },
     packageId: YAHOO_WTI_PACKAGE_ID,
     expectedStart: "2000-08-23",

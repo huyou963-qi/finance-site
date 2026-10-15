@@ -8,7 +8,7 @@ import type { FetchIncrementalResult } from "../types";
  * 取日线 close；fetchYahooChart 已丢弃期货/外汇节假日的全 0 占位行。
  * 当日 bar 盘中会变，后续轮次按 revisionLookback 覆盖为收盘值。
  */
-function readScrape(metadata: unknown): { symbol: string; continueAfter: string | null } {
+function readScrape(metadata: unknown): { symbol: string; continueAfter: string | null; completedSessionsOnly: boolean } {
   const scrape =
     metadata && typeof metadata === "object"
       ? ((metadata as Record<string, unknown>).scrape as Record<string, unknown> | undefined)
@@ -19,7 +19,7 @@ function readScrape(metadata: unknown): { symbol: string; continueAfter: string 
     typeof scrape?.continueAfter === "string" && /^\d{4}-\d{2}-\d{2}$/.test(scrape.continueAfter)
       ? scrape.continueAfter
       : null;
-  return { symbol, continueAfter };
+  return { symbol, continueAfter, completedSessionsOnly: scrape?.completedSessionsOnly === true || scrape?.completedSessionsOnly === "true" };
 }
 
 export async function fetchYahooChartIncremental(
@@ -27,16 +27,24 @@ export async function fetchYahooChartIncremental(
   _instrumentCode: string,
   obsStart: string,
 ): Promise<FetchIncrementalResult> {
-  const { symbol, continueAfter } = readScrape(metadata);
+  const { symbol, continueAfter, completedSessionsOnly } = readScrape(metadata);
   const startSec = Math.max(0, Date.parse(`${obsStart}T00:00:00.000Z`) / 1000 - 7 * 86_400);
-  const { bars } = await fetchYahooChart(symbol, {
+  const { bars, currentSession } = await fetchYahooChart(symbol, {
     period1: startSec,
     period2: Math.floor(Date.now() / 1000) + 86_400,
     interval: "1d",
   });
+  if (completedSessionsOnly && (!currentSession || !Number.isFinite(currentSession.start) ||
+      !Number.isFinite(currentSession.end) || currentSession.end <= currentSession.start)) {
+    throw new Error("Yahoo 正式日线缺少有效交易时段，拒绝把盘中报价当作收盘值");
+  }
+  // Do not guess an exchange close from UTC calendar dates (overnight futures/DST).
+  const completedBefore = !completedSessionsOnly ? Infinity :
+    Date.now() / 1000 >= currentSession!.end + 15 * 60 ? currentSession!.end : currentSession!.start;
 
   const byDate = new Map<string, number>();
   for (const bar of bars) {
+    if (bar.time >= completedBefore) continue;
     byDate.set(new Date(bar.time * 1000).toISOString().slice(0, 10), bar.close);
   }
   const points = [...byDate]

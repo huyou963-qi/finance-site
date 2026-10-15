@@ -34,7 +34,7 @@ import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
 import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPaymentsFredSeedCatalog";
 import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPmiCatalog";
 import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
-import { ECB_CORE_SERIES, ECB_KEY_RATE_PROBE_HOURS, EUROSTAT_CORE_SERIES, EUROSTAT_FAST_PROBE_HOURS } from "./europeCore/catalog";
+import { ECB_CORE_SERIES, ECB_KEY_RATE_PROBE_HOURS, EUROSTAT_CORE_SERIES, EUROSTAT_FAST_PROBE_HOURS, EUROSTAT_REVISION_PROBE_HOURS } from "./europeCore/catalog";
 import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
 import { EIA_WPSR_PACKAGE_ID, EIA_WPSR_SERIES } from "./eiaWpsr/catalog";
 import { ZILLOW_ZORI_PROBE_HOURS } from "./zillowZori/catalog";
@@ -163,10 +163,10 @@ const JOLTS_FRED_IDS = ["JTSJOR", "JTSQUR", "JTSHIR", "JTSJOL"];
  * 勿在 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 新增项。
  */
 export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
-  pkg("eu.eurostat.gdp", "欧洲季度GDP", {
+  probePkg("eu.eurostat.gdp", "欧洲季度GDP", {
     labelEn: "Eurostat Quarterly GDP",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "QUARTERLY", sortOrder: 40,
-    calendar: { countryCodes: ["EU"], keywords: ["gdp growth rate", "gdp"] },
+    intervalHours: EUROSTAT_REVISION_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.gdp").map((series) => series.instrumentCode) },
   }),
   probePkg("eu.eurostat.hicp", "欧洲HICP通胀", {
@@ -181,10 +181,10 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: EUROSTAT_FAST_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.unemployment").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.eurostat.industrial_production", "欧洲工业生产", {
+  probePkg("eu.eurostat.industrial_production", "欧洲工业生产", {
     labelEn: "Eurostat Industrial Production",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 43,
-    calendar: { countryCodes: ["EU"], keywords: ["industrial production"] },
+    intervalHours: EUROSTAT_REVISION_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.industrial_production").map((series) => series.instrumentCode) },
   }),
   pkg("eu.eurostat.retail_trade", "欧洲零售销售量", {

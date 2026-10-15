@@ -4,7 +4,18 @@ import type { ObservationPoint } from "../types";
 import { fetchChinaOfficial } from "../chinaOfficialProxy";
 import { SAFE_DATASETS, type SafeDataset } from "./catalog";
 
-export type SafeSeries = { code: string; key: string; dataset: SafeDataset; label: string; category: string; unit: string; freqLabel: "月" | "季" | "年"; points: ObservationPoint[] };
+export type SafeSeries = { code: string; key: string; dataset: SafeDataset; label: string; category: string; unit: string; freqLabel: "月" | "季" | "年"; points: ObservationPoint[]; sourceRowPath?: string };
+const AUDITED_BOP_PATHS: Readonly<Record<string, string>> = {
+  safe_cn_bop_00f0898e6481: "1.A.b.8知识产权使用费/借方",
+  safe_cn_bop_02629c243ead: "2.2.1非储备性质的金融账户/负债",
+};
+/** Legacy occurrence-based IDs stay stable, but may never silently change meaning. */
+export function assertSafeSeriesIdentity(series: SafeSeries, expectedPath?: string): void {
+  const expected = expectedPath ?? AUDITED_BOP_PATHS[series.code];
+  if (expected && expected.replace(/\s+/g, "") !== series.sourceRowPath?.replace(/\s+/g, "")) {
+    throw new SafeSourceChangedError(`SAFE 成员父级定义变化，拒绝按行序串项：${series.code}`);
+  }
+}
 type History = Map<string, SafeSeries>;
 const cache = new Map<string, { at: number; values: SafeHistoryResult }>();
 const HEADERS = { "User-Agent": process.env.SAFE_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0" };
@@ -143,8 +154,14 @@ function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName:
   for (let index = 0; index < header.length; index++) { const date = period(header[index]); if (date) activeDate = date; const next = compact(rows[headerIndex + 1]?.[index]); const hasColumnUnit = /亿|元|SDR|盎司|%/.test(next); if (date || (activeDate && hasColumnUnit)) columns.push({ index, date: activeDate!, unit: hasColumnUnit ? next : globalUnit }); }
   if (columns.length < 2) return [];
   const seen = new Map<string, number>(); const output: SafeSeries[] = [];
+  let numberedParent = "";
   for (const row of rows.slice(headerIndex + 1)) {
     const label = compact(row[0]); if (!label || /^注|^项目$|^单位/.test(label)) continue;
+    if (dataset.key === "bop" && /^\d/.test(label)) numberedParent = label;
+    const isBopChild = dataset.key === "bop" && /^(借方|贷方|资产|负债)$/.test(label);
+    const sourceRowPath = dataset.key === "bop"
+      ? (isBopChild ? `${numberedParent}/${label}` : label).replace(/\s+/g, "") : undefined;
+    if (isBopChild && !numberedParent) throw new SafeSourceChangedError("SAFE BOP 子行缺少明确父级");
     const occurrence = (seen.get(label) ?? 0) + 1; seen.set(label, occurrence); const pointsByUnit = new Map<string, ObservationPoint[]>();
     for (const { index, date, unit } of columns) { const value = number(row[index]); if (value === null) continue; const values = pointsByUnit.get(unit) ?? []; values.push({ obsDate: date, value }); pointsByUnit.set(unit, values); }
     for (const [unit, rawPoints] of pointsByUnit) {
@@ -153,7 +170,11 @@ function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName:
         : rawPoints;
       if (!points.length) continue;
       const key = `${dataset.key}|${sheetName}|${label}|${occurrence}|${unit}`;
-      output.push({ code: seriesCode(dataset.key, sheetName, label, key), key, dataset: dataset.key, label: `${dataset.label}：${sheetName}：${label}`, category: dataset.category, unit, freqLabel: frequency(points.map((point) => point.obsDate)), points });
+      const series: SafeSeries = { code: seriesCode(dataset.key, sheetName, label, key), key, dataset: dataset.key,
+        label: `${dataset.label}：${sheetName}：${isBopChild ? `${numberedParent}：${label}` : label}`,
+        category: dataset.category, unit, freqLabel: frequency(points.map((point) => point.obsDate)), points, sourceRowPath };
+      assertSafeSeriesIdentity(series);
+      output.push(series);
     }
   }
   return output;
@@ -175,6 +196,9 @@ export async function collectSafeExternalHistory(selected: readonly (typeof SAFE
       for (const page of dataset.pages) for (const url of await loaders.attachmentUrls(page, dataset)) {
         const book = await loaders.workbook(url);
         for (const sheetName of book.SheetNames) local.push(...parseSafeExternalSheet(dataset, sheetName, book.Sheets[sheetName]!));
+      }
+      if (dataset.key === "bop") for (const code of Object.keys(AUDITED_BOP_PATHS)) {
+        if (!local.some((series) => series.code === code)) throw new SafeSourceChangedError(`SAFE BOP 已审阅成员缺失，禁止静默下线：${code}`);
       }
     } catch (error) {
       if (!options.skipUnavailable || !(error instanceof SafePageUnavailableError || error instanceof SafeSourceChangedError)) throw error;
