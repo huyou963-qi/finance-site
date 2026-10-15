@@ -40,6 +40,8 @@ export type YahooChartResult = {
   bars: YahooBar[];
   splits: YahooSplit[];
   dividends: YahooDividend[];
+  /** Provider's regular session boundaries; macro finalized-close ingestion only. */
+  currentSession?: { start: number; end: number };
 };
 
 type RawResult = {
@@ -51,6 +53,7 @@ type RawResult = {
     chartPreviousClose?: number;
     previousClose?: number;
     currency?: string;
+    currentTradingPeriod?: { regular?: { start?: number; end?: number } };
   };
   timestamp?: number[];
   events?: {
@@ -245,6 +248,10 @@ export async function fetchYahooChart(
     bars,
     splits: parseSplits(result),
     dividends,
+    ...(typeof result.meta?.currentTradingPeriod?.regular?.start === "number" &&
+      typeof result.meta.currentTradingPeriod.regular.end === "number"
+      ? { currentSession: { start: result.meta.currentTradingPeriod.regular.start, end: result.meta.currentTradingPeriod.regular.end } }
+      : {}),
   };
 }
 

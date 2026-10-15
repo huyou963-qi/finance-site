@@ -5,10 +5,14 @@ export const ECB_SOURCE_ID = "ecb-data";
 /** Official API polling avoids ambiguous third-party flash/final calendar matches. */
 export const EUROSTAT_FAST_PROBE_PACKAGES = new Set(["eu.eurostat.hicp", "eu.eurostat.unemployment"]);
 export const EUROSTAT_FAST_PROBE_HOURS = 6;
+/** National observations/revisions can precede the aggregate release calendar. */
+export const EUROSTAT_REVISION_PROBE_PACKAGES = new Set(["eu.eurostat.gdp", "eu.eurostat.industrial_production"]);
+export const EUROSTAT_REVISION_PROBE_HOURS = 24;
 export const ECB_KEY_RATE_PROBE_HOURS = 6;
 /** ECB policy rates publish daily levels, not just rate-decision observations. */
 export function officialEuropeProbeHours(packageId: string): number | null {
   if (EUROSTAT_FAST_PROBE_PACKAGES.has(packageId)) return EUROSTAT_FAST_PROBE_HOURS;
+  if (EUROSTAT_REVISION_PROBE_PACKAGES.has(packageId)) return EUROSTAT_REVISION_PROBE_HOURS;
   return packageId === "eu.ecb.key_rates" ? ECB_KEY_RATE_PROBE_HOURS : null;
 }
 export const EUROSTAT_API_BASE =

@@ -12,11 +12,14 @@ function number(raw: string, unit: string, direction?: string): number | null { 
 function first(source: string, expression: RegExp): number | null { const match = expression.exec(source); return match ? number(match[2]!, match[3]!, match[1]) : null; }
 function dateOf(html: string, body: string): Date {
   const titleText = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.replace(/\s+/g, " ") ?? body;
-  const monthly = /(20\d{2})年\s*(\d{1,2})月/.exec(titleText) ?? /(20\d{2})年\s*(\d{1,2})月/.exec(body);
-  const yearOnly = /(20\d{2})年/.exec(titleText) ?? /(20\d{2})年/.exec(body);
+  // A current quarter/year title outranks historical dates in M1 footnotes.
+  // Only fall back to the body when the title contains no report year at all.
+  const periodText = /20\d{2}年/.test(titleText) ? titleText : body;
+  const monthly = /(20\d{2})年\s*(\d{1,2})月/.exec(periodText);
+  const yearOnly = /(20\d{2})年/.exec(periodText);
   if (!monthly && !yearOnly) throw new Error("人民银行公告缺少观测期");
   const year = Number((monthly ?? yearOnly)![1]);
-  const month = monthly ? Number(monthly[2]) : /一季度/.test(titleText) ? 3 : /二季度|上半年/.test(titleText) ? 6 : /前三季度/.test(titleText) ? 9 : 12;
+  const month = monthly ? Number(monthly[2]) : /一季度/.test(periodText) ? 3 : /二季度|上半年/.test(periodText) ? 6 : /前三季度/.test(periodText) ? 9 : 12;
   if (month < 1 || month > 12) throw new Error(`人民银行公告月份异常：${year}-${month}`);
   return new Date(Date.UTC(year, month - 1, 1));
 }
@@ -47,8 +50,11 @@ function nestedIncrease(body: string, key: string, parent: string, child: string
 export function parsePbcMonetaryPage(html: string): PbcParsedPage {
   const body = text(html); const date = dateOf(html, body); const out: PbcParsedPage = new Map();
   balancePair(body, "m2", ["广义货币\\(M2\\)", "广义货币（M2）", "广义货币供应量\\(M2\\)"], out, date); balancePair(body, "m1", ["狭义货币\\(M1\\)", "狭义货币（M1）", "狭义货币供应量\\(M1\\)"], out, date); balancePair(body, "m0", ["流通中货币\\(M0\\)", "流通中货币（M0）", "流通中货币供应量\\(M0\\)"], out, date);
-  balancePair(body, "rmb_loan", ["人民币贷款", "人民币各项贷款"], out, date); balancePair(body, "rmb_deposit", ["人民币存款", "人民币各项存款"], out, date);
-  increase(body, "rmb_loan_cumulative", ["人民币各项贷款", "人民币贷款"], out, date); increase(body, "household_loan_cumulative", ["住户贷款"], out, date); increase(body, "household_short_loan_cumulative", ["住户短期贷款"], out, date); increase(body, "household_medium_long_loan_cumulative", ["住户中长期贷款"], out, date);
+  // Combined releases put TSF first. Its entity-sector RMB loans are not the
+  // financial-statistics bank-loan aggregate, even when YoY happens to agree.
+  const bankLoanLabels = ["(?<!对实体经济发放的)人民币(?:各项)?贷款"];
+  balancePair(body, "rmb_loan", bankLoanLabels, out, date); balancePair(body, "rmb_deposit", ["人民币存款", "人民币各项存款"], out, date);
+  increase(body, "rmb_loan_cumulative", bankLoanLabels, out, date); increase(body, "household_loan_cumulative", ["住户贷款"], out, date); increase(body, "household_short_loan_cumulative", ["住户短期贷款"], out, date); increase(body, "household_medium_long_loan_cumulative", ["住户中长期贷款"], out, date);
   increase(body, "corporate_loan_cumulative", ["企\\(事\\)业单位贷款", "企（事）业单位贷款"], out, date); increase(body, "corporate_short_loan_cumulative", ["企\\(事\\)业单位短期贷款", "企（事）业单位短期贷款"], out, date); increase(body, "corporate_medium_long_loan_cumulative", ["企\\(事\\)业单位中长期贷款", "企（事）业单位中长期贷款"], out, date); increase(body, "bill_financing_cumulative", ["票据融资"], out, date); increase(body, "nonbank_loan_cumulative", ["非银行业金融机构贷款"], out, date);
   nestedIncrease(body, "household_short_loan_cumulative", "住户贷款", "短期贷款", out, date); nestedIncrease(body, "household_medium_long_loan_cumulative", "住户贷款", "中长期贷款", out, date); nestedIncrease(body, "corporate_short_loan_cumulative", "企（事）业单位贷款", "短期贷款", out, date); nestedIncrease(body, "corporate_medium_long_loan_cumulative", "企（事）业单位贷款", "中长期贷款", out, date);
   increase(body, "rmb_deposit_cumulative", ["人民币存款"], out, date); increase(body, "household_deposit_cumulative", ["住户存款"], out, date); increase(body, "corporate_deposit_cumulative", ["非金融企业存款"], out, date); increase(body, "fiscal_deposit_cumulative", ["财政性存款"], out, date); increase(body, "nonbank_deposit_cumulative", ["非银行业金融机构存款"], out, date);

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { runDataSubscription, type SubscriptionWithRelations } from "../runSubscription";
 import { recordScheduleChange } from "../schedulerAudit";
 import type { SubscriptionRunResult } from "../types";
-import { fetchSafeExternalHistory } from "./client";
+import { assertSafeSeriesIdentity, fetchSafeExternalHistory } from "./client";
 import { SAFE_DATASETS, type SafeDataset } from "./catalog";
 
 export function safeDatasetForSubscription(sub: SubscriptionWithRelations): SafeDataset {
@@ -47,6 +47,8 @@ export async function syncSafePackage(
         }
         const series = (await snapshot).get(sub.instrument.code);
         if (!series?.points.length) throw new Error(`SAFE 官方工作簿缺少成员：${sub.instrument.code}`);
+        const expected = (sub.instrument.metadata as { scrape?: { sourceRowPath?: string } } | null)?.scrape?.sourceRowPath;
+        assertSafeSeriesIdentity(series, expected);
         return {
           points: series.points.filter((point) => point.obsDate >= new Date(`${fetchStart}T00:00:00Z`)),
           sourceLatestObsDate: series.points.at(-1)!.obsDate,
