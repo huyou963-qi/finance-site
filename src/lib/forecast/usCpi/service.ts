@@ -5,6 +5,7 @@
  * 和克利夫兰联储对照都用同一截止日，保证月初给出的区间如实更宽、月末用满整月数据。
  * 结果是模型输出，按约束不写入宏观库；进程内缓存 30 分钟，按截止日的回测另缓存 6 小时。
  */
+import { createHash } from "node:crypto";
 import { accuracy, correlation, errorBand, runBacktest, type AccuracyStats, type BacktestRow } from "./backtest";
 import { CLEVELAND_NOWCAST_PAGE, clevelandAsOf, loadClevelandNowcast } from "./clevelandFed";
 import { CPI_NOWCAST_COMPONENTS, type ComponentGroup } from "./components";
@@ -19,10 +20,12 @@ import {
 import {
   nowcastMonth,
   prepareModel,
+  shelterForecast,
   toNsaYoy,
   type AggregateKey,
   type LeafKey,
   type PreparedModel,
+  type ShelterDecision,
 } from "./model";
 import { relativeImportanceYearFor } from "./relativeImportance";
 
@@ -61,6 +64,7 @@ export type ComponentForecast = {
   backtestMae: number;
   mean12Mae: number;
   correlation: number;
+  shelterDecision?: ShelterDecision;
 };
 
 export type BenchmarkAccuracy = Record<"model" | "lastMonth" | "mean12", AccuracyStats> & {
@@ -130,15 +134,18 @@ export async function getUsCpiNowcast(opts?: { force?: boolean }): Promise<UsCpi
 
 /**
  * 某截止日下的模型与回测。历史月份的高频均值只取决于截止日，与当月新数据无关，
- * 故精度曲线按（最新 CPI 月, 截止日）缓存；当前截止日每次随 nowcast 重算。
+ * 精度曲线按全部输入内容指纹缓存，源端修订会失效；当前截止日每次随 nowcast 重算。
  */
 function runForCutoff(loaded: LoadedInputs, cutoffDay: number, reuse: boolean): CutoffRun {
-  const key = `${loaded.latestCpiMonth}:${cutoffDay}`;
+  const inputs = buildModelInputs(loaded, cutoffDay);
+  // 月份不变时，ZORI 的整表修订也必须令精度曲线缓存失效。
+  const key = createHash("sha256").update(JSON.stringify(inputs)).digest("hex");
   const hit = runCache.get(key);
   if (reuse && hit && Date.now() - hit.at < BACKTEST_CACHE_TTL_MS) return hit.run;
-  const model = prepareModel(buildModelInputs(loaded, cutoffDay));
+  const model = prepareModel(inputs);
   const rows = runBacktest(model, BACKTEST_FROM, model.months.length - 2);
   const run = { model, rows };
+  if (runCache.size >= 12) runCache.delete(runCache.keys().next().value!);
   runCache.set(key, { at: Date.now(), run });
   return run;
 }
@@ -190,7 +197,12 @@ export async function computeUsCpiNowcast(now = new Date()): Promise<UsCpiNowcas
       label: c.label,
       labelEn: c.labelEn,
       group: c.group,
-      proxy: c.proxy,
+      proxy: c.key === "RENT" || c.key === "OER"
+        ? (() => {
+          const d = shelterForecast(model, c.key, T).decision;
+          return `${c.proxy}；本次${d.mode === "recent-and-lagged" ? `启用近期信号（滞后${d.recentZoriLagMonths}月）` : d.mode === "lagged" ? "保留7月传导滞后" : "退回CPI自身历史"}：${d.reason}`;
+        })() : c.proxy,
+      ...(c.key === "RENT" || c.key === "OER" ? { shelterDecision: shelterForecast(model, c.key, T).decision } : {}),
       weight: w,
       forecast: nowcast[c.key],
       prevActual,
