@@ -7,6 +7,7 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "market-internals": { script: "seed-market-internals", labelZh: "美股日频广度与风格因子" },
   "jp-housing-population": { script: "seed-jp-housing-population", labelZh: "日本住房与人口核心" },
   "jp-tourism-core": { script: "seed-jp-tourism-core", labelZh: "日本观光厅入境旅游核心" },
   "jp-cycle-labor": { script: "seed-jp-cycle-labor", labelZh: "日本景气循环与劳动力核心" },
@@ -147,6 +148,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "market-internals": { script: "verify-market-internals", labelZh: "美股日频广度与风格因子自检", verifyNeedsDb: true },
   "jp-housing-population": { script: "verify-jp-housing-population", labelZh: "日本住房与人口核心自检", verifyNeedsDb: true },
   "jp-tourism-core": { script: "verify-jp-tourism-core", labelZh: "日本观光厅入境旅游核心自检", verifyNeedsDb: true },
   "jp-cycle-labor": { script: "verify-jp-cycle-labor", labelZh: "日本景气循环与劳动力核心自检", verifyNeedsDb: true },

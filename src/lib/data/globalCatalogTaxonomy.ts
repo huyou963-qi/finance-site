@@ -72,6 +72,8 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
 
 /** Maps every country's source category into the same top-level taxonomy as the US. */
 export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement {
+  if (item.countryCode === "US" && item.key.startsWith("mds:ff_us_")) return p("利率与信用市场", "美股风格因子");
+  if (item.countryCode === "US" && item.key.startsWith("mds:breadth_us_sp500_")) return p("利率与信用市场", "美股市场广度");
   if (item.countryCode === "US" && item.key === `mds:${MANHEIM_MUVVI_CODE}`) {
     return p("通胀与价格", "二手车批发价格");
   }

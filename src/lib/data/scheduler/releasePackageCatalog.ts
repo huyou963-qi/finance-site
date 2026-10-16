@@ -1175,6 +1175,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 258,
     members: { instrumentCodePatterns: ["finra_us_margin_*"] },
   }),
+  probePkg("us.french.daily_style_factors", "美国日频风格因子（French）", {
+    agencyId: "us-ken-french", granularity: "DAILY", intervalHours: 24, sortOrder: 260,
+    members: { instrumentCodePatterns: ["ff_us_*"] },
+  }),
+  probePkg("us.gekkotech.daily_market_breadth", "美国日频市场广度（公开成分重建）", {
+    agencyId: "us-gekkotech-market-research", granularity: "DAILY", intervalHours: 24, sortOrder: 261,
+    members: { instrumentCodePatterns: ["breadth_us_sp500_*"] },
+  }),
   // 年度更新的研究数据集，探测间隔取 168h（周）——比月频源更稀疏即可
   probePkg("us.ritter.ipo_statistics", "美国 IPO 月度统计（Ritter）", {
     labelEn: "US IPO Monthly Statistics (Ritter)",
