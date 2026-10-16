@@ -5,7 +5,9 @@ function endPeriod(page: string): Date { const title = text(page).slice(0, 8000)
 function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function cumulativeAnchor(page: string, label: string): RegExpExecArray | null {
   const candidates: Array<{ match: RegExpExecArray; score: number }> = [];
-  const expression = new RegExp(`${esc(label)}[^0-9]{0,36}([0-9,.]+)亿元[^。；]{0,80}?(?:同比|比上年(?:同期)?|比去年同期)(?:增长|下降)([0-9.]+)%`, "g");
+  // 官方富文本可能在中文标签内部插入空白；只允许空白，不模糊匹配别的税目。
+  const labelExpression = [...label].map(esc).join("\\s*");
+  const expression = new RegExp(`${labelExpression}[^0-9]{0,36}([0-9,.]+)亿元[^。；]{0,80}?(?:同比|比上年(?:同期)?|比去年同期)(?:增长|下降)([0-9.]+)%`, "g");
   for (const match of page.matchAll(expression)) {
     const prefix = page.slice(Math.max(0, (match.index ?? 0) - 90), match.index ?? 0);
     const sentencePrefix = prefix.slice(Math.max(prefix.lastIndexOf("。"), prefix.lastIndexOf("；")) + 1);
