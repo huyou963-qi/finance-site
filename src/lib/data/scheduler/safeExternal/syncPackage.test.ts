@@ -108,3 +108,45 @@ test("a later package member preserves the database schedule advanced by its lea
   assert.equal(writes.length, 1);
   assert.equal(Object.hasOwn(writes[0], "nextRunAt"), false);
 });
+
+for (const preserveNextRunAt of [true, false]) {
+  test(`failed fetch preserves schedule only when requested: ${preserveNextRunAt}`, async () => {
+    const currentNext = new Date("2027-01-01T00:00:00Z");
+    const writes: Array<Record<string, unknown>> = [];
+    const audits: Array<Record<string, unknown>> = [];
+    const runs: Array<Record<string, unknown>> = [];
+    const prisma = {
+      $queryRaw: async () => [{ exists: false }],
+      fetchRun: { create: async () => ({ id: "failed-run" }),
+        update: async ({ data }: { data: Record<string, unknown> }) => { runs.push(data); return {}; } },
+      macroObservation: { findFirst: async () => ({ obsDate: new Date("2026-09-01") }) },
+      dataSubscription: {
+        findUnique: async () => ({ nextRunAt: currentNext }),
+        update: async ({ data }: { data: Record<string, unknown> }) => { writes.push(data); return {}; },
+      },
+      scheduleAuditEvent: { create: async ({ data }: { data: Record<string, unknown> }) => { audits.push(data); return {}; } },
+    } as unknown as PrismaClient;
+    const sub = { ...member("a"), id: "a", enabled: true, retryCount: 0,
+      nextRunAt: new Date("2020-01-01"), revisionLookback: 3,
+      lastObsDate: new Date("2026-09-01"), source: { adapterKind: "REST_API" },
+      releaseRule: { type: "probe_interval", intervalHours: 24 },
+    } as unknown as SubscriptionWithRelations;
+    const result = await runDataSubscription(prisma, sub, {
+      force: true, preserveNextRunAt,
+      fetchIncremental: async () => { throw new Error("official HTTP 403"); },
+    });
+    assert.equal(result.status, "failed");
+    assert.equal(result.rowsUpserted, 0);
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].retryCount, 1);
+    assert.equal(writes[0].lastError, "official HTTP 403");
+    assert.equal(Object.hasOwn(writes[0], "nextRunAt"), !preserveNextRunAt);
+    assert.equal(runs.at(-1)?.status, "FAILED");
+    // Unchanged schedules must not manufacture a schedule-change event.
+    assert.equal(audits.length, preserveNextRunAt ? 0 : 1);
+    if (!preserveNextRunAt) {
+      assert.equal(audits[0].reason, "fetch_failed_backoff");
+      assert.ok(writes[0].nextRunAt instanceof Date);
+    }
+  });
+}

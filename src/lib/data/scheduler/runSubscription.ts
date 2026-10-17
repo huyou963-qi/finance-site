@@ -404,7 +404,7 @@ export async function runDataSubscription(
       data: {
         retryCount,
         lastError: message.slice(0, 2000),
-        nextRunAt,
+        ...(options?.preserveNextRunAt ? {} : { nextRunAt }),
       },
     });
 
@@ -419,9 +419,9 @@ export async function runDataSubscription(
     await recordScheduleChange(prisma, {
       subscriptionId: sub.id,
       previousNextRunAt: scheduleBeforeBackoff?.nextRunAt,
-      nextRunAt,
+      nextRunAt: options?.preserveNextRunAt ? scheduleBeforeBackoff?.nextRunAt : nextRunAt,
       source: "subscription_runner",
-      reason: "fetch_failed_backoff",
+      reason: options?.preserveNextRunAt ? "fetch_failed_preserve_schedule" : "fetch_failed_backoff",
       metadata: { fetchRunId: run.id, retryCount, error: message.slice(0, 500) },
     }).catch((auditError) => {
       console.error(

@@ -7,6 +7,8 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  // Alphabetically last: legacy corrections must survive older catalog seeds.
+  "zzz-audited-definitions": { script: "seed-audited-definitions", labelZh: "官方源审计：旧指标定义与单位校正（不改观测）" },
   "market-internals": { script: "seed-market-internals", labelZh: "美股日频广度与风格因子" },
   "jp-housing-population": { script: "seed-jp-housing-population", labelZh: "日本住房与人口核心" },
   "jp-tourism-core": { script: "seed-jp-tourism-core", labelZh: "日本观光厅入境旅游核心" },

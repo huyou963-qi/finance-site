@@ -71,7 +71,11 @@ export function parseUsTradeEnduse(rows: Rows, side: "exports" | "imports"): UsT
   return [...byCode.values()];
 }
 
-export function parseUsTradeCountries(rows: Rows): UsTradeSeries[] {
+// The monthly country workbooks contain numeric zeros for unpublished months.
+// Bound them by the independently dated FT-900 end-use files, NOT by a
+// partner's last nonzero trade (a published zero is a legitimate observation).
+export function parseUsTradeCountries(rows: Rows, publishedThrough: Date): UsTradeSeries[] {
+  assertPublicationBoundary(publishedThrough);
   const header = rows[0]?.map(String) ?? [];
   if (header[0] !== "year" || header[1] !== "cty_code" || header[19] !== "EJAN" || header[35] !== "IJAN") {
     throw new Error("Census country seasonal workbook schema changed");
@@ -93,6 +97,7 @@ export function parseUsTradeCountries(rows: Rows): UsTradeSeries[] {
         byCode.set(code, series);
       }
       for (let month = 0; month < 12; month++) {
+        if (Date.UTC(year, month, 1) > publishedThrough.getTime()) continue;
         const value = row[start + month];
         if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
           // Country workbook values are dollars; leave historical revisions as published.
@@ -108,7 +113,18 @@ export function parseUsTradeCountries(rows: Rows): UsTradeSeries[] {
   return [...byCode.values()];
 }
 
-export function parseUsTradeCountriesNsa(rows: Rows): UsTradeSeries[] {
+// Census country balance c2771.html ends in April 2011. Later workbook zeros
+// are not continuing observations for the dissolved Netherlands Antilles.
+export const US_TRADE_COUNTRY_END_PERIODS: Readonly<Record<string, string>> = { "2771": "2011-04-01" };
+
+function assertPublicationBoundary(value: Date): void {
+  if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
+    throw new Error("Census country observations require a confirmed FT-900 publication boundary");
+  }
+}
+
+export function parseUsTradeCountriesNsa(rows: Rows, publishedThrough: Date): UsTradeSeries[] {
+  assertPublicationBoundary(publishedThrough);
   const header = rows[0]?.map(String) ?? [];
   if (header[0] !== "year" || header[1] !== "CTY_CODE" || header[3] !== "IJAN" || header[16] !== "EJAN") {
     throw new Error("Census all-country workbook schema changed");
@@ -131,6 +147,9 @@ export function parseUsTradeCountriesNsa(rows: Rows): UsTradeSeries[] {
         byCode.set(code, series);
       }
       for (let month = 0; month < 12; month++) {
+        const time = Date.UTC(year, month, 1);
+        const end = US_TRADE_COUNTRY_END_PERIODS[sourceCode];
+        if (time > publishedThrough.getTime() || (end && time > Date.parse(end))) continue;
         const value = row[start + month];
         if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
           // This workbook reports USD millions. Normalize floating tails to $1 precision
@@ -161,5 +180,13 @@ async function loadUsTradeDetail(allowLocalSnapshot: boolean): Promise<UsTradeSe
     rowsFromUrl(US_TRADE_FILES.exports, allowLocalSnapshot), rowsFromUrl(US_TRADE_FILES.imports, allowLocalSnapshot),
     rowsFromUrl(US_TRADE_FILES.countries, allowLocalSnapshot), rowsFromUrl(US_TRADE_FILES.countriesNsa, allowLocalSnapshot),
   ]);
-  return [...parseUsTradeEnduse(exports, "exports"), ...parseUsTradeCountriesNsa(countriesNsa), ...parseUsTradeEnduse(imports, "imports"), ...parseUsTradeCountries(countries)];
+  const exportSeries = parseUsTradeEnduse(exports, "exports");
+  const importSeries = parseUsTradeEnduse(imports, "imports");
+  const lastPeriod = (series: UsTradeSeries[]) => series.reduce((latest, row) =>
+    row.points.reduce((last, point) => Math.max(last, point.obsDate.getTime()), latest), -Infinity);
+  // If the two rolling files update at different times, use the earlier
+  // confirmed release until both sides have arrived.
+  const publishedThrough = new Date(Math.min(lastPeriod(exportSeries), lastPeriod(importSeries)));
+  assertPublicationBoundary(publishedThrough);
+  return [...exportSeries, ...parseUsTradeCountriesNsa(countriesNsa, publishedThrough), ...importSeries, ...parseUsTradeCountries(countries, publishedThrough)];
 }

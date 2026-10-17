@@ -1,6 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { DataFetchMethod, DataGranularity, InstrumentKind, PrismaClient, SourceAdapterKind } from "@prisma/client";
-import { fetchUsTradeDetail } from "../../src/lib/data/scheduler/usTradeDetail/client";
+import { fetchUsTradeDetail, US_TRADE_COUNTRY_END_PERIODS } from "../../src/lib/data/scheduler/usTradeDetail/client";
 import { US_TRADE_FILES, US_TRADE_PACKAGE_ID, US_TRADE_PROVIDER, US_TRADE_SOURCE_ID } from "../../src/lib/data/scheduler/usTradeDetail/catalog";
 import { upsertMacroObservations } from "../../src/lib/data/scheduler/upsertObservations";
 import { defaultEconomicCalendarRule } from "../../src/lib/data/scheduler/releaseRule";
@@ -54,7 +54,7 @@ async function main() {
     const subscription = {
       sourceId: US_TRADE_SOURCE_ID, sourceSeriesKey: row.code, fetchMethod: DataFetchMethod.BULK_DOWNLOAD,
       granularity: DataGranularity.MONTHLY, timezone: "America/New_York", releaseRule: defaultEconomicCalendarRule("MONTHLY") as object,
-      revisionLookback: 600, enabled: true, priority: 7,
+      revisionLookback: 600, enabled: !(row.kind === "country_nsa" && US_TRADE_COUNTRY_END_PERIODS[row.sourceCode]), priority: 7,
     };
     await prisma.dataSubscription.upsert({
       where: { instrumentId: instrument.id },
