@@ -16,6 +16,7 @@ async function main() {
   if (replaceHistory && !cachedPrices) throw new Error("全历史重算清理须加 --cached-prices，先完成历史价格回填");
   // 初始历史回填可显式只读既有行情，避免重复抓取500只证券；日常worker仍自动更新行情。
   const breadth = cachedPrices && !styleOnly ? await buildDailyBreadth("1995-01-01", { live: !process.argv.includes("--packaged-membership"), refreshPrices: false }) : null;
+  if (replaceHistory && breadth?.membershipCorroborated) throw new Error("SPY独立校验只确认持仓日，不能据此清理其他日期的历史观测；请在完整指数名单源恢复后重算清理");
   for (const row of MARKET_INTERNALS_SERIES) {
     if (styleOnly && row.source !== "french") continue;
     if (breadthOnly && row.source !== "breadth") continue;

@@ -11,6 +11,6 @@ export async function fetchMarketInternalsIncremental(_metadata: unknown, code: 
   const points = available.filter((row) => row.date >= from).map((row) => ({ obsDate: new Date(`${row.date}T00:00:00Z`), value: row.values[config.key]! }));
   return {
     points, sourceLatestObsDate: available.length ? new Date(`${available[available.length - 1].date}T00:00:00Z`) : null, skippedInvalid: 0,
-    sourceMetadata: dataset ? { membershipAnchor: dataset.anchor, membershipSource: dataset.source, calendarThrough: dataset.calendarThrough, reconstructed: true, minimumCoverage: 0.95 } : { frequency: "daily", publisher: "Kenneth R. French", releaseCadence: "monthly", historicalVersionsMayBeRevised: true },
+    sourceMetadata: dataset ? { membershipAnchor: dataset.anchor, membershipSource: dataset.source, calendarThrough: dataset.calendarThrough, membershipCorroborated: dataset.membershipCorroborated, reconstructed: true, minimumCoverage: 0.95 } : { frequency: "daily", publisher: "Kenneth R. French", releaseCadence: "monthly", historicalVersionsMayBeRevised: true },
   };
 }

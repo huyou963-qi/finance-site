@@ -8,6 +8,8 @@ import { normalizeSp500Ticker, parseWikipediaSp500Changes, sliceTableById } from
 import { parseFrenchDaily, publishBreadth, roundPercent, trendFlags } from "./compute";
 import { archiveTicker, historicalDailyMembership, HISTORY_SOURCE } from "./membership";
 import { WIKI_URL, WIKI_HISTORY_URL } from "./catalog";
+import { fetchSsgaDailyHoldings, ssgaDailyHoldingsUrl } from "@/lib/equity/sectorEtfHoldings";
+import { isConfirmedMembershipDate, readMembershipBaseline, saveMembershipBaseline, validateCorroboration } from "./membershipBaseline";
 
 export type DailyValues = { date: string; values: Record<string, number | null> };
 const cache = new Map<string, { expires: number; value: Promise<DailyValues[]> }>();
@@ -42,7 +44,8 @@ export function loadDailyStyles(): Promise<DailyValues[]> {
   });
 }
 
-export async function loadMembershipSource(live: boolean): Promise<{ html: string; anchor: string; source: string }> {
+type MembershipSource = { html: string; anchor: string; source: string; corroboration?: { baselineAnchor: string; asOf: string } };
+export async function loadMembershipSource(live: boolean, dependencies = { readBaseline: readMembershipBaseline, saveBaseline: saveMembershipBaseline, fetchHoldings: fetchSsgaDailyHoldings }): Promise<MembershipSource> {
   if (live) {
     try {
       const response = await fetch(WIKI_URL, { cache: "no-store", signal: AbortSignal.timeout(20_000), headers: { "User-Agent": "GekkoTech-MarketData/1.0" } });
@@ -59,9 +62,27 @@ export async function loadMembershipSource(live: boolean): Promise<{ html: strin
       }
       const changes = parseWikipediaSp500Changes(html);
       if (changes.length < 300) throw new Error(`Wikipedia历史行不足: ${changes.length}`);
-      return { html, anchor: new Date().toISOString().slice(0, 10), source: `${WIKI_URL};${WIKI_HISTORY_URL}` };
+      const source = { html, anchor: new Date().toISOString().slice(0, 10), source: `${WIKI_URL};${WIKI_HISTORY_URL}` };
+      await dependencies.saveBaseline(source);
+      return source;
     } catch (error) {
-      throw new Error(`在线成分名单不可用，禁止自动回退旧快照：${error instanceof Error ? error.message : String(error)}`);
+      try {
+        const baseline = await dependencies.readBaseline();
+        const table = sliceTableById(baseline.html, "constituents");
+        if (!table || parseWikipediaSp500Changes(baseline.html).length < 300) throw new Error("基线名单/历史表不完整");
+        const expected = parseWikipediaSp500Html(table).map((r) => normalizeSp500Ticker(r.symbol)).filter((s): s is string => s != null);
+        const holdings = await dependencies.fetchHoldings("SPY");
+        // US交易所股票代码；排除现金、期货和2602335D等非上市CVR权益，不能忽略任何有效股票代码的差异。
+        const actual = holdings.rows.filter((r) => r.symbol && /^[A-Z]{1,5}(?:-[A-Z])?$/.test(r.symbol)).map((r) => normalizeSp500Ticker(r.symbol!)).filter((s): s is string => s != null);
+        const todayNy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+        validateCorroboration(expected, actual, holdings.asOfDate, todayNy);
+        const reason = error instanceof Error ? error.message : String(error);
+        return { html: baseline.html, anchor: holdings.asOfDate,
+          source: `${baseline.source};baseline=${baseline.anchor};corroborated=${ssgaDailyHoldingsUrl("SPY")};holdingsAsOf=${holdings.asOfDate};Wikipedia unavailable: ${reason}`,
+          corroboration: { baselineAnchor: baseline.anchor, asOf: holdings.asOfDate } };
+      } catch (corroborationError) {
+        throw new Error(`在线成分名单不可用，禁止自动回退旧快照：${error instanceof Error ? error.message : String(error)}；独立日度校验失败：${corroborationError instanceof Error ? corroborationError.message : String(corroborationError)}`);
+      }
     }
   }
   const base = path.join(process.cwd(), "scripts/equity/fixtures");
@@ -69,7 +90,7 @@ export async function loadMembershipSource(live: boolean): Promise<{ html: strin
   return { html, anchor: (JSON.parse(meta) as { fetchedAt: string }).fetchedAt.slice(0, 10), source: "packaged-wikipedia-snapshot" };
 }
 
-export type BreadthDataset = { rows: DailyValues[]; anchor: string; source: string; calendarThrough: string | null };
+export type BreadthDataset = { rows: DailyValues[]; anchor: string; source: string; calendarThrough: string | null; membershipCorroborated: boolean };
 
 /** 分批读取每股价格，在内存线性滚动；避免逐日逐股SQL窗口/相关子查询。 */
 export async function buildDailyBreadth(from = "1995-01-01", options = { live: true, refreshPrices: true }): Promise<BreadthDataset> {
@@ -92,7 +113,7 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
   const calendarRows = await prisma.equityDailyBar.findMany({ where: { symbol: "SPY", date: { gte: warmup, lt: new Date(`${todayNy}T00:00:00Z`) }, close: { gt: 0 } }, orderBy: { date: "asc" }, select: { date: true } });
   const calendar = calendarRows.map((r) => r.date.toISOString().slice(0, 10));
   const indexByDate = new Map(calendar.map((date, index) => [date, index]));
-  const membership = historicalDailyMembership(calendar.filter((d) => d >= from), current, parseWikipediaSp500Changes(source.html), source.anchor);
+  const membership = historicalDailyMembership(calendar.filter((d) => d >= from && (!source.corroboration || isConfirmedMembershipDate(d, source.corroboration.baselineAnchor, source.corroboration.asOf))), current, parseWikipediaSp500Changes(source.html), source.anchor);
   const totals = new Map([...membership].map(([date, members]) => [date, { members: members.size, eligible50: 0, eligible200: 0, above50: 0, above200: 0 }]));
   const symbols = [...new Set([...membership.values()].flatMap((set) => [...set]))].sort();
   for (let start = 0; start < symbols.length; start += 20) {
@@ -127,7 +148,7 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
     coverage50: r.members >= 495 && r.members <= 510 ? roundPercent(100 * r.eligible50 / r.members) : null,
     coverage200: r.members >= 495 && r.members <= 510 ? roundPercent(100 * r.eligible200 / r.members) : null,
   } }));
-  return { rows, anchor: source.anchor, source: `${HISTORY_SOURCE};${source.source};Quandl WIKI frozen 2018 archive (isolated price windows)`, calendarThrough: [...membership.keys()].at(-1) ?? null };
+  return { rows, anchor: source.anchor, source: `${HISTORY_SOURCE};${source.source};Quandl WIKI frozen 2018 archive (isolated price windows)`, calendarThrough: [...membership.keys()].at(-1) ?? null, membershipCorroborated: Boolean(source.corroboration) };
 }
 
 const breadthCache = new Map<string, { expires: number; promise: Promise<BreadthDataset> }>();
