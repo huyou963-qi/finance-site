@@ -80,6 +80,7 @@ export function parseUsTradeCountries(rows: Rows, publishedThrough: Date): UsTra
   if (header[0] !== "year" || header[1] !== "cty_code" || header[19] !== "EJAN" || header[35] !== "IJAN") {
     throw new Error("Census country seasonal workbook schema changed");
   }
+  publishedThrough = countryWorkbookBoundary(rows, [19, 35], publishedThrough);
   const byCode = new Map<string, UsTradeSeries>();
   for (const row of rows.slice(1)) {
     const year = Number(row[0]);
@@ -123,12 +124,31 @@ function assertPublicationBoundary(value: Date): void {
   }
 }
 
+/** Rolling files can arrive independently. Nonzero trade anywhere in this
+ * whole workbook confirms a month; never truncate a single partner's zeros.
+ * A blank future year is often preallocated even in an old official file. */
+function countryWorkbookBoundary(rows: Rows, starts: number[], releaseBoundary: Date): Date {
+  let latest = -Infinity;
+  for (const row of rows.slice(1)) {
+    const year = Number(row[0]);
+    if (!Number.isInteger(year) || year < 1985 || year > 2100) continue;
+    for (let month = 0; month < 12; month++) {
+      if (starts.some(start => typeof row[start + month] === "number" && Number.isFinite(row[start + month]) && Number(row[start + month]) > 0)) {
+        latest = Math.max(latest, Date.UTC(year, month, 1));
+      }
+    }
+  }
+  if (!Number.isFinite(latest)) throw new Error("Census country workbook has no independently dated nonzero trade; publication boundary unconfirmed");
+  return new Date(Math.min(latest, releaseBoundary.getTime()));
+}
+
 export function parseUsTradeCountriesNsa(rows: Rows, publishedThrough: Date): UsTradeSeries[] {
   assertPublicationBoundary(publishedThrough);
   const header = rows[0]?.map(String) ?? [];
   if (header[0] !== "year" || header[1] !== "CTY_CODE" || header[3] !== "IJAN" || header[16] !== "EJAN") {
     throw new Error("Census all-country workbook schema changed");
   }
+  publishedThrough = countryWorkbookBoundary(rows, [3, 16], publishedThrough);
   const byCode = new Map<string, UsTradeSeries>();
   for (const row of rows.slice(1)) {
     const year = Number(row[0]);
