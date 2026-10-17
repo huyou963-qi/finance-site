@@ -14,6 +14,10 @@ test("NBS late monthly detail cannot be consumed by a successful headline or ann
       lastSuccessAt: at, lastObsDate: new Date(date), lastError: null,
       releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: at.toISOString() } },
     }));
+    if (packageId === "cn.nbs.industrial-production") rows.push({ ...rows[0]!,
+      instrument: { ...rows[0]!.instrument, code: "nbs_cn_industrial_collective_yoy" },
+      lastObsDate: new Date("2018-12-01"),
+    });
     const prisma = { $queryRaw: async () => [], dataSubscription: { findMany: async () => rows } } as unknown as PrismaClient;
     const release = new Date("2026-10-14T01:30:00Z");
     assert.equal(releaseConsumed((await loadPackageRunStates(prisma)).get(packageId)!, release), false);
