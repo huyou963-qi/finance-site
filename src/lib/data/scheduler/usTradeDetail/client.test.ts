@@ -15,6 +15,7 @@ test("country publication boundary removes future placeholders but preserves pub
     const row = Array(28).fill(0);
     row[0] = 2026; row[1] = String(1000 + n); row[2] = `Partner ${n}`;
     row[3] = 1; row[16] = 2;
+    if (n === 0) row[10] = 3; // Other trade in this file proves August is published.
     return row;
   });
   const historical = Array(28).fill(0);
@@ -37,10 +38,30 @@ test("SA countries use the same publication guard and retain genuine zero months
   const rows = Array.from({ length: 16 }, (_, n) => {
     const row = Array(47).fill(0);
     row[0] = 2026; row[1] = String(1200 + n); row[2] = `Partner ${n}`;
+    if (n === 0) row[26] = 1; // This file independently confirms August.
     return row;
   });
   const result = parseUsTradeCountries([header, ...rows], new Date("2026-08-01"));
-  assert.ok(result.every(row => row.points.length === 8 && row.points.at(-1)?.value === 0));
+  assert.ok(result.every(row => row.points.length === 8));
+  assert.equal(result.find(row => row.code === "census_us_trade_exports_country_1201")?.points.at(-1)?.value, 0);
+});
+
+test("a July-only country file cannot borrow August publication from an end-use file", () => {
+  for (const nsa of [true, false]) {
+    const header = Array(nsa ? 29 : 47).fill("unused");
+    header[0] = "year"; header[1] = nsa ? "CTY_CODE" : "cty_code";
+    const exportStart = nsa ? 16 : 19, importStart = nsa ? 3 : 35;
+    header[exportStart] = "EJAN"; header[importStart] = "IJAN";
+    const rows = Array.from({ length: nsa ? 200 : 16 }, (_, n) => {
+      const row = Array(header.length).fill(0);
+      row[0] = 2026; row[1] = String(1200 + n); row[2] = `Partner ${n}`;
+      row[exportStart] = 1; row[importStart + 6] = 2;
+      return row;
+    });
+    const result = (nsa ? parseUsTradeCountriesNsa : parseUsTradeCountries)([header, ...rows], new Date("2026-08-01"));
+    assert.ok(result.every(row => row.points.length === 7 && row.points.at(-1)?.obsDate.toISOString().startsWith("2026-07-01")));
+    assert.throws(() => (nsa ? parseUsTradeCountriesNsa : parseUsTradeCountries)([header, ...rows.map(row => row.map((v, i) => i >= 3 ? 0 : v))], new Date("2026-08-01")), /unconfirmed/);
+  }
 });
 
 test("live worker/verification cannot reuse an offline Census snapshot or its caches", async (t) => {
