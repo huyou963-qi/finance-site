@@ -4,9 +4,44 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as XLSX from "xlsx";
-import { fetchUsTradeDetail } from "./client";
+import { fetchUsTradeDetail, parseUsTradeCountriesNsa, parseUsTradeCountries } from "./client";
 import { US_TRADE_FILES, US_TRADE_PROVIDER } from "./catalog";
 import { fetchUsTradeDetailIncremental } from "../adapters/usTradeDetailAdapter";
+
+test("country publication boundary removes future placeholders but preserves published zeros", () => {
+  const header = Array(28).fill("unused");
+  header[0] = "year"; header[1] = "CTY_CODE"; header[3] = "IJAN"; header[16] = "EJAN";
+  const rows = Array.from({ length: 200 }, (_, n) => {
+    const row = Array(28).fill(0);
+    row[0] = 2026; row[1] = String(1000 + n); row[2] = `Partner ${n}`;
+    row[3] = 1; row[16] = 2;
+    return row;
+  });
+  const historical = Array(28).fill(0);
+  historical[0] = 2011; historical[1] = "2771"; historical[2] = "Netherlands Antilles";
+  historical[3] = 3; historical[16] = 4;
+  const result = parseUsTradeCountriesNsa([header, ...rows, historical], new Date("2026-08-01"));
+  const active = result.find(row => row.code === "census_us_trade_exports_country_nsa_1000")!;
+  assert.equal(active.points.length, 8);
+  assert.equal(active.points.at(-1)?.value, 0);
+  assert.equal(active.points.at(-1)?.obsDate.toISOString().slice(0, 10), "2026-08-01");
+  const ended = result.find(row => row.code === "census_us_trade_exports_country_nsa_2771")!;
+  assert.equal(ended.points.length, 4);
+  assert.equal(ended.points.at(-1)?.obsDate.toISOString().slice(0, 10), "2011-04-01");
+  assert.throws(() => parseUsTradeCountriesNsa([header, ...rows], new Date(NaN)), /boundary/);
+});
+
+test("SA countries use the same publication guard and retain genuine zero months", () => {
+  const header = Array(47).fill("unused");
+  header[0] = "year"; header[1] = "cty_code"; header[19] = "EJAN"; header[35] = "IJAN";
+  const rows = Array.from({ length: 16 }, (_, n) => {
+    const row = Array(47).fill(0);
+    row[0] = 2026; row[1] = String(1200 + n); row[2] = `Partner ${n}`;
+    return row;
+  });
+  const result = parseUsTradeCountries([header, ...rows], new Date("2026-08-01"));
+  assert.ok(result.every(row => row.points.length === 8 && row.points.at(-1)?.value === 0));
+});
 
 test("live worker/verification cannot reuse an offline Census snapshot or its caches", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "finance-site-census-test-"));

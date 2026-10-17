@@ -167,11 +167,6 @@ export const TE_CALENDAR_BY_FRED: Record<string, CalendarMatchSpec> = {
     countryCodes: ["US"],
     keywords: ["fed balance sheet", "fed's balance sheet", "fed total assets"],
   },
-  GS2: {
-    countryCodes: ["US"],
-    keywords: ["2-year note auction", "2 year note auction"],
-    excludeKeywords: ["10-year", "30-year"],
-  },
   BAMLH0A0HYM2: {
     countryCodes: ["US"],
     keywords: ["high yield", "junk bond"],
@@ -194,11 +189,6 @@ export const TE_CALENDAR_BY_FRED: Record<string, CalendarMatchSpec> = {
     countryCodes: ["US"],
     keywords: ["gdp", "gross domestic product"],
     excludeKeywords: ["advance", "prelim"],
-  },
-  GS10: {
-    countryCodes: ["US"],
-    keywords: ["10-year note auction", "10 year note auction"],
-    excludeKeywords: ["2-year", "30-year", "5-year"],
   },
   DCOILWTICO: {
     countryCodes: ["US"],

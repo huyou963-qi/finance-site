@@ -18,7 +18,7 @@ export async function loadPackageRunStates(
   const excluded = await loadExcludedCatalogKeys(prisma);
   const rows = await prisma.dataSubscription.findMany({
     where: { releasePackageId: { not: null }, enabled: true },
-    select: { releasePackageId: true, lastSuccessAt: true, lastObsDate: true, lastError: true, releaseRule: true,
+    select: { releasePackageId: true, granularity: true, lastSuccessAt: true, lastObsDate: true, lastError: true, releaseRule: true,
       sourceSeriesKey: true, source: { select: { adapterKind: true } },
       instrument: { select: { code: true, metadata: true } } },
   });
@@ -45,7 +45,9 @@ export async function loadPackageRunStates(
       sourceVerifiedAt: min(previous.sourceVerifiedAt, verifiedAt),
       hasUnresolvedFailures: previous.hasUnresolvedFailures || Boolean(row.lastError),
     } : { lastSuccessAt: row.lastSuccessAt, sourceVerifiedAt: verifiedAt, hasUnresolvedFailures: Boolean(row.lastError) };
-    if (packageId === "us.bls.cpi") {
+    if (previous?.requiredMonthlyObservation) state.requiredMonthlyObservation = previous.requiredMonthlyObservation;
+    if (packageId === "us.bls.cpi" || (row.granularity === "MONTHLY" &&
+        ["cn.nbs.ppi", "cn.nbs.industrial-production", "cn.nbs.retail-sales"].includes(packageId))) {
       state.requiredMonthlyObservation = {
         oldest: previous?.requiredMonthlyObservation
           ? min(previous.requiredMonthlyObservation.oldest, row.lastObsDate) : row.lastObsDate ?? null,

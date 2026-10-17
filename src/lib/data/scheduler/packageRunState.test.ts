@@ -4,6 +4,24 @@ import type { PrismaClient } from "@prisma/client";
 import { loadPackageRunStates } from "./packageRunState";
 import { releaseConsumed } from "./packageScheduleGuard";
 
+test("NBS late monthly detail cannot be consumed by a successful headline or annual member", async () => {
+  for (const packageId of ["cn.nbs.ppi", "cn.nbs.industrial-production", "cn.nbs.retail-sales"]) {
+    const at = new Date("2026-10-15T03:00:00Z");
+    const rows = ["2026-09-01", "2026-08-01", "2025-01-01"].map((date, i) => ({
+      releasePackageId: packageId, granularity: i === 2 ? "ANNUAL" : "MONTHLY",
+      instrument: { code: `member-${i}`, metadata: { fetchAcquisition: { status: "known" } } },
+      source: { adapterKind: "REST_API" }, sourceSeriesKey: `member-${i}`,
+      lastSuccessAt: at, lastObsDate: new Date(date), lastError: null,
+      releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: at.toISOString() } },
+    }));
+    const prisma = { $queryRaw: async () => [], dataSubscription: { findMany: async () => rows } } as unknown as PrismaClient;
+    const release = new Date("2026-10-14T01:30:00Z");
+    assert.equal(releaseConsumed((await loadPackageRunStates(prisma)).get(packageId)!, release), false);
+    rows[1]!.lastObsDate = new Date("2026-09-01");
+    assert.equal(releaseConsumed((await loadPackageRunStates(prisma)).get(packageId)!, release), true);
+  }
+});
+
 test("CPI observation proof uses the oldest eligible member even after successful empty checks", async () => {
   const at = new Date("2026-10-14T12:41:00Z");
   const rows = ["2026-09-01", "2026-08-01"].map((month, i) => ({

@@ -3,7 +3,7 @@ import test from "node:test";
 import { fetchTreasuryFiscalIncremental } from "./treasuryFiscalDataAdapter";
 import { selectMts1FytdRow } from "../treasuryFiscalData/client";
 
-const report = (date = "2026-08-31", fy = "2026") => [
+const report = (date = "2026-08-31", fy = "2026"): Array<Record<string, string | null>> => [
   { record_date: date, classification_id: "prior", classification_desc: `FY ${+fy - 1}`, record_type_cd: "SL", data_type_cd: "S", record_fiscal_year: fy },
   { record_date: date, classification_id: "current", classification_desc: `FY ${fy}`, record_type_cd: "SL", data_type_cd: "S", record_fiscal_year: fy },
   { record_date: date, parent_id: "prior", classification_desc: "Year-to-Date", record_type_cd: "SL", data_type_cd: "T", record_fiscal_year: fy, current_month_gross_rcpt_amt: "5234616472030.91" },
