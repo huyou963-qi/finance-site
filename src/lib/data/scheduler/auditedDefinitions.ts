@@ -15,5 +15,8 @@ export const AUDITED_DEFINITIONS = [
 export function auditedDefinitionMetadata(previous: unknown, definition: typeof AUDITED_DEFINITIONS[number]) {
   const old = previous && typeof previous === "object" && !Array.isArray(previous) ? previous : {};
   return { ...old, displayName: definition.name, unit: definition.unit, freqLabel: definition.freqLabel,
-    source: definition.source, definitionAudit: "2026-10-17-official-source-review" };
+    source: definition.source, definitionAudit: "2026-10-17-official-source-review",
+    ...(["sched_fred_CUSR0000SAC", "sched_fred_CUSR0000SAS"].includes(definition.code)
+      ? { catalogCategory: "CPI 分项" } : {}),
+  };
 }
