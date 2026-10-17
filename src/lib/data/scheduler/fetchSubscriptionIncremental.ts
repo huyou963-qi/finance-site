@@ -97,6 +97,10 @@ export async function fetchSubscriptionIncremental(
     }
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
     if (scrapeObj) {
+      if (scrapeObj.provider === "market_internals_daily") {
+        const { fetchMarketInternalsIncremental } = await import("./adapters/marketInternalsAdapter");
+        return fetchMarketInternalsIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       if (scrapeObj.provider === "jp_mof_corporate_fiscal") {
         const { fetchJpMofCorporateFiscalIncremental } = await import("./adapters/jpMofCorporateFiscalAdapter");
         return fetchJpMofCorporateFiscalIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
