@@ -13,7 +13,6 @@ export const STATIC_SITEMAP_PAGES: readonly {
 }[] = [
   { path: "/", changeFrequency: "daily", priority: 1 },
   { path: "/macro", changeFrequency: "daily", priority: 0.9 },
-  { path: "/macro/framework", changeFrequency: "weekly", priority: 0.7 },
   { path: "/markets", changeFrequency: "daily", priority: 0.8 },
   { path: "/markets-tools", changeFrequency: "weekly", priority: 0.5 },
   { path: "/equity/sectors", changeFrequency: "daily", priority: 0.8 },
