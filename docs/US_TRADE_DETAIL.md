@@ -11,12 +11,18 @@
 
 商品文件及选定伙伴国季调文件为美元原值，入库除以 1,000,000；全伙伴国未季调文件已是百万美元，直接入库。数据库单位统一为**百万美元**。伙伴国季调单元格的浮点尾数归一到 0.001 美元、未季调单元格归一到 1 美元精度，避免重复抓取产生虚假修订。只保存源直接公布的出口、进口金额，贸易差额与同比由图表计算。EU、CAFTA-DR、South/Central America、世界汇总与国际组织等区域或汇总项不作为国别序列入库。季调重点国与未季调全伙伴国保留为独立序列，不混接。
 
+## Census API（未季调伙伴国）
+
+服务端 `.env.local` 配置 `CENSUS_API_KEY` 后，worker 对 `country_nsa` 单独调用官方 `intltrade/exports/hs` 与 `imports/hs`；出口使用 `ALL_VAL_MO`、进口使用 `GEN_VAL_MO`，商品与海关区固定为总计 `-`，美元除以 1,000,000。按单一伙伴国读取最近六个日历月，捕获期间修订且不删除更早历史。生产实测三年及整年进口查询超时，六个月窗口成功；因此不让每个 worker 成员做宽历史查询。每请求最多两次、单次超时 30 秒，成功响应缓存一小时；不会输出带 key 的 URL、响应正文或原始网络异常。停更代码 2771 不接入在线 API。
+
+此路径不依赖任何 XLSX 成功，避免一个受限文件阻断未季调更新。季调商品细目及季调伙伴国仍走官方季调文件，不能用该 API 的未季调数替代。API 失败保留真实失败，不使用离线快照或缺失值补零。全历史 seed/同步及整域源验证仍保留 XLSX 路径；六个月以前的修订需要官方文件全历史重读，目前文件 403 未解决，不能宣称这部分历史修订覆盖已恢复。
+
 ## 更新
 
 - `data:seed-us-trade-detail` 幂等建立 Instrument、DataSubscription 与最新观测。`data:sync-us-trade-detail` 完整回读四份表并回填全部历史及修订。
 - 新序列加入现有 `us.census.international_trade` 发布包，与 `BOPGSTB`、`BOPTEXP`、`BOPTIMP` 共用 FT-900 月度日历。执行 `data:seed-release-packages` 链接成员，`data:sync-calendar` 更新发布时刻，`data:worker` 按订阅运行。
 - 每次 worker 抓取会完整回读滚动文件以捕获年度和历史修订；同一进程的一小时内共用下载和解析缓存，避免对每个分项重复请求 Census。源列变化、商品/国别缺失、叶组超过 48 条会使验证失败。
 - HK 访问 Census XLSX 可能收到 403。生产 worker、同步和源验证要求实时官方文件；直连失败必须报错，不能借用旧快照或离线缓存而标成正常无变化。`US_TRADE_DATA_DIR` 同名官方文件仅供显式 `allowLocalSnapshot: true` 的历史 seed 使用；离线与实时下载/解析缓存隔离。快照不提交 Git，成功离线导入不能证明最新发布期已入库。源访问仍需单独恢复，此保护本身不补齐缺失月份，也不绕过站点访问控制。
-- `data:verify-us-trade-detail -- --db` 核对目录、发布包、订阅及最新观测与源表相同。部署时 `data:apply` 通过 registry 纳入新域。无新 migration，无新 API key。
+- `data:verify-us-trade-detail -- --db` 核对目录、发布包、订阅及最新观测与源表相同。部署时 `data:apply` 通过 registry 纳入新域。无新 migration；API 路径需 `CENSUS_API_KEY`。
 
 来源说明：[Census 季调贸易历史表](https://www.census.gov/foreign-trade/statistics/historical/seas.html)、[Census 国别与商品数据](https://www.census.gov/foreign-trade/statistics/country/index.html)。
