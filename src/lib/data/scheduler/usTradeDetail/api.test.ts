@@ -31,9 +31,11 @@ test("authenticated adapter is isolated from XLSX failures, retries boundedly an
       assert.equal(url.searchParams.get("key"), "private-test-key");
       assert.equal(url.searchParams.get("I_COMMODITY"), "-");
       assert.equal(url.searchParams.get("DISTRICT"), "-");
+      assert.equal(url.searchParams.has("CTY_CODE"), false);
       if (calls === 1) return new Response("busy", { status: 503 });
       const through = url.searchParams.get("time")!.split(" to ")[1]!;
-      return Response.json([["CTY_CODE", "GEN_VAL_MO", "time"], ["1220", "35980039950", through]]);
+      return Response.json([["CTY_CODE", "GEN_VAL_MO", "time"], ["1220", "35980039950", through],
+        ["5700", "777000000", through], ["-", "999999999", through]]);
     };
     const result = await fetchUsTradeDetailIncremental(metadata, "census_us_trade_imports_country_nsa_1220");
     assert.equal(result.points[0]?.value, 35980.03995);
@@ -42,6 +44,10 @@ test("authenticated adapter is isolated from XLSX failures, retries boundedly an
     assert.equal(calls, 2);
     await fetchUsTradeDetailIncremental(metadata, "census_us_trade_imports_country_nsa_1220");
     assert.equal(calls, 2);
+    const china = await fetchUsTradeDetailIncremental(metadata, "census_us_trade_imports_country_nsa_5700");
+    assert.equal(china.points[0]?.value, 777);
+    await assert.rejects(fetchCensusPartnerApi("census_us_trade_imports_country_nsa_2010"), /no partner observations/);
+    assert.equal(calls, 2, "different partners share one validated release table without replacing missing members with totals");
     await assert.rejects(fetchCensusPartnerApi("census_us_trade_imports_country_1220"), /unadjusted/);
     await assert.rejects(fetchCensusPartnerApi("census_us_trade_imports_country_nsa_2771"), /active/);
     calls = 0;
