@@ -3,7 +3,7 @@
  * select the published partner total, not a sum of detailed commodity rows.
  */
 export const CENSUS_TRADE_API = "https://api.census.gov/data/timeseries/intltrade";
-const cache = new Map<string, { at: number; promise: Promise<{ obsDate: Date; value: number }[]> }>();
+const cache = new Map<string, { at: number; promise: Promise<unknown[][]> }>();
 
 export function parseCensusPartnerApi(payload: unknown, country: string, side: "exports" | "imports", through: string) {
   if (!Array.isArray(payload) || payload.length < 2 || !Array.isArray(payload[0])) throw new Error("Census API returned no partner observations");
@@ -36,11 +36,21 @@ export async function fetchCensusPartnerApi(code: string, now = new Date()) {
   const key = process.env.CENSUS_API_KEY?.trim();
   if (!key) throw new Error("CENSUS_API_KEY is required for Census partner API updates");
   const through = now.toISOString().slice(0, 7);
-  const cacheKey = `${code}:${through}`;
+  const side = match[1] as "exports" | "imports";
+  const table = await fetchPartnerTable(side, now, key);
+  const countryIndex = table[0]!.indexOf("CTY_CODE");
+  // One official release table is shared, but every member keeps an independent
+  // country filter and parser/validation result. Omitted countries are failures,
+  // not invented zero observations or borrowed world/regional totals.
+  return parseCensusPartnerApi([table[0], ...table.slice(1).filter(row => row[countryIndex] === match[2])], match[2]!, side, through);
+}
+
+async function fetchPartnerTable(side: "exports" | "imports", now: Date, key: string): Promise<unknown[][]> {
+  const through = now.toISOString().slice(0, 7);
+  const cacheKey = `${side}:${through}`;
   const old = cache.get(cacheKey);
   if (old && Date.now() - old.at < 3_600_000) return old.promise;
   const promise = (async () => {
-    const side = match[1] as "exports" | "imports";
     const url = new URL(`${CENSUS_TRADE_API}/${side}/hs`);
     // Wider imports queries time out in production even when single-month
     // requests succeed. Bound the live worker to six calendar months; full
@@ -49,7 +59,9 @@ export async function fetchCensusPartnerApi(code: string, now = new Date()) {
     url.search = new URLSearchParams({
       get: `CTY_CODE,CTY_NAME,${side === "exports" ? "ALL_VAL_MO" : "GEN_VAL_MO"}`,
       time: `from ${from} to ${through}`,
-      CTY_CODE: match[2]!, DISTRICT: "-",
+      // With CTY_CODE in get and no country predicate, the official API returns
+      // all partners (plus aggregates). CTY_CODE=* is NOT used.
+      DISTRICT: "-",
       ...(side === "exports" ? { E_COMMODITY: "-", DF: "-" } : { I_COMMODITY: "-" }), key,
     }).toString();
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -65,7 +77,11 @@ export async function fetchCensusPartnerApi(code: string, now = new Date()) {
       if (response.status !== 200) throw new Error(`Census partner API HTTP ${response.status}; no workbook/snapshot substitution`);
       let payload: unknown;
       try { payload = await response.json(); } catch { throw new Error("Census partner API response is not valid JSON"); }
-      return parseCensusPartnerApi(payload, match[2]!, side, through);
+      if (!Array.isArray(payload) || payload.length < 2 || !payload.every(Array.isArray)
+        || !["CTY_CODE", "time", side === "exports" ? "ALL_VAL_MO" : "GEN_VAL_MO"].every(name => payload[0].includes(name))) {
+        throw new Error("Census partner API release table schema changed");
+      }
+      return payload as unknown[][];
     }
     throw new Error("Census partner API attempts exhausted");
   })();

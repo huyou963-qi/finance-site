@@ -19,6 +19,8 @@
 
 ## 更新
 
+在线 API 按进/出口方向共享官方整批响应一小时：`get` 包含 `CTY_CODE` 且不添加国家谓词（不是 `CTY_CODE=*`），商品/海关区仍限定总计 `-`。香港实测同一六个月窗口分别返回 996/1008 条原始记录。逐成员按精确国家代码筛选再走同一解析器，汇总项不会落入国别序列；官方未返回该国时真实报错而不补零。这样发布包数百个成员无需数百次外部请求；失败缓存不保留。
+
 - `data:seed-us-trade-detail` 幂等建立 Instrument、DataSubscription 与最新观测。`data:sync-us-trade-detail` 完整回读四份表并回填全部历史及修订。
 - 新序列加入现有 `us.census.international_trade` 发布包，与 `BOPGSTB`、`BOPTEXP`、`BOPTIMP` 共用 FT-900 月度日历。执行 `data:seed-release-packages` 链接成员，`data:sync-calendar` 更新发布时刻，`data:worker` 按订阅运行。
 - 每次 worker 抓取会完整回读滚动文件以捕获年度和历史修订；同一进程的一小时内共用下载和解析缓存，避免对每个分项重复请求 Census。源列变化、商品/国别缺失、叶组超过 48 条会使验证失败。
