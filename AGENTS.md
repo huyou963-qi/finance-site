@@ -270,7 +270,7 @@ npm run db:studio        # Prisma Studio
 
 ## 个股经营里程碑（Skill）
 
-用户可用自己的 AI 按 [`.cursor/skills/company-milestone-ingest/`](.cursor/skills/company-milestone-ingest/) 搜集单票产品/产能/影响该公司的政策。模板整包：`/templates/company-milestone/company-milestone-pack.zip`（改文件后 `npm run pack:company-milestone`）。在 **行情页** `/markets` 底部展开「事件筛选器」：**导入经营事件仅本地对本账号生效**；Admin 用 `events:import-ingest` 入库后全站可见；轴上本地优先于共享库与 SEC。亦可 CLI：
+用户可用自己的 AI 按 [`.cursor/skills/company-milestone-ingest/`](.cursor/skills/company-milestone-ingest/) 搜集单票经营里程碑或跨资产专题事件。模板整包：`/templates/company-milestone/company-milestone-pack.zip`（改文件后 `npm run pack:company-milestone`）。在 **行情页** `/markets` 底部展开「事件筛选器」→「导入本地事件」：默认按文件设置范围；`query.importTarget: "all-assets"` 可不绑定 ticker，一次导入后在本机当前账号的全部资产主图与事件栏显示，旧文件仍只保存到当前标的。`assets` 是事实关联标签，不是本地显示白名单；本地专题可引用财报催化，但不得自动写入共享库。Admin 共享入库仍按 SEC 对账与去重规则执行；本地优先于共享库与 SEC。亦可 CLI：
 
 ```bash
 npm run events:validate-ingest -- <file.json>

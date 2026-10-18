@@ -5,17 +5,17 @@ import {
   COMPANY_KIND_FILTERS,
   isoDateToUnixSec,
   loadDemoMilestones,
-  loadLocalCompanyEvents,
   marketEventToMilestone,
   mergeCompanyTimeline,
   milestoneMatchesCompanyKinds,
   milestoneToMarketEventDto,
   parseMilestoneIngestJson,
-  saveLocalCompanyEvents,
   unixSecToIsoDate,
   type CompanyKindFilter,
   type CompanyMilestone,
+  type LocalEventImportTarget,
 } from "@/lib/equity/companyMilestones";
+import type { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
 import { buildForChartUrl } from "@/lib/chart/buildForChartUrl";
 import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
 import { eventMatchesFilters } from "@/components/events/EventPanel";
@@ -24,6 +24,7 @@ import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import {
   eventTypeLabel,
+  familyIdForEventType,
   eventTypeMatchesFamilies,
   normalizeEventType,
 } from "@/lib/data/eventTaxonomy";
@@ -86,6 +87,7 @@ function findNearestId(items: CompanyMilestone[], trackDate: string): string | n
 }
 
 export type MarketsEventShelfProps = {
+  localEventStore: ReturnType<typeof useLocalCompanyEvents>;
   onOpenDetail?: (event: MarketEventDto) => void;
   symbol: string;
   viewFilters: EventViewFilterState;
@@ -99,6 +101,7 @@ export type MarketsEventShelfProps = {
 };
 
 export function MarketsEventShelf({
+  localEventStore,
   onOpenDetail,
   symbol,
   viewFilters,
@@ -120,7 +123,9 @@ export function MarketsEventShelf({
   const shelfHeightRef = useRef(shelfHeight);
   const renderedHeight = Math.max(shelfHeight, toolbarHeight + cardReserve);
   shelfHeightRef.current = renderedHeight;
-  const [localOnly, setLocalOnly] = useState<CompanyMilestone[]>([]);
+  const { events: localOnly, allAssetCount, importEvents, clearAllAssets, ready: localReady } = localEventStore;
+  const [importTarget, setImportTarget] = useState<"file" | LocalEventImportTarget>("file");
+  const [importMessage, setImportMessage] = useState<string | null>(null);
   const [sharedEvents, setSharedEvents] = useState<CompanyMilestone[]>([]);
   const [secEvents, setSecEvents] = useState<CompanyMilestone[]>([]);
   const [companyKindFilter, setCompanyKindFilter] = useState<
@@ -131,7 +136,6 @@ export function MarketsEventShelf({
       : [],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [userId, setUserId] = useState("anon");
   const [loading, setLoading] = useState(false);
   const [drawerEvent, setDrawerEvent] = useState<MarketEventDto | null>(null);
   const [researchOpen, setResearchOpen] = useState(false);
@@ -180,25 +184,6 @@ export function MarketsEventShelf({
   );
 
   const sym = symbol.trim().toUpperCase();
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) return null;
-        return (await r.json()) as { user?: { id?: string } };
-      })
-      .then((j) => {
-        if (cancelled) return;
-        setUserId(j?.user?.id?.trim() || "anon");
-      })
-      .catch(() => {
-        if (!cancelled) setUserId("anon");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const merged = useMemo(
     () => mergeCompanyTimeline(viewFilters.largeSurpriseOnly ? [] : localOnly, sharedEvents, viewFilters.largeSurpriseOnly ? [] : secEvents),
@@ -297,14 +282,11 @@ export function MarketsEventShelf({
 
   useEffect(() => {
     if (!sym) {
-      setLocalOnly([]);
       setSharedEvents([]);
       setSecEvents([]);
       setRawEvents([]);
       return;
     }
-
-    setLocalOnly(loadLocalCompanyEvents(userId, sym));
 
     const from =
       rangeFromSec != null
@@ -369,26 +351,20 @@ export function MarketsEventShelf({
     };
     // viewFilters 经 filterFetchKey 稳定；searchQ 仅客户端筛
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [sym, userId, rangeFromSec, rangeToSec, filterFetchKey]);
+  }, [sym, rangeFromSec, rangeToSec, filterFetchKey]);
 
   const selected = visible.find((m) => m.id === selectedId) ?? visible[0] ?? null;
   const originalForMilestone = (m: CompanyMilestone) =>
     rawEvents.find(e => `${m.layer}:${e.id}` === m.id) ?? milestoneToMarketEventDto(m);
   const openDetail = (event: MarketEventDto) => onOpenDetail ? onOpenDetail(event) : setDrawerEvent(event);
 
-  const applyLocalItems = useCallback(
-    (nextLocal: CompanyMilestone[]) => {
-      const withLayer = nextLocal.map((m) => ({ ...m, layer: "local" as const }));
-      setLocalOnly(withLayer);
-      if (sym) saveLocalCompanyEvents(userId, sym, withLayer);
-    },
-    [sym, userId],
-  );
-
   const loadSample = useCallback(() => {
     if (!sym) return;
-    applyLocalItems(loadDemoMilestones("TSLA"));
-  }, [sym, applyLocalItems]);
+    try {
+      importEvents(loadDemoMilestones("TSLA"), "symbol");
+      setImportMessage("TSLA 范本已载入当前标的");
+    } catch (e) { setImportMessage(e instanceof Error ? e.message : "载入失败"); }
+  }, [sym, importEvents]);
 
   const onFile = useCallback(
     async (file: File | null) => {
@@ -396,15 +372,21 @@ export function MarketsEventShelf({
       try {
         const text = await file.text();
         const raw = JSON.parse(text) as unknown;
-        const { milestones, errors } = parseMilestoneIngestJson(raw);
-        if (errors.length && milestones.length === 0) return;
-        applyLocalItems(milestones);
-      } catch {
-        /* ignore */
+        const { milestones, errors, importTarget: fileTarget } = parseMilestoneIngestJson(raw);
+        if (errors.length) throw new Error(errors.join("；"));
+        const target = importTarget === "file" ? fileTarget : importTarget;
+        importEvents(milestones, target);
+        setImportMessage(`已导入 ${milestones.length} 条 · ${target === "all-assets" ? "全部资产通用" : "仅当前标的"}`);
+        // 通用研究允许任意事件类型；导入后确保这些类型可见。
+        onViewFiltersChange({ ...viewFilters, markersEnabled: true, largeSurpriseOnly: false,
+          typeFamilies: [...new Set([...viewFilters.typeFamilies, ...milestones.map(m => familyIdForEventType(m.eventType))])] });
+        setCompanyKindFilter([]);
+      } catch (e) {
+        setImportMessage(e instanceof Error ? e.message : "导入失败");
       }
       if (fileRef.current) fileRef.current.value = "";
     },
-    [applyLocalItems],
+    [importEvents, importTarget, onViewFiltersChange, viewFilters],
   );
 
   const onSelect = useCallback((m: CompanyMilestone) => {
@@ -475,6 +457,7 @@ export function MarketsEventShelf({
           <button
             type="button"
             onClick={loadSample}
+            disabled={!localReady}
             className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[10px] text-fs-accent-text hover:opacity-90"
           >
             载入 TSLA 范本
@@ -482,10 +465,11 @@ export function MarketsEventShelf({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            title="仅保存在本机当前账号；全站共享需管理员入库"
+            disabled={!localReady}
+            title="仅保存在本机当前账号，可选择当前标的或全部资产通用"
             className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-secondary hover:bg-fs-elevated"
           >
-            导入经营事件
+            导入本地事件
           </button>
           <input
             ref={fileRef}
@@ -494,7 +478,18 @@ export function MarketsEventShelf({
             className="hidden"
             onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
           />
+          <select aria-label="本地事件导入范围" value={importTarget}
+            onChange={e => setImportTarget(e.target.value as "file" | LocalEventImportTarget)}
+            className="max-w-32 rounded border border-fs-border bg-white px-1 py-0.5 text-[10px] text-fs-secondary">
+            <option value="file">按文件设置</option>
+            <option value="all-assets">全部资产通用</option>
+            <option value="symbol">仅当前标的</option>
+          </select>
+          {allAssetCount > 0 && <button type="button" className="text-[10px] text-fs-muted hover:text-fs-accent-text"
+            onClick={() => { try { clearAllAssets(); setImportMessage("已清除全部资产通用事件，可重新导入恢复"); }
+              catch { setImportMessage("清除失败，请重试"); } }}>清除通用事件（{allAssetCount}）</button>}
         </div>
+        {importMessage && <span role="status" className="w-full text-[10px] text-fs-secondary">{importMessage}</span>}
       </div>
 
       {researchOpen && isMacroResearchAsset(sym) ? <MacroEventResearch
@@ -511,7 +506,7 @@ export function MarketsEventShelf({
                 ? "当前区间与筛选下没有大预期差事件，可调整时间范围或取消「仅大预期差」。"
               : merged.length > 0
                 ? "当前筛选或可视区间内无事件，可调整筛选或拖动 K 线时间范围。"
-                : "暂无事件。可调整筛选类型，或「下载SKILL」后「导入经营事件」（仅本地可见）。"}
+                : "暂无事件。可调整筛选类型，或「下载SKILL」后「导入本地事件」（可选全部资产通用）。"}
           </div>
         ) : (
           <div

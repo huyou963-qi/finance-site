@@ -24,6 +24,8 @@ import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
 import { MarketsEventShelf } from "@/components/equity/MarketsEventShelf";
+import { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
+import { familyIdForEventType } from "@/lib/data/eventTaxonomy";
 import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import {
@@ -74,6 +76,8 @@ export function MarketsClient() {
   }, []);
   const closeEventDetail = useCallback(() => setDetailEvent(null), []);
   const [symbol, setSymbol] = useState("");
+  const localEventStore = useLocalCompanyEvents(symbol);
+  const allAssetEvents = localEventStore.allAssetEvents;
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const regionalInstrument = resolveEastmoneyInstrument(symbol);
   const yieldInstrument = Boolean(findMarketInstrument(symbol)?.fredSeriesId);
@@ -159,8 +163,13 @@ export function MarketsClient() {
     const sym = symbol.trim();
     if (!sym) return;
     const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
-    setEventViewFilters((prev) => applySymbolDraftToFilters(prev, draft));
-  }, [symbol, eventFiltersHydrated]);
+    setEventViewFilters((prev) => {
+      const next = applySymbolDraftToFilters(prev, draft);
+      // 换到宏观资产时，不让标的默认类型自动隐藏用户的通用研究。
+      return { ...next, typeFamilies: [...new Set([...next.typeFamilies,
+        ...allAssetEvents.map(m => familyIdForEventType(m.eventType))])] };
+    });
+  }, [symbol, eventFiltersHydrated, allAssetEvents]);
 
   useEffect(() => {
     bcRef.current = new BroadcastChannel(KLINE_PAGE_SYNC_CHANNEL);
@@ -767,6 +776,7 @@ export function MarketsClient() {
           onVisibleTimeRangeChange={onVisibleTimeRangeChange}
           onLocalCrosshairTime={onLocalCrosshairTime}
           onEventMarkerClick={onEventMarkerClick}
+          localEvents={localEventStore.events}
           toolbarPortalEl={chartToolbarMount}
           settingsPortalEl={mobileLayout ? mobileSettingsMount : null}
           eventViewFilters={eventViewFilters}
@@ -775,6 +785,7 @@ export function MarketsClient() {
         />
         {eventShelfOpen ? (
           <MarketsEventShelf
+            localEventStore={localEventStore}
             onOpenDetail={openEventDetail}
             symbol={symbol}
             viewFilters={eventViewFilters}

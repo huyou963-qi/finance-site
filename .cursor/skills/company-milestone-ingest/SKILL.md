@@ -1,113 +1,76 @@
 ---
 name: company-milestone-ingest
 description: >-
-  Collect operating milestones for ANY listed company (product launch/scale-up,
-  capacity/factory nodes, and policies that materially affect that ticker).
-  Emit JSON for the markets operating timeline (user-local import) or admin
-  events:import-ingest into shared MarketEvent. Use when building stock operating
-  timelines or gathering historical business events for a ticker.
+  Generate finance-site local chart event JSON for a single company's milestones
+  or a cross-asset research timeline. Supports importing once for every asset,
+  including risk triggers, relief catalysts, and narrative turning points.
 ---
 
-# Company Milestone Ingest
+# Local Chart Event Ingest
 
-为**任意一只股票**搜集「经营里程碑」与「影响该公司的政策」，生成标准 JSON。
+为行情页「事件筛选器」生成可本地导入的事件 JSON。支持个股经营里程碑和跨资产专题研究（如 AI 风险触发与缓解），沿用同一字段和事件词表。
 
-与 [`market-event-ingest`](../market-event-ingest/SKILL.md) **共用同一套字段与词表**（不另建事件类型体系）。本 Skill 更窄：专注产品/产能/挂票政策，不做评级/目标价/宏观批队列。
+## 选择显示范围
 
-**Skill + Schema 是一套**：规程见本文件，结构见 [`templates/ingest-output.schema.json`](./templates/ingest-output.schema.json)。
+- 单标的：query.importTarget 为 symbol（省略时的兼容默认值），query.symbol 可填写目标 ticker；导入到当前所选标的。
+- 跨资产研究：query.importTarget 为 all-assets，省略 query.symbol；一次导入后，当前账号在同一浏览器、同一站点的所有资产图表都可查看，包括股票、指数、商品、外汇和债券。
+- assets 表示事件实际关联的资产，不是显示白名单。跨资产专题可为空；不得为了在任意资产显示而硬挂无关 ticker。
+- 页面下拉框可覆盖文件范围。导入按 externalId 更新同范围已有事件，保留其他事件；同一 externalId 的单标的版本优先于通用版本。可通过「清除通用事件」移除通用集合。
+- 通用事件仍服从时间范围、事件类型、重要性、文字筛选和「图上显示」；「仅大预期差」模式不显示普通研究标记。市场/SEC 数据源开关不影响私人本地事件。
+- 桌面、手机使用同一导入入口与显示规则；折叠事件栏后主图上的标记继续显示。
 
-## 可见性（导入后谁能看见）
+## 研究范围
 
-| 路径 | 谁 | 效果 |
-|------|-----|------|
-| `/markets` →「导入经营事件」 | 任意登录用户 | **仅该用户浏览器本地**（按 userId+标的），只对自己生效；冲突时**优先于**共享库/SEC 显示 |
-| `npm run events:import-ingest` | **Admin / 运维** | 写入共享 `MarketEvent`，其他用户在经营轴/K 线可见 |
+个股经营研究按需求覆盖产品 company.product、产能 company.capacity、相关政策 policy.*，可补合作、资本、并购、供应链等真实节点。
 
-普通用户 Skill 产出 → 本地导入即可；全站共享须管理员入库。
+跨资产专题按用户指定主题选择事件，不强制凑齐产品/产能/政策三类。可使用 company.earnings、speech.executive、market.anomaly、macro.release 等代码；不要为通过默认筛选而伪装事件类型。完整词表：src/lib/data/eventTaxonomy.ts。
 
-## When to use
+私人跨资产研究可以引用财报作为需求验证或风险缓解催化剂，保留专题解释和原始来源，无需因 SEC 已收录就丢弃用户需要的观察节点。此例外仅适用于本地研究文件；不要生成冗余 SEC 文书/拆分，不要自动发布到共享库。管理员共享入库仍按 market-event-ingest 的 SEC 对账和去重规则执行。
 
-- 「搜集 `{SYMBOL}` 历史经营重要事件」
-- 「补产品发布、量产、工厂/产能、影响该公司的补贴/监管」
-- 用户要用自己的 AI 为关注标的做时间轴
+## 事实与日期
 
-## 输入
+1. 每个已发生事件交叉验证至少两个独立权威来源，转载同一稿不算独立源。无法确认的事件或日期放入 skipped，不编造。
+2. 明确区分触发、加剧、反弹、缓解催化、价格修复、未解除和真正解除；不能用股价反弹推断信用风险已经解除。将阶段写入标题、content 和 markerLabel，不只放在自定义 payload 中。
+3. 日期按原始事件的当地日期；日期精度不足一天不强行落某日。盘后公告仍标实际公告日期，在 content 说明下一交易日才体现完整市场反应。不用 DATE 假装精确时刻。
+4. 用户只要已发生事件时，未来财报、会议和可能的融资都放入 skipped，不能作为已发生标记。
 
-| 字段 | 必填 | 说明 |
-|------|------|------|
-| `symbol` | 是 | ticker，一律大写 |
-| `from` / `to` | 建议 | 上市日或合理起点 → 今天 |
-| 行业提示 | 否 | GICS / 主营 / 国家 |
+## 输出
 
-**一条运行只服务一个 `symbol`。**
+结构见 ingest-output.schema.json，mode 保持 company-milestone 以兼容已有导入器。
 
-## 打标约定（本地与入库相同）
+- 必填 externalId、title、content、occurredAt、eventType、markerLabel、payload.impact.summary。
+- markerLabel 最多四个汉字或短英文；importance 使用 LOW / MEDIUM / HIGH / CRITICAL。
+- scope 使用 COMPANY / COUNTRY / INDUSTRY / CROSS；跨资产叙事通常 CROSS，assets 可以为空。
+- 个股 externalId：ai:milestone:{SYMBOL}:{yyyy-mm-dd}:{slug}。
+- 专题 externalId：ai:research:{TOPIC}:{yyyy-mm-dd}:{slug}，不要带显示标的，方便跨图复用和重复导入更新。
+- payload.impact.summary 描述研究影响；channels 选 demand / cost / capacity / margin / narrative。
+- sources[] 保存来源链接与说明；content 也附来源链接，因为浏览器导入会保留 content，但不会保留所有扩展字段。
+- 同一来源事实只生成一个节点；公告和次日市场反应可分开，但必须说明区别。
 
-| 字段 | 约定 |
-|------|------|
-| `scope` | 公司本体 `COMPANY`；政策可用 `COUNTRY`/`INDUSTRY`，但必须挂 assets |
-| `assets` | **必含** 目标 ticker |
-| `eventType` | 见下表 |
-| `tags` | 建议含 `milestone` |
-| `markerLabel` | ≤4 字 |
-| `payload.impact.summary` | 经营类建议必填 |
-| `externalId` | `ai:milestone:{SYMBOL}:{yyyy-mm-dd}:{slug}` |
-
-## 必须覆盖
-
-1. **产品** `company.product`  
-2. **产能** `company.capacity`  
-3. **政策** `policy.*`（确实影响该公司者）  
-
-可选（若检索到且非 SEC 重复）：`company.mna` / `capital` / `partnership` / `litigation` / `supply`（详见词表；亦可用 `company-matter` 模式）。
-
-**禁止**：SEC 已覆盖财报/8-K/拆分；传闻；无日期编造；无关宏观硬挂公司。
-
-## 允许的 eventType（本模式核心）
-
-| eventType | scope 建议 |
-|-----------|------------|
-| `company.product` | `COMPANY` |
-| `company.capacity` | `COMPANY` |
-| `policy.fiscal` / `monetary` / `regulatory` / `trade` | `COUNTRY` / `INDUSTRY` / `CROSS` |
-
-完整词表：[`src/lib/data/eventTaxonomy.ts`](../../../src/lib/data/eventTaxonomy.ts)。
-
-## Hard rules
-
-1. 禁止编造；无来源 → `skipped[]`  
-2. 交叉验证 ≥2 权威源  
-3. 对账 SEC：`GET /api/equity/stocks/{symbol}/events`  
-4. Admin 入库前对账库内并去重 merge  
-5. 每条：`externalId`、`markerLabel`、`payload.impact.summary`  
-6. 符合 Schema  
-
-## payload.impact
+跨资产最小形状（仅结构示例，不可照抄事实）：
 
 ```json
 {
-  "impact": {
-    "summary": "一句话：对该公司收入/成本/产能/估值叙事的影响",
-    "channels": ["demand", "cost", "capacity", "margin", "narrative"]
-  }
+  "mode": "company-milestone",
+  "query": { "importTarget": "all-assets", "topic": "研究主题", "from": "YYYY-MM-DD", "to": "YYYY-MM-DD" },
+  "events": [{
+    "externalId": "ai:research:topic:YYYY-MM-DD:slug",
+    "title": "触发｜可核实的事件",
+    "content": "事实、阶段与影响；附原始来源链接。",
+    "occurredAt": "YYYY-MM-DD", "datePrecision": "DATE",
+    "importance": "HIGH", "scope": "CROSS", "eventType": "market.anomaly",
+    "assets": [], "tags": ["research", "trigger"], "markerLabel": "触发",
+    "payload": { "impact": { "summary": "研究影响", "channels": ["narrative"] } },
+    "sources": [{ "url": "https://…", "note": "来源说明" }]
+  }],
+  "skipped": []
 }
 ```
 
-## Workflow
+## 验证和交付
 
-1. 解析 `symbol` + 时间窗  
-2. 按 [reference/checklist.md](./reference/checklist.md) 检索  
-3. 写出 JSON（[templates/ingest-output.schema.json](./templates/ingest-output.schema.json)）  
-4. **用户**：`/markets` → 事件筛选器 →「导入经营事件」（本地）  
-5. **Admin 全站共享**（可选）：
-   ```bash
-   npm run events:validate-ingest -- <file.json>
-   npm run events:import-ingest -- <file.json>
-   ```
+验证 Schema，并运行 npm run events:validate-ingest -- 文件.json；同时用 src/lib/equity/companyMilestones.ts 的 parseMilestoneIngestJson 验证页面实际解析。
 
-示例形状：[templates/example-TSLA.json](./templates/example-TSLA.json)  
-用户包：`/templates/company-milestone/company-milestone-pack.zip`（改完跑 `npm run pack:company-milestone`）。
+交付 JSON 文件及简短导入说明：/markets → 展开事件筛选器 → 选择「按文件设置」或「全部资产通用」→ 导入本地事件 → 勾选图上显示、保留文件包含的类型。只写本地文件，不自动执行 events:import-ingest。
 
-## 经营轴展示
-
-行情页「事件筛选器」合并三层：**用户本地 > 共享 MarketEvent > SEC**；默认类型 `company.*` + 挂票 `policy.*`。
+更新此 Skill 后同步仓库 .cursor/skills/company-milestone-ingest/ 与 public/templates/company-milestone/ 的 Skill、Schema，运行 npm run pack:company-milestone 重建下载包。example-TSLA.json 保留旧单标的兼容示例。

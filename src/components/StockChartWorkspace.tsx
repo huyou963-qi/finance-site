@@ -43,6 +43,8 @@ import {
 } from "@/lib/chart/eventViewFilters";
 import type { ChartEventMarker } from "@/lib/data/chartEventMarkers";
 import { alignEventMarkersToBars } from "@/lib/chart/alignEventMarkers";
+import { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
+import { localCompanyEventMarkers, type CompanyMilestone } from "@/lib/equity/companyMilestones";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
 import { KlineRangeStatsPanel } from "@/components/chart/KlineRangeStatsPanel";
 import {
@@ -195,6 +197,7 @@ export type StockChartWorkspaceProps = {
     title: string;
     source: string;
   }) => void;
+  localEvents?: CompanyMilestone[];
   /**
    * 受控：统一事件筛选（行情页由右侧事件面板管理时传入）。
    * 未传入时组件内自管 localStorage，并在顶栏展示图层开关。
@@ -853,12 +856,15 @@ export function StockChartWorkspace({
   toolbarPortalEl = null,
   settingsPortalEl = null,
   onEventMarkerClick,
+  localEvents,
   eventViewFilters: eventViewFiltersProp,
   onEventViewFiltersChange,
   forceHideSubPanes = false,
   seekToTimeSec = null,
   seekToTimeVersion = 0,
 }: StockChartWorkspaceProps) {
+  const localEventStore = useLocalCompanyEvents(symbol, localEvents === undefined);
+  const localChartEvents = localEvents ?? localEventStore.events;
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -2786,6 +2792,10 @@ export function StockChartWorkspace({
   ]);
 
   /** 可见区间内拉取事件标记并打到主图蜡烛上 */
+  const privateEventMarkers = useMemo(
+    () => localCompanyEventMarkers(localChartEvents, eventViewFilters),
+    [localChartEvents, eventViewFilters],
+  );
   useEffect(() => {
     if (loading || !symbol.trim()) {
       eventMarkersPluginRef.current?.setMarkers([]);
@@ -2843,50 +2853,50 @@ export function StockChartWorkspace({
       const types = typeFamiliesToQueryPrefixes(eventViewFilters.typeFamilies);
       if (types?.length) qs.set("types", types.join(","));
 
+      const renderMarkers = (remoteMarkers: ChartEventMarker[]) => {
+        if (cancelled) return;
+        const markers = alignEventMarkersToBars([...privateEventMarkers, ...remoteMarkers],
+          (candleRef.current?.data() ?? []).flatMap(bar => typeof bar.time === "number" ? [bar.time] : []), interval);
+        eventMarkersDataRef.current = markers;
+
+        // Aggregate on the actual bar; different intraday releases retain their positions.
+        const byDay = new Map<string, ChartEventMarker[]>();
+        for (const m of markers) {
+          const day = String(m.time);
+          const list = byDay.get(day) ?? [];
+          list.push(m);
+          byDay.set(day, list);
+        }
+        const seriesMarkers: SeriesMarker<Time>[] = [];
+        for (const [, list] of byDay) {
+          list.sort((a, b) => Number(Boolean(b.largeSurprise)) - Number(Boolean(a.largeSurprise)) || (b.surpriseStrength ?? 0) - (a.surpriseStrength ?? 0));
+          const primary = list[0]!;
+          const extra = list.length - 1;
+          const text = eventViewFilters.showLabel
+            ? extra > 0
+              ? `${primary.label}+${extra}`
+              : primary.label
+            : undefined;
+          seriesMarkers.push({
+            time: primary.time as UTCTimestamp,
+            position: "aboveBar",
+            shape: primary.shape,
+            color: primary.color,
+            text,
+            id: primary.id,
+            size: primary.largeSurprise ? 1.5 : 1,
+          });
+        }
+        seriesMarkers.sort((a, b) => Number(a.time) - Number(b.time));
+        eventMarkersPluginRef.current?.setMarkers(seriesMarkers);
+      };
+      // 私人标记直接来自本机，服务器不可用时仍可分析。
+      renderMarkers([]);
       void fetch(`/api/events/chart-markers?${qs}`)
         .then((r) => r.json())
-        .then((j: { markers?: ChartEventMarker[]; error?: string }) => {
-          if (cancelled) return;
-          const markers = alignEventMarkersToBars(j.markers ?? [],
-            (candleRef.current?.data() ?? []).flatMap(bar => typeof bar.time === "number" ? [bar.time] : []), interval);
-          eventMarkersDataRef.current = markers;
-
-          // Aggregate on the actual bar; different intraday releases retain their positions.
-          const byDay = new Map<string, ChartEventMarker[]>();
-          for (const m of markers) {
-            const day = String(m.time);
-            const list = byDay.get(day) ?? [];
-            list.push(m);
-            byDay.set(day, list);
-          }
-          const seriesMarkers: SeriesMarker<Time>[] = [];
-          for (const [, list] of byDay) {
-            list.sort((a, b) => Number(Boolean(b.largeSurprise)) - Number(Boolean(a.largeSurprise)) || (b.surpriseStrength ?? 0) - (a.surpriseStrength ?? 0));
-            const primary = list[0]!;
-            const extra = list.length - 1;
-            const text = eventViewFilters.showLabel
-              ? extra > 0
-                ? `${primary.label}+${extra}`
-                : primary.label
-              : undefined;
-            seriesMarkers.push({
-              time: primary.time as UTCTimestamp,
-              position: "aboveBar",
-              shape: primary.shape,
-              color: primary.color,
-              text,
-              id: primary.id,
-              size: primary.largeSurprise ? 1.5 : 1,
-            });
-          }
-          seriesMarkers.sort((a, b) => Number(a.time) - Number(b.time));
-          eventMarkersPluginRef.current?.setMarkers(seriesMarkers);
-        })
+        .then((j: { markers?: ChartEventMarker[]; error?: string }) => renderMarkers(j.markers ?? []))
         .catch(() => {
-          if (!cancelled) {
-            eventMarkersPluginRef.current?.setMarkers([]);
-            eventMarkersDataRef.current = [];
-          }
+          renderMarkers([]);
         });
     }, 280);
 
@@ -2910,6 +2920,8 @@ export function StockChartWorkspace({
     eventViewFilters.industries,
     eventViewFilters.countries,
     eventViewFilters.typeFamilies,
+    eventViewFilters.searchQ,
+    privateEventMarkers,
     markerRangeTick,
   ]);
 

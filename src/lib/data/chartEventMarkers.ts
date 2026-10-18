@@ -32,7 +32,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { classifyMacroEventSurprise, macroSurpriseMarkerColor } from "@/lib/data/macroEventSurprise";
 
-export type ChartEventMarkerSource = "stock_derived" | "market_event";
+export type ChartEventMarkerSource = "stock_derived" | "market_event" | "user_local";
 
 export type ChartEventMarker = {
   id: string;

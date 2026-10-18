@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "CompanyMilestoneIngestRun",
-  "description": "Compatible with events:validate-ingest / events:import-ingest. mode should be company-milestone.",
+  "description": "Local single-symbol or cross-asset research events. all-assets is a browser-local display scope.",
   "type": "object",
   "required": ["mode", "events"],
   "properties": {
@@ -10,6 +10,8 @@
       "type": "object",
       "properties": {
         "symbol": { "type": "string" },
+        "importTarget": { "enum": ["symbol", "all-assets"], "default": "symbol" },
+        "topic": { "type": "string" },
         "from": { "type": "string" },
         "to": { "type": "string" }
       }

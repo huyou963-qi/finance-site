@@ -4,8 +4,16 @@ import {
   eventTypeLabel,
   markerColorFor,
   normalizeEventType,
+  eventTypeMatchesFamilies,
+  markerShapeFor,
+  EVENT_IMPORTANCE_MIN_ORDER,
 } from "@/lib/data/eventTaxonomy";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
+import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
+import type { ChartEventMarker } from "@/lib/data/chartEventMarkers";
+
+export type LocalEventImportTarget = "symbol" | "all-assets";
+export const LOCAL_EVENTS_CHANGED = "local-company-events-changed";
 
 export type MilestoneImpact = {
   summary: string;
@@ -149,18 +157,23 @@ function mapDraft(
 export function parseMilestoneIngestJson(raw: unknown): {
   milestones: CompanyMilestone[];
   symbol: string | null;
+  importTarget: LocalEventImportTarget;
   errors: string[];
 } {
   const errors: string[] = [];
   if (!raw || typeof raw !== "object") {
-    return { milestones: [], symbol: null, errors: ["JSON 根节点必须是对象"] };
+    return { milestones: [], symbol: null, importTarget: "symbol", errors: ["JSON 根节点必须是对象"] };
   }
   const obj = raw as Record<string, unknown>;
-  const query = obj.query as { symbol?: string } | undefined;
-  const symbol = query?.symbol?.trim().toUpperCase() ?? null;
+  const query = obj.query as { symbol?: unknown; importTarget?: unknown } | undefined;
+  const symbol = typeof query?.symbol === "string" ? query.symbol.trim().toUpperCase() || null : null;
+  const importTarget = query?.importTarget === "all-assets" ? "all-assets" : "symbol";
+  if (query?.importTarget !== undefined && query.importTarget !== "symbol" && query.importTarget !== "all-assets") {
+    errors.push("query.importTarget 须为 symbol 或 all-assets");
+  }
   const events = obj.events;
   if (!Array.isArray(events)) {
-    return { milestones: [], symbol, errors: ["缺少 events 数组"] };
+    return { milestones: [], symbol, importTarget, errors: [...errors, "缺少 events 数组"] };
   }
   const milestones: CompanyMilestone[] = [];
   events.forEach((row, i) => {
@@ -184,7 +197,7 @@ export function parseMilestoneIngestJson(raw: unknown): {
     milestones.push(m);
   });
   milestones.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
-  return { milestones, symbol, errors };
+  return { milestones, symbol, importTarget, errors };
 }
 
 export function marketEventToMilestone(
@@ -345,13 +358,22 @@ function milestoneToStoredEvent(m: CompanyMilestone): Record<string, unknown> {
 export function loadLocalCompanyEvents(
   userId: string,
   symbol: string,
+  target?: LocalEventImportTarget,
 ): CompanyMilestone[] {
-  if (typeof window === "undefined" || !symbol.trim()) return [];
+  if (typeof window === "undefined") return [];
+  if (!target) {
+    const specific = loadLocalCompanyEvents(userId, symbol, "symbol");
+    const global = loadLocalCompanyEvents(userId, symbol, "all-assets");
+    const ids = new Set(specific.map(m => m.externalId));
+    return [...specific, ...global.filter(m => !ids.has(m.externalId))]
+      .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  }
+  if (target === "symbol" && !symbol.trim()) return [];
   const sym = symbol.trim().toUpperCase();
-  const key = localStorageKey(userId, sym);
+  const key = localStorageKey(userId, target === "all-assets" ? "*" : sym);
   try {
     let raw = localStorage.getItem(key);
-    if (!raw) {
+    if (!raw && target === "symbol") {
       const legacy = sessionStorage.getItem(LEGACY_SESSION_PREFIX + sym);
       if (legacy) {
         raw = legacy;
@@ -374,22 +396,36 @@ export function saveLocalCompanyEvents(
   userId: string,
   symbol: string,
   items: CompanyMilestone[],
+  target: LocalEventImportTarget = "symbol",
 ): void {
-  if (typeof window === "undefined" || !symbol.trim()) return;
-  try {
-    localStorage.setItem(
-      localStorageKey(userId, symbol),
-      JSON.stringify({
-        mode: "company-milestone",
-        query: { symbol: symbol.trim().toUpperCase() },
-        events: items
-          .filter((m) => m.layer === "local")
-          .map(milestoneToStoredEvent),
-      }),
-    );
-  } catch {
-    /* quota */
-  }
+  if (typeof window === "undefined" || (target === "symbol" && !symbol.trim())) return;
+  localStorage.setItem(
+    localStorageKey(userId, target === "all-assets" ? "*" : symbol),
+    JSON.stringify({
+      mode: "company-milestone",
+      query: target === "all-assets" ? { importTarget: target } : { symbol: symbol.trim().toUpperCase(), importTarget: target },
+      events: items
+        .filter((m) => m.layer === "local")
+        .map(milestoneToStoredEvent),
+    }),
+  );
+  window.dispatchEvent(new Event(LOCAL_EVENTS_CHANGED));
+}
+
+/** 私人研究标记不受标的/国家/行业关联过滤；仍服从类型、重要性和文字筛选。 */
+export function localCompanyEventMarkers(items: CompanyMilestone[], filters: EventViewFilterState): ChartEventMarker[] {
+  if (!filters.markersEnabled || filters.largeSurpriseOnly) return [];
+  const q = filters.searchQ.trim().toLowerCase();
+  return items.filter(m =>
+    eventTypeMatchesFamilies(m.eventType, filters.typeFamilies) &&
+    EVENT_IMPORTANCE_MIN_ORDER[m.importance] >= EVENT_IMPORTANCE_MIN_ORDER[filters.minImportance] &&
+    (!q || `${m.title} ${m.content} ${m.impact.summary}`.toLowerCase().includes(q))
+  ).map(m => ({
+    id: `local:${m.externalId}`, time: isoDateToUnixSec(m.occurredAt), datePrecision: "DATE",
+    label: m.markerLabel, shape: markerShapeFor(m.eventType), color: m.color,
+    importance: m.importance, eventType: m.eventType, scope: m.scope, title: m.title,
+    source: "user_local", sourceUrl: m.sourceUrl,
+  }));
 }
 
 /** @deprecated 使用 loadLocalCompanyEvents */
