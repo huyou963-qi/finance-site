@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { reportClientError } from "@/lib/errorReports/clientReport";
+import { isExtensionScriptError, isPageExitAbort } from "@/lib/errorReports/browserNoise";
 import {
   isChunkLoadError,
   isLikelyCorruptedScriptSyntaxError,
@@ -34,9 +35,13 @@ function isOpaqueCrossOriginError(event: ErrorEvent): boolean {
 /** 捕获 window.onerror / unhandledrejection，自动上报。 */
 export function GlobalErrorListeners() {
   useEffect(() => {
+    let pageExiting = false;
+    const onPageHide = () => { pageExiting = true; };
+    const onPageShow = () => { pageExiting = false; };
     const onError = (event: ErrorEvent) => {
       const message = event.message || "window.onerror";
       if (isBenignBrowserNoise(message) || isOpaqueCrossOriginError(event)) return;
+      if (isExtensionScriptError(event.filename, event.error instanceof Error ? event.error.stack : undefined)) return;
       if (
         (isChunkLoadError(event.error ?? message) || isLikelyCorruptedScriptSyntaxError(event)) &&
         reloadStaleAssetOnce()
@@ -61,6 +66,8 @@ export function GlobalErrorListeners() {
 
     const onRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
+      if (isPageExitAbort(reason, pageExiting)) return;
+      if (reason instanceof Error && isExtensionScriptError(undefined, reason.stack)) return;
       if (isChunkLoadError(reason) && reloadStaleAssetOnce()) return;
       let message = "unhandledrejection";
       let stack: string | undefined;
@@ -86,9 +93,13 @@ export function GlobalErrorListeners() {
 
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pageshow", onPageShow);
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, []);
 
