@@ -696,7 +696,8 @@ export function MacroSection() {
   const [mobileDateRangeOpen, setMobileDateRangeOpen] = useState(false);
 
   const [selectedListItems, setSelectedListItems] = useState<MacroSelectedListItem[]>(() => {
-    const replaceKey = readMacroReplaceKey();
+    // useSearchParams 在服务端与首次客户端渲染中提供同一份 URL；不能在这里读 window。
+    const replaceKey = searchParams.get("replace") === "1" ? searchParams.get("key")?.trim() : null;
     if (replaceKey) return listItemsFromKeys([replaceKey]);
     return listItemsFromKeys(DEFAULT_UNIFIED_SERIES_KEYS);
   });
