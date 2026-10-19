@@ -4,7 +4,7 @@ import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { ALL_EVENT_TYPE_FAMILY_IDS } from "@/lib/data/eventTaxonomy";
 import { milestoneToMarketEventDto, type CompanyMilestone } from "@/lib/equity/companyMilestones";
 import { buildForChartUrl } from "./buildForChartUrl";
-import { mergeChartEvents, eventPassesContentFilters, eventDisplayColor } from "./eventSelection";
+import { selectChartEvents } from "./eventSelection";
 import type { EventViewFilterState } from "./eventViewFilters";
 
 /** One query/result for the shelf, details and chart. Presentation changes never refetch facts. */
@@ -37,8 +37,6 @@ export function useChartEvents(symbol: string, local: CompanyMilestone[], filter
     }, 200);
     return () => { abort.abort(); window.clearTimeout(timer); };
   }, [url]);
-  const merged = useMemo(() => mergeChartEvents(local.map(milestoneToMarketEventDto), remote, filters.includeLocal !== false), [local, remote, filters.includeLocal]);
-  const inRange = useMemo(() => merged.filter(e => e.occurredAt.slice(0, 10) >= from && e.occurredAt.slice(0, 10) <= to), [merged, from, to]);
-  const events = useMemo(() => inRange.filter(e => eventPassesContentFilters(e, filters)).map(e => ({ ...e, color: eventDisplayColor(e, filters) })), [inRange, filters]);
-  return { events, loaded: merged.length, inRange: inRange.length, filteredOut: inRange.length - events.length, loading, error };
+  const selected = useMemo(() => selectChartEvents(local.map(milestoneToMarketEventDto), remote, filters, from, to), [local, remote, filters, from, to]);
+  return { ...selected, loading, error };
 }

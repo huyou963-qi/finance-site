@@ -10,7 +10,7 @@ import {
 } from "@/lib/data/eventTaxonomy";
 import type { EventScopeMode } from "@/lib/data/assetEventResolver";
 
-export type EventViewFilterState = {
+export type EventSourceFilters = {
   relationMode?: "asset" | "industry" | "macro";
   includeLocal?: boolean;
   companyKinds?: string[];
@@ -35,6 +35,21 @@ export type EventViewFilterState = {
   showLabel: boolean;
   largeSurpriseOnly: boolean;
 };
+
+/** Root fields retain the system preferences; user preferences are stored independently. */
+export type EventViewFilterState = EventSourceFilters & { userFilters?: EventSourceFilters };
+export type EventFilterSource = "system" | "user";
+
+export function eventFiltersForSource(state: EventViewFilterState, source: EventFilterSource): EventSourceFilters {
+  return source === "user" ? state.userFilters ?? state : state;
+}
+
+export function updateEventSourceFilters(state: EventViewFilterState, source: EventFilterSource, next: EventSourceFilters): EventViewFilterState {
+  // Strip the envelope if an existing consumer passed the whole state back.
+  const { userFilters: _nested, ...values } = next as EventViewFilterState;
+  void _nested;
+  return source === "user" ? { ...state, userFilters: values } : { ...values, userFilters: { ...eventFiltersForSource(state, "user") } };
+}
 
 export const DEFAULT_EVENT_VIEW_FILTERS: EventViewFilterState = {
   searchQ: "",
@@ -84,9 +99,9 @@ function asStringArray(v: unknown): string[] {
     : [];
 }
 
-export function sanitizeEventViewFilters(
-  raw: Partial<EventViewFilterState> | null | undefined,
-): EventViewFilterState {
+function sanitizeSourceFilters(
+  raw: Partial<EventSourceFilters> | null | undefined,
+): EventSourceFilters {
   const base = { ...DEFAULT_EVENT_VIEW_FILTERS };
   if (!raw) return base;
 
@@ -134,6 +149,13 @@ export function sanitizeEventViewFilters(
     showLabel:
       typeof raw.showLabel === "boolean" ? raw.showLabel : base.showLabel,
   };
+}
+
+export function sanitizeEventViewFilters(raw: Partial<EventViewFilterState> | null | undefined): EventViewFilterState {
+  const system = sanitizeSourceFilters(raw);
+  // Old asset/geography fields scoped the server query only, never local events.
+  const legacyUser = raw ? { ...raw, assets: [], industries: [], countries: [] } : undefined;
+  return { ...system, userFilters: sanitizeSourceFilters(raw?.userFilters ?? legacyUser) };
 }
 
 function migrateFromLegacy(): EventViewFilterState | null {
@@ -184,7 +206,7 @@ function migrateFromLegacy(): EventViewFilterState | null {
 }
 
 export function loadEventViewFilters(): EventViewFilterState {
-  if (typeof window === "undefined") return { ...DEFAULT_EVENT_VIEW_FILTERS };
+  if (typeof window === "undefined") return sanitizeEventViewFilters(null);
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -197,9 +219,9 @@ export function loadEventViewFilters(): EventViewFilterState {
       saveEventViewFilters(migrated);
       return migrated;
     }
-    return { ...DEFAULT_EVENT_VIEW_FILTERS };
+    return sanitizeEventViewFilters(null);
   } catch {
-    return { ...DEFAULT_EVENT_VIEW_FILTERS };
+    return sanitizeEventViewFilters(null);
   }
 }
 

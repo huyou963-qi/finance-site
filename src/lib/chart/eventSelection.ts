@@ -1,8 +1,8 @@
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { EVENT_IMPORTANCE_MIN_ORDER, eventTypeMatchesFamilies, normalizeEventType } from "@/lib/data/eventTaxonomy";
-import { classifyMacroEventSurprise } from "@/lib/data/macroEventSurprise";
+import { classifyMacroEventSurprise, expandEventAssetTags } from "@/lib/data/macroEventSurprise";
 import { normalizeEventColor, readEventPresentation } from "@/lib/data/eventPresentation";
-import type { EventViewFilterState } from "./eventViewFilters";
+import { eventFiltersForSource, type EventViewFilterState } from "./eventViewFilters";
 
 export type EventSourceGroup = "system" | "user";
 export const EVENT_SOURCE_COLORS = { system: "#0369A1", user: "#7C3AED" } as const;
@@ -44,6 +44,7 @@ export function companyEventKind(e: MarketEventDto): string {
 }
 
 export function eventPassesContentFilters(e: MarketEventDto, f: EventViewFilterState): boolean {
+  f = eventFiltersForSource(f, eventSourceGroup(e));
   if (e.eventType === "era" || e.eventType === "时代阶段") return false;
   if (f.includeLocal === false && e.sourceKind === "user_local") return false;
   if (!f.includeSec && e.sourceKind === "sec") return false;
@@ -56,11 +57,36 @@ export function eventPassesContentFilters(e: MarketEventDto, f: EventViewFilterS
   if (q && !`${e.title ?? ""} ${e.content} ${impact}`.toLowerCase().includes(q)) return false;
   if (f.persons.length && !f.persons.some(p => e.persons.includes(p))) return false;
   if (f.institutions.length && !f.institutions.some(p => e.institutions.includes(p))) return false;
+  // Server queries already resolve system asset relevance; local tags are explicit content filters.
+  if (e.sourceKind === "user_local") {
+    if (f.countries.length && !f.countries.some(c => e.countries.includes(c))) return false;
+    if (f.industries.length && !f.industries.some(c => e.industries.some(i => i.startsWith(c) || c.startsWith(i)))) return false;
+    if (f.assets.length && !expandEventAssetTags(f.assets).some(a => expandEventAssetTags(e.assets).includes(a))) return false;
+  }
   if (f.hiddenEventIds?.includes(eventIdentity(e))) return false;
   return true;
 }
 
 export function eventDisplayColor(e: MarketEventDto, f?: EventViewFilterState): string {
+  if (f) f = eventFiltersForSource(f, eventSourceGroup(e));
   return normalizeEventColor(f?.eventColors?.[eventIdentity(e)]) || normalizeEventColor(f?.typeColors?.[e.eventType ?? "other"]) ||
     normalizeEventColor(e.color) || readEventPresentation(e.payload).color || EVENT_SOURCE_COLORS[eventSourceGroup(e)];
+}
+
+export function eventMarkerVisible(e: MarketEventDto, state: EventViewFilterState): boolean {
+  const f = eventFiltersForSource(state, eventSourceGroup(e));
+  return f.markersEnabled && !f.hiddenMarkerIds?.includes(eventIdentity(e));
+}
+
+/** Filter each source before deduplication so hidden personal annotations cannot suppress system facts. */
+export function selectChartEvents(local: MarketEventDto[], remote: MarketEventDto[], state: EventViewFilterState, from: string, to: string) {
+  const select = (items: MarketEventDto[]) => {
+    const ranged = items.filter(e => e.occurredAt.slice(0, 10) >= from && e.occurredAt.slice(0, 10) <= to);
+    const matched = ranged.filter(e => eventPassesContentFilters(e, state));
+    return { matched, stats: { loaded: items.length, inRange: ranged.length, filteredOut: ranged.length - matched.length } };
+  };
+  const system = select(remote), user = select(local);
+  const events = mergeChartEvents(user.matched, system.matched).map(e => ({ ...e, color: eventDisplayColor(e, state) }));
+  return { events, sourceStats: { system: system.stats, user: user.stats }, loaded: local.length + remote.length,
+    inRange: system.stats.inRange + user.stats.inRange, filteredOut: system.stats.filteredOut + user.stats.filteredOut };
 }

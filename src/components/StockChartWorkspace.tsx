@@ -1,7 +1,8 @@
 "use client";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { marketToMarker, groupEventMarkers } from "@/lib/chart/eventMarkerModel";
-import { eventIdentity } from "@/lib/chart/eventSelection";
+import { eventMarkerVisible } from "@/lib/chart/eventSelection";
+import { eventFiltersForSource } from "@/lib/chart/eventViewFilters";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -2812,12 +2813,12 @@ export function StockChartWorkspace({
       eventMarkersDataRef.current = [];
       return;
     }
-    if (!eventViewFilters.markersEnabled) {
+    if (chartEvents === undefined && !eventViewFilters.markersEnabled) {
       eventMarkersPluginRef.current?.setMarkers([]);
       eventMarkersDataRef.current = [];
       return;
     }
-    if (eventViewFilters.typeFamilies.length === 0) {
+    if (chartEvents === undefined && eventViewFilters.typeFamilies.length === 0) {
       eventMarkersPluginRef.current?.setMarkers([]);
       eventMarkersDataRef.current = [];
       return;
@@ -2871,7 +2872,7 @@ export function StockChartWorkspace({
 
         const seriesMarkers: SeriesMarker<Time>[] = [];
         for (const { primary, extra } of groupEventMarkers(markers, selectedEventId)) {
-          const text = eventViewFilters.showLabel || primary.id === selectedEventId
+          const text = eventFiltersForSource(eventViewFilters, primary.source === "user_local" ? "user" : "system").showLabel || primary.id === selectedEventId
             ? extra > 0
               ? `${primary.label}+${extra}`
               : primary.label
@@ -2890,7 +2891,7 @@ export function StockChartWorkspace({
         eventMarkersPluginRef.current?.setMarkers(seriesMarkers);
       };
       if (chartEvents !== undefined) {
-        renderMarkers(chartEvents.filter(e => !eventViewFilters.hiddenMarkerIds?.includes(eventIdentity(e))).map(marketToMarker));
+        renderMarkers(chartEvents.filter(e => eventMarkerVisible(e, eventViewFilters)).map(marketToMarker));
         return;
       }
       // 私人标记直接来自本机，服务器不可用时仍可分析。
@@ -2912,22 +2913,10 @@ export function StockChartWorkspace({
     symbol,
     interval,
     payload?.candles?.length,
-    eventViewFilters.markersEnabled,
-    eventViewFilters.includeSec,
-    eventViewFilters.includeMarket,
-    eventViewFilters.largeSurpriseOnly,
-    eventViewFilters.minImportance,
-    eventViewFilters.scopeMode,
-    eventViewFilters.showLabel,
-    eventViewFilters.assets,
-    eventViewFilters.industries,
-    eventViewFilters.countries,
-    eventViewFilters.typeFamilies,
-    eventViewFilters.searchQ,
+    eventViewFilters,
     privateEventMarkers,
     chartEvents,
     selectedEventId,
-    eventViewFilters.hiddenMarkerIds,
     markerRangeTick,
   ]);
 

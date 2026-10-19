@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { DEFAULT_EVENT_VIEW_FILTERS as defaults, sanitizeEventViewFilters } from "./eventViewFilters";
-import { eventDisplayColor, eventPassesContentFilters, mergeChartEvents, eventSourceGroup, EVENT_SOURCE_COLORS } from "./eventSelection";
+import { eventDisplayColor, eventMarkerVisible, eventPassesContentFilters, mergeChartEvents, eventSourceGroup, selectChartEvents, EVENT_SOURCE_COLORS } from "./eventSelection";
 import { groupEventMarkers, marketToMarker } from "./eventMarkerModel";
 import { parseMilestoneIngestJson, milestoneToStoredEvent, milestoneToMarketEventDto } from "@/lib/equity/companyMilestones";
 import { withEventPresentation } from "@/lib/data/eventPresentation";
@@ -24,6 +24,41 @@ it("local roundtrip preserves timestamps, structured evidence, subject tags and 
   assert.equal(restored.color, "#7C3AED"); assert.equal(restored.sources?.[0].note, "Original");
   assert.equal(restored.readingLinks?.[0].title, "背景");
   assert.deepEqual((restored.payload as typeof draft.payload), { ...draft.payload as object, color: "#7C3AED", sources: restored.sources, readingLinks: restored.readingLinks });
+});
+
+it("source search, importance, colors and marker switches affect only their own events", () => {
+  const system = event({ id: "s", externalId: "s", title: "System report", sourceUrl: "https://example.com/system" });
+  const user = event({ id: "u", externalId: "u", title: "User report", sourceKind: "user_local" });
+  const state = sanitizeEventViewFilters({ ...defaults, searchQ: "System", markersEnabled: false, typeColors: { "company.product": "#123456" },
+    userFilters: { ...defaults, searchQ: "User", typeColors: { "company.product": "#654321" }, markersEnabled: true } });
+  const both = selectChartEvents([user], [system], state, "2026-10-01", "2026-10-18");
+  assert.equal(both.events.length, 2);
+  assert.equal(eventDisplayColor(system, state), "#123456");
+  assert.equal(eventDisplayColor(user, state), "#654321");
+  assert.equal(eventMarkerVisible(system, state), false);
+  assert.equal(eventMarkerVisible(user, state), true);
+  const systemHidden = selectChartEvents([user], [system], { ...state, searchQ: "missing" }, "2026-10-01", "2026-10-18");
+  assert.deepEqual(systemHidden.events.map(e => e.id), ["u"]);
+  assert.equal(systemHidden.sourceStats.system.filteredOut, 1);
+  assert.equal(systemHidden.sourceStats.user.filteredOut, 0);
+  assert.equal(eventPassesContentFilters(user, { ...state, minImportance: "CRITICAL" }), true);
+});
+
+it("filtered personal annotations do not suppress matching system facts", () => {
+  const system = event(), user = event({ id: "local:a", sourceKind: "user_local" });
+  const state = sanitizeEventViewFilters({ ...defaults, userFilters: { ...defaults, typeFamilies: [] } });
+  const result = selectChartEvents([user], [system], state, "2026-10-01", "2026-10-18");
+  assert.deepEqual(result.events.map(e => e.id), ["a"]);
+  assert.equal(result.sourceStats.user.filteredOut, 1);
+});
+
+it("local advanced tag filters narrow user events without changing system visibility", () => {
+  const user = event({ sourceKind: "user_local" });
+  const state = sanitizeEventViewFilters({ ...defaults, userFilters: { ...defaults, countries: ["CN"] } });
+  assert.equal(eventPassesContentFilters(user, state), false);
+  assert.equal(eventPassesContentFilters(event(), state), true);
+  assert.equal(eventPassesContentFilters(user, { ...state, userFilters: { ...defaults, industries: ["45"], assets: ["NVDA"] } }), true);
+  assert.equal(eventPassesContentFilters(user, { ...state, userFilters: { ...defaults, assets: ["AAPL"] } }), false);
 });
 
 it("bad color, invalid dates and script URLs fail import without silently losing evidence", () => {

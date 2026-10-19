@@ -26,13 +26,14 @@ import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
 import { MarketsEventShelf } from "@/components/equity/MarketsEventShelf";
 import { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
-import { familyIdForEventType } from "@/lib/data/eventTaxonomy";
 import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
   loadEventViewFilters,
   saveEventViewFilters,
+  updateEventSourceFilters,
+  type EventFilterSource,
   type EventViewFilterState,
 } from "@/lib/chart/eventViewFilters";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
@@ -78,9 +79,6 @@ export function MarketsClient() {
   const closeEventDetail = useCallback(() => setDetailEvent(null), []);
   const [symbol, setSymbol] = useState("");
   const localEventStore = useLocalCompanyEvents(symbol);
-  const allAssetEvents = localEventStore.allAssetEvents;
-  const allAssetEventsRef = useRef(allAssetEvents);
-  allAssetEventsRef.current = allAssetEvents;
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const regionalInstrument = resolveEastmoneyInstrument(symbol);
   const yieldInstrument = Boolean(findMarketInstrument(symbol)?.fredSeriesId);
@@ -165,26 +163,13 @@ export function MarketsClient() {
     setEventContextDate(null);
   }, [symbol]);
 
-  // Once the local store hydrates, include its families without resetting the user's other filters.
-  const localFamiliesInitialized = useRef(false);
-  useEffect(() => {
-    if (!eventFiltersHydrated || localFamiliesInitialized.current || !allAssetEvents.length) return;
-    localFamiliesInitialized.current = true;
-    setEventViewFilters(prev => ({ ...prev, typeFamilies: [...new Set([...prev.typeFamilies, ...allAssetEvents.map(m => familyIdForEventType(m.eventType))])] }));
-  }, [allAssetEvents, eventFiltersHydrated]);
-
   /** 换标的时套用事件筛选草稿（原右侧 EventPanel 行为） */
   useEffect(() => {
     if (!eventFiltersHydrated) return;
     const sym = symbol.trim();
     if (!sym) return;
     const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
-    setEventViewFilters((prev) => {
-      const next = applySymbolDraftToFilters(prev, draft);
-      // 换到宏观资产时，不让标的默认类型自动隐藏用户的通用研究。
-      return { ...next, typeFamilies: [...new Set([...next.typeFamilies,
-        ...allAssetEventsRef.current.map(m => familyIdForEventType(m.eventType))])] };
-    });
+    setEventViewFilters(prev => applySymbolDraftToFilters(prev, draft));
   }, [symbol, eventFiltersHydrated]);
 
   useEffect(() => {
@@ -410,16 +395,12 @@ export function MarketsClient() {
     [eventRangeFrom, eventRangeTo, eventContextDate],
   );
 
-  const resetEventFiltersToSymbol = useCallback(() => {
+  const resetEventFiltersToSymbol = useCallback((source: EventFilterSource) => {
     const sym = symbol.trim();
-    if (!sym) {
-      setEventViewFilters({ ...DEFAULT_EVENT_VIEW_FILTERS });
-      return;
-    }
-    const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
-    setEventViewFilters(
-      applySymbolDraftToFilters({ ...DEFAULT_EVENT_VIEW_FILTERS }, draft),
-    );
+    const next = source === "system" && sym
+      ? applySymbolDraftToFilters({ ...DEFAULT_EVENT_VIEW_FILTERS }, deriveEventFilterDraft(classifyChartSymbol(sym)))
+      : { ...DEFAULT_EVENT_VIEW_FILTERS };
+    setEventViewFilters(prev => updateEventSourceFilters(prev, source, next));
   }, [symbol]);
 
   const pickInterval = (iv: KlineInterval) => {

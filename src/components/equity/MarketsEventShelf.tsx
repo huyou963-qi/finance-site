@@ -6,7 +6,7 @@ import { eventTypeLabel, familyIdForEventType, EVENT_TYPE_CODES } from "@/lib/da
 import { loadDemoMilestones, parseMilestoneIngestJson, type CompanyMilestone, type LocalEventImportTarget, type CompanyKindFilter } from "@/lib/equity/companyMilestones";
 import type { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
 import type { useChartEvents } from "@/lib/chart/useChartEvents";
-import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
+import { eventFiltersForSource, updateEventSourceFilters, type EventViewFilterState } from "@/lib/chart/eventViewFilters";
 import { eventIdentity, eventSourceGroup, EVENT_SOURCE_COLORS, type EventSourceGroup } from "@/lib/chart/eventSelection";
 import { EventPanelFilters } from "@/components/events/EventPanelFilters";
 import { MacroEventSurpriseSummary } from "@/components/events/MacroSurpriseEvidence";
@@ -24,7 +24,7 @@ export type MarketsEventShelfProps = {
   symbol: string; viewFilters: EventViewFilterState;
   onViewFiltersChange: (next: EventViewFilterState) => void;
   rangeFromSec?: number | null; rangeToSec?: number | null; trackDate?: string | null;
-  onResetToSymbolDefault?: () => void; height?: number;
+  onResetToSymbolDefault?: (source: EventSourceGroup) => void; height?: number;
 };
 const KEY = "markets-event-shelf-height-v2";
 function downloadJson(name: string, data: unknown) {
@@ -32,10 +32,14 @@ function downloadJson(name: string, data: unknown) {
   const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
 }
 
-export function MarketsEventShelf({ localEventStore: store, eventResult: result, onOpenDetail, selectedEventId, markerGroupIds, onCloseMarkerGroup, onSelectEvent, onLocateEvent, symbol, viewFilters: filters, onViewFiltersChange: onChange, onResetToSymbolDefault, height = 210 }: MarketsEventShelfProps) {
+export function MarketsEventShelf({ localEventStore: store, eventResult: result, onOpenDetail, selectedEventId, markerGroupIds, onCloseMarkerGroup, onSelectEvent, onLocateEvent, symbol, viewFilters: allFilters, onViewFiltersChange: onAllChange, onResetToSymbolDefault, height = 210 }: MarketsEventShelfProps) {
   const fileRef = useRef<HTMLInputElement>(null), scrollRef = useRef<HTMLDivElement>(null);
   const [shelfHeight, setShelfHeight] = useState(() => { try { return Math.min(640, Math.max(150, Number(localStorage.getItem(KEY)) || height)); } catch { return height; } });
   const [activeTab, setActiveTab] = useState<EventSourceGroup>("system");
+  const filters = eventFiltersForSource(allFilters, activeTab);
+  const onChange = (next: EventViewFilterState) => onAllChange(updateEventSourceFilters(allFilters, activeTab, next));
+  const stats = result.sourceStats[activeTab];
+  const loading = activeTab === "system" && result.loading;
   const allEventsRef = useRef(result.events);
   allEventsRef.current = result.events;
   useEffect(() => {
@@ -104,11 +108,11 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
     <div className="max-h-[65%] shrink-0 overflow-y-auto sm:max-h-[55%] border-b border-fs-border px-2 pb-1 pt-2">
       <div className="flex flex-wrap items-center gap-1.5">
         <strong className="text-[11px]">{activeTab === "system" ? "系统事件" : "用户事件"}</strong><span className="text-[10px] text-fs-muted">{symbol}</span>
-        <label className="text-[11px]"><input type="checkbox" checked={filters.markersEnabled} onChange={e => patch({ markersEnabled: e.target.checked })} /> 图上显示</label>
+        <label className="text-[11px]"><input type="checkbox" checked={filters.markersEnabled} onChange={e => patch({ markersEnabled: e.target.checked })} /> 本类上图</label>
         <button className={`${button} sm:hidden`} aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>筛选 {filtersOpen ? "▴" : "▾"}</button>
-        <div className={`${filtersOpen ? "contents" : "hidden"} sm:contents`}><EventPanelFilters layout="inline" filters={filters} onChange={onChange} onResetToSymbolDefault={onResetToSymbolDefault} companyKindFilter={(filters.companyKinds ?? ["sec", "product", "capacity", "deal", "other"]) as CompanyKindFilter[]} onCompanyKindFilterChange={companyKinds => patch({ companyKinds })} /></div>
+        <div className={`${filtersOpen ? "contents" : "hidden"} sm:contents`}><EventPanelFilters key={activeTab} layout="inline" filters={filters} onChange={onChange} onResetToSymbolDefault={onResetToSymbolDefault ? () => onResetToSymbolDefault(activeTab) : undefined} companyKindFilter={(filters.companyKinds ?? ["sec", "product", "capacity", "deal", "other"]) as CompanyKindFilter[]} onCompanyKindFilterChange={companyKinds => patch({ companyKinds })} /></div>
         <label className="text-[11px]"><input type="checkbox" checked={activeTab === "system" ? filters.includeMarket || filters.includeSec : filters.includeLocal !== false} onChange={e => patch(activeTab === "system" ? { includeMarket: e.target.checked, includeSec: e.target.checked } : { includeLocal: e.target.checked })} /> {activeTab === "system" ? "显示系统事件" : "显示用户事件"}</label>
-        <span className="text-[10px] text-fs-muted">本页 {events.length} · 两类合计 {result.events.length} / 区间内 {result.inRange}{result.loading ? " · 加载中" : ""}</span>
+        <span className="text-[10px] text-fs-muted">本页 {events.length} / 本类区间内 {stats.inRange}{loading ? " · 加载中" : ""}</span>
         <div className="ml-auto flex flex-wrap items-center gap-1">
           <select aria-label="事件视图" value={mode} onChange={e => patch({ viewMode: e.target.value as EventViewFilterState["viewMode"] })} className={button}><option value="timeline">时间线</option><option value="cards">卡片</option><option value="list">列表</option></select>
           <button className={button} aria-expanded={manage} onClick={() => setManage(!manage)}>{activeTab === "system" ? "系统来源" : "用户事件包"}</button>
@@ -122,7 +126,7 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
         </div>
       </div>
       {markerGroupIds.length > 1 && <div className="mt-1 flex flex-wrap items-center gap-2 rounded border border-fs-border p-2 text-xs"><span>此根 K 线的事件：</span>{events.filter(e => markerGroupIds.includes(e.id)).map(e => <button key={e.id} aria-pressed={selectedEventId === e.id} className={button} onClick={() => onSelectEvent(e.id)}>{e.markerLabel} · {e.title}</button>)}<button className={button} onClick={onCloseMarkerGroup}>收起聚合事件</button></div>}
-      {result.error && <p role="alert" className="text-xs text-red-600">{result.error}</p>}
+      {activeTab === "system" && result.error && <p role="alert" className="text-xs text-red-600">{result.error}</p>}
       {activeTab === "user" && message && <p role="status" className="text-[11px] text-fs-secondary">{message}</p>}
       {manage && <div className="mt-1 space-y-2 rounded border border-fs-border p-2 text-xs">
         {activeTab === "system" && <div className="flex flex-wrap gap-3">{([ ["includeMarket", "云端标准事件"], ["includeSec", "SEC 事件"] ] as const).map(([key,label]) => <label key={key}><input type="checkbox" checked={filters[key] !== false} onChange={e => patch({ [key]: e.target.checked })} /> {label}</label>)}
@@ -149,10 +153,10 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
         <button className={button} onClick={() => { const next = { ...filters.typeColors }; delete next[styleType]; patch({ typeColors: next }); }}>恢复类型颜色</button>
         {selected && <><span>选中：{selected.markerLabel || selected.title}</span><input type="color" aria-label="选中事件颜色" value={selected.color || "#475569"} onChange={e => patch({ eventColors: { ...filters.eventColors, [eventIdentity(selected)]: e.target.value } })} /><button className={button} onClick={() => { const next = { ...filters.eventColors }; delete next[eventIdentity(selected)]; patch({ eventColors: next }); }}>恢复事件颜色</button><label><input type="checkbox" checked={!filters.hiddenMarkerIds?.includes(eventIdentity(selected))} onChange={e => patch({ hiddenMarkerIds: e.target.checked ? filters.hiddenMarkerIds?.filter(id => id !== eventIdentity(selected)) : [...(filters.hiddenMarkerIds || []), eventIdentity(selected)] })} /> 此事件上图</label></>}
       </div>}
-      <details className="text-[10px] text-fs-muted"><summary>共同筛选说明 · 排除 {result.filteredOut} 条 · 本页可评估发布 {assessed.length} 条</summary>页签仅切换管理内容，不改变另一类事件的显示开关。默认系统蓝色、用户紫色，事件已有颜色和个人设置优先。类型、重要性、搜索、人物、机构、来源和公司细类为两页共用筛选，同时作用于主图。本地事件仍受事件包范围约束。仅大预期差要求有效的宏观发布证据，不表示利多或利空。时间范围外 {result.loaded - result.inRange} 条。</details>
+      <details className="text-[10px] text-fs-muted"><summary>本页筛选说明 · 排除 {stats.filteredOut} 条 · 本页可评估发布 {assessed.length} 条</summary>两页分别保存搜索、类型、重要性、关联标签、来源与显示设置，调整本页不影响另一类事件。默认系统蓝色、用户紫色，事件已有颜色和个人设置优先。本页筛选同时作用于本类卡片和主图标记。本地事件仍受事件包范围约束。仅大预期差要求有效的宏观发布证据，不表示利多或利空。本类时间范围外 {stats.loaded - stats.inRange} 条。</details>
     </div>
     <div ref={scrollRef} className={`min-h-0 flex-1 p-2 ${mode === "timeline" ? "overflow-x-auto overflow-y-auto" : "overflow-y-auto"}`}>
-      {!events.length ? <p className="p-3 text-center text-xs text-fs-muted">{result.loading ? "正在加载事件…" : activeTab === "system" ? "当前区间与筛选下没有系统事件，可检查系统来源或调整筛选。" : "当前区间与筛选下没有用户事件，可检查事件包开关或导入本地事件包。"}</p> :
+      {!events.length ? <p className="p-3 text-center text-xs text-fs-muted">{loading ? "正在加载事件…" : activeTab === "system" ? "当前区间与筛选下没有系统事件，可检查系统来源或调整筛选。" : "当前区间与筛选下没有用户事件，可检查事件包开关或导入本地事件包。"}</p> :
         <ul className={mode === "timeline" ? "flex min-w-max items-stretch gap-2" : mode === "cards" ? "grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4" : "space-y-1"}>
           {events.map(event => <li key={event.id} data-event-id={event.id} className={`rounded border p-1.5 ${mode === "timeline" ? "w-[170px] shrink-0" : ""} ${event.id === selectedEventId ? "border-fs-accent bg-fs-accent-soft ring-1 ring-fs-accent" : "border-fs-border bg-fs-elevated"}`}>
             <button aria-pressed={event.id === selectedEventId} className="w-full text-left" onClick={() => onSelectEvent(event.id)}>
