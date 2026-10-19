@@ -1,4 +1,7 @@
 "use client";
+import type { MarketEventDto } from "@/lib/data/marketEvents";
+import { marketToMarker, groupEventMarkers } from "@/lib/chart/eventMarkerModel";
+import { eventIdentity } from "@/lib/chart/eventSelection";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -196,8 +199,11 @@ export type StockChartWorkspaceProps = {
     time: number;
     title: string;
     source: string;
+    eventIds?: string[];
   }) => void;
   localEvents?: CompanyMilestone[];
+  chartEvents?: MarketEventDto[];
+  selectedEventId?: string | null;
   /**
    * 受控：统一事件筛选（行情页由右侧事件面板管理时传入）。
    * 未传入时组件内自管 localStorage，并在顶栏展示图层开关。
@@ -857,6 +863,8 @@ export function StockChartWorkspace({
   settingsPortalEl = null,
   onEventMarkerClick,
   localEvents,
+  chartEvents,
+  selectedEventId,
   eventViewFilters: eventViewFiltersProp,
   onEventViewFiltersChange,
   forceHideSubPanes = false,
@@ -865,6 +873,8 @@ export function StockChartWorkspace({
 }: StockChartWorkspaceProps) {
   const localEventStore = useLocalCompanyEvents(symbol, localEvents === undefined);
   const localChartEvents = localEvents ?? localEventStore.events;
+  const selectedEventIdRef = useRef(selectedEventId);
+  selectedEventIdRef.current = selectedEventId;
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -2511,15 +2521,15 @@ export function StockChartWorkspace({
                     (param.time as { day: number }).day,
                   ) / 1000,
                 );
-          const hitMarker = eventMarkersDataRef.current.find(
-            (m) => m.time === clickSec,
-          );
+          const barEvents = eventMarkersDataRef.current.filter(m => m.time === clickSec);
+          const hitMarker = barEvents.find(m => m.id === String(param.hoveredObjectId)) ?? groupEventMarkers(barEvents, selectedEventIdRef.current)[0]?.primary;
           if (hitMarker) {
             onEventMarkerClickRef.current?.({
               id: hitMarker.id,
               time: hitMarker.eventTime ?? hitMarker.time,
               title: hitMarker.title,
               source: hitMarker.source,
+              eventIds: barEvents.map(m => m.id),
             });
           }
         }
@@ -2855,24 +2865,13 @@ export function StockChartWorkspace({
 
       const renderMarkers = (remoteMarkers: ChartEventMarker[]) => {
         if (cancelled) return;
-        const markers = alignEventMarkersToBars([...privateEventMarkers, ...remoteMarkers],
+        const markers = alignEventMarkersToBars(chartEvents !== undefined ? remoteMarkers : [...privateEventMarkers, ...remoteMarkers],
           (candleRef.current?.data() ?? []).flatMap(bar => typeof bar.time === "number" ? [bar.time] : []), interval);
         eventMarkersDataRef.current = markers;
 
-        // Aggregate on the actual bar; different intraday releases retain their positions.
-        const byDay = new Map<string, ChartEventMarker[]>();
-        for (const m of markers) {
-          const day = String(m.time);
-          const list = byDay.get(day) ?? [];
-          list.push(m);
-          byDay.set(day, list);
-        }
         const seriesMarkers: SeriesMarker<Time>[] = [];
-        for (const [, list] of byDay) {
-          list.sort((a, b) => Number(Boolean(b.largeSurprise)) - Number(Boolean(a.largeSurprise)) || (b.surpriseStrength ?? 0) - (a.surpriseStrength ?? 0));
-          const primary = list[0]!;
-          const extra = list.length - 1;
-          const text = eventViewFilters.showLabel
+        for (const { primary, extra } of groupEventMarkers(markers, selectedEventId)) {
+          const text = eventViewFilters.showLabel || primary.id === selectedEventId
             ? extra > 0
               ? `${primary.label}+${extra}`
               : primary.label
@@ -2884,12 +2883,16 @@ export function StockChartWorkspace({
             color: primary.color,
             text,
             id: primary.id,
-            size: primary.largeSurprise ? 1.5 : 1,
+            size: primary.id === selectedEventId ? 2.3 : primary.largeSurprise ? 1.5 : 1,
           });
         }
         seriesMarkers.sort((a, b) => Number(a.time) - Number(b.time));
         eventMarkersPluginRef.current?.setMarkers(seriesMarkers);
       };
+      if (chartEvents !== undefined) {
+        renderMarkers(chartEvents.filter(e => !eventViewFilters.hiddenMarkerIds?.includes(eventIdentity(e))).map(marketToMarker));
+        return;
+      }
       // 私人标记直接来自本机，服务器不可用时仍可分析。
       renderMarkers([]);
       void fetch(`/api/events/chart-markers?${qs}`)
@@ -2922,6 +2925,9 @@ export function StockChartWorkspace({
     eventViewFilters.typeFamilies,
     eventViewFilters.searchQ,
     privateEventMarkers,
+    chartEvents,
+    selectedEventId,
+    eventViewFilters.hiddenMarkerIds,
     markerRangeTick,
   ]);
 

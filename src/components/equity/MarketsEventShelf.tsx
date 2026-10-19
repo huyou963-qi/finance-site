@@ -1,581 +1,178 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  COMPANY_KIND_FILTERS,
-  isoDateToUnixSec,
-  loadDemoMilestones,
-  marketEventToMilestone,
-  mergeCompanyTimeline,
-  milestoneMatchesCompanyKinds,
-  milestoneToMarketEventDto,
-  parseMilestoneIngestJson,
-  unixSecToIsoDate,
-  type CompanyKindFilter,
-  type CompanyMilestone,
-  type LocalEventImportTarget,
-} from "@/lib/equity/companyMilestones";
-import type { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
-import { buildForChartUrl } from "@/lib/chart/buildForChartUrl";
-import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
-import { eventMatchesFilters } from "@/components/events/EventPanel";
-import { EventPanelFilters } from "@/components/events/EventPanelFilters";
-import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
-import {
-  eventTypeLabel,
-  familyIdForEventType,
-  eventTypeMatchesFamilies,
-  normalizeEventType,
-} from "@/lib/data/eventTaxonomy";
-import { isEraHeaderEvent } from "@/lib/data/marketEventTimeline";
-import { MacroEventResearch } from "@/components/events/MacroEventResearch";
-import { classifyMacroEventSurprise, isMacroResearchAsset, macroSurpriseMarkerColor } from "@/lib/data/macroEventSurprise";
-
-const KIND_DOT: Record<CompanyMilestone["kind"], string> = {
-  product: "bg-emerald-500",
-  capacity: "bg-orange-400",
-  policy: "bg-sky-500",
-  sec: "bg-blue-600",
-  deal: "bg-amber-600",
-  other: "bg-slate-400",
-};
-
-const LAYER_BADGE: Record<CompanyMilestone["layer"], string> = {
-  local: "本地",
-  shared: "共享",
-  sec: "SEC",
-};
-
-const TEMPLATE_BASE = "/templates/company-milestone";
-const HEIGHT_STORAGE_KEY = "markets-event-shelf-height-v2";
-const MIN_SHELF_HEIGHT = 120;
-const MAX_SHELF_HEIGHT = 640;
-const DEFAULT_SHELF_HEIGHT = 180;
-
-function clampShelfHeight(h: number): number {
-  return Math.min(MAX_SHELF_HEIGHT, Math.max(MIN_SHELF_HEIGHT, Math.round(h)));
-}
-
-function loadShelfHeight(fallback: number): number {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(HEIGHT_STORAGE_KEY);
-    if (raw == null) return fallback;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return fallback;
-    return clampShelfHeight(n);
-  } catch {
-    return fallback;
-  }
-}
-
-function findNearestId(items: CompanyMilestone[], trackDate: string): string | null {
-  if (!items.length) return null;
-  const target = Date.parse(trackDate.slice(0, 10));
-  if (!Number.isFinite(target)) return items[0]?.id ?? null;
-  let best = items[0]!;
-  let bestDist = Math.abs(Date.parse(best.occurredAt.slice(0, 10)) - target);
-  for (const m of items) {
-    const d = Math.abs(Date.parse(m.occurredAt.slice(0, 10)) - target);
-    if (d < bestDist) {
-      best = m;
-      bestDist = d;
-    }
-  }
-  return best.id;
-}
+import { eventRecord, normalizeEventColor } from "@/lib/data/eventPresentation";
+import { eventTypeLabel, familyIdForEventType, EVENT_TYPE_CODES } from "@/lib/data/eventTaxonomy";
+import { loadDemoMilestones, parseMilestoneIngestJson, type CompanyMilestone, type LocalEventImportTarget, type CompanyKindFilter } from "@/lib/equity/companyMilestones";
+import type { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
+import type { useChartEvents } from "@/lib/chart/useChartEvents";
+import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
+import { eventIdentity, eventSourceGroup, EVENT_SOURCE_COLORS, type EventSourceGroup } from "@/lib/chart/eventSelection";
+import { EventPanelFilters } from "@/components/events/EventPanelFilters";
+import { MacroEventSurpriseSummary } from "@/components/events/MacroSurpriseEvidence";
+import { classifyMacroEventSurprise } from "@/lib/data/macroEventSurprise";
 
 export type MarketsEventShelfProps = {
   localEventStore: ReturnType<typeof useLocalCompanyEvents>;
+  eventResult: ReturnType<typeof useChartEvents>;
   onOpenDetail?: (event: MarketEventDto) => void;
-  symbol: string;
-  viewFilters: EventViewFilterState;
+  selectedEventId: string | null;
+  markerGroupIds: string[];
+  onCloseMarkerGroup: () => void;
+  onSelectEvent: (id: string | null) => void;
+  onLocateEvent: (event: MarketEventDto) => void;
+  symbol: string; viewFilters: EventViewFilterState;
   onViewFiltersChange: (next: EventViewFilterState) => void;
-  rangeFromSec?: number | null;
-  rangeToSec?: number | null;
-  trackDate?: string | null;
-  onResetToSymbolDefault?: () => void;
-  /** 初始高度；之后由面板内拖拽调节并写入 localStorage */
-  height?: number;
+  rangeFromSec?: number | null; rangeToSec?: number | null; trackDate?: string | null;
+  onResetToSymbolDefault?: () => void; height?: number;
 };
+const KEY = "markets-event-shelf-height-v2";
+function downloadJson(name: string, data: unknown) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
+}
 
-export function MarketsEventShelf({
-  localEventStore,
-  onOpenDetail,
-  symbol,
-  viewFilters,
-  onViewFiltersChange,
-  rangeFromSec = null,
-  rangeToSec = null,
-  trackDate = null,
-  onResetToSymbolDefault,
-  height = DEFAULT_SHELF_HEIGHT,
-}: MarketsEventShelfProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const [toolbarHeight, setToolbarHeight] = useState(0);
-  const [cardReserve, setCardReserve] = useState(104);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [shelfHeight, setShelfHeight] = useState(() =>
-    loadShelfHeight(height),
-  );
-  const shelfHeightRef = useRef(shelfHeight);
-  const renderedHeight = Math.max(shelfHeight, toolbarHeight + cardReserve);
-  shelfHeightRef.current = renderedHeight;
-  const { events: localOnly, allAssetCount, importEvents, clearAllAssets, ready: localReady } = localEventStore;
-  const [importTarget, setImportTarget] = useState<"file" | LocalEventImportTarget>("file");
-  const [importMessage, setImportMessage] = useState<string | null>(null);
-  const [sharedEvents, setSharedEvents] = useState<CompanyMilestone[]>([]);
-  const [secEvents, setSecEvents] = useState<CompanyMilestone[]>([]);
-  const [companyKindFilter, setCompanyKindFilter] = useState<
-    CompanyKindFilter[]
-  >(() =>
-    viewFilters.typeFamilies.includes("company")
-      ? [...COMPANY_KIND_FILTERS]
-      : [],
-  );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [drawerEvent, setDrawerEvent] = useState<MarketEventDto | null>(null);
-  const [researchOpen, setResearchOpen] = useState(false);
-  const [rawEvents, setRawEvents] = useState<MarketEventDto[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-
+export function MarketsEventShelf({ localEventStore: store, eventResult: result, onOpenDetail, selectedEventId, markerGroupIds, onCloseMarkerGroup, onSelectEvent, onLocateEvent, symbol, viewFilters: filters, onViewFiltersChange: onChange, onResetToSymbolDefault, height = 210 }: MarketsEventShelfProps) {
+  const fileRef = useRef<HTMLInputElement>(null), scrollRef = useRef<HTMLDivElement>(null);
+  const [shelfHeight, setShelfHeight] = useState(() => { try { return Math.min(640, Math.max(150, Number(localStorage.getItem(KEY)) || height)); } catch { return height; } });
+  const [activeTab, setActiveTab] = useState<EventSourceGroup>("system");
+  const allEventsRef = useRef(result.events);
+  allEventsRef.current = result.events;
   useEffect(() => {
-    const toolbar = toolbarRef.current;
-    if (!toolbar) return;
-    const observer = new ResizeObserver(() => {
-      setToolbarHeight(Math.ceil(toolbar.getBoundingClientRect().height));
-      setCardReserve(window.matchMedia("(max-width: 639px)").matches ? 148 : 104);
-    });
-    observer.observe(toolbar);
-    return () => observer.disconnect();
-  }, []);
-
-  const onResizePointerDown = useCallback(
-    (e: { preventDefault: () => void; clientY: number; pointerId: number; currentTarget: HTMLDivElement }) => {
-      e.preventDefault();
-      const startY = e.clientY;
-      const startH = shelfHeightRef.current;
-      const target = e.currentTarget;
-      target.setPointerCapture(e.pointerId);
-
-      const onMove = (ev: PointerEvent) => {
-        setShelfHeight(clampShelfHeight(startH + (startY - ev.clientY)));
-      };
-      const onUp = (ev: PointerEvent) => {
-        target.releasePointerCapture(ev.pointerId);
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        try {
-          localStorage.setItem(
-            HEIGHT_STORAGE_KEY,
-            String(shelfHeightRef.current),
-          );
-        } catch {
-          /* ignore */
-        }
-      };
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-    },
-    [],
-  );
-
-  const sym = symbol.trim().toUpperCase();
-
-  const merged = useMemo(
-    () => mergeCompanyTimeline(viewFilters.largeSurpriseOnly ? [] : localOnly, sharedEvents, viewFilters.largeSurpriseOnly ? [] : secEvents),
-    [localOnly, sharedEvents, secEvents, viewFilters.largeSurpriseOnly],
-  );
-
-  const visible = useMemo(() => {
-    const companyOn = viewFilters.typeFamilies.includes("company");
-    const order = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 } as const;
-    const min = order[viewFilters.minImportance];
-    let list = merged.filter((m) => order[m.importance] >= min);
-    list = list.filter((m) =>
-      eventTypeMatchesFamilies(m.eventType, viewFilters.typeFamilies),
-    );
-    if (companyOn && companyKindFilter.length > 0) {
-      list = list.filter((m) => {
-        const companyish =
-          m.kind === "sec" ||
-          m.kind === "product" ||
-          m.kind === "capacity" ||
-          m.kind === "deal" ||
-          m.kind === "other" ||
-          (normalizeEventType(m.eventType) ?? m.eventType).startsWith(
-            "company.",
-          );
-        if (!companyish) return true;
-        return milestoneMatchesCompanyKinds(m, companyKindFilter);
-      });
-    }
-    const q = viewFilters.searchQ.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (m) =>
-          m.title.toLowerCase().includes(q) ||
-          m.content.toLowerCase().includes(q) ||
-          m.impact.summary.toLowerCase().includes(q),
-      );
-    }
-    if (rangeFromSec != null && rangeToSec != null) {
-      const lo = Math.min(rangeFromSec, rangeToSec);
-      const hi = Math.max(rangeFromSec, rangeToSec);
-      list = list.filter((m) => {
-        const t = isoDateToUnixSec(m.occurredAt);
-        return t >= lo && t <= hi;
-      });
-    }
-    return list;
-  }, [
-    merged,
-    companyKindFilter,
-    viewFilters.minImportance,
-    viewFilters.searchQ,
-    viewFilters.typeFamilies,
-    rangeFromSec,
-    rangeToSec,
-  ]);
-
+    const selected = allEventsRef.current.find(e => e.id === selectedEventId);
+    if (selected) setActiveTab(eventSourceGroup(selected));
+  }, [selectedEventId]);
+  const [target, setTarget] = useState<"file" | LocalEventImportTarget>("file");
+  const [message, setMessage] = useState("");
+  const [manage, setManage] = useState(false), [styles, setStyles] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [preview, setPreview] = useState<{ name: string; raw: Record<string, unknown>; events: CompanyMilestone[]; errors: string[]; target: LocalEventImportTarget; symbol: string | null } | null>(null);
+  const [styleType, setStyleType] = useState<string>("company.earnings");
+  const patch = (p: Partial<EventViewFilterState>) => onChange({ ...filters, ...p });
+  const events = result.events.filter(e => eventSourceGroup(e) === activeTab);
+  const sourceCounts = { system: result.events.filter(e => eventSourceGroup(e) === "system").length, user: result.events.filter(e => eventSourceGroup(e) === "user").length };
+  const selected = events.find(e => e.id === selectedEventId);
   useEffect(() => {
-    setSelectedId((prev) => {
-      if (prev && visible.some((m) => m.id === prev)) return prev;
-      return visible[0]?.id ?? null;
-    });
-  }, [visible]);
-
-  useEffect(() => {
-    if (!trackDate || !visible.length) return;
-    const id = findNearestId(visible, trackDate);
-    if (id) setSelectedId(id);
-  }, [trackDate, visible]);
-
-  useEffect(() => {
-    if (!selectedId) return;
-    const root = scrollRef.current;
-    if (!root) return;
-    const el = root.querySelector(`[data-mid="${selectedId.replace(/"/g, "")}"]`);
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [selectedId]);
-
-  const filterFetchKey = useMemo(
-    () =>
-      JSON.stringify({
-        scopeMode: viewFilters.scopeMode,
-        includeSec: viewFilters.includeSec,
-        includeMarket: viewFilters.includeMarket,
-        largeSurpriseOnly: viewFilters.largeSurpriseOnly,
-        minImportance: viewFilters.minImportance,
-        typeFamilies: viewFilters.typeFamilies,
-        assets: viewFilters.assets,
-        industries: viewFilters.industries,
-        countries: viewFilters.countries,
-        persons: viewFilters.persons,
-        institutions: viewFilters.institutions,
-      }),
-    [viewFilters],
-  );
-
-  useEffect(() => {
-    if (!sym) {
-      setSharedEvents([]);
-      setSecEvents([]);
-      setRawEvents([]);
-      return;
-    }
-
-    const from =
-      rangeFromSec != null
-        ? unixSecToIsoDate(Math.min(rangeFromSec, rangeToSec ?? rangeFromSec))
-        : "2000-01-01";
-    const to =
-      rangeToSec != null
-        ? unixSecToIsoDate(Math.max(rangeToSec, rangeFromSec ?? rangeToSec))
-        : new Date().toISOString().slice(0, 10);
-
-    let cancelled = false;
-    setLoading(true);
-    setFetchError(null);
-    setRawEvents([]);
-    const url = buildForChartUrl(sym, from, to, viewFilters);
-    fetch(url, { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) throw new Error("fetch failed");
-        return (await r.json()) as { events?: MarketEventDto[] };
-      })
-      .then((j) => {
-        if (cancelled) return;
-        const raw = (j.events ?? []).filter((e) => !isEraHeaderEvent(e));
-        const filtered = raw.filter((e) =>
-          eventMatchesFilters(e, viewFilters, {
-            skipTagContext: true,
-            fallbackAsset: sym,
-          }),
-        );
-        setRawEvents(raw);
-        const shared: CompanyMilestone[] = [];
-        const sec: CompanyMilestone[] = [];
-        for (const ev of filtered) {
-          const layer = ev.sourceKind === "sec" ? "sec" : "shared";
-          const m = marketEventToMilestone(ev, layer);
-          if (!m) continue;
-          if (ev.eventType === "macro.release") {
-            const surprise = classifyMacroEventSurprise(ev.payload);
-            m.color = macroSurpriseMarkerColor(surprise) ?? m.color;
-            if (surprise.level === "large") m.markerLabel = `◆${m.markerLabel}`;
-          }
-          if (layer === "sec") sec.push(m);
-          else shared.push(m);
-        }
-        setSharedEvents(shared);
-        setSecEvents(sec);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setFetchError("事件加载失败，请调整筛选或重新展开面板重试。");
-          setRawEvents([]);
-          setSharedEvents([]);
-          setSecEvents([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-    // viewFilters 经 filterFetchKey 稳定；searchQ 仅客户端筛
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [sym, rangeFromSec, rangeToSec, filterFetchKey]);
-
-  const selected = visible.find((m) => m.id === selectedId) ?? visible[0] ?? null;
-  const originalForMilestone = (m: CompanyMilestone) =>
-    rawEvents.find(e => `${m.layer}:${e.id}` === m.id) ?? milestoneToMarketEventDto(m);
-  const openDetail = (event: MarketEventDto) => onOpenDetail ? onOpenDetail(event) : setDrawerEvent(event);
-
-  const loadSample = useCallback(() => {
-    if (!sym) return;
+    const node = scrollRef.current?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(selectedEventId || "")}"]`);
+    node?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
+  }, [selectedEventId, activeTab]);
+  const resize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault(); const startY = e.clientY, startHeight = shelfHeight; let next = shelfHeight;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => { next = Math.min(640, Math.max(150, startHeight + startY - ev.clientY)); setShelfHeight(next); };
+    const end = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end); try { localStorage.setItem(KEY, String(next)); } catch {} };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
+  }, [shelfHeight]);
+  const onFile = async (file: File | null) => {
+    if (!file) return;
     try {
-      importEvents(loadDemoMilestones("TSLA"), "symbol");
-      setImportMessage("TSLA 范本已载入当前标的");
-    } catch (e) { setImportMessage(e instanceof Error ? e.message : "载入失败"); }
-  }, [sym, importEvents]);
-
-  const onFile = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const raw = JSON.parse(text) as unknown;
-        const { milestones, errors, importTarget: fileTarget } = parseMilestoneIngestJson(raw);
-        if (errors.length) throw new Error(errors.join("；"));
-        const target = importTarget === "file" ? fileTarget : importTarget;
-        importEvents(milestones, target);
-        setImportMessage(`已导入 ${milestones.length} 条 · ${target === "all-assets" ? "全部资产通用" : "仅当前标的"}`);
-        // 通用研究允许任意事件类型；导入后确保这些类型可见。
-        onViewFiltersChange({ ...viewFilters, markersEnabled: true, largeSurpriseOnly: false,
-          typeFamilies: [...new Set([...viewFilters.typeFamilies, ...milestones.map(m => familyIdForEventType(m.eventType))])] });
-        setCompanyKindFilter([]);
-      } catch (e) {
-        setImportMessage(e instanceof Error ? e.message : "导入失败");
-      }
-      if (fileRef.current) fileRef.current.value = "";
-    },
-    [importEvents, importTarget, onViewFiltersChange, viewFilters],
-  );
-
-  const onSelect = useCallback((m: CompanyMilestone) => {
-    setSelectedId(m.id);
-  }, []);
-
-  const localCount = localOnly.length;
-  const minDate = visible[0]?.occurredAt;
-  const maxDate = visible[visible.length - 1]?.occurredAt;
-
-  return (
-    <div
-      className="relative flex shrink-0 flex-col border-t border-fs-border bg-fs-bg"
-      style={{ height: renderedHeight }}
-    >
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="拖动调节事件筛选器高度"
-        title="上下拖动调节高度"
-        onPointerDown={onResizePointerDown}
-        className="absolute inset-x-0 top-0 z-10 flex h-2 cursor-ns-resize touch-none items-center justify-center hover:bg-fs-accent-soft/60"
-      >
-        <span className="h-0.5 w-10 rounded-full bg-fs-border" aria-hidden />
-      </div>
-      <div ref={toolbarRef} className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-fs-border px-2 py-1 pt-2.5">
-        <span className="text-[11px] font-medium text-fs-text">事件筛选器</span>
-        <span className="text-[10px] text-fs-muted">{sym || "未选标的"}</span>
-        {isMacroResearchAsset(sym) && <button type="button" aria-pressed={researchOpen}
-          className={`rounded border px-2 py-0.5 text-[11px] ${researchOpen ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : "border-fs-border text-fs-secondary"}`}
-          onClick={() => {
-            setResearchOpen(v => !v);
-            if (!researchOpen) onViewFiltersChange({ ...viewFilters, typeFamilies: ["macro", "policy", "speech", "market"], includeSec: false, includeMarket: true });
-          }}>宏观研究</button>}
-        <label className="ml-1 flex cursor-pointer items-center gap-1 text-[10px] text-fs-muted">
-          <input
-            type="checkbox"
-            checked={viewFilters.markersEnabled}
-            onChange={(e) =>
-              onViewFiltersChange({
-                ...viewFilters,
-                markersEnabled: e.target.checked,
-              })
-            }
-            className="h-3 w-3"
-          />
-          图上显示
-        </label>
-        <span className="text-[11px] text-fs-muted">筛选：</span>
-        <EventPanelFilters layout="inline" filters={viewFilters} onChange={onViewFiltersChange}
-          onResetToSymbolDefault={onResetToSymbolDefault} companyKindFilter={companyKindFilter}
-          onCompanyKindFilterChange={setCompanyKindFilter} />
-        <span className="text-[10px] tabular-nums text-fs-muted">
-          {visible.length} 条
-          {localCount > 0 ? ` · 本地 ${localCount}` : ""}
-          {loading ? " · …" : ""}
-        </span>
-
+      const raw = eventRecord(JSON.parse(await file.text()));
+      const parsed = parseMilestoneIngestJson(raw);
+      setPreview({ name: file.name, raw, events: parsed.milestones, errors: parsed.errors, target: target === "file" ? parsed.importTarget : target, symbol: parsed.symbol });
+    } catch (e) { setMessage(e instanceof Error ? e.message : "文件读取失败"); }
+    if (fileRef.current) fileRef.current.value = "";
+  };
+  const confirmImport = () => {
+    if (!preview || preview.errors.length) return;
+    try {
+      const pack = eventRecord(preview.raw.pack), query = eventRecord(preview.raw.query);
+      const symbols = target === "file" && Array.isArray(pack.symbols) ? pack.symbols.filter((v): v is string => typeof v === "string").map(v => v.toUpperCase()) : undefined;
+      store.importEvents(preview.events, preview.target, { id: typeof pack.id === "string" ? pack.id : preview.name, name: typeof pack.name === "string" ? pack.name : typeof query.topic === "string" ? query.topic : preview.name, version: typeof pack.version === "string" ? pack.version : undefined, color: normalizeEventColor(pack.color), symbols });
+      onChange({ ...filters, markersEnabled: true, includeLocal: true, largeSurpriseOnly: false, companyKinds: undefined, typeFamilies: [...new Set([...filters.typeFamilies, ...preview.events.map(m => familyIdForEventType(m.eventType))])] });
+      setActiveTab("user");
+      setMessage(`已导入 ${preview.events.length} 条；显示范围：${symbols?.length ? symbols.join("、") : preview.target === "all-assets" ? "全部资产" : symbol}`); setPreview(null);
+    } catch (e) { setMessage(String(e)); }
+  };
+  const existingIds = new Set(store.packs.flatMap(p => p.events.map(e => String(e.externalId))));
+  const repeated = preview?.events.filter(e => existingIds.has(e.externalId)).length ?? 0;
+  const mode = filters.viewMode || "timeline";
+  const assessed = events.filter(e => e.eventType === "macro.release" && classifyMacroEventSurprise(e.payload).level !== "unassessed");
+  const button = "rounded border border-fs-border px-2 py-1 text-[11px] text-fs-secondary hover:bg-fs-elevated";
+  return <section aria-label="事件筛选器" className="relative flex min-h-[240px] shrink-0 flex-col border-t border-fs-border bg-fs-bg sm:min-h-[170px]" style={{ height: shelfHeight }}>
+    <div role="separator" aria-label="拖动调节事件筛选器高度" aria-orientation="horizontal" onPointerDown={resize} className="absolute inset-x-0 top-0 z-10 h-2 cursor-ns-resize touch-none hover:bg-fs-accent-soft" />
+    <div className="flex min-h-0 flex-1 pt-2">
+      <nav role="tablist" aria-label="事件来源分页" aria-orientation="vertical" className="flex w-[80px] shrink-0 flex-col gap-1 border-r border-fs-border bg-fs-elevated/40 px-1 py-1 sm:w-[88px]">
+        {(["system", "user"] as const).map(tab => <button key={tab} id={`event-tab-${tab}`} role="tab" aria-controls={`event-panel-${tab}`} aria-selected={activeTab === tab} tabIndex={activeTab === tab ? 0 : -1}
+          onClick={() => { setActiveTab(tab); setManage(false); setStyles(false); setFiltersOpen(false); }}
+          onKeyDown={e => { if (["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) { e.preventDefault(); const next = e.key === "Home" ? "system" : e.key === "End" ? "user" : activeTab === "system" ? "user" : "system"; setActiveTab(next); document.getElementById(`event-tab-${next}`)?.focus(); } }}
+          className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded border px-1 py-2 text-[11px] sm:text-xs ${activeTab === tab ? "border-fs-accent bg-fs-accent-soft font-semibold text-fs-text" : "border-transparent text-fs-muted hover:bg-fs-elevated"}`}>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: EVENT_SOURCE_COLORS[tab] }} />{tab === "system" ? "系统事件" : "用户事件"}</span><span className="text-[10px] font-normal tabular-nums">{sourceCounts[tab]} 条</span>
+        </button>)}
+        <span className="mt-1 text-center text-[9px] leading-4 text-fs-muted">两类可同时上图</span>
+      </nav>
+      <div id={`event-panel-${activeTab}`} role="tabpanel" aria-labelledby={`event-tab-${activeTab}`} className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div className="max-h-[65%] shrink-0 overflow-y-auto sm:max-h-[55%] border-b border-fs-border px-2 pb-1 pt-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <strong className="text-[11px]">{activeTab === "system" ? "系统事件" : "用户事件"}</strong><span className="text-[10px] text-fs-muted">{symbol}</span>
+        <label className="text-[11px]"><input type="checkbox" checked={filters.markersEnabled} onChange={e => patch({ markersEnabled: e.target.checked })} /> 图上显示</label>
+        <button className={`${button} sm:hidden`} aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>筛选 {filtersOpen ? "▴" : "▾"}</button>
+        <div className={`${filtersOpen ? "contents" : "hidden"} sm:contents`}><EventPanelFilters layout="inline" filters={filters} onChange={onChange} onResetToSymbolDefault={onResetToSymbolDefault} companyKindFilter={(filters.companyKinds ?? ["sec", "product", "capacity", "deal", "other"]) as CompanyKindFilter[]} onCompanyKindFilterChange={companyKinds => patch({ companyKinds })} /></div>
+        <label className="text-[11px]"><input type="checkbox" checked={activeTab === "system" ? filters.includeMarket || filters.includeSec : filters.includeLocal !== false} onChange={e => patch(activeTab === "system" ? { includeMarket: e.target.checked, includeSec: e.target.checked } : { includeLocal: e.target.checked })} /> {activeTab === "system" ? "显示系统事件" : "显示用户事件"}</label>
+        <span className="text-[10px] text-fs-muted">本页 {events.length} · 两类合计 {result.events.length} / 区间内 {result.inRange}{result.loading ? " · 加载中" : ""}</span>
         <div className="ml-auto flex flex-wrap items-center gap-1">
-          <a
-            href={`${TEMPLATE_BASE}/company-milestone-pack.zip`}
-            download="company-milestone-pack.zip"
-            className="rounded border border-fs-accent/40 bg-white px-1.5 py-0.5 text-[10px] text-fs-accent-text hover:bg-fs-accent-soft"
-            title="含说明、Skill、Schema、示例 JSON"
-          >
-            下载SKILL
-          </a>
-          <button
-            type="button"
-            onClick={loadSample}
-            disabled={!localReady}
-            className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[10px] text-fs-accent-text hover:opacity-90"
-          >
-            载入 TSLA 范本
-          </button>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={!localReady}
-            title="仅保存在本机当前账号，可选择当前标的或全部资产通用"
-            className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-secondary hover:bg-fs-elevated"
-          >
-            导入本地事件
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
-          />
-          <select aria-label="本地事件导入范围" value={importTarget}
-            onChange={e => setImportTarget(e.target.value as "file" | LocalEventImportTarget)}
-            className="max-w-32 rounded border border-fs-border bg-white px-1 py-0.5 text-[10px] text-fs-secondary">
-            <option value="file">按文件设置</option>
-            <option value="all-assets">全部资产通用</option>
-            <option value="symbol">仅当前标的</option>
-          </select>
-          {allAssetCount > 0 && <button type="button" className="text-[10px] text-fs-muted hover:text-fs-accent-text"
-            onClick={() => { try { clearAllAssets(); setImportMessage("已清除全部资产通用事件，可重新导入恢复"); }
-              catch { setImportMessage("清除失败，请重试"); } }}>清除通用事件（{allAssetCount}）</button>}
+          <select aria-label="事件视图" value={mode} onChange={e => patch({ viewMode: e.target.value as EventViewFilterState["viewMode"] })} className={button}><option value="timeline">时间线</option><option value="cards">卡片</option><option value="list">列表</option></select>
+          <button className={button} aria-expanded={manage} onClick={() => setManage(!manage)}>{activeTab === "system" ? "系统来源" : "用户事件包"}</button>
+          <button className={button} aria-expanded={styles} onClick={() => setStyles(!styles)}>显示设置</button>
+          {activeTab === "user" && <>
+          <a className={`${button} hidden sm:inline-block`} href="/templates/company-milestone/company-milestone-pack.zip" download>下载SKILL</a>
+          <select aria-label="本地事件导入范围" value={target} onChange={e => setTarget(e.target.value as typeof target)} className={`${button} hidden sm:inline-block`}><option value="file">按文件设置</option><option value="all-assets">全部资产通用</option><option value="symbol">仅当前标的</option></select>
+          <button className={button} disabled={!store.ready} onClick={() => fileRef.current?.click()}>导入本地事件</button>
+          <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={e => void onFile(e.target.files?.[0] ?? null)} />
+          </>}
         </div>
-        {importMessage && <span role="status" className="w-full text-[10px] text-fs-secondary">{importMessage}</span>}
       </div>
-
-      {researchOpen && isMacroResearchAsset(sym) ? <MacroEventResearch
-        onOpenDetail={onOpenDetail}
-        events={rawEvents.filter(e => eventMatchesFilters(e, viewFilters, { skipTagContext: true, fallbackAsset: sym }))} loading={loading} error={fetchError}
-        from={rangeFromSec != null ? unixSecToIsoDate(Math.min(rangeFromSec, rangeToSec ?? rangeFromSec)) : null}
-        to={rangeToSec != null ? unixSecToIsoDate(Math.max(rangeToSec, rangeFromSec ?? rangeToSec)) : null}
-      /> : <div className="relative min-h-0 flex-1">
-        {visible.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-4 text-center text-[11px] text-fs-muted">
-            {!sym
-              ? "请先在上方选择股票标的。"
-              : viewFilters.largeSurpriseOnly
-                ? "当前区间与筛选下没有大预期差事件，可调整时间范围或取消「仅大预期差」。"
-              : merged.length > 0
-                ? "当前筛选或可视区间内无事件，可调整筛选或拖动 K 线时间范围。"
-                : "暂无事件。可调整筛选类型，或「下载SKILL」后「导入本地事件」（可选全部资产通用）。"}
-          </div>
-        ) : (
-          <div
-            ref={scrollRef}
-            className="absolute inset-0 overflow-x-auto overflow-y-hidden px-2 py-1.5"
-          >
-            <div
-              className="relative min-w-max"
-              style={{ minWidth: Math.max(640, visible.length * 148) }}
-            >
-              <div className="mb-1 flex justify-between text-[9px] tabular-nums text-fs-muted">
-                <span>{minDate?.slice(0, 10)}</span>
-                <span>{maxDate?.slice(0, 10)}</span>
-              </div>
-              <div className="relative mx-2 h-px bg-fs-border" />
-              <ul className="relative mt-1 flex items-stretch gap-2 pt-2">
-                {visible.map((m) => {
-                  const active = m.id === (selected?.id ?? selectedId);
-                  return (
-                    <li key={m.id} data-mid={m.id} className="relative w-[140px] shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => { onSelect(m); openDetail(originalForMilestone(m)); }}
-                        title="单击查看事件详情"
-                        className={`flex h-full w-full flex-col rounded border px-1.5 py-1 text-left transition ${
-                          active
-                            ? "border-fs-accent bg-fs-accent-soft shadow-sm"
-                            : "border-fs-border bg-fs-elevated hover:border-fs-accent/40"
-                        }`}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span
-                            className={`h-2 w-2 shrink-0 rounded-full ${KIND_DOT[m.kind]}`}
-                            style={{ backgroundColor: m.color }}
-                          />
-                          <span className="text-[9px] tabular-nums text-fs-muted">
-                            {m.occurredAt.slice(0, 7)}
-                          </span>
-                          <span className="ml-auto text-[8px] text-fs-muted">
-                            {LAYER_BADGE[m.layer]}
-                          </span>
-                        </div>
-                        <span className="mt-0.5 text-[9px] text-fs-muted">
-                          {m.typeLabel || eventTypeLabel(m.eventType)}
-                        </span>
-                        <span
-                          className={`mt-0.5 line-clamp-1 text-[10px] font-medium ${
-                            active ? "text-fs-text" : "text-fs-secondary"
-                          }`}
-                        >
-                          {m.markerLabel}
-                        </span>
-                        <span className="mt-0.5 line-clamp-2 text-[9px] leading-snug text-fs-muted">
-                          {m.title || m.impact.summary}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        )}
+      {markerGroupIds.length > 1 && <div className="mt-1 flex flex-wrap items-center gap-2 rounded border border-fs-border p-2 text-xs"><span>此根 K 线的事件：</span>{events.filter(e => markerGroupIds.includes(e.id)).map(e => <button key={e.id} aria-pressed={selectedEventId === e.id} className={button} onClick={() => onSelectEvent(e.id)}>{e.markerLabel} · {e.title}</button>)}<button className={button} onClick={onCloseMarkerGroup}>收起聚合事件</button></div>}
+      {result.error && <p role="alert" className="text-xs text-red-600">{result.error}</p>}
+      {activeTab === "user" && message && <p role="status" className="text-[11px] text-fs-secondary">{message}</p>}
+      {manage && <div className="mt-1 space-y-2 rounded border border-fs-border p-2 text-xs">
+        {activeTab === "system" && <div className="flex flex-wrap gap-3">{([ ["includeMarket", "云端标准事件"], ["includeSec", "SEC 事件"] ] as const).map(([key,label]) => <label key={key}><input type="checkbox" checked={filters[key] !== false} onChange={e => patch({ [key]: e.target.checked })} /> {label}</label>)}
+          <label>资产关联 <select aria-label="资产关联范围" value={filters.relationMode || ""} onChange={e => patch({ relationMode: e.target.value as EventViewFilterState["relationMode"] || undefined })} className={button}><option value="">跟随资产默认</option><option value="asset">直接资产</option><option value="industry">资产与行业</option><option value="macro">包含宏观关联</option></select></label>
+        </div>}
+        {activeTab === "user" && <>
+        <div className="flex flex-wrap items-center gap-2 sm:hidden"><a className={button} href="/templates/company-milestone/company-milestone-pack.zip" download>下载SKILL</a><select aria-label="手机本地事件导入范围" value={target} onChange={e => setTarget(e.target.value as typeof target)} className={button}><option value="file">按文件设置</option><option value="all-assets">全部资产通用</option><option value="symbol">仅当前标的</option></select></div>
+        <p className="text-fs-muted">本地事件按事件包的显示范围加载；资产、行业是事实关联标签。</p>
+        {store.packs.map(pack => <div key={pack.id} className="flex flex-wrap items-center gap-2">
+          <label><input type="checkbox" checked={pack.enabled} onChange={e => store.updatePack(pack.id, { enabled: e.target.checked })} /> {pack.name}（{pack.events.length} 条）</label>
+          <span className="text-fs-muted">{pack.target === "all-assets" ? "全部资产" : pack.symbols?.join("、")}</span>
+          <input aria-label={`${pack.name} 默认颜色`} type="color" value={pack.color || "#475569"} onChange={e => store.updatePack(pack.id, { color: e.target.value })} />
+          <button className={button} onClick={() => store.updatePack(pack.id, { color: undefined })}>恢复包配色</button>
+          <button className={button} onClick={() => downloadJson(`${pack.name}.json`, { schemaVersion: 2, mode: "company-milestone", pack: { id: pack.id, name: pack.name, version: pack.version, color: pack.color, symbols: pack.target === "assets" ? pack.symbols : undefined }, query: { importTarget: pack.target === "all-assets" ? "all-assets" : "symbol", symbol: pack.symbols?.[0] }, events: pack.events })}>导出</button>
+          <button className={button} onClick={() => { downloadJson(`${pack.name}-备份.json`, { schemaVersion: 2, mode: "company-milestone", pack, query: { importTarget: pack.target === "all-assets" ? "all-assets" : "symbol" }, events: pack.events }); store.deletePack(pack.id); }}>删除并备份</button>
+        </div>)}
+        <button className={button} onClick={() => { store.importEvents(loadDemoMilestones("TSLA"), "symbol", { id: "tsla-demo", name: "TSLA 示例", symbols: ["TSLA"] }); setMessage("TSLA 范本已载入，仅在 TSLA 显示"); }}>载入 TSLA 范本</button>
+        </>}
       </div>}
-
-      <EventDetailDrawer
-        event={drawerEvent}
-        onClose={() => setDrawerEvent(null)}
-      />
+      {styles && <div className="mt-1 flex flex-wrap items-center gap-2 rounded border border-fs-border p-2 text-xs">
+        <label><input type="checkbox" checked={filters.showLabel} onChange={e => patch({ showLabel: e.target.checked })} /> 显示标记文字</label>
+        <label>类型配色 <select aria-label="配色事件类型" value={styleType} onChange={e => setStyleType(e.target.value)} className={button}>{EVENT_TYPE_CODES.map(t => <option key={t} value={t}>{eventTypeLabel(t)}</option>)}</select></label>
+        <input type="color" aria-label="类型颜色" value={filters.typeColors?.[styleType] || "#475569"} onChange={e => patch({ typeColors: { ...filters.typeColors, [styleType]: e.target.value } })} />
+        <button className={button} onClick={() => { const next = { ...filters.typeColors }; delete next[styleType]; patch({ typeColors: next }); }}>恢复类型颜色</button>
+        {selected && <><span>选中：{selected.markerLabel || selected.title}</span><input type="color" aria-label="选中事件颜色" value={selected.color || "#475569"} onChange={e => patch({ eventColors: { ...filters.eventColors, [eventIdentity(selected)]: e.target.value } })} /><button className={button} onClick={() => { const next = { ...filters.eventColors }; delete next[eventIdentity(selected)]; patch({ eventColors: next }); }}>恢复事件颜色</button><label><input type="checkbox" checked={!filters.hiddenMarkerIds?.includes(eventIdentity(selected))} onChange={e => patch({ hiddenMarkerIds: e.target.checked ? filters.hiddenMarkerIds?.filter(id => id !== eventIdentity(selected)) : [...(filters.hiddenMarkerIds || []), eventIdentity(selected)] })} /> 此事件上图</label></>}
+      </div>}
+      <details className="text-[10px] text-fs-muted"><summary>共同筛选说明 · 排除 {result.filteredOut} 条 · 本页可评估发布 {assessed.length} 条</summary>页签仅切换管理内容，不改变另一类事件的显示开关。默认系统蓝色、用户紫色，事件已有颜色和个人设置优先。类型、重要性、搜索、人物、机构、来源和公司细类为两页共用筛选，同时作用于主图。本地事件仍受事件包范围约束。仅大预期差要求有效的宏观发布证据，不表示利多或利空。时间范围外 {result.loaded - result.inRange} 条。</details>
     </div>
-  );
+    <div ref={scrollRef} className={`min-h-0 flex-1 p-2 ${mode === "timeline" ? "overflow-x-auto overflow-y-auto" : "overflow-y-auto"}`}>
+      {!events.length ? <p className="p-3 text-center text-xs text-fs-muted">{result.loading ? "正在加载事件…" : activeTab === "system" ? "当前区间与筛选下没有系统事件，可检查系统来源或调整筛选。" : "当前区间与筛选下没有用户事件，可检查事件包开关或导入本地事件包。"}</p> :
+        <ul className={mode === "timeline" ? "flex min-w-max items-stretch gap-2" : mode === "cards" ? "grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4" : "space-y-1"}>
+          {events.map(event => <li key={event.id} data-event-id={event.id} className={`rounded border p-1.5 ${mode === "timeline" ? "w-[170px] shrink-0" : ""} ${event.id === selectedEventId ? "border-fs-accent bg-fs-accent-soft ring-1 ring-fs-accent" : "border-fs-border bg-fs-elevated"}`}>
+            <button aria-pressed={event.id === selectedEventId} className="w-full text-left" onClick={() => onSelectEvent(event.id)}>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: event.color || undefined }} /><time className="text-[10px] tabular-nums text-fs-muted">{event.occurredAt.slice(0, 10)}</time><span className="ml-auto text-[9px] text-fs-muted">{event.sourceKind === "user_local" ? "本地" : event.sourceKind === "sec" ? "SEC" : "共享"}</span></span>
+              <span className="block text-[10px] text-fs-muted">{eventTypeLabel(event.eventType)}</span>
+              <span className="block truncate text-[11px] font-medium">{event.markerLabel}</span><span className="line-clamp-2 text-[10px] text-fs-secondary">{event.title}</span>
+            </button>
+            {mode !== "timeline" && event.eventType === "macro.release" && <MacroEventSurpriseSummary payload={event.payload} />}
+            <div className="mt-1 flex gap-3 text-[10px] text-fs-accent-text"><button onClick={() => { onSelectEvent(event.id); onOpenDetail?.(event); }}>详情</button><button onClick={() => { onSelectEvent(event.id); onLocateEvent(event); }}>定位 K 线</button></div>
+          </li>)}
+        </ul>}
+    </div>
+      </div>
+    </div>
+    {preview && <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 p-3"><div role="dialog" aria-modal="true" aria-label="事件导入预览" className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded bg-white p-4 text-sm shadow-xl">
+      <strong>导入预览：{preview.name}</strong><p className="my-2">有效 {preview.events.length} 条，其中 {repeated} 条 ID 已存在、{preview.events.length - repeated} 条为新 ID；错误 {preview.errors.length} 条；范围：{preview.target === "all-assets" ? "全部资产" : symbol}</p>
+      {preview.symbol && preview.target === "symbol" && preview.symbol !== symbol && <p className="text-amber-700">文件标的是 {preview.symbol}，当前选择将导入到 {symbol}。可取消后切换资产。</p>}
+      <p>重复 externalId 将更新同包事件；其他事件保留。导入后仍服从当前时间区间和内容筛选。</p>
+      <ul className="my-2 max-h-40 overflow-y-auto text-xs">{preview.errors.map((e,i) => <li key={i} className="text-red-600">{e}</li>)}{preview.events.slice(0,8).map(e => <li key={e.id}>{e.occurredAt.slice(0,10)} · {e.title}</li>)}</ul>
+      <button className={button} onClick={() => setPreview(null)}>取消</button> <button className={button} disabled={preview.errors.length > 0} onClick={confirmImport}>确认导入</button>
+    </div></div>}
+  </section>;
 }

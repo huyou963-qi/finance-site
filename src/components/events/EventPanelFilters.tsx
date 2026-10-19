@@ -59,12 +59,8 @@ export function EventPanelFilters({
     if (set.has(id)) set.delete(id);
     else set.add(id);
     const next = ALL_EVENT_TYPE_FAMILY_IDS.filter((f) => set.has(f));
-    patch({ typeFamilies: next });
-    if (id === "company") {
-      onCompanyKindFilterChange?.(
-        set.has("company") ? [...COMPANY_KIND_FILTERS] : [],
-      );
-    }
+    // Type and subtype are one state transition; two callbacks could overwrite each other.
+    patch({ typeFamilies: next, ...(id === "company" ? { companyKinds: set.has("company") ? [...COMPANY_KIND_FILTERS] : [] } : {}) });
   };
 
   const toggleCompanyKind = (k: CompanyKindFilter) => {

@@ -23,6 +23,7 @@ export function buildForChartUrl(
     minImportance: filters.minImportance,
     limit: "2000",
   });
+  if (filters.relationMode) sp.set("relationMode", filters.relationMode);
   if (filters.assets.length) sp.set("assets", filters.assets.join(","));
   if (filters.industries.length)
     sp.set("industries", filters.industries.join(","));

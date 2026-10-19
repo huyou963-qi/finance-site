@@ -1,5 +1,6 @@
 "use client";
 
+import { eventLinks, safeEventUrl, readEventPresentation } from "@/lib/data/eventPresentation";
 import { useEffect, useRef } from "react";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { formatEventOccurredAt } from "@/lib/data/marketEvents";
@@ -39,6 +40,10 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
 
   if (!event) return null;
 
+  const presentationFields = readEventPresentation(event.payload);
+  const legacyReading = safeEventUrl(event.sourceUrl) && /(^|\.)wikipedia\.org$/i.test(new URL(event.sourceUrl!).hostname);
+  const sources = eventLinks([...(event.sources ?? presentationFields.sources ?? []), ...(!legacyReading && safeEventUrl(event.sourceUrl) ? [{ url: event.sourceUrl!, title: "原始来源" }] : [])]);
+  const reading = eventLinks([...(event.readingLinks ?? presentationFields.readingLinks ?? []), ...(legacyReading ? [{ url: event.sourceUrl!, title: "背景阅读" }] : [])]);
   const sections = parseEventSections(event.content);
   const fallback = eventDisplayContent(event.content);
   const tags = [
@@ -87,6 +92,7 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
               ))}
             </div>
           ) : null}
+          {event.matchReasons?.length ? <p className="mt-2 text-[10px] text-fs-muted">显示原因：{event.matchReasons.join("、")}</p> : null}
           {event.macroKeys.length > 0 ? (
             <div className="mt-2">
               <p className="text-[10px] text-fs-muted">关联宏观指标</p>
@@ -123,18 +129,8 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
         </div>
 
         <footer className={docked ? "border-t border-fs-border py-3" : "shrink-0 border-t border-fs-border px-4 py-3"}>
-          {event.sourceUrl ? (
-            <a
-              href={event.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded border border-fs-accent/30 bg-fs-accent-soft px-3 py-1.5 text-xs font-medium text-fs-accent-text hover:border-fs-accent"
-            >
-              延伸阅读（Wikipedia 等）↗
-            </a>
-          ) : (
-            <p className="text-[11px] text-fs-muted">暂无外部来源链接</p>
-          )}
+          {sources.length > 0 && <section className="mb-2"><h3 className="text-xs font-medium">事实来源</h3><ul className="mt-1 space-y-1">{sources.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer" className="break-words text-xs text-fs-accent-text underline">{link.title || link.note || new URL(link.url).hostname} ↗</a></li>)}</ul></section>}
+          {reading.length > 0 && <section><h3 className="text-xs font-medium">扩展阅读</h3><ul className="mt-1 space-y-1">{reading.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer" className="break-words text-xs text-fs-accent-text underline">{link.title || link.note || new URL(link.url).hostname} ↗</a></li>)}</ul></section>}
           {event.createdByUsername ? (
             <p className="mt-2 text-[10px] text-fs-muted">录入：{event.createdByUsername}</p>
           ) : null}

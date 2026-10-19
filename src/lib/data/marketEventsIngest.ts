@@ -17,10 +17,11 @@ import {
   updateMarketEvent,
   type MarketEventInput,
 } from "@/lib/data/marketEvents";
+import { withEventPresentation, eventRecord, isValidEventTime } from "./eventPresentation";
 import { prisma } from "@/lib/prisma";
 import { evaluateMacroSurprise } from "@/lib/data/macroEventSurprise";
 
-export type IngestEventDraft = {
+export type IngestEventDraft = import("./eventPresentation").EventPresentation & {
   externalId: string;
   title: string;
   content: string;
@@ -88,6 +89,7 @@ export function validateIngestRun(run: IngestRunOutput): IngestValidationResult 
   const seenExt = new Set<string>();
 
   run.events.forEach((ev, index) => {
+    try { withEventPresentation(ev.payload, ev); } catch (e) { issues.push({ index, field: "presentation", message: String(e) }); }
     if (!ev.externalId?.trim()) {
       issues.push({ index, field: "externalId", message: "缺少 externalId" });
     } else if (seenExt.has(ev.externalId.trim())) {
@@ -99,6 +101,8 @@ export function validateIngestRun(run: IngestRunOutput): IngestValidationResult 
     if (!ev.content?.trim()) issues.push({ index, field: "content", message: "缺少 content" });
     if (!ev.occurredAt?.trim()) {
       issues.push({ index, field: "occurredAt", message: "缺少 occurredAt" });
+    } else if (!isValidEventTime(ev.occurredAt, ev.datePrecision ?? "DATE")) {
+      issues.push({ index, field: "occurredAt", message: "日期无效，或精确时刻未包含时区" });
     }
     if (!ev.markerLabel?.trim()) {
       issues.push({ index, field: "markerLabel", message: "缺少 markerLabel" });
@@ -316,7 +320,7 @@ function mergeDraftOntoExisting(
     persons: unionTags(existing.persons, ev.persons),
     institutions: unionTags(existing.institutions, ev.institutions),
     tags: unionTags(existing.tags, ev.tags),
-    payload: (ev.payload as Prisma.InputJsonValue | undefined) ?? existing.payload ?? undefined,
+    payload: withEventPresentation({ ...eventRecord(existing.payload), ...eventRecord(ev.payload) }, ev) as Prisma.InputJsonValue,
     markerLabel: existing.markerLabel || ev.markerLabel.trim() || null,
     sourceUrl: existing.sourceUrl || draftUrl,
     sourceKind: existing.sourceKind || "ai_skill",
@@ -346,7 +350,7 @@ function draftToInput(ev: IngestEventDraft): MarketEventInput {
     institutions: ev.institutions ?? [],
     tags: ev.tags ?? [],
     markerLabel: ev.markerLabel,
-    payload: ev.payload,
+    payload: withEventPresentation(ev.payload, ev),
     sourceUrl,
     sourceKind: "ai_skill",
     externalId: ev.externalId.trim(),

@@ -11,6 +11,14 @@ import {
 import type { EventScopeMode } from "@/lib/data/assetEventResolver";
 
 export type EventViewFilterState = {
+  relationMode?: "asset" | "industry" | "macro";
+  includeLocal?: boolean;
+  companyKinds?: string[];
+  eventColors?: Record<string, string>;
+  typeColors?: Record<string, string>;
+  hiddenEventIds?: string[];
+  hiddenMarkerIds?: string[];
+  viewMode?: "timeline" | "cards" | "list";
   searchQ: string;
   typeFamilies: EventTypeFamilyId[];
   minImportance: EventImportance;
@@ -49,6 +57,11 @@ const STORAGE_KEY = "event-view-filters-v1";
 const LEGACY_LIST_KEY = "event-panel-list-filters-v1";
 const LEGACY_MARKER_KEY = "chart-event-markers-prefs-v1";
 
+function validColors(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v)));
+}
+
 function isFamilyId(v: unknown): v is EventTypeFamilyId {
   return (
     typeof v === "string" &&
@@ -82,6 +95,14 @@ export function sanitizeEventViewFilters(
     : null;
 
   return {
+    relationMode: raw.relationMode === "asset" || raw.relationMode === "industry" || raw.relationMode === "macro" ? raw.relationMode : undefined,
+    includeLocal: raw.includeLocal !== false,
+    companyKinds: Array.isArray(raw.companyKinds) ? raw.companyKinds.filter(k => ["sec", "product", "capacity", "deal", "other"].includes(k)) : undefined,
+    eventColors: validColors(raw.eventColors),
+    typeColors: validColors(raw.typeColors),
+    hiddenEventIds: asStringArray(raw.hiddenEventIds),
+    hiddenMarkerIds: asStringArray(raw.hiddenMarkerIds),
+    viewMode: raw.viewMode === "cards" || raw.viewMode === "list" ? raw.viewMode : "timeline",
     largeSurpriseOnly: raw.largeSurpriseOnly === true,
     searchQ: typeof raw.searchQ === "string" ? raw.searchQ : "",
     typeFamilies: families

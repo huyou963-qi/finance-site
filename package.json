@@ -18,6 +18,7 @@
     "db:seed-market-events": "dotenv -e .env.local -- tsx scripts/seed-market-events.ts",
     "db:patch-market-events-era": "dotenv -e .env.local -- tsx scripts/patch-market-events-era.ts",
     "db:backfill-market-event-fields": "dotenv -e .env.local -- tsx scripts/backfill-market-event-fields.ts",
+    "events:normalize-presentation": "dotenv -e .env.local -- tsx scripts/normalize-event-presentation.ts",
     "events:validate-ingest": "dotenv -e .env.local -- tsx scripts/validate-event-ingest.ts",
     "events:import-ingest": "dotenv -e .env.local -- tsx scripts/import-event-ingest.ts",
     "events:ingest-seed-p0": "dotenv -e .env.local -- tsx scripts/event-ingest-seed-p0-queue.ts",

@@ -44,7 +44,7 @@ description: >-
 - 个股 externalId：ai:milestone:{SYMBOL}:{yyyy-mm-dd}:{slug}。
 - 专题 externalId：ai:research:{TOPIC}:{yyyy-mm-dd}:{slug}，不要带显示标的，方便跨图复用和重复导入更新。
 - payload.impact.summary 描述研究影响；channels 选 demand / cost / capacity / margin / narrative。
-- sources[] 保存来源链接与说明；content 也附来源链接，因为浏览器导入会保留 content，但不会保留所有扩展字段。
+- sources[] 保存可核验的事实来源；本地导入完整保留 payload、来源、关联标签和时间精度。content 可附来源说明。
 - 同一来源事实只生成一个节点；公告和次日市场反应可分开，但必须说明区别。
 
 跨资产最小形状（仅结构示例，不可照抄事实）：
@@ -74,3 +74,13 @@ description: >-
 交付 JSON 文件及简短导入说明：/markets → 展开事件筛选器 → 选择「按文件设置」或「全部资产通用」→ 导入本地事件 → 勾选图上显示、保留文件包含的类型。只写本地文件，不自动执行 events:import-ingest。
 
 更新此 Skill 后同步仓库 .cursor/skills/company-milestone-ingest/ 与 public/templates/company-milestone/ 的 Skill、Schema，运行 npm run pack:company-milestone 重建下载包。example-TSLA.json 保留旧单标的兼容示例。
+
+## 事件协议 v2：配色、阅读链接与事件包
+
+- 兼容旧文件。新文件可写 `schemaVersion: 2`；单事件可选 `color: "#RRGGBB"`。未指定颜色时省略，使用系统默认。
+- 用户指定颜色或阶段配色时遵循用户约定；同专题同阶段保持一致。颜色仅表达显示偏好，不替代事实、重要性或资产利多利空判断。
+- `sources[]` 是事实证据；`readingLinks[]` 是可选扩展阅读，元素含 `url`、可选 `title`/`note`/`language`，仅 HTTP(S)。没有扩展阅读则省略，不要求 Wikipedia，也不得为凑链接编造来源。
+- 本地包可带 `pack: { id, name, version, color, symbols }`；id 稳定，version 随更新变化。`pack.color` 是包默认色，单事件 color 优先。`pack.symbols` 可限定多个显示资产；全部资产通用时省略 symbols，使用 query.importTarget=all-assets。
+- 事实关联的 assets 与本地显示范围分开；保持真实关联。精确时刻用带时区 DATETIME，只知道日期则 DATE，不补造时间。
+- 本地导入先预览，确认后更新同包同 externalId；支持包开关、导出、删除备份。用户颜色覆盖与选中高亮不改变原事件事实。
+- 服务器批量导入继续使用统一 writer；本地私人研究不自动发布到服务器。

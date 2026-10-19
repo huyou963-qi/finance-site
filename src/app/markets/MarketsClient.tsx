@@ -1,4 +1,5 @@
 "use client";
+import { useChartEvents } from "@/lib/chart/useChartEvents";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StockChartWorkspace } from "@/components/StockChartWorkspace";
@@ -78,6 +79,8 @@ export function MarketsClient() {
   const [symbol, setSymbol] = useState("");
   const localEventStore = useLocalCompanyEvents(symbol);
   const allAssetEvents = localEventStore.allAssetEvents;
+  const allAssetEventsRef = useRef(allAssetEvents);
+  allAssetEventsRef.current = allAssetEvents;
   const [loadedSymbol, setLoadedSymbol] = useState("");
   const regionalInstrument = resolveEastmoneyInstrument(symbol);
   const yieldInstrument = Boolean(findMarketInstrument(symbol)?.fredSeriesId);
@@ -133,6 +136,11 @@ export function MarketsClient() {
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
   const [eventShelfOpen, setEventShelfOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [markerGroupIds, setMarkerGroupIds] = useState<string[]>([]);
+  const [eventSeek, setEventSeek] = useState<{ time: number; version: number }>({ time: 0, version: 0 });
+  const eventResult = useChartEvents(symbol, localEventStore.events, eventViewFilters, eventRangeFromSec, eventRangeToSec);
+  useEffect(() => { setSelectedEventId(null); setMarkerGroupIds([]); }, [symbol]);
 
   const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
 
@@ -157,6 +165,14 @@ export function MarketsClient() {
     setEventContextDate(null);
   }, [symbol]);
 
+  // Once the local store hydrates, include its families without resetting the user's other filters.
+  const localFamiliesInitialized = useRef(false);
+  useEffect(() => {
+    if (!eventFiltersHydrated || localFamiliesInitialized.current || !allAssetEvents.length) return;
+    localFamiliesInitialized.current = true;
+    setEventViewFilters(prev => ({ ...prev, typeFamilies: [...new Set([...prev.typeFamilies, ...allAssetEvents.map(m => familyIdForEventType(m.eventType))])] }));
+  }, [allAssetEvents, eventFiltersHydrated]);
+
   /** 换标的时套用事件筛选草稿（原右侧 EventPanel 行为） */
   useEffect(() => {
     if (!eventFiltersHydrated) return;
@@ -167,9 +183,9 @@ export function MarketsClient() {
       const next = applySymbolDraftToFilters(prev, draft);
       // 换到宏观资产时，不让标的默认类型自动隐藏用户的通用研究。
       return { ...next, typeFamilies: [...new Set([...next.typeFamilies,
-        ...allAssetEvents.map(m => familyIdForEventType(m.eventType))])] };
+        ...allAssetEventsRef.current.map(m => familyIdForEventType(m.eventType))])] };
     });
-  }, [symbol, eventFiltersHydrated, allAssetEvents]);
+  }, [symbol, eventFiltersHydrated]);
 
   useEffect(() => {
     bcRef.current = new BroadcastChannel(KLINE_PAGE_SYNC_CHANNEL);
@@ -350,7 +366,10 @@ export function MarketsClient() {
   }, []);
 
   const onEventMarkerClick = useCallback(
-    (payload: { id: string; time: number; title: string; source: string }) => {
+    (payload: { id: string; time: number; title: string; source: string; eventIds?: string[] }) => {
+      setSelectedEventId(payload.id);
+      setMarkerGroupIds(payload.eventIds || []);
+      setEventShelfOpen(true);
       setEventContextDate(unixSecToContextDate(payload.time));
     },
     [],
@@ -777,6 +796,10 @@ export function MarketsClient() {
           onLocalCrosshairTime={onLocalCrosshairTime}
           onEventMarkerClick={onEventMarkerClick}
           localEvents={localEventStore.events}
+          chartEvents={eventResult.events}
+          selectedEventId={selectedEventId}
+          seekToTimeSec={eventSeek.time}
+          seekToTimeVersion={eventSeek.version}
           toolbarPortalEl={chartToolbarMount}
           settingsPortalEl={mobileLayout ? mobileSettingsMount : null}
           eventViewFilters={eventViewFilters}
@@ -786,6 +809,12 @@ export function MarketsClient() {
         {eventShelfOpen ? (
           <MarketsEventShelf
             localEventStore={localEventStore}
+            eventResult={eventResult}
+            selectedEventId={selectedEventId}
+            markerGroupIds={markerGroupIds}
+            onCloseMarkerGroup={() => setMarkerGroupIds([])}
+            onSelectEvent={setSelectedEventId}
+            onLocateEvent={(event) => setEventSeek(prev => ({ time: Math.floor(Date.parse(event.occurredAt) / 1000), version: prev.version + 1 }))}
             onOpenDetail={openEventDetail}
             symbol={symbol}
             viewFilters={eventViewFilters}

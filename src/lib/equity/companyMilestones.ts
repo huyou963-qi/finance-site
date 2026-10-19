@@ -1,3 +1,4 @@
+import { eventRecord, isValidEventTime, normalizeEventColor, readEventPresentation, withEventPresentation } from "@/lib/data/eventPresentation";
 import type { EventImportance } from "@prisma/client";
 import fixture from "../../../.cursor/skills/company-milestone-ingest/templates/example-TSLA.json";
 import {
@@ -7,6 +8,7 @@ import {
   eventTypeMatchesFamilies,
   markerShapeFor,
   EVENT_IMPORTANCE_MIN_ORDER,
+  EVENT_TYPE_CODES,
 } from "@/lib/data/eventTaxonomy";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
@@ -31,6 +33,7 @@ export type CompanyMilestoneKind =
   | "other";
 
 export type CompanyMilestone = {
+  record?: Record<string, unknown>;
   id: string;
   externalId: string;
   title: string;
@@ -120,9 +123,10 @@ function mapDraft(
   layer: TimelineLayer = "local",
 ): CompanyMilestone | null {
   const externalId = String(e.externalId ?? e.id ?? "").trim();
-  const occurredAt = String(e.occurredAt ?? "").slice(0, 10);
-  if (!externalId || !/^\d{4}-\d{2}-\d{2}$/.test(occurredAt)) return null;
-  const eventType = String(e.eventType ?? "other");
+  const datePrecision = e.datePrecision === "DATETIME" ? "DATETIME" : "DATE";
+  const occurredAt = datePrecision === "DATETIME" ? String(e.occurredAt ?? "") : String(e.occurredAt ?? "").slice(0, 10);
+  if (!externalId || !/^\d{4}-\d{2}-\d{2}/.test(occurredAt) || !Number.isFinite(Date.parse(occurredAt))) return null;
+  const eventType = normalizeEventType(String(e.eventType ?? "other")) ?? "other";
   const importanceRaw = String(e.importance ?? "MEDIUM");
   const importance = (
     IMPORTANCE_SET.has(importanceRaw) ? importanceRaw : "MEDIUM"
@@ -133,6 +137,7 @@ function mapDraft(
     : { summary: String(e.content ?? e.title ?? "") };
   const layerPrefix = layer === "local" ? "" : `${layer}:`;
   return {
+    record: { ...e, datePrecision, payload: withEventPresentation(e.payload, { ...readEventPresentation(e.payload), color: normalizeEventColor(e.color) ?? readEventPresentation(e.payload).color, sources: Array.isArray(e.sources) ? e.sources : readEventPresentation(e.payload).sources, readingLinks: Array.isArray(e.readingLinks) ? e.readingLinks : readEventPresentation(e.payload).readingLinks }) },
     id: `${layerPrefix}${externalId}`,
     externalId,
     title: String(e.title ?? ""),
@@ -141,12 +146,12 @@ function mapDraft(
     importance,
     eventType,
     scope: String(e.scope ?? "COMPANY"),
-    markerLabel: String(e.markerLabel ?? "事件").slice(0, 8),
+    markerLabel: String(e.markerLabel ?? "事件").slice(0, 16),
     countries: Array.isArray(e.countries) ? (e.countries as string[]) : [],
     tags: Array.isArray(e.tags) ? (e.tags as string[]) : [],
     sourceUrl: (e.sourceUrl as string | null) ?? null,
     impact,
-    color: markerColorFor(eventType, importance),
+    color: normalizeEventColor(e.color) || readEventPresentation(e.payload).color || markerColorFor(eventType, importance),
     typeLabel: eventTypeLabel(eventType),
     kind: kindOf(eventType),
     layer,
@@ -176,12 +181,26 @@ export function parseMilestoneIngestJson(raw: unknown): {
     return { milestones: [], symbol, importTarget, errors: [...errors, "缺少 events 数组"] };
   }
   const milestones: CompanyMilestone[] = [];
+  const seen = new Set<string>();
   events.forEach((row, i) => {
     if (!row || typeof row !== "object") {
       errors.push(`events[${i}] 不是对象`);
       return;
     }
-    const m = mapDraft(row as Record<string, unknown>, "local");
+    const draft = row as Record<string, unknown>;
+    if (draft.color !== undefined && !normalizeEventColor(draft.color)) { errors.push(`events[${i}].color 须为 #RRGGBB`); return; }
+    if (seen.has(String(draft.externalId))) { errors.push(`events[${i}].externalId 重复`); return; }
+    seen.add(String(draft.externalId));
+    const type = normalizeEventType(String(draft.eventType ?? ""));
+    if (!type || !(EVENT_TYPE_CODES as readonly string[]).includes(type)) { errors.push(`events[${i}].eventType 不在标准词表中`); return; }
+    if (draft.datePrecision !== undefined && !["DATE", "DATETIME"].includes(String(draft.datePrecision))) { errors.push(`events[${i}].datePrecision 不合法`); return; }
+    const date = String(draft.occurredAt ?? "");
+    if (!isValidEventTime(date, String(draft.datePrecision ?? "DATE"))) { errors.push(`events[${i}].occurredAt 日期无效或精确时刻缺时区`); return; }
+    for (const key of ["countries", "industries", "assets", "macroKeys", "persons", "institutions", "tags"]) {
+      if (draft[key] !== undefined && (!Array.isArray(draft[key]) || (draft[key] as unknown[]).some(v => typeof v !== "string"))) { errors.push(`events[${i}].${key} 必须是字符串数组`); return; }
+    }
+    let m: CompanyMilestone | null;
+    try { m = mapDraft(draft, "local"); } catch (e) { errors.push(`events[${i}]: ${String(e)}`); return; }
     if (!m) {
       errors.push(`events[${i}] 缺少有效 externalId 或 occurredAt`);
       return;
@@ -194,6 +213,7 @@ export function parseMilestoneIngestJson(raw: unknown): {
       errors.push(`events[${i}] 缺少 markerLabel`);
       return;
     }
+    if (String(draft.markerLabel).length > 16) { errors.push(`events[${i}].markerLabel 最多16个字符`); return; }
     milestones.push(m);
   });
   milestones.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
@@ -210,10 +230,11 @@ export function marketEventToMilestone(
     ? payload.impact
     : { summary: (ev.content || ev.title || "").slice(0, 240) };
   const externalId = (ev.externalId ?? ev.id).trim();
-  const occurredAt = ev.occurredAt.slice(0, 10);
-  if (!externalId || !/^\d{4}-\d{2}-\d{2}$/.test(occurredAt)) return null;
+  const occurredAt = ev.datePrecision === "DATETIME" ? ev.occurredAt : ev.occurredAt.slice(0, 10);
+  if (!externalId || !/^\d{4}-\d{2}-\d{2}/.test(occurredAt) || !Number.isFinite(Date.parse(occurredAt))) return null;
   const importance = ev.importance;
   return {
+    record: { ...ev },
     id: `${layer}:${ev.id}`,
     externalId,
     title: ev.title ?? "",
@@ -222,12 +243,12 @@ export function marketEventToMilestone(
     importance,
     eventType,
     scope: ev.scope,
-    markerLabel: (ev.markerLabel ?? "事件").slice(0, 8),
+    markerLabel: (ev.markerLabel ?? "事件").slice(0, 16),
     countries: ev.countries ?? [],
     tags: ev.tags ?? [],
     sourceUrl: ev.sourceUrl,
     impact,
-    color: markerColorFor(eventType, importance),
+    color: ev.color || readEventPresentation(ev.payload).color || markerColorFor(eventType, importance),
     typeLabel: eventTypeLabel(eventType),
     kind: layer === "sec" ? "sec" : kindOf(eventType),
     layer,
@@ -337,8 +358,10 @@ export function localStorageKey(userId: string, symbol: string): string {
   return `${LOCAL_PREFIX}${uid}:${symbol.trim().toUpperCase()}`;
 }
 
-function milestoneToStoredEvent(m: CompanyMilestone): Record<string, unknown> {
+export function milestoneToStoredEvent(m: CompanyMilestone): Record<string, unknown> {
   return {
+    ...m.record,
+    color: normalizeEventColor(m.record?.color) || readEventPresentation(m.record?.payload).color,
     externalId: m.externalId,
     title: m.title,
     content: m.content,
@@ -350,7 +373,7 @@ function milestoneToStoredEvent(m: CompanyMilestone): Record<string, unknown> {
     tags: m.tags,
     markerLabel: m.markerLabel,
     sourceUrl: m.sourceUrl,
-    payload: { impact: m.impact },
+    payload: { ...eventRecord(m.record?.payload), impact: m.impact },
   };
 }
 
@@ -421,7 +444,7 @@ export function localCompanyEventMarkers(items: CompanyMilestone[], filters: Eve
     EVENT_IMPORTANCE_MIN_ORDER[m.importance] >= EVENT_IMPORTANCE_MIN_ORDER[filters.minImportance] &&
     (!q || `${m.title} ${m.content} ${m.impact.summary}`.toLowerCase().includes(q))
   ).map(m => ({
-    id: `local:${m.externalId}`, time: isoDateToUnixSec(m.occurredAt), datePrecision: "DATE",
+    id: `local:${m.externalId}`, time: m.record?.datePrecision === "DATETIME" ? Math.floor(Date.parse(m.occurredAt) / 1000) : isoDateToUnixSec(m.occurredAt), datePrecision: m.record?.datePrecision === "DATETIME" ? "DATETIME" : "DATE",
     label: m.markerLabel, shape: markerShapeFor(m.eventType), color: m.color,
     importance: m.importance, eventType: m.eventType, scope: m.scope, title: m.title,
     source: "user_local", sourceUrl: m.sourceUrl,
@@ -455,23 +478,28 @@ export function milestoneToMarketEventDto(
   m: CompanyMilestone,
 ): import("@/lib/data/marketEvents").MarketEventDto {
   const now = new Date().toISOString();
+  const record = m.record ?? {};
+  const strings = (key: string) => Array.isArray(record[key]) ? (record[key] as unknown[]).filter((v): v is string => typeof v === "string") : [];
   return {
+    ...readEventPresentation(record.payload),
+    color: normalizeEventColor(record.color) || readEventPresentation(record.payload).color || normalizeEventColor(record.packColor),
     id: m.id,
+    matchReasons: m.layer === "local" ? [`本地事件包：${String(record.packName ?? "导入事件")}（按包的显示范围）`] : undefined,
     title: m.title || null,
     content: m.content,
     occurredAt: m.occurredAt.length === 10 ? `${m.occurredAt}T00:00:00.000Z` : m.occurredAt,
-    datePrecision: "DATE",
+    datePrecision: record.datePrecision === "DATETIME" ? "DATETIME" : "DATE",
     importance: m.importance,
     eventType: m.eventType,
     scope: (m.scope as "COMPANY" | "COUNTRY" | "INDUSTRY" | "CROSS") || "COMPANY",
     countries: m.countries,
-    industries: [],
-    assets: [],
-    macroKeys: [],
-    persons: [],
-    institutions: [],
+    industries: strings("industries"),
+    assets: strings("assets"),
+    macroKeys: strings("macroKeys"),
+    persons: strings("persons"),
+    institutions: strings("institutions"),
     tags: m.tags,
-    payload: { impact: m.impact },
+    payload: { ...eventRecord(m.record?.payload), impact: m.impact },
     markerLabel: m.markerLabel,
     sourceKind:
       m.layer === "sec" ? "sec" : m.layer === "local" ? "user_local" : "market_event",

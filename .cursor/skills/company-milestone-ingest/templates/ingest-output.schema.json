@@ -3,17 +3,37 @@
   "title": "CompanyMilestoneIngestRun",
   "description": "Local single-symbol or cross-asset research events. all-assets is a browser-local display scope.",
   "type": "object",
-  "required": ["mode", "events"],
+  "required": [
+    "mode",
+    "events"
+  ],
   "properties": {
-    "mode": { "type": "string", "const": "company-milestone" },
+    "mode": {
+      "type": "string",
+      "const": "company-milestone"
+    },
     "query": {
       "type": "object",
       "properties": {
-        "symbol": { "type": "string" },
-        "importTarget": { "enum": ["symbol", "all-assets"], "default": "symbol" },
-        "topic": { "type": "string" },
-        "from": { "type": "string" },
-        "to": { "type": "string" }
+        "symbol": {
+          "type": "string"
+        },
+        "importTarget": {
+          "enum": [
+            "symbol",
+            "all-assets"
+          ],
+          "default": "symbol"
+        },
+        "topic": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
       }
     },
     "events": {
@@ -29,34 +49,105 @@
           "markerLabel"
         ],
         "properties": {
-          "externalId": { "type": "string", "minLength": 1 },
-          "title": { "type": "string" },
-          "content": { "type": "string" },
-          "occurredAt": { "type": "string" },
-          "datePrecision": { "enum": ["DATE", "DATETIME"] },
-          "importance": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
-          "scope": { "enum": ["COUNTRY", "INDUSTRY", "COMPANY", "CROSS"] },
-          "eventType": { "type": "string" },
-          "countries": { "type": "array", "items": { "type": "string" } },
-          "industries": { "type": "array", "items": { "type": "string" } },
-          "assets": { "type": "array", "items": { "type": "string" } },
-          "tags": { "type": "array", "items": { "type": "string" } },
-          "markerLabel": { "type": "string", "maxLength": 16 },
-          "sourceUrl": { "type": ["string", "null"] },
+          "externalId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "datePrecision": {
+            "enum": [
+              "DATE",
+              "DATETIME"
+            ]
+          },
+          "importance": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "COUNTRY",
+              "INDUSTRY",
+              "COMPANY",
+              "CROSS"
+            ]
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "industries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "markerLabel": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "sourceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "payload": {
             "type": "object",
-            "required": ["impact"],
+            "required": [
+              "impact"
+            ],
             "properties": {
               "impact": {
                 "type": "object",
-                "required": ["summary"],
+                "required": [
+                  "summary"
+                ],
                 "properties": {
-                  "summary": { "type": "string", "minLength": 1 },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1
+                  },
                   "channels": {
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": ["demand", "cost", "capacity", "margin", "narrative"]
+                      "enum": [
+                        "demand",
+                        "cost",
+                        "capacity",
+                        "margin",
+                        "narrative"
+                      ]
                     }
                   }
                 }
@@ -67,11 +158,63 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["url"],
+              "required": [
+                "url"
+              ],
               "properties": {
-                "url": { "type": "string" },
-                "note": { "type": "string" }
+                "url": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
               }
+            }
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "readingLinks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "pattern": "^https?://"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "language": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "macroKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "persons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "institutions": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         }
@@ -81,10 +224,47 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["reason"],
+        "required": [
+          "reason"
+        ],
         "properties": {
-          "reason": { "type": "string" },
-          "hint": { "type": "string" }
+          "reason": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "pack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }
