@@ -51,6 +51,11 @@ export async function loadPackageRunStates(
       hasUnresolvedFailures: previous.hasUnresolvedFailures || Boolean(row.lastError),
     } : { lastSuccessAt: row.lastSuccessAt, sourceVerifiedAt: verifiedAt, hasUnresolvedFailures: Boolean(row.lastError) };
     if (previous?.requiredMonthlyObservation) state.requiredMonthlyObservation = previous.requiredMonthlyObservation;
+    if (previous?.requiredSeriesLatestObsDate !== undefined) state.requiredSeriesLatestObsDate = previous.requiredSeriesLatestObsDate;
+    if ((packageId === "us.bls.employment_situation" && row.instrument.code === "sched_fred_PAYEMS") ||
+        (packageId === "us.adp.ner" && row.instrument.code === "sched_fred_ADPMNUSNERSA")) {
+      state.requiredSeriesLatestObsDate = row.lastObsDate ?? null;
+    }
     if (packageId === "us.bls.cpi" || (row.granularity === "MONTHLY" &&
         !HISTORICAL_NBS_OWNERSHIP.test(row.instrument.code) &&
         ["cn.nbs.ppi", "cn.nbs.industrial-production", "cn.nbs.retail-sales"].includes(packageId))) {
