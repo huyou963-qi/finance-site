@@ -209,6 +209,10 @@ export async function runDataSubscription(
       sourceLagDays <= 0 &&
       (status === FetchRunStatus.SKIPPED || status === FetchRunStatus.SUCCESS) &&
       (rule.type !== "economic_calendar" || !rule.calendarMatch?.releaseAt ||
+        // Calendar sync can already point at the NEXT event while this run
+        // is catching up the previous release. Its future target must not
+        // prevent saving the current source publication proof.
+        new Date(rule.calendarMatch.releaseAt) > new Date() ||
         hasEmploymentReleaseObservation(
           sub.releasePackageId,
           new Date(rule.calendarMatch.releaseAt),
