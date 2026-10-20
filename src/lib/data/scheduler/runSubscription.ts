@@ -464,6 +464,8 @@ export async function listDueSubscriptions(
   limit: number,
   options?: {
     forceAll?: boolean;
+    sourceId?: string;
+    excludeSourceIds?: string[];
     /** 收集「到期但不合格」的订阅，用于日志告警；不影响选择结果 */
     onUnschedulable?: (rows: UnschedulableSubscription[]) => void;
   },
@@ -472,6 +474,11 @@ export async function listDueSubscriptions(
   const subs = await prisma.dataSubscription.findMany({
     where: {
       enabled: true,
+      ...(options?.sourceId
+        ? { sourceId: options.sourceId }
+        : options?.excludeSourceIds?.length
+          ? { sourceId: { notIn: options.excludeSourceIds } }
+          : {}),
       ...(options?.forceAll
         ? {}
         : {
