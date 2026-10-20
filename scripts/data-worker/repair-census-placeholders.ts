@@ -45,7 +45,7 @@ async function main() {
         source: "authorized_subscription_repair", reason: "census_remove_unpublished_zero_placeholders",
         metadata: { digest, through, nsaThrough, cutoff: item.cutoff.toISOString(), removed: result.count,
           priorEnabled: item.previousEnabled, ended: item.ended, localBackupRequired: true,
-          evidenceUrl: item.ended ? "https://www.census.gov/foreign-trade/balance/c2771.html" : "https://www.census.gov/foreign-trade/current/" } } });
+          evidenceUrl: item.ended ? `https://www.census.gov/foreign-trade/balance/c${item.code.slice(-4)}.html` : "https://www.census.gov/foreign-trade/current/" } } });
     }
   }, { timeout: 120000 });
   console.log(JSON.stringify({ applied: true, digest, instruments: candidates.length, removed, retainedVintageLedger: true }));

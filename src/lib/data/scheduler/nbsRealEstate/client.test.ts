@@ -65,6 +65,30 @@ function testPrice() {
   assert.ok(![...transitional.values()].some((item) => item.label.includes("定基指数")));
 }
 
+function testRepeatedPropertyChildren() {
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
+    ["2026年1—9月份全国房地产开发和销售情况"],
+    ["指标", "绝对量", "同比增长（%）"],
+    ["房地产开发投资（亿元）", 53364, -20.6],
+    ["其中：住宅", 41125, -20.5], ["办公楼", 2001, -21], ["商业营业用房", 3509, -25.9],
+    ["新建商品房销售额（亿元）", 53799, -13.9],
+    ["其中：住宅", 47335, -12], ["办公楼", 1856, -14], ["商业营业用房", 2783, -15],
+    ["商品房待售面积（万平方米）", 74825, -1.5],
+    ["其中：住宅", 39697, -2], ["办公楼", 5184, -3], ["商业营业用房", 13413, -5.7],
+  ]), "表1");
+  const parsed = parseNbsPropertyWorkbook(book, "2026年1—9月份全国房地产市场基本情况");
+  const commercial = [...parsed.values()].filter(s => /商业营业用房\|amount$/.test(s.key));
+  assert.equal(commercial.length, 3);
+  assert.equal(new Set(commercial.map(s => s.code)).size, 3);
+  assert.deepEqual(commercial.map(s => s.points[0]?.value), [3509, 2783, 13413]);
+  assert.deepEqual(commercial.map(s => s.unit), ["亿元", "亿元", "万平方米"]);
+  const legacy = parsed.get("nbs_cn_realestate_3f705e05f2cccad432");
+  assert.equal(legacy?.key, "property|商品房待售面积：商业营业用房|amount");
+  assert.equal(legacy?.label, "房地产：商品房待售面积：商业营业用房原值");
+}
+
 testProperty();
 testPrice();
+testRepeatedPropertyChildren();
 console.log("[nbsRealEstate] parser tests passed");
