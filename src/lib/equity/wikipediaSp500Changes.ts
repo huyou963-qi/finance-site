@@ -38,7 +38,7 @@ export const SP500_TICKER_ALIASES: Record<string, string> = {
   TSO: "ANDV", // Andeavor（Tesoro 存续，2018 被 MPC 收购时以 ANDV 移出）
   HRS: "LHX", // L3Harris（Harris 存续）2019-06
   RE: "EG", // Everest Group 2023-07
-  FISV: "FI", // Fiserv 2023-06
+  FI: "FISV", // Fiserv 2025-11-11回Nasdaq恢复FISV；investors.fiserv.com/node/51061/pdf
   HFC: "DINO", // HF Sinclair（HollyFrontier 存续）2022-03
   SYMC: "GEN", // Symantec→NortonLifeLock→Gen Digital
   NLOK: "GEN",
@@ -49,6 +49,13 @@ export const SP500_TICKER_ALIASES: Record<string, string> = {
   JOYG: "JOY", // Joy Global 2012 缩短 ticker，2015 以 JOY 移出
   JEC: "J", // Jacobs 2019-12
   LUK: "JEF", // Jefferies Financial（Leucadia 存续）2018-05
+  PSKY: "SKYD", // 同一Class B股票2026-10-06转NYSE改代码；SEC 2041610/000110465926115294 EX-99.2
+  ABC: "COR", // Cencora 2023-08-30；investor.cencora.com 官方更名公告
+  BLL: "BALL", // Ball 2022-05-10；investors.ball.com 官方代码变更公告
+  FBHS: "FBIN", // Fortune Brands 2022-12-15；ir.fbin.com/investor-faqs
+  CDAY: "DAY", // Dayforce 2024-02-01，CUSIP不变；investors.dayforce.com 官方公告
+  PKI: "RVTY", // Revvity 2023-05-16；ir.revvity.com 官方更名公告
+  BK: "BNY", // BNY 2026-05-21；bny.com 官方代码变更公告
 };
 
 /**
@@ -120,7 +127,7 @@ export function parseWikipediaDate(text: string): string | null {
 
 /**
  * 解析 Selected changes 变更表（降序原样返回，Wikipedia 本身按日期降序）。
- * 只接受恰好 6 个 <td> 的数据行（Date/AddedTicker/AddedName/RemovedTicker/RemovedName/Reason）。
+ * 接受6列旧表或7列新表（新增末尾Refs列）；前6列含义不变。
  */
 export function parseWikipediaSp500Changes(html: string): Sp500Change[] {
   const table = sliceTableById(html, "changes");
@@ -131,11 +138,12 @@ export function parseWikipediaSp500Changes(html: string): Sp500Change[] {
   while ((m = trRe.exec(table)) !== null) {
     if (/<th[\s>]/i.test(m[1]!)) continue; // 表头
     const cells = [...m[1]!.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map((c) => stripHtml(c[1]!));
-    if (cells.length !== 6) continue;
+    if (cells.length !== 6 && cells.length !== 7) continue;
     const date = parseWikipediaDate(cells[0]!);
     if (!date) continue;
-    const addedTicker = cells[1] ? normalizeSp500Ticker(cells[1], date) : null;
-    const removedTicker = cells[3] ? normalizeSp500Ticker(cells[3], date) : null;
+    // 历史文章个别单元格遗留 wikitext 分隔符（如「ALLE |」），仅在此清理末尾分隔符。
+    const addedTicker = cells[1] ? normalizeSp500Ticker(cells[1].replace(/\s*\|\s*$/, ""), date) : null;
+    const removedTicker = cells[3] ? normalizeSp500Ticker(cells[3].replace(/\s*\|\s*$/, ""), date) : null;
     if (!addedTicker && !removedTicker) continue;
     out.push({
       date,

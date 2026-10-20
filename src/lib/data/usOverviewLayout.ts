@@ -1,4 +1,5 @@
 import type { MacroSeriesChartType } from "@/lib/macroChartOption";
+import { USOV_WTI_SPOT_LABEL } from "./scheduler/usovFredMap";
 
 export type UsOverviewSeriesDef = {
   columnIndex: number;
@@ -47,7 +48,7 @@ export const US_OVERVIEW_SERIES: readonly UsOverviewSeriesDef[] = [
   // col 5 COMEX黄金连续已被标准序列 comex_gold_futures 取代（见 usOverviewStandardSeries.ts）。
   {
     columnIndex: 6,
-    displayName: "期货结算价(连续):WTI原油",
+    displayName: USOV_WTI_SPOT_LABEL,
     code: "usov_c06_wti",
     panel: 1,
     catalogCategory: "综合",

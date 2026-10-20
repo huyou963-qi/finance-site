@@ -41,6 +41,8 @@ export type EventFormValues = {
   tags: string[];
   markerLabel: string;
   sourceUrl: string;
+  color: string;
+  readingLinks: string;
 };
 
 export function emptyEventForm(defaultDate?: string): EventFormValues {
@@ -62,6 +64,8 @@ export function emptyEventForm(defaultDate?: string): EventFormValues {
     tags: [],
     markerLabel: "",
     sourceUrl: "",
+    color: "",
+    readingLinks: "",
   };
 }
 
@@ -86,6 +90,8 @@ export function eventToFormValues(event: MarketEventDto): EventFormValues {
     tags: event.tags ?? [],
     markerLabel: event.markerLabel ?? "",
     sourceUrl: event.sourceUrl ?? "",
+    color: event.color ?? "",
+    readingLinks: (event.readingLinks ?? []).map(l => `${l.title ?? "扩展阅读"}|${l.url}`).join("\n"),
   };
 }
 
@@ -95,6 +101,8 @@ export function formValuesToPayload(form: EventFormValues) {
       ? `${form.occurredAt}T${form.occurredTime || "12:00"}:00.000Z`
       : form.occurredAt;
   return {
+    color: form.color || null,
+    readingLinks: form.readingLinks.split("\n").filter(l => l.trim()).map(l => { const i = l.indexOf("|"); return { title: i < 0 ? "扩展阅读" : l.slice(0, i).trim(), url: (i < 0 ? l : l.slice(i + 1)).trim() }; }),
     title: form.title.trim() || null,
     content: form.content.trim(),
     occurredAt,
@@ -375,6 +383,8 @@ export function EventFormModal({
               className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
             />
           </label>
+          <label className="block text-fs-muted">事件默认颜色（可选）<div className="mt-1 flex items-center gap-2"><input type="color" aria-label="事件默认颜色" value={form.color || "#475569"} onChange={e => patch({ color: e.target.value })} /><button type="button" onClick={() => patch({ color: "" })}>使用系统配色</button></div></label>
+          <label className="block text-fs-muted">扩展阅读（可选，每行：标题|网址）<textarea aria-label="扩展阅读" value={form.readingLinks} onChange={e => patch({ readingLinks: e.target.value })} className="mt-1 w-full rounded border border-fs-border p-2" rows={3} /></label>
           {error ? <p className="text-rose-300">{error}</p> : null}
         </div>
         <div className="flex shrink-0 justify-end gap-2 border-t border-fs-border px-4 py-2">

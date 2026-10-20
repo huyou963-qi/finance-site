@@ -9,6 +9,7 @@ import {
   type MarketInstrumentType,
 } from "@/lib/data/marketInstruments";
 import { normalizeAssetTag } from "@/lib/data/marketEvents";
+import { resolveEastmoneyInstrument } from "./eastmoneySymbols";
 import {
   GICS_SECTOR_DEFS,
   type GicsSector,
@@ -20,6 +21,7 @@ export type ChartSymbolKind =
   | "index"
   | "macro_asset"
   | "equity"
+  | "regional_equity"
   | "unknown";
 
 export type ChartSymbolProfile = {
@@ -84,6 +86,11 @@ function kindLabelOf(
 export function classifyChartSymbol(symbolRaw: string): ChartSymbolProfile {
   const symbol = normalizeAssetTag(symbolRaw);
   const upper = symbol.toUpperCase();
+  const regional = resolveEastmoneyInstrument(symbol);
+  if (regional && regional.market !== "GOLD") {
+    return { symbol: regional.symbol, kind: "regional_equity", kindLabel: regional.market === "HK" ? "港股" : "中国市场",
+      countries: [regional.market === "HK" ? "HK" : "CN"], industries: [] };
+  }
 
   const sectorDef = SECTOR_ETF_BY_SYMBOL.get(upper);
   if (sectorDef) {
@@ -112,8 +119,8 @@ export function classifyChartSymbol(symbolRaw: string): ChartSymbolProfile {
   if (instrument) {
     return {
       symbol,
-      kind: "macro_asset",
-      kindLabel: kindLabelOf("macro_asset", instrument.type),
+      kind: instrument.type === "指数" ? "index" : "macro_asset",
+      kindLabel: kindLabelOf(instrument.type === "指数" ? "index" : "macro_asset", instrument.type),
       countries: ["US"],
       industries: [],
       macroType: instrument.type,

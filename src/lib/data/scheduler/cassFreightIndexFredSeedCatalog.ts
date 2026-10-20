@@ -15,8 +15,10 @@ import type { ReleaseRule } from "./releaseRule";
  * 联运箱量，季调，2000 年起），2026-09-21 替代已移除的 AAR 周度抓取：aar.org 对机房 IP
  * 下发人机验证（403 challenge），属反爬、不绕过；BTS 这两条本身就汇总自 AAR 周报。
  * 每行自带 releasePackageId（Cass 与 BTS 各一个包）。
+ * TSIFRGHT 与 TRUCKD11 分别是 BTS 月度货运运输服务指数、卡车货运量指数，
+ * 与两条铁路序列同属 FRED release 349，故复用 `us.bts.rail_freight` 发布包。
  *
- * 目录归类：`usCatalogTaxonomy.placementFromFredId` 对这 4 个 ID 显式映射到
+ * 目录归类：`usCatalogTaxonomy.placementFromFredId` 对这 6 个 ID 显式映射到
  * 「国民经济 > 物流与出行」；前台经 `FRED_US_ITEMS` 以 `fred:<ID>` 呈现。
  *
  * seed 同时写入 `fetchAcquisition: known`（FRED 序列 ID 已人工核实存在），
@@ -87,6 +89,32 @@ export const CASS_FREIGHT_INDEX_FRED_SERIES: readonly CassFreightIndexFredSeedRo
     category: "物流与出行",
     source: "U.S. Bureau of Transportation Statistics/FRED",
     sourceUpdateNote: "BTS 运输服务指数（TSI）月度数据，汇总自 AAR 周报，季调；滞后约 2 个月",
+    releasePackageId: "us.bts.rail_freight",
+  },
+  {
+    fredId: "TSIFRGHT",
+    code: "sched_fred_TSIFRGHT",
+    name: "Freight Transportation Services Index",
+    displayName: "货运运输服务指数（季调）",
+    freqLabel: "月",
+    granularity: "MONTHLY",
+    unit: "指数(2000年=100)",
+    category: "物流与出行",
+    source: "U.S. Bureau of Transportation Statistics/FRED",
+    sourceUpdateNote: "BTS 运输服务指数（TSI）月度发布，季调；滞后约 2 个月",
+    releasePackageId: "us.bts.rail_freight",
+  },
+  {
+    fredId: "TRUCKD11",
+    code: "sched_fred_TRUCKD11",
+    name: "Truck Tonnage Index",
+    displayName: "卡车货运量指数（季调）",
+    freqLabel: "月",
+    granularity: "MONTHLY",
+    unit: "指数(2015年=100)",
+    category: "物流与出行",
+    source: "U.S. Bureau of Transportation Statistics/FRED",
+    sourceUpdateNote: "BTS 运输服务指数（TSI）月度发布，季调；滞后约 2 个月",
     releasePackageId: "us.bts.rail_freight",
   },
 ] as const;

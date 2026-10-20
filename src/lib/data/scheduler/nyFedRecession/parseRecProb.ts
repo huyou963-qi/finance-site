@@ -18,6 +18,23 @@ const SHEET_NAME = "rec_prob";
 const DATE_COL = "Date";
 const PROB_COL = "Rec_prob";
 
+/** 原表可用 Excel 数字日期或显式英文月文本；禁止依赖机器语言/时区的 Date.parse。 */
+function observationMonth(value: unknown): Date | null {
+  if (typeof value === "number" || (typeof value === "string" && /^\d+(?:\.\d+)?$/.test(value.trim()))) {
+    const serial = Number(value);
+    if (!Number.isFinite(serial) || serial <= 0 || serial > 2_958_465) return null;
+    const dc = XLSX.SSF.parse_date_code(serial);
+    return dc && dc.y >= 1900 && dc.m >= 1 && dc.m <= 12 ? new Date(Date.UTC(dc.y, dc.m - 1, 1)) : null;
+  }
+  if (typeof value !== "string") return null;
+  const match = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(match[2]!.toLowerCase());
+  const year = Number(match[3]), day = Number(match[1]);
+  if (month < 0 || year < 1900 || day < 1 || day > new Date(Date.UTC(year, month + 1, 0)).getUTCDate()) return null;
+  return new Date(Date.UTC(year, month, 1));
+}
+
 export type ParsedRecProb = {
   /** value = 概率百分比（分数×100，两位小数）；obsDate 归一到月首，与库内月频对齐 */
   points: ObservationPoint[];
@@ -59,19 +76,12 @@ export function parseRecProbWorkbook(wb: XLSX.WorkBook): ParsedRecProb {
       skippedInvalid += 1;
       continue;
     }
-    const rawDate = r[DATE_COL];
-    const serial = typeof rawDate === "number" ? rawDate : Number(rawDate);
-    if (!Number.isFinite(serial) || serial <= 0) {
-      skippedInvalid += 1;
-      continue;
-    }
-    const dc = XLSX.SSF.parse_date_code(serial);
-    if (!dc || !dc.y || !dc.m) {
+    const obsDate = observationMonth(r[DATE_COL]);
+    if (!obsDate) {
       skippedInvalid += 1;
       continue;
     }
     // 归一到月首（源为月末日）→ 与 CPI/monetary 等月频序列 YYYY-MM-01 对齐
-    const obsDate = new Date(Date.UTC(dc.y, dc.m - 1, 1));
     const value = Math.round(prob * 100 * 100) / 100; // 分数 → 百分比，两位小数
     points.push({ obsDate, value });
     if (!latest || obsDate > latest) latest = obsDate;

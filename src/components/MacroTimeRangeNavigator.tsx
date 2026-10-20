@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type MacroTimeRangeNavigatorProps = {
   categories: string[];
@@ -16,14 +16,19 @@ const MIN_SPAN_PCT = 1;
 /** 相邻刻度标签最小水平间距（%），避免右端挤叠 */
 const MIN_LABEL_GAP_PCT = 9;
 const MAX_LABEL_TICKS = 11;
+/** 完整日期在 10px 字号下所需的安全宽度，避免相邻标签互相覆盖 */
+const MIN_LABEL_WIDTH_PX = 88;
 
-function buildLabelTicks(categories: string[]): { pct: number; label: string }[] {
+export function buildLabelTicks(
+  categories: string[],
+  maxTicks = MAX_LABEL_TICKS,
+): { pct: number; label: string }[] {
   const n = categories.length;
   if (n === 0) return [];
   if (n === 1) return [{ pct: 0, label: categories[0]! }];
 
   const indices = new Set<number>([0, n - 1]);
-  const innerSlots = MAX_LABEL_TICKS - 2;
+  const innerSlots = Math.max(0, Math.floor(maxTicks) - 2);
   if (innerSlots > 0 && n > 2) {
     for (let k = 1; k <= innerSlots; k++) {
       indices.add(Math.round((k / (innerSlots + 1)) * (n - 1)));
@@ -79,9 +84,32 @@ export function MacroTimeRangeNavigator({
   className,
 }: MacroTimeRangeNavigatorProps) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const [trackWidthPx, setTrackWidthPx] = useState(0);
   const n = categories.length;
 
-  const labelTicks = useMemo(() => buildLabelTicks(categories), [categories]);
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const updateWidth = () => {
+      const next = Math.round(track.getBoundingClientRect().width);
+      setTrackWidthPx((prev) => (prev === next ? prev : next));
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, []);
+
+  const maxLabelTicks = trackWidthPx
+    ? Math.max(2, Math.min(MAX_LABEL_TICKS, Math.floor(trackWidthPx / MIN_LABEL_WIDTH_PX)))
+    : 3;
+  const labelTicks = useMemo(
+    () => buildLabelTicks(categories, maxLabelTicks),
+    [categories, maxLabelTicks],
+  );
 
   const xToPct = useCallback((clientX: number) => {
     const el = trackRef.current;

@@ -13,11 +13,14 @@
  */
 
 export type PackageRunState = {
-  /** 包内成员最近一次成功执行时间（含 SKIPPED，只表示「跑过」） */
+  /** 仅已知固定月报口径的包启用；CPI 发布月对应上一个观测月。 */
+  requiredMonthlyObservation?: { oldest: Date | null; lagMonths: number };
+  hasUnresolvedFailures?: boolean;
+  /** 全部成员成功时间的最小值（含正常 SKIPPED；任一缺失则 null） */
   lastSuccessAt: Date | null;
   /**
    * 包内成员最近一次确认「本地已追上源端」的时间
-   * （成员 releaseRule.sourceSync.status === "current" 的 verifiedAt 最大值）。
+   * （全部成员 releaseRule.sourceSync.status === "current" 的 verifiedAt 最小值）。
    * 用来区分「跑过但源端还没出数」和「这一期真的消费完了」。
    */
   sourceVerifiedAt: Date | null;
@@ -55,6 +58,12 @@ export function releaseConsumed(
   runState: PackageRunState,
   previousReleaseAt: Date,
 ): boolean {
+  if (runState.hasUnresolvedFailures) return false;
+  const monthly = runState.requiredMonthlyObservation;
+  if (monthly) {
+    const expected = Date.UTC(previousReleaseAt.getUTCFullYear(), previousReleaseAt.getUTCMonth() - monthly.lagMonths, 1);
+    if (!monthly.oldest || monthly.oldest.getTime() < expected) return false;
+  }
   const verified = runState.sourceVerifiedAt;
   if (verified) return verified.getTime() >= previousReleaseAt.getTime();
   // 包内没有任何成员写过 sourceSync（例如刚接入的源）时退化为「跑过就算数」，
@@ -95,12 +104,25 @@ export function resolvePackageNextRunAt(params: {
   } = params;
 
   const nowMs = now.getTime();
+  // Keep a bounded retry before the next official release. A calendar refresh
+  // must neither erase the retry nor pull it forward on every hourly sync.
+  if (runState.hasUnresolvedFailures && currentNextRunAt && computedNextRunAt &&
+      currentNextRunAt > now && currentNextRunAt < computedNextRunAt) {
+    return { nextRunAt: currentNextRunAt, reason: "hold_pending_release" };
+  }
 
   if (previousReleaseAt && previousReleaseAt.getTime() <= nowMs) {
     if (releaseConsumed(runState, previousReleaseAt)) {
       // 1c：上一期已确认消费，现有 nextRunAt 只是发布后的冗余探测点，
       // 放心跟随日历；否则会被下面的 hold_due_run 永久钉在上一期。
       return { nextRunAt: computedNextRunAt, reason: "calendar" };
+    }
+
+    if (runState.requiredMonthlyObservation) {
+      // 跑过/源库一致不代表发布期已到齐。此前误跳下月则恢复2h探测。
+      const retry = currentNextRunAt && (!computedNextRunAt || currentNextRunAt < computedNextRunAt)
+        ? currentNextRunAt : new Date(nowMs + 2 * 3_600_000);
+      return { nextRunAt: retry, reason: "hold_pending_release" };
     }
 
     const ranAfterRelease =
@@ -121,6 +143,12 @@ export function resolvePackageNextRunAt(params: {
   }
 
   if (currentNextRunAt && computedNextRunAt) {
+    // The matched event may already be future while the due timestamp was
+    // retained. Fresh proof from EVERY member can consume that overdue work.
+    if (currentNextRunAt <= now && runState.sourceVerifiedAt &&
+        !runState.hasUnresolvedFailures && runState.sourceVerifiedAt >= currentNextRunAt) {
+      return { nextRunAt: computedNextRunAt, reason: "calendar" };
+    }
     const dueCutoff = nowMs + graceMinutes(params.graceMinutes) * 60_000;
     if (
       currentNextRunAt.getTime() <= dueCutoff &&

@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
     const minImportance = sp.get("minImportance") as EventImportance | null;
     const result = await loadChartPanelEvents({
       symbol,
+      offset: Math.max(0, Number(sp.get("offset")) || 0),
+      relationMode: ["asset", "industry", "macro"].includes(sp.get("relationMode") ?? "") ? sp.get("relationMode") as "asset" | "industry" | "macro" : undefined,
+      largeSurpriseOnly: sp.get("largeSurpriseOnly") === "1",
       from: sp.get("from") ?? undefined,
       to: sp.get("to") ?? undefined,
       expand: sp.get("expand") ?? undefined,

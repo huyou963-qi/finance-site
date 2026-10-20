@@ -428,6 +428,8 @@ export async function loginUser(
   if (!user) {
     await recordLoginFailure(identifier);
     for (const candidate of candidates) await recordLoginFailure(candidate.id);
+    await checkLoginThrottle(identifier);
+    for (const candidate of candidates) await checkLoginThrottle(candidate.id);
     if (candidates.length > 0 && candidates.every((candidate) => !userHasPassword(candidate))) {
       throw new Error("该账号未设置密码，请使用微信扫码登录或通过邮箱重置密码");
     }
@@ -437,6 +439,8 @@ export async function loginUser(
   if (user.status !== "active") {
     await recordLoginFailure(identifier);
     await recordLoginFailure(user.id);
+    await checkLoginThrottle(identifier);
+    await checkLoginThrottle(user.id);
     throw new Error("账号或密码错误");
   }
 
@@ -474,6 +478,8 @@ export async function loginUser(
     if (!verified) {
       await recordLoginFailure(identifier);
       await recordLoginFailure(user.id);
+      await checkLoginThrottle(identifier);
+      await checkLoginThrottle(user.id);
       throw new Error("账号、密码或验证码错误");
     }
     await clearLoginFailures(identifier);
@@ -508,6 +514,7 @@ export async function completeAdminMfaSetup(tokenRaw: string, codeRaw: string) {
   await checkLoginThrottle(challenge.userId);
   if (!verifyTotp(decryptTotpSecret(challenge.secret), codeRaw.trim())) {
     await recordLoginFailure(challenge.userId);
+    await checkLoginThrottle(challenge.userId);
     throw new Error("验证码错误，请核对验证器时间后重试");
   }
   const recoveryCodes = Array.from({ length: 8 }, () => crypto.randomBytes(8).toString("hex").toUpperCase());

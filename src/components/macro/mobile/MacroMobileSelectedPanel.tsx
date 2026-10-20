@@ -47,7 +47,7 @@ function metaLine(row: SelectedIndicatorRowMeta, showSource: boolean): string {
     row.country,
     row.frequency,
     row.unit,
-    row.updatedAt ? `更新 ${row.updatedAt}` : undefined,
+    row.updatedAt ? `观测 ${row.updatedAt}` : undefined,
     showSource ? row.source : undefined,
   ]
     .filter((v): v is string => Boolean(v && v !== "-" && v !== "—"))
@@ -103,7 +103,7 @@ export function MacroMobileSelectedPanel({
           className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text active:bg-fs-elevated disabled:opacity-40"
         >
           <IconSigma size={16} />
-          运算
+          指标运算
         </button>
         <button
           type="button"

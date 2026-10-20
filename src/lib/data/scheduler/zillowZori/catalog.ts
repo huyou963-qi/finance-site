@@ -8,10 +8,17 @@ import { ZILLOW_RESEARCH_DATA_URL, ZILLOW_ZORI_CSV_URL } from "./client";
  *
  * 目录：仪器代码以 `zillow_` 开头，usCatalogTaxonomy.placementFromMdsCode 归
  * 「地产与建筑 > 房价与可负担性」（与 Case-Shiller 同组：同属市场成交价格口径）。
- * 发布包 `us.zillow.zori`（probe_interval 72 小时）：Zillow 每月中旬整表重发、无固定日历。
+ * 发布包 `us.zillow.zori`（probe_interval 12 小时）：整表重读以捕获历史修订。
  */
 export const ZILLOW_ZORI_SYNC_SCRIPT = "scripts/data-worker/sync-zillow-zori.ts";
 export const ZILLOW_ZORI_PACKAGE_ID = "us.zillow.zori";
+export const ZILLOW_ZORI_PROBE_HOURS = 12;
+
+/** 重复部署/seed 不得把到期抓取不断向后推；升级72h→12h时允许提前。 */
+export function zillowSeedNextRunAt(current: Date | null, now: Date): Date {
+  const proposed = new Date(now.getTime() + ZILLOW_ZORI_PROBE_HOURS * 3_600_000);
+  return current && current < proposed ? current : proposed;
+}
 
 export const ZILLOW_ZORI_INSTRUMENT = {
   code: "zillow_us_zori_sa",

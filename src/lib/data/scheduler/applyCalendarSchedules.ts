@@ -650,6 +650,12 @@ export async function syncSubscriptionsFromEconomicCalendars(
               dryRun: options?.dryRun,
               calendarSource: "nbs_official",
               runState: runStateFor(pkg.id),
+              // The annual official schedule includes past releases too. A
+              // successful empty check before the detailed file arrived must
+              // not consume that release or advance lagging members a month.
+              previousReleaseAt: nbsReleases.filter(release =>
+                release.title === nextOfficial.title && release.releaseAt < now
+              ).at(-1)?.releaseAt ?? null,
             },
           ),
         );

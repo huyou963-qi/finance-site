@@ -45,7 +45,12 @@ function number(value: unknown): number | null {
 }
 
 function codeFor(key: string): string {
-  return `nbs_cn_realestate_${createHash("sha1").update(key).digest("hex").slice(0, 18)}`;
+  // Preserve chart/subscription identities for the two legacy ambiguous rows.
+  // They historically ended on the awaiting-sale row; now ONLY that explicit
+  // parent may supply them. Other parents receive distinct canonical IDs.
+  const legacy = /^property\|商品房待售面积：(办公楼|商业营业用房)\|(amount|yoy)$/.exec(key);
+  const identity = legacy ? `property|${legacy[1]}|${legacy[2]}` : key;
+  return `nbs_cn_realestate_${createHash("sha1").update(identity).digest("hex").slice(0, 18)}`;
 }
 
 function monthFromText(value: string): Date | null {
@@ -103,8 +108,12 @@ export function parseNbsPropertyWorkbook(workbook: XLSX.WorkBook, sourceText: st
     const amount = number(row[1]);
     const yoy = number(row[2]);
     if (!rawLabel || (amount === null && yoy === null)) continue;
-    const child = /其中：/.test(rawLabel);
-    const display = rawLabel.replace(/^其中：/, "").trim();
+    const display = rawLabel.replace(/^其中[：:]/, "").trim();
+    // Office/commercial rows are indented siblings in each section, but do
+    // not repeat “其中”. Treating them as parents collapsed seven definitions
+    // onto one ID and silently overwrote investment/sales with awaiting sale.
+    const child = /^其中[：:]/.test(rawLabel) || /^(?:住宅|办公楼|商业营业用房)$/.test(display);
+    if (child && (!parent || parentUnit === "原表单位")) throw new Error(`房地产分项缺少父级或单位：${display}`);
     if (!child) {
       parent = rawLabel.replace(/（[^）]+）/g, "").trim();
       parentUnit = /（([^）]+)）/.exec(rawLabel)?.[1] ?? "原表单位";

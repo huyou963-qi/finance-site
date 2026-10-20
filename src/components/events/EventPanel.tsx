@@ -37,6 +37,7 @@ import {
   type EventViewFilterState,
 } from "@/lib/chart/eventViewFilters";
 import { buildForChartUrl } from "@/lib/chart/buildForChartUrl";
+import { classifyMacroEventSurprise } from "@/lib/data/macroEventSurprise";
 import { eventHitsExplicitFilters } from "@/lib/data/assetEventResolver";
 import {
   applySymbolDraftToFilters,
@@ -144,6 +145,7 @@ export function eventMatchesFilters(
   filters: EventPanelFilterState,
   opts?: { skipTagContext?: boolean; fallbackAsset?: string | null },
 ): boolean {
+  if (filters.largeSurpriseOnly && (event.eventType !== "macro.release" || classifyMacroEventSurprise(event.payload).level !== "large")) return false;
   const q = filters.searchQ.trim().toLowerCase();
   if (q) {
     const hit =
@@ -280,7 +282,7 @@ export function EventPanel({
     const profile = classifyChartSymbol(sym);
     const draft = deriveEventFilterDraft(profile);
     setSymbolProfile(profile);
-    setFilters((prev) => applySymbolDraftToFilters(prev, draft));
+    setFilters((prev) => applySymbolDraftToFilters({ ...prev, largeSurpriseOnly: false }, draft));
   }, [chartSymbol, filtersHydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 补全个股 industries：独立 effect 调 profile 接口

@@ -111,6 +111,11 @@ import {
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATES,
 } from "@/lib/data/industryInventoryAnalysisLayout";
 import {
+  BUILTIN_US_OIL_DIESEL_TEMPLATE,
+  BUILTIN_US_OIL_DIESEL_TEMPLATE_IDS,
+  BUILTIN_US_OIL_DIESEL_TEMPLATES,
+} from "@/lib/data/oilDieselAnalysisLayout";
+import {
   BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
   BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
   BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
@@ -171,6 +176,8 @@ export {
   BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATES,
+  BUILTIN_US_OIL_DIESEL_TEMPLATE,
+  BUILTIN_US_OIL_DIESEL_TEMPLATES,
   BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
   BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
   BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
@@ -220,21 +227,133 @@ export type MacroTemplateFolder = {
   scope: MacroTemplateFolderScope;
 };
 
-export type MacroSeriesCalcOp = "none" | "pctChange" | "yoy" | "diff" | "cumsum";
+export type MacroSeriesCalcOp = "none" | "pctChange" | "yoy" | "diff" | "cumsum" | "logReturn";
 export type MacroFrequencyAdjust = "keep" | "month" | "quarter" | "year";
 export type MacroUnitAdjust = "keep" | "x0.01" | "x100";
-export type MacroResampleMethod = "avg" | "start" | "end";
+export type MacroResampleMethod = "avg" | "start" | "end" | "sum" | "min" | "max";
+export type MacroMissingValueMethod = "none" | "forward" | "backward" | "linear";
+
+export type MacroSeriesCalcStep =
+  | {
+      id: string;
+      type: "resample";
+      frequency: Exclude<MacroFrequencyAdjust, "keep">;
+      method: MacroResampleMethod;
+    }
+  | {
+      id: string;
+      type: "transform";
+      op: Exclude<MacroSeriesCalcOp, "none">;
+    }
+  | {
+      id: string;
+      type: "rollingMean";
+      window: number;
+      minPeriods: number;
+    }
+  | {
+      id: string;
+      type: "zScore";
+      window: number;
+      minPeriods: number;
+      sample: boolean;
+    }
+  | {
+      id: string;
+      type: "rollingQuantile";
+      window: number;
+      minPeriods: number;
+      /** 0–1，例如 0.5 为滚动中位数。 */
+      quantile: number;
+    }
+  | {
+      id: string;
+      type: "outlier";
+      /** winsorize/null 的 lower/upper 为分位数；clip 为数值阈值。 */
+      method: "winsorize" | "null" | "clip";
+      lower: number;
+      upper: number;
+    }
+  | {
+      id: string;
+      type: "volatility";
+      input: "diff" | "pctChange" | "logReturn";
+      window: number;
+      minPeriods: number;
+      sample: boolean;
+      annualize: boolean;
+      periodsPerYear: number;
+    }
+  | {
+      id: string;
+      type: "fill";
+      method: Exclude<MacroMissingValueMethod, "none">;
+      maxGap: number;
+    }
+  | {
+      id: string;
+      type: "scale";
+      factor: number;
+      unitLabel?: string;
+    };
 
 export type MacroSeriesCalcConfig = {
   op: MacroSeriesCalcOp;
   frequency: MacroFrequencyAdjust;
   unit: MacroUnitAdjust;
   resampleMethod: MacroResampleMethod;
+  /** 模板显示层的最终数值缩放，不写回数据库。 */
+  scale?: number;
+  /** 缩放后展示单位；例如千桶乘 0.001 后标为百万桶。 */
+  unitLabel?: string;
+  /** 原始观测点上的向后移动平均；窗口不足时输出空值。 */
+  rollingWindow?: number;
+  /** v2 可排序运算链；存在时按数组顺序执行，旧字段继续兼容历史模板。 */
+  steps?: MacroSeriesCalcStep[];
 };
 
 export type MacroSeriesCalcConfigMap = Record<string, MacroSeriesCalcConfig>;
 
 export type MacroDerivedCalcOp = "add" | "sub" | "mul" | "div" | "ratio" | "spread";
+
+export type MacroFormulaInput = {
+  key: string;
+  alias: string;
+  resampleMethod: MacroResampleMethod;
+  fillMethod: MacroMissingValueMethod;
+  maxGap: number;
+};
+
+export type MacroAdvancedDerivedConfig = {
+  version: 2;
+  kind: "formula" | "correlation" | "regression";
+  inputs: MacroFormulaInput[];
+  alignment: {
+    frequency: MacroFrequencyAdjust;
+    join: "inner" | "union" | "left";
+  };
+  /** 安全公式 DSL，仅允许指标别名、数字、白名单函数与算术运算。 */
+  formula?: string;
+  correlation?: {
+    /** 旧配置无 metric 时按 correlation 处理。 */
+    metric?: "correlation" | "covariance" | "beta";
+    method: "pearson" | "spearman";
+    input: "level" | "diff" | "pctChange" | "logReturn" | "yoy";
+    window: number;
+    minPeriods: number;
+    lag: number;
+    sample?: boolean;
+  };
+  regression?: {
+    /** A 为因变量，B–H 为解释变量；coefficient 输出 B 的系数。 */
+    output: "coefficient" | "intercept" | "rSquared" | "fitted" | "residual";
+    input: "level" | "diff" | "pctChange" | "logReturn" | "yoy";
+    window: number;
+    minPeriods: number;
+    lag: number;
+    includeIntercept: boolean;
+  };
+};
 
 export type MacroDerivedCalc = {
   id: string;
@@ -242,12 +361,26 @@ export type MacroDerivedCalc = {
   rightKey: string;
   op: MacroDerivedCalcOp;
   name: string;
+  /** 二元运算前分别缩放左右输入；例如成品油美元/加仑乘 42 后再减原油美元/桶。 */
+  leftScale?: number;
+  rightScale?: number;
   /** 对二元运算结果做最终缩放，例如比例转百分数时使用 100。 */
   scale?: number;
   /** 对二元结果按同一日历期执行同比；缺少上年同期时保留空值。 */
   postOp?: "yoy";
   /** 仅作为后续派生的中间节点，不进入图表与已选指标列表。 */
   hidden?: boolean;
+  /** 暂停计算但保留定义，依赖它的下游运算也不会产出。 */
+  disabled?: boolean;
+  /** 用户确认或引擎推断的输出单位，仅用于展示与公式单位检查。 */
+  unitLabel?: string;
+  /** 单指标运算链；输入原序列保持不变，结果以新的派生指标保存。 */
+  single?: {
+    inputKey: string;
+    steps: MacroSeriesCalcStep[];
+  };
+  /** v2 多指标公式/相关性定义；旧 left/right/op 字段保留作兼容与回退。 */
+  advanced?: MacroAdvancedDerivedConfig;
 };
 
 /** 代码内置系统模板文件夹（DB 无配置时合并） */
@@ -269,6 +402,11 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDERS: MacroTemplateFolder[] = [
   {
     id: "folder-builtin-us-industry-inventory",
     name: "美国制造业与库存周期",
+    scope: "builtin",
+  },
+  {
+    id: "folder-builtin-us-oil-diesel",
+    name: "全球原油与成品油",
     scope: "builtin",
   },
   { id: "folder-builtin-cn-fiscal", name: "中国财政分析", scope: "builtin" },
@@ -313,6 +451,7 @@ export const DEFAULT_BUILTIN_TEMPLATE_FOLDER_IDS: Record<string, string | null> 
   "builtin-us-balance-of-payments-overview": "folder-builtin-us-balance-of-payments",
   "builtin-us-industry-inventory-orders": "folder-builtin-us-industry-inventory",
   "builtin-us-industry-inventory-cycle": "folder-builtin-us-industry-inventory",
+  "builtin-us-oil-diesel-monitor": "folder-builtin-us-oil-diesel",
   "builtin-cn-fiscal-overview": "folder-builtin-cn-fiscal",
   "builtin-cn-fiscal-revenue": "folder-builtin-cn-fiscal",
   "builtin-cn-fiscal-expenditure": "folder-builtin-cn-fiscal",
@@ -736,6 +875,7 @@ export const HARDCODED_BUILTIN_TEMPLATE_IDS = new Set([
   ...BUILTIN_US_EXTERNAL_DOLLAR_TEMPLATE_IDS,
   ...BUILTIN_US_BALANCE_OF_PAYMENTS_TEMPLATE_IDS,
   ...BUILTIN_US_INDUSTRY_INVENTORY_TEMPLATE_IDS,
+  ...BUILTIN_US_OIL_DIESEL_TEMPLATE_IDS,
   ...BUILTIN_CN_FISCAL_TEMPLATE_IDS,
   ...BUILTIN_CN_FINANCIAL_LIQUIDITY_TEMPLATE_IDS,
   ...BUILTIN_CN_ECONOMY_OVERVIEW_TEMPLATE_IDS,

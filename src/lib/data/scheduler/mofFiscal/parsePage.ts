@@ -5,8 +5,17 @@ function endPeriod(page: string): Date { const title = text(page).slice(0, 8000)
 function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 function cumulativeAnchor(page: string, label: string): RegExpExecArray | null {
   const candidates: Array<{ match: RegExpExecArray; score: number }> = [];
-  const expression = new RegExp(`${esc(label)}[^0-9]{0,36}([0-9,.]+)亿元[^。；]{0,80}?(?:同比|比上年(?:同期)?|比去年同期)(?:增长|下降)([0-9.]+)%`, "g");
+  // 官方富文本可能在中文标签内部插入空白；只允许空白，不模糊匹配别的税目。
+  const labelExpression = [...label].map(esc).join("\\s*");
+  // A component name must lead directly into its amount. In particular,
+  // “收入相关支出” is not “收入”; arbitrary Chinese text here corrupts both
+  // levels and growth rates even though the resulting numbers look plausible.
+  const expression = new RegExp(`${labelExpression}\\s*(?:为|共计|合计)?\\s*([0-9,.]+)亿元[^。；]{0,80}?(?:同比|比上年(?:同期)?|比去年同期)(?:增长|下降)([0-9.]+)%`, "g");
   for (const match of page.matchAll(expression)) {
+    // Short aliases must not match the tail of a different, longer tax name.
+    const before = page.slice(0, match.index).replace(/\s+$/, "");
+    if ((label === "税收收入" && before.endsWith("非")) ||
+        (label === "印花税" && before.endsWith("证券交易"))) continue;
     const prefix = page.slice(Math.max(0, (match.index ?? 0) - 90), match.index ?? 0);
     const sentencePrefix = prefix.slice(Math.max(prefix.lastIndexOf("。"), prefix.lastIndexOf("；")) + 1);
     const score = /(?:1\s*[-—]\s*\d{1,2}月累计|累计|上半年|前三季度|一季度|全年|20\d{2}年\s*[，,])/.test(sentencePrefix) ? 10 : 0;

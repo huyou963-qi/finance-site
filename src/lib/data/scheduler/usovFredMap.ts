@@ -1,4 +1,5 @@
 /** US_Overview 序列 code → FRED series_id（探测与后续订阅用） */
+export const USOV_WTI_SPOT_LABEL = "EIA WTI库欣现货价格（FOB）";
 export const USOV_FRED_SERIES_BY_CODE: Record<string, string> = {
   usov_c01_nasdaq: "NASDAQCOM",
   usov_c02_dow: "DJIA",

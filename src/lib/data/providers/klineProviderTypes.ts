@@ -2,7 +2,7 @@ import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import type { KlineFetchWindowOptions, KlinePayload } from "@/lib/data/types";
 
 /** 与 GET /api/data/klines?source= 及 KlinePayload.source 对齐的可插拔数据源 id */
-export type KlineProviderId = "yahoo";
+export type KlineProviderId = "yahoo" | "eastmoney" | "fred";
 
 export type KlineFetchRequest = {
   symbol: string;

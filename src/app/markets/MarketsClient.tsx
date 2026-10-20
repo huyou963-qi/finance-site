@@ -1,7 +1,9 @@
 "use client";
+import { useChartEvents } from "@/lib/chart/useChartEvents";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StockChartWorkspace } from "@/components/StockChartWorkspace";
+import { MarketsWatchlist } from "@/components/MarketsWatchlist";
 import {
   isKlineInterval,
   KLINE_INTERVALS,
@@ -21,15 +23,21 @@ import {
 import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
+import { resolveEastmoneyInstrument } from "@/lib/data/eastmoneySymbols";
 import { MarketsEventShelf } from "@/components/equity/MarketsEventShelf";
+import { useLocalCompanyEvents } from "@/lib/equity/useLocalCompanyEvents";
+import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
+import type { MarketEventDto } from "@/lib/data/marketEvents";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
   loadEventViewFilters,
   saveEventViewFilters,
+  updateEventSourceFilters,
+  type EventFilterSource,
   type EventViewFilterState,
 } from "@/lib/chart/eventViewFilters";
 import { unixSecToContextDate } from "@/lib/data/marketEvents";
-import { findMarketInstrument } from "@/lib/data/marketInstruments";
+import { findMarketInstrument, marketSymbolLabel } from "@/lib/data/marketInstruments";
 import {
   applySymbolDraftToFilters,
   classifyChartSymbol,
@@ -62,12 +70,28 @@ function displayNameForSymbol(sym: string): string | undefined {
 }
 
 export function MarketsClient() {
+  const [detailEvent, setDetailEvent] = useState<MarketEventDto | null>(null);
+  const [detailOpenVersion, setDetailOpenVersion] = useState(0);
+  const openEventDetail = useCallback((event: MarketEventDto) => {
+    setDetailEvent(event);
+    setDetailOpenVersion(version => version + 1);
+  }, []);
+  const closeEventDetail = useCallback(() => setDetailEvent(null), []);
   const [symbol, setSymbol] = useState("");
+  const localEventStore = useLocalCompanyEvents(symbol);
+  const [loadedSymbol, setLoadedSymbol] = useState("");
+  const regionalInstrument = resolveEastmoneyInstrument(symbol);
+  const yieldInstrument = Boolean(findMarketInstrument(symbol)?.fredSeriesId);
+  const chartSource = yieldInstrument ? "fred" : regionalInstrument ? "eastmoney" : "yahoo";
   const [dataHint, setDataHint] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [interval, setKlineInterval] = useState<KlineInterval>("1d");
   const [priceAdjustment, setPriceAdjustment] =
     useState<PriceAdjustmentMode>("forward");
+  const effectiveAdjustment = regionalInstrument?.market === "GOLD" || yieldInstrument ? "none" : priceAdjustment;
+  useEffect(() => {
+    if (yieldInstrument && interval !== "1d" && interval !== "1w") setKlineInterval("1d");
+  }, [yieldInstrument, interval]);
   const [hits, setHits] = useState<SymbolHit[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -110,6 +134,11 @@ export function MarketsClient() {
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);
   const [eventShelfOpen, setEventShelfOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [markerGroupIds, setMarkerGroupIds] = useState<string[]>([]);
+  const [eventSeek, setEventSeek] = useState<{ time: number; version: number }>({ time: 0, version: 0 });
+  const eventResult = useChartEvents(symbol, localEventStore.events, eventViewFilters, eventRangeFromSec, eventRangeToSec);
+  useEffect(() => { setSelectedEventId(null); setMarkerGroupIds([]); }, [symbol]);
 
   const tabId = useMemo(() => getOrCreateKlineSyncTabId(), []);
 
@@ -140,7 +169,7 @@ export function MarketsClient() {
     const sym = symbol.trim();
     if (!sym) return;
     const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
-    setEventViewFilters((prev) => applySymbolDraftToFilters(prev, draft));
+    setEventViewFilters(prev => applySymbolDraftToFilters(prev, draft));
   }, [symbol, eventFiltersHydrated]);
 
   useEffect(() => {
@@ -322,7 +351,10 @@ export function MarketsClient() {
   }, []);
 
   const onEventMarkerClick = useCallback(
-    (payload: { id: string; time: number; title: string; source: string }) => {
+    (payload: { id: string; time: number; title: string; source: string; eventIds?: string[] }) => {
+      setSelectedEventId(payload.id);
+      setMarkerGroupIds(payload.eventIds || []);
+      setEventShelfOpen(true);
       setEventContextDate(unixSecToContextDate(payload.time));
     },
     [],
@@ -363,16 +395,12 @@ export function MarketsClient() {
     [eventRangeFrom, eventRangeTo, eventContextDate],
   );
 
-  const resetEventFiltersToSymbol = useCallback(() => {
+  const resetEventFiltersToSymbol = useCallback((source: EventFilterSource) => {
     const sym = symbol.trim();
-    if (!sym) {
-      setEventViewFilters({ ...DEFAULT_EVENT_VIEW_FILTERS });
-      return;
-    }
-    const draft = deriveEventFilterDraft(classifyChartSymbol(sym));
-    setEventViewFilters(
-      applySymbolDraftToFilters({ ...DEFAULT_EVENT_VIEW_FILTERS }, draft),
-    );
+    const next = source === "system" && sym
+      ? applySymbolDraftToFilters({ ...DEFAULT_EVENT_VIEW_FILTERS }, deriveEventFilterDraft(classifyChartSymbol(sym)))
+      : { ...DEFAULT_EVENT_VIEW_FILTERS };
+    setEventViewFilters(prev => updateEventSourceFilters(prev, source, next));
   }, [symbol]);
 
   const pickInterval = (iv: KlineInterval) => {
@@ -398,7 +426,8 @@ export function MarketsClient() {
 
   const onKlineLoadSuccess = useCallback(() => {
     setOpen(false);
-  }, []);
+    setLoadedSymbol(symbol);
+  }, [symbol]);
 
   useEffect(() => {
     const q = query.trim();
@@ -410,7 +439,7 @@ export function MarketsClient() {
     }
 
     /** 已选定标的且输入与当前代码一致时不再打联想（与 K 线加载无关，减少无效请求） */
-    if (symbol.trim() && q === symbol.trim()) {
+    if (symbol.trim() && normalizeTickerSymbol(q) === symbol.trim()) {
       setSearchLoading(false);
       setSearchError(null);
       setHits([]);
@@ -465,10 +494,12 @@ export function MarketsClient() {
   const commitSymbol = (raw: string, name?: string) => {
     const s = normalizeTickerSymbol(raw);
     if (!s) return;
+    if (findMarketInstrument(s)?.fredSeriesId && interval !== "1d" && interval !== "1w") setKlineInterval("1d");
     // 丢弃仍在路上的 symbol-search 响应，否则会再次 setOpen(true) + 空列表 →「无匹配」盖住图表
     reqIdRef.current += 1;
+    if (s !== symbol) setLoadedSymbol("");
     setSymbol(s);
-    setQuery(s);
+    setQuery(marketSymbolLabel(s));
     setPickedName(name ?? displayNameForSymbol(s));
     setOpen(false);
     setHits([]);
@@ -485,14 +516,69 @@ export function MarketsClient() {
   const [chartToolbarMount, setChartToolbarMount] =
     useState<HTMLDivElement | null>(null);
 
-  return (
-    <div
-      ref={rootRef}
-      className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
-    >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-      <div className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
-        <div className="relative min-h-[26px] min-w-[100px] max-w-[12rem] flex-1">
+  const [mobileSettingsMount, setMobileSettingsMount] = useState<HTMLDivElement | null>(null);
+  const [mobileLayout, setMobileLayout] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => { setMobileLayout(media.matches); setSettingsOpen(false); };
+    update(); media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const close = (e: PointerEvent) => {
+      if (!settingsRef.current?.contains(e.target as Node)) setSettingsOpen(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setSettingsOpen(false); settingsButtonRef.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", close); document.addEventListener("keydown", key);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", key); };
+  }, [settingsOpen]);
+
+  const pageSettings = (
+    <>
+        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
+          <span className="md:hidden">复权类型</span>
+          <select
+            value={effectiveAdjustment}
+            disabled={regionalInstrument?.market === "GOLD" || yieldInstrument}
+            onChange={(e) =>
+                setPriceAdjustment(e.target.value as PriceAdjustmentMode)
+              }
+              title={yieldInstrument ? "国债收益率不复权" : regionalInstrument?.market === "GOLD" ? "现货黄金不复权" : regionalInstrument ? "东方财富前复权 / 后复权 / 不复权；以供应商口径为准" : "前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"}
+              aria-label="K 线价格复权"
+              className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+          >
+            <option value="forward">前复权</option>
+            <option value="backward">后复权</option>
+            <option value="none">不复权</option>
+          </select>
+        </label>
+
+        <label
+          className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted"
+          title="多屏幕多页面时间与光标的同步"
+        >
+          <input
+            type="checkbox"
+            checked={pageSync}
+            onChange={(e) => handlePageSyncChange(e.target.checked)}
+            className="h-3 w-3 shrink-0 rounded border-fs-border"
+            aria-label="页面同步：多屏幕多页面时间与光标的同步"
+          />
+          页面同步
+        </label>
+
+    </>
+  );
+
+  const toolbar = (
+      <div ref={rootRef} className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
+        <div className="relative min-h-[28px] min-w-0 flex-1 md:min-h-[26px] md:min-w-[100px] md:max-w-[12rem]">
           <span className="sr-only">代码</span>
           <input
             ref={inputRef}
@@ -516,8 +602,9 @@ export function MarketsClient() {
               }
               if (e.key === "Escape") setOpen(false);
             }}
-            placeholder="输入代码或公司名，实时联想"
-            className="h-[26px] w-full rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+            placeholder="搜股票、ETF、股指、汇率、美债"
+            title="支持常用代码和中文名称，例如 SOXX、SPX、DXY、US2Y、US10Y、EURUSD、600519.SH、00700.HK"
+            className="h-7 w-full md:h-[26px] rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
@@ -537,7 +624,7 @@ export function MarketsClient() {
               hits.length === 0 &&
               query.trim().length > 0 ? (
                 <li className="px-2 py-1 text-[10px] text-fs-muted">
-                  无匹配标的，可搜股票（AAPL）、大宗商品（黄金 / 原油）、外汇（欧元 / 美元指数）、债券（美债 / 10年）
+                  可搜股票或ETF、标普500（SPX）、美元指数（DXY）、两年美债（US2Y）、十年美债（US10Y）、欧元美元（EURUSD）、黄金等；也可输入代码后按 Enter。
                 </li>
               ) : null}
               {hits.map((h, idx) => (
@@ -549,7 +636,7 @@ export function MarketsClient() {
                     onClick={() => commitSymbol(h.symbol, h.name)}
                   >
                     <span className="font-mono font-medium text-fs-text">
-                      {h.symbol}
+                      {marketSymbolLabel(h.symbol)}
                     </span>
                     <span className="line-clamp-2 text-[9px] text-fs-muted">
                       <span className="text-fs-secondary">{h.name}</span>
@@ -567,12 +654,21 @@ export function MarketsClient() {
           ) : null}
         </div>
 
-        <div
-          ref={setChartToolbarMount}
-          className="flex min-w-0 shrink-0 flex-wrap items-center gap-2"
-          aria-label="主图与画线工具"
-        />
-
+        <div ref={settingsRef} className="static shrink-0 md:hidden">
+          <button ref={settingsButtonRef} type="button" onClick={() => { setOpen(false); setSettingsOpen(v => !v); }}
+            className="h-7 rounded border border-fs-border bg-fs-elevated px-3 text-[11px] text-fs-text"
+            aria-expanded={settingsOpen} aria-controls="markets-mobile-settings">设置 ▾</button>
+          <section id="markets-mobile-settings" role="dialog" aria-label="行情设置" hidden={!settingsOpen}
+            className="absolute inset-x-0 top-8 z-[90] max-h-[70dvh] overflow-y-auto rounded-lg border border-fs-border bg-fs-bg p-3 shadow-xl">
+            <header className="mb-3 flex items-center justify-between text-xs font-medium text-fs-text">
+              行情设置<button type="button" aria-label="关闭行情设置" className="h-7 px-2" onClick={() => { setSettingsOpen(false); settingsButtonRef.current?.focus(); }}>✕</button>
+            </header>
+            <div ref={setMobileSettingsMount} className="flex min-w-0 flex-col items-start gap-3" />
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-fs-border pt-3">{pageSettings}</div>
+            {dataHint ? <p className="mt-3 text-[10px] text-fs-muted">{dataHint}</p> : null}
+          </section>
+        </div>
+        <div className="flex w-full min-w-0 items-center gap-1 md:contents" aria-label="行情快捷工具">
         <label className="flex shrink-0 items-center text-[9px] text-fs-muted">
           <select
             value={interval}
@@ -582,9 +678,9 @@ export function MarketsClient() {
             }}
             title="K 线周期"
             aria-label="K 线周期"
-            className="h-[22px] min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+            className="h-7 min-w-[3.75rem] md:h-[22px] md:min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           >
-            {KLINE_INTERVALS.map((iv) => (
+            {KLINE_INTERVALS.filter(iv => !findMarketInstrument(symbol)?.fredSeriesId || iv === "1d" || iv === "1w").map((iv) => (
               <option key={iv} value={iv}>
                 {INTERVAL_LABEL[iv]}
               </option>
@@ -592,38 +688,13 @@ export function MarketsClient() {
           </select>
         </label>
 
-        <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
-          <select
-            value={priceAdjustment}
-            onChange={(e) =>
-                setPriceAdjustment(e.target.value as PriceAdjustmentMode)
-              }
-              title="前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"
-              aria-label="K 线价格复权"
-              className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
-          >
-            <option value="forward">前复权</option>
-            <option value="backward">后复权</option>
-            <option value="none">不复权</option>
-          </select>
-        </label>
+          <div ref={setChartToolbarMount} className="flex min-w-0 flex-1 items-center gap-1 md:flex-none md:flex-wrap md:gap-2" aria-label="主图与画线工具" />
+        </div>
 
-        <label
-          className="ml-2 flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted"
-          title="多屏幕多页面时间与光标的同步"
-        >
-          <input
-            type="checkbox"
-            checked={pageSync}
-            onChange={(e) => handlePageSyncChange(e.target.checked)}
-            className="h-3 w-3 shrink-0 rounded border-fs-border"
-            aria-label="页面同步：多屏幕多页面时间与光标的同步"
-          />
-          页面同步
-        </label>
+        <div className="hidden md:contents">{pageSettings}</div>
 
         <div
-          className="min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-fs-muted sm:text-[9px]"
+          className={`min-w-0 flex-1 px-0.5 text-[8px] leading-tight text-fs-muted sm:text-[9px] ${dataHint?.includes("缓存") ? "" : "hidden md:block"}`}
           title={dataHint ?? undefined}
         >
           {dataHint ? (
@@ -635,7 +706,7 @@ export function MarketsClient() {
           {symbol ? (
             <>
               <span className="font-mono text-[10px] font-semibold leading-none text-fs-text">
-                {symbol}
+                {marketSymbolLabel(symbol)}
               </span>
               {pickedName ? (
                 <span className="max-w-[min(40vw,220px)] truncate text-[10px] leading-none text-fs-muted">
@@ -671,13 +742,23 @@ export function MarketsClient() {
           )}
         </div>
       </div>
+  );
 
+  return (
+    <MarketsWatchlist toolbar={toolbar} symbol={symbol} name={pickedName} canAddCurrent={!!symbol && loadedSymbol === symbol && normalizeTickerSymbol(query) === symbol && !searchLoading && !searchError} onSelect={commitSymbol}
+      rightPanel={detailEvent ? <EventDetailDrawer event={detailEvent} onClose={closeEventDetail} presentation="sidebar" /> : null}
+      rightPanelOpenVersion={detailOpenVersion}>
+    <div
+      className="flex h-full min-h-0 w-full flex-1 flex-row gap-0 overflow-hidden px-1 lg:px-2"
+    >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 overflow-hidden md:gap-2">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <StockChartWorkspace
-          key={`${symbol || "none"}-${interval}-${priceAdjustment}`}
+          key={`${symbol || "none"}-${interval}-${effectiveAdjustment}`}
           symbol={symbol}
+          source={chartSource}
           interval={interval}
-          priceAdjustment={priceAdjustment}
+          priceAdjustment={effectiveAdjustment}
           fillHeight
           onAttributionChange={setDataHint}
           onKlineLoadSuccess={onKlineLoadSuccess}
@@ -695,13 +776,27 @@ export function MarketsClient() {
           onVisibleTimeRangeChange={onVisibleTimeRangeChange}
           onLocalCrosshairTime={onLocalCrosshairTime}
           onEventMarkerClick={onEventMarkerClick}
+          localEvents={localEventStore.events}
+          chartEvents={eventResult.events}
+          selectedEventId={selectedEventId}
+          seekToTimeSec={eventSeek.time}
+          seekToTimeVersion={eventSeek.version}
           toolbarPortalEl={chartToolbarMount}
+          settingsPortalEl={mobileLayout ? mobileSettingsMount : null}
           eventViewFilters={eventViewFilters}
           onEventViewFiltersChange={setEventViewFilters}
           forceHideSubPanes={eventShelfOpen}
         />
         {eventShelfOpen ? (
           <MarketsEventShelf
+            localEventStore={localEventStore}
+            eventResult={eventResult}
+            selectedEventId={selectedEventId}
+            markerGroupIds={markerGroupIds}
+            onCloseMarkerGroup={() => setMarkerGroupIds([])}
+            onSelectEvent={setSelectedEventId}
+            onLocateEvent={(event) => setEventSeek(prev => ({ time: Math.floor(Date.parse(event.occurredAt) / 1000), version: prev.version + 1 }))}
+            onOpenDetail={openEventDetail}
             symbol={symbol}
             viewFilters={eventViewFilters}
             onViewFiltersChange={setEventViewFilters}
@@ -724,5 +819,6 @@ export function MarketsClient() {
       </div>
       </div>
     </div>
+    </MarketsWatchlist>
   );
 }

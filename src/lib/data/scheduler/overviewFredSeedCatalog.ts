@@ -138,13 +138,13 @@ export const OVERVIEW_FRED_SERIES: readonly OverviewFredSeedRow[] = [
   overviewFredRow("PCEPILFE", "核心 PCE", "价格指数", "月", "MONTHLY", "指数"),
   overviewFredRow("DFEDTARU", "联邦基金目标利率上限", "银行与货币", "日", "DAILY", "%"),
   overviewFredRow("T10Y2Y", "10Y-2Y 国债利差", "利率与债券", "日", "DAILY", "%"),
-  overviewFredRow("PNFIC1", "实际私人固定投资", "固定资产投资", "季", "QUARTERLY", "十亿美元"),
+  overviewFredRow("PNFIC1", "实际私人非住宅固定投资", "固定资产投资", "季", "QUARTERLY", "十亿美元"),
   overviewFredRow("PRFIC1", "实际住宅固定投资", "固定资产投资", "季", "QUARTERLY", "十亿美元"),
   overviewFredRow("HOUST", "新屋开工", "固定资产与地产", "月", "MONTHLY", "千套"),
   overviewFredRow("EXPGSC1", "实际出口", "对外贸易及投资", "季", "QUARTERLY", "十亿美元"),
   overviewFredRow("IMPGSC1", "实际进口", "对外贸易及投资", "季", "QUARTERLY", "十亿美元"),
   overviewFredRow("FYFSGDA188S", "联邦赤字/GDP", "财政", "季", "QUARTERLY", "%"),
-  overviewFredRow("GCEC1", "实际政府消费支出", "财政", "季", "QUARTERLY", "十亿美元"),
+  overviewFredRow("GCEC1", "实际政府消费支出与总投资", "财政", "季", "QUARTERLY", "十亿美元"),
 ] as const;
 
 export const OVERVIEW_FRED_IDS = new Set(OVERVIEW_FRED_SERIES.map((x) => x.fredId));
