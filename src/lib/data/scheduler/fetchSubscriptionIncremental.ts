@@ -13,6 +13,8 @@ import { fiscalCompositeSpec } from "./fiscalCompositeFred";
 import { usovCompositeSpec } from "./usovCompositeFred";
 import type { SubscriptionWithRelations } from "./runSubscription";
 import type { FetchIncrementalResult } from "./types";
+import { parseReleaseRule } from "./releaseRule";
+import { fredReleaseIdsForPackage } from "./fredReleaseCalendar/catalog";
 
 function minIntervalMs(source: DataSource): number {
   const rl = source.rateLimit as { minIntervalMs?: number } | null;
@@ -63,12 +65,15 @@ export async function fetchSubscriptionIncremental(
     const apiKey = process.env.FRED_API_KEY?.trim();
     if (!apiKey) throw new Error("未配置 FRED_API_KEY");
     await sleep(minIntervalMs(sub.source));
+    const readPublication = Boolean(sub.releasePackageId) &&
+      parseReleaseRule(sub.releasePackage?.releaseTemplate ?? sub.releaseRule).type === "economic_calendar";
+    const readReleaseIdentity = (fredReleaseIdsForPackage(sub.releasePackageId ?? "")?.length ?? 0) > 1;
     const composite =
       usovCompositeSpec(sub.instrument.code) ?? fiscalCompositeSpec(sub.instrument.code);
     if (composite) {
-      return fetchFredCompositeIncremental(composite, apiKey, fetchStart);
+      return fetchFredCompositeIncremental(composite, apiKey, fetchStart, readPublication, readReleaseIdentity);
     }
-    const fred = await fetchFredIncremental(sub.sourceSeriesKey, apiKey, fetchStart);
+    const fred = await fetchFredIncremental(sub.sourceSeriesKey, apiKey, fetchStart, undefined, readPublication, readReleaseIdentity);
     // H.15 / TIPS / VIX 等：原发布机构当天就公布同一组数字，补上 FRED 还没转载的最新几天
     const fastChannel = fredFastChannelFor(sub.sourceSeriesKey);
     return fastChannel

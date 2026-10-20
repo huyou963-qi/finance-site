@@ -5,6 +5,7 @@ import type { CalendarMatchSpec } from "./teEventMap";
 import { getCachedPackageCalendarOverrides } from "./calendarOverrideCache";
 import {
   parseReleaseRule,
+  parseSourcePublications,
   type CalendarMatchSnapshot,
   type CalendarSyncMeta,
   type ReleaseRule,
@@ -50,6 +51,8 @@ export function parsePackageScheduleState(raw: unknown): ReleasePackageScheduleS
       ? {
           status: "current",
           verifiedAt: String(ss.verifiedAt),
+          sourcePublishedAt: typeof ss.sourcePublishedAt === "string" ? ss.sourcePublishedAt : undefined,
+          sourcePublications: parseSourcePublications(ss.sourcePublications),
           localObsDate: ss.localObsDate != null ? String(ss.localObsDate) : undefined,
           sourceLatestObsDate:
             ss.sourceLatestObsDate != null ? String(ss.sourceLatestObsDate) : undefined,

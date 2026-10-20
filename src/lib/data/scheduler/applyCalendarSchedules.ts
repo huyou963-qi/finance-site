@@ -569,11 +569,15 @@ export async function syncSubscriptionsFromEconomicCalendars(
       const occurrences = fredReleaseOccurrencesForPackage(fredCalendar, pkg.id);
       const next = nextFredRelease(occurrences, now);
       if (next) {
+        const previousReleaseById: Record<number, Date> = {};
+        for (const occurrence of occurrences) {
+          if (occurrence.releaseAt <= now) previousReleaseById[occurrence.releaseId] = occurrence.releaseAt;
+        }
         rows.push(
           await applyCalendarMatchToPackage(prisma, pkg, memberCount, fredReleaseToCalendarEvent(next), now, {
             dryRun: options?.dryRun,
             calendarSource: "fred_release",
-            runState: runStateFor(pkg.id),
+            runState: { ...runStateFor(pkg.id), previousReleaseById },
             previousReleaseAt: lastFredReleaseBefore(occurrences, now)?.releaseAt ?? null,
           }),
         );

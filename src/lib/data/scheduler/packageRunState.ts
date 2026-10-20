@@ -3,6 +3,8 @@ import { parseReleaseRule } from "./releaseRule";
 import type { PackageRunState } from "./packageScheduleGuard";
 import { loadExcludedCatalogKeys } from "../catalogExclusions";
 import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
+import { MONTHLY_RELEASE_LAG } from "./releaseObservationPolicy";
+import { fredReleaseIdsForPackage } from "./fredReleaseCalendar/catalog";
 
 // NBS marks these four ownership UUIDs “(发布库已用)工业增加值”.
 // Their historical series must not impose a current-month release obligation.
@@ -42,7 +44,8 @@ export async function loadPackageRunStates(
       sourceSeriesKey: row.sourceSeriesKey,
       metadata: row.instrument.metadata,
     })) continue;
-    const verifiedAt = sourceVerifiedAtFromRule(row.releaseRule);
+    const requiresPublicationProof = row.source.adapterKind === "FRED_API";
+    const verifiedAt = sourceVerifiedAtFromRule(row.releaseRule, requiresPublicationProof);
     const previous = map.get(packageId);
     const min = (a: Date | null, b: Date | null) => a && b ? a < b ? a : b : null;
     const state: PackageRunState = previous ? {
@@ -50,19 +53,29 @@ export async function loadPackageRunStates(
       sourceVerifiedAt: min(previous.sourceVerifiedAt, verifiedAt),
       hasUnresolvedFailures: previous.hasUnresolvedFailures || Boolean(row.lastError),
     } : { lastSuccessAt: row.lastSuccessAt, sourceVerifiedAt: verifiedAt, hasUnresolvedFailures: Boolean(row.lastError) };
+    state.requiresPublicationProof = previous?.requiresPublicationProof || requiresPublicationProof;
+    if (requiresPublicationProof && (fredReleaseIdsForPackage(packageId)?.length ?? 0) > 1) {
+      const rule = parseReleaseRule(row.releaseRule);
+      const proof = rule.type === "economic_calendar" ? rule.sourceSync : undefined;
+      const requirements = proof?.sourcePublications?.map((item) => ({ releaseId: item.releaseId,
+        publishedAt: Date.parse(item.publishedAt) <= Date.parse(proof.verifiedAt) ? new Date(item.publishedAt) : null,
+        ...(packageId === "us.fed.fomc" && row.sourceSeriesKey === "FEDFUNDS"
+          ? { monthlyLag: 1, observation: row.lastObsDate } : {}),
+      })) ?? [{ releaseId: null, publishedAt: null }];
+      state.publicationRequirements = [...previous?.publicationRequirements ?? [], ...requirements];
+    }
     if (previous?.requiredMonthlyObservation) state.requiredMonthlyObservation = previous.requiredMonthlyObservation;
     if (previous?.requiredSeriesLatestObsDate !== undefined) state.requiredSeriesLatestObsDate = previous.requiredSeriesLatestObsDate;
     if ((packageId === "us.bls.employment_situation" && row.instrument.code === "sched_fred_PAYEMS") ||
         (packageId === "us.adp.ner" && row.instrument.code === "sched_fred_ADPMNUSNERSA")) {
       state.requiredSeriesLatestObsDate = row.lastObsDate ?? null;
     }
-    if (packageId === "us.bls.cpi" || (row.granularity === "MONTHLY" &&
-        !HISTORICAL_NBS_OWNERSHIP.test(row.instrument.code) &&
-        ["cn.nbs.ppi", "cn.nbs.industrial-production", "cn.nbs.retail-sales"].includes(packageId))) {
+    if (MONTHLY_RELEASE_LAG[packageId] != null && row.granularity === "MONTHLY" &&
+        !HISTORICAL_NBS_OWNERSHIP.test(row.instrument.code)) {
       state.requiredMonthlyObservation = {
         oldest: previous?.requiredMonthlyObservation
           ? min(previous.requiredMonthlyObservation.oldest, row.lastObsDate) : row.lastObsDate ?? null,
-        lagMonths: 1,
+        lagMonths: MONTHLY_RELEASE_LAG[packageId],
       };
     }
     map.set(packageId, state);
@@ -70,11 +83,16 @@ export async function loadPackageRunStates(
   return map;
 }
 
-function sourceVerifiedAtFromRule(raw: unknown): Date | null {
+function sourceVerifiedAtFromRule(raw: unknown, requiresPublicationProof: boolean): Date | null {
   const rule = parseReleaseRule(raw);
   if (rule.type !== "economic_calendar") return null;
   const sourceSync = rule.sourceSync;
   if (!sourceSync || sourceSync.status !== "current") return null;
-  const at = new Date(sourceSync.verifiedAt);
-  return Number.isNaN(at.getTime()) ? null : at;
+  // Legacy equality proofs cannot certify a FRED publication. Migrates safely
+  // by rechecking through the existing worker instead of trusting old timestamps.
+  const timestamp = requiresPublicationProof ? sourceSync.sourcePublishedAt : sourceSync.verifiedAt;
+  if (!timestamp) return null;
+  const at = new Date(timestamp);
+  const verifiedAt = new Date(sourceSync.verifiedAt);
+  return Number.isNaN(at.getTime()) || Number.isNaN(verifiedAt.getTime()) || at > verifiedAt ? null : at;
 }

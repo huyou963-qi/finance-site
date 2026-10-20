@@ -104,6 +104,7 @@ export async function extendWithFastChannel(
   }
   if (extra.length === 0) return fred;
   return {
+    ...fred,
     points: [...fred.points, ...extra],
     sourceLatestObsDate: extra[extra.length - 1]!.obsDate,
     skippedInvalid: fred.skippedInvalid,

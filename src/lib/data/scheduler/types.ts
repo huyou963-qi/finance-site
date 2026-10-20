@@ -6,6 +6,9 @@ export type ObservationPoint = {
 };
 
 export type FetchIncrementalResult = {
+  /** Source publication time, read BEFORE observations; never the fetch time. */
+  sourcePublishedAt?: Date | null;
+  sourcePublications?: { releaseId: number; publishedAt: string }[];
   /** Official dataset identity and revision/estimate flags, preserved in fetch logs. */
   sourceMetadata?: Prisma.InputJsonObject;
   points: ObservationPoint[];

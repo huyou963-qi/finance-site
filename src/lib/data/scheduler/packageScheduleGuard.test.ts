@@ -9,6 +9,72 @@ import {
 const NONE: PackageRunState = { lastSuccessAt: null, sourceVerifiedAt: null };
 const d = (iso: string) => new Date(iso);
 
+test("merged employment target gate cannot bypass FRED publication proof", () => {
+  const release = d("2026-10-02T12:30:00Z");
+  const state: PackageRunState = { requiresPublicationProof: true,
+    lastSuccessAt: d("2026-10-02T14:00:00Z"), sourceVerifiedAt: null,
+    requiredSeriesLatestObsDate: d("2026-09-01"),
+    requiredMonthlyObservation: { oldest: d("2026-09-01"), lagMonths: 1 } };
+  assert.equal(releaseConsumed(state, release, "us.bls.employment_situation"), false);
+  state.sourceVerifiedAt = d("2026-10-02T14:00:00Z");
+  assert.equal(releaseConsumed(state, release, "us.bls.employment_situation"), true);
+});
+
+test("monthly target proof allows ADP publication before conventional FRED calendar 08:30 time", () => {
+  const state: PackageRunState = { requiresPublicationProof: true,
+    requiredMonthlyObservation: { oldest: d("2026-09-01"), lagMonths: 1 },
+    lastSuccessAt: d("2026-10-07T13:00:00Z"), sourceVerifiedAt: d("2026-10-07T12:16:00Z") };
+  const release = d("2026-10-07T12:30:00Z");
+  assert.equal(releaseConsumed(state, release), true);
+  state.requiredMonthlyObservation!.oldest = d("2026-08-01");
+  assert.equal(releaseConsumed(state, release), false);
+});
+
+test("multi-release FOMC/H15 package checks each member against its own release", () => {
+  const state: PackageRunState = { requiresPublicationProof: true,
+    lastSuccessAt: d("2026-10-20T21:00:00Z"), sourceVerifiedAt: d("2026-09-16T18:01:00Z"),
+    previousReleaseById: { 18: d("2026-10-20T12:30:00Z"), 101: d("2026-09-16T12:30:00Z") },
+    publicationRequirements: [
+      { releaseId: 18, publishedAt: d("2026-10-20T20:00:00Z") },
+      { releaseId: 101, publishedAt: d("2026-09-16T18:01:00Z") },
+    ],
+  };
+  assert.equal(releaseConsumed(state, d("2026-10-20T12:30:00Z")), true);
+  state.previousReleaseById = { ...state.previousReleaseById, 101: d("2026-10-21T18:00:00Z") };
+  assert.equal(releaseConsumed(state, d("2026-10-21T18:00:00Z")), false);
+  state.publicationRequirements![1].publishedAt = d("2026-10-21T18:15:00Z");
+  assert.equal(releaseConsumed(state, d("2026-10-21T18:00:00Z")), true);
+  state.publicationRequirements![1].releaseId = null;
+  assert.equal(releaseConsumed(state, d("2026-10-21T18:00:00Z")), false);
+});
+
+test("monthly FEDFUNDS in daily H15 releases requires the completed month, not a daily republish", () => {
+  const state: PackageRunState = { requiresPublicationProof: true,
+    lastSuccessAt: d("2026-10-20T22:00:00Z"), sourceVerifiedAt: null,
+    publicationRequirements: [{ releaseId: 18, monthlyLag: 1,
+      observation: d("2026-09-01"), publishedAt: d("2026-10-01T20:00:00Z") }],
+  };
+  assert.equal(releaseConsumed(state, d("2026-10-20T12:30:00Z")), true);
+  state.publicationRequirements![0].observation = d("2026-08-01");
+  assert.equal(releaseConsumed(state, d("2026-10-20T12:30:00Z")), false);
+});
+
+test("FRED delayed publication repairs an already advanced schedule and preserves bounded retries", () => {
+  const future = d("2026-11-13T13:33:00Z"), now = d("2026-10-20T01:00:00Z");
+  const state: PackageRunState = { requiresPublicationProof: true,
+    lastSuccessAt: d("2026-10-15T12:47:00Z"), sourceVerifiedAt: null };
+  const params = { computedNextRunAt: future, currentNextRunAt: future,
+    previousReleaseAt: d("2026-10-15T12:30:00Z"), now, runState: state };
+  assert.equal(releaseConsumed(state, params.previousReleaseAt), false);
+  const retry = resolvePackageNextRunAt(params);
+  assert.equal(retry.reason, "hold_pending_release");
+  assert.equal(retry.nextRunAt?.toISOString(), "2026-10-20T03:00:00.000Z");
+  assert.equal(resolvePackageNextRunAt({ ...params, currentNextRunAt: retry.nextRunAt,
+    now: d("2026-10-20T02:00:00Z") }).nextRunAt, retry.nextRunAt);
+  state.sourceVerifiedAt = d("2026-10-19T15:00:00Z");
+  assert.equal(resolvePackageNextRunAt(params).nextRunAt, future);
+});
+
 test("employment period proof preserves newer failure and bounded retry guards", () => {
   const release = d("2026-10-02T12:30:00Z");
   const state: PackageRunState = { lastSuccessAt: d("2026-10-02T14:00:00Z"),
