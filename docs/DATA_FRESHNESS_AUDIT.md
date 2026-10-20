@@ -16,6 +16,8 @@ GitHub Actions `Audit macro data freshness` 每天北京时间 10:15 独立 SSH 
 
 对已用实时 FRED 数据证明本地落后的序列，可运行 `npm run data:repair-fred-freshness -- --report=.data/audits/macro-latest.json --apply`。默认只预览、每次最多 50 条；仅处理近 366 天的源端最新期，使用统一 writer，且保留同包其他成员的排期。修复后重跑审计验证，不把“已发起抓取”当作修复成功。
 
+自动回补按部署相同顺序获取 worker 锁、calendar 锁后进入当前独立 release，避免与常规抓取、日历排期和部署并发写入。每把锁最多等待 300 秒；超时后仍执行只读复核，不绕过锁修复。
+
 检查范围：所有未标记目录 tombstone 的 `MACRO_SERIES`。检查事实为：
 
 1. 有启用订阅，并且符合 **worker 实际使用** 的获取方式准入条件。
