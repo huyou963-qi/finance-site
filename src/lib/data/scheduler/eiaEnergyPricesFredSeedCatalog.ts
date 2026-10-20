@@ -11,6 +11,10 @@ import { defaultReleaseRuleForGranularity, type ReleaseRule } from "./releaseRul
  * - DHHNGSP：亨利港天然气现货（日频，FRED release 342），领先 CPI 管道燃气/电力 1–2 月。
  * - DJFUELUSGULF：墨西哥湾航空煤油现货（日频，release 212），CPI 机票的成本代理。
  * - DHOILNYH：纽约港 2 号取暖油现货（日频，release 212），CPI 燃油分项代理。
+ * - DCOILBRENTEU：Brent 欧洲现货（日频，release 212），与 WTI 构成全球原油价差观察。
+ * - DDFUELNYH：纽约港超低硫 2 号柴油现货（日频，release 212），现行 ULSD 批发价口径。
+ * - DGASNYH：纽约港常规汽油现货（日频，release 212），3-2-1 裂解价差的汽油腿代理。
+ * - GASDESLSW：全美公路超低硫柴油零售价（周频，release 183），与监测任务口径一致。
  *
  * 全部为 FRED 原生序列（2026-09-24 逐条核实 ID、频率、单位与 release），复用既有
  * FRED adapter / writer / scheduler，不新增抓取器。EIA 现货在 FRED 上每周三左右批量
@@ -98,6 +102,46 @@ export const EIA_ENERGY_PRICES_FRED_SERIES: readonly EiaEnergyPricesFredSeedRow[
     "美元/加仑",
     "EIA 现货，FRED 约每周三批量更新（1986-06 起）",
     "us.eia.spot_prices",
+  ),
+  row(
+    "DCOILBRENTEU",
+    "Crude Oil Prices: Brent - Europe",
+    "Brent 原油现货（欧洲）",
+    "日",
+    "DAILY",
+    "美元/桶",
+    "EIA 现货，FRED 约每周三批量更新（1987-05 起）",
+    "us.eia.spot_prices",
+  ),
+  row(
+    "DDFUELNYH",
+    "Ultra-Low-Sulfur No. 2 Diesel Fuel Prices: New York Harbor",
+    "超低硫 2 号柴油现货（纽约港）",
+    "日",
+    "DAILY",
+    "美元/加仑",
+    "EIA 现货，FRED 约每周三批量更新（2006-06 起）",
+    "us.eia.spot_prices",
+  ),
+  row(
+    "DGASNYH",
+    "Conventional Gasoline Prices: New York Harbor, Regular",
+    "常规汽油现货（纽约港）",
+    "日",
+    "DAILY",
+    "美元/加仑",
+    "EIA 现货，纽约港无连续 RBOB 现货序列，作为 3-2-1 裂解价差汽油腿代理（1986-06 起）",
+    "us.eia.spot_prices",
+  ),
+  row(
+    "GASDESLSW",
+    "US Diesel Ultra Low Sulfur (0-15 ppm) Sales Price",
+    "美国公路超低硫柴油零售均价（周度）",
+    "周",
+    "WEEKLY",
+    "美元/加仑",
+    "EIA 每周一采价、当日发布（Gasoline and Diesel Fuel Update，2007-02 起）",
+    "us.eia.gasoline_diesel",
   ),
 ] as const;
 

@@ -31,6 +31,8 @@ export type MacroSeriesChartType =
 
 export type MacroSeriesVisualConfig = {
   axis?: MacroSeriesAxis;
+  /** 仅反转该指标的数值轴方向，不改变原始数据与提示值 */
+  inverse?: boolean;
   chartType?: MacroSeriesChartType;
   color?: string;
   showEndLabel?: boolean;
@@ -138,6 +140,8 @@ export type MacroChartDisplayConfig = {
   slotTitles?: Partial<Record<number, string>>;
   /** 各图槽是否在图表上显示标题，默认 true */
   slotShowTitles?: Partial<Record<number, boolean>>;
+  /** 各图槽是否为全部指标显示最新值标签；未设置时沿用各指标配置 */
+  slotShowEndLabels?: Partial<Record<number, boolean>>;
   /** 各图槽是否隐藏（不绘制），默认 false；隐藏后图表区按剩余图数自动收敛布局 */
   slotHidden?: Partial<Record<number, boolean>>;
   /** 各图槽左右 Y 轴范围（时序图 / 季节图） */
@@ -177,6 +181,7 @@ export function collectSeriesValuesOnAxis(
   slice: MacroChartSlice,
   visualMap: MacroSeriesVisualConfigMap,
   axis: "left" | "right",
+  inverse?: boolean,
 ): number[] {
   const values: number[] = [];
   const stackGroups = new Map<string, Array<Array<number | null | undefined>>>();
@@ -186,6 +191,7 @@ export function collectSeriesValuesOnAxis(
     const cfg = visualMap[k];
     const onRight = cfg?.axis === "right";
     if (axis === "left" ? onRight : !onRight) continue;
+    if (typeof inverse === "boolean" && Boolean(cfg?.inverse) !== inverse) continue;
 
     const chartType = cfg?.chartType ?? "line";
     if (STACK_CHART_TYPES.has(chartType)) {
@@ -1557,6 +1563,8 @@ export function macroPayloadToChartOption(
     compact?: boolean;
     seriesVisualMap?: MacroSeriesVisualConfigMap;
     displayConfig?: MacroChartDisplayConfig;
+    /** 用于应用单图的最新值标签开关 */
+    slotIndex?: number;
     axisRanges?: MacroSlotAxisRanges;
     /** NBER 衰退区间；与 displayConfig.showRecessionShading 同时启用时叠加 markArea */
     recessionBands?: readonly NberRecessionBand[];
@@ -1565,8 +1573,19 @@ export function macroPayloadToChartOption(
   },
 ): EChartsOption {
   const compact = opts?.compact ?? false;
-  const visualMap = opts?.seriesVisualMap ?? {};
+  const baseVisualMap = opts?.seriesVisualMap ?? {};
   const display = { ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG, ...(opts?.displayConfig ?? {}) };
+  const slotShowEndLabels =
+    opts?.slotIndex === undefined ? undefined : display.slotShowEndLabels?.[opts.slotIndex];
+  const visualMap: MacroSeriesVisualConfigMap =
+    typeof slotShowEndLabels !== "boolean"
+      ? baseVisualMap
+      : Object.fromEntries(
+          slice.series.map((series) => {
+            const key = series.key ?? series.name;
+            return [key, { ...(baseVisualMap[key] ?? {}), showEndLabel: slotShowEndLabels }];
+          }),
+        );
   const recessionMarkAreaData =
     display.showRecessionShading && opts?.recessionBands?.length
       ? markAreaDataForCategories(slice.categories, opts.recessionBands)
@@ -1632,44 +1651,60 @@ export function macroPayloadToChartOption(
     return t === "bar" || t === "stackBar";
   });
   const axisRanges = opts?.axisRanges;
-  const autoLeftExtent = computeAxisExtentFromSlice(slice, visualMap, "left");
-  const autoRightExtent = hasRightAxis
-    ? computeAxisExtentFromSlice(slice, visualMap, "right")
-    : null;
-  const leftApplied = resolveAppliedAxisExtent(axisRanges?.left, autoLeftExtent);
-  const rightApplied = hasRightAxis
-    ? resolveAppliedAxisExtent(axisRanges?.right, autoRightExtent)
-    : null;
+  const directionPresence = {
+    left: { normal: false, inverse: false },
+    right: { normal: false, inverse: false },
+  };
+  for (const series of slice.series) {
+    const cfg = visualMap[series.key ?? series.name] ?? {};
+    const side = cfg.axis === "right" ? "right" : "left";
+    directionPresence[side][cfg.inverse ? "inverse" : "normal"] = true;
+  }
 
-  const yAxis: EChartsOption["yAxis"] = [
-    {
+  const yAxis: NonNullable<EChartsOption["yAxis"]> = [];
+  const yAxisIndexByDirection = new Map<string, number>();
+  const addValueAxis = (side: MacroSeriesAxis, inverse: boolean, visible = true) => {
+    const autoExtent = computePaddedValueExtent(
+      collectSeriesValuesOnAxis(slice, visualMap, side, inverse),
+    );
+    const applied = resolveAppliedAxisExtent(axisRanges?.[side], autoExtent);
+    const index = yAxis.length;
+    yAxisIndexByDirection.set(`${side}:${inverse ? "inverse" : "normal"}`, index);
+    yAxis.push({
       type: "value",
-      position: "left",
-      ...(leftApplied ? { min: leftApplied.min, max: leftApplied.max, scale: true } : {}),
-      splitLine: display.showGridLines ? { lineStyle: { color: CHART.grid } } : { show: false },
+      position: side,
+      inverse,
+      show: visible,
+      ...(applied ? { min: applied.min, max: applied.max, scale: true } : {}),
+      splitLine:
+        visible && side === "left" && display.showGridLines
+          ? { lineStyle: { color: CHART.grid } }
+          : { show: false },
       axisLabel: macroValueAxisLabel(display.yLabelFontSize),
-    },
-    ...(hasRightAxis
-      ? [
-          {
-            type: "value" as const,
-            position: "right" as const,
-            ...(rightApplied ? { min: rightApplied.min, max: rightApplied.max, scale: true } : {}),
-            splitLine: { show: false },
-            axisLabel: macroValueAxisLabel(display.yLabelFontSize),
-          },
-        ]
-      : []),
-  ];
+    });
+  };
 
-  function endLabelFor(cfg: MacroSeriesVisualConfig) {
+  const left = directionPresence.left;
+  if (left.normal || !left.inverse) addValueAxis("left", false);
+  if (left.inverse) addValueAxis("left", true, !left.normal);
+  if (hasRightAxis) {
+    const right = directionPresence.right;
+    if (right.normal) addValueAxis("right", false);
+    if (right.inverse) addValueAxis("right", true, !right.normal);
+  }
+
+  const yAxisIndexFor = (cfg: MacroSeriesVisualConfig): number => {
+    const side = cfg.axis === "right" ? "right" : "left";
+    return yAxisIndexByDirection.get(`${side}:${cfg.inverse ? "inverse" : "normal"}`) ?? 0;
+  };
+  function endLabelFor(cfg: MacroSeriesVisualConfig, seriesColor: string) {
     if (!cfg.showEndLabel) return undefined;
     return {
       show: true,
       formatter: (params: { value?: unknown }) => formatMacroDisplayValue(params?.value),
-      color: cfg.color ?? CHART.text,
+      color: seriesColor,
       backgroundColor: CHART.endLabelBg,
-      borderColor: cfg.color ?? CHART.seriesDefault,
+      borderColor: seriesColor,
       borderWidth: 1,
       padding: [1, 4, 1, 4],
       borderRadius: 2,
@@ -1767,12 +1802,13 @@ export function macroPayloadToChartOption(
       const k = s.key ?? s.name;
       const cfg = visualMap[k] ?? {};
       const chartType = cfg.chartType ?? "line";
-      const yAxisIndex = cfg.axis === "right" && hasRightAxis ? 1 : 0;
+      const yAxisIndex = yAxisIndexFor(cfg);
       const lineWidth = Math.max(0.5, cfg.lineWidth ?? display.lineWidth);
       const showSymbol = display.showSymbols;
       const smooth = display.lineSmooth;
       const symbolSize = Math.max(2, cfg.symbolSize ?? display.symbolSize);
       const opacity = Math.max(0.05, Math.min(1, cfg.opacity ?? 1));
+      const seriesColor = cfg.color ?? defaultMacroSeriesColor(seriesIndex);
       const recessionMarkArea =
         seriesIndex === 0 && regimeMarkAreaData.length > 0
           ? {
@@ -1792,7 +1828,7 @@ export function macroPayloadToChartOption(
           type: "bar",
           yAxisIndex,
           data: s.data,
-          itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
+          itemStyle: { color: seriesColor, opacity },
           barMaxWidth: Math.max(6, display.barMaxWidth),
           ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
@@ -1804,7 +1840,7 @@ export function macroPayloadToChartOption(
           yAxisIndex,
           stack: cfg.stackGroup ?? `stack-${yAxisIndex}`,
           data: s.data,
-          itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
+          itemStyle: { color: seriesColor, opacity },
           barMaxWidth: Math.max(6, display.barMaxWidth),
           ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
@@ -1816,7 +1852,7 @@ export function macroPayloadToChartOption(
           yAxisIndex,
           data: s.data,
           symbolSize,
-          itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
+          itemStyle: { color: seriesColor, opacity },
           ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
         };
       }
@@ -1829,10 +1865,10 @@ export function macroPayloadToChartOption(
           connectNulls: true,
           showSymbol,
           symbolSize,
-          lineStyle: cfg.color ? { color: cfg.color, width: lineWidth, opacity } : { width: lineWidth, opacity },
-          itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
-          areaStyle: { opacity: Math.max(0.05, Math.min(1, display.areaOpacity * opacity)), color: cfg.color },
-          endLabel: endLabelFor(cfg),
+          lineStyle: { color: seriesColor, width: lineWidth, opacity },
+          itemStyle: { color: seriesColor, opacity },
+          areaStyle: { opacity: Math.max(0.05, Math.min(1, display.areaOpacity * opacity)), color: seriesColor },
+          endLabel: endLabelFor(cfg, seriesColor),
           clip: false,
           data: s.data,
           ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
@@ -1848,10 +1884,10 @@ export function macroPayloadToChartOption(
           connectNulls: true,
           showSymbol,
           symbolSize,
-          lineStyle: cfg.color ? { color: cfg.color, width: lineWidth, opacity } : { width: lineWidth, opacity },
-          itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
-          areaStyle: { opacity: Math.max(0.05, Math.min(1, display.areaOpacity * opacity)), color: cfg.color },
-          endLabel: endLabelFor(cfg),
+          lineStyle: { color: seriesColor, width: lineWidth, opacity },
+          itemStyle: { color: seriesColor, opacity },
+          areaStyle: { opacity: Math.max(0.05, Math.min(1, display.areaOpacity * opacity)), color: seriesColor },
+          endLabel: endLabelFor(cfg, seriesColor),
           clip: false,
           data: s.data,
           ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
@@ -1866,9 +1902,9 @@ export function macroPayloadToChartOption(
           showSymbol,
           symbolSize,
           step: "middle",
-          lineStyle: cfg.color ? { color: cfg.color, width: lineWidth, opacity } : { width: lineWidth, opacity },
-          itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
-          endLabel: endLabelFor(cfg),
+          lineStyle: { color: seriesColor, width: lineWidth, opacity },
+          itemStyle: { color: seriesColor, opacity },
+          endLabel: endLabelFor(cfg, seriesColor),
           clip: false,
           data: s.data,
           ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
@@ -1887,10 +1923,10 @@ export function macroPayloadToChartOption(
             type: "dashed",
             width: lineWidth,
             opacity,
-            ...(cfg.color ? { color: cfg.color } : {}),
+            color: seriesColor,
           },
-          itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
-          endLabel: endLabelFor(cfg),
+          itemStyle: { color: seriesColor, opacity },
+          endLabel: endLabelFor(cfg, seriesColor),
           clip: false,
           data: s.data,
           ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),
@@ -1904,9 +1940,9 @@ export function macroPayloadToChartOption(
         connectNulls: true,
         showSymbol,
         symbolSize,
-        lineStyle: cfg.color ? { color: cfg.color, width: lineWidth, opacity } : { width: lineWidth, opacity },
-        itemStyle: cfg.color ? { color: cfg.color, opacity } : { opacity },
-        endLabel: endLabelFor(cfg),
+        lineStyle: { color: seriesColor, width: lineWidth, opacity },
+        itemStyle: { color: seriesColor, opacity },
+        endLabel: endLabelFor(cfg, seriesColor),
         clip: false,
         data: s.data,
         ...(recessionMarkArea ? { markArea: recessionMarkArea } : {}),

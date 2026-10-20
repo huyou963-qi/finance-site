@@ -8,7 +8,10 @@ const fullWidthDigits = (value: string) => value.replace(/[０-９]/g, (digit) =
 export function discoverInboundConsumptionResultPdfs(html: string, pageUrl: string): Array<{ url: string; label: string }> {
   const found = [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
     .map((match) => ({ href: match[1], text: match[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ") }))
-    .filter(({ href, text }) => /\.pdf(?:\?|$)/i.test(href) && /(?:1-3|4-6|7-9|10-12)月期[\s\S]*調査結果.*概要/.test(text))
+    // JTA currently labels the official PDFs simply as e.g. "4-6月期(2次速報)".
+    // Older layouts used the longer "調査結果…概要" text.  Both are official
+    // quarterly summaries; exclude annual reports and non-quarterly PDFs.
+    .filter(({ href, text }) => /\.pdf(?:\?|$)/i.test(href) && /(?:1-3|4-6|7-9|10-12)月期(?:[\s\S]*調査結果.*概要|\s*[（(]\s*(?:1次|2次)速報\s*[）)])/.test(text))
     .map(({ href, text }) => ({ url: new URL(href, pageUrl).toString(), label: text }));
   const unique = [...new Map(found.map((entry) => [entry.url, entry])).values()];
   if (!unique.length) throw new Error("JTA inbound-consumption page has no official quarterly result PDFs");

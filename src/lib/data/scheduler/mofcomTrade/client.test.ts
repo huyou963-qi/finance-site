@@ -5,7 +5,7 @@ import { fetchMofcomTradeHistory } from "./client";
 const total = [{ trade_date: "202605", total_value: 6481.3, total_per: 22.6, total_lj_value: 29750.8, total_lj_per: 19.2, export_value: 3767.8, export_per: 19.4, export_lj_value: 17134, export_lj_per: 15.5, import_value: 2713.5, import_per: 27.4, import_lj_value: 12616.9, import_lj_per: 24.5, imexgap_value: 1054.3 }];
 
 test("parses official MOFCOM customs-trade JSON rows", async () => {
-  const values = await fetchMofcomTradeHistory({ fetchJson: async (path) => {
+  const values = await fetchMofcomTradeHistory({ fetchGaccTotals: async () => [], fetchJson: async (path) => {
     if (path === "totalmonth/query") return [total];
     if (path === "totaltrademethod/query") return [[{ trade_date: "202605", type: "一般贸易", export_value: 2592.5, export_per: 20.7, export_lj_value: 13508.16, export_lj_per: 13.1, import_value: 1573.62, import_per: 25.3, import_lj_value: 8593.52, import_lj_per: 14.8 }]];
     if (path === "totalbycountry/query") return { rows: [{ trade_date: "202605", type: "美国", total_lj_value: 2891.46, total_lj_per: 0.1, export_lj_value: 2159.2, export_lj_per: 0.2, import_lj_value: 732.26, import_lj_per: -0.8 }] };

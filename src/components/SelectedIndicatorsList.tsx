@@ -207,7 +207,7 @@ export function SelectedIndicatorsList({
         const metadataEntries: Array<[string, string | undefined]> = [
           ["国家", row.country],
           ["单位", row.unit],
-          ["更新时间", row.updatedAt],
+          ["最新观测", row.updatedAt],
           ["频率", row.frequency],
           ...(showSource ? [["来源", row.source] as [string, string | undefined]] : []),
           ["范围", row.range],

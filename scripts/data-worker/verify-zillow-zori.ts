@@ -9,7 +9,7 @@ loadEnvConfig(process.cwd());
 
 import { PrismaClient } from "@prisma/client";
 import { readFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
-import { ZILLOW_ZORI_INSTRUMENT, ZILLOW_ZORI_PACKAGE_ID } from "../../src/lib/data/scheduler/zillowZori/catalog";
+import { ZILLOW_ZORI_INSTRUMENT, ZILLOW_ZORI_PACKAGE_ID, ZILLOW_ZORI_PROBE_HOURS } from "../../src/lib/data/scheduler/zillowZori/catalog";
 import { resolveUsCatalogPlacement } from "../../src/lib/data/usCatalogTaxonomy";
 
 /** Zillow 每月中旬发上月：最新观测允许滞后约 75 天 */
@@ -57,7 +57,7 @@ async function main() {
 
     const sub = await prisma.dataSubscription.findUnique({ where: { instrumentId: inst.id } });
     const rule = sub?.releaseRule as { type?: string; intervalHours?: number } | undefined;
-    if (!sub?.enabled || rule?.type !== "probe_interval" || sub.releasePackageId !== ZILLOW_ZORI_PACKAGE_ID) {
+    if (!sub?.enabled || rule?.type !== "probe_interval" || rule.intervalHours !== ZILLOW_ZORI_PROBE_HOURS || sub.releasePackageId !== ZILLOW_ZORI_PACKAGE_ID) {
       console.error(
         `  ✗ 订阅不符 enabled=${sub?.enabled} rule=${JSON.stringify(rule)} package=${sub?.releasePackageId}（应 ${ZILLOW_ZORI_PACKAGE_ID}）`,
       );

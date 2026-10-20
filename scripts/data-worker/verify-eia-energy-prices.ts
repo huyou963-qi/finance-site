@@ -1,5 +1,5 @@
 /**
- * EIA 能源价格（周度零售汽油、亨利港天然气、航油、取暖油）接入自检。
+ * EIA 能源价格（原油、成品油现货与周度零售价）接入自检。
  *
  * npm run data:verify-eia-energy-prices
  * npm run data:verify-eia-energy-prices -- --db
@@ -20,6 +20,10 @@ const EXPECTED_START_MAX: Record<string, string> = {
   DHHNGSP: "1997-02-01",
   DJFUELUSGULF: "1990-05-01",
   DHOILNYH: "1986-07-01",
+  DCOILBRENTEU: "1987-06-01",
+  DDFUELNYH: "2006-07-01",
+  DGASNYH: "1986-07-01",
+  GASDESLSW: "2007-03-01",
 };
 
 /**
@@ -32,6 +36,10 @@ const MIN_COUNT: Record<string, number> = {
   DHHNGSP: 5500, // 实测 5692
   DJFUELUSGULF: 7800, // 实测 8041
   DHOILNYH: 8500, // 实测 8790
+  DCOILBRENTEU: 8800, // 实测有效值 9097（FRED 日历记录含缺失日）
+  DDFUELNYH: 5000, // FRED API 2026-10 约 5297 个日历记录
+  DGASNYH: 8800, // 实测有效值 9146（FRED 日历记录含缺失日）
+  GASDESLSW: 950, // FRED API 2026-10 约 1026 个周度记录
 };
 
 /** 最新观测允许滞后天数：EIA 现货在 FRED 上每周三批量更新，再留节假日余量 */

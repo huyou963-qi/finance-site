@@ -7,8 +7,6 @@ import { AuthPageShell, authInputClass } from "@/components/auth/AuthPageShell";
 import { WechatQrPanel } from "@/components/auth/WechatQrPanel";
 import { AccountProfileClient } from "./AccountProfileClient";
 
-const SERVICE_NOTICE_STORAGE_KEY = "gekko-tech-service-notice-shown";
-
 export function AuthClient() {
   const searchParams = useSearchParams();
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -19,9 +17,19 @@ export function AuthClient() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaSetup, setMfaSetup] = useState<{ token: string; secret: string; uri: string } | null>(null);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showServiceNotice, setShowServiceNotice] = useState(false);
+  const [loginLock, setLoginLock] = useState<{ identifier: string; until: number } | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const remainingLockSeconds = mode === "login" && loginLock?.identifier === username.trim().toLowerCase()
+    ? Math.max(0, Math.ceil((loginLock.until - clockNow) / 1000))
+    : 0;
+  const remainingLockLabel = `${String(Math.floor(remainingLockSeconds / 60)).padStart(2, "0")}:${String(remainingLockSeconds % 60).padStart(2, "0")}`;
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -45,35 +53,30 @@ export function AuthClient() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (loggedIn !== false) return;
-
-    try {
-      if (window.localStorage.getItem(SERVICE_NOTICE_STORAGE_KEY)) return;
-      window.localStorage.setItem(SERVICE_NOTICE_STORAGE_KEY, "1");
-      setShowServiceNotice(true);
-    } catch {
-      // 如果浏览器禁用了本地存储，提示仍可正常展示。
-      setShowServiceNotice(true);
-    }
-  }, [loggedIn]);
-
-  useEffect(() => {
-    if (!showServiceNotice) return;
-    const timeoutId = window.setTimeout(() => setShowServiceNotice(false), 5_000);
-    return () => window.clearTimeout(timeoutId);
-  }, [showServiceNotice]);
+    if (!loginLock) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setClockNow(now);
+      if (now >= loginLock.until) {
+        setLoginLock(null);
+        setHint("等待已结束，请重新输入密码登录。绑定验证器时请使用新显示的密钥。");
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [loginLock]);
 
   const submit = async () => {
     setLoading(true);
     setHint(null);
     try {
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const endpoint = mfaSetup ? "/api/auth/admin-mfa-setup" : mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(mode === "login" ? { identifier: username } : { username }),
+          ...(mfaSetup ? { setupToken: mfaSetup.token, code: totpCode } : mode === "login" ? { identifier: username } : { username }),
           password,
+          totpCode,
           email,
           phone,
         }),
@@ -81,8 +84,51 @@ export function AuthClient() {
       const payload = (await res.json()) as {
         error?: string;
         message?: string;
+        mfaRequired?: boolean;
+        mfaSetup?: boolean;
+        setupToken?: string;
+        secret?: string;
+        uri?: string;
+        recoveryCodes?: string[];
+        retryAfterSeconds?: number;
       };
-      if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
+      if (res.status === 429) {
+        const headerSeconds = Number(res.headers.get("Retry-After"));
+        const seconds = Number.isFinite(payload.retryAfterSeconds) && payload.retryAfterSeconds! > 0
+          ? payload.retryAfterSeconds!
+          : headerSeconds;
+        if (Number.isFinite(seconds) && seconds > 0) {
+          const now = Date.now();
+          setClockNow(now);
+          setLoginLock({ identifier: username.trim().toLowerCase(), until: now + seconds * 1000 });
+          setMfaSetup(null);
+          setMfaRequired(false);
+          setTotpCode("");
+          setHint(null);
+          return;
+        }
+      }
+      if (!res.ok) {
+        if (mfaSetup && payload.error?.includes("设置会话已过期")) {
+          setMfaSetup(null);
+          setTotpCode("");
+        }
+        throw new Error(payload.error ?? `HTTP ${res.status}`);
+      }
+      if (payload.mfaRequired) {
+        setMfaRequired(true);
+        setHint("请输入验证器中的 6 位动态验证码");
+        return;
+      }
+      if (payload.mfaSetup && payload.setupToken && payload.secret && payload.uri) {
+        setMfaSetup({ token: payload.setupToken, secret: payload.secret, uri: payload.uri });
+        setHint("管理员首次登录：请在验证器中添加下方密钥，然后输入动态验证码完成绑定");
+        return;
+      }
+      if (payload.recoveryCodes) {
+        setRecoveryCodes(payload.recoveryCodes);
+        return;
+      }
       setHint(
         mode === "login"
           ? "登录成功，正在跳转…"
@@ -107,6 +153,17 @@ export function AuthClient() {
     );
   }
 
+  if (recoveryCodes) {
+    return <AuthPageShell>
+      <h1 className="text-xl font-semibold text-fs-text">管理员双重验证已启用</h1>
+      <p className="mt-3 text-sm text-fs-secondary">请立即将以下一次性恢复码保存在安全位置。每个恢复码只能使用一次，关闭此页后不会再次显示。</p>
+      <div className="mt-4 grid grid-cols-2 gap-2 rounded-md border border-fs-border bg-fs-elevated p-4 font-mono text-sm text-fs-text">
+        {recoveryCodes.map((code) => <code key={code}>{code}</code>)}
+      </div>
+      <button type="button" onClick={() => { window.location.href = "/"; }} className="mt-5 rounded-md bg-fs-accent px-4 py-2 text-sm text-white">已保存，进入首页</button>
+    </AuthPageShell>;
+  }
+
   if (loggedIn) {
     return (
       <AccountProfileClient
@@ -118,41 +175,6 @@ export function AuthClient() {
 
   return (
     <AuthPageShell>
-      {showServiceNotice ? (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/50 p-4">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="service-notice-title"
-            className="w-full max-w-md rounded-xl border border-amber-300/70 bg-white p-6 shadow-2xl"
-          >
-            <div className="flex items-start gap-3">
-              <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 text-lg font-bold text-amber-700"
-                aria-hidden
-              >
-                !
-              </span>
-              <div>
-                <h2 id="service-notice-title" className="text-lg font-semibold text-fs-text">
-                  服务提示
-                </h2>
-                <p className="mt-2 text-base font-semibold leading-7 text-fs-secondary">
-                  用户网站迭代开发中，可能会出现短暂服务不可用，请稍等会再试！
-                </p>
-                <p className="mt-3 text-xs text-fs-muted">此提示将在 5 秒后自动关闭。</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowServiceNotice(false)}
-              className="mt-5 w-full rounded-md border border-fs-border px-4 py-2 text-sm font-medium text-fs-secondary transition hover:bg-fs-elevated"
-            >
-              我知道了
-            </button>
-          </section>
-        </div>
-      ) : null}
       <h1 className="text-xl font-semibold text-fs-text">
         {mode === "login" ? "欢迎回来" : "创建账户"}
       </h1>
@@ -182,6 +204,9 @@ export function AuthClient() {
             aria-selected={mode === tab.id}
             onClick={() => {
               setMode(tab.id);
+              setMfaRequired(false);
+              setMfaSetup(null);
+              setUseRecoveryCode(false);
               setHint(null);
             }}
             className={`rounded-md px-3 py-2 text-sm font-medium transition ${
@@ -248,6 +273,14 @@ export function AuthClient() {
             </>
           ) : null}
 
+          {mfaSetup ? (
+            <div className="rounded-md border border-fs-border bg-fs-elevated p-3 text-sm text-fs-secondary">
+              <p>验证器密钥（仅本次显示，请妥善保存）：</p>
+              <code className="mt-1 block break-all text-fs-text">{mfaSetup.secret}</code>
+              <p className="mt-2 text-xs">在验证器中手动添加 TOTP 账户，名称为 GekkoTech。绑定会话 10 分钟后过期。</p>
+            </div>
+          ) : null}
+
           <label className="block text-sm text-fs-secondary">
             密码
             <input
@@ -257,20 +290,41 @@ export function AuthClient() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder={mode === "login" ? "请输入密码" : "至少 8 位，含字母与数字"}
               className={authInputClass}
+              disabled={!!mfaSetup}
             />
           </label>
+
+          {mfaRequired || mfaSetup ? (
+            <label className="block text-sm text-fs-secondary">
+              双重验证码
+              <input
+                inputMode={useRecoveryCode ? "text" : "numeric"}
+                autoComplete="one-time-code"
+                pattern={useRecoveryCode ? "[A-Fa-f0-9]{16}" : "[0-9]{6}"}
+                maxLength={useRecoveryCode ? 16 : 6}
+                value={totpCode}
+                onChange={(e) => setTotpCode(useRecoveryCode ? e.target.value.replace(/[^a-fA-F0-9]/g, "").toUpperCase() : e.target.value.replace(/\D/g, ""))}
+                placeholder={useRecoveryCode ? "16 位一次性恢复码" : "6 位动态验证码"}
+                className={authInputClass}
+                required
+              />
+            </label>
+          ) : null}
+          {mfaRequired && !mfaSetup ? <button type="button" className="text-sm text-fs-accent-text" onClick={() => { setUseRecoveryCode((value) => !value); setTotpCode(""); }}>{useRecoveryCode ? "使用动态验证码" : "使用一次性恢复码"}</button> : null}
 
           <button
             type="submit"
             disabled={
               loading ||
+              remainingLockSeconds > 0 ||
               !username.trim() ||
-              !password ||
+              (!password && !mfaSetup) ||
+              ((mfaRequired || mfaSetup) && totpCode.length !== (useRecoveryCode ? 16 : 6)) ||
               (mode === "register" && (!email.trim() || !phone.trim()))
             }
             className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
           >
-            {loading ? "提交中…" : mode === "login" ? "登录" : "注册并发送验证邮件"}
+            {loading ? "提交中…" : remainingLockSeconds > 0 ? `请等待 ${remainingLockLabel}` : mfaSetup ? "完成验证并登录" : mode === "login" ? "登录" : "注册并发送验证邮件"}
           </button>
 
           {mode === "login" ? (
@@ -317,7 +371,11 @@ export function AuthClient() {
         </>
       ) : null}
 
-      {hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
+      {remainingLockSeconds > 0 ? (
+        <p role="status" className="mt-4 break-words rounded-md border border-fs-border bg-fs-elevated p-3 text-sm text-fs-secondary">
+          为保护账户，登录已暂停。剩余 <strong className="tabular-nums text-fs-text">{remainingLockLabel}</strong>。倒计时结束后请重新登录；若正在绑定验证器，请使用届时显示的新密钥。
+        </p>
+      ) : hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
     </AuthPageShell>
   );
 }

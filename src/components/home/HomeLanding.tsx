@@ -4,8 +4,12 @@ import Link from "next/link";
 import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 import { MarketGlobe } from "@/components/home/MarketGlobe";
 import { useEffect, useState } from "react";
+import { SiteAnnouncementDialog } from "@/components/home/SiteAnnouncementDialog";
+import type { ActiveSiteAnnouncement } from "@/lib/siteAnnouncement";
+import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 
-export function HomeLanding() {
+export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnouncement | null }) {
+  const features = useVisibleFeatures();
   const [macroSeriesCount, setMacroSeriesCount] = useState<string>("—");
 
   useEffect(() => {
@@ -33,6 +37,7 @@ export function HomeLanding() {
 
   return (
     <div className="relative mx-auto flex min-h-full w-full max-w-[1840px] flex-1 flex-col overflow-hidden">
+      {announcement ? <SiteAnnouncementDialog announcement={announcement} /> : null}
       <div className="pointer-events-none absolute left-[43%] top-[18%] h-80 w-80 rounded-full bg-blue-50/80 blur-3xl" />
       <section className="relative grid flex-1 items-center gap-5 py-4 lg:grid-cols-[0.8fr_1.2fr] lg:gap-2 lg:py-2">
         <div className="relative z-10 max-w-[660px] lg:-translate-y-3 lg:pl-12 xl:pl-16">
@@ -46,12 +51,21 @@ export function HomeLanding() {
             <span className="text-slate-400">此刻同屏。</span>
           </h1>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link href="/macro" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
-              进入宏观 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
-            </Link>
-            <Link href="/weekly" className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-              AI周度观察
-            </Link>
+            {features.can("markets") ? (
+              <Link href="/markets" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
+                行情 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
+              </Link>
+            ) : null}
+            {features.can("macro") ? (
+              <Link href="/macro" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
+                进入宏观 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
+              </Link>
+            ) : null}
+            {features.can("weekly") ? (
+              <Link href="/weekly" className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                AI周度观察
+              </Link>
+            ) : null}
           </div>
           <div className="mt-12 grid max-w-[560px] grid-cols-3 border-t border-slate-200 pt-5">
             {[[macroSeriesCount, "宏观序列"], ["8", "全球市场"], ["每周", "AI 研判"]].map(([value, label]) => (

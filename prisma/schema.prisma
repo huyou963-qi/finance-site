@@ -11,6 +11,29 @@ datasource db {
   schemas  = ["public", "mds"]
 }
 
+/// Shared K-line API responses; leases fence concurrent refreshes across PM2 processes.
+model KlineResponseCache {
+  key          String   @id @db.VarChar(64)
+  familyKey    String   @default("") @map("family_key") @db.VarChar(64)
+  payload      Json?
+  payloadBytes Int      @default(0) @map("payload_bytes")
+  checkedAt    DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("checked_at") @db.Timestamptz(3)
+  freshUntil   DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("fresh_until") @db.Timestamptz(3)
+  expiresAt    DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("expires_at") @db.Timestamptz(3)
+  retryAfter   DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("retry_after") @db.Timestamptz(3)
+  leaseOwner   String?  @map("lease_owner") @db.VarChar(36)
+  leaseUntil   DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("lease_until") @db.Timestamptz(3)
+  failures     Int      @default(0)
+  error        String?  @db.VarChar(300)
+  lastAccessAt DateTime @default(now()) @map("last_access_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@index([lastAccessAt])
+  @@index([familyKey])
+  @@map("kline_response_cache")
+  @@schema("mds")
+}
+
 // ─── public：应用账户与用户态 JSON（Prisma 管理）────────────────────────────
 
 model User {
@@ -22,6 +45,12 @@ model User {
   passHash        String
   passSalt        String
   role            String
+  /// admin=最高管理员；其余 admin_* 为限定后台岗位
+  tags            String[]  @default([])
+  status          String    @default("active") @db.VarChar(16)
+  suspendedAt     DateTime? @map("suspended_at")
+  suspensionReason String?  @map("suspension_reason") @db.VarChar(500)
+  adminTotpSecret String?   @map("admin_totp_secret") @db.Text
   /// standard=普通用户，pro=付费 Pro 用户
   plan            String    @default("standard")
   /// Pro 付费到期时间；过期后视为 standard（试用另见 trialEndsAt）
@@ -37,12 +66,23 @@ model User {
   wechatNickname  String?   @map("wechat_nickname")
   wechatBoundAt   DateTime? @map("wechat_bound_at")
   createdAt       DateTime
+  lastLoginAt     DateTime? @map("last_login_at")
 
+  // Legacy cloud weekly-report OAuth tables are retained for migration compatibility.
+  weeklyOAuthGrants   WeeklyOAuthGrant[]
   sessions            Session[]
+  authEvents          AccountAuthEvent[]
+  adminMfaChallenges  AdminMfaChallenge[]
+  adminMfaRecoveryCodes AdminMfaRecoveryCode[]
   recoveryRequests    AccountRecoveryRequest[]
   assetTemplateState  UserAssetTemplateState?
   macroChartPrefsRow  UserMacroChartPrefs?
   bookmarkState       UserBookmarkState?
+  marketWatchlist     UserMarketWatchlistItem[]
+  marketWatchlistGroups UserMarketWatchlistGroup[]
+  marketWatchlistTabOrder String[] @default([])
+  marketWatchlistStockOrder String[] @default([])
+  marketDrawings     UserMarketDrawing[]
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
   investmentCases     InvestmentCase[]
@@ -50,6 +90,11 @@ model User {
   creditLedger        CreditLedgerEntry[]
   articles            Article[]      @relation("ArticleAuthor")
   articleAssets       ArticleAsset[] @relation("ArticleAssetUploader")
+  articleComments     ArticleComment[] @relation("ArticleCommentAuthor")
+
+  @@index([status, createdAt])
+  @@index([role, createdAt])
+  @@index([plan, planExpiresAt])
 
   @@schema("public")
 }
@@ -269,6 +314,72 @@ model Session {
   @@schema("public")
 }
 
+model AccountAuthEvent {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("account_auth_event")
+  @@schema("public")
+}
+
+model AdminMfaChallenge {
+  tokenHash String   @id @map("token_hash") @db.VarChar(64)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  secret    String   @db.Text
+  expiresAt DateTime @map("expires_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("admin_mfa_challenge")
+  @@schema("public")
+}
+
+model AdminMfaRecoveryCode {
+  codeHash  String   @id @map("code_hash") @db.VarChar(64)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("admin_mfa_recovery_code")
+  @@schema("public")
+}
+
+model AuthAttempt {
+  keyHash     String   @id @map("key_hash") @db.VarChar(64)
+  attempts    Int      @default(0)
+  windowStart DateTime @map("window_start")
+  lockedUntil DateTime? @map("locked_until")
+
+  @@index([lockedUntil])
+  @@index([windowStart])
+  @@map("auth_attempt")
+  @@schema("public")
+}
+
+model AdminUserAudit {
+  id            String   @id @default(cuid())
+  actorId       String   @map("actor_id")
+  actorUsername String   @map("actor_username") @db.VarChar(64)
+  targetUserId  String   @map("target_user_id")
+  targetUsername String  @map("target_username") @db.VarChar(64)
+  action        String   @db.VarChar(48)
+  reason        String?  @db.VarChar(500)
+  before        Json?
+  after         Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([targetUserId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("admin_user_audit")
+  @@schema("public")
+}
+
 model PendingRegistration {
   token     String   @id
   username  String
@@ -327,6 +438,46 @@ model UserBookmarkState {
   @@schema("public")
 }
 
+/// 行情自选股：逐标的更新，按用户隔离，支持跨设备读取。
+model UserMarketDrawing {
+  userId     String
+  scope      String @db.VarChar(160)
+  drawings   Json
+  revision   Int @default(1)
+  updatedAt  DateTime @updatedAt
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, scope])
+  @@schema("public")
+}
+
+model UserMarketWatchlistItem {
+  userId    String
+  symbol    String @db.VarChar(64)
+  name      String @db.VarChar(200)
+  exchange  String @db.VarChar(100)
+  groupId   String?
+  group     UserMarketWatchlistGroup? @relation(fields: [userId, groupId], references: [userId, id], onDelete: NoAction)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, symbol])
+  @@schema("public")
+}
+
+model UserMarketWatchlistGroup {
+  id        String @default(cuid())
+  userId    String
+  name      String @db.VarChar(30)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     UserMarketWatchlistItem[]
+
+  @@id([userId, id])
+  @@unique([userId, name])
+  @@schema("public")
+}
+
 /// 系统内置宏观模板覆盖（管理员保存）；全局单例 id=default
 model SystemMacroChartPrefs {
   id        String   @id @default("default")
@@ -355,6 +506,22 @@ model FeatureAccessPolicy {
   updatedBy String?  @map("updated_by")
 
   @@map("feature_access_policy")
+  @@schema("public")
+}
+
+/// 首页站点公告（管理员编辑）；全局单例 id=default。
+model SiteAnnouncement {
+  id        String   @id @default("default")
+  enabled   Boolean  @default(false)
+  title     String   @db.VarChar(80)
+  content   String   @db.Text
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.VarChar(64)
+
+  @@map("site_announcement")
   @@schema("public")
 }
 
@@ -503,10 +670,28 @@ model Article {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   assets         ArticleAsset[]
+  comments       ArticleComment[]
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([authorId, updatedAt(sort: Desc)])
   @@map("research_article")
+  @@schema("public")
+}
+
+/// 专题文章评论。正文仅保存会员输入的纯文本，由前端按文本渲染。
+model ArticleComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  authorId  String   @map("author_id")
+  author    User     @relation("ArticleCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([articleId, createdAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@map("research_article_comment")
   @@schema("public")
 }
 
@@ -1727,4 +1912,53 @@ model DeraInsiderOwner {
   @@index([ownerName])
   @@map("dera_insider_owner")
   @@schema("mds")
+}
+
+/// Legacy cloud weekly-report OAuth schema; runtime endpoints were retired.
+/// Keep the models aligned with the already-applied migration until a separate cleanup migration.
+model WeeklyOAuthConsent {
+  nonceHash   String   @id @db.VarChar(64)
+  userId      String
+  sessionHash String   @db.VarChar(64)
+  clientId    String
+  redirectUri String
+  resource    String
+  scope       String
+  state       String   @db.VarChar(512)
+  codeChallenge String @db.VarChar(43)
+  expiresAt   DateTime
+  @@index([expiresAt])
+  @@index([userId])
+  @@schema("public")
+}
+
+/// Administrator consent; revocation invalidates all associated credentials.
+model WeeklyOAuthGrant {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String
+  resource    String
+  scope       String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  credentials WeeklyOAuthCredential[]
+  @@index([userId])
+  @@schema("public")
+}
+
+/// SHA-256 only; raw code/access/refresh material is never persisted.
+model WeeklyOAuthCredential {
+  hash        String   @id @db.VarChar(64)
+  kind        String   @db.VarChar(16)
+  grantId     String
+  grant       WeeklyOAuthGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  redirectUri String?
+  codeChallenge String? @db.VarChar(43)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  @@index([grantId])
+  @@index([expiresAt])
+  @@schema("public")
 }

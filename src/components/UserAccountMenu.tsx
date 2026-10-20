@@ -10,7 +10,7 @@ export type AuthUser = {
   email: string;
   phone: string;
   emailVerifiedAt: string;
-  role: "admin" | "user";
+  role: "admin" | "admin_support" | "admin_membership" | "admin_orders" | "user";
   plan: "standard" | "pro";
 };
 
@@ -104,12 +104,15 @@ function UserMenu({
 }) {
   const verified = Boolean(user.emailVerifiedAt);
   const isAdmin = user.role === "admin";
+  const isStaff = user.role.startsWith("admin_");
   const authActive = pathname === "/auth" || pathname.startsWith("/auth/");
   const adminDataActive =
     pathname === "/admin/data-catalog" || pathname.startsWith("/admin/data-catalog/");
   const adminUsersActive = pathname === "/admin/users" || pathname.startsWith("/admin/users/");
   const adminErrorsActive =
     pathname === "/admin/error-reports" || pathname.startsWith("/admin/error-reports/");
+  const adminAnnouncementActive =
+    pathname === "/admin/site-announcement" || pathname.startsWith("/admin/site-announcement/");
 
   const displayEmail = user.email || user.username;
 
@@ -123,7 +126,7 @@ function UserMenu({
           <p className="truncate text-sm font-medium text-fs-text">{displayEmail}</p>
           <p className="text-xs text-fs-muted">
             {user.username}
-            {isAdmin ? " · 管理员" : ""}
+            {isAdmin ? " · 最高管理员" : isStaff ? " · 后台人员" : ""}
             {verified ? " · 已验证" : " · 未验证邮箱"}
           </p>
         </div>
@@ -143,22 +146,24 @@ function UserMenu({
       <MenuSection title="偏好" />
       <MenuRow label="宏观图表" href="/macro" onClick={onClose} />
 
-      {isAdmin ? (
+      {isAdmin || isStaff ? (
         <>
           <MenuSection title="管理" />
+          {isAdmin ? <>
           <MenuRow
             label="数据更新目录"
             href="/admin/data-catalog"
             active={adminDataActive}
             onClick={onClose}
           />
+          </> : null}
           <MenuRow
             label="用户管理"
             href="/admin/users"
             active={adminUsersActive}
             onClick={onClose}
           />
-          <MenuRow
+          {isAdmin ? <><MenuRow
             label="功能页权限"
             href="/admin/feature-access"
             active={
@@ -168,17 +173,24 @@ function UserMenu({
             onClick={onClose}
           />
           <MenuRow
+            label="首页公告"
+            href="/admin/site-announcement"
+            active={adminAnnouncementActive}
+            onClick={onClose}
+          />
+          </> : null}
+          {(isAdmin || user.role === "admin_orders") ? <MenuRow
             label="订单确认"
             href="/admin/orders"
             active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}
             onClick={onClose}
-          />
-          <MenuRow
+          /> : null}
+          {isAdmin ? <MenuRow
             label="用户反馈"
             href="/admin/error-reports"
             active={adminErrorsActive}
             onClick={onClose}
-          />
+          /> : null}
         </>
       ) : null}
 

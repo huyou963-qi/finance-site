@@ -50,6 +50,7 @@ npm run data:apply -- --skip-migrate --skip-verify  # 按需跳过
 ## 已挂进部署流水线
 
 `.github/workflows/deploy.yml` 在 `main` push 后自动：CI 构建 → `deploy.tar.gz` → `scp` 到 `/opt/finance-site` → 解压 → 落库 → `pm2 restart`。
+部署会把旧版 `.next/static` 归档到 `/opt/finance-site/.next-static-archive`，并在解压后补回最近 30 天的文件。这样发布前已打开的页面仍能加载旧哈希 chunk；同名文件以新构建为准。过期文件在后续部署时清理。
 
 服务器 SSH 块（节选）已包含：
 
@@ -70,7 +71,9 @@ pm2 restart finance-site
 | `/opt/finance-site` | `next start` + 预构建 `.next`（pm2 进程 `finance-site`） | `deploy.yml` 的 `DEPLOY_PATH`，解压部署包 |
 | `/opt/finance-site-jp-data` | **cron 的 `data:worker`（每 5 分钟）与 `data:sync-calendar`（每小时）**，tsx 直跑源码 | 部署里的 `sync-cron-checkout.sh` |
 
-`DEPLOY_PATH` 只有前者。2026-09 之前 cron 检出靠手工 rsync：忘了就会**线上调度器继续跑旧代码，而部署是绿的、没有任何提示**——调度器修复因此连续几次需要手工补同步。现在由 `scripts/ops/sync-cron-checkout.sh` 在部署里自动完成，并在结尾比对 `src/`、`scripts/` 的 md5，不一致即让部署失败。
+`DEPLOY_PATH` 只有前者。2026-09 之前 cron 检出靠手工 rsync：忘了就会**线上调度器继续跑旧代码，而部署是绿的、没有任何提示**——调度器修复因此连续几次需要手工补同步。现在由 `scripts/ops/sync-cron-checkout.sh` 在部署里自动完成，并在结尾比对 `src/`、`scripts/` 的 md5，不一致即让部署失败；新主机若还没有该检出，脚本会创建目录并链接主部署的 `node_modules` 与 `.env.local`。
+
+主调度 cron 也由部署从 `scripts/ops/finance-site-data-scheduler.cron` 幂等安装到 `/etc/cron.d/finance-site-data-scheduler`，不再依赖服务器上的手工 crontab。worker 日志写入 `/opt/finance-site/logs/data-worker.log`，日历同步日志写入 `/opt/finance-site/logs/sync-calendar.log`，统一由 `finance-site-data.logrotate` 轮转。
 
 该脚本只同步源码（`src scripts prisma data` + `package.json` / `package-lock.json` / `tsconfig.json` / `next.config.ts`），**刻意不碰**：
 

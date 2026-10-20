@@ -24,6 +24,9 @@ function laborFredSourceMeta(fredId: string): { source: string; sourceUpdateNote
   if (fredId === "ICSA" || fredId === "CCSA") {
     return { source: "DOL/FRED", sourceUpdateNote: "每周四就业报告" };
   }
+  if (fredId === "ADPMNUSNERSA") {
+    return { source: "ADP/FRED", sourceUpdateNote: "ADP 全国就业报告（每月非农前两天，周三）" };
+  }
   if (JOLTS_IDS.has(fredId)) {
     return { source: "BLS/FRED", sourceUpdateNote: "BLS JOLTS 月报（滞后约 1 月）" };
   }
@@ -132,6 +135,9 @@ export const LABOR_FRED_SERIES: readonly LaborFredSeedRow[] = [
   laborFredRow("EMRATIO", "就业人口比", "就业与工资", "月", "MONTHLY", "%"),
   laborFredRow("CCSA", "续请失业金人数", "领先与深度", "周", "WEEKLY", "人"),
   laborFredRow("USPRIV", "私营部门非农就业", "就业结构", "月", "MONTHLY", "千人"),
+  // ADP 私营就业：非农前两天发布的第三方统计（2022-08 起方法重建，ALFRED 自此有逐期首发版本）；
+  // 非农 nowcast 页用作第三方对照，单位为人（FRED 原口径）
+  laborFredRow("ADPMNUSNERSA", "ADP 私营部门就业人数", "就业与工资", "月", "MONTHLY", "人"),
   laborFredRow("USGOVT", "政府部门就业", "就业结构", "月", "MONTHLY", "千人"),
   laborFredRow("MANEMP", "制造业就业", "就业结构", "月", "MONTHLY", "千人"),
   laborFredRow(

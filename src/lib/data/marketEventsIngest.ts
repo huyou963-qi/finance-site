@@ -17,9 +17,11 @@ import {
   updateMarketEvent,
   type MarketEventInput,
 } from "@/lib/data/marketEvents";
+import { withEventPresentation, eventRecord, isValidEventTime } from "./eventPresentation";
 import { prisma } from "@/lib/prisma";
+import { evaluateMacroSurprise } from "@/lib/data/macroEventSurprise";
 
-export type IngestEventDraft = {
+export type IngestEventDraft = import("./eventPresentation").EventPresentation & {
   externalId: string;
   title: string;
   content: string;
@@ -87,6 +89,7 @@ export function validateIngestRun(run: IngestRunOutput): IngestValidationResult 
   const seenExt = new Set<string>();
 
   run.events.forEach((ev, index) => {
+    try { withEventPresentation(ev.payload, ev); } catch (e) { issues.push({ index, field: "presentation", message: String(e) }); }
     if (!ev.externalId?.trim()) {
       issues.push({ index, field: "externalId", message: "缺少 externalId" });
     } else if (seenExt.has(ev.externalId.trim())) {
@@ -98,6 +101,8 @@ export function validateIngestRun(run: IngestRunOutput): IngestValidationResult 
     if (!ev.content?.trim()) issues.push({ index, field: "content", message: "缺少 content" });
     if (!ev.occurredAt?.trim()) {
       issues.push({ index, field: "occurredAt", message: "缺少 occurredAt" });
+    } else if (!isValidEventTime(ev.occurredAt, ev.datePrecision ?? "DATE")) {
+      issues.push({ index, field: "occurredAt", message: "日期无效，或精确时刻未包含时区" });
     }
     if (!ev.markerLabel?.trim()) {
       issues.push({ index, field: "markerLabel", message: "缺少 markerLabel" });
@@ -126,6 +131,13 @@ export function validateIngestRun(run: IngestRunOutput): IngestValidationResult 
     }
     if (ev.scope && !VALID_SCOPE.has(ev.scope)) {
       issues.push({ index, field: "scope", message: "scope 不合法" });
+    }
+    if (ev.eventType === "macro.release" && ev.payload?.macroRelease !== undefined) {
+      const result = evaluateMacroSurprise(ev.payload);
+      if (result.status === "invalid") issues.push({ index, field: "payload.macroRelease", message: result.reason });
+      if (result.evidence && (ev.datePrecision !== "DATETIME" || Date.parse(ev.occurredAt) !== Date.parse(result.evidence.releaseAt))) {
+        issues.push({ index, field: "occurredAt", message: "数据发布需 DATETIME 且 occurredAt 与 releaseAt 一致" });
+      }
     }
     const scope = ev.scope ?? "CROSS";
     if (scope === "COMPANY" && !(ev.assets?.length)) {
@@ -241,6 +253,14 @@ export async function findSemanticDuplicate(
   const ratingLike = isRatingLike(ev.eventType);
 
   for (const row of candidates) {
+    const rowPayload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+      ? row.payload as Record<string, unknown> : {};
+    if (ev.eventType === "macro.release" && row.eventType === "macro.release" &&
+      typeof ev.payload?.releaseIdentity === "string" && typeof rowPayload.releaseIdentity === "string") {
+      if (ev.payload.releaseIdentity === rowPayload.releaseIdentity) return row;
+      // Different reports/periods must not merge merely because they share a summary URL.
+      continue;
+    }
     if (url) {
       const rowUrl = normalizeSourceUrl(row.sourceUrl);
       if (rowUrl && rowUrl === url) return row;
@@ -300,7 +320,7 @@ function mergeDraftOntoExisting(
     persons: unionTags(existing.persons, ev.persons),
     institutions: unionTags(existing.institutions, ev.institutions),
     tags: unionTags(existing.tags, ev.tags),
-    payload: (ev.payload as Prisma.InputJsonValue | undefined) ?? existing.payload ?? undefined,
+    payload: withEventPresentation({ ...eventRecord(existing.payload), ...eventRecord(ev.payload) }, ev) as Prisma.InputJsonValue,
     markerLabel: existing.markerLabel || ev.markerLabel.trim() || null,
     sourceUrl: existing.sourceUrl || draftUrl,
     sourceKind: existing.sourceKind || "ai_skill",
@@ -330,7 +350,7 @@ function draftToInput(ev: IngestEventDraft): MarketEventInput {
     institutions: ev.institutions ?? [],
     tags: ev.tags ?? [],
     markerLabel: ev.markerLabel,
-    payload: ev.payload,
+    payload: withEventPresentation(ev.payload, ev),
     sourceUrl,
     sourceKind: "ai_skill",
     externalId: ev.externalId.trim(),

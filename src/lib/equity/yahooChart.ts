@@ -40,10 +40,21 @@ export type YahooChartResult = {
   bars: YahooBar[];
   splits: YahooSplit[];
   dividends: YahooDividend[];
+  /** Provider's regular session boundaries; macro finalized-close ingestion only. */
+  currentSession?: { start: number; end: number };
 };
 
 type RawResult = {
-  meta?: { symbol?: string; dataGranularity?: string };
+  meta?: {
+    symbol?: string;
+    dataGranularity?: string;
+    regularMarketPrice?: number;
+    regularMarketTime?: number;
+    chartPreviousClose?: number;
+    previousClose?: number;
+    currency?: string;
+    currentTradingPeriod?: { regular?: { start?: number; end?: number } };
+  };
   timestamp?: number[];
   events?: {
     splits?: Record<
@@ -237,5 +248,22 @@ export async function fetchYahooChart(
     bars,
     splits: parseSplits(result),
     dividends,
+    ...(typeof result.meta?.currentTradingPeriod?.regular?.start === "number" &&
+      typeof result.meta.currentTradingPeriod.regular.end === "number"
+      ? { currentSession: { start: result.meta.currentTradingPeriod.regular.start, end: result.meta.currentTradingPeriod.regular.end } }
+      : {}),
+  };
+}
+
+/** 最新常规交易时段价格与昨收，独立于图表周期和历史复权。 */
+export async function fetchYahooQuote(symbol: string) {
+  const json = await fetchChart(symbol, { range: "1d", interval: "1m" });
+  const meta = json.chart?.result?.[0]?.meta;
+  if (!meta) throw new YahooSymbolNotFoundError(symbol);
+  return {
+    price: meta.regularMarketPrice,
+    previousClose: meta.previousClose ?? meta.chartPreviousClose,
+    time: meta.regularMarketTime,
+    currency: meta.currency,
   };
 }

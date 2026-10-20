@@ -34,11 +34,11 @@ test("client bundles do not read server-only environment variables", () => {
   assert.deepEqual(violations, [], `server secrets referenced by client code:\n${violations.join("\n")}`);
 });
 
-test("every admin API route enforces the admin guard", () => {
+test("every admin API route enforces an admin or scoped permission guard", () => {
   const apiRoot = resolve(root, "src", "app", "api", "admin");
   const violations = walk(apiRoot, (path) => path.endsWith("route.ts"))
-    .filter((file) => !/\brequireAdmin\s*\(/.test(source(file)));
-  assert.deepEqual(violations, [], `admin routes without requireAdmin():\n${violations.join("\n")}`);
+    .filter((file) => !/\brequireAdmin(?:Permission)?\s*\(/.test(source(file)));
+  assert.deepEqual(violations, [], `admin routes without an admin permission guard:\n${violations.join("\n")}`);
 });
 
 test("pages directly rendering useSearchParams clients provide Suspense", () => {

@@ -21,6 +21,9 @@ export function AdminOrdersClient() {
   const [hint, setHint] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [orderNoInput, setOrderNoInput] = useState("");
+  const [reason, setReason] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminTotpCode, setAdminTotpCode] = useState("");
 
   const load = useCallback(async () => {
     setHint(null);
@@ -36,18 +39,21 @@ export function AdminOrdersClient() {
   }, [load]);
 
   const confirm = async (orderId?: string, orderNo?: string) => {
+    if (!reason.trim() || !adminPassword || adminTotpCode.length !== 6) { setHint("请填写确认依据、你的密码和动态验证码"); return; }
+    if (!window.confirm(`确认已收到订单 ${orderNo ?? orderId} 的款项并开通权益？`)) return;
     setBusyId(orderId ?? orderNo ?? "x");
     setHint(null);
     try {
       const res = await fetch("/api/admin/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderId ? { orderId } : { orderNo }),
+        body: JSON.stringify({ ...(orderId ? { orderId } : { orderNo }), reason, adminPassword, adminTotpCode }),
       });
       const j = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
       setHint("已确认收款并开通");
       setOrderNoInput("");
+      setAdminPassword(""); setAdminTotpCode("");
       await load();
     } catch (e) {
       setHint(e instanceof Error ? e.message : "确认失败");
@@ -96,9 +102,15 @@ export function AdminOrdersClient() {
         </button>
       </div>
 
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <label className="text-sm text-fs-secondary">确认依据<input className="mt-1 w-full rounded border border-fs-border bg-fs-bg px-2 py-2" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder="例如银行到账流水后四位" /></label>
+        <label className="text-sm text-fs-secondary">你的管理员密码<input type="password" className="mt-1 w-full rounded border border-fs-border bg-fs-bg px-2 py-2" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} /></label>
+        <label className="text-sm text-fs-secondary">动态验证码<input inputMode="numeric" maxLength={6} className="mt-1 w-full rounded border border-fs-border bg-fs-bg px-2 py-2" value={adminTotpCode} onChange={(e) => setAdminTotpCode(e.target.value.replace(/\D/g, ""))} /></label>
+      </div>
+
       {hint ? <p className="mt-3 text-sm text-fs-muted">{hint}</p> : null}
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-fs-border">
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border border-fs-border md:block">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-fs-elevated text-xs text-fs-muted">
             <tr>
@@ -153,6 +165,15 @@ export function AdminOrdersClient() {
             ) : null}
           </tbody>
         </table>
+      </div>
+      <div className="mt-6 space-y-3 md:hidden">
+        {orders.map((o) => <article key={o.id} className="rounded-lg border border-fs-border p-4 text-sm">
+          <div className="flex flex-wrap items-start justify-between gap-2"><strong className="font-mono text-fs-text">{o.orderNo}</strong><span className="text-fs-muted">{o.status}</span></div>
+          <p className="mt-2 text-fs-text">{o.username} · {o.productType}{o.credits ? ` (+${o.credits} 分)` : ""}</p>
+          <p className="mt-1 text-fs-secondary">¥{o.amountCny} · {o.createdAt.slice(0, 10)}</p>
+          {o.status === "pending" ? <button type="button" disabled={busyId !== null} onClick={() => void confirm(o.id)} className="mt-3 rounded border border-fs-accent/40 px-3 py-2 text-fs-accent-text disabled:opacity-50">确认收款</button> : null}
+        </article>)}
+        {orders.length === 0 ? <p className="rounded-lg border border-fs-border p-6 text-center text-sm text-fs-muted">暂无订单</p> : null}
       </div>
     </div>
   );

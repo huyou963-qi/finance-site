@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleMarkdown } from "@/components/articles/ArticleMarkdown";
+import { ArticleComments } from "@/components/articles/ArticleComments";
 import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { resolveArticleCover } from "@/lib/articles/articleSchema";
@@ -137,6 +138,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           </p>
         </footer>
       </article>
+      <ArticleComments articleId={article.id} />
     </div>
   );
 }

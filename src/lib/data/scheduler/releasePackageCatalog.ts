@@ -34,8 +34,10 @@ import { NBS_CPI_INSTRUMENT_CODES } from "./nbsCpi/catalog";
 import { US_BOP_INTERNATIONAL_TRANSACTIONS_FRED_IDS } from "./usBalanceOfPaymentsFredSeedCatalog";
 import { CAIXIN_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/caixinPmiCatalog";
 import { EURO_COMPOSITE_PMI_INSTRUMENT_CODE } from "./tradingEconomicsIndicator/euroCompositePmiCatalog";
-import { ECB_CORE_SERIES, EUROSTAT_CORE_SERIES } from "./europeCore/catalog";
+import { ECB_CORE_SERIES, ECB_KEY_RATE_PROBE_HOURS, EUROSTAT_CORE_SERIES, EUROSTAT_FAST_PROBE_HOURS, EUROSTAT_REVISION_PROBE_HOURS } from "./europeCore/catalog";
 import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
+import { EIA_WPSR_PACKAGE_ID, EIA_WPSR_SERIES } from "./eiaWpsr/catalog";
+import { ZILLOW_ZORI_PROBE_HOURS } from "./zillowZori/catalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -161,28 +163,28 @@ const JOLTS_FRED_IDS = ["JTSJOR", "JTSQUR", "JTSHIR", "JTSJOL"];
  * 勿在 `teEventMap.ts` 的 `TE_CALENDAR_BY_FRED` 新增项。
  */
 export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
-  pkg("eu.eurostat.gdp", "欧洲季度GDP", {
+  probePkg("eu.eurostat.gdp", "欧洲季度GDP", {
     labelEn: "Eurostat Quarterly GDP",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "QUARTERLY", sortOrder: 40,
-    calendar: { countryCodes: ["EU"], keywords: ["gdp growth rate", "gdp"] },
+    intervalHours: EUROSTAT_REVISION_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.gdp").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.eurostat.hicp", "欧洲HICP通胀", {
+  probePkg("eu.eurostat.hicp", "欧洲HICP通胀", {
     labelEn: "Eurostat HICP Inflation",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 41,
-    calendar: { countryCodes: ["EU"], keywords: ["inflation rate", "harmonised inflation", "hicp"] },
+    intervalHours: EUROSTAT_FAST_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.hicp").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.eurostat.unemployment", "欧洲月度失业率", {
+  probePkg("eu.eurostat.unemployment", "欧洲月度失业率", {
     labelEn: "Eurostat Monthly Unemployment",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 42,
-    calendar: { countryCodes: ["EU"], keywords: ["unemployment rate"] },
+    intervalHours: EUROSTAT_FAST_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.unemployment").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.eurostat.industrial_production", "欧洲工业生产", {
+  probePkg("eu.eurostat.industrial_production", "欧洲工业生产", {
     labelEn: "Eurostat Industrial Production",
     countryCode: "EU", agencyId: "eu-eurostat", granularity: "MONTHLY", sortOrder: 43,
-    calendar: { countryCodes: ["EU"], keywords: ["industrial production"] },
+    intervalHours: EUROSTAT_REVISION_PROBE_HOURS,
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.industrial_production").map((series) => series.instrumentCode) },
   }),
   pkg("eu.eurostat.retail_trade", "欧洲零售销售量", {
@@ -197,10 +199,10 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     calendar: { countryCodes: ["EU"], keywords: ["government debt", "government debt to gdp"] },
     members: { instrumentCodes: EUROSTAT_CORE_SERIES.filter((series) => series.packageId === "eu.eurostat.government_debt").map((series) => series.instrumentCode) },
   }),
-  pkg("eu.ecb.key_rates", "ECB关键政策利率", {
+  probePkg("eu.ecb.key_rates", "ECB关键政策利率", {
     labelEn: "ECB Key Interest Rates",
     countryCode: "EU", agencyId: "eu-ecb", granularity: "DAILY", sortOrder: 46,
-    calendar: { countryCodes: ["EU"], keywords: ["ecb interest rate decision", "deposit facility rate"] },
+    intervalHours: ECB_KEY_RATE_PROBE_HOURS,
     members: { instrumentCodes: ECB_CORE_SERIES.filter((series) => series.packageId === "eu.ecb.key_rates").map((series) => series.instrumentCode) },
   }),
   pkg("eu.ecb.monetary_aggregates", "ECB货币总量", {
@@ -370,6 +372,18 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       fredSeriesIds: EMPLOYMENT_FRED_IDS,
       instrumentCodes: usovCodesForFred("UNRATE", "PAYEMS"),
     },
+  }),
+  // ADP 全国就业报告：非农前两天（周三）发布；FRED release 194，日历由 FRED 发布日程驱动
+  pkg("us.adp.ner", "ADP 全国就业报告", {
+    labelEn: "ADP National Employment Report",
+    granularity: "MONTHLY",
+    sortOrder: 21,
+    calendar: {
+      countryCodes: ["US"],
+      keywords: ["adp nonfarm employment change", "adp employment change", "adp national employment"],
+      excludeKeywords: ["weekly", "4-week"],
+    },
+    members: { fredSeriesIds: ["ADPMNUSNERSA"] },
   }),
   pkg("us.bls.jolts", "美国 JOLTS", {
     agencyId: "us-bls",
@@ -898,10 +912,19 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg("us.eia.spot_prices", "EIA 现货价格", {
     labelEn: "Spot Prices",
     granularity: "DAILY",
-    intervalHours: 24,
+    intervalHours: 6,
     sortOrder: 202,
-    // 同一 FRED release 212「Spot Prices」：WTI + 航空煤油 + 取暖油（eiaEnergyPricesFredSeedCatalog.ts）
-    members: { fredSeriesIds: ["DCOILWTICO", "DJFUELUSGULF", "DHOILNYH"] },
+    // 同一 FRED release 212「Spot Prices」：原油 + 汽柴油 + 航空煤油（eiaEnergyPricesFredSeedCatalog.ts）
+    members: {
+      fredSeriesIds: [
+        "DCOILWTICO",
+        "DCOILBRENTEU",
+        "DGASNYH",
+        "DDFUELNYH",
+        "DJFUELUSGULF",
+        "DHOILNYH",
+      ],
+    },
   }),
   probePkg("us.eia.natural_gas_spot", "EIA 天然气现货（亨利港）", {
     labelEn: "Natural Gas Spot and Futures Prices (NYMEX)",
@@ -915,7 +938,15 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "WEEKLY",
     intervalHours: 12,
     sortOrder: 202,
-    members: { fredSeriesIds: ["GASREGW"] },
+    members: { fredSeriesIds: ["GASREGW", "GASDESLSW"] },
+  }),
+  probePkg(EIA_WPSR_PACKAGE_ID, "EIA 周度石油状况报告（WPSR）", {
+    labelEn: "EIA Weekly Petroleum Status Report",
+    agencyId: "us-eia",
+    granularity: "WEEKLY",
+    intervalHours: 12,
+    sortOrder: 202,
+    members: { instrumentCodes: EIA_WPSR_SERIES.map((row) => row.code) },
   }),
   probePkg("us.ice.bofa_indices", "ICE BofA 债券利差指数", {
     labelEn: "ICE BofA Indices",
@@ -1138,7 +1169,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     members: { fredSeriesIds: ["CBLBSNNCB", "NCBCBLQ027S"] },
   }),
   probePkg(MANHEIM_MUVVI_PACKAGE_ID, "美国 Manheim 二手车批发价格指数", {
-    labelEn: "Manheim Used Vehicle Value Index (licensed Wind file)",
+    labelEn: "Manheim Used Vehicle Value Index (Cox official XLSX)",
     agencyId: "us-cox-automotive",
     granularity: "MONTHLY",
     intervalHours: 24,
@@ -1152,6 +1183,14 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 72,
     sortOrder: 258,
     members: { instrumentCodePatterns: ["finra_us_margin_*"] },
+  }),
+  probePkg("us.french.daily_style_factors", "美国日频风格因子（French）", {
+    agencyId: "us-ken-french", granularity: "DAILY", intervalHours: 24, sortOrder: 260,
+    members: { instrumentCodePatterns: ["ff_us_*"] },
+  }),
+  probePkg("us.gekkotech.daily_market_breadth", "美国日频市场广度（公开成分重建）", {
+    agencyId: "us-gekkotech-market-research", granularity: "DAILY", intervalHours: 24, sortOrder: 261,
+    members: { instrumentCodePatterns: ["breadth_us_sp500_*"] },
   }),
   // 年度更新的研究数据集，探测间隔取 168h（周）——比月频源更稀疏即可
   probePkg("us.ritter.ipo_statistics", "美国 IPO 月度统计（Ritter）", {
@@ -1306,17 +1345,24 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     labelEn: "Zillow Observed Rent Index",
     agencyId: "us-zillow",
     granularity: "MONTHLY",
-    intervalHours: 72,
+    intervalHours: ZILLOW_ZORI_PROBE_HOURS,
     sortOrder: 238,
     members: { instrumentCodes: ["zillow_us_zori_sa"] },
   }),
-  // BTS 运输服务指数里的铁路货运（汇总自 AAR 周报，月度、滞后约 2 个月）；替代已移除的 AAR 周度抓取
-  probePkg("us.bts.rail_freight", "美国铁路货运（BTS）", {
-    labelEn: "Rail Freight (BTS Transportation Services Index)",
+  // BTS 运输服务指数：货运 TSI、卡车及两条铁路货运序列（月度、滞后约 2 个月）
+  probePkg("us.bts.rail_freight", "美国运输服务指数（BTS）", {
+    labelEn: "BTS Transportation Services Index and Seasonally-Adjusted Transportation Data",
     granularity: "MONTHLY",
     intervalHours: 72,
     sortOrder: 237,
-    members: { fredSeriesIds: ["RAILFRTCARLOADSD11", "RAILFRTINTERMODALD11"] },
+    members: {
+      fredSeriesIds: [
+        "RAILFRTCARLOADSD11",
+        "RAILFRTINTERMODALD11",
+        "TSIFRGHT",
+        "TRUCKD11",
+      ],
+    },
   }),
   // BIS 无「某日宣布」式日历，按官方数据流（= 官方发布批次）分两组
   probePkg("intl.bis.total_credit", "BIS 总信贷（杠杆率 / %GDP）", {

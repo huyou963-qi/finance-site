@@ -7,6 +7,9 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  // Alphabetically last: legacy corrections must survive older catalog seeds.
+  "zzz-audited-definitions": { script: "seed-audited-definitions", labelZh: "官方源审计：旧指标定义与单位校正（不改观测）" },
+  "market-internals": { script: "seed-market-internals", labelZh: "美股日频广度与风格因子" },
   "jp-housing-population": { script: "seed-jp-housing-population", labelZh: "日本住房与人口核心" },
   "jp-tourism-core": { script: "seed-jp-tourism-core", labelZh: "日本观光厅入境旅游核心" },
   "jp-cycle-labor": { script: "seed-jp-cycle-labor", labelZh: "日本景气循环与劳动力核心" },
@@ -51,7 +54,15 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "nyfed-recession": { script: "seed-nyfed-recession", labelZh: "NY Fed 衰退概率（抓取）" },
   "nyfed-gscpi": { script: "seed-nyfed-gscpi", labelZh: "NY Fed 全球供应链压力指数（抓取）" },
   "zillow-zori": { script: "seed-zillow-zori", labelZh: "Zillow 观测租金指数 ZORI（公开 CSV）" },
+  // data:apply 按目录名字母序执行、无依赖声明：键名取 labor-vintages 保证排在 labor 之后
+  // （回填对象 sched_fred_ADPMNUSNERSA 由 seed-labor 创建）
+  "labor-vintages": { script: "seed-forecast-vintages", labelZh: "指标预测：非农/ADP ALFRED 历次版本回填" },
   "eia-energy-prices": { script: "seed-eia-energy-prices", labelZh: "EIA 零售汽油/天然气/航油/取暖油（FRED）" },
+  "eia-wpsr": {
+    script: "seed-eia-wpsr",
+    labelZh: "EIA 周度石油状况报告（库存、需求、炼厂与 SPR）",
+    verifyNeedsDb: true,
+  },
   "damodaran-erp": { script: "seed-damodaran-erp", labelZh: "Damodaran 隐含股权风险溢价（抓取）" },
   "shiller-cape": { script: "seed-shiller-cape", labelZh: "Shiller CAPE 周期调整市盈率（抓取）" },
   "multpl-sp500-pe": { script: "seed-multpl-sp500-pe", labelZh: "标普500 市盈率（multpl 抓取）" },
@@ -139,6 +150,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "market-internals": { script: "verify-market-internals", labelZh: "美股日频广度与风格因子自检", verifyNeedsDb: true },
   "jp-housing-population": { script: "verify-jp-housing-population", labelZh: "日本住房与人口核心自检", verifyNeedsDb: true },
   "jp-tourism-core": { script: "verify-jp-tourism-core", labelZh: "日本观光厅入境旅游核心自检", verifyNeedsDb: true },
   "jp-cycle-labor": { script: "verify-jp-cycle-labor", labelZh: "日本景气循环与劳动力核心自检", verifyNeedsDb: true },
@@ -190,7 +202,13 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "nyfed-recession": { script: "verify-nyfed-recession", labelZh: "NY Fed 衰退概率自检", verifyNeedsDb: true },
   "nyfed-gscpi": { script: "verify-nyfed-gscpi", labelZh: "NY Fed 全球供应链压力指数自检", verifyNeedsDb: true },
   "zillow-zori": { script: "verify-zillow-zori", labelZh: "Zillow 观测租金指数 ZORI 自检", verifyNeedsDb: true },
+  "labor-vintages": { script: "verify-forecast-vintages", labelZh: "指标预测版本账本自检", verifyNeedsDb: true },
   "eia-energy-prices": { script: "verify-eia-energy-prices", labelZh: "EIA 能源价格自检", verifyNeedsDb: true },
+  "eia-wpsr": {
+    script: "verify-eia-wpsr",
+    labelZh: "EIA 周度石油状况报告自检",
+    verifyNeedsDb: true,
+  },
   "damodaran-erp": { script: "verify-damodaran-erp", labelZh: "Damodaran 隐含股权风险溢价自检", verifyNeedsDb: true },
   "shiller-cape": { script: "verify-shiller-cape", labelZh: "Shiller CAPE 自检", verifyNeedsDb: true },
   "multpl-sp500-pe": { script: "verify-multpl-sp500-pe", labelZh: "标普500 市盈率自检", verifyNeedsDb: true },

@@ -2,10 +2,18 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MarketEventIngestRun",
   "type": "object",
-  "required": ["mode", "events"],
+  "required": [
+    "mode",
+    "events"
+  ],
   "properties": {
-    "mode": { "type": "string", "minLength": 1 },
-    "query": { "type": "object" },
+    "mode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "query": {
+      "type": "object"
+    },
     "events": {
       "type": "array",
       "items": {
@@ -19,32 +27,175 @@
           "markerLabel"
         ],
         "properties": {
-          "externalId": { "type": "string", "minLength": 1 },
-          "title": { "type": "string" },
-          "content": { "type": "string" },
-          "occurredAt": { "type": "string" },
-          "datePrecision": { "enum": ["DATE", "DATETIME"] },
-          "importance": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
-          "scope": { "enum": ["COUNTRY", "INDUSTRY", "COMPANY", "CROSS"] },
-          "eventType": { "type": "string" },
-          "countries": { "type": "array", "items": { "type": "string" } },
-          "industries": { "type": "array", "items": { "type": "string" } },
-          "assets": { "type": "array", "items": { "type": "string" } },
-          "macroKeys": { "type": "array", "items": { "type": "string" } },
-          "persons": { "type": "array", "items": { "type": "string" } },
-          "institutions": { "type": "array", "items": { "type": "string" } },
-          "tags": { "type": "array", "items": { "type": "string" } },
-          "markerLabel": { "type": "string", "maxLength": 16 },
-          "sourceUrl": { "type": ["string", "null"] },
-          "payload": { "type": "object" },
+          "externalId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "datePrecision": {
+            "enum": [
+              "DATE",
+              "DATETIME"
+            ]
+          },
+          "importance": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "COUNTRY",
+              "INDUSTRY",
+              "COMPANY",
+              "CROSS"
+            ]
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "industries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "macroKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "persons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "institutions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "markerLabel": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "sourceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payload": {
+            "type": "object",
+            "properties": {
+              "releaseIdentity": {
+                "type": "string"
+              },
+              "macroRelease": {
+                "$ref": "#/definitions/macroReleaseEvidence"
+              },
+              "macroReleaseComponents": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/macroReleaseEvidence"
+                }
+              },
+              "releaseResearch": {
+                "type": "object"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "url"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "sources": {
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["url"],
+              "required": [
+                "url"
+              ],
               "properties": {
-                "url": { "type": "string" },
-                "note": { "type": "string" }
+                "url": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "readingLinks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "url"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "pattern": "^https?://"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "language": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -55,12 +206,141 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["reason"],
+        "required": [
+          "reason"
+        ],
         "properties": {
-          "reason": { "type": "string" },
-          "hint": { "type": "string" }
+          "reason": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
         }
       }
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "pack": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "macroReleaseEvidence": {
+      "type": "object",
+      "required": [
+        "actual",
+        "consensus",
+        "unit",
+        "referencePeriod",
+        "releaseAt",
+        "consensusSource",
+        "consensusSourceUrl",
+        "actualSourceUrl",
+        "isInitialRelease"
+      ],
+      "properties": {
+        "actual": {
+          "type": "number"
+        },
+        "consensus": {
+          "type": "number"
+        },
+        "metricId": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "referencePeriod": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releaseAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "consensusAsOf": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "consensusEvidenceType": {
+          "enum": [
+            "contemporaneous-report"
+          ]
+        },
+        "consensusReportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "consensusSource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consensusSourceUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "actualSourceUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "isInitialRelease": {
+          "const": true
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "consensusAsOf"
+          ],
+          "not": {
+            "required": [
+              "consensusEvidenceType"
+            ]
+          }
+        },
+        {
+          "required": [
+            "consensusEvidenceType"
+          ],
+          "not": {
+            "required": [
+              "consensusAsOf"
+            ]
+          }
+        }
+      ]
     }
   }
 }

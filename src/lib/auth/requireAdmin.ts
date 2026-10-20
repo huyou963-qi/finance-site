@@ -1,10 +1,18 @@
 import type { NextRequest } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
+import { hasAdminPermission, type AdminPermission } from "@/lib/auth/types";
 
 export async function requireAdmin(req: NextRequest) {
   const me = await getUserByRequest(req);
   if (!me) throw new Error("未登录");
   if (me.role !== "admin") throw new Error("无管理员权限");
+  return me;
+}
+
+export async function requireAdminPermission(req: NextRequest, permission: AdminPermission) {
+  const me = await getUserByRequest(req);
+  if (!me) throw new Error("未登录");
+  if (!hasAdminPermission(me.role, permission)) throw new Error("无管理员权限");
   return me;
 }
 

@@ -13,12 +13,15 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      ".data/**",
       ".next.corrupt-*/**",
+      ".codex-artifacts/**",
       "node_modules/**",
       "clientportal.gw/**",
       "dist/**",
       "out/**",
       "coverage/**",
+      ".claude/worktrees/**",
     ],
   },
   ...compat.extends("next/core-web-vitals"),

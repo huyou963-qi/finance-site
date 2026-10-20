@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
+import { checkFeatureGateAvailability } from "@/lib/access/featureGateAvailability";
+import { FeatureAccessUnavailable } from "./FeatureAccessUnavailable";
 
 /**
  * 服务端功能页守卫：包住页面内容即可。无权访问时按原因渲染占位页
@@ -14,7 +16,8 @@ export async function FeatureGate({
   featureId: string;
   children: ReactNode;
 }) {
-  const gate = await checkFeatureAccess(featureId);
+  const gate = await checkFeatureGateAvailability(featureId, checkFeatureAccess);
+  if (!gate) return <FeatureAccessUnavailable />;
   if (gate.state !== "allowed") {
     return <FeatureLocked featureId={featureId} state={gate.state} viewer={gate.viewer} />;
   }

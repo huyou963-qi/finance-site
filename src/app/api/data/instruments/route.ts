@@ -62,12 +62,22 @@ export async function GET(request: NextRequest) {
           tickerSymbol: true,
           metadata: true,
           updatedAt: true,
+          // 列表里的日期必须来自事实表，而不是 seed 时写入、之后不会随 worker
+          // 自动变化的 metadata.dataLastObsDateIso。
+          macroPoints: {
+            take: 1,
+            orderBy: { obsDate: "desc" as const },
+            select: { obsDate: true },
+          },
         },
       }),
       prisma.instrument.count({ where }),
     ]);
     return NextResponse.json({
-      items,
+      items: items.map(({ macroPoints, ...item }) => ({
+        ...item,
+        latestObsDate: macroPoints[0]?.obsDate ?? null,
+      })),
       total,
     });
   } catch (e: unknown) {

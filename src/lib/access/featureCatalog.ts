@@ -60,13 +60,20 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     defaults: RELEASED,
   },
   {
-    id: "macro-framework",
-    label: "宏观框架",
-    group: "宏观",
-    paths: ["/macro/framework"],
-    description: "宏观分析框架编辑（管理员专属，不可开放）",
-    adminOnly: true,
-    defaults: IN_DEVELOPMENT,
+    id: "forecast-us-cpi",
+    label: "指标预测 · 美国 CPI",
+    group: "预测",
+    paths: ["/forecast/us-cpi"],
+    description: "CPI 分项高频代理 nowcast 与历史回测",
+    defaults: RELEASED,
+  },
+  {
+    id: "forecast-us-nfp",
+    label: "指标预测 · 美国非农",
+    group: "预测",
+    paths: ["/forecast/us-nfp"],
+    description: "非农新增就业 nowcast（周度申领 + 实时版本回测，ADP/SPF 对照）",
+    defaults: RELEASED,
   },
   {
     id: "equity-sectors",
@@ -182,7 +189,7 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
   },
 ] as const;
 
-export const FEATURE_GROUP_ORDER: readonly string[] = ["宏观", "美股", "量化", "内容", "工具"];
+export const FEATURE_GROUP_ORDER: readonly string[] = ["宏观", "预测", "美股", "量化", "内容", "工具"];
 
 export const FEATURE_AUDIENCE_LABELS: Record<FeatureAudience, string> = {
   visitor: "游客",
@@ -352,7 +359,7 @@ function pathMatches(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-/** 路由 → feature id；取最长匹配前缀（`/macro/framework` 不会落到 `/macro`）。 */
+/** 路由 → feature id；取最长匹配前缀。 */
 export function featureIdForPath(pathname: string): string | null {
   let best: { id: string; len: number } | null = null;
   for (const f of FEATURE_CATALOG) {

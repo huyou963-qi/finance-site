@@ -26,6 +26,7 @@ import {
 import {
   mergedUsovFredMap,
   USOV_FRED_PHASE5_EXTRA,
+  USOV_WTI_SPOT_LABEL,
 } from "../../src/lib/data/scheduler/usovFredMap";
 import { USOV_COMPOSITE_FRED } from "../../src/lib/data/scheduler/usovCompositeFred";
 
@@ -216,6 +217,18 @@ async function main() {
 
   if (!enableEstat || usovOnly) {
     await upsertFredSource(dryRun);
+    // Correct the legacy display semantics only when its actual subscription is
+    // confirmed as EIA spot. Never rename a different/futures source by code alone.
+    const wti = await prisma.instrument.findUnique({ where: { code: "usov_c06_wti" }, select: { id: true, metadata: true } });
+    const wtiSub = wti && await prisma.dataSubscription.findUnique({ where: { instrumentId: wti.id }, select: { sourceId: true, sourceSeriesKey: true } });
+    if (!dryRun && wti && wtiSub?.sourceId === "fred" && wtiSub.sourceSeriesKey === "DCOILWTICO") {
+      const metadata = wti.metadata && typeof wti.metadata === "object" && !Array.isArray(wti.metadata) ? wti.metadata : {};
+      await prisma.instrument.update({ where: { id: wti.id }, data: {
+        name: `US Overview:${USOV_WTI_SPOT_LABEL}`, shortName: USOV_WTI_SPOT_LABEL,
+        description: "EIA Cushing WTI Spot Price FOB，经FRED DCOILWTICO更新；美元/桶，非期货连续合约或结算价。",
+        metadata: { ...metadata, displayName: USOV_WTI_SPOT_LABEL, seasonalAdjustment: "NSA" },
+      } });
+    }
     const direct = await seedUsovDirect(dryRun);
     const composite = await seedUsovComposite(dryRun);
     console.log(

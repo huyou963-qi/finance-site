@@ -31,6 +31,14 @@ const RANGE_PRESETS = [
   { id: "2Y", labelZh: "2年", calendarDays: 730 },
 ] as const;
 
+const RESEARCH_TABS = [
+  { id: "prices", label: "行情走势" },
+  { id: "fundamentals", label: "财务基本面" },
+  { id: "events", label: "事件与叙事" },
+  { id: "insiders", label: "内部交易" },
+] as const;
+type ResearchTab = (typeof RESEARCH_TABS)[number]["id"];
+
 type RangeId = (typeof RANGE_PRESETS)[number]["id"];
 
 function isoDaysAgo(days: number): string {
@@ -56,14 +64,6 @@ function pctClass(v: number | null | undefined): string {
   return "text-fs-muted";
 }
 
-function fmtCap(v: number | null): string {
-  if (v == null) return "—";
-  if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
-  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
-  if (v >= 1e6) return `${(v / 1e6).toFixed(0)}M`;
-  return v.toLocaleString();
-}
-
 export function StockDetailClient({
   symbol,
   name,
@@ -72,7 +72,6 @@ export function StockDetailClient({
   industrySlug,
   industryName,
   gicsSubIndustry,
-  marketCap,
 }: {
   symbol: string;
   name: string;
@@ -84,6 +83,7 @@ export function StockDetailClient({
   gicsSubIndustry: string | null;
   marketCap: number | null;
 }) {
+  const [activeTab, setActiveTab] = useState<ResearchTab>("prices");
   const [rangeId, setRangeId] = useState<RangeId>("1Y");
   const [windows, setWindows] = useState<WindowRow[]>([]);
   const [bars, setBars] = useState<StockPriceBar[]>([]);
@@ -94,7 +94,6 @@ export function StockDetailClient({
     excessVsSectorEtf: number | null;
     excessVsIndustry: number | null;
   } | null>(null);
-  const [priceSource, setPriceSource] = useState<string | null>(null);
   const [earningsMarks, setEarningsMarks] = useState<ChartEarningsMark[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +178,6 @@ export function StockDetailClient({
     if (!relRes.ok) throw new Error(relJson.error ?? "相对强弱加载失败");
 
     setBars(pricesJson.bars ?? []);
-    setPriceSource(pricesJson.priceSource ?? null);
     setSeries(relJson.series ?? []);
     setRangeReturns(relJson.returns ?? null);
   }, [symbol, rangeId]);
@@ -204,8 +202,14 @@ export function StockDetailClient({
 
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4">
-      <div className="text-xs text-fs-muted">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-3 sm:px-4">
+      <header className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+      <div className="flex min-w-0 items-baseline gap-4 overflow-x-auto whitespace-nowrap lg:flex-1">
+        <h1 className="shrink-0 text-base font-semibold text-fs-text">
+          {symbol}
+          <span className="ml-2 text-sm font-normal">{name}</span>
+        </h1>
+      <nav aria-label="个股行业路径" className="shrink-0 text-xs text-fs-muted">
         <Link href="/equity/sectors" className="hover:text-fs-accent-text">
           美股行业
         </Link>
@@ -231,23 +235,10 @@ export function StockDetailClient({
             </Link>
           </>
         ) : null}
-        <span className="mx-1">/</span>
-        <span className="text-fs-text">{symbol}</span>
+        {gicsSubIndustry && gicsSubIndustry !== industryName ? <><span className="mx-1">/</span><span>{gicsSubIndustry}</span></> : null}
+      </nav>
       </div>
-
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-fs-text">
-            {symbol}
-            <span className="ml-2 text-sm font-normal text-fs-muted">{name}</span>
-          </h1>
-          <p className="mt-0.5 text-sm text-fs-muted">
-            {gicsSubIndustry ?? industryName ?? sectorNameZh ?? "美股"}
-            {marketCap != null ? ` · 市值 ${fmtCap(marketCap)}` : ""}
-            {priceSource ? ` · 行情 ${priceSource}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <StockSymbolSwitcher currentSymbol={symbol} />
           <Link
             href={`/markets?symbol=${encodeURIComponent(symbol)}`}
@@ -264,6 +255,37 @@ export function StockDetailClient({
         </div>
       </header>
 
+      <div className="flex min-w-0 items-start gap-3 sm:gap-5">
+        <div role="tablist" aria-label="个股研究分页" aria-orientation="vertical" className="sticky top-3 flex w-24 shrink-0 flex-col gap-1 rounded-md border border-fs-border bg-fs-bg p-1 sm:w-36 sm:p-2">
+          {RESEARCH_TABS.map((tab, index) => (
+            <button
+              key={tab.id}
+              id={`stock-research-tab-${tab.id}`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`stock-research-panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+              onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => {
+                let next = index;
+                if (event.key === "ArrowDown") next = (index + 1) % RESEARCH_TABS.length;
+                else if (event.key === "ArrowUp") next = (index + RESEARCH_TABS.length - 1) % RESEARCH_TABS.length;
+                else if (event.key === "Home") next = 0;
+                else if (event.key === "End") next = RESEARCH_TABS.length - 1;
+                else return;
+                event.preventDefault();
+                setActiveTab(RESEARCH_TABS[next].id);
+                document.getElementById(`stock-research-tab-${RESEARCH_TABS[next].id}`)?.focus();
+              }}
+              className={`min-h-11 rounded px-2 py-2 text-left text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-fs-accent sm:px-3 sm:text-sm ${activeTab === tab.id ? "bg-fs-accent-soft font-medium text-fs-accent-text" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div id={`stock-research-panel-${activeTab}`} role="tabpanel" aria-labelledby={`stock-research-tab-${activeTab}`} tabIndex={0} className="min-w-0 flex-1">
+      {activeTab === "prices" ? <div className="flex min-w-0 flex-col gap-4">
       {error ? (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {error}
@@ -274,7 +296,7 @@ export function StockDetailClient({
         <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">
           区间收益（个股 vs 基准）
         </div>
-        <table className="min-w-full text-left text-sm">
+        <table className="min-w-full whitespace-nowrap text-left text-sm">
           <thead className="text-xs text-fs-muted">
             <tr>
               <th className="px-3 py-2">窗口</th>
@@ -399,11 +421,12 @@ export function StockDetailClient({
         </div>
       </section>
 
-      <StockFundamentalsPanel symbol={symbol} />
-
-      <StockEventsPanel symbol={symbol} />
-
-      <StockInsiderTransactionsPanel symbol={symbol} />
+      </div> : null}
+      {activeTab === "fundamentals" ? <StockFundamentalsPanel symbol={symbol} /> : null}
+      {activeTab === "events" ? <StockEventsPanel symbol={symbol} /> : null}
+      {activeTab === "insiders" ? <StockInsiderTransactionsPanel symbol={symbol} /> : null}
+        </div>
+      </div>
     </div>
   );
 }

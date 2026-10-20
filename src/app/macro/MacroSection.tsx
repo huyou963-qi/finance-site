@@ -10,7 +10,7 @@ import {
 import { MacroTemplateFolderSection } from "@/components/MacroTemplateFolderSection";
 import { MacroChartDrawingToolbar } from "@/components/MacroChartDrawingToolbar";
 import { MacroMultiChartGrid } from "@/components/MacroMultiChartGrid";
-import { MacroMobileCalcSheet } from "@/components/macro/mobile/MacroMobileCalcSheet";
+import { MacroCalculationWorkbench } from "@/components/macro/MacroCalculationWorkbench";
 import {
   MacroMobileLayout,
   type MacroMobileTab,
@@ -33,6 +33,7 @@ import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
 import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
 import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
+import { sanitizeMacroIntroHtml, templateIntroSnapshot } from "@/lib/data/macroIntroHtml";
 import type {
   MacroDrawing,
   MacroDrawingStyle,
@@ -112,6 +113,7 @@ import {
   BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
   BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+  BUILTIN_US_OIL_DIESEL_TEMPLATE,
   BUILTIN_US_OVERVIEW_TEMPLATE,
   HARDCODED_BUILTIN_TEMPLATE_IDS,
   resolveBuiltinTemplate,
@@ -138,6 +140,7 @@ import { CONSUMER_BALANCE_VIRTUAL_KEY_LABELS } from "@/lib/data/consumerBalanceA
 import { EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS } from "@/lib/data/externalDollarAnalysisLayout";
 import { US_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS } from "@/lib/data/usBalanceOfPaymentsAnalysisLayout";
 import { INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS } from "@/lib/data/industryInventoryAnalysisLayout";
+import { OIL_DIESEL_VIRTUAL_KEY_LABELS } from "@/lib/data/oilDieselAnalysisLayout";
 import { CN_FISCAL_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFiscalAnalysisLayout";
 import { CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS } from "@/lib/data/cnFinancialLiquidityAnalysisLayout";
 import { CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS } from "@/lib/data/cnEconomyOverviewAnalysisLayout";
@@ -174,6 +177,14 @@ import {
   decorateMacroSeriesDisplayName,
   effectiveMacroSeriesUnit,
 } from "@/lib/macroSeriesDisplayName";
+import { applyMacroDerivedValue } from "@/lib/macroDerivedCalc";
+import {
+  applyMacroSeriesSteps,
+  evaluateAdvancedMacroCalculation,
+  sortMacroDerivedCalculations,
+  type MacroCalculationSeries,
+} from "@/lib/macroCalculationEngine";
+import { trailingMean } from "@/lib/macroRolling";
 import { formatMacroDisplayNumber } from "@/lib/formatMacroValue";
 import {
   compareMacroPeriodLabels,
@@ -206,10 +217,6 @@ type ChartSidePanelTab = "settings" | "events" | "intro";
 
 const INTRO_WORKSPACE_TEMPLATE_ID = "__workspace__";
 
-const INTRO_DESCRIPTION_MAX_LEN = 8000;
-
-const INTRO_TEXT_MAX_LEN = 20000;
-
 function buildBuiltinOverrideFromTemplate(
   tpl: MacroChartTemplate,
   patch: Partial<BuiltinTemplateOverride> = {},
@@ -218,6 +225,7 @@ function buildBuiltinOverrideFromTemplate(
     name: tpl.name,
     description: tpl.description,
     introText: tpl.introText,
+    introHtml: tpl.introHtml,
     selectedKeys: [...tpl.selectedKeys],
     selectedListItems: tpl.selectedListItems,
     layoutMode: tpl.layoutMode,
@@ -434,6 +442,10 @@ function resampleSeries(
       const vals = buckets.get(x) ?? [];
       if (vals.length === 0) return null;
       if (method === "start") return vals[0] ?? null;
+      if (method === "end") return vals[vals.length - 1] ?? null;
+      if (method === "sum") return vals.reduce((acc, n) => acc + n, 0);
+      if (method === "min") return Math.min(...vals);
+      if (method === "max") return Math.max(...vals);
       if (method === "avg") {
         const sum = vals.reduce((acc, n) => acc + n, 0);
         return sum / vals.length;
@@ -492,6 +504,7 @@ type SeriesWorking = {
   name: string;
   categories: string[];
   data: (number | null)[];
+  unit?: string | null;
 };
 
 function deriveSeries(
@@ -500,7 +513,7 @@ function deriveSeries(
   op: MacroDerivedCalcOp,
   name: string,
   key: string,
-  scale = 1,
+  options?: { leftScale?: number; rightScale?: number; scale?: number },
 ): SeriesWorking {
   const leftMap = seriesToAlignedValueMap(left.categories, left.data);
   const rightMap = seriesToAlignedValueMap(right.categories, right.data);
@@ -509,11 +522,7 @@ function deriveSeries(
     const a = leftMap.get(c) ?? null;
     const b = rightMap.get(c) ?? null;
     if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) return null;
-    if (op === "add") return (a + b) * scale;
-    if (op === "sub" || op === "spread") return (a - b) * scale;
-    if (op === "mul") return a * b * scale;
-    if ((op === "div" || op === "ratio") && b !== 0) return (a / b) * scale;
-    return null;
+    return applyMacroDerivedValue(a, b, op, options);
   });
   return { key, name, categories: cats, data: vals };
 }
@@ -687,7 +696,8 @@ export function MacroSection() {
   const [mobileDateRangeOpen, setMobileDateRangeOpen] = useState(false);
 
   const [selectedListItems, setSelectedListItems] = useState<MacroSelectedListItem[]>(() => {
-    const replaceKey = readMacroReplaceKey();
+    // useSearchParams 在服务端与首次客户端渲染中提供同一份 URL；不能在这里读 window。
+    const replaceKey = searchParams.get("replace") === "1" ? searchParams.get("key")?.trim() : null;
     if (replaceKey) return listItemsFromKeys([replaceKey]);
     return listItemsFromKeys(DEFAULT_UNIFIED_SERIES_KEYS);
   });
@@ -735,12 +745,6 @@ export function MacroSection() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [seriesCalcConfigMap, setSeriesCalcConfigMap] = useState<MacroSeriesCalcConfigMap>({});
   const [derivedCalcs, setDerivedCalcs] = useState<MacroDerivedCalc[]>([]);
-  const [calcTargetKey, setCalcTargetKey] = useState("");
-  const [calcDraft, setCalcDraft] = useState<MacroSeriesCalcConfig>(DEFAULT_SERIES_CALC_CONFIG);
-  const [derivedLeftKey, setDerivedLeftKey] = useState("");
-  const [derivedRightKey, setDerivedRightKey] = useState("");
-  const [derivedOp, setDerivedOp] = useState<MacroDerivedCalcOp>("ratio");
-  const [derivedName, setDerivedName] = useState("");
   const [templateNameDialogOpen, setTemplateNameDialogOpen] = useState(false);
   const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [templateSaveMode, setTemplateSaveMode] = useState<"user" | "builtin">("user");
@@ -792,6 +796,9 @@ export function MacroSection() {
   const saveTimerRef = useRef<number | null>(null);
   const saveIdleRef = useRef<number | null>(null);
   const introDescSaveTimerRef = useRef<number | null>(null);
+  const introSaveInFlightRef = useRef<Promise<void> | null>(null);
+  const introDraftTimerRef = useRef<number | null>(null);
+  const introDraftRef = useRef<{ template: MacroChartTemplate; html: string } | null>(null);
   const introDescPendingSaveRef = useRef<
     | { kind: "hardcoded"; overrides: Record<string, BuiltinTemplateOverride> }
     | { kind: "custom"; templates: MacroChartTemplate[] }
@@ -1227,6 +1234,7 @@ export function MacroSection() {
       BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+      BUILTIN_US_OIL_DIESEL_TEMPLATE,
       BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
       BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
       BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
@@ -1276,6 +1284,7 @@ export function MacroSection() {
       BUILTIN_US_BALANCE_OF_PAYMENTS_OVERVIEW_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_ORDERS_TEMPLATE,
       BUILTIN_US_INDUSTRY_INVENTORY_CYCLE_TEMPLATE,
+      BUILTIN_US_OIL_DIESEL_TEMPLATE,
       BUILTIN_CN_FISCAL_OVERVIEW_TEMPLATE,
       BUILTIN_CN_FISCAL_REVENUE_TEMPLATE,
       BUILTIN_CN_FISCAL_EXPENDITURE_TEMPLATE,
@@ -1307,7 +1316,7 @@ export function MacroSection() {
   useEffect(() => {
     if (!activeTemplate?.derivedCalcs?.length) return;
     const visibleKeys = activeTemplate.derivedCalcs
-      .filter((calc) => !calc.hidden)
+      .filter((calc) => !calc.hidden && !calc.disabled)
       .map((calc) => `calc:${calc.id}`);
     setSlotAssignment((prev) => {
       let changed = false;
@@ -1375,6 +1384,7 @@ export function MacroSection() {
       ...EXTERNAL_DOLLAR_VIRTUAL_KEY_LABELS,
       ...US_BALANCE_OF_PAYMENTS_VIRTUAL_KEY_LABELS,
       ...INDUSTRY_INVENTORY_VIRTUAL_KEY_LABELS,
+      ...OIL_DIESEL_VIRTUAL_KEY_LABELS,
       ...CN_FISCAL_VIRTUAL_KEY_LABELS,
       ...CN_FINANCIAL_LIQUIDITY_VIRTUAL_KEY_LABELS,
       ...CN_ECONOMY_OVERVIEW_VIRTUAL_KEY_LABELS,
@@ -1384,7 +1394,7 @@ export function MacroSection() {
       if (!m.has(k)) m.set(k, v);
     }
     for (const d of derivedCalcs) {
-      if (!d.hidden) m.set(`calc:${d.id}`, d.name);
+      if (!d.hidden && !d.disabled) m.set(`calc:${d.id}`, d.name);
     }
     return m;
   }, [catalogLabelByKey, derivedCalcs]);
@@ -1419,7 +1429,7 @@ export function MacroSection() {
           templateKeys,
           resolvedTpl.selectedListItems,
           (resolvedTpl.derivedCalcs ?? [])
-            .filter((calc) => !calc.hidden)
+            .filter((calc) => !calc.hidden && !calc.disabled)
             .map((calc) => `calc:${calc.id}`),
         ),
       );
@@ -1607,9 +1617,16 @@ export function MacroSection() {
 
       const validFolderId =
         folderId && systemBuiltinFolders.some((f) => f.id === folderId) ? folderId : null;
+      const introDraft = introDraftRef.current;
+      const intro = templateIntroSnapshot(
+        activeTemplate,
+        introDraft && activeTemplate && introDraft.template.id === activeTemplate.id
+          ? introDraft.html : undefined,
+      );
 
       const templatePayload = {
         name: trimmed,
+        ...intro,
         selectedKeys: [...orderedSelectedKeys],
         selectedListItems: selectedListItems.map((i) =>
           i.type === "divider"
@@ -1654,12 +1671,46 @@ export function MacroSection() {
         return;
       }
 
+      // The explicit save includes the latest editor draft. Cancel older delayed writes
+      // so they cannot replace the newly saved template with a stale snapshot.
+      const consumedDraft = activeTemplate?.builtIn && introDraftRef.current?.template.id === activeTemplate.id
+        ? introDraftRef.current : null;
+      if (activeTemplate?.builtIn && introDraftRef.current?.template.id === activeTemplate.id) {
+        if (introDraftTimerRef.current) window.clearTimeout(introDraftTimerRef.current);
+        introDraftTimerRef.current = null;
+        introDraftRef.current = null;
+      }
+      if (introDescSaveTimerRef.current) window.clearTimeout(introDescSaveTimerRef.current);
+      introDescSaveTimerRef.current = null;
+      const pendingIntroSave = introDescPendingSaveRef.current;
+      introDescPendingSaveRef.current = null;
+      const currentOverrides = pendingIntroSave?.kind === "hardcoded"
+        ? pendingIntroSave.overrides : builtinTemplateOverrides;
+      const currentCustom = pendingIntroSave?.kind === "custom"
+        ? pendingIntroSave.templates : customBuiltinTemplates;
+      if (introSaveInFlightRef.current) await introSaveInFlightRef.current;
+      const persistTemplateWithIntro = async (patch: Parameters<typeof persistSystemTemplateData>[0]) => {
+        try {
+          await persistSystemTemplateData(patch);
+        } catch (error) {
+          if (consumedDraft && !introDraftRef.current) introDraftRef.current = consumedDraft;
+          if (pendingIntroSave && !introDescPendingSaveRef.current) {
+            introDescPendingSaveRef.current = pendingIntroSave;
+          }
+          throw error;
+        }
+      };
+
       const nextFolderIds = { ...builtinTemplateFolderIds };
 
       if (targetId && HARDCODED_BUILTIN_TEMPLATE_IDS.has(targetId)) {
+        const source = activeTemplate?.id === targetId
+          ? activeTemplate : builtInTemplates.find((template) => template.id === targetId);
         const override: BuiltinTemplateOverride = {
+          ...currentOverrides[targetId],
           name: trimmed,
-          description: activeTemplate?.description,
+          ...templateIntroSnapshot(source ?? null),
+          introHtml: source?.id === activeTemplate?.id ? intro.introHtml : source?.introHtml,
           selectedKeys: templatePayload.selectedKeys,
           selectedListItems: templatePayload.selectedListItems,
           layoutMode: templatePayload.layoutMode,
@@ -1671,8 +1722,9 @@ export function MacroSection() {
           updatedAtIso: new Date().toISOString(),
         };
         nextFolderIds[targetId] = validFolderId;
-        await persistSystemTemplateData({
-          builtinTemplateOverrides: { ...builtinTemplateOverrides, [targetId]: override },
+        await persistTemplateWithIntro({
+          builtinTemplateOverrides: { ...currentOverrides, [targetId]: override },
+          ...(pendingIntroSave?.kind === "custom" ? { customBuiltinTemplates: currentCustom } : {}),
           builtinTemplateFolderIds: nextFolderIds,
         });
         setActiveTemplateId(targetId);
@@ -1682,7 +1734,7 @@ export function MacroSection() {
 
       let nextCustom: MacroChartTemplate[];
       if (targetId?.startsWith("builtin-custom-")) {
-        nextCustom = customBuiltinTemplates.map((t) =>
+        nextCustom = currentCustom.map((t) =>
           t.id === targetId
             ? {
                 ...t,
@@ -1699,23 +1751,22 @@ export function MacroSection() {
             id,
             ...templatePayload,
           },
-          ...customBuiltinTemplates,
+          ...currentCustom,
         ].slice(0, 30);
         targetId = id;
       }
 
       nextFolderIds[targetId] = validFolderId;
-      await persistSystemTemplateData({
+      await persistTemplateWithIntro({
         customBuiltinTemplates: nextCustom,
+        ...(pendingIntroSave?.kind === "hardcoded" ? { builtinTemplateOverrides: currentOverrides } : {}),
         builtinTemplateFolderIds: nextFolderIds,
       });
       setActiveTemplateId(targetId);
       setMainTab("templates");
     },
     [
-      activeTemplate?.builtIn,
-      activeTemplate?.description,
-      activeTemplate?.id,
+      activeTemplate,
       builtinTemplateFolderIds,
       builtinTemplateOverrides,
       builtInTemplates,
@@ -1741,6 +1792,12 @@ export function MacroSection() {
     const existing = savedTemplates.find((t) => t.name.trim() === trimmed);
     const validFolderId =
       folderId && userFolders.some((f) => f.id === folderId) ? folderId : null;
+    const introDraft = introDraftRef.current;
+    const intro = templateIntroSnapshot(
+      activeTemplate,
+      introDraft && activeTemplate && introDraft.template.id === activeTemplate.id
+        ? introDraft.html : undefined,
+    );
     const introId = activeTemplateId ?? INTRO_WORKSPACE_TEMPLATE_ID;
     const mergedIntroForSave = {
       ...(activeTemplate?.indicatorIntroNotes ?? {}),
@@ -1753,6 +1810,7 @@ export function MacroSection() {
     }
     const payload = {
       name: trimmed,
+      ...intro,
       selectedKeys: [...orderedSelectedKeys],
       selectedListItems: selectedListItems.map((i) =>
         i.type === "divider"
@@ -1765,7 +1823,8 @@ export function MacroSection() {
       displayConfig: { ...displayConfig },
       seriesCalcConfigMap: { ...seriesCalcConfigMap },
       derivedCalcs: [...derivedCalcs],
-      ...(Object.keys(indicatorIntroNotes).length > 0 ? { indicatorIntroNotes } : {}),
+      indicatorIntroNotes: Object.keys(indicatorIntroNotes).length > 0
+        ? indicatorIntroNotes : undefined,
       createdAtIso: new Date().toISOString(),
     };
 
@@ -1800,10 +1859,7 @@ export function MacroSection() {
     setActiveTemplateId(id);
     setNewTemplateName("");
   }, [
-    activeTemplate?.id,
-    activeTemplate?.builtIn,
-    activeTemplate?.indicatorIntroNotes,
-    activeTemplate?.name,
+    activeTemplate,
     activeTemplateId,
     derivedCalcs,
     displayConfig,
@@ -1829,12 +1885,6 @@ export function MacroSection() {
     setDisplayConfig({ ...DEFAULT_MACRO_CHART_DISPLAY_CONFIG });
     setSeriesCalcConfigMap({});
     setDerivedCalcs([]);
-    setCalcTargetKey("");
-    setCalcDraft(DEFAULT_SERIES_CALC_CONFIG);
-    setDerivedLeftKey("");
-    setDerivedRightKey("");
-    setDerivedOp("ratio");
-    setDerivedName("");
     setExtractedSet(new Set());
     setPayload(null);
     setError(null);
@@ -2129,32 +2179,6 @@ export function MacroSection() {
     [orderedSelectedKeys, resolveSeriesLabel],
   );
 
-  useEffect(() => {
-    if (selectedKeyOptions.length === 0) {
-      setCalcTargetKey("");
-      setDerivedLeftKey("");
-      setDerivedRightKey("");
-      return;
-    }
-    if (!calcTargetKey || !selectedKeys.has(calcTargetKey)) {
-      setCalcTargetKey(selectedKeyOptions[0]!.key);
-    }
-    if (!derivedLeftKey || !selectedKeys.has(derivedLeftKey)) {
-      setDerivedLeftKey(selectedKeyOptions[0]!.key);
-    }
-    if (!derivedRightKey || !selectedKeys.has(derivedRightKey)) {
-      setDerivedRightKey(selectedKeyOptions[Math.min(1, selectedKeyOptions.length - 1)]!.key);
-    }
-  }, [calcTargetKey, derivedLeftKey, derivedRightKey, selectedKeyOptions, selectedKeys]);
-
-  useEffect(() => {
-    if (!calcTargetKey) return;
-    setCalcDraft({
-      ...DEFAULT_SERIES_CALC_CONFIG,
-      ...(seriesCalcConfigMap[calcTargetKey] ?? {}),
-    });
-  }, [calcTargetKey, seriesCalcConfigMap]);
-
   const rawPayload = payload;
 
   const mdsUnitByKey = useMemo(() => {
@@ -2164,6 +2188,29 @@ export function MacroSection() {
     }
     return m;
   }, [mdsAttrsByKey]);
+
+  const calculationKeyOptions = useMemo(
+    () => [
+      ...selectedKeyOptions.map((option) => ({
+        ...option,
+        unit: effectiveMacroSeriesUnit(
+          option.key,
+          resolveSeriesCalcConfig(option.key, seriesCalcConfigMap),
+          mdsUnitByKey,
+        ),
+        derived: false,
+      })),
+      ...derivedCalcs
+        .filter((calc) => !calc.disabled && !calc.hidden)
+        .map((calc) => ({
+          key: `calc:${calc.id}`,
+          label: calc.name,
+          unit: calc.unitLabel ?? null,
+          derived: true,
+        })),
+    ],
+    [derivedCalcs, mdsUnitByKey, selectedKeyOptions, seriesCalcConfigMap],
+  );
 
   const displayPayload = useMemo<MacroPayload | null>(() => {
     if (!rawPayload) return null;
@@ -2192,22 +2239,34 @@ export function MacroSection() {
         const key = s.key?.trim();
         if (!key) return null;
         const cfg = resolveSeriesCalcConfig(key, seriesCalcConfigMap);
-        const scaled = s.data.map((v) => applyUnitAdjust(v, cfg.unit));
-        // 先重采样再算 YoY/环比：unified 拉取会把日频（WTI）与月频（CPI）并到同一
-        // 时间轴；若在日频轴上 idx-12 做同比，1986 年后 WTI 插入日点后会全部失效。
+        const scaled = s.data.map((v) => {
+          const adjusted = applyUnitAdjust(v, cfg.unit);
+          return adjusted == null ? null : adjusted * (cfg.scale ?? 1);
+        });
+        // v2 运算链按用户排列顺序执行；没有 steps 的历史模板继续走原有固定管线。
+        // 历史管线保持“滚动均值 → 重采样 → 变换”的语义，避免旧模板结果漂移。
         let outCategories = rawPayload.categories;
-        let outValues = scaled;
-        if (cfg.frequency !== "keep") {
-          const sampled = resampleSeries(
-            outCategories,
-            outValues,
-            cfg.frequency,
-            cfg.resampleMethod,
-          );
-          outCategories = sampled.categories;
-          outValues = sampled.data;
+        let transformed: (number | null)[];
+        if (cfg.steps?.length) {
+          const stepped = applyMacroSeriesSteps(outCategories, scaled, cfg.steps);
+          outCategories = stepped.categories;
+          transformed = stepped.data;
+        } else {
+          let outValues = cfg.rollingWindow
+            ? trailingMean(scaled, cfg.rollingWindow)
+            : scaled;
+          if (cfg.frequency !== "keep") {
+            const sampled = resampleSeries(
+              outCategories,
+              outValues,
+              cfg.frequency,
+              cfg.resampleMethod,
+            );
+            outCategories = sampled.categories;
+            outValues = sampled.data;
+          }
+          transformed = applyMacroSeriesOp(outCategories, outValues, cfg.op);
         }
-        const transformed = applyMacroSeriesOp(outCategories, outValues, cfg.op);
         const label = resolveSeriesLabel(key) || catalogLabelByKey.get(key) || s.name;
         const suffix = buildMacroSeriesCalcSuffix(cfg);
         const baseName = suffix ? `${label}（${suffix}）` : label;
@@ -2218,6 +2277,7 @@ export function MacroSection() {
           name: decorateMacroSeriesDisplayName(baseName, { unit, axis }),
           categories: outCategories,
           data: transformed,
+          unit,
         } as SeriesWorking;
       })
       .filter((x): x is SeriesWorking => Boolean(x));
@@ -2227,20 +2287,73 @@ export function MacroSection() {
     }
 
     const byKey = new Map(work.map((x) => [x.key, x]));
+    const rawInputByKey = new Map(
+      rawSeriesInputs
+        .map((series) => {
+          const key = series.key?.trim();
+          return key
+            ? [key, {
+                key,
+                name: series.name,
+                categories: rawPayload.categories,
+                data: series.data,
+                unit: effectiveMacroSeriesUnit(key, DEFAULT_SERIES_CALC_CONFIG, mdsUnitByKey),
+              }] as const
+            : null;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)),
+    );
     const derivedSeries: SeriesWorking[] = [];
-    for (const calc of derivedCalcs) {
-      const left = byKey.get(calc.leftKey);
-      const right = byKey.get(calc.rightKey);
-      if (!left || !right) continue;
+    const calculationGraph = sortMacroDerivedCalculations(derivedCalcs);
+    for (const calc of calculationGraph.ordered) {
       const key = `calc:${calc.id}`;
-      const derived = deriveSeries(left, right, calc.op, calc.name, key, calc.scale ?? 1);
-      if (calc.postOp) derived.data = applyMacroSeriesOp(derived.categories, derived.data, calc.postOp);
+      let derived: SeriesWorking | null = null;
+      if (calc.single) {
+        const source = calc.single.inputKey.startsWith("calc:")
+          ? byKey.get(calc.single.inputKey)
+          : rawInputByKey.get(calc.single.inputKey);
+        if (!source) continue;
+        const result = applyMacroSeriesSteps(source.categories, source.data, calc.single.steps);
+        const unit = calc.unitLabel ?? effectiveMacroSeriesUnit(
+          calc.single.inputKey,
+          { ...DEFAULT_SERIES_CALC_CONFIG, steps: calc.single.steps },
+          mdsUnitByKey,
+        ) ?? source.unit ?? null;
+        derived = {
+          key,
+          name: calc.name,
+          categories: result.categories,
+          data: result.data,
+          unit,
+        };
+      } else if (calc.advanced) {
+        const result = evaluateAdvancedMacroCalculation(
+          calc.advanced,
+          byKey as Map<string, MacroCalculationSeries>,
+        );
+        if (!result.diagnostics.error) {
+          derived = { key, name: calc.name, categories: result.categories, data: result.data, unit: calc.unitLabel ?? result.diagnostics.outputUnit ?? null };
+        }
+      } else {
+        const left = byKey.get(calc.leftKey);
+        const right = byKey.get(calc.rightKey);
+        if (!left || !right) continue;
+        derived = deriveSeries(left, right, calc.op, calc.name, key, {
+          leftScale: calc.leftScale,
+          rightScale: calc.rightScale,
+          scale: calc.scale,
+        });
+        if (calc.postOp) derived.data = applyMacroSeriesOp(derived.categories, derived.data, calc.postOp);
+      }
+      if (!derived) continue;
+      if (calc.unitLabel) derived.unit = calc.unitLabel;
       // 允许后续 calc 引用前序 calc，支持 (A+B)−(C+D) 这类多步公式。
       byKey.set(key, derived);
       derived.name = decorateMacroSeriesDisplayName(calc.name, {
+        unit: derived.unit,
         axis: effectiveSeriesVisualMap[key]?.axis,
       });
-      if (!calc.hidden) derivedSeries.push(derived);
+      if (!calc.hidden && !calc.disabled) derivedSeries.push(derived);
     }
 
     // “提取数据”必须保留所有已选指标；未分配到图表（null）只影响图表分组，
@@ -2378,7 +2491,7 @@ export function MacroSection() {
   const chartPropertyKeys = useMemo(() => {
     const out = new Set<string>(selectedKeys);
     for (const calc of derivedCalcs) {
-      if (!calc.hidden) out.add(`calc:${calc.id}`);
+      if (!calc.hidden && !calc.disabled) out.add(`calc:${calc.id}`);
     }
     return out;
   }, [derivedCalcs, selectedKeys]);
@@ -2571,7 +2684,14 @@ export function MacroSection() {
       delete out[key];
       return out;
     });
-    setDerivedCalcs((prev) => prev.filter((x) => x.leftKey !== key && x.rightKey !== key));
+    setDerivedCalcs((prev) =>
+      prev.filter(
+        (calc) =>
+          calc.leftKey !== key &&
+          calc.rightKey !== key &&
+          !calc.advanced?.inputs.some((input) => input.key === key),
+      ),
+    );
   }
 
   function removeSelectedListKey(key: string) {
@@ -2586,51 +2706,18 @@ export function MacroSection() {
     setSlotAssignment((prev) => ({ ...prev, [key]: slotIndex }));
   }
 
-  function applyCalcConfigToKey() {
-    const key = calcTargetKey.trim();
-    if (!key) return;
-    setSeriesCalcConfigMap((prev) => ({
-      ...prev,
-      [key]: { ...DEFAULT_SERIES_CALC_CONFIG, ...calcDraft },
-    }));
+  function addWorkbenchDerivedCalc(calc: MacroDerivedCalc) {
+    setDerivedCalcs((prev) => [calc, ...prev].slice(0, 60));
   }
 
-  function resetCalcConfigForKey(key: string) {
-    setSeriesCalcConfigMap((prev) => {
-      const out = { ...prev };
-      delete out[key];
-      return out;
-    });
+  function updateWorkbenchDerivedCalc(calc: MacroDerivedCalc) {
+    setDerivedCalcs((prev) => prev.map((item) => (item.id === calc.id ? calc : item)));
   }
 
-  function addDerivedCalc() {
-    const left = derivedLeftKey.trim();
-    const right = derivedRightKey.trim();
-    if (!left || !right || left === right) return;
-    const leftLabel = selectedKeyOptions.find((x) => x.key === left)?.label ?? left;
-    const rightLabel = selectedKeyOptions.find((x) => x.key === right)?.label ?? right;
-    const opLabel =
-      derivedOp === "add"
-        ? "+"
-        : derivedOp === "sub"
-          ? "-"
-          : derivedOp === "mul"
-            ? "×"
-            : derivedOp === "div"
-              ? "÷"
-              : derivedOp === "ratio"
-                ? "比值"
-                : "差值";
-    const name =
-      derivedName.trim() ||
-      (derivedOp === "ratio"
-        ? `${leftLabel}/${rightLabel}`
-        : derivedOp === "spread"
-          ? `${leftLabel}-${rightLabel}`
-          : `${leftLabel} ${opLabel} ${rightLabel}`);
-    const id = `d-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-    setDerivedCalcs((prev) => [{ id, leftKey: left, rightKey: right, op: derivedOp, name }, ...prev].slice(0, 60));
-    setDerivedName("");
+  function toggleWorkbenchDerivedCalc(id: string) {
+    setDerivedCalcs((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, disabled: !item.disabled } : item)),
+    );
   }
 
   function removeDerivedCalc(id: string) {
@@ -2729,7 +2816,9 @@ export function MacroSection() {
             (typeof metadata.sourceTag === "string" && metadata.sourceTag.trim()) ||
             "-";
           const updatedAt =
-            typeof metadata.dataLastObsDateIso === "string"
+            typeof item.latestObsDate === "string"
+              ? item.latestObsDate
+              : typeof metadata.dataLastObsDateIso === "string"
               ? metadata.dataLastObsDateIso
               : typeof metadata.workbookUpdatedAtIso === "string"
                 ? metadata.workbookUpdatedAtIso
@@ -2813,7 +2902,7 @@ export function MacroSection() {
   }, [displayPayload]);
 
   const visibleDerivedKeys = useMemo(
-    () => derivedCalcs.filter((calc) => !calc.hidden).map((calc) => `calc:${calc.id}`),
+    () => derivedCalcs.filter((calc) => !calc.hidden && !calc.disabled).map((calc) => `calc:${calc.id}`),
     [derivedCalcs],
   );
 
@@ -2863,7 +2952,7 @@ export function MacroSection() {
       });
     }
     for (const calc of derivedCalcs) {
-      if (calc.hidden) continue;
+      if (calc.hidden || calc.disabled) continue;
       const key = `calc:${calc.id}`;
       const extracted = extractedMetaByKey.get(key);
       m.set(key, {
@@ -2871,7 +2960,7 @@ export function MacroSection() {
         label: calc.name,
         frequency: extracted?.frequency,
         range: extracted?.range,
-        unit: undefined,
+        unit: calc.unitLabel,
         country: undefined,
         updatedAt: undefined,
         source: undefined,
@@ -3014,6 +3103,7 @@ export function MacroSection() {
         name: null as string | null,
         description: null as string | null,
         introText: null as string | null,
+        introHtml: null as string | null,
         keys: orderedSelectedKeys,
       };
     }
@@ -3022,6 +3112,7 @@ export function MacroSection() {
       name: resolved.name,
       description: resolved.description ?? null,
       introText: resolved.introText ?? null,
+      introHtml: resolved.introHtml ?? null,
       keys: resolved.selectedKeys.length > 0 ? resolved.selectedKeys : orderedSelectedKeys,
     };
   }, [activeTemplate, orderedSelectedKeys, resolveTemplateConfig]);
@@ -3074,27 +3165,34 @@ export function MacroSection() {
     const pending = introDescPendingSaveRef.current;
     if (!pending) return;
     introDescPendingSaveRef.current = null;
-    try {
-      if (pending.kind === "hardcoded") {
-        await persistBuiltinTemplateOverrides(pending.overrides);
-      } else {
-        await persistSystemTemplateData({ customBuiltinTemplates: pending.templates });
+    const previousSave = introSaveInFlightRef.current;
+    const save = (async () => {
+      if (previousSave) await previousSave;
+      try {
+        if (pending.kind === "hardcoded") {
+          await persistBuiltinTemplateOverrides(pending.overrides);
+        } else {
+          await persistSystemTemplateData({ customBuiltinTemplates: pending.templates });
+        }
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : "保存总介绍失败");
       }
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : "保存总介绍失败");
-    }
+    })();
+    introSaveInFlightRef.current = save;
+    await save;
+    if (introSaveInFlightRef.current === save) introSaveInFlightRef.current = null;
   }, [isAdmin, persistBuiltinTemplateOverrides, persistSystemTemplateData]);
 
-  /** admin 修改系统模板的简介 / 介绍正文：写入系统模板并防抖保存 */
+  /** admin 修改系统模板的介绍富文本：写入系统模板并防抖保存 */
   const patchBuiltinTemplateIntro = useCallback(
-    (patch: { description?: string | undefined; introText?: string | undefined }) => {
-      if (!isAdmin || !activeTemplate?.builtIn) return;
-      const templateId = activeTemplate.id;
+    (template: MacroChartTemplate, patch: { introHtml: string }) => {
+      if (!isAdmin || !template.builtIn) return;
+      const templateId = template.id;
 
       if (HARDCODED_BUILTIN_TEMPLATE_IDS.has(templateId)) {
         setBuiltinTemplateOverrides((prev) => {
           const base =
-            prev[templateId] ?? buildBuiltinOverrideFromTemplate(activeTemplate);
+            prev[templateId] ?? buildBuiltinOverrideFromTemplate(template);
           const merged: BuiltinTemplateOverride = {
             ...base,
             ...patch,
@@ -3119,28 +3217,37 @@ export function MacroSection() {
         void flushIntroDescriptionSave();
       }, 450);
     },
-    [activeTemplate, flushIntroDescriptionSave, isAdmin],
+    [flushIntroDescriptionSave, isAdmin],
   );
 
-  const onIntroDescriptionChange = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      patchBuiltinTemplateIntro({
-        description: trimmed ? text.slice(0, INTRO_DESCRIPTION_MAX_LEN) : undefined,
-      });
+  const flushIntroDraft = useCallback(() => {
+    if (introDraftTimerRef.current) window.clearTimeout(introDraftTimerRef.current);
+    introDraftTimerRef.current = null;
+    const draft = introDraftRef.current;
+    introDraftRef.current = null;
+    if (!draft || !isAdmin) return;
+    const introHtml = sanitizeMacroIntroHtml(draft.html) ?? "";
+    if (draft.template.builtIn) {
+      patchBuiltinTemplateIntro(draft.template, { introHtml });
+    } else {
+      setSavedTemplates((prev) => prev.map((tpl) =>
+        tpl.id === draft.template.id ? { ...tpl, introHtml } : tpl,
+      ));
+    }
+  }, [isAdmin, patchBuiltinTemplateIntro]);
+
+  const onIntroHtmlChange = useCallback(
+    (html: string) => {
+      if (!isAdmin || !activeTemplate) return;
+      if (introDraftRef.current?.template.id !== activeTemplate.id) flushIntroDraft();
+      introDraftRef.current = { template: activeTemplate, html };
+      if (introDraftTimerRef.current) window.clearTimeout(introDraftTimerRef.current);
+      introDraftTimerRef.current = window.setTimeout(flushIntroDraft, 550);
     },
-    [patchBuiltinTemplateIntro],
+    [activeTemplate, flushIntroDraft, isAdmin],
   );
 
-  const onIntroTextChange = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      patchBuiltinTemplateIntro({
-        introText: trimmed ? text.slice(0, INTRO_TEXT_MAX_LEN) : undefined,
-      });
-    },
-    [patchBuiltinTemplateIntro],
-  );
+  useEffect(() => () => flushIntroDraft(), [activeTemplateId, flushIntroDraft]);
 
   useEffect(() => {
     return () => {
@@ -3401,17 +3508,13 @@ export function MacroSection() {
                                 templateName={introTemplateMeta.name}
                                 templateDescription={introTemplateMeta.description}
                                 introText={introTemplateMeta.introText}
+                                introHtml={introTemplateMeta.introHtml}
                                 chartSections={introChartSections ?? undefined}
                                 indicators={introChartSections ? [] : introIndicators}
                                 notes={mergedIntroNotes}
-                                onIntroTextChange={
-                                  isAdmin && activeTemplate?.builtIn
-                                    ? onIntroTextChange
-                                    : undefined
-                                }
-                                onDescriptionChange={
-                                  isAdmin && activeTemplate?.builtIn
-                                    ? onIntroDescriptionChange
+                                onIntroHtmlChange={
+                                  isAdmin && activeTemplate
+                                    ? onIntroHtmlChange
                                     : undefined
                                 }
                                 editable={isAdmin}
@@ -3816,7 +3919,7 @@ export function MacroSection() {
               displayConfig={effectiveDisplayConfig}
               recessionBands={displayConfig.showRecessionShading ? recessionBands : undefined}
               regimeBands={regimeShadingEnabled ? regimeBands : undefined}
-              singleChartHeight="340px"
+              singleChartHeight="480px"
               stacked
               onCrosshairTimeLabel={onMacroCrosshairTimeLabel}
               onVisibleRangeLabels={onMacroVisibleRangeLabels}
@@ -3932,27 +4035,17 @@ export function MacroSection() {
             />
           }
         />
-        <MacroMobileCalcSheet
+        <MacroCalculationWorkbench
           open={mobileCalcOpen}
           onClose={() => setMobileCalcOpen(false)}
-          options={selectedKeyOptions}
-          targetKey={calcTargetKey}
-          onTargetKeyChange={setCalcTargetKey}
-          draft={calcDraft}
-          onDraftChange={(patch) => setCalcDraft((prev) => ({ ...prev, ...patch }))}
-          onApply={applyCalcConfigToKey}
-          onReset={() => {
-            if (calcTargetKey) resetCalcConfigForKey(calcTargetKey);
-          }}
-          leftKey={derivedLeftKey}
-          onLeftKeyChange={setDerivedLeftKey}
-          rightKey={derivedRightKey}
-          onRightKeyChange={setDerivedRightKey}
-          op={derivedOp}
-          onOpChange={setDerivedOp}
-          name={derivedName}
-          onNameChange={setDerivedName}
-          onAddDerived={addDerivedCalc}
+          options={calculationKeyOptions}
+          rawPayload={rawPayload}
+          displayPayload={displayPayload}
+          derivedCalcs={derivedCalcs}
+          onAddDerived={addWorkbenchDerivedCalc}
+          onUpdateDerived={updateWorkbenchDerivedCalc}
+          onDeleteDerived={removeDerivedCalc}
+          onToggleDerived={toggleWorkbenchDerivedCalc}
         />
         <MobileSheet
           open={mobileChartSettingsOpen}
@@ -4057,175 +4150,20 @@ export function MacroSection() {
           onDeleteActiveTemplate={deleteActiveTemplate}
         />
         {mainTab === "selected" ? (
-          <div className="ml-3 min-w-0 flex-1 rounded-md border border-fs-border/90 bg-fs-elevated px-2 py-1 sm:ml-4">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-              <span className="shrink-0 text-xs font-bold text-fs-muted">
-                单指标运算
+          <button
+            type="button"
+            disabled={selectedKeyOptions.length === 0}
+            onClick={() => setMobileCalcOpen(true)}
+            className="ml-3 inline-flex items-center gap-1.5 rounded-md border border-fs-accent/30 bg-fs-accent-soft px-2.5 py-1 text-xs font-medium text-fs-accent-text transition hover:border-fs-accent disabled:opacity-40 sm:ml-4"
+          >
+            <span aria-hidden>Σ</span>
+            指标运算
+            {visibleDerivedKeys.length > 0 ? (
+              <span className="rounded-full bg-white/80 px-1 py-0 text-[10px] leading-4">
+                {visibleDerivedKeys.length}
               </span>
-              <label className="text-fs-muted">
-                指标
-                <select
-                  value={calcTargetKey}
-                  onChange={(e) => setCalcTargetKey(e.target.value)}
-                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  {selectedKeyOptions.map((x) => (
-                    <option key={x.key} value={x.key}>
-                      {x.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                运算
-                <select
-                  value={calcDraft.op}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({ ...prev, op: e.target.value as MacroSeriesCalcOp }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="none">原始</option>
-                  <option value="pctChange">环比%</option>
-                  <option value="yoy">同比%</option>
-                  <option value="diff">差分</option>
-                  <option value="cumsum">累计</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                频率
-                <select
-                  value={calcDraft.frequency}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({
-                      ...prev,
-                      frequency: e.target.value as MacroFrequencyAdjust,
-                    }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="keep">原始</option>
-                  <option value="month">月</option>
-                  <option value="quarter">季</option>
-                  <option value="year">年</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                变频
-                <select
-                  value={calcDraft.resampleMethod}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({
-                      ...prev,
-                      resampleMethod: e.target.value as MacroResampleMethod,
-                    }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="avg">平均</option>
-                  <option value="start">期初</option>
-                  <option value="end">期末</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                单位
-                <select
-                  value={calcDraft.unit}
-                  onChange={(e) =>
-                    setCalcDraft((prev) => ({ ...prev, unit: e.target.value as MacroUnitAdjust }))
-                  }
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="keep">原始</option>
-                  <option value="x0.01">x0.01</option>
-                  <option value="x100">x100</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={applyCalcConfigToKey}
-                className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[11px] font-medium text-fs-accent-text hover:border-fs-accent"
-              >
-                应用
-              </button>
-              <button
-                type="button"
-                onClick={() => calcTargetKey && resetCalcConfigForKey(calcTargetKey)}
-                className="rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-secondary hover:border-fs-border"
-              >
-                重置
-              </button>
-
-              <span
-                className="ml-3 mr-1 hidden h-6 w-px shrink-0 self-center bg-fs-border/80 sm:inline-block"
-                aria-hidden
-              />
-
-              <span className="ml-2 shrink-0 text-xs font-bold text-fs-muted sm:ml-0">
-                指标间运算
-              </span>
-              <label className="text-fs-muted">
-                左
-                <select
-                  value={derivedLeftKey}
-                  onChange={(e) => setDerivedLeftKey(e.target.value)}
-                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  {selectedKeyOptions.map((x) => (
-                    <option key={`l-${x.key}`} value={x.key}>
-                      {x.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                运算
-                <select
-                  value={derivedOp}
-                  onChange={(e) => setDerivedOp(e.target.value as MacroDerivedCalcOp)}
-                  className="ml-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  <option value="ratio">A/B</option>
-                  <option value="spread">A-B</option>
-                  <option value="add">A+B</option>
-                  <option value="sub">A-B</option>
-                  <option value="mul">A×B</option>
-                  <option value="div">A÷B</option>
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                右
-                <select
-                  value={derivedRightKey}
-                  onChange={(e) => setDerivedRightKey(e.target.value)}
-                  className="ml-1 max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text"
-                >
-                  {selectedKeyOptions.map((x) => (
-                    <option key={`r-${x.key}`} value={x.key}>
-                      {x.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-fs-muted">
-                名称
-                <input
-                  type="text"
-                  value={derivedName}
-                  onChange={(e) => setDerivedName(e.target.value)}
-                  placeholder="自动"
-                  className="ml-1 w-24 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={addDerivedCalc}
-                className="rounded border border-fs-accent/30 bg-fs-accent-soft px-2 py-0.5 text-[11px] text-fs-accent-text hover:border-fs-accent"
-              >
-                添加
-              </button>
-            </div>
-          </div>
+            ) : null}
+          </button>
         ) : null}
         {mainTab === "charts" ? (
           <>
@@ -4719,6 +4657,18 @@ export function MacroSection() {
         </div>
       </div>
 
+      <MacroCalculationWorkbench
+        open={mobileCalcOpen}
+        onClose={() => setMobileCalcOpen(false)}
+        options={calculationKeyOptions}
+        rawPayload={rawPayload}
+        displayPayload={displayPayload}
+        derivedCalcs={derivedCalcs}
+        onAddDerived={addWorkbenchDerivedCalc}
+        onUpdateDerived={updateWorkbenchDerivedCalc}
+        onDeleteDerived={removeDerivedCalc}
+        onToggleDerived={toggleWorkbenchDerivedCalc}
+      />
       {templateNameDialog}
     </div>
   );

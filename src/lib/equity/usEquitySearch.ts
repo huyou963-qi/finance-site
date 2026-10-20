@@ -5,7 +5,9 @@
 
 import { prisma } from "@/lib/prisma";
 import type { SymbolSearchItem } from "@/lib/data/symbolSearchTypes";
-import { MARKET_INSTRUMENTS } from "@/lib/data/marketInstruments";
+import { MARKET_INSTRUMENTS, marketInstrumentInputCodes } from "@/lib/data/marketInstruments";
+import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
+import { loadNasdaqSymbolDirectory } from "./nasdaqSymbolDirectory";
 
 // SEC 公平访问策略会拒绝 contact 为 localhost / 明显伪造邮箱的 UA（返回 403），
 // 默认必须给一个可用的真实联系邮箱，否则线上取不到 company_tickers → 联想只剩兜底 ETF。
@@ -65,11 +67,18 @@ async function loadSecTickers(): Promise<SecTicker[]> {
 }
 
 /** ETF / 指数等 SEC 不收录的常用标的兜底 */
-const EXTRA_SYMBOLS: SecTicker[] = [
+const EXTRA_SYMBOLS: PoolItem[] = [
   { symbol: "SPY", name: "SPDR S&P 500 ETF Trust", exchange: "NYSE Arca" },
   { symbol: "QQQ", name: "Invesco QQQ Trust", exchange: "Nasdaq" },
   { symbol: "DIA", name: "SPDR Dow Jones Industrial Average ETF", exchange: "NYSE Arca" },
   { symbol: "IWM", name: "iShares Russell 2000 ETF", exchange: "NYSE Arca" },
+  {
+    symbol: "SOXX",
+    name: "iShares Semiconductor ETF",
+    exchange: "Nasdaq",
+    type: "ETF",
+    aliases: ["半导体", "半导体ETF", "芯片", "芯片ETF", "安硕半导体ETF"],
+  },
   { symbol: "XLK", name: "Technology Select Sector SPDR Fund", exchange: "NYSE Arca" },
   { symbol: "XLF", name: "Financial Select Sector SPDR Fund", exchange: "NYSE Arca" },
   { symbol: "XLE", name: "Energy Select Sector SPDR Fund", exchange: "NYSE Arca" },
@@ -118,7 +127,7 @@ const CURATED_POOL: PoolItem[] = MARKET_INSTRUMENTS.map((m) => ({
   name: m.name,
   exchange: m.exchange,
   type: m.type,
-  aliases: m.aliases,
+  aliases: [...m.aliases, ...marketInstrumentInputCodes(m)],
 }));
 
 /**
@@ -143,23 +152,25 @@ async function loadLocalCandidates(q: string): Promise<SecTicker[]> {
 export async function searchUsEquitySymbols(
   rawQuery: string,
   limit = 20,
+  includeSec = true,
 ): Promise<SymbolSearchItem[]> {
   const q = rawQuery.trim().toUpperCase();
   if (!q) return [];
 
-  let rows: SecTicker[];
-  try {
-    rows = await loadSecTickers();
-  } catch {
-    rows = [];
-  }
-
-  const local = await loadLocalCandidates(q);
+  const normalizedQuery = normalizeTickerSymbol(rawQuery);
+  const exactCurated = CURATED_POOL.find(item => item.symbol === normalizedQuery);
+  if (exactCurated) return [{ symbol: exactCurated.symbol, name: exactCurated.name,
+    exchange: exactCurated.exchange, type: exactCurated.type }];
+  const [rows, directory, local] = await Promise.all([
+    includeSec ? loadSecTickers().catch(() => []) : Promise.resolve([]),
+    includeSec ? loadNasdaqSymbolDirectory().catch(() => []) : Promise.resolve([]),
+    loadLocalCandidates(normalizedQuery),
+  ]);
   // 白名单（商品/外汇/债券）在最前，命中同分时优先于 SEC 同名项（如 TLT 显示为「债券」）
-  const pool: PoolItem[] = [...CURATED_POOL, ...rows, ...local, ...EXTRA_SYMBOLS];
+  const pool: PoolItem[] = [...CURATED_POOL, ...EXTRA_SYMBOLS, ...directory, ...rows, ...local];
 
   const scored = pool
-    .map((r) => ({ r, score: scoreHit(q, r) }))
+    .map((r) => ({ r, score: Math.max(scoreHit(q, r), scoreHit(normalizedQuery, r)) }))
     .filter((x) => x.score >= 0)
     .sort((a, b) => b.score - a.score);
 
@@ -182,10 +193,12 @@ export async function searchUsEquitySymbols(
 
 /** symbol 是否为可识别的美股代码（供页面校验） */
 export async function isKnownUsSymbol(symbol: string): Promise<boolean> {
-  const sym = symbol.trim().toUpperCase();
+  const sym = normalizeTickerSymbol(symbol);
   if (!sym) return false;
   if (CURATED_POOL.some((r) => r.symbol === sym)) return true;
   if (EXTRA_SYMBOLS.some((r) => r.symbol === sym)) return true;
+  const directory = await loadNasdaqSymbolDirectory();
+  if (directory.some((r) => r.symbol === sym)) return true;
   const local = await prisma.equitySecurity.findUnique({ where: { symbol: sym } });
   if (local) return true;
   try {

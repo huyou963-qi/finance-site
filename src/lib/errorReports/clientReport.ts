@@ -1,4 +1,5 @@
 import type { ErrorReportSource } from "@/lib/errorReports/types";
+import { collectAssetDiagnostics } from "@/lib/errorReports/assetDiagnostics";
 
 export type ClientReportImage = {
   name: string;
@@ -84,7 +85,11 @@ export async function reportClientError(
         pageUrl,
         userNote: input.userNote,
         digest: input.digest ?? undefined,
-        metadata: input.metadata,
+        metadata: {
+          ...input.metadata,
+          ...(/ChunkLoadError|Loading (?:CSS )?chunk|SyntaxError|Unexpected token|Unexpected end of input/i.test(message)
+            ? collectAssetDiagnostics(message) : {}),
+        },
         images: input.images,
       }),
       keepalive: !input.images?.length,
