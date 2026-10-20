@@ -9,6 +9,19 @@ import {
 const NONE: PackageRunState = { lastSuccessAt: null, sourceVerifiedAt: null };
 const d = (iso: string) => new Date(iso);
 
+test("employment period proof preserves newer failure and bounded retry guards", () => {
+  const release = d("2026-10-02T12:30:00Z");
+  const state: PackageRunState = { lastSuccessAt: d("2026-10-02T14:00:00Z"),
+    sourceVerifiedAt: d("2026-10-02T14:00:00Z"), requiredSeriesLatestObsDate: d("2026-08-01") };
+  const decision = resolvePackageNextRunAt({ packageId: "us.bls.employment_situation",
+    runState: state, previousReleaseAt: release, now: d("2026-10-03T12:00:00Z"),
+    computedNextRunAt: d("2026-11-06T13:33:00Z"), currentNextRunAt: d("2026-11-06T13:33:00Z") });
+  assert.equal(decision.nextRunAt?.toISOString(), "2026-10-03T14:00:00.000Z");
+  state.requiredSeriesLatestObsDate = d("2026-09-01");
+  state.hasUnresolvedFailures = true;
+  assert.equal(releaseConsumed(state, release, "us.bls.employment_situation"), false);
+});
+
 test("CPI early no-change fetch cannot consume the release or skip its bounded retry", () => {
   const now = d("2026-10-14T14:00:00Z");
   const future = d("2026-11-10T13:33:00Z");
@@ -118,6 +131,39 @@ test("跑过但源端当时还没出数 → 保持发布后探测节奏，不跳
   });
   assert.equal(decision.reason, "hold_pending_release");
   assert.equal(decision.nextRunAt?.toISOString(), "2026-09-16T16:05:00.000Z");
+});
+
+test("非农发布后 FRED 仍只有上月观测，不能按已运行就跳到下一期", () => {
+  const decision = resolvePackageNextRunAt({
+    packageId: "us.bls.employment_situation",
+    computedNextRunAt: d("2026-11-06T13:33:00Z"),
+    currentNextRunAt: d("2026-10-02T14:50:00Z"),
+    previousReleaseAt: d("2026-10-02T12:30:00Z"),
+    runState: {
+      lastSuccessAt: d("2026-10-02T12:50:00Z"),
+      sourceVerifiedAt: null,
+      requiredSeriesLatestObsDate: d("2026-08-01T00:00:00Z"),
+    },
+    now: d("2026-10-02T13:00:00Z"),
+  });
+  assert.equal(decision.reason, "hold_pending_release");
+  assert.equal(decision.nextRunAt?.toISOString(), "2026-10-02T14:50:00.000Z");
+});
+
+test("非农新观测入库后，即使旧 sourceSync 未更新也可进入下一期", () => {
+  const decision = resolvePackageNextRunAt({
+    packageId: "us.bls.employment_situation",
+    computedNextRunAt: d("2026-11-06T13:33:00Z"),
+    currentNextRunAt: d("2026-10-02T14:50:00Z"),
+    previousReleaseAt: d("2026-10-02T12:30:00Z"),
+    runState: {
+      lastSuccessAt: d("2026-10-02T14:50:00Z"),
+      sourceVerifiedAt: d("2026-09-04T12:50:00Z"),
+      requiredSeriesLatestObsDate: d("2026-09-01T00:00:00Z"),
+    },
+    now: d("2026-10-02T15:00:00Z"),
+  });
+  assert.equal(decision.reason, "calendar");
 });
 
 test("消费完这一期后，发布后的冗余探测点不会把包钉死（回归：hold_due_run 不得越过 1c）", () => {
