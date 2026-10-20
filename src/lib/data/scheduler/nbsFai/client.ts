@@ -11,6 +11,9 @@ import {
 } from "./catalog";
 import { parseNbsFaiResponse } from "./parseResponse";
 import { parseFaiInfrastructureRelease, type FaiInfrastructureDefinition } from "./parseRelease";
+import { parseFaiAnnualInternetRelease } from "./parseRelease";
+import { NBS_FAI_ANNUAL_INTERNET_SUPPLEMENT } from "./catalog";
+import { mergeNewReleasePoint } from "../nbsPriceRelease/monthlyTable";
 
 export type FaiIndicator = { cid: string; indicatorId: string; label: string; frequency: FaiFrequency; group: string; unit: "%" | "亿元" };
 const headers = { Referer: "https://data.stats.gov.cn/dg/website/page.html", "User-Agent": process.env.NBS_USER_AGENT?.trim() || "finance-site-data-scheduler/1.0" };
@@ -75,7 +78,19 @@ export async function fetchNbsFaiGroup(items: readonly FaiIndicator[], startYear
   return result;
 }
 
-export async function fetchNbsFaiSeries(item: FaiIndicator, startYear: number) { return (await fetchNbsFaiGroup([item], startYear)).get(item.indicatorId) ?? []; }
+let annualSupplementCache: { at: number; point: ObservationPoint } | undefined;
+export async function fetchNbsFaiSeries(item: FaiIndicator, startYear: number) {
+  const points = (await fetchNbsFaiGroup([item], startYear)).get(item.indicatorId) ?? [];
+  const source = NBS_FAI_ANNUAL_INTERNET_SUPPLEMENT;
+  if (item.frequency !== "annual" || item.unit !== "%" || item.cid !== source.cid || item.indicatorId !== source.indicatorId || startYear > source.year
+    || points.some(p => p.obsDate >= new Date(Date.UTC(source.year, 0, 1)))) return points;
+  if (!annualSupplementCache || Date.now() - annualSupplementCache.at >= 60_000) {
+    const response = await fetchChinaOfficial(source.url, { headers, signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new Error(`年度固投补充公告 HTTP ${response.status}`);
+    annualSupplementCache = { at: Date.now(), point: parseFaiAnnualInternetRelease(await response.text(), source.year) };
+  }
+  return mergeNewReleasePoint(points, annualSupplementCache.point);
+}
 
 function strip(text: string) { return text.replace(/<[^>]*>/g, "").replace(/&nbsp;|&#160;/g, " ").replace(/\s+/g, " "); }
 

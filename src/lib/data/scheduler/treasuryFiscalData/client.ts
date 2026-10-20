@@ -116,3 +116,18 @@ export function selectMts1FyMonthRow(rows: TreasuryRow[], recordDate: string): T
     String(a.line_code_nbr ?? "").localeCompare(String(b.line_code_nbr ?? "")),
   )[matches.length - 1]!;
 }
+
+/** Original report FYTD subtotal, not a sum of older monthly report vintages. */
+export function selectMts1FytdRow(rows: TreasuryRow[], recordDate: string): TreasuryRow {
+  const current = rows.filter((row) => row.record_date === recordDate);
+  const fy = fiscalYearForCalendarDate(recordDate);
+  const parents = current.filter((row) => row.classification_desc === `FY ${fy}` &&
+    row.record_type_cd === "SL" && row.data_type_cd === "S" && row.classification_id);
+  if (parents.length !== 1) throw new Error(`MTS FYTD 财年父行不唯一：${recordDate}`);
+  // record_fiscal_year is the publication year on *both* prior/current FY rows.
+  // The explicit parent link is required to exclude the prior-FY comparison.
+  const matches = current.filter((row) => row.parent_id === parents[0]!.classification_id &&
+    row.classification_desc === "Year-to-Date" && row.record_type_cd === "SL" && row.data_type_cd === "T");
+  if (matches.length !== 1) throw new Error(`MTS FYTD 官方累计行不唯一：${recordDate}`);
+  return matches[0]!;
+}

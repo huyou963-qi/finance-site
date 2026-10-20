@@ -29,12 +29,21 @@ export type MacroPayload = {
 
 /** K 线 API 响应 */
 export type KlinePayload = {
-  source: "yahoo";
+  /** Server response cache check time; not the source's latest trade/publication time. */
+  cache?: { state: "hit" | "refreshed" | "stale"; checkedAt: string; freshUntil: string; expiresAt: string };
+  source: "yahoo" | "eastmoney" | "fred";
+  /** 日度点观测只能画折线，不能将传输占位字段解释为开高低收。 */
+  observationOnly?: boolean;
   symbol: string;
   interval: string;
   candles: CandlestickData[];
   /** 与 candles 等长；缺失时前端可用价差估算柱高 */
   volumes?: number[];
+  /** False means volume is unavailable; never substitute a synthetic volume. */
+  volumeAvailable?: boolean;
+  /** Earliest bar in the provider's current window (especially bounded intraday history). */
+  availableFrom?: number;
+  pricePrecision?: number;
   attribution?: string;
   /** 为 true 时客户端可继续向左请求更早 K 线（`before` 参数） */
   hasMoreOlder?: boolean;

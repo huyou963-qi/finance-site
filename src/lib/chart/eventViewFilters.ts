@@ -10,7 +10,15 @@ import {
 } from "@/lib/data/eventTaxonomy";
 import type { EventScopeMode } from "@/lib/data/assetEventResolver";
 
-export type EventViewFilterState = {
+export type EventSourceFilters = {
+  relationMode?: "asset" | "industry" | "macro";
+  includeLocal?: boolean;
+  companyKinds?: string[];
+  eventColors?: Record<string, string>;
+  typeColors?: Record<string, string>;
+  hiddenEventIds?: string[];
+  hiddenMarkerIds?: string[];
+  viewMode?: "timeline" | "cards" | "list";
   searchQ: string;
   typeFamilies: EventTypeFamilyId[];
   minImportance: EventImportance;
@@ -25,7 +33,23 @@ export type EventViewFilterState = {
   includeSec: boolean;
   includeMarket: boolean;
   showLabel: boolean;
+  largeSurpriseOnly: boolean;
 };
+
+/** Root fields retain the system preferences; user preferences are stored independently. */
+export type EventViewFilterState = EventSourceFilters & { userFilters?: EventSourceFilters };
+export type EventFilterSource = "system" | "user";
+
+export function eventFiltersForSource(state: EventViewFilterState, source: EventFilterSource): EventSourceFilters {
+  return source === "user" ? state.userFilters ?? state : state;
+}
+
+export function updateEventSourceFilters(state: EventViewFilterState, source: EventFilterSource, next: EventSourceFilters): EventViewFilterState {
+  // Strip the envelope if an existing consumer passed the whole state back.
+  const { userFilters: _nested, ...values } = next as EventViewFilterState;
+  void _nested;
+  return source === "user" ? { ...state, userFilters: values } : { ...values, userFilters: { ...eventFiltersForSource(state, "user") } };
+}
 
 export const DEFAULT_EVENT_VIEW_FILTERS: EventViewFilterState = {
   searchQ: "",
@@ -41,11 +65,17 @@ export const DEFAULT_EVENT_VIEW_FILTERS: EventViewFilterState = {
   includeSec: true,
   includeMarket: true,
   showLabel: true,
+  largeSurpriseOnly: false,
 };
 
 const STORAGE_KEY = "event-view-filters-v1";
 const LEGACY_LIST_KEY = "event-panel-list-filters-v1";
 const LEGACY_MARKER_KEY = "chart-event-markers-prefs-v1";
+
+function validColors(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v)));
+}
 
 function isFamilyId(v: unknown): v is EventTypeFamilyId {
   return (
@@ -69,9 +99,9 @@ function asStringArray(v: unknown): string[] {
     : [];
 }
 
-export function sanitizeEventViewFilters(
-  raw: Partial<EventViewFilterState> | null | undefined,
-): EventViewFilterState {
+function sanitizeSourceFilters(
+  raw: Partial<EventSourceFilters> | null | undefined,
+): EventSourceFilters {
   const base = { ...DEFAULT_EVENT_VIEW_FILTERS };
   if (!raw) return base;
 
@@ -80,6 +110,15 @@ export function sanitizeEventViewFilters(
     : null;
 
   return {
+    relationMode: raw.relationMode === "asset" || raw.relationMode === "industry" || raw.relationMode === "macro" ? raw.relationMode : undefined,
+    includeLocal: raw.includeLocal !== false,
+    companyKinds: Array.isArray(raw.companyKinds) ? raw.companyKinds.filter(k => ["sec", "product", "capacity", "deal", "other"].includes(k)) : undefined,
+    eventColors: validColors(raw.eventColors),
+    typeColors: validColors(raw.typeColors),
+    hiddenEventIds: asStringArray(raw.hiddenEventIds),
+    hiddenMarkerIds: asStringArray(raw.hiddenMarkerIds),
+    viewMode: raw.viewMode === "cards" || raw.viewMode === "list" ? raw.viewMode : "timeline",
+    largeSurpriseOnly: raw.largeSurpriseOnly === true,
     searchQ: typeof raw.searchQ === "string" ? raw.searchQ : "",
     typeFamilies: families
       ? [...new Set(families)]
@@ -110,6 +149,13 @@ export function sanitizeEventViewFilters(
     showLabel:
       typeof raw.showLabel === "boolean" ? raw.showLabel : base.showLabel,
   };
+}
+
+export function sanitizeEventViewFilters(raw: Partial<EventViewFilterState> | null | undefined): EventViewFilterState {
+  const system = sanitizeSourceFilters(raw);
+  // Old asset/geography fields scoped the server query only, never local events.
+  const legacyUser = raw ? { ...raw, assets: [], industries: [], countries: [] } : undefined;
+  return { ...system, userFilters: sanitizeSourceFilters(raw?.userFilters ?? legacyUser) };
 }
 
 function migrateFromLegacy(): EventViewFilterState | null {
@@ -160,7 +206,7 @@ function migrateFromLegacy(): EventViewFilterState | null {
 }
 
 export function loadEventViewFilters(): EventViewFilterState {
-  if (typeof window === "undefined") return { ...DEFAULT_EVENT_VIEW_FILTERS };
+  if (typeof window === "undefined") return sanitizeEventViewFilters(null);
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -173,9 +219,9 @@ export function loadEventViewFilters(): EventViewFilterState {
       saveEventViewFilters(migrated);
       return migrated;
     }
-    return { ...DEFAULT_EVENT_VIEW_FILTERS };
+    return sanitizeEventViewFilters(null);
   } catch {
-    return { ...DEFAULT_EVENT_VIEW_FILTERS };
+    return sanitizeEventViewFilters(null);
   }
 }
 
@@ -202,6 +248,7 @@ export function hasActiveEventViewContentFilters(
   const allFamilies = isAllTypeFamiliesSelected(f.typeFamilies);
   return Boolean(
     f.searchQ.trim() ||
+      f.largeSurpriseOnly ||
       !allFamilies ||
       f.minImportance !== DEFAULT_EVENT_VIEW_FILTERS.minImportance ||
       f.countries.length ||

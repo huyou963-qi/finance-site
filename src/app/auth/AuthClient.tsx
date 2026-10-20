@@ -24,6 +24,12 @@ export function AuthClient() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loginLock, setLoginLock] = useState<{ identifier: string; until: number } | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const remainingLockSeconds = mode === "login" && loginLock?.identifier === username.trim().toLowerCase()
+    ? Math.max(0, Math.ceil((loginLock.until - clockNow) / 1000))
+    : 0;
+  const remainingLockLabel = `${String(Math.floor(remainingLockSeconds / 60)).padStart(2, "0")}:${String(remainingLockSeconds % 60).padStart(2, "0")}`;
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -45,6 +51,19 @@ export function AuthClient() {
       setHint(`微信登录失败：${wechatError}`);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!loginLock) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setClockNow(now);
+      if (now >= loginLock.until) {
+        setLoginLock(null);
+        setHint("等待已结束，请重新输入密码登录。绑定验证器时请使用新显示的密钥。");
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [loginLock]);
 
   const submit = async () => {
     setLoading(true);
@@ -71,8 +90,31 @@ export function AuthClient() {
         secret?: string;
         uri?: string;
         recoveryCodes?: string[];
+        retryAfterSeconds?: number;
       };
-      if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
+      if (res.status === 429) {
+        const headerSeconds = Number(res.headers.get("Retry-After"));
+        const seconds = Number.isFinite(payload.retryAfterSeconds) && payload.retryAfterSeconds! > 0
+          ? payload.retryAfterSeconds!
+          : headerSeconds;
+        if (Number.isFinite(seconds) && seconds > 0) {
+          const now = Date.now();
+          setClockNow(now);
+          setLoginLock({ identifier: username.trim().toLowerCase(), until: now + seconds * 1000 });
+          setMfaSetup(null);
+          setMfaRequired(false);
+          setTotpCode("");
+          setHint(null);
+          return;
+        }
+      }
+      if (!res.ok) {
+        if (mfaSetup && payload.error?.includes("设置会话已过期")) {
+          setMfaSetup(null);
+          setTotpCode("");
+        }
+        throw new Error(payload.error ?? `HTTP ${res.status}`);
+      }
       if (payload.mfaRequired) {
         setMfaRequired(true);
         setHint("请输入验证器中的 6 位动态验证码");
@@ -274,6 +316,7 @@ export function AuthClient() {
             type="submit"
             disabled={
               loading ||
+              remainingLockSeconds > 0 ||
               !username.trim() ||
               (!password && !mfaSetup) ||
               ((mfaRequired || mfaSetup) && totpCode.length !== (useRecoveryCode ? 16 : 6)) ||
@@ -281,7 +324,7 @@ export function AuthClient() {
             }
             className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
           >
-            {loading ? "提交中…" : mfaSetup ? "完成验证并登录" : mode === "login" ? "登录" : "注册并发送验证邮件"}
+            {loading ? "提交中…" : remainingLockSeconds > 0 ? `请等待 ${remainingLockLabel}` : mfaSetup ? "完成验证并登录" : mode === "login" ? "登录" : "注册并发送验证邮件"}
           </button>
 
           {mode === "login" ? (
@@ -328,7 +371,11 @@ export function AuthClient() {
         </>
       ) : null}
 
-      {hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
+      {remainingLockSeconds > 0 ? (
+        <p role="status" className="mt-4 break-words rounded-md border border-fs-border bg-fs-elevated p-3 text-sm text-fs-secondary">
+          为保护账户，登录已暂停。剩余 <strong className="tabular-nums text-fs-text">{remainingLockLabel}</strong>。倒计时结束后请重新登录；若正在绑定验证器，请使用届时显示的新密钥。
+        </p>
+      ) : hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
     </AuthPageShell>
   );
 }

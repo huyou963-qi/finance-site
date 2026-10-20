@@ -50,7 +50,22 @@ npm run equity:sync-prices -- --full           # 强制重拉全量历史（含�
 
 ## 符号联想
 
-`GET /api/data/symbol-search?q=apple` → SEC `company_tickers_exchange.json`（全美股约 1 万条，进程内缓存 24h）+ 常用 ETF 兜底。
+`GET /api/data/symbol-search?q=apple` → Nasdaq Trader 公开证券目录（`nasdaqlisted.txt` + `otherlisted.txt`，包括 ETF，进程内缓存 24h）+ SEC `company_tickers_exchange.json` + 本地 GICS 成分 + 跨资产别名目录。目录失败时保留缓存并低频重试，不依赖 FMP 的查询额度。公开目录与许可说明：[Symbol Directory](https://www.nasdaqtrader.com/Trader.aspx?id=symbollookup)、[字段定义](https://www.nasdaqtrader.com/trader.aspx?id=symboldirdefs)。
+
+常用代码在 `marketInstruments.ts` 集中声明，通过 `tickerSymbolNormalize.ts` 供搜索、回车添加、自选写入和行情 API 复用；支持 `TVC:US02Y`、`NASDAQ:SOXX` 等前缀。自然语言关键词只用于搜索，不作为直接转换规则，避免把股票 `GOLD`、`CL` 或 ETF `BTC` 转成另一资产。
+
+| 常用输入示例 | 行情源代码/系列 |
+|---|---|
+| US2Y / US02Y / US02YT / USGG2YR | US2Y → FRED DGS2 |
+| US5Y / US05Y、US10Y、US30Y | ^FVX、^TNX、^TYX |
+| DXY / USDX | DX-Y.NYB |
+| SPX / SP500 / US500、NDX / NAS100 / US100、DJI / DJIA / US30 | ^GSPC、^NDX、^DJI |
+| EURUSD、USDJPY | EURUSD=X、USDJPY=X |
+| BTCUSD / BTC/USD、ETHUSD / ETH/USD | BTC-USD、ETH-USD |
+
+新增的 US1M/US3M/US6M/US1Y/US2Y/US3Y/US7Y/US20Y 使用 **已有宏观底座**：`loadFredObservationMapsDbFirst` → `MacroObservation`，缺失才使用既有 FRED adapter 回退。只新增只读 chart provider；没有新事实表、writer 或抓取器。收益率是官方日度观测（%），以折线显示，仅支持日/周，周线保留每周最后一个真实观测日期；没有盘中 OHLC、成交量或复权。自选报价也读取相同系列，显示实际观测日期。历史 ^TNX/^FVX/^TYX 自选记录保持有效。
+
+扩充目录时，同时补 `inputAliases`（无歧义代码）与 `aliases`（中文/英文关键词）。`tickerSymbolNormalize.test.ts` 遍历全部可输入代码，检查冲突和解析一致性；`usEquitySearch.test.ts` 验证搜索路径；`macroYieldKlineProvider.test.ts` 验证收益率口径、历史分页与零值保留。
 
 ## 关键文件
 

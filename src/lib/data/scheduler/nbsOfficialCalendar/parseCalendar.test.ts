@@ -17,6 +17,14 @@ const HTML = `
   <tr>${"<td>9:30</td>".repeat(12)}</tr>
 </table>`;
 
+test("mixed real-estate package waits for housing AND macro release, not 09:30 alone", () => {
+  const releases = parseNbsOfficialCalendarPage(HTML);
+  const macro = releases.find((r) => r.releaseMonth === 10 && r.title === "国民经济运行情况")!;
+  const housing = { ...macro, title: "商品住宅销售价格指数月度报告", releaseAt: new Date("2026-10-19T01:30:00Z"), releaseHour: 9, releaseMinute: 30 };
+  const all = [...releases, housing].sort((a,b) => a.releaseAt.getTime()-b.releaseAt.getTime());
+  assert.equal(nextNbsOfficialReleaseForPackage(all, "cn.nbs.real-estate", new Date("2026-10-10Z"))?.releaseAt.toISOString(), "2026-10-19T02:00:00.000Z");
+});
+
 test("parses official NBS Beijing dates, rowspans, and two PMI releases in March", () => {
   const releases = parseNbsOfficialCalendarPage(HTML);
   const pmi = releases.filter((release) => release.title === "采购经理指数月度报告");

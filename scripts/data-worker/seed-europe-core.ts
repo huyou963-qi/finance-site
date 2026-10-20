@@ -11,10 +11,11 @@ import {
   EUROPE_CORE_SERIES,
   EUROSTAT_API_BASE,
   EUROSTAT_SOURCE_ID,
+  officialEuropeProbeHours,
   RETIRED_EUROPE_CORE_CODES,
 } from "../../src/lib/data/scheduler/europeCore/catalog";
 import { mergeFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
-import { computeNextRunAt, defaultEconomicCalendarRule } from "../../src/lib/data/scheduler/releaseRule";
+import { computeNextRunAt, defaultEconomicCalendarRule, type ReleaseRule } from "../../src/lib/data/scheduler/releaseRule";
 
 loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
@@ -190,7 +191,10 @@ async function main() {
         },
       },
     });
-    const releaseRule = defaultEconomicCalendarRule(series.granularity);
+    const probeHours = officialEuropeProbeHours(series.packageId);
+    const releaseRule: ReleaseRule = probeHours !== null
+      ? { type: "probe_interval", intervalHours: probeHours }
+      : defaultEconomicCalendarRule(series.granularity);
     await prisma.dataSubscription.upsert({
       where: { instrumentId: instrument.id },
       create: {

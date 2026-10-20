@@ -75,6 +75,11 @@
       "id": "folder-builtin-cn-balance-of-payments",
       "name": "中国国际收支分析",
       "scope": "builtin"
+    },
+    {
+      "id": "folder-builtin-us-oil-diesel",
+      "name": "全球原油与成品油",
+      "scope": "builtin"
     }
   ],
   "customBuiltinTemplates": [
@@ -239,6 +244,7 @@
     "builtin-us-monetary-overview": "folder-builtin-us-monetary",
     "builtin-cn-fiscal-expenditure": "folder-builtin-cn-fiscal",
     "builtin-us-cycle-risk-signals": "folder-builtin-us-cycle-risk",
+    "builtin-us-oil-diesel-monitor": "folder-builtin-us-oil-diesel",
     "builtin-debt-capacity-4country": null,
     "builtin-us-cycle-risk-momentum": "folder-builtin-us-cycle-risk",
     "builtin-us-monetary-conditions": "folder-builtin-us-monetary",
@@ -266,6 +272,8 @@
       "selectedKeys": [
         "mds:usov_c03_sp500",
         "mds:us_sp500_pe",
+        "mds:usov_c01_nasdaq",
+        "mds:usov_c02_dow",
         "mds:wgc_gold_price_usd",
         "fred:DGS2",
         "fred:T10Y2Y",
@@ -283,7 +291,7 @@
         "mds:usov_c24_fed_treasuries",
         "mds:usov_c23_fed_assets"
       ],
-      "updatedAtIso": "2026-09-25T05:51:33.129Z",
+      "updatedAtIso": "2026-10-15T08:39:12.846Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
@@ -292,8 +300,9 @@
           "0": false,
           "1": false,
           "2": false,
-          "3": false,
-          "4": false
+          "3": true,
+          "4": false,
+          "5": true
         },
         "slotTitles": {
           "0": "市场",
@@ -315,15 +324,15 @@
         "yLabelFontSize": 10,
         "slotSeriesOrder": {
           "0": [
+            "mds:usov_c01_nasdaq",
             "mds:usov_c03_sp500",
-            "mds:us_sp500_pe",
-            "mds:wgc_gold_price_usd"
+            "mds:us_sp500_pe"
           ],
           "1": [
             "fred:DGS2",
             "mds:usov_c11_effr",
-            "fred:T10Y2Y",
-            "fred:DFII10"
+            "fred:DFII10",
+            "fred:T10Y2Y"
           ],
           "2": [
             "mds:ism_us_ism_headline",
@@ -354,12 +363,14 @@
         "fred:UNRATE": 3,
         "mds:us_sp500_pe": 0,
         "fred:PPIFIS::yoy": 4,
+        "mds:usov_c02_dow": null,
         "fred:PAYEMS::diff": 3,
         "mds:usov_c11_effr": 1,
         "fred:CPIAUCSL::yoy": 4,
         "fred:CPILFESL::yoy": 4,
         "fred:PCEPILFE::yoy": 4,
         "mds:usov_c03_sp500": 0,
+        "mds:usov_c01_nasdaq": null,
         "fred:A191RL1Q225SBEA": 2,
         "mds:wgc_gold_price_usd": null,
         "mds:ism_us_ism_headline": 2,
@@ -369,10 +380,13 @@
       },
       "seriesVisualMap": {
         "fred:DGS2": {
-          "axis": "right",
+          "axis": "left",
           "color": "#9da8b6",
           "chartType": "line",
           "showEndLabel": true
+        },
+        "fred:T10Y2Y": {
+          "axis": "right"
         },
         "fred:UNRATE": {
           "axis": "right",
@@ -391,7 +405,7 @@
           "showEndLabel": true
         },
         "mds:usov_c11_effr": {
-          "axis": "right",
+          "axis": "left",
           "color": "#4bc0c8",
           "chartType": "line",
           "showEndLabel": true
@@ -449,6 +463,14 @@
         },
         {
           "key": "mds:us_sp500_pe",
+          "type": "series"
+        },
+        {
+          "key": "mds:usov_c01_nasdaq",
+          "type": "series"
+        },
+        {
+          "key": "mds:usov_c02_dow",
           "type": "series"
         },
         {
@@ -605,8 +627,6 @@
       "selectedKeys": [
         "mds:wgc_gold_price_usd",
         "mds:comex_gold_futures",
-        "fred:DTWEXBGS",
-        "fred:DFII10",
         "mds:cot_mm_gold_long",
         "mds:cot_mm_gold_short",
         "mds:goldov_c06_mm_net",
@@ -618,7 +638,7 @@
         "mds:goldov_c22_gold_etf",
         "mds:goldov_c20_phau_etf"
       ],
-      "updatedAtIso": "2026-09-23T04:06:49.744Z",
+      "updatedAtIso": "2026-10-14T12:55:27.149Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -638,8 +658,6 @@
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:DFII10": 1,
-        "fred:DTWEXBGS": null,
         "calc:gold-basis": null,
         "mds:cot_mm_gold_long": null,
         "mds:cot_mm_gold_short": null,
@@ -655,12 +673,6 @@
         "mds:goldov_c24_global_reserve_tons": 5
       },
       "seriesVisualMap": {
-        "fred:DFII10": {
-          "axis": "right",
-          "color": "#8a6d3b",
-          "chartType": "line",
-          "showEndLabel": true
-        },
         "calc:gold-basis": {
           "axis": "left",
           "color": "#9aa7b3",
@@ -734,18 +746,6 @@
         {
           "key": "calc:gold-basis",
           "type": "derived"
-        },
-        {
-          "id": "div-mudi9wsc-7xl2",
-          "type": "divider"
-        },
-        {
-          "key": "fred:DTWEXBGS",
-          "type": "series"
-        },
-        {
-          "key": "fred:DFII10",
-          "type": "series"
         },
         {
           "id": "div-mudigr7x-ln8j",
@@ -3792,34 +3792,84 @@
       "description": "四图依次判断短端政策与资金价格、实际利率和通胀补偿、联储资产负债表与资金缓冲、长端收益率和期限曲线。短端日度利率在此取月均；量的工具分别读轴，不把资产减负债项机械相加为净流动性。信用利差留给“金融条件·信贷与压力”。",
       "derivedCalcs": [
         {
-          "id": "d-mt55qeuk-gpn9b",
-          "op": "spread",
+          "id": "d-mvcejp9k-kuzcf",
+          "op": "add",
+          "name": "ON RRP 隔夜逆回购余额（百万美元）",
+          "single": {
+            "steps": [
+              {
+                "id": "s-mvcej5sp-773c",
+                "type": "scale",
+                "factor": 1000,
+                "unitLabel": "百万美元"
+              }
+            ],
+            "inputKey": "fred:RRPONTSYD"
+          },
+          "leftKey": "fred:RRPONTSYD",
+          "rightKey": "fred:RRPONTSYD",
+          "unitLabel": "百万美元"
+        },
+        {
+          "id": "d-mvce6lm9-0-7vrl6",
+          "op": "div",
           "name": "SOFR-IORB",
           "leftKey": "fred:SOFR",
-          "rightKey": "fred:IORB"
+          "advanced": {
+            "kind": "formula",
+            "inputs": [
+              {
+                "key": "fred:SOFR",
+                "alias": "A",
+                "maxGap": 3,
+                "fillMethod": "none",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "fred:IORB",
+                "alias": "B",
+                "maxGap": 3,
+                "fillMethod": "none",
+                "resampleMethod": "end"
+              }
+            ],
+            "formula": "A - B",
+            "version": 2,
+            "alignment": {
+              "join": "inner",
+              "frequency": "keep"
+            }
+          },
+          "rightKey": "fred:IORB",
+          "unitLabel": "%"
         }
       ],
       "selectedKeys": [
+        "mds:usov_c11_effr",
+        "fred:EFFR",
+        "fred:RRPONTSYAWARD",
         "fred:SOFR",
         "fred:IORB",
-        "fred:EFFR",
-        "fred:DGS2::avg",
-        "fred:DGS10::avg",
-        "fred:T10Y3M::avg",
+        "fred:DGS2",
+        "fred:T10Y2Y",
+        "fred:DGS10",
         "fred:DFII10",
+        "fred:T10YIE",
+        "fred:TEDRATE",
+        "fred:BAMLH0A0HYM2",
         "fred:WRESBAL",
-        "fred:WALCL::avg",
-        "fred:RRPONTSYD::avg",
+        "fred:TREAST",
+        "fred:WALCL",
         "mds:treasury_dts_tga_balance",
-        "fred:T10YIE::avg"
+        "fred:RRPONTSYD"
       ],
-      "updatedAtIso": "2026-09-24T09:40:01.623Z",
+      "updatedAtIso": "2026-10-17T13:09:21.679Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
-          "0": "L1 政策利率、2Y定价与SOFR−IORB",
+          "0": "L1 政策利率",
           "1": "L2 10Y实际利率与通胀补偿",
           "2": "L3 联储资产、准备金、TGA与RRP",
           "3": "L4 10Y收益率与10Y−3M曲线"
@@ -3836,44 +3886,57 @@
         "yLabelFontSize": 10,
         "slotSeriesOrder": {
           "0": [
+            "mds:usov_c11_effr",
+            "mds:usov_c10_fedfunds_target",
             "fred:EFFR",
-            "fred:IORB",
             "fred:SOFR",
-            "fred:DGS2::avg",
-            "calc:d-mt55qeuk-gpn9b"
+            "fred:IORB",
+            "fred:RRPONTSYAWARD",
+            "fred:DGS2",
+            "calc:d-mvce6lm9-0-7vrl6",
+            "fred:TEDRATE"
           ],
           "1": [
-            "fred:DFII10",
-            "fred:T10YIE::avg"
+            "fred:DGS10",
+            "fred:T10YIE",
+            "fred:DFII10"
           ],
           "2": [
-            "fred:WALCL::avg",
+            "fred:WALCL",
+            "fred:TREAST",
             "fred:WRESBAL",
             "mds:treasury_dts_tga_balance",
-            "fred:RRPONTSYD::avg"
+            "calc:d-mvcejp9k-kuzcf",
+            "fred:RRPONTSYD"
           ],
           "3": [
-            "fred:DGS10::avg",
-            "fred:T10Y3M::avg"
+            "fred:T10Y2Y",
+            "fred:BAMLH0A0HYM2"
           ]
         },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
-        "showRecessionShading": false
+        "showRecessionShading": true
       },
       "slotAssignment": {
-        "fred:EFFR": 0,
+        "fred:DGS2": 0,
+        "fred:EFFR": null,
         "fred:IORB": 0,
         "fred:SOFR": 0,
+        "fred:DGS10": 1,
+        "fred:WALCL": 2,
         "fred:DFII10": 1,
+        "fred:T10Y2Y": 3,
+        "fred:T10YIE": 1,
+        "fred:TREAST": 2,
+        "fred:TEDRATE": 0,
         "fred:WRESBAL": 2,
-        "fred:DGS2::avg": 0,
-        "fred:DGS10::avg": 3,
-        "fred:WALCL::avg": 2,
-        "fred:T10Y3M::avg": 3,
-        "fred:T10YIE::avg": 1,
-        "fred:RRPONTSYD::avg": 2,
-        "calc:d-mt55qeuk-gpn9b": 0,
+        "fred:RRPONTSYD": null,
+        "fred:BAMLH0A0HYM2": 3,
+        "mds:usov_c11_effr": 0,
+        "fred:RRPONTSYAWARD": 0,
+        "calc:d-mvcejp9k-kuzcf": 2,
+        "calc:d-mvce6lm9-0-7vrl6": 0,
         "mds:treasury_dts_tga_balance": 2
       },
       "chartIntroNotes": {
@@ -3883,59 +3946,30 @@
         "3": "10Y名义收益率与10Y−3M利差分轴看水平和期限结构。利差上升要辨别短端下降还是长端上行；曲线变化本身不是衰退确认。"
       },
       "seriesVisualMap": {
-        "fred:EFFR": {
-          "chartType": "stepLine"
-        },
-        "fred:DFII10": {
-          "color": "#f31b26"
-        },
-        "fred:WRESBAL": {
-          "axis": "left"
-        },
-        "fred:DGS2::avg": {
-          "axis": "left",
-          "color": "#5f76b8",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:DGS10::avg": {
-          "axis": "left",
-          "color": "#f221d6",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:WALCL::avg": {
-          "axis": "left",
-          "color": "#3e4d83",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:T10Y3M::avg": {
+        "fred:TEDRATE": {
           "axis": "right",
-          "color": "#f4b165",
-          "chartType": "dashedLine",
-          "showEndLabel": true
+          "color": "#a13a4a"
         },
-        "fred:T10YIE::avg": {
-          "axis": "left",
-          "color": "#d89b4e",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:RRPONTSYD::avg": {
-          "axis": "right",
-          "color": "#8f9bab",
-          "chartType": "dashedLine",
-          "showEndLabel": true
-        },
-        "calc:d-mt55qeuk-gpn9b": {
+        "fred:BAMLH0A0HYM2": {
           "axis": "right"
         },
-        "mds:treasury_dts_tga_balance": {
-          "axis": "left"
+        "calc:d-mvce6lm9-0-7vrl6": {
+          "axis": "right"
         }
       },
       "selectedListItems": [
+        {
+          "key": "mds:usov_c11_effr",
+          "type": "series"
+        },
+        {
+          "key": "fred:EFFR",
+          "type": "series"
+        },
+        {
+          "key": "fred:RRPONTSYAWARD",
+          "type": "series"
+        },
         {
           "key": "fred:SOFR",
           "type": "series"
@@ -3945,19 +3979,19 @@
           "type": "series"
         },
         {
-          "key": "fred:EFFR",
+          "id": "div-mvce7at9-nujt",
+          "type": "divider"
+        },
+        {
+          "key": "fred:DGS2",
           "type": "series"
         },
         {
-          "key": "fred:DGS2::avg",
+          "key": "fred:T10Y2Y",
           "type": "series"
         },
         {
-          "key": "fred:DGS10::avg",
-          "type": "series"
-        },
-        {
-          "key": "fred:T10Y3M::avg",
+          "key": "fred:DGS10",
           "type": "series"
         },
         {
@@ -3965,15 +3999,39 @@
           "type": "series"
         },
         {
+          "key": "fred:T10YIE",
+          "type": "series"
+        },
+        {
+          "id": "div-mvce7say-3tsn",
+          "type": "divider"
+        },
+        {
+          "key": "calc:d-mvce6lm9-0-7vrl6",
+          "type": "derived"
+        },
+        {
+          "key": "fred:TEDRATE",
+          "type": "series"
+        },
+        {
+          "key": "fred:BAMLH0A0HYM2",
+          "type": "series"
+        },
+        {
+          "id": "div-mvce7w6q-vcl3",
+          "type": "divider"
+        },
+        {
           "key": "fred:WRESBAL",
           "type": "series"
         },
         {
-          "key": "fred:WALCL::avg",
+          "key": "fred:TREAST",
           "type": "series"
         },
         {
-          "key": "fred:RRPONTSYD::avg",
+          "key": "fred:WALCL",
           "type": "series"
         },
         {
@@ -3981,84 +4039,15 @@
           "type": "series"
         },
         {
-          "key": "fred:T10YIE::avg",
+          "key": "calc:d-mvcejp9k-kuzcf",
+          "type": "derived"
+        },
+        {
+          "key": "fred:RRPONTSYD",
           "type": "series"
         }
       ],
-      "seriesCalcConfigMap": {
-        "fred:EFFR": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:IORB": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:SOFR": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:DFII10": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:WRESBAL": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:DGS2::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:DGS10::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:WALCL::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:T10Y3M::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:T10YIE::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:RRPONTSYD::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "mds:treasury_dts_tga_balance": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        }
-      }
+      "seriesCalcConfigMap": {}
     },
     "builtin-cn-fiscal-expenditure": {
       "name": "财政支出 · 执行、投向与刚性约束",
@@ -4471,6 +4460,298 @@
         }
       }
     },
+    "builtin-us-oil-diesel-monitor": {
+      "name": "美国原油与柴油短缺监测",
+      "introHtml": "<p>六层观察：原油价格 → 成品油裂解 → 库存 → 炼厂 → 需求/货运 → 战略储备。先区分原油冲击、炼化瓶颈与需求变化，再判断短缺是否扩散。</p><p>图 1 · 1 原油价格：WTI vs Brent<br />WTI 代表美国内陆原油，Brent 代表全球海运原油。两者同时抬升更像全球供给冲击；Brent 相对更强通常提示海运与地缘风险溢价。</p><p>图 2 · 2 成品油裂解：ULSD−WTI<br />ULSD 裂解价差 = 42×纽约港 ULSD（美元/加仑）−WTI（美元/桶），只在模板显示层按同日数据计算。价差急升而原油平稳，更接近炼化或柴油局部短缺。</p><p>图 3 · 3 库存：战略 vs 商业<br />SPR 是政策缓冲垫，不等于商业库存。释放可缓解原油端压力，但未必同步解决炼厂产能或柴油品种短缺。总馏分油库存与 ≤15ppm ULSD 库存同时下降，且裂解价差走阔，才是柴油紧张增强的组合信号。单周库存受季节与物流扰动，避免孤立解读。</p><p>图 4 · 4 炼厂：产能利用率<br />炼厂利用率用于定位炼化瓶颈：利用率下降且裂解走阔，常见于检修、事故或区域炼能受限；高利用率下仍短缺则需检查需求与物流。</p><p>图 5 · 5 需求：馏分油 <br />馏分油 product supplied 同时展示官方周值和模板层 4 周均值；</p><p style=\"line-height:1\">图 6 · 6 需求：货运<br />BTS 与 Cass 是较慢的月度货运需求代理。货运转弱但裂解仍走阔时，优先检查供给端。</p>",
+      "layoutMode": 6,
+      "description": "六层观察：原油价格 → 成品油裂解 → 库存 → 炼厂 → 需求/货运 → 战略储备。先区分原油冲击、炼化瓶颈与需求变化，再判断短缺是否扩散。",
+      "derivedCalcs": [
+        {
+          "id": "oil-diesel-ulsd-crack",
+          "op": "sub",
+          "name": "ULSD 裂解价差（美元/桶）",
+          "leftKey": "fred:DDFUELNYH",
+          "rightKey": "fred:DCOILWTICO",
+          "leftScale": 42
+        }
+      ],
+      "selectedKeys": [
+        "fred:DCOILWTICO",
+        "fred:DCOILBRENTEU",
+        "fred:DDFUELNYH",
+        "fred:TSIFRGHT",
+        "fred:FRGSHPUSM649NCIS",
+        "mds:eia_wpsr_wdistus1",
+        "mds:eia_wpsr_wd0st_nus_1",
+        "mds:eia_wpsr_wpuleus3",
+        "mds:eia_wpsr_wdiupus2",
+        "mds:eia_wpsr_wdiupus2::ma4",
+        "mds:eia_wpsr_wcsstus1"
+      ],
+      "updatedAtIso": "2026-10-04T09:53:37.735Z",
+      "displayConfig": {
+        "lineWidth": 1.6,
+        "lineSmooth": false,
+        "showLegend": true,
+        "slotTitles": {
+          "0": "1 原油价格：WTI vs Brent",
+          "1": "2 成品油裂解：ULSD−WTI",
+          "2": "3 库存：战略 vs 商业",
+          "3": "4 炼厂：产能利用率",
+          "4": "5 需求：馏分油 ",
+          "5": "6 5 需求：货运"
+        },
+        "symbolSize": 7,
+        "areaOpacity": 0.22,
+        "barMaxWidth": 14,
+        "showSymbols": false,
+        "showTooltip": true,
+        "xLabelRotate": 24,
+        "showGridLines": true,
+        "legendPosition": "bottom",
+        "xLabelFontSize": 10,
+        "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "2": [
+            "mds:eia_wpsr_wcsstus1",
+            "mds:eia_wpsr_wdistus1",
+            "mds:eia_wpsr_wd0st_nus_1"
+          ],
+          "5": [
+            "fred:FRGSHPUSM649NCIS",
+            "fred:TSIFRGHT"
+          ]
+        },
+        "endLabelDecimals": 2,
+        "showRegimeShading": false,
+        "showRecessionShading": false
+      },
+      "slotAssignment": {
+        "fred:TSIFRGHT": 5,
+        "fred:DDFUELNYH": null,
+        "fred:DCOILWTICO": 0,
+        "fred:DCOILBRENTEU": 0,
+        "fred:FRGSHPUSM649NCIS": 5,
+        "mds:eia_wpsr_wcsstus1": 2,
+        "mds:eia_wpsr_wdistus1": 2,
+        "mds:eia_wpsr_wdiupus2": 4,
+        "mds:eia_wpsr_wpuleus3": 3,
+        "mds:eia_wpsr_wd0st_nus_1": 2,
+        "calc:oil-diesel-ulsd-crack": 1,
+        "mds:eia_wpsr_wdiupus2::ma4": 4
+      },
+      "chartIntroNotes": {
+        "0": "WTI 代表美国内陆原油，Brent 代表全球海运原油。两者同时抬升更像全球供给冲击；Brent 相对更强通常提示海运与地缘风险溢价。",
+        "1": "ULSD 裂解价差 = 42×纽约港 ULSD（美元/加仑）−WTI（美元/桶），只在模板显示层按同日数据计算。价差急升而原油平稳，更接近炼化或柴油局部短缺。",
+        "2": "总馏分油库存与 ≤15ppm ULSD 库存同时下降，且裂解价差走阔，才是柴油紧张增强的组合信号。单周库存受季节与物流扰动，避免孤立解读。",
+        "3": "炼厂利用率用于定位炼化瓶颈：利用率下降且裂解走阔，常见于检修、事故或区域炼能受限；高利用率下仍短缺则需检查需求与物流。",
+        "4": "馏分油 product supplied 同时展示官方周值和模板层 4 周均值；BTS 与 Cass 是较慢的月度货运需求代理。货运转弱但裂解仍走阔时，优先检查供给端。",
+        "5": "SPR 是政策缓冲垫，不等于商业库存。释放可缓解原油端压力，但未必同步解决炼厂产能或柴油品种短缺。"
+      },
+      "seriesVisualMap": {
+        "fred:TSIFRGHT": {
+          "axis": "right",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DDFUELNYH": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DCOILWTICO": {
+          "axis": "left",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:DCOILBRENTEU": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "fred:FRGSHPUSM649NCIS": {
+          "axis": "left",
+          "color": "#6ccad1",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wcsstus1": {
+          "axis": "right",
+          "color": "#3e4d83",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wdistus1": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wdiupus2": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wpuleus3": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wd0st_nus_1": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:oil-diesel-ulsd-crack": {
+          "axis": "left",
+          "color": "#ef6461",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "mds:eia_wpsr_wdiupus2::ma4": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        }
+      },
+      "selectedListItems": [
+        {
+          "key": "fred:DCOILWTICO",
+          "type": "series"
+        },
+        {
+          "key": "fred:DCOILBRENTEU",
+          "type": "series"
+        },
+        {
+          "key": "fred:DDFUELNYH",
+          "type": "series"
+        },
+        {
+          "key": "fred:TSIFRGHT",
+          "type": "series"
+        },
+        {
+          "key": "fred:FRGSHPUSM649NCIS",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wdistus1",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wd0st_nus_1",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wpuleus3",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wdiupus2",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wdiupus2::ma4",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wcsstus1",
+          "type": "series"
+        },
+        {
+          "key": "calc:oil-diesel-ulsd-crack",
+          "type": "derived"
+        }
+      ],
+      "seriesCalcConfigMap": {
+        "fred:TSIFRGHT": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:DDFUELNYH": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:DCOILWTICO": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:DCOILBRENTEU": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:FRGSHPUSM649NCIS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wcsstus1": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wdistus1": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wdiupus2": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶/日",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wpuleus3": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wd0st_nus_1": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶",
+          "resampleMethod": "end"
+        },
+        "mds:eia_wpsr_wdiupus2::ma4": {
+          "op": "none",
+          "unit": "keep",
+          "scale": 0.001,
+          "frequency": "keep",
+          "unitLabel": "百万桶/日",
+          "rollingWindow": 4,
+          "resampleMethod": "end"
+        }
+      }
+    },
     "builtin-debt-capacity-4country": {
       "name": "四国偿债能力（美日中德）",
       "layoutMode": 4,
@@ -4500,13 +4781,16 @@
         "mds:debtcap_de_debt_service_private_non_financial",
         "mds:debtcap_de_debt_service_non_financial_corporate"
       ],
-      "updatedAtIso": "2026-06-07T09:24:31.764Z",
+      "updatedAtIso": "2026-10-04T13:36:09.171Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
         "showLegend": true,
         "slotTitles": {
-          "0": "美国杠杆率"
+          "0": "美国杠杆率",
+          "1": "日本杠杆率",
+          "2": "中国杠杆率",
+          "3": "德国杠杆率"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
@@ -4520,6 +4804,9 @@
         "yLabelFontSize": 11,
         "endLabelDecimals": 2,
         "showRegimeShading": false,
+        "slotShowEndLabels": {
+          "3": true
+        },
         "showRecessionShading": false
       },
       "slotAssignment": {
@@ -4577,13 +4864,13 @@
         },
         "mds:debtcap_de_debt_service_household": {
           "axis": "right",
-          "color": "#f4b165",
+          "color": "#1ce3e0",
           "chartType": "line",
           "showEndLabel": true
         },
         "mds:debtcap_jp_debt_service_household": {
           "axis": "right",
-          "color": "#f4b165",
+          "color": "#db7e14",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -4609,7 +4896,7 @@
         },
         "mds:debtcap_jp_leverage_nominal_government": {
           "axis": "left",
-          "color": "#d9b15c",
+          "color": "#ecac22",
           "chartType": "stackBar",
           "stackGroup": "debtcap-leverage",
           "showEndLabel": true
@@ -4657,7 +4944,7 @@
         },
         "mds:debtcap_de_debt_service_private_non_financial": {
           "axis": "right",
-          "color": "#6ccad1",
+          "color": "#19fb09",
           "chartType": "dashedLine",
           "showEndLabel": true
         },
@@ -4675,7 +4962,7 @@
         },
         "mds:debtcap_de_debt_service_non_financial_corporate": {
           "axis": "right",
-          "color": "#f5f6fa",
+          "color": "#f24207",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -4903,15 +5190,15 @@
       "description": "【第二步 · 传导确认】按图 1→4 追踪政策向金融体系与实体信贷的传导：综合条件 → 信用定价 → 银行信贷量价 → 拖欠损伤。与立场模板结论合并成「政策-传导」完整叙事。",
       "derivedCalcs": [],
       "selectedKeys": [
-        "fred:NFCI::avg",
-        "fred:BAMLH0A0HYM2::avg",
-        "fred:BAMLC0A0CM::avg",
+        "fred:NFCI",
+        "fred:BAMLH0A0HYM2",
+        "fred:BAMLC0A0CM",
         "fred:DRTSCILM",
         "fred:BUSLOANS::yoy",
         "fred:DRCCLACBS",
         "fred:DRBLACBS"
       ],
-      "updatedAtIso": "2026-09-22T03:08:47.092Z",
+      "updatedAtIso": "2026-10-17T12:36:51.358Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -4932,18 +5219,33 @@
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "0": [
+            "fred:NFCI"
+          ],
+          "1": [
+            "fred:BAMLH0A0HYM2",
+            "fred:BAMLC0A0CM"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
       },
       "slotAssignment": {
+        "fred:NFCI": 0,
         "fred:DRBLACBS": 3,
         "fred:DRTSCILM": 2,
         "fred:DRCCLACBS": 3,
-        "fred:NFCI::avg": 0,
-        "fred:BUSLOANS::yoy": 2,
-        "fred:BAMLC0A0CM::avg": 1,
-        "fred:BAMLH0A0HYM2::avg": 1
+        "fred:BAMLC0A0CM": 1,
+        "fred:BAMLH0A0HYM2": 1,
+        "fred:BUSLOANS::yoy": 2
+      },
+      "chartIntroNotes": {
+        "0": "NFCI：0 = 历史平均金融条件，>0 偏紧、<0 偏松。政策加息后 NFCI 若不升（股市走强、利差收窄对冲），说明传导被市场抵消，紧缩「不解渴」→ Fed 倾向更鹰。",
+        "1": "高收益 vs 投资级 OAS：风险定价温度计。HY 单独走阔 = 尾部信用担忧；HY/IG 同步走阔 = 系统性避险（对照图 1 确认）。利差处于历史低位时警惕自满——对政策冲击最脆弱。",
+        "2": "左轴 SLOOS 收紧净比例（季，柱）、右轴工商业贷款同比（季末对齐）：SLOOS 领先贷款增速约 2–4 个季度，收紧比例冲高预告未来信贷收缩；贷款同比转负历史上多伴随衰退。量价互证：SLOOS 紧 + 图 2 利差阔 = 传导到位。",
+        "3": "信用卡 vs 工商业贷款拖欠率：紧缩的滞后损伤，周期最后确认。信用卡通常先于工商贷款恶化（居民端先受伤）；两者同升且图 3 贷款收缩 → 信用周期下行确认，政策转向压力最大。"
       },
       "seriesVisualMap": {
         "fred:DRBLACBS": {
@@ -4964,42 +5266,27 @@
           "chartType": "line",
           "showEndLabel": true
         },
-        "fred:NFCI::avg": {
-          "axis": "left",
-          "color": "#5f76b8",
-          "chartType": "line",
-          "showEndLabel": true
+        "fred:BAMLC0A0CM": {
+          "axis": "right"
         },
         "fred:BUSLOANS::yoy": {
           "axis": "right",
           "color": "#3e4d83",
           "chartType": "line",
           "showEndLabel": true
-        },
-        "fred:BAMLC0A0CM::avg": {
-          "axis": "left",
-          "color": "#d89b4e",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:BAMLH0A0HYM2::avg": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "line",
-          "showEndLabel": true
         }
       },
       "selectedListItems": [
         {
-          "key": "fred:NFCI::avg",
+          "key": "fred:NFCI",
           "type": "series"
         },
         {
-          "key": "fred:BAMLH0A0HYM2::avg",
+          "key": "fred:BAMLH0A0HYM2",
           "type": "series"
         },
         {
-          "key": "fred:BAMLC0A0CM::avg",
+          "key": "fred:BAMLC0A0CM",
           "type": "series"
         },
         {
@@ -5038,29 +5325,11 @@
           "frequency": "keep",
           "resampleMethod": "avg"
         },
-        "fred:NFCI::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
         "fred:BUSLOANS::yoy": {
           "op": "yoy",
           "unit": "keep",
           "frequency": "quarter",
           "resampleMethod": "end"
-        },
-        "fred:BAMLC0A0CM::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:BAMLH0A0HYM2::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
         }
       }
     },

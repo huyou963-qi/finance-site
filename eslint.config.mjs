@@ -13,7 +13,9 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      ".data/**",
       ".next.corrupt-*/**",
+      ".codex-artifacts/**",
       "node_modules/**",
       "clientportal.gw/**",
       "dist/**",

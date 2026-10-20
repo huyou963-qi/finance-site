@@ -21,3 +21,4 @@ export {
   validateKlineWindowForProvider,
 } from "./klineProviderRegistry";
 export { yahooKlineProvider } from "./yahooKlineProvider";
+export { macroYieldKlineProvider } from "./macroYieldKlineProvider";

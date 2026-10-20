@@ -27,7 +27,7 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
   通胀与价格: ["CPI", "PCE与PPI", "二手车批发价格", "通胀预期与能源", "黄金与贵金属"],
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
   货币政策与流动性: ["政策利率", "联储资产负债表", "财政部账户与货币市场"],
-  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场"],
+  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场", "美股风格因子", "美股市场广度"],
   金融条件与银行: ["金融条件指数", "银行信贷", "资产质量"],
   财政与公共债务: [
     "MTS现金流量",
@@ -84,6 +84,10 @@ const FRED_INFLATION_EXPECT_ENERGY = new Set([
   "T10YIE",
   "T5YIFR",
   "DCOILWTICO",
+  "DCOILBRENTEU",
+  "DDFUELNYH",
+  "DGASNYH",
+  "GASDESLSW",
   // EIA 能源价格（eiaEnergyPricesFredSeedCatalog.ts）：CPI 能源分项的高频代理
   "GASREGW",
   "DHHNGSP",
@@ -224,7 +228,14 @@ export function mdsCodeFromCatalogKey(key: string): string | null {
 }
 
 /** 货运：Cass 货运指数 + BTS 铁路货运（车皮 / 联运），见 cassFreightIndexFredSeedCatalog.ts */
-const FRED_LOGISTICS = new Set(["FRGSHPUSM649NCIS", "FRGEXPUSM649NCIS", "RAILFRTCARLOADSD11", "RAILFRTINTERMODALD11"]);
+const FRED_LOGISTICS = new Set([
+  "FRGSHPUSM649NCIS",
+  "FRGEXPUSM649NCIS",
+  "RAILFRTCARLOADSD11",
+  "RAILFRTINTERMODALD11",
+  "TSIFRGHT",
+  "TRUCKD11",
+]);
 
 function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   const id = fredId.toUpperCase();
@@ -281,6 +292,8 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
 }
 
 function placementFromMdsCode(code: string): UsCatalogPlacement | null {
+  if (code.startsWith("ff_us_")) return p("利率与信用市场", "美股风格因子");
+  if (code.startsWith("breadth_us_sp500_")) return p("利率与信用市场", "美股市场广度");
   if (code.startsWith("quant_regime_")) return p("国民经济", "景气综合");
   if (code.startsWith("treasury_mts_")) return p("财政与公共债务", "MTS现金流量");
   if (code.startsWith("treasury_dts_") || code.startsWith("treasury_debt_")) {
@@ -305,6 +318,9 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   }
   // WTI 原油期货标准序列（oilPrices/catalog.ts），与 FRED WTI 现货同组
   if (code === "nymex_wti_futures") {
+    return p("通胀与价格", "通胀预期与能源");
+  }
+  if (code.startsWith("eia_wpsr_")) {
     return p("通胀与价格", "通胀预期与能源");
   }
   if (code.startsWith("goldov_")) {

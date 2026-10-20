@@ -16,6 +16,7 @@ import { buildCotInstrumentMetadata, CFTC_COT_SOURCE } from "../../src/lib/data/
 import { IMF_IL_GOLD_KEY, IMF_IL_GOLD_URL } from "../../src/lib/data/scheduler/adapters/imfIlGoldAdapter";
 import { GLOBAL_X_GOLD_PAGE_URL, ISHARES_IAU_PAGE_URL, SPDR_GLD_ARCHIVE_URL, WGC_GOLD_ETF_PAGE_URL, WISDOMTREE_GBS_BARLIST_URL, WISDOMTREE_SGBS_BARLIST_URL } from "../../src/lib/data/scheduler/goldEtfHoldings/client";
 import { mergeFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
+import { correctGoldEtfCountryMetadata } from "../../src/lib/data/scheduler/goldEtfHoldings/metadata";
 import { defaultReleaseRuleForGranularity, computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
 
 loadEnvConfig(process.cwd());
@@ -297,7 +298,7 @@ async function seedGoldEtfHoldings() {
       message: row.message,
     };
     const metadata = mergeFetchAcquisition(
-      {
+      correctGoldEtfCountryMetadata({
         ...existingMetadata(existing.metadata),
         // 覆盖历史工作簿导入时留下的过期「来源」单元格（如 Wind）；
         // 该系列现由上方 issuer/WGC 官方源自动更新，展示应反映实际口径。
@@ -317,7 +318,7 @@ async function seedGoldEtfHoldings() {
           url: row.url,
           ...("sourceStartDate" in row ? { sourceStartDate: row.sourceStartDate } : {}),
         },
-      },
+      }, row.product),
       acquisition,
     );
     const instrument = await prisma.instrument.update({

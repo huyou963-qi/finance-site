@@ -39,6 +39,7 @@ const FORECAST_LINKS = [
 
 /** 顶栏主入口：featureId 由管理员在 /admin/feature-access 控制可见性 */
 const MAIN_LINKS = [
+  { featureId: "markets", href: "/markets", label: "行情", match: ["/markets", "/equity/stocks"] },
   { featureId: "macro", href: "/macro", label: "宏观数据", match: ["/macro"] },
   {
     featureId: "equity-sectors",
@@ -52,7 +53,6 @@ const MAIN_LINKS = [
     label: "持股监控",
     match: ["/equity/ownership"],
   },
-  { featureId: "markets", href: "/markets", label: "行情", match: ["/markets", "/equity/stocks"] },
   {
     featureId: "investments",
     href: "/investments",
@@ -166,7 +166,6 @@ export function SiteHeaderNav() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const features = useVisibleFeatures();
 
-  const macroFrameworkActive = matchesAny(pathname, ["/macro/framework"]);
   const articlesActive = matchesAny(pathname, ["/articles"]);
   const quantActive = matchesAny(pathname, QUANT_MATCH);
   const visibleTools = TOOL_LINKS.filter((t) => features.can(t.featureId));
@@ -211,10 +210,10 @@ export function SiteHeaderNav() {
         : "text-fs-muted hover:text-[#062f42]"
     }`;
 
-  // 主入口顺序：宏观、指标预测、美股行业、持股监控、行情、投资记录、量化、时间线、
+  // 主入口顺序：行情、宏观、指标预测、美股行业、持股监控、投资记录、量化、时间线、
   // AI周度观察、文章。指标预测与量化是带分页的分组入口，插在对应位置。
-  const macroLinks = MAIN_LINKS.slice(0, 1);
-  const beforeQuant = MAIN_LINKS.slice(1, 5);
+  const marketAndMacroLinks = MAIN_LINKS.slice(0, 2);
+  const beforeQuant = MAIN_LINKS.slice(2, 5);
   const afterQuant = MAIN_LINKS.slice(5);
 
   const renderMain = (items: readonly (typeof MAIN_LINKS)[number][]) =>
@@ -246,10 +245,7 @@ export function SiteHeaderNav() {
       }));
 
   const mobileLinks: MobileNavLink[] = [
-    ...(features.can("macro-framework")
-      ? [{ href: "/macro/framework", label: "宏观框架", active: macroFrameworkActive }]
-      : []),
-    ...mainMobileLinks(macroLinks),
+    ...mainMobileLinks(marketAndMacroLinks),
     ...(forecastHref ? [{ href: forecastHref, label: "指标预测", active: forecastActive }] : []),
     ...mainMobileLinks(beforeQuant),
     ...(quantHref ? [{ href: quantHref, label: "量化", active: quantActive }] : []),
@@ -274,16 +270,7 @@ export function SiteHeaderNav() {
   return (
     <nav className="flex min-w-0 flex-1 items-center gap-1">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 max-md:hidden">
-        {features.can("macro-framework") ? (
-          <Link
-            href="/macro/framework"
-            className={linkClass(macroFrameworkActive)}
-            aria-current={macroFrameworkActive ? "page" : undefined}
-          >
-            宏观框架
-          </Link>
-        ) : null}
-        {renderMain(macroLinks)}
+        {renderMain(marketAndMacroLinks)}
         {forecastHref ? (
           <Link
             href={forecastHref}

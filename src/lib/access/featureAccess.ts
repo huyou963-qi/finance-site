@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cache as reactCache } from "react";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
@@ -70,11 +71,11 @@ function toViewer(
 }
 
 /** 服务端组件 / 页面守卫用：从 cookie 解析访问者身份。 */
-export async function getViewerFromCookies(): Promise<FeatureViewer> {
+export const getViewerFromCookies = reactCache(async (): Promise<FeatureViewer> => {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value ?? null;
   const access = await getAccessUserByToken(token);
   return toViewer(access);
-}
+});
 
 /** Route Handler 用：从请求解析访问者身份。 */
 export async function getViewerFromRequest(req: NextRequest): Promise<FeatureViewer> {

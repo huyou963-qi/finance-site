@@ -154,7 +154,7 @@ export function effectiveReleaseRule(
     fallback: sub.fallback ?? template.fallback,
     calendarMatch: schedule.calendarMatch,
     calendarSync: schedule.calendarSync,
-    sourceSync: schedule.sourceSync ?? sub.sourceSync,
+    sourceSync: sub.sourceSync,
   };
 }
 

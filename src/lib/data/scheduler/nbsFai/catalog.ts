@@ -7,6 +7,16 @@ export const NBS_FAI_SYNC_SCRIPT = "scripts/data-worker/sync-nbs-fai.ts";
 export const NBS_FAI_MONTHLY_ROOT_ID = "fc982599aa684be7969d7b90b1bd0e84";
 export const NBS_FAI_ANNUAL_ROOT_ID = "884c062607104a91967b22742537f44f";
 
+// Scoped, source-evidenced supplement; never substitute a broad service-sector
+// rate for an unpublished detailed industry. New years continue through the
+// UUID API; adding another press exception requires definition review.
+export const NBS_FAI_ANNUAL_INTERNET_SUPPLEMENT = {
+  cid: "8501f430c9264d5784b7e67e1c48a4e8",
+  indicatorId: "bada15b9e78147438a27db167be0ca3e",
+  year: 2025,
+  url: "https://www.stats.gov.cn/xxgk/jd/sjjd2020/202601/t20260119_1962336.html",
+} as const;
+
 export type FaiFrequency = "monthly" | "annual";
 export type FaiCatalog = { cid: string; frequency: FaiFrequency; group: string };
 

@@ -1,10 +1,10 @@
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
 import {
   fetchTreasuryRows,
-  fiscalYearForCalendarDate,
   parseTreasuryAmount,
   parseTreasuryDate,
   selectMts1FyMonthRow,
+  selectMts1FytdRow,
 } from "../treasuryFiscalData/client";
 import { parseTreasurySourceSpec } from "../treasuryFiscalData/types";
 
@@ -69,26 +69,18 @@ function rowsToPointsMts1FyMonth(
   return points;
 }
 
-/** MTS Table 1 月值按联邦财年（10 月起）累加为 FYTD */
+/** Read the Treasury-published FYTD subtotal from each original report. */
 function rowsToPointsMts1FytdCumulative(
   rows: TreasuryRow[],
   valueField: string,
 ): ObservationPoint[] {
-  const monthly = rowsToPointsMts1FyMonth(rows, valueField).sort(
-    (a, b) => a.obsDate.getTime() - b.obsDate.getTime(),
-  );
+  const dates = [...new Set(rows.map((row) => row.record_date).filter((date): date is string => !!date))].sort();
   const out: ObservationPoint[] = [];
-  let running = 0;
-  let currentFy: number | null = null;
-  for (const point of monthly) {
-    const iso = point.obsDate.toISOString().slice(0, 10);
-    const fy = fiscalYearForCalendarDate(iso);
-    if (currentFy !== fy) {
-      running = 0;
-      currentFy = fy;
-    }
-    running += point.value;
-    out.push({ obsDate: point.obsDate, value: running });
+  for (const date of dates) {
+    const row = selectMts1FytdRow(rows, date);
+    const value = parseTreasuryAmount(row[valueField]);
+    if (value == null) throw new Error(`MTS FYTD 官方累计值缺失：${date}`);
+    out.push({ obsDate: parseTreasuryDate(date), value });
   }
   return out;
 }

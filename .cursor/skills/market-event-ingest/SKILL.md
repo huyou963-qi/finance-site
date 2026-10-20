@@ -2,7 +2,8 @@
 name: market-event-ingest
 description: >-
   Retrieve authoritative sources and generate structured MarketEvent ingest JSON
-  for policy, macro, company news, speeches, ratings, and price targets.
+  for policy, macro releases with actual and survey consensus, company news,
+  speeches, ratings, and price targets.
   Use when backfilling chart events, syncing ratings/targets, recording FOMC/policy
   nodes, or maintaining /events. Never regenerate SEC filings/earnings/splits
   already covered by stockEvents. Deduplicate against DB by externalId and by
@@ -21,6 +22,7 @@ description: >-
 - 「生成某标的 K 线事件」「批量补非 SEC 公司大事」
 - 维护 `/events` 或行情标记数据
 - 「取队列下一格 / 批跑 market-event-ingest」
+- 「用 AI 补宏观发布、实际值、一致预期与预期差」：读 [宏观发布检索规程](reference/macro-release.md)，用 `macro-release` 模式。
 
 ## Modes
 
@@ -28,6 +30,7 @@ description: >-
 |------|------|------------|------|
 | `policy` | 财政/货币/监管/贸易 | COUNTRY / INDUSTRY | |
 | `macro-event` | 地缘、危机、灾害、异动 | COUNTRY / CROSS | |
+| `macro-release` | 美国宏观数据首发、当时调查预期及原始差值 | COUNTRY | 读 `reference/macro-release.md`；政策/讲话无数值调查时保留定性事件 |
 | `company-matter` | SEC **未覆盖**的公司事项 | COMPANY | 先对账 stockEvents；可用 product/capacity/mna/capital/partnership/litigation/supply/ops_news/guidance/management |
 | `ops-news` | 经营新闻叙事 | COMPANY | 排除传闻 |
 | `speech` | 官员/高管/投资人讲话 | 视主体 | |
@@ -179,3 +182,13 @@ npm run events:ingest-next -- --blocked=<id> --note="no sources"
 - `templates/queue.schema.json` — 批跑队列 schema
 - 时代线长文：`.cursor/prompts/market-events-us-history-timeline.md`
 - 操作文档：`docs/MARKET_EVENT_RECORDER.md`
+
+## 事件协议 v2：配色、阅读链接与事件包
+
+- 兼容旧文件。新文件可写 `schemaVersion: 2`；单事件可选 `color: "#RRGGBB"`。未指定颜色时省略，使用系统默认。
+- 用户指定颜色或阶段配色时遵循用户约定；同专题同阶段保持一致。颜色仅表达显示偏好，不替代事实、重要性或资产利多利空判断。
+- `sources[]` 是事实证据；`readingLinks[]` 是可选扩展阅读，元素含 `url`、可选 `title`/`note`/`language`，仅 HTTP(S)。没有扩展阅读则省略，不要求 Wikipedia，也不得为凑链接编造来源。
+- 本地包可带 `pack: { id, name, version, color, symbols }`；id 稳定，version 随更新变化。`pack.color` 是包默认色，单事件 color 优先。`pack.symbols` 可限定多个显示资产；全部资产通用时省略 symbols，使用 query.importTarget=all-assets。
+- 事实关联的 assets 与本地显示范围分开；保持真实关联。精确时刻用带时区 DATETIME，只知道日期则 DATE，不补造时间。
+- 本地导入先预览，确认后更新同包同 externalId；支持包开关、导出、删除备份。用户颜色覆盖与选中高亮不改变原事件事实。
+- 服务器批量导入继续使用统一 writer；本地私人研究不自动发布到服务器。

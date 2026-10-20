@@ -8,6 +8,17 @@ import { parsePrNewswireReport } from "./parseReport";
 const FIX = (name: string) =>
   path.join(__dirname, "..", "fixtures", name);
 
+test("September narrative percent wording fills missing backlog/export/sentiment rows", () => {
+  const parsed = parsePrNewswireReport(`<h1>September 2026 ISM Services Report</h1>
+    <table><tr><td>Services PMI</td><td>54.9</td></tr><tr><td>Business Activity</td><td>56.5</td></tr></table>
+    <p>Backlog of Orders Index moved higher to 56.6 percent, versus 55.6 previously.</p>
+    <p>New Export Orders registering 46.9 percent, versus 56.3 previously.</p>
+    <p>Inventory Sentiment Index registering 51.7 percent, versus 54.1 previously.</p>`, "services");
+  assert.equal(parsed.pointsByCode.get("ism_svc_us_svc_backlog")?.value, 56.6);
+  assert.equal(parsed.pointsByCode.get("ism_svc_us_svc_new_export_orders")?.value, 46.9);
+  assert.equal(parsed.pointsByCode.get("ism_svc_us_svc_inventory_sentiment")?.value, 51.7);
+});
+
 test("parses the PR Newswire ISM list page into sorted, deduped entries", () => {
   const html = fs.readFileSync(FIX("prnewswire-list.snippet.html"), "utf8");
   const entries = parsePrNewswireListPage(html);

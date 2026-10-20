@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseFaiInfrastructureRelease } from "./parseRelease";
+import { parseFaiInfrastructureRelease, parseFaiAnnualInternetRelease } from "./parseRelease";
+
+test("annual internet supplement parses direct official annual industry growth, not a service aggregate", () => {
+  const html = '<p>2025年，各地区各部门统筹有效投资。全年完成固定资产投资（不含农户）485186亿元。</p><p>互联网和相关服务业投资增长23.8%，增速加快3.1个百分点；信息服务业投资增长28.4%。</p>';
+  assert.deepEqual(parseFaiAnnualInternetRelease(html, 2025), { obsDate: new Date("2025-01-01T00:00:00Z"), value: 23.8 });
+  assert.throws(() => parseFaiAnnualInternetRelease(html, 2026), /年份/);
+  assert.throws(() => parseFaiAnnualInternetRelease(html.replace("互联网和相关服务业", "信息服务业"), 2025), /缺少/);
+  assert.throws(() => parseFaiAnnualInternetRelease(html + "互联网和相关服务业投资增长23.8%", 2025), /不唯一/);
+});
 
 test("parses the 2025 infrastructure definition excluding utilities", () => {
   const parsed = parseFaiInfrastructureRelease(`

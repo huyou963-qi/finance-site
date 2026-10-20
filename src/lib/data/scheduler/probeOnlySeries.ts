@@ -5,4 +5,4 @@
  * releasePackageCatalog → cpi/laborFredSeedCatalog → p0SeedCatalog（TDZ 崩溃）。
  * p0SeedCatalog 从这里 import；teEventMap re-export 保持既有 API 不变。
  */
-export const PROBE_ONLY_FRED_SERIES = new Set(["T10Y2Y", "GS10", "T5YIE", "T10YIE"]);
+export const PROBE_ONLY_FRED_SERIES = new Set(["T10Y2Y", "GS2", "GS10", "T5YIE", "T10YIE"]);

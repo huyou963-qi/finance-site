@@ -12,21 +12,22 @@ import {
   SourceAdapterKind,
 } from "@prisma/client";
 import { mergeFetchAcquisition } from "../../src/lib/data/scheduler/fetchAcquisition";
-import { computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
 import {
   ZILLOW_RESEARCH_DATA_URL,
   ZILLOW_ZORI_CSV_URL,
   ZILLOW_ZORI_INSTRUMENT,
   ZILLOW_ZORI_SOURCE,
   ZILLOW_ZORI_SYNC_SCRIPT,
+  ZILLOW_ZORI_PROBE_HOURS,
+  zillowSeedNextRunAt,
 } from "../../src/lib/data/scheduler/zillowZori/catalog";
 
 loadEnvConfig(process.cwd());
 
 const prisma = new PrismaClient();
 
-/** 月频、无固定发布日历（每月中旬整表重发）→ 72 小时探测，与 NY Fed GSCPI 等月频抓取一致 */
-const RELEASE_RULE = { type: "probe_interval" as const, intervalHours: 72 };
+/** 官方完整月表每日两次探测，避免额外等待三天；不拼接市场报告的未知季调口径。 */
+const RELEASE_RULE = { type: "probe_interval" as const, intervalHours: ZILLOW_ZORI_PROBE_HOURS };
 
 async function main() {
   console.log("[data:seed-zillow-zori] 机构 + 数据源…");
@@ -138,7 +139,10 @@ async function main() {
     },
   });
 
-  const nextRunAt = computeNextRunAt(RELEASE_RULE, new Date());
+  const previousSub = await prisma.dataSubscription.findUnique({
+    where: { instrumentId: instrument.id }, select: { nextRunAt: true },
+  });
+  const nextRunAt = zillowSeedNextRunAt(previousSub?.nextRunAt ?? null, new Date());
   await prisma.dataSubscription.upsert({
     where: { instrumentId: instrument.id },
     create: {

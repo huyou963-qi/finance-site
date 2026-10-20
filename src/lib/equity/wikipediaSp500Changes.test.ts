@@ -18,6 +18,10 @@ test("parseWikipediaDate：英文月份日期", () => {
 test("normalizeSp500Ticker：点转杠 + alias + 复用 ticker 按日期判别", () => {
   assert.equal(normalizeSp500Ticker("BRK.B"), "BRK-B");
   assert.equal(normalizeSp500Ticker("FB"), "META");
+  assert.equal(normalizeSp500Ticker("PSKY"), "SKYD");
+  assert.equal(normalizeSp500Ticker("FI"), "FISV");
+  assert.equal(normalizeSp500Ticker("FISV"), "FISV");
+  assert.equal(normalizeSp500Ticker("ABC"), "COR");
   assert.equal(normalizeSp500Ticker("June 30, 2026"), null);
   // UA 在 2016-04-08 前指 A 类股（今 UAA），此后被 C 类复用
   assert.equal(normalizeSp500Ticker("UA", "2014-05-01"), "UAA");
@@ -55,6 +59,23 @@ test("sliceTableById + parseWikipediaSp500Changes：只解析 changes 表，不�
   // constituents 表切片里没有 changes 行
   const cons = sliceTableById(CHANGES_HTML, "constituents")!;
   assert.ok(!cons.includes("MRVL"));
+});
+
+test("新历史文章7列表格忽略末尾Refs，前6列保持兼容", () => {
+  const html = '<table id="changes"><tr><td>October 6, 2026</td><td>TWLO</td><td>Twilio</td><td>WBD</td><td>Warner</td><td>Acquisition</td><td>[1]</td></tr></table>';
+  const rows = parseWikipediaSp500Changes(html);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].date, "2026-10-06");
+  assert.equal(rows[0].addedTicker, "TWLO");
+  assert.equal(rows[0].removedTicker, "WBD");
+});
+
+test("历史文章 ticker 单元格末尾分隔符不应丢失变更", () => {
+  const rows = parseWikipediaSp500Changes('<table id="changes"><tr><td>December 2, 2013</td><td>ALLE |</td><td>Allegion</td><td>JCP |</td><td>JCPenney</td><td>Replacement</td><td>[1]</td></tr></table>');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].addedTicker, "ALLE");
+  assert.equal(rows[0].removedTicker, "JCP");
+  assert.equal(normalizeSp500Ticker("ALLE |"), null);
 });
 
 test("rebuildMonthlyMembership：反向回放（撤销 add / 撤销 remove）", () => {

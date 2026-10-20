@@ -1,3 +1,5 @@
+> 2026-10 更新：下文 Wikipedia 字段与示例仅作旧格式兼容。所有事件取消 Wikipedia 必填/优先约束；sourceUrl/sources 为事实来源，readingLinks 为可选、可多条的 HTTP(S) 扩展阅读，不限定网站。保留旧链接，不要求补齐。
+
 # Prompt：美国历史经济时代时间线（建国至今）→ 事件记录器
 
 > **角色**：你是一名历史经济学家，任务是把美国自建国以来的宏观—政治—金融史整理成 **「大时代阶段 + 阶段内重要事件」** 的两层时间线，并写入本站事件记录器数据库。  
@@ -13,7 +15,7 @@
 | **独立标签** | 每个时代阶段必须有 **唯一中文短标签**（如 `柯立芝繁荣`、`大萧条`），用于筛选与折叠分组。 |
 | **周期叙事** | 每个阶段正文必须回答：本阶段 **增长/繁荣的驱动力** 与 **衰退/危机/萧条的原因**（若无明显萧条，写「约束与脆弱性」）。 |
 | **穷尽收录** | **不设每阶段事件条数上限**。凡对美国经济、金融、财政、货币、贸易、就业或国家走向产生 **显著影响** 的事件均应入库（见 **1.1**）。 |
-| **Wikipedia** | 阶段与事件尽量提供 **英文 Wikipedia** 链接（`sourceUrl` 或阶段 `wikipediaUrl`）；无可靠页面则填 `null`，**勿编造**。 |
+| **Wikipedia** | 扩展阅读可选且不限定网站；新事件使用 `readingLinks`。旧 `wikipediaUrl` 仅兼容，不要求补齐。 |
 | **可折叠** | 阶段默认 **展开** 前 3 个、**折叠** 其余（见 JSON `defaultExpanded`）；前端按 `[era:...]` 标记分组展示。 |
 | **时间跨度** | **1776-07-04（独立宣言）— 当前年份**。 |
 | **幂等入库** | 阶段与事件均设全局唯一 `seedKey`；重复 seed 须 skipped。 |
@@ -263,7 +265,7 @@
 | `industries` | string[] | 可选 |
 | `assets` | string[] | 可选；1970 年前可留空 |
 | `macroKeys` | string[] | 可选 FRED 键 |
-| `sourceUrl` | string \| null | **优先 Wikipedia 英文条目**；次选 Fed History、NBER、国会图书馆 |
+| `sourceUrl` | string \| null | 可核验的事实来源；扩展阅读独立使用 readingLinks，不限定网站 |
 | `isPublic` | boolean | 默认 `true` |
 
 ### 3.4 事件 `content` 正文结构
@@ -341,11 +343,11 @@ npm run db:seed-market-events -- scripts/data/market-events-us-history-timeline.
 
 ---
 
-## 五、Wikipedia 链接规范
+## 五、旧 Wikipedia 链接兼容示例（不再作为约束）
 
 | 类型 | 规则 |
 |------|------|
-| 语言 | 优先 **英文** Wikipedia 稳定条目 URL |
+| 语言 | 新链接语言自由，支持任意可靠 HTTP(S) 阅读链接 |
 | 阶段 | 宏观史总览条目 + 必要时子条目 |
 | 事件 | 具体事件/法案/战争条目 |
 | 验证 | 链接须可公开访问；404 则换官方史源或填 `null` |
@@ -387,9 +389,9 @@ npm run db:seed-market-events -- scripts/data/market-events-us-history-timeline.
 5. **自检表**：
 
 - [ ] 时间覆盖 **1776 — 当前年**，无空档  
-- [ ] 每阶段含 **tag、eraSummary、wikipediaUrl**  
+- [ ] 每阶段含 **tag、eraSummary**；阅读链接可选
 - [ ] **§1.1 各类重大事件已穷尽收录**（非仅示例条数）  
-- [ ] 每事件含 **`[era:parent:...]`** 与 **sourceUrl（Wikipedia 或 null）**  
+- [ ] 每事件含 **`[era:parent:...]`** ；来源与扩展阅读按新协议分别填写
 - [ ] 阶段型条目 `eventType=时代阶段`  
 - [ ] `seedKey` 全局唯一；`errors=0`  
 

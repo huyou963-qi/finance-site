@@ -69,19 +69,16 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
   "mts1:receipts_fytd": {
     endpoint: "v1/accounting/mts/mts_table_1",
     rowSelector: "mts1_fytd_cumulative",
-    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
     valueField: "current_month_gross_rcpt_amt",
   },
   "mts1:outlays_fytd": {
     endpoint: "v1/accounting/mts/mts_table_1",
     rowSelector: "mts1_fytd_cumulative",
-    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
     valueField: "current_month_gross_outly_amt",
   },
   "mts1:deficit_fytd": {
     endpoint: "v1/accounting/mts/mts_table_1",
     rowSelector: "mts1_fytd_cumulative",
-    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
     valueField: "current_month_dfct_sur_amt",
   },
   "mts9:individual_income": {
@@ -162,6 +159,12 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
     endpoint: "v2/accounting/od/debt_to_penny",
     rowSelector: "debt_penny_daily",
     valueField: "tot_pub_debt_out_amt",
+    fetchStartFloor: "2010-01-01",
+  },
+  "debt:penny_held_public_daily": {
+    endpoint: "v2/accounting/od/debt_to_penny",
+    rowSelector: "debt_penny_daily",
+    valueField: "debt_held_public_amt",
     fetchStartFloor: "2010-01-01",
   },
   "mts9:mandatory_proxy": {

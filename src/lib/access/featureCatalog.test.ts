@@ -106,7 +106,7 @@ test("导航：开发中不可见的隐藏；Pro 专属照常列出并标记 loc
   assert.deepEqual(admin.locked, []);
 });
 
-test("normalize 补齐缺失项、丢弃未知 id、锁定管理员专属项", () => {
+test("normalize 补齐缺失项、丢弃未知和已删除的功能 id", () => {
   const policy = normalizeFeatureAccessPolicy({
     version: 2,
     features: {
@@ -120,12 +120,7 @@ test("normalize 补齐缺失项、丢弃未知 id、锁定管理员专属项", (
     },
   });
   assert.equal(policy.version, 2);
-  assert.equal(policy.features["macro-framework"].status, "development");
-  assert.deepEqual(policy.features["macro-framework"].preview, {
-    visitor: false,
-    standard: false,
-    pro: false,
-  });
+  assert.equal(policy.features["macro-framework"], undefined);
   assert.equal(policy.features["no-such-feature"], undefined);
   assert.equal(policy.features.weekly.status, "released");
   assert.equal(policy.features.weekly.proOnly, false);
@@ -161,8 +156,7 @@ test("未登记的功能 id 不受管控", () => {
 
 test("路由映射取最长前缀", () => {
   assert.equal(featureIdForPath("/macro"), "macro");
-  assert.equal(featureIdForPath("/macro/framework"), "macro-framework");
-  assert.equal(featureIdForPath("/macro/framework/detail"), "macro-framework");
+  assert.equal(featureIdForPath("/macro/detail"), "macro");
   assert.equal(featureIdForPath("/equity/sectors/it"), "equity-sectors");
   assert.equal(featureIdForPath("/equity/stocks/AAPL"), "markets");
   assert.equal(featureIdForPath("/quant/backtest/abc"), "quant-backtest");

@@ -5,6 +5,7 @@ import type {
   MarketEvent,
   Prisma,
 } from "@prisma/client";
+import { readEventPresentation, withEventPresentation, type EventPresentation } from "./eventPresentation";
 import { prisma } from "@/lib/prisma";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import {
@@ -41,7 +42,7 @@ export const EVENT_IMPORTANCE_ORDER: Record<EventImportance, number> = {
   LOW: 1,
 };
 
-export type MarketEventDto = {
+export type MarketEventDto = EventPresentation & {
   id: string;
   title: string | null;
   content: string;
@@ -68,9 +69,10 @@ export type MarketEventDto = {
   createdAt: string;
   updatedAt: string;
   relevanceScore?: number;
+  matchReasons?: string[];
 };
 
-export type MarketEventInput = {
+export type MarketEventInput = EventPresentation & {
   title?: string | null;
   content: string;
   occurredAt: string;
@@ -108,6 +110,9 @@ export type ListMarketEventsParams = {
   tags?: string[];
   limit?: number;
   offset?: number;
+  /** Chart relevance is evaluated before pagination. */
+  chartRelevance?: { assets: string[]; industries: string[]; macroCountries?: string[] };
+  includeEraHeaders?: boolean;
 };
 
 export type EventContextParams = {
@@ -131,6 +136,7 @@ function toDto(
   relevanceScore?: number,
 ): MarketEventDto {
   return {
+    ...readEventPresentation(row.payload),
     id: row.id,
     title: row.title,
     content: row.content,
@@ -294,7 +300,8 @@ function sanitizeEventInput(input: MarketEventInput) {
     persons: normalizeTagList(input.persons),
     institutions: normalizeTagList(input.institutions),
     tags: normalizeTagList(input.tags),
-    payload: input.payload === undefined ? undefined : (input.payload as Prisma.InputJsonValue),
+    payload: input.payload === undefined && input.color === undefined && input.sources === undefined && input.readingLinks === undefined
+      ? undefined : withEventPresentation(input.payload, input) as Prisma.InputJsonValue,
     markerLabel,
     sourceKind,
     externalId,
@@ -419,6 +426,18 @@ export async function listMarketEvents(params: ListMarketEventsParams): Promise<
     where.tags = { hasSome: normalizeTagList(params.tags) };
   }
 
+  if (params.chartRelevance) {
+    const r = params.chartRelevance;
+    const related: Prisma.MarketEventWhereInput[] = [];
+    if (r.assets.length) related.push({ assets: { hasSome: r.assets } });
+    if (r.industries.length) {
+      const { GICS_SUB_INDUSTRIES } = await import("@/lib/equity/gicsIndustryCatalog");
+      const all = [...new Set([...r.industries, ...GICS_SUB_INDUSTRIES.flatMap(g => [g.sectorCode, g.industryGroupCode, g.industryCode, g.subIndustryCode])])].filter((v): v is string => typeof v === "string");
+      related.push({ industries: { hasSome: all.filter(v => r.industries.some(c => v.startsWith(c) || c.startsWith(v))) }, scope: { in: ["INDUSTRY", "COUNTRY", "CROSS"] } });
+    }
+    if (r.macroCountries?.length) related.push({ countries: { hasSome: r.macroCountries }, scope: { in: ["COUNTRY", "CROSS"] }, OR: [{ eventType: { startsWith: "macro." } }, { eventType: { startsWith: "policy." } }, { eventType: "speech.official" }] });
+    where.AND = [{ OR: related }, { OR: [{ eventType: null }, { eventType: { notIn: ["era", "时代阶段"] } }] }];
+  }
   const limit = Math.min(2000, Math.max(1, params.limit ?? 50));
   const offset = Math.max(0, params.offset ?? 0);
 
@@ -438,7 +457,7 @@ export async function listMarketEvents(params: ListMarketEventsParams): Promise<
       skip: offset,
       include: { createdBy: { select: { username: true } } },
     }),
-    prisma.marketEvent.findMany({
+    params.includeEraHeaders === false ? Promise.resolve([]) : prisma.marketEvent.findMany({
       where: eraHeaderWhere,
       include: { createdBy: { select: { username: true } } },
     }),
@@ -575,6 +594,9 @@ export async function updateMarketEvent(
   if (!existing) throw new Error("事件不存在");
 
   const merged: MarketEventInput = {
+    color: input.color,
+    sources: input.sources,
+    readingLinks: input.readingLinks,
     title: input.title !== undefined ? input.title : existing.title,
     content: input.content ?? existing.content,
     occurredAt:

@@ -6,8 +6,10 @@ import { MarketGlobe } from "@/components/home/MarketGlobe";
 import { useEffect, useState } from "react";
 import { SiteAnnouncementDialog } from "@/components/home/SiteAnnouncementDialog";
 import type { ActiveSiteAnnouncement } from "@/lib/siteAnnouncement";
+import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 
 export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnouncement | null }) {
+  const features = useVisibleFeatures();
   const [macroSeriesCount, setMacroSeriesCount] = useState<string>("—");
 
   useEffect(() => {
@@ -49,12 +51,21 @@ export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnounce
             <span className="text-slate-400">此刻同屏。</span>
           </h1>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link href="/macro" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
-              进入宏观 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
-            </Link>
-            <Link href="/weekly" className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-              AI周度观察
-            </Link>
+            {features.can("markets") ? (
+              <Link href="/markets" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
+                行情 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
+              </Link>
+            ) : null}
+            {features.can("macro") ? (
+              <Link href="/macro" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
+                进入宏观 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
+              </Link>
+            ) : null}
+            {features.can("weekly") ? (
+              <Link href="/weekly" className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                AI周度观察
+              </Link>
+            ) : null}
           </div>
           <div className="mt-12 grid max-w-[560px] grid-cols-3 border-t border-slate-200 pt-5">
             {[[macroSeriesCount, "宏观序列"], ["8", "全球市场"], ["每周", "AI 研判"]].map(([value, label]) => (

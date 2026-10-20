@@ -35,6 +35,8 @@ export type ModelInputs = {
   months: string[];
   levels: Record<LevelKey, number[]>;
   hf: Record<HfKey, number[]>;
+  /** 仅月中之后允许上月完整ZORI参与近期信号，缺省关闭（保守）。 */
+  allowRecentShelter?: boolean;
 };
 
 export const LEAVES_FOOD = ["FAH", "FAFH"] as const;
@@ -146,7 +148,7 @@ export function solveOls(X: readonly number[][], y: readonly number[]): number[]
 // ─────────────────────────────────────────────────────────────── 模型准备 ──
 
 type Features = Record<string, number[]>;
-type LeafSpec = { y: number[]; X: Features; start?: string; fallbackX?: Features };
+type LeafSpec = { y: number[]; X: Features; start?: string; fallbackX?: Features; recentX?: Features };
 
 export type PreparedModel = {
   months: string[];
@@ -160,6 +162,7 @@ export type PreparedModel = {
   /** 停发月及其后一月（环比是插值出来的） */
   gapMonths: Set<number>;
   specs: Record<string, LeafSpec>;
+  allowRecentShelter: boolean;
 };
 
 const WEIGHT_KEYS: RelativeImportanceKey[] = [
@@ -243,6 +246,10 @@ export function prepareModel(inputs: ModelInputs): PreparedModel {
   const zoriMom = logChange(hf.ZORI);
   // 最新可得 12 个月 ZORI 平均环比，再滞后 6 月（ZORI 领先 CPI 租金约 9–12 月）
   const zLead = shift(rollMean(zoriMom, 12, 1, 12), 6);
+  // 不把市场新租约直接当 CPI 存量租金：近期信号只作为候选增量特征。
+  // 只用至 t−1 的三个环比，不引入目标月市场报告的未知季调口径。
+  const allowRecentShelter = inputs.allowRecentShelter ?? false;
+  const zRecent = rollMean(zoriMom, 3, 1, 3);
   const ppiFood = pctChange(levels.PPIFOOD);
 
   const specs: Record<string, LeafSpec> = {
@@ -263,7 +270,8 @@ export function prepareModel(inputs: ModelInputs): PreparedModel {
   };
   for (const k of ["RENT", "OER"] as const) {
     const base = { y1: shift(mom[k]!, 1), m3: rollMean(mom[k]!, 3, 2), m6: rollMean(mom[k]!, 6, 5) };
-    specs[k] = { y: mom[k]!, X: { ...base, z: zLead }, start: ZORI_MODEL_START, fallbackX: base };
+    const X = { ...base, z: zLead };
+    specs[k] = { y: mom[k]!, X, recentX: { ...X, zRecent }, start: ZORI_MODEL_START, fallbackX: base };
   }
   // 无可靠高频代理：自回归 + 12 月均值 + 残余季节性（过去 3 年同月偏离均值）
   for (const k of ["NEWV", "APP", "MEDC", "LODG", "MEDS", "OTRS", "OCG", "OCS"] as const) {
@@ -273,7 +281,7 @@ export function prepareModel(inputs: ModelInputs): PreparedModel {
     specs[k] = { y: mom[k]!, X: { y1: shift(mom[k]!, 1), m12, sd } };
   }
 
-  return { months, monthIndex, mom, levels, weights, excluded, gapMonths, specs };
+  return { months, monthIndex, mom, levels, weights, excluded, gapMonths, specs, allowRecentShelter };
 }
 
 // ─────────────────────────────────────────────────────────────── 估计与预测 ──
@@ -315,7 +323,65 @@ function seasonalGap(model: PreparedModel, sa: string, nsa: string, t: number): 
   return gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
 }
 
+export type ShelterDecision = {
+  mode: "recent-and-lagged" | "lagged" | "autoregressive" | "mean12";
+  recentZoriLagMonths: 1;
+  publicationGateOpen: boolean;
+  laggedSignalThrough: string | null;
+  recentSignalThrough: string | null;
+  validationPairs: number;
+  laggedMae: number | null;
+  recentMae: number | null;
+  reason: string;
+};
+
+const shelterCache = new WeakMap<PreparedModel, Map<string, { forecast: number; decision: ShelterDecision }>>();
+
+/** 每个目标月、每个分项独立选择；候选仅在此前24个可比月改善MAE至少5%时启用。 */
+export function shelterForecast(model: PreparedModel, k: "RENT" | "OER", t: number): {
+  forecast: number; decision: ShelterDecision;
+} {
+  let cache = shelterCache.get(model);
+  if (!cache) { cache = new Map(); shelterCache.set(model, cache); }
+  const key = `${k}:${t}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const spec = model.specs[k]!;
+  const legacy = olsPredict(model, spec.y, spec.X, t, spec.start);
+  const recent = olsPredict(model, spec.y, spec.recentX!, t, spec.start);
+  let n = 0, oldError = 0, newError = 0;
+  // 所有验证目标严格早于 t，各次拟合又严格早于验证目标；不使用 t 的实际值。
+  for (let s = t - 24; s < t; s++) {
+    if (s < 0 || model.excluded.has(s) || !isNum(spec.y[s])) continue;
+    const a = olsPredict(model, spec.y, spec.X, s, spec.start);
+    const b = olsPredict(model, spec.y, spec.recentX!, s, spec.start);
+    if (!isNum(a) || !isNum(b)) continue;
+    n++; oldError += Math.abs(a - spec.y[s]!); newError += Math.abs(b - spec.y[s]!);
+  }
+  const useRecent = model.allowRecentShelter && isNum(legacy) && isNum(recent) && n >= 18 && oldError > 0 && newError < oldError * 0.95;
+  let forecast = useRecent ? recent : legacy;
+  let mode: ShelterDecision["mode"] = useRecent ? "recent-and-lagged" : "lagged";
+  let reason = useRecent ? "此前可比月份的滚动样本外MAE改善至少5%" :
+    !model.allowRecentShelter ? "目标月月中之前不假设上月完整ZORI已发布，保留传导滞后" :
+    !isNum(recent) ? "近期ZORI未到齐或候选回归不可估计，保留原模型" :
+    n < 18 ? "可比验证月份不足18个月，保留原模型" : "近期信号未达到5%改善门槛，保留原模型";
+  if (!isNum(forecast)) {
+    forecast = olsPredict(model, spec.y, spec.fallbackX!, t);
+    mode = isNum(forecast) ? "autoregressive" : "mean12";
+    reason = "ZORI模型不可估计，退回CPI自身历史；不填造市场租金";
+  }
+  const result = { forecast, decision: {
+    mode, recentZoriLagMonths: 1 as const, publicationGateOpen: model.allowRecentShelter,
+    laggedSignalThrough: model.months[t - 7] ?? null,
+    recentSignalThrough: isNum(spec.recentX!.zRecent![t]) ? model.months[t - 1] ?? null : null,
+    validationPairs: n, laggedMae: n ? oldError / n : null, recentMae: n ? newError / n : null, reason,
+  } };
+  cache.set(key, result);
+  return result;
+}
+
 export function predictLeaf(model: PreparedModel, k: LeafKey, t: number): number {
+  if (k === "RENT" || k === "OER") return shelterForecast(model, k, t).forecast;
   if (k === "GAS") {
     const nsa = olsPredict(model, model.specs.GASNSA!.y, model.specs.GASNSA!.X, t);
     return nsa + seasonalGap(model, "GAS", "GASNSA", t);

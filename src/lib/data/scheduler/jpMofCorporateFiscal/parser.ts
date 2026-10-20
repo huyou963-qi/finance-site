@@ -91,7 +91,11 @@ function findUniqueRow(table: SheetRows, label: string) {
 /** Fiscal-year observations are dated April 1 of the named Japanese fiscal year. */
 export function parseJpMofFiscalResultsWorkbook(buffer: Buffer) {
   const workbook = XLSX.read(buffer, { type: "buffer", raw: false });
-  const table = rows(workbook, "昭和41-令和6");
+  // The rolling settlement workbook renames this sheet when another fiscal year
+  // is published. Select the historical results range, never a budget/overview.
+  const names = workbook.SheetNames.filter((name) => /^昭和41-令和\d+$/.test(name.normalize("NFKC")));
+  if (names.length !== 1) throw new Error("MOF fiscal results historical sheet missing or ambiguous");
+  const table = rows(workbook, names[0]);
   const header = table.find((row) => row.some((cell) => String(cell).includes("昭和41年度")));
   if (!header || !String(table.flat().find((cell) => String(cell).includes("単位：千円")) ?? "")) {
     throw new Error("MOF fiscal results header changed");
@@ -133,6 +137,10 @@ export function parseJpMofFiscalResultsWorkbook(buffer: Buffer) {
       if (+output[field][index]!.obsDate !== Date.UTC(prior.getUTCFullYear() + 1, 3, 1)) {
         throw new Error(`MOF fiscal ${field} history has a gap`);
       }
+    }
+    const expectedLastYear = 2018 + Number(/令和(\d+)$/.exec(names[0].normalize("NFKC"))![1]);
+    if (output[field].at(-1)?.obsDate.getUTCFullYear() !== expectedLastYear) {
+      throw new Error(`MOF fiscal ${field} sheet range/header mismatch`);
     }
   }
   return output;

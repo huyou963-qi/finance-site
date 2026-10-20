@@ -11,6 +11,29 @@ datasource db {
   schemas  = ["public", "mds"]
 }
 
+/// Shared K-line API responses; leases fence concurrent refreshes across PM2 processes.
+model KlineResponseCache {
+  key          String   @id @db.VarChar(64)
+  familyKey    String   @default("") @map("family_key") @db.VarChar(64)
+  payload      Json?
+  payloadBytes Int      @default(0) @map("payload_bytes")
+  checkedAt    DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("checked_at") @db.Timestamptz(3)
+  freshUntil   DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("fresh_until") @db.Timestamptz(3)
+  expiresAt    DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("expires_at") @db.Timestamptz(3)
+  retryAfter   DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("retry_after") @db.Timestamptz(3)
+  leaseOwner   String?  @map("lease_owner") @db.VarChar(36)
+  leaseUntil   DateTime @default(dbgenerated("'epoch'::timestamp with time zone")) @map("lease_until") @db.Timestamptz(3)
+  failures     Int      @default(0)
+  error        String?  @db.VarChar(300)
+  lastAccessAt DateTime @default(now()) @map("last_access_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@index([lastAccessAt])
+  @@index([familyKey])
+  @@map("kline_response_cache")
+  @@schema("mds")
+}
+
 // ─── public：应用账户与用户态 JSON（Prisma 管理）────────────────────────────
 
 model User {
@@ -55,6 +78,11 @@ model User {
   assetTemplateState  UserAssetTemplateState?
   macroChartPrefsRow  UserMacroChartPrefs?
   bookmarkState       UserBookmarkState?
+  marketWatchlist     UserMarketWatchlistItem[]
+  marketWatchlistGroups UserMarketWatchlistGroup[]
+  marketWatchlistTabOrder String[] @default([])
+  marketWatchlistStockOrder String[] @default([])
+  marketDrawings     UserMarketDrawing[]
   marketEventsCreated MarketEvent[]
   strategies          StrategyDefinition[]
   investmentCases     InvestmentCase[]
@@ -62,6 +90,7 @@ model User {
   creditLedger        CreditLedgerEntry[]
   articles            Article[]      @relation("ArticleAuthor")
   articleAssets       ArticleAsset[] @relation("ArticleAssetUploader")
+  articleComments     ArticleComment[] @relation("ArticleCommentAuthor")
 
   @@index([status, createdAt])
   @@index([role, createdAt])
@@ -409,6 +438,46 @@ model UserBookmarkState {
   @@schema("public")
 }
 
+/// 行情自选股：逐标的更新，按用户隔离，支持跨设备读取。
+model UserMarketDrawing {
+  userId     String
+  scope      String @db.VarChar(160)
+  drawings   Json
+  revision   Int @default(1)
+  updatedAt  DateTime @updatedAt
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, scope])
+  @@schema("public")
+}
+
+model UserMarketWatchlistItem {
+  userId    String
+  symbol    String @db.VarChar(64)
+  name      String @db.VarChar(200)
+  exchange  String @db.VarChar(100)
+  groupId   String?
+  group     UserMarketWatchlistGroup? @relation(fields: [userId, groupId], references: [userId, id], onDelete: NoAction)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, symbol])
+  @@schema("public")
+}
+
+model UserMarketWatchlistGroup {
+  id        String @default(cuid())
+  userId    String
+  name      String @db.VarChar(30)
+  createdAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     UserMarketWatchlistItem[]
+
+  @@id([userId, id])
+  @@unique([userId, name])
+  @@schema("public")
+}
+
 /// 系统内置宏观模板覆盖（管理员保存）；全局单例 id=default
 model SystemMacroChartPrefs {
   id        String   @id @default("default")
@@ -601,10 +670,28 @@ model Article {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   assets         ArticleAsset[]
+  comments       ArticleComment[]
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([authorId, updatedAt(sort: Desc)])
   @@map("research_article")
+  @@schema("public")
+}
+
+/// 专题文章评论。正文仅保存会员输入的纯文本，由前端按文本渲染。
+model ArticleComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  authorId  String   @map("author_id")
+  author    User     @relation("ArticleCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([articleId, createdAt(sort: Desc)])
+  @@index([authorId, createdAt(sort: Desc)])
+  @@map("research_article_comment")
   @@schema("public")
 }
 

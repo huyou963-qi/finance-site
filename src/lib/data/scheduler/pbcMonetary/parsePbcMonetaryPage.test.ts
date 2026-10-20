@@ -2,6 +2,35 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parsePbcMonetaryPage } from "./parsePbcMonetaryPage";
 
+test("combined report keeps bank loans separate from TSF entity loans", () => {
+  const values = parsePbcMonetaryPage(`<title>2026年前三季度金融统计数据报告</title>
+    <p>对实体经济发放的人民币贷款余额279.9万亿元，同比增长3.1%。
+    对实体经济发放的人民币贷款增加11.5万亿元。
+    月末人民币贷款余额283.44万亿元，同比增长4.8%。
+    前三季度人民币贷款增加11.52万亿元。</p>`);
+  assert.equal(values.get("rmb_loan_amount")?.value, 2_834_400);
+  assert.equal(values.get("rmb_loan_yoy")?.value, 4.8);
+  assert.equal(values.get("rmb_loan_cumulative")?.value, 115_200);
+  assert.equal(values.get("social_financing_rmb_loan_cumulative")?.value, 115_000);
+});
+
+test("standalone TSF release cannot emit bank-loan totals", () => {
+  const values = parsePbcMonetaryPage(`<title>2026年9月社会融资规模增量统计数据报告</title>
+    <p>对实体经济发放的人民币贷款余额279.9万亿元，同比增长3.1%。
+    对实体经济发放的人民币贷款增加11.5万亿元。</p>`);
+  assert.equal(values.has("rmb_loan_amount"), false);
+  assert.equal(values.has("rmb_loan_yoy"), false);
+  assert.equal(values.has("rmb_loan_cumulative"), false);
+  assert.equal(values.get("social_financing_rmb_loan_cumulative")?.value, 115_000);
+});
+
+test("quarterly title wins over historical M1 dates in footnotes", () => {
+  const values = parsePbcMonetaryPage(`<title>2026年前三季度金融统计数据报告</title>
+    <p>前三季度人民币贷款增加11.52万亿元。</p>
+    <p>自统计2025年1月份数据起，启用新修订的M1口径。2024年1月余额1120120亿元。</p>`);
+  assert.equal(values.get("rmb_loan_cumulative")?.obsDate.toISOString().slice(0, 10), "2026-09-01");
+});
+
 test("parses PBC financial statistics balances, yoy and cumulative flow", () => {
   const values = parsePbcMonetaryPage(`<title>2024年7月金融统计数据报告</title><p>7月末，广义货币(M2)余额303.31万亿元,同比增长6.3%。狭义货币(M1)余额63.23万亿元,同比下降6.6%。流通中货币(M0)余额11.88万亿元,同比增长12%。前七个月人民币贷款增加13.53万亿元。其中，住户贷款增加1.25万亿元，企（事）业单位贷款增加11.13万亿元。</p>`);
   assert.equal(values.get("m2_amount")?.value, 3_033_100);

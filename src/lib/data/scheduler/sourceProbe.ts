@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import type { PrismaClient } from "@prisma/client";
 import { SourceAdapterKind } from "@prisma/client";
 import { fetchFredIncremental } from "./adapters/fredAdapter";
+import { worldBankApiCountry } from "./adapters/worldbankAdapter";
 import type { FetchAcquisitionRecord } from "./fetchAcquisition";
 import {
   AGENCY_OFFICIAL_URLS,
@@ -202,10 +203,11 @@ async function probeWorldBank(
   countryCode: string,
   indicatorId: string,
 ): Promise<ProbeOutcome> {
+  const apiCountry = worldBankApiCountry(countryCode) ?? countryCode;
   const url =
-    `https://api.worldbank.org/v2/country/${countryCode}/indicator/${indicatorId}` +
+    `https://api.worldbank.org/v2/country/${apiCountry}/indicator/${indicatorId}` +
     `?format=json&date=2018:2030&per_page=5`;
-  const pageUrl = `https://data.worldbank.org/indicator/${indicatorId}?locations=${countryCode}`;
+  const pageUrl = `https://data.worldbank.org/indicator/${indicatorId}?locations=${apiCountry}`;
   try {
     const res = await fetch(url);
     if (!res.ok) {

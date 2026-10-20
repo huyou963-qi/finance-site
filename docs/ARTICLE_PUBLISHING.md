@@ -11,10 +11,12 @@
 | 页面 | 权限 | 用途 |
 |---|---|---|
 | `/articles` | 公开 | 已发布文章列表 |
-| `/articles/[slug]` | 公开 | 文章正文、数据截止时间、来源清单 |
+| `/articles/[slug]` | 公开 | 文章正文、数据截止时间、来源清单与会员评论 |
 | `/articles/editor` | Admin | 新建/编辑草稿、图表粘贴、预览、发布/撤回 |
 
 顶部导航对普通用户显示“专题文章”，对管理员显示“发布文章”。写 API、图片上传和草稿图片均校验 Admin；已发布文章的图片可公开读取。
+
+文章评论对所有访问者公开读取；已注册且账户状态正常的会员登录后可以发表评论和删除自己的评论，最高管理员可以清理任意评论。评论按纯文本渲染，单条上限 2,000 字符；接口只接受已发布文章，草稿或已撤回文章不可评论。
 
 ## 数据流
 
@@ -66,7 +68,7 @@ npm run articles:import -- .codex/articles/<slug>/article.json --publish
 - 截图：复用 `copyElementScreenshotToClipboard`，文章编辑器只负责接收与固化快照。
 - 用户与权限：复用 `getUserByRequest` / `requireAdmin`。
 
-新增的 `Article` / `ArticleAsset`（数据库表为 `research_article` / `research_article_asset`）只表达“发布内容”和“发布时视觉证据”这两个新事实，不构成平行行情库、宏观库、adapter、writer 或计算链。表名有意避开旧环境遗留的 `article/article_image/article_comment`。部署需要执行 `npm run db:migrate`。
+新增的 `Article` / `ArticleAsset` / `ArticleComment`（数据库表为 `research_article` / `research_article_asset` / `research_article_comment`）只表达“发布内容”“发布时视觉证据”和“会员讨论”三个新事实，不构成平行行情库、宏观库、adapter、writer 或计算链。表名有意避开旧环境遗留的 `article/article_image/article_comment`。部署需要执行 `npm run db:migrate`。
 
 ## 后续阶段
 

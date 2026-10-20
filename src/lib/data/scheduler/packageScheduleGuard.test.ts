@@ -9,6 +9,63 @@ import {
 const NONE: PackageRunState = { lastSuccessAt: null, sourceVerifiedAt: null };
 const d = (iso: string) => new Date(iso);
 
+test("employment period proof preserves newer failure and bounded retry guards", () => {
+  const release = d("2026-10-02T12:30:00Z");
+  const state: PackageRunState = { lastSuccessAt: d("2026-10-02T14:00:00Z"),
+    sourceVerifiedAt: d("2026-10-02T14:00:00Z"), requiredSeriesLatestObsDate: d("2026-08-01") };
+  const decision = resolvePackageNextRunAt({ packageId: "us.bls.employment_situation",
+    runState: state, previousReleaseAt: release, now: d("2026-10-03T12:00:00Z"),
+    computedNextRunAt: d("2026-11-06T13:33:00Z"), currentNextRunAt: d("2026-11-06T13:33:00Z") });
+  assert.equal(decision.nextRunAt?.toISOString(), "2026-10-03T14:00:00.000Z");
+  state.requiredSeriesLatestObsDate = d("2026-09-01");
+  state.hasUnresolvedFailures = true;
+  assert.equal(releaseConsumed(state, release, "us.bls.employment_situation"), false);
+});
+
+test("CPI early no-change fetch cannot consume the release or skip its bounded retry", () => {
+  const now = d("2026-10-14T14:00:00Z");
+  const future = d("2026-11-10T13:33:00Z");
+  const state: PackageRunState = {
+    lastSuccessAt: d("2026-10-14T12:41:00Z"), sourceVerifiedAt: d("2026-10-14T12:41:00Z"),
+    requiredMonthlyObservation: { oldest: d("2026-08-01"), lagMonths: 1 },
+  };
+  const release = d("2026-10-14T12:30:00Z");
+  assert.equal(releaseConsumed(state, release), false);
+  const params = { computedNextRunAt: future, currentNextRunAt: future, previousReleaseAt: release, runState: state, now };
+  const decision = resolvePackageNextRunAt(params);
+  assert.equal(decision.reason, "hold_pending_release");
+  assert.equal(decision.nextRunAt?.toISOString(), "2026-10-14T16:00:00.000Z");
+  assert.equal(resolvePackageNextRunAt({ ...params, currentNextRunAt: decision.nextRunAt }).nextRunAt, decision.nextRunAt);
+  state.requiredMonthlyObservation!.oldest = d("2026-09-01");
+  assert.equal(releaseConsumed(state, release), true);
+  assert.equal(resolvePackageNextRunAt(params).nextRunAt, future);
+});
+
+test("CPI period proof handles January release, unknown local period and unverified fetch time", () => {
+  const state: PackageRunState = { lastSuccessAt: d("2027-01-14"), sourceVerifiedAt: null,
+    requiredMonthlyObservation: { oldest: d("2026-12-01"), lagMonths: 1 } };
+  assert.equal(releaseConsumed(state, d("2027-01-13")), true);
+  state.requiredMonthlyObservation!.oldest = null;
+  assert.equal(releaseConsumed(state, d("2027-01-13")), false);
+});
+
+test("failed member preserves its bounded retry rather than jumping month or retrying immediately", () => {
+  const retry = d("2026-10-10T13:00:00Z");
+  const result = resolvePackageNextRunAt({ currentNextRunAt:retry, computedNextRunAt:d("2026-11-04T15:03:00Z"),
+    previousReleaseAt:d("2026-10-05T14:00:00Z"), now:d("2026-10-10T11:00:00Z"),
+    runState:{lastSuccessAt:d("2026-09-05Z"),sourceVerifiedAt:null,hasUnresolvedFailures:true} });
+  assert.equal(result.nextRunAt, retry);
+  assert.equal(result.reason,"hold_pending_release");
+});
+
+test("Eurostat overdue timestamp can advance after ALL members freshly caught up", () => {
+  const result = resolvePackageNextRunAt({ currentNextRunAt: d("2026-10-02T09:01:00Z"),
+    previousReleaseAt: d("2026-10-16T09:00:00Z"), computedNextRunAt: d("2026-10-16T09:03:00Z"),
+    now: d("2026-10-10T11:00:00Z"), runState: { lastSuccessAt: d("2026-10-10T10:30:00Z"), sourceVerifiedAt: d("2026-10-10T10:30:00Z") } });
+  assert.equal(result.reason, "calendar");
+  assert.equal(result.nextRunAt?.toISOString(), "2026-10-16T09:03:00.000Z");
+});
+
 test("复刻 us.census.mtis 2026-09-16 事故：这一期没抓到就不许跳到下个月", () => {
   // 生产审计记录：22:00:06 这一轮把 nextRunAt 从 22:03 改成了 10-15 22:03，
   // 而上次成功执行停在 2026-07-09 —— 8 月、9 月两期全丢。
