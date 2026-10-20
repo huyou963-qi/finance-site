@@ -40,7 +40,15 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
   if (code.startsWith("nbs_cn_fai_")) return p("国民经济", "固定资产投资");
   if (code.startsWith("nbs_cn_retail_goods_")) return p("国民经济", /粮油|饮料|烟酒|服装|化妆|日用|书报|体育/.test(label) ? "商品零售：日常消费" : "商品零售：耐用及大宗消费");
   if (code.startsWith("nbs_cn_retail_")) return p("国民经济", "社会消费品零售");
-  if (code.startsWith("nbs_cn_realestate_")) return p("地产与建筑", /70城|新建商品住宅|二手住宅/.test(label) ? "70 城住房价格" : "房地产开发、销售与资金");
+  if (code.startsWith("nbs_cn_realestate_")) {
+    if (/70城|新建商品住宅|二手住宅/.test(label)) return p("地产与建筑", "70 城住房价格");
+    if (/到位资金/.test(label)) return p("地产与建筑", "房地产：开发资金");
+    if (/待售面积/.test(label)) return p("地产与建筑", "房地产：待售库存");
+    if (/销售面积|销售额|交易网签/.test(label)) return p("地产与建筑", "房地产：销售与交易");
+    if (/施工面积|新开工面积|竣工面积/.test(label)) return p("地产与建筑", "房地产：施工与交付");
+    if (/开发投资/.test(label)) return p("地产与建筑", "房地产：开发投资");
+    return p("地产与建筑", "房地产开发、销售与资金");
+  }
   if (code.startsWith("mof_cn_fiscal_")) return p("财政与公共债务", /支出/.test(label) ? "财政支出" : /基金/.test(label) ? "政府性基金" : "一般公共预算收入");
   if (code.startsWith("pbc_cn_")) return /利率|LPR/.test(label) ? p("利率与信用市场", "贷款利率") : p("货币政策与流动性", "货币、信贷与社会融资");
   if (code.startsWith("nfra_cn_banking_total_")) {

@@ -116,7 +116,13 @@ export function parseUsTradeCountries(rows: Rows, publishedThrough: Date): UsTra
 
 // Census country balance c2771.html ends in April 2011. Later workbook zeros
 // are not continuing observations for the dissolved Netherlands Antilles.
-export const US_TRADE_COUNTRY_END_PERIODS: Readonly<Record<string, string>> = { "2771": "2011-04-01" };
+// Retired statistical partners must not acquire synthetic zero observations
+// from the trailing placeholder cells in later annual workbooks.
+export const US_TRADE_COUNTRY_END_PERIODS: Readonly<Record<string, string>> = {
+  "2771": "2011-04-01", // Netherlands Antilles
+  "4350": "1992-12-01", // Czechoslovakia; do not splice successor countries.
+  "4610": "1992-12-01", // USSR; do not splice Russia.
+};
 
 function assertPublicationBoundary(value: Date): void {
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {

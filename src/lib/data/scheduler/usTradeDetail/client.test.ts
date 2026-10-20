@@ -21,7 +21,10 @@ test("country publication boundary removes future placeholders but preserves pub
   const historical = Array(28).fill(0);
   historical[0] = 2011; historical[1] = "2771"; historical[2] = "Netherlands Antilles";
   historical[3] = 3; historical[16] = 4;
-  const result = parseUsTradeCountriesNsa([header, ...rows, historical], new Date("2026-08-01"));
+  const retired = ["4350", "4610"].flatMap(code => [1992, 2003].map(year => {
+    const row = [...historical]; row[0] = year; row[1] = code; return row;
+  }));
+  const result = parseUsTradeCountriesNsa([header, ...rows, historical, ...retired], new Date("2026-08-01"));
   const active = result.find(row => row.code === "census_us_trade_exports_country_nsa_1000")!;
   assert.equal(active.points.length, 8);
   assert.equal(active.points.at(-1)?.value, 0);
@@ -29,6 +32,11 @@ test("country publication boundary removes future placeholders but preserves pub
   const ended = result.find(row => row.code === "census_us_trade_exports_country_nsa_2771")!;
   assert.equal(ended.points.length, 4);
   assert.equal(ended.points.at(-1)?.obsDate.toISOString().slice(0, 10), "2011-04-01");
+  for (const code of ["4350", "4610"]) {
+    const old = result.find(row => row.code === `census_us_trade_exports_country_nsa_${code}`)!;
+    assert.equal(old.points.length, 12);
+    assert.equal(old.points.at(-1)?.obsDate.toISOString().slice(0, 10), "1992-12-01");
+  }
   assert.throws(() => parseUsTradeCountriesNsa([header, ...rows], new Date(NaN)), /boundary/);
 });
 

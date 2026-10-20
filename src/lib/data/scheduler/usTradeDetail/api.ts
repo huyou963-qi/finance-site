@@ -2,6 +2,7 @@
  * Official example uses CTY_CODE alone: omitted commodity/district/DF predicates
  * select the published partner total, not a sum of detailed commodity rows.
  */
+import { US_TRADE_COUNTRY_END_PERIODS } from "./client";
 export const CENSUS_TRADE_API = "https://api.census.gov/data/timeseries/intltrade";
 const cache = new Map<string, { at: number; promise: Promise<unknown[][]> }>();
 
@@ -30,7 +31,7 @@ export function parseCensusPartnerApi(payload: unknown, country: string, side: "
 
 export async function fetchCensusPartnerApi(code: string, now = new Date()) {
   const match = /^census_us_trade_(exports|imports)_country_nsa_(\d{4})$/.exec(code);
-  if (!match || Number(match[2]) < 1000 || Number(match[2]) >= 8000 || match[2] === "2771") {
+  if (!match || Number(match[2]) < 1000 || Number(match[2]) >= 8000 || US_TRADE_COUNTRY_END_PERIODS[match[2]!]) {
     throw new Error("Census API routing requires an active unadjusted partner series");
   }
   const key = process.env.CENSUS_API_KEY?.trim();

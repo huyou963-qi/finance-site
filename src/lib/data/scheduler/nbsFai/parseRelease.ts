@@ -10,6 +10,19 @@ export type FaiInfrastructureRelease = {
   definition: FaiInfrastructureDefinition;
 };
 
+/** Audited annual supplement, for a published fact absent from the UUID API.
+ * This is a source parser, not a hard-coded observation or a monthly-to-annual
+ * conversion. Other industries must not inherit this rate. */
+export function parseFaiAnnualInternetRelease(html: string, year: number): ObservationPoint {
+  const page = compact(html);
+  if (!new RegExp(`${year}年[，,]`).test(page) || !/全年完成固定资产投资（不含农户）/.test(page)) throw new Error("年度固投补充公告年份/定义不匹配");
+  const match = /互联网和相关服务业投资(?:比上年)?(增长|下降)(\d+(?:\.\d+)?)\s*%/.exec(page);
+  if (!match) throw new Error("年度固投补充公告缺少互联网行业官方同比");
+  const occurrences = [...page.matchAll(/互联网和相关服务业投资(?:比上年)?(?:增长|下降)\d+(?:\.\d+)?\s*%/g)];
+  if (occurrences.length !== 1) throw new Error("年度固投补充公告行业值不唯一");
+  return { obsDate: new Date(Date.UTC(year, 0, 1)), value: Number(match[2]) * (match[1] === "下降" ? -1 : 1) };
+}
+
 function compact(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, "")
