@@ -101,6 +101,18 @@ export function buildLaborInstrumentMetadata(
     unit: row.unit,
     catalogKey: `fred:${row.fredId}`,
   };
+  // ADP is already verified on FRED. Without this marker the scheduler silently
+  // excludes its newly seeded instrument, even though the subscription is enabled.
+  if (row.fredId === "ADPMNUSNERSA" && !next.fetchAcquisition) {
+    next.fetchAcquisition = {
+      status: "known",
+      method: "subscription_fred",
+      methodLabel: "FRED 定时订阅 API",
+      officialUrl: `https://fred.stlouisfed.org/series/${row.fredId}`,
+      probedAt: new Date().toISOString(),
+      message: "FRED 序列 ID 已由就业指标目录确认",
+    };
+  }
   if (opts?.dataLastObsDateIso) {
     next.dataLastObsDateIso = opts.dataLastObsDateIso;
   }

@@ -32,6 +32,7 @@ import {
 } from "./releasePackageStore";
 import { isCatalogKeyExcluded, loadExcludedCatalogKeys } from "../catalogExclusions";
 import { recordScheduleChange } from "./schedulerAudit";
+import { hasEmploymentReleaseObservation } from "./employmentReleaseFreshness";
 
 export type SubscriptionWithRelations = DataSubscription & {
   source: DataSource;
@@ -206,7 +207,13 @@ export async function runDataSubscription(
     const sourceCaughtUp =
       sourceLagDays != null &&
       sourceLagDays <= 0 &&
-      (status === FetchRunStatus.SKIPPED || status === FetchRunStatus.SUCCESS);
+      (status === FetchRunStatus.SKIPPED || status === FetchRunStatus.SUCCESS) &&
+      (rule.type !== "economic_calendar" || !rule.calendarMatch?.releaseAt ||
+        hasEmploymentReleaseObservation(
+          sub.releasePackageId,
+          new Date(rule.calendarMatch.releaseAt),
+          lastObs,
+        ));
 
     let updatedRule = rule;
     if (rule.type === "economic_calendar" && sourceCaughtUp) {

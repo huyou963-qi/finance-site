@@ -65,6 +65,11 @@ export async function loadPackageRunStates(
       state.publicationRequirements = [...previous?.publicationRequirements ?? [], ...requirements];
     }
     if (previous?.requiredMonthlyObservation) state.requiredMonthlyObservation = previous.requiredMonthlyObservation;
+    if (previous?.requiredSeriesLatestObsDate !== undefined) state.requiredSeriesLatestObsDate = previous.requiredSeriesLatestObsDate;
+    if ((packageId === "us.bls.employment_situation" && row.instrument.code === "sched_fred_PAYEMS") ||
+        (packageId === "us.adp.ner" && row.instrument.code === "sched_fred_ADPMNUSNERSA")) {
+      state.requiredSeriesLatestObsDate = row.lastObsDate ?? null;
+    }
     if (MONTHLY_RELEASE_LAG[packageId] != null && row.granularity === "MONTHLY" &&
         !HISTORICAL_NBS_OWNERSHIP.test(row.instrument.code)) {
       state.requiredMonthlyObservation = {
