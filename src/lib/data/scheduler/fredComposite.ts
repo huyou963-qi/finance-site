@@ -81,14 +81,24 @@ export async function fetchFredCompositeIncremental(
   spec: UsovCompositeSpec,
   apiKey: string,
   observationStart: string,
+  readPublication = false,
+  readReleaseIdentity = false,
 ): Promise<FetchIncrementalResult> {
   const ids = seriesIdsForSpec(spec);
   const series = new Map<string, ObservationPoint[]>();
   let sourceLatest: Date | null = null;
   let skippedInvalid = 0;
+  let sourcePublishedAt: Date | null | undefined;
+  const sourcePublications: NonNullable<FetchIncrementalResult["sourcePublications"]> = [];
+  let completePublicationProof = true;
 
   for (const id of ids) {
-    const r = await fetchFredIncremental(id, apiKey, observationStart);
+    const r = await fetchFredIncremental(id, apiKey, observationStart, undefined, readPublication, readReleaseIdentity);
+    if (r.sourcePublications?.length) sourcePublications.push(...r.sourcePublications);
+    else completePublicationProof = false;
+    sourcePublishedAt = sourcePublishedAt === undefined ? r.sourcePublishedAt ?? null
+      : sourcePublishedAt && r.sourcePublishedAt
+        ? new Date(Math.min(sourcePublishedAt.getTime(), r.sourcePublishedAt.getTime())) : null;
     series.set(id, r.points);
     skippedInvalid += r.skippedInvalid;
     if (r.sourceLatestObsDate && (!sourceLatest || r.sourceLatestObsDate > sourceLatest)) {
@@ -97,5 +107,7 @@ export async function fetchFredCompositeIncremental(
   }
 
   const points = applyComposite(spec, series);
-  return { points, sourceLatestObsDate: sourceLatest, skippedInvalid };
+  return { points, sourceLatestObsDate: sourceLatest, skippedInvalid, sourcePublishedAt,
+    ...(completePublicationProof ? { sourcePublications } : {}),
+  };
 }

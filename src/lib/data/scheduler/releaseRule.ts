@@ -25,12 +25,21 @@ export type CalendarSyncMeta = {
 
 /** 最近一次确认：本地观测已追上源端（源端本身可能仍滞后） */
 export type SourceSyncSnapshot = {
+  sourcePublishedAt?: string;
+  sourcePublications?: { releaseId: number; publishedAt: string }[];
   status: "current";
   verifiedAt: string;
   localObsDate?: string;
   sourceLatestObsDate?: string;
   fetchStatus?: string;
 };
+
+export function parseSourcePublications(raw: unknown): SourceSyncSnapshot["sourcePublications"] {
+  if (!Array.isArray(raw) || !raw.length) return undefined;
+  const valid = raw.every((row) => row && Number.isInteger(row.releaseId) && row.releaseId > 0 &&
+    typeof row.publishedAt === "string" && Number.isFinite(Date.parse(row.publishedAt)));
+  return valid ? raw.map((row) => ({ releaseId: row.releaseId, publishedAt: row.publishedAt })) : undefined;
+}
 
 /** 发布/探测规则（存于 DataSubscription.releaseRule JSON） */
 export type ReleaseRule =
@@ -135,6 +144,8 @@ export function parseReleaseRule(raw: unknown): ReleaseRule {
         ? {
             status: "current",
             verifiedAt: String(ss.verifiedAt),
+            sourcePublishedAt: typeof ss.sourcePublishedAt === "string" ? ss.sourcePublishedAt : undefined,
+            sourcePublications: parseSourcePublications(ss.sourcePublications),
             localObsDate:
               ss.localObsDate != null ? String(ss.localObsDate) : undefined,
             sourceLatestObsDate:

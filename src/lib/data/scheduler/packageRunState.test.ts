@@ -30,9 +30,9 @@ test("CPI observation proof uses the oldest eligible member even after successfu
   const at = new Date("2026-10-14T12:41:00Z");
   const rows = ["2026-09-01", "2026-08-01"].map((month, i) => ({
     instrument: { code: `cpi-${i}`, metadata: { fetchAcquisition: { status: "known" } } },
-    source: { adapterKind: "FRED_API" }, sourceSeriesKey: `cpi-${i}`, releasePackageId: "us.bls.cpi",
+    source: { adapterKind: "FRED_API" }, granularity: "MONTHLY", sourceSeriesKey: `cpi-${i}`, releasePackageId: "us.bls.cpi",
     lastSuccessAt: at, lastObsDate: new Date(month), lastError: null,
-    releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: at.toISOString() } },
+    releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: at.toISOString(), sourcePublishedAt: at.toISOString() } },
   }));
   const prisma = { $queryRaw: async () => [], dataSubscription: { findMany: async () => rows } } as unknown as PrismaClient;
   assert.equal(releaseConsumed((await loadPackageRunStates(prisma)).get("us.bls.cpi")!, new Date("2026-10-14T12:30:00Z")), false);
@@ -41,9 +41,66 @@ test("CPI observation proof uses the oldest eligible member even after successfu
 });
 
 const schedulable = <T extends { instrument: { code: string } }>(rows: T[]) => rows.map((row) => ({
-  ...row, source: { adapterKind: "FRED_API" },
+  ...row, source: { adapterKind: "REST_API" },
   instrument: { ...row.instrument, metadata: { fetchAcquisition: { status: "known" } } },
 }));
+
+test("FRED PPI/all registered monthly reports require publication proof AND every member's target period", async () => {
+  const { MONTHLY_RELEASE_LAG } = await import("./releaseObservationPolicy");
+  const release = new Date("2026-10-15T12:30:00Z");
+  const at = new Date("2026-10-19T15:00:00Z");
+  for (const [packageId, lag] of Object.entries(MONTHLY_RELEASE_LAG).filter(([id]) => id.startsWith("us."))) {
+    const target = new Date(Date.UTC(2026, 9 - lag, 1));
+    const rows = [0, 1].map((i) => ({ releasePackageId: packageId, granularity: "MONTHLY",
+      source: { adapterKind: "FRED_API" }, sourceSeriesKey: `series-${i}`,
+      instrument: { code: `series-${i}`, metadata: { fetchAcquisition: { status: "known" } } },
+      lastObsDate: i ? new Date(Date.UTC(2026, 8 - lag, 1)) : target,
+      lastSuccessAt: at, lastError: null,
+      releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: at.toISOString(), sourcePublishedAt: at.toISOString() } },
+    }));
+    const prisma = { $queryRaw: async () => [], dataSubscription: { findMany: async () => rows } } as unknown as PrismaClient;
+    const consumed = async () => releaseConsumed((await loadPackageRunStates(prisma)).get(packageId)!, release);
+    assert.equal(await consumed(), false, `${packageId}: revised old month cannot consume`);
+    rows[1].lastObsDate = target;
+    assert.equal(await consumed(), true, `${packageId}: all target months published`);
+    rows[1].releaseRule.sourceSync.sourcePublishedAt = "2026-10-14T10:00:00Z";
+    assert.equal(await consumed(), false, `${packageId}: run time cannot replace publication time`);
+  }
+});
+
+test("FRED revision-only and weekly reports never fall back to ran-once legacy equality", async () => {
+  const at = new Date("2026-10-19T15:00:00Z");
+  const rows = [{ releasePackageId: "us.bea.gdp", granularity: "QUARTERLY", source: { adapterKind: "FRED_API" },
+    sourceSeriesKey: "GDP", instrument: { code: "GDP", metadata: { fetchAcquisition: { status: "known" } } },
+    lastSuccessAt: at, lastObsDate: new Date("2026-07-01"), lastError: null,
+    releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: at.toISOString(), sourcePublishedAt: "" } } }];
+  const prisma = { $queryRaw: async () => [], dataSubscription: { findMany: async () => rows } } as unknown as PrismaClient;
+  const state = async () => (await loadPackageRunStates(prisma)).get("us.bea.gdp")!;
+  assert.equal((await state()).requiredMonthlyObservation, undefined);
+  assert.equal(releaseConsumed(await state(), new Date("2026-10-15T12:30:00Z")), false);
+  // Same quarter and even identical values are legitimate for a GDP revision,
+  // provided FRED itself published the series after the release.
+  rows[0].releaseRule.sourceSync.sourcePublishedAt = at.toISOString();
+  assert.equal(releaseConsumed(await state(), new Date("2026-10-15T12:30:00Z")), true);
+});
+
+test("mixed-release state preserves every dependency identity and rejects missing member proof", async () => {
+  const at = new Date("2026-10-20T22:00:00Z");
+  const rows = [18, 101].map((releaseId) => ({ releasePackageId: "us.fed.fomc", granularity: "DAILY",
+    source: { adapterKind: "FRED_API" }, sourceSeriesKey: `series-${releaseId}`,
+    instrument: { code: `series-${releaseId}`, metadata: { fetchAcquisition: { status: "known" } } },
+    lastObsDate: new Date("2026-10-19"), lastSuccessAt: at, lastError: null,
+    releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: at.toISOString(),
+      sourcePublishedAt: at.toISOString(), sourcePublications: [{ releaseId, publishedAt: at.toISOString() }] } },
+  }));
+  const prisma = { $queryRaw: async () => [], dataSubscription: { findMany: async () => rows } } as unknown as PrismaClient;
+  const state = async () => ({ ...(await loadPackageRunStates(prisma)).get("us.fed.fomc")!,
+    previousReleaseById: { 18: new Date("2026-10-20T12:30:00Z"), 101: new Date("2026-09-16T12:30:00Z") } });
+  assert.equal((await state()).publicationRequirements?.length, 2);
+  assert.equal(releaseConsumed(await state(), new Date("2026-10-20T12:30:00Z")), true);
+  rows[1].releaseRule.sourceSync.sourcePublications = [];
+  assert.equal(releaseConsumed(await state(), new Date("2026-10-20T12:30:00Z")), false);
+});
 
 test("failed or unverified package member cannot be masked by healthy headline", async () => {
   const old = new Date("2026-09-05Z"), fresh = new Date("2026-10-06Z");

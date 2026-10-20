@@ -5,6 +5,14 @@ import { getFredRateLimiter, type FredRateLimiter } from "../fredRateLimiter";
 const FRED_OBSERVATIONS_URL = "https://api.stlouisfed.org/fred/series/observations";
 const FRED_MAX_PAGE_SIZE = 100_000;
 
+/** FRED timestamps carry a numeric UTC offset (including daylight saving). */
+export function parseFredLastUpdated(raw: unknown): Date | null {
+  if (typeof raw !== "string" || !/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d[+-]\d\d(?::?\d\d)?$/.test(raw)) return null;
+  const normalized = raw.replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00");
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 type FredRevisionResponse = {
   count?: number;
   observations?: Array<Record<string, string>>;
@@ -31,7 +39,42 @@ export async function fetchFredIncremental(
   apiKey: string,
   observationStart: string,
   rateLimiter?: FredRateLimiter,
+  readPublication = false,
+  readReleaseIdentity = false,
 ): Promise<FetchIncrementalResult> {
+  const limiter = rateLimiter ?? getFredRateLimiter();
+  let sourcePublishedAt: Date | null = null;
+  let publicationError: string | undefined;
+  let sourcePublications: FetchIncrementalResult["sourcePublications"];
+  if (readPublication) {
+    // Metadata first: an update racing AFTER the observations request must not
+    // certify an older payload. No cache across worker attempts.
+    const metadataUrl = new URL("https://api.stlouisfed.org/fred/series");
+    metadataUrl.searchParams.set("series_id", seriesId);
+    metadataUrl.searchParams.set("api_key", apiKey);
+    metadataUrl.searchParams.set("file_type", "json");
+    try {
+      const response = await limiter.fetch(metadataUrl.toString(), { signal: AbortSignal.timeout(30_000) });
+      if (!response.ok) throw new Error(`FRED publication metadata HTTP ${response.status}`);
+      const payload = await response.json() as { seriess?: { id: string; last_updated?: string }[] };
+      const series = payload.seriess?.find((item) => item.id === seriesId);
+      sourcePublishedAt = parseFredLastUpdated(series?.last_updated);
+      if (!sourcePublishedAt) publicationError = "FRED publication timestamp missing or invalid";
+      if (readReleaseIdentity && sourcePublishedAt) {
+        const releaseUrl = new URL(metadataUrl);
+        releaseUrl.pathname = "/fred/series/release";
+        const releaseResponse = await limiter.fetch(releaseUrl.toString(), { signal: AbortSignal.timeout(30_000) });
+        if (!releaseResponse.ok) throw new Error("FRED series release unavailable");
+        const releasePayload = await releaseResponse.json() as { releases?: { id: number }[] };
+        const releaseId = releasePayload.releases?.[0]?.id;
+        if (!releaseId || !Number.isInteger(releaseId)) throw new Error("FRED series release identity missing");
+        sourcePublications = [{ releaseId, publishedAt: sourcePublishedAt.toISOString() }];
+      }
+    } catch {
+      // Observations can still be saved. Missing proof must keep retries active.
+      publicationError = "FRED publication metadata unavailable";
+    }
+  }
   const url =
     FRED_OBSERVATIONS_URL +
     `?series_id=${encodeURIComponent(seriesId)}` +
@@ -39,7 +82,6 @@ export async function fetchFredIncremental(
     `&file_type=json` +
     `&observation_start=${encodeURIComponent(observationStart)}`;
 
-  const limiter = rateLimiter ?? getFredRateLimiter();
   const res = await limiter.fetch(url);
   if (!res.ok) {
     const text = await res.text();
@@ -68,7 +110,11 @@ export async function fetchFredIncremental(
     if (!sourceLatest || obsDate > sourceLatest) sourceLatest = obsDate;
   }
 
-  return { points, sourceLatestObsDate: sourceLatest, skippedInvalid };
+  return { points, sourceLatestObsDate: sourceLatest, skippedInvalid,
+    ...(readPublication ? { sourcePublishedAt, sourcePublications,
+      sourceMetadata: { sourcePublishedAt: sourcePublishedAt?.toISOString() ?? null,
+        ...(publicationError ? { publicationError } : {}) } } : {}),
+  };
 }
 
 function dateFromIso(value: string): Date {

@@ -2,9 +2,11 @@
 import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
 import { PPI_FRED_SERIES } from "../../src/lib/data/scheduler/ppiFredSeedCatalog";
+import { defaultFredCalendarWindow, fetchFredReleaseCalendar } from "../../src/lib/data/scheduler/fredReleaseCalendar/client";
+import { fredReleaseOccurrencesForPackage, lastFredReleaseBefore } from "../../src/lib/data/scheduler/fredReleaseCalendar/parseCalendar";
+import { expectedMonthlyObservation } from "../../src/lib/data/scheduler/releaseObservationPolicy";
 
 loadEnvConfig(process.cwd());
-const cutoff = (() => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() - 3, 1); return d.toISOString().slice(0, 10); })();
 
 async function main() {
   if (!process.argv.includes("--db")) {
@@ -14,6 +16,11 @@ async function main() {
   const prisma = new PrismaClient();
   let errors = 0;
   try {
+    const now = new Date();
+    const calendar = await fetchFredReleaseCalendar({ ...defaultFredCalendarWindow(now), releaseIds: [46], signal: AbortSignal.timeout(30_000) });
+    const release = lastFredReleaseBefore(fredReleaseOccurrencesForPackage(calendar, "us.bls.ppi"), now);
+    if (!release) throw new Error("无法确认 PPI 最近已发布期，禁止用三个月宽松阈值替代");
+    const cutoff = expectedMonthlyObservation(release.releaseAt, 1).toISOString().slice(0, 10);
     for (const item of PPI_FRED_SERIES) {
       const instrument = await prisma.instrument.findUnique({ where: { code: item.code } });
       const subscription = instrument && await prisma.dataSubscription.findUnique({ where: { instrumentId: instrument.id } });
@@ -26,8 +33,9 @@ async function main() {
         console.log(`  ✓ ${item.fredId} ${actual}`);
       }
     }
+    console.log(`[verify-ppi] 已发布目标期 ${cutoff}；${PPI_FRED_SERIES.length} 条检查，错误 ${errors}`);
   } finally { await prisma.$disconnect(); }
   if (errors) process.exit(1);
-  console.log(`[verify-ppi] 通过：${PPI_FRED_SERIES.length} 条，月频阈值 ${cutoff}`);
+  console.log(`[verify-ppi] 通过：${PPI_FRED_SERIES.length} 条`);
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

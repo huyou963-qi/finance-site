@@ -215,6 +215,8 @@ export async function runDataSubscription(
         sourceSync: {
           status: "current",
           verifiedAt: new Date().toISOString(),
+          ...(fetchResult.sourcePublishedAt ? { sourcePublishedAt: fetchResult.sourcePublishedAt.toISOString() } : {}),
+          ...(fetchResult.sourcePublications ? { sourcePublications: fetchResult.sourcePublications } : {}),
           localObsDate: lastObs?.toISOString().slice(0, 10),
           sourceLatestObsDate: fetchResult.sourceLatestObsDate?.toISOString().slice(0, 10),
           fetchStatus: status,

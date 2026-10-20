@@ -12,7 +12,14 @@
  * 这里是纯函数，不碰 IO，便于单测覆盖上面那个时序。
  */
 
+import { expectedMonthlyObservation } from "./releaseObservationPolicy";
+
 export type PackageRunState = {
+  requiresPublicationProof?: boolean;
+  /** Mixed FRED releases: each dependency is checked against its OWN calendar. */
+  publicationRequirements?: { releaseId: number | null; publishedAt: Date | null;
+    monthlyLag?: number; observation?: Date | null }[];
+  previousReleaseById?: Readonly<Record<number, Date>>;
   /** 仅已知固定月报口径的包启用；CPI 发布月对应上一个观测月。 */
   requiredMonthlyObservation?: { oldest: Date | null; lagMonths: number };
   hasUnresolvedFailures?: boolean;
@@ -61,11 +68,33 @@ export function releaseConsumed(
   if (runState.hasUnresolvedFailures) return false;
   const monthly = runState.requiredMonthlyObservation;
   if (monthly) {
-    const expected = Date.UTC(previousReleaseAt.getUTCFullYear(), previousReleaseAt.getUTCMonth() - monthly.lagMonths, 1);
+    const expected = expectedMonthlyObservation(previousReleaseAt, monthly.lagMonths).getTime();
     if (!monthly.oldest || monthly.oldest.getTime() < expected) return false;
   }
+  if (runState.publicationRequirements) {
+    return runState.publicationRequirements.length > 0 && runState.publicationRequirements.every((proof) => {
+      if (proof.monthlyLag != null) {
+        // H.15 publishes daily, but FEDFUNDS is a monthly average. Do not ask
+        // a monthly member for a new publication on each daily H.15 event.
+        const target = expectedMonthlyObservation(previousReleaseAt, proof.monthlyLag);
+        const monthStart = expectedMonthlyObservation(previousReleaseAt, 0);
+        return proof.observation && proof.observation >= target && proof.publishedAt && proof.publishedAt >= monthStart;
+      }
+      const release = proof.releaseId != null ? runState.previousReleaseById?.[proof.releaseId] : null;
+      return release && proof.publishedAt && proof.publishedAt >= release;
+    });
+  }
   const verified = runState.sourceVerifiedAt;
-  if (verified) return verified.getTime() >= previousReleaseAt.getTime();
+  if (verified) {
+    // FRED release/dates supplies a DATE, not an exact time (our calendar uses
+    // a conventional 08:30 ET). With an independently proven target month,
+    // accept a publication earlier on that same date, e.g. ADP at 08:15 ET.
+    const threshold = monthly && runState.requiresPublicationProof
+      ? Date.UTC(previousReleaseAt.getUTCFullYear(), previousReleaseAt.getUTCMonth(), previousReleaseAt.getUTCDate())
+      : previousReleaseAt.getTime();
+    return verified.getTime() >= threshold;
+  }
+  if (runState.requiresPublicationProof) return false;
   // 包内没有任何成员写过 sourceSync（例如刚接入的源）时退化为「跑过就算数」，
   // 否则会永远停在 hold_pending_release 每 N 小时空转。
   const ran = runState.lastSuccessAt;
@@ -118,7 +147,7 @@ export function resolvePackageNextRunAt(params: {
       return { nextRunAt: computedNextRunAt, reason: "calendar" };
     }
 
-    if (runState.requiredMonthlyObservation) {
+    if (runState.requiredMonthlyObservation || runState.requiresPublicationProof) {
       // 跑过/源库一致不代表发布期已到齐。此前误跳下月则恢复2h探测。
       const retry = currentNextRunAt && (!computedNextRunAt || currentNextRunAt < computedNextRunAt)
         ? currentNextRunAt : new Date(nowMs + 2 * 3_600_000);
@@ -146,7 +175,7 @@ export function resolvePackageNextRunAt(params: {
     // The matched event may already be future while the due timestamp was
     // retained. Fresh proof from EVERY member can consume that overdue work.
     if (currentNextRunAt <= now && runState.sourceVerifiedAt &&
-        !runState.hasUnresolvedFailures && runState.sourceVerifiedAt >= currentNextRunAt) {
+        releaseConsumed(runState, currentNextRunAt)) {
       return { nextRunAt: computedNextRunAt, reason: "calendar" };
     }
     const dueCutoff = nowMs + graceMinutes(params.graceMinutes) * 60_000;
