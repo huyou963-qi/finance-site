@@ -79,6 +79,7 @@ export function releaseConsumed(
   if (runState.requiredSeriesLatestObsDate !== undefined &&
       (!hasEmploymentReleaseObservation(packageId, previousReleaseAt, runState.requiredSeriesLatestObsDate) ||
         (runState.lastSuccessAt?.getTime() ?? 0) < previousReleaseAt.getTime())) return false;
+  if (runState.requiredSeriesLatestObsDate !== undefined && !runState.requiresPublicationProof) return true;
   if (runState.publicationRequirements) {
     return runState.publicationRequirements.length > 0 && runState.publicationRequirements.every((proof) => {
       if (proof.monthlyLag != null) {

@@ -9,6 +9,17 @@ import {
 const NONE: PackageRunState = { lastSuccessAt: null, sourceVerifiedAt: null };
 const d = (iso: string) => new Date(iso);
 
+test("merged employment target gate cannot bypass FRED publication proof", () => {
+  const release = d("2026-10-02T12:30:00Z");
+  const state: PackageRunState = { requiresPublicationProof: true,
+    lastSuccessAt: d("2026-10-02T14:00:00Z"), sourceVerifiedAt: null,
+    requiredSeriesLatestObsDate: d("2026-09-01"),
+    requiredMonthlyObservation: { oldest: d("2026-09-01"), lagMonths: 1 } };
+  assert.equal(releaseConsumed(state, release, "us.bls.employment_situation"), false);
+  state.sourceVerifiedAt = d("2026-10-02T14:00:00Z");
+  assert.equal(releaseConsumed(state, release, "us.bls.employment_situation"), true);
+});
+
 test("monthly target proof allows ADP publication before conventional FRED calendar 08:30 time", () => {
   const state: PackageRunState = { requiresPublicationProof: true,
     requiredMonthlyObservation: { oldest: d("2026-09-01"), lagMonths: 1 },
