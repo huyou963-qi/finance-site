@@ -1,7 +1,7 @@
 import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
 import assert from "node:assert/strict";
-import { fetchUsTradeDetail } from "../../src/lib/data/scheduler/usTradeDetail/client";
+import { fetchUsTradeDetail, US_TRADE_COUNTRY_END_PERIODS } from "../../src/lib/data/scheduler/usTradeDetail/client";
 import { US_TRADE_PACKAGE_ID, US_TRADE_SOURCE_ID, usTradePlacement } from "../../src/lib/data/scheduler/usTradeDetail/catalog";
 
 loadEnvConfig(process.cwd());
@@ -29,7 +29,8 @@ async function main() {
     const metadata = instrument.metadata as Record<string, unknown>;
     assert.equal(metadata.catalogSubcategory, series.subgroup);
     assert.equal(instrument.dataSubscription?.sourceId, US_TRADE_SOURCE_ID);
-    assert.equal(instrument.dataSubscription?.enabled, true);
+    const retired = series.kind === "country_nsa" && Boolean(US_TRADE_COUNTRY_END_PERIODS[series.sourceCode]);
+    assert.equal(instrument.dataSubscription?.enabled, !retired, `Subscription lifecycle mismatch ${series.code}`);
     assert.equal(instrument.dataSubscription?.releasePackageId, US_TRADE_PACKAGE_ID);
     assert.equal((instrument.dataSubscription?.releaseRule as { type?: string } | null)?.type, "economic_calendar");
     assert(instrument.dataSubscription?.nextRunAt, `Missing nextRunAt ${series.code}`);

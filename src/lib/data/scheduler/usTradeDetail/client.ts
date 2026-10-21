@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { US_TRADE_FILES, usTradePlacement, type UsTradeSeries } from "./catalog";
 import { US_TRADE_COUNTRY_END_PERIODS } from "./lifecycle";
+import { fetchCensusTradeFile } from "./fileTransport";
 export { US_TRADE_COUNTRY_END_PERIODS } from "./lifecycle";
 
 type Rows = (string | number | null | undefined)[][];
@@ -18,7 +19,7 @@ async function rowsFromUrl(url: string, allowLocalSnapshot: boolean): Promise<Ro
   const promise = (async () => {
     let bytes: Buffer;
     try {
-      const response = await fetch(url, { headers: { "User-Agent": "finance-site/1.0 (official Census trade data)" }, signal: AbortSignal.timeout(60_000) });
+      const response = await fetchCensusTradeFile(url, { headers: { "User-Agent": "finance-site/1.0 (official Census trade data)" }, signal: AbortSignal.timeout(60_000) });
       if (!response.ok) throw new Error(`Census trade ${response.status}: ${url}`);
       bytes = Buffer.from(await response.arrayBuffer());
     } catch (error) {
