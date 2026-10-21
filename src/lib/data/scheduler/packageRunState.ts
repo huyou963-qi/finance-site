@@ -5,6 +5,7 @@ import { loadExcludedCatalogKeys } from "../catalogExclusions";
 import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
 import { MONTHLY_RELEASE_LAG } from "./releaseObservationPolicy";
 import { fredReleaseIdsForPackage } from "./fredReleaseCalendar/catalog";
+import { isHistoricalCensusSeries } from "./usTradeDetail/lifecycle";
 
 // NBS marks these four ownership UUIDs “(发布库已用)工业增加值”.
 // Their historical series must not impose a current-month release obligation.
@@ -34,6 +35,9 @@ export async function loadPackageRunStates(
   for (const row of rows) {
     const packageId = row.releasePackageId;
     if (!packageId) continue;
+    // History-only countries must not pin a present-day package forever,
+    // even when a legacy API failure predates the audited cutoff.
+    if (isHistoricalCensusSeries(row.sourceSeriesKey)) continue;
     if (excluded.has(`mds:${row.instrument.code}`) || excluded.has(`fred:${row.sourceSeriesKey}`)) continue;
     // Use the worker's exact eligibility gate. An archived/unconfirmed member
     // that the worker never selects cannot require a successful run forever.

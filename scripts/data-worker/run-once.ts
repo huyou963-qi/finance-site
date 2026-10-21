@@ -14,11 +14,12 @@ import {
   type UnschedulableSubscription,
 } from "../../src/lib/data/scheduler/runSubscription";
 import {
-  recordScheduleChange,
   recoverAbandonedSchedulerRuns,
 } from "../../src/lib/data/scheduler/schedulerAudit";
 import { syncSafePackage } from "../../src/lib/data/scheduler/safeExternal/syncPackage";
 import { parsePackageReleaseTemplate } from "../../src/lib/data/scheduler/releasePackageStore";
+import { syncCensusPackage } from "../../src/lib/data/scheduler/usTradeDetail/syncPackage";
+import { backoffFailedPackage } from "../../src/lib/data/scheduler/packageFailureBackoff";
 
 loadEnvConfig(process.cwd());
 
@@ -121,6 +122,21 @@ async function main() {
     // 保留已经由首个成员确定的包级排期。probe 包只用于同源分组；成员独立排期与退避。
     const scheduledPackages = new Set<string>();
     for (const sub of subs) {
+      if (sub.releasePackageId && subs.some(member =>
+        member.releasePackageId === sub.releasePackageId && member.sourceId === "us-census-trade-detail")) {
+        if (scheduledPackages.has(sub.releasePackageId)) continue;
+        await syncCensusPackage(prisma, subs.filter(member => member.releasePackageId === sub.releasePackageId), {
+          force,
+          onMember: (member, result) => {
+            if (result.status === "failed") fail++;
+            else if (result.status === "skipped") skipped++;
+            else success++;
+            console.log(`  ${member.instrument.code} … ${result.status} (+${result.rowsUpserted} upsert)${result.error ? " " + result.error : ""}`);
+          },
+        });
+        scheduledPackages.add(sub.releasePackageId);
+        continue;
+      }
       if (sub.sourceId === "safe-external" && sub.releasePackageId) {
         if (scheduledPackages.has(sub.releasePackageId)) continue;
         const members = subs.filter((member) => member.releasePackageId === sub.releasePackageId);
@@ -181,47 +197,7 @@ async function main() {
             memberCode: sub.instrument.code,
             error: result.error ?? "unknown package member failure",
           });
-          const [failedSchedule, packageSchedule] = await Promise.all([
-            prisma.dataSubscription.findUnique({
-              where: { id: sub.id },
-              select: { nextRunAt: true },
-            }),
-            prisma.releasePackage.findUnique({
-              where: { id: sub.releasePackageId },
-              select: { nextRunAt: true },
-            }),
-          ]);
-          if (failedSchedule?.nextRunAt) {
-            await prisma.$transaction([
-              prisma.releasePackage.update({
-                where: { id: sub.releasePackageId },
-                data: { nextRunAt: failedSchedule.nextRunAt },
-              }),
-              prisma.dataSubscription.updateMany({
-                where: {
-                  releasePackageId: sub.releasePackageId,
-                  id: { not: sub.id },
-                  enabled: true,
-                },
-                data: {
-                  nextRunAt: failedSchedule.nextRunAt,
-                  retryCount: { increment: 1 },
-                  lastError: `package member ${sub.instrument.code} failed: ${(result.error ?? "unknown").slice(0, 1800)}`,
-                },
-              }),
-            ]);
-            await recordScheduleChange(prisma, {
-              releasePackageId: sub.releasePackageId,
-              previousNextRunAt: packageSchedule?.nextRunAt,
-              nextRunAt: failedSchedule.nextRunAt,
-              source: "data_worker",
-              reason: "package_member_failed_backoff",
-              metadata: {
-                failedMemberCode: sub.instrument.code,
-                error: (result.error ?? "unknown").slice(0, 500),
-              },
-            });
-          }
+          await backoffFailedPackage(prisma, sub, result.error ?? "unknown");
         }
       } else {
         if (result.status === "skipped") skipped += 1;

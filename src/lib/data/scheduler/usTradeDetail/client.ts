@@ -2,6 +2,9 @@ import * as XLSX from "xlsx";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { US_TRADE_FILES, usTradePlacement, type UsTradeSeries } from "./catalog";
+import { US_TRADE_COUNTRY_END_PERIODS } from "./lifecycle";
+import { fetchCensusTradeFile } from "./fileTransport";
+export { US_TRADE_COUNTRY_END_PERIODS } from "./lifecycle";
 
 type Rows = (string | number | null | undefined)[][];
 export type UsTradeFetchOptions = { allowLocalSnapshot?: boolean };
@@ -16,7 +19,7 @@ async function rowsFromUrl(url: string, allowLocalSnapshot: boolean): Promise<Ro
   const promise = (async () => {
     let bytes: Buffer;
     try {
-      const response = await fetch(url, { headers: { "User-Agent": "finance-site/1.0 (official Census trade data)" }, signal: AbortSignal.timeout(60_000) });
+      const response = await fetchCensusTradeFile(url, { headers: { "User-Agent": "finance-site/1.0 (official Census trade data)" }, signal: AbortSignal.timeout(60_000) });
       if (!response.ok) throw new Error(`Census trade ${response.status}: ${url}`);
       bytes = Buffer.from(await response.arrayBuffer());
     } catch (error) {
@@ -118,11 +121,6 @@ export function parseUsTradeCountries(rows: Rows, publishedThrough: Date): UsTra
 // are not continuing observations for the dissolved Netherlands Antilles.
 // Retired statistical partners must not acquire synthetic zero observations
 // from the trailing placeholder cells in later annual workbooks.
-export const US_TRADE_COUNTRY_END_PERIODS: Readonly<Record<string, string>> = {
-  "2771": "2011-04-01", // Netherlands Antilles
-  "4350": "1992-12-01", // Czechoslovakia; do not splice successor countries.
-  "4610": "1992-12-01", // USSR; do not splice Russia.
-};
 
 function assertPublicationBoundary(value: Date): void {
   if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
@@ -191,6 +189,30 @@ export function parseUsTradeCountriesNsa(rows: Rows, publishedThrough: Date): Us
 }
 
 const parsedCache = new Map<boolean, { at: number; promise: Promise<UsTradeSeries[]> }>();
+const enduseCache = new Map<string, { at: number; promise: Promise<UsTradeSeries[]> }>();
+
+/** Worker reads only the required End-Use file. An unrelated imports download
+ * must not make an export series fail. Countries retain the audited FT-900
+ * release-boundary validation in the full reader; no NSA/SA substitution. */
+export async function fetchUsTradeDetailSeries(code: string): Promise<UsTradeSeries | undefined> {
+  const match = /^census_us_trade_(exports|imports)_enduse_(\d{5}|5)$/.exec(code);
+  if (match) {
+    const side = match[1] as "exports" | "imports";
+    let cached = enduseCache.get(side);
+    if (!cached || Date.now() - cached.at >= 3_600_000) {
+      cached = { at: Date.now(), promise: rowsFromUrl(US_TRADE_FILES[side], false)
+        .then(rows => parseUsTradeEnduse(rows, side)) };
+      enduseCache.set(side, cached);
+    }
+    try {
+      return (await cached.promise).find(series => series.code === code);
+    } catch (error) {
+      enduseCache.delete(side);
+      throw error;
+    }
+  }
+  return (await fetchUsTradeDetail()).find(series => series.code === code);
+}
 
 export async function fetchUsTradeDetail(options: UsTradeFetchOptions = {}): Promise<UsTradeSeries[]> {
   const allowLocalSnapshot = options.allowLocalSnapshot === true;

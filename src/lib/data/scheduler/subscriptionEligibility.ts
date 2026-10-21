@@ -4,6 +4,7 @@ import {
   resolveAcquisitionStatus,
 } from "./catalogAcquisition";
 import { readFetchAcquisition } from "./fetchAcquisition";
+import { isHistoricalCensusSeries } from "./usTradeDetail/lifecycle";
 
 export function subscriptionEligibleForSchedule(params: {
   subscriptionEnabled: boolean;
@@ -11,6 +12,7 @@ export function subscriptionEligibleForSchedule(params: {
   sourceSeriesKey: string | null;
   metadata: unknown;
 }): boolean {
+  if (isHistoricalCensusSeries(params.sourceSeriesKey)) return false;
   const acquisitionStatus = resolveAcquisitionStatus({
     subscriptionEnabled: params.subscriptionEnabled,
     adapterKind: params.adapterKind,

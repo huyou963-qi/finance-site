@@ -25,6 +25,25 @@ async function main() {
   };
   await prisma.dataSource.upsert({ where: { id: US_TRADE_SOURCE_ID }, create: { id: US_TRADE_SOURCE_ID, ...source }, update: source });
 
+  // Retire reviewed identities BEFORE downloading any workbook: an ongoing403
+  // must not prevent lifecycle maintenance. Keep instruments/observations.
+  const historicalCodes = Object.keys(US_TRADE_COUNTRY_END_PERIODS).flatMap(id =>
+    ["exports", "imports"].map(side => `census_us_trade_${side}_country_nsa_${id}`));
+  const historical = await prisma.dataSubscription.findMany({
+    where: { sourceId: US_TRADE_SOURCE_ID, enabled: true, instrument: { code: { in: historicalCodes } } },
+    select: { id: true, instrument: { select: { code: true } } },
+  });
+  for (const old of historical) {
+    const id = old.instrument.code.slice(-4);
+    await prisma.$transaction([
+      prisma.dataSubscription.update({ where: { id: old.id }, data: { enabled: false } }),
+      prisma.scheduleAuditEvent.create({ data: { subscriptionId: old.id,
+        source: "catalog_seed", reason: "census_historical_country_subscription_retired",
+        metadata: { code: old.instrument.code, officialLastPeriod: US_TRADE_COUNTRY_END_PERIODS[id]!,
+          evidenceUrl: `https://www.census.gov/foreign-trade/balance/c${id}.html`,
+          observationsPreserved: true } } }),
+    ]);
+  }
   // Explicit historical seed only; an offline snapshot is not live update proof.
   const series = await fetchUsTradeDetail({ allowLocalSnapshot: true });
   let observations = 0;

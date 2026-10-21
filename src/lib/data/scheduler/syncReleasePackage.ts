@@ -27,6 +27,8 @@ import { upsertMacroObservations } from "./upsertObservations";
 import { syncSafePackage } from "./safeExternal/syncPackage";
 import { parseReleaseRule } from "./releaseRule";
 import { refreshProbePackageNextRunAt } from "./probePackageSchedule";
+import { syncCensusPackage } from "./usTradeDetail/syncPackage";
+import { isHistoricalCensusSeries } from "./usTradeDetail/lifecycle";
 
 export type PackageMemberSyncDetail = {
   instrumentCode: string;
@@ -380,8 +382,12 @@ async function syncSequentialPackage(
   const failed: PackageMemberSyncDetail[] = [];
   const skipped: PackageMemberSyncDetail[] = [];
 
-  if (subs.every((sub) => sub.sourceId === "safe-external")) {
-    const results = await syncSafePackage(prisma, subs, { force });
+  if (subs.every((sub) => sub.sourceId === "safe-external") ||
+      subs.some((sub) => sub.sourceId === "us-census-trade-detail")) {
+    // Manual/admin sync shares the worker's request isolation and retry policy.
+    const results = subs.some(sub => sub.sourceId === "us-census-trade-detail")
+      ? await syncCensusPackage(prisma, subs, { force })
+      : await syncSafePackage(prisma, subs, { force });
     for (const { sub, result } of results) {
       const detail: PackageMemberSyncDetail = {
         instrumentCode: sub.instrument.code, instrumentName: sub.instrument.name,
@@ -441,11 +447,12 @@ async function loadPackageSubscriptions(
   prisma: PrismaClient,
   releasePackageId: string,
 ): Promise<SubscriptionWithRelations[]> {
-  return prisma.dataSubscription.findMany({
+  const rows = await prisma.dataSubscription.findMany({
     where: { releasePackageId, enabled: true },
     orderBy: { instrument: { code: "asc" } },
     include: SUBSCRIPTION_INCLUDE,
-  }) as Promise<SubscriptionWithRelations[]>;
+  }) as SubscriptionWithRelations[];
+  return rows.filter(sub => !isHistoricalCensusSeries(sub.sourceSeriesKey));
 }
 
 export function pickPackageSyncLeaderCode(codes: string[]): string | null {

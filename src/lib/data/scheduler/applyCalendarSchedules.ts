@@ -51,6 +51,7 @@ import {
 } from "./nbsOfficialCalendar/parseCalendar";
 import {
   resolvePackageNextRunAt,
+  shouldFanOutCalendarSchedule,
   type PackageRunState,
   type PackageScheduleDecision,
 } from "./packageScheduleGuard";
@@ -183,6 +184,7 @@ async function persistPackageSchedule(
     nextRunAt: Date | null;
     /** 护栏决策，写入审计便于事后追查「为什么这一轮没有跟着日历走」 */
     holdReason?: PackageScheduleDecision["reason"];
+    preserveMemberRetries?: boolean;
   },
   dryRun?: boolean,
 ) {
@@ -198,9 +200,14 @@ async function persistPackageSchedule(
       nextRunAt: data.nextRunAt,
     },
   });
-  if (data.nextRunAt != null) {
+  if (data.nextRunAt != null && !data.preserveMemberRetries) {
     await prisma.dataSubscription.updateMany({
-      where: { releasePackageId: packageId, enabled: true },
+      where: { releasePackageId: packageId, enabled: true,
+        // Worker/calendar use separate locks. A failure recorded AFTER the
+        // run-state snapshot must also retain its retry at SQL write time.
+        ...(packageId === "us.census.international_trade"
+          ? { OR: [{ lastError: null }, { lastError: "" }] } : {}),
+      },
       data: { nextRunAt: data.nextRunAt },
     });
   }
@@ -216,7 +223,7 @@ async function persistPackageSchedule(
           ? `calendar_${data.scheduleState.calendarSync.status}`
           : "calendar_schedule_update",
     metadata: {
-      memberSchedulePropagated: data.nextRunAt != null,
+      memberSchedulePropagated: data.nextRunAt != null && !data.preserveMemberRetries,
       ...(data.holdReason ? { holdReason: data.holdReason } : {}),
     },
   });
@@ -291,7 +298,8 @@ async function applyCalendarMatchToPackage(
   await persistPackageSchedule(
     prisma,
     pkg.id,
-    { scheduleState, nextRunAt, holdReason: decision.reason },
+    { scheduleState, nextRunAt, holdReason: decision.reason,
+      preserveMemberRetries: !shouldFanOutCalendarSchedule(pkg.id, Boolean(options?.runState?.hasUnresolvedFailures)) },
     options?.dryRun,
   );
 
