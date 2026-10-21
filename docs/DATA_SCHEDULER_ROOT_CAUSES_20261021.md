@@ -30,6 +30,11 @@
   API保持直连，不修改中国官方源白名单或整机路由，不跟随重定向扩大代理范围。
   未配置仍直连；代理失败明确报错，沿用调度退避，不静默回落直连/旧快照。
   不能由此认定具体IP/地区封锁规则，亦未独立证明群晖出口使用VPN。
+  生产重跑又发现NSA进口API两次超时。API仍直连；仅明确网络失败才复用既有
+  同口径NSA工作簿解析器兜底，并记录 acquisition/sourceUrl/fallbackReason。
+  同方向API网络失败冷却120秒，避免每个国家重复两次30秒超时；之后自动恢复API探测。
+  API缺少国家行、403、结构/数值错误不触发该兜底；工作簿不可用仍报错，
+  历史停更代码仍拒选，不拼SA/NSA、不另建事实表、不改写版本历史。
   Census API key只用于已验证同口径的NSA伙伴国；绝不用NSA替换SA。
   官方End-Use API对应未季调数据页，不能据此替换本库季调商品分项：
   https://www.census.gov/foreign-trade/statistics/historical/enduse.html 。
