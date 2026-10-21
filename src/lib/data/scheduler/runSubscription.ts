@@ -28,11 +28,14 @@ import {
 } from "./upsertObservations";
 import {
   effectiveReleaseRule,
+  parsePackageReleaseTemplate,
   parsePackageScheduleState,
 } from "./releasePackageStore";
 import { isCatalogKeyExcluded, loadExcludedCatalogKeys } from "../catalogExclusions";
 import { recordScheduleChange } from "./schedulerAudit";
 import { hasEmploymentReleaseObservation } from "./employmentReleaseFreshness";
+import { refreshProbePackageNextRunAt } from "./probePackageSchedule";
+import { archiveBudgetAfterBootstrap } from "./mofBudgetAccounts/lifecycle";
 
 export type SubscriptionWithRelations = DataSubscription & {
   source: DataSource;
@@ -293,6 +296,8 @@ export async function runDataSubscription(
       if (refreshed?.nextRunAt) nextRunAt = refreshed.nextRunAt;
     }
 
+    const archiveAfterBootstrap = archiveBudgetAfterBootstrap(sub.sourceId, sub.instrument.metadata, fetchResult.points.length);
+    if (archiveAfterBootstrap) nextRunAt = null;
     const scheduleBeforeUpdate = await prisma.dataSubscription.findUnique({
       where: { id: sub.id },
       select: { nextRunAt: true },
@@ -302,6 +307,7 @@ export async function runDataSubscription(
       data: {
         lastSuccessAt: new Date(),
         lastObsDate: lastObs ?? undefined,
+        ...(archiveAfterBootstrap ? { enabled: false, nextRunAt: null } : {}),
         ...(options?.preserveNextRunAt ? {} : { nextRunAt }),
         retryCount: 0,
         lastError: null,
@@ -312,7 +318,10 @@ export async function runDataSubscription(
     });
 
     let packageScheduleBeforeUpdate: Date | null | undefined;
-    if (!options?.preserveNextRunAt && !options?.deferPackageSchedule && sub.releasePackageId && nextRunAt) {
+    if (sub.releasePackageId && sub.releasePackage && parseReleaseRule(sub.releasePackage.releaseTemplate).type === "probe_interval") {
+      await refreshProbePackageNextRunAt(prisma, sub.releasePackageId);
+    }
+    if (!options?.preserveNextRunAt && !options?.deferPackageSchedule && sub.releasePackageId && parsePackageReleaseTemplate(sub.releasePackage?.releaseTemplate) && nextRunAt) {
       packageScheduleBeforeUpdate = (
         await prisma.releasePackage.findUnique({
           where: { id: sub.releasePackageId },
@@ -373,7 +382,7 @@ export async function runDataSubscription(
         `[scheduler:audit] subscription ${sub.id} 写入失败：${auditError instanceof Error ? auditError.message : String(auditError)}`,
       );
     });
-    if (!options?.preserveNextRunAt && !options?.deferPackageSchedule && sub.releasePackageId && nextRunAt) {
+    if (!options?.preserveNextRunAt && !options?.deferPackageSchedule && sub.releasePackageId && parsePackageReleaseTemplate(sub.releasePackage?.releaseTemplate) && nextRunAt) {
       await recordScheduleChange(prisma, {
         releasePackageId: sub.releasePackageId,
         previousNextRunAt: packageScheduleBeforeUpdate,
@@ -420,6 +429,9 @@ export async function runDataSubscription(
         ...(options?.preserveNextRunAt ? {} : { nextRunAt }),
       },
     });
+    if (sub.releasePackageId && sub.releasePackage && parseReleaseRule(sub.releasePackage.releaseTemplate).type === "probe_interval") {
+      await refreshProbePackageNextRunAt(prisma, sub.releasePackageId);
+    }
 
     await prisma.fetchRun.update({
       where: { id: run.id },

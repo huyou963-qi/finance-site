@@ -2,6 +2,7 @@ import { ProxyAgent } from "undici";
 
 const CHINA_OFFICIAL_HOSTS = new Set([
   "gks.mof.gov.cn",
+  "yss.mof.gov.cn",
   "data.stats.gov.cn",
   "www.stats.gov.cn",
   "www.pbc.gov.cn",

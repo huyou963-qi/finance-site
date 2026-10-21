@@ -18,6 +18,7 @@ import {
   recoverAbandonedSchedulerRuns,
 } from "../../src/lib/data/scheduler/schedulerAudit";
 import { syncSafePackage } from "../../src/lib/data/scheduler/safeExternal/syncPackage";
+import { parsePackageReleaseTemplate } from "../../src/lib/data/scheduler/releasePackageStore";
 
 loadEnvConfig(process.cwd());
 
@@ -113,11 +114,11 @@ async function main() {
     }
 
     const failedPackages = new Map<string, { memberCode: string; error: string }>();
-    // listDueSubscriptions 会把一个到期发布包完整展开。首个成员已将本包的
+    // listDueSubscriptions 会把一个到期发布包完整展开。经济日历包首个成员已将本包的
     // nextRunAt 扇出给全部订阅；后续成员若重复做相同扇出，会把 N 个成员放大为
     // N² 次数据库更新。Census 伙伴国包约 800 条，曾因此运行超过 6 小时并被
     // abandoned-run audit 误判为中断。包内其余成员仍需拉取和写入自身观测，只需
-    // 保留已经由首个成员确定的包级排期。
+    // 保留已经由首个成员确定的包级排期。probe 包只用于同源分组；成员独立排期与退避。
     const scheduledPackages = new Set<string>();
     for (const sub of subs) {
       if (sub.sourceId === "safe-external" && sub.releasePackageId) {
@@ -138,7 +139,8 @@ async function main() {
       }
       const label = `${sub.instrument.code} ← ${sub.sourceSeriesKey}`;
       process.stdout.write(`  ${label} … `);
-      const packageFailure = sub.releasePackageId
+      const sharedCalendarSchedule = Boolean(parsePackageReleaseTemplate(sub.releasePackage?.releaseTemplate));
+      const packageFailure = sub.releasePackageId && sharedCalendarSchedule
         ? failedPackages.get(sub.releasePackageId)
         : undefined;
       if (packageFailure) {
@@ -164,7 +166,7 @@ async function main() {
         continue;
       }
       const preservePackageSchedule = Boolean(
-        sub.releasePackageId && scheduledPackages.has(sub.releasePackageId),
+        sub.releasePackageId && sharedCalendarSchedule && scheduledPackages.has(sub.releasePackageId),
       );
       const result = await runDataSubscription(prisma, sub, {
         force,
@@ -174,7 +176,7 @@ async function main() {
       if (result.status === "failed") {
         fail += 1;
         console.log(`FAIL: ${result.error}`);
-        if (sub.releasePackageId) {
+        if (sub.releasePackageId && sharedCalendarSchedule) {
           failedPackages.set(sub.releasePackageId, {
             memberCode: sub.instrument.code,
             error: result.error ?? "unknown package member failure",

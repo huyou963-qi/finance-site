@@ -133,6 +133,7 @@ function buildPlan(flags: Flags): Step[] {
       `--catalog=${name}`,
       ...(isLongHistoricalSeed ? ["--latest-only"] : []),
       ...(isCot ? ["--skip-bulk"] : []),
+      ...(flags.skipBackfill && name === "mof-budget-accounts" ? ["--definitions-only"] : []),
     ];
     steps.push({
       label: `seed:${name}`,
@@ -150,6 +151,13 @@ function buildPlan(flags: Flags): Step[] {
       args: [],
       gating: true,
     });
+  }
+
+  // Explicit maintenance path: read official history before removing precisely
+  // identified monthly/cumulative contamination. Fast deployments do neither.
+  if (!flags.skipBackfill && (!flags.only || flags.only.includes("mof-fiscal"))) {
+    steps.push({ label: "mof-fiscal-history", script: "data:sync-mof-fiscal", args: [], gating: true });
+    steps.push({ label: "mof-fiscal-period-repair", script: "data:repair-mof-fiscal-periods", args: ["--apply"], gating: true });
   }
 
   // 4) 所有国家重建为统一的九大宏观主题 + 可扫描子层级。目录定义来自代码，
