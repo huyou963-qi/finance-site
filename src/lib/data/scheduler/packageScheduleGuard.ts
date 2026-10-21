@@ -54,6 +54,12 @@ export type PackageScheduleDecision = {
 
 const DEFAULT_GRACE_MINUTES = 30;
 
+/** Census has independent API/file retry domains. Calendar may hold the
+ * package wakeup but must not erase a file's64h retry with an API's2h retry. */
+export function shouldFanOutCalendarSchedule(packageId: string, hasFailures: boolean): boolean {
+  return packageId !== "us.census.international_trade" || !hasFailures;
+}
+
 function graceMinutes(override?: number): number {
   if (override != null && Number.isFinite(override) && override >= 0) return override;
   const raw = process.env.CALENDAR_HOLD_GRACE_MINUTES?.trim();
@@ -90,7 +96,13 @@ export function releaseConsumed(
         return proof.observation && proof.observation >= target && proof.publishedAt && proof.publishedAt >= monthStart;
       }
       const release = proof.releaseId != null ? runState.previousReleaseById?.[proof.releaseId] : null;
-      return release && proof.publishedAt && proof.publishedAt >= release;
+      // FRED release/dates supplies only a civil DATE. Its 08:30 ET calendar
+      // timestamp is synthetic; DFEDTARU can publish at08:01 on that same day.
+      // Publication timestamps are independently validated by packageRunState.
+      const releaseDay = release && new Date(Date.UTC(
+        release.getUTCFullYear(), release.getUTCMonth(), release.getUTCDate(),
+      ));
+      return releaseDay && proof.publishedAt && proof.publishedAt >= releaseDay;
     });
   }
   const verified = runState.sourceVerifiedAt;

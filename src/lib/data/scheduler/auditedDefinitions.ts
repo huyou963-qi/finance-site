@@ -10,12 +10,14 @@ export const AUDITED_DEFINITIONS = [
   { code: "sched_fred_GS10", name: "10年期美债恒定期限收益率（月均）", unit: "%", freqLabel: "月", source: "FRB H.15/FRED" },
   { code: "sched_wb_MX_FS_AST_DOMS_GD_ZS", name: "墨西哥：金融部门国内信贷占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
   { code: "sched_wb_ZA_FS_AST_DOMS_GD_ZS", name: "南非：金融部门国内信贷占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
+  { code: "sched_wb_ID_FS_AST_DOMS_GD_ZS", name: "印度尼西亚：金融部门国内信贷占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
 ] as const;
 
 export function auditedDefinitionMetadata(previous: unknown, definition: typeof AUDITED_DEFINITIONS[number]) {
   const old = previous && typeof previous === "object" && !Array.isArray(previous) ? previous : {};
   return { ...old, displayName: definition.name, unit: definition.unit, freqLabel: definition.freqLabel,
-    source: definition.source, definitionAudit: "2026-10-17-official-source-review",
+    source: definition.source, definitionAudit: definition.code === "sched_wb_ID_FS_AST_DOMS_GD_ZS"
+      ? "2026-10-21-official-source-review" : "2026-10-17-official-source-review",
     ...(["sched_fred_CUSR0000SAC", "sched_fred_CUSR0000SAS"].includes(definition.code)
       ? { catalogCategory: "CPI 分项" } : {}),
   };
