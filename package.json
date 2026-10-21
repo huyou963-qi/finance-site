@@ -398,7 +398,11 @@
     "data:verify-jp-mof-reserves": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-mof-reserves.ts",
     "data:seed-jp-jnto-visitor-arrivals": "dotenv -e .env.local -- tsx scripts/data-worker/seed-jp-jnto-visitor-arrivals.ts",
     "data:sync-jp-jnto-visitor-arrivals": "dotenv -e .env.local -- tsx scripts/data-worker/sync-jp-jnto-visitor-arrivals.ts",
-    "data:verify-jp-jnto-visitor-arrivals": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-jnto-visitor-arrivals.ts"
+    "data:verify-jp-jnto-visitor-arrivals": "dotenv -e .env.local -- tsx scripts/data-worker/verify-jp-jnto-visitor-arrivals.ts",
+    "data:seed-mof-budget-accounts": "dotenv -e .env.local -- tsx scripts/data-worker/seed-mof-budget-accounts.ts",
+    "data:sync-mof-budget-accounts": "dotenv -e .env.local -- tsx scripts/data-worker/sync-mof-budget-accounts.ts",
+    "data:verify-mof-budget-accounts": "dotenv -e .env.local -- tsx scripts/data-worker/verify-mof-budget-accounts.ts",
+    "data:repair-mof-fiscal-periods": "dotenv -e .env.local -- tsx scripts/data-worker/repair-mof-fiscal-periods.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

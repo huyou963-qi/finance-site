@@ -4,6 +4,8 @@ import { isChinaOfficialUrl } from "./chinaOfficialProxy";
 
 test("只识别已登记的中国官方统计域名", () => {
   assert.equal(isChinaOfficialUrl("https://gks.mof.gov.cn/tongjishuju/"), true);
+  assert.equal(isChinaOfficialUrl("https://yss.mof.gov.cn/2025zyjs/"), true);
+  assert.equal(isChinaOfficialUrl("https://yss.mof.gov.cn.example.com/"), false);
   assert.equal(isChinaOfficialUrl("https://data.stats.gov.cn/dg/website/"), true);
   assert.equal(isChinaOfficialUrl("https://www.stats.gov.cn/sj/"), true);
   assert.equal(isChinaOfficialUrl("https://www.pbc.gov.cn/diaochatongjisi/"), true);

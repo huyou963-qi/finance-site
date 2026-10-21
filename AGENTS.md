@@ -185,6 +185,8 @@ npm run db:studio        # Prisma Studio
 
 「中国财政部财政收支」：`data:seed-mof-fiscal` → `data:sync-mof-fiscal` / `data:verify-mof-fiscal -- --db`；一般公共预算、政府性基金的累计收入/支出及分项累计额、同比，历史来自国库司月报归档；季度、年度对应月末累计口径，不推算单月值或环比。
 
+「中国财政第三、第四本账」：`data:seed-mof-budget-accounts` / `data:sync-mof-budget-accounts` / `data:verify-mof-budget-accounts -- --db --live --scheduler`；财政部全国财政决算的全国/中央/地方国资与社保原始年度金额，2018年起，不混预算数和月度累计；每168小时发现新年度并回读修订。原财政月报改为官方归档24小时探测，36个月修订窗口；详见 [docs/CN_GOVERNMENT_BUDGET_ACCOUNTS.md](./docs/CN_GOVERNMENT_BUDGET_ACCOUNTS.md)。
+
 「中国人民银行货币与信用」：`data:seed-pbc-monetary` → `data:sync-pbc-monetary` / `data:verify-pbc-monetary -- --db`；月度 M0/M1/M2、人民币贷款/存款、分部门累计增量、社融存量/增量及分项、同业利率和 LPR，历史来自人民银行公开归档；仅保留公告直接披露的余额、同比、累计增量或利率，不推算环比。
 
 「中国金融监管总局银行业监管统计」：`data:seed-nfra-banking` → `data:sync-nfra-banking` / `data:verify-nfra-banking -- --db`；官网统计信息栏目静态 JSON 发现 xls/xlsx，首批接入银行业月度总资产/负债及同比与商业银行季度主要监管指标，共 42 条；两类无固定发布日历，按 24 小时 `probe_interval` 探测，必须区分月表境内口径与季度商业银行法人汇总口径；文档 [docs/specs/cn-nfra-banking.spec.md](./docs/specs/cn-nfra-banking.spec.md)。

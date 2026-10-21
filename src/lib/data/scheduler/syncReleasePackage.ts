@@ -25,6 +25,8 @@ import {
 import { seriesPointForSector as ismSvcSeriesPointForSector } from "./tradingEconomicsIndicator/parseIsmSvcPage";
 import { upsertMacroObservations } from "./upsertObservations";
 import { syncSafePackage } from "./safeExternal/syncPackage";
+import { parseReleaseRule } from "./releaseRule";
+import { refreshProbePackageNextRunAt } from "./probePackageSchedule";
 import { syncCensusPackage } from "./usTradeDetail/syncPackage";
 import { isHistoricalCensusSeries } from "./usTradeDetail/lifecycle";
 
@@ -110,6 +112,12 @@ export async function finalizePackageCalendar(
   logs: string[],
   refreshCalendar = true,
 ) {
+  if (subs[0]?.releasePackageId && subs[0]?.releasePackage &&
+      parseReleaseRule(subs[0].releasePackage.releaseTemplate).type === "probe_interval") {
+    await refreshProbePackageNextRunAt(prisma, subs[0].releasePackageId);
+    logs.push("[schedule] 已聚合探测包最早成员排期，各成员保留独立排期与退避");
+    return;
+  }
   try {
     if (refreshCalendar) {
       await syncSubscriptionsFromEconomicCalendars(prisma, {

@@ -810,14 +810,24 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     calendar: { countryCodes: ["CN"], keywords: ["China Trade Balance", "China Exports", "China Imports"] },
     members: { instrumentCodePatterns: ["gacc_cn_*"] },
   }),
-  pkg("cn.mof.fiscal", "中国财政收支", {
+  // 财政月报没有可靠的预告日历；按官方归档每日探测，避免 TE 无匹配时停更。
+  probePkg("cn.mof.fiscal", "中国财政收支", {
     labelEn: "China Fiscal Revenue and Expenditure",
     countryCode: "CN",
     agencyId: "cn-mof",
     granularity: "MONTHLY",
     sortOrder: 139,
-    calendar: { countryCodes: ["CN"], keywords: ["china fiscal revenue", "china fiscal expenditure", "china government budget"], excludeKeywords: ["trade balance"] },
+    intervalHours: 24,
     members: { instrumentCodePatterns: ["mof_cn_fiscal_*"] },
+  }),
+  probePkg("cn.mof.budget_accounts_final", "中国国资与社保基金年度决算", {
+    labelEn: "China State Capital and Social Insurance Final Accounts",
+    countryCode: "CN",
+    agencyId: "cn-mof",
+    granularity: "ANNUAL",
+    intervalHours: 168,
+    sortOrder: 140,
+    members: { instrumentCodePatterns: ["mof_cn_budget_*"] },
   }),
   pkg("us.umich.sentiment", "密歇根消费者信心", {
     granularity: "MONTHLY",

@@ -50,6 +50,14 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
     return p("地产与建筑", "房地产开发、销售与资金");
   }
   if (code.startsWith("mof_cn_fiscal_")) return p("财政与公共债务", /支出/.test(label) ? "财政支出" : /基金/.test(label) ? "政府性基金" : "一般公共预算收入");
+  if (code.startsWith("mof_cn_budget_")) {
+    const scope = code.includes("_national_") ? "全国" : code.includes("_central_") ? "中央" : "地方";
+    if (code.includes("_capital_")) return p("财政与公共债务", `国资预算：${scope}`);
+    if (code.includes("_social_")) {
+      const kind = /pension/.test(code) ? "养老" : /medical|maternity/.test(code) ? "医疗与生育" : /injury|unemployment/.test(code) ? "工伤与失业" : "总量";
+      return p("财政与公共债务", `社保基金：${scope}${kind}`);
+    }
+  }
   if (code.startsWith("pbc_cn_")) return /利率|LPR/.test(label) ? p("利率与信用市场", "贷款利率") : p("货币政策与流动性", "货币、信贷与社会融资");
   if (code.startsWith("nfra_cn_banking_total_")) {
     return p("金融条件与银行", "银行业规模与结构");

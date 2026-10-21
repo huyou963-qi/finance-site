@@ -12,6 +12,7 @@ import {
   instrumentMatchesPackageMember,
 } from "../../src/lib/data/scheduler/releasePackageCatalog";
 import { parseReleaseRule } from "../../src/lib/data/scheduler/releaseRule";
+import { calendarToProbeReset } from "../../src/lib/data/scheduler/releasePackageSeedPolicy";
 
 loadEnvConfig(process.cwd());
 
@@ -28,6 +29,11 @@ async function main() {
 
   console.log("[data:seed-release-packages] 写入发布包…");
   for (const def of RELEASE_PACKAGE_CATALOG) {
+    const previousPackage = await prisma.releasePackage.findUnique({
+      where: { id: def.id }, select: { releaseTemplate: true },
+    });
+    const scheduleReset = previousPackage
+      ? calendarToProbeReset(previousPackage.releaseTemplate, def.release) : null;
     await prisma.releasePackage.upsert({
       where: { id: def.id },
       create: {
@@ -43,6 +49,7 @@ async function main() {
         enabled: true,
       },
       update: {
+        ...(scheduleReset ?? {}),
         labelZh: def.labelZh,
         labelEn: def.labelEn ?? null,
         countryCode: def.countryCode,
@@ -81,13 +88,14 @@ async function main() {
       if (!sub) continue;
 
       const stripped = stripCalendarStateFromSubscriptionRule(
-        parseReleaseRule(sub.releaseRule),
+        parseReleaseRule(scheduleReset ? def.release : sub.releaseRule),
       );
       await prisma.dataSubscription.update({
         where: { id: sub.id },
         data: {
           releasePackageId: def.id,
           releaseRule: stripped as object,
+          ...(scheduleReset ? { nextRunAt: null } : {}),
         },
       });
       subsLinked += 1;

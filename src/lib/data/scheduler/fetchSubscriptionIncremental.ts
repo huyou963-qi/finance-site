@@ -102,6 +102,10 @@ export async function fetchSubscriptionIncremental(
     }
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
     if (scrapeObj) {
+      if (scrapeObj.provider === "mof_budget_accounts") {
+        const { fetchMofBudgetAccountsIncremental } = await import("./adapters/mofBudgetAccountsAdapter");
+        return fetchMofBudgetAccountsIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);
+      }
       if (scrapeObj.provider === "market_internals_daily") {
         const { fetchMarketInternalsIncremental } = await import("./adapters/marketInternalsAdapter");
         return fetchMarketInternalsIncremental(sub.instrument.metadata, sub.instrument.code, fetchStart);

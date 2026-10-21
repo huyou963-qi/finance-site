@@ -1,0 +1,1512 @@
+{
+  "sourceUrl": "https://yss.mof.gov.cn/",
+  "capturedAt": "2026-10-21T08:58:58.022Z",
+  "entries": [
+    {
+      "key": "national_capital_revenue",
+      "lastYear": 2025,
+      "lastValue": 8546.39,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_profit",
+      "lastYear": 2025,
+      "lastValue": 6088.06,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_dividend",
+      "lastYear": 2025,
+      "lastValue": 554.18,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_transfer",
+      "lastYear": 2025,
+      "lastValue": 984.88,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_liquidation",
+      "lastYear": 2025,
+      "lastValue": 9.66,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_other",
+      "lastYear": 2025,
+      "lastValue": 909.61,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_carry_in",
+      "lastYear": 2025,
+      "lastValue": 101.48,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_expenditure",
+      "lastYear": 2025,
+      "lastValue": 2643.9,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_social_supplement",
+      "lastYear": 2025,
+      "lastValue": 0.38,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_reform",
+      "lastYear": 2025,
+      "lastValue": 140.16,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_capital_injection",
+      "lastYear": 2025,
+      "lastValue": 1522.36,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_public_subsidy",
+      "lastYear": 2025,
+      "lastValue": 775.63,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_other_expenditure",
+      "lastYear": 2025,
+      "lastValue": 205.37,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_transfer_out",
+      "lastYear": 2025,
+      "lastValue": 5652.83,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_capital_carry_out",
+      "lastYear": 2025,
+      "lastValue": 351.14,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_revenue",
+      "lastYear": 2025,
+      "lastValue": 127849.52,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_revenue",
+      "lastYear": 2025,
+      "lastValue": 60004.86,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_revenue",
+      "lastYear": 2025,
+      "lastValue": 9468.72,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_public_pension_revenue",
+      "lastYear": 2025,
+      "lastValue": 18971.62,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_employee_medical_revenue",
+      "lastYear": 2025,
+      "lastValue": 24664.32,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_medical_revenue",
+      "lastYear": 2025,
+      "lastValue": 11236.45,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_injury_revenue",
+      "lastYear": 2025,
+      "lastValue": 1428.82,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_unemployment_revenue",
+      "lastYear": 2025,
+      "lastValue": 2074.73,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_maternity_revenue",
+      "lastYear": 2018,
+      "lastValue": 778.05,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_expenditure",
+      "lastYear": 2025,
+      "lastValue": 110698.51,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_expenditure",
+      "lastYear": 2025,
+      "lastValue": 52407.55,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_expenditure",
+      "lastYear": 2025,
+      "lastValue": 6191.09,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_public_pension_expenditure",
+      "lastYear": 2025,
+      "lastValue": 18603.67,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_employee_medical_expenditure",
+      "lastYear": 2025,
+      "lastValue": 19359.04,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_medical_expenditure",
+      "lastYear": 2025,
+      "lastValue": 10677.57,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_injury_expenditure",
+      "lastYear": 2025,
+      "lastValue": 1294.26,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_unemployment_expenditure",
+      "lastYear": 2025,
+      "lastValue": 2165.33,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_maternity_expenditure",
+      "lastYear": 2018,
+      "lastValue": 759.75,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_balance",
+      "lastYear": 2025,
+      "lastValue": 17151.01,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_balance",
+      "lastYear": 2025,
+      "lastValue": 7597.31,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_balance",
+      "lastYear": 2025,
+      "lastValue": 3277.63,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_public_pension_balance",
+      "lastYear": 2025,
+      "lastValue": 367.95,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_employee_medical_balance",
+      "lastYear": 2025,
+      "lastValue": 5305.28,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_medical_balance",
+      "lastYear": 2025,
+      "lastValue": 558.88,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_injury_balance",
+      "lastYear": 2025,
+      "lastValue": 134.56,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_unemployment_balance",
+      "lastYear": 2025,
+      "lastValue": -90.6,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_maternity_balance",
+      "lastYear": 2018,
+      "lastValue": 18.3,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 162093.96,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 73870.76,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 19848.75,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_public_pension_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 4654.62,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_employee_medical_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 50154.35,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_medical_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 8740.52,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_injury_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 1571.34,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_unemployment_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 3253.62,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_premium",
+      "lastYear": 2025,
+      "lastValue": 92862.38,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_premium",
+      "lastYear": 2025,
+      "lastValue": 48140.5,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_premium",
+      "lastYear": 2025,
+      "lastValue": 3443.15,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_public_pension_premium",
+      "lastYear": 2025,
+      "lastValue": 10683.14,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_employee_medical_premium",
+      "lastYear": 2025,
+      "lastValue": 23380.79,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_medical_premium",
+      "lastYear": 2025,
+      "lastValue": 3872.35,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_injury_premium",
+      "lastYear": 2025,
+      "lastValue": 1386.94,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_unemployment_premium",
+      "lastYear": 2025,
+      "lastValue": 1955.51,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_maternity_premium",
+      "lastYear": 2018,
+      "lastValue": 739.22,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_subsidy",
+      "lastYear": 2025,
+      "lastValue": 28671.07,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_subsidy",
+      "lastYear": 2025,
+      "lastValue": 8729.31,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_subsidy",
+      "lastYear": 2025,
+      "lastValue": 5187.29,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_public_pension_subsidy",
+      "lastYear": 2025,
+      "lastValue": 7608.84,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_employee_medical_subsidy",
+      "lastYear": 2025,
+      "lastValue": 50.73,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_medical_subsidy",
+      "lastYear": 2025,
+      "lastValue": 7074.73,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_injury_subsidy",
+      "lastYear": 2025,
+      "lastValue": 12.5,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_unemployment_subsidy",
+      "lastYear": 2025,
+      "lastValue": 7.67,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_maternity_subsidy",
+      "lastYear": 2018,
+      "lastValue": 24.18,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_interest",
+      "lastYear": 2025,
+      "lastValue": 2266.99,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_interest",
+      "lastYear": 2025,
+      "lastValue": 964.57,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_interest",
+      "lastYear": 2025,
+      "lastValue": 158.35,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_public_pension_interest",
+      "lastYear": 2025,
+      "lastValue": 65.13,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_employee_medical_interest",
+      "lastYear": 2025,
+      "lastValue": 880.15,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_medical_interest",
+      "lastYear": 2025,
+      "lastValue": 121.61,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_injury_interest",
+      "lastYear": 2025,
+      "lastValue": 22.74,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_unemployment_interest",
+      "lastYear": 2025,
+      "lastValue": 54.44,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_maternity_interest",
+      "lastYear": 2018,
+      "lastValue": 12.93,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_investment",
+      "lastYear": 2025,
+      "lastValue": 1454.64,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_enterprise_pension_investment",
+      "lastYear": 2025,
+      "lastValue": 971.94,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_resident_pension_investment",
+      "lastYear": 2025,
+      "lastValue": 482.7,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_revenue",
+      "lastYear": 2025,
+      "lastValue": 3902.74,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_profit",
+      "lastYear": 2025,
+      "lastValue": 3750.77,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_dividend",
+      "lastYear": 2025,
+      "lastValue": 150.9,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_transfer",
+      "lastYear": 2025,
+      "lastValue": 0.02,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_liquidation",
+      "lastYear": 2025,
+      "lastValue": 0.87,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_other",
+      "lastYear": 2025,
+      "lastValue": 0.18,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_carry_in",
+      "lastYear": 2025,
+      "lastValue": 54.22,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_expenditure",
+      "lastYear": 2025,
+      "lastValue": 1297.05,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_social_supplement",
+      "lastYear": 2025,
+      "lastValue": 0.38,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_reform",
+      "lastYear": 2025,
+      "lastValue": 78.07,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_capital_injection",
+      "lastYear": 2025,
+      "lastValue": 489.1,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_public_subsidy",
+      "lastYear": 2025,
+      "lastValue": 722.5,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_other_expenditure",
+      "lastYear": 2025,
+      "lastValue": 7,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_transfer_out",
+      "lastYear": 2025,
+      "lastValue": 2400,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_capital_carry_out",
+      "lastYear": 2025,
+      "lastValue": 259.91,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_revenue",
+      "lastYear": 2025,
+      "lastValue": 391.86,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_revenue",
+      "lastYear": 2024,
+      "lastValue": 100.47,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_revenue",
+      "lastYear": 2021,
+      "lastValue": 2.12,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_public_pension_revenue",
+      "lastYear": 2025,
+      "lastValue": 391.57,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_employee_medical_revenue",
+      "lastYear": 2021,
+      "lastValue": 64.52,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_medical_revenue",
+      "lastYear": 2021,
+      "lastValue": 10.55,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_injury_revenue",
+      "lastYear": 2025,
+      "lastValue": 0.29,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_unemployment_revenue",
+      "lastYear": 2021,
+      "lastValue": 4.08,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_maternity_revenue",
+      "lastYear": 2018,
+      "lastValue": 1.58,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_expenditure",
+      "lastYear": 2025,
+      "lastValue": 374.61,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_expenditure",
+      "lastYear": 2024,
+      "lastValue": 97.15,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_expenditure",
+      "lastYear": 2021,
+      "lastValue": 0.63,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_public_pension_expenditure",
+      "lastYear": 2025,
+      "lastValue": 374.58,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_employee_medical_expenditure",
+      "lastYear": 2021,
+      "lastValue": 51.22,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_medical_expenditure",
+      "lastYear": 2021,
+      "lastValue": 9.54,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_injury_expenditure",
+      "lastYear": 2025,
+      "lastValue": 0.03,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_unemployment_expenditure",
+      "lastYear": 2021,
+      "lastValue": 2.43,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_maternity_expenditure",
+      "lastYear": 2018,
+      "lastValue": 2.2,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_balance",
+      "lastYear": 2025,
+      "lastValue": 17.25,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_balance",
+      "lastYear": 2024,
+      "lastValue": 2.5,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_balance",
+      "lastYear": 2021,
+      "lastValue": 1.49,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_public_pension_balance",
+      "lastYear": 2025,
+      "lastValue": 16.99,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_employee_medical_balance",
+      "lastYear": 2021,
+      "lastValue": 13.3,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_medical_balance",
+      "lastYear": 2021,
+      "lastValue": 1.01,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_injury_balance",
+      "lastYear": 2025,
+      "lastValue": 0.26,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_unemployment_balance",
+      "lastYear": 2021,
+      "lastValue": 1.65,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_maternity_balance",
+      "lastYear": 2018,
+      "lastValue": -0.62,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 95.91,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_accumulated_balance",
+      "lastYear": 2024,
+      "lastValue": 6.92,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_accumulated_balance",
+      "lastYear": 2021,
+      "lastValue": 8.58,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_public_pension_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 95.65,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_employee_medical_accumulated_balance",
+      "lastYear": 2021,
+      "lastValue": 75.18,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_medical_accumulated_balance",
+      "lastYear": 2021,
+      "lastValue": 15.27,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_injury_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 0.26,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_unemployment_accumulated_balance",
+      "lastYear": 2021,
+      "lastValue": 13.22,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_premium",
+      "lastYear": 2025,
+      "lastValue": 176.68,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_premium",
+      "lastYear": 2024,
+      "lastValue": 67.4,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_premium",
+      "lastYear": 2021,
+      "lastValue": 1.19,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_public_pension_premium",
+      "lastYear": 2025,
+      "lastValue": 176.39,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_employee_medical_premium",
+      "lastYear": 2021,
+      "lastValue": 59.14,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_medical_premium",
+      "lastYear": 2021,
+      "lastValue": 4.09,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_injury_premium",
+      "lastYear": 2025,
+      "lastValue": 0.29,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_unemployment_premium",
+      "lastYear": 2021,
+      "lastValue": 3.99,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_maternity_premium",
+      "lastYear": 2018,
+      "lastValue": 1.57,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_subsidy",
+      "lastYear": 2025,
+      "lastValue": 196.94,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_subsidy",
+      "lastYear": 2021,
+      "lastValue": 179.16,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_subsidy",
+      "lastYear": 2021,
+      "lastValue": 0.52,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_public_pension_subsidy",
+      "lastYear": 2025,
+      "lastValue": 196.94,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_employee_medical_subsidy",
+      "lastYear": 2021,
+      "lastValue": 4.5,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_medical_subsidy",
+      "lastYear": 2021,
+      "lastValue": 6.27,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_interest",
+      "lastYear": 2025,
+      "lastValue": 0.65,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_interest",
+      "lastYear": 2024,
+      "lastValue": 1.3,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_interest",
+      "lastYear": 2021,
+      "lastValue": 0.03,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_public_pension_interest",
+      "lastYear": 2025,
+      "lastValue": 0.65,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_employee_medical_interest",
+      "lastYear": 2021,
+      "lastValue": 0.74,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_medical_interest",
+      "lastYear": 2021,
+      "lastValue": 0.18,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_injury_interest",
+      "lastYear": 2021,
+      "lastValue": 0.04,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_unemployment_interest",
+      "lastYear": 2021,
+      "lastValue": 0.07,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_maternity_interest",
+      "lastYear": 2018,
+      "lastValue": 0.01,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_investment",
+      "lastYear": 2022,
+      "lastValue": 0.03,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_enterprise_pension_investment",
+      "lastYear": 2022,
+      "lastValue": 0.03,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_resident_pension_investment",
+      "lastYear": 2021,
+      "lastValue": 0.31,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_revenue",
+      "lastYear": 2025,
+      "lastValue": 4677.51,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_profit",
+      "lastYear": 2025,
+      "lastValue": 2337.29,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_dividend",
+      "lastYear": 2025,
+      "lastValue": 403.28,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_transfer",
+      "lastYear": 2025,
+      "lastValue": 984.86,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_liquidation",
+      "lastYear": 2025,
+      "lastValue": 8.79,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_other",
+      "lastYear": 2025,
+      "lastValue": 909.43,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_carry_in",
+      "lastYear": 2025,
+      "lastValue": 47.26,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_expenditure",
+      "lastYear": 2025,
+      "lastValue": 1380.71,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_reform",
+      "lastYear": 2025,
+      "lastValue": 95.95,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_capital_injection",
+      "lastYear": 2025,
+      "lastValue": 1033.26,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_public_subsidy",
+      "lastYear": 2025,
+      "lastValue": 53.13,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_other_expenditure",
+      "lastYear": 2025,
+      "lastValue": 198.37,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_transfer_out",
+      "lastYear": 2025,
+      "lastValue": 3252.83,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_capital_carry_out",
+      "lastYear": 2025,
+      "lastValue": 91.23,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_revenue",
+      "lastYear": 2025,
+      "lastValue": 127456.92,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_revenue",
+      "lastYear": 2025,
+      "lastValue": 60004.12,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_revenue",
+      "lastYear": 2025,
+      "lastValue": 9468.72,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_public_pension_revenue",
+      "lastYear": 2025,
+      "lastValue": 18580.05,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_employee_medical_revenue",
+      "lastYear": 2025,
+      "lastValue": 24664.32,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_medical_revenue",
+      "lastYear": 2025,
+      "lastValue": 11236.45,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_injury_revenue",
+      "lastYear": 2025,
+      "lastValue": 1428.53,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_unemployment_revenue",
+      "lastYear": 2025,
+      "lastValue": 2074.73,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_maternity_revenue",
+      "lastYear": 2018,
+      "lastValue": 776.47,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_expenditure",
+      "lastYear": 2025,
+      "lastValue": 110323.9,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_expenditure",
+      "lastYear": 2025,
+      "lastValue": 52407.55,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_expenditure",
+      "lastYear": 2025,
+      "lastValue": 6191.09,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_public_pension_expenditure",
+      "lastYear": 2025,
+      "lastValue": 18229.09,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_employee_medical_expenditure",
+      "lastYear": 2025,
+      "lastValue": 19359.04,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_medical_expenditure",
+      "lastYear": 2025,
+      "lastValue": 10677.57,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_injury_expenditure",
+      "lastYear": 2025,
+      "lastValue": 1294.23,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_unemployment_expenditure",
+      "lastYear": 2025,
+      "lastValue": 2165.33,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_maternity_expenditure",
+      "lastYear": 2018,
+      "lastValue": 757.55,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_balance",
+      "lastYear": 2025,
+      "lastValue": 17133.72,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_balance",
+      "lastYear": 2025,
+      "lastValue": 7597.27,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_balance",
+      "lastYear": 2025,
+      "lastValue": 3277.63,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_public_pension_balance",
+      "lastYear": 2025,
+      "lastValue": 350.96,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_employee_medical_balance",
+      "lastYear": 2025,
+      "lastValue": 5305.28,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_medical_balance",
+      "lastYear": 2025,
+      "lastValue": 558.88,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_injury_balance",
+      "lastYear": 2025,
+      "lastValue": 134.3,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_unemployment_balance",
+      "lastYear": 2025,
+      "lastValue": -90.6,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_maternity_balance",
+      "lastYear": 2018,
+      "lastValue": 18.92,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 161997.31,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 73870.02,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 19848.75,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_public_pension_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 4558.97,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_employee_medical_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 50154.35,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_medical_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 8740.52,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_injury_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 1571.08,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_unemployment_accumulated_balance",
+      "lastYear": 2025,
+      "lastValue": 3253.62,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_premium",
+      "lastYear": 2025,
+      "lastValue": 92685.7,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_premium",
+      "lastYear": 2025,
+      "lastValue": 48140.5,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_premium",
+      "lastYear": 2025,
+      "lastValue": 3443.15,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_public_pension_premium",
+      "lastYear": 2025,
+      "lastValue": 10506.75,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_employee_medical_premium",
+      "lastYear": 2025,
+      "lastValue": 23380.79,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_medical_premium",
+      "lastYear": 2025,
+      "lastValue": 3872.35,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_injury_premium",
+      "lastYear": 2025,
+      "lastValue": 1386.65,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_unemployment_premium",
+      "lastYear": 2025,
+      "lastValue": 1955.51,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_maternity_premium",
+      "lastYear": 2018,
+      "lastValue": 737.65,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_subsidy",
+      "lastYear": 2025,
+      "lastValue": 28474.13,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_subsidy",
+      "lastYear": 2025,
+      "lastValue": 8729.31,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_subsidy",
+      "lastYear": 2025,
+      "lastValue": 5187.29,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_public_pension_subsidy",
+      "lastYear": 2025,
+      "lastValue": 7411.9,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_employee_medical_subsidy",
+      "lastYear": 2025,
+      "lastValue": 50.73,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_medical_subsidy",
+      "lastYear": 2025,
+      "lastValue": 7074.73,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_injury_subsidy",
+      "lastYear": 2025,
+      "lastValue": 12.5,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_unemployment_subsidy",
+      "lastYear": 2025,
+      "lastValue": 7.67,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_maternity_subsidy",
+      "lastYear": 2018,
+      "lastValue": 24.18,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_interest",
+      "lastYear": 2025,
+      "lastValue": 2265.6,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_interest",
+      "lastYear": 2025,
+      "lastValue": 963.83,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_interest",
+      "lastYear": 2025,
+      "lastValue": 158.35,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_public_pension_interest",
+      "lastYear": 2025,
+      "lastValue": 64.48,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_employee_medical_interest",
+      "lastYear": 2025,
+      "lastValue": 880.15,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_medical_interest",
+      "lastYear": 2025,
+      "lastValue": 121.61,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_injury_interest",
+      "lastYear": 2025,
+      "lastValue": 22.74,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_unemployment_interest",
+      "lastYear": 2025,
+      "lastValue": 54.44,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_maternity_interest",
+      "lastYear": 2018,
+      "lastValue": 12.92,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_investment",
+      "lastYear": 2025,
+      "lastValue": 1454.64,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_enterprise_pension_investment",
+      "lastYear": 2025,
+      "lastValue": 971.94,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_resident_pension_investment",
+      "lastYear": 2025,
+      "lastValue": 482.7,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_revenue_total",
+      "lastYear": 2021,
+      "lastValue": 96876.79,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "national_social_transfer_in",
+      "lastYear": 2020,
+      "lastValue": 500,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_revenue_total",
+      "lastYear": 2025,
+      "lastValue": 2938.34,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_expenditure_total",
+      "lastYear": 2025,
+      "lastValue": 2921.05,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_transfer_in",
+      "lastYear": 2020,
+      "lastValue": 500,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_lower_subsidy",
+      "lastYear": 2022,
+      "lastValue": 82,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_pooling_received",
+      "lastYear": 2025,
+      "lastValue": 2545.74,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_pooling_paid",
+      "lastYear": 2025,
+      "lastValue": 2546.44,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_pooling_interest",
+      "lastYear": 2025,
+      "lastValue": 0.74,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "central_social_pooling_balance",
+      "lastYear": 2025,
+      "lastValue": 0.04,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_revenue_total",
+      "lastYear": 2025,
+      "lastValue": 130003.36,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_expenditure_total",
+      "lastYear": 2025,
+      "lastValue": 112869.64,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_upper_subsidy",
+      "lastYear": 2022,
+      "lastValue": 82,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_pooling_received",
+      "lastYear": 2025,
+      "lastValue": 2546.44,
+      "tableLatestYear": 2025
+    },
+    {
+      "key": "local_social_pooling_paid",
+      "lastYear": 2025,
+      "lastValue": 2545.74,
+      "tableLatestYear": 2025
+    }
+  ]
+}
