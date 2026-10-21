@@ -16,3 +16,13 @@ test("monthly constant-maturity yields never use note auction dates", () => {
     assert.notEqual(releaseRuleForPilot(id, "MONTHLY").type, "economic_calendar");
   }
 });
+
+test("Indonesia credit label includes nonbank financial sector without altering identity", () => {
+  const definition = AUDITED_DEFINITIONS.find(row => row.code === "sched_wb_ID_FS_AST_DOMS_GD_ZS")!;
+  const metadata = auditedDefinitionMetadata({ catalogKey: "mds:sched_wb_ID_FS_AST_DOMS_GD_ZS",
+    sourceSeriesKey: "ID:FS.AST.DOMS.GD.ZS" }, definition);
+  assert.match(metadata.displayName, /金融部门/);
+  assert.equal(metadata.definitionAudit, "2026-10-21-official-source-review");
+  assert.equal(metadata.unit, "%");
+  assert.equal((metadata as Record<string, unknown>).sourceSeriesKey, "ID:FS.AST.DOMS.GD.ZS");
+});

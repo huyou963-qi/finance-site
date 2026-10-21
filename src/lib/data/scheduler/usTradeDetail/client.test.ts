@@ -121,6 +121,23 @@ test("live worker/verification cannot reuse an offline Census snapshot or its ca
       await assert.rejects(fetchUsTradeDetailIncremental({ scrape: { provider: US_TRADE_PROVIDER } },
         "census_us_trade_exports_country_1220"), /snapshot.*(?:refused|disabled)|(?:refused|disabled).*snapshot/i);
     });
+    await t.test("End-Use export uses only its own live file, never imports or offline cache", async () => {
+      const requested: string[] = [];
+      globalThis.fetch = async input => {
+        requested.push(String(input));
+        if (String(input) !== US_TRADE_FILES.exports) return new Response("Forbidden", { status: 403 });
+        return new Response(new Uint8Array(enduse));
+      };
+      const result = await fetchUsTradeDetailIncremental({ scrape: { provider: US_TRADE_PROVIDER } },
+        "census_us_trade_exports_enduse_10001");
+      assert.equal(result.points[0]?.value, 1);
+      const second = await fetchUsTradeDetailIncremental({ scrape: { provider: US_TRADE_PROVIDER } },
+        "census_us_trade_exports_enduse_10002");
+      assert.equal(second.points[0]?.value, 1);
+      assert.deepEqual(requested, [US_TRADE_FILES.exports]);
+      await assert.rejects(fetchUsTradeDetailIncremental({ scrape: { provider: US_TRADE_PROVIDER } },
+        "census_us_trade_imports_enduse_10001"), /snapshot fallback disabled/);
+    });
     await t.test("a failed live request can recover through the same connector", async () => {
       globalThis.fetch = async (input) => {
         const bytes = files.get(String(input));

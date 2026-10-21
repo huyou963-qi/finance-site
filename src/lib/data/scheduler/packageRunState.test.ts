@@ -5,7 +5,7 @@ import { loadPackageRunStates } from "./packageRunState";
 import { releaseConsumed } from "./packageScheduleGuard";
 
 test("NBS late monthly detail cannot be consumed by a successful headline or annual member", async () => {
-  for (const packageId of ["cn.nbs.ppi", "cn.nbs.industrial-production", "cn.nbs.retail-sales"]) {
+  for (const packageId of ["cn.nbs.ppi", "cn.nbs.industrial-production", "cn.nbs.retail-sales", "cn.nbs.fixed-asset-investment"]) {
     const at = new Date("2026-10-15T03:00:00Z");
     const rows = ["2026-09-01", "2026-08-01", "2025-01-01"].map((date, i) => ({
       releasePackageId: packageId, granularity: i === 2 ? "ANNUAL" : "MONTHLY",
@@ -168,4 +168,22 @@ test("pending acquisition never hides an existing FAILED member", async () => {
   const state = (await loadPackageRunStates(prisma)).get("pkg")!;
   assert.equal(state.hasUnresolvedFailures, true);
   assert.equal(releaseConsumed(state, new Date("2026-09-24T12:30:00Z")), false);
+});
+
+test("historical Census member with legacy failure cannot pin current trade release", async () => {
+  const time = new Date("2026-10-20T01:00Z");
+  const rows = schedulable([
+    { instrument: { code: "current" }, sourceSeriesKey: "census_us_trade_exports_country_nsa_7321",
+      releasePackageId: "us.census.international_trade", lastSuccessAt: time, lastObsDate: new Date("2026-08-01"),
+      granularity: "MONTHLY", lastError: null as string | null,
+      releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: time.toISOString() } } },
+    { instrument: { code: "historical" }, sourceSeriesKey: "census_us_trade_exports_country_nsa_7320",
+      releasePackageId: "us.census.international_trade", lastSuccessAt: time, lastObsDate: new Date("2011-07-01"),
+      granularity: "MONTHLY", lastError: "no partner observations",
+      releaseRule: { type: "economic_calendar", sourceSync: { status: "current", verifiedAt: time.toISOString() } } },
+  ]);
+  const prisma = { $queryRaw: async () => [], dataSubscription: { findMany: async () => rows } } as unknown as PrismaClient;
+  const state = (await loadPackageRunStates(prisma)).get("us.census.international_trade")!;
+  assert.equal(state.hasUnresolvedFailures, false);
+  assert.equal(state.requiredMonthlyObservation?.oldest?.toISOString().slice(0,10), "2026-08-01");
 });

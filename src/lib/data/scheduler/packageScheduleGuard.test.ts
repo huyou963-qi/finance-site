@@ -3,11 +3,43 @@ import { test } from "node:test";
 import {
   releaseConsumed,
   resolvePackageNextRunAt,
+  shouldFanOutCalendarSchedule,
   type PackageRunState,
 } from "./packageScheduleGuard";
 
 const NONE: PackageRunState = { lastSuccessAt: null, sourceVerifiedAt: null };
 const d = (iso: string) => new Date(iso);
+
+test("hourly calendar cannot overwrite independent Census acquisition backoffs", () => {
+  assert.equal(shouldFanOutCalendarSchedule("us.census.international_trade", true), false);
+  assert.equal(shouldFanOutCalendarSchedule("us.census.international_trade", false), true);
+  assert.equal(shouldFanOutCalendarSchedule("cn.nbs.fixed-asset-investment", true), true);
+});
+
+test("FRED date-only mixed releases accept actual publication earlier than synthetic08:30", () => {
+  const state: PackageRunState = { requiresPublicationProof: true, lastSuccessAt: d("2026-10-21T01:00Z"),
+    sourceVerifiedAt: d("2026-10-01T20:16Z"), previousReleaseById: { 101: d("2026-10-20T12:30Z") },
+    publicationRequirements: [
+      { releaseId: 101, publishedAt: d("2026-10-20T12:01:28Z") },
+      { releaseId: 18, monthlyLag: 1, observation: d("2026-09-01"), publishedAt: d("2026-10-01T20:16Z") },
+    ] };
+  assert.equal(releaseConsumed(state, d("2026-10-20T12:30Z")), true);
+  state.publicationRequirements![0].publishedAt = d("2026-10-19T23:59:59Z");
+  assert.equal(releaseConsumed(state, d("2026-10-20T12:30Z")), false);
+});
+
+test("October19 FAI empty fetch cannot skip September detail until November16", () => {
+  const state: PackageRunState = { lastSuccessAt: d("2026-10-19T02:37Z"),
+    sourceVerifiedAt: d("2026-10-19T02:37Z"),
+    requiredMonthlyObservation: { oldest: d("2026-08-01"), lagMonths: 1 } };
+  const params = { packageId: "cn.nbs.fixed-asset-investment", runState: state,
+    previousReleaseAt: d("2026-10-19T02:00Z"), now: d("2026-10-21T01:00Z"),
+    computedNextRunAt: d("2026-11-16T02:03Z"), currentNextRunAt: d("2026-11-16T02:03Z") };
+  assert.equal(releaseConsumed(state, params.previousReleaseAt, params.packageId), false);
+  assert.equal(resolvePackageNextRunAt(params).nextRunAt?.toISOString(), "2026-10-21T03:00:00.000Z");
+  state.requiredMonthlyObservation!.oldest = d("2026-09-01");
+  assert.equal(resolvePackageNextRunAt(params).nextRunAt, params.computedNextRunAt);
+});
 
 test("merged employment target gate cannot bypass FRED publication proof", () => {
   const release = d("2026-10-02T12:30:00Z");

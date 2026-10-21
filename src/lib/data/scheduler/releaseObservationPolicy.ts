@@ -23,6 +23,9 @@ export const MONTHLY_RELEASE_LAG: Readonly<Record<string, number>> = {
   "cn.nbs.ppi": 1,
   "cn.nbs.industrial-production": 1,
   "cn.nbs.retail-sales": 1,
+  // The same package also contains annual history. Only MONTHLY members
+  // participate in the target gate (packageRunState), never the annual rows.
+  "cn.nbs.fixed-asset-investment": 1,
 };
 
 export function expectedMonthlyObservation(releaseAt: Date, lagMonths: number): Date {
