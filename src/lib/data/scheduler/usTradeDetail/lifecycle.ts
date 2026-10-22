@@ -8,6 +8,8 @@ export const US_TRADE_COUNTRY_END_PERIODS: Readonly<Record<string, string>> = {
   "4799": "2006-12-01", // Serbia and Montenegro
   "4802": "2008-12-01", // Historic Serbia, not current4801
   "7320": "2011-07-01", // Historic Sudan, not current7321
+  "7370": "2020-12-01", // Western Sahara: official country history ends here
+  "7740": "1993-06-01", // Historic Ethiopia, not current7749
 };
 
 export function isHistoricalCensusSeries(code: string | null): boolean {

@@ -1,6 +1,7 @@
 import type { DataGranularity } from "@prisma/client";
 import { usMetadataCatalogCategory } from "@/lib/data/usCatalogTaxonomy";
 import type { ReleaseRule } from "./releaseRule";
+import { BTS_TRANSPORT_FIELDS, BTS_TRANSPORT_URL } from "./adapters/btsTransportAdapter";
 
 /**
  * Cass 货运指数（Cass Freight Index：Shipments / Expenditures）——由 Cass
@@ -17,6 +18,8 @@ import type { ReleaseRule } from "./releaseRule";
  * 每行自带 releasePackageId（Cass 与 BTS 各一个包）。
  * TSIFRGHT 与 TRUCKD11 分别是 BTS 月度货运运输服务指数、卡车货运量指数，
  * 与两条铁路序列同属 FRED release 349，故复用 `us.bts.rail_freight` 发布包。
+ * 2026-10-22：四条 BTS 项改为直连官方 bw6n-ddqk 数据集，避免 FRED 镜像发布滞后；
+ * FRED ID 仅保留为既有目录/图表 alias，不再作为这四条的采集来源。
  *
  * 目录归类：`usCatalogTaxonomy.placementFromFredId` 对这 6 个 ID 显式映射到
  * 「国民经济 > 物流与出行」；前台经 `FRED_US_ITEMS` 以 `fred:<ID>` 呈现。
@@ -155,6 +158,13 @@ export function buildCassFreightIndexInstrumentMetadata(
     };
   }
   if (opts?.dataLastObsDateIso) metadata.dataLastObsDateIso = opts.dataLastObsDateIso;
+  if (BTS_TRANSPORT_FIELDS[item.fredId]) {
+    metadata.source = "U.S. Bureau of Transportation Statistics（官方直连）";
+    metadata.sourceUpdateNote = "BTS 官方季调月度数据；72小时探测，完整回读修订；卡车项不是 ATA 最新先行月报";
+    metadata.scrape = { provider: "bts_transport", field: BTS_TRANSPORT_FIELDS[item.fredId] };
+    metadata.fetchAcquisition = { status: "known", method: "official_public_json",
+      methodLabel: "BTS 官方结构化数据", officialUrl: BTS_TRANSPORT_URL };
+  }
   return metadata;
 }
 

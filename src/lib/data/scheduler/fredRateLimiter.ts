@@ -38,18 +38,30 @@ export class FredRateLimiter {
   /** 带间隔与暂时性 HTTP/网络错误重试的 fetch */
   async fetch(url: string, init?: RequestInit): Promise<Response> {
     let attempt = 0;
+    const expectsJson = new URL(url).searchParams.get("file_type") === "json";
     while (true) {
       await this.wait();
+      init?.signal?.throwIfAborted();
       try {
-        const res = await fetch(url, init);
+        const res = await fetch(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(30_000) });
         // FRED's 502/503/504 responses are gateway-side transients, just like
         // rate limiting. Do not retry client errors or a genuine API response.
         if (res.status !== 429 && res.status !== 502 && res.status !== 503 && res.status !== 504) {
+          if (res.ok && expectsJson) {
+            try {
+              // Preserve the original body for callers; never log gateway
+              // bodies or request URLs, which may contain credentials.
+              await res.clone().json();
+            } catch {
+              throw new Error(`FRED invalid JSON response (HTTP ${res.status})`);
+            }
+          }
           return res;
         }
         attempt += 1;
         if (attempt >= this.maxRetries) return res;
       } catch (error) {
+        if (init?.signal?.aborted) throw error;
         attempt += 1;
         if (attempt >= this.maxRetries) throw error;
       }

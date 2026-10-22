@@ -464,6 +464,10 @@ export async function fetchSubscriptionIncremental(
 
   if (sub.source.adapterKind === SourceAdapterKind.BULK_FILE) {
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
+    if (scrapeObj?.provider === "bts_transport") {
+      const { fetchBtsTransportIncremental } = await import("./adapters/btsTransportAdapter");
+      return fetchBtsTransportIncremental(sub.sourceSeriesKey);
+    }
     if (scrapeObj?.provider === "eia_wpsr_xls") {
       const { fetchEiaWpsrIncremental } = await import("./adapters/eiaWpsrAdapter");
       return fetchEiaWpsrIncremental(

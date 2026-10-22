@@ -2,6 +2,7 @@
 import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
 import { CASS_FREIGHT_INDEX_FRED_SERIES } from "../../src/lib/data/scheduler/cassFreightIndexFredSeedCatalog";
+import { BTS_TRANSPORT_FIELDS } from "../../src/lib/data/scheduler/adapters/btsTransportAdapter";
 
 loadEnvConfig(process.cwd());
 
@@ -93,7 +94,7 @@ async function main() {
       const rule = subscription?.releaseRule as { type?: string; intervalHours?: number } | undefined;
       if (
         !subscription?.enabled ||
-        subscription.sourceId !== "fred" ||
+        subscription.sourceId !== (BTS_TRANSPORT_FIELDS[item.fredId] ? "us-bts-transport" : "fred") ||
         subscription.sourceSeriesKey !== item.fredId ||
         subscription.releasePackageId !== item.releasePackageId ||
         rule?.type !== "probe_interval" ||

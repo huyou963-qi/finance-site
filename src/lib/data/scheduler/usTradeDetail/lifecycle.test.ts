@@ -4,7 +4,7 @@ import { isHistoricalCensusSeries } from "./lifecycle";
 import { subscriptionEligibleForSchedule } from "../subscriptionEligibility";
 
 test("confirmed historical country codes cannot be revived by known acquisition metadata", () => {
-  for (const id of ["4790", "4799", "4802", "7320"]) for (const side of ["exports", "imports"]) {
+  for (const id of ["4790", "4799", "4802", "7320", "7370", "7740"]) for (const side of ["exports", "imports"]) {
     const code = `census_us_trade_${side}_country_nsa_${id}`;
     assert.equal(isHistoricalCensusSeries(code), true);
     assert.equal(subscriptionEligibleForSchedule({ subscriptionEnabled: true, adapterKind: "BULK_FILE",
