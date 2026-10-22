@@ -1783,10 +1783,10 @@
         "fred:PCEPILFE::yoy",
         "fred:DFEDTARU",
         "fred:T10Y2Y::avg",
-        "fred:GS10",
+        "fred:DGS10",
         "fred:DFII10"
       ],
-      "updatedAtIso": "2026-09-25T07:05:12.073Z",
+      "updatedAtIso": "2026-10-22T12:17:46.608Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -1807,12 +1807,20 @@
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "3": [
+            "fred:DFEDTARU",
+            "fred:DGS10",
+            "fred:T10Y2Y::avg",
+            "fred:DFII10"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:GS10": 3,
+        "fred:DGS10": 3,
         "fred:DFII10": 3,
         "fred:UNRATE": 1,
         "fred:DFEDTARU": 3,
@@ -1830,9 +1838,6 @@
         "3": "联邦基金目标 + 10Y-2Y 利差：政策立场与衰退预警。"
       },
       "seriesVisualMap": {
-        "fred:GS10": {
-          "color": "#658b67"
-        },
         "fred:UNRATE": {
           "axis": "right",
           "color": "#f2cf67",
@@ -1916,7 +1921,7 @@
           "type": "series"
         },
         {
-          "key": "fred:GS10",
+          "key": "fred:DGS10",
           "type": "series"
         },
         {
