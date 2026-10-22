@@ -42,6 +42,8 @@ function markSent(key: string) {
 }
 
 const AUTO_SOURCES = new Set<ErrorReportSource>(["auto_crash", "auto_window"]);
+// sessionStorage 要等请求成功才标记；在此之前也须挡住同一指纹的并发上报。
+const pendingAutoReports = new Set<string>();
 
 /**
  * 爬虫/探针类 UA：发布窗口期间抓取到旧 chunk 会报错，但它们不是真实用户，
@@ -70,9 +72,11 @@ export async function reportClientError(
   }
 
   const key = dedupeKey({ ...input, pageUrl, message });
-  if (AUTO_SOURCES.has(input.source) && alreadySent(key)) {
+  const automatic = AUTO_SOURCES.has(input.source);
+  if (automatic && (alreadySent(key) || pendingAutoReports.has(key))) {
     return { skipped: true };
   }
+  if (automatic) pendingAutoReports.add(key);
 
   try {
     const res = await fetch("/api/error-reports", {
@@ -105,6 +109,8 @@ export async function reportClientError(
     return { id: payload.id, error: payload.error };
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
+  } finally {
+    if (automatic) pendingAutoReports.delete(key);
   }
 }
 

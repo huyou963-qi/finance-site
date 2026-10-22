@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { reportClientError } from "@/lib/errorReports/clientReport";
 import { isExtensionScriptError, isPageExitAbort } from "@/lib/errorReports/browserNoise";
+import { describeRejection } from "@/lib/errorReports/rejectionReason";
 import {
   isChunkLoadError,
   isLikelyCorruptedScriptSyntaxError,
@@ -69,25 +70,12 @@ export function GlobalErrorListeners() {
       if (isPageExitAbort(reason, pageExiting)) return;
       if (reason instanceof Error && isExtensionScriptError(undefined, reason.stack)) return;
       if (isChunkLoadError(reason) && reloadStaleAssetOnce()) return;
-      let message = "unhandledrejection";
-      let stack: string | undefined;
-      if (reason instanceof Error) {
-        message = reason.message || message;
-        stack = reason.stack;
-      } else if (typeof reason === "string") {
-        message = reason;
-      } else {
-        try {
-          message = JSON.stringify(reason);
-        } catch {
-          message = String(reason);
-        }
-      }
+      const { message, stack, reasonType } = describeRejection(reason);
       void reportClientError({
         source: "auto_window",
         message,
         stack,
-        metadata: { kind: "unhandledrejection" },
+        metadata: { kind: "unhandledrejection", reasonType },
       });
     };
 
