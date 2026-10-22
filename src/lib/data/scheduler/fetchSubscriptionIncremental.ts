@@ -464,6 +464,10 @@ export async function fetchSubscriptionIncremental(
 
   if (sub.source.adapterKind === SourceAdapterKind.BULK_FILE) {
     const scrapeObj = readScrapeObject(sub.instrument.metadata);
+    if (scrapeObj?.provider === "umich_official_csv") {
+      const { fetchUmichCsvIncremental } = await import("./adapters/umichCsvAdapter");
+      return fetchUmichCsvIncremental();
+    }
     if (scrapeObj?.provider === "bts_transport") {
       const { fetchBtsTransportIncremental } = await import("./adapters/btsTransportAdapter");
       return fetchBtsTransportIncremental(sub.sourceSeriesKey);

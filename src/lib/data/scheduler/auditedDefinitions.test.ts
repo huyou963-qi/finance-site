@@ -12,7 +12,7 @@ test("October 22 corrections change labels only, preserving canonical source ide
     assert.equal((metadata as Record<string, unknown>).sourceSeriesKey, "unchanged");
   }
   assert.match(AUDITED_DEFINITIONS.find(row => row.code === "sched_wb_JP_FS_AST_DOMS_GD_ZS")!.name, /金融部门/);
-  assert.match(AUDITED_DEFINITIONS.find(row => row.code === "sched_fred_UMCSENT")!.source, /延迟一个月/);
+  assert.match(AUDITED_DEFINITIONS.find(row => row.code === "sched_fred_UMCSENT")!.source, /官方CSV/);
 });
 test("audited label fixes preserve source identity and do not rescale values", () => {
   const definition = AUDITED_DEFINITIONS.find(row => row.code === "sched_fred_FGEXPND")!;
