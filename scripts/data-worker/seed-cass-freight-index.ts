@@ -12,6 +12,7 @@ import {
 } from "@prisma/client";
 import { P0_DATA_SOURCE_FRED } from "../../src/lib/data/scheduler/p0SeedCatalog";
 import { computeNextRunAt } from "../../src/lib/data/scheduler/releaseRule";
+import { BTS_TRANSPORT_FIELDS, BTS_TRANSPORT_URL } from "../../src/lib/data/scheduler/adapters/btsTransportAdapter";
 import {
   CASS_FREIGHT_INDEX_FRED_SERIES,
   buildCassFreightIndexInstrumentMetadata,
@@ -23,6 +24,11 @@ loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.statisticalAgency.upsert({ where: { id: "us-bts" },
+    create: { id: "us-bts", countryCode: "US", nameZh: "美国运输统计局", nameEn: "Bureau of Transportation Statistics", websiteUrl: "https://www.bts.gov/" }, update: {} });
+  await prisma.dataSource.upsert({ where: { id: "us-bts-transport" },
+    create: { id: "us-bts-transport", agencyId: "us-bts", name: "BTS 官方季调运输数据", adapterKind: SourceAdapterKind.BULK_FILE, baseUrl: BTS_TRANSPORT_URL },
+    update: { adapterKind: SourceAdapterKind.BULK_FILE, baseUrl: BTS_TRANSPORT_URL } });
   await prisma.dataSource.upsert({
     where: { id: P0_DATA_SOURCE_FRED.id },
     create: {
@@ -38,6 +44,7 @@ async function main() {
   });
 
   for (const item of CASS_FREIGHT_INDEX_FRED_SERIES) {
+    const sourceId = BTS_TRANSPORT_FIELDS[item.fredId] ? "us-bts-transport" : "fred";
     const existing = await prisma.instrument.findUnique({ where: { code: item.code } });
     const latestObs = existing
       ? await prisma.macroObservation.findFirst({
@@ -56,6 +63,11 @@ async function main() {
       existing: existingMetadata,
       dataLastObsDateIso: latestObs?.obsDate.toISOString().slice(0, 10) ?? null,
     });
+    const externalRefs = {
+      ...(existing?.externalRefs && typeof existing.externalRefs === "object" && !Array.isArray(existing.externalRefs) ? existing.externalRefs : {}),
+      catalogKey: `fred:${item.fredId}`, agencyId: sourceId === "fred" ? "us-fred" : "us-bts",
+      sourceId, cassFreightIndexCategory: item.category,
+    };
 
     const instrument = await prisma.instrument.upsert({
       where: { code: item.code },
@@ -67,12 +79,7 @@ async function main() {
         unit: item.unit,
         fredSeriesId: item.fredId,
         metadata,
-        externalRefs: {
-          catalogKey: `fred:${item.fredId}`,
-          agencyId: "us-fred",
-          sourceId: "fred",
-          cassFreightIndexCategory: item.category,
-        },
+        externalRefs,
       },
       update: {
         name: item.name,
@@ -80,6 +87,7 @@ async function main() {
         unit: item.unit,
         fredSeriesId: item.fredId,
         metadata,
+        externalRefs,
       },
     });
 
@@ -88,26 +96,26 @@ async function main() {
       where: { instrumentId: instrument.id },
       create: {
         instrumentId: instrument.id,
-        sourceId: "fred",
+        sourceId,
         sourceSeriesKey: item.fredId,
         fetchMethod: DataFetchMethod.API,
         granularity: item.granularity,
         releaseRule,
         nextRunAt: computeNextRunAt(releaseRule, new Date()),
+        ...(BTS_TRANSPORT_FIELDS[item.fredId] ? { revisionLookback: 600 } : {}),
         enabled: true,
         priority: 10,
       },
       update: {
-        sourceId: "fred",
+        sourceId,
         sourceSeriesKey: item.fredId,
         fetchMethod: DataFetchMethod.API,
         granularity: item.granularity,
         releaseRule,
-        nextRunAt: computeNextRunAt(releaseRule, new Date()),
-        enabled: true,
+        // Existing release-package clock and explicit admin disable survive seed.
+        ...(BTS_TRANSPORT_FIELDS[item.fredId] ? { revisionLookback: 600 } : {}),
         priority: 10,
-        retryCount: 0,
-        lastError: null,
+        // Only a real worker fetch may clear the previous failure state.
       },
     });
     console.log(`  ✓ ${item.code} (${item.fredId}) ${existing ? "updated" : "created"}`);

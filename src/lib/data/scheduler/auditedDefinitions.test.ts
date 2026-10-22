@@ -3,6 +3,17 @@ import test from "node:test";
 import { AUDITED_DEFINITIONS, auditedDefinitionMetadata } from "./auditedDefinitions";
 import { calendarSpecForSubscription } from "./teEventMap";
 import { releaseRuleForPilot } from "./p0SeedCatalog";
+
+test("October 22 corrections change labels only, preserving canonical source identity", () => {
+  for (const code of ["usov_c23_fed_assets", "usov_c24_fed_treasuries"]) {
+    const definition = AUDITED_DEFINITIONS.find(row => row.code === code)!;
+    const metadata = auditedDefinitionMetadata({ sourceSeriesKey: "unchanged" }, definition);
+    assert.equal(metadata.unit, "百万美元");
+    assert.equal((metadata as Record<string, unknown>).sourceSeriesKey, "unchanged");
+  }
+  assert.match(AUDITED_DEFINITIONS.find(row => row.code === "sched_wb_JP_FS_AST_DOMS_GD_ZS")!.name, /金融部门/);
+  assert.match(AUDITED_DEFINITIONS.find(row => row.code === "sched_fred_UMCSENT")!.source, /延迟一个月/);
+});
 test("audited label fixes preserve source identity and do not rescale values", () => {
   const definition = AUDITED_DEFINITIONS.find(row => row.code === "sched_fred_FGEXPND")!;
   const metadata = auditedDefinitionMetadata({ catalogKey: "fred:FGEXPND", scrape: { key: "unchanged" } }, definition);
