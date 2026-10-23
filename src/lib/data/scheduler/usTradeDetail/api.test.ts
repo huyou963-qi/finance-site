@@ -5,7 +5,7 @@ import { fetchUsTradeDetailIncremental } from "../adapters/usTradeDetailAdapter"
 import { US_TRADE_PROVIDER } from "./catalog";
 
 test("retired partner codes cannot be accidentally routed into the active API", async () => {
-  for (const country of ["2771", "4350", "4610"]) {
+  for (const country of ["2771", "4350", "4610", "5080", "5160", "7370", "7740"]) {
     await assert.rejects(fetchCensusPartnerApi(`census_us_trade_exports_country_nsa_${country}`), /active unadjusted/);
   }
 });

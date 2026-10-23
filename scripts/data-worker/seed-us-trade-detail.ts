@@ -5,6 +5,7 @@ import { CENSUS_TRADE_API } from "../../src/lib/data/scheduler/usTradeDetail/api
 import { US_TRADE_FILES, US_TRADE_PACKAGE_ID, US_TRADE_PROVIDER, US_TRADE_SOURCE_ID } from "../../src/lib/data/scheduler/usTradeDetail/catalog";
 import { upsertMacroObservations } from "../../src/lib/data/scheduler/upsertObservations";
 import { defaultEconomicCalendarRule } from "../../src/lib/data/scheduler/releaseRule";
+import { US_TRADE_HISTORICAL_COUNTRY_IDS, isHistoricalCensusSeries } from "../../src/lib/data/scheduler/usTradeDetail/lifecycle";
 
 loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
@@ -27,7 +28,7 @@ async function main() {
 
   // Retire reviewed identities BEFORE downloading any workbook: an ongoing403
   // must not prevent lifecycle maintenance. Keep instruments/observations.
-  const historicalCodes = Object.keys(US_TRADE_COUNTRY_END_PERIODS).flatMap(id =>
+  const historicalCodes = US_TRADE_HISTORICAL_COUNTRY_IDS.flatMap(id =>
     ["exports", "imports"].map(side => `census_us_trade_${side}_country_nsa_${id}`));
   const historical = await prisma.dataSubscription.findMany({
     where: { sourceId: US_TRADE_SOURCE_ID, enabled: true, instrument: { code: { in: historicalCodes } } },
@@ -39,7 +40,7 @@ async function main() {
       prisma.dataSubscription.update({ where: { id: old.id }, data: { enabled: false } }),
       prisma.scheduleAuditEvent.create({ data: { subscriptionId: old.id,
         source: "catalog_seed", reason: "census_historical_country_subscription_retired",
-        metadata: { code: old.instrument.code, officialLastPeriod: US_TRADE_COUNTRY_END_PERIODS[id]!,
+        metadata: { code: old.instrument.code, officialLastPeriod: US_TRADE_COUNTRY_END_PERIODS[id] ?? null,
           evidenceUrl: `https://www.census.gov/foreign-trade/balance/c${id}.html`,
           observationsPreserved: true } } }),
     ]);
@@ -75,7 +76,7 @@ async function main() {
     const subscription = {
       sourceId: US_TRADE_SOURCE_ID, sourceSeriesKey: row.code, fetchMethod: DataFetchMethod.BULK_DOWNLOAD,
       granularity: DataGranularity.MONTHLY, timezone: "America/New_York", releaseRule: defaultEconomicCalendarRule("MONTHLY") as object,
-      revisionLookback: 600, enabled: !(row.kind === "country_nsa" && US_TRADE_COUNTRY_END_PERIODS[row.sourceCode]), priority: 7,
+      revisionLookback: 600, enabled: !isHistoricalCensusSeries(row.code), priority: 7,
     };
     await prisma.dataSubscription.upsert({
       where: { instrumentId: instrument.id },

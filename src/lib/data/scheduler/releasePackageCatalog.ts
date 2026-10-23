@@ -1026,7 +1026,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg("us.stlouisfed.financial_stress_index", "圣路易斯联储金融压力指数", {
     labelEn: "St. Louis Fed Financial Stress Index",
     granularity: "WEEKLY",
-    intervalHours: 24,
+    intervalHours: 6,
     sortOrder: 207,
     members: { fredSeriesIds: ["STLFSI4"] },
   }),
@@ -1047,7 +1047,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg("us.freddiemac.pmms", "Freddie Mac 抵押利率（PMMS）", {
     labelEn: "Primary Mortgage Market Survey",
     granularity: "WEEKLY",
-    intervalHours: 24,
+    intervalHours: 6,
     sortOrder: 210,
     members: { fredSeriesIds: ["MORTGAGE30US", "MORTGAGE15US"] },
   }),

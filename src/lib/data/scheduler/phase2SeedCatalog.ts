@@ -89,7 +89,7 @@ export const PHASE2_WB_PILOT_INDICATORS = [
   { id: "NY.GDP.MKTP.KD.ZG", label: "GDP 增速" },
   { id: "FP.CPI.TOTL.ZG", label: "CPI 通胀" },
   { id: "SL.UEM.TOTL.ZS", label: "失业率" },
-  { id: "GC.DOD.TOTL.GD.ZS", label: "政府债务占 GDP" },
+  { id: "GC.DOD.TOTL.GD.ZS", label: "中央政府债务总额占 GDP" },
   { id: "BX.KLT.DINV.WD.GD.ZS", label: "FDI 净流入占 GDP" },
 ] as const;
 

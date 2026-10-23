@@ -1,6 +1,7 @@
 import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
-import { AUDITED_DEFINITIONS, auditedDefinitionMetadata } from "../../src/lib/data/scheduler/auditedDefinitions";
+import { AUDITED_DEFINITIONS, AUDITED_SOURCE_KEYS, auditedDefinitionMetadata } from "../../src/lib/data/scheduler/auditedDefinitions";
+import { retireReviewedCensusCountries } from "../../src/lib/data/scheduler/usTradeDetail/retireReviewedCountries";
 
 loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
@@ -8,6 +9,8 @@ async function main() {
   for (const definition of AUDITED_DEFINITIONS) {
     const old = await prisma.instrument.findUnique({ where: { code: definition.code }, select: { id: true, metadata: true, externalRefs: true } });
     if (!old) continue; // Never resurrect retired or deliberately removed series.
+    const sourceKey = AUDITED_SOURCE_KEYS[definition.code];
+    if (sourceKey) await prisma.dataSubscription.updateMany({ where: { instrumentId: old.id, sourceId: "nbs-realestate" }, data: { sourceSeriesKey: sourceKey } });
     if (definition.code === "sched_fred_UMCSENT") {
       await prisma.statisticalAgency.upsert({ where: { id: "us-umich" }, create: {
         id: "us-umich", countryCode: "US", nameZh: "密歇根大学消费者调查", nameEn: "University of Michigan Surveys of Consumers", websiteUrl: "https://www.sca.isr.umich.edu/" }, update: {} });
@@ -53,6 +56,7 @@ async function main() {
         data: { releaseRule: { type: "probe_interval", intervalHours: 24 } } });
     }
   }
+  await retireReviewedCensusCountries(prisma);
   console.log("[audited-definitions] legacy labels/units/frequency corrected; observation values and schedules preserved");
 }
 main().catch(() => { console.error("[audited-definitions] failed; credentials withheld"); process.exitCode = 1; }).finally(() => prisma.$disconnect());

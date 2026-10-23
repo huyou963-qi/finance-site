@@ -383,7 +383,7 @@ type WorldBankIndicatorDef = {
 const WORLD_BANK_INDICATORS: readonly WorldBankIndicatorDef[] = [
   { id: "NY.GDP.MKTP.KD.ZG", label: "GDP 增速（年 %）", category: "国民经济核算", frequency: "年" },
   { id: "NY.GDP.PCAP.KD.ZG", label: "人均 GDP 增速（年 %）", category: "国民经济核算", frequency: "年" },
-  { id: "NV.IND.TOTL.ZS", label: "工业增加值占 GDP（%）", category: "工业", frequency: "年" },
+  { id: "NV.IND.TOTL.ZS", label: "工业（含建筑业）增加值占 GDP（%）", category: "工业", frequency: "年" },
   { id: "FP.CPI.TOTL.ZG", label: "CPI 通胀（年 %）", category: "价格指数", frequency: "年" },
   { id: "SL.UEM.TOTL.ZS", label: "失业率（%）", category: "就业与工资", frequency: "年" },
   { id: "SL.TLF.CACT.ZS", label: "劳动参与率（%）", category: "就业与工资", frequency: "年" },
@@ -396,7 +396,7 @@ const WORLD_BANK_INDICATORS: readonly WorldBankIndicatorDef[] = [
   { id: "NE.EXP.GNFS.ZS", label: "出口占 GDP（%）", category: "对外贸易及投资", frequency: "年" },
   { id: "NE.GDI.FTOT.ZS", label: "固定资本形成占 GDP（%）", category: "固定资产投资", frequency: "年" },
   { id: "GC.BAL.CASH.GD.ZS", label: "财政现金收支差额占 GDP（%）", category: "财政", frequency: "年" },
-  { id: "GC.DOD.TOTL.GD.ZS", label: "政府债务占 GDP（%）", category: "财政", frequency: "年" },
+  { id: "GC.DOD.TOTL.GD.ZS", label: "中央政府债务总额占 GDP（%）", category: "财政", frequency: "年" },
   { id: "SP.POP.GROW", label: "人口增速（年 %）", category: "人口与资源", frequency: "年" },
   { id: "SP.DYN.LE00.IN", label: "预期寿命（岁）", category: "人口与资源", frequency: "年" },
 ] as const;

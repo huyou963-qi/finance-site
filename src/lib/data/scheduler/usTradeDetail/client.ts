@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { US_TRADE_FILES, usTradePlacement, type UsTradeSeries } from "./catalog";
-import { US_TRADE_COUNTRY_END_PERIODS } from "./lifecycle";
+import { US_TRADE_COUNTRY_END_PERIODS, US_TRADE_UNDATED_HISTORICAL_COUNTRIES } from "./lifecycle";
 import { fetchCensusTradeFile } from "./fileTransport";
 export { US_TRADE_COUNTRY_END_PERIODS } from "./lifecycle";
 
@@ -163,6 +163,9 @@ export function parseUsTradeCountriesNsa(rows: Rows, publishedThrough: Date): Us
     const name = String(row[2] ?? "").trim();
     if (!name) continue;
     for (const [side, start] of [["exports", 16], ["imports", 3]] as const) {
+      // Zero-only legacy workbook rows cannot establish a publication period.
+      // Do not generate further observations for these undated identities.
+      if (US_TRADE_UNDATED_HISTORICAL_COUNTRIES.some(id => id === sourceCode)) continue;
       const code = `census_us_trade_${side}_country_nsa_${sourceCode}`;
       let series = byCode.get(code);
       if (!series) {
