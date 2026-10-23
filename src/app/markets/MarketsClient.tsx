@@ -806,16 +806,20 @@ export function MarketsClient() {
             onResetToSymbolDefault={resetEventFiltersToSymbol}
           />
         ) : null}
-        <button
-          type="button"
-          onClick={() => setEventShelfOpen((v) => !v)}
-          className="flex h-7 w-full shrink-0 items-center justify-center gap-1 border-t border-fs-border bg-fs-elevated text-[11px] text-fs-secondary hover:bg-fs-accent-soft hover:text-fs-accent-text"
-          aria-expanded={eventShelfOpen}
-          aria-label={eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
-        >
-          <span aria-hidden>{eventShelfOpen ? "▾" : "▴"}</span>
-          {eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
-        </button>
+        <div className="relative flex h-3 w-full shrink-0 items-center justify-center border-t border-fs-border bg-fs-elevated/90">
+          <button
+            type="button"
+            onClick={() => setEventShelfOpen((v) => !v)}
+            className="absolute left-1/2 top-1/2 z-10 flex h-3 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm border border-fs-border/70 bg-fs-elevated text-fs-muted shadow-sm transition hover:border-fs-accent hover:bg-fs-accent-soft hover:text-fs-text max-md:before:absolute max-md:before:-inset-x-2 max-md:before:-inset-y-3 max-md:before:content-['']"
+            aria-expanded={eventShelfOpen}
+            aria-label={eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
+            title={eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
+          >
+            <svg viewBox="0 0 10 14" className="h-3 w-2.5 -rotate-90" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d={eventShelfOpen ? "M6.5 2.5 2.5 7l4 4.5" : "M3.5 2.5 7.5 7l-4 4.5"} />
+            </svg>
+          </button>
+        </div>
       </div>
       </div>
     </div>
