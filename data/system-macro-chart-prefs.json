@@ -613,9 +613,110 @@
     },
     "builtin-gold-analysis": {
       "name": "黄金分析",
-      "layoutMode": 6,
+      "layoutMode": 4,
       "description": "由 黄金期货头寸.xlsx 导入的 28 项黄金市场指标：金价/美元、利率与通胀、管理基金持仓、COMEX 库存、黄金 ETF 与全球储备。",
       "derivedCalcs": [
+        {
+          "id": "d-mvkt0wad-839yk",
+          "op": "add",
+          "name": "全球:黄金储备量:变化",
+          "single": {
+            "steps": [
+              {
+                "id": "s-mvkt0di0-wbdl",
+                "type": "fill",
+                "maxGap": 100,
+                "method": "forward"
+              },
+              {
+                "id": "s-mvkt0hfp-tc21",
+                "op": "diff",
+                "type": "transform"
+              }
+            ],
+            "inputKey": "mds:goldov_c24_global_reserve_tons"
+          },
+          "leftKey": "mds:goldov_c24_global_reserve_tons",
+          "rightKey": "mds:goldov_c24_global_reserve_tons"
+        },
+        {
+          "id": "d-mvkqm7kv-erhv7",
+          "op": "add",
+          "name": "ETF总量变化",
+          "single": {
+            "steps": [
+              {
+                "id": "s-mvkqlefh-ltz1",
+                "op": "diff",
+                "type": "transform"
+              }
+            ],
+            "inputKey": "calc:d-mvkol4ph-0-6cd89"
+          },
+          "leftKey": "calc:d-mvkol4ph-0-6cd89",
+          "rightKey": "calc:d-mvkol4ph-0-6cd89"
+        },
+        {
+          "id": "d-mvkol4ph-0-6cd89",
+          "op": "div",
+          "name": "ETF总持有量",
+          "leftKey": "mds:goldov_c17_spdr_etf",
+          "advanced": {
+            "kind": "formula",
+            "inputs": [
+              {
+                "key": "mds:goldov_c17_spdr_etf",
+                "alias": "A",
+                "maxGap": 30,
+                "fillMethod": "forward",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "mds:goldov_c18_ishares_etf",
+                "alias": "B",
+                "maxGap": 30,
+                "fillMethod": "forward",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "mds:goldov_c19_gbs_etf",
+                "alias": "C",
+                "maxGap": 30,
+                "fillMethod": "forward",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "mds:goldov_c21_sgbs_etf",
+                "alias": "D",
+                "maxGap": 30,
+                "fillMethod": "forward",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "mds:goldov_c22_gold_etf",
+                "alias": "E",
+                "maxGap": 30,
+                "fillMethod": "forward",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "mds:goldov_c20_phau_etf",
+                "alias": "F",
+                "maxGap": 30,
+                "fillMethod": "forward",
+                "resampleMethod": "end"
+              }
+            ],
+            "formula": "A + B + C + D + E + F",
+            "version": 2,
+            "alignment": {
+              "join": "left",
+              "frequency": "keep"
+            }
+          },
+          "rightKey": "mds:goldov_c18_ishares_etf",
+          "unitLabel": "吨"
+        },
         {
           "id": "gold-basis",
           "op": "sub",
@@ -638,7 +739,7 @@
         "mds:goldov_c22_gold_etf",
         "mds:goldov_c20_phau_etf"
       ],
-      "updatedAtIso": "2026-10-14T12:55:27.149Z",
+      "updatedAtIso": "2026-10-23T10:08:05.082Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -653,31 +754,71 @@
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "0": [
+            "mds:wgc_gold_price_usd",
+            "mds:comex_gold_futures",
+            "calc:gold-basis"
+          ],
+          "1": [
+            "mds:goldov_c06_mm_net",
+            "mds:cot_mm_gold_long",
+            "mds:cot_mm_gold_short"
+          ],
+          "2": [
+            "calc:d-mvkol4ph-0-6cd89",
+            "mds:goldov_c24_global_reserve_tons",
+            "calc:d-mvkqm7kv-erhv7"
+          ],
+          "3": [
+            "mds:goldov_c24_global_reserve_tons",
+            "calc:d-mvkt0wad-839yk"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "calc:gold-basis": null,
-        "mds:cot_mm_gold_long": null,
-        "mds:cot_mm_gold_short": null,
-        "mds:goldov_c06_mm_net": 2,
-        "mds:comex_gold_futures": null,
-        "mds:goldov_c19_gbs_etf": 4,
+        "calc:gold-basis": 0,
+        "mds:cot_mm_gold_long": 1,
+        "calc:d-mvkqm7kv-erhv7": 2,
+        "calc:d-mvkt0wad-839yk": 3,
+        "mds:cot_mm_gold_short": 1,
+        "mds:goldov_c06_mm_net": 1,
+        "mds:comex_gold_futures": 0,
+        "mds:goldov_c19_gbs_etf": null,
         "mds:wgc_gold_price_usd": 0,
-        "mds:goldov_c17_spdr_etf": 4,
+        "calc:d-mvkol4ph-0-6cd89": 2,
+        "mds:goldov_c17_spdr_etf": null,
         "mds:goldov_c20_phau_etf": null,
-        "mds:goldov_c21_sgbs_etf": 4,
-        "mds:goldov_c22_gold_etf": 4,
-        "mds:goldov_c18_ishares_etf": 4,
-        "mds:goldov_c24_global_reserve_tons": 5
+        "mds:goldov_c21_sgbs_etf": null,
+        "mds:goldov_c22_gold_etf": null,
+        "mds:goldov_c18_ishares_etf": null,
+        "mds:goldov_c24_global_reserve_tons": 3
       },
       "seriesVisualMap": {
         "calc:gold-basis": {
-          "axis": "left",
+          "axis": "right",
           "color": "#9aa7b3",
           "chartType": "line",
           "showEndLabel": true
+        },
+        "mds:cot_mm_gold_long": {
+          "axis": "right",
+          "chartType": "stackBar"
+        },
+        "calc:d-mvkqm7kv-erhv7": {
+          "axis": "right"
+        },
+        "calc:d-mvkt0wad-839yk": {
+          "axis": "right",
+          "chartType": "scatter"
+        },
+        "mds:cot_mm_gold_short": {
+          "axis": "right",
+          "inverse": true,
+          "chartType": "stackBar"
         },
         "mds:goldov_c06_mm_net": {
           "axis": "left",
@@ -772,7 +913,23 @@
           "type": "series"
         },
         {
+          "key": "calc:d-mvkt0wad-839yk",
+          "type": "derived"
+        },
+        {
           "id": "div-mudinu8k-gekj",
+          "type": "divider"
+        },
+        {
+          "key": "calc:d-mvkol4ph-0-6cd89",
+          "type": "derived"
+        },
+        {
+          "key": "calc:d-mvkqm7kv-erhv7",
+          "type": "derived"
+        },
+        {
+          "id": "div-mvkogyc8-hjgj",
           "type": "divider"
         },
         {
