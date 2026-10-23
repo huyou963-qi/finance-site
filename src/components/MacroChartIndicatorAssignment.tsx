@@ -830,7 +830,7 @@ export function MacroChartIndicatorAssignment({
                               })
                             }
                             className={`${ctrlSelect} w-16`}
-                            title="指标显示方向"
+                            title="指标显示方向（反向将数值取相反数）"
                           >
                             <option value="normal">正向</option>
                             <option value="inverse">反向</option>
