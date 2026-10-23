@@ -500,7 +500,7 @@ function parsePortablePackage(source: string): PortableCalculationPackage {
 
 export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps) {
   const { open, onClose } = props;
-  const [mode, setMode] = useState<"single" | "derived">("single");
+  const [mode, setMode] = useState<"single" | "derived" | "manage">("single");
   const [targetKey, setTargetKey] = useState("");
   const [steps, setSteps] = useState<MacroSeriesCalcStep[]>([]);
   const [singleName, setSingleName] = useState("");
@@ -524,17 +524,17 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
   const [regressionMinPeriods, setRegressionMinPeriods] = useState(24);
   const [regressionIntercept, setRegressionIntercept] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [manageOpen, setManageOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(true);
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferText, setTransferText] = useState("");
   const [transferStatus, setTransferStatus] = useState("");
   const importedShareRef = useRef("");
-  const singleOptions = useMemo(() => props.options.filter((option) => !option.derived), [props.options]);
   const availableInputOptions = useMemo(
     () => props.options.filter((option) => option.key !== (editingId ? `calc:${editingId}` : "")),
     [editingId, props.options],
   );
+
+  const singleOptions = availableInputOptions;
 
   useEffect(() => {
     if (!open) return;
@@ -554,7 +554,6 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
   useEffect(() => {
     if (open) return;
     setEditingId(null);
-    setManageOpen(false);
   }, [open]);
 
   useEffect(() => {
@@ -596,8 +595,16 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
   );
 
   const singlePreview = useMemo<MacroCalculationResult | null>(() => {
-    const source = rawSeriesForKey(props.rawPayload, targetKey);
-    if (!source) return null;
+    const errorResult = (error: string): MacroCalculationResult => ({
+      categories: [], data: [], diagnostics: { inputPoints: {}, filledPoints: {}, alignedPoints: 0, validPoints: 0, droppedPoints: 0, warnings: [], error },
+    });
+    if (editingId) {
+      const candidate: MacroDerivedCalc = { id: editingId, name: "编辑中的运算", leftKey: targetKey, rightKey: targetKey, op: "add", single: { inputKey: targetKey, steps } };
+      const graph = sortMacroDerivedCalculations([...props.derivedCalcs.filter((calc) => calc.id !== editingId), candidate]);
+      if (graph.cyclicIds.includes(editingId)) return errorResult("运算形成循环引用，请移除对自身或下游派生指标的引用");
+    }
+    const source = rawSeriesForKey(targetKey.startsWith("calc:") ? props.displayPayload : props.rawPayload, targetKey);
+    if (!source) return errorResult("输入指标暂无可用数据，请检查指标是否已停用或被删除");
     const result = applyMacroSeriesSteps(source.categories, source.data, steps);
     const validPoints = result.data.filter((value) => value != null && Number.isFinite(value)).length;
     const warnings = [
@@ -608,7 +615,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
       ...result,
       diagnostics: { inputPoints: { A: source.data.filter((value) => value != null && Number.isFinite(value)).length }, filledPoints: {}, alignedPoints: result.categories.length, validPoints, droppedPoints: result.categories.length - validPoints, warnings },
     };
-  }, [props.rawPayload, steps, targetKey]);
+  }, [editingId, props.derivedCalcs, props.displayPayload, props.rawPayload, steps, targetKey]);
 
   const singleAutoName = useMemo(() => {
     const label = props.options.find((option) => option.key === targetKey)?.label ?? "派生指标";
@@ -811,7 +818,6 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
   const editDerived = (calc: MacroDerivedCalc) => {
     if (calc.single) {
       setMode("single");
-      setManageOpen(false);
       setEditingId(calc.id);
       setTargetKey(calc.single.inputKey);
       setSteps(calc.single.steps.map((step) => ({ ...step })));
@@ -827,7 +833,6 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
       formula: fallbackFormula,
     };
     setMode("derived");
-    setManageOpen(false);
     setEditingId(calc.id);
     setName(calc.name);
     setInputKeys(advanced.inputs.map((input) => input.key));
@@ -859,7 +864,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
       disabled: false,
     });
   };
-  const switchMode = (nextMode: "single" | "derived") => {
+  const switchMode = (nextMode: "single" | "derived" | "manage") => {
     if (nextMode !== mode) {
       setEditingId(null);
       setName("");
@@ -874,17 +879,17 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
       <div role="dialog" aria-modal aria-label="指标运算工作台" className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-fs-bg shadow-2xl lg:h-[min(820px,92dvh)] lg:max-w-6xl lg:rounded-2xl">
         <header className="flex h-12 shrink-0 items-center border-b border-fs-border px-3.5 lg:px-4">
           <div className="min-w-0 flex-1"><h2 className="truncate text-base font-semibold text-fs-text">指标运算工作台</h2><p className="hidden text-[11px] text-fs-muted sm:block">按顺序处理、对齐并预览，计算定义会随模板保存</p></div>
-          <button type="button" onClick={() => { switchMode("derived"); setManageOpen((value) => !value); }} className="mr-2 rounded-full bg-fs-elevated px-2.5 py-1 text-xs text-fs-muted hover:text-fs-text">运算管理 {props.derivedCalcs.length}</button>
           <button type="button" onClick={props.onClose} aria-label="关闭" className="flex h-9 w-9 items-center justify-center rounded-md text-fs-muted hover:bg-fs-elevated"><IconClose size={20} /></button>
         </header>
         <div className="shrink-0 border-b border-fs-border px-3.5 pt-1 lg:px-4">
-          <div className="flex gap-1">
+          <div className="flex gap-1 overflow-x-auto">
             <TabButton active={mode === "single"} onClick={() => switchMode("single")}>单指标运算</TabButton>
             <TabButton active={mode === "derived"} onClick={() => switchMode("derived")}>指标间运算</TabButton>
+            <TabButton active={mode === "manage"} onClick={() => switchMode("manage")}>运算管理 {props.derivedCalcs.length}</TabButton>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3 lg:p-4">
-          <section className="mb-3 rounded-lg border border-fs-border bg-white">
+          {mode !== "manage" ? <section className="mb-3 rounded-lg border border-fs-border bg-white">
             <button type="button" onClick={() => setTemplateOpen((value) => !value)} className="flex w-full items-center gap-2 px-2.5 py-2 text-left">
               <span className="flex-1 text-[13px] font-semibold text-fs-text">计算模板库</span>
               <span className="text-xs text-fs-muted">{MACRO_CALCULATION_TEMPLATES.length} 个模板 · {templateOpen ? "收起" : "展开"}</span>
@@ -899,13 +904,31 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                 ))}
               </div>
             ) : null}
-          </section>
-          {mode === "single" ? (
+          </section> : null}
+          {mode === "manage" ? (
+            <section className="rounded-xl border border-fs-border bg-white">
+              <h3 className="px-3 py-2 text-[13px] font-semibold text-fs-text">已有运算（{props.derivedCalcs.length}）</h3>
+              <div className="border-t border-fs-border">
+                {props.derivedCalcs.length === 0 ? <p className="px-3 py-5 text-center text-xs text-fs-muted">暂无派生运算</p> : props.derivedCalcs.map((calc) => (
+                  <div key={calc.id} className={`flex flex-wrap items-center gap-2 border-b border-fs-border/70 px-3 py-2 last:border-0 ${calc.disabled ? "bg-fs-elevated opacity-70" : ""}`}>
+                    <div className="min-w-0 flex-1 basis-48">
+                      <p className="truncate text-[13px] font-medium text-fs-text">{calc.name}</p>
+                      <p className="truncate text-[11px] text-fs-muted">{calc.disabled ? "已停用" : calc.single ? `${calc.single.steps.length} 步单指标运算` : calc.advanced?.kind === "correlation" ? `${calc.advanced.correlation?.window ?? 24} 期滚动${calc.advanced.correlation?.metric === "beta" ? " Beta" : calc.advanced.correlation?.metric === "covariance" ? "协方差" : "相关性"}` : calc.advanced?.kind === "regression" ? `${calc.advanced.regression?.window ?? 36} 期滚动回归 · ${calc.advanced.regression?.output ?? "residual"}` : calc.advanced?.formula ?? "旧版二元运算"}</p>
+                    </div>
+                    <button type="button" onClick={() => editDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">编辑</button>
+                    <button type="button" onClick={() => duplicateDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">复制</button>
+                    <button type="button" onClick={() => props.onToggleDerived(calc.id)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">{calc.disabled ? "启用" : "停用"}</button>
+                    <button type="button" onClick={() => { props.onDeleteDerived(calc.id); if (editingId === calc.id) setEditingId(null); }} className="rounded border border-red-200 px-2 py-1 text-xs text-red-600">删除</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : mode === "single" ? (
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div className="min-w-0">
                 <Field label="指标">
                   <select value={targetKey} onChange={(event) => setTargetKey(event.target.value)} className={`${inputClass} w-full`}>
-                    {singleOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+                    {singleOptions.map((option) => <option key={option.key} value={option.key}>{option.derived ? "ƒ " : ""}{option.label}</option>)}
                   </select>
                 </Field>
                 <Field label="派生指标名称（可重命名）" className="mt-2 block">
@@ -933,28 +956,6 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
           ) : (
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div className="min-w-0 space-y-3">
-                <section className="rounded-xl border border-fs-border bg-white">
-                  <button type="button" onClick={() => setManageOpen((value) => !value)} className="flex w-full items-center gap-2 px-2.5 py-2 text-left">
-                    <span className="flex-1 text-[13px] font-semibold text-fs-text">已有运算</span>
-                    <span className="text-xs text-fs-muted">{props.derivedCalcs.length} 项 · {manageOpen ? "收起" : "展开管理"}</span>
-                  </button>
-                  {manageOpen ? (
-                    <div className="max-h-64 overflow-y-auto border-t border-fs-border">
-                      {props.derivedCalcs.length === 0 ? <p className="px-3 py-5 text-center text-xs text-fs-muted">暂无派生运算</p> : props.derivedCalcs.map((calc) => (
-                        <div key={calc.id} className={`flex flex-wrap items-center gap-2 border-b border-fs-border/70 px-3 py-2 last:border-0 ${calc.disabled ? "bg-fs-elevated opacity-70" : ""}`}>
-                          <div className="min-w-0 flex-1 basis-48">
-                            <p className="truncate text-[13px] font-medium text-fs-text">{calc.name}</p>
-                            <p className="truncate text-[11px] text-fs-muted">{calc.disabled ? "已停用" : calc.single ? `${calc.single.steps.length} 步单指标运算` : calc.advanced?.kind === "correlation" ? `${calc.advanced.correlation?.window ?? 24} 期滚动${calc.advanced.correlation?.metric === "beta" ? " Beta" : calc.advanced.correlation?.metric === "covariance" ? "协方差" : "相关性"}` : calc.advanced?.kind === "regression" ? `${calc.advanced.regression?.window ?? 36} 期滚动回归 · ${calc.advanced.regression?.output ?? "residual"}` : calc.advanced?.formula ?? "旧版二元运算"}</p>
-                          </div>
-                          <button type="button" onClick={() => editDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">编辑</button>
-                          <button type="button" onClick={() => duplicateDerived(calc)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">复制</button>
-                          <button type="button" onClick={() => props.onToggleDerived(calc.id)} className="rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary">{calc.disabled ? "启用" : "停用"}</button>
-                          <button type="button" onClick={() => { props.onDeleteDerived(calc.id); if (editingId === calc.id) setEditingId(null); }} className="rounded border border-red-200 px-2 py-1 text-xs text-red-600">删除</button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </section>
                 <div className="flex rounded-lg border border-fs-border bg-fs-elevated p-0.5">
                   <button type="button" onClick={() => setKind("formula")} className={`h-8 flex-1 rounded text-[13px] font-medium ${kind === "formula" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>多指标公式</button>
                   <button type="button" onClick={() => setKind("correlation")} className={`h-8 flex-1 rounded text-[13px] font-medium ${kind === "correlation" ? "bg-white text-fs-accent-text shadow-sm" : "text-fs-muted"}`}>滚动统计</button>
@@ -1046,7 +1047,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
           {editingId ? <button type="button" onClick={() => { setEditingId(null); setName(""); setSingleName(""); }} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text">退出编辑</button> : null}
           <span className="flex-1" />
           <button type="button" onClick={props.onClose} className="h-9 rounded-md border border-fs-border px-3.5 text-[13px] text-fs-text">取消</button>
-          {mode === "single" ? <button type="button" disabled={!targetKey || steps.length === 0 || Boolean(singlePreview?.diagnostics.error)} onClick={submitSingle} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? "保存修改" : "添加派生指标"}</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? (kind === "formula" && extraOutputs.length ? `保存并新增 ${extraOutputs.length} 项` : "保存修改") : kind === "formula" && extraOutputs.length ? `添加 ${extraOutputs.length + 1} 个派生指标` : "添加派生指标"}</button>}
+          {mode === "manage" ? null : mode === "single" ? <button type="button" disabled={!targetKey || steps.length === 0 || Boolean(singlePreview?.diagnostics.error)} onClick={submitSingle} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? "保存修改" : "添加派生指标"}</button> : <button type="button" disabled={inputKeys.length < 2 || Boolean(derivedPreview?.diagnostics.error)} onClick={submitDerived} className="h-9 rounded-md bg-fs-accent px-4 text-[13px] font-medium text-white disabled:opacity-40">{editingId ? (kind === "formula" && extraOutputs.length ? `保存并新增 ${extraOutputs.length} 项` : "保存修改") : kind === "formula" && extraOutputs.length ? `添加 ${extraOutputs.length + 1} 个派生指标` : "添加派生指标"}</button>}
         </footer>
       </div>
     </div>,
@@ -1055,5 +1056,5 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
 }
 
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" onClick={onClick} className={`h-9 border-b-2 px-3 text-[13px] font-medium ${active ? "border-fs-accent text-fs-accent-text" : "border-transparent text-fs-muted hover:text-fs-text"}`}>{children}</button>;
+  return <button type="button" onClick={onClick} className={`h-9 shrink-0 whitespace-nowrap border-b-2 px-3 text-[13px] font-medium ${active ? "border-fs-accent text-fs-accent-text" : "border-transparent text-fs-muted hover:text-fs-text"}`}>{children}</button>;
 }
