@@ -47,7 +47,7 @@ test("HTTP403 file failure cannot abort independent partner APIs or other End-Us
 });
 
 test("missing one API country does not suppress other countries in the same request table", async () => {
-  const f = fixture(["census_us_trade_exports_country_nsa_5080", "census_us_trade_exports_country_nsa_5081"]);
+  const f = fixture(["census_us_trade_exports_country_nsa_5790", "census_us_trade_exports_country_nsa_5081"]);
   const called: string[] = [];
   await syncCensusPackage(f.p, f.subs, { hasApiKey: true,
     runMember: (async (_p, s) => { called.push(s.id); f.dates.set(s.id, f.future);

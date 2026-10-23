@@ -6,8 +6,8 @@ import type { ReleaseRule } from "./releaseRule";
  * 圣路易斯联储金融压力指数（STLFSI4）——与既有 Chicago Fed NFCI/ANFCI
  * 独立编制方法论，用于交叉验证金融条件是否处于压力状态。
  * FRED 上是独立 Release（"St. Louis Fed Financial Stress Index"），不与
- * NFCI 共享官方日历，故单独建 probePkg（对齐 `us.chicagofed.nfci` 的
- * 24 小时探测间隔，捕获周五发布的周度更新）。
+ * NFCI 共享官方日历，故单独建 probePkg；6小时探测捕获官方实际发布，
+ * 不假定观测周五就是发布日。
  */
 export type FinancialStressFredSeedRow = {
   fredId: string;
@@ -34,7 +34,7 @@ export const FINANCIAL_STRESS_FRED_SERIES: readonly FinancialStressFredSeedRow[]
     unit: "指数",
     category: "银行与货币",
     source: "St. Louis Fed/FRED",
-    sourceUpdateNote: "每周五收盘数据，通常下周二发布；与 NFCI/ANFCI 编制方法独立",
+    sourceUpdateNote: "周五结束周的未季调指数；实际更新时间以FRED官方发布为准，每6小时探测并回读修订，不把观测日当发布日期",
     releasePackageId: "us.stlouisfed.financial_stress_index",
   },
 ] as const;
@@ -68,7 +68,7 @@ export function buildFinancialStressInstrumentMetadata(
   return metadata;
 }
 
-/** 周频探测，24 小时间隔（对齐既有 us.chicagofed.nfci）。 */
+/** 周频6小时探测，覆盖官方发布和镜像到达时间的不确定性。 */
 export function releaseRuleForFinancialStress(): ReleaseRule {
-  return { type: "probe_interval", intervalHours: 24 };
+  return { type: "probe_interval", intervalHours: 6 };
 }

@@ -102,7 +102,7 @@ export function buildCycleRiskInstrumentMetadata(
 
 /** 6 条新 seed 的 FRED 序列 */
 export const CYCLE_RISK_FRED_SERIES: readonly CycleRiskFredSeedRow[] = [
-  cycleRiskRow("RECPROUSM156N", "平滑衰退概率（Chauvet-Piger）", "领先与深度", "月", "MONTHLY", "分数", "probe", "us.stlouisfed.recession_prob"),
+  cycleRiskRow("RECPROUSM156N", "平滑衰退概率（Chauvet-Piger）", "领先与深度", "月", "MONTHLY", "%", "probe", "us.stlouisfed.recession_prob"),
   cycleRiskRow("SAHMREALTIME", "Sahm 规则实时值", "领先与深度", "月", "MONTHLY", "pp", "probe", "us.stlouisfed.sahm"),
   cycleRiskRow("W875RX1", "实际个人收入(除转移支付)", "国内贸易与消费", "月", "MONTHLY", "十亿美元", "calendar", "us.bea.personal_income"),
   cycleRiskRow("CMRMTSPL", "实际制造与贸易销售", "国内贸易与消费", "月", "MONTHLY", "百万美元", "probe", "us.census.mfg_trade_sales"),

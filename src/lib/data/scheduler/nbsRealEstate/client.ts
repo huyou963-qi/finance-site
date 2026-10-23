@@ -53,6 +53,12 @@ function codeFor(key: string): string {
   return `nbs_cn_realestate_${createHash("sha1").update(identity).digest("hex").slice(0, 18)}`;
 }
 
+function propertyUnit(label: string): string {
+  return /（([^）]+)）/.exec(label)?.[1]
+    ?? (["国内贷款", "利用外资", "自筹资金", "定金及预收款", "个人按揭贷款"].includes(label)
+      ? "亿元" : "原表单位");
+}
+
 function monthFromText(value: string): Date | null {
   const text = compact(value);
   const match = /(20\d{2})年\s*(?:1\s*[—-]\s*)?(\d{1,2})月(?:份)?/.exec(text);
@@ -116,10 +122,10 @@ export function parseNbsPropertyWorkbook(workbook: XLSX.WorkBook, sourceText: st
     if (child && (!parent || parentUnit === "原表单位")) throw new Error(`房地产分项缺少父级或单位：${display}`);
     if (!child) {
       parent = rawLabel.replace(/（[^）]+）/g, "").trim();
-      parentUnit = /（([^）]+)）/.exec(rawLabel)?.[1] ?? "原表单位";
+      parentUnit = propertyUnit(rawLabel);
     }
     const subject = child ? `${parent}：${display}` : parent;
-    const unit = child ? parentUnit : /（([^）]+)）/.exec(rawLabel)?.[1] ?? "原表单位";
+    const unit = child ? parentUnit : propertyUnit(rawLabel);
     const isStock = /施工面积|待售面积/.test(subject);
     if (amount !== null) addSeries(output, {
       key: `property|${subject}|amount`,

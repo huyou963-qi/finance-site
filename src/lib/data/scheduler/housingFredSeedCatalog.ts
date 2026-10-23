@@ -150,14 +150,14 @@ export const HOUSING_FRED_IDS = new Set(HOUSING_FRED_SERIES.map((x) => x.fredId)
 
 /**
  * 调度规则：月频 Census 系列走经济日历（发布包会填 calendarMatch）；
- * 周/季频走 probe_interval（周 24h 每日探测、季 168h）。
+ * 周/季频走 probe_interval（周 6h 探测，避免发布前检查后空等24h；季168h）。
  */
 export function releaseRuleForHousingFred(row: HousingFredSeedRow) {
   if (row.scheduleKind === "calendar") {
     return defaultEconomicCalendarRule(row.granularity);
   }
   if (row.granularity === "WEEKLY") {
-    return { type: "probe_interval" as const, intervalHours: 24 };
+    return { type: "probe_interval" as const, intervalHours: 6 };
   }
   return defaultReleaseRuleForGranularity(row.granularity);
 }

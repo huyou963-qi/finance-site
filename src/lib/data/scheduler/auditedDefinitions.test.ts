@@ -1,8 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AUDITED_DEFINITIONS, auditedDefinitionMetadata } from "./auditedDefinitions";
+import { AUDITED_DEFINITIONS, AUDITED_SOURCE_KEYS, auditedDefinitionMetadata } from "./auditedDefinitions";
+import { HOUSING_FRED_SERIES, releaseRuleForHousingFred } from "./housingFredSeedCatalog";
+import { releaseRuleForFinancialStress } from "./financialStressFredSeedCatalog";
+import { RELEASE_PACKAGE_CATALOG } from "./releasePackageCatalog";
 import { calendarSpecForSubscription } from "./teEventMap";
 import { releaseRuleForPilot } from "./p0SeedCatalog";
+
+test("October23 definitions preserve identity and correct units/parent", () => {
+  for (const [code,unit] of [["sched_fred_RECPROUSM156N","%"],
+    ["nbs_cn_realestate_ab8fa19959bcc39da7","亿元"],["nbs_cn_realestate_b774bcd059b15bd9e0","亿元"]]) {
+    const d = AUDITED_DEFINITIONS.find(x => x.code === code)!;
+    const m = auditedDefinitionMetadata({ catalogKey: "unchanged" }, d);
+    assert.equal(m.unit, unit); assert.equal(m.definitionAudit, "2026-10-23-official-source-review");
+    assert.equal((m as Record<string,unknown>).catalogKey, "unchanged");
+  }
+  const code="nbs_cn_realestate_b4f7e9914e9bc85aeb",d=AUDITED_DEFINITIONS.find(x=>x.code===code)!;
+  const m=auditedDefinitionMetadata({scrape:{provider:"nbs_realestate",key:"property|办公楼|yoy"}},d);
+  assert.deepEqual(m.scrape,{key:AUDITED_SOURCE_KEYS[code],provider:"nbs_realestate"});
+});
+
+test("weekly member and package probes agree and cannot wait24h after a prerelease check", () => {
+  for(const id of ["MORTGAGE15US","MORTGAGE30US"]) assert.deepEqual(releaseRuleForHousingFred(HOUSING_FRED_SERIES.find(x=>x.fredId===id)!),{type:"probe_interval",intervalHours:6});
+  assert.deepEqual(releaseRuleForFinancialStress(),{type:"probe_interval",intervalHours:6});
+  for(const id of ["us.freddiemac.pmms","us.stlouisfed.financial_stress_index"]) {
+    const rule=RELEASE_PACKAGE_CATALOG.find(x=>x.id===id)!.release;
+    assert.equal(rule.type,"probe_interval"); assert.equal((rule as {intervalHours:number}).intervalHours,6);
+  }
+});
 
 test("October 22 corrections change labels only, preserving canonical source identity", () => {
   for (const code of ["usov_c23_fed_assets", "usov_c24_fed_treasuries"]) {

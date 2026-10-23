@@ -12,7 +12,15 @@ export const US_TRADE_COUNTRY_END_PERIODS: Readonly<Record<string, string>> = {
   "7740": "1993-06-01", // Historic Ethiopia, not current7749
 };
 
+// Current Schedule C excludes these identities, but their exact retirement
+// month is not independently established. Never invent a cutoff or splice a
+// successor. Preserve stored history for separate adjudication.
+export const US_TRADE_UNDATED_HISTORICAL_COUNTRIES = ["5080", "5160"] as const;
+export const US_TRADE_HISTORICAL_COUNTRY_IDS: readonly string[] = [
+  ...Object.keys(US_TRADE_COUNTRY_END_PERIODS), ...US_TRADE_UNDATED_HISTORICAL_COUNTRIES,
+];
+
 export function isHistoricalCensusSeries(code: string | null): boolean {
   const id = code && /^census_us_trade_(?:exports|imports)_country_nsa_(\d{4})$/.exec(code)?.[1];
-  return Boolean(id && US_TRADE_COUNTRY_END_PERIODS[id]);
+  return Boolean(id && US_TRADE_HISTORICAL_COUNTRY_IDS.includes(id));
 }

@@ -91,4 +91,23 @@ function testRepeatedPropertyChildren() {
 testProperty();
 testPrice();
 testRepeatedPropertyChildren();
+const fundingBook = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(fundingBook, XLSX.utils.aoa_to_sheet([
+  ["2026年1—9月份全国房地产开发和销售情况"], ["指标", "绝对量", "同比增长（%）"],
+  ["房地产开发企业本年到位资金（亿元）", 56813, -21.6],
+  ["其中：国内贷款", 7624, -33.1], ["利用外资", 4, -77.1],
+  ["自筹资金", 20572, -21.4], ["定金及预收款", 17982, -14.8], ["个人按揭贷款", 7678, -22.1],
+]), "表1");
+for (const item of parseNbsPropertyWorkbook(fundingBook, "2026年1—9月份").values()) {
+  assert.equal(item.unit, item.key.endsWith("|amount") ? "亿元" : "%");
+}
+const office = [...parseNbsPropertyWorkbook((() => {
+  const b = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(b, XLSX.utils.aoa_to_sheet([
+    ["2026年1—9月份"], ["指标", "绝对量", "同比增长（%）"],
+    ["房地产开发投资（亿元）", 53364, -20.6], ["办公楼", 2001, -21],
+    ["商品房待售面积（万平方米）", 74825, -1.5], ["办公楼", 5184, -0.6],
+  ]), "表1"); return b;
+})(), "2026年1—9月份").values()].find(x => x.code === "nbs_cn_realestate_b4f7e9914e9bc85aeb");
+assert.equal(office?.key, "property|商品房待售面积：办公楼|yoy");
+assert.equal(office?.points[0]?.value, -0.6);
 console.log("[nbsRealEstate] parser tests passed");
