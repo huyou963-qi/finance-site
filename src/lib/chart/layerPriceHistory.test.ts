@@ -73,3 +73,14 @@ describe("layer price history", () => {
     }, 1), /history unavailable/);
   });
 });
+
+it("a failed expression leg clears the ratio instead of using another asset", () => {
+  const layers = [createChartLayer({ kind: "expr", expr: "XLK / XLP" })];
+   const [ratio] = deriveLayerSeries({ layers, compareMode: false }, {
+     primaryCloses: points([1, 2], 100),
+     priceBySymbol: { XLK: points([1, 2], 20), XLP: [] },
+     fundamentalsBySymbol: {},
+   });
+   assert.deepEqual(ratio!.points, []);
+   assert.ok(ratio!.error);
+ });

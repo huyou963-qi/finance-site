@@ -389,7 +389,11 @@ export async function getAdjustedDailyBars(
     prisma.equityPriceCoverage.findUnique({ where: { symbol: sym } }),
   ]);
 
-  if (rows.length === 0) return { bars: [], source: null, found: false };
+  // A bounded page before inception (or across a holiday) is empty, not an unknown ticker.
+  if (rows.length === 0) return {
+    bars: [], source: cov?.source ?? null,
+    found: cov?.firstDate != null && !cov.notFound,
+  };
 
   let mergeRows = rows;
   if (mode === "backward" && bounded) {

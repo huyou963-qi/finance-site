@@ -66,8 +66,10 @@ async function fetchSymbolCloses(
     const j = (await r.json().catch(() => ({}))) as {
       error?: string;
       candles?: CandlestickData[];
+      symbol?: string;
     };
     if (!r.ok) throw new Error(j.error ?? `${r.status}`);
+    if (j.symbol?.toUpperCase() !== symbol.toUpperCase()) throw new Error(`返回资产与请求 ${symbol} 不一致`);
     return candleToCloses(j.candles ?? []);
   }, fromSec, signal);
 }
@@ -154,6 +156,9 @@ export function useChartLayers(opts: {
         return;
       }
       setLoadingExtra(true);
+      setLayerErrors([]);
+      setPriceBySymbol(primaryCloses.length ? { [primarySymbol.trim().toUpperCase()]: primaryCloses } : {});
+      setFundamentalsBySymbol({});
       const errors: string[] = [];
 
       await Promise.all(
@@ -170,6 +175,8 @@ export function useChartLayers(opts: {
             if (cancelled) return;
             setPriceBySymbol((prev) => ({ ...prev, [sym]: closes }));
           } catch (e) {
+            if (cancelled) return;
+            setPriceBySymbol((prev) => ({ ...prev, [sym]: [] }));
             errors.push(
               `${sym}: ${e instanceof Error ? e.message : "价格加载失败"}`,
             );
@@ -243,11 +250,8 @@ export function useChartLayers(opts: {
             setFundamentalsBySymbol((prev) => ({
               ...prev,
               [symbol]: {
-                daily: { ...prev[symbol]?.daily, ...bundle.daily },
-                quarterly: {
-                  ...prev[symbol]?.quarterly,
-                  ...bundle.quarterly,
-                },
+                daily: bundle.daily,
+                quarterly: bundle.quarterly,
               },
             }));
           }

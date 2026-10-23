@@ -10,6 +10,8 @@ import {
   type FundamentalMetric,
   type LayerTransform,
 } from "@/lib/chart/chartLayers";
+import { LayerSymbolInput } from "./LayerSymbolInput";
+import { requireExactLayerSymbols } from "@/lib/chart/layerSymbolSearch";
 import { parseLayerExpression } from "@/lib/chart/layerExpression";
 import type { UseChartLayersReturn } from "@/hooks/useChartLayers";
 
@@ -81,7 +83,6 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
     updateLayer,
     removeLayer,
     setCompareMode,
-    applyTemplate,
   } = layersApi;
 
   const summary =
@@ -89,45 +90,56 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
       ? `${layers.filter((l) => l.visible).length} 层`
       : "无叠加";
 
-  const tryAdd = () => {
-    setFormError(null);
-    if (!canAdd) {
-      setFormError(`最多 ${CHART_LAYER_MAX} 条叠加层`);
-      return;
-    }
-    if (addMode === "price") {
-      const sym = priceSym.trim().toUpperCase();
+  const [validating, setValidating] = useState(false);
+
+  const tryAdd = async () => {
+    if (validating) return;
+    setValidating(true);
+    try {
+      setFormError(null);
+      if (!canAdd) {
+        setFormError(`最多 ${CHART_LAYER_MAX} 条叠加层`);
+        return;
+      }
+      if (addMode === "price") {
+        const sym = priceSym.trim().toUpperCase();
+        if (!sym) {
+          setFormError("请输入标的代码");
+          return;
+        }
+        await requireExactLayerSymbols([sym]);
+        addLayer({ kind: "price", symbol: sym, field: "close" });
+        setPriceSym("");
+        return;
+      }
+      if (addMode === "expr") {
+        const expr = useAdvanced
+          ? exprAdvanced.trim()
+          : `${exprLeft.trim().toUpperCase()} ${exprOp} ${exprRight.trim().toUpperCase()}`;
+        const parsed = parseLayerExpression(expr);
+        if (!parsed.ok) {
+          setFormError(parsed.error);
+          return;
+        }
+        await requireExactLayerSymbols(parsed.symbols);
+        addLayer(
+          { kind: "expr", expr },
+          parsed.symbols.length === 1
+            ? undefined
+            : undefined,
+        );
+        return;
+      }
+      const sym = fundSym.trim().toUpperCase() || primarySymbol.trim().toUpperCase();
       if (!sym) {
-        setFormError("请输入标的代码");
+        setFormError("请输入基本面标的");
         return;
       }
-      addLayer({ kind: "price", symbol: sym, field: "close" });
-      setPriceSym("");
-      return;
-    }
-    if (addMode === "expr") {
-      const expr = useAdvanced
-        ? exprAdvanced.trim()
-        : `${exprLeft.trim().toUpperCase()} ${exprOp} ${exprRight.trim().toUpperCase()}`;
-      const parsed = parseLayerExpression(expr);
-      if (!parsed.ok) {
-        setFormError(parsed.error);
-        return;
-      }
-      addLayer(
-        { kind: "expr", expr },
-        parsed.symbols.length === 1
-          ? undefined
-          : undefined,
-      );
-      return;
-    }
-    const sym = fundSym.trim().toUpperCase() || primarySymbol.trim().toUpperCase();
-    if (!sym) {
-      setFormError("请输入基本面标的");
-      return;
-    }
-    addLayer({ kind: "fundamental", symbol: sym, metric: fundMetric });
+      await requireExactLayerSymbols([sym]);
+      addLayer({ kind: "fundamental", symbol: sym, metric: fundMetric });
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "资产校验失败");
+    } finally { setValidating(false); }
   };
 
   return (
@@ -176,31 +188,6 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
               />
               对比模式（价格指数化）
             </label>
-          </div>
-
-          <div className="mb-2 flex flex-wrap gap-1">
-            <button
-              type="button"
-              className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-secondary hover:bg-fs-elevated"
-              onClick={() => applyTemplate("vsSpy")}
-              disabled={!canAdd && layers.length >= CHART_LAYER_MAX}
-            >
-              模板: vs SPY
-            </button>
-            <button
-              type="button"
-              className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-secondary hover:bg-fs-elevated"
-              onClick={() => applyTemplate("peOnChart")}
-            >
-              模板: PE
-            </button>
-            <button
-              type="button"
-              className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-secondary hover:bg-fs-elevated"
-              onClick={() => applyTemplate("spreadVsPeer", "MSFT")}
-            >
-              模板: 价差
-            </button>
           </div>
 
           {layers.length === 0 ? (
@@ -338,13 +325,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
 
             {addMode === "price" ? (
               <div className="flex gap-1">
-                <input
-                  type="text"
-                  value={priceSym}
-                  onChange={(e) => setPriceSym(e.target.value.toUpperCase())}
-                  placeholder="如 MSFT"
-                  className="min-w-0 flex-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-1 font-mono text-[11px] text-fs-text"
-                />
+                <LayerSymbolInput value={priceSym} onChange={setPriceSym} label="叠加资产" />
               </div>
             ) : null}
 
@@ -352,11 +333,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
               <div className="space-y-1">
                 {!useAdvanced ? (
                   <div className="flex flex-wrap items-center gap-1">
-                    <input
-                      value={exprLeft}
-                      onChange={(e) => setExprLeft(e.target.value.toUpperCase())}
-                      className="w-16 rounded border border-fs-border bg-fs-elevated px-1 py-1 font-mono text-[11px]"
-                    />
+                    <LayerSymbolInput value={exprLeft} onChange={setExprLeft} label="运算左侧资产" />
                     <select
                       value={exprOp}
                       onChange={(e) => setExprOp(e.target.value as "-" | "/")}
@@ -365,11 +342,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                       <option value="-">−</option>
                       <option value="/">/</option>
                     </select>
-                    <input
-                      value={exprRight}
-                      onChange={(e) => setExprRight(e.target.value.toUpperCase())}
-                      className="w-16 rounded border border-fs-border bg-fs-elevated px-1 py-1 font-mono text-[11px]"
-                    />
+                    <LayerSymbolInput value={exprRight} onChange={setExprRight} label="运算右侧资产" />
                   </div>
                 ) : (
                   <input
@@ -391,11 +364,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
 
             {addMode === "fund" ? (
               <div className="flex flex-wrap gap-1">
-                <input
-                  value={fundSym}
-                  onChange={(e) => setFundSym(e.target.value.toUpperCase())}
-                  className="w-16 rounded border border-fs-border bg-fs-elevated px-1 py-1 font-mono text-[11px]"
-                />
+                <LayerSymbolInput value={fundSym} onChange={setFundSym} label="基本面资产" />
                 <select
                   value={fundMetric}
                   onChange={(e) =>
@@ -427,10 +396,10 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
             <button
               type="button"
               onClick={tryAdd}
-              disabled={!canAdd}
+              disabled={!canAdd || validating}
               className="mt-2 w-full rounded bg-fs-elevated py-1 text-[11px] text-fs-text hover:bg-fs-border disabled:opacity-40"
             >
-              添加
+              {validating ? "校验资产…" : "添加"}
             </button>
           </div>
         </div>
