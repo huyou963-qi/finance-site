@@ -2,34 +2,42 @@ import type { PrismaClient } from "@prisma/client";
 import {
   COT_MM_PRODUCTS,
   cotInstrumentCode,
-  type CotMetric,
 } from "@/lib/data/cot/cotProductCatalog";
 import { clearCftcCotCache, fetchCftcDisaggregatedRows } from "@/lib/data/scheduler/cftcCot/client";
 import { extractMmSeries } from "@/lib/data/scheduler/cftcCot/match";
-import { upsertMacroObservations } from "@/lib/data/scheduler/upsertObservations";
+import { CFTC_COT_HISTORY_START } from "./types";
+import { readStoredLastObservationDate, upsertMacroObservations } from "@/lib/data/scheduler/upsertObservations";
 
 /** 历史回填：单次拉取后写入全部品种 long/short */
 export async function bulkImportCotHistory(
   prisma: PrismaClient,
-  options?: { weeksBack?: number },
+  options?: { weeksBack?: number; productSlugs?: string[] },
 ): Promise<{ upserted: number; products: number }> {
-  const weeksBack = options?.weeksBack ?? 60;
   const since = new Date();
-  since.setUTCDate(since.getUTCDate() - weeksBack * 7);
-  const sinceIso = since.toISOString().slice(0, 10);
+  if (options?.weeksBack != null) {
+    if (!Number.isFinite(options.weeksBack) || options.weeksBack <= 0) throw new Error("weeksBack must be positive");
+    since.setUTCDate(since.getUTCDate() - options.weeksBack * 7);
+  }
+  const sinceIso = options?.weeksBack == null ? CFTC_COT_HISTORY_START : since.toISOString().slice(0, 10);
+  const selectedProducts = options?.productSlugs;
+  if (selectedProducts?.some((slug) => !COT_MM_PRODUCTS.some((p) => p.slug === slug))) {
+    throw new Error("Unknown COT product slug");
+  }
 
   clearCftcCotCache();
-  const rows = await fetchCftcDisaggregatedRows(sinceIso);
+  const rows = await fetchCftcDisaggregatedRows(sinceIso, { requireCompleteHistory: true });
   let totalUpserted = 0;
   let products = 0;
 
   for (const product of COT_MM_PRODUCTS) {
+    if (selectedProducts && !selectedProducts.includes(product.slug)) continue;
     const series = extractMmSeries(rows, product.match);
     if (!series.length) {
       console.warn(`[cot-bulk] 无数据: ${product.label}`);
       continue;
     }
     products++;
+    console.log(`[cot-bulk] ${product.slug}: ${series.length} 周，${series[0]!.obsDate.toISOString().slice(0, 10)} 至 ${series[series.length - 1]!.obsDate.toISOString().slice(0, 10)}`);
 
     for (const metric of ["long", "short"] as const) {
       const code = cotInstrumentCode(product.slug, metric);
@@ -45,7 +53,7 @@ export async function bulkImportCotHistory(
       const { upserted } = await upsertMacroObservations(prisma, inst.id, points);
       totalUpserted += upserted;
 
-      const lastObs = points[points.length - 1]?.obsDate;
+      const lastObs = await readStoredLastObservationDate(prisma, inst.id);
       if (lastObs) {
         await prisma.dataSubscription.updateMany({
           where: { instrumentId: inst.id },

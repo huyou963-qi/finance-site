@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { deflateRawSync } from "node:zlib";
-import { extractFirstZipText, parseCftcDisaggregatedCombinedText } from "./client";
+import { clearCftcCotCache, fetchCftcDisaggregatedRows, extractFirstZipText, parseCftcDisaggregatedCombinedText } from "./client";
 
 test("parses managed-money fields from CFTC Disaggregated Combined text", () => {
   const text = [
@@ -51,4 +51,49 @@ test("extracts the first deflated file from a CFTC-style ZIP", () => {
   const zip = Buffer.concat([local, name, compressed, central, name]);
 
   assert.equal(extractFirstZipText(zip), "gold row\n");
+});
+
+const goldRow = (date: string) => ({
+  id: `${date}-gold`, report_date_as_yyyy_mm_dd: date,
+  commodity: "GOLD", market_and_exchange_names: "GOLD - COMMODITY EXCHANGE INC.",
+  m_money_positions_long_all: "100", m_money_positions_short_all: "40", open_interest_all: "1000",
+});
+
+test("history paginates beyond 50,000 rows and retains the newest report", async (t) => {
+  clearCftcCotCache();
+  const offsets: string[] = [];
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    assert.ok(url.searchParams.get("$select")?.includes("m_money_positions_long_all"));
+    offsets.push(url.searchParams.get("$offset")!);
+    const rows = offsets.length === 1
+      ? Array.from({ length: 50_000 }, () => goldRow("2006-06-13"))
+      : [goldRow("2026-10-13")];
+    return Response.json(rows);
+  });
+  t.after(clearCftcCotCache);
+  const rows = await fetchCftcDisaggregatedRows("2006-01-01", { requireCompleteHistory: true });
+  assert.deepEqual(offsets, ["0", "50000"]);
+  assert.equal(rows.length, 50_001);
+  assert.equal(rows.at(-1)?.reportDateIso, "2026-10-13");
+});
+
+test("network errors fall back for incremental updates, but current-only cache cannot satisfy history", async (t) => {
+  clearCftcCotCache();
+  const urls: string[] = [];
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = String(input);
+    urls.push(url);
+    if (url.endsWith("c_disagg.txt")) {
+      return new Response('"GOLD - COMMODITY EXCHANGE INC.",261013,2026-10-13,088691,CMX,00,002,1000,1,2,3,4,5,100,40');
+    }
+    throw new Error("network unavailable");
+  });
+  t.after(clearCftcCotCache);
+  const rows = await fetchCftcDisaggregatedRows("2006-01-01");
+  assert.equal(rows.length, 1);
+  const before = urls.length;
+  await assert.rejects(fetchCftcDisaggregatedRows("2006-01-01", { requireCompleteHistory: true }), /network unavailable/);
+  assert.ok(urls.length > before);
+  assert.equal(urls.filter((url) => url.endsWith("c_disagg.txt")).length, 1);
 });

@@ -1,5 +1,8 @@
 import type { CotMatchMode } from "@/lib/data/cot/cotProductCatalog";
 
+// 官方分项合并报告历史最早可回溯至 2006 年，不能与 Legacy 报告混接。
+export const CFTC_COT_HISTORY_START = "2006-01-01";
+
 export const CFTC_DISAGG_COMBINED_DATASET = "kh3c-gbw2";
 
 export const CFTC_COT_API_BASE =
@@ -13,6 +16,7 @@ export type CftcCotRow = {
   reportDate: Date;
   reportDateIso: string;
   commodity: string;
+  contractMarketCode?: string;
   market: string;
   mmLong: number | null;
   mmShort: number | null;
@@ -25,6 +29,7 @@ export type CotMatchSpec = {
   marketPatterns: string[];
   excludeMarketPatterns?: string[];
   exactMarketSubstrings?: string[];
+  contractMarketCodes?: string[];
 };
 
 export type CotInstrumentCotMeta = {

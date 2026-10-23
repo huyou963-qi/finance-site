@@ -3,6 +3,7 @@
  *
  * npm run data:seed-cot
  * npm run data:seed-cot -- --skip-bulk
+ * npm run data:seed-cot -- --bulk-only --products=gold
  * npm run data:sync-cot
  */
 import { loadEnvConfig } from "@next/env";
@@ -116,7 +117,10 @@ async function seedInstruments() {
           name: cotInstrumentName(product, metric),
           freqLabel: "周",
           unit: "张",
-          metadata: mergeFetchAcquisition(existing?.metadata, acquisition) as object,
+          metadata: {
+            ...(mergeFetchAcquisition(existing?.metadata, acquisition) as object),
+            cot: metadata.cot,
+          } as object,
         },
       });
 
@@ -149,7 +153,7 @@ async function seedInstruments() {
   console.log(`仪器: 新建 ${created}，更新 ${updated}（共 ${COT_MM_PRODUCTS.length} 品种 × 2）`);
 }
 
-async function syncDueSubscriptions(limit = 50) {
+async function syncDueSubscriptions() {
   const subs = await prisma.dataSubscription.findMany({
     where: { sourceId: CFTC_COT_SOURCE.id, enabled: true },
     include: {
@@ -159,7 +163,6 @@ async function syncDueSubscriptions(limit = 50) {
         select: { id: true, releaseTemplate: true, scheduleState: true, nextRunAt: true },
       },
     },
-    take: limit,
   });
 
   let ok = 0;
@@ -181,10 +184,11 @@ async function main() {
   const skipBulk = process.argv.includes("--skip-bulk");
   const syncOnly = process.argv.includes("--sync-only");
   const bulkOnly = process.argv.includes("--bulk-only");
+  const productSlugs = process.argv.find((arg) => arg.startsWith("--products="))?.slice("--products=".length).split(",");
 
   if (bulkOnly) {
-    console.log("历史回填（约 60 周）…");
-    const bulk = await bulkImportCotHistory(prisma, { weeksBack: 60 });
+    console.log("历史回填（2006 年起官方完整历史）…");
+    const bulk = await bulkImportCotHistory(prisma, { productSlugs });
     console.log(`回填完成: ${bulk.products} 品种, upsert ${bulk.upserted} 行`);
     return;
   }
@@ -195,8 +199,8 @@ async function main() {
   }
 
   if (!skipBulk && !syncOnly) {
-    console.log("历史回填（约 60 周）…");
-    const bulk = await bulkImportCotHistory(prisma, { weeksBack: 60 });
+    console.log("历史回填（2006 年起官方完整历史）…");
+    const bulk = await bulkImportCotHistory(prisma, { productSlugs });
     console.log(`回填完成: ${bulk.products} 品种, upsert ${bulk.upserted} 行`);
   }
 

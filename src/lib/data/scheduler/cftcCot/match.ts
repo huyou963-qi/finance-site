@@ -12,6 +12,10 @@ function patternTest(text: string, patterns: string[]): boolean {
 }
 
 export function rowMatchesSpec(row: CftcCotRow, spec: CotMatchSpec): boolean {
+  if (spec.contractMarketCodes?.length) {
+    return spec.contractMarketCodes.includes(row.contractMarketCode ?? "");
+  }
+
   const market = row.market;
   const commodity = row.commodity;
 

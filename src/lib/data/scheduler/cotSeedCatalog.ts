@@ -1,4 +1,4 @@
-import type { CotProductDef } from "@/lib/data/cot/cotProductCatalog";
+import { COT_PRODUCT_BY_SLUG, type CotProductDef } from "@/lib/data/cot/cotProductCatalog";
 import { cotCatalogLabel } from "@/lib/data/cot/cotCatalog";
 import type { FetchAcquisitionRecord } from "./fetchAcquisition";
 import type { CotInstrumentCotMeta } from "./cftcCot/types";
@@ -26,7 +26,7 @@ export function readCotMeta(metadata: unknown): CotInstrumentCotMeta | null {
   return {
     productSlug,
     metric,
-    match: {
+    match: COT_PRODUCT_BY_SLUG.get(productSlug)?.match ?? {
       mode: m.mode === "aggregate_markets" ? "aggregate_markets" : "single_max_oi",
       commodityPatterns: Array.isArray(m.commodityPatterns)
         ? m.commodityPatterns.map(String)
@@ -35,6 +35,7 @@ export function readCotMeta(metadata: unknown): CotInstrumentCotMeta | null {
       excludeMarketPatterns: Array.isArray(m.excludeMarketPatterns)
         ? m.excludeMarketPatterns.map(String)
         : undefined,
+      contractMarketCodes: Array.isArray(m.contractMarketCodes) ? m.contractMarketCodes.map(String) : undefined,
       exactMarketSubstrings: Array.isArray(m.exactMarketSubstrings)
         ? m.exactMarketSubstrings.map(String)
         : undefined,

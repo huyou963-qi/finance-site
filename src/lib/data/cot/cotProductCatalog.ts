@@ -17,6 +17,8 @@ export type CotProductDef = {
     excludeMarketPatterns?: string[];
     /** aggregate_markets：按市场名子串匹配后按 report_date 加总 */
     exactMarketSubstrings?: string[];
+    /** 官方合约市场代码跨更名保持稳定；配置后优先于名称匹配。 */
+    contractMarketCodes?: string[];
   };
 };
 
@@ -86,6 +88,7 @@ export const COT_MM_PRODUCTS: readonly CotProductDef[] = [
     sortOrder: 50,
     match: {
       mode: "aggregate_markets",
+      contractMarketCodes: ["03565C", "023A55", "023A56", "0233AH"],
       commodityPatterns: ["NATURAL GAS"],
       marketPatterns: [],
       exactMarketSubstrings: [
@@ -213,6 +216,7 @@ export const COT_MM_PRODUCTS: readonly CotProductDef[] = [
     sortOrder: 150,
     match: {
       mode: "single_max_oi",
+      contractMarketCodes: ["001602"],
       commodityPatterns: ["WHEAT"],
       marketPatterns: ["WHEAT-SRW"],
     },
@@ -225,6 +229,7 @@ export const COT_MM_PRODUCTS: readonly CotProductDef[] = [
     sortOrder: 160,
     match: {
       mode: "single_max_oi",
+      contractMarketCodes: ["001612"],
       commodityPatterns: ["WHEAT"],
       marketPatterns: ["WHEAT-HRW"],
     },
@@ -249,6 +254,7 @@ export const COT_MM_PRODUCTS: readonly CotProductDef[] = [
     sortOrder: 180,
     match: {
       mode: "single_max_oi",
+      contractMarketCodes: ["073732"],
       commodityPatterns: ["COCOA"],
       marketPatterns: ["ICE FUTURES U.S."],
     },

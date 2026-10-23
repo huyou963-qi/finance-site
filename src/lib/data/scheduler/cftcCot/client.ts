@@ -9,6 +9,7 @@ type RowCache = {
   sinceIso: string;
   rows: CftcCotRow[];
   fetchedAt: number;
+  completeHistory: boolean;
 };
 
 let cache: RowCache | null = null;
@@ -34,6 +35,7 @@ function normalizeRow(r: Record<string, unknown>): CftcCotRow | null {
     reportDate,
     reportDateIso: reportDate.toISOString().slice(0, 10),
     commodity: String(r.commodity ?? "").trim(),
+    contractMarketCode: String(r.cftc_contract_market_code ?? "").trim(),
     market: String(r.market_and_exchange_names ?? "").trim(),
     mmLong: num(r.m_money_positions_long_all),
     mmShort: num(r.m_money_positions_short_all),
@@ -84,6 +86,7 @@ export function parseCftcDisaggregatedCombinedText(text: string): CftcCotRow[] {
       reportDate,
       reportDateIso: reportDate.toISOString().slice(0, 10),
       commodity,
+      contractMarketCode: fields[3]?.trim(),
       market,
       openInterest: num(fields[7]),
       mmLong: num(fields[13]),
@@ -158,11 +161,11 @@ async function fetchCombinedArchives(sinceIso: string): Promise<CftcCotRow[]> {
     if (!res.ok) {
       throw new Error(`CFTC combined archive HTTP ${res.status}: ${url}`);
     }
-    rows.push(
-      ...parseCftcDisaggregatedCombinedText(
-        extractFirstZipText(new Uint8Array(await res.arrayBuffer())),
-      ),
+    const annualRows = parseCftcDisaggregatedCombinedText(
+      extractFirstZipText(new Uint8Array(await res.arrayBuffer())),
     );
+    if (!annualRows.length) throw new Error(`CFTC combined archive has no valid rows: ${url}`);
+    rows.push(...annualRows);
   }
   return rows.filter((row) => row.reportDateIso >= sinceIso);
 }
@@ -171,41 +174,59 @@ export function clearCftcCotCache(): void {
   cache = null;
 }
 
-export async function fetchCftcDisaggregatedRows(sinceIso: string): Promise<CftcCotRow[]> {
-  const since = sinceIso.slice(0, 10);
-  const now = Date.now();
-  if (cache && cache.sinceIso <= since && now - cache.fetchedAt < CACHE_TTL_MS) {
-    return cache.rows.filter((r) => r.reportDateIso >= since);
-  }
+const SOCRATA_PAGE_SIZE = 50_000;
 
-  const isoFilter = `${since}T00:00:00.000`;
-  const url =
-    `${CFTC_COT_API_BASE}?` +
-    `$where=${encodeURIComponent(`report_date_as_yyyy_mm_dd >= '${isoFilter}'`)}` +
-    `&$order=${encodeURIComponent("report_date_as_yyyy_mm_dd ASC")}` +
-    `&$limit=50000`;
-
-  const res = await fetch(url, { signal: AbortSignal.timeout(180_000) });
-  let rows: CftcCotRow[];
-  if (res.ok) {
-    const raw = (await res.json()) as Record<string, unknown>[];
-    rows = [];
+async function fetchSocrataRows(since: string): Promise<CftcCotRow[]> {
+  const rows: CftcCotRow[] = [];
+  for (let offset = 0; ; offset += SOCRATA_PAGE_SIZE) {
+    const query = new URLSearchParams({
+      $where: `report_date_as_yyyy_mm_dd >= '${since}T00:00:00.000'`,
+      $select: "report_date_as_yyyy_mm_dd,commodity,cftc_contract_market_code,market_and_exchange_names,m_money_positions_long_all,m_money_positions_short_all,open_interest_all",
+      // 同一报告日有多个市场，用唯一 id 保证跨页顺序稳定。
+      $order: "report_date_as_yyyy_mm_dd ASC, id ASC",
+      $limit: String(SOCRATA_PAGE_SIZE),
+      $offset: String(offset),
+    });
+    const res = await fetch(`${CFTC_COT_API_BASE}?${query}`, { signal: AbortSignal.timeout(180_000) });
+    if (!res.ok) throw new Error(`CFTC Socrata HTTP ${res.status}`);
+    const raw = await res.json() as Record<string, unknown>[];
+    if (!Array.isArray(raw)) throw new Error("CFTC Socrata response is not an array");
     for (const item of raw) {
       const row = normalizeRow(item);
       if (row) rows.push(row);
     }
-  } else {
-    // Socrata occasionally rejects otherwise valid server-side requests with
-    // 403. The CFTC-published current combined file is the same report and
-    // keeps scheduled incremental updates working without changing the series.
+    if (raw.length < SOCRATA_PAGE_SIZE) return rows;
+  }
+}
+
+export async function fetchCftcDisaggregatedRows(
+  sinceIso: string,
+  options?: { requireCompleteHistory?: boolean },
+): Promise<CftcCotRow[]> {
+  const since = sinceIso.slice(0, 10);
+  const now = Date.now();
+  if (cache && cache.sinceIso <= since && now - cache.fetchedAt < CACHE_TTL_MS &&
+      (!options?.requireCompleteHistory || cache.completeHistory)) {
+    return cache.rows.filter((r) => r.reportDateIso >= since);
+  }
+
+  let rows: CftcCotRow[];
+  let completeHistory = true;
+  try {
+    rows = await fetchSocrataRows(since);
+  } catch {
+    // 官方年度档案与 API 使用相同的分项合并口径。网络异常也走官方兜底。
     try {
       rows = await fetchCombinedArchives(since);
-    } catch {
+    } catch (error) {
+      // 历史回填不得把仅有最新一期的文件误报为“完整历史成功”。
+      if (options?.requireCompleteHistory) throw error;
       rows = await fetchCurrentCombinedText();
+      completeHistory = false;
     }
   }
 
-  cache = { sinceIso: since, rows, fetchedAt: now };
+  cache = { sinceIso: since, rows, fetchedAt: now, completeHistory };
   return rows.filter((r) => r.reportDateIso >= since);
 }
 
