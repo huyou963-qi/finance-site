@@ -24,6 +24,7 @@ import {
   type PriceClosePoint,
 } from "@/lib/chart/deriveLayerSeries";
 import { listSymbolsInExpression } from "@/lib/chart/layerExpression";
+import { loadLayerPriceHistory } from "@/lib/chart/layerPriceHistory";
 import {
   forwardPeFromCloses,
   type ForwardEpsPoint,
@@ -50,20 +51,25 @@ async function fetchSymbolCloses(
   interval: string,
   adjust: PriceAdjustmentMode,
   limit: number,
+  fromSec: number | null,
+  signal: AbortSignal,
 ): Promise<PriceClosePoint[]> {
-  const qs = new URLSearchParams({
-    symbol,
-    interval,
-    limit: String(limit),
-    adjust,
-  });
-  const r = await fetch(`/api/data/klines?${qs}`);
-  const j = (await r.json().catch(() => ({}))) as {
-    error?: string;
-    candles?: CandlestickData[];
-  };
-  if (!r.ok) throw new Error(j.error ?? `${r.status}`);
-  return candleToCloses(j.candles ?? []);
+  return loadLayerPriceHistory(async (before) => {
+    const qs = new URLSearchParams({
+      symbol,
+      interval,
+      limit: String(limit),
+      adjust,
+    });
+    if (before != null) qs.set("before", String(before));
+    const r = await fetch(`/api/data/klines?${qs}`, { signal });
+    const j = (await r.json().catch(() => ({}))) as {
+      error?: string;
+      candles?: CandlestickData[];
+    };
+    if (!r.ok) throw new Error(j.error ?? `${r.status}`);
+    return candleToCloses(j.candles ?? []);
+  }, fromSec, signal);
 }
 
 export function useChartLayers(opts: {
@@ -71,7 +77,7 @@ export function useChartLayers(opts: {
   interval: string;
   priceAdjustment: PriceAdjustmentMode;
   primaryCandles: CandlestickData[];
-  /** 与主图首屏一致的条数，叠加标的对齐长度 */
+  /** 单页期望条数；完整历史按主图最早时间分页补齐 */
   fetchLimit?: number;
   /** 指数化相对可见区左缘 */
   indexFromSec?: number | null;
@@ -140,9 +146,11 @@ export function useChartLayers(opts: {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const run = async () => {
       if (!neededPriceSymbols.length && !fundReqs.length) {
         setLayerErrors([]);
+        setLoadingExtra(false);
         return;
       }
       setLoadingExtra(true);
@@ -156,6 +164,8 @@ export function useChartLayers(opts: {
               interval,
               priceAdjustment,
               fetchLimit,
+              primaryCloses[0]?.time ?? null,
+              controller.signal,
             );
             if (cancelled) return;
             setPriceBySymbol((prev) => ({ ...prev, [sym]: closes }));
@@ -167,6 +177,7 @@ export function useChartLayers(opts: {
         }),
       );
 
+      if (cancelled) return;
       await Promise.all(
         fundReqs.map(async ({ symbol, metrics }) => {
           const hasFwd = metrics.includes("forwardPe");
@@ -216,6 +227,8 @@ export function useChartLayers(opts: {
                       interval,
                       priceAdjustment,
                       fetchLimit,
+                      primaryCloses[0]?.time ?? null,
+                      controller.signal,
                     ));
               const pe = forwardPeFromCloses(closes, j.timeline ?? []);
               bundle.daily = { ...bundle.daily, forwardPe: pe };
@@ -249,6 +262,7 @@ export function useChartLayers(opts: {
     void run();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [
     neededPriceKey,
