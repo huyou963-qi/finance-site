@@ -829,13 +829,10 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     sortOrder: 140,
     members: { instrumentCodePatterns: ["mof_cn_budget_*"] },
   }),
-  pkg("us.umich.sentiment", "密歇根消费者信心", {
+  probePkg("us.umich.sentiment", "密歇根消费者信心（官方CSV）", {
     granularity: "MONTHLY",
     sortOrder: 140,
-    calendar: {
-      countryCodes: ["US"],
-      keywords: ["michigan consumer sentiment", "consumer sentiment"],
-    },
+    intervalHours: 1,
     members: {
       fredSeriesIds: ["UMCSENT"],
     },

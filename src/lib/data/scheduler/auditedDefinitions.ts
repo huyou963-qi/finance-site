@@ -3,7 +3,7 @@ export const AUDITED_DEFINITIONS = [
   { code: "usov_c23_fed_assets", name: "美联储总资产", unit: "百万美元", freqLabel: "周", source: "FRB/FRED" },
   { code: "usov_c24_fed_treasuries", name: "美联储持有美国国债", unit: "百万美元", freqLabel: "周", source: "FRB/FRED" },
   { code: "sched_wb_JP_FS_AST_DOMS_GD_ZS", name: "日本：金融部门国内信贷占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
-  { code: "sched_fred_UMCSENT", name: "密歇根大学消费者信心指数（FRED延迟发布）", unit: "指数", freqLabel: "月", source: "University of Michigan/FRED（授权延迟一个月）" },
+  { code: "sched_fred_UMCSENT", name: "密歇根大学消费者信心指数（官方初值/终值）", unit: "指数", freqLabel: "月", source: "University of Michigan（官方CSV）" },
   { code: "sched_fred_CUSR0000SAC", name: "CPI 商品（含食品与能源商品）", unit: "指数", freqLabel: "月", source: "BLS/FRED" },
   { code: "sched_fred_CUSR0000SAS", name: "CPI 服务（含能源服务）", unit: "指数", freqLabel: "月", source: "BLS/FRED" },
   { code: "sched_fred_FGEXPND", name: "联邦政府经常性支出（季调折年）", unit: "十亿美元", freqLabel: "季", source: "BEA/FRED" },
