@@ -36,3 +36,11 @@ test("7月快照回填不能清理10月观测；未取得行情时不能清理",
   assert.equal(replacementThrough("2026-10-16", "2026-10-14"), "2026-10-14");
   assert.equal(replacementThrough("2026-10-16", null), null);
 });
+
+
+test("纽约收盘缓冲后纳入当天，冬夏令时均不提前使用盘中日线", async () => {
+  const { closedDailyUpperBound } = await import("./compute");
+  for (const [time, expected] of [["2026-10-23T21:59:00Z", "2026-10-23"], ["2026-10-23T22:00:00Z", "2026-10-24"], ["2026-12-01T22:59:00Z", "2026-12-01"], ["2026-12-01T23:00:00Z", "2026-12-02"]]) {
+    assert.equal(closedDailyUpperBound(new Date(time)).toISOString().slice(0, 10), expected);
+  }
+});

@@ -18,13 +18,15 @@ async function main() {
   const breadth = cachedPrices && !styleOnly ? await buildDailyBreadth("1995-01-01", { live: !process.argv.includes("--packaged-membership"), refreshPrices: false }) : null;
   if (replaceHistory && breadth?.membershipCorroborated) throw new Error("SPY独立校验只确认持仓日，不能据此清理其他日期的历史观测；请在完整指数名单源恢复后重算清理");
   for (const row of MARKET_INTERNALS_SERIES) {
-    if (styleOnly && row.source !== "french") continue;
+    if (styleOnly && row.source === "breadth") continue;
     if (breadthOnly && row.source !== "breadth") continue;
     const sub = await prisma.dataSubscription.findFirst({ where: { instrument: { code: row.code } }, include: { source: true, instrument: true, releasePackage: true } });
     if (!sub) throw new Error(`请先seed: ${row.code}`);
-    const result = await runDataSubscription(prisma, sub, { force: true, skipCalendarRefresh: true,
+    const result = await runDataSubscription(prisma, cachedPrices ? { ...sub, revisionLookback: 1000 } : sub, { force: true, skipCalendarRefresh: true,
       ...(breadth && row.source === "breadth" ? { fetchIncremental: async () => {
-        const points = breadth.rows.filter((r) => r.values[row.key] != null).map((r) => ({ obsDate: new Date(`${r.date}T00:00:00Z`), value: r.values[row.key]! }));
+        const existing = replaceHistory ? [] : await prisma.macroObservation.findMany({ where: { instrumentId: sub.instrumentId }, select: { obsDate: true } });
+        const stored = new Set(existing.map(r => r.obsDate.toISOString().slice(0, 10)));
+        const points = breadth.rows.filter((r) => r.values[row.key] != null && !stored.has(r.date)).map((r) => ({ obsDate: new Date(`${r.date}T00:00:00Z`), value: r.values[row.key]! }));
         return { points, sourceLatestObsDate: points.at(-1)?.obsDate ?? null, skippedInvalid: 0, sourceMetadata: { membershipAnchor: breadth.anchor, membershipSource: breadth.source, cachedPricesOnly: true } };
       } } : {}),
     });

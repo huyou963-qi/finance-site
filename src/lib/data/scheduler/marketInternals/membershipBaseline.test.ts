@@ -19,3 +19,18 @@ test("只确认基线以内及独立持仓当天，不把端点相同推断成�
   assert.equal(isConfirmedMembershipDate("2026-10-23", "2026-10-17", "2026-10-23"), true);
   assert.equal(isConfirmedMembershipDate("2026-10-24", "2026-10-17", "2026-10-23"), false);
 });
+
+
+test("核验日持久保存，绑定基线哈希并隔离新旧名单", async () => {
+  const { mkdtemp, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { recordMembershipConfirmation } = await import("./membershipBaseline");
+  const root = await mkdtemp(join(tmpdir(), "membership-proof-"));
+  const baseline = { version: 1 as const, html: "fixture", anchor: "2026-10-16", source: "fixture", fetchedAt: "2026-10-16", sha256: "fixture-a" };
+  try {
+    await recordMembershipConfirmation(baseline, "2026-10-19", root);
+    assert.deepEqual(await recordMembershipConfirmation(baseline, "2026-10-21", root), ["2026-10-19", "2026-10-21"]);
+    assert.deepEqual(await recordMembershipConfirmation({ ...baseline, sha256: "fixture-b" }, "2026-10-22", root), ["2026-10-22"]);
+  } finally { await rm(root, { recursive: true }); }
+});

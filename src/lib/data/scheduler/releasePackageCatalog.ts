@@ -1196,8 +1196,12 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     members: { instrumentCodePatterns: ["ff_us_*"] },
   }),
   probePkg("us.gekkotech.daily_market_breadth", "美国日频市场广度（公开成分重建）", {
-    agencyId: "us-gekkotech-market-research", granularity: "DAILY", intervalHours: 24, sortOrder: 261,
+    agencyId: "us-gekkotech-market-research", granularity: "DAILY", intervalHours: 6, sortOrder: 261,
     members: { instrumentCodePatterns: ["breadth_us_sp500_*"] },
+  }),
+  probePkg("us.gekkotech.daily_style_proxies", "美国日更风格代理（ETF收益差）", {
+    agencyId: "us-gekkotech-market-research", granularity: "DAILY", intervalHours: 6, sortOrder: 262,
+    members: { instrumentCodePatterns: ["style_proxy_us_*"] },
   }),
   // 年度更新的研究数据集，探测间隔取 168h（周）——比月频源更稀疏即可
   probePkg("us.ritter.ipo_statistics", "美国 IPO 月度统计（Ritter）", {

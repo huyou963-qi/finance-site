@@ -2,14 +2,16 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { unzipSync, strFromU8 } from "fflate";
 import { prisma } from "@/lib/prisma";
-import { ensureDailyBars } from "@/lib/equity/equityPriceStore";
+import { ensureDailyBars, syncSymbolFromRemote } from "@/lib/equity/equityPriceStore";
 import { parseWikipediaSp500Html } from "@/lib/equity/wikipediaSp500";
 import { normalizeSp500Ticker, parseWikipediaSp500Changes, sliceTableById } from "@/lib/equity/wikipediaSp500Changes";
-import { parseFrenchDaily, publishBreadth, roundPercent, trendFlags } from "./compute";
+import { closedDailyUpperBound, parseFrenchDaily, publishBreadth, roundPercent, trendFlags } from "./compute";
 import { archiveTicker, historicalDailyMembership, HISTORY_SOURCE } from "./membership";
-import { WIKI_URL, WIKI_HISTORY_URL } from "./catalog";
+import { WIKI_URL, WIKI_HISTORY_URL, DAILY_STYLE_PROXIES } from "./catalog";
 import { fetchSsgaDailyHoldings, ssgaDailyHoldingsUrl } from "@/lib/equity/sectorEtfHoldings";
-import { isConfirmedMembershipDate, readMembershipBaseline, saveMembershipBaseline, validateCorroboration } from "./membershipBaseline";
+import { recordMembershipConfirmation, isConfirmedMembershipDate, readMembershipBaseline, saveMembershipBaseline, validateCorroboration } from "./membershipBaseline";
+
+import { computeDailyStyleProxies } from "./styleProxies";
 
 export type DailyValues = { date: string; values: Record<string, number | null> };
 const cache = new Map<string, { expires: number; value: Promise<DailyValues[]> }>();
@@ -44,8 +46,22 @@ export function loadDailyStyles(): Promise<DailyValues[]> {
   });
 }
 
-type MembershipSource = { html: string; anchor: string; source: string; corroboration?: { baselineAnchor: string; asOf: string } };
-export async function loadMembershipSource(live: boolean, dependencies = { readBaseline: readMembershipBaseline, saveBaseline: saveMembershipBaseline, fetchHoldings: fetchSsgaDailyHoldings }): Promise<MembershipSource> {
+export function loadDailyStyleProxies(): Promise<DailyValues[]> {
+  return cached("style-proxies", async () => {
+    const symbols = [...new Set(DAILY_STYLE_PROXIES.flatMap(row => [row.long, row.short]))];
+    // 六只ETF完整回读，避免增量缓存中不同抓取批次的adjClose尺度在边界形成假收益。
+    for (const symbol of symbols) {
+      if (!await syncSymbolFromRemote(symbol, { full: true })) throw new Error(`风格代理ETF缺少有效行情: ${symbol}`);
+    }
+    const upperBound = closedDailyUpperBound();
+    const prices = await prisma.equityDailyBar.findMany({ where: { symbol: { in: symbols }, date: { gte: new Date("1995-01-01"), lt: upperBound } }, select: { symbol: true, date: true, adjClose: true }, orderBy: { date: "asc" } });
+    const rows = prices.map(row => ({ ...row, date: row.date.toISOString().slice(0, 10) }));
+    return computeDailyStyleProxies(rows.filter(row => row.symbol === "SPY").map(row => row.date), rows);
+  });
+}
+
+type MembershipSource = { html: string; anchor: string; source: string; corroboration?: { baselineAnchor: string; asOf: string; confirmedDates?: string[] } };
+export async function loadMembershipSource(live: boolean, dependencies = { readBaseline: readMembershipBaseline, saveBaseline: saveMembershipBaseline, fetchHoldings: fetchSsgaDailyHoldings, recordConfirmation: recordMembershipConfirmation }): Promise<MembershipSource> {
   if (live) {
     try {
       const response = await fetch(WIKI_URL, { cache: "no-store", signal: AbortSignal.timeout(20_000), headers: { "User-Agent": "GekkoTech-MarketData/1.0" } });
@@ -76,10 +92,11 @@ export async function loadMembershipSource(live: boolean, dependencies = { readB
         const actual = holdings.rows.filter((r) => r.symbol && /^[A-Z]{1,5}(?:-[A-Z])?$/.test(r.symbol)).map((r) => normalizeSp500Ticker(r.symbol!)).filter((s): s is string => s != null);
         const todayNy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
         validateCorroboration(expected, actual, holdings.asOfDate, todayNy);
+        const confirmedDates = await dependencies.recordConfirmation(baseline, holdings.asOfDate);
         const reason = error instanceof Error ? error.message : String(error);
         return { html: baseline.html, anchor: holdings.asOfDate,
           source: `${baseline.source};baseline=${baseline.anchor};corroborated=${ssgaDailyHoldingsUrl("SPY")};holdingsAsOf=${holdings.asOfDate};Wikipedia unavailable: ${reason}`,
-          corroboration: { baselineAnchor: baseline.anchor, asOf: holdings.asOfDate } };
+          corroboration: { baselineAnchor: baseline.anchor, asOf: holdings.asOfDate, confirmedDates } };
       } catch (corroborationError) {
         throw new Error(`在线成分名单不可用，禁止自动回退旧快照：${error instanceof Error ? error.message : String(error)}；独立日度校验失败：${corroborationError instanceof Error ? corroborationError.message : String(corroborationError)}`);
       }
@@ -107,19 +124,19 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
     // 复用行情库自身的节流、日内缓存、失败/退市语义；不把旧价复制为新观测。
     await ensureDailyBars(["SPY", ...current]);
   }
-  const todayNy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const upperBound = closedDailyUpperBound();
   const warmup = new Date(`${from}T00:00:00Z`);
   warmup.setUTCDate(warmup.getUTCDate() - 400);
-  const calendarRows = await prisma.equityDailyBar.findMany({ where: { symbol: "SPY", date: { gte: warmup, lt: new Date(`${todayNy}T00:00:00Z`) }, close: { gt: 0 } }, orderBy: { date: "asc" }, select: { date: true } });
+  const calendarRows = await prisma.equityDailyBar.findMany({ where: { symbol: "SPY", date: { gte: warmup, lt: upperBound }, close: { gt: 0 } }, orderBy: { date: "asc" }, select: { date: true } });
   const calendar = calendarRows.map((r) => r.date.toISOString().slice(0, 10));
   const indexByDate = new Map(calendar.map((date, index) => [date, index]));
-  const membership = historicalDailyMembership(calendar.filter((d) => d >= from && (!source.corroboration || isConfirmedMembershipDate(d, source.corroboration.baselineAnchor, source.corroboration.asOf))), current, parseWikipediaSp500Changes(source.html), source.anchor);
+  const membership = historicalDailyMembership(calendar.filter((d) => d >= from && (!source.corroboration || (isConfirmedMembershipDate(d, source.corroboration.baselineAnchor, source.corroboration.asOf) || source.corroboration.confirmedDates?.includes(d)))), current, parseWikipediaSp500Changes(source.html), source.anchor);
   const totals = new Map([...membership].map(([date, members]) => [date, { members: members.size, eligible50: 0, eligible200: 0, above50: 0, above200: 0 }]));
   const symbols = [...new Set([...membership.values()].flatMap((set) => [...set]))].sort();
   for (let start = 0; start < symbols.length; start += 20) {
     const batch = symbols.slice(start, start + 20);
     const priceKeys = [...new Set(batch.flatMap((s) => [normalizeSp500Ticker(s) ?? s, normalizeSp500Ticker(s, "1995-01-01") ?? s, archiveTicker(s)]))];
-    const bars = await prisma.equityDailyBar.findMany({ where: { symbol: { in: priceKeys }, date: { gte: warmup, lt: new Date(`${todayNy}T00:00:00Z`) } }, orderBy: [{ symbol: "asc" }, { date: "asc" }], select: { symbol: true, date: true, close: true } });
+    const bars = await prisma.equityDailyBar.findMany({ where: { symbol: { in: priceKeys }, date: { gte: warmup, lt: upperBound } }, orderBy: [{ symbol: "asc" }, { date: "asc" }], select: { symbol: true, date: true, close: true } });
     const bySymbol = new Map<string, { index: number; close: number }[]>();
     for (const bar of bars) {
       const index = indexByDate.get(bar.date.toISOString().slice(0, 10));

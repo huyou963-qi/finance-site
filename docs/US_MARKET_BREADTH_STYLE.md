@@ -18,7 +18,7 @@
 | breadth_us_sp500_coverage50_daily | 连续50交易日有效价格样本数/当日成员数 | 日 |
 | breadth_us_sp500_coverage200_daily | 连续200交易日有效价格样本数/当日成员数 | 日 |
 
-单位全部为%。风格是源方每日多空因子收益，不是月频值填充、ETF净值或累计收益。
+单位全部为%。官方风格是源方每日多空因子收益，不是月频值填充、ETF净值或累计收益。
 周末、休市日、未完结交易日不制造观测。周频研究可以从日频观测另行聚合，但广度适合周末截面，风格是收益序列，不能把两者均值都当作周收益。
 
 ## 来源、覆盖与频率
@@ -42,7 +42,7 @@
 
 香港Wikipedia仍可能返回403。此时使用现有State Street官方SPY每日持仓下载器进行**独立核对**：上市股票代码必须与已核验指数基线逐项一致，持仓日期不得来自未来或超过5个自然日；现金、期货及非上市CVR权益不作为指数股票。只确认持仓文件明确标注的日期，不将该日的相同集合倒填到基线之后其他未核验日期，也不将ETF调仓当作指数历史变更事件。若股票集合变化、文件过期或基线损坏，则停止本轮更新，等待刷新指数名单。
 
-日常广度adapter只追加库内最新观测日之后的新日期，在线及独立核验两条路径均保留已导入历史，FetchRun记录`appendOnly`与`storedThrough`。历史修订需要显式完整sync。基线以外仅更新独立校验当天的新值；该模式禁止`--replace-history`清理历史，避免删除以前已核验日期。每次FetchRun记录原Wikipedia错误、基线日期、SPY持仓日期、来源和独立核验标记。行情仍由香港Yahoo链路更新，覆盖率不足95%仍不发布。
+2026-10-24起，日常广度adapter在回看窗口内插入所有可核验的缺失日期，保留已有历史值，FetchRun记录`insertMissingOnly`与`existingDates`。原先只追加最新日期的逻辑会永久跳过延迟到齐的日期，已修复。历史值修订仍需显式重算。基线以外仅更新独立校验当天的新值；该模式禁止`--replace-history`清理历史，避免删除以前已核验日期。每次FetchRun记录原Wikipedia错误、基线日期、SPY持仓日期、来源和独立核验标记。行情仍由香港Yahoo链路更新，覆盖率不足95%仍不发布。
 
 2026-10-17实测：香港Wikipedia GET为403；State Street持仓文件GET为200，文件截至2026-10-15，503只上市股票与本机当天在线核验名单一致。该文件不能用于宣称2026-10-16已经核验或生成更晚观测。
 2026-10-17提交门禁通过：1025项测试通过、1项平台测试跳过，Prisma校验、ESLint、生产构建与98页生成完成。新增测试覆盖403独立校验、成分差异、过期/未来日期和未核验日期不得倒填。
@@ -118,10 +118,10 @@ npm run data:verify-market-internals -- --db
 
 - 数据源：`market-internals-french` / `market-internals-breadth`。
 - 发布包：`us.french.daily_style_factors` / `us.gekkotech.daily_market_breadth`。
-- 订阅：`DAILY`、`probe_interval: 24h`、`bootstrapOnly: false`、获取方式known。
-- 复用正式调度器：现有 `finance-site-data-scheduler.cron` 每5分钟运行worker，处理到期的24小时订阅；不另建Codex提醒或独立采集系统。
+- 订阅：`DAILY`、French `probe_interval: 24h`、广度/代理 `probe_interval: 6h`、`bootstrapOnly: false`、获取方式known。
+- 复用正式调度器：现有 `finance-site-data-scheduler.cron` 每5分钟运行worker，处理到期订阅；不另建Codex提醒或独立采集系统。
 - 已登记统一seed/verify registry，部署时`data:apply`自动纳入。
-- 广度日常只追加新日期（计算附400自然日预热），风格完整回读；广度历史价格/名单修订时显式全量sync。
+- 广度日常补缺且保留已有值（计算附400自然日预热），官方风格和ETF代理完整回读；广度历史价格/名单修订时显式全量sync。
 - 行情刷新失败记录FetchRun失败；缺失退市价格不靠存续股替代，不填零、不复制旧值。
 
 ```powershell
@@ -158,3 +158,28 @@ npm run data:worker -- --source=market-internals-breadth --force --limit=4
 构建结果记录于`.data/market-breadth-build-result.json`，数据库恢复核验记录于`.data/market-breadth-recovery-check.json`。上述记录为发布前本地结果；实际发布状态以GitHub Actions部署结果与香港服务器核验日志为准，本机没有新建Windows计划任务。
 提交门禁排除`.data/**`运行缓存，避免扫描历史归档与本地独立构建产物；源码仍执行全量测试、Prisma校验、ESLint与生产构建。
 2026-10-16合入远端main后，`npm run verify:commit`完整通过：1021项测试通过、1项平台测试跳过，Prisma、ESLint、生产构建与98页生成通过；使用上述本机独立输出目录，临时配置已恢复。
+
+
+## 2026-10-24：每日风格代理与广度补缺
+
+French 两份源 ZIP 实测仍最新至 2026-08-31，保持官方五条序列及按日检查。新增独立目录「美国 → 利率与信用市场 → 美股日更风格代理」，不新建页面、不拼接官方数据：
+
+| code | 收益差 | 口径 |
+| --- | --- | --- |
+| style_proxy_us_size_daily | IWM − SPY | 小盘减大盘 |
+| style_proxy_us_value_daily | IWD − IWF | Russell 1000 价值减成长 |
+| style_proxy_us_quality_daily | QUAL − SPY | 质量减大盘；不是纯盈利 RMW |
+| style_proxy_us_momentum_daily | MTUM − SPY | 动量减大盘；不是赢家减输家 Mom |
+
+计算 `100 * (adjClose_long[t] / adjClose_long[t-1] - adjClose_short[t] / adjClose_short[t-1])`，单位 %（两个百分比收益之差）。使用既有 Yahoo 行情下载器与价格库，每轮完整回读六只 ETF，以保持历史复权尺度一致，避免跨增量批次边界产生假收益；两只 ETF 均须在相邻 SPY 交易日有有效价格，缺价不跨日、不填零。起点为 ETF 实际可用历史，不能伪称始于 1995。质量选择参照 [iShares QUAL 说明](https://www.ishares.com/us/literature/fact-sheet/qual-ishares-msci-usa-quality-factor-etf-fund-fact-sheet-en-us.pdf)：高 ROE、稳定盈利及低债务。CMA 是资产投资因子，未新增未经验证的 ETF 替代。
+
+代理源 `market-internals-proxy`、发布包 `us.gekkotech.daily_style_proxies`；广度及代理每 6 小时探测，沿用现有五分钟 worker。纽约时间 18:00 后纳入当天已收盘行情，留出发布缓冲；此前仅使用更早日期，交易日取真实 SPY 日线，不生成节假日观测。行情提供方迟到时后续轮次重试。
+
+香港独立核验会保存按基线日期和 HTML SHA256 隔离的日度凭证 `.data/market-breadth-sources/confirmations/`；只使用已逐项核对的具体日期。这样价格延迟到齐后仍可补算已确认日，不会推断两个相同名单端点之间必然无变更。名单变化仍要求刷新历史变更基线。
+
+`--cached-prices` 全历史补缺将本次运行的回看窗口扩至 1000 月，解决通用 runner 的两月写入边界截断全历史结果的问题；默认只插缺，只有显式 `--replace-history` 才重写并清理旧值。补历史与日常 worker 均经正式入库路径，保留抓取和版本账本。
+
+本轮原始数据复核：1995 无名单；1996-01-02 仅 487 只；2008-09-15 的 200 日覆盖 86.14%；2018-03-01 为 84.19%；2020-03-23 为 89.50%；2022-10-12 为 94.23%。仍低于 95% 的历史日期留空。FMP 合法单次探测仍返回 429 Limit Reach，Nasdaq WIKI API 返回 403，未循环重试。完整 1995 年至今的无缺口历史尚不能宣称完成。
+
+
+本机本轮补缺后：50日占比 2,429 点（2011-10-14起）、200日占比 2,305 点（2012-04-10起）、两条覆盖率各 6,044 点（2001-02-27起），最新均为 2026-10-23。全历史重读未发现还能用现有原始行情补出的更早占比，不能把此次近期漏日修复称为1995年以来历史完整。

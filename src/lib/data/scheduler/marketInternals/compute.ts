@@ -53,3 +53,12 @@ export function roundPercent(value: number): number { return Math.round(value * 
 export function replacementThrough(anchor: string, calendarThrough: string | null): string | null {
   return calendarThrough == null ? null : anchor < calendarThrough ? anchor : calendarThrough;
 }
+
+/** 纽约18点以后允许当日已收盘日线；提前收市日也等待同一缓冲，不生成休市日。 */
+export function closedDailyUpperBound(now = new Date()): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(now);
+  const get = (type: string) => parts.find(p => p.type === type)!.value;
+  const date = new Date(`${get("year")}-${get("month")}-${get("day")}T00:00:00Z`);
+  if (Number(get("hour")) >= 18) date.setUTCDate(date.getUTCDate() + 1);
+  return date;
+}

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 export type MembershipBaseline = { version: 1; html: string; anchor: string; source: string; fetchedAt: string; sha256: string };
@@ -38,4 +38,21 @@ export function validateCorroboration(expected: readonly string[], actual: reado
 
 export function isConfirmedMembershipDate(date: string, baselineAnchor: string, holdingsAsOf: string): boolean {
   return date <= baselineAnchor || date === holdingsAsOf;
+}
+
+/** 核验凭证绑定基线内容和日期。保存后价格迟到仍可补算该日，不把未核验的中间日期视为已确认。 */
+export async function recordMembershipConfirmation(baseline: MembershipBaseline, asOf: string, directoryRoot = path.dirname(baselinePath())): Promise<string[]> {
+  const directory = path.join(directoryRoot, "confirmations", `${baseline.anchor}-${baseline.sha256}`);
+  await mkdir(directory, { recursive: true });
+  const proof = { baselineSha256: baseline.sha256, baselineAnchor: baseline.anchor, asOf, checkedAt: new Date().toISOString(), source: "SSGA SPY exact stock-set match" };
+  const temporary = path.join(directory, `${asOf}.${process.pid}.tmp`);
+  await writeFile(temporary, JSON.stringify(proof));
+  await rename(temporary, path.join(directory, `${asOf}.json`));
+  const confirmed: string[] = [];
+  for (const name of await readdir(directory)) {
+    if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) continue;
+    const row = JSON.parse(await readFile(path.join(directory, name), "utf8")) as typeof proof;
+    if (row.baselineSha256 === baseline.sha256 && row.baselineAnchor === baseline.anchor && row.asOf === name.slice(0, 10)) confirmed.push(row.asOf);
+  }
+  return confirmed.sort();
 }
