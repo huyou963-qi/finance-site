@@ -12,6 +12,7 @@ async function main() {
     assert.equal(inst.freqLabel, "日");
     assert.equal(inst.dataSubscription?.granularity, "DAILY");
     assert.equal(inst.dataSubscription?.enabled, true);
+    assert.equal(inst.dataSubscription?.revisionLookback, row.source === "french" ? 1000 : 2);
     assert.deepEqual(inst.dataSubscription?.releaseRule, { type: "probe_interval", intervalHours: row.source === "french" ? 24 : 6 });
     assert.equal(inst.dataSubscription?.releasePackageId, row.source === "french" ? "us.french.daily_style_factors" : row.source === "breadth" ? "us.gekkotech.daily_market_breadth" : "us.gekkotech.daily_style_proxies");
     assert.ok(inst.dataSubscription?.nextRunAt, `${row.code}缺少自动排期`);
