@@ -36,6 +36,10 @@ test("country publication boundary removes future placeholders but preserves pub
     const old = result.find(row => row.code === `census_us_trade_exports_country_nsa_${code}`)!;
     assert.equal(old.points.length, 12);
     assert.equal(old.points.at(-1)?.obsDate.toISOString().slice(0, 10), "1992-12-01");
+    const imports = result.find(row => row.code === `census_us_trade_imports_country_nsa_${code}`)!;
+    assert.equal(imports.points.length, 12);
+    assert.equal(imports.points.at(-1)?.obsDate.toISOString().slice(0, 10), "1992-12-01");
+    assert.equal(imports.points.at(-1)?.value, 0); // Real zero within lifecycle retained.
   }
   assert.equal(result.find(row => row.code === "census_us_trade_exports_country_nsa_7740")!.points.at(-1)!.obsDate.toISOString().slice(0, 10), "1993-06-01");
   assert.equal(result.find(row => row.code === "census_us_trade_exports_country_nsa_7370")!.points.at(-1)!.obsDate.toISOString().slice(0, 10), "2020-12-01");
