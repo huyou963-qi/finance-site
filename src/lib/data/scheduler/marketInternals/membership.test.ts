@@ -22,3 +22,13 @@ test("旧归档代码有独立命名空间，不与复用代码的新公司行�
 test("历史快照与当前名单桥接存在无法解释的差异时拒绝发布", () => {
   assert.throws(() => historicalDailyMembership(["2026-09-01"], ["WRONG"], [], "2026-09-01"), /桥接未通过/);
 });
+
+
+test("证券更名继续使用同一公司历史行情，不把Physicians旧DOC反向当成Healthpeak", async () => {
+  const { normalizeSp500Ticker } = await import("@/lib/equity/wikipediaSp500Changes");
+  assert.equal(normalizeSp500Ticker("MMC", "2023-01-04"), "MRSH");
+  assert.equal(normalizeSp500Ticker("PEAK", "2023-01-04"), "DOC");
+  assert.equal(normalizeSp500Ticker("HCP", "2015-01-02"), "DOC");
+  assert.equal(normalizeSp500Ticker("DOC", "2023-01-04"), "DOC");
+  assert.equal(normalizeSp500Ticker("ATVI", "2023-01-04"), "ATVI");
+});

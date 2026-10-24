@@ -28,6 +28,9 @@ export type Sp500Change = {
  * 方便与 EquityDailyBar 直接 join。
  */
 export const SP500_TICKER_ALIASES: Record<string, string> = {
+  MMC: "MRSH", // 同一公司/CUSIP，2026-01-14；marsh.com 官方2025-12-29公告
+  PEAK: "DOC", // Healthpeak存续普通股，2024-03-04；SEC CIK765880 / 000110465924029661
+  HCP: "DOC", // Healthpeak旧名，2019-11-05 HCP→PEAK；SEC CIK765880 / 000076588019000006
   FB: "META", // Meta Platforms 2022-06
   PCLN: "BKNG", // Booking Holdings 2018-02
   KORS: "CPRI", // Capri Holdings 2019-01

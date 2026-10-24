@@ -26,8 +26,9 @@ async function main() {
       ...(breadth && row.source === "breadth" ? { fetchIncremental: async () => {
         const existing = replaceHistory ? [] : await prisma.macroObservation.findMany({ where: { instrumentId: sub.instrumentId }, select: { obsDate: true } });
         const stored = new Set(existing.map(r => r.obsDate.toISOString().slice(0, 10)));
-        const points = breadth.rows.filter((r) => r.values[row.key] != null && !stored.has(r.date)).map((r) => ({ obsDate: new Date(`${r.date}T00:00:00Z`), value: r.values[row.key]! }));
-        return { points, sourceLatestObsDate: points.at(-1)?.obsDate ?? null, skippedInvalid: 0, sourceMetadata: { membershipAnchor: breadth.anchor, membershipSource: breadth.source, cachedPricesOnly: true } };
+        const available = breadth.rows.filter((r) => r.values[row.key] != null);
+        const points = available.filter((r) => !stored.has(r.date)).map((r) => ({ obsDate: new Date(`${r.date}T00:00:00Z`), value: r.values[row.key]! }));
+        return { points, sourceLatestObsDate: available.length ? new Date(`${available.at(-1)!.date}T00:00:00Z`) : null, skippedInvalid: 0, sourceMetadata: { membershipAnchor: breadth.anchor, membershipSource: breadth.source, cachedPricesOnly: true } };
       } } : {}),
     });
     console.log(row.code, result);
