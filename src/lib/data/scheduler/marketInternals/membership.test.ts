@@ -32,3 +32,43 @@ test("证券更名继续使用同一公司历史行情，不把Physicians旧DOC�
   assert.equal(normalizeSp500Ticker("DOC", "2023-01-04"), "DOC");
   assert.equal(normalizeSp500Ticker("ATVI", "2023-01-04"), "ATVI");
 });
+
+
+test("新发行人复用代码的回溯价格不得计入旧公司广度", async () => {
+  const { historicalPriceTicker } = await import("./membership");
+  assert.equal(historicalPriceTicker("VIAC", "2020-03-23"), "LEGACY:PARA");
+  assert.equal(historicalPriceTicker("PARA", "2022-10-12"), "LEGACY:PARA");
+  assert.equal(historicalPriceTicker("PARA", "2025-08-07"), "LEGACY:PARA");
+  assert.equal(historicalPriceTicker("PARA", "2026-10-23"), "PARA");
+  assert.equal(historicalPriceTicker("LB", "2020-03-23"), "LEGACY:LB");
+  assert.equal(historicalPriceTicker("LB", "2026-10-23"), "LB");
+  assert.equal(historicalPriceTicker("MMC", "2020-03-23"), "MRSH");
+});
+
+
+test("独立快照窗口和发行人身份守卫：原AGN不能使用新Actavis价格，原ARNC跟随HWM", async () => {
+  const { historicalPriceKeys } = await import("./membership");
+  assert.deepEqual(historicalPriceKeys("AGN", "2014-01-02"), ["LEGACY:AGN"]);
+  assert.equal(historicalPriceKeys("AGN", "2016-01-04")[0], "AGN");
+  assert.equal(historicalPriceKeys("ARNC", "2020-04-01")[0], "HWM");
+  assert.equal(historicalPriceKeys("CTL", "2020-04-02")[0], "LUMN");
+  assert.equal(historicalPriceKeys("MYL", "2020-04-02")[0], "VTRS");
+  assert.deepEqual(historicalPriceKeys("PARA", "2022-10-12").slice(0, 3), ["LEGACY:PARA", "Y22:LEGACY:PARA", "Y20:LEGACY:PARA"]);
+});
+
+
+test("同一普通股连续性和不同股类、同名旧发行人必须分开", async () => {
+  const { historicalPriceTicker } = await import("./membership");
+  assert.equal(historicalPriceTicker("BBT", "2017-11-08"), "TFC");
+  assert.equal(historicalPriceTicker("STI", "2017-11-08"), "STI");
+  assert.equal(historicalPriceTicker("BHGE", "2017-11-08"), "BKR");
+  assert.equal(historicalPriceTicker("TMK", "2017-11-08"), "GL");
+  assert.equal(historicalPriceTicker("IR", "2017-11-08"), "TT");
+  assert.equal(historicalPriceTicker("IR", "2022-10-12"), "IR");
+  assert.equal(historicalPriceTicker("TT", "2007-01-03"), "LEGACY:TT");
+  assert.equal(historicalPriceTicker("TT", "2022-10-12"), "TT");
+  assert.equal(historicalPriceTicker("CBS", "2017-11-08"), "LEGACY:PARA");
+  assert.equal(historicalPriceTicker("VIAB", "2017-11-08"), "VIAB");
+  assert.equal(historicalPriceTicker("DISCA", "2020-04-03"), "WBD");
+  assert.equal(historicalPriceTicker("DISCK", "2020-04-03"), "DISCK");
+});

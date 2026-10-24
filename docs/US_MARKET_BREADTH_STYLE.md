@@ -1,5 +1,18 @@
 # 美股日频市场广度与风格（宏观数据库）
 
+## 最新重建结果（2026-10-24，截至2026-10-23）
+
+以下为本轮最终重算结果，后文较早检查记录仅作为过程留档。
+
+| 指标 | 有效日数 | 首个有效日 | 此后无缺口的起点 |
+| --- | --- | --- | --- |
+| 标普500站上50日均线占比 | 3775 | 2011-09-26 | 2011-12-19 |
+| 标普500站上200日均线占比 | 3674 | 2011-10-14 | 2012-04-02 |
+
+2018—2022年的缺口已补齐。较早尚缺：50日指标2011-11-23至2011-12-16（17个交易日）；200日指标2011-11-01至2012-03-30（104个交易日），以及各自首个有效日之前的历史。1995年没有完整公开成分名单，早年退市股价格也不完整，继续留空；没有降低95%样本覆盖门槛。覆盖率序列各6044点，自2001-02-27开始。
+
+四条日更代理最新为2026-10-23：小盘/价值各6641点（2000-05-30起）、质量3337点（2013-07-19起）、动量3400点（2013-04-19起）。官方French五条仍各7968点，1995-01-03至2026-08-31；官方文件按月发布与每日检查是两个不同频率。日更代理在既有宏观目录“美股日更风格代理”选取，不能从原官方因子列自动替换。
+
 全部进入现有 Instrument / MacroObservation / DataSubscription / FetchRun / 版本账本；没有独立页面或专用页面API，不新增schema。
 宏观目录：美国 → 利率与信用市场 → 美股风格因子（日频）/ 美股市场广度（日频）。
 按用户明确要求，把计算型广度保存在宏观库，并用metadata标明衍生属性与方法，不冒充源方原始发布指标。
@@ -192,3 +205,21 @@ French 两份源 ZIP 实测仍最新至 2026-08-31，保持官方五条序列及
 
 
 香港实际代理 worker 已验证 4/4 成功。Yahoo 复权数值跨次下载存在极小舍入变化（本轮最大约0.000232个百分点，最新值一致）；代理日常仅修订最近两个月，避免无意义地反复改写数十年历史。首次导入和显式全历史任务仍覆盖ETF全部真实历史，French继续完整回读。行情下载仍完整获取六只ETF，保证每个收益窗口的复权尺度一致。
+
+
+### 公开Yahoo冻结归档扩充与代码复用隔离
+
+追加核验 [Jackson Crow / Oleh Onyshchak 的 Stock Market Dataset](https://www.kaggle.com/datasets/jacksoncrow/stock-market-dataset)，固定版本2（2020-04-02发布，截至2020-04-01），Kaggle官方metadata声明 CC0: Public Domain；逐文件保留原始CSV及SHA256。它是Yahoo拆股调整Close和分红复权Adj Close的历史冻结副本。只使用2016-01-01起的记录，限定2016—2020期间实际指数成员候选，并只向完全空的价格键写入，不与已有不同刻度价格拼接。NaN/空单元格不补值，逐股与WIKI重叠期收益核对后才回填。仍可在线获取的历史成员（CCEP、DXC、FBIN）优先完整获取真实Yahoo日线。
+
+发行人代码复用必须隔离：旧Paramount/VIAC使用 `LEGACY:PARA`，旧L Brands使用 `LEGACY:LB`；现代PARA（Banzai/Parabolic）和LB（LandBridge）的价格不能回溯用于旧指数成员。证据：[Banzai 2026-10-16 8-K](https://www.sec.gov/Archives/edgar/data/1826011/000143774926033292/para20261016_8k.htm)、[LandBridge 2024年10-K](https://www.sec.gov/Archives/edgar/data/1995807/000095017025034049/lb-20241231.htm)、[L Brands 2021-08-03更名8-K](https://www.sec.gov/Archives/edgar/data/701985/000114036121026658/nt10026698x7_8k.htm)。隔离只作用于历史广度价格选择，当前股票K线继续使用现行代码。
+
+
+第二份CC0公开归档固定为 [Larxel S&P500 Stocks](https://www.kaggle.com/datasets/andrewmvd/sp-500-stocks) 版本300，实际数据截止2022-12-15。原始文件SHA256、版本URL、逐股覆盖和跨源收益核对保存在运行缓存manifest；2020、2022两份归档分别落 `Y20:` / `Y22:` 独立价格键，每个50/200日窗口只选一个完整价格键。2020归档只用2016起的价格；2022归档自2010起，上市前NaN不入库。Arconic冻结文件存在拆分当日发行人切换，隔离到Q20，不用于旧母公司；旧母公司使用真实HWM历史。原Allergan在2015并购前不能使用Actavis的WIKI:AGN历史，未找到旧发行人报价的日期明确缺失。
+
+CTL→LUMN见 [2020年三季报](https://www.sec.gov/Archives/edgar/data/18926/000001892620000028/ctl-20200930.htm)；MYL→VTRS见 [Nasdaq公司行动公告](https://www.nasdaqtrader.com/TraderNews.aspx?id=ECA2020-208)，旧股一比一换新股。历史价格选择只在旧股票实际成员期读取数据商保留的真实旧报价，并经WIKI重叠期收益核对；没有把合并后的新公司价格向前复制。专项audit同步使用全部价格键及发行人守卫，不能再只查Yahoo/WIKI而漏算两份冻结归档的覆盖。
+
+
+补充的旧报价连续性：BBT→TFC、BHGE→BKR、TMK→GL、旧IR→TT、DISCA A类→WBD，均在历史成员有效期选择真实旧报价。每组已对560个左右重叠收益核对，median差异约2e-8；DISCK C类与WBD中位差约0.0022，明确不映射。旧TT（2008被收购的Trane）亦不得使用2020更名后的新TT历史。企业行动证据：[Baker Hughes 2019年报](https://investors.bakerhughes.com/files/doc_financials/2019/2019_Baker-Hughes-Annual-Report.pdf)、[Globe Life公告](https://investors.globelifeinsurance.com/news-releases/2019/august/torchmark-corporation-has-officially-been-renamed-globe-life-inc?accessibility=true)、[Nasdaq Discovery企业行动](https://www.nasdaqtrader.com/TraderNews.aspx?id=ECA2022-63)。Larxel早期版本1/2的宽表缺少日期列，未将其按顺序猜测为交易日，明确不入库。
+
+
+CBS存续B类股2019-12-05改用VIAC，后改PARA；历史CBS使用已核对旧报价的LEGACY:PARA冻结价格，而不使用新Banzai报价。原VIAB未映射为CBS。BBT存续关系见 [Truist 2019年报](https://www.sec.gov/Archives/edgar/data/92230/000009223020000045/tfc-20191231.htm)；旧IR→TT见 [2020-03-02 8-K](https://www.sec.gov/Archives/edgar/data/1466258/000114036120004470/nc10009348x1_form8k.htm)。

@@ -6,7 +6,7 @@ import { ensureDailyBars, syncSymbolFromRemote } from "@/lib/equity/equityPriceS
 import { parseWikipediaSp500Html } from "@/lib/equity/wikipediaSp500";
 import { normalizeSp500Ticker, parseWikipediaSp500Changes, sliceTableById } from "@/lib/equity/wikipediaSp500Changes";
 import { closedDailyUpperBound, parseFrenchDaily, publishBreadth, roundPercent, trendFlags } from "./compute";
-import { archiveTicker, historicalDailyMembership, HISTORY_SOURCE } from "./membership";
+import { historicalPriceKeys, historicalDailyMembership, HISTORY_SOURCE } from "./membership";
 import { WIKI_URL, WIKI_HISTORY_URL, DAILY_STYLE_PROXIES } from "./catalog";
 import { fetchSsgaDailyHoldings, ssgaDailyHoldingsUrl } from "@/lib/equity/sectorEtfHoldings";
 import { recordMembershipConfirmation, isConfirmedMembershipDate, readMembershipBaseline, saveMembershipBaseline, validateCorroboration } from "./membershipBaseline";
@@ -135,7 +135,7 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
   const symbols = [...new Set([...membership.values()].flatMap((set) => [...set]))].sort();
   for (let start = 0; start < symbols.length; start += 20) {
     const batch = symbols.slice(start, start + 20);
-    const priceKeys = [...new Set(batch.flatMap((s) => [normalizeSp500Ticker(s) ?? s, normalizeSp500Ticker(s, "1995-01-01") ?? s, archiveTicker(s)]))];
+    const priceKeys = [...new Set(batch.flatMap((s) => [...historicalPriceKeys(s), ...historicalPriceKeys(s, "1995-01-01")]))];
     const bars = await prisma.equityDailyBar.findMany({ where: { symbol: { in: priceKeys }, date: { gte: warmup, lt: upperBound } }, orderBy: [{ symbol: "asc" }, { date: "asc" }], select: { symbol: true, date: true, close: true } });
     const bySymbol = new Map<string, { index: number; close: number }[]>();
     for (const bar of bars) {
@@ -149,12 +149,11 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
     for (const symbol of batch) for (const [date, members] of membership) {
       if (!members.has(symbol)) continue;
       const index = indexByDate.get(date)!;
-      const yahoo = flagsByKey.get(normalizeSp500Ticker(symbol, date) ?? symbol)?.get(index);
-      const archived = flagsByKey.get(archiveTicker(symbol))?.get(index);
+      const candidates = historicalPriceKeys(symbol, date).map(key => flagsByKey.get(key)?.get(index));
       const total = totals.get(date)!;
       for (const period of [50, 200] as const) {
         // 每个窗口只使用单一来源的连续价格；不跨归档/Yahoo拼接不同价格刻度。
-        const flag = yahoo?.[`above${period}`] ?? archived?.[`above${period}`];
+        const flag = candidates.find(row => row?.[`above${period}`] != null)?.[`above${period}`];
         if (flag != null) { total[`eligible${period}`]++; if (flag) total[`above${period}`]++; }
       }
     }
@@ -165,7 +164,7 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
     coverage50: r.members >= 495 && r.members <= 510 ? roundPercent(100 * r.eligible50 / r.members) : null,
     coverage200: r.members >= 495 && r.members <= 510 ? roundPercent(100 * r.eligible200 / r.members) : null,
   } }));
-  return { rows, anchor: source.anchor, source: `${HISTORY_SOURCE};${source.source};Quandl WIKI frozen 2018 archive (isolated price windows)`, calendarThrough: [...membership.keys()].at(-1) ?? null, membershipCorroborated: Boolean(source.corroboration) };
+  return { rows, anchor: source.anchor, source: `${HISTORY_SOURCE};${source.source};Quandl WIKI frozen 2018 archive; Yahoo CC0 frozen public snapshots (isolated Y20/Y22 price windows)`, calendarThrough: [...membership.keys()].at(-1) ?? null, membershipCorroborated: Boolean(source.corroboration) };
 }
 
 const breadthCache = new Map<string, { expires: number; promise: Promise<BreadthDataset> }>();

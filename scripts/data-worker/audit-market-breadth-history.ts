@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../../src/lib/prisma";
 import { loadMembershipSource } from "../../src/lib/data/scheduler/marketInternals/client";
-import { historicalDailyMembership, archiveTicker, HISTORY_FIRST_DATE, HISTORY_SOURCE } from "../../src/lib/data/scheduler/marketInternals/membership";
+import { historicalDailyMembership, historicalPriceKeys, HISTORY_FIRST_DATE, HISTORY_SOURCE } from "../../src/lib/data/scheduler/marketInternals/membership";
 import { parseWikipediaSp500Html } from "../../src/lib/equity/wikipediaSp500";
 import { normalizeSp500Ticker, parseWikipediaSp500Changes, sliceTableById } from "../../src/lib/equity/wikipediaSp500Changes";
 loadEnvConfig(process.cwd());
@@ -15,7 +15,7 @@ async function main() {
   const changes = parseWikipediaSp500Changes(source.html);
   historicalDailyMembership([source.anchor], current, changes, source.anchor);
   const membership = historicalDailyMembership(probes, current, changes, source.anchor);
-  const keys = (symbol: string, date: string) => [normalizeSp500Ticker(symbol, date) ?? symbol, archiveTicker(symbol)];
+  const keys = historicalPriceKeys;
   const symbols = [...new Set([...membership].flatMap(([date, set]) => [...set].flatMap((s) => keys(s, date))))].sort();
   const [history, coverage] = await Promise.all([
     prisma.equityDailyBar.groupBy({ by: ["symbol"], where: { symbol: { in: symbols } }, _min: { date: true }, _max: { date: true }, _count: true }),

@@ -52,3 +52,34 @@ export function historicalDailyMembership(dates: readonly string[], current: rea
   }
   return result;
 }
+
+
+/** 已证实的代码复用：旧Paramount与新Banzai、旧L Brands与新LandBridge不能共享价格。 */
+export function historicalPriceTicker(symbol: string, date = "9999-12-31"): string {
+  const ticker = normalizeSp500Ticker(symbol, date) ?? symbol;
+  if (symbol === "CBS" && date < "2019-12-05") return "LEGACY:PARA";
+  if (symbol === "BBT" && date < "2019-12-09") return "TFC";
+  if (symbol === "BHGE" && date < "2019-10-18") return "BKR";
+  if (symbol === "TMK" && date < "2019-08-09") return "GL";
+  if (symbol === "IR" && date < "2020-03-03") return "TT";
+  if (symbol === "TT" && date < "2008-06-06") return "LEGACY:TT";
+  // WBD保留DISCA的A类历史，不可把同一条价格线用于DISCK的C类股。
+  if (symbol === "DISCA" && date < "2022-04-11") return "WBD";
+  if (symbol === "CTL" && date < "2020-09-18") return "LUMN";
+  // VTRS行情保留真实MYL旧报价；仅在旧MYL成员期使用，不能把未来VTRS报价倒填。
+  if (symbol === "MYL" && date < "2020-11-17") return "VTRS";
+  // 原Arconic母公司变为HWM；2020-04后的ARNC是另一个分拆发行人。
+  if (symbol === "ARNC" && date < "2020-04-06") return "HWM";
+  // WIKI:AGN是Actavis历史，不能冒充2015并购前的原Allergan。
+  if (symbol === "AGN" && date < "2015-06-15") return "LEGACY:AGN";
+  if ((symbol === "VIAC" || symbol === "PARA") && date < "2025-08-08") return "LEGACY:PARA";
+  if (symbol === "LB" && date < "2021-08-03") return "LEGACY:LB";
+  return ticker;
+}
+
+
+export function historicalPriceKeys(symbol: string, date?: string): string[] {
+  const primary = historicalPriceTicker(symbol, date);
+  if (primary === "LEGACY:AGN") return [primary];
+  return [primary, `Y22:${primary}`, `Y20:${primary}`, archiveTicker(symbol)];
+}
