@@ -1,5 +1,7 @@
 /** Correct legacy labels without rebasing, scaling, or replacing observations. */
 export const AUDITED_DEFINITIONS = [
+  { code: "nbs_cn_realestate_db24f54063787b44be", name: "中国：房地产：商品房待售面积：商业营业用房同比增长", unit: "%", freqLabel: "月", source: "国家统计局" },
+  { code: "nbs_cn_realestate_e9a76c570b5c25c176", name: "中国：房地产：商品房待售面积：办公楼原值", unit: "万平方米", freqLabel: "月", source: "国家统计局" },
   { code: "sched_wb_PL_NV_IND_TOTL_ZS", name: "波兰：工业（含建筑业）增加值占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
   { code: "sched_wb_ZA_GC_DOD_TOTL_GD_ZS", name: "南非：中央政府债务总额占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
   { code: "sched_fred_RECPROUSM156N", name: "平滑衰退概率（Chauvet-Piger）", unit: "%", freqLabel: "月", source: "St. Louis Fed/FRED" },
@@ -24,6 +26,8 @@ export const AUDITED_DEFINITIONS = [
 ] as const;
 
 export const AUDITED_SOURCE_KEYS: Readonly<Record<string, string>> = {
+  nbs_cn_realestate_db24f54063787b44be: "property|商品房待售面积：商业营业用房|yoy",
+  nbs_cn_realestate_e9a76c570b5c25c176: "property|商品房待售面积：办公楼|amount",
   nbs_cn_realestate_b4f7e9914e9bc85aeb: "property|商品房待售面积：办公楼|yoy",
 };
 
@@ -33,7 +37,9 @@ export function auditedDefinitionMetadata(previous: unknown, definition: typeof 
   const scrape = "scrape" in old && old.scrape && typeof old.scrape === "object" && !Array.isArray(old.scrape) ? old.scrape : {};
   return { ...old, displayName: definition.name, unit: definition.unit, freqLabel: definition.freqLabel,
     ...(sourceKey ? { scrape: { ...scrape, key: sourceKey } } : {}),
-    source: definition.source, definitionAudit: ["sched_wb_PL_NV_IND_TOTL_ZS", "sched_wb_ZA_GC_DOD_TOTL_GD_ZS",
+    source: definition.source, definitionAudit: ["nbs_cn_realestate_db24f54063787b44be",
+      "nbs_cn_realestate_e9a76c570b5c25c176"].includes(definition.code)
+      ? "2026-10-24-official-source-review" : ["sched_wb_PL_NV_IND_TOTL_ZS", "sched_wb_ZA_GC_DOD_TOTL_GD_ZS",
       "sched_fred_RECPROUSM156N", "nbs_cn_realestate_ab8fa19959bcc39da7",
       "nbs_cn_realestate_b774bcd059b15bd9e0", "nbs_cn_realestate_b4f7e9914e9bc85aeb"].includes(definition.code)
       ? "2026-10-23-official-source-review" : ["usov_c23_fed_assets", "usov_c24_fed_treasuries",
