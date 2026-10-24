@@ -291,7 +291,7 @@
         "mds:usov_c24_fed_treasuries",
         "mds:usov_c23_fed_assets"
       ],
-      "updatedAtIso": "2026-10-15T08:39:12.846Z",
+      "updatedAtIso": "2026-10-24T05:19:33.274Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
@@ -324,9 +324,9 @@
         "yLabelFontSize": 10,
         "slotSeriesOrder": {
           "0": [
-            "mds:usov_c01_nasdaq",
             "mds:usov_c03_sp500",
-            "mds:us_sp500_pe"
+            "mds:us_sp500_pe",
+            "mds:wgc_gold_price_usd"
           ],
           "1": [
             "fred:DGS2",
@@ -398,6 +398,9 @@
           "axis": "right",
           "color": "#72dd40"
         },
+        "fred:PPIFIS::yoy": {
+          "color": "#53c675"
+        },
         "fred:PAYEMS::diff": {
           "axis": "left",
           "color": "#ef3615",
@@ -435,6 +438,9 @@
           "showEndLabel": true
         },
         "fred:A191RL1Q225SBEA": {
+          "axis": "right"
+        },
+        "mds:wgc_gold_price_usd": {
           "axis": "right"
         },
         "mds:ism_us_ism_headline": {
