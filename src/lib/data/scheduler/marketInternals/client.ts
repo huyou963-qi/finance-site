@@ -164,7 +164,7 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
     coverage50: r.members >= 495 && r.members <= 510 ? roundPercent(100 * r.eligible50 / r.members) : null,
     coverage200: r.members >= 495 && r.members <= 510 ? roundPercent(100 * r.eligible200 / r.members) : null,
   } }));
-  return { rows, anchor: source.anchor, source: `${HISTORY_SOURCE};${source.source};Quandl WIKI frozen 2018 archive; Yahoo CC0 frozen public snapshots (isolated Y20/Y22 price windows)`, calendarThrough: [...membership.keys()].at(-1) ?? null, membershipCorroborated: Boolean(source.corroboration) };
+  return { rows, anchor: source.anchor, source: `${HISTORY_SOURCE};${source.source};Quandl WIKI frozen 2018 archive; Yahoo CC0 frozen public snapshots (isolated Y20/Y22 price windows); Georgia Tech QSTK frozen 2012 Yahoo raw prices (isolated Q12 windows, observable adjustment boundaries excluded)`, calendarThrough: [...membership.keys()].at(-1) ?? null, membershipCorroborated: Boolean(source.corroboration) };
 }
 
 const breadthCache = new Map<string, { expires: number; promise: Promise<BreadthDataset> }>();

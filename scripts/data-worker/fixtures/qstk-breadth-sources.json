@@ -1,0 +1,392 @@
+{
+  "repository": "https://github.com/QuantSoftware/QuantSoftwareToolkit",
+  "commit": "0eb2c7a776c259a087fdcac1d3ff883eb0b5516c",
+  "firstDate": "2000-02-01",
+  "lastDate": "2012-09-12",
+  "files": [
+    {
+      "raw": "YHOO",
+      "target": "Q12:AABA",
+      "path": "QSTK/QSData/Yahoo/YHOO.csv",
+      "gitBlobSha": "0d07604df5ec0b05f831ff476007d8252ed5040f"
+    },
+    {
+      "raw": "AGN",
+      "target": "Q12:LEGACY:AGN",
+      "path": "QSTK/QSData/Yahoo/AGN.csv",
+      "gitBlobSha": "b02f57b1f8175eb0f94cf1965180704caa9f1c56"
+    },
+    {
+      "raw": "ATI",
+      "target": "Q12:ATI",
+      "path": "QSTK/QSData/Yahoo/ATI.csv",
+      "gitBlobSha": "aa04c4651f3090c3ec2f901e4c1f5c787ef48f83"
+    },
+    {
+      "raw": "BDK",
+      "target": "Q12:BDK",
+      "path": "QSTK/QSData/Yahoo/BDK.csv",
+      "gitBlobSha": "5e56fa40df50bfb348bb6b124b5e74489a6fa606"
+    },
+    {
+      "raw": "BMC",
+      "target": "Q12:BMC",
+      "path": "QSTK/QSData/Yahoo/BMC.csv",
+      "gitBlobSha": "7e17144a374b2650667ae4d4c971e9d1c04dd9cc"
+    },
+    {
+      "raw": "BSC",
+      "target": "Q12:BSC",
+      "path": "QSTK/QSData/Yahoo/BSC.csv",
+      "gitBlobSha": "9726ed0db510cba6623ba7554ff3535a5ed64248"
+    },
+    {
+      "raw": "CBE",
+      "target": "Q12:CBE",
+      "path": "QSTK/QSData/Yahoo/CBE.csv",
+      "gitBlobSha": "d519bc3300129220d3978b7007c9fd6c44df7000"
+    },
+    {
+      "raw": "CBS",
+      "target": "Q12:LEGACY:PARA",
+      "path": "QSTK/QSData/Yahoo/CBS.csv",
+      "gitBlobSha": "d40ae1a9be8c8274986548f990f675c751d66296"
+    },
+    {
+      "raw": "CEG",
+      "target": "Q12:CEG",
+      "path": "QSTK/QSData/Yahoo/CEG.csv",
+      "gitBlobSha": "4f9643da8d67d7bdd569eb470a0b4f26d91a1e1b"
+    },
+    {
+      "raw": "EDS",
+      "target": "Q12:EDS",
+      "path": "QSTK/QSData/Yahoo/EDS.csv",
+      "gitBlobSha": "16efc0f2cea2afcb12b892e8aaaa17e21b85d2cb"
+    },
+    {
+      "raw": "EP",
+      "target": "Q12:EP",
+      "path": "QSTK/QSData/Yahoo/EP.csv",
+      "gitBlobSha": "1ce88227a0294ced293fb547a80f3c12e5911a40"
+    },
+    {
+      "raw": "FMCC",
+      "target": "Q12:FMCC",
+      "path": "QSTK/QSData/Yahoo/FMCC.csv",
+      "gitBlobSha": "022674005b789bdada607c2f762f4260f7d1fd2d"
+    },
+    {
+      "raw": "FNMA",
+      "target": "Q12:FNMA",
+      "path": "QSTK/QSData/Yahoo/FNMA.csv",
+      "gitBlobSha": "7a3cf47f96e2d7c53c0131dfe8c6c4d372729d22"
+    },
+    {
+      "raw": "GR",
+      "target": "Q12:GR",
+      "path": "QSTK/QSData/Yahoo/GR.csv",
+      "gitBlobSha": "1230543431d3b550171b57d7879b800907070e91"
+    },
+    {
+      "raw": "HNZ",
+      "target": "Q12:HNZ",
+      "path": "QSTK/QSData/Yahoo/HNZ.csv",
+      "gitBlobSha": "cc01a99a03030b83520062c9ac71c9b1b7ff2588"
+    },
+    {
+      "raw": "JAVA",
+      "target": "Q12:JAVA",
+      "path": "QSTK/QSData/Yahoo/JAVA.csv",
+      "gitBlobSha": "e6336fece3d1c8bff84525dc5686ace35de61c2d"
+    },
+    {
+      "raw": "LEHMQ",
+      "target": "Q12:LEHMQ",
+      "path": "QSTK/QSData/Yahoo/LEHMQ.csv",
+      "gitBlobSha": "0da40e8588d9f81451b7918643c489f4c87a2682"
+    },
+    {
+      "raw": "MOLX",
+      "target": "Q12:MOLX",
+      "path": "QSTK/QSData/Yahoo/MOLX.csv",
+      "gitBlobSha": "4753f0f86c8569485841e353093adad4eb0dd842"
+    },
+    {
+      "raw": "NCC",
+      "target": "Q12:NCC",
+      "path": "QSTK/QSData/Yahoo/NCC.csv",
+      "gitBlobSha": "1bde403dcda383814193c4f5d982dd27e2e43500"
+    },
+    {
+      "raw": "NOVL",
+      "target": "Q12:NOVL",
+      "path": "QSTK/QSData/Yahoo/NOVL.csv",
+      "gitBlobSha": "07107abd456421de0e6617eeaa964aa65235918a"
+    },
+    {
+      "raw": "PCS",
+      "target": "Q12:PCS",
+      "path": "QSTK/QSData/Yahoo/PCS.csv",
+      "gitBlobSha": "2ea303aa257b6e9fdbf8b294ef370b92dbea6f67"
+    },
+    {
+      "raw": "PGN",
+      "target": "Q12:PGN",
+      "path": "QSTK/QSData/Yahoo/PGN.csv",
+      "gitBlobSha": "1ea667ca7fd174ec9d5de7e39f70d5ebb8f7f36a"
+    },
+    {
+      "raw": "PTV",
+      "target": "Q12:PTV",
+      "path": "QSTK/QSData/Yahoo/PTV.csv",
+      "gitBlobSha": "7bda80a5b2a3ea7596f1d4f3d7ebfa1d3803acbd"
+    },
+    {
+      "raw": "ROH",
+      "target": "Q12:ROH",
+      "path": "QSTK/QSData/Yahoo/ROH.csv",
+      "gitBlobSha": "c5e12657e7ab202224c5049e7d9ce7f5035bdfc9"
+    },
+    {
+      "raw": "SGP",
+      "target": "Q12:SGP",
+      "path": "QSTK/QSData/Yahoo/SGP.csv",
+      "gitBlobSha": "2a431f8ef8f7bd083ee3439deed87d7c4f90775f"
+    },
+    {
+      "raw": "SUN",
+      "target": "Q12:SUN",
+      "path": "QSTK/QSData/Yahoo/SUN.csv",
+      "gitBlobSha": "a44790ada7bdb424df083c9a0bcc2345f37a2895"
+    },
+    {
+      "raw": "TLAB",
+      "target": "Q12:TLAB",
+      "path": "QSTK/QSData/Yahoo/TLAB.csv",
+      "gitBlobSha": "7e37249b6cac0e7a457891521020df934e9b7c43"
+    },
+    {
+      "raw": "WAMUQ",
+      "target": "Q12:WAMUQ",
+      "path": "QSTK/QSData/Yahoo/WAMUQ.csv",
+      "gitBlobSha": "72f6f5acc2e196755c34b0046a860212e621464b"
+    },
+    {
+      "raw": "WB",
+      "target": "Q12:WB",
+      "path": "QSTK/QSData/Yahoo/WB.csv",
+      "gitBlobSha": "a5628ee67891c2f5d9b64d262073c7c967b672e4"
+    },
+    {
+      "raw": "WWY",
+      "target": "Q12:WWY",
+      "path": "QSTK/QSData/Yahoo/WWY.csv",
+      "gitBlobSha": "b3c775cf85a8ae070bf861984bf7f6da26c65905"
+    },
+    {
+      "raw": "WYE",
+      "target": "Q12:WYE",
+      "path": "QSTK/QSData/Yahoo/WYE.csv",
+      "gitBlobSha": "774ffad0916336e38a98fa15c59c71f3510879ca"
+    },
+    {
+      "raw": "ABKFQ",
+      "target": "Q12:ABKFQ",
+      "path": "QSTK/QSData/Yahoo/ABKFQ.csv",
+      "gitBlobSha": "1c06105e43184217c7af7f2c5d044c0c32cf96e3"
+    },
+    {
+      "raw": "ACS",
+      "target": "Q12:ACS",
+      "path": "QSTK/QSData/Yahoo/ACS.csv",
+      "gitBlobSha": "1c293e1bf85a75096bae90bfe2c5cc9e9f00fa0b"
+    },
+    {
+      "raw": "AYE",
+      "target": "Q12:AYE",
+      "path": "QSTK/QSData/Yahoo/AYE.csv",
+      "gitBlobSha": "4c201574c8bb67545630fc14f605154facc0002f"
+    },
+    {
+      "raw": "BJS",
+      "target": "Q12:BJS",
+      "path": "QSTK/QSData/Yahoo/BJS.csv",
+      "gitBlobSha": "96814d806583709eeba55e3802c679b8cb3394d6"
+    },
+    {
+      "raw": "CVG",
+      "target": "Q12:CVG",
+      "path": "QSTK/QSData/Yahoo/CVG.csv",
+      "gitBlobSha": "dafb110d7982d1868f2bc4b02d476133dc273b76"
+    },
+    {
+      "raw": "DYN",
+      "target": "Q12:DYN",
+      "path": "QSTK/QSData/Yahoo/DYN.csv",
+      "gitBlobSha": "c411a273d9a7f55d51c8347e5db5e5a0f2f7bda9"
+    },
+    {
+      "raw": "GENZ",
+      "target": "Q12:GENZ",
+      "path": "QSTK/QSData/Yahoo/GENZ.csv",
+      "gitBlobSha": "f2aa1968f8212fc67a41c5150e5a7fd19808bf75"
+    },
+    {
+      "raw": "HSP",
+      "target": "Q12:HSP",
+      "path": "QSTK/QSData/Yahoo/HSP.csv",
+      "gitBlobSha": "5c79380bfabb34bad2b5154e1ce213bd1257ef62"
+    },
+    {
+      "raw": "KG",
+      "target": "Q12:KG",
+      "path": "QSTK/QSData/Yahoo/KG.csv",
+      "gitBlobSha": "33de40961d9b8c13c9cc2f5dac7c102a5f55e99b"
+    },
+    {
+      "raw": "KMI",
+      "target": "Q12:KMI",
+      "path": "QSTK/QSData/Yahoo/KMI.csv",
+      "gitBlobSha": "d4a0d9f80585793bf4cf1cca93b49ade381aa041"
+    },
+    {
+      "raw": "MHS",
+      "target": "Q12:MHS",
+      "path": "QSTK/QSData/Yahoo/MHS.csv",
+      "gitBlobSha": "fe82766446dd8c8cb820091fe9ad30d8c75cefd2"
+    },
+    {
+      "raw": "MI",
+      "target": "Q12:MI",
+      "path": "QSTK/QSData/Yahoo/MI.csv",
+      "gitBlobSha": "f2a438ac5cce2f120ceb9a38fb7cec092ef91971"
+    },
+    {
+      "raw": "NVLS",
+      "target": "Q12:NVLS",
+      "path": "QSTK/QSData/Yahoo/NVLS.csv",
+      "gitBlobSha": "4e6d65abc47ac0bd076d89dc6f03b207134853c5"
+    },
+    {
+      "raw": "PBG",
+      "target": "Q12:PBG",
+      "path": "QSTK/QSData/Yahoo/PBG.csv",
+      "gitBlobSha": "457c9d2e7f799c67ee54d0195a8106c726dbdfe3"
+    },
+    {
+      "raw": "Q",
+      "target": "Q12:Q",
+      "path": "QSTK/QSData/Yahoo/Q.csv",
+      "gitBlobSha": "3f78799c7a8a363b9b669ce4d2a98958cd656953"
+    },
+    {
+      "raw": "SDS",
+      "target": "Q12:SDS",
+      "path": "QSTK/QSData/Yahoo/SDS.csv",
+      "gitBlobSha": "58c5037057ffbeac82dbafac2106d08dca53036d"
+    },
+    {
+      "raw": "XTO",
+      "target": "Q12:XTO",
+      "path": "QSTK/QSData/Yahoo/XTO.csv",
+      "gitBlobSha": "f3c23ccee4db6de8511e2d45de54bd1aca491f58"
+    },
+    {
+      "raw": "CVH",
+      "target": "Q12:CVH",
+      "path": "QSTK/QSData/Yahoo/CVH.csv",
+      "gitBlobSha": "bea0274cd85090e284974a1d9c9c90846569d8ed"
+    },
+    {
+      "raw": "EQ",
+      "target": "Q12:EQ",
+      "path": "QSTK/QSData/Yahoo/EQ.csv",
+      "gitBlobSha": "ed9f7337c260e0f2b5a2f9a77d4e09b80890130c"
+    },
+    {
+      "raw": "LO",
+      "target": "Q12:LO",
+      "path": "QSTK/QSData/Yahoo/LO.csv",
+      "gitBlobSha": "426423068fd771edd5851157fb5e2b0459275479"
+    },
+    {
+      "raw": "NYX",
+      "target": "Q12:NYX",
+      "path": "QSTK/QSData/Yahoo/NYX.csv",
+      "gitBlobSha": "a753cebdab34304c732c20fcd6535267506e2350"
+    },
+    {
+      "raw": "PM",
+      "target": "Q12:PM",
+      "path": "QSTK/QSData/Yahoo/PM.csv",
+      "gitBlobSha": "353b8e21697c170b38d12f7d3e173693ee658eac"
+    },
+    {
+      "raw": "SII",
+      "target": "Q12:SII",
+      "path": "QSTK/QSData/Yahoo/SII.csv",
+      "gitBlobSha": "386b1269c03613189de09ee0efd4239647127a05"
+    },
+    {
+      "raw": "SNI",
+      "target": "Q12:SNI",
+      "path": "QSTK/QSData/Yahoo/SNI.csv",
+      "gitBlobSha": "362995019b46837d73b4a55dc14172a271cb7b4f"
+    },
+    {
+      "raw": "TIE",
+      "target": "Q12:TIE",
+      "path": "QSTK/QSData/Yahoo/TIE.csv",
+      "gitBlobSha": "a41b0ec5cbc679b4fdc2961deef8c0dcddbcb412"
+    },
+    {
+      "raw": "WFT",
+      "target": "Q12:WFT",
+      "path": "QSTK/QSData/Yahoo/WFT.csv",
+      "gitBlobSha": "6a1ec040e1d7b16196062c68ec812d41e3fa5c3f"
+    },
+    {
+      "raw": "CFN",
+      "target": "Q12:CFN",
+      "path": "QSTK/QSData/Yahoo/CFN.csv",
+      "gitBlobSha": "13842833356496dde50ad27501954d023e19a9f6"
+    },
+    {
+      "raw": "LIFE",
+      "target": "Q12:LIFE",
+      "path": "QSTK/QSData/Yahoo/LIFE.csv",
+      "gitBlobSha": "7e88399ff8f51a8d6f68770c22d5d5a13b5c74fa"
+    },
+    {
+      "raw": "BTU",
+      "target": "Q12:BTUUQ",
+      "path": "QSTK/QSData/Yahoo/BTU.csv",
+      "gitBlobSha": "f6f10e8d61f54a60cf2805752f39c28aa43b540e"
+    },
+    {
+      "raw": "ANR",
+      "target": "Q12:ANRZQ",
+      "path": "QSTK/QSData/Yahoo/ANR.csv",
+      "gitBlobSha": "47b5dc2998965e43bb72888ebb646d4a9d3958f9"
+    },
+    {
+      "raw": "EK",
+      "target": "Q12:EKDKQ",
+      "path": "QSTK/QSData/Yahoo/EK.csv",
+      "gitBlobSha": "82191be8275cbffcb3d8a2def1570ce4654f8d28"
+    },
+    {
+      "raw": "WFR",
+      "target": "Q12:SUNEQ",
+      "path": "QSTK/QSData/Yahoo/WFR.csv",
+      "gitBlobSha": "caad09147a37b0d5628bde3fb7a2a8639c1c6bbd"
+    },
+    {
+      "raw": "RSH",
+      "target": "Q12:RSHCQ",
+      "path": "QSTK/QSData/Yahoo/RSH.csv",
+      "gitBlobSha": "9ca3abdb0aa96f47351dc071a6e65bbfc8ece612"
+    }
+  ]
+}

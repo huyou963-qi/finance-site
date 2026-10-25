@@ -277,6 +277,7 @@
     "equity:verify-sp500-history": "dotenv -e .env.local -- tsx scripts/equity/verify-sp500-history.ts",
     "data:seed-market-internals": "dotenv -e .env.local -- tsx scripts/data-worker/seed-market-internals.ts",
     "data:sync-market-internals": "dotenv -e .env.local -- tsx scripts/data-worker/sync-market-internals.ts",
+    "data:backfill-market-breadth-qstk": "dotenv -e .env.local -- tsx scripts/data-worker/backfill-market-breadth-qstk.ts",
     "data:verify-market-internals": "dotenv -e .env.local -- tsx scripts/data-worker/verify-market-internals.ts",
     "data:audit-market-breadth-history": "dotenv -e .env.local -- tsx scripts/data-worker/audit-market-breadth-history.ts",
     "data:backfill-market-breadth-prices": "dotenv -e .env.local -- tsx scripts/data-worker/backfill-market-breadth-prices.ts",

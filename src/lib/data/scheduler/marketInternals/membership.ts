@@ -57,6 +57,11 @@ export function historicalDailyMembership(dates: readonly string[], current: rea
 /** 已证实的代码复用：旧Paramount与新Banzai、旧L Brands与新LandBridge不能共享价格。 */
 export function historicalPriceTicker(symbol: string, date = "9999-12-31"): string {
   const ticker = normalizeSp500Ticker(symbol, date) ?? symbol;
+  // 同一发行人的旧报价由现代码完整行情保留；DV在2021年后被DoubleVerify复用。
+  if (symbol === "DV" && date < "2017-05-24") return "CVSA";
+  if (symbol === "ATGE" && date < "2026-02-24") return "CVSA";
+  if ((symbol === "WYN" || symbol === "WYND") && date < "2021-02-17") return "TNL";
+  if (symbol === "JDSU" && date < "2015-08-04") return "VIAV";
   if (symbol === "CBS" && date < "2019-12-05") return "LEGACY:PARA";
   if (symbol === "BBT" && date < "2019-12-09") return "TFC";
   if (symbol === "BHGE" && date < "2019-10-18") return "BKR";
@@ -80,6 +85,7 @@ export function historicalPriceTicker(symbol: string, date = "9999-12-31"): stri
 
 export function historicalPriceKeys(symbol: string, date?: string): string[] {
   const primary = historicalPriceTicker(symbol, date);
-  if (primary === "LEGACY:AGN") return [primary];
-  return [primary, `Y22:${primary}`, `Y20:${primary}`, archiveTicker(symbol)];
+  if (primary === "LEGACY:AGN") return [primary, `Q12:${primary}`];
+  // 未复权归档仅作最终补缺，不能抢占已有完整的拆股调整价格窗口。
+  return [primary, `Y22:${primary}`, `Y20:${primary}`, archiveTicker(symbol), `Q12:${primary}`];
 }
