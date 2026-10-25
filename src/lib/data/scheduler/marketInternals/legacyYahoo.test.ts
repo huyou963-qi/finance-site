@@ -25,7 +25,19 @@ test("共同因子的分币舍入区间有交集时保留原始报价，防止�
     { date: "2000-02-02", close: 11, adjClose: 3.67 },
     { date: "2000-02-03", close: 12, adjClose: 4 },
   ];
-  assert.deepEqual(excludeLegacyYahooActionBoundaries(rows), { rows, excludedDates: [] });
+  assert.deepEqual(excludeLegacyYahooActionBoundaries(rows), { rows, excludedDates: [], verifiedCashDates: [] });
+});
+
+test("已核验现金分红只放行金额和调整变化相符的日期，混合拆股仍阻断", () => {
+  const events = [{ date: "2008-12-11", previousDate: "2008-12-10", amount: 0.3, source: "https://example.com/issuer-announcement" }];
+  const rows = [{ date: "2008-12-10", close: 30, adjClose: 27 }, { date: "2008-12-11", close: 29.7, adjClose: 27 }];
+  assert.deepEqual(excludeLegacyYahooActionBoundaries(rows, events).verifiedCashDates, ["2008-12-11"]);
+  assert.equal(excludeLegacyYahooActionBoundaries(rows, events).rows.length, 2);
+  assert.equal(excludeLegacyYahooActionBoundaries(rows).rows.length, 1);
+  const split = [rows[0], { ...rows[1], close: 14.85 }];
+  assert.deepEqual(excludeLegacyYahooActionBoundaries(split, events).excludedDates, ["2008-12-11"]);
+  assert.deepEqual(excludeLegacyYahooActionBoundaries(split, events).verifiedCashDates, []);
+  assert.equal(excludeLegacyYahooActionBoundaries(rows, [{ ...events[0], amount: 3 }]).rows.length, 1);
 });
 
 test("逐行因子区间必须有共同交集，不能因每日变化小而跨越累计调整", () => {

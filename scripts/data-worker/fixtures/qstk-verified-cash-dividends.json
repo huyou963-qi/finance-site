@@ -1,0 +1,65 @@
+{
+  "NYX": [
+    {
+      "date": "2008-03-12",
+      "previousDate": "2008-03-11",
+      "amount": 0.25,
+      "source": "https://www.sec.gov/Archives/edgar/data/1368007/000119312508069699/ds4a.htm",
+      "recordDate": "2008-03-14",
+      "dateMethod": "Pre-2017 ordinary cash distribution, second preceding trading day; observed factor change must also match the declared amount."
+    },
+    {
+      "date": "2008-06-11",
+      "previousDate": "2008-06-10",
+      "amount": 0.3,
+      "source": "https://www.sec.gov/Archives/edgar/data/1368007/000118143108019974/rrd199506_23703.htm"
+    },
+    {
+      "date": "2008-09-11",
+      "previousDate": "2008-09-10",
+      "amount": 0.3,
+      "source": "https://mondovisione.com/media-and-resources/news/nyse-euronext-announces-quarterly-dividend-payment-dates-provides-information-fo-2011124/"
+    },
+    {
+      "date": "2008-12-11",
+      "previousDate": "2008-12-10",
+      "amount": 0.3,
+      "source": "https://mondovisione.com/media-and-resources/news/nyse-euronext-announces-quarterly-dividend-payment-dates-provides-information-fo-2011124/"
+    },
+    {
+      "date": "2009-03-11",
+      "previousDate": "2009-03-10",
+      "amount": 0.3,
+      "source": "https://mondovisione.com/media-and-resources/news/nyse-euronext-announces-quarterly-dividend-payment-dates-provides-information-fo-2011124/"
+    }
+  ],
+  "RSH": [
+    {
+      "date": "2008-11-25",
+      "previousDate": "2008-11-24",
+      "amount": 0.25,
+      "source": "https://www.sec.gov/Archives/edgar/data/96289/000009628908000035/form8k110708.htm",
+      "recordDate": "2008-11-28",
+      "dateMethod": "Pre-2017 regular cash dividend: second preceding SPY trading day; Thanksgiving 2008-11-27 excluded. Corroborated by the observed Yahoo adjustment change.",
+      "ruleSource": "https://listingcenter.nasdaq.com/assets/rulebook/nasdaq/rules/Issuer_Alert_2017-001.pdf"
+    }
+  ],
+  "AGN": [
+    {
+      "date": "2008-05-21",
+      "previousDate": "2008-05-20",
+      "amount": 0.05,
+      "source": "https://www.sec.gov/Archives/edgar/data/850693/000089256908000768/a40556exv99w1.htm",
+      "recordDate": "2008-05-23",
+      "dateMethod": "Pre-2017 second preceding trading day, also required to match observed adjustment change."
+    },
+    {
+      "date": "2008-08-13",
+      "previousDate": "2008-08-12",
+      "amount": 0.05,
+      "source": "https://www.sec.gov/Archives/edgar/data/850693/000095013408013638/a42529exv99w1.htm",
+      "recordDate": "2008-08-15",
+      "dateMethod": "Pre-2017 second preceding trading day, also required to match observed adjustment change."
+    }
+  ]
+}

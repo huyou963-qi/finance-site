@@ -10,6 +10,7 @@ import { Pool } from "pg";
 import { prisma } from "../../src/lib/prisma";
 import { excludeLegacyYahooActionBoundaries } from "../../src/lib/data/scheduler/marketInternals/legacyYahoo";
 import catalog from "./fixtures/qstk-breadth-sources.json";
+import verifiedCash from "./fixtures/qstk-verified-cash-dividends.json";
 
 loadEnvConfig(process.cwd());
 const cache = ".data/market-breadth-sources/qstk-20120912";
@@ -48,7 +49,8 @@ async function main() {
     }
     rows.sort((a, b) => a.date.localeCompare(b.date));
     if (!rows.length || (item.raw === "SII" && rows.at(-1)!.date > "2010-08-31")) throw new Error(`QSTK缺少目标发行人的历史: ${item.raw}`);
-    const filtered = excludeLegacyYahooActionBoundaries(rows);
+    const cashEvents = verifiedCash[item.raw as keyof typeof verifiedCash] ?? [];
+    const filtered = excludeLegacyYahooActionBoundaries(rows, cashEvents);
     if (!filtered.rows.length) throw new Error(`QSTK没有可用价格片段: ${item.raw}`);
     let written = 0;
     if (apply) {
@@ -69,10 +71,10 @@ async function main() {
         await client.query("COMMIT");
       } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
     }
-    report.push({ raw: item.raw, target: item.target, rawSha256: createHash("sha256").update(bytes).digest("hex"), sourceRows: rows.length, invalidRows: invalid, accepted: filtered.rows.length, excludedDates: filtered.excludedDates, written });
+    report.push({ raw: item.raw, target: item.target, rawSha256: createHash("sha256").update(bytes).digest("hex"), sourceRows: rows.length, invalidRows: invalid, accepted: filtered.rows.length, excludedDates: filtered.excludedDates, verifiedCashDates: filtered.verifiedCashDates, cashEvidence: cashEvents, written });
     console.log(item.target, "accepted", filtered.rows.length, "excluded", filtered.excludedDates.length, apply ? `written ${written}` : "dry-run");
   }
-  await writeFile(`${cache}/backfill-report.json`, JSON.stringify({ generatedAt: new Date().toISOString(), apply, repository: catalog.repository, commit: catalog.commit, priceBasis: "Raw Close within action-free windows at reported cent precision; observable adjustment changes and low-precision dates excluded, never estimate corporate actions", report }, null, 2));
+  await writeFile(`${cache}/backfill-report.json`, JSON.stringify({ generatedAt: new Date().toISOString(), apply, repository: catalog.repository, commit: catalog.commit, priceBasis: "Raw Close within coherent windows at reported cent precision; unknown adjustment changes and low-precision dates excluded; explicitly documented ordinary cash dividends retained only when their amounts match the observed factor changes", report }, null, 2));
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => { await prisma.$disconnect(); await pool.end(); });
