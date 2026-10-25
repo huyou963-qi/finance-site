@@ -54,6 +54,7 @@ import { KlineRangeStatsPanel } from "@/components/chart/KlineRangeStatsPanel";
 import {
   computeKlineRangeStats,
   computeRangeOverlayPx,
+  rangeBarIndexAtPixel,
   computeVisibleRangeExtrema,
   type KlineRangeStatsResult,
 } from "@/lib/chart/klineRangeStats";
@@ -1840,16 +1841,9 @@ export function StockChartWorkspace({
     const c = candlesRef.current;
     if (!c.length) return;
     const v = volumesRef.current;
-    const log1 = chart.timeScale().coordinateToLogical(x1);
-    const log2 = chart.timeScale().coordinateToLogical(x2);
-    if (log1 === null || log2 === null) return;
-    const L = Math.min(log1 as number, log2 as number);
-    const R = Math.max(log1 as number, log2 as number);
-    let i0 = Math.floor(L);
-    let i1 = Math.ceil(R);
-    i0 = Math.max(0, Math.min(c.length - 1, i0));
-    i1 = Math.max(0, Math.min(c.length - 1, i1));
-    if (i1 < i0) [i0, i1] = [i1, i0];
+    const i0 = rangeBarIndexAtPixel(chart, c, Math.min(x1, x2), "floor");
+    const i1 = rangeBarIndexAtPixel(chart, c, Math.max(x1, x2), "ceil");
+    if (i0 === null || i1 === null) return;
     const layerInputs = derivedToLayerRangeInputs(derivedLayersRef.current);
     setRangeEntries((prev) => {
       const color = RANGE_PALETTE[prev.length % RANGE_PALETTE.length];
@@ -1896,11 +1890,9 @@ export function StockChartWorkspace({
             0,
             Math.min(rect.width, ev.clientX - rect.left),
           );
-          const log = chart.timeScale().coordinateToLogical(x);
-          if (log === null) return;
           const n = candlesRef.current.length;
-          let idx = Math.round(log as number);
-          idx = Math.max(0, Math.min(n - 1, idx));
+          const idx = rangeBarIndexAtPixel(chart, candlesRef.current, x);
+          if (idx === null) return;
 
           setRangeEntries((prev) =>
             prev.map((r) => {
