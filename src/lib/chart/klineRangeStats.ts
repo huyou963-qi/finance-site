@@ -1,4 +1,4 @@
-import { isBusinessDay, type CandlestickData, type IChartApi, type Time } from "lightweight-charts";
+import type { CandlestickData, IChartApi, Time } from "lightweight-charts";
 
 function horzTimeToUnixSec(t: Time): number | null {
   if (typeof t === "number" && Number.isFinite(t)) return t;
@@ -6,7 +6,7 @@ function horzTimeToUnixSec(t: Time): number | null {
     const ms = Date.parse(t);
     return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
   }
-  if (isBusinessDay(t)) {
+  if (typeof t === "object") {
     return Math.floor(Date.UTC(t.year, t.month - 1, t.day) / 1000);
   }
   return null;
@@ -104,10 +104,35 @@ function formatStatTime(t: CandlestickData["time"], intervalRaw: string): string
   return d.toLocaleDateString("zh-CN");
 }
 
-/**
- * 统计闭区间 [i0, i1] 内 K 线（含端点）。
- */
-/** 用于主图上的半透明选区（坐标相对 chart 容器左缘，与 timeToCoordinate 一致） */
+/** 将容器坐标映射到主 K 线下标。叠加序列的全局 logical 下标不等于主 K 线下标。 */
+export function rangeBarIndexAtPixel(
+  chart: IChartApi,
+  candles: CandlestickData[],
+  containerX: number,
+  rounding: "floor" | "ceil" | "nearest" = "nearest",
+): number | null {
+  if (!candles.length || !Number.isFinite(containerX)) return null;
+  const scale = chart.timeScale();
+  const x = containerX - chart.priceScale("left").width();
+  let lo = 0;
+  let hi = candles.length - 1;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const px = scale.timeToCoordinate(candles[mid].time);
+    if (px === null) return null;
+    if (px < x) lo = mid + 1;
+    else hi = mid;
+  }
+  const rightX = scale.timeToCoordinate(candles[lo].time);
+  if (rightX === null) return null;
+  if (lo === 0 || rightX <= x || rounding === "ceil") return lo;
+  if (rounding === "floor") return lo - 1;
+  const leftX = scale.timeToCoordinate(candles[lo - 1].time);
+  if (leftX === null) return null;
+  return x - leftX < rightX - x ? lo - 1 : lo;
+}
+
+/** 用于主图上的半透明选区，返回相对 chart 容器左缘的坐标（含左价格轴宽度）。 */
 export function computeRangeOverlayPx(
   chart: IChartApi,
   candles: CandlestickData[],
@@ -122,13 +147,11 @@ export function computeRangeOverlayPx(
   const x0 = chart.timeScale().timeToCoordinate(t0);
   const x1 = chart.timeScale().timeToCoordinate(t1);
   if (x0 === null || x1 === null) return null;
-  let half = 6;
-  if (i0 + 1 < candles.length) {
-    const xn = chart.timeScale().timeToCoordinate(candles[i0 + 1].time);
-    if (xn !== null) half = Math.abs(xn - x0) / 2;
-  }
-  const left = Math.min(x0, x1) - half;
-  const right = Math.max(x0, x1) + half;
+  // 相邻主 K 线之间可能有仅叠加资产交易的时点，不能用两根主 K 线的距离当柱宽。
+  const half = chart.timeScale().options().barSpacing / 2;
+  const offset = chart.priceScale("left").width();
+  const left = offset + Math.min(x0, x1) - half;
+  const right = offset + Math.max(x0, x1) + half;
   return { left, width: Math.max(4, right - left) };
 }
 
