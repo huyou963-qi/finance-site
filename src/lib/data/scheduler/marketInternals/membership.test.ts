@@ -48,8 +48,11 @@ test("新发行人复用代码的回溯价格不得计入旧公司广度", async
 
 test("独立快照窗口和发行人身份守卫：原AGN不能使用新Actavis价格，原ARNC跟随HWM", async () => {
   const { historicalPriceKeys } = await import("./membership");
-  assert.deepEqual(historicalPriceKeys("AGN", "2014-01-02"), ["LEGACY:AGN", "Q12:LEGACY:AGN"]);
+  assert.deepEqual(historicalPriceKeys("AGN", "2014-01-02"), ["LEGACY:AGN", "Q12:LEGACY:AGN", "Q12S:LEGACY:AGN"]);
   assert.equal(historicalPriceKeys("AGN", "2016-01-04")[0], "AGN");
+  assert.equal(historicalPriceKeys("IAC", "2007-01-03")[0], "MTCH");
+  assert.equal(historicalPriceKeys("IACI", "2008-08-19")[0], "MTCH");
+  assert.equal(historicalPriceKeys("IAC", "2020-07-01")[0], "IAC");
   assert.equal(historicalPriceKeys("ARNC", "2020-04-01")[0], "HWM");
   assert.equal(historicalPriceKeys("CTL", "2020-04-02")[0], "LUMN");
   assert.equal(historicalPriceKeys("MYL", "2020-04-02")[0], "VTRS");

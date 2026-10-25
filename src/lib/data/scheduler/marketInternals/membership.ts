@@ -62,6 +62,8 @@ export function historicalPriceTicker(symbol: string, date = "9999-12-31"): stri
   if (symbol === "ATGE" && date < "2026-02-24") return "CVSA";
   if ((symbol === "WYN" || symbol === "WYND") && date < "2021-02-17") return "TNL";
   if (symbol === "JDSU" && date < "2015-08-04") return "VIAV";
+  // 2020分离前的IAC存续发行人更名为Match，新的IAC不是同一发行人。
+  if ((symbol === "IAC" || symbol === "IACI") && date < "2020-07-01") return "MTCH";
   if (symbol === "CBS" && date < "2019-12-05") return "LEGACY:PARA";
   if (symbol === "BBT" && date < "2019-12-09") return "TFC";
   if (symbol === "BHGE" && date < "2019-10-18") return "BKR";
@@ -85,7 +87,7 @@ export function historicalPriceTicker(symbol: string, date = "9999-12-31"): stri
 
 export function historicalPriceKeys(symbol: string, date?: string): string[] {
   const primary = historicalPriceTicker(symbol, date);
-  if (primary === "LEGACY:AGN") return [primary, `Q12:${primary}`];
+  if (primary === "LEGACY:AGN") return [primary, `Q12:${primary}`, `Q12S:${primary}`];
   // 未复权归档仅作最终补缺，不能抢占已有完整的拆股调整价格窗口。
-  return [primary, `Y22:${primary}`, `Y20:${primary}`, archiveTicker(symbol), `Q12:${primary}`];
+  return [primary, `Y22:${primary}`, `Y20:${primary}`, archiveTicker(symbol), `Q12:${primary}`, `Q12S:${primary}`];
 }

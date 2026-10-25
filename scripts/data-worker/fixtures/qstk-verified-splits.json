@@ -1,0 +1,42 @@
+{
+  "WFT": [
+    {
+      "date": "2005-12-01",
+      "previousDate": "2005-11-30",
+      "ratio": 2,
+      "source": "https://www.sec.gov/Archives/edgar/data/1170565/000095012905010140/h29657exv99w1.htm",
+      "dateMethod": "First actual trading session after the announced November 30 share distribution; observed raw adjustment factor must independently match 2:1."
+    },
+    {
+      "date": "2008-05-27",
+      "previousDate": "2008-05-23",
+      "ratio": 2,
+      "source": "https://www.sec.gov/Archives/edgar/data/1170565/000095012908002314/h55944exv99w1.htm",
+      "dateMethod": "First actual trading session after the announced May 23 share distribution; May 26 was a market holiday; observed raw adjustment factor must independently match 2:1."
+    }
+  ],
+  "LIFE": [
+    {
+      "date": "2008-05-28",
+      "previousDate": "2008-05-27",
+      "ratio": 2,
+      "source": "https://www.nasdaqtrader.com/content/phlxmemos/2008/May/0982-08.pdf"
+    }
+  ],
+  "MHS": [
+    {
+      "date": "2008-01-25",
+      "previousDate": "2008-01-24",
+      "ratio": 2,
+      "source": "https://media.corporate-ir.net/media_files/irol/13/131268/MHSStockSplitFAQs.pdf"
+    }
+  ],
+  "AGN": [
+    {
+      "date": "2007-06-25",
+      "previousDate": "2007-06-22",
+      "ratio": 2,
+      "source": "https://www.nasdaqtrader.com/content/phlxmemos/2007/jun/1520-07.pdf"
+    }
+  ]
+}
