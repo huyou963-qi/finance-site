@@ -86,6 +86,15 @@ function testRepeatedPropertyChildren() {
   const legacy = parsed.get("nbs_cn_realestate_3f705e05f2cccad432");
   assert.equal(legacy?.key, "property|商品房待售面积：商业营业用房|amount");
   assert.equal(legacy?.label, "房地产：商品房待售面积：商业营业用房原值");
+  const commercialYoy = parsed.get("nbs_cn_realestate_db24f54063787b44be");
+  assert.equal(commercialYoy?.key, "property|商品房待售面积：商业营业用房|yoy");
+  assert.equal(commercialYoy?.unit, "%");
+  assert.equal(commercialYoy?.points[0]?.value, -5.7);
+  const officeStock = parsed.get("nbs_cn_realestate_e9a76c570b5c25c176");
+  assert.equal(officeStock?.key, "property|商品房待售面积：办公楼|amount");
+  assert.equal(officeStock?.unit, "万平方米");
+  assert.equal(officeStock?.label, "房地产：商品房待售面积：办公楼原值");
+  assert.equal(officeStock?.points[0]?.value, 5184);
 }
 
 testProperty();
