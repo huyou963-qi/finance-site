@@ -46,6 +46,14 @@
   ],
   "AGN": [
     {
+      "date": "2008-02-13",
+      "previousDate": "2008-02-12",
+      "amount": 0.05,
+      "source": "https://www.sec.gov/Archives/edgar/data/850693/000089256908000184/a38161e10vk.htm",
+      "recordDate": "2008-02-15",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
       "date": "2008-05-21",
       "previousDate": "2008-05-20",
       "amount": 0.05,
@@ -60,6 +68,216 @@
       "source": "https://www.sec.gov/Archives/edgar/data/850693/000095013408013638/a42529exv99w1.htm",
       "recordDate": "2008-08-15",
       "dateMethod": "Pre-2017 second preceding trading day, also required to match observed adjustment change."
+    },
+    {
+      "date": "2009-02-18",
+      "previousDate": "2009-02-17",
+      "amount": 0.05,
+      "source": "https://www.sec.gov/Archives/edgar/data/850693/000119312509040955/d10k.htm",
+      "recordDate": "2009-02-20",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    }
+  ],
+  "GR": [
+    {
+      "date": "2007-11-29",
+      "previousDate": "2007-11-28",
+      "amount": 0.225,
+      "source": "https://www.sec.gov/Archives/edgar/data/42542/000095014408007804/g16224qe10vq.htm",
+      "recordDate": "2007-12-03",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-02-28",
+      "previousDate": "2008-02-27",
+      "amount": 0.225,
+      "source": "https://www.sec.gov/Archives/edgar/data/42542/000095014408007804/g16224qe10vq.htm",
+      "recordDate": "2008-03-03",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-05-29",
+      "previousDate": "2008-05-28",
+      "amount": 0.225,
+      "source": "https://www.sec.gov/Archives/edgar/data/42542/000095014408007804/g16224qe10vq.htm",
+      "recordDate": "2008-06-02",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-08-28",
+      "previousDate": "2008-08-27",
+      "amount": 0.225,
+      "source": "https://www.sec.gov/Archives/edgar/data/42542/000095014408007804/g16224qe10vq.htm",
+      "recordDate": "2008-09-02",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-11-26",
+      "previousDate": "2008-11-25",
+      "amount": 0.25,
+      "source": "https://www.sec.gov/Archives/edgar/data/42542/000095014408007804/g16224qe10vq.htm",
+      "recordDate": "2008-12-01",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    }
+  ],
+  "MOLX": [
+    {
+      "date": "2008-09-26",
+      "previousDate": "2008-09-25",
+      "amount": 0.1525,
+      "source": "https://www.sec.gov/Archives/edgar/data/67472/000095013708010211/c34409exv99w1.htm",
+      "recordDate": "2008-09-30",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    }
+  ],
+  "HNZ": [
+    {
+      "date": "2008-06-20",
+      "previousDate": "2008-06-19",
+      "amount": 0.415,
+      "source": "https://www.sec.gov/Archives/edgar/data/46640/000115752308004642/a5695296ex99_2.htm",
+      "recordDate": "2008-06-24",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    }
+  ],
+  "Q": [
+    {
+      "date": "2008-01-30",
+      "previousDate": "2008-01-29",
+      "amount": 0.08,
+      "source": "https://www.sec.gov/Archives/edgar/data/1037949/000104746909001126/a2190288z10-k.htm",
+      "recordDate": "2008-02-01",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-05-07",
+      "previousDate": "2008-05-06",
+      "amount": 0.08,
+      "source": "https://www.sec.gov/Archives/edgar/data/1037949/000104746909001126/a2190288z10-k.htm",
+      "recordDate": "2008-05-09",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-08-06",
+      "previousDate": "2008-08-05",
+      "amount": 0.08,
+      "source": "https://www.sec.gov/Archives/edgar/data/1037949/000104746909001126/a2190288z10-k.htm",
+      "recordDate": "2008-08-08",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-11-12",
+      "previousDate": "2008-11-11",
+      "amount": 0.08,
+      "source": "https://www.sec.gov/Archives/edgar/data/1037949/000104746909001126/a2190288z10-k.htm",
+      "recordDate": "2008-11-14",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2009-02-11",
+      "previousDate": "2009-02-10",
+      "amount": 0.08,
+      "source": "https://www.sec.gov/Archives/edgar/data/1037949/000104746909001126/a2190288z10-k.htm",
+      "recordDate": "2009-02-13",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    }
+  ],
+  "AYE": [
+    {
+      "date": "2008-03-06",
+      "previousDate": "2008-03-05",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2008-03-10",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-06-05",
+      "previousDate": "2008-06-04",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2008-06-09",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-09-11",
+      "previousDate": "2008-09-10",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2008-09-15",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2008-12-11",
+      "previousDate": "2008-12-10",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2008-12-15",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2009-03-05",
+      "previousDate": "2009-03-04",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2009-03-09",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2009-06-04",
+      "previousDate": "2009-06-03",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2009-06-08",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2009-09-10",
+      "previousDate": "2009-09-09",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2009-09-14",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2009-12-10",
+      "previousDate": "2009-12-09",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2009-12-14",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2010-03-04",
+      "previousDate": "2010-03-03",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2010-03-08",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2010-06-03",
+      "previousDate": "2010-06-02",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2010-06-07",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2010-09-09",
+      "previousDate": "2010-09-08",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2010-09-13",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
+    },
+    {
+      "date": "2010-12-09",
+      "previousDate": "2010-12-08",
+      "amount": 0.15,
+      "source": "https://www.sec.gov/Archives/edgar/data/1031296/000095012311036574/y42427exv99w1.htm",
+      "recordDate": "2010-12-13",
+      "dateMethod": "Derived from issuer record date using actual SPY calendar and the pre-2017 ordinary cash rule (second prior trading day); observed factor change must independently match the declared amount."
     }
   ]
 }
