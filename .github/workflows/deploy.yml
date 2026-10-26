@@ -93,6 +93,9 @@ jobs:
           flock -w 1800 8
           exec 9>/tmp/finance-sync-calendar.lock
           flock -w 1800 9
+          # 每日财报任务读取同一部署目录，覆盖源码/依赖前同样等待其退出。
+          exec 7>/tmp/finance-sector-daily-disclosures.lock
+          flock -w 7200 7
           export SYNC_CRON_CHECKOUT_LOCKED=1
           site_stopped=0
           restore_site() {

@@ -1623,15 +1623,25 @@ model SecFiling {
   /// EDGAR 主文档文件名（直链 …/{accessionNoDash}/{primaryDocument}）
   primaryDocument       String?  @map("primary_document") @db.VarChar(256)
   primaryDocDescription String?  @map("primary_doc_description") @db.VarChar(256)
+  reportPeriodEnd       DateTime? @map("report_period_end") @db.Date
   /// 原始 ownership XML / Item 408 结构化证据的唯一文档投影，可由 SEC 重建
   ownershipData         Json?    @map("ownership_data")
   ownershipParsedAt     DateTime? @map("ownership_parsed_at")
+  /// 日批处理状态：null=未处理，pending=待补齐，complete=完成，error=失败待重试
+  dailyStatus           String?   @map("daily_status") @db.VarChar(16)
+  dailyProcessedAt      DateTime? @map("daily_processed_at")
+  dailyNextAttemptAt    DateTime? @map("daily_next_attempt_at")
+  dailyAttempts         Int       @default(0) @map("daily_attempts")
+  dailyError            String?   @map("daily_error") @db.VarChar(1000)
+  /// 公告内 EX-99 附件的原文地址、文件名及纯文本摘录；不替代标准财务快照
+  earningsRelease       Json?     @map("earnings_release")
   createdAt             DateTime @default(now()) @map("created_at")
 
   @@unique([cik, accession])
   @@index([symbol, filedAt(sort: Desc)])
   @@index([cik, filedAt(sort: Desc)])
   @@index([form])
+  @@index([dailyStatus, dailyNextAttemptAt])
   @@map("sec_filing")
   @@schema("mds")
 }

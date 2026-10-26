@@ -69,6 +69,7 @@ npm run equity:seed-sp500          # Wikipedia → equity_security + index_const
 npm run equity:verify-gics         # 校验 74 Industry 目录；加 --db 检查回卷率
 npm run equity:sync-profiles       # 分日 FMP profile（默认 --limit=40）
 npm run equity:sync-fundamentals  # Top-N 财报快照（默认 SEC companyfacts，--limit=100）
+npm run equity:sync-daily-disclosures # 每日 SEC 日终增量：公告、业绩附件、季度快照与版本
 npm run equity:sync-weekly-fundamentals # 最近新增 10-Q/10-K → 当前季度快照 + PIT vintage
 npm run equity:sync-fundamental-vintages # SEC accession 逐版本标准化历史
 npm run equity:sync-sector-etf-holdings # State Street SPY + 11行业 ETF 每日持仓归档

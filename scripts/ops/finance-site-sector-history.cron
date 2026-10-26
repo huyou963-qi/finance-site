@@ -11,5 +11,8 @@ FINANCE_SITE_PATH=/opt/finance-site
 # 将当时已观察到的当前 GICS 分类记为开放有效期；变化时由 writer 关闭旧区间。
 45 18 * * 1-5 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-classifications.lock npm run equity:snapshot-current-classifications >> logs/sector-classifications.log 2>&1
 
-# 每周日扫描当前行业成分最近 10 天新增的 10-Q/10-K；只对命中公司刷新当前快照与 PIT vintage。
-15 7 * * 0 root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-weekly-fundamentals.lock npm run equity:sync-weekly-fundamentals >> logs/sector-weekly-fundamentals.log 2>&1
+# 每天北京时间 19:15（美东 06:15/07:15）处理上一日公告，回看七天补漏。
+# 替代原周度财报任务，不做盘中轮询；固定香港时区避免夏令时调度切换。
+# 单并发、512MB heap、低 CPU 优先级；90 分钟超时后未完成任务留待下一批。
+CRON_TZ=Asia/Hong_Kong
+15 19 * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-daily-disclosures.lock nice -n 10 timeout --signal=TERM --kill-after=30s 90m env NODE_OPTIONS=--max-old-space-size=512 npm run equity:sync-daily-disclosures >> logs/sector-daily-disclosures.log 2>&1

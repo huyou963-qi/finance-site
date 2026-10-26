@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { StockEventsPanel } from "@/components/equity/StockEventsPanel";
+import { StockDisclosureCard } from "@/components/equity/StockDisclosureCard";
 import { StockFundamentalsPanel } from "@/components/equity/StockFundamentalsPanel";
 import { StockInsiderTransactionsPanel } from "@/components/equity/StockInsiderTransactionsPanel";
 import { StockSymbolSwitcher } from "@/components/equity/StockSymbolSwitcher";
@@ -254,6 +255,8 @@ export function StockDetailClient({
           </Link>
         </div>
       </header>
+
+      <StockDisclosureCard symbol={symbol} />
 
       <div className="flex min-w-0 items-start gap-3 sm:gap-5">
         <div role="tablist" aria-label="个股研究分页" aria-orientation="vertical" className="sticky top-3 flex w-24 shrink-0 flex-col gap-1 rounded-md border border-fs-border bg-fs-bg p-1 sm:w-36 sm:p-2">
