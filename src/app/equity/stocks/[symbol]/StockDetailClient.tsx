@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { StockEventsPanel } from "@/components/equity/StockEventsPanel";
-import { StockDisclosureCard } from "@/components/equity/StockDisclosureCard";
+import type { StockEvent } from "@/lib/equity/stockEvents";
 import { StockFundamentalsPanel } from "@/components/equity/StockFundamentalsPanel";
 import { StockInsiderTransactionsPanel } from "@/components/equity/StockInsiderTransactionsPanel";
 import { StockSymbolSwitcher } from "@/components/equity/StockSymbolSwitcher";
@@ -103,25 +103,21 @@ export function StockDetailClient({
   useEffect(() => {
     let cancelled = false;
     fetch(
-      `/api/equity/stocks/${encodeURIComponent(symbol)}/events?types=earnings,annual&limit=40`,
+      `/api/equity/stocks/${encodeURIComponent(symbol)}/events?types=earnings,annual,8k&limit=120`,
       { cache: "no-store" },
     )
       .then(async (r) => {
         if (!r.ok) return [];
         const j = (await r.json()) as {
-          events?: {
-            date: string;
-            titleZh: string;
-            reaction: number | null;
-            metrics: { period: string; revenueYoY: number | null; eps: number | null } | null;
-          }[];
+          events?: StockEvent[];
         };
-        return (j.events ?? []).map((e) => {
-          const parts = [e.metrics?.period ?? e.titleZh];
+        return (j.events ?? []).filter(event => event.type !== "8k" || event.items.includes("2.02")).map((e) => {
+          const parts = [e.titleZh, e.timing?.displayBasis === "company-publication" && !e.timing.publishedAt ? `${e.date} 公司原文日期，时刻/时区未知` : `${e.date} 美东`];
+          if (e.timing) parts.push(e.timing.displayBasis === "company-publication" ? "公司发布" : e.timing.displayBasis === "sec-acceptance" ? "SEC 接收日" : "仅 SEC 申报日期，时刻未知");
           if (e.metrics?.revenueYoY != null)
             parts.push(`营收 ${fmtPct(e.metrics.revenueYoY)}`);
-          if (e.metrics?.eps != null) parts.push(`EPS ${e.metrics.eps.toFixed(2)}`);
-          if (e.reaction != null) parts.push(`T+1 ${fmtPct(e.reaction)}`);
+          if (e.metrics?.eps != null) parts.push(`GAAP EPS ${e.metrics.eps.toFixed(2)}`);
+          if (e.reactionDetails) parts.push(`${e.reactionDetails.label}${e.reaction != null ? ` ${fmtPct(e.reaction)}` : ""}`);
           return { date: e.date, labelZh: parts.join(" · ") };
         });
       })
@@ -255,8 +251,6 @@ export function StockDetailClient({
           </Link>
         </div>
       </header>
-
-      <StockDisclosureCard symbol={symbol} />
 
       <div className="flex min-w-0 items-start gap-3 sm:gap-5">
         <div role="tablist" aria-label="个股研究分页" aria-orientation="vertical" className="sticky top-3 flex w-24 shrink-0 flex-col gap-1 rounded-md border border-fs-border bg-fs-bg p-1 sm:w-36 sm:p-2">

@@ -7,6 +7,13 @@
 import { prisma } from "@/lib/prisma";
 import { syncSecFilings } from "./secFilingSync";
 import { loadOwnershipPlanDisclosures } from "./ownershipMonitor";
+import { readReleaseAttachments } from "./stockDisclosures";
+import type { Prisma } from "@prisma/client";
+import type { SecReleaseAttachment } from "./secEdgar";
+import { releasePeriodEnd } from "./stockEventGroups";
+import { disclosureSession, easternParts, eventReaction, type EventReaction } from "./disclosureTiming";
+import { getDailyCloseRowsDbOnly } from "./equityPriceStore";
+import { buildBasicEarningsBrief, type BasicEarningsBrief, type EarningsFactVersion } from "./basicEarningsBrief";
 
 export type StockEventType = "earnings" | "annual" | "8k" | "split" | "insider-plan";
 export type StockEventImportance = "high" | "medium" | "low";
@@ -22,7 +29,7 @@ export type StockEventMetrics = {
 
 export type StockEvent = {
   type: StockEventType;
-  /** ISO 日期（filedAt / 拆股 exDate） */
+  /** 展示日：公司有据发布日期 / SEC 核验接收日 / 申报日；精度与来源见 timing。 */
   date: string;
   titleZh: string;
   form: string | null;
@@ -34,8 +41,25 @@ export type StockEvent = {
   metrics: StockEventMetrics | null;
   /** 拆股："10:1" */
   splitRatio: string | null;
-  /** 披露次交易日涨跌幅（业绩类事件，adjClose 口径现算不落库） */
+  /** 明确时点之后的完整交易日收益；缺精确时间/价格时为 null，口径见 reactionDetails。 */
   reaction: number | null;
+  reactionDetails?: EventReaction;
+  timing?: {
+    filedDate: string; acceptedAt: string | null; acceptedAtSource: string | null;
+    publishedAt: string | null; publishedOn: string | null; publicationSource: string | null;
+    session: ReturnType<typeof disclosureSession>; acceptedSession: ReturnType<typeof disclosureSession>;
+    displayBasis: "company-publication" | "sec-acceptance" | "filing-date";
+  };
+  brief?: BasicEarningsBrief | null;
+  /** 仅事件分页按需返回；行情标记不携带附件正文。 */
+  disclosure?: {
+    accession: string;
+    periodEnd: string | null;
+    collectedAt: string;
+    status: string | null;
+    processedAt: string | null;
+    attachments: SecReleaseAttachment[];
+  };
 };
 
 /** 8-K item → 中文标签（时间线摘要用） */
@@ -105,35 +129,45 @@ export async function loadStockEvents(
     limit?: number;
     from?: string;
     to?: string;
+    includeDisclosure?: boolean;
   } = {},
 ): Promise<StockEvent[]> {
   const limit = Math.min(200, Math.max(1, opts.limit ?? 80));
   const fromDay = opts.from?.slice(0, 10);
   const toDay = opts.to?.slice(0, 10);
 
-  const filingWhere: {
-    symbol: string;
-    form: { in: string[] };
-    filedAt?: { gte?: Date; lte?: Date };
-  } = { symbol, form: { in: ["8-K", "8-K/A", "10-Q", "10-K", "10-Q/A", "10-K/A"] } };
+  const filingWhere: Prisma.SecFilingWhereInput = {
+    ...(opts.cik ? { cik: opts.cik.replace(/\D/g, "").padStart(10, "0") } : { symbol }),
+    form: { in: ["8-K", "8-K/A", "10-Q", "10-K", "10-Q/A", "10-K/A"] },
+  };
   if (fromDay || toDay) {
-    filingWhere.filedAt = {};
-    if (fromDay) filingWhere.filedAt.gte = new Date(`${fromDay}T00:00:00.000Z`);
-    if (toDay) filingWhere.filedAt.lte = new Date(`${toDay}T23:59:59.999Z`);
+    filingWhere.filedAt = {
+      ...(fromDay ? { gte: new Date(`${fromDay}T00:00:00.000Z`) } : {}),
+      ...(toDay ? { lte: new Date(`${toDay}T23:59:59.999Z`) } : {}),
+    };
   }
+
+  const filingSelect = {
+    accession: true, reportPeriodEnd: true, form: true, filedAt: true, url: true, items: true,
+    createdAt: true, dailyStatus: true, dailyProcessedAt: true,
+    acceptedAt: true, acceptedAtSource: true, publishedAt: true, publishedOn: true, publicationSource: true,
+    earningsRelease: Boolean(opts.includeDisclosure),
+  } satisfies Prisma.SecFilingSelect;
 
   let filings = await prisma.secFiling.findMany({
     where: filingWhere,
     orderBy: { filedAt: "desc" },
     take: 300,
+    select: filingSelect,
   });
-  if (!filings.length && opts.cik) {
+  if (!filings.length && opts.cik && !opts.includeDisclosure) {
     try {
       await ingestSecFilingsForSymbol(symbol, opts.cik);
       filings = await prisma.secFiling.findMany({
         where: filingWhere,
         orderBy: { filedAt: "desc" },
         take: 300,
+        select: filingSelect,
       });
     } catch {
       // SEC 不可达时保持空，脚本路径兜底
@@ -161,7 +195,12 @@ export async function loadStockEvents(
 
   // T+1 反应用 adjClose：只取事件日期邻域，不拉全历史
   const dateCandidates: number[] = [];
-  for (const f of filings) dateCandidates.push(f.filedAt.getTime());
+  for (const f of filings) {
+    dateCandidates.push(f.filedAt.getTime());
+    if (f.publishedAt) dateCandidates.push(f.publishedAt.getTime());
+    if (f.publishedOn) dateCandidates.push(f.publishedOn.getTime());
+    if (f.acceptedAt) dateCandidates.push(f.acceptedAt.getTime());
+  }
   for (const s of splits) {
     const t = s.exDate.getTime();
     if (fromDay && s.exDate.toISOString().slice(0, 10) < fromDay) continue;
@@ -173,34 +212,10 @@ export async function loadStockEvents(
   if (dateCandidates.length > 0) {
     const minMs = Math.min(...dateCandidates) - 14 * 86_400_000;
     const maxMs = Math.max(...dateCandidates) + 21 * 86_400_000;
-    dailyBars = await prisma.equityDailyBar.findMany({
-      where: {
-        symbol,
-        date: { gte: new Date(minMs), lte: new Date(maxMs) },
-      },
-      orderBy: { date: "asc" },
-      select: { date: true, adjClose: true },
-    });
+    dailyBars = await getDailyCloseRowsDbOnly({ symbols: [symbol], from: new Date(minMs), to: new Date(maxMs) });
   }
 
-  // 披露次交易日涨跌幅：prev = 披露日当日或之前最近一根，next = 其后第一根
-  const barDates = dailyBars.map((b) => b.date.toISOString().slice(0, 10));
-  const computeReaction = (dateIso: string): number | null => {
-    if (!barDates.length) return null;
-    // 二分找第一个 > dateIso 的位置
-    let lo = 0;
-    let hi = barDates.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (barDates[mid]! <= dateIso) lo = mid + 1;
-      else hi = mid;
-    }
-    if (lo === 0 || lo >= dailyBars.length) return null;
-    const prev = dailyBars[lo - 1]!.adjClose;
-    const next = dailyBars[lo]!.adjClose;
-    if (!Number.isFinite(prev) || !Number.isFinite(next) || prev <= 0) return null;
-    return next / prev - 1;
-  };
+  const reactionBars = dailyBars.map(bar => ({ date: bar.date.toISOString().slice(0, 10), close: bar.adjClose }));
 
   // 财报 filing → 最近一季快照：fiscalDate ∈ [filedAt−maxLagDays, filedAt]。
   // 10-Q/10-K 用 100d（披露滞后財季末最多一季+缓冲）；8-K 2.02 业绩稿用 45d——
@@ -227,10 +242,53 @@ export async function loadStockEvents(
   };
 
   const events: StockEvent[] = [];
+  const references = filings.filter(filing => filing.form === "10-Q" || filing.form === "10-K")
+    .flatMap(filing => filing.reportPeriodEnd ? [{
+      periodEnd: filing.reportPeriodEnd.toISOString().slice(0, 10),
+      fiscalQuarter: quarters.find(quarter => quarter.fiscalDate?.getTime() === filing.reportPeriodEnd!.getTime())?.fiscalQuarter ?? null,
+    }] : []);
+  const versions = opts.includeDisclosure ? await prisma.equityFundamentalVintage.findMany({
+    where: { symbol, accession: { in: filings.map(filing => filing.accession) }, periodType: "Q",
+      fiscalDate: { in: filings.flatMap(filing => filing.reportPeriodEnd ? [filing.reportPeriodEnd] : []) } },
+    select: { accession: true, fiscalDate: true, filedAt: true, revenue: true, revenueYoY: true, eps: true,
+      epsYoY: true, netIncome: true, opMargin: true },
+    orderBy: { filedAt: "desc" },
+  }) : [];
+  const findVersion = (accession: string, periodEnd: string | null): EarningsFactVersion | undefined => {
+    const row = versions.find(version => version.accession === accession && version.fiscalDate?.toISOString().slice(0, 10) === periodEnd);
+    const filing = filings.find(item => item.accession === accession);
+    return row && filing && row.fiscalDate ? { ...row, fiscalDate: row.fiscalDate.toISOString().slice(0, 10),
+      filedAt: row.filedAt.toISOString().slice(0, 10), sourceUrl: filing.url } : undefined;
+  };
 
   for (const f of filings) {
-    const dateIso = f.filedAt.toISOString().slice(0, 10);
+    const filedDate = f.filedAt.toISOString().slice(0, 10);
+    const isEarningsRelease = f.form.startsWith("8-K") && parse8kItems(f.items).includes("2.02");
+    const publicationDay = f.publishedAt ? easternParts(f.publishedAt).date : f.publishedOn?.toISOString().slice(0, 10) ?? null;
+    const dateIso = isEarningsRelease && publicationDay ? publicationDay : f.acceptedAt ? easternParts(f.acceptedAt).date : filedDate;
+    const timing: NonNullable<StockEvent["timing"]> = {
+      filedDate, acceptedAt: f.acceptedAt?.toISOString() ?? null, acceptedAtSource: f.acceptedAtSource,
+      publishedAt: f.publishedAt?.toISOString() ?? null, publishedOn: f.publishedOn?.toISOString().slice(0, 10) ?? null,
+      publicationSource: f.publicationSource, session: disclosureSession(f.publishedAt), acceptedSession: disclosureSession(f.acceptedAt),
+      displayBasis: isEarningsRelease && publicationDay ? "company-publication" : f.acceptedAt ? "sec-acceptance" : "filing-date",
+    };
     const baseForm = f.form.replace("/A", "");
+    const attachments = opts.includeDisclosure ? readReleaseAttachments(f.earningsRelease) : [];
+    const periodEnd = baseForm === "10-Q" || baseForm === "10-K"
+      ? f.reportPeriodEnd?.toISOString().slice(0, 10) ?? null
+      : f.items?.split(",").some(item => item.trim() === "2.02")
+        ? releasePeriodEnd(attachments.map(attachment => attachment.text).join("\n"), filedDate, references) : null;
+    const sourceReport = isEarningsRelease ? filings.find(filing => (filing.form === "10-Q" || filing.form === "10-K") && filing.reportPeriodEnd?.toISOString().slice(0, 10) === periodEnd) : f;
+    const version = sourceReport ? findVersion(sourceReport.accession, periodEnd) : undefined;
+    const brief = opts.includeDisclosure && (isEarningsRelease || baseForm === "10-Q" || baseForm === "10-K")
+      ? buildBasicEarningsBrief(periodEnd, attachments, version) : undefined;
+    const disclosure = opts.includeDisclosure ? {
+      accession: f.accession, periodEnd,
+      collectedAt: f.createdAt.toISOString(),
+      status: f.dailyStatus,
+      processedAt: f.dailyProcessedAt?.toISOString() ?? null,
+      attachments,
+    } : undefined;
     if (baseForm === "10-Q" || baseForm === "10-K") {
       // 修订件（/A）滞后原财季数月，100 天窗口会错配到下一季 → 不内嵌 metrics
       const isAmendment = f.form.endsWith("/A");
@@ -249,7 +307,10 @@ export async function loadStockEvents(
         url: f.url,
         metrics,
         splitRatio: null,
-        reaction: computeReaction(dateIso),
+        reaction: eventReaction(f.acceptedAt, "sec-accepted", reactionBars).value,
+        reactionDetails: eventReaction(f.acceptedAt, "sec-accepted", reactionBars), timing,
+        ...(brief ? { brief } : {}),
+        ...(disclosure ? { disclosure } : {}),
       });
     } else {
       const items = parse8kItems(f.items);
@@ -264,7 +325,10 @@ export async function loadStockEvents(
         url: f.url,
         metrics: isEarnings8k ? findMetrics(f.filedAt, 45) : null,
         splitRatio: null,
-        reaction: isEarnings8k ? computeReaction(dateIso) : null,
+        reaction: isEarnings8k ? eventReaction(f.publishedAt, "company-release", reactionBars).value : null,
+        ...(isEarnings8k ? { reactionDetails: eventReaction(f.publishedAt, "company-release", reactionBars) } : {}), timing,
+        ...(brief ? { brief } : {}),
+        ...(disclosure ? { disclosure } : {}),
       });
     }
   }
@@ -300,6 +364,7 @@ export async function loadStockEvents(
   }
   return events
     .filter((e) => !typeFilter || typeFilter.has(e.type))
+    .filter(e => (!fromDay || e.date >= fromDay) && (!toDay || e.date <= toDay))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
 }

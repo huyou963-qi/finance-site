@@ -1610,6 +1610,33 @@ model SectorRegimeForecast {
 }
 
 /// SEC EDGAR 披露索引（供 Automation 取证）
+/// 每日公告同步的执行账本；公告事实仍只存 SecFiling。
+model EquityDisclosureBatch {
+  id             String    @id @default(uuid()) @db.Uuid
+  status         String    @default("running") @db.VarChar(16)
+  startedAt      DateTime  @default(now()) @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  fromDay        DateTime  @map("from_day") @db.Date
+  throughDay     DateTime  @map("through_day") @db.Date
+  /// 空数组代表全库登记范围；手动限定批次不能冒充全局更新。
+  symbols        String[]  @default([])
+  coveredCiks    String[]  @default([]) @map("covered_ciks")
+  failedCiks     String[]  @default([]) @map("failed_ciks")
+  missingIndexes String[]  @default([]) @map("missing_indexes")
+  indexed        Int       @default(0)
+  complete       Int       @default(0)
+  pending        Int       @default(0)
+  failed         Int       @default(0)
+  remaining      Int       @default(0)
+  timingUpdated  Int       @default(0) @map("timing_updated")
+  error          String?   @db.VarChar(1000)
+
+  @@index([startedAt(sort: Desc)])
+  @@index([status, startedAt])
+  @@map("equity_disclosure_batch")
+  @@schema("mds")
+}
+
 model SecFiling {
   id                    String   @id @default(uuid()) @db.Uuid
   cik                   String   @db.VarChar(16)
@@ -1624,6 +1651,16 @@ model SecFiling {
   primaryDocument       String?  @map("primary_document") @db.VarChar(256)
   primaryDocDescription String?  @map("primary_doc_description") @db.VarChar(256)
   reportPeriodEnd       DateTime? @map("report_period_end") @db.Date
+  /// submissions 原始值仅供审计，不能直接当作已经核验的公开时间
+  acceptanceReportedAt  String?   @map("acceptance_reported_at") @db.VarChar(40)
+  /// SEC SGML 头的美东接收时刻转换为 UTC
+  acceptedAt            DateTime? @map("accepted_at")
+  acceptedAtSource      String?   @map("accepted_at_source") @db.VarChar(512)
+  /// 公司发布时刻与日期精度分开；仅有日期时 publishedAt 为空
+  publishedAt           DateTime? @map("published_at")
+  publishedOn           DateTime? @map("published_on") @db.Date
+  publicationSource     String?   @map("publication_source") @db.VarChar(512)
+  timingCheckedAt       DateTime? @map("timing_checked_at")
   /// 原始 ownership XML / Item 408 结构化证据的唯一文档投影，可由 SEC 重建
   ownershipData         Json?    @map("ownership_data")
   ownershipParsedAt     DateTime? @map("ownership_parsed_at")

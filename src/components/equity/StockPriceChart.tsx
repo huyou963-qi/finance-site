@@ -70,7 +70,7 @@ export function StockPriceChart({
       },
     }));
 
-    // 业绩打点：披露日不是交易日时挂到其后第一根 bar（盘后披露次日反应也在那根上）
+    // 标记用于事件日期；非交易日挂到后续行情日。收益窗口另由服务端按核验时点计算。
     const dateIndex = new Map(dates.map((d, i) => [d, i]));
     const markData = earningsMarks.flatMap((m) => {
       let idx = dateIndex.get(m.date);

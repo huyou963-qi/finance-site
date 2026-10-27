@@ -1,5 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 import { parseSecDailyIndex } from "./dailyDisclosurePolicy";
+import { easternParts, parseSecAcceptanceTime } from "./disclosureTiming";
 
 /** Shared EDGAR transport and submissions discovery. All SEC consumers reuse this boundary. */
 let tail: Promise<unknown> = Promise.resolve();
@@ -28,12 +29,12 @@ export async function fetchSecText(url: string, timeoutMs = 30000): Promise<stri
 export async function fetchSecJson<T>(url: string, timeoutMs?: number): Promise<T> {
   return JSON.parse(await fetchSecText(url, timeoutMs)) as T;
 }
-export type SecIndexRow = { accession: string; form: string; filedAt: string; primaryDocument: string | null; items: string | null; description: string | null; reportDate?: string | null };
-type IndexColumns = { accessionNumber?: string[]; form?: string[]; filingDate?: string[]; primaryDocument?: string[]; items?: string[]; primaryDocDescription?: string[]; reportDate?: string[] };
+export type SecIndexRow = { accession: string; form: string; filedAt: string; primaryDocument: string | null; items: string | null; description: string | null; reportDate?: string | null; acceptanceReportedAt?: string | null };
+type IndexColumns = { accessionNumber?: string[]; form?: string[]; filingDate?: string[]; primaryDocument?: string[]; items?: string[]; primaryDocDescription?: string[]; reportDate?: string[]; acceptanceDateTime?: string[] };
 export function secIndexRows(data: IndexColumns): SecIndexRow[] {
   return (data.accessionNumber ?? []).flatMap((accession, i) => {
     const form = data.form?.[i], filedAt = data.filingDate?.[i];
-    return form && filedAt ? [{ accession, form, filedAt, primaryDocument: data.primaryDocument?.[i] || null, items: data.items?.[i] || null, description: data.primaryDocDescription?.[i] || null, reportDate: data.reportDate?.[i] || null }] : [];
+    return form && filedAt ? [{ accession, form, filedAt, primaryDocument: data.primaryDocument?.[i] || null, items: data.items?.[i] || null, description: data.primaryDocDescription?.[i] || null, reportDate: data.reportDate?.[i] || null, acceptanceReportedAt: data.acceptanceDateTime?.[i] || null }] : [];
   });
 }
 export function secDocumentUrl(cik: string, accession: string, document: string | null, rawXml = false) {
@@ -87,6 +88,63 @@ export function parseSecReleaseAttachments(source: string, cik: string, accessio
 }
 
 export async function fetchSecReleaseAttachments(cik: string, accession: string) {
+  return (await fetchSecReleaseEvidence(cik, accession)).attachments;
+}
+
+export type ReleasePublication = { at: string | null; date: string; sourceUrl: string; evidence: string };
+/** Only explicit publication metadata with a timezone/date precision is accepted. */
+export function parseReleasePublication(source: string, url: string, filedAt: string): ReleasePublication | null {
+  const matches: string[] = [];
+  const collect = (value: unknown) => {
+    if (Array.isArray(value)) { value.forEach(collect); return; }
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (record["@graph"]) collect(record["@graph"]);
+    const types = Array.isArray(record["@type"]) ? record["@type"] : [record["@type"]];
+    if (types.some(type => typeof type === "string" && /^(?:NewsArticle|Article|PressRelease|Report|FinancialReport)$/.test(type)) && typeof record.datePublished === "string") matches.push(record.datePublished);
+  };
+  for (const script of source.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try { collect(JSON.parse(script[1].slice(0, 100_000))); } catch { /* Malformed metadata does not become a publication time. */ }
+  }
+  if (new Set(matches).size !== 1) return null;
+  const raw = matches[0];
+  const precise = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  if (!precise && !dateOnly) return null;
+  const calendarDate = new Date(raw.slice(0, 10));
+  if (!Number.isFinite(calendarDate.getTime()) || calendarDate.toISOString().slice(0, 10) !== raw.slice(0, 10)) return null;
+  const date = new Date(raw);
+  if (!Number.isFinite(date.getTime())) return null;
+  const day = precise ? easternParts(date).date : raw;
+  const lag = new Date(filedAt).getTime() - new Date(day).getTime();
+  if (lag < -86_400_000 || lag > 14 * 86_400_000) return null;
+  return { at: precise ? date.toISOString() : null, date: day, sourceUrl: url, evidence: `datePublished: ${raw}` };
+}
+
+export function parseSecReleaseEvidence(source: string, cik: string, accession: string, filedAt: string) {
+  const attachments = parseSecReleaseAttachments(source, cik, accession);
+  const publications: ReleasePublication[] = [];
+  for (const document of source.matchAll(/<DOCUMENT>([\s\S]*?)<\/DOCUMENT>/gi)) {
+    const filename = document[1].match(/<FILENAME>\s*([^\r\n<]+)/i)?.[1]?.trim();
+    const attachment = attachments.find(item => item.filename === filename);
+    if (!attachment) continue;
+    const publication = parseReleasePublication(document[1], attachment.url, filedAt);
+    if (publication) publications.push(publication);
+  }
+  const unique = new Set(publications.map(publication => publication.at ?? publication.date));
+  return { attachments, publication: unique.size === 1 ? publications[0] : null,
+    acceptedAt: parseSecAcceptanceTime(source), acceptedAtSource: secAcceptanceUrl(cik, accession) };
+}
+export function secAcceptanceUrl(cik: string, accession: string) {
+  return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${accession}-index-headers.html`;
+}
+export async function fetchSecAcceptanceEvidence(cik: string, accession: string) {
+  const sourceUrl = secAcceptanceUrl(cik, accession);
+  const acceptedAt = parseSecAcceptanceTime(await fetchSecText(sourceUrl));
+  if (!acceptedAt) throw new Error("SEC 接收时刻无法从 SGML 头可靠核验");
+  return { acceptedAt, sourceUrl };
+}
+export async function fetchSecReleaseEvidence(cik: string, accession: string, filedAt = new Date().toISOString().slice(0, 10)) {
   const url = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${accession}.txt`;
-  return parseSecReleaseAttachments(await fetchSecText(url, 60_000), cik, accession);
+  return parseSecReleaseEvidence(await fetchSecText(url, 60_000), cik, accession, filedAt);
 }

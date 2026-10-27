@@ -23,6 +23,7 @@ export async function writeSecFilingIndex(cik: string, symbol: string, row: SecI
   const data = { symbol, form: row.form, filedAt: new Date(`${row.filedAt}T00:00:00Z`),
     url: secDocumentUrl(cik, row.accession, row.primaryDocument), items: row.items,
     primaryDocument: row.primaryDocument, primaryDocDescription: row.description,
+    ...(row.acceptanceReportedAt ? { acceptanceReportedAt: row.acceptanceReportedAt } : {}),
     ...(row.reportDate ? { reportPeriodEnd: new Date(`${row.reportDate}T00:00:00Z`) } : {}) };
   return prisma.secFiling.upsert({ where: { cik_accession: { cik, accession: row.accession } },
     create: { cik, accession: row.accession, ...data }, update: data });

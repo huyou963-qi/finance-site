@@ -31,7 +31,7 @@ export async function loadStockDisclosures(symbol: string, cik?: string | null) 
   };
 }
 
-function readReleaseAttachments(value: unknown): SecReleaseAttachment[] {
+export function readReleaseAttachments(value: unknown): SecReleaseAttachment[] {
   if (!value || typeof value !== "object") return [];
   const attachments = (value as { attachments?: unknown }).attachments;
   if (!Array.isArray(attachments)) return [];

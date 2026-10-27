@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/eventAuth";
 import { loadStockContext } from "@/lib/equity/stockDetail";
 import { loadStockEvents, type StockEventType } from "@/lib/equity/stockEvents";
+import { loadStockDisclosureHealth } from "@/lib/equity/disclosureBatchStore";
 
 type Ctx = { params: Promise<{ symbol: string }> };
 
@@ -25,13 +26,18 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const limitRaw = req.nextUrl.searchParams.get("limit");
     const limit = limitRaw ? Number(limitRaw) : undefined;
 
-    const events = await loadStockEvents(stock.symbol, {
+    const details = req.nextUrl.searchParams.get("details") === "1";
+    const [events, sync] = await Promise.all([loadStockEvents(stock.symbol, {
       cik: stock.cik,
       types: types?.length ? types : null,
       limit,
-    });
+      includeDisclosure: details,
+    }), details ? loadStockDisclosureHealth(stock.symbol, stock.cik).catch(error => {
+      console.warn("读取每日公告更新状态失败", error);
+      return { state: "unknown" as const, message: "每日更新状态暂时无法读取，当前列表不能用于判断当天公告是否齐全。", batch: null };
+    }) : Promise.resolve(undefined)]);
 
-    return NextResponse.json({ symbol: stock.symbol, events });
+    return NextResponse.json({ symbol: stock.symbol, events, ...(details ? { sync } : {}) });
   } catch (e) {
     const { msg, status } = apiErrorResponse(e);
     return NextResponse.json({ error: msg }, { status });

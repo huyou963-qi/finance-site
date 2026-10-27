@@ -1,29 +1,33 @@
 import { prisma } from "@/lib/prisma";
 import { DAILY_DISCLOSURE_FORMS, disclosureDays, financialVersionReady } from "./dailyDisclosurePolicy";
-import { discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseAttachments } from "./secEdgar";
+import { discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence } from "./secEdgar";
 import { SEC_FINANCIAL_FORMS, writeSecFilingIndex } from "./secFilingSync";
 import { fetchSecCompanyFacts, extractQuarterlyFundamentals } from "./secFundamentals";
 import { buildSecFundamentalVintages, listSecPeriodicFilings, upsertFundamentalVintages, type SecFundamentalVintage } from "./fundamentalVintages";
 import { upsertQuarterlyFundamentals } from "./equityFundamentalsStore";
 
 export type DailyDisclosureOptions = {
-  through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean;
+  through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean; timingLimit?: number;
 };
+export type DisclosureDiscoveryProgress = { coveredCiks: string[]; failedCiks: string[]; missingIndexes: string[]; indexed: number; failed: number };
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const defaultDependencies = {
-  prisma, pause, discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseAttachments,
+  prisma, pause, discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence,
   writeSecFilingIndex, fetchSecCompanyFacts, listSecPeriodicFilings, buildSecFundamentalVintages,
   extractQuarterlyFundamentals, upsertQuarterlyFundamentals, upsertFundamentalVintages,
 };
 
 /** Caller holds the batch lock. Work is bounded, serial and durable in the canonical filing row. */
-export async function syncDailyDisclosures(options: DailyDisclosureOptions = {}, dependencies = defaultDependencies) {
-  const { prisma, pause, discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseAttachments,
+export async function syncDailyDisclosures(options: DailyDisclosureOptions = {}, dependencies = defaultDependencies,
+  onDiscovery?: (progress: DisclosureDiscoveryProgress) => Promise<void>) {
+  const { prisma, pause, discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence,
     writeSecFilingIndex, fetchSecCompanyFacts, listSecPeriodicFilings, buildSecFundamentalVintages,
     extractQuarterlyFundamentals, upsertQuarterlyFundamentals, upsertFundamentalVintages } = dependencies;
   const days = disclosureDays(new Date(), options.days ?? 7, options.through);
   const delayMs = Math.max(1000, options.delayMs ?? 1000);
   const maxFilings = options.maxFilings ?? 300;
+  const timingLimit = options.timingLimit ?? 20;
+  if (!Number.isInteger(timingLimit) || timingLimit < 0 || timingLimit > 100) throw new Error("timing-limit 必须为 0–100");
   if (!Number.isInteger(maxFilings) || maxFilings < 1 || maxFilings > 1000 || !Number.isFinite(delayMs)) {
     throw new Error("max-filings 必须为 1–1000；delay-ms 必须为有效数字");
   }
@@ -36,7 +40,7 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     const cik = security.cik!.replace(/\D/g, "").padStart(10, "0");
     byCik.set(cik, [...(byCik.get(cik) ?? []), security]);
   }
-  const result = { days, coveredCompanies: byCik.size, indexed: 0, complete: 0, pending: 0, failed: 0, missingIndexes: [] as string[], remaining: 0 };
+  const result = { days, coveredCompanies: byCik.size, indexed: 0, complete: 0, pending: 0, failed: 0, missingIndexes: [] as string[], failedCiks: [] as string[], remaining: 0, timingUpdated: 0 };
   if (options.dryRun) return { ...result, dryRun: true };
   const targets = new Map<string, Set<string>>();
   for (const day of days) {
@@ -78,10 +82,13 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
       }
     } catch (error) {
       result.failed++;
+      result.failedCiks.push(cik);
       console.warn(`[SEC daily discovery ${cik}]`, error instanceof Error ? error.message : error);
     }
     await pause(delayMs);
   }
+  await onDiscovery?.({ coveredCiks: [...byCik.keys()], failedCiks: result.failedCiks,
+    missingIndexes: result.missingIndexes, indexed: result.indexed, failed: result.failed });
   const now = new Date();
   // Persist the queue before applying the per-run limit. A backlog must survive the seven-day discovery window.
   await prisma.secFiling.updateMany({
@@ -130,10 +137,30 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
         let status = "complete";
         const isEarningsRelease = filing.form.startsWith("8-K") && filing.items?.split(",").some(item => item.trim() === "2.02");
         if (isEarningsRelease && !filing.earningsRelease) {
-          const attachments = await fetchSecReleaseAttachments(cik, filing.accession);
-          await prisma.secFiling.update({ where: { id: filing.id }, data: { earningsRelease: { attachments } } });
+          const evidence = await fetchSecReleaseEvidence(cik, filing.accession, filing.filedAt.toISOString().slice(0, 10));
+          await prisma.secFiling.update({ where: { id: filing.id }, data: {
+            earningsRelease: { attachments: evidence.attachments, publication: evidence.publication },
+            ...(evidence.acceptedAt ? { acceptedAt: evidence.acceptedAt, acceptedAtSource: evidence.acceptedAtSource } : {}),
+            ...(evidence.publication ? { publishedAt: evidence.publication.at ? new Date(evidence.publication.at) : null,
+              publishedOn: new Date(evidence.publication.date), publicationSource: evidence.publication.sourceUrl } : {}),
+            timingCheckedAt: new Date(),
+          } });
+          if (evidence.acceptedAt) result.timingUpdated++;
         }
         if (SEC_FINANCIAL_FORMS.has(filing.form)) {
+          if (!filing.acceptedAt && (!filing.timingCheckedAt || filing.timingCheckedAt.getTime() < Date.now() - 7 * 86_400_000)) {
+            try {
+              const evidence = await fetchSecAcceptanceEvidence(cik, filing.accession);
+              await prisma.secFiling.update({ where: { id: filing.id }, data: {
+                acceptedAt: evidence.acceptedAt, acceptedAtSource: evidence.sourceUrl, timingCheckedAt: new Date(),
+              } });
+              result.timingUpdated++;
+            } catch (error) {
+              result.failed++;
+              await prisma.secFiling.update({ where: { id: filing.id }, data: { timingCheckedAt: new Date() } });
+              console.warn(`[SEC timing ${filing.accession}]`, error instanceof Error ? error.message : error);
+            }
+          }
           if (factsError) throw factsError;
           if (!financialVersionReady(filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10))) {
             status = "pending";
@@ -161,6 +188,32 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
           dailyError: message.slice(0, 1000), dailyNextAttemptAt: new Date(processedAt.getTime() + 20 * 3600_000),
         } });
         console.warn(`[SEC daily ${filing.accession}] ${message}`);
+      }
+      await pause(delayMs);
+    }
+  }
+  if (timingLimit) {
+    const timingRows = await prisma.secFiling.findMany({ where: {
+      cik: { in: [...byCik.keys()] }, acceptedAt: null, dailyStatus: "complete",
+      AND: [
+        { OR: [{ form: { in: [...SEC_FINANCIAL_FORMS] } }, { form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" } }] },
+        { OR: [
+          { timingCheckedAt: null, filedAt: { gte: new Date(`${days[0]}T00:00:00Z`), lte: new Date(`${days.at(-1)}T23:59:59Z`) } },
+          { timingCheckedAt: { lt: new Date(Date.now() - 7 * 86_400_000) } },
+        ] },
+      ],
+    }, orderBy: [{ filedAt: "desc" }, { id: "asc" }], take: timingLimit });
+    for (const filing of timingRows) {
+      try {
+        const evidence = await fetchSecAcceptanceEvidence(filing.cik, filing.accession);
+        await prisma.secFiling.update({ where: { id: filing.id }, data: {
+          acceptedAt: evidence.acceptedAt, acceptedAtSource: evidence.sourceUrl, timingCheckedAt: new Date(),
+        } });
+        result.timingUpdated++;
+      } catch (error) {
+        result.failed++;
+        await prisma.secFiling.update({ where: { id: filing.id }, data: { timingCheckedAt: new Date() } });
+        console.warn(`[SEC timing ${filing.accession}]`, error instanceof Error ? error.message : error);
       }
       await pause(delayMs);
     }
