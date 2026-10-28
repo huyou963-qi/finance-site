@@ -112,6 +112,17 @@ assert.equal(await page.evaluate(()=>window.testState.searchQ),'系统产品');
 await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
 assert.equal(await page.getByRole('link',{name:'下载 SKILL'}).isVisible(),true);
 assert.equal(await page.getByRole('combobox',{name:'本地事件导入范围'}).isVisible(),true);
+await page.locator('input[type=file]').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{invalid')});
+assert.equal(await page.getByRole('dialog',{name:'用户事件包管理'}).getByRole('status').isVisible(),true);
+const importPayload={schemaVersion:2,query:{symbol:'AAPL',importTarget:'symbol'},pack:{id:'browser-test',name:'导入验证'},events:[responseEvent('imported','user_local')]};
+const importPreferences=await page.evaluate(()=>JSON.stringify(window.testState));
+await page.locator('input[type=file]').setInputFiles({name:'import-test.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(importPayload))});
+await page.getByRole('dialog',{name:'事件导入预览'}).waitFor();
+assert.equal(await page.getByRole('dialog',{name:'用户事件包管理'}).count(),0);
+await page.getByRole('dialog',{name:'事件导入预览'}).getByRole('button',{name:'确认导入',exact:true}).click({timeout:3000});
+assert.equal(await page.evaluate(()=>JSON.stringify(window.testState)),importPreferences);
+await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
+
 assert.equal(Math.round((await shelf.boundingBox()).height),180);
 await page.getByRole('button',{name:'关闭',exact:true}).click();
 await page.getByRole('tab',{name:/系统事件/}).click();
