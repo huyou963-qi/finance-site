@@ -23,6 +23,8 @@ type ArticleAsset = {
 };
 
 type Article = {
+  seoTitle: string | null;
+  seoDescription: string | null;
   id: string;
   slug: string;
   title: string;
@@ -40,6 +42,8 @@ type Article = {
 };
 
 type EditorDraft = {
+  seoTitle: string;
+  seoDescription: string;
   slug: string;
   title: string;
   summary: string;
@@ -68,6 +72,8 @@ const EMPTY_SOURCES = JSON.stringify(
 function defaultDraft(): EditorDraft {
   const day = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   return {
+    seoTitle: "",
+    seoDescription: "",
     slug: `article-${day}-${randomUUID().slice(0, 6).toLowerCase()}`,
     title: "未命名文章",
     summary: "",
@@ -89,6 +95,8 @@ function dateTimeLocal(value: string | null): string {
 
 function articleToDraft(article: Article): EditorDraft {
   return {
+    seoTitle: article.seoTitle ?? "",
+    seoDescription: article.seoDescription ?? "",
     slug: article.slug,
     title: article.title,
     summary: article.summary,
@@ -115,6 +123,7 @@ export function ArticleEditorClient() {
   const [selectedId, setSelectedId] = useState<string | null>(requestedId);
   const [draft, setDraft] = useState<EditorDraft>(() => defaultDraft());
   const [currentStatus, setCurrentStatus] = useState<"draft" | "published">("draft");
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
   const [assets, setAssets] = useState<ArticleAsset[]>([]);
   const [sourceKind, setSourceKind] = useState("internal_macro");
   const [sourceUrl, setSourceUrl] = useState("/macro");
@@ -142,6 +151,7 @@ export function ArticleEditorClient() {
         await fetch(`/api/articles/${id}`, { cache: "no-store" }),
       );
       setDraft(articleToDraft(payload.article));
+      setExpectedUpdatedAt(payload.article.updatedAt);
       setCurrentStatus(payload.article.status);
       setAssets(payload.article.assets ?? []);
     } catch (err) {
@@ -181,6 +191,8 @@ export function ArticleEditorClient() {
     }
     return {
       slug: draft.slug,
+      seoTitle: draft.seoTitle,
+      seoDescription: draft.seoDescription,
       title: draft.title,
       summary: draft.summary,
       category: draft.category,
@@ -204,7 +216,7 @@ export function ArticleEditorClient() {
         } catch {
           throw new Error("来源清单不是有效 JSON");
         }
-        const body = { ...payload, sourceManifest: parsedSources, status };
+        const body = { ...payload, sourceManifest: parsedSources, status, expectedUpdatedAt };
         const response = await fetch(selectedId ? `/api/articles/${selectedId}` : "/api/articles", {
           method: selectedId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -212,6 +224,7 @@ export function ArticleEditorClient() {
         });
         const result = await responseJson<{ article: Article }>(response);
         setSelectedId(result.article.id);
+        setExpectedUpdatedAt(result.article.updatedAt);
         setDraft(articleToDraft(result.article));
         setCurrentStatus(result.article.status);
         setAssets(result.article.assets ?? []);
@@ -224,7 +237,7 @@ export function ArticleEditorClient() {
         setSaving(false);
       }
     },
-    [draft.sourceManifestJson, payload, selectedId, loadList],
+    [draft.sourceManifestJson, payload, selectedId, loadList, expectedUpdatedAt],
   );
 
   const insertMarkdown = useCallback((markdown: string) => {
@@ -262,6 +275,7 @@ export function ArticleEditorClient() {
   );
 
   const newArticle = () => {
+    setExpectedUpdatedAt(null);
     setSelectedId(null);
     setDraft(defaultDraft());
     setCurrentStatus("draft");
@@ -387,6 +401,14 @@ export function ArticleEditorClient() {
               <label className="block text-xs font-medium text-fs-muted">摘要
                 <textarea value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} rows={3} className="mt-1 w-full resize-y rounded-md border border-fs-border px-3 py-2 text-sm leading-6 text-fs-text outline-none focus:border-fs-accent" />
               </label>
+              <label className="block text-xs font-medium text-fs-muted">SEO 标题（留空使用文章标题）
+                <input value={draft.seoTitle} maxLength={200} onChange={(e) => setDraft({ ...draft, seoTitle: e.target.value })} className="mt-1 w-full rounded-md border border-fs-border px-3 py-2 text-sm text-fs-text" />
+              </label>
+              <label className="block text-xs font-medium text-fs-muted">SEO 描述（留空使用摘要）
+                <textarea value={draft.seoDescription} maxLength={1200} onChange={(e) => setDraft({ ...draft, seoDescription: e.target.value })} rows={2} className="mt-1 w-full rounded-md border border-fs-border px-3 py-2 text-sm text-fs-text" />
+              </label>
+              {selectedId && <Link href={`/articles/preview/${selectedId}`} target="_blank" className="text-sm text-fs-accent-text hover:underline">打开网站预览</Link>}
+              <Link href="/articles/connections" className="text-sm text-fs-accent-text hover:underline">管理 ChatGPT 文章授权</Link>
 
               <div className="rounded-lg border border-fs-border bg-fs-elevated/50 p-3">
                 <div className="flex flex-wrap items-end gap-2">

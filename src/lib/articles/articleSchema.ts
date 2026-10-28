@@ -16,6 +16,8 @@ export type ArticleWriteInput = {
   category: string;
   tags: string[];
   bodyMarkdown: string;
+  seoTitle: string | null;
+  seoDescription: string | null;
   coverImageUrl: string | null;
   status: ArticleStatus;
   dataCutoff: Date | null;
@@ -53,7 +55,7 @@ function parseTags(value: unknown): string[] {
 
 function parseSourceUrl(value: unknown, index: number): string {
   const url = text(value, `sourceManifest[${index}].url`, 2000);
-  if (url.startsWith("/")) return url;
+  if (url.startsWith("/") && !url.startsWith("//") && !url.includes("\\")) return url;
   try {
     const parsed = new URL(url);
     if (parsed.protocol === "http:" || parsed.protocol === "https:") return url;
@@ -133,6 +135,8 @@ export function parseArticleWriteInput(raw: unknown): ArticleWriteInput {
     category: text(row.category ?? "policy-analysis", "category", 64),
     tags: parseTags(row.tags),
     bodyMarkdown: text(row.bodyMarkdown ?? "", "bodyMarkdown", 200_000, true),
+    seoTitle: row.seoTitle == null ? null : text(row.seoTitle, "seoTitle", 200, true) || null,
+    seoDescription: row.seoDescription == null ? null : text(row.seoDescription, "seoDescription", 1200, true) || null,
     coverImageUrl: parseCoverImageUrl(row.coverImageUrl),
     status,
     dataCutoff: parseDate(row.dataCutoff),
