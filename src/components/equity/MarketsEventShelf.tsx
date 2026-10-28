@@ -81,6 +81,7 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
       const raw = eventRecord(JSON.parse(await file.text()));
       const parsed = parseMilestoneIngestJson(raw);
       setPreview({ name: file.name, raw, events: parsed.milestones, errors: parsed.errors, target: target === "file" ? parsed.importTarget : target, symbol: parsed.symbol });
+      setManage(false);
     } catch (e) { setMessage(e instanceof Error ? e.message : "文件读取失败"); }
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -125,7 +126,7 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
     <div className="min-w-0 shrink-0 px-2"><EventFilterSummary filters={filters} onChange={onChange} compact /></div>
       {markerGroupIds.length > 1 && <div className="mt-1 flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap rounded border border-fs-border p-1 text-xs"><span>此根 K 线的事件：</span>{events.filter(e => markerGroupIds.includes(e.id)).map(e => <button key={e.id} aria-pressed={selectedEventId === e.id} className={button} onClick={() => onSelectEvent(e.id)}>{e.markerLabel} · {e.title}</button>)}<button className={button} onClick={onCloseMarkerGroup}>收起聚合事件</button></div>}
       {activeTab === "system" && result.error && <p role="alert" className="text-xs text-red-600">{result.error}<button className={button} onClick={result.retry}>重试加载</button></p>}
-      {activeTab === "user" && message && <p role="status" className="text-[11px] text-fs-secondary">{message}</p>}
+      {activeTab === "user" && message && !manage && <p role="status" className="text-[11px] text-fs-secondary">{message}</p>}
       {manage && <EventSettingsDialog title={activeTab === "system" ? "系统来源管理" : "用户事件包管理"} onClose={() => setManage(false)}>
         {activeTab === "system" && <div className="flex flex-wrap items-center gap-3">
           <label>关联范围 <select aria-label="资产关联范围" value={filters.relationMode || ""} onChange={e => patch({ relationMode: e.target.value as EventViewFilterState["relationMode"] || undefined })} className={button}><option value="">跟随资产默认</option><option value="asset">直接资产</option><option value="industry">资产与行业</option><option value="macro">包含宏观关联</option></select></label>
@@ -134,6 +135,7 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
 
         </div>}
         {activeTab === "user" && <>
+        {message && <p role="status" className="w-full text-fs-secondary">{message}</p>}
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex min-h-10 items-center gap-1"><input type="checkbox" checked={filters.includeLocal !== false} onChange={e => patch({ includeLocal: e.target.checked })} /> 启用用户事件来源</label>
           <a className={button} href="/templates/company-milestone/company-milestone-pack.zip" download>下载 SKILL</a>
@@ -177,12 +179,12 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
     </div>
     {diagnostics && <EventDiagnosticsDialog source={activeTab} result={result} packs={packSummary} error={activeTab === "system" ? result.error : null} loading={loading} initialEventId={diagnosticEventId} onClose={() => setDiagnostics(false)} onClear={() => { onChange(clearEventContentFilters(filters)); }} onManage={() => { setDiagnostics(false); setManage(true); }} onRetry={result.retry} onRestoreHidden={() => patch({ hiddenEventIds: [] })} from={result.from} to={result.to} onSelect={event => { setDiagnostics(false); setActiveTab(eventSourceGroup(event)); onSelectEvent(event.id); }} />}
     {filtersOpen && <EventFilterSheet filters={filters} onApply={onChange} onClose={() => setFiltersOpen(false)} />}
-    {preview && <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/40 p-3"><div role="dialog" aria-modal="true" aria-label="事件导入预览" className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded bg-white p-4 text-sm shadow-xl">
+    {preview && <EventSettingsDialog title="事件导入预览" onClose={() => setPreview(null)}><div className="w-full text-sm">
       <strong>导入预览：{preview.name}</strong><p className="my-2">有效 {preview.events.length} 条，其中 {repeated} 条 ID 已存在、{preview.events.length - repeated} 条为新 ID；错误 {preview.errors.length} 条；范围：{preview.target === "all-assets" ? "全部资产" : symbol}</p>
       {preview.symbol && preview.target === "symbol" && preview.symbol !== symbol && <p className="text-amber-700">文件标的是 {preview.symbol}，当前选择将导入到 {symbol}。可取消后切换资产。</p>}
       <p>重复 externalId 将更新同包事件；其他事件保留。导入后仍服从当前时间区间和内容筛选。</p>
       <ul className="my-2 max-h-40 overflow-y-auto text-xs">{preview.errors.map((e,i) => <li key={i} className="text-red-600">{e}</li>)}{preview.events.slice(0,8).map(e => <li key={e.id}>{e.occurredAt.slice(0,10)} · {e.title}</li>)}</ul>
       <button className={button} onClick={() => setPreview(null)}>取消</button> <button className={button} disabled={preview.errors.length > 0} onClick={confirmImport}>确认导入</button>
-    </div></div>}
+    </div></EventSettingsDialog>}
   </section>;
 }
