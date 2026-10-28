@@ -30,6 +30,7 @@ import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import {
   DEFAULT_EVENT_VIEW_FILTERS,
+  eventFiltersForSource,
   loadEventViewFilters,
   saveEventViewFilters,
   updateEventSourceFilters,
@@ -400,7 +401,13 @@ export function MarketsClient() {
     const next = source === "system" && sym
       ? applySymbolDraftToFilters({ ...DEFAULT_EVENT_VIEW_FILTERS }, deriveEventFilterDraft(classifyChartSymbol(sym)))
       : { ...DEFAULT_EVENT_VIEW_FILTERS };
-    setEventViewFilters(prev => updateEventSourceFilters(prev, source, next));
+    setEventViewFilters(prev => updateEventSourceFilters(prev, source, {
+      ...eventFiltersForSource(prev, source),
+      searchQ: "", largeSurpriseOnly: false, companyKinds: undefined,
+      typeFamilies: next.typeFamilies, minImportance: next.minImportance,
+      countries: next.countries, industries: next.industries, assets: next.assets,
+      persons: next.persons, institutions: next.institutions, relationMode: undefined,
+    }));
   }, [symbol]);
 
   const pickInterval = (iv: KlineInterval) => {
@@ -777,8 +784,8 @@ export function MarketsClient() {
           onLocalCrosshairTime={onLocalCrosshairTime}
           onEventMarkerClick={onEventMarkerClick}
           localEvents={localEventStore.events}
-          chartEvents={eventResult.events}
-          selectedEventId={selectedEventId}
+          chartEvents={eventResult.chartEvents}
+          selectedEventId={selectedEventId ? eventResult.chartProjection[selectedEventId]?.representativeId ?? selectedEventId : null}
           seekToTimeSec={eventSeek.time}
           seekToTimeVersion={eventSeek.version}
           toolbarPortalEl={chartToolbarMount}

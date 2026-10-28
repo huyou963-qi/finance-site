@@ -1,6 +1,5 @@
 import { marketToMarker, type ChartEventMarker } from "@/lib/chart/eventMarkerModel";
 export { marketToMarker, type ChartEventMarker, type ChartEventMarkerSource } from "@/lib/chart/eventMarkerModel";
-import { mergeChartEvents } from "@/lib/chart/eventSelection";
 import { expandEventAssetTags } from "./macroEventSurprise";
 import type { EventImportance } from "@prisma/client";
 import {
@@ -240,7 +239,7 @@ export async function loadChartPanelEvents(query: {
         !typeFilterOk(panel.eventType ?? "other", query.types)
       )
         continue;
-      out.push(panel);
+      out.push({ ...panel, matchReasons: ["当前资产的 SEC 披露"] });
     }
   }
 
@@ -270,10 +269,11 @@ export async function loadChartPanelEvents(query: {
     }
   }
 
-  const deduped = mergeChartEvents([], out);
+  // Preserve source records here; the chart projection alone deduplicates matching facts.
+  const records = out.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id));
 
   return {
-    events: deduped,
+    events: records,
     total, hasMore,
     symbol: profile.symbol,
     scopeMode,

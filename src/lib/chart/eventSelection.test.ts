@@ -122,3 +122,53 @@ it("system and user events have separate default colors while explicit colors re
   // Changing the management page never enters the shared visibility predicate.
   assert.equal(mergeChartEvents([user], [system]).filter(e => eventPassesContentFilters(e, defaults)).length, 2);
 });
+
+it("source lists retain both records while the chart alone merges a shared fact", () => {
+  const system = event(), user = event({ id: "local:a", sourceKind: "user_local", title: "Personal annotation" });
+  const result = selectChartEvents([user], [system], sanitizeEventViewFilters({}), "2026-10-01", "2026-10-18");
+  assert.deepEqual(result.sourceEvents.system.map(e => e.id), ["a"]);
+  assert.deepEqual(result.sourceEvents.user.map(e => e.id), ["local:a"]);
+  assert.equal(result.events.length, 2);
+  assert.deepEqual(result.chartEvents.map(e => e.id), ["local:a"]);
+  assert.deepEqual(result.chartProjection.a, { status: "merged", representativeId: "local:a", relatedIds: ["local:a", "a"] });
+  assert.equal(result.sourceStats.system.merged, 1);
+  assert.equal(result.sourceStats.system.chartCandidates, 0);
+  assert.equal(result.sourceStats.user.chartCandidates, 1);
+});
+
+it("a personal record disabled or hidden on the chart never suppresses the system marker", () => {
+  const system = event(), user = event({ id: "local:a", sourceKind: "user_local" });
+  for (const patch of [{ markersEnabled: false }, { hiddenMarkerIds: ["a"] }]) {
+    const state = sanitizeEventViewFilters({ userFilters: { ...defaults, ...patch } });
+    const result = selectChartEvents([user], [system], state, "2026-10-01", "2026-10-18");
+    assert.equal(result.sourceEvents.user.length, 1);
+    assert.equal(result.sourceEvents.system.length, 1);
+    assert.deepEqual(result.chartEvents.map(e => e.id), ["a"]);
+    assert.equal(result.chartProjection.a.status, "candidate");
+    assert.equal(result.sourceStats.system.merged, 0);
+  }
+});
+
+it("exclusion totals partition records once while individual diagnostics retain every failed condition", () => {
+  const local = [event({ id: "old", occurredAt: "2025-01-01", sourceKind: "user_local" }), event({ id: "current", sourceKind: "user_local" })];
+  const state = sanitizeEventViewFilters({ userFilters: { ...defaults, typeFamilies: [], searchQ: "missing", minImportance: "CRITICAL", countries: ["CN"] } });
+  const result = selectChartEvents(local, [], state, "2026-10-01", "2026-10-18");
+  const stats = result.sourceStats.user;
+  assert.deepEqual(stats.reasons, { range: 1, type: 1 });
+  assert.deepEqual(result.excludedEvents.user[0].reasons, ["range", "type", "importance", "search", "country"]);
+  assert.deepEqual(result.excludedEvents.user[1].reasons, ["type", "importance", "search", "country"]);
+  assert.equal(stats.loaded, stats.outsideRange + stats.inRange);
+  assert.equal(stats.inRange, stats.filteredOut + stats.matched);
+  assert.equal(Object.values(stats.reasons).reduce((a, b) => a + b, 0) + stats.matched, stats.loaded);
+});
+
+it("display outcomes partition all source-list entries without counting merged records twice", () => {
+  const user = event({ id: "local:a", sourceKind: "user_local" });
+  const state = sanitizeEventViewFilters({ hiddenMarkerIds: ["hidden"], userFilters: { ...defaults, markersEnabled: false } });
+  const result = selectChartEvents([user], [event(), event({ id: "sec", sourceKind: "sec" }), event({ id: "hidden", externalId: "hidden" })], state, "2026-10-01", "2026-10-18");
+  assert.equal(result.sourceStats.user.markerDisabled, 1);
+  assert.equal(result.sourceStats.system.markerHidden, 1);
+  assert.equal(result.sourceStats.system.merged, 1);
+  for (const stats of Object.values(result.sourceStats)) assert.equal(stats.matched, stats.markerDisabled + stats.markerHidden + stats.merged + stats.chartCandidates);
+  assert.deepEqual(result.chartEvents.map(e => e.id), ["a"]);
+});

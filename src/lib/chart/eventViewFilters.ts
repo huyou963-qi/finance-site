@@ -242,21 +242,18 @@ export function isAllTypeFamiliesSelected(
   );
 }
 
-export function hasActiveEventViewContentFilters(
-  f: EventViewFilterState,
-): boolean {
-  const allFamilies = isAllTypeFamiliesSelected(f.typeFamilies);
-  return Boolean(
-    f.searchQ.trim() ||
-      f.largeSurpriseOnly ||
-      !allFamilies ||
-      f.minImportance !== DEFAULT_EVENT_VIEW_FILTERS.minImportance ||
-      f.countries.length ||
-      f.industries.length ||
-      f.assets.length ||
-      f.persons.length ||
-      f.institutions.length,
-  );
+/** Clear content restrictions without changing sources, packages or chart presentation. */
+export function clearEventContentFilters<T extends EventSourceFilters>(filters: T): T {
+  return { ...filters, searchQ: "", typeFamilies: [...ALL_EVENT_TYPE_FAMILY_IDS],
+    companyKinds: undefined, minImportance: "LOW", largeSurpriseOnly: false,
+    countries: [], industries: [], assets: [], persons: [], institutions: [] };
+}
+
+export function hasActiveEventViewContentFilters(f: EventSourceFilters): boolean {
+  return Boolean(f.searchQ.trim() || f.largeSurpriseOnly ||
+    !isAllTypeFamiliesSelected(f.typeFamilies) || f.minImportance !== "LOW" ||
+    (f.typeFamilies.includes("company") && f.companyKinds && f.companyKinds.length < 5) ||
+    f.countries.length || f.industries.length || f.assets.length || f.persons.length || f.institutions.length);
 }
 
 /** 类型族 → chart-markers types= 查询（前缀）；[] 表示显式全不选 */
