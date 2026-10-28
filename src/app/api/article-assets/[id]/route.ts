@@ -11,10 +11,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
       data: true,
       mimeType: true,
       sha256: true,
+      sourceKind: true,
       article: { select: { status: true } },
     },
   });
   if (!asset) return NextResponse.json({ error: "图片不存在" }, { status: 404 });
+  // Chart JSON is served only through its permission-checked renderer; never expose audit/config bytes here.
+  if (asset.sourceKind === "chart-reference") return NextResponse.json({ error: "请通过文章图表接口访问" }, { status: 404 });
   if (asset.article.status !== "published") {
     const user = await getUserByRequest(req);
     if (user?.role !== "admin") {

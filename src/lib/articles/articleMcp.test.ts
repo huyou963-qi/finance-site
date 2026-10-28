@@ -124,10 +124,10 @@ test("OAuth token exchange rotates refresh tokens, rejects reuse, audience misma
   } finally { if (old === undefined) delete process.env.ARTICLE_OAUTH_CLIENTS; else process.env.ARTICLE_OAUTH_CLIENTS = old; }
 });
 
-test("Official SDK Streamable HTTP discovers seven tools and returns structured permission failures", async () => {
+test("Official SDK Streamable HTTP discovers thirteen tools and returns structured permission failures", async () => {
   const { createArticleMcpServer } = await modules;
-  const send = async (method: string, params = {}) => {
-    const server = createArticleMcpServer({ userId: "owner", grantId: "grant", scopes: ["articles:read"] });
+  const send = async (method: string, params = {}, scopes = ["articles:read"]) => {
+    const server = createArticleMcpServer({ userId: "owner", grantId: "grant", scopes });
     const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
     await server.connect(transport);
     try {
@@ -139,13 +139,22 @@ test("Official SDK Streamable HTTP discovers seven tools and returns structured 
     const initialized = await send("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "article-test", version: "1.0.0" } });
     assert.equal(initialized.result.serverInfo.name, "finance-site-articles");
     const list = await send("tools/list");
-    assert.equal(list.result.tools.length, 7);
+    assert.equal(list.result.tools.length, 13);
+    for (const name of ["search_market_indicators", "query_market_data", "calculate_market_series", "search_charts", "get_chart"]) {
+      const tool = list.result.tools.find((tool: { name: string }) => tool.name === name);
+      assert.deepEqual(tool.securitySchemes, [{ type: "oauth2", scopes: ["articles:read"] }]);
+      assert.equal(tool.annotations.readOnlyHint, true);
+    }
+    assert.deepEqual(list.result.tools.find((tool: { name: string }) => tool.name === "attach_chart_to_article").securitySchemes, [{ type: "oauth2", scopes: ["articles:write"] }]);
     assert.deepEqual(list.result.tools.find((tool: { name: string }) => tool.name === "publish_article").securitySchemes, [{ type: "oauth2", scopes: ["articles:publish"] }]);
     assert.equal(list.result.tools.some((tool: { name: string }) => /delete/.test(tool.name)), false);
     const failure = await send("tools/call", { name: "create_article", arguments: { title: "test", summary: "", content: "", category: "test", tags: [] } });
     assert.equal(failure.result.isError, true);
     assert.equal(failure.result.structuredContent.error.code, "insufficient_scope");
     assert.ok(failure.result._meta["mcp/www_authenticate"]);
+    const marketFailure = await send("tools/call", { name: "search_market_indicators", arguments: { query: "WTI" } }, []);
+    assert.equal(marketFailure.result.isError, true);
+    assert.equal(marketFailure.result.structuredContent.error.code, "insufficient_scope");
 });
 
 test("HTTP MCP rejects anonymous writes with OAuth discovery and blocks foreign origins", async () => {

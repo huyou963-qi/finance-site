@@ -7,6 +7,8 @@ import { createArticleSlug, parseArticleWriteInput } from "./articleSchema";
 import { ArticleConflictError, createArticle, getArticleById, updateArticle } from "./articleStore";
 import { challengeHeader, OAuthError, requireArticleScope, type ArticlePrincipal } from "./articleOAuth";
 import type { ArticleScope } from "./oauthPolicy";
+import { marketToolDefinitions, runMarketTool } from "@/lib/market/tools";
+import { MarketError } from "@/lib/market/schema";
 
 export class ArticleToolError extends Error {
   constructor(public code: string, message: string) { super(message); }
@@ -54,7 +56,9 @@ function validateWrite(raw: Record<string, unknown>) {
   catch (error) { throw new ArticleToolError("CONTENT_INVALID", error instanceof Error ? error.message : "文章内容无效"); }
 }
 export async function runArticleTool(name: string, input: Record<string, unknown>, principal: ArticlePrincipal) {
+  if (marketToolDefinitions.some(d => d[0] === name)) return runMarketTool(name, input, principal);
   const required: Record<string, ArticleScope> = { list_articles: "articles:read", get_article: "articles:read", preview_article: "articles:read", create_article: "articles:write", update_article: "articles:write", publish_article: "articles:publish", unpublish_article: "articles:unpublish" };
+  if (!required[name]) throw new ArticleToolError("UNKNOWN_TOOL", "未知工具");
   requireArticleScope(principal, required[name]);
   if (name === "list_articles") {
     const p = listArticleToolSchema.parse(input);
@@ -93,7 +97,7 @@ export async function runArticleTool(name: string, input: Record<string, unknown
 }
 
 export function createArticleMcpServer(principal: ArticlePrincipal) {
-  const server = new McpServer({ name: "finance-site-articles", version: "1.0.0" });
+  const server = new McpServer({ name: "finance-site-articles", version: "1.1.0" });
   const lookup = z.object({ id: id.optional(), slug: z.string().min(1).max(120).optional() }).strict().refine(p => Boolean(p.id) !== Boolean(p.slug), "必须提供 id 或 slug 之一");
   const transition = z.object({ id, expectedUpdatedAt }).strict();
   const definitions = [
@@ -104,6 +108,7 @@ export function createArticleMcpServer(principal: ArticlePrincipal) {
     ["preview_article", "返回草稿原文及受管理员登录保护的实际网站预览链接。", lookup, "articles:read", true],
     ["publish_article", "仅在用户明确要求正式发布时调用。将指定文章公开发布，重试幂等。", transition, "articles:publish", false],
     ["unpublish_article", "仅在用户明确要求撤回时调用。文章立即转为草稿。", transition, "articles:unpublish", false],
+    ...marketToolDefinitions,
   ] as const;
   const descriptors: Tool[] = [];
   for (const [name, description, schema, scope, readOnly] of definitions) {
@@ -116,8 +121,8 @@ export function createArticleMcpServer(principal: ArticlePrincipal) {
         const result = JSON.parse(JSON.stringify(await runArticleTool(name, args as Record<string, unknown>, principal)));
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }], structuredContent: result };
       } catch (error) {
-        const code = error instanceof OAuthError ? error.code : error instanceof ArticleConflictError ? "CONFLICT" : error instanceof ArticleToolError ? error.code : error instanceof z.ZodError ? "INVALID_INPUT" : (error as { code?: string })?.code === "P2002" ? "SLUG_CONFLICT" : "INTERNAL_ERROR";
-        const message = error instanceof OAuthError || error instanceof ArticleConflictError || error instanceof ArticleToolError ? error.message : code === "SLUG_CONFLICT" ? "slug 已存在，请选择其他 slug" : code === "INVALID_INPUT" ? "文章参数无效" : "文章操作失败，请稍后重试";
+        const code = error instanceof OAuthError ? error.code : error instanceof ArticleConflictError ? "CONFLICT" : error instanceof ArticleToolError || error instanceof MarketError ? error.code : error instanceof z.ZodError ? "INVALID_INPUT" : (error as { code?: string })?.code === "P2002" ? "SLUG_CONFLICT" : "INTERNAL_ERROR";
+        const message = error instanceof OAuthError || error instanceof ArticleConflictError || error instanceof ArticleToolError || error instanceof MarketError ? error.message : code === "SLUG_CONFLICT" ? "slug 已存在，请选择其他 slug" : code === "INVALID_INPUT" ? "工具参数无效" : "操作失败，请稍后重试";
         if (code === "INTERNAL_ERROR") console.error("[article-mcp] tool failed", name, error);
         const result = { success: false, error: { code, message } };
         return { isError: true, content: [{ type: "text" as const, text: JSON.stringify(result) }], structuredContent: result,

@@ -25,6 +25,7 @@ function serializeAsset(row: {
 }) {
   return {
     ...row,
+    ...(row.sourceKind === "chart-reference" ? { sourceConfig: { chartReference: true } } : {}),
     url: `/api/article-assets/${row.id}`,
     capturedAt: row.capturedAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
