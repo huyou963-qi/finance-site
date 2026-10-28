@@ -55,7 +55,7 @@ export function ArticleDocument({ article, preview = false }: { article: Article
           </h1>
           <p className="mt-4 text-base leading-7 text-fs-secondary">{article.summary}</p>
           <div className="mt-4 rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 text-xs text-fs-muted">
-            数据与事实截止：{dateTime(article.dataCutoff)}。文章图表为发布时快照，不随实时行情回写。
+            数据与事实截止：{dateTime(article.dataCutoff)}。交互图表分别标注实时引用或历史快照；正文分析不会随图表更新自动修改。
           </div>
         </header>
 

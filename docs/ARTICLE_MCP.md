@@ -1,5 +1,7 @@
 # ChatGPT 文章写作与发布
 
+行情与图表扩展（同一端点，13个工具、无新migration）：见 [MARKET_MCP.md](./MARKET_MCP.md)，包含搜索、数据查询、白名单计算、系统图表、实时/快照嵌入、安全与验收步骤。
+
 ## 设计与复用
 
 Next.js 15 App Router / React 19 / Prisma 5 / PostgreSQL。文章继续使用 `public.research_article`，管理入口仍是 `/articles/editor`；没有新增文章库或第二套编辑器。`ArticleDocument` / `ArticleMarkdown` 同时服务公开文章与私有预览。GFM 提供表格、引用、脚注、链接、图片；KaTeX 提供公式（`$$...$$`，单个 `$` 保留财经金额语义）。不解析原始 HTML；ReactMarkdown 默认 URL 过滤和 KaTeX `trust:false` 阻止脚本与危险链接。JSON-LD 转义 `<`。
@@ -43,7 +45,7 @@ OAuth 授权码有效 5 分钟，强制 PKCE S256，绑定 client、精确 redir
 | publish_article | articles:publish | id + expectedUpdatedAt，发布既有文章，已发布则返回 changed:false |
 | unpublish_article | articles:unpublish | id + expectedUpdatedAt，撤回为草稿，已撤回则返回 changed:false |
 
-所有工具均按授权用户限定作者。即使是管理员，MCP 也不能读写其他作者的私有草稿。公开 canonicalUrl 是最终文章地址，草稿时不代表该地址可访问。previewUrl 不携带访问凭证，匿名或非作者不能查看；预览页面 noindex，不加入 sitemap。管理员在同一浏览器已有有效登录后即可查看，ChatGPT 工具本身也可返回 Markdown 原文供阅读。
+所有文章工具均按授权用户限定作者。即使是管理员，MCP 也不能读写其他作者的私有草稿。公开 canonicalUrl 是最终文章地址，草稿时不代表该地址可访问。previewUrl 不携带访问凭证，匿名或非作者不能查看；预览页面 noindex，不加入 sitemap。管理员在同一浏览器已有有效登录后即可查看，ChatGPT 工具本身也可返回 Markdown 原文供阅读。
 
 创建成功返回 `created:true`、id/status/previewUrl。发布成功返回 `success:true`、changed/id/status/canonicalUrl。发布前沿用原有校验：标题、摘要、正文、非未来 dataCutoff、至少一条来源。`sources` 是 HTTP(S) URL 数组，映射到原有 sourceManifest。不猜测财报的数据截止时间，应由用户或研究内容明确给出。
 

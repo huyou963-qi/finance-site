@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       nonceHash: hashCredential(nonce), userId: admin.id, sessionHash: hashCredential(getSessionToken(req)!),
       clientId, redirectUri, resource: articleResource(), scope, state, codeChallenge, expiresAt: new Date(Date.now() + 10 * 60_000),
     } });
-    return html(`<h1>授权文章服务</h1><p>账号：${escape(admin.username)}</p><p>客户端：${escape(client.name)}</p><p>回调地址：${escape(redirectUri)}</p><p>允许的权限：${escape(scope)}</p><p>write 可创建及修改草稿；publish 可公开发布；unpublish 可撤回文章。授权有效期 30 天。</p><form method="post"><input type="hidden" name="nonce" value="${nonce}"><button name="decision" value="allow">同意授权</button><button name="decision" value="deny">拒绝</button></form>`, 200, new URL(redirectUri).origin);
+    return html(`<h1>授权文章服务</h1><p>账号：${escape(admin.username)}</p><p>客户端：${escape(client.name)}</p><p>回调地址：${escape(redirectUri)}</p><p>允许的权限：${escape(scope)}</p><p>read 可读取本人文章及写作所需的站内指标、系统图表；write 可创建、修改草稿及插入图表；publish 可公开发布；unpublish 可撤回文章。授权有效期 30 天。</p><form method="post"><input type="hidden" name="nonce" value="${nonce}"><button name="decision" value="allow">同意授权</button><button name="decision" value="deny">拒绝</button></form>`, 200, new URL(redirectUri).origin);
   } catch { return html("授权请求无效或服务配置不完整", 400); }
 }
 export async function POST(req: NextRequest) {
