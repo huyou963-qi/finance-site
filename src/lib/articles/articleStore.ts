@@ -39,6 +39,8 @@ function serializeArticle(row: {
   category: string;
   tags: string[];
   bodyMarkdown?: string;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   coverImageUrl: string | null;
   status: string;
   dataCutoff: Date | null;
@@ -57,6 +59,8 @@ function serializeArticle(row: {
     category: row.category,
     tags: row.tags,
     bodyMarkdown: row.bodyMarkdown ?? "",
+    seoTitle: row.seoTitle ?? null,
+    seoDescription: row.seoDescription ?? null,
     coverImageUrl: row.coverImageUrl,
     status: row.status,
     dataCutoff: iso(row.dataCutoff),
@@ -96,6 +100,8 @@ function writeData(input: ArticleWriteInput) {
     category: input.category,
     tags: input.tags,
     bodyMarkdown: input.bodyMarkdown,
+    seoTitle: input.seoTitle,
+    seoDescription: input.seoDescription,
     coverImageUrl: input.coverImageUrl,
     status: input.status,
     dataCutoff: input.dataCutoff,
@@ -160,24 +166,35 @@ export async function createArticle(raw: unknown, authorId: string) {
   return serializeArticle(row);
 }
 
-export async function updateArticle(id: string, raw: unknown) {
+export class ArticleConflictError extends Error {
+  constructor() { super("文章已被其他会话修改，请重新读取后再保存"); }
+}
+
+export async function updateArticle(id: string, raw: unknown, expectedUpdatedAt?: string) {
   const input = parseArticleWriteInput(raw);
-  const existing = await prisma.article.findUnique({ where: { id }, select: { status: true } });
-  if (!existing) return null;
-  const row = await prisma.article.update({
-    where: { id },
-    data: {
-      ...writeData(input),
-      publishedAt:
-        input.status === "published"
-          ? existing.status === "published"
-            ? undefined
-            : new Date()
-          : null,
-    },
-    include: articleInclude,
+  if (!expectedUpdatedAt || Number.isNaN(Date.parse(expectedUpdatedAt))) {
+    throw new ArticleConflictError();
+  }
+  return prisma.$transaction(async tx => {
+    const existing = await tx.article.findUnique({ where: { id }, select: { status: true } });
+    if (!existing) return null;
+    const row = await tx.article.updateMany({
+      where: { id, updatedAt: new Date(expectedUpdatedAt) },
+      data: {
+        ...writeData(input),
+        updatedAt: new Date(Math.max(Date.now(), Date.parse(expectedUpdatedAt) + 1)),
+        publishedAt:
+          input.status === "published"
+            ? existing.status === "published"
+              ? undefined
+              : new Date()
+            : null,
+      },
+    });
+    if (row.count !== 1) throw new ArticleConflictError();
+    const updated = await tx.article.findUnique({ where: { id }, include: articleInclude });
+    return updated ? serializeArticle(updated) : null;
   });
-  return serializeArticle(row);
 }
 
 export async function deleteArticle(id: string): Promise<boolean> {

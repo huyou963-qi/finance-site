@@ -150,9 +150,13 @@ body {
 }
 
 .article-md {
+  overflow-wrap: anywhere;
   font-size: 1rem;
   line-height: 1.8;
 }
+
+.article-md .katex-display { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+.article-md pre { max-width: 100%; overflow-x: auto; }
 
 .article-md h1 {
   font-size: 1.75rem;

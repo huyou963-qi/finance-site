@@ -2,6 +2,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api/eventAuth";
 import {
   deleteArticle,
+  ArticleConflictError,
   getArticleById,
   updateArticle,
 } from "@/lib/articles/articleStore";
@@ -11,7 +12,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "文章操作失败";
-  const status = message.includes("登录")
+  const status = error instanceof ArticleConflictError ? 409 : message.includes("登录")
     ? 401
     : message.includes("权限")
       ? 403
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
 export async function PUT(req: NextRequest, context: RouteContext) {
   try {
     await requireAdmin(req);
-    const article = await updateArticle((await context.params).id, await req.json());
+    const raw = await req.json();
+    const article = await updateArticle((await context.params).id, raw, raw.expectedUpdatedAt);
     if (!article) return NextResponse.json({ error: "文章不存在" }, { status: 404 });
     if (article.status === "published") after(() => pushPublishedArticle(article.slug));
     return NextResponse.json({ article });
