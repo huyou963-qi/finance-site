@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { DEFAULT_EVENT_VIEW_FILTERS, eventFiltersForSource, hasActiveEventViewContentFilters, sanitizeEventViewFilters, updateEventSourceFilters } from "./eventViewFilters";
+import { DEFAULT_EVENT_VIEW_FILTERS, clearEventContentFilters, eventFiltersForSource, hasActiveEventViewContentFilters, sanitizeEventViewFilters, updateEventSourceFilters } from "./eventViewFilters";
 import { buildForChartUrl } from "./buildForChartUrl";
 import { applySymbolDraftToFilters, classifyChartSymbol, deriveEventFilterDraft } from "@/lib/data/chartSymbolProfile";
 
@@ -35,4 +35,39 @@ it("system symbol defaults leave user types and tag filters unchanged", () => {
   const state = sanitizeEventViewFilters({ userFilters: { ...DEFAULT_EVENT_VIEW_FILTERS, searchQ: "research", typeFamilies: ["market"], countries: ["CN"] } });
   const next = applySymbolDraftToFilters(state, deriveEventFilterDraft(classifyChartSymbol("SPX")));
   assert.deepEqual(next.userFilters, state.userFilters);
+});
+
+
+it("clearing current-source content preserves sources, presentation and the other source", () => {
+  const state = sanitizeEventViewFilters({ searchQ: "system", userFilters: {
+    ...DEFAULT_EVENT_VIEW_FILTERS, searchQ: "user", typeFamilies: ["company"],
+    companyKinds: ["product"], minImportance: "HIGH", countries: ["US"],
+    largeSurpriseOnly: true, includeLocal: false, markersEnabled: false,
+    showLabel: false, viewMode: "cards", relationMode: "macro",
+    eventColors: { a: "#112233" }, hiddenMarkerIds: ["a"], hiddenEventIds: ["b"],
+  } });
+  const original = structuredClone(state);
+  const user = eventFiltersForSource(state, "user");
+  const cleared = clearEventContentFilters(user);
+  assert.equal(hasActiveEventViewContentFilters(cleared), false);
+  assert.equal(cleared.companyKinds, undefined);
+  assert.equal(cleared.includeLocal, false);
+  assert.equal(cleared.markersEnabled, false);
+  assert.equal(cleared.showLabel, false);
+  assert.equal(cleared.viewMode, "cards");
+  assert.equal(cleared.relationMode, "macro");
+  assert.deepEqual(cleared.hiddenMarkerIds, ["a"]);
+  assert.deepEqual(cleared.hiddenEventIds, ["b"]);
+  assert.deepEqual(cleared.eventColors, { a: "#112233" });
+  const next = updateEventSourceFilters(state, "user", cleared);
+  assert.equal(next.searchQ, "system");
+  assert.deepEqual(state, original);
+  assert.deepEqual({ ...next, userFilters: undefined }, { ...state, userFilters: undefined });
+});
+
+it("company subtype restrictions and an empty type selection remain visible as active content", () => {
+  const cleared = clearEventContentFilters(DEFAULT_EVENT_VIEW_FILTERS);
+  assert.equal(hasActiveEventViewContentFilters({ ...cleared, companyKinds: [] }), true);
+  assert.equal(hasActiveEventViewContentFilters({ ...cleared, typeFamilies: [] }), true);
+  assert.equal(hasActiveEventViewContentFilters({ ...cleared, companyKinds: [], typeFamilies: ["macro"] }), true);
 });

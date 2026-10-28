@@ -26,12 +26,19 @@ export function sameEvent(a: MarketEventDto, b: MarketEventDto): boolean {
   return Boolean((ua && ua === ub) || (title(a) && title(a) === title(b)));
 }
 
+function groupChartFacts(items: MarketEventDto[]): MarketEventDto[][] {
+  const rank = (e: MarketEventDto) => e.sourceKind === "user_local" ? 0 : e.sourceKind === "sec" ? 2 : 1;
+  const groups: MarketEventDto[][] = [];
+  for (const event of [...items].sort((a, b) => rank(a) - rank(b))) {
+    const group = groups.find(g => sameEvent(g[0], event));
+    if (group) group.push(event); else groups.push([event]);
+  }
+  return groups.sort((a, b) => a[0].occurredAt.localeCompare(b[0].occurredAt) || a[0].id.localeCompare(b[0].id));
+}
+
 /** Personal annotations > shared facts > SEC projections. Never modifies the underlying sources. */
 export function mergeChartEvents(local: MarketEventDto[], remote: MarketEventDto[], includeLocal = true): MarketEventDto[] {
-  const rank = (e: MarketEventDto) => e.sourceKind === "user_local" ? 0 : e.sourceKind === "sec" ? 2 : 1;
-  const out: MarketEventDto[] = [];
-  for (const e of [...(includeLocal ? local : []), ...remote].sort((a, b) => rank(a) - rank(b))) if (!out.some(prev => sameEvent(prev, e))) out.push(e);
-  return out.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id));
+  return groupChartFacts([...(includeLocal ? local : []), ...remote]).map(g => g[0]);
 }
 
 export function companyEventKind(e: MarketEventDto): string {
@@ -43,28 +50,43 @@ export function companyEventKind(e: MarketEventDto): string {
   return "other";
 }
 
-export function eventPassesContentFilters(e: MarketEventDto, f: EventViewFilterState): boolean {
-  f = eventFiltersForSource(f, eventSourceGroup(e));
-  if (e.eventType === "era" || e.eventType === "时代阶段") return false;
-  if (f.includeLocal === false && e.sourceKind === "user_local") return false;
-  if (!f.includeSec && e.sourceKind === "sec") return false;
-  if (!f.includeMarket && e.sourceKind !== "sec" && e.sourceKind !== "user_local") return false;
-  if (f.largeSurpriseOnly && (e.eventType !== "macro.release" || classifyMacroEventSurprise(e.payload).level !== "large")) return false;
-  if (!eventTypeMatchesFamilies(e.eventType, f.typeFamilies) || EVENT_IMPORTANCE_MIN_ORDER[e.importance] < EVENT_IMPORTANCE_MIN_ORDER[f.minImportance]) return false;
-  if (f.companyKinds && f.companyKinds.length < 5 && (e.sourceKind === "sec" || (normalizeEventType(e.eventType) ?? "").startsWith("company.")) && !f.companyKinds.includes(companyEventKind(e))) return false;
+export const EVENT_EXCLUSION_LABELS = {
+  range: "不在图表时间区间", era: "阶段背景不作为行情事件", source: "事件来源已关闭",
+  surprise: "不满足宏观大预期差条件", type: "类型未选中", importance: "低于最低重要度",
+  company: "公司细类未选中", search: "不匹配搜索内容", person: "人物不匹配", institution: "机构不匹配",
+  country: "国家不匹配", industry: "行业不匹配", asset: "资产标签不匹配", hidden: "事件已隐藏",
+} as const;
+export type EventExclusionReason = keyof typeof EVENT_EXCLUSION_LABELS;
+
+/** A single predicate supplies both filtering and explanation, in a stable priority order. */
+export function eventContentExclusionReasons(e: MarketEventDto, state: EventViewFilterState): EventExclusionReason[] {
+  const f = eventFiltersForSource(state, eventSourceGroup(e));
+  const reasons: EventExclusionReason[] = [];
+  if (e.eventType === "era" || e.eventType === "时代阶段") reasons.push("era");
+  if ((f.includeLocal === false && e.sourceKind === "user_local") ||
+      (!f.includeSec && e.sourceKind === "sec") ||
+      (!f.includeMarket && e.sourceKind !== "sec" && e.sourceKind !== "user_local")) reasons.push("source");
+  if (f.largeSurpriseOnly && (e.eventType !== "macro.release" || classifyMacroEventSurprise(e.payload).level !== "large")) reasons.push("surprise");
+  if (!eventTypeMatchesFamilies(e.eventType, f.typeFamilies)) reasons.push("type");
+  if (EVENT_IMPORTANCE_MIN_ORDER[e.importance] < EVENT_IMPORTANCE_MIN_ORDER[f.minImportance]) reasons.push("importance");
+  if (f.companyKinds && f.companyKinds.length < 5 && (e.sourceKind === "sec" || (normalizeEventType(e.eventType) ?? "").startsWith("company.")) && !f.companyKinds.includes(companyEventKind(e))) reasons.push("company");
   const q = f.searchQ.trim().toLowerCase();
   const impact = (e.payload as { impact?: { summary?: string } } | null)?.impact?.summary ?? "";
-  if (q && !`${e.title ?? ""} ${e.content} ${impact}`.toLowerCase().includes(q)) return false;
-  if (f.persons.length && !f.persons.some(p => e.persons.includes(p))) return false;
-  if (f.institutions.length && !f.institutions.some(p => e.institutions.includes(p))) return false;
-  // Server queries already resolve system asset relevance; local tags are explicit content filters.
+  if (q && !`${e.title ?? ""} ${e.content} ${impact}`.toLowerCase().includes(q)) reasons.push("search");
+  if (f.persons.length && !f.persons.some(p => e.persons.includes(p))) reasons.push("person");
+  if (f.institutions.length && !f.institutions.some(p => e.institutions.includes(p))) reasons.push("institution");
+  // System geographic/asset restrictions are resolved by the server before pagination.
   if (e.sourceKind === "user_local") {
-    if (f.countries.length && !f.countries.some(c => e.countries.includes(c))) return false;
-    if (f.industries.length && !f.industries.some(c => e.industries.some(i => i.startsWith(c) || c.startsWith(i)))) return false;
-    if (f.assets.length && !expandEventAssetTags(f.assets).some(a => expandEventAssetTags(e.assets).includes(a))) return false;
+    if (f.countries.length && !f.countries.some(c => e.countries.includes(c))) reasons.push("country");
+    if (f.industries.length && !f.industries.some(c => e.industries.some(i => i.startsWith(c) || c.startsWith(i)))) reasons.push("industry");
+    if (f.assets.length && !expandEventAssetTags(f.assets).some(a => expandEventAssetTags(e.assets).includes(a))) reasons.push("asset");
   }
-  if (f.hiddenEventIds?.includes(eventIdentity(e))) return false;
-  return true;
+  if (f.hiddenEventIds?.includes(eventIdentity(e))) reasons.push("hidden");
+  return reasons;
+}
+
+export function eventPassesContentFilters(e: MarketEventDto, f: EventViewFilterState): boolean {
+  return eventContentExclusionReasons(e, f).length === 0;
 }
 
 export function eventDisplayColor(e: MarketEventDto, f?: EventViewFilterState): string {
@@ -78,15 +100,52 @@ export function eventMarkerVisible(e: MarketEventDto, state: EventViewFilterStat
   return f.markersEnabled && !f.hiddenMarkerIds?.includes(eventIdentity(e));
 }
 
-/** Filter each source before deduplication so hidden personal annotations cannot suppress system facts. */
+export type EventChartProjection = {
+  status: "candidate" | "merged" | "disabled" | "hidden_marker";
+  representativeId: string | null;
+  relatedIds: string[];
+};
+
+/** Source lists preserve records. Only marker-eligible records participate in chart deduplication. */
 export function selectChartEvents(local: MarketEventDto[], remote: MarketEventDto[], state: EventViewFilterState, from: string, to: string) {
   const select = (items: MarketEventDto[]) => {
-    const ranged = items.filter(e => e.occurredAt.slice(0, 10) >= from && e.occurredAt.slice(0, 10) <= to);
-    const matched = ranged.filter(e => eventPassesContentFilters(e, state));
-    return { matched, stats: { loaded: items.length, inRange: ranged.length, filteredOut: ranged.length - matched.length } };
+    const matched: MarketEventDto[] = [];
+    const excluded: { event: MarketEventDto; reasons: EventExclusionReason[] }[] = [];
+    const reasons: Partial<Record<EventExclusionReason, number>> = {};
+    let inRange = 0;
+    for (const event of items) {
+      const within = event.occurredAt.slice(0, 10) >= from && event.occurredAt.slice(0, 10) <= to;
+      if (within) inRange++;
+      const failed: EventExclusionReason[] = [...(within ? [] : ["range" as const]), ...eventContentExclusionReasons(event, state)];
+      if (failed.length) {
+        excluded.push({ event, reasons: failed });
+        reasons[failed[0]] = (reasons[failed[0]] ?? 0) + 1;
+      } else matched.push({ ...event, color: eventDisplayColor(event, state) });
+    }
+    return { matched, excluded, stats: { loaded: items.length, inRange, matched: matched.length,
+      outsideRange: items.length - inRange, filteredOut: inRange - matched.length, reasons,
+      chartCandidates: 0, merged: 0, markerDisabled: 0, markerHidden: 0 } };
   };
   const system = select(remote), user = select(local);
-  const events = mergeChartEvents(user.matched, system.matched).map(e => ({ ...e, color: eventDisplayColor(e, state) }));
-  return { events, sourceStats: { system: system.stats, user: user.stats }, loaded: local.length + remote.length,
+  const events = [...system.matched, ...user.matched].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id));
+  const chartProjection: Record<string, EventChartProjection> = {};
+  const eligible = events.filter(e => {
+    const f = eventFiltersForSource(state, eventSourceGroup(e));
+    const stats = eventSourceGroup(e) === "system" ? system.stats : user.stats;
+    if (!f.markersEnabled) { chartProjection[e.id] = { status: "disabled", representativeId: null, relatedIds: [] }; stats.markerDisabled++; return false; }
+    if (f.hiddenMarkerIds?.includes(eventIdentity(e))) { chartProjection[e.id] = { status: "hidden_marker", representativeId: null, relatedIds: [] }; stats.markerHidden++; return false; }
+    return true;
+  });
+  const groups = groupChartFacts(eligible);
+  for (const group of groups) for (const event of group) {
+    const primary = event.id === group[0].id;
+    chartProjection[event.id] = { status: primary ? "candidate" : "merged", representativeId: group[0].id, relatedIds: group.map(e => e.id) };
+    const stats = eventSourceGroup(event) === "system" ? system.stats : user.stats;
+    if (primary) stats.chartCandidates++; else stats.merged++;
+  }
+  return { events, chartEvents: groups.map(g => g[0]), chartProjection,
+    sourceEvents: { system: system.matched, user: user.matched },
+    excludedEvents: { system: system.excluded, user: user.excluded },
+    sourceStats: { system: system.stats, user: user.stats }, loaded: local.length + remote.length,
     inRange: system.stats.inRange + user.stats.inRange, filteredOut: system.stats.filteredOut + user.stats.filteredOut };
 }

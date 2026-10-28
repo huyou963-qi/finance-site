@@ -1,33 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { EventImportance } from "@prisma/client";
 import { EVENT_IMPORTANCE_LABELS } from "@/lib/data/marketEvents";
 import {
-  ALL_EVENT_TYPE_FAMILY_IDS,
-  EVENT_INDUSTRY_QUICK_SUGGESTIONS,
-  EVENT_TYPE_FAMILIES,
-  formatIndustryTagLabel,
-  normalizeIndustryTag,
-  type EventTypeFamilyId,
+  ALL_EVENT_TYPE_FAMILY_IDS, EVENT_INDUSTRY_QUICK_SUGGESTIONS, EVENT_TYPE_FAMILIES,
+  formatIndustryTagLabel, normalizeIndustryTag, type EventTypeFamilyId,
 } from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
-import { MACRO_SURPRISE_MARKER_COLORS } from "@/lib/data/macroEventSurprise";
 import {
-  DEFAULT_EVENT_VIEW_FILTERS,
-  hasActiveEventViewContentFilters,
-  type EventViewFilterState,
+  DEFAULT_EVENT_VIEW_FILTERS, clearEventContentFilters, hasActiveEventViewContentFilters,
+  isAllTypeFamiliesSelected, type EventViewFilterState,
 } from "@/lib/chart/eventViewFilters";
-import {
-  COMPANY_KIND_FILTER_LABELS,
-  COMPANY_KIND_FILTERS,
-  type CompanyKindFilter,
-} from "@/lib/equity/companyMilestones";
+import { COMPANY_KIND_FILTER_LABELS, COMPANY_KIND_FILTERS, type CompanyKindFilter } from "@/lib/equity/companyMilestones";
 
 export type EventPanelFilterState = EventViewFilterState;
 export const EMPTY_EVENT_PANEL_FILTERS = DEFAULT_EVENT_VIEW_FILTERS;
 export { hasActiveEventViewContentFilters as hasActiveEventPanelFilters };
+
+const control = "min-h-10 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-xs text-fs-text sm:min-h-7";
+const tagFields = [
+  ["countries", "国家"], ["persons", "人物"], ["institutions", "机构"],
+  ["industries", "行业"], ["assets", "资产"],
+] as const;
 
 type EventPanelFiltersProps = {
   filters: EventViewFilterState;
@@ -35,269 +31,100 @@ type EventPanelFiltersProps = {
   onResetToSymbolDefault?: () => void;
   companyKindFilter?: CompanyKindFilter[];
   onCompanyKindFilterChange?: (next: CompanyKindFilter[]) => void;
-  /** shelf：搜索与类型/公司/重要度同一行；panel：纵向（默认） */
   layout?: "panel" | "shelf" | "inline";
+  /** The shelf keeps its summary visible when the mobile filter sheet is closed. */
+  showSummary?: boolean;
 };
 
-export function EventPanelFilters({
-  filters,
-  onChange,
-  onResetToSymbolDefault,
-  companyKindFilter,
-  onCompanyKindFilterChange,
-  layout = "panel",
-}: EventPanelFiltersProps) {
-  const patch = (p: Partial<EventViewFilterState>) =>
-    onChange({ ...filters, ...p });
+export function EventFilterSummary({ filters, onChange, compact = false }: Pick<EventPanelFiltersProps, "filters" | "onChange"> & { compact?: boolean }) {
+  const patch = (p: Partial<EventViewFilterState>) => onChange({ ...filters, ...p });
+  const chips: { key: string; label: string; remove: () => void }[] = [];
+  if (filters.searchQ.trim()) chips.push({ key: "search", label: `搜索：${filters.searchQ}`, remove: () => patch({ searchQ: "" }) });
+  if (!isAllTypeFamiliesSelected(filters.typeFamilies)) chips.push({
+    key: "types", label: `类型：${filters.typeFamilies.length ? EVENT_TYPE_FAMILIES.filter(f => filters.typeFamilies.includes(f.id)).map(f => f.label).join("、") : "未选（无结果）"}`,
+    remove: () => patch({ typeFamilies: [...ALL_EVENT_TYPE_FAMILY_IDS], companyKinds: undefined }),
+  });
+  if (filters.typeFamilies.includes("company") && filters.companyKinds && filters.companyKinds.length < COMPANY_KIND_FILTERS.length) chips.push({
+    key: "company", label: `公司细类：${filters.companyKinds.length ? filters.companyKinds.map(k => COMPANY_KIND_FILTER_LABELS[k as CompanyKindFilter]).join("、") : "未选"}`,
+    remove: () => patch({ companyKinds: undefined }),
+  });
+  if (filters.minImportance !== "LOW") chips.push({ key: "importance", label: `重要度：${EVENT_IMPORTANCE_LABELS[filters.minImportance]}及以上`, remove: () => patch({ minImportance: "LOW" }) });
+  if (filters.largeSurpriseOnly) chips.push({ key: "surprise", label: "仅宏观大预期差", remove: () => patch({ largeSurpriseOnly: false }) });
+  for (const [key, label] of tagFields) for (const value of filters[key]) chips.push({
+    key: `${key}:${value}`, label: `${label}：${key === "industries" ? formatIndustryTagLabel(value) : value}`,
+    remove: () => patch({ [key]: filters[key].filter(v => v !== value) }),
+  });
+  return <div aria-label="生效内容条件" className={`flex items-center gap-1 text-xs text-fs-muted ${compact ? "min-h-7 overflow-x-auto whitespace-nowrap [&>button]:min-h-6 [&>button]:shrink-0 [&>button]:py-0" : "flex-wrap py-1"}`}>
+    <span>{chips.length ? "已选条件" : "内容条件：不限"}</span>
+    {chips.map(chip => <button key={chip.key} type="button" className={`${control} max-w-full bg-fs-accent-soft text-fs-accent-text break-words`} aria-label={`移除${chip.label}`} onClick={chip.remove}>{chip.label} ×</button>)}
+    {chips.length > 0 && <button type="button" className={control} onClick={() => onChange(clearEventContentFilters(filters))}>清除内容条件</button>}
+  </div>;
+}
 
-  const companyFamilyOn = filters.typeFamilies.includes("company");
-  const shelf = layout !== "panel";
-  const [moreOpen, setMoreOpen] = useState(!shelf);
-
+export function EventPanelFilters({ filters, onChange, onResetToSymbolDefault, companyKindFilter, onCompanyKindFilterChange, layout = "panel", showSummary = true }: EventPanelFiltersProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [typesOpen, setTypesOpen] = useState(false);
+  const typesPanel = useRef<HTMLDivElement>(null);
+  const morePanel = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (layout === "inline" && typesOpen) typesPanel.current?.showPopover(); }, [layout, typesOpen]);
+  useEffect(() => { if (layout === "inline" && moreOpen) morePanel.current?.showPopover(); }, [layout, moreOpen]);
+  const floating = layout === "inline";
+  const panelClass = floating ? "fixed inset-0 m-auto max-h-[70dvh] w-[min(640px,calc(100vw-24px))] overflow-y-auto rounded border border-fs-border bg-fs-bg p-3 text-fs-text shadow-xl" : "space-y-2 rounded border border-fs-border p-2";
+  const patch = (p: Partial<EventViewFilterState>) => onChange({ ...filters, ...p });
+  const companyKinds = companyKindFilter ?? (filters.companyKinds
+    ? filters.companyKinds.filter((k): k is CompanyKindFilter => COMPANY_KIND_FILTERS.includes(k as CompanyKindFilter))
+    : [...COMPANY_KIND_FILTERS]);
+  const advancedCount = tagFields.reduce((n, [key]) => n + filters[key].length, 0) + Number(filters.largeSurpriseOnly);
   const toggleFamily = (id: EventTypeFamilyId) => {
-    const set = new Set(filters.typeFamilies);
-    if (set.has(id)) set.delete(id);
-    else set.add(id);
-    const next = ALL_EVENT_TYPE_FAMILY_IDS.filter((f) => set.has(f));
-    // Type and subtype are one state transition; two callbacks could overwrite each other.
-    patch({ typeFamilies: next, ...(id === "company" ? { companyKinds: set.has("company") ? [...COMPANY_KIND_FILTERS] : [] } : {}) });
+    const selected = new Set(filters.typeFamilies);
+    if (selected.has(id)) selected.delete(id); else selected.add(id);
+    patch({ typeFamilies: ALL_EVENT_TYPE_FAMILY_IDS.filter(f => selected.has(f)),
+      ...(id === "company" ? { companyKinds: selected.has("company") ? [...COMPANY_KIND_FILTERS] : [] } : {}) });
   };
-
-  const toggleCompanyKind = (k: CompanyKindFilter) => {
-    if (!onCompanyKindFilterChange) return;
-    const cur = companyKindFilter ?? [];
-    if (cur.includes(k)) {
-      onCompanyKindFilterChange(cur.filter((x) => x !== k));
-    } else {
-      onCompanyKindFilterChange([...cur, k]);
-    }
+  const setCompanyKinds = (next: CompanyKindFilter[]) => {
+    if (onCompanyKindFilterChange) onCompanyKindFilterChange(next);
+    else patch({ companyKinds: next });
   };
-
-  const advancedActive =
-    filters.countries.length > 0 ||
-    filters.industries.length > 0 ||
-    filters.assets.length > 0 ||
-    filters.persons.length > 0 ||
-    filters.institutions.length > 0;
-
-  const typeChips = (
-    <div className="flex flex-wrap items-center gap-1">
-      <span className="text-[10px] text-fs-muted">类型</span>
-      {EVENT_TYPE_FAMILIES.map((f) => {
-        const on = filters.typeFamilies.includes(f.id);
-        return (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => toggleFamily(f.id)}
-            aria-pressed={on}
-            className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
-              on
-                ? "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
-                : "border-fs-border text-fs-muted hover:border-fs-border hover:text-fs-text"
-            }`}
-          >
-            {f.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  const companyChips =
-    companyFamilyOn && onCompanyKindFilterChange ? (
-      <div className={`flex flex-wrap items-center gap-1 ${shelf ? "" : "pl-1"}`}>
-        <span className="text-[10px] text-fs-muted">公司</span>
-        {COMPANY_KIND_FILTERS.map((k) => {
-          const on = (companyKindFilter ?? []).includes(k);
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => toggleCompanyKind(k)}
-              aria-pressed={on}
-              className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
-                on
-                  ? "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
-                  : "border-fs-border text-fs-muted hover:text-fs-text"
-              }`}
-            >
-              {COMPANY_KIND_FILTER_LABELS[k]}
-            </button>
-          );
-        })}
-      </div>
-    ) : null;
-
-  const importanceAndMore = (
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="flex items-center gap-1 text-[11px] text-fs-text" title="按关键分项试行阈值筛选，同时作用于列表和K线">
-        <input type="checkbox" checked={filters.largeSurpriseOnly} onChange={e => patch({ largeSurpriseOnly: e.target.checked })} />仅大预期差
-      </label>
-      <span className="text-[10px] text-fs-muted"><span style={{ color: MACRO_SURPRISE_MARKER_COLORS.above }}>◆高于</span> / <span style={{ color: MACRO_SURPRISE_MARKER_COLORS.below }}>◆低于</span> / <span style={{ color: MACRO_SURPRISE_MARKER_COLORS.mixed }}>◆分项相反</span></span>
-      <label className="flex items-center gap-1 text-[10px] text-fs-muted">
-        最低重要度
-        <select
-          value={filters.minImportance}
-          onChange={(e) =>
-            patch({ minImportance: e.target.value as EventImportance })
-          }
-          className="rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-[10px] text-fs-text"
-        >
-          {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map(
-            (k) => (
-              <option key={k} value={k}>
-                {EVENT_IMPORTANCE_LABELS[k]}
-              </option>
-            ),
-          )}
+  return <div className={floating ? "contents" : "flex min-w-0 flex-col gap-1.5"}>
+    <div className={floating ? "contents" : "flex flex-wrap items-center gap-2"}>
+      <input type="search" value={filters.searchQ} onChange={e => patch({ searchQ: e.target.value })} placeholder="搜索标题或内容…" aria-label="搜索事件" className={`${control} ${floating ? "w-36 shrink-0" : "min-w-0 basis-full flex-1 sm:basis-auto sm:max-w-56"}`} />
+      <button type="button" className={control} aria-expanded={typesOpen} onClick={() => setTypesOpen(!typesOpen)}>类型：{isAllTypeFamiliesSelected(filters.typeFamilies) ? "全部" : filters.typeFamilies.length ? `已选 ${filters.typeFamilies.length} 类` : "未选"} {typesOpen ? "▴" : "▾"}</button>
+      <label className="flex items-center gap-1 text-xs text-fs-muted">重要度
+        <select aria-label="最低重要度" value={filters.minImportance} onChange={e => patch({ minImportance: e.target.value as EventImportance })} className={control}>
+          {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map(k => <option key={k} value={k}>{k === "LOW" ? "不限" : `${EVENT_IMPORTANCE_LABELS[k]}及以上`}</option>)}
         </select>
       </label>
-      <button
-        type="button"
-        onClick={() => setMoreOpen((v) => !v)}
-        className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
-          moreOpen || advancedActive
-            ? "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
-            : "border-fs-border text-fs-muted hover:text-fs-text"
-        }`}
-      >
-        更多条件 {moreOpen ? "▴" : "▾"}
-      </button>
-      {onResetToSymbolDefault ? (
-        <button
-          type="button"
-          onClick={onResetToSymbolDefault}
-          className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
-        >
-          {layout === "inline" ? "重置筛选" : "重置为标的默认"}
-        </button>
-      ) : hasActiveEventViewContentFilters(filters) ? (
-        <button
-          type="button"
-          onClick={() =>
-            onChange({
-              ...filters,
-              searchQ: "",
-              largeSurpriseOnly: false,
-              typeFamilies: [...DEFAULT_EVENT_VIEW_FILTERS.typeFamilies],
-              minImportance: DEFAULT_EVENT_VIEW_FILTERS.minImportance,
-              countries: [],
-              industries: [],
-              assets: [],
-              persons: [],
-              institutions: [],
-            })
-          }
-          className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
-        >
-          重置
-        </button>
-      ) : null}
+      <button type="button" className={control} aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>更多筛选{advancedCount ? `（${advancedCount}）` : ""} {moreOpen ? "▴" : "▾"}</button>
+      {onResetToSymbolDefault && <button type="button" className={control} onClick={onResetToSymbolDefault}>恢复资产默认</button>}
     </div>
-  );
-
-  const morePanel = moreOpen ? (
-    <div
-      className={`rounded border border-fs-border bg-fs-bg/40 p-1.5 ${layout === "inline" ? "w-full basis-full " : ""}${
-        shelf
-          ? "grid grid-cols-2 gap-1.5 sm:grid-cols-5"
-          : "grid grid-cols-2 gap-1.5 sm:grid-cols-5"
-      }`}
-    >
-      <div className="min-w-0">
-        <TagInput
-          label="国家"
-          values={filters.countries}
-          onChange={(countries) => patch({ countries })}
-          placeholder="US, CN…"
-          suggestions={MACRO_COUNTRIES.map((c) => c.code)}
-          uppercase
-        />
+    {typesOpen && <div ref={typesPanel} popover={floating ? "auto" : undefined} onToggle={e => { if (floating && !e.currentTarget.matches(":popover-open")) setTypesOpen(false); }} className={panelClass}>
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="text-xs text-fs-muted">类型（多选）</span>
+        <button type="button" className={control} onClick={() => patch({ typeFamilies: [...ALL_EVENT_TYPE_FAMILY_IDS], companyKinds: undefined })}>全部类型</button>
+        <button type="button" className={control} onClick={() => patch({ typeFamilies: [], companyKinds: [] })}>清空类型</button>
+        {EVENT_TYPE_FAMILIES.map(f => <button key={f.id} type="button" aria-pressed={filters.typeFamilies.includes(f.id)} className={`${control} ${filters.typeFamilies.includes(f.id) ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => toggleFamily(f.id)}>{f.label}</button>)}
       </div>
-      <div className="min-w-0">
-        <TagInput
-          label="人物"
-          values={filters.persons}
-          onChange={(persons) => patch({ persons })}
-          placeholder="Powell…"
-        />
+      {!filters.typeFamilies.length && <p className="text-xs text-fs-muted">未选择任何类型，结果为空；选择一种类型或点击“全部类型”。</p>}
+      {filters.typeFamilies.includes("company") && <div className="flex flex-wrap items-center gap-1">
+        <span className="text-xs text-fs-muted">公司细类</span>
+        {COMPANY_KIND_FILTERS.map(k => <button key={k} type="button" aria-pressed={companyKinds.includes(k)} className={`${control} ${companyKinds.includes(k) ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => setCompanyKinds(companyKinds.includes(k) ? companyKinds.filter(v => v !== k) : [...companyKinds, k])}>{COMPANY_KIND_FILTER_LABELS[k]}</button>)}
+      </div>}
+    </div>}
+    {moreOpen && <div ref={morePanel} popover={floating ? "auto" : undefined} onToggle={e => { if (floating && !e.currentTarget.matches(":popover-open")) setMoreOpen(false); }} className={panelClass}>
+      <p className="text-xs text-fs-muted">同一条件多选满足任一项，不同条件需同时满足。标签用于收窄内容。</p>
+      {(filters.typeFamilies.includes("macro") || filters.largeSurpriseOnly) && <fieldset className="rounded border border-fs-border p-2 text-xs">
+        <legend>宏观专属条件</legend>
+        <label className="flex min-h-10 items-center gap-2 sm:min-h-7"><input type="checkbox" checked={filters.largeSurpriseOnly} onChange={e => patch({ largeSurpriseOnly: e.target.checked })} />仅宏观大预期差</label>
+        <p className="text-fs-muted">仅保留具有有效预期差证据的宏观发布，其他类型及缺少证据的事件会被排除；不表示利多或利空。</p>
+      </fieldset>}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <TagInput label="国家" values={filters.countries} onChange={countries => patch({ countries })} placeholder="US, CN…" suggestions={MACRO_COUNTRIES.map(c => c.code)} uppercase />
+        <TagInput label="人物" values={filters.persons} onChange={persons => patch({ persons })} placeholder="Powell…" />
+        <TagInput label="机构" values={filters.institutions} onChange={institutions => patch({ institutions })} placeholder="Fed、Goldman…" />
+        <TagInput label="行业" values={filters.industries} onChange={industries => patch({ industries })} placeholder="信息技术、金融…" suggestions={EVENT_INDUSTRY_QUICK_SUGGESTIONS} formatLabel={formatIndustryTagLabel} normalizeAdd={normalizeIndustryTag} />
+        <TagInput label="资产" values={filters.assets} onChange={assets => patch({ assets })} placeholder="AAPL、GC…" uppercase />
       </div>
-      <div className="min-w-0">
-        <TagInput
-          label="机构"
-          values={filters.institutions}
-          onChange={(institutions) => patch({ institutions })}
-          placeholder="Fed、Goldman…"
-        />
-      </div>
-      <div className="min-w-0">
-        <TagInput
-          label="行业"
-          values={filters.industries}
-          onChange={(industries) => patch({ industries })}
-          placeholder="信息技术、金融…"
-          suggestions={EVENT_INDUSTRY_QUICK_SUGGESTIONS}
-          formatLabel={formatIndustryTagLabel}
-          normalizeAdd={normalizeIndustryTag}
-        />
-      </div>
-      <div className="min-w-0">
-        <TagInput
-          label="资产"
-          values={filters.assets}
-          onChange={(assets) => patch({ assets })}
-          placeholder="AAPL、GC…"
-          uppercase
-        />
-      </div>
-    </div>
-  ) : null;
-
-  if (layout === "inline") {
-    return <div className="contents">
-      <input type="search" value={filters.searchQ} onChange={e => patch({ searchQ: e.target.value })}
-        placeholder="搜索…" aria-label="搜索事件"
-        className="w-28 shrink-0 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary" />
-      {typeChips}{companyChips}{importanceAndMore}{morePanel}
-    </div>;
-  }
-
-  if (shelf) {
-    return (
-      <div className="flex shrink-0 flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <input
-            type="search"
-            value={filters.searchQ}
-            onChange={(e) => patch({ searchQ: e.target.value })}
-            placeholder="搜索…"
-            className="w-28 shrink-0 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-fs-accent/50 focus:outline-none focus:ring-1 focus:ring-fs-accent/30"
-            aria-label="搜索事件"
-          />
-          {typeChips}
-          {companyChips}
-          {importanceAndMore}
-        </div>
-        {morePanel}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex shrink-0 flex-col gap-1.5">
-      <input
-        type="search"
-        value={filters.searchQ}
-        onChange={(e) => patch({ searchQ: e.target.value })}
-        placeholder="搜索标题或内容…"
-        className="w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-fs-accent/50 focus:outline-none focus:ring-1 focus:ring-fs-accent/30"
-        aria-label="搜索事件"
-      />
-      {typeChips}
-      {companyChips}
-      {importanceAndMore}
-      {morePanel}
-    </div>
-  );
+    </div>}
+    {showSummary && <EventFilterSummary filters={filters} onChange={onChange} />}
+  </div>;
 }

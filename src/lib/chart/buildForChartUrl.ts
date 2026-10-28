@@ -1,6 +1,7 @@
 /**
  * 构建行情联动事件列表 URL（与 EventPanel / MarketsEventShelf 共用）。
  */
+import { ALL_EVENT_TYPE_FAMILY_IDS } from "@/lib/data/eventTaxonomy";
 import {
   typeFamiliesToQueryPrefixes,
   type EventViewFilterState,
@@ -32,4 +33,12 @@ export function buildForChartUrl(
   const types = typeFamiliesToQueryPrefixes(filters.typeFamilies);
   if (types?.length) sp.set("types", types.join(","));
   return `/api/events/for-chart?${sp.toString()}`;
+}
+
+/** Source switches and client content conditions must not remove observable candidates. */
+export function buildChartCandidateUrl(symbol: string, from: string, to: string, filters: EventViewFilterState): string {
+  return buildForChartUrl(symbol, from, to, {
+    ...filters, minImportance: "LOW", typeFamilies: [...ALL_EVENT_TYPE_FAMILY_IDS],
+    largeSurpriseOnly: false, includeMarket: true, includeSec: true,
+  });
 }
