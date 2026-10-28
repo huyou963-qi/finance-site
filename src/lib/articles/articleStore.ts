@@ -25,7 +25,7 @@ function serializeAsset(row: {
 }) {
   return {
     ...row,
-    ...(row.sourceKind === "chart-reference" ? { sourceConfig: { chartReference: true } } : {}),
+    ...(["chart-reference", "chart-image"].includes(row.sourceKind) ? { sourceConfig: { chartReference: row.sourceKind === "chart-reference", chartImage: row.sourceKind === "chart-image" } } : {}),
     url: `/api/article-assets/${row.id}`,
     capturedAt: row.capturedAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
