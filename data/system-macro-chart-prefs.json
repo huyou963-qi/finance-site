@@ -4656,9 +4656,12 @@
         "mds:eia_wpsr_wdiupus2::ma4",
         "mds:eia_wpsr_wcsstus1"
       ],
-      "updatedAtIso": "2026-10-04T09:53:37.735Z",
+      "updatedAtIso": "2026-10-28T03:38:59.268Z",
       "displayConfig": {
         "lineWidth": 1.6,
+        "slotModes": {
+          "3": "seasonal"
+        },
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
@@ -4692,7 +4695,10 @@
         },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
-        "showRecessionShading": false
+        "showRecessionShading": false,
+        "slotSeasonalYearCount": {
+          "3": 5
+        }
       },
       "slotAssignment": {
         "fred:TSIFRGHT": 5,
