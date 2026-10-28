@@ -1,5 +1,7 @@
 # GekkoTech MCP：指标查询、系统图表和文章嵌入
 
+后续新增 `capture_chart_image` 与 `set_article_cover`，当前共15个工具；参数、图片权限、封面缩略图同步及运行依赖见 [ARTICLE_MCP.md](./ARTICLE_MCP.md)。以下13工具的验收记录为首批扩展时的记录。
+
 ## 架构审计与实现范围
 
 - Next.js 15 / React 19 / Prisma 5 / PostgreSQL，部署沿用 Actions tar + PM2。

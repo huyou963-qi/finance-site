@@ -1,5 +1,18 @@
 # ChatGPT 文章写作与发布
 
+## 图表图片与封面（15个工具）
+
+- `capture_chart_image`：`articleId`、`chartId`、`startDate`、`endDate`；可选 `dataCutoff`、`width`（600–2000，默认1200）、`height`（400–1200，默认675）。复用系统图表的真实数据与 ECharts option，服务端 SVG 渲染后转 PNG（并非截取整个网页），保存为既有 ArticleAsset。返回 assetId、imageUrl、尺寸、SHA256、来源及实际数据范围。相同参数和相同渲染结果重复调用复用附件；不自动插入正文、设置封面或发布文章。
+- `set_article_cover`：`articleId`、`imageUrl`、`expectedUpdatedAt`。返回 changed、coverImageUrl、thumbnailUrl 和新 updatedAt。接受完整 http(s) 图片地址或本站 `/api/article-assets/UUID`；本站附件必须属于该文章且为 PNG/JPEG/WebP。外链不由服务端下载，因此不触发 SSRF；外链实际可用性由提供方负责。
+
+两工具均需 `articles:write` 并限定本人文章，处理已发布文章另需 `articles:publish`。封面只更新 coverImageUrl 与 updatedAt，使用乐观锁，不修改正文或发布状态；重复设置同一封面返回 changed:false。文章列表为动态读取，coverUrl 直接由同一字段解析，所以重新加载列表即可看到新缩略图，无需另建缩略图表。截图作为新图片URL存储，避免浏览器沿用旧图片缓存。
+
+草稿图片沿用站内附件管理员登录保护，文章发布后才可公开访问，禁止为获得公共图片地址而自动发布草稿。截图来源/公式/版本指纹保存在附件配置，授权标识不向文章读取者下发。无需数据库迁移；新增直接依赖 sharp 0.34.5（此前为 Next.js 间接依赖）。Linux 需可用中文字体（例如 Noto Sans CJK），否则中文图表文字可能缺字；部署后应核验中文PNG。当前仅支持已有时序图，不接受任意网页URL或HTML截图。
+
+部署新版后刷新/重新连接原 MCP，工具数确认为15；典型顺序：get_article → capture_chart_image → set_article_cover（使用读取到的updatedAt）→ preview_article。更改封面不会代替明确的发布指令。
+
+2026-10-28 验证：全仓1,254项通过、1项按环境跳过，schema/lint/生产构建通过；补充的图片专项4项通过，覆盖有效PNG/尺寸、封面CAS/权限、地址校验、附件保存与重复导出复用。使用本地真实9月原油数据完成导出PNG→附件落库→重复调用同一附件→设置封面→listArticles coverUrl匹配的服务级验收，文章保持draft。为此仅补齐本地已存在的文章SEO迁移（两个可空字段），没有新增migration或修改生产数据库。公开图片访问仍需部署后随文章发布状态核验。
+
 行情与图表扩展（同一端点，13个工具、无新migration）：见 [MARKET_MCP.md](./MARKET_MCP.md)，包含搜索、数据查询、白名单计算、系统图表、实时/快照嵌入、安全与验收步骤。
 
 ## 设计与复用

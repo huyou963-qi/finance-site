@@ -124,7 +124,7 @@ test("OAuth token exchange rotates refresh tokens, rejects reuse, audience misma
   } finally { if (old === undefined) delete process.env.ARTICLE_OAUTH_CLIENTS; else process.env.ARTICLE_OAUTH_CLIENTS = old; }
 });
 
-test("Official SDK Streamable HTTP discovers thirteen tools and returns structured permission failures", async () => {
+test("Official SDK Streamable HTTP discovers fifteen tools and returns structured permission failures", async () => {
   const { createArticleMcpServer } = await modules;
   const send = async (method: string, params = {}, scopes = ["articles:read"]) => {
     const server = createArticleMcpServer({ userId: "owner", grantId: "grant", scopes });
@@ -139,7 +139,7 @@ test("Official SDK Streamable HTTP discovers thirteen tools and returns structur
     const initialized = await send("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "article-test", version: "1.0.0" } });
     assert.equal(initialized.result.serverInfo.name, "finance-site-articles");
     const list = await send("tools/list");
-    assert.equal(list.result.tools.length, 13);
+    assert.equal(list.result.tools.length, 15);
     for (const name of ["search_market_indicators", "query_market_data", "calculate_market_series", "search_charts", "get_chart"]) {
       const tool = list.result.tools.find((tool: { name: string }) => tool.name === name);
       assert.deepEqual(tool.securitySchemes, [{ type: "oauth2", scopes: ["articles:read"] }]);

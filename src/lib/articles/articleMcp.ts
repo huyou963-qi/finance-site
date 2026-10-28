@@ -112,7 +112,7 @@ export function createArticleMcpServer(principal: ArticlePrincipal) {
   ] as const;
   const descriptors: Tool[] = [];
   for (const [name, description, schema, scope, readOnly] of definitions) {
-    const annotations = { readOnlyHint: readOnly, destructiveHint: name === "publish_article" || name === "unpublish_article", idempotentHint: name !== "create_article", openWorldHint: false };
+    const annotations = { readOnlyHint: readOnly, destructiveHint: name === "publish_article" || name === "unpublish_article" || name === "set_article_cover", idempotentHint: name !== "create_article", openWorldHint: false };
     const securitySchemes = [{ type: "oauth2", scopes: [scope] }];
     const meta = { securitySchemes };
     descriptors.push(Object.assign(ToolSchema.parse({ name, description, inputSchema: z.toJSONSchema(schema, { io: "input" }), annotations, _meta: meta }), { securitySchemes }));
