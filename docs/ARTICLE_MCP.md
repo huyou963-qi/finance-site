@@ -73,4 +73,6 @@ MCP 错误使用 `isError:true` 与 `structuredContent:{success:false,error:{cod
 
 上线后还需用实际 ChatGPT 客户端验证 OAuth 往返与 scope 授权、创建→读取→修改→预览→发布→公开访问→撤回，并确认匿名预览返回 404、旧版本修改返回 CONFLICT、撤销连接后 Bearer 返回 401。自动测试使用隔离的数据层替身，不写生产数据；它不能代替实际 ChatGPT 与生产 PostgreSQL 的连接验收。
 
+授权页的 Referrer-Policy 必须保留为 `same-origin`：HTML 表单在 `no-referrer` 下会发送 `Origin: null`，导致严格同源校验拒绝正常的“同意授权”提交。回调 303 响应继续使用 `no-referrer`，避免回调导航携带来源信息。不得通过允许 null Origin 或关闭同源校验来解决此问题。`articleConsent.test.ts` 覆盖实际 GET→POST 的同意、拒绝、重复提交及跨站/空 Origin 拒绝路径。
+
 规范参考：[OpenAI MCP 服务](https://developers.openai.com/plugins/build/mcp-server)、[OpenAI OAuth 授权](https://developers.openai.com/plugins/build/auth)、[MCP 官方文档](https://modelcontextprotocol.io/docs/develop/build-server)。
