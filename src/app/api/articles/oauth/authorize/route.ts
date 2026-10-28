@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { articleResource, oauthIssuer, hashCredential, newCredential, parseScopes, registeredClient, requireSameOrigin } from "@/lib/articles/articleOAuth";
 
 export const dynamic = "force-dynamic";
-const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" };
+// HTML form POSTs under no-referrer send Origin:null and fail our CSRF check.
+// Keep the same-origin Origin intact; external callback redirects still use no-referrer.
+const headers = { "Cache-Control": "no-store", "Referrer-Policy": "same-origin", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" };
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 function html(body: string, status = 200, callbackOrigin?: string) {
   const csp = headers["Content-Security-Policy"].replace("form-action 'self'", `form-action 'self'${callbackOrigin ? ` ${callbackOrigin}` : ""}`);
