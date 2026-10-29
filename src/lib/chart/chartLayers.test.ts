@@ -37,6 +37,14 @@ describe("chartLayers", () => {
     assert.notEqual(chartLayersStructKey(prefs1), chartLayersStructKey(prefs2));
   });
 
+  it("rebuilds series for every displayed style change instead of reapplying options during data refresh", () => {
+    const layer = createChartLayer({ kind: "price", symbol: "SPY", field: "close" });
+    const key = chartLayersStructKey({ layers: [layer], compareMode: false });
+    for (const change of [{ label: "新名称" }, { color: "#123456" }, { lineWidth: 3 as const }]) {
+      assert.notEqual(key, chartLayersStructKey({ layers: [{ ...layer, ...change }], compareMode: false }));
+    }
+  });
+
   it("vsSpy template adds SPY and ratio", () => {
     const layers = applyLayerTemplate("vsSpy", "AAPL", []);
     assert.ok(layers.length >= 2);

@@ -1,4 +1,4 @@
-import type { ISeriesPrimitive, SeriesAttachedParameter, Time, Logical } from "lightweight-charts";
+import type { ISeriesPrimitive, SeriesAttachedParameter, Time } from "lightweight-charts";
 import type { CanvasRenderingTarget2D } from "fancy-canvas";
 import { NBER_RECESSION_MARK_AREA_STYLE, type NberRecessionBand } from "@/lib/data/nberRecessionBands";
 
@@ -19,6 +19,7 @@ export class RecessionShading implements ISeriesPrimitive<Time> {
     const bars = params.series.data();
     const times = bars.map(({ time }) => typeof time === "number" ? time * 1000 : typeof time === "string" ? Date.parse(time) : Date.UTC(time.year, time.month - 1, time.day));
     const scale = params.chart.timeScale();
+    const halfBar = scale.options().barSpacing / 2;
     target.useMediaCoordinateSpace(({ context, mediaSize }) => {
       context.fillStyle = NBER_RECESSION_MARK_AREA_STYLE.itemStyle.color;
       for (const band of bands) {
@@ -26,11 +27,11 @@ export class RecessionShading implements ISeriesPrimitive<Time> {
         if (first < 0 || times[first] > band.endMs) continue;
         let last = first;
         while (last + 1 < times.length && times[last + 1] <= band.endMs) last++;
-        const left = scale.logicalToCoordinate((first - 0.5) as Logical);
-        const right = scale.logicalToCoordinate((last + 0.5) as Logical);
+        const left = scale.timeToCoordinate(bars[first].time);
+        const right = scale.timeToCoordinate(bars[last].time);
         if (left == null || right == null) continue;
-        const x = Math.max(0, left);
-        const end = Math.min(mediaSize.width, right);
+        const x = Math.max(0, left - halfBar);
+        const end = Math.min(mediaSize.width, right + halfBar);
         if (end > x) context.fillRect(x, 0, end - x, mediaSize.height);
       }
     });

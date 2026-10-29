@@ -316,7 +316,7 @@ export function chartLayersStructKey(prefs: ChartLayersPrefs): string {
         : l.axis.mode === "pane"
           ? `pane:${l.axis.paneSlot}`
           : l.axis.mode;
-    return `${l.id}|${l.visible ? 1 : 0}|${src}|${axis}|${l.style}|${l.color}|${l.lineWidth}|${l.transform}`;
+    return `${l.id}|${l.label}|${l.visible ? 1 : 0}|${src}|${axis}|${l.style}|${l.color}|${l.lineWidth}|${l.transform}`;
   });
   return `${prefs.compareMode ? "c1" : "c0"}::${parts.join(";")}`;
 }

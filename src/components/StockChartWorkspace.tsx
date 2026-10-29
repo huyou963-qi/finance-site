@@ -1671,11 +1671,8 @@ export function StockChartWorkspace({
       if (!handle) continue;
       try {
         handle.api.setData(d.points);
-        handle.api.applyOptions({
-          color: d.color,
-          title: d.label,
-          lineWidth: d.lineWidth,
-        });
+        // 样式随 layerStructKey 重建时设置；这里只更新数据，避免在共用
+        // 时间轴重新编号期间触发旧点的样式重算（LWC: Value is null）。
       } catch {
         /* ignore */
       }
