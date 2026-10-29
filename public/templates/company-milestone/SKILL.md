@@ -6,16 +6,16 @@ description: >-
   including risk triggers, relief catalysts, and narrative turning points.
 ---
 
-# Local Chart Event Ingest
+# Chart Event Ingest
 
 为行情页「事件筛选器」生成可本地导入的事件 JSON。支持个股经营里程碑和跨资产专题研究（如 AI 风险触发与缓解），沿用同一字段和事件词表。
 
 ## 选择显示范围
 
-- 单标的：query.importTarget 为 symbol（省略时的兼容默认值），query.symbol 可填写目标 ticker；导入到当前所选标的。
+- 单标的：query.importTarget 为 symbol（省略时的兼容默认值），query.symbol 可填写目标 ticker；默认按文件指定标的显示；页面手动选择“仅当前标的”时才覆盖文件范围。
 - 跨资产研究：query.importTarget 为 all-assets，省略 query.symbol；一次导入后，当前账号在同一浏览器、同一站点的所有资产图表都可查看，包括股票、指数、商品、外汇和债券。
 - assets 表示事件实际关联的资产，不是显示白名单。跨资产专题可为空；不得为了在任意资产显示而硬挂无关 ticker。
-- 页面下拉框可覆盖文件范围。导入按 externalId 更新同范围已有事件，保留其他事件；同一 externalId 的单标的版本优先于通用版本。可通过「清除通用事件」移除通用集合。
+- 页面下拉框可覆盖文件范围。请提供稳定 pack.id；同包按 externalId 更新、保留其他事件，不同包同 ID 独立保存。重导保留包停用状态及未指定的配色。
 - 通用事件仍服从时间范围、事件类型、重要性、文字筛选和「图上显示」；「仅大预期差」模式不显示普通研究标记。市场/SEC 数据源开关不影响私人本地事件。
 - 桌面、手机使用同一导入入口与显示规则；折叠事件栏后主图上的标记继续显示。
 
@@ -84,3 +84,7 @@ description: >-
 - 事实关联的 assets 与本地显示范围分开；保持真实关联。精确时刻用带时区 DATETIME，只知道日期则 DATE，不补造时间。
 - 本地导入先预览，确认后更新同包同 externalId；支持包开关、导出、删除备份。用户颜色覆盖与选中高亮不改变原事件事实。
 - 服务器批量导入继续使用统一 writer；本地私人研究不自动发布到服务器。
+
+## 账号私有投递（可选）
+
+用户明确要求自动加载并已在网页创建包专属凭证时，按 [PRIVATE_DELIVERY.md](PRIVATE_DELIVERY.md) 封装并投递。凭证仅从可信执行环境的密钥变量读取，不索要网站密码或 Session Cookie，不在报告或日志输出凭证。没有授权或接口尚未上线时，继续输出文件，不声称已经保存或同步。检查 saved/revision 回执；网络失败保持原请求重试，409 按版本冲突处理，禁止盲目覆盖。持续采集需要由执行环境安排实际任务，Skill 文本本身不是调度器。

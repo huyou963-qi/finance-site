@@ -1,6 +1,6 @@
 # 事件筛选与用户事件闭环优化方案
 
-日期：2026-10-28。状态：第 1、2 轮已在本地实现与验证，详见 [第 1 轮记录](EVENT_FILTER_ROUND1.md)、[紧凑布局修订](EVENT_FILTER_COMPACT_REVISION.md)和[第 2 轮记录](EVENT_FILTER_ROUND2.md)；尚未部署。基于当前仓库代码检查，未验证生产页面或生产数据。
+日期：2026-10-28。状态：第 1、2 轮已通过 PR #51/#52 发布（生产版本 `7809f38`）；[第 3 轮](EVENT_FILTER_ROUND3.md)及[第 4 轮：Skill 私有投递](EVENT_FILTER_ROUND4.md)已在本地实现与验证，尚未发布。第 1、2 轮过程见 [第 1 轮记录](EVENT_FILTER_ROUND1.md)、[紧凑布局修订](EVENT_FILTER_COMPACT_REVISION.md)和[第 2 轮记录](EVENT_FILTER_ROUND2.md)。
 
 ## 目标与现状
 

@@ -68,6 +68,9 @@ export type MarketEventDto = EventPresentation & {
   createdByUsername?: string;
   createdAt: string;
   updatedAt: string;
+  /** Client-local package namespace; never a shared event fact. */
+  localPackId?: string;
+  privatePack?: boolean;
   relevanceScore?: number;
   matchReasons?: string[];
 };

@@ -84,6 +84,8 @@ model User {
   marketWatchlistStockOrder String[] @default([])
   marketDrawings     UserMarketDrawing[]
   marketEventsCreated MarketEvent[]
+  privateEventPacks    PrivateEventPack[]
+  eventDeliveryCredentials EventDeliveryCredential[]
   strategies          StrategyDefinition[]
   investmentCases     InvestmentCase[]
   paymentOrders       PaymentOrder[]
@@ -417,6 +419,32 @@ model UserAssetTemplateState {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   state  Json
 
+  @@schema("public")
+}
+
+/// Account-private research facts; never part of the public MarketEvent query.
+model PrivateEventPack {
+  userId String
+  packId String @db.VarChar(128)
+  pack Json
+  revision Int @default(1)
+  deliveryId String @db.VarChar(128)
+  deliveryHash String @db.VarChar(64)
+  receipt Json
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([userId, packId])
+  @@schema("public")
+}
+
+/// One revocable, expiring, write-only credential for one account and one pack.
+model EventDeliveryCredential {
+  userId String
+  packId String @db.VarChar(128)
+  tokenHash String @unique @db.VarChar(64)
+  expiresAt DateTime
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([userId, packId])
   @@schema("public")
 }
 
