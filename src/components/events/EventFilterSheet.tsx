@@ -22,7 +22,7 @@ export function EventFilterSheet({ filters, onApply, onClose }: {
     };
   }, []);
   return <dialog ref={dialog} aria-labelledby="event-filter-sheet-title" onCancel={onClose} onClose={onClose}
-    className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[90dvh] w-full max-w-none rounded-t-xl border border-fs-border bg-fs-bg p-0 text-fs-text backdrop:bg-black/40">
+    className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[90dvh] w-full max-w-none rounded-t-xl border border-fs-border bg-fs-bg p-0 text-fs-text backdrop:bg-black/40 sm:inset-0 sm:m-auto sm:w-[calc(100%-24px)] sm:max-w-2xl sm:rounded-xl">
     <div className="flex max-h-[90dvh] flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-fs-border p-3">
         <h2 id="event-filter-sheet-title" className="text-sm font-semibold">内容筛选</h2>

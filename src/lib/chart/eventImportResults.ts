@@ -5,7 +5,7 @@ import type { EventViewFilterState } from "./eventViewFilters";
 
 /** Last-import inspection uses the existing selection pipeline; no preference changes. */
 export function describeImportedBatch(receipt: EventImportReceipt, packs: LocalEventPack[], symbol: string, filters: EventViewFilterState, from: string, to: string) {
-  const pack = packs.find(p => p.id === receipt.packId && p.storage !== "cloud");
+  const pack = packs.find(p => p.id === receipt.packId);
   if (!pack) return { pack: null, rows: [], visible: 0, missing: receipt.externalIds.length };
   const ids = new Set(receipt.externalIds);
   const events = decodeLocalEventPack(pack).filter(e => ids.has(e.externalId));

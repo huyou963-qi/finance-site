@@ -5,7 +5,6 @@ export type LocalEventPack = {
   id: string; name: string; target: LocalEventImportTarget | "assets"; symbols?: string[];
   enabled: boolean; color?: string; version?: string; importedAt: string;
   events: Record<string, unknown>[];
-  storage?: "cloud"; revision?: number;
 };
 export type EventPackMetadata = { id?: string; name?: string; fallbackName?: string; version?: string; color?: string; symbols?: string[] };
 export type EventImportReceipt = {
@@ -13,16 +12,16 @@ export type EventImportReceipt = {
   added: number; updated: number; unchanged: number; retained: number; otherPackIds: number;
 };
 
-export function localPackEventId(packId: string, externalId: string, storage?: "cloud"): string {
-  return `${storage === "cloud" ? "private-pack" : "local-pack"}:${encodeURIComponent(packId)}:${encodeURIComponent(externalId)}`;
+export function localPackEventId(packId: string, externalId: string): string {
+  return `local-pack:${encodeURIComponent(packId)}:${encodeURIComponent(externalId)}`;
 }
 export function packAppliesToSymbol(pack: LocalEventPack, symbol: string): boolean {
   return pack.target === "all-assets" || Boolean(pack.symbols?.includes(symbol.trim().toUpperCase()));
 }
 export function decodeLocalEventPack(pack: LocalEventPack): CompanyMilestone[] {
   return parseMilestoneIngestJson({ events: pack.events }).milestones.map(m => ({ ...m,
-    id: localPackEventId(pack.id, m.externalId, pack.storage),
-    record: { ...m.record, packId: pack.id, packName: pack.name, packColor: pack.color, privatePack: pack.storage === "cloud" },
+    id: localPackEventId(pack.id, m.externalId),
+    record: { ...m.record, packId: pack.id, packName: pack.name, packColor: pack.color },
     color: normalizeEventColor(m.record?.color) || normalizeEventColor(pack.color) || m.color,
   }));
 }

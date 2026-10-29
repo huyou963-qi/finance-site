@@ -70,7 +70,6 @@ export type MarketEventDto = EventPresentation & {
   updatedAt: string;
   /** Client-local package namespace; never a shared event fact. */
   localPackId?: string;
-  privatePack?: boolean;
   relevanceScore?: number;
   matchReasons?: string[];
 };

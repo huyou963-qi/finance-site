@@ -16,7 +16,7 @@ function sourceKey(url: string | null) {
 }
 
 export function sameEvent(a: MarketEventDto, b: MarketEventDto): boolean {
-  const differentUserPacks = a.sourceKind === "user_local" && b.sourceKind === "user_local" && (a.localPackId !== b.localPackId || Boolean(a.privatePack) !== Boolean(b.privatePack));
+  const differentUserPacks = a.sourceKind === "user_local" && b.sourceKind === "user_local" && a.localPackId !== b.localPackId;
   if ((a.id === b.id && eventSourceGroup(a) === eventSourceGroup(b)) ||
       (a.externalId && a.externalId === b.externalId && !differentUserPacks)) return true;
   if (a.occurredAt.slice(0, 10) !== b.occurredAt.slice(0, 10) || normalizeEventType(a.eventType) !== normalizeEventType(b.eventType)) return false;

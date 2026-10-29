@@ -15,7 +15,7 @@ export function describeEmptyEventState({ source, filters, stats, loading, error
 }): { message: string; action: "retry" | "manage" | "clear" | "diagnostics" | null } {
   if (!symbol.trim()) return { message: "请先选择资产。", action: null };
   if (source === "user" && !ready) return { message: "正在加载当前账号的事件包…", action: null };
-  if (source === "system" ? !filters.includeMarket && !filters.includeSec : filters.includeLocal === false) return { message: "本类事件来源已关闭，可在来源管理中启用。", action: "manage" };
+  if (source === "system" ? !filters.includeMarket && !filters.includeSec : filters.includeLocal === false) return { message: "本类事件来源已关闭，可在设置中启用。", action: "manage" };
   if (loading) return { message: "正在加载系统事件，结果尚未确定…", action: null };
   if (error) return { message: "系统事件加载失败，不能据此判断没有事件。用户事件仍可查看。", action: "retry" };
   if (source === "user") {
