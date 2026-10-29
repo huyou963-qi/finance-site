@@ -1,4 +1,6 @@
 "use client";
+import { RecessionShading } from "@/lib/chart/recessionShading";
+import type { NberRecessionBand } from "@/lib/data/nberRecessionBands";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { marketToMarker, groupEventMarkers } from "@/lib/chart/eventMarkerModel";
 import { eventMarkerVisible } from "@/lib/chart/eventSelection";
@@ -150,6 +152,7 @@ const LOGICAL_PREFETCH_EDGE = 240;
 export type StockChartWorkspaceProps = {
   symbol: string;
   interval: string;
+  recessionBands?: readonly NberRecessionBand[];
   /** 数据源固定 Yahoo（保留字段以兼容调用方；仅作 localStorage key 前缀） */
   source?: string;
   /** K 线价格复权（默认前复权；见 GET /api/data/klines?adjust=） */
@@ -848,6 +851,7 @@ export function StockChartWorkspace({
   fillHeight = false,
   onAttributionChange,
   onKlineLoadSuccess,
+  recessionBands,
   pageSyncEnabled = false,
   pageSyncLeadNonce = 0,
   onPageSyncLeaderSnapshot,
@@ -879,6 +883,10 @@ export function StockChartWorkspace({
   selectedEventIdRef.current = selectedEventId;
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const recessionBandsRef = useRef(recessionBands);
+  recessionBandsRef.current = recessionBands;
+  const recessionShadingRef = useRef<RecessionShading | null>(null);
+  useEffect(() => { recessionShadingRef.current?.refresh(); }, [recessionBands]);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
   const observationLineRef = useRef<ISeriesApi<"Line", Time> | null>(null);
@@ -2329,6 +2337,9 @@ export function StockChartWorkspace({
     );
     candle.setData(initialCandles);
     candleRef.current = candle;
+    const recessionShading = new RecessionShading(() => recessionBandsRef.current ?? []);
+    candle.attachPrimitive(recessionShading);
+    recessionShadingRef.current = recessionShading;
     if (payload?.observationOnly) {
       const line = chart.addSeries(LineSeries, { color: "#2563eb", lineWidth: 2,
         priceFormat: { type: "price", precision: 2, minMove: 0.01 } }, 0);
@@ -2764,6 +2775,7 @@ export function StockChartWorkspace({
       paneResizeRo.disconnect();
       chart.remove();
       chartRef.current = null;
+      recessionShadingRef.current = null;
       candleRef.current = null;
       observationLineRef.current = null;
       eventMarkersPluginRef.current = null;

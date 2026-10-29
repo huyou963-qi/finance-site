@@ -3,6 +3,8 @@ import { migrateLocalEventPreferences } from "@/lib/chart/localEventPreferenceMi
 import { useChartEvents } from "@/lib/chart/useChartEvents";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usrecSeriesToBands, type NberRecessionBand } from "@/lib/data/nberRecessionBands";
+import type { MacroPayload } from "@/lib/data/types";
 import { StockChartWorkspace } from "@/components/StockChartWorkspace";
 import { MarketsWatchlist } from "@/components/MarketsWatchlist";
 import {
@@ -101,6 +103,26 @@ export function MarketsClient() {
   const [pickedName, setPickedName] = useState<string | undefined>(undefined);
   /** 跨标签页同步：勾选页广播周期、可见时间区间、十字线时间、区间统计 */
   const [pageSync, setPageSync] = useState(false);
+  const [showRecession, setShowRecession] = useState(false);
+  const [recessionBands, setRecessionBands] = useState<NberRecessionBand[]>([]);
+  const [recessionError, setRecessionError] = useState(false);
+  useEffect(() => {
+    if (!showRecession || recessionBands.length) return;
+    const controller = new AbortController();
+    setRecessionError(false);
+    fetch("/api/data/macro?source=unified&series=fred:USREC", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.json() as Promise<MacroPayload>;
+      })
+      .then((data) => {
+        const series = data.series.find((s) => s.key === "fred:USREC") ?? data.series[0];
+        if (!series) throw new Error("USREC unavailable");
+        setRecessionBands(usrecSeriesToBands(data.categories, series.data));
+      })
+      .catch(() => { if (!controller.signal.aborted) setRecessionError(true); });
+    return () => controller.abort();
+  }, [showRecession, recessionBands.length]);
   const [syncLeadNonce, setSyncLeadNonce] = useState(0);
   const [remoteVisible, setRemoteVisible] = useState<{
     from: number;
@@ -591,6 +613,11 @@ export function MarketsClient() {
           />
           页面同步
         </label>
+        <label className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted" title="叠加 NBER 美国衰退区间（FRED USREC）">
+          <input type="checkbox" checked={showRecession} onChange={(e) => setShowRecession(e.target.checked)} className="h-3 w-3 shrink-0 rounded border-fs-border" aria-label="美国衰退" />
+          美国衰退
+        </label>
+        {showRecession && recessionError ? <span role="status" className="text-[10px] text-rose-300">衰退数据加载失败，请重新勾选重试</span> : null}
 
     </>
   );
@@ -781,6 +808,7 @@ export function MarketsClient() {
           fillHeight
           onAttributionChange={setDataHint}
           onKlineLoadSuccess={onKlineLoadSuccess}
+          recessionBands={showRecession ? recessionBands : undefined}
           pageSyncEnabled={pageSync}
           pageSyncLeadNonce={syncLeadNonce}
           onPageSyncLeaderSnapshot={onLeaderSnapshot}
