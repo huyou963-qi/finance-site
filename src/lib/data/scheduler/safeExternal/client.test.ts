@@ -1,8 +1,50 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as XLSX from "xlsx";
-import { collectSafeExternalHistory, parseSafeExternalSheet, pickAttachmentUrls, SafePageUnavailableError, SafeSourceChangedError, translateSettlementEnglishRows, type SafeLoaders } from "./client";
+import { assertSafeSeriesIdentity, collectSafeExternalHistory, parseSafeExternalSheet, pickAttachmentUrls, SafePageUnavailableError, SafeSourceChangedError, translateSettlementEnglishRows, type SafeLoaders } from "./client";
 import { SAFE_DATASETS } from "./catalog";
+import { REVIEWED_PAYMENT_DEFINITIONS } from "./paymentDefinitions";
+import { createHash } from "node:crypto";
+
+test("payments include receipt/payment/balance parents without changing legacy keys or zero/negative values", () => {
+  const dataset = SAFE_DATASETS.find(item => item.key === "payments")!;
+  const rows = [["单位：亿元人民币"], ["项目", 45292, 45323],
+    ["一、收入", 10, 12], ["1.1货物贸易", 8, 9],
+    ["二、支出", 11, 10], ["1.1货物贸易", 9, 8],
+    ["三、收支差额", -1, 2], ["1.1货物贸易", -1, 0]];
+  const series = parseSafeExternalSheet(dataset, "以人民币计值（月度）", XLSX.utils.aoa_to_sheet(rows));
+  assert.equal(series.length, 6);
+  for (let flow = 0; flow < 3; flow++) {
+    const section = ["一、收入", "二、支出", "三、收支差额"][flow]!;
+    const child = series[flow * 2 + 1]!;
+    const key = `payments|以人民币计值（月度）|1.1货物贸易|${flow + 1}|亿元人民币`;
+    assert.equal(child.key, key);
+    assert.equal(child.code, `safe_cn_payments_${createHash("sha1").update(key).digest("hex").slice(0, 12)}`);
+    assert.equal(child.label, `银行代客涉外收付款：以人民币计值（月度）：${section}：1.1货物贸易`);
+    assert.equal(child.sourceRowPath, `${section}/1.1货物贸易`);
+    assert.equal(series[flow * 2]!.label.split(section).length, 2); // Total does not repeat its parent.
+  }
+  assert.deepEqual(series[5]!.points.map(point => point.value), [-1, 0]);
+  assert.throws(() => parseSafeExternalSheet(dataset, "以人民币计值（月度）",
+    XLSX.utils.aoa_to_sheet(rows.filter(row => row[0] !== "一、收入"))), /缺少明确/);
+  assert.throws(() => parseSafeExternalSheet(dataset, "以人民币计值（月度）",
+    XLSX.utils.aoa_to_sheet([...rows, ["四、其他", 1, 2]])), /未知收支父级/);
+  assert.throws(() => parseSafeExternalSheet(dataset, "以人民币计值（月度）",
+    XLSX.utils.aoa_to_sheet(rows.map(row => row[0] === "二、支出" ? ["三、收支差额", ...row.slice(1)] : row))), /拒绝按行序串项/);
+});
+
+test("all 69 independently reviewed identities retain exact IDs and reject changed flow semantics", () => {
+  assert.equal(REVIEWED_PAYMENT_DEFINITIONS.length, 69);
+  assert.equal(new Set(REVIEWED_PAYMENT_DEFINITIONS.map(row => row.code)).size, 69);
+  for (const row of REVIEWED_PAYMENT_DEFINITIONS) {
+    assert.equal(row.code, `safe_cn_payments_${createHash("sha1").update(row.sourceSeriesKey).digest("hex").slice(0, 12)}`);
+    const series = { code: row.code, key: row.sourceSeriesKey, dataset: "payments" as const, label: row.displayName,
+      category: "外汇收支与跨境资金", unit: row.sourceSeriesKey.split("|")[4]!, freqLabel: "月" as const,
+      points: [], sourceRowPath: row.sourceRowPath };
+    assert.doesNotThrow(() => assertSafeSeriesIdentity(series));
+    assert.throws(() => assertSafeSeriesIdentity({ ...series, sourceRowPath: "错误父级/相同分项" }), /拒绝按行序串项/);
+  }
+});
 
 test("parses SAFE workbook rows and preserves monthly official values", () => {
   const sheet = XLSX.utils.aoa_to_sheet([["银行结售汇（以人民币计价）"], ["单位：亿元人民币"], ["项目", 45292, 45323], ["一、结汇", 18889, 19001]]);

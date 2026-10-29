@@ -1,0 +1,485 @@
+[
+  {
+    "code": "safe_cn_payments_261d026b65f1",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|1.1货物贸易|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：1.1货物贸易",
+    "section": "二、支出",
+    "sourceRow": 26
+  },
+  {
+    "code": "safe_cn_payments_2683ec538c98",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|其他投资|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：其他投资",
+    "section": "二、支出",
+    "sourceRow": 31
+  },
+  {
+    "code": "safe_cn_payments_2741801608ff",
+    "sourceSeriesKey": "payments|以美元计值（年度）|美元|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：美元",
+    "section": "二、支出",
+    "sourceRow": 35
+  },
+  {
+    "code": "safe_cn_payments_2955c7e8251b",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|1.1货物贸易|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：1.1货物贸易",
+    "section": "三、收支差额",
+    "sourceRow": 43
+  },
+  {
+    "code": "safe_cn_payments_2be1b5431079",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|证券投资|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：证券投资",
+    "section": "二、支出",
+    "sourceRow": 30
+  },
+  {
+    "code": "safe_cn_payments_2cc071d41a48",
+    "sourceSeriesKey": "payments|以美元计值（月度）|其他|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：其他",
+    "section": "一、收入",
+    "sourceRow": 22
+  },
+  {
+    "code": "safe_cn_payments_2e1a874e5bd6",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|1.经常账户|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：1.经常账户",
+    "section": "二、支出",
+    "sourceRow": 25
+  },
+  {
+    "code": "safe_cn_payments_2e8e767db087",
+    "sourceSeriesKey": "payments|以美元计值（月度）|外币|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：外币",
+    "section": "一、收入",
+    "sourceRow": 17
+  },
+  {
+    "code": "safe_cn_payments_2eef16736fa4",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|外币|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：外币",
+    "section": "三、收支差额",
+    "sourceRow": 53
+  },
+  {
+    "code": "safe_cn_payments_2fced2c99408",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|1.2服务|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：1.2服务",
+    "section": "一、收入",
+    "sourceRow": 9
+  },
+  {
+    "code": "safe_cn_payments_30ef8076e643",
+    "sourceSeriesKey": "payments|以美元计值（年度）|外币|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：外币",
+    "section": "三、收支差额",
+    "sourceRow": 52
+  },
+  {
+    "code": "safe_cn_payments_32babf63f7cd",
+    "sourceSeriesKey": "payments|以美元计值（月度）|1.经常账户|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：1.经常账户",
+    "section": "一、收入",
+    "sourceRow": 7
+  },
+  {
+    "code": "safe_cn_payments_332fbca076cf",
+    "sourceSeriesKey": "payments|以美元计值（月度）|外币|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：外币",
+    "section": "二、支出",
+    "sourceRow": 35
+  },
+  {
+    "code": "safe_cn_payments_339021bb0380",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|证券投资|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：证券投资",
+    "section": "三、收支差额",
+    "sourceRow": 49
+  },
+  {
+    "code": "safe_cn_payments_3426362c7b42",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|2.资本和金融账户|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：2.资本和金融账户",
+    "section": "三、收支差额",
+    "sourceRow": 47
+  },
+  {
+    "code": "safe_cn_payments_36cd1b130b0c",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|其他投资|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：其他投资",
+    "section": "二、支出",
+    "sourceRow": 32
+  },
+  {
+    "code": "safe_cn_payments_393c53d9fb3d",
+    "sourceSeriesKey": "payments|以美元计值（月度）|美元|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：美元",
+    "section": "三、收支差额",
+    "sourceRow": 54
+  },
+  {
+    "code": "safe_cn_payments_39bac1558578",
+    "sourceSeriesKey": "payments|以美元计值（月度）|1.经常账户|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：1.经常账户",
+    "section": "二、支出",
+    "sourceRow": 25
+  },
+  {
+    "code": "safe_cn_payments_3bb25f5f615f",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|人民币|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：人民币",
+    "section": "二、支出",
+    "sourceRow": 33
+  },
+  {
+    "code": "safe_cn_payments_3c746f7db23e",
+    "sourceSeriesKey": "payments|以美元计值（月度）|证券投资|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：证券投资",
+    "section": "一、收入",
+    "sourceRow": 13
+  },
+  {
+    "code": "safe_cn_payments_3d6bd7496c9f",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|1.2服务|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：1.2服务",
+    "section": "二、支出",
+    "sourceRow": 27
+  },
+  {
+    "code": "safe_cn_payments_3f280ff5376a",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|2.资本和金融账户|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：2.资本和金融账户",
+    "section": "一、收入",
+    "sourceRow": 10
+  },
+  {
+    "code": "safe_cn_payments_3f7d25497631",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|证券投资|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：证券投资",
+    "section": "三、收支差额",
+    "sourceRow": 48
+  },
+  {
+    "code": "safe_cn_payments_3fa91f3ab07a",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|欧元|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：欧元",
+    "section": "二、支出",
+    "sourceRow": 37
+  },
+  {
+    "code": "safe_cn_payments_4407a34e0746",
+    "sourceSeriesKey": "payments|以美元计值（月度）|香港元|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：香港元",
+    "section": "二、支出",
+    "sourceRow": 37
+  },
+  {
+    "code": "safe_cn_payments_469899f218a9",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|其中：直接投资|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：其中：直接投资",
+    "section": "三、收支差额",
+    "sourceRow": 48
+  },
+  {
+    "code": "safe_cn_payments_4716ef940b57",
+    "sourceSeriesKey": "payments|以美元计值（月度）|1.1货物贸易|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：1.1货物贸易",
+    "section": "一、收入",
+    "sourceRow": 8
+  },
+  {
+    "code": "safe_cn_payments_475a4f14ba02",
+    "sourceSeriesKey": "payments|以美元计值（年度）|人民币|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：人民币",
+    "section": "一、收入",
+    "sourceRow": 15
+  },
+  {
+    "code": "safe_cn_payments_47a5992e45f6",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|1.1货物贸易|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：1.1货物贸易",
+    "section": "三、收支差额",
+    "sourceRow": 44
+  },
+  {
+    "code": "safe_cn_payments_47f988762f02",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|2.资本和金融账户|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：2.资本和金融账户",
+    "section": "三、收支差额",
+    "sourceRow": 46
+  },
+  {
+    "code": "safe_cn_payments_49f6101eac31",
+    "sourceSeriesKey": "payments|以美元计值（年度）|2.资本和金融账户|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：2.资本和金融账户",
+    "section": "三、收支差额",
+    "sourceRow": 46
+  },
+  {
+    "code": "safe_cn_payments_4a76aacc07c8",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|其他|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：其他",
+    "section": "一、收入",
+    "sourceRow": 21
+  },
+  {
+    "code": "safe_cn_payments_4b742c55dfbd",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|1.3初次收入和二次收入|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：1.3初次收入和二次收入",
+    "section": "二、支出",
+    "sourceRow": 27
+  },
+  {
+    "code": "safe_cn_payments_4e992376c0b6",
+    "sourceSeriesKey": "payments|以美元计值（年度）|人民币|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：人民币",
+    "section": "三、收支差额",
+    "sourceRow": 51
+  },
+  {
+    "code": "safe_cn_payments_4ea0aec410b1",
+    "sourceSeriesKey": "payments|以美元计值（年度）|1.1货物贸易|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：1.1货物贸易",
+    "section": "二、支出",
+    "sourceRow": 25
+  },
+  {
+    "code": "safe_cn_payments_5019ef989534",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|其他投资|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：其他投资",
+    "section": "三、收支差额",
+    "sourceRow": 49
+  },
+  {
+    "code": "safe_cn_payments_526615909e65",
+    "sourceSeriesKey": "payments|以美元计值（年度）|1.2服务|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：1.2服务",
+    "section": "三、收支差额",
+    "sourceRow": 44
+  },
+  {
+    "code": "safe_cn_payments_548e7526c989",
+    "sourceSeriesKey": "payments|以美元计值（年度）|香港元|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：香港元",
+    "section": "三、收支差额",
+    "sourceRow": 54
+  },
+  {
+    "code": "safe_cn_payments_5a3c686d0d54",
+    "sourceSeriesKey": "payments|以美元计值（月度）|2.资本和金融账户|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：2.资本和金融账户",
+    "section": "二、支出",
+    "sourceRow": 29
+  },
+  {
+    "code": "safe_cn_payments_5bd598a94709",
+    "sourceSeriesKey": "payments|以美元计值（年度）|其他|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：其他",
+    "section": "一、收入",
+    "sourceRow": 21
+  },
+  {
+    "code": "safe_cn_payments_5c5bb82bb2bd",
+    "sourceSeriesKey": "payments|以美元计值（年度）|日元|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：日元",
+    "section": "一、收入",
+    "sourceRow": 20
+  },
+  {
+    "code": "safe_cn_payments_601a093bffd2",
+    "sourceSeriesKey": "payments|以美元计值（月度）|其他投资|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：其他投资",
+    "section": "二、支出",
+    "sourceRow": 32
+  },
+  {
+    "code": "safe_cn_payments_612695083d4c",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|日元|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：日元",
+    "section": "二、支出",
+    "sourceRow": 38
+  },
+  {
+    "code": "safe_cn_payments_61cacd63dad5",
+    "sourceSeriesKey": "payments|以美元计值（年度）|外币|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：外币",
+    "section": "二、支出",
+    "sourceRow": 34
+  },
+  {
+    "code": "safe_cn_payments_648a3c0bbcd9",
+    "sourceSeriesKey": "payments|以美元计值（年度）|香港元|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：香港元",
+    "section": "一、收入",
+    "sourceRow": 18
+  },
+  {
+    "code": "safe_cn_payments_665174511636",
+    "sourceSeriesKey": "payments|以美元计值（月度）|1.经常账户|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：1.经常账户",
+    "section": "三、收支差额",
+    "sourceRow": 43
+  },
+  {
+    "code": "safe_cn_payments_66a9af92a60b",
+    "sourceSeriesKey": "payments|以美元计值（月度）|其他投资|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：其他投资",
+    "section": "三、收支差额",
+    "sourceRow": 50
+  },
+  {
+    "code": "safe_cn_payments_6b043a0c0de0",
+    "sourceSeriesKey": "payments|以美元计值（年度）|证券投资|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：证券投资",
+    "section": "二、支出",
+    "sourceRow": 30
+  },
+  {
+    "code": "safe_cn_payments_6d92c229757f",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|日元|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：日元",
+    "section": "三、收支差额",
+    "sourceRow": 56
+  },
+  {
+    "code": "safe_cn_payments_6e44d67ba44d",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|其中：直接投资|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：其中：直接投资",
+    "section": "一、收入",
+    "sourceRow": 11
+  },
+  {
+    "code": "safe_cn_payments_6e5995642166",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|1.2服务|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：1.2服务",
+    "section": "二、支出",
+    "sourceRow": 26
+  },
+  {
+    "code": "safe_cn_payments_6e7b1f67f599",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|香港元|3|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：香港元",
+    "section": "三、收支差额",
+    "sourceRow": 54
+  },
+  {
+    "code": "safe_cn_payments_6fa55db1cebe",
+    "sourceSeriesKey": "payments|以美元计值（月度）|其中：直接投资|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：其中：直接投资",
+    "section": "二、支出",
+    "sourceRow": 30
+  },
+  {
+    "code": "safe_cn_payments_7032d5e65f47",
+    "sourceSeriesKey": "payments|以美元计值（年度）|1.1货物贸易|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：1.1货物贸易",
+    "section": "三、收支差额",
+    "sourceRow": 43
+  },
+  {
+    "code": "safe_cn_payments_71eed852f78b",
+    "sourceSeriesKey": "payments|以美元计值（月度）|1.2服务|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：1.2服务",
+    "section": "一、收入",
+    "sourceRow": 9
+  },
+  {
+    "code": "safe_cn_payments_726e7aedbc49",
+    "sourceSeriesKey": "payments|以美元计值（月度）|人民币|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：人民币",
+    "section": "二、支出",
+    "sourceRow": 34
+  },
+  {
+    "code": "safe_cn_payments_72b264549139",
+    "sourceSeriesKey": "payments|以美元计值（年度）|欧元|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：欧元",
+    "section": "三、收支差额",
+    "sourceRow": 55
+  },
+  {
+    "code": "safe_cn_payments_732dca5a7a28",
+    "sourceSeriesKey": "payments|以美元计值（月度）|2.资本和金融账户|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：2.资本和金融账户",
+    "section": "三、收支差额",
+    "sourceRow": 47
+  },
+  {
+    "code": "safe_cn_payments_73b00d07db62",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|1.经常账户|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：1.经常账户",
+    "section": "一、收入",
+    "sourceRow": 6
+  },
+  {
+    "code": "safe_cn_payments_73d44871c3c1",
+    "sourceSeriesKey": "payments|以美元计值（年度）|其他投资|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：其他投资",
+    "section": "二、支出",
+    "sourceRow": 31
+  },
+  {
+    "code": "safe_cn_payments_7602dd8194b6",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|美元|2|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：美元",
+    "section": "二、支出",
+    "sourceRow": 36
+  },
+  {
+    "code": "safe_cn_payments_76bedbcd9aa3",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|2.资本和金融账户|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：2.资本和金融账户",
+    "section": "一、收入",
+    "sourceRow": 11
+  },
+  {
+    "code": "safe_cn_payments_77b439c3afdd",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|其他|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：其他",
+    "section": "一、收入",
+    "sourceRow": 22
+  },
+  {
+    "code": "safe_cn_payments_7977f7fa0394",
+    "sourceSeriesKey": "payments|以美元计值（年度）|欧元|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：欧元",
+    "section": "一、收入",
+    "sourceRow": 19
+  },
+  {
+    "code": "safe_cn_payments_7bf2d2d47750",
+    "sourceSeriesKey": "payments|以美元计值（月度）|美元|2|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：美元",
+    "section": "二、支出",
+    "sourceRow": 36
+  },
+  {
+    "code": "safe_cn_payments_7c8073a12bc6",
+    "sourceSeriesKey": "payments|以美元计值（年度）|其中：直接投资|1|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（年度）：其中：直接投资",
+    "section": "一、收入",
+    "sourceRow": 11
+  },
+  {
+    "code": "safe_cn_payments_7dbfa8fe379c",
+    "sourceSeriesKey": "payments|以人民币计值（月度）|其中：直接投资|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（月度）：其中：直接投资",
+    "section": "一、收入",
+    "sourceRow": 12
+  },
+  {
+    "code": "safe_cn_payments_7dd45af7995e",
+    "sourceSeriesKey": "payments|以美元计值（月度）|其他|3|亿美元",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以美元计值（月度）：其他",
+    "section": "三、收支差额",
+    "sourceRow": 58
+  },
+  {
+    "code": "safe_cn_payments_7e08f71d5211",
+    "sourceSeriesKey": "payments|以人民币计值（年度）|日元|1|亿元人民币",
+    "previousName": "中国：外汇与国际收支：银行代客涉外收付款：以人民币计值（年度）：日元",
+    "section": "一、收入",
+    "sourceRow": 20
+  }
+]

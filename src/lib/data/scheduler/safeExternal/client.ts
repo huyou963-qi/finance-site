@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import type { ObservationPoint } from "../types";
 import { fetchChinaOfficial } from "../chinaOfficialProxy";
 import { SAFE_DATASETS, type SafeDataset } from "./catalog";
+import { REVIEWED_PAYMENT_PATHS } from "./paymentDefinitions";
 
 export type SafeSeries = { code: string; key: string; dataset: SafeDataset; label: string; category: string; unit: string; freqLabel: "月" | "季" | "年"; points: ObservationPoint[]; sourceRowPath?: string };
 const AUDITED_BOP_PATHS: Readonly<Record<string, string>> = {
@@ -22,7 +23,7 @@ const AUDITED_BOP_PATHS: Readonly<Record<string, string>> = {
 };
 /** Legacy occurrence-based IDs stay stable, but may never silently change meaning. */
 export function assertSafeSeriesIdentity(series: SafeSeries, expectedPath?: string): void {
-  const expected = expectedPath ?? AUDITED_BOP_PATHS[series.code];
+  const expected = expectedPath ?? AUDITED_BOP_PATHS[series.code] ?? REVIEWED_PAYMENT_PATHS[series.code];
   if (expected && expected.replace(/\s+/g, "") !== series.sourceRowPath?.replace(/\s+/g, "")) {
     throw new SafeSourceChangedError(`SAFE 成员父级定义变化，拒绝按行序串项：${series.code}`);
   }
@@ -166,12 +167,19 @@ function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName:
   if (columns.length < 2) return [];
   const seen = new Map<string, number>(); const output: SafeSeries[] = [];
   let numberedParent = "";
+  let paymentParent = "";
   for (const row of rows.slice(headerIndex + 1)) {
     const label = compact(row[0]); if (!label || /^注|^项目$|^单位/.test(label)) continue;
+    if (dataset.key === "payments" && /^[一二三四五六七八九十]+、/.test(label)) {
+      if (!["一、收入", "二、支出", "三、收支差额"].includes(label))
+        throw new SafeSourceChangedError(`SAFE 收付款表出现未知收支父级：${label}`);
+      paymentParent = label;
+    }
     if (dataset.key === "bop" && /^\d/.test(label)) numberedParent = label;
     const isBopChild = dataset.key === "bop" && /^(借方|贷方|资产|负债)$/.test(label);
     const sourceRowPath = dataset.key === "bop"
-      ? (isBopChild ? `${numberedParent}/${label}` : label).replace(/\s+/g, "") : undefined;
+      ? (isBopChild ? `${numberedParent}/${label}` : label).replace(/\s+/g, "")
+      : dataset.key === "payments" ? (paymentParent === label ? label : `${paymentParent}/${label}`).replace(/\s+/g, "") : undefined;
     if (isBopChild && !numberedParent) throw new SafeSourceChangedError("SAFE BOP 子行缺少明确父级");
     const occurrence = (seen.get(label) ?? 0) + 1; seen.set(label, occurrence); const pointsByUnit = new Map<string, ObservationPoint[]>();
     for (const { index, date, unit } of columns) { const value = number(row[index]); if (value === null) continue; const values = pointsByUnit.get(unit) ?? []; values.push({ obsDate: date, value }); pointsByUnit.set(unit, values); }
@@ -180,9 +188,11 @@ function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName:
         ? rawPoints.filter((point) => !(point.value === 0 && point.obsDate >= new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1))))
         : rawPoints;
       if (!points.length) continue;
+      if (dataset.key === "payments" && !paymentParent)
+        throw new SafeSourceChangedError("SAFE 收付款数据行缺少明确收入/支出/收支差额父级");
       const key = `${dataset.key}|${sheetName}|${label}|${occurrence}|${unit}`;
       const series: SafeSeries = { code: seriesCode(dataset.key, sheetName, label, key), key, dataset: dataset.key,
-        label: `${dataset.label}：${sheetName}：${isBopChild ? `${numberedParent}：${label}` : label}`,
+        label: `${dataset.label}：${sheetName}：${isBopChild ? `${numberedParent}：${label}` : dataset.key === "payments" && paymentParent !== label ? `${paymentParent}：${label}` : label}`,
         category: dataset.category, unit, freqLabel: frequency(points.map((point) => point.obsDate)), points, sourceRowPath };
       assertSafeSeriesIdentity(series);
       output.push(series);
@@ -210,6 +220,9 @@ export async function collectSafeExternalHistory(selected: readonly (typeof SAFE
       }
       if (dataset.key === "bop") for (const code of Object.keys(AUDITED_BOP_PATHS)) {
         if (!local.some((series) => series.code === code)) throw new SafeSourceChangedError(`SAFE BOP 已审阅成员缺失，禁止静默下线：${code}`);
+      }
+      if (dataset.key === "payments") for (const code of Object.keys(REVIEWED_PAYMENT_PATHS)) {
+        if (!local.some((series) => series.code === code)) throw new SafeSourceChangedError(`SAFE 收付款已审阅成员缺失，禁止静默下线：${code}`);
       }
     } catch (error) {
       if (!options.skipUnavailable || !(error instanceof SafePageUnavailableError || error instanceof SafeSourceChangedError)) throw error;
