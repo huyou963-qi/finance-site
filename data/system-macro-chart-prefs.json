@@ -4635,6 +4635,45 @@
       "description": "六层观察：原油价格 → 成品油裂解 → 库存 → 炼厂 → 需求/货运 → 战略储备。先区分原油冲击、炼化瓶颈与需求变化，再判断短缺是否扩散。",
       "derivedCalcs": [
         {
+          "id": "d-mvt65tl3-0-0p995",
+          "op": "div",
+          "name": "3-2-1裂解价差",
+          "leftKey": "fred:DGASNYH",
+          "advanced": {
+            "kind": "formula",
+            "inputs": [
+              {
+                "key": "fred:DGASNYH",
+                "alias": "A",
+                "maxGap": 1,
+                "fillMethod": "none",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "fred:DDFUELNYH",
+                "alias": "B",
+                "maxGap": 1,
+                "fillMethod": "none",
+                "resampleMethod": "end"
+              },
+              {
+                "key": "fred:DCOILWTICO",
+                "alias": "C",
+                "maxGap": 1,
+                "fillMethod": "none",
+                "resampleMethod": "end"
+              }
+            ],
+            "formula": "(2 * A * 42 + B * 42 -3 * C) / 3",
+            "version": 2,
+            "alignment": {
+              "join": "inner",
+              "frequency": "keep"
+            }
+          },
+          "rightKey": "fred:DDFUELNYH"
+        },
+        {
           "id": "oil-diesel-ulsd-crack",
           "op": "sub",
           "name": "ULSD 裂解价差（美元/桶）",
@@ -4647,16 +4686,17 @@
         "fred:DCOILWTICO",
         "fred:DCOILBRENTEU",
         "fred:DDFUELNYH",
-        "fred:TSIFRGHT",
-        "fred:FRGSHPUSM649NCIS",
-        "mds:eia_wpsr_wdistus1",
-        "mds:eia_wpsr_wd0st_nus_1",
+        "fred:DGASNYH",
         "mds:eia_wpsr_wpuleus3",
         "mds:eia_wpsr_wdiupus2",
         "mds:eia_wpsr_wdiupus2::ma4",
-        "mds:eia_wpsr_wcsstus1"
+        "mds:eia_wpsr_wdistus1",
+        "mds:eia_wpsr_wd0st_nus_1",
+        "mds:eia_wpsr_wcsstus1",
+        "fred:TSIFRGHT",
+        "fred:FRGSHPUSM649NCIS"
       ],
-      "updatedAtIso": "2026-10-28T03:38:59.268Z",
+      "updatedAtIso": "2026-10-29T06:40:00.703Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "slotModes": {
@@ -4683,6 +4723,19 @@
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
         "slotSeriesOrder": {
+          "0": [
+            "fred:DCOILWTICO",
+            "fred:DCOILBRENTEU",
+            "fred:DDFUELNYH",
+            "fred:DGASNYH",
+            "calc:d-mvt65tl3-0-0p995"
+          ],
+          "1": [
+            "fred:DGASNYH",
+            "fred:DDFUELNYH",
+            "calc:oil-diesel-ulsd-crack",
+            "calc:d-mvt65tl3-0-0p995"
+          ],
           "2": [
             "mds:eia_wpsr_wcsstus1",
             "mds:eia_wpsr_wdistus1",
@@ -4701,8 +4754,9 @@
         }
       },
       "slotAssignment": {
+        "fred:DGASNYH": 1,
         "fred:TSIFRGHT": 5,
-        "fred:DDFUELNYH": null,
+        "fred:DDFUELNYH": 1,
         "fred:DCOILWTICO": 0,
         "fred:DCOILBRENTEU": 0,
         "fred:FRGSHPUSM649NCIS": 5,
@@ -4710,6 +4764,7 @@
         "mds:eia_wpsr_wdistus1": 2,
         "mds:eia_wpsr_wdiupus2": 4,
         "mds:eia_wpsr_wpuleus3": 3,
+        "calc:d-mvt65tl3-0-0p995": 1,
         "mds:eia_wpsr_wd0st_nus_1": 2,
         "calc:oil-diesel-ulsd-crack": 1,
         "mds:eia_wpsr_wdiupus2::ma4": 4
@@ -4723,6 +4778,10 @@
         "5": "SPR 是政策缓冲垫，不等于商业库存。释放可缓解原油端压力，但未必同步解决炼厂产能或柴油品种短缺。"
       },
       "seriesVisualMap": {
+        "fred:DGASNYH": {
+          "axis": "left",
+          "color": "#11ee53"
+        },
         "fred:TSIFRGHT": {
           "axis": "right",
           "color": "#5f76b8",
@@ -4777,6 +4836,10 @@
           "chartType": "line",
           "showEndLabel": true
         },
+        "calc:d-mvt65tl3-0-0p995": {
+          "axis": "right",
+          "color": "#eed168"
+        },
         "mds:eia_wpsr_wd0st_nus_1": {
           "axis": "left",
           "color": "#ef6461",
@@ -4784,8 +4847,8 @@
           "showEndLabel": true
         },
         "calc:oil-diesel-ulsd-crack": {
-          "axis": "left",
-          "color": "#ef6461",
+          "axis": "right",
+          "color": "#8f66f0",
           "chartType": "line",
           "showEndLabel": true
         },
@@ -4810,24 +4873,32 @@
           "type": "series"
         },
         {
-          "key": "fred:TSIFRGHT",
+          "key": "fred:DGASNYH",
           "type": "series"
         },
         {
-          "key": "fred:FRGSHPUSM649NCIS",
-          "type": "series"
+          "id": "div-mvsz0h6s-yz9m",
+          "type": "divider"
         },
         {
-          "key": "mds:eia_wpsr_wdistus1",
-          "type": "series"
+          "key": "calc:oil-diesel-ulsd-crack",
+          "type": "derived"
         },
         {
-          "key": "mds:eia_wpsr_wd0st_nus_1",
-          "type": "series"
+          "key": "calc:d-mvt65tl3-0-0p995",
+          "type": "derived"
+        },
+        {
+          "id": "div-mvsz0kbo-toxy",
+          "type": "divider"
         },
         {
           "key": "mds:eia_wpsr_wpuleus3",
           "type": "series"
+        },
+        {
+          "id": "div-mvsz1nic-mvvo",
+          "type": "divider"
         },
         {
           "key": "mds:eia_wpsr_wdiupus2",
@@ -4838,12 +4909,32 @@
           "type": "series"
         },
         {
+          "id": "div-mvsz308l-b5jg",
+          "type": "divider"
+        },
+        {
+          "key": "mds:eia_wpsr_wdistus1",
+          "type": "series"
+        },
+        {
+          "key": "mds:eia_wpsr_wd0st_nus_1",
+          "type": "series"
+        },
+        {
           "key": "mds:eia_wpsr_wcsstus1",
           "type": "series"
         },
         {
-          "key": "calc:oil-diesel-ulsd-crack",
-          "type": "derived"
+          "id": "div-mvsz2w7i-8x1n",
+          "type": "divider"
+        },
+        {
+          "key": "fred:TSIFRGHT",
+          "type": "series"
+        },
+        {
+          "key": "fred:FRGSHPUSM649NCIS",
+          "type": "series"
         }
       ],
       "seriesCalcConfigMap": {
