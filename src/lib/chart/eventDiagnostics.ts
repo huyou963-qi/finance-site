@@ -19,7 +19,7 @@ export function describeEmptyEventState({ source, filters, stats, loading, error
   if (loading) return { message: "正在加载系统事件，结果尚未确定…", action: null };
   if (error) return { message: "系统事件加载失败，不能据此判断没有事件。用户事件仍可查看。", action: "retry" };
   if (source === "user") {
-    if (!packs.total) return { message: "尚未导入用户事件包。", action: "manage" };
+    if (!packs.total) return { message: "尚未导入事件文件。", action: "manage" };
     if (packs.disabled === packs.total) return { message: "所有用户事件包均已停用。", action: "manage" };
     if (!packs.applicable) return { message: "已启用的事件包不适用于当前资产。", action: "manage" };
   }

@@ -294,7 +294,7 @@ for(const width of [1280,390,320]){
  assert.equal(await page.getByRole('button',{name:'导入',exact:true}).isVisible(),true);
  await page.locator('section[aria-label="事件筛选器"]').screenshot({path:artifactDir+'/user-shelf-'+width+'.png'});
  assert.equal(await page.locator('[aria-label="事件工具栏"]').evaluate(el=>el.scrollWidth<=el.clientWidth),true,'all everyday actions fit one row');
- const choose=page.waitForEvent('filechooser');await page.getByRole('button',{name:'导入',exact:true}).click();
+ const choose=page.waitForEvent('filechooser');await page.getByRole('button',{name:'导入文件',exact:true}).click();
  await (await choose).setFiles({name:'direct-import.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({pack:{id:'direct',symbols:['AAPL']},events:[responseEvent('direct','user_local')]}))});
  await page.getByRole('dialog',{name:'事件导入预览'}).getByRole('button',{name:'取消',exact:true}).click();
  assert.equal(await page.evaluate(()=>window.actualPackStore.packs.length),0,'cancelled direct import must not write');
