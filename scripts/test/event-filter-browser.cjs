@@ -17,17 +17,20 @@ import {MarketsEventShelf} from '@/components/equity/MarketsEventShelf';
 import {sanitizeEventViewFilters, updateEventSourceFilters, clearEventContentFilters} from '@/lib/chart/eventViewFilters';
 import {selectChartEvents} from '@/lib/chart/eventSelection';
 import {useChartEvents} from '@/lib/chart/useChartEvents';
-import {parseMilestoneIngestJson} from '@/lib/equity/companyMilestones';
+import {useLocalCompanyEvents} from '@/lib/equity/useLocalCompanyEvents';
+import {parseMilestoneIngestJson,milestoneToMarketEventDto} from '@/lib/equity/companyMilestones';
+import {prepareEventPackImport,decodeLocalEventPack} from '@/lib/equity/localEventPacks';
 const event=(id,title,sourceKind,eventType='company.product')=>({id,externalId:id,title,content:title,occurredAt:'2026-10-14T12:00:00Z',datePrecision:'DATETIME',importance:'HIGH',eventType,scope:'COMPANY',countries:['US'],industries:['45'],assets:['AAPL'],persons:[],institutions:[],macroKeys:[],tags:[],payload:{},markerLabel:title,sourceKind,sourceUrl:'https://example.com/'+id,isPublic:true,createdById:'test',createdAt:'',updatedAt:''});
 function App(){
 const [state,setState]=useState(()=>sanitizeEventViewFilters({}));
 const [simulatedError,setSimulatedError]=useState(location.search.includes('error'));
 const [locals,setLocals]=useState([event('u','用户产品样例','user_local'),{...event('local:s','用户系统产品注释','user_local'),externalId:'s'}]);
 const [selected,setSelected]=useState(null);
+const [packs,setPacks]=useState([]);
 window.testState=state;window.updateFilters=setState;
 const result={...selectChartEvents(locals,simulatedError?[]:[event('s','系统产品样例','ai_skill'),event('m','宏观样例','ai_skill','macro.release')],state,'2026-01-01','2026-12-31'),loading:false,error:simulatedError?"fixture unavailable":null,from:"2026-01-01",to:"2026-12-31",retry:()=>setSimulatedError(false)};
 window.testResult=result;
-const store={events:[],allAssetEvents:[],allAssetCount:0,packs:[],ready:true,importEvents:()=>setLocals([...locals,event('new','新导入产品','user_local')]),updatePack:()=>{},deletePack:()=>{},clearAllAssets:()=>{}};
+const store={events:[],allAssetEvents:[],allAssetCount:0,packs,ready:true,importEvents:(items,target,metadata)=>{const plan=prepareEventPackImport(packs,items,target,'AAPL',metadata);setPacks(plan.packs);setLocals([...locals,...decodeLocalEventPack(plan.pack).map(milestoneToMarketEventDto)]);return plan.receipt;},updatePack:()=>{},deletePack:()=>{},clearAllAssets:()=>{}};
 return <main><MarketsEventShelf localEventStore={store} eventResult={result} selectedEventId={selected} markerGroupIds={[]} onCloseMarkerGroup={()=>{}} onSelectEvent={setSelected} onLocateEvent={()=>{}} symbol='AAPL' viewFilters={state} onViewFiltersChange={setState} onResetToSymbolDefault={source=>setState(updateEventSourceFilters(state,source,{...clearEventContentFilters(state),minImportance:'MEDIUM'}))}/></main>;
 }
 function LiveQueryHarness(){
@@ -38,13 +41,24 @@ const result=useChartEvents(symbol,local,filters,Date.parse('2026-01-01')/1000,D
 window.liveResult=result;
 return <div><button onClick={result.retry}>retry</button><button onClick={()=>setFilters({...filters,includeMarket:false,includeSec:false})}>disable sources</button><button onClick={()=>setSymbol('TSLA')}>switch symbol</button><span>{result.loading?'loading':result.error?'error':'ready'}</span></div>;
 }
-createRoot(document.getElementById('root')).render(location.search.includes('live')?<LiveQueryHarness/>:<App/>);
+function PackApp(){
+ const [symbol,setSymbol]=useState('AAPL');
+ const store=useLocalCompanyEvents(symbol);
+ const [filters,setFilters]=useState(()=>sanitizeEventViewFilters({}));
+ const [selected,setSelected]=useState(null);
+ const result={...selectChartEvents(store.events.map(milestoneToMarketEventDto),[],filters,'2026-01-01','2026-12-31'),loading:false,error:null,from:'2026-01-01',to:'2026-12-31',retry:()=>{}};
+ window.actualPackStore=store;window.setActualSymbol=setSymbol;window.actualPackFilters=filters;window.setActualFilters=setFilters;window.actualPackResult=result;
+ return <main><button onClick={()=>setSymbol(symbol==='AAPL'?'TSLA':'AAPL')}>切换测试资产</button><MarketsEventShelf localEventStore={store} eventResult={result} selectedEventId={selected} markerGroupIds={[]} onCloseMarkerGroup={()=>{}} onSelectEvent={setSelected} onLocateEvent={()=>{}} symbol={symbol} viewFilters={filters} onViewFiltersChange={setFilters}/></main>;
+}
+createRoot(document.getElementById('root')).render(location.search.includes('packs')?<PackApp/>:location.search.includes('live')?<LiveQueryHarness/>:<App/>);
 `,resolveDir:root,loader:'tsx'},bundle:true,write:false,platform:'browser',format:'iife',jsx:'automatic',tsconfig:root+'/tsconfig.json',define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'no-database',setup(b){b.onResolve({filter:/^@\/lib\/prisma$/},()=>({path:'prisma',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const prisma = {};'}));}}]});
 const css=await postcss([tailwind({base:root})]).process(fs.readFileSync(root+'/src/app/globals.css','utf8'),{from:root+'/src/app/globals.css'});
 let queryMode='paging';
 const requests=[];
 const responseEvent=(id,kind)=>({id,externalId:id,title:id,content:'Evidence',occurredAt:'2026-10-14T12:00:00Z',datePrecision:'DATETIME',importance:'HIGH',eventType:'company.product',scope:'COMPANY',countries:['US'],industries:['45'],assets:['AAPL'],persons:[],institutions:[],macroKeys:[],tags:[],payload:{},markerLabel:id,sourceKind:kind,sourceUrl:'https://example.com/'+id,isPublic:true,createdById:'test',createdAt:'',updatedAt:''});
 const server=http.createServer((req,res)=>{
+if(req.url==='/api/user/event-packs'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({userId:'pack-test',packs:[],credentials:[]}));return;}
+if(req.url==='/api/auth/me'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({user:{id:'pack-test'}}));return;}
 if(req.url.startsWith('/api/events/for-chart')){
   const params=new URL(req.url,'http://localhost').searchParams;
   requests.push(req.url);
@@ -113,7 +127,7 @@ await page.getByRole('button',{name:'用户事件包管理',exact:true}).click()
 assert.equal(await page.getByRole('link',{name:'下载 SKILL'}).isVisible(),true);
 assert.equal(await page.getByRole('combobox',{name:'本地事件导入范围'}).isVisible(),true);
 await page.locator('input[type=file]').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{invalid')});
-assert.equal(await page.getByRole('dialog',{name:'用户事件包管理'}).getByRole('status').isVisible(),true);
+await page.getByRole('dialog',{name:'用户事件包管理'}).getByRole('status').waitFor();
 const importPayload={schemaVersion:2,query:{symbol:'AAPL',importTarget:'symbol'},pack:{id:'browser-test',name:'导入验证'},events:[responseEvent('imported','user_local')]};
 const importPreferences=await page.evaluate(()=>JSON.stringify(window.testState));
 await page.locator('input[type=file]').setInputFiles({name:'import-test.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(importPayload))});
@@ -121,6 +135,8 @@ await page.getByRole('dialog',{name:'事件导入预览'}).waitFor();
 assert.equal(await page.getByRole('dialog',{name:'用户事件包管理'}).count(),0);
 await page.getByRole('dialog',{name:'事件导入预览'}).getByRole('button',{name:'确认导入',exact:true}).click({timeout:3000});
 assert.equal(await page.evaluate(()=>JSON.stringify(window.testState)),importPreferences);
+await page.getByRole('dialog',{name:'本次导入结果'}).waitFor();
+await page.getByRole('dialog',{name:'本次导入结果'}).getByRole('button',{name:'关闭',exact:true}).click();
 await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
 
 assert.equal(Math.round((await shelf.boundingBox()).height),180);
@@ -156,6 +172,157 @@ await page.screenshot({path:artifactDir+'/result-'+width+'.png',fullPage:true});
 console.log('PASS viewport '+width+': source isolation, content reset, list retention, type summary, macro condition, mobile draft/apply, source management, no horizontal overflow');
 await page.close();
 }
+for(const width of [1280,390,320]){
+ const page=await browser.newPage({viewport:{width,height:844}});
+ const packErrors=[];page.on('pageerror',e=>packErrors.push(e.message));
+ const originalA={...responseEvent('same','user_local'),title:'专题A原始',sourceUrl:'https://example.com/a'};
+ const originalB={...responseEvent('same','user_local'),title:'专题B独立',sourceUrl:'https://example.com/b'};
+ const unchanged=responseEvent('unchanged','user_local');
+ const packA={id:'a',name:'专题A',version:'1',color:'#112233',target:'symbol',symbols:['AAPL'],enabled:true,importedAt:'2026-10-01',events:[originalA,unchanged,responseEvent('retained','user_local')]};
+ const packB={...packA,id:'b',name:'专题B',events:[originalB]};
+ await page.addInitScript(packs=>localStorage.setItem('event-packs:v2:pack-test',JSON.stringify(packs)),[packA,packB]);
+ await page.goto('http://127.0.0.1:'+server.address().port+'/?packs');
+ await page.waitForFunction(()=>window.actualPackStore?.ready&&window.actualPackStore.packs.length===2);
+ assert.equal(await page.evaluate(()=>window.actualPackStore.events.length),4,'same external IDs in different packs must both load');
+ assert.equal(await page.evaluate(()=>new Set(window.actualPackStore.events.map(e=>e.id)).size),4);
+ assert.equal(await page.evaluate(()=>window.actualPackResult.chartEvents.length),4,'independent facts must not merge just because external IDs collide');
+ await page.getByRole('tab',{name:/用户事件/}).click();
+ await page.evaluate(()=>{window.actualPackStore.updatePack('a',{enabled:false});window.setActualFilters({...window.actualPackFilters,userFilters:{...window.actualPackFilters.userFilters,searchQ:'no-match'}});});
+ await page.waitForFunction(()=>window.actualPackStore.packs.find(p=>p.id==='a').enabled===false);
+ const payload={schemaVersion:2,pack:{id:'a',name:'专题A',version:'2'},query:{symbol:'AAPL',importTarget:'symbol'},events:[{...originalA,title:'专题A更新'},unchanged,responseEvent('new','user_local')]};
+ const file={name:'topic-a.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(payload))};
+ await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
+ await page.locator('input[type=file]').setInputFiles(file);
+ const preview=page.getByRole('dialog',{name:'事件导入预览'});await preview.waitFor();
+ assert.equal(await preview.getByText('同包新增 1 · 更新 1 · 未变 1 · 其他原有事件保留 1',{exact:true}).isVisible(),true);
+ assert.equal(await preview.getByText('其他包出现的相同 ID：1 个，不会被覆盖。',{exact:true}).isVisible(),true);
+ const preferences=await page.evaluate(()=>JSON.stringify(window.actualPackFilters));
+ await preview.getByRole('button',{name:'确认导入',exact:true}).click();
+ const receipt=page.getByRole('dialog',{name:'本次导入结果'});await receipt.waitFor();
+ assert.equal(await receipt.getByText('未显示：事件包已停用',{exact:true}).count(),3);
+ assert.equal(await page.evaluate(()=>JSON.stringify(window.actualPackFilters)),preferences);
+ assert.equal(await page.evaluate(()=>window.actualPackStore.packs.find(p=>p.id==='a').color),'#112233');
+ assert.equal(await page.evaluate(()=>window.actualPackStore.packs.find(p=>p.id==='b').events[0].title),'专题B独立');
+ await page.evaluate(()=>window.actualPackStore.updatePack('a',{enabled:true}));
+ await receipt.getByText('未显示：不匹配搜索内容',{exact:true}).first().waitFor();
+ assert.equal(await receipt.getByText('未显示：不匹配搜索内容',{exact:true}).count(),3);
+ await receipt.getByRole('button',{name:'关闭',exact:true}).click();
+ await page.getByRole('button',{name:'清除内容条件',exact:true}).click();
+ await page.getByRole('button',{name:'查看本次导入',exact:true}).click();
+ await receipt.getByText(/本次提交 3 条，当前条件下可见 3 条/).waitFor();
+ await receipt.screenshot({path:artifactDir+'/import-result-'+width+'.png'});
+ await receipt.getByRole('button',{name:'关闭',exact:true}).click();
+ assert.equal(await page.locator('[data-event-id]').count(),5);
+ assert.equal(Math.round((await page.locator('section[aria-label="事件筛选器"]').boundingBox()).height),180);
+ await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
+ await page.locator('input[type=file]').setInputFiles(file);await preview.waitFor();
+ assert.equal(await preview.getByText('同包新增 0 · 更新 0 · 未变 3 · 其他原有事件保留 1',{exact:true}).isVisible(),true);
+ const before=await page.evaluate(()=>localStorage.getItem('event-packs:v2:pack-test'));
+ await page.evaluate(()=>{window.savedSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key.startsWith('event-packs:'))throw new DOMException('test quota','QuotaExceededError');return window.savedSetItem.call(this,key,value);};});
+ await preview.getByRole('button',{name:'确认导入',exact:true}).click();
+ await preview.getByRole('alert').waitFor();
+ assert.equal(await page.getByRole('dialog',{name:'本次导入结果'}).count(),0);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('event-packs:v2:pack-test')),before);
+ await page.evaluate(()=>Storage.prototype.setItem=window.savedSetItem);
+ await preview.getByRole('button',{name:'确认导入',exact:true}).click();await receipt.waitFor();
+ assert.equal(await receipt.getByText('新增 0 · 更新 0 · 未变 3 · 原有未提交事件保留 1',{exact:true}).isVisible(),true);
+ await receipt.getByRole('button',{name:'关闭',exact:true}).click();
+ await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
+ const withoutName={...payload,pack:{id:'a',version:'2'}};
+ await page.locator('input[type=file]').setInputFiles({...file,name:'renamed-topic-a.json',buffer:Buffer.from(JSON.stringify(withoutName))});await preview.waitFor();
+ assert.equal(await preview.getByText('目标包：专题A · ID：a',{exact:true}).isVisible(),true);
+ await page.evaluate(()=>{const key='event-packs:v2:pack-test';const packs=JSON.parse(localStorage.getItem(key));packs.find(p=>p.id==='a').events=packs.find(p=>p.id==='a').events.filter(e=>e.externalId!=='new');localStorage.setItem(key,JSON.stringify(packs));});
+ await page.evaluate(()=>window.setActualSymbol('TSLA'));
+ await preview.getByRole('button',{name:'确认导入',exact:true}).click();await receipt.waitFor();
+ assert.deepEqual(await page.evaluate(()=>window.actualPackStore.packs.find(p=>p.id==='a').symbols),['AAPL'],'the confirmed import must keep the previewed scope even if the active chart symbol changes');
+ assert.equal(await receipt.getByText('未显示：事件包不适用于 TSLA',{exact:true}).count(),3);
+ await page.evaluate(()=>window.setActualSymbol('AAPL'));
+ assert.equal(await receipt.getByText('新增 1 · 更新 0 · 未变 2 · 原有未提交事件保留 1',{exact:true}).isVisible(),true,'commit must recompute against the latest stored package');
+ assert.equal(await page.evaluate(()=>window.actualPackStore.packs.find(p=>p.id==='a').name),'专题A');
+ await receipt.getByRole('button',{name:'关闭',exact:true}).click();
+ await page.getByRole('button',{name:'切换测试资产',exact:true}).click();
+ await page.waitForFunction(()=>window.actualPackStore.events.length===0);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ assert.deepEqual(packErrors,[]);
+ console.log('PASS real package store '+width+': cross-pack IDs; scoped update counts; disabled/color preservation; batch exclusions; no-op reimport; quota failure/retry; symbol scope; 180px');
+ await page.close();
+}
+// Private sync uses the real package hooks and UI; only the transport is a fixture.
+for(const width of [1280,390,320]){
+ const page=await browser.newPage({viewport:{width,height:844}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ if(width===1280)await page.clock.install();
+ const cloudEvent=(title,date)=>({...responseEvent('same','user_local'),title,occurredAt:date,datePrecision:'DATE',sourceUrl:'https://example.com/'+title});
+ let owner='pack-test',rows=[],cloudMode='ok',credentials=[],cloudReads=0;
+ const row=(revision=1)=>({pack:{id:'research',name:'云端研究',target:'assets',symbols:['AAPL'],enabled:true,color:'#334455',importedAt:'2026-10-28',events:[cloudEvent('云端独立事实','2026-10-15')]},revision,updatedAt:'2026-10-28T12:00:00Z'});
+ await page.route('**/api/user/event-packs',route=>{cloudReads++;return route.fulfill({status:cloudMode==='error'?503:cloudMode==='logout'?401:200,contentType:'application/json',body:JSON.stringify(cloudMode==='error'?{error:'同步暂不可用'}:{userId:owner,packs:rows,credentials})});});
+ await page.route('**/api/user/event-packs/credential',async route=>{
+  const data=route.request().postDataJSON();assert.equal(data.userId,owner);assert.equal(data.packId,'research');
+  credentials=route.request().method()==='DELETE'?[]:[{packId:'research',expiresAt:'2026-11-27T00:00:00Z'}];
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({token:'evt_browser_fixture_only_not_a_real_credential',packId:'research'})});
+ });
+ await page.addInitScript(()=>localStorage.setItem('event-packs:v2:pack-test',JSON.stringify([{id:'research',name:'本地研究',target:'symbol',symbols:['AAPL'],enabled:true,importedAt:'2026-10-28',events:[{externalId:'same',title:'本地独立事实',content:'local',markerLabel:'本地',eventType:'company.product',occurredAt:'2026-10-14',sourceUrl:'https://example.com/local'}]}])));
+ await page.goto('http://127.0.0.1:'+server.address().port+'/?packs');
+ await page.waitForFunction(()=>window.actualPackStore?.events.length===1&&Boolean(window.actualPackStore.cloud.syncedAt));
+ await page.getByRole('tab',{name:/用户事件/}).click();await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'用户事件包管理'});const sync=dialog.getByRole('region',{name:'Skill 私有投递'});
+ rows=[row()];
+ if(width===1280){
+  const readsBefore=cloudReads;
+  await page.evaluate(()=>{window.syncTestHidden=true;Object.defineProperty(document,'visibilityState',{get:()=>window.syncTestHidden?'hidden':'visible',configurable:true});});
+  await page.clock.fastForward(31000);assert.equal(cloudReads,readsBefore,'hidden page must not poll');
+  await page.evaluate(()=>window.syncTestHidden=false);await page.clock.fastForward(31000);
+ }else{await sync.getByRole('button',{name:'刷新云端事件',exact:true}).click();}
+ await page.waitForFunction(()=>window.actualPackStore.events.length===2);
+ assert.equal(await page.evaluate(()=>new Set(window.actualPackStore.events.map(e=>e.id)).size),2);
+ assert.equal(await page.evaluate(()=>window.actualPackResult.chartEvents.length),2,'same raw IDs across cloud and local are independent');
+ const cloudSwitch=dialog.getByRole('checkbox',{name:/云端研究/});await cloudSwitch.uncheck();
+ await page.waitForFunction(()=>window.actualPackStore.events.length===1);
+ assert.equal(await page.evaluate(()=>window.actualPackStore.localPacks[0].enabled),true);
+ rows=[row(2)];await sync.getByRole('button',{name:'刷新云端事件',exact:true}).click();
+ await page.waitForFunction(()=>window.actualPackStore.cloud.packs[0].revision===2);
+ assert.equal(await cloudSwitch.isChecked(),false,'cloud update must preserve local off switch');
+ await cloudSwitch.check();await page.waitForFunction(()=>window.actualPackStore.events.length===2);
+ await dialog.getByLabel('云端研究 默认颜色',{exact:true}).fill('#123456');
+ assert.equal(await page.evaluate(()=>window.actualPackStore.localPacks[0].color),undefined);
+ cloudMode='error';await sync.getByRole('button',{name:'刷新云端事件',exact:true}).click();await sync.getByRole('alert').waitFor();
+ assert.equal(await page.evaluate(()=>window.actualPackStore.events.length),2,'failed refresh keeps already loaded data');
+ cloudMode='ok';await sync.getByRole('button',{name:'刷新云端事件',exact:true}).click();await page.waitForFunction(()=>!window.actualPackStore.cloud.error);
+ await sync.getByRole('textbox',{name:'投递包 ID',exact:true}).fill('research');await sync.getByRole('button',{name:'生成或替换投递凭证',exact:true}).click();
+ await sync.getByRole('textbox',{name:'新投递凭证',exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>JSON.stringify({...localStorage}).includes('evt_browser_fixture')),false,'raw token must not be persisted');
+ await sync.getByRole('button',{name:'撤销 research 凭证',exact:true}).click();await page.waitForFunction(()=>window.actualPackStore.cloud.credentials.length===0);
+ assert.equal(await sync.getByRole('textbox',{name:'新投递凭证',exact:true}).count(),0);
+ await dialog.evaluate(el=>el.scrollTop=0);
+ await dialog.screenshot({path:artifactDir+'/private-sync-'+width+'.png'});
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ assert.equal(Math.round((await page.locator('section[aria-label="事件筛选器"]').boundingBox()).height),180);
+ owner='other-account';rows=[];await sync.getByRole('button',{name:'刷新云端事件',exact:true}).click();
+ await page.waitForFunction(()=>window.actualPackStore.cloud.userId==='other-account'&&window.actualPackStore.packs.length===0);
+ assert.equal(await page.evaluate(()=>window.actualPackResult.chartEvents.length),0,'old account facts must disappear');
+ cloudMode='error';await dialog.getByRole('button',{name:'刷新云端事件',exact:true}).click();await dialog.getByRole('alert').waitFor();
+ await dialog.getByRole('button',{name:'关闭',exact:true}).click();
+ await page.getByText('私有事件包同步失败，不能据此判断没有事件。',{exact:true}).waitFor();
+ assert.equal(await page.getByText('尚未导入用户事件包。',{exact:true}).count(),0);
+ cloudMode='logout';await page.getByRole('button',{name:'重试云端同步',exact:true}).click();
+ await page.waitForFunction(()=>window.actualPackStore.cloud.userId==='anon');
+ await page.getByRole('button',{name:'用户事件包管理',exact:true}).click();
+ await dialog.getByText('登录后可创建私有投递凭证。文件导入仍可在本浏览器使用。',{exact:true}).waitFor();
+ assert.deepEqual(errors,[]);await page.close();
+ console.log('PASS private sync '+width+': cloud arrival; local/cloud ID isolation; off/color preservation; failure/cache/retry; token creation/revoke; account switch/logout; 180px');
+}
+const authPage=await browser.newPage();let authUnavailable=true;
+await authPage.route('**/api/auth/me',route=>route.fulfill({status:authUnavailable?503:200,contentType:'application/json',body:JSON.stringify(authUnavailable?{error:'unavailable'}:{user:{id:'pack-test'}})}));
+await authPage.goto('http://127.0.0.1:'+server.address().port+'/?packs');
+await authPage.waitForFunction(()=>Boolean(window.actualPackStore?.authError));
+assert.equal(await authPage.evaluate(()=>window.actualPackStore.ready),false);
+assert.equal(await authPage.evaluate(()=>localStorage.getItem('event-packs:v2:anon')),null);
+await authPage.getByRole('tab',{name:/用户事件/}).click();await authPage.getByRole('button',{name:'用户事件包管理',exact:true}).click();
+const authDialog=authPage.getByRole('dialog',{name:'用户事件包管理'});
+assert.equal(await authDialog.getByRole('button',{name:'导入本地事件',exact:true}).isDisabled(),true);
+authUnavailable=false;await authDialog.getByRole('button',{name:'重新确认账号',exact:true}).click();
+await authPage.waitForFunction(()=>window.actualPackStore.ready&&window.actualPackStore.cloud.userId==='pack-test');
+assert.equal(await authDialog.getByRole('button',{name:'导入本地事件',exact:true}).isDisabled(),false);await authPage.close();
+console.log('PASS initial auth failure: no anonymous write; import blocked; explicit retry confirms account');
 const failed=await browser.newPage({viewport:{width:390,height:844}});
 await failed.goto('http://127.0.0.1:'+server.address().port+'/?error');
 await failed.getByRole('button',{name:'加载失败 · 结果说明',exact:true}).waitFor();

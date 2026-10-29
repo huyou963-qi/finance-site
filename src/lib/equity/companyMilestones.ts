@@ -189,8 +189,9 @@ export function parseMilestoneIngestJson(raw: unknown): {
     }
     const draft = row as Record<string, unknown>;
     if (draft.color !== undefined && !normalizeEventColor(draft.color)) { errors.push(`events[${i}].color 须为 #RRGGBB`); return; }
-    if (seen.has(String(draft.externalId))) { errors.push(`events[${i}].externalId 重复`); return; }
-    seen.add(String(draft.externalId));
+    const importId = String(draft.externalId ?? draft.id ?? "").trim();
+    if (seen.has(importId)) { errors.push(`events[${i}].externalId 重复`); return; }
+    seen.add(importId);
     const type = normalizeEventType(String(draft.eventType ?? ""));
     if (!type || !(EVENT_TYPE_CODES as readonly string[]).includes(type)) { errors.push(`events[${i}].eventType 不在标准词表中`); return; }
     if (draft.datePrecision !== undefined && !["DATE", "DATETIME"].includes(String(draft.datePrecision))) { errors.push(`events[${i}].datePrecision 不合法`); return; }
@@ -444,7 +445,7 @@ export function localCompanyEventMarkers(items: CompanyMilestone[], filters: Eve
     EVENT_IMPORTANCE_MIN_ORDER[m.importance] >= EVENT_IMPORTANCE_MIN_ORDER[filters.minImportance] &&
     (!q || `${m.title} ${m.content} ${m.impact.summary}`.toLowerCase().includes(q))
   ).map(m => ({
-    id: `local:${m.externalId}`, time: m.record?.datePrecision === "DATETIME" ? Math.floor(Date.parse(m.occurredAt) / 1000) : isoDateToUnixSec(m.occurredAt), datePrecision: m.record?.datePrecision === "DATETIME" ? "DATETIME" : "DATE",
+    id: m.record?.packId ? m.id : `local:${m.externalId}`, time: m.record?.datePrecision === "DATETIME" ? Math.floor(Date.parse(m.occurredAt) / 1000) : isoDateToUnixSec(m.occurredAt), datePrecision: m.record?.datePrecision === "DATETIME" ? "DATETIME" : "DATE",
     label: m.markerLabel, shape: markerShapeFor(m.eventType), color: m.color,
     importance: m.importance, eventType: m.eventType, scope: m.scope, title: m.title,
     source: "user_local", sourceUrl: m.sourceUrl,
@@ -484,7 +485,9 @@ export function milestoneToMarketEventDto(
     ...readEventPresentation(record.payload),
     color: normalizeEventColor(record.color) || readEventPresentation(record.payload).color || normalizeEventColor(record.packColor),
     id: m.id,
-    matchReasons: m.layer === "local" ? [`本地事件包：${String(record.packName ?? "导入事件")}（按包的显示范围）`] : undefined,
+    privatePack: m.record?.privatePack === true,
+    localPackId: m.layer === "local" && typeof record.packId === "string" ? record.packId : undefined,
+    matchReasons: m.layer === "local" ? [`${record.privatePack ? "私有云端事件包" : "本地事件包"}：${String(record.packName ?? "导入事件")}（按包的显示范围）`] : undefined,
     title: m.title || null,
     content: m.content,
     occurredAt: m.occurredAt.length === 10 ? `${m.occurredAt}T00:00:00.000Z` : m.occurredAt,

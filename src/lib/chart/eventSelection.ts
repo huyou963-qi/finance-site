@@ -8,7 +8,7 @@ export type EventSourceGroup = "system" | "user";
 export const EVENT_SOURCE_COLORS = { system: "#0369A1", user: "#7C3AED" } as const;
 export function eventSourceGroup(e: Pick<MarketEventDto, "sourceKind">): EventSourceGroup { return e.sourceKind === "user_local" ? "user" : "system"; }
 
-export function eventIdentity(e: Pick<MarketEventDto, "id" | "externalId">): string { return e.externalId || e.id; }
+export function eventIdentity(e: Pick<MarketEventDto, "id" | "externalId"> & Partial<Pick<MarketEventDto, "sourceKind" | "localPackId">>): string { return e.sourceKind === "user_local" && e.localPackId ? e.id : e.externalId || e.id; }
 
 function sourceKey(url: string | null) {
   if (!url) return "";
@@ -16,7 +16,9 @@ function sourceKey(url: string | null) {
 }
 
 export function sameEvent(a: MarketEventDto, b: MarketEventDto): boolean {
-  if (a.id === b.id || (a.externalId && a.externalId === b.externalId)) return true;
+  const differentUserPacks = a.sourceKind === "user_local" && b.sourceKind === "user_local" && (a.localPackId !== b.localPackId || Boolean(a.privatePack) !== Boolean(b.privatePack));
+  if ((a.id === b.id && eventSourceGroup(a) === eventSourceGroup(b)) ||
+      (a.externalId && a.externalId === b.externalId && !differentUserPacks)) return true;
   if (a.occurredAt.slice(0, 10) !== b.occurredAt.slice(0, 10) || normalizeEventType(a.eventType) !== normalizeEventType(b.eventType)) return false;
   // Exact times and disjoint explicit subjects cannot be collapsed just because a document is shared.
   if (a.datePrecision === "DATETIME" && b.datePrecision === "DATETIME" && a.occurredAt !== b.occurredAt) return false;

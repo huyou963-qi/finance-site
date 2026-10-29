@@ -1,4 +1,5 @@
 "use client";
+import { migrateLocalEventPreferences } from "@/lib/chart/localEventPreferenceMigration";
 import { useChartEvents } from "@/lib/chart/useChartEvents";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -131,6 +132,17 @@ export function MarketsClient() {
     if (!eventFiltersHydrated) return;
     saveEventViewFilters(eventViewFilters);
   }, [eventViewFilters, eventFiltersHydrated]);
+  useEffect(() => {
+    if (!eventFiltersHydrated || !localEventStore.ready) return;
+    const next = migrateLocalEventPreferences(eventViewFilters, localEventStore.packs);
+    if (next === eventViewFilters) return;
+    try {
+      const backup = "event-view-filters-v1-before-pack-ids";
+      if (!localStorage.getItem(backup)) localStorage.setItem(backup, JSON.stringify(eventViewFilters));
+    } catch { /* Existing persisted preferences remain available if storage is full. */ }
+    setEventViewFilters(next);
+  }, [eventFiltersHydrated, localEventStore.ready, localEventStore.packs, eventViewFilters]);
+
   const [eventContextDate, setEventContextDate] = useState<string | null>(null);
   const [eventRangeFromSec, setEventRangeFromSec] = useState<number | null>(null);
   const [eventRangeToSec, setEventRangeToSec] = useState<number | null>(null);

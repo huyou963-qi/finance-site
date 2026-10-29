@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { eventRecord, normalizeEventColor } from "@/lib/data/eventPresentation";
 import { eventTypeLabel, EVENT_TYPE_CODES } from "@/lib/data/eventTaxonomy";
@@ -12,6 +12,9 @@ import { EventPanelFilters, EventFilterSummary } from "@/components/events/Event
 import { EventFilterSheet } from "@/components/events/EventFilterSheet";
 import { describeEmptyEventState, summarizeEventPacks } from "@/lib/chart/eventDiagnostics";
 import { EventDiagnosticsDialog } from "@/components/events/EventDiagnosticsDialog";
+import { EventImportResultDialog } from "@/components/events/EventImportResultDialog";
+import { prepareEventPackImport, resolveEventPackFileMetadata, type EventPackMetadata, type EventImportReceipt } from "@/lib/equity/localEventPacks";
+import { PrivateEventDeliveryControls } from "@/components/events/PrivateEventDeliveryControls";
 import { EventSettingsDialog } from "@/components/events/EventSettingsDialog";
 import { classifyMacroEventSurprise } from "@/lib/data/macroEventSurprise";
 
@@ -55,11 +58,15 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [diagnostics, setDiagnostics] = useState(false);
   const [diagnosticEventId, setDiagnosticEventId] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ name: string; raw: Record<string, unknown>; events: CompanyMilestone[]; errors: string[]; target: LocalEventImportTarget; symbol: string | null } | null>(null);
+  const [preview, setPreview] = useState<{ name: string; events: CompanyMilestone[]; errors: string[]; target: LocalEventImportTarget; symbol: string; metadata: EventPackMetadata } | null>(null);
+  const [importError, setImportError] = useState("");
+  const [lastImport, setLastImport] = useState<EventImportReceipt | null>(null);
+  const [inspectImport, setInspectImport] = useState(false);
   const [styleType, setStyleType] = useState<string>("company.earnings");
   const patch = (p: Partial<EventViewFilterState>) => onChange({ ...filters, ...p });
   const events = result.sourceEvents[activeTab];
   const packSummary = summarizeEventPacks(store.packs, symbol);
+  const cloudEmpty = activeTab === "user" && !store.packs.length && store.cloud && (store.cloud.loading || store.cloud.error);
   const empty = describeEmptyEventState({ source: activeTab, filters, stats, loading, error: activeTab === "system" ? result.error : null, ready: store.ready, packs: packSummary, symbol });
   const openDiagnostics = (id: string | null = null) => { setDiagnosticEventId(id); setDiagnostics(true); };
   const sourceCounts = { system: result.sourceEvents.system.length, user: result.sourceEvents.user.length };
@@ -77,26 +84,30 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
   }, [shelfHeight]);
   const onFile = async (file: File | null) => {
     if (!file) return;
+    setImportError("");
     try {
       const raw = eventRecord(JSON.parse(await file.text()));
       const parsed = parseMilestoneIngestJson(raw);
-      setPreview({ name: file.name, raw, events: parsed.milestones, errors: parsed.errors, target: target === "file" ? parsed.importTarget : target, symbol: parsed.symbol });
+      const resolved = resolveEventPackFileMetadata(raw, file.name, parsed.importTarget, parsed.symbol, target);
+      if (!parsed.errors.length) prepareEventPackImport(store.packs.filter(p => p.storage !== "cloud"), parsed.milestones, resolved.target, symbol, resolved.metadata);
+      setPreview({ name: file.name, events: parsed.milestones, errors: parsed.errors, target: resolved.target, symbol, metadata: resolved.metadata });
       setManage(false);
     } catch (e) { setMessage(e instanceof Error ? e.message : "文件读取失败"); }
     if (fileRef.current) fileRef.current.value = "";
   };
   const confirmImport = () => {
     if (!preview || preview.errors.length) return;
+    setImportError("");
     try {
-      const pack = eventRecord(preview.raw.pack), query = eventRecord(preview.raw.query);
-      const symbols = target === "file" && Array.isArray(pack.symbols) ? pack.symbols.filter((v): v is string => typeof v === "string").map(v => v.toUpperCase()) : undefined;
-      store.importEvents(preview.events, preview.target, { id: typeof pack.id === "string" ? pack.id : preview.name, name: typeof pack.name === "string" ? pack.name : typeof query.topic === "string" ? query.topic : preview.name, version: typeof pack.version === "string" ? pack.version : undefined, color: normalizeEventColor(pack.color), symbols });
+      const receipt = store.importEvents(preview.events, preview.target, { ...preview.metadata, symbols: previewPlan?.pack.symbols });
       setActiveTab("user");
-      setMessage(`已导入 ${preview.events.length} 条，保留原有筛选与上图设置；显示范围：${symbols?.length ? symbols.join("、") : preview.target === "all-assets" ? "全部资产" : symbol}`); setPreview(null);
-    } catch (e) { setMessage(String(e)); }
+      setLastImport(receipt); setInspectImport(true);
+      setMessage(`导入完成：新增 ${receipt.added} · 更新 ${receipt.updated} · 未变 ${receipt.unchanged}`);
+      setPreview(null);
+    } catch (e) { setImportError(`保存失败：${e instanceof Error ? e.message : String(e)}。原有事件未改动，可清理浏览器空间或导出备份后重试。`); }
   };
-  const existingIds = new Set(store.packs.flatMap(p => p.events.map(e => String(e.externalId))));
-  const repeated = preview?.events.filter(e => existingIds.has(e.externalId)).length ?? 0;
+  const previewPlan = useMemo(() => preview && !preview.errors.length
+    ? prepareEventPackImport(store.packs.filter(p => p.storage !== "cloud"), preview.events, preview.target, preview.symbol, preview.metadata) : null, [preview, store.packs]);
   const mode = filters.viewMode || "timeline";
   const assessed = events.filter(e => e.eventType === "macro.release" && classifyMacroEventSurprise(e.payload).level !== "unassessed");
   const button = "min-h-10 sm:min-h-7 rounded border border-fs-border px-2 py-1 text-xs text-fs-secondary hover:bg-fs-elevated";
@@ -118,15 +129,18 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
       <div className="hidden sm:contents"><EventPanelFilters key={activeTab} layout="inline" filters={filters} onChange={onChange} showSummary={false} /></div>
       <button className={`${button} shrink-0 sm:hidden`} aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(true)}>筛选条件</button>
       <button className={`${button} shrink-0`} aria-expanded={manage} onClick={() => { setManage(!manage); setStyles(false); }}>{activeTab === "system" ? "系统来源管理" : "用户事件包管理"}</button>
+      {activeTab === "user" && store.cloud?.error && <button className={`${button} shrink-0`} onClick={() => void store.cloud.refresh()}>云端同步失败 · 重试</button>}
+      {activeTab === "user" && store.cloud?.loading && <span className="shrink-0 text-fs-muted">云端同步中…</span>}
       <label className="flex min-h-10 shrink-0 items-center gap-1 sm:min-h-7"><input type="checkbox" checked={filters.markersEnabled} onChange={e => patch({ markersEnabled: e.target.checked })} /> 本类上图</label>
       <button className={`${button} shrink-0`} aria-expanded={styles} onClick={() => { setStyles(!styles); setManage(false); }}>图表显示设置</button>
       <select aria-label="事件视图" value={mode} onChange={e => patch({ viewMode: e.target.value as EventViewFilterState["viewMode"] })} className={`${button} shrink-0`}><option value="timeline">时间线</option><option value="cards">卡片</option><option value="list">列表</option></select>
+      {activeTab === "user" && lastImport && <button className={`${button} shrink-0`} onClick={() => setInspectImport(true)}>查看本次导入</button>}
       <button className={`${button} shrink-0`} onClick={() => openDiagnostics()}>{activeTab === "system" && result.error ? "加载失败 · 结果说明" : loading ? "加载中 · 结果说明" : `列表 ${events.length} · 候选 ${stats.chartCandidates}${stats.merged ? ` · 合并 ${stats.merged}` : ""} · 结果说明`}</button>
     </div>
     <div className="min-w-0 shrink-0 px-2"><EventFilterSummary filters={filters} onChange={onChange} compact /></div>
       {markerGroupIds.length > 1 && <div className="mt-1 flex shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap rounded border border-fs-border p-1 text-xs"><span>此根 K 线的事件：</span>{events.filter(e => markerGroupIds.includes(e.id)).map(e => <button key={e.id} aria-pressed={selectedEventId === e.id} className={button} onClick={() => onSelectEvent(e.id)}>{e.markerLabel} · {e.title}</button>)}<button className={button} onClick={onCloseMarkerGroup}>收起聚合事件</button></div>}
       {activeTab === "system" && result.error && <p role="alert" className="text-xs text-red-600">{result.error}<button className={button} onClick={result.retry}>重试加载</button></p>}
-      {activeTab === "user" && message && !manage && <p role="status" className="text-[11px] text-fs-secondary">{message}</p>}
+      {activeTab === "user" && message && !manage && <p role="status" title={message} className="shrink-0 truncate px-2 text-[11px] text-fs-secondary">{message}</p>}
       {manage && <EventSettingsDialog title={activeTab === "system" ? "系统来源管理" : "用户事件包管理"} onClose={() => setManage(false)}>
         {activeTab === "system" && <div className="flex flex-wrap items-center gap-3">
           <label>关联范围 <select aria-label="资产关联范围" value={filters.relationMode || ""} onChange={e => patch({ relationMode: e.target.value as EventViewFilterState["relationMode"] || undefined })} className={button}><option value="">跟随资产默认</option><option value="asset">直接资产</option><option value="industry">资产与行业</option><option value="macro">包含宏观关联</option></select></label>
@@ -136,6 +150,7 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
         </div>}
         {activeTab === "user" && <>
         {message && <p role="status" className="w-full text-fs-secondary">{message}</p>}
+        {store.authError && <p role="alert" className="w-full">{store.authError}<button className={button} onClick={store.retryAuth}>重新确认账号</button></p>}
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex min-h-10 items-center gap-1"><input type="checkbox" checked={filters.includeLocal !== false} onChange={e => patch({ includeLocal: e.target.checked })} /> 启用用户事件来源</label>
           <a className={button} href="/templates/company-milestone/company-milestone-pack.zip" download>下载 SKILL</a>
@@ -143,14 +158,15 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
           <button className={button} disabled={!store.ready} onClick={() => fileRef.current?.click()}>导入本地事件</button>
           <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={e => void onFile(e.target.files?.[0] ?? null)} />
         </div>
-        <p className="text-fs-muted">事件包保存在此浏览器，可导出备份。包范围决定在哪些资产加载，内容标签用于进一步筛选。</p>
-        {store.packs.map(pack => <div key={pack.id} className="flex flex-wrap items-center gap-2">
-          <label><input type="checkbox" checked={pack.enabled} onChange={e => store.updatePack(pack.id, { enabled: e.target.checked })} /> {pack.name}（{pack.events.length} 条）</label>
+        <p className="text-fs-muted">文件导入保存在此浏览器；Skill 投递保存在当前账号云端。开关与配色保存在此浏览器，可导出事件备份。包范围决定在哪些资产加载，内容标签用于进一步筛选。</p>
+        {store.cloud && <PrivateEventDeliveryControls key={store.cloud.userId} cloud={store.cloud} />}
+        {store.packs.map(pack => <div key={`${pack.storage || "local"}:${pack.id}`} className="flex flex-wrap items-center gap-2">
+          <label><input type="checkbox" checked={pack.enabled} onChange={e => store.updatePack(pack.id, { enabled: e.target.checked }, pack.storage)} /> {pack.name}（{pack.events.length} 条）{pack.storage === "cloud" ? ` · 云端 v${pack.revision}` : " · 本地"}</label>
           <span className="text-fs-muted">{pack.target === "all-assets" ? "全部资产" : pack.symbols?.join("、")}</span>
-          <input aria-label={`${pack.name} 默认颜色`} type="color" value={pack.color || "#475569"} onChange={e => store.updatePack(pack.id, { color: e.target.value })} />
-          <button className={button} onClick={() => store.updatePack(pack.id, { color: undefined })}>恢复包配色</button>
+          <input aria-label={`${pack.name} 默认颜色`} type="color" value={pack.color || "#475569"} onChange={e => store.updatePack(pack.id, { color: e.target.value }, pack.storage)} />
+          <button className={button} onClick={() => store.updatePack(pack.id, { color: undefined }, pack.storage)}>恢复包配色</button>
           <button className={button} onClick={() => downloadJson(`${pack.name}.json`, { schemaVersion: 2, mode: "company-milestone", pack: { id: pack.id, name: pack.name, version: pack.version, color: pack.color, symbols: pack.target === "assets" ? pack.symbols : undefined }, query: { importTarget: pack.target === "all-assets" ? "all-assets" : "symbol", symbol: pack.symbols?.[0] }, events: pack.events })}>导出</button>
-          <button className={button} onClick={() => { downloadJson(`${pack.name}-备份.json`, { schemaVersion: 2, mode: "company-milestone", pack, query: { importTarget: pack.target === "all-assets" ? "all-assets" : "symbol" }, events: pack.events }); store.deletePack(pack.id); }}>删除并备份</button>
+          {pack.storage !== "cloud" && <button className={button} onClick={() => { downloadJson(`${pack.name}-备份.json`, { schemaVersion: 2, mode: "company-milestone", pack, query: { importTarget: pack.target === "all-assets" ? "all-assets" : "symbol" }, events: pack.events }); store.deletePack(pack.id); }}>删除并备份</button>}
         </div>)}
         <button className={button} onClick={() => { store.importEvents(loadDemoMilestones("TSLA"), "symbol", { id: "tsla-demo", name: "TSLA 示例", symbols: ["TSLA"] }); setMessage("TSLA 范本已载入，仅在 TSLA 显示"); }}>载入 TSLA 范本</button>
         </>}
@@ -164,11 +180,11 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
         {selected && <><span>选中：{selected.markerLabel || selected.title}</span><input type="color" aria-label="选中事件颜色" value={selected.color || "#475569"} onChange={e => patch({ eventColors: { ...filters.eventColors, [eventIdentity(selected)]: e.target.value } })} /><button className={button} onClick={() => { const next = { ...filters.eventColors }; delete next[eventIdentity(selected)]; patch({ eventColors: next }); }}>恢复事件颜色</button><label><input type="checkbox" checked={!filters.hiddenMarkerIds?.includes(eventIdentity(selected))} onChange={e => patch({ hiddenMarkerIds: e.target.checked ? filters.hiddenMarkerIds?.filter(id => id !== eventIdentity(selected)) : [...(filters.hiddenMarkerIds || []), eventIdentity(selected)] })} /> 此事件上图</label></>}
       </EventSettingsDialog>}
     <div ref={scrollRef} className={`min-h-0 flex-1 p-1.5 ${mode === "timeline" ? "overflow-x-auto overflow-y-auto" : "overflow-y-auto"}`}>
-      {!events.length ? <div className="flex flex-wrap items-center justify-center gap-2 p-2 text-xs text-fs-muted"><p role="status">{empty.message}</p>{empty.action && <button className={button} onClick={() => { if (empty.action === "retry") result.retry(); else if (empty.action === "manage") setManage(true); else if (empty.action === "clear") onChange(clearEventContentFilters(filters)); else openDiagnostics(); }}>{({ retry: "重试加载", manage: "检查来源与包范围", clear: "清除内容条件后重查", diagnostics: "查看排除原因" })[empty.action]}</button>}</div> :
+      {!events.length ? <div className="flex flex-wrap items-center justify-center gap-2 p-2 text-xs text-fs-muted"><p role="status">{store.authError && !store.ready ? store.authError : cloudEmpty ? store.cloud.loading ? "正在同步账号私有事件包，结果尚未确定…" : "私有事件包同步失败，不能据此判断没有事件。" : empty.message}</p>{store.authError && !store.ready ? <button className={button} onClick={store.retryAuth}>重新确认账号</button> : cloudEmpty ? <button className={button} disabled={store.cloud.loading} onClick={() => void store.cloud.refresh()}>重试云端同步</button> : empty.action && <button className={button} onClick={() => { if (empty.action === "retry") result.retry(); else if (empty.action === "manage") setManage(true); else if (empty.action === "clear") onChange(clearEventContentFilters(filters)); else openDiagnostics(); }}>{({ retry: "重试加载", manage: "检查来源与包范围", clear: "清除内容条件后重查", diagnostics: "查看排除原因" })[empty.action]}</button>}</div> :
         <ul className={mode === "timeline" ? "flex min-w-max items-start gap-1.5" : mode === "cards" ? "grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4" : "space-y-1"}>
           {events.map(event => <li key={event.id} data-event-id={event.id} className={`rounded border p-1.5 ${mode === "timeline" ? "w-[240px] shrink-0" : ""} ${event.id === selectedEventId ? "border-fs-accent bg-fs-accent-soft ring-1 ring-fs-accent" : "border-fs-border bg-fs-elevated"}`}>
             <button aria-pressed={event.id === selectedEventId} className="w-full text-left" onClick={() => onSelectEvent(event.id)}>
-              <span className="flex items-center gap-0.5"><span className="h-1.5 w-2 shrink-0 rounded-full" style={{ backgroundColor: event.color || undefined }} /><time className="text-[10px] tabular-nums text-fs-muted">{event.occurredAt.slice(0, 10)}</time><span className="ml-auto text-[9px] text-fs-muted">{event.sourceKind === "user_local" ? "本地" : event.sourceKind === "sec" ? "SEC" : "共享"}</span></span>
+              <span className="flex items-center gap-0.5"><span className="h-1.5 w-2 shrink-0 rounded-full" style={{ backgroundColor: event.color || undefined }} /><time className="text-[10px] tabular-nums text-fs-muted">{event.occurredAt.slice(0, 10)}</time><span className="ml-auto text-[9px] text-fs-muted">{event.sourceKind === "user_local" ? event.privatePack ? "私有云端" : "本地" : event.sourceKind === "sec" ? "SEC" : "共享"}</span></span>
               <span title={event.title || event.markerLabel || undefined} className="block truncate text-xs font-medium">{event.title || event.markerLabel}</span>
             </button>
             <div className="flex items-center gap-3 text-[11px] text-fs-accent-text"><span className="mr-auto text-[10px] text-fs-muted">{eventTypeLabel(event.eventType)}</span><button className="min-h-7" aria-label={`说明：${event.title || event.markerLabel}`} onClick={() => openDiagnostics(event.id)}>说明{result.chartProjection[event.id]?.status === "merged" ? "·合并" : ""}</button><button className="min-h-7" onClick={() => { onSelectEvent(event.id); onOpenDetail?.(event); }}>详情</button><button className="min-h-7" onClick={() => { onSelectEvent(event.id); onLocateEvent(event); }}>定位 K 线</button></div>
@@ -179,11 +195,19 @@ export function MarketsEventShelf({ localEventStore: store, eventResult: result,
     </div>
     {diagnostics && <EventDiagnosticsDialog source={activeTab} result={result} packs={packSummary} error={activeTab === "system" ? result.error : null} loading={loading} initialEventId={diagnosticEventId} onClose={() => setDiagnostics(false)} onClear={() => { onChange(clearEventContentFilters(filters)); }} onManage={() => { setDiagnostics(false); setManage(true); }} onRetry={result.retry} onRestoreHidden={() => patch({ hiddenEventIds: [] })} from={result.from} to={result.to} onSelect={event => { setDiagnostics(false); setActiveTab(eventSourceGroup(event)); onSelectEvent(event.id); }} />}
     {filtersOpen && <EventFilterSheet filters={filters} onApply={onChange} onClose={() => setFiltersOpen(false)} />}
+    {inspectImport && lastImport && <EventImportResultDialog receipt={lastImport} packs={store.packs} symbol={symbol} filters={allFilters} from={result.from} to={result.to} projection={result.chartProjection} onClose={() => setInspectImport(false)} onManage={() => { setInspectImport(false); setActiveTab("user"); setManage(true); }} onDetail={onOpenDetail ? event => { setInspectImport(false); onOpenDetail(event); } : undefined} />}
     {preview && <EventSettingsDialog title="事件导入预览" onClose={() => setPreview(null)}><div className="w-full text-sm">
-      <strong>导入预览：{preview.name}</strong><p className="my-2">有效 {preview.events.length} 条，其中 {repeated} 条 ID 已存在、{preview.events.length - repeated} 条为新 ID；错误 {preview.errors.length} 条；范围：{preview.target === "all-assets" ? "全部资产" : symbol}</p>
-      {preview.symbol && preview.target === "symbol" && preview.symbol !== symbol && <p className="text-amber-700">文件标的是 {preview.symbol}，当前选择将导入到 {symbol}。可取消后切换资产。</p>}
-      <p>重复 externalId 将更新同包事件；其他事件保留。导入后仍服从当前时间区间和内容筛选。</p>
-      <ul className="my-2 max-h-40 overflow-y-auto text-xs">{preview.errors.map((e,i) => <li key={i} className="text-red-600">{e}</li>)}{preview.events.slice(0,8).map(e => <li key={e.id}>{e.occurredAt.slice(0,10)} · {e.title}</li>)}</ul>
+      <strong>导入预览：{preview.name}</strong>
+      {importError && <p role="alert" className="my-2 text-red-600">{importError}</p>}
+      <p className="my-2">有效 {preview.events.length} 条 · 错误 {preview.errors.length} 条</p>
+      {previewPlan && <div className="space-y-1 text-xs">
+        <p>目标包：{previewPlan.pack.name} · ID：{previewPlan.pack.id}</p>
+        <p>同包新增 {previewPlan.receipt.added} · 更新 {previewPlan.receipt.updated} · 未变 {previewPlan.receipt.unchanged} · 其他原有事件保留 {previewPlan.receipt.retained}</p>
+        <p>其他包出现的相同 ID：{previewPlan.receipt.otherPackIds} 个，不会被覆盖。</p>
+        <p>实际显示范围：{previewPlan.pack.target === "all-assets" ? "全部资产" : previewPlan.pack.symbols?.join("、")} · {previewPlan.pack.enabled ? "已启用" : "保持停用"}</p>
+      </div>}
+      <p className="my-2 text-xs text-fs-muted">只更新目标包内同 ID 的事件，未提交记录及其他包保留。重导保留原包开关和未指定的配色；确认时按最新本地存储重新计算结果。</p>
+      <ul className="my-2 max-h-40 overflow-y-auto text-xs">{preview.errors.map((e,i) => <li key={i} className="text-red-600">{e}</li>)}{previewPlan?.changes.slice(0,8).map(e => <li key={e.externalId}>{({ added: "新增", updated: "更新", unchanged: "未变" })[e.kind]} · {e.title}</li>)}</ul>
       <button className={button} onClick={() => setPreview(null)}>取消</button> <button className={button} disabled={preview.errors.length > 0} onClick={confirmImport}>确认导入</button>
     </div></EventSettingsDialog>}
   </section>;
