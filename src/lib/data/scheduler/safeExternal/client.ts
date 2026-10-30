@@ -4,8 +4,11 @@ import type { ObservationPoint } from "../types";
 import { fetchChinaOfficial } from "../chinaOfficialProxy";
 import { SAFE_DATASETS, type SafeDataset } from "./catalog";
 import { REVIEWED_PAYMENT_PATHS } from "./paymentDefinitions";
+import reviewedHierarchy from "./reviewedHierarchyDefinitions.json";
+import { createSafeHierarchy, safeHierarchyDisplay, safePeriodSemantics } from "./hierarchy";
+const REVIEWED_HIERARCHY_PATHS: Readonly<Record<string, string>> = Object.fromEntries(reviewedHierarchy.map(row => [row.code, row.sourceRowPath]));
 
-export type SafeSeries = { code: string; key: string; dataset: SafeDataset; label: string; category: string; unit: string; freqLabel: "月" | "季" | "年"; points: ObservationPoint[]; sourceRowPath?: string };
+export type SafeSeries = { code: string; key: string; dataset: SafeDataset; label: string; category: string; unit: string; freqLabel: "月" | "季" | "年"; points: ObservationPoint[]; sourceRowPath?: string; periodSemantics?: string };
 const AUDITED_BOP_PATHS: Readonly<Record<string, string>> = {
   safe_cn_bop_00f0898e6481: "1.A.b.8知识产权使用费/借方",
   safe_cn_bop_02629c243ead: "2.2.1非储备性质的金融账户/负债",
@@ -23,7 +26,7 @@ const AUDITED_BOP_PATHS: Readonly<Record<string, string>> = {
 };
 /** Legacy occurrence-based IDs stay stable, but may never silently change meaning. */
 export function assertSafeSeriesIdentity(series: SafeSeries, expectedPath?: string): void {
-  const expected = expectedPath ?? AUDITED_BOP_PATHS[series.code] ?? REVIEWED_PAYMENT_PATHS[series.code];
+  const expected = expectedPath ?? AUDITED_BOP_PATHS[series.code] ?? REVIEWED_PAYMENT_PATHS[series.code] ?? REVIEWED_HIERARCHY_PATHS[series.code];
   if (expected && expected.replace(/\s+/g, "") !== series.sourceRowPath?.replace(/\s+/g, "")) {
     throw new SafeSourceChangedError(`SAFE 成员父级定义变化，拒绝按行序串项：${series.code}`);
   }
@@ -168,8 +171,12 @@ function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName:
   const seen = new Map<string, number>(); const output: SafeSeries[] = [];
   let numberedParent = "";
   let paymentParent = "";
+  const hierarchy = createSafeHierarchy(dataset.key);
   for (const row of rows.slice(headerIndex + 1)) {
     const label = compact(row[0]); if (!label || /^注|^项目$|^单位/.test(label)) continue;
+    let semanticPath: string[] | undefined;
+    try { semanticPath = hierarchy(label, compact(row[1])); }
+    catch (error) { throw new SafeSourceChangedError((error as Error).message); }
     if (dataset.key === "payments" && /^[一二三四五六七八九十]+、/.test(label)) {
       if (!["一、收入", "二、支出", "三、收支差额"].includes(label))
         throw new SafeSourceChangedError(`SAFE 收付款表出现未知收支父级：${label}`);
@@ -177,7 +184,7 @@ function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName:
     }
     if (dataset.key === "bop" && /^\d/.test(label)) numberedParent = label;
     const isBopChild = dataset.key === "bop" && /^(借方|贷方|资产|负债)$/.test(label);
-    const sourceRowPath = dataset.key === "bop"
+    const sourceRowPath = semanticPath ? semanticPath.join("/").replace(/\s+/g, "") : dataset.key === "bop"
       ? (isBopChild ? `${numberedParent}/${label}` : label).replace(/\s+/g, "")
       : dataset.key === "payments" ? (paymentParent === label ? label : `${paymentParent}/${label}`).replace(/\s+/g, "") : undefined;
     if (isBopChild && !numberedParent) throw new SafeSourceChangedError("SAFE BOP 子行缺少明确父级");
@@ -188,12 +195,15 @@ function parseSafeExternalRows(dataset: typeof SAFE_DATASETS[number], sheetName:
         ? rawPoints.filter((point) => !(point.value === 0 && point.obsDate >= new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1))))
         : rawPoints;
       if (!points.length) continue;
+      if (["settlement", "debt", "iip"].includes(dataset.key) && !semanticPath)
+        throw new SafeSourceChangedError(`SAFE 数据行缺少完整语义父级：${dataset.key}/${label}`);
       if (dataset.key === "payments" && !paymentParent)
         throw new SafeSourceChangedError("SAFE 收付款数据行缺少明确收入/支出/收支差额父级");
       const key = `${dataset.key}|${sheetName}|${label}|${occurrence}|${unit}`;
       const series: SafeSeries = { code: seriesCode(dataset.key, sheetName, label, key), key, dataset: dataset.key,
-        label: `${dataset.label}：${sheetName}：${isBopChild ? `${numberedParent}：${label}` : dataset.key === "payments" && paymentParent !== label ? `${paymentParent}：${label}` : label}`,
-        category: dataset.category, unit, freqLabel: frequency(points.map((point) => point.obsDate)), points, sourceRowPath };
+        label: semanticPath ? `${dataset.label}：${safeHierarchyDisplay(dataset.key, sheetName, semanticPath)}` : `${dataset.label}：${sheetName}：${isBopChild ? `${numberedParent}：${label}` : dataset.key === "payments" && paymentParent !== label ? `${paymentParent}：${label}` : label}`,
+        category: dataset.category, unit, freqLabel: frequency(points.map((point) => point.obsDate)), points, sourceRowPath,
+        ...(semanticPath ? { periodSemantics: safePeriodSemantics(dataset.key, sheetName, semanticPath[0]!) } : {}) };
       assertSafeSeriesIdentity(series);
       output.push(series);
     }
@@ -223,6 +233,9 @@ export async function collectSafeExternalHistory(selected: readonly (typeof SAFE
       }
       if (dataset.key === "payments") for (const code of Object.keys(REVIEWED_PAYMENT_PATHS)) {
         if (!local.some((series) => series.code === code)) throw new SafeSourceChangedError(`SAFE 收付款已审阅成员缺失，禁止静默下线：${code}`);
+      }
+      for (const definition of reviewedHierarchy.filter(row => row.sourceSeriesKey.startsWith(`${dataset.key}|`))) {
+        if (!local.some(series => series.code === definition.code)) throw new SafeSourceChangedError(`SAFE 已审阅语义成员缺失，禁止静默下线：${definition.code}`);
       }
     } catch (error) {
       if (!options.skipUnavailable || !(error instanceof SafePageUnavailableError || error instanceof SafeSourceChangedError)) throw error;

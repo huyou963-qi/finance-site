@@ -86,7 +86,7 @@ test("parses SAFE quarterly BOP headers and assigns stable canonical codes", () 
 
 test("skips datasets whose official page was withdrawn without dropping the others", async () => {
   const settlement = SAFE_DATASETS.find((dataset) => dataset.key === "settlement")!;
-  const debt = SAFE_DATASETS.find((dataset) => dataset.key === "debt")!;
+  const debt = SAFE_DATASETS.find((dataset) => dataset.key === "reserve")!;
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([["单位：亿美元"], ["项目", 2024, 2025], ["外债余额", 24000, 24500]]), "Sheet1");
   const loaders = (pageError: Error): SafeLoaders => ({
@@ -98,7 +98,7 @@ test("skips datasets whose official page was withdrawn without dropping the othe
   const result = await collectSafeExternalHistory([settlement, debt], { skipUnavailable: true }, loaders(withdrawn));
   assert.deepEqual(result.unavailable.map((item) => item.dataset), ["settlement"]);
   assert.ok(result.history.size > 0);
-  assert.ok([...result.history.values()].every((series) => series.dataset === "debt"));
+  assert.ok([...result.history.values()].every((series) => series.dataset === "reserve"));
 
   await assert.rejects(collectSafeExternalHistory([settlement, debt], { skipUnavailable: false }, loaders(withdrawn)), SafePageUnavailableError);
   await assert.rejects(collectSafeExternalHistory([settlement, debt], { skipUnavailable: true }, loaders(new Error("外管局页面 HTTP 503"))), /HTTP 503/);
@@ -117,8 +117,10 @@ test("English settlement workbook yields the same series codes and values as the
   const settlementEn = SAFE_DATASETS.find((dataset) => dataset.key === "settlement")!;
   const settlementCn = { key: "settlement" as const, label: "银行结售汇", category: "外汇收支与跨境资金", pages: [] };
   const values = SETTLEMENT_ROWS.map((_, index) => [1000 + index, index === 34 ? "-" : 2000 + index]);
-  const en = XLSX.utils.aoa_to_sheet([["Monthly Data on Foreign Exchange Settlement and Sales by Banks (in USD)"], ["Unit: USD 100 million"], ["Item", null, 45292, 45323], ...SETTLEMENT_ROWS.map(([label], index) => [label, index === 30 ? "Foreign exchange settlement" : null, ...values[index]!]), [null, "Foreign exchange sales", 1, 2]]);
-  const cn = XLSX.utils.aoa_to_sheet([["银行结售汇（以美元计价）"], ["单位：亿美元"], ["项目", null, 45292, 45323], ...SETTLEMENT_ROWS.map(([, label], index) => [label, index === 30 ? "结汇" : null, ...values[index]!]), [null, "售汇", 1, 2]]);
+  const enDirections: Record<number, string> = { 30: "Foreign exchange settlement", 31: "Balance", 32: "Balance", 33: "Foreign exchange settlement" };
+  const cnDirections: Record<number, string> = { 30: "结汇", 31: "差额", 32: "差额", 33: "结汇" };
+  const en = XLSX.utils.aoa_to_sheet([["Monthly Data on Foreign Exchange Settlement and Sales by Banks (in USD)"], ["Unit: USD 100 million"], ["Item", null, 45292, 45323], ...SETTLEMENT_ROWS.map(([label], index) => [label, enDirections[index] ?? null, ...values[index]!]), [null, "Foreign exchange sales", 1, 2]]);
+  const cn = XLSX.utils.aoa_to_sheet([["银行结售汇（以美元计价）"], ["单位：亿美元"], ["项目", null, 45292, 45323], ...SETTLEMENT_ROWS.map(([, label], index) => [label, cnDirections[index] ?? null, ...values[index]!]), [null, "售汇", 1, 2]]);
   const fromEn = parseSafeExternalSheet(settlementEn, "in USD (Monthly)", en);
   const fromCn = parseSafeExternalSheet(settlementCn, "以美元计价（月度）", cn);
   assert.equal(fromEn.length, 35);
@@ -148,7 +150,7 @@ test("picks only the time-series workbook from the English settlement page", () 
 
 test("tolerant collection also skips a dataset whose source layout changed", async () => {
   const settlement = SAFE_DATASETS.find((dataset) => dataset.key === "settlement")!;
-  const debt = SAFE_DATASETS.find((dataset) => dataset.key === "debt")!;
+  const debt = SAFE_DATASETS.find((dataset) => dataset.key === "reserve")!;
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([["单位：亿美元"], ["项目", 2024, 2025], ["外债余额", 24000, 24500]]), "Sheet1");
   const loaders: SafeLoaders = { attachmentUrls: async (page, dataset) => { if (dataset.key === "settlement") throw new SafeSourceChangedError(`changed: ${page}`); return [`${page}.xlsx`]; }, workbook: async () => book };
