@@ -5,7 +5,7 @@ import { eventFiltersForSource, updateEventSourceFilters, type EventViewFilterSt
 /** Expand old shared external-ID preferences into package-scoped keys exactly once. */
 export function migrateLocalEventPreferences(state: EventViewFilterState, packs: LocalEventPack[]): EventViewFilterState {
   const keys = new Map<string, string[]>();
-  for (const pack of packs.filter(p => p.storage !== "cloud")) for (const event of pack.events) {
+  for (const pack of packs) for (const event of pack.events) {
     const externalId = String(event.externalId ?? event.id ?? "");
     if (!externalId) continue;
     keys.set(externalId, [...(keys.get(externalId) ?? []), localPackEventId(pack.id, externalId)]);

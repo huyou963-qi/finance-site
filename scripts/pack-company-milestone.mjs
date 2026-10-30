@@ -16,7 +16,6 @@ const zipPath = path.join(dir, zipName);
 const files = [
   "README.md",
   "SKILL.md",
-  "PRIVATE_DELIVERY.md",
   "ingest-output.schema.json",
   "example-TSLA.json",
 ];
