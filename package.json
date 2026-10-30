@@ -119,6 +119,7 @@
     "data:repair-census-placeholders": "dotenv -e .env.local -- tsx scripts/data-worker/repair-census-placeholders.ts",
     "data:seed-audited-definitions": "dotenv -e .env.local -- tsx scripts/data-worker/seed-audited-definitions.ts",
     "data:repair-safe-payments-definitions": "dotenv -e .env.local -- tsx scripts/data-worker/repair-safe-payments-definitions.ts",
+    "data:repair-safe-hierarchy-definitions": "dotenv -e .env.local -- tsx scripts/data-worker/repair-safe-hierarchy-definitions.ts",
     "data:verify-us-trade-detail": "dotenv -e .env.local -- tsx scripts/data-worker/verify-us-trade-detail.ts",
     "data:seed-manheim-muvvi": "dotenv -e .env.local -- tsx scripts/data-worker/seed-manheim-muvvi.ts",
     "data:sync-manheim-muvvi": "dotenv -e .env.local -- tsx scripts/data-worker/sync-manheim-muvvi.ts",

@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { AUDITED_DEFINITIONS, AUDITED_SOURCE_KEYS, auditedDefinitionMetadata } from "../../src/lib/data/scheduler/auditedDefinitions";
 import { retireReviewedCensusCountries } from "../../src/lib/data/scheduler/usTradeDetail/retireReviewedCountries";
 import { repairReviewedPaymentDefinitions } from "../../src/lib/data/scheduler/safeExternal/paymentDefinitions";
+import { repairSafeHierarchyDefinitions } from "../../src/lib/data/scheduler/safeExternal/repairHierarchyDefinitions";
 
 loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
@@ -59,6 +60,7 @@ async function main() {
   }
   await retireReviewedCensusCountries(prisma);
   console.log(`[safe-payments] repaired ${await repairReviewedPaymentDefinitions(prisma)} reviewed definitions`);
+  console.log("[safe-hierarchy]", await repairSafeHierarchyDefinitions(prisma));
   console.log("[audited-definitions] legacy labels/units/frequency corrected; observation values and schedules preserved");
 }
 main().catch(() => { console.error("[audited-definitions] failed; credentials withheld"); process.exitCode = 1; }).finally(() => prisma.$disconnect());
