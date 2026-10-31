@@ -1,3 +1,4 @@
+import { fetchWorldBankHistory } from "./worldbankTransport";
 import type { FetchIncrementalResult, ObservationPoint } from "../types";
 
 export function worldBankApiCountry(countryCode: string): string | null {
@@ -43,26 +44,8 @@ export async function fetchWorldBankIncremental(
     yearFromIso(observationStart),
   );
   const endYear = new Date().getUTCFullYear() + 1;
-  const url =
-    `https://api.worldbank.org/v2/country/${iso3}/indicator/${encodeURIComponent(indicatorId)}` +
-    `?format=json&date=${startYear}:${endYear}&per_page=1000`;
-
-  const res = await fetch(url, { signal: AbortSignal.timeout(45_000) });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`World Bank HTTP ${res.status}: ${text.slice(0, 300)}`);
-  }
-
-  const json: unknown = await res.json();
-  if (!Array.isArray(json) || json.length < 2 || !Array.isArray(json[1])) {
-    throw new Error(`World Bank: unexpected response (${indicatorId})`);
-  }
-
-  const rows = json[1] as {
-    country?: { id?: string };
-    countryiso3code?: string;
-    date?: string;
-    value?: number | null;
+  const rows = await fetchWorldBankHistory(iso3, indicatorId) as {
+    country?: { id?: string }; countryiso3code?: string; date?: string; value?: number | null;
   }[];
 
   const points: ObservationPoint[] = [];
@@ -79,10 +62,11 @@ export async function fetchWorldBankIncremental(
       continue;
     }
     const y = Number(row.date);
-    if (!Number.isFinite(y)) {
+    if (!/^\d{4}$/.test(row.date) || y > endYear) {
       skippedInvalid += 1;
       continue;
     }
+    if (y < startYear) continue;
     points.push({
       obsDate:
         options?.annualObservationDate === "year_end"

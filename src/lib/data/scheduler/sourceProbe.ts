@@ -1,3 +1,4 @@
+import { fetchWorldBankHistory } from "./adapters/worldbankTransport";
 import { existsSync } from "node:fs";
 import type { PrismaClient } from "@prisma/client";
 import { SourceAdapterKind } from "@prisma/client";
@@ -204,23 +205,9 @@ export async function probeWorldBank(
   indicatorId: string,
 ): Promise<ProbeOutcome> {
   const apiCountry = worldBankApiCountry(countryCode) ?? countryCode;
-  const url =
-    `https://api.worldbank.org/v2/country/${apiCountry}/indicator/${indicatorId}` +
-    `?format=json&date=1960:${new Date().getUTCFullYear() + 1}&per_page=100`;
   const pageUrl = `https://data.worldbank.org/indicator/${indicatorId}?locations=${apiCountry}`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(45_000) });
-    if (!res.ok) {
-      return pending({
-        method: "worldbank_api",
-        methodLabel: "世界银行开放 API",
-        officialUrl: pageUrl,
-        message: "世行 API 请求失败",
-        error: `HTTP ${res.status}`,
-      });
-    }
-    const json = (await res.json()) as unknown[];
-    const rows = (json[1] ?? []) as { date?: string; value?: number | null }[];
+    const rows = await fetchWorldBankHistory(apiCountry, indicatorId) as { date?: string; value?: number | null }[];
     const valid = rows.filter((r) => r.value != null && Number.isFinite(r.value) && /^\d{4}$/.test(r.date ?? ""))
       .sort((a, b) => Number(a.date) - Number(b.date));
     if (valid.length === 0) {
