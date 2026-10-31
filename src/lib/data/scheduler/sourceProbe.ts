@@ -199,17 +199,17 @@ async function probeFredSearch(
   }
 }
 
-async function probeWorldBank(
+export async function probeWorldBank(
   countryCode: string,
   indicatorId: string,
 ): Promise<ProbeOutcome> {
   const apiCountry = worldBankApiCountry(countryCode) ?? countryCode;
   const url =
     `https://api.worldbank.org/v2/country/${apiCountry}/indicator/${indicatorId}` +
-    `?format=json&date=2018:2030&per_page=5`;
+    `?format=json&date=1960:${new Date().getUTCFullYear() + 1}&per_page=100`;
   const pageUrl = `https://data.worldbank.org/indicator/${indicatorId}?locations=${apiCountry}`;
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(45_000) });
     if (!res.ok) {
       return pending({
         method: "worldbank_api",
@@ -221,7 +221,8 @@ async function probeWorldBank(
     }
     const json = (await res.json()) as unknown[];
     const rows = (json[1] ?? []) as { date?: string; value?: number | null }[];
-    const valid = rows.filter((r) => r.value != null && Number.isFinite(r.value));
+    const valid = rows.filter((r) => r.value != null && Number.isFinite(r.value) && /^\d{4}$/.test(r.date ?? ""))
+      .sort((a, b) => Number(a.date) - Number(b.date));
     if (valid.length === 0) {
       return pending({
         method: "worldbank_api",
@@ -238,7 +239,7 @@ async function probeWorldBank(
       officialUrl: pageUrl,
       sampleObsDate: last.date ? `${last.date}-01-01` : undefined,
       sampleValue: last.value ?? undefined,
-      message: "世行 API 拉取成功",
+      message: `世行 API 历史可获取，最新非空年度 ${last.date}；不代表近期仍发布`,
     });
   } catch (e) {
     return pending({

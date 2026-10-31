@@ -3,7 +3,7 @@ import { WGC_GOLD_PRICE_SOURCE } from "./catalog";
 /**
  * 接口按窗口长度决定粒度（2026-09-21 实测）：
  * - 约 30 天以内 → 每 30 分钟的**盘中实时价**（含周末），不是 LBMA 定盘价；
- * - 30 天到约两年 → 日度定盘价（时间戳为 UTC 零点）；更长会被降采样。
+ * - 30 天到约两年 → 日度价格点（时间戳为 UTC 零点）；更长会被降采样。UTC零点只是粒度筛选，不证明LBMA AM/PM身份。
  * 所以每段窗口限定在 [MIN, MAX] 天之间：尾段不足 MIN 时往前延伸（重叠部分按日期去重）。
  */
 export const WGC_MAX_WINDOW_DAYS = 300;
@@ -17,7 +17,7 @@ type WgcChartResponse = {
 
 /**
  * 解析 `chartData.<CCY> = [[毫秒时间戳, 价格], ...]` → 按日期去重排序的点。
- * 只收 UTC 零点的点（日度定盘价）；盘中点即便混进来也丢弃，不会被当成当日定盘价写库。
+ * 只收 UTC 零点的点（日度价格点）；盘中点即便混进来也丢弃，不会被当成当日价格写库。
  */
 export function parseWgcGoldPrice(
   json: unknown,

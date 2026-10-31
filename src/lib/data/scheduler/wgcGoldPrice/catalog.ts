@@ -1,5 +1,5 @@
 /**
- * 世界黄金协会（WGC）金价接口：LBMA 黄金价格（美元/盎司，日频）。
+ * 世界黄金协会（WGC）金价接口：日度黄金价格（美元/金衡盎司；LBMA基准身份未确认）。
  *
  * 标准仪器定义见 goldPrices/catalog.ts（wgc_gold_price_usd）。
  *
@@ -10,7 +10,7 @@
 export const WGC_GOLD_PRICE_SOURCE = {
   id: "wgc-goldprice",
   agencyId: "intl-wgc",
-  name: "World Gold Council gold price API（LBMA 金价，美元/盎司）",
+  name: "World Gold Council daily gold price API（benchmark unconfirmed）",
   baseUrl: "https://fsapi.gold.org/api/goldprice/v11/chart/price/usd/oz",
   termsUrl: "https://www.gold.org/terms-and-conditions",
   pageUrl: "https://www.gold.org/goldhub/data/gold-prices",
