@@ -1,5 +1,5 @@
 /**
- * 黄金现货（WGC LBMA 金价）/ COMEX 黄金期货（Yahoo GC=F）/ NYMEX WTI 原油期货（Yahoo CL=F）标准序列——种子
+ * 黄金价格（WGC日度接口，基准未确认）/ COMEX 黄金期货（Yahoo GC=F）/ NYMEX WTI 原油期货（Yahoo CL=F）标准序列——种子
  *
  * npm run data:seed -- --catalog=gold-prices
  * npm run data:seed-gold-prices -- --dry-run
@@ -99,6 +99,7 @@ function buildMetadata(row: GoldPriceInstrumentDef, prev: Record<string, unknown
       bootstrapOnly: false,
       source: row.source.name,
       providerNote: row.description,
+      ...(row.code === "wgc_gold_price_usd" ? { benchmarkIdentity: "unconfirmed", licensingReview: "unconfirmed" } : {}),
       sourceUrl: row.source.officialUrl,
       officialUrl: row.source.officialUrl,
       countryCode: "US",

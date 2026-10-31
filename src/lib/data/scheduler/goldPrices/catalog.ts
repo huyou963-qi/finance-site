@@ -14,9 +14,8 @@ import {
  * COMEX 连续 2020 年后与 GC=F 中位差 8 美元），且无法从任何可自动更新的源复现。
  * 改为每条**整段只用一个源**：
  *
- * - wgc_gold_price_usd：世界黄金协会 LBMA 黄金价格，美元/盎司，日频，1970 年起。
- *   与旧 IDC 伦敦金现同日差值中位数 0.41%（取价时点不同：LBMA 伦敦下午定盘 vs IDC 收盘），
- *   错开一天差值变大，说明日期对齐无误。LBMA 金价归 ICE Benchmark Administration 所有。
+ * - wgc_gold_price_usd：世界黄金协会日度金价接口，美元/金衡盎司，1970 年起。
+ *   接口未声明LBMA AM/PM基准；时间戳与价格接近不能证明取价时点或基准身份。
  * - comex_gold_futures：COMEX 黄金期货连续合约收盘价（Yahoo GC=F），日频，2000-08 起。
  *   ⚠ Yahoo 的换月规则未公开且变过：2000–2009 与近月连续逐日相等，2020Q2 起跟踪主力合约。
  *   逐合约日线在 mds.futures_contract_bar（futures:snapshot-gold），这里只存交易所连续报价。
@@ -48,10 +47,10 @@ export type GoldPriceInstrumentDef = {
 export const GOLD_PRICE_INSTRUMENTS: readonly GoldPriceInstrumentDef[] = [
   {
     code: GOLD_SPOT_CODE,
-    name: "黄金现货价格:LBMA金价(美元/盎司)",
-    nameEn: "LBMA Gold Price (USD/oz)",
-    shortName: "伦敦金现",
-    description: "LBMA 黄金价格（伦敦下午定盘），美元/盎司，日频；世界黄金协会发布。",
+    name: "世界黄金协会金价（日度接口，基准未确认）",
+    nameEn: "WGC daily gold price (benchmark unconfirmed, USD/troy oz)",
+    shortName: "WGC日度金价",
+    description: "世界黄金协会公开接口日度金价，美元/金衡盎司；接口未声明LBMA AM/PM身份或定盘时点，基准及再分发授权仍待确认。",
     unit: "美元/盎司",
     freqLabel: "日",
     source: {

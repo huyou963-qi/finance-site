@@ -6,6 +6,19 @@ import { releaseRuleForFinancialStress } from "./financialStressFredSeedCatalog"
 import { RELEASE_PACKAGE_CATALOG } from "./releasePackageCatalog";
 import { calendarSpecForSubscription } from "./teEventMap";
 import { releaseRuleForPilot } from "./p0SeedCatalog";
+import { GOLD_PRICE_INSTRUMENTS } from "./goldPrices/catalog";
+
+test("both gold definition paths remove unproven benchmark identity without changing acquisition", () => {
+  const definition = AUDITED_DEFINITIONS.find(row => row.code === "wgc_gold_price_usd")!;
+  assert.equal(definition.name, GOLD_PRICE_INSTRUMENTS[0]!.name);
+  const metadata = auditedDefinitionMetadata({ scrape: { provider: "wgc_gold_price", currency: "usd", unit: "oz" },
+    fetchAcquisition: { status: "known", message: "LBMA PM" }, providerNote: "LBMA PM" }, definition);
+  assert.equal(metadata.benchmarkIdentity, "unconfirmed");
+  assert.deepEqual(metadata.scrape, { provider: "wgc_gold_price", currency: "usd", unit: "oz" });
+  assert.equal(metadata.fetchAcquisition?.message, GOLD_PRICE_INSTRUMENTS[0]!.description);
+  assert.equal((metadata.fetchAcquisition as Record<string, unknown>).status, "known");
+  assert.equal(metadata.definitionAudit, "2026-10-31-benchmark-unconfirmed");
+});
 
 test("October24 awaiting-sale definitions preserve IDs and scrape provider", () => {
   for (const [code, unit, key] of [

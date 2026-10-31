@@ -1,3 +1,4 @@
+import { GOLD_PRICE_INSTRUMENTS, GOLD_SPOT_CODE } from "../../src/lib/data/scheduler/goldPrices/catalog";
 import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@prisma/client";
 import { AUDITED_DEFINITIONS, AUDITED_SOURCE_KEYS, auditedDefinitionMetadata } from "../../src/lib/data/scheduler/auditedDefinitions";
@@ -23,6 +24,7 @@ async function main() {
         releaseRule: { type: "probe_interval", intervalHours: 1 } } });
     }
     await prisma.instrument.update({ where: { id: old.id }, data: {
+      ...(definition.code === GOLD_SPOT_CODE ? { nameEn: GOLD_PRICE_INSTRUMENTS[0]!.nameEn, description: GOLD_PRICE_INSTRUMENTS[0]!.description } : {}),
       name: definition.name, shortName: definition.name, unit: definition.unit, freqLabel: definition.freqLabel,
       ...(definition.code === "sched_fred_UMCSENT" ? { externalRefs: {
         ...(old.externalRefs && typeof old.externalRefs === "object" && !Array.isArray(old.externalRefs) ? old.externalRefs : {}),

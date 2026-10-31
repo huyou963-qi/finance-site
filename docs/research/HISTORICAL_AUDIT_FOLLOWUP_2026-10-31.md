@@ -23,3 +23,13 @@
 Zillow公开平滑季调CSV最新2026-09-30值1931.9376933761196，按既有两位小数为1931.94，与库内2026-09月一致；原“停8月”问题消失。BTS官方2026-10-14发布2026-08货运TSI134.4，与库内一致，下一次9月发布为11月12日。
 
 仍需处理的类别包括：NBS年度FAI19条缺2025窄行业披露；WB23条全空覆盖；Census未确认历史代码与当前API缺行；CME/ICE授权或原始文件访问；IMF尺度和WGC基准定义；项目自算代理与原始官方指标的边界。网站可达或观测前进不计作已独立确认有效。其余条目完整生产快照和分组证据保存在本机，不在HK保存报告/备份；本次没有声称1021条全部结案。
+
+## 第二轮：WGC基准声明修复
+
+原目录与描述直接将wgc_gold_price_usd称为LBMA伦敦下午定盘价；接口返回UTC零点不能证明AM/PM基准身份。WGC官方 https://www.gold.org/goldhub/data/gold-prices 区分spot与LBMA，并说明2025-03-18后按ICE要求移除部分历史LBMA数据，单位为currency per troy ounce。不能仅凭接口可访问与日期对齐认定为LBMA PM。
+
+常规gold-prices seed与离线audited-definitions seed统一改为“世界黄金协会金价（日度接口，基准未确认）”，同步英文名、描述、providerNote及acquisition.message；scrape键、币种、单位、观测、版本与计划保持原状，benchmarkIdentity/licensingReview保留unconfirmed。不是授权证明，也不把该条审计状态改成verified。部署代码尚未执行。
+
+新增回归核对两条定义写入路径一致、旧metadata中的误导说明移除、既有scrape及获取状态保留；既有WGC日度/盘中过滤与窗口边界测试继续验证。
+
+IMF IL官方JSON仍带SCALE=6，而原始OBS_VALUE已是约十亿FTO量级；通用SDMX倍数定义不能替代对该API是否已展开尺度的明确解释，因此不凭数量合理性改动换算系数。NBS窄行业年度缺值、原始来源访问与授权等仍保留待核验结论。
