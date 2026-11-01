@@ -118,7 +118,7 @@ export function EquitySectorsClient() {
             {tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setView(tab.id)} aria-pressed={view === tab.id} className={`rounded-md px-3 py-2 text-left transition ${view === tab.id ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`}><span className="block text-sm font-semibold">{tab.label}</span><span className="mt-0.5 block text-[10px] font-semibold opacity-80">{tab.description}</span></button>)}
           </div>
           <div className="px-1 text-right">
-            <p className="text-xs font-semibold tracking-[0.14em] text-fs-accent-text">美股行业轮动研究</p>
+            <h1 className="text-sm font-semibold tracking-[0.14em] text-fs-accent-text">美股历史</h1>
             <p className="mt-0.5 text-xs text-fs-muted">从当前宏观环境出发，用历史相似阶段解释行业强弱，再用基本面与可审计证据验证结论。</p>
             <p className="mt-0.5 text-xs text-fs-muted">先看现在，再回看历史；研究证据单独呈现。</p>
           </div>

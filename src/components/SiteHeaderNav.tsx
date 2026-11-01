@@ -42,9 +42,15 @@ const MAIN_LINKS = [
   { featureId: "markets", href: "/markets", label: "行情", match: ["/markets", "/equity/stocks"] },
   { featureId: "macro", href: "/macro", label: "宏观数据", match: ["/macro"] },
   {
+    featureId: "equity-industries",
+    href: "/equity/industries",
+    label: "美股行业",
+    match: ["/equity/industries"],
+  },
+  {
     featureId: "equity-sectors",
     href: "/equity/sectors",
-    label: "美股行业",
+    label: "美股历史",
     match: ["/equity/sectors"],
   },
   {
@@ -210,11 +216,11 @@ export function SiteHeaderNav() {
         : "text-fs-muted hover:text-[#062f42]"
     }`;
 
-  // 主入口顺序：行情、宏观、指标预测、美股行业、持股监控、投资记录、量化、时间线、
+  // 主入口顺序：行情、宏观、指标预测、美股行业、美股历史、持股监控、投资记录、量化、时间线、
   // AI周度观察、文章。指标预测与量化是带分页的分组入口，插在对应位置。
   const marketAndMacroLinks = MAIN_LINKS.slice(0, 2);
-  const beforeQuant = MAIN_LINKS.slice(2, 5);
-  const afterQuant = MAIN_LINKS.slice(5);
+  const beforeQuant = MAIN_LINKS.slice(2, 6);
+  const afterQuant = MAIN_LINKS.slice(6);
 
   const renderMain = (items: readonly (typeof MAIN_LINKS)[number][]) =>
     items

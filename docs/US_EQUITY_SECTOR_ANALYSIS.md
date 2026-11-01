@@ -61,6 +61,11 @@
 配置：`src/lib/equity/sectorMacroMap.ts` → `CYCLE_BACKGROUND_KEYS`。  
 不用工业生产同比：滞后且与 ISM 重叠。
 
+## 美股行业与美股历史入口
+
+- `/equity/industries` 为「美股行业」：按11只行业ETF持仓查看历史营收、利润率、现金流及公司基本面，支持单季/TTM。口径、资源预算与验证见 [US_EQUITY_INDUSTRY_FINANCIALS.md](./US_EQUITY_INDUSTRY_FINANCIALS.md)。
+- 原 `/equity/sectors` 改名「美股历史」，路径和功能权限保持，继续提供历史阶段、行业轮动与研究证据。
+
 ## 数据命令
 
 ```bash

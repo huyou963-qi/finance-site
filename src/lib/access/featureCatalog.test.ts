@@ -19,6 +19,16 @@ const PRO: FeatureViewer = { role: "user", hasProAccess: true };
 const STANDARD: FeatureViewer = { role: "user", hasProAccess: false, trialEnded: true };
 const VISITOR: FeatureViewer = { role: null, hasProAccess: false };
 
+test("industry financials and renamed history have independent feature entries", () => {
+  assert.equal(featureIdForPath("/equity/industries"), "equity-industries");
+  assert.equal(featureIdForPath("/equity/sectors"), "equity-sectors");
+  assert.equal(FEATURE_CATALOG.find(row => row.id === "equity-industries")?.label, "美股行业");
+  assert.equal(FEATURE_CATALOG.find(row => row.id === "equity-sectors")?.label, "美股历史");
+  const policy = withRule("equity-industries", { status: "development", preview: { visitor: false, standard: false, pro: false } });
+  assert.equal(resolveFeatureAccess(policy, "equity-industries", VISITOR), "hidden");
+  assert.equal(resolveFeatureAccess(policy, "equity-sectors", VISITOR), "allowed");
+});
+
 function withRule(id: string, rule: Partial<FeatureRule>): FeatureAccessPolicy {
   const policy = defaultFeatureAccessPolicy();
   policy.features[id] = {

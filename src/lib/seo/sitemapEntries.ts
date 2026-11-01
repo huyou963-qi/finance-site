@@ -16,6 +16,7 @@ export const STATIC_SITEMAP_PAGES: readonly {
   { path: "/markets", changeFrequency: "daily", priority: 0.8 },
   { path: "/markets-tools", changeFrequency: "weekly", priority: 0.5 },
   { path: "/equity/sectors", changeFrequency: "daily", priority: 0.8 },
+  { path: "/equity/industries", changeFrequency: "daily", priority: 0.8 },
   { path: "/quant/screener", changeFrequency: "weekly", priority: 0.7 },
   { path: "/quant/backtest", changeFrequency: "weekly", priority: 0.6 },
   { path: "/quant/factor-research", changeFrequency: "weekly", priority: 0.6 },

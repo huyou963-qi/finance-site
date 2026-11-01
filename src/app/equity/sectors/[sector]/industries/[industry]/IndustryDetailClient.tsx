@@ -147,7 +147,7 @@ export function IndustryDetailClient({
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4">
       <div className="text-xs text-fs-muted">
         <Link href="/equity/sectors" className="hover:text-fs-accent-text">
-          美股行业
+          美股历史
         </Link>
         <span className="mx-1">/</span>
         <Link
