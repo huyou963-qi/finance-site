@@ -1,3 +1,4 @@
+import { CP_FRED_IDS } from "./scheduler/usFinancing/catalog";
 /**
  * 美国宏观指标目录 — 权威分类（大类 + 子类）
  * 用于 fredCatalog、MDS metadata、MacroCatalogLayout 重建。
@@ -27,7 +28,7 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
   通胀与价格: ["CPI", "PCE与PPI", "二手车批发价格", "通胀预期与能源", "黄金与贵金属"],
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
   货币政策与流动性: ["政策利率", "联储资产负债表", "财政部账户与货币市场"],
-  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场", "美股风格因子", "美股市场广度"],
+  利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场", "商业票据发行与余额", "美股风格因子", "美股市场广度"],
   金融条件与银行: ["金融条件指数", "银行信贷", "资产质量"],
   财政与公共债务: [
     "MTS现金流量",
@@ -239,6 +240,7 @@ const FRED_LOGISTICS = new Set([
 
 function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   const id = fredId.toUpperCase();
+  if (CP_FRED_IDS.has(id)) return p("利率与信用市场", "商业票据发行与余额");
   if (FRED_LOGISTICS.has(id)) return p("国民经济", "物流与出行");
   if (FRED_CPI.has(id)) return p("通胀与价格", "CPI");
   // CUSR0000 = CPI-U 季调分项，CUUR0000 = CPI-U 未季调分项

@@ -279,6 +279,8 @@ npm run events:validate-ingest -- <file.json>
 npm run events:import-ingest -- <file.json>
 ```
 
+「美国周度融资余额」：`data:seed-us-financing` / `data:sync-us-financing` / `data:verify-us-financing -- --db --live`；仅新增4条FRED商业票据官方周余额，1发布包每168小时更新，24个月修订回读；本批不新增日频发行、逐笔、期限桶或DTS订阅。余额变化走指标运算。定义与验收见 [docs/specs/us-official-high-frequency-financing.spec.md](./docs/specs/us-official-high-frequency-financing.spec.md)。
+
 ## 数据底层复用原则（强制）
 
 所有新功能必须遵守 [数据底层复用与单一事实源设计原则](./docs/DATA_FOUNDATION_REUSE_PRINCIPLES.md)：先复用已有 Source Adapter、scheduler、canonical fact store、统一 writer 和查询/计算服务，再考虑新增底层。不得为宏观、量化、美股行业或单个页面另建同源抓取器、同义事实表、复权/as-of/Regime/因子算法。确需新增表或底层能力时，设计文档必须先说明它表达的新事实、与现有底层的主从关系、上游血缘和重建方式。

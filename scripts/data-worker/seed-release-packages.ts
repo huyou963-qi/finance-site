@@ -19,6 +19,9 @@ loadEnvConfig(process.cwd());
 const prisma = new PrismaClient();
 
 async function main() {
+  const selected = process.argv.find((a) => a.startsWith("--packages="))?.slice(11).split(",");
+  if (selected?.some((id) => !RELEASE_PACKAGE_CATALOG.some((p) => p.id === id))) throw new Error("Unknown release package");
+  const definitions = selected ? RELEASE_PACKAGE_CATALOG.filter((p) => selected.includes(p.id)) : RELEASE_PACKAGE_CATALOG;
   const instruments = await prisma.instrument.findMany({
     select: { id: true, code: true, fredSeriesId: true },
   });
@@ -28,7 +31,7 @@ async function main() {
   let subsLinked = 0;
 
   console.log("[data:seed-release-packages] 写入发布包…");
-  for (const def of RELEASE_PACKAGE_CATALOG) {
+  for (const def of definitions) {
     const previousPackage = await prisma.releasePackage.findUnique({
       where: { id: def.id }, select: { releaseTemplate: true },
     });
@@ -105,7 +108,7 @@ async function main() {
   }
 
   const retired = await prisma.releasePackage.deleteMany({
-    where: { id: { in: [...RETIRED_RELEASE_PACKAGE_IDS] } },
+    where: { id: { in: selected ? [] : [...RETIRED_RELEASE_PACKAGE_IDS] } },
   });
   if (retired.count > 0) {
     console.log(
@@ -114,7 +117,7 @@ async function main() {
   }
 
   console.log(
-    `[data:seed-release-packages] 完成：${RELEASE_PACKAGE_CATALOG.length} 包，${memberLinks} 成员，${subsLinked} 订阅已链接`,
+    `[data:seed-release-packages] 完成：${definitions.length} 包，${memberLinks} 成员，${subsLinked} 订阅已链接`,
   );
   console.log("  下一步：npm run data:sync-calendar");
 }

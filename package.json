@@ -407,7 +407,10 @@
     "data:seed-mof-budget-accounts": "dotenv -e .env.local -- tsx scripts/data-worker/seed-mof-budget-accounts.ts",
     "data:sync-mof-budget-accounts": "dotenv -e .env.local -- tsx scripts/data-worker/sync-mof-budget-accounts.ts",
     "data:verify-mof-budget-accounts": "dotenv -e .env.local -- tsx scripts/data-worker/verify-mof-budget-accounts.ts",
-    "data:repair-mof-fiscal-periods": "dotenv -e .env.local -- tsx scripts/data-worker/repair-mof-fiscal-periods.ts"
+    "data:repair-mof-fiscal-periods": "dotenv -e .env.local -- tsx scripts/data-worker/repair-mof-fiscal-periods.ts",
+    "data:seed-us-financing": "dotenv -e .env.local -- tsx scripts/data-worker/seed-us-financing.ts",
+    "data:sync-us-financing": "dotenv -e .env.local -- tsx scripts/data-worker/sync-us-financing.ts",
+    "data:verify-us-financing": "dotenv -e .env.local -- tsx scripts/data-worker/verify-us-financing.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

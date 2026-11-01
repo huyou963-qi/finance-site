@@ -1,3 +1,4 @@
+import { CP_FRED_SERIES, CP_WEEKLY_PACKAGE, FINANCING_PROBE_HOURS } from "./usFinancing/catalog";
 import type { DataGranularity } from "@prisma/client";
 import { BOJ_SERIES } from "./boj/catalog";
 import { JGB_SERIES } from "./japanMofJgb/catalog";
@@ -1083,6 +1084,10 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
         "treasury_mts_m09_discretionary_proxy",
       ],
     },
+  }),
+  probePkg(CP_WEEKLY_PACKAGE, "美国商业票据余额（周）", {
+    agencyId: "us-frb", granularity: "WEEKLY", intervalHours: FINANCING_PROBE_HOURS, sortOrder: 214,
+    members: { fredSeriesIds: CP_FRED_SERIES.map((row) => row.fredId) },
   }),
   probePkg("us.treasury.dts", "美国财政部 DTS 日频现金", {
     labelEn: "Daily Treasury Statement",
