@@ -9,6 +9,7 @@ import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
 import { SITE } from "@/lib/siteTheme";
 import type { FinancialBasis, FinancialMember, FinancialMetric, MembershipBasis } from "@/lib/equity/industryFinancials";
 import type { IndustryFinancialResponse } from "@/lib/equity/industryFinancialsStore";
+import { readIndustryFinancialResponse } from "@/lib/equity/industryFinancialResponse";
 
 const Chart = dynamic(() => import("@/components/equity/IndustryFinancialChart").then(module => module.IndustryFinancialChart), {
   ssr: false, loading: () => <div className="flex h-56 items-center justify-center text-xs text-fs-muted">加载图表…</div>,
@@ -45,11 +46,7 @@ export function IndustryFinancialsClient() {
     const query = new URLSearchParams({ etf, quarters: String(quarters), membership });
     if (period) query.set("period", period);
     fetch(`/api/equity/industry-financials?${query}`, { signal: controller.signal, cache: "no-store" })
-      .then(async response => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error ?? "行业财务加载失败");
-        return payload as IndustryFinancialResponse;
-      })
+      .then(response => readIndustryFinancialResponse<IndustryFinancialResponse>(response))
       .then(payload => { if (!controller.signal.aborted) setData(payload); })
       .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "行业财务加载失败"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });

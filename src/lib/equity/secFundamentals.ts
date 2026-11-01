@@ -106,7 +106,30 @@ export async function fetchSecCompanyFacts(
     opts.timeoutMs ?? (Number(process.env.SEC_FETCH_TIMEOUT_MS) || 10_000);
   const padded = padCik(cik);
   const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${padded}.json`;
-  return fetchSecJson(url, timeoutMs);
+  const facts = await fetchSecJson(url, timeoutMs);
+  // 2026-07-01 迁册后的继任注册人（8-K12B，0001193125-26-291990）。
+  // 同一合并集团，旧 CIK 财报只补到继任生效前，不将收购/拆分公司历史拼进来。
+  if (Number(cik) === 2115436) {
+    const predecessor = await fetchSecJson("https://data.sec.gov/api/xbrl/companyfacts/CIK0000034088.json", timeoutMs);
+    return mergeExxonPredecessorFacts(facts, predecessor);
+  }
+  return facts;
+}
+
+export function mergeExxonPredecessorFacts(current: unknown, predecessor: unknown): unknown {
+  type CompanyFacts = { cik?: number | string; facts?: { "us-gaap"?: Record<string, SecConcept> } };
+  const now = current as CompanyFacts;
+  const old = predecessor as CompanyFacts;
+  if (Number(now?.cik) !== 2115436 || Number(old?.cik) !== 34088) return current;
+  const gaap = { ...now.facts?.["us-gaap"] };
+  for (const [name, concept] of Object.entries(old.facts?.["us-gaap"] ?? {})) {
+    const units = { ...gaap[name]?.units };
+    for (const [unit, points] of Object.entries(concept.units ?? {})) {
+      units[unit] = [...points.filter(p => typeof p.end === "string" && p.end < "2026-07-01"), ...(units[unit] ?? [])];
+    }
+    gaap[name] = { ...concept, ...gaap[name], units };
+  }
+  return { ...now, facts: { ...now.facts, "us-gaap": gaap } };
 }
 
 /** 从 companyfacts 提取最近两个财年，算 YoY 与利润率 */
@@ -338,10 +361,15 @@ function isQuarterSpan(days: number): boolean {
 export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
   const deduped = dedupeDurationPoints(points);
   const byEnd = new Map<string, FlowQuarter>();
+  // 12/12/12/16 周零售财年：长第四季必须有同终点全年及同起点九个月累计作证。
+  const retailFourth = (start: string, end: string, days: number) => days > 100 && days <= 120
+    && deduped.some(a => a.end === end && a.days >= 330 && a.days <= 380
+      && Math.round((dateMs(start) - dateMs(a.start)) / DAY_MS) >= 230
+      && Math.round((dateMs(start) - dateMs(a.start)) / DAY_MS) <= 290);
 
   // 1) 直接单季点
   for (const p of deduped) {
-    if (!isQuarterSpan(p.days)) continue;
+    if (!isQuarterSpan(p.days) && !retailFourth(p.start, p.end, p.days)) continue;
     const prev = byEnd.get(p.end);
     if (!prev || prev.derived) {
       byEnd.set(p.end, {
@@ -366,7 +394,8 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
     for (const p of deduped) {
       if (p.start !== c.start || p.end >= c.end) continue;
       const gap = Math.round((cEndMs - dateMs(p.end)) / DAY_MS);
-      if (!isQuarterSpan(gap)) continue;
+      if (!isQuarterSpan(gap) && !(c.days >= 330 && c.days <= 380
+        && p.days >= 230 && p.days <= 290 && gap > 100 && gap <= 120)) continue;
       if (!prefix || p.filed > prefix.filed) prefix = p;
     }
 
@@ -479,7 +508,25 @@ function pickFlowQuarterSeries(
       magnitude: last4.reduce((s, q) => s + Math.abs(q.val), 0),
     });
   };
-  for (const name of names) addCand(quarterlyFlowSeries(pickUnitPoints(gaap[name], unitKeys)));
+  for (const name of names) {
+    const own = pickUnitPoints(gaap[name], unitKeys);
+    const mergedPoints = [...own];
+    const ownBySpan = new Map(dedupeDurationPoints(own).map(p => [`${p.start}|${p.end}`, p]));
+    // 同一现金流科目的 FY 与九个月累计可能分别在新旧 tag 下。
+    // 先核对原始同区间金额，再跨 tag 差分，否则只合并季度仍会漏掉 Q4。
+    for (const other of names) {
+      if (other === name) continue;
+      const points = pickUnitPoints(gaap[other], unitKeys);
+      const overlap = dedupeDurationPoints(points).filter(p => ownBySpan.has(`${p.start}|${p.end}`))
+        .sort((a, b) => b.end.localeCompare(a.end)).slice(0, 12);
+      if (overlap.filter(p => p.val !== 0).length < 2 || !overlap.every(p => {
+        const a = ownBySpan.get(`${p.start}|${p.end}`)!;
+        return Math.abs(a.val - p.val) <= Math.max(1, Math.abs(a.val), Math.abs(p.val)) * 0.02;
+      })) continue;
+      mergedPoints.push(...points.filter(p => !ownBySpan.has(`${p.start}|${p.end}`)));
+    }
+    addCand(quarterlyFlowSeries(mergedPoints));
+  }
   // 合成候选（如「商品+服务」营收）排在具名 tag 之后：只作拼接来源，不抢主候选
   for (const s of opts.extraSeries ?? []) addCand(s);
   if (!cands.length) return [];
@@ -494,6 +541,28 @@ function pickFlowQuarterSeries(
   }
 
   const merged = best.series.map((q) => ({ ...q }));
+
+  // 同科目换 tag 后旧年份会留在另一 tag 中，甚至主序列中间有洞。
+  // 只用缺口附近至少两个同值重叠季证明同口径，保留原始金额，绝不按比例估算。
+  // 对比固定主候选，避免新补的值成为后续候选的自证依据。
+  const original = new Map(best.series.map(q => [q.end, q]));
+  const present = new Set(merged.map(q => q.end));
+  for (const c of cands) {
+    if (c === best) continue;
+    const overlaps = c.series.filter(q => original.has(q.end));
+    for (const q of c.series) {
+      if (present.has(q.end)) continue;
+      const nearby = [...overlaps].sort((a, b) => Math.abs(dateMs(a.end) - dateMs(q.end))
+        - Math.abs(dateMs(b.end) - dateMs(q.end))).slice(0, 4);
+      if (nearby.filter(o => o.val !== 0 && original.get(o.end)!.val !== 0).length < 2 || !nearby.every(o => {
+        const main = original.get(o.end)!;
+        return Math.abs(main.val - o.val) <= Math.max(1, Math.abs(main.val), Math.abs(o.val)) * 0.02;
+      })) continue;
+      merged.push({ ...q });
+      present.add(q.end);
+    }
+  }
+  merged.sort((a, b) => a.end.localeCompare(b.end));
 
   // 换 tag 时代拼接（深历史的关键）：主候选只覆盖「现行 tag 时代」——AAPL 的
   // RevenueFromContractWithCustomer 只到 2017-09、MSFT 只到 2016-06，更早的营收在
@@ -793,7 +862,12 @@ export function extractQuarterlyFundamentals(
   const niQ = flowSeries(FLOW_CONCEPTS.netIncome, ["USD"]);
   const epsQ = flowSeries(FLOW_CONCEPTS.eps, ["USD/shares", "pure"]);
   const ocfQ = flowSeries(FLOW_CONCEPTS.ocf, ["USD"]);
-  const capexQ = flowSeries(FLOW_CONCEPTS.capex, ["USD"]);
+  // Lilly 的 OtherPPE 实际标注总 PPE 购置（2024 10-K 现金流表 5,057.8m）。
+  // 仅该已核实发行人使用；其他公司的 Other 可能只是子项，不能全市场回退。
+  const capexNames = Number((facts as { cik?: number }).cik) === 59478
+    ? [...FLOW_CONCEPTS.capex, "PaymentsToAcquireOtherPropertyPlantAndEquipment"]
+    : FLOW_CONCEPTS.capex;
+  const capexQ = flowSeries(capexNames, ["USD"]);
   const divQ = flowSeries(FLOW_CONCEPTS.dividendsPaid, ["USD"]);
   const buybackQ = flowSeries(FLOW_CONCEPTS.buybackPaid, ["USD"]);
 

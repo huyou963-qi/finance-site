@@ -5,6 +5,7 @@ import {
   extractQuarterlyFundamentals,
   quarterlyFlowSeries,
   scaleFactorsBackward,
+  mergeExxonPredecessorFacts,
 } from "./secFundamentals";
 import { computeTtm, computeValuation, type QuarterFundamentalRow } from "./ttm";
 
@@ -15,6 +16,55 @@ function dur(start: string, end: string, val: number, form = "10-Q", filed = "20
 function inst(end: string, val: number, form = "10-Q", filed = "2099-01-01") {
   return { end, val, form, filed };
 }
+
+test("继任 CIK 仅衔接已核实的 Exxon 同集团迁册历史且截断生效日", () => {
+  const facts = (cik: number, pts: ReturnType<typeof dur>[]) => ({ cik, facts: { "us-gaap": { Revenues: { units: { USD: pts } } } } });
+  const now = facts(2115436, [dur("2026-07-01", "2026-09-30", 200)]);
+  const old = facts(34088, [dur("2020-01-01", "2020-03-31", 100), dur("2026-07-01", "2026-09-30", 999)]);
+  const rows = extractQuarterlyFundamentals(mergeExxonPredecessorFacts(now, old), { maxQuarters: 40 });
+  assert.deepEqual(rows.map(r => r.revenue), [100, 200]);
+  assert.equal(mergeExxonPredecessorFacts(now, facts(123, [])), now);
+});
+
+test("Lilly 已核实总 PPE 标签跨 FY/YTD 推导 Q4，不将 OtherPPE 推广为通用总额", () => {
+  const facts = (cik: number) => ({ cik, facts: { "us-gaap": {
+    Revenues: { units: { USD: [dur("2020-10-01", "2020-12-31", 1000)] } },
+    PaymentsToAcquireProductiveAssets: { units: { USD: [dur("2020-01-01", "2020-03-31", 10), dur("2020-01-01", "2020-06-30", 25), dur("2020-01-01", "2020-09-30", 45)] } },
+    PaymentsToAcquireOtherPropertyPlantAndEquipment: { units: { USD: [dur("2020-01-01", "2020-03-31", 10), dur("2020-01-01", "2020-06-30", 25), dur("2020-01-01", "2020-12-31", 80, "10-K")] } },
+  } } });
+  assert.equal(extractQuarterlyFundamentals(facts(59478))[0]?.capex, 35);
+  assert.equal(extractQuarterlyFundamentals(facts(999))[0]?.capex, null);
+});
+
+test("换 tag 补齐中间缺口与旧年代，金额须由同期重叠证明，拒绝手续费子集", () => {
+  const points = [dur("2020-01-01", "2020-03-31", 100), dur("2020-04-01", "2020-06-30", 120),
+    dur("2020-07-01", "2020-09-30", 130), dur("2020-10-01", "2020-12-31", 140),
+    dur("2021-01-01", "2021-03-31", 150)];
+  const facts = (old: typeof points) => ({ facts: { "us-gaap": {
+    Revenues: { units: { USD: [points[1], points[3], points[4]] } },
+    RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: old.slice(0, 4) } },
+  } } });
+  const rows = extractQuarterlyFundamentals(facts(points));
+  assert.equal(rows.length, 5);
+  assert.equal(rows.find(q => q.period === "2020Q1")?.revenue, 100);
+  assert.equal(rows.find(q => q.period === "2020Q3")?.revenue, 130);
+  const subset = points.map(p => ({ ...p, val: p.val / 3 }));
+  const unsafe = extractQuarterlyFundamentals(facts(subset));
+  assert.equal(unsafe.find(q => q.period === "2020Q3"), undefined);
+});
+
+test("零售 16/17 周第四季由全年减同起点累计确认，半年不能作为长季度", () => {
+  const q = quarterlyFlowSeries([
+    dur("2022-08-29", "2022-11-20", 100),
+    dur("2022-08-29", "2023-02-12", 220),
+    dur("2022-08-29", "2023-05-07", 350),
+    dur("2022-08-29", "2023-09-03", 540, "10-K", "2023-10-01"),
+  ]);
+  assert.equal(q.length, 4);
+  assert.equal(q.at(-1)?.val, 190);
+  assert.equal(q.at(-1)?.filed, "2099-01-01"); // 等参与差分的全部事实披露
+  assert.equal(quarterlyFlowSeries([dur("2023-01-01", "2023-04-25", 99)]).length, 0);
+});
 
 test("calendarQuarterLabel：常规季末与 4-4-5 周历溢出", () => {
   assert.equal(calendarQuarterLabel("2025-03-31"), "2025Q1");

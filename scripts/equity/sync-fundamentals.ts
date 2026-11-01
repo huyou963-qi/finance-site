@@ -71,6 +71,18 @@ async function main() {
   const symbolsArg = argValue("--symbols");
   const symbolsFile = argValue("--symbols-file");
   const resumeLog = argValue("--resume-log");
+  const fromPeriod = argValue("--from-period");
+  const throughPeriod = argValue("--through-period");
+  const fillMissing = process.argv.includes("--fill-missing");
+  const dryRun = process.argv.includes("--dry-run");
+  const auditFile = argValue("--audit-file");
+  if ((dryRun || fillMissing) && periodType !== "Q") throw new Error("--dry-run/--fill-missing 仅支持季度回填");
+  if ([fromPeriod, throughPeriod].some(p => p != null && !/^\d{4}Q[1-4]$/.test(p))
+    || (fromPeriod && throughPeriod && fromPeriod > throughPeriod)) throw new Error("财报期范围无效");
+  if (fillMissing && (!(symbolsArg || symbolsFile) || !auditFile || !fromPeriod || !throughPeriod)) {
+    throw new Error("--fill-missing 需显式名单、--audit-file、--from-period、--through-period");
+  }
+  if (auditFile) mkdirSync(dirname(auditFile), { recursive: true });
 
   const explicit = [
     ...(symbolsArg ? symbolsArg.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean) : []),
@@ -116,7 +128,7 @@ async function main() {
       const mapped = cikMap.get(row.symbol);
       if (mapped) {
         cik = mapped;
-        await prisma.equitySecurity.update({
+        if (!dryRun) await prisma.equitySecurity.update({
           where: { symbol: row.symbol },
           data: { cik: mapped },
         });
@@ -150,7 +162,38 @@ async function main() {
       const facts = await fetchSecCompanyFacts(cik);
 
       if (periodType === "Q") {
-        const rows = extractQuarterlyFundamentals(facts, { maxQuarters: quarters });
+        let rows = extractQuarterlyFundamentals(facts, { maxQuarters: quarters })
+          .filter(r => (!fromPeriod || r.period >= fromPeriod) && (!throughPeriod || r.period <= throughPeriod));
+        if (fillMissing) {
+          const existing = await prisma.equityFundamentalSnapshot.findMany({
+            where: { symbol, periodType: "Q", period: { gte: fromPeriod, lte: throughPeriod } },
+          });
+          if (auditFile) appendFileSync(auditFile, `${JSON.stringify({ symbol, at: new Date().toISOString(), dryRun, before: existing })}\n`);
+          const byPeriod = new Map(existing.map(r => [r.period, r]));
+          rows = rows.flatMap(r => {
+            const old = byPeriod.get(r.period);
+            if (!old) return [r];
+            if (!old.fiscalDate || old.fiscalDate.toISOString().slice(0, 10) !== r.fiscalDate) return [];
+            const merged = { ...r };
+            let improved = false;
+            for (const key of Object.keys(r) as (keyof typeof r)[]) {
+              if (["period", "fiscalDate", "firstReportedAt"].includes(key)) continue;
+              const value = old[key as keyof typeof old];
+              if (value != null) Object.assign(merged, { [key]: value });
+              else if (r[key] != null) improved = true;
+            }
+            if (old.firstReportedAt) merged.firstReportedAt = [merged.firstReportedAt ?? "", old.firstReportedAt.toISOString().slice(0, 10)].sort().at(-1)!;
+            return improved ? [merged] : [];
+          });
+          if (auditFile) appendFileSync(auditFile, `${JSON.stringify({ symbol, proposed: rows })}\n`);
+          if (!rows.length) {
+            console.log(`unchanged ${symbol}`);
+            ok += 1;
+            if (!dryRun) markDone(symbol);
+            await sleep(delayMs);
+            continue;
+          }
+        }
         if (!rows.length) {
           fail += 1;
           failed.push(symbol);
@@ -158,9 +201,9 @@ async function main() {
           await sleep(delayMs);
           continue;
         }
-        const n = await upsertQuarterlyFundamentals(symbol, rows);
+        const n = dryRun ? rows.length : await upsertQuarterlyFundamentals(symbol, rows);
         ok += 1;
-        markDone(symbol);
+        if (!dryRun) markDone(symbol);
         const first = rows[0]!;
         const last = rows[rows.length - 1]!;
         const eta = ((Date.now() - t0) / Math.max(1, ok + fail)) * (total - seen);

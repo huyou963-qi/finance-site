@@ -38,6 +38,25 @@
 
 ## 验证
 
+### 2020–2024 历史覆盖修复与有界回填
+
+- 复用 SEC companyfacts adapter、季度解析器、`upsertQuarterlyFundamentals` 和原快照表，不新增事实源、抓取器或表。
+- 修复同科目更换 tag 导致的中间缺季；原始累计区间至少两个非零同值重叠才跨 tag 差分，不缩放补入金额。季度缺口也要求邻近重叠一致，手续费子集不充当银行总营收。
+- 12/12/12/16–17 周零售财年长第四季须由全年和同起点九个月累计确认，不能把任意 120 天区间当季度。
+- Lilly（CIK 59478）的 OtherPPE 经[2024 10-K 现金流表](https://www.sec.gov/Archives/edgar/data/59478/000005947825000067/lly-20241231.htm)核实为总 PPE 购置，仅该发行人启用；不把所有公司的 Other 子项当总额。
+- Exxon 2026-07-01 迁册后新 CIK 2115436 仅包含近期事实。根据[继任注册人 8-K12B](https://www.sec.gov/Archives/edgar/data/2115436/000119312526291990/d71068d8k12b.htm)，共享 adapter 串行读取前身 34088，仅补生效日前同合并集团事实，保留原 accn/filed；不扩展到拆分与收购公司。
+- 原命令增加季度 `--dry-run`、`--from-period`、`--through-period`、`--fill-missing`、`--audit-file`。只补空值模式必须显式名单、范围和审计文件；保存写前快照与提议，旧非空值和不同实际季末的冲突行不覆盖，不删旧行。
+
+```bash
+npm run equity:sync-fundamentals -- --period-type=Q --quarters=40 \
+  --symbols=GOOGL,TSLA,COST,LLY,XOM --from-period=2019Q1 --through-period=2024Q4 \
+  --fill-missing --audit-file=.data/industry-coverage/audit.jsonl --dry-run
+# 核对审计后去掉 --dry-run；生产使用已有 daily-disclosures flock，避免与日批/部署重叠。
+```
+
+- 运维预算：后台单进程串行抓取与写入，每批不超过40只、执行上限10分钟、Node heap 384 MiB、nice 10，批次间核验 API 与可用内存；不在部署 SSH 或页面请求中回填。沿用 SEC transport 限速；单公司新旧 CIK 最多两个请求，无新常驻进程。
+- 2019 年用于 2020 TTM/同比基线；覆盖分母、80% 提示阈值不变，未上市/拆分前独立财报和缺少可核实现金流科目的公司仍缺失。银行及房地产现金流可比性限制仍适用。
+
 - 确定性测试覆盖多股类、权重合并、同样本增长、金额加权利润率、TTM缺季、负利润/零现金流、现金流同样本、未映射持仓、历史归档缺失与日期边界。
 - 权限测试验证新版与「美股历史」独立过滤，保留旧 feature ID。
 - 本地只读实库抽查（2026-11-01）：XLK 最近持仓为2026-08-11，Q3单季/TTM营收分别仅4/2家；页面必须显示持仓滞后及低覆盖，不能补造数据。5年当前成分视图20点、73家，单响应约59 KiB；历史季末模式当前无可用归档，正确留空。单次本机加载约446ms/146ms，仅为开发样本，非生产容量承诺。
