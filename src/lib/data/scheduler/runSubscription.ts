@@ -187,6 +187,11 @@ export async function runDataSubscription(
       };
     }
 
+    // Rounded official NSA workbook fallback may fill new published periods, but must
+    // never replace existing higher-precision API/workbook observations.
+    if (fetchResult.sourceMetadata?.appendOnlyRoundedFallback === true && storedLastObsDate) {
+      fetchResult = { ...fetchResult, points: fetchResult.points.filter(p => p.obsDate > storedLastObsDate) };
+    }
     const { upserted, skipped, inserted, changed, latestObsDate, latestValue } =
       await upsertMacroObservations(prisma, sub.instrumentId, fetchResult.points);
 

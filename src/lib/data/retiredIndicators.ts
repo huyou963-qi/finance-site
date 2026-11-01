@@ -202,6 +202,18 @@ export const SUPERSEDED_KEEP_HISTORY_CODES = Object.keys(SUPERSEDED_KEEP_HISTORY
  *   `SRC_WORLDBANK/偿债能力` 下可见。
  */
 export const SOURCE_ENDED_HIDDEN_CODES: readonly string[] = [
+  // 2026-11-01: complete WDI API history rechecked (1960 onward).
+  // These country/indicator pairs have no numeric values; GC.BAL.CASH.GD.ZS
+  // returns API error 175 (indicator deleted/archived). Preserve all DB state.
+  // Evidence: docs/research/MACRO_FRESHNESS_REPAIR_2026-11-01.md.
+  "sched_wb_EU_FM_LBL_BMNY_GD_ZS", "sched_wb_EU_GC_BAL_CASH_GD_ZS", "sched_wb_EU_GC_DOD_TOTL_GD_ZS",
+  "sched_wb_EA_FM_LBL_BMNY_GD_ZS", "sched_wb_EA_FS_AST_DOMS_GD_ZS", "sched_wb_EA_FR_INR_RINR",
+  "sched_wb_EA_GC_DOD_TOTL_GD_ZS", "sched_wb_IT_FM_LBL_BMNY_GD_ZS", "sched_wb_IT_GC_BAL_CASH_GD_ZS",
+  "sched_wb_ES_FM_LBL_BMNY_GD_ZS", "sched_wb_ES_FS_AST_DOMS_GD_ZS", "sched_wb_ES_FR_INR_RINR",
+  "sched_wb_ES_GC_BAL_CASH_GD_ZS", "sched_wb_NL_FS_AST_DOMS_GD_ZS", "sched_wb_PL_GC_BAL_CASH_GD_ZS",
+  "sched_wb_EA_GC_BAL_CASH_GD_ZS", "sched_wb_EU_FR_INR_RINR", "sched_wb_EU_FS_AST_DOMS_GD_ZS",
+  "sched_wb_IT_FS_AST_DOMS_GD_ZS", "sched_wb_NL_FM_LBL_BMNY_GD_ZS", "sched_wb_NL_GC_BAL_CASH_GD_ZS",
+  "sched_wb_PL_FR_INR_RINR", "sched_wb_PL_FS_AST_DOMS_GD_ZS",
   // FRED 标注 DISCONTINUED；8853 个观测，1986-01-02 → 2022-01-21
   "sched_fred_TEDRATE",
   // 世行已下架但留有历史，合计 272 个观测、1990–2019

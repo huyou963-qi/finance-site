@@ -27,8 +27,8 @@ test("API network failure uses exact NSA official series once per side cooldown,
   assert.equal(fileCalls, 3);
 });
 
-test("missing rows, API 403/schema errors and wrong SA/identity cannot turn into successful zero fallback", async () => {
-  for (const message of ["Census API returned no partner observations", "Census partner API HTTP 403", "Census API returned an invalid period or monthly dollar value"]) {
+test("API 403/schema errors and wrong SA/identity cannot turn into successful zero fallback", async () => {
+  for (const message of ["Census partner API HTTP 403", "Census API returned an invalid period or monthly dollar value"]) {
     let files = 0;
     const read = createCensusPartnerAcquirer({ now: Date.now, api: async () => { throw Error(message); },
       workbook: async code => { files++; return series(code); } });
@@ -46,4 +46,14 @@ test("missing rows, API 403/schema errors and wrong SA/identity cannot turn into
   await assert.rejects(read("census_us_trade_imports_country_nsa_5700"), /live source unavailable/);
   await assert.rejects(read("census_us_trade_imports_country_5700"), /NSA partner/);
   await assert.rejects(read("census_us_trade_imports_country_nsa_2771"), /active NSA partner/);
+});
+
+test("missing sparse partner requires independently fetched official NSA workbook evidence", async()=>{
+  const read=createCensusPartnerAcquirer({now:Date.now,api:async()=>{throw Error("Census API returned no partner observations");},workbook:async code=>series(code)});
+  const result=await read("census_us_trade_exports_country_nsa_1610");
+  assert.equal(result.points[0]?.value,12.5);
+  assert.equal(result.sourceMetadata?.appendOnlyRoundedFallback,true);
+  for(const workbook of [async()=>undefined,async()=>series("wrong"),async()=>({...series("census_us_trade_exports_country_nsa_1610"),seasonalAdjustment:"SA" as const})]) {
+    await assert.rejects(createCensusPartnerAcquirer({now:Date.now,api:async()=>{throw Error("Census API returned no partner observations");},workbook})("census_us_trade_exports_country_nsa_1610"),/evidence missing or mismatched/);
+  }
 });

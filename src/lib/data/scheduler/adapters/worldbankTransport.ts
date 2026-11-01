@@ -27,6 +27,9 @@ export async function fetchWorldBankHistory(country: string, indicator: string):
   if (!response.ok) throw new Error(`World Bank HTTP ${response.status}`);
   let payload: unknown;
   try { payload = await response.json(); } catch { throw new Error("World Bank response is not JSON"); }
+  if (Array.isArray(payload) && payload[0]?.message?.some((m: {id?: string}) => m.id === "175")) {
+    throw new Error("World Bank indicator unavailable (official API error 175: deleted or archived)");
+  }
   if (!Array.isArray(payload) || !Array.isArray(payload[1]) || payload[1].length > 100
     || (payload[0]?.pages !== undefined && payload[0].pages !== 1)) {
     throw new Error("World Bank response schema/pagination changed; refusing partial history");

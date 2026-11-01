@@ -10,6 +10,7 @@ import { fetchFredIncremental } from "../../src/lib/data/scheduler/adapters/fred
 import { fredTransformForInstrument } from "../../src/lib/data/scheduler/fredTransform";
 import {
   inspectFreshnessRow,
+  freshnessScope,
   type FreshnessAuditRow,
   type FreshnessFinding,
 } from "../../src/lib/data/scheduler/freshnessAudit";
@@ -60,6 +61,7 @@ async function main() {
     prisma.schedulerInvocation.findFirst({ where: { job: "data:sync-calendar", finishedAt: { not: null } }, orderBy: { finishedAt: "desc" }, select: { finishedAt: true, status: true } }),
   ]);
   const excludedKeys = new Set(excluded.map((row) => row.catalogKey));
+  const regime = await prisma.macroRegime.findFirst({orderBy:{date:"desc"},select:{date:true,inputs:true,dalioRegime:true}});
   const obsById = new Map(latestObs.map((row) => [row.instrument_id, row]));
   const fetchById = new Map(latestFetch.map((row) => [row.instrument_id, row]));
   const rows: FreshnessAuditRow[] = [];
@@ -84,6 +86,11 @@ async function main() {
       actualLastObsDate: actual?.obs_date ?? null, actualLastValue: actual?.value ?? null,
       lastError: sub?.lastError ?? null, lastFetchStatus: last?.status ?? null,
       lastFetchAt: last?.started_at ?? null,
+      projectionLastObsDate: regime && (
+        inst.code === "quant_regime_quadrant_band" ? ["goldilocks","reflation","stagflation","deflation"].includes(regime.dalioRegime ?? "") :
+        inst.code === "quant_regime_growth_z" ? Number.isFinite((regime.inputs as Record<string, unknown>)?.growthZ) :
+        inst.code === "quant_regime_inflation_mom_z" ? Number.isFinite((regime.inputs as Record<string, unknown>)?.inflationMomZ) : false
+      ) ? regime.date : null,
     });
   }
 
@@ -143,9 +150,11 @@ async function main() {
     critical: findings.filter((f) => f.severity === "critical").length,
     warning: findings.filter((f) => f.severity === "warning").length,
     schedulerWarnings, counts, bySource, byPackage, findings,
+    lifecycle: rows.filter(row => freshnessScope(row).mode !== "live").map(row => ({instrumentCode:row.instrumentCode,...freshnessScope(row),lastObsDate:row.projectionLastObsDate ?? row.actualLastObsDate})),
   };
   console.log(`[audit-freshness] ${report.checkedAt} visible=${rows.length} hidden=${hidden} 源端核对=${sourceChecked} 尚未源端核对=${report.sourceUnchecked} critical=${report.critical} warning=${report.warning}`);
   console.log(`[audit-freshness] 分类 ${JSON.stringify(counts)}`);
+  console.log(`[audit-freshness] 生命周期（单独核验，不计当前自动源故障） ${JSON.stringify(Object.fromEntries(["archive","projection","licensed"].map(mode=>[mode,report.lifecycle.filter(row=>row.mode===mode).length])))}`);
   console.log(`[audit-freshness] 最需处理的数据源 ${JSON.stringify(bySource.slice(0, 10))}`);
   console.log(`[audit-freshness] 最需处理的发布包 ${JSON.stringify(byPackage.slice(0, 10))}`);
   for (const warning of schedulerWarnings) console.log(`  调度器告警: ${warning}`);

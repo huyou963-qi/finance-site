@@ -102,7 +102,8 @@ async function main() {
     });
 
     const releaseRule = releaseRuleForUsBalanceOfPaymentsFred(row);
-    const nextRunAt = computeNextRunAt(releaseRule, new Date());
+    const historicalArchive = row.fredId === "IEASAD" && latestObs?.obsDate.toISOString().slice(0, 10) === "2019-10-01";
+    const nextRunAt = historicalArchive ? null : computeNextRunAt(releaseRule, new Date());
     await prisma.dataSubscription.upsert({
       where: { instrumentId: instrument.id },
       create: {
@@ -113,7 +114,7 @@ async function main() {
         granularity: row.granularity,
         releaseRule,
         nextRunAt,
-        enabled: true,
+        enabled: !historicalArchive,
         priority: 8,
       },
       update: {
@@ -122,8 +123,8 @@ async function main() {
         fetchMethod: DataFetchMethod.API,
         granularity: row.granularity,
         releaseRule,
-        enabled: true,
-        ...(nextRunAt ? { nextRunAt } : {}),
+        enabled: !historicalArchive,
+        ...(historicalArchive ? {nextRunAt:null} : nextRunAt ? { nextRunAt } : {}),
       },
     });
     console.log(`  ✓ ${row.code} (${row.fredId}) → ${row.releasePackageId}`);
