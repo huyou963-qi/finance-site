@@ -3,11 +3,19 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { JP_CYCLE_LABOR_SERIES } from "./catalog";
-import { discoverEsriCiWorkbookUrl } from "./client";
+import { discoverEsriCiWorkbookUrl, discoverJobRatioWorkbookUrl } from "./client";
 import { parseJpCycleLaborWorkbook } from "./parser";
 
 const fixture = (name: string) => path.join(process.cwd(), "src/lib/data/scheduler/jpCycleLabor/fixtures", name);
 const now = new Date("2026-09-30T00:00:00Z");
+
+test("e-Stat discovers exactly the current long-term table 3", () => {
+  const row = (id:string,title:string) => `<article><a href="/stat-search/file-download?statInfId=${id}&amp;fileKind=0">EXCEL</a><span>長期時系列表</span><span>3</span><span>${title}</span></article>`;
+  const correct=row("000040518983","有効求人倍率（実数、季節調整値）");
+  assert.match(discoverJobRatioWorkbookUrl(correct+row("123","新規求人倍率（実数、季節調整値）")),/statInfId=000040518983&fileKind=0/);
+  assert.throws(()=>discoverJobRatioWorkbookUrl(correct+correct),/ambiguous/);
+  assert.throws(()=>discoverJobRatioWorkbookUrl(row("123","新規求人倍率（実数、季節調整値）")),/missing/);
+});
 
 test("parses the three official ESRI composite indexes", async () => {
   const buffer = await readFile(fixture("esri-ci.xlsx"));

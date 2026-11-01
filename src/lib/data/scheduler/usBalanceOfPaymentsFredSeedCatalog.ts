@@ -234,6 +234,7 @@ export function buildUsBalanceOfPaymentsInstrumentMetadata(
 ): Record<string, unknown> {
   const next: Record<string, unknown> = {
     ...(opts?.existing ?? {}),
+    ...(row.fredId === "IEASAD" ? {historicalOnly:true,archiveAfterBootstrap:true,officialLastPeriod:"2019-10-01"} : {}),
     sourceTag: "us-balance-of-payments-fred-seed",
     source: row.source,
     sourceUpdateNote: row.sourceUpdateNote,

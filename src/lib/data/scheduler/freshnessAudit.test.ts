@@ -36,3 +36,19 @@ test("empty series and stale failed subscription are reported separately", () =>
     new Set(["no_observations", "fetch_error", "overdue"]),
   );
 });
+
+test("archives require explicit lifecycle, disabled subscription and stored history", () => {
+  const archived = {...base, sourceId:"mof-budget-accounts", enabled:false,
+    metadata:{historicalOnly:true,archiveAfterBootstrap:true},lastError:"old failure",lastFetchStatus:"FAILED"};
+  assert.deepEqual(inspectFreshnessRow(archived,now),[]);
+  assert.ok(inspectFreshnessRow({...archived,actualLastObsDate:null},now).some(f=>f.code==="no_observations"));
+  assert.ok(inspectFreshnessRow({...archived,metadata:{}},now).some(f=>f.code==="disabled"));
+});
+
+test("projections are checked against their actual fact store, not exempted unconditionally", () => {
+  const projection = {...base,instrumentCode:"quant_regime_growth_z",sourceId:null,enabled:null,
+    metadata:{projectionOnly:true,sourceTag:"quant-macro-regime-projection"},actualLastObsDate:null};
+  assert.ok(inspectFreshnessRow(projection,now).some(f=>f.code==="no_observations"));
+  assert.deepEqual(inspectFreshnessRow({...projection,projectionLastObsDate:new Date("2026-09-01")},now),[]);
+  assert.ok(inspectFreshnessRow({...projection,projectionLastObsDate:new Date("2020-01-01")},now).some(f=>f.code==="overdue"));
+});

@@ -101,6 +101,8 @@ async function main() {
       const firstIso = first?.obsDate.toISOString().slice(0, 10) ?? "-";
       const latestIso = latest?.obsDate.toISOString().slice(0, 10) ?? "-";
       const missing: string[] = [];
+      const historicalOnly = HISTORICAL_ONLY_SERIES.has(row.fredId);
+      const historicalArchive = historicalOnly && subscription?.enabled === false && count >= row.expectedMinCount && latestIso === "2019-10-01";
       const acquisitionStatus = resolveAcquisitionStatus({
         subscriptionEnabled: subscription?.enabled ?? null,
         adapterKind: subscription?.source.adapterKind ?? null,
@@ -111,14 +113,13 @@ async function main() {
       if (instrument.fredSeriesId !== row.fredId) missing.push("fredSeriesId");
       if (instrument.freqLabel !== row.freqLabel) missing.push("freqLabel");
       if (instrument.unit !== row.unit) missing.push("unit");
-      if (!subscription?.enabled) missing.push("subscription.enabled");
+      if (!subscription?.enabled && !historicalArchive) missing.push("subscription.enabled");
       if (subscription?.source.adapterKind !== "FRED_API") missing.push("source.adapterKind");
       if (subscription?.sourceSeriesKey !== row.fredId) missing.push("sourceSeriesKey");
       if (subscription?.granularity !== "QUARTERLY") missing.push("granularity");
       if (subscription?.releasePackageId !== row.releasePackageId) missing.push("releasePackageId");
-      if (!subscription?.nextRunAt) missing.push("nextRunAt");
-      const historicalOnly = HISTORICAL_ONLY_SERIES.has(row.fredId);
-      if (acquisitionStatus !== "ready" && !(historicalOnly && acquisitionStatus === "probe_failed")) {
+      if (!subscription?.nextRunAt && !historicalArchive) missing.push("nextRunAt");
+      if (acquisitionStatus !== "ready" && !historicalArchive && !(historicalOnly && acquisitionStatus === "probe_failed")) {
         missing.push(`acquisition=${acquisitionStatus}`);
       }
       if (row.releasePackageId === BOP_PACKAGE_ID && releaseRule?.type !== "economic_calendar") {

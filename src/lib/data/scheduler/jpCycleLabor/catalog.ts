@@ -8,9 +8,10 @@ export const JP_ESRI_CI_FILE_URL = JP_ESRI_CI_URL;
 export const JP_LFS_SA_URL = "https://www.stat.go.jp/data/roudou/2.html";
 export const JP_LFS_SA_FILE_URL = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000031831358&fileKind=0";
 export const JP_JOB_RATIO_URL = "https://www.mhlw.go.jp/toukei/list/114-1.html";
-// e-Stat publishes a new statInfId on each monthly release; this is the
-// current long-run table 3 (including part-time, seasonally adjusted).
-export const JP_JOB_RATIO_FILE_URL = "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000040505314&fileKind=0";
+// e-Stat replaces statInfId monthly. Metadata points to the stable discovery
+// page; the client resolves the exact long-run table 3 at fetch time.
+export const JP_JOB_RATIO_INDEX_URL = "https://www.e-stat.go.jp/stat-search/files?layout=dataset&toukei=00450222";
+export const JP_JOB_RATIO_FILE_URL = JP_JOB_RATIO_INDEX_URL;
 
 export const JP_CYCLE_LABOR_SERIES = [
   { instrumentCode: "esri_jp_ci_leading", source: "ci", column: 3, label: "景气动向指数：先行CI（2020=100）", unit: "指数", category: "国民经济", subgroup: "景气循环" },

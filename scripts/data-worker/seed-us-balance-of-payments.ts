@@ -113,7 +113,7 @@ async function main() {
         granularity: row.granularity,
         releaseRule,
         nextRunAt,
-        enabled: true,
+        enabled: row.fredId !== "IEASAD" || !latestObs,
         priority: 8,
       },
       update: {
@@ -122,7 +122,7 @@ async function main() {
         fetchMethod: DataFetchMethod.API,
         granularity: row.granularity,
         releaseRule,
-        enabled: true,
+        enabled: row.fredId !== "IEASAD" || !latestObs,
         ...(nextRunAt ? { nextRunAt } : {}),
       },
     });

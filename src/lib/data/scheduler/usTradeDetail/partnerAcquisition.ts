@@ -4,9 +4,12 @@ import { fetchUsTradeDetailSeries } from "./client";
 import { US_TRADE_FILES } from "./catalog";
 import { isHistoricalCensusSeries } from "./lifecycle";
 
-/** Reuse the same NSA adapter/parser/writer. Only transport failure permits a
- * file fallback; missing partners, authentication and schema errors stay errors. */
-export function createCensusPartnerAcquirer(deps = {
+/** Independent official NSA workbook evidence is required when the API omits
+ * a sparse partner. Never manufacture zero rows from an empty API response. */
+export function createCensusPartnerAcquirer(deps: {
+  api: typeof fetchCensusPartnerApi; workbook: typeof fetchUsTradeDetailSeries;
+  now: () => number;
+} = {
   api: fetchCensusPartnerApi, workbook: fetchUsTradeDetailSeries, now: Date.now,
 }) {
   const networkCooldown = new Map<string, number>();
@@ -26,6 +29,14 @@ export function createCensusPartnerAcquirer(deps = {
             sourceUrl: `${CENSUS_TRADE_API}/${side}/hs`, seasonalAdjustment: "NSA",
             sourceUnit: "USD", storedUnit: "USD million", revisionWindow: "six calendar months; older revisions require official workbook" } };
       } catch (error) {
+        if (error instanceof Error && error.message === "Census API returned no partner observations") {
+          const series = await deps.workbook(code);
+          if (!series?.points.length || series.code !== code || series.seasonalAdjustment !== "NSA") throw new Error(`Census sparse partner workbook evidence missing or mismatched: ${code}`);
+          return {points:series.points,sourceLatestObsDate:series.points.at(-1)!.obsDate,skippedInvalid:0,
+            sourceMetadata:{acquisition:"census_official_nsa_workbook_after_missing_api_partner",
+              sourceUrl:US_TRADE_FILES.countriesNsa,seasonalAdjustment:"NSA",storedUnit:"USD million",
+              appendOnlyRoundedFallback:true,sourcePrecision:"0.1 million USD"}};
+        }
         if (!(error instanceof Error) || error.message !== "Census partner API network request failed after 2 attempts") throw error;
         // A package shares one API request per side. Do not repeat two 30s
         // timeouts for every partner while the official workbook is available.

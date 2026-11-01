@@ -1,5 +1,6 @@
 import { SourceAdapterKind, type DataGranularity } from "@prisma/client";
 import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
+import { isHistoricalCensusSeries } from "./usTradeDetail/lifecycle";
 
 export type FreshnessFindingCode =
   | "no_subscription" | "disabled" | "unschedulable" | "no_observations"
@@ -32,13 +33,40 @@ export type FreshnessAuditRow = {
   lastError: string | null;
   lastFetchStatus: string | null;
   lastFetchAt: Date | null;
+  projectionLastObsDate?: Date | null;
 };
+
+/** Explicit lifecycle exceptions are reported separately, never counted as live feeds. */
+export function freshnessScope(row: FreshnessAuditRow): { mode: "live" | "archive" | "projection" | "licensed"; reason: string } {
+  const md = row.metadata && typeof row.metadata === "object" ? row.metadata as Record<string, unknown> : {};
+  if (md.projectionOnly === true && md.sourceTag === "quant-macro-regime-projection" &&
+      ["quant_regime_growth_z", "quant_regime_inflation_mom_z", "quant_regime_quadrant_band"].includes(row.instrumentCode)) {
+    return {mode:"projection",reason:"事实来自 mds.macro_regime，单独核对投影字段"};
+  }
+  if (row.actualLastObsDate && row.enabled === false && (
+    (row.sourceId === "mof-budget-accounts" && md.historicalOnly === true && md.archiveAfterBootstrap === true) ||
+    (row.sourceId === "us-census-trade-detail" && isHistoricalCensusSeries(row.sourceSeriesKey)) ||
+    (row.sourceId === "fred" && row.sourceSeriesKey === "IEASAD" && md.historicalOnly === true)
+  )) return {mode:"archive",reason:"已核实的历史序列，已回填并停止当前更新"};
+  if (row.instrumentCode === "goldov_c23_comex_stock_oz" && !row.sourceId && row.actualLastObsDate) {
+    return {mode:"licensed",reason:"CME 库存授权数据，保留历史；自动更新需合法授权源"};
+  }
+  return {mode:"live",reason:"当前自动更新序列"};
+}
 
 /** Checks every visible indicator against the same eligibility gate used by the worker. */
 export function inspectFreshnessRow(row: FreshnessAuditRow, now: Date): FreshnessFinding[] {
   const out: FreshnessFinding[] = [];
   const add = (code: FreshnessFindingCode, severity: FreshnessFinding["severity"], detail: string) =>
     out.push({ code, severity, instrumentCode: row.instrumentCode, sourceId: row.sourceId, packageId: row.packageId, detail });
+
+  const scope = freshnessScope(row);
+  if (scope.mode === "archive" || scope.mode === "licensed") return out;
+  if (scope.mode === "projection") {
+    if (!row.projectionLastObsDate) add("no_observations", "critical", "mds.macro_regime 缺少有效投影事实");
+    else if (now.getTime() - row.projectionLastObsDate.getTime() > 120 * 86400_000) add("overdue", "critical", "mds.macro_regime 最新有效投影超过 120 天");
+    return out;
+  }
 
   if (!row.sourceId) add("no_subscription", "critical", "目录指标没有数据订阅");
   else if (!row.enabled) add("disabled", "critical", "目录指标的数据订阅未启用");

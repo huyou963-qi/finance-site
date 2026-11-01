@@ -1,11 +1,27 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
-import { JP_ESRI_CI_URL, JP_JOB_RATIO_FILE_URL, JP_LFS_SA_FILE_URL } from "./catalog";
+import { JP_ESRI_CI_URL, JP_JOB_RATIO_FILE_URL, JP_JOB_RATIO_INDEX_URL, JP_LFS_SA_FILE_URL } from "./catalog";
 
 const urls = { unemployment: JP_LFS_SA_FILE_URL, jobRatio: JP_JOB_RATIO_FILE_URL } as const;
 export type JpCycleLaborSource = keyof typeof urls | "ci";
 let cache = new Map<JpCycleLaborSource, { at: number; value: Buffer }>();
+
+/** Match the exact national long-term table, never a new-job or regional table. */
+export function discoverJobRatioWorkbookUrl(page: string): string {
+  const matches = [...page.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/gi)].flatMap((match) => {
+    const body = match[1]!;
+    const text = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    if (!/長期時系列表\s+3\s+有効求人倍率（実数、季節調整値）/.test(text)) return [];
+    const link = /href=["']([^"']*\/stat-search\/file-download\?[^"']+)["']/i.exec(body)?.[1];
+    if (!link) return [];
+    const url = new URL(link.replace(/&amp;/g, "&"), JP_JOB_RATIO_INDEX_URL);
+    if (url.origin !== "https://www.e-stat.go.jp" || url.searchParams.get("fileKind") !== "0" || !/^\d+$/.test(url.searchParams.get("statInfId") ?? "")) return [];
+    return [url.href];
+  });
+  if (matches.length !== 1) throw new Error("e-Stat job-ratio long-term table missing or ambiguous");
+  return matches[0]!;
+}
 
 /** The ESRI release page names the rolling CI workbook YYYYci.xlsx. */
 export function discoverEsriCiWorkbookUrl(page: string): string {
@@ -34,6 +50,11 @@ export async function fetchJpCycleLaborWorkbook(source: JpCycleLaborSource, fixt
     if (!index.ok) throw new Error(`Japan cycle/labor ESRI index HTTP ${index.status}`);
     url = discoverEsriCiWorkbookUrl(await index.text());
     response = await download(url, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream");
+  } else if (source === "jobRatio") {
+    const index = await download(JP_JOB_RATIO_INDEX_URL, "text/html");
+    if (!index.ok) throw new Error(`e-Stat job-ratio index HTTP ${index.status}`);
+    url = discoverJobRatioWorkbookUrl(await index.text());
+    response = await download(url, "application/octet-stream");
   } else {
     url = urls[source];
     response = await download(url, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream");

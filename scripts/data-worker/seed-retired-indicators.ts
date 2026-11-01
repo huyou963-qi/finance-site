@@ -85,7 +85,7 @@ async function hideSourceEndedInstruments(dryRun: boolean) {
     const key = `mds:${code}`;
     const instrument = await prisma.instrument.findUnique({
       where: { code },
-      select: { id: true },
+      select: { id: true, dataSubscription: {select:{sourceId:true,sourceSeriesKey:true}} },
     });
     if (!instrument) {
       console.log(`  · ${code} 不在库中，跳过`);
@@ -107,6 +107,12 @@ async function hideSourceEndedInstruments(dryRun: boolean) {
       create: { catalogKey: key, deletedBy: ACTOR },
       update: {},
     });
+    // WDI's base catalog uses wb:CC:ID, while the DB instrument uses mds:code.
+    // Persist both identities so a fresh deployment cannot expose an empty alias.
+    if (instrument.dataSubscription?.sourceId === "worldbank" && instrument.dataSubscription.sourceSeriesKey) {
+      const alias = `wb:${instrument.dataSubscription.sourceSeriesKey}`;
+      await prisma.macroCatalogExcludedKey.upsert({where:{catalogKey:alias},create:{catalogKey:alias,deletedBy:ACTOR},update:{}});
+    }
     // 被取代的旧列同时停用订阅（tombstone 已让调度器跳过；停用让管理端状态一致，
     // 也防止别的 seed 把它当活跃序列继续维护）
     if (SUPERSEDED_KEEP_HISTORY_CODES.includes(code)) {
