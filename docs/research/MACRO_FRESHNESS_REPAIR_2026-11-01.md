@@ -32,4 +32,8 @@
 
 恢复脚本默认dry-run，限制最多150个报告目标、串行取数、每条备份最多5,000个已有观测；正常writer保留修订账本。官方舍入工作簿只允许补充晚于库内末期的新观测，不覆盖已有API精度；API 403、结构变化不会转换为成功。原始报告、订阅快照、恢复前观测、逐源核查结果保存在生产共享 `.data/audits/`。
 
-当前已通过全量测试：1,298 tests，1,297 pass，1个平台测试skip，0 fail；TypeScript与改动文件ESLint通过。最终生产复核结果在任务完成后补录。
+验证：全量1,298 tests，1,297 pass，1个平台测试skip，0 fail；TypeScript与改动文件ESLint通过。Windows共享依赖保留了D盘路径，导致本地Next构建解析失败，生产构建由PR的Linux CI验证。
+
+2026-11-01 18:16:42北京时间，生产独立采集release `release-freshness-20261101-final` 严格审计结果：可见6,646、隐藏54、critical=0、warning=0、schedulerWarnings=[]；单列archive=83、projection=3、licensed=1。对23个WDI空入口下线，没有删除任何观测或版本；Census5条实际抓取均SKIPPED、inserted=changed=0，订阅末期与真实观测重新对齐。日本求人倍率新增1个观测，IEASAD新增84个历史观测，其余真实抓取故障正常重试后恢复。
+
+原[Actions #12](https://github.com/huyou963-qi/finance-site/actions/runs/41292394469)已发起第2次运行，执行两轮FRED源端比对与严格终检；以上0/0为先完成的数据库/调度严格审计结果，不代表其他全部第三方源均已在线逐值比对。CME授权限制仍单独保留，不宣称已恢复自动更新。
