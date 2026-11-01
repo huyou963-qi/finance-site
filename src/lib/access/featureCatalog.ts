@@ -76,11 +76,19 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     defaults: RELEASED,
   },
   {
-    id: "equity-sectors",
+    id: "equity-industries",
     label: "美股行业",
     group: "美股",
+    paths: ["/equity/industries"],
+    description: "行业 ETF 历史营收、盈利能力、现金流与公司基本面",
+    defaults: RELEASED,
+  },
+  {
+    id: "equity-sectors",
+    label: "美股历史",
+    group: "美股",
     paths: ["/equity/sectors"],
-    description: "GICS 行业收益、财报与经营叙事",
+    description: "美股历史阶段、行业轮动与研究证据",
     defaults: RELEASED,
   },
   {

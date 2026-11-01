@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { StockEventsPanel } from "@/components/equity/StockEventsPanel";
@@ -84,7 +85,12 @@ export function StockDetailClient({
   gicsSubIndustry: string | null;
   marketCap: number | null;
 }) {
-  const [activeTab, setActiveTab] = useState<ResearchTab>("prices");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<ResearchTab>(() => RESEARCH_TABS.find(tab => tab.id === requestedTab)?.id ?? "prices");
+  useEffect(() => {
+    setActiveTab(RESEARCH_TABS.find(tab => tab.id === requestedTab)?.id ?? "prices");
+  }, [requestedTab]);
   const [rangeId, setRangeId] = useState<RangeId>("1Y");
   const [windows, setWindows] = useState<WindowRow[]>([]);
   const [bars, setBars] = useState<StockPriceBar[]>([]);
@@ -208,7 +214,7 @@ export function StockDetailClient({
         </h1>
       <nav aria-label="个股行业路径" className="shrink-0 text-xs text-fs-muted">
         <Link href="/equity/sectors" className="hover:text-fs-accent-text">
-          美股行业
+          美股历史
         </Link>
         <span className="mx-1">/</span>
         {sectorSlug && sectorNameZh ? (
