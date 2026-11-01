@@ -19,7 +19,7 @@
 
 ## 官方证据
 
-- 世界银行以现有适配器读取完整 WDI 历史，验证 EU→EUU、EA→EMU。16个组合仅返回空值，7个 `GC.BAL.CASH.GD.ZS` 组合返回官方 API error 175：指标被删除或归档。具体23个代码见 `SOURCE_ENDED_HIDDEN_CODES` 中2026-11-01段落；恢复时可删除对应 mds/wb 两种目录 tombstone 后重新探测。不是用一个HTTP失败判定源端无数据。
+- 世界银行以现有适配器读取完整 WDI 历史，验证 EU→EUU、EA→EMU。17个组合仅返回空值，6个 `GC.BAL.CASH.GD.ZS` 组合返回官方 API error 175：指标被删除或归档。具体23个代码见 `SOURCE_ENDED_HIDDEN_CODES` 中2026-11-01段落；恢复时可删除对应 mds/wb 两种目录 tombstone 后重新探测。不是用一个HTTP失败判定源端无数据。
 - [WDI 意大利广义货币](https://api.worldbank.org/v2/country/IT/indicator/FM.LBL.BMNY.GD.ZS?format=json&per_page=100)、[现金盈余/赤字指标](https://api.worldbank.org/v2/country/IT/indicator/GC.BAL.CASH.GD.ZS?format=json&per_page=100)。
 - [Census国别月表](https://www.census.gov/foreign-trade/balance/c1610.html)明确写明：名义美元百万、未季调，仅列发生贸易月份；API无行不能推定零。运行连接器复用原[官方NSA工作簿](https://www.census.gov/foreign-trade/balance/country.xlsx)及已审计的发布时间边界、历史身份过滤、现有受限文件传输。工作簿也不可用时继续报错；不使用旧离线快照，不绕过认证或反爬挑战。
 - [厚生劳动省2026年9月发布](https://www.mhlw.go.jp/stf/newpage_76960.html)、[e-Stat当前目录](https://www.e-stat.go.jp/stat-search/files?layout=dataset&toukei=00450222)。2026-10-30发布的新长期表3 ID为000040518983，旧000040505314返回404；新源观测2026-09=1.19。
