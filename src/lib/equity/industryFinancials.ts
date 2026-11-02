@@ -26,7 +26,7 @@ export type FinancialMember = {
 export type FinancialPeriod = {
   period: string; basis: FinancialBasis; holdingsDate: string | null;
   universeCount: number; unresolvedCount: number; equityWeight: number;
-  revenue: FinancialMetric; revenueYoY: FinancialMetric; netIncome: FinancialMetric;
+  revenue: FinancialMetric; revenueYoY: FinancialMetric; netIncome: FinancialMetric; netIncomeYoY: FinancialMetric;
   netMargin: FinancialMetric; ocf: FinancialMetric; capex: FinancialMetric; fcf: FinancialMetric;
   /** 单项原始覆盖率；曲线仍使用两项均齐全的共同样本。 */
   cashSourceCoverage: { ocf: FinancialMetric; capex: FinancialMetric };
@@ -146,6 +146,11 @@ export function buildIndustryFinancialHistory(input: {
       revenueYoY: metric(row => row.current && row.previous && finite(row.current.revenue) && finite(row.previous.revenue) && row.previous.revenue > 0 ? row.current.revenue : null,
         selected => selected.reduce((sum, row) => sum + row.current!.revenue!, 0) / selected.reduce((sum, row) => sum + row.previous!.revenue!, 0) - 1),
       netIncome: metric(row => row.current?.netIncome ?? null),
+      netIncomeYoY: metric(row => row.current && row.previous && finite(row.current.netIncome) && finite(row.previous.netIncome) ? row.current.netIncome : null,
+        selected => {
+          const previous = selected.reduce((sum, row) => sum + row.previous!.netIncome!, 0);
+          return previous === 0 ? null : (selected.reduce((sum, row) => sum + row.current!.netIncome!, 0) - previous) / Math.abs(previous);
+        }),
       netMargin: metric(row => row.current && finite(row.current.revenue) && row.current.revenue > 0 && finite(row.current.netIncome) ? row.current.netIncome : null,
         selected => selected.reduce((sum, row) => sum + row.current!.netIncome!, 0) / selected.reduce((sum, row) => sum + row.current!.revenue!, 0)),
       // 三条现金流线严格使用同一子样本，确保 FCF = OCF - CapEx。

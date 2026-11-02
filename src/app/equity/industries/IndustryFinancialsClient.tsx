@@ -67,8 +67,8 @@ export function IndustryFinancialsClient() {
   const selectedDef = GICS_SECTOR_DEFS.find(row => row.etf === etf)!;
   const mode = basis === "TTM" ? "TTM" : "单季";
   const charts = useMemo(() => [
-    { title: "营收规模", metric: "revenue" as const, percent: false, series: [{ name: "营收", color: SITE.accent, metrics: views.map(row => row.revenue) }] },
-    { title: "净利润规模", metric: "netIncome" as const, percent: false, series: [{ name: "净利润", color: SITE.accent, metrics: views.map(row => row.netIncome) }] },
+    { title: "营收规模", metric: "revenue" as const, percent: false, series: [{ name: "营收", color: SITE.accent, metrics: views.map(row => row.revenue) }, { name: "营收同比", color: "#a56a17", dashed: true, percent: true, metrics: views.map(row => row.revenueYoY) }] },
+    { title: "净利润规模", metric: "netIncome" as const, percent: false, series: [{ name: "净利润", color: SITE.accent, metrics: views.map(row => row.netIncome) }, { name: "净利润同比", color: "#a56a17", dashed: true, percent: true, metrics: views.map(row => row.netIncomeYoY) }] },
     { title: "净利率", metric: "netMargin" as const, percent: true, series: [{ name: "净利率", color: SITE.accent, metrics: views.map(row => row.netMargin) }] },
     { title: "现金流与资本开支", metric: "fcf" as const, percent: false, series: [
       { name: "经营现金流", color: SITE.accent, metrics: views.map(row => row.ocf) },
@@ -114,7 +114,7 @@ export function IndustryFinancialsClient() {
       </div>
 
       <section className="border-t border-fs-border pt-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-fs-text">行业主要财务指标的历史变化</h2><span className="text-xs text-fs-muted">空心点：权重覆盖不足80%，不连入趋势线 · 点击图表选择报告期</span></div><div className="mt-4 grid min-w-0 gap-x-8 gap-y-5 md:grid-cols-2">
-        {charts.map(chart => <section key={chart.metric} className="min-w-0"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium text-fs-text">{chart.title}</h3><span className="text-sm tabular-nums text-fs-text">{chart.percent ? pct(view[chart.metric].value) : amount(view[chart.metric].value)}</span></div><div className="mt-1 flex flex-wrap justify-between gap-1"><span className="text-xs text-fs-muted">{chart.percent ? "%" : "十亿美元"}</span><Coverage metric={view[chart.metric]} /></div><Chart periods={periods} series={chart.series} selectedPeriod={selectedPeriod} percent={chart.percent} onSelect={selectPeriod} /></section>)}
+        {charts.map(chart => <section key={chart.metric} className="min-w-0"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium text-fs-text">{chart.title}</h3><span className="text-sm tabular-nums text-fs-text">{chart.percent ? pct(view[chart.metric].value) : amount(view[chart.metric].value)}</span></div><div className="mt-1 flex flex-wrap justify-between gap-1"><span className="text-xs text-fs-muted">{chart.percent ? "%" : "十亿美元"}</span><Coverage metric={view[chart.metric]} /></div><Chart periods={periods} series={chart.series} selectedPeriod={selectedPeriod} percent={chart.percent} onSelect={selectPeriod} />{(chart.metric === "revenue" || chart.metric === "netIncome") && <p className="mt-2 text-xs leading-relaxed text-fs-muted">同比使用本期与去年同期均有数据的同样本，覆盖率独立统计。{chart.metric === "netIncome" && "净利润同比 =（本期−上年同期）/ |上年同期|，上年合计为零时不显示。"}</p>}</section>)}
       </div><p className="mt-3 text-xs leading-6 text-fs-muted">现金流三条线使用经营现金流与资本开支均齐全的共同样本，确保自由现金流 = 经营现金流 − 资本开支。
         {view.cashSourceCoverage ? ` ${mode}单项数据权重覆盖：经营现金流 ${pct(view.cashSourceCoverage.ocf.weightCoverage)}；资本开支 ${pct(view.cashSourceCoverage.capex.weightCoverage)}。单项有值但另一项缺失的公司不计入这三条曲线。` : ""}
       </p></section>

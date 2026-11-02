@@ -61,6 +61,18 @@ test("margin is a ratio of paired amounts, not an average of company ratios", ()
   assert.equal(point.netIncome.value, 40);
 });
 
+test("profit growth uses matched issuers, absolute loss base and leaves zero base undefined", () => {
+  const before = snapshot("A", "2025Q3", 100); before.netIncome = -10;
+  const now = snapshot("A", "2026Q3", 100); now.netIncome = 5;
+  const other = snapshot("B", "2026Q3", 200);
+  const point = history([before, now, other]).Q;
+  assert.equal(point.netIncomeYoY.value, 1.5);
+  assert.equal(point.netIncomeYoY.sampleCount, 1);
+  assert.equal(point.netIncomeYoY.weightCoverage, 0.7);
+  before.netIncome = 0;
+  assert.equal(history([before, now]).Q.netIncomeYoY.value, null);
+});
+
 test("cash flow lines use the same sample and missing values remain null", () => {
   const a = snapshot("A", "2026Q3", 100);
   const b = snapshot("B", "2026Q3", 200); b.capex = null;

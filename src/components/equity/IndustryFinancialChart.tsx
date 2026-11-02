@@ -10,7 +10,7 @@ import type { FinancialMetric } from "@/lib/equity/industryFinancials";
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, MarkLineComponent, CanvasRenderer]);
 
-export type FinancialChartSeries = { name: string; color: string; dashed?: boolean; metrics: FinancialMetric[] };
+export type FinancialChartSeries = { name: string; color: string; dashed?: boolean; percent?: boolean; metrics: FinancialMetric[] };
 
 export function IndustryFinancialChart({ periods, series, selectedPeriod, percent = false, onSelect }: {
   periods: string[]; series: FinancialChartSeries[]; selectedPeriod: string;
@@ -23,10 +23,11 @@ export function IndustryFinancialChart({ periods, series, selectedPeriod, percen
     const element = ref.current;
     if (!element) return;
     const chart = echarts.init(element);
-    const factor = percent ? 100 : 1e-9;
+    const dual = !percent && series.some(row => row.percent);
+    const factor = (row: FinancialChartSeries) => percent || row.percent ? 100 : 1e-9;
     chart.setOption({
       animation: false, color: series.map(row => row.color),
-      grid: { left: 54, right: 18, top: series.length > 1 ? 40 : 20, bottom: 32 },
+      grid: { left: 54, right: dual ? 58 : 18, top: dual ? 62 : series.length > 1 ? 40 : 20, bottom: 32 },
       legend: { show: series.length > 1, data: series.map(row => row.name), type: "scroll", top: 0, textStyle: { color: SITE.muted, fontSize: 11 } },
       tooltip: {
         trigger: "axis", confine: true, renderMode: "richText", backgroundColor: SITE.bg, borderColor: SITE.border,
@@ -37,28 +38,31 @@ export function IndustryFinancialChart({ periods, series, selectedPeriod, percen
             data: { sampleCount: number; universeCount: number; weightCoverage: number | null };
           }[];
           return [items[0]?.axisValueLabel ?? "", ...items.filter(item => typeof item.value === "number").map(item =>
-            `${item.seriesName}${item.data.weightCoverage != null && item.data.weightCoverage < 0.8 ? "（低覆盖）" : ""}：${item.value!.toFixed(1)}${percent ? "%" : " 十亿美元"}\n有效 ${item.data.sampleCount}/${item.data.universeCount} 家 · 权重覆盖 ${item.data.weightCoverage == null ? "—" : `${(item.data.weightCoverage * 100).toFixed(1)}%`}`,
+            `${item.seriesName}${item.data.weightCoverage != null && item.data.weightCoverage < 0.8 ? "（低覆盖）" : ""}：${item.value!.toFixed(1)}${percent || series.find(row => row.name === item.seriesName)?.percent ? "%" : " 十亿美元"}\n有效 ${item.data.sampleCount}/${item.data.universeCount} 家 · 权重覆盖 ${item.data.weightCoverage == null ? "—" : `${(item.data.weightCoverage * 100).toFixed(1)}%`}`,
           )].join("\n");
         },
       },
       xAxis: { type: "category", data: periods, boundaryGap: false, axisTick: { show: false },
         axisLabel: { color: SITE.muted, fontSize: 11, hideOverlap: true }, axisLine: { lineStyle: { color: SITE.border } } },
-      yAxis: { type: "value", scale: true, axisLabel: { color: SITE.muted, fontSize: 11 }, splitLine: { lineStyle: { color: SITE.border } } },
+      yAxis: [
+        { type: "value", name: dual ? "十亿美元" : undefined, scale: true, axisLabel: { color: SITE.muted, fontSize: 11 }, splitLine: { lineStyle: { color: SITE.border } } },
+        ...(dual ? [{ type: "value", name: "同比 %", position: "right", scale: true, axisLabel: { color: SITE.muted, fontSize: 11, formatter: "{value}%" }, splitLine: { show: false } }] : []),
+      ],
       series: series.flatMap((row, index) => [{
-        name: row.name, type: "line", connectNulls: false, showSymbol: true, symbol: "circle", symbolSize: 5,
+        name: row.name, yAxisIndex: dual && row.percent ? 1 : 0, type: "line", connectNulls: false, showSymbol: true, symbol: "circle", symbolSize: 5,
         lineStyle: { color: row.color, width: 2, type: row.dashed ? "dashed" : "solid" },
         itemStyle: { color: row.color },
         data: row.metrics.map(metric => ({
-          ...metric, value: metric.value == null || metric.weightCoverage == null || metric.weightCoverage < 0.8 ? null : metric.value * factor,
+          ...metric, value: metric.value == null || metric.weightCoverage == null || metric.weightCoverage < 0.8 ? null : metric.value * factor(row),
         })),
         markLine: index === 0 ? { silent: true, symbol: "none", label: { show: false },
           lineStyle: { color: SITE.secondary, type: "dashed", width: 1 }, data: [{ xAxis: selectedPeriod }] } : undefined,
       }, {
         // 低覆盖季度独立显示，不与完整样本连线，避免制造行业营收/利润骤降。
-        name: row.name, type: "line", connectNulls: false, symbol: "emptyCircle", symbolSize: 7,
+        name: row.name, yAxisIndex: dual && row.percent ? 1 : 0, type: "line", connectNulls: false, symbol: "emptyCircle", symbolSize: 7,
         showSymbol: true, lineStyle: { opacity: 0 }, itemStyle: { color: row.color },
         data: row.metrics.map(metric => ({
-          ...metric, value: metric.value != null && metric.weightCoverage != null && metric.weightCoverage < 0.8 ? metric.value * factor : null,
+          ...metric, value: metric.value != null && metric.weightCoverage != null && metric.weightCoverage < 0.8 ? metric.value * factor(row) : null,
         })),
       }]),
     });
@@ -74,5 +78,5 @@ export function IndustryFinancialChart({ periods, series, selectedPeriod, percen
     return () => { observer.disconnect(); chart.dispose(); };
   }, [periods, series, selectedPeriod, percent]);
 
-  return <div ref={ref} className="h-56 w-full min-w-0" role="img" aria-label={`${series.map(row => row.name).join("、")}历史趋势，单位${percent ? "百分比" : "十亿美元"}；可用上方报告期控件选择季度`} />;
+  return <div ref={ref} className="h-56 w-full min-w-0" role="img" aria-label={`${series.map(row => row.name).join("、")}历史趋势，单位${percent ? "百分比" : series.some(row => row.percent) ? "金额为十亿美元，同比为百分比" : "十亿美元"}；可用上方报告期控件选择季度`} />;
 }
