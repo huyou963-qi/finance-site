@@ -862,12 +862,33 @@ export function extractQuarterlyFundamentals(
   const niQ = flowSeries(FLOW_CONCEPTS.netIncome, ["USD"]);
   const epsQ = flowSeries(FLOW_CONCEPTS.eps, ["USD/shares", "pure"]);
   const ocfQ = flowSeries(FLOW_CONCEPTS.ocf, ["USD"]);
-  // Lilly 的 OtherPPE 实际标注总 PPE 购置（2024 10-K 现金流表 5,057.8m）。
-  // 仅该已核实发行人使用；其他公司的 Other 可能只是子项，不能全市场回退。
-  const capexNames = Number((facts as { cik?: number }).cik) === 59478
-    ? [...FLOW_CONCEPTS.capex, "PaymentsToAcquireOtherPropertyPlantAndEquipment"]
-    : FLOW_CONCEPTS.capex;
-  const capexQ = flowSeries(capexNames, ["USD"]);
+  // 已核实的现金流表科目：Other/净额标签不能作为全市场总资本开支回退。
+  // Lilly 旧 net tag 实为 PPE 购置（处置收入另列）；Verizon OtherProductive 实为 Capital expenditures。
+  const issuerCik = Number((facts as { cik?: number }).cik);
+  const capexAliases = issuerCik === 59478
+    ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForProceedsFromProductiveAssets"]
+    : issuerCik === 732712 ? ["PaymentsToAcquireOtherProductiveAssets"] : [];
+  const capexGaap = { ...gaap };
+  // Verizon 2019 年前的同名 Other tag 是其他投资项目，不能误当资本开支。
+  // 2019 年三个季度与旧总额 tag 相同，此后才承接 Capital expenditures。
+  for (const [name, keep] of (issuerCik === 732712
+    ? [["PaymentsToAcquireOtherProductiveAssets", (p: SecFactPoint) => Boolean(p.start && p.start >= "2019-01-01")]]
+    : issuerCik === 59478 ? [["PaymentsForProceedsFromProductiveAssets", (p: SecFactPoint) => Boolean(p.end && p.end <= "2019-06-30")]] : []) as [string, (p: SecFactPoint) => boolean][]) {
+    const concept = gaap[name];
+    if (concept?.units) capexGaap[name] = { ...concept, units: Object.fromEntries(Object.entries(concept.units).map(([unit, points]) => [unit, points.filter(keep)])) };
+  }
+  let capexQ = pickFlowQuarterSeries(capexGaap, [...FLOW_CONCEPTS.capex, ...capexAliases], ["USD"]);
+  if (issuerCik === 821189) {
+    // EOG 现金流表把 Oil and gas 与 Other PPE additions 分列；两项都存在才求和。
+    // 不包含 property acquisitions、未付资本开支或资产处置收入。
+    const additions = sumFlowSeries(
+      flowSeries(["PaymentsToAcquireOilAndGasPropertyAndEquipment"], ["USD"]),
+      flowSeries(["PaymentsToAcquireOtherPropertyPlantAndEquipment"], ["USD"]),
+    );
+    const merged = new Map(capexQ.map(q => [q.end, q]));
+    for (const q of additions) if (q.end >= "2015-01-01" && !merged.has(q.end)) merged.set(q.end, q);
+    capexQ = [...merged.values()].sort((a, b) => a.end.localeCompare(b.end));
+  }
   const divQ = flowSeries(FLOW_CONCEPTS.dividendsPaid, ["USD"]);
   const buybackQ = flowSeries(FLOW_CONCEPTS.buybackPaid, ["USD"]);
 

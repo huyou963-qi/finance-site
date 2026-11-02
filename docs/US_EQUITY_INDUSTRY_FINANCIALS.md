@@ -38,6 +38,22 @@
 
 ## 验证
 
+### 近十年现金流覆盖核查（2026-11-02）
+
+- 检查当前持仓回溯的全部40个展示季度（2016Q4–2026Q3），Q/TTM、7项指标；将尚在披露的2026年单列，完整年份2016Q4–2025Q4共37季单独统计。历史持仓归档缺失仍不回填为当前成分。
+- 上轮仅回填2019–2024，本轮扩至2015Q1–2026Q3（2015用于最早TTM/同比基线），48季提取、每批40只、只补空值、写前审计；单任务串行，384 MiB heap，单批10分钟、总30分钟上限，与日批互斥。无新表/索引/抓取器/常驻任务。
+- `cashSourceCoverage` 独立返回OCF和CapEx有效数据的覆盖率；三条曲线仍沿用共同样本，不改变原有金额或FCF恒等式。公司明细 `missingFields` 指明缺哪个字段，两端均显示。新增字段只基于已有内存数据计算，无额外查询，仍受11项/16 MiB缓存上限保护。
+- 发行人专属科目证据：
+  - Verizon（732712）：2019起 `PaymentsToAcquireOtherProductiveAssets` 对应 Capital expenditures including capitalized software，[2024 10-K](https://www.sec.gov/Archives/edgar/data/732712/000073271225000006/vz-20241231.htm)为17,090m；2019前三季与旧总额标签相同。**2019前同名标签是其他投资，必须排除**，不得污染旧季度。
+  - Lilly（59478）：`PaymentsForProceedsFromProductiveAssets` 仅用于截至2019-06-30的旧购置记录，与后续标签重叠验证；[2016 10-K](https://www.sec.gov/Archives/edgar/data/59478/000005947817000098/lly-20161231x10xk.htm)将PPE购置1,037.0m与处置收入73.4m分别列示，不推广成其他公司的净额回退。
+  - EOG（821189）：2015起将油气及其他PPE additions两项同期值相加，缺任一项留空。[2024 10-K](https://www.sec.gov/Archives/edgar/data/821189/000082118925000011/eog-20241231.htm)两项分别5,353m和1,019m。沿用现金流表列示金额，不作营运资本调整、不声称等于公司调整后FCF；不加购并、不把未付资本开支当现金。
+- 剩余主要缺口须区分：结构化接口缺发行人自定义科目、科目换代缺同口径重叠、未上市/拆分前无独立季度、尚未披露的新季。不能用投资现金流总额、折旧、资本开支应付款或净资产购置代替总现金资本开支。
+- 对剩余大权重公司的申报原文核查：
+  - [NVIDIA FY2020 10-K](https://www.sec.gov/Archives/edgar/data/1045810/000104581020000010/nvda-2020x10k.htm) 使用 `nvda:PurchasesOfPropertyAndEquipmentAndIntangibleAssets`；标准companyfacts缺此自定义事实，年度缺口会令后续四个TTM均缺失。需要逐申报补充并核实其与旧季报PPE口径，不能将全年值平均摊成季度。
+  - [NextEra 2024 10-K](https://www.sec.gov/Archives/edgar/data/753308/000075330825000011/nee-20241231.htm) 同时有FPL、其他资本开支与核燃料等自定义科目，须核查主体/维度与总额，不能把子公司与集团重复相加。
+  - [Phillips 66 2024 10-K](https://www.sec.gov/Archives/edgar/data/1534701/000153470125000074/psx-20241231.htm) 的 `CapitalExpendituresAndInvestments` 包含投资，不直接当纯PPE资本开支。
+  - [JPMorgan 2024 10-K](https://www.sec.gov/Archives/edgar/data/19617/000001961725000270/jpm-20241231.htm) 本次未找到独立可比的资本开支现金事实；PPE与使用权资产的余额不能充当现金资本开支。银行自由现金流本身也不适合作跨行业比较。
+
 ### 2020–2024 历史覆盖修复与有界回填
 
 - 复用 SEC companyfacts adapter、季度解析器、`upsertQuarterlyFundamentals` 和原快照表，不新增事实源、抓取器或表。
