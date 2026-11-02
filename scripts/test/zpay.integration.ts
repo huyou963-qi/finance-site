@@ -51,6 +51,8 @@ async function assertions() {
   const { POST: checkout } = await import("../../src/app/api/billing/zpay/checkout/route");
   const { GET: notify } = await import("../../src/app/api/billing/zpay/notify/route");
   const { GET: getOrder, POST: checkOrder } = await import("../../src/app/api/billing/orders/[id]/route");
+  const { GET: adminEvents, POST: adminRecheck } = await import("../../src/app/api/admin/orders/[id]/events/route");
+  const { POST: manualCheckout } = await import("../../src/app/api/billing/orders/route");
   const { NextRequest } = await import("next/server");
   const userId = randomUUID(), otherId = randomUUID();
   const token = randomUUID(), otherToken = randomUUID();
@@ -82,6 +84,12 @@ async function assertions() {
     for (const id of [userId, otherId]) await prisma.user.create({ data: { id, username: `billing-${id}`, role: "user", passHash: "test-disabled", passSalt: "test", trialEndsAt: id === userId ? trialEnd : null, createdAt: new Date() } });
     for (const [id, session] of [[userId, token], [otherId, otherToken]]) await prisma.session.create({ data: { token: session, userId: id, createdAt: new Date(), expiresAt: new Date(Date.now() + 3600000) } });
     assert.equal((await checkout(req("/api/billing/zpay/checkout", {}, "invalid"))).status, 401);
+    const adminContext = { params: Promise.resolve({ id: "nonexistent" }) };
+    assert.equal((await adminEvents(req("/api/admin/orders/nonexistent/events", undefined, "invalid"), adminContext)).status, 401);
+    assert.equal((await adminRecheck(req("/api/admin/orders/nonexistent/events", {}, "invalid"), adminContext)).status, 401);
+    assert.equal((await adminEvents(req("/api/admin/orders/nonexistent/events"), adminContext)).status, 403);
+    assert.equal((await adminRecheck(req("/api/admin/orders/nonexistent/events", {}), adminContext)).status, 403);
+    assert.equal((await manualCheckout(req("/api/billing/orders", {}, token, "https://evil.example"))).status, 403);
     assert.equal((await checkout(req("/api/billing/zpay/checkout", {}, token, "https://evil.example"))).status, 403);
     process.env.ZPAY_ENABLED = "false";
     assert.equal((await checkout(req("/api/billing/zpay/checkout", { productType: "pro_month", method: "alipay", idempotencyKey: randomUUID() }))).status, 503);

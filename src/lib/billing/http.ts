@@ -22,7 +22,7 @@ export async function paymentJson(req: NextRequest) {
 export function paymentErrorResponse(e: unknown) {
   const code = isPaymentError(e) ? e.code : "INTERNAL_ERROR";
   const messages: Record<string, string> = {
-    UNAUTHORIZED: "请先登录", INVALID_REQUEST: "支付请求格式无效", INVALID_ORIGIN: "请从本站页面操作",
+    UNAUTHORIZED: "请先登录", FORBIDDEN: "无订单管理权限", INVALID_REQUEST: "支付请求格式无效", INVALID_ORIGIN: "请从本站页面操作",
     NOT_CONFIGURED: "在线支付尚未配置，请稍后再试", CHANNEL_UNAVAILABLE: "支付通道审核或维护中，暂不能付款",
     ORDER_NOT_FOUND: "订单不存在", ORDER_NOT_PAYABLE: "订单已支付或已过期，请查看订单状态",
     TOO_MANY_ORDERS: "下单过于频繁，请稍后再试", PERMANENT_PRO: "你已拥有永久 Pro，无需重复购买",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
 import { checkoutMethods } from "@/lib/billing/zpay";
-import { paymentJson, requirePaymentOrigin } from "@/lib/billing/http";
+import { paymentJson, requirePaymentOrigin, paymentErrorResponse } from "@/lib/billing/http";
 import {
   createPaymentOrder,
   listOrdersForUser,
@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (e) {
-    const message = e instanceof Error ? e.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return paymentErrorResponse(e);
   }
 }
