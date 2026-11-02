@@ -1,4 +1,5 @@
 import { fetchSecJson } from "./secEdgar";
+import { issuerReportedCashCapex } from "./issuerCashCapex";
 /**
  * SEC EDGAR XBRL companyfacts → 三大报表标准化字段（免密钥）。
  * https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json
@@ -886,17 +887,21 @@ export function extractQuarterlyFundamentals(
   const issuerCik = Number((facts as { cik?: number }).cik);
   const capexAliases = issuerCik === 59478
     ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForProceedsFromProductiveAssets"]
-    : issuerCik === 732712 ? ["PaymentsToAcquireOtherProductiveAssets"] : [];
+    : issuerCik === 732712 ? ["PaymentsToAcquireOtherProductiveAssets"]
+      : [8670, 783325].includes(issuerCik) ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment"]
+        : issuerCik === 1297996 ? ["PaymentsToDevelopRealEstateAssets"] : [];
   const capexGaap = { ...gaap };
-  const reportedNvidiaCapex = (facts as { facts?: { nvda?: Record<string, SecConcept> } }).facts?.nvda?.PurchasesOfPropertyAndEquipmentAndIntangibleAssets;
-  if (issuerCik === 1045810 && reportedNvidiaCapex) {
+  const reportedCapex = issuerReportedCashCapex(facts);
+  if (reportedCapex.length) {
     // 计算时保留发行人命名空间；仍须与标准科目同区间金额重叠验证才能跨tag差分。
-    capexGaap.__issuerReportedCashCapex = reportedNvidiaCapex;
+    capexGaap.__issuerReportedCashCapex = { units: { USD: reportedCapex } };
     capexAliases.push("__issuerReportedCashCapex");
   }
   // Verizon 2019 年前的同名 Other tag 是其他投资项目，不能误当资本开支。
   // 2019 年三个季度与旧总额 tag 相同，此后才承接 Capital expenditures。
-  for (const [name, keep] of (issuerCik === 732712
+  for (const [name, keep] of (issuerCik === 783325
+    ? [["PaymentsToAcquireOtherPropertyPlantAndEquipment", (p: SecFactPoint) => Boolean(p.start && p.start >= "2023-01-01")]]
+    : issuerCik === 732712
     ? [["PaymentsToAcquireOtherProductiveAssets", (p: SecFactPoint) => Boolean(p.start && p.start >= "2019-01-01")]]
     : issuerCik === 59478 ? [["PaymentsForProceedsFromProductiveAssets", (p: SecFactPoint) => Boolean(p.end && p.end <= "2019-06-30")]] : []) as [string, (p: SecFactPoint) => boolean][]) {
     const concept = gaap[name];

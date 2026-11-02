@@ -17,6 +17,31 @@ function inst(end: string, val: number, form = "10-Q", filed = "2099-01-01") {
   return { end, val, form, filed };
 }
 
+test("ADP/WEC/DLR总现金购置别名严格限发行人，不推广Other或开发子项到其他公司", () => {
+  for (const [cik, tag] of [[8670, "PaymentsToAcquireOtherPropertyPlantAndEquipment"], [783325, "PaymentsToAcquireOtherPropertyPlantAndEquipment"], [1297996, "PaymentsToDevelopRealEstateAssets"]] as const) {
+    const p = dur("2024-01-01", "2024-03-31", 25);
+    const facts = { cik, facts: { "us-gaap": { Revenues: { units: { USD: [{ ...p, val: 100 }] } }, [tag]: { units: { USD: [p] } } } } };
+    assert.equal(extractQuarterlyFundamentals(facts)[0]?.capex, 25);
+    assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.capex, null);
+  }
+});
+
+test("WEC已核实的同一现金流总额使用年报减九个月累计，未知发行人仍禁止无重叠跨tag", () => {
+  const q = [dur("2024-01-01", "2024-03-31", 10), dur("2024-01-01", "2024-06-30", 25), dur("2024-01-01", "2024-09-30", 45)];
+  const facts = { cik: 783325, facts: { "us-gaap": { Revenues: { units: { USD: [dur("2024-10-01", "2024-12-31", 100)] } },
+    PaymentsToAcquirePropertyPlantAndEquipment: { units: { USD: q } },
+    PaymentsToAcquireOtherPropertyPlantAndEquipment: { units: { USD: [dur("2024-01-01", "2024-12-31", 70, "10-K")] } },
+  } } };
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.capex, 25);
+  assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.capex, null);
+  const old = dur("2019-01-01", "2019-12-31", 200, "10-K");
+  facts.facts["us-gaap"].PaymentsToAcquirePropertyPlantAndEquipment.units.USD.push(old);
+  facts.facts["us-gaap"].PaymentsToAcquireOtherPropertyPlantAndEquipment.units.USD.push({ ...old, val: 150 });
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.capex, 25);
+  facts.facts["us-gaap"].PaymentsToAcquireOtherPropertyPlantAndEquipment.units.USD.push({ ...q[0]!, val: 11 });
+  assert.throws(() => extractQuarterlyFundamentals(facts), /冲突/);
+});
+
 test("Verizon OtherProductive 仅在已核实 2019 年后作资本开支，旧年代其他投资不混入", () => {
   const old = dur("2015-01-01", "2015-03-31", 100);
   const overlap = [dur("2019-01-01", "2019-03-31", 110), dur("2019-04-01", "2019-06-30", 120), dur("2019-07-01", "2019-09-30", 130)];

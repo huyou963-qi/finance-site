@@ -27,6 +27,7 @@ import {
 import { upsertQuarterlyFundamentals } from "../../src/lib/equity/equityFundamentalsStore";
 import { planQuarterlyWrite, quarterlyWriteWindow } from "../../src/lib/equity/quarterlyWritePlan";
 import { supplementSecCashCapex } from "../../src/lib/equity/secCashFlowSupplement";
+import { CASH_CAPEX_COMPONENTS } from "../../src/lib/equity/issuerCashCapex";
 
 function argValue(name: string): string | undefined {
   const eq = process.argv.find((a) => a.startsWith(`${name}=`));
@@ -164,7 +165,7 @@ async function main() {
     }
     try {
       let facts = await fetchSecCompanyFacts(cik);
-      if (cashSupplement && Number(cik) === 1045810) {
+      if (cashSupplement && CASH_CAPEX_COMPONENTS[Number(cik)]) {
         const missing = extractQuarterlyFundamentals(facts, { maxQuarters: quarters })
           .filter(r => r.capex == null && (!fromPeriod || r.period >= fromPeriod) && (!throughPeriod || r.period <= throughPeriod));
         const extra = await supplementSecCashCapex(facts, missing.map(r => r.fiscalDate));
