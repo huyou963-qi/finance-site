@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { PaymentTrace } from "@/components/billing/PaymentTrace";
 
 type OrderRow = {
   id: string;
@@ -13,6 +14,10 @@ type OrderRow = {
   status: string;
   createdAt: string;
   paidAt: string;
+  channel: string;
+  externalId: string;
+  lastErrorCode: string;
+  checkAttempts: number;
 };
 
 export function AdminOrdersClient() {
@@ -66,7 +71,7 @@ export function AdminOrdersClient() {
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
       <h1 className="text-xl font-semibold text-fs-text">订单确认</h1>
       <p className="mt-1 text-sm text-fs-muted">
-        用户个人转账后，在此按订单号确认收款并开通 Pro / 积分。
+        人工转账须核实到账后确认；ZPAY 订单通过平台查单自动开通。跟踪记录包含核验与权益变更。
       </p>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -80,6 +85,7 @@ export function AdminOrdersClient() {
             <option value="pending">pending</option>
             <option value="paid">paid</option>
             <option value="expired">expired</option>
+            <option value="review">review（需核对）</option>
             <option value="">全部</option>
           </select>
         </label>
@@ -126,7 +132,7 @@ export function AdminOrdersClient() {
           <tbody>
             {orders.map((o) => (
               <tr key={o.id} className="border-t border-fs-border">
-                <td className="px-3 py-2 font-mono text-xs">{o.orderNo}</td>
+                <td className="px-3 py-2 text-xs"><span className="break-all font-mono">{o.orderNo}</span><p>{o.channel} · 流水 {o.externalId || "—"}</p><p>核验 {o.checkAttempts} 次 · {o.lastErrorCode || "无异常"}</p><PaymentTrace orderId={o.id} online={o.channel === "zpay"} /></td>
                 <td className="px-3 py-2">
                   {o.username}
                   <div className="text-xs text-fs-muted">{o.email}</div>
@@ -141,7 +147,7 @@ export function AdminOrdersClient() {
                   {o.createdAt.slice(0, 19).replace("T", " ")}
                 </td>
                 <td className="px-3 py-2">
-                  {o.status === "pending" ? (
+                  {o.status === "pending" && o.channel !== "zpay" ? (
                     <button
                       type="button"
                       disabled={busyId !== null}
@@ -171,7 +177,9 @@ export function AdminOrdersClient() {
           <div className="flex flex-wrap items-start justify-between gap-2"><strong className="font-mono text-fs-text">{o.orderNo}</strong><span className="text-fs-muted">{o.status}</span></div>
           <p className="mt-2 text-fs-text">{o.username} · {o.productType}{o.credits ? ` (+${o.credits} 分)` : ""}</p>
           <p className="mt-1 text-fs-secondary">¥{o.amountCny} · {o.createdAt.slice(0, 10)}</p>
-          {o.status === "pending" ? <button type="button" disabled={busyId !== null} onClick={() => void confirm(o.id)} className="mt-3 rounded border border-fs-accent/40 px-3 py-2 text-fs-accent-text disabled:opacity-50">确认收款</button> : null}
+          <p className="mt-1 break-all text-xs">{o.channel} · 流水 {o.externalId || "—"} · 核验 {o.checkAttempts} 次 · {o.lastErrorCode || "无异常"}</p>
+          <PaymentTrace orderId={o.id} online={o.channel === "zpay"} />
+          {o.status === "pending" && o.channel !== "zpay" ? <button type="button" disabled={busyId !== null} onClick={() => void confirm(o.id)} className="mt-3 rounded border border-fs-accent/40 px-3 py-2 text-fs-accent-text disabled:opacity-50">确认收款</button> : null}
         </article>)}
         {orders.length === 0 ? <p className="rounded-lg border border-fs-border p-6 text-center text-sm text-fs-muted">暂无订单</p> : null}
       </div>

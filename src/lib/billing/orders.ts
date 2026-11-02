@@ -1,22 +1,17 @@
 import { prisma } from "@/lib/prisma";
+import { randomBytes } from "node:crypto";
+import { grantOrderEntitlement, serializable } from "./fulfillment";
 import {
   CREDIT_PACK_CREDITS,
-  addBillingPeriod,
   amountForProduct,
   periodForProduct,
-  type BillingPeriod,
   type ProductType,
 } from "@/lib/billing/pricing";
 
 const ORDER_TTL_HOURS = 48;
 
 function randomOrderNo(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let suffix = "";
-  for (let i = 0; i < 6; i++) {
-    suffix += alphabet[Math.floor(Math.random() * alphabet.length)]!;
-  }
-  return `FN-${suffix}`;
+  return `FN-${randomBytes(8).toString("hex").toUpperCase()}`;
 }
 
 export async function createPaymentOrder(input: {
@@ -72,6 +67,11 @@ export function serializeOrder(o: {
   createdAt: Date;
   updatedAt: Date;
   expiresAt: Date | null;
+  paymentMethod?: string | null;
+  fulfilledAt?: Date | null;
+  lastErrorCode?: string | null;
+  lastCheckedAt?: Date | null;
+  checkAttempts?: number;
 }) {
   return {
     id: o.id,
@@ -90,6 +90,11 @@ export function serializeOrder(o: {
     createdAt: o.createdAt.toISOString(),
     updatedAt: o.updatedAt.toISOString(),
     expiresAt: o.expiresAt ? o.expiresAt.toISOString() : "",
+    paymentMethod: o.paymentMethod ?? "",
+    fulfilledAt: o.fulfilledAt?.toISOString() ?? "",
+    lastErrorCode: o.lastErrorCode ?? "",
+    lastCheckedAt: o.lastCheckedAt?.toISOString() ?? "",
+    checkAttempts: o.checkAttempts ?? 0,
   };
 }
 
@@ -124,31 +129,24 @@ export async function activatePaidOrder(orderId: string, actor: { id: string; us
   const now = new Date();
   const expired = await prisma.paymentOrder.updateMany({ where: { id: orderId, status: "pending", expiresAt: { lt: now } }, data: { status: "expired" } });
   if (expired.count) throw new Error("订单已过期，请重新下单");
-  const updated = await prisma.$transaction(async (tx) => {
+  const updated = await serializable(async (tx) => {
     const order = await tx.paymentOrder.findUnique({ where: { id: orderId } });
     if (!order) throw new Error("订单不存在");
+    if (order.channel === "zpay") throw new Error("ZPAY订单须通过平台查单核验，不能人工确认");
     if (order.status === "paid") return order;
     if (order.status !== "pending") throw new Error("订单状态不可确认");
     if (order.expiresAt && order.expiresAt < now) throw new Error("订单已过期，请重新下单");
     const claimed = await tx.paymentOrder.updateMany({ where: { id: orderId, status: "pending" }, data: {
-      status: "paid", paidAt: now, confirmedBy: actor.username, channel: order.channel === "manual" ? "admin" : order.channel,
+      status: "paid", paidAt: now, fulfilledAt: now, confirmedBy: actor.username, channel: order.channel === "manual" ? "admin" : order.channel,
     } });
     if (claimed.count !== 1) throw new Error("订单已被其他管理员确认");
-    const user = await tx.user.findUnique({ where: { id: order.userId } });
-    if (!user) throw new Error("用户不存在");
-    if (user.status === "closed") throw new Error("用户已关闭，不能确认订单");
-    if (order.productType === "credits") {
-      const updatedUser = await tx.user.update({ where: { id: user.id }, data: { creditBalance: { increment: order.credits } } });
-      const balanceAfter = updatedUser.creditBalance;
-      await tx.creditLedgerEntry.create({ data: { userId: user.id, reason: "purchase", delta: order.credits, balanceAfter, orderId } });
-    } else {
-      const base = user.plan === "pro" && user.planExpiresAt && user.planExpiresAt > now ? user.planExpiresAt : now;
-      await tx.user.update({ where: { id: user.id }, data: { plan: "pro", planExpiresAt: addBillingPeriod(base, (order.period ?? "month") as BillingPeriod), trialEndsAt: null } });
-    }
+    const evidence = await grantOrderEntitlement(tx, order, now);
+    const user = await tx.user.findUniqueOrThrow({ where: { id: order.userId } });
+    await tx.paymentEvent.create({ data: { orderId, kind: "entitlement_granted", source: "admin", code: "OK", details: evidence } });
     await tx.adminUserAudit.create({ data: { actorId: actor.id, actorUsername: actor.username, targetUserId: user.id,
       targetUsername: user.username, action: "order-confirm", reason, before: { orderNo: order.orderNo, status: order.status }, after: { orderNo: order.orderNo, status: "paid" } } });
     return tx.paymentOrder.findUniqueOrThrow({ where: { id: orderId } });
-  }, { isolationLevel: "Serializable" });
+  });
   return serializeOrder(updated);
 }
 

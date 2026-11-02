@@ -101,7 +101,7 @@ model User {
   @@schema("public")
 }
 
-/// B2C 订单：人工转账 / 爱发电等；Admin 确认后开通 Pro 或加积分
+/// B2C 订单：人工转账需 Admin 确认；ZPAY 验签+主动查单后原子开通。
 model PaymentOrder {
   id          String    @id @default(cuid())
   /// 短单号，转账备注用，如 FN-A1B2C3
@@ -115,9 +115,9 @@ model PaymentOrder {
   amountCny   Int       @map("amount_cny")
   /// 积分包时为购买积分数
   credits     Int       @default(0)
-  /// pending | paid | cancelled | expired
+  /// pending | paid | cancelled | expired | review（到账或核验异常待处理）
   status      String    @default("pending") @db.VarChar(16)
-  /// manual | afdian | xunhu | admin
+  /// manual | afdian | xunhu | admin | zpay
   channel     String    @default("manual") @db.VarChar(16)
   manualNote  String?   @map("manual_note") @db.VarChar(512)
   externalId  String?   @map("external_id") @db.VarChar(128)
@@ -126,10 +126,38 @@ model PaymentOrder {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   expiresAt   DateTime? @map("expires_at")
+  paymentMethod String? @map("payment_method") @db.VarChar(16)
+  merchantId String? @map("merchant_id") @db.VarChar(64)
+  idempotencyKey String? @map("idempotency_key") @db.VarChar(64)
+  providerTradeNo String? @unique @map("provider_trade_no") @db.VarChar(128)
+  fulfilledAt DateTime? @map("fulfilled_at")
+  lastCheckedAt DateTime? @map("last_checked_at")
+  nextCheckAt DateTime? @map("next_check_at")
+  checkAttempts Int @default(0) @map("check_attempts")
+  lastErrorCode String? @map("last_error_code") @db.VarChar(64)
+  events PaymentEvent[]
 
+  @@unique([userId, idempotencyKey])
+  @@index([channel, nextCheckAt])
   @@index([userId, status])
   @@index([status, createdAt])
   @@map("payment_order")
+  @@schema("public")
+}
+
+/// Append-only payment lifecycle evidence; never store keys, signatures or payer accounts.
+model PaymentEvent {
+  id String @id @default(cuid())
+  orderId String @map("order_id")
+  order PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind String @db.VarChar(32)
+  source String @db.VarChar(24)
+  code String @db.VarChar(64)
+  details Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([orderId, createdAt])
+  @@map("payment_event")
   @@schema("public")
 }
 

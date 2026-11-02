@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { randomUUID } from "@/lib/randomId";
+import { ZpayCheckout, PAYMENT_STATUS, type OnlineCheckout } from "@/components/billing/ZpayCheckout";
 import {
   CREDIT_PACK_CNY,
   CREDIT_PACK_CREDITS,
@@ -19,6 +21,9 @@ type Order = {
   amountCny: number;
   status: string;
   createdAt: string;
+  channel: string;
+  paymentMethod: string;
+  expiresAt: string;
 };
 
 type PaymentHints = {
@@ -40,6 +45,10 @@ export function PricingClient() {
     payment: PaymentHints;
   } | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [onlineMethods, setOnlineMethods] = useState<string[]>([]);
+  const [method, setMethod] = useState("alipay");
+  const [onlineCheckout, setOnlineCheckout] = useState<OnlineCheckout | null>(null);
+  const [requestKey, setRequestKey] = useState<{ product: string; method: string; key: string } | null>(null);
 
   const refreshMe = useCallback(async () => {
     try {
@@ -64,8 +73,9 @@ export function PricingClient() {
     try {
       const res = await fetch("/api/billing/orders", { cache: "no-store" });
       if (!res.ok) return;
-      const j = (await res.json()) as { orders?: Order[] };
+      const j = (await res.json()) as { orders?: Order[]; onlineMethods?: string[] };
       setOrders(j.orders ?? []);
+      setOnlineMethods(j.onlineMethods ?? []);
     } catch {
       /* ignore */
     }
@@ -76,6 +86,19 @@ export function PricingClient() {
     void refreshOrders();
   }, [refreshMe, refreshOrders]);
 
+  const onPaid = useCallback(() => { void refreshMe(); void refreshOrders(); }, [refreshMe, refreshOrders]);
+
+  async function resumeOrder(orderId: string) {
+    setBusy(orderId); setHint(null);
+    try {
+      const res = await fetch("/api/billing/zpay/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "无法继续付款，请先核验订单");
+      setOnlineCheckout(data); setCheckout(null);
+    } catch (e) { setHint(e instanceof Error ? e.message : "无法继续付款"); }
+    finally { setBusy(null); }
+  }
+
   const createOrder = async (productType: "pro_month" | "pro_year" | "credits") => {
     setHint(null);
     if (!loggedIn) {
@@ -84,6 +107,18 @@ export function PricingClient() {
     }
     setBusy(productType);
     try {
+      if (onlineMethods.length) {
+        const selected = onlineMethods.includes(method) ? method : onlineMethods[0];
+        const pending = orders.find(o => o.productType === productType && o.channel === "zpay" && o.status === "pending" && o.paymentMethod === selected && new Date(o.expiresAt).getTime() > Date.now());
+        if (pending) { await resumeOrder(pending.id); return; }
+        const key = requestKey?.product === productType && requestKey.method === selected ? requestKey.key : randomUUID();
+        setRequestKey({ product: productType, method: selected, key });
+        const res = await fetch("/api/billing/zpay/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productType, method: selected, idempotencyKey: key }) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "下单未完成，请先查看我的订单");
+        setOnlineCheckout(data); setCheckout(null); setRequestKey(null);
+        await refreshOrders(); return;
+      }
       const res = await fetch("/api/billing/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,6 +163,10 @@ export function PricingClient() {
         </p>
       ) : null}
 
+      <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-fs-secondary">
+        {onlineMethods.length ? <><span>在线支付方式</span><select aria-label="在线支付方式" value={onlineMethods.includes(method) ? method : onlineMethods[0]} onChange={e => setMethod(e.target.value)} className="rounded border border-fs-border bg-white px-3 py-2">{onlineMethods.map(v => <option key={v} value={v}>{v === "alipay" ? "支付宝" : "微信支付"}</option>)}</select><span className="text-xs">付款核验后自动开通；不会自动扣款。</span></> : <span>在线支付审核或维护中。以下为人工转账订单，需管理员核实到账后开通。</span>}
+      </div>
+      <ZpayCheckout initial={onlineCheckout} onPaid={onPaid} />
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-fs-border bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-fs-muted">月付</p>
@@ -276,7 +315,8 @@ export function PricingClient() {
                 <span>
                   {o.productType} · ¥{o.amountCny}
                 </span>
-                <span>{o.status}</span>
+                <span>{PAYMENT_STATUS[o.status] ?? o.status}</span>
+                {o.channel === "zpay" ? <div className="flex flex-wrap gap-2">{o.status === "pending" ? <button type="button" disabled={busy !== null} onClick={() => void resumeOrder(o.id)} className="rounded border border-fs-border px-2 py-2 disabled:opacity-50">继续付款</button> : null}<button type="button" onClick={() => { void fetch(`/api/billing/orders/${encodeURIComponent(o.id)}`, { method: "POST" }).then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.error); setOnlineCheckout({ order: data.order }); onPaid(); }).catch(() => setHint("核验未完成，请稍后再试")); }} className="rounded border border-fs-border px-2 py-2">核验状态</button></div> : null}
               </li>
             ))}
           </ul>
