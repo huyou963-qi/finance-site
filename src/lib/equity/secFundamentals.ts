@@ -229,6 +229,7 @@ const FLOW_CONCEPTS = {
     "SalesRevenueNet",
     "RevenueFromContractWithCustomerIncludingAssessedTax",
     "RevenuesNetOfInterestExpense",
+    "RegulatedAndUnregulatedOperatingRevenue",
   ],
   grossProfit: ["GrossProfit"],
   operatingIncome: ["OperatingIncomeLoss"],
@@ -271,12 +272,12 @@ function dateMs(iso: string): number {
   return Date.parse(`${iso}T00:00:00Z`);
 }
 
-/** 财报期末 → 日历季度标签；月初 1–3 日的期末（4-4-5 周历溢出）归入上一季度 */
-export function calendarQuarterLabel(endIso: string): string {
+/** 财报期末 → 日历季度标签；首周周历溢出归前季。3 仅用于识别并迁移旧标签。 */
+export function calendarQuarterLabel(endIso: string, overflowDays: 3 | 7 = 7): string {
   let y = Number(endIso.slice(0, 4));
   let m = Number(endIso.slice(5, 7));
   const d = Number(endIso.slice(8, 10));
-  if (d <= 3 && (m === 1 || m === 4 || m === 7 || m === 10)) {
+  if (d <= overflowDays && (m === 1 || m === 4 || m === 7 || m === 10)) {
     m -= 1;
     if (m === 0) {
       m = 12;
@@ -366,10 +367,15 @@ export function quarterlyFlowSeries(points: SecFactPoint[]): FlowQuarter[] {
     && deduped.some(a => a.end === end && a.days >= 330 && a.days <= 380
       && Math.round((dateMs(start) - dateMs(a.start)) / DAY_MS) >= 230
       && Math.round((dateMs(start) - dateMs(a.start)) / DAY_MS) <= 290);
+  // 16/12/12/12 周第一季：要求真实 Q1 申报及同年/前一年完整财年锚点。
+  const retailFirst = (p: DedupedDurPoint) => p.days > 100 && p.days <= 120
+    && points.some(raw => raw.start === p.start && raw.end === p.end && raw.fp === "Q1" && raw.form?.startsWith("10-Q"))
+    && deduped.some(a => a.days >= 330 && a.days <= 380
+      && (a.start === p.start || Math.abs(dateMs(p.start) - dateMs(a.end) - DAY_MS) <= DAY_MS));
 
   // 1) 直接单季点
   for (const p of deduped) {
-    if (!isQuarterSpan(p.days) && !retailFourth(p.start, p.end, p.days)) continue;
+    if (!isQuarterSpan(p.days) && !retailFourth(p.start, p.end, p.days) && !retailFirst(p)) continue;
     const prev = byEnd.get(p.end);
     if (!prev || prev.derived) {
       byEnd.set(p.end, {
@@ -851,10 +857,23 @@ export function extractQuarterlyFundamentals(
   const nonInterest = pickFlowQuarterSeries(gaap, ["NoninterestIncome"], ["USD"]);
   const bankTotal = nii.length && nonInterest.length ? sumFlowSeries(nii, nonInterest) : [];
 
-  const revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
+  let revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
     magnitudeTieBreak: true,
     extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal],
   });
+  if (Number((facts as { cik?: number }).cik) === 906107) {
+    // EQR 2020Q2起收入表只列Rental income。保留已知总营收，租赁科目只补缺口。
+    // 2019的同名ASC842子项不等于总营收；2021起才与旧租赁科目重叠一致。
+    const rentalGaap = { ...gaap };
+    const concept = gaap.OperatingLeaseLeaseIncome;
+    if (concept?.units) rentalGaap.OperatingLeaseLeaseIncome = { ...concept, units: Object.fromEntries(
+      Object.entries(concept.units).map(([unit, points]) => [unit, points.filter(p => p.start && p.start >= "2021-01-01")]),
+    ) };
+    const rental = pickFlowQuarterSeries(rentalGaap, ["OperatingLeaseLeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue"], ["USD"]);
+    const combined = new Map(revenueQ.map(q => [q.end, q]));
+    for (const q of rental) if (q.end >= "2020-04-01" && !combined.has(q.end)) combined.set(q.end, q);
+    revenueQ = [...combined.values()].sort((a, b) => a.end.localeCompare(b.end));
+  }
   if (!revenueQ.length) return [];
 
   const grossQ = flowSeries(FLOW_CONCEPTS.grossProfit, ["USD"]);
@@ -869,6 +888,12 @@ export function extractQuarterlyFundamentals(
     ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForProceedsFromProductiveAssets"]
     : issuerCik === 732712 ? ["PaymentsToAcquireOtherProductiveAssets"] : [];
   const capexGaap = { ...gaap };
+  const reportedNvidiaCapex = (facts as { facts?: { nvda?: Record<string, SecConcept> } }).facts?.nvda?.PurchasesOfPropertyAndEquipmentAndIntangibleAssets;
+  if (issuerCik === 1045810 && reportedNvidiaCapex) {
+    // 计算时保留发行人命名空间；仍须与标准科目同区间金额重叠验证才能跨tag差分。
+    capexGaap.__issuerReportedCashCapex = reportedNvidiaCapex;
+    capexAliases.push("__issuerReportedCashCapex");
+  }
   // Verizon 2019 年前的同名 Other tag 是其他投资项目，不能误当资本开支。
   // 2019 年三个季度与旧总额 tag 相同，此后才承接 Capital expenditures。
   for (const [name, keep] of (issuerCik === 732712

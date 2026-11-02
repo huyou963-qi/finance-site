@@ -25,6 +25,8 @@ import {
   fetchYahooLastClose,
 } from "../../src/lib/equity/secFundamentals";
 import { upsertQuarterlyFundamentals } from "../../src/lib/equity/equityFundamentalsStore";
+import { planQuarterlyWrite, quarterlyWriteWindow } from "../../src/lib/equity/quarterlyWritePlan";
+import { supplementSecCashCapex } from "../../src/lib/equity/secCashFlowSupplement";
 
 function argValue(name: string): string | undefined {
   const eq = process.argv.find((a) => a.startsWith(`${name}=`));
@@ -76,6 +78,8 @@ async function main() {
   const fillMissing = process.argv.includes("--fill-missing");
   const dryRun = process.argv.includes("--dry-run");
   const auditFile = argValue("--audit-file");
+  const cashSupplement = process.argv.includes("--supplement-cash-flow");
+  if (cashSupplement && (periodType !== "Q" || !(symbolsArg || symbolsFile) || !auditFile)) throw new Error("申报补充须指定季度、名单和审计文件");
   if ((dryRun || fillMissing) && periodType !== "Q") throw new Error("--dry-run/--fill-missing 仅支持季度回填");
   if ([fromPeriod, throughPeriod].some(p => p != null && !/^\d{4}Q[1-4]$/.test(p))
     || (fromPeriod && throughPeriod && fromPeriod > throughPeriod)) throw new Error("财报期范围无效");
@@ -159,34 +163,38 @@ async function main() {
       continue;
     }
     try {
-      const facts = await fetchSecCompanyFacts(cik);
+      let facts = await fetchSecCompanyFacts(cik);
+      if (cashSupplement && Number(cik) === 1045810) {
+        const missing = extractQuarterlyFundamentals(facts, { maxQuarters: quarters })
+          .filter(r => r.capex == null && (!fromPeriod || r.period >= fromPeriod) && (!throughPeriod || r.period <= throughPeriod));
+        const extra = await supplementSecCashCapex(facts, missing.map(r => r.fiscalDate));
+        facts = extra.facts;
+        if (auditFile) appendFileSync(auditFile, `${JSON.stringify({ symbol, supplementSources: extra.sources })}\n`);
+      }
 
       if (periodType === "Q") {
-        let rows = extractQuarterlyFundamentals(facts, { maxQuarters: quarters })
+        const incoming = extractQuarterlyFundamentals(facts, { maxQuarters: quarters })
           .filter(r => (!fromPeriod || r.period >= fromPeriod) && (!throughPeriod || r.period <= throughPeriod));
-        if (fillMissing) {
+        if (!incoming.length && fillMissing) {
+          skipped += 1;
+          console.log(`unavailable in requested range: ${symbol}`);
+          if (!dryRun) markDone(symbol);
+          await sleep(delayMs);
+          continue;
+        }
+        let rows = incoming;
+        let removedPeriods = 0;
+        if (incoming.length) {
           const existing = await prisma.equityFundamentalSnapshot.findMany({
-            where: { symbol, periodType: "Q", period: { gte: fromPeriod, lte: throughPeriod } },
+            where: { symbol, periodType: "Q", period: quarterlyWriteWindow(incoming) }, take: 103,
           });
+          if (existing.length >= 103) throw new Error("既有季度记录超出有界迁移范围");
           if (auditFile) appendFileSync(auditFile, `${JSON.stringify({ symbol, at: new Date().toISOString(), dryRun, before: existing })}\n`);
-          const byPeriod = new Map(existing.map(r => [r.period, r]));
-          rows = rows.flatMap(r => {
-            const old = byPeriod.get(r.period);
-            if (!old) return [r];
-            if (!old.fiscalDate || old.fiscalDate.toISOString().slice(0, 10) !== r.fiscalDate) return [];
-            const merged = { ...r };
-            let improved = false;
-            for (const key of Object.keys(r) as (keyof typeof r)[]) {
-              if (["period", "fiscalDate", "firstReportedAt"].includes(key)) continue;
-              const value = old[key as keyof typeof old];
-              if (value != null) Object.assign(merged, { [key]: value });
-              else if (r[key] != null) improved = true;
-            }
-            if (old.firstReportedAt) merged.firstReportedAt = [merged.firstReportedAt ?? "", old.firstReportedAt.toISOString().slice(0, 10)].sort().at(-1)!;
-            return improved ? [merged] : [];
-          });
-          if (auditFile) appendFileSync(auditFile, `${JSON.stringify({ symbol, proposed: rows })}\n`);
-          if (!rows.length) {
+          const plan = planQuarterlyWrite(incoming, existing, fillMissing);
+          rows = plan.rows;
+          removedPeriods = plan.obsolete.length;
+          if (auditFile) appendFileSync(auditFile, `${JSON.stringify({ symbol, proposed: rows, obsolete: plan.obsolete, relabelled: plan.relabelled, skippedPeriods: plan.skipped })}\n`);
+          if (!rows.length && !removedPeriods) {
             console.log(`unchanged ${symbol}`);
             ok += 1;
             if (!dryRun) markDone(symbol);
@@ -194,21 +202,21 @@ async function main() {
             continue;
           }
         }
-        if (!rows.length) {
+        if (!rows.length && !removedPeriods) {
           fail += 1;
           failed.push(symbol);
           console.warn(`no quarterly facts: ${symbol}`);
           await sleep(delayMs);
           continue;
         }
-        const n = dryRun ? rows.length : await upsertQuarterlyFundamentals(symbol, rows);
+        const n = dryRun ? rows.length : await upsertQuarterlyFundamentals(symbol, incoming, { fillMissing });
         ok += 1;
         if (!dryRun) markDone(symbol);
-        const first = rows[0]!;
-        const last = rows[rows.length - 1]!;
+        const first = rows[0] ?? incoming[0]!;
+        const last = rows.at(-1) ?? incoming.at(-1)!;
         const eta = ((Date.now() - t0) / Math.max(1, ok + fail)) * (total - seen);
         console.log(
-          `ok [${seen}/${total}] ${symbol} Q×${n} ${first.fiscalDate}→${last.fiscalDate} rev=${last.revenue?.toExponential(2) ?? "n/a"} revYoY=${last.revenueYoY?.toFixed(3) ?? "n/a"} eta=${(eta / 60000).toFixed(0)}m`,
+          `ok [${seen}/${total}] ${symbol} Q×${n} rekey-removed=${removedPeriods} ${first.fiscalDate}→${last.fiscalDate} rev=${last.revenue?.toExponential(2) ?? "n/a"} revYoY=${last.revenueYoY?.toFixed(3) ?? "n/a"} eta=${(eta / 60000).toFixed(0)}m`,
         );
         await sleep(delayMs);
         continue;
@@ -310,6 +318,7 @@ async function main() {
       2,
     ),
   );
+  if (fail) process.exitCode = 1;
 }
 
 main()

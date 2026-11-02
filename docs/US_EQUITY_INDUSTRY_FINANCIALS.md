@@ -7,7 +7,7 @@
 - 新页面与 API 皆按新功能权限判定，桌面导航与手机抽屉共用同一目录。
 - 个股链接 `/equity/stocks/:symbol?tab=fundamentals` 直接打开既有财务基本面分页。
 - 复用 `GICS_SECTOR_DEFS` 中的11只 Select Sector SPDR ETF、`sector_etf_holding`、`equity_security`、`equity_fundamental_snapshot` 和 `equity_disclosure_batch`；TTM 调用既有 `computeTtm`。
-- 不新增 schema、migration、事实表、adapter、writer、后台服务或外部抓取。缺失数据由既有每日财报与 ETF 持仓任务更新，本页面不做懒回补。
+- 页面不新增 schema、migration、事实表或后台服务；复用既有财报 adapter/writer。历史补充使用下文显式离线命令，页面不做懒回补。
 
 ## API 与口径
 
@@ -49,7 +49,7 @@
   - EOG（821189）：2015起将油气及其他PPE additions两项同期值相加，缺任一项留空。[2024 10-K](https://www.sec.gov/Archives/edgar/data/821189/000082118925000011/eog-20241231.htm)两项分别5,353m和1,019m。沿用现金流表列示金额，不作营运资本调整、不声称等于公司调整后FCF；不加购并、不把未付资本开支当现金。
 - 剩余主要缺口须区分：结构化接口缺发行人自定义科目、科目换代缺同口径重叠、未上市/拆分前无独立季度、尚未披露的新季。不能用投资现金流总额、折旧、资本开支应付款或净资产购置代替总现金资本开支。
 - 对剩余大权重公司的申报原文核查：
-  - [NVIDIA FY2020 10-K](https://www.sec.gov/Archives/edgar/data/1045810/000104581020000010/nvda-2020x10k.htm) 使用 `nvda:PurchasesOfPropertyAndEquipmentAndIntangibleAssets`；标准companyfacts缺此自定义事实，年度缺口会令后续四个TTM均缺失。需要逐申报补充并核实其与旧季报PPE口径，不能将全年值平均摊成季度。
+  - [NVIDIA FY2020 10-K](https://www.sec.gov/Archives/edgar/data/1045810/000104581020000010/nvda-2020x10k.htm) 使用 `nvda:PurchasesOfPropertyAndEquipmentAndIntangibleAssets`；标准companyfacts缺此自定义事实，年度缺口会令后续四个TTM均缺失。本轮通过下文逐申报补充，不将全年值平均摊成季度。
   - [NextEra 2024 10-K](https://www.sec.gov/Archives/edgar/data/753308/000075330825000011/nee-20241231.htm) 同时有FPL、其他资本开支与核燃料等自定义科目，须核查主体/维度与总额，不能把子公司与集团重复相加。
   - [Phillips 66 2024 10-K](https://www.sec.gov/Archives/edgar/data/1534701/000153470125000074/psx-20241231.htm) 的 `CapitalExpendituresAndInvestments` 包含投资，不直接当纯PPE资本开支。
   - [JPMorgan 2024 10-K](https://www.sec.gov/Archives/edgar/data/19617/000001961725000270/jpm-20241231.htm) 本次未找到独立可比的资本开支现金事实；PPE与使用权资产的余额不能充当现金资本开支。银行自由现金流本身也不适合作跨行业比较。
@@ -61,7 +61,7 @@
 - 12/12/12/16–17 周零售财年长第四季须由全年和同起点九个月累计确认，不能把任意 120 天区间当季度。
 - Lilly（CIK 59478）的 OtherPPE 经[2024 10-K 现金流表](https://www.sec.gov/Archives/edgar/data/59478/000005947825000067/lly-20241231.htm)核实为总 PPE 购置，仅该发行人启用；不把所有公司的 Other 子项当总额。
 - Exxon 2026-07-01 迁册后新 CIK 2115436 仅包含近期事实。根据[继任注册人 8-K12B](https://www.sec.gov/Archives/edgar/data/2115436/000119312526291990/d71068d8k12b.htm)，共享 adapter 串行读取前身 34088，仅补生效日前同合并集团事实，保留原 accn/filed；不扩展到拆分与收购公司。
-- 原命令增加季度 `--dry-run`、`--from-period`、`--through-period`、`--fill-missing`、`--audit-file`。只补空值模式必须显式名单、范围和审计文件；保存写前快照与提议，旧非空值和不同实际季末的冲突行不覆盖，不删旧行。
+- 原命令增加季度 `--dry-run`、`--from-period`、`--through-period`、`--fill-missing`、`--audit-file`。只补空值模式必须显式名单、范围和审计文件；保存写前快照与提议，旧非空财务金额按实际季末保留，不同实际季末的冲突行跳过；季度错标迁移见下文。
 
 ```bash
 npm run equity:sync-fundamentals -- --period-type=Q --quarters=40 \
@@ -79,3 +79,21 @@ npm run equity:sync-fundamentals -- --period-type=Q --quarters=40 \
 - 11只ETF三年窗口均完成只读联调，20–84家公司/ETF，响应约28–48 KiB。独立验证进程中首个加载约2.8秒，其余26–402毫秒，加载全部11项后RSS较首次调用前增加约45 MiB；包含Prisma运行时和缓存分配，不等同于持久内存预算，也不能推断生产并发容量。
 - 上线先检查ETF持仓任务、每日披露批次的新鲜度；以缓存命中/未命中耗时、API字节数、Node RSS、数据库连接和任务重叠情况验证资源预算。
 - 桌面使用双列图表及紧凑公司列表，手机单列图表与带标签的三指标公司卡片；控件及基本面链接在两端均可操作。
+
+### 财季归属与原始申报补充（2026-11-02 第二轮）
+
+- 实际财季在自然季后首7天结束时归到上一季，兼容52/53周财年（例如 NUE 2025-07-05）；不改变真实截止日。TTM还要求每个相邻季末相距70–125天，避免重复季和中间缺季蒙混通过。
+- KR等16周首季须有10-Q的Q1标识，且同起点完整财年或紧邻前一年年末作证；不是把所有四个月区间当季度。
+- 公用事业总营收增加标准 `RegulatedAndUnregulatedOperatingRevenue`，不拿受监管子项代总额。EQR仅补缺失的租赁收入日期：新 `OperatingLeaseLeaseIncome` 限2021年起，旧租赁标签经重叠一致验证连接2020年；保留2019年已知总营收，排除新标签在2019年的较小子集。
+- 季度writer以实际截止日识别财季。可证明由旧首3天规则错标的记录迁到新键，迁移、补空与删除废弃键在同一Serializable事务内完成；日期不明、迁移碰撞、同日副本金额冲突均拒绝写入。财务金额随原实际日期保留；派生的财季编号与EPS同比重算。日常更新也不会用解析空值擦掉历史补充金额。
+- 单次writer最多80条输入，时间跨度最多100季，读取范围两端各加1季、最多102行，事务超时30秒。不新增索引、连接池或常驻进程；旧键删除只在真实数据已迁移后进行，并核对日期。
+- `--supplement-cash-flow` 只允许显式名单、季度与审计文件；目前仅NVDA（CIK1045810）启用。复用SEC传输和申报发现，最多8份申报/8个历史索引文件，按官方目录找实例XML，单文件上限32 MiB。仅接收该发行人、无维度、USD、合法累计期间、非负金额；decimals是精度，不是缩放倍率。同区间冲突拒绝，跨标签差分仍须至少两个一致重叠区间。
+- 离线试读的5份有效原始实例：2017/2018/2021年10-K以及2023年第一、第二季10-Q。提取后恢复2015年以来10个缺失CapEx季度；来源URL与accession写入审计。原始自定义科目保持nvda命名空间，不伪装成SEC标准标签。
+
+```bash
+npm run equity:sync-fundamentals -- --period-type=Q --quarters=48 \
+  --symbols=NUE,KR,XEL,DTE,EQR,NVDA --from-period=2015Q1 --through-period=2026Q3 \
+  --fill-missing --supplement-cash-flow --audit-file=.data/industry-coverage/pilot.jsonl --dry-run
+```
+
+先核对审计再去掉dry-run；生产仍按每批40只、384 MiB heap、10分钟上限、nice10与日批互斥。补充不会在页面或日常任务中触发额外申报读取。缺少来源的企业保留空值；未上市时期、ETF历史成分归档及尚未披露季不造数。

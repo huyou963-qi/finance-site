@@ -80,6 +80,11 @@ export function computeTtm(quarters: QuarterFundamentalRow[]): TtmAggregates | n
   const span = spanDays(last4[0]!.fiscalDate, last4[3]!.fiscalDate);
   // 4 个连续季度的首季末→末季末约 273 天；放宽到 240–300 容纳 53 周财年
   if (span < 240 || span > 300) return null;
+  // 仅首末跨度不足以排除重复财季或中间断档。
+  for (let i = 1; i < last4.length; i++) {
+    const gap = spanDays(last4[i - 1]!.fiscalDate, last4[i]!.fiscalDate);
+    if (gap < 70 || gap > 125) return null;
+  }
 
   return {
     periods: last4.map((r) => r.period),
