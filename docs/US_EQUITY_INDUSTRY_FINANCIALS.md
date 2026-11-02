@@ -97,3 +97,21 @@ npm run equity:sync-fundamentals -- --period-type=Q --quarters=48 \
 ```
 
 先核对审计再去掉dry-run；生产仍按每批40只、384 MiB heap、10分钟上限、nice10与日批互斥。补充不会在页面或日常任务中触发额外申报读取。缺少来源的企业保留空值；未上市时期、ETF历史成分归档及尚未披露季不造数。
+
+### 第三轮现金资本开支补充（2026-11-02）
+
+- 普通companyfacts解析增加发行人限定映射：ADP（8670）的OtherPPE为现金流表Capital expenditures；DLR（1297996）的DevelopRealEstate为现金流表Improvements to investments in real estate，收购另列。不得把这些标签推广到其他公司的子项。
+- WEC（783325）仅2023年起的季报PPE与年报OtherPPE均为同一合并现金流表Capital expenditures。逐表核对后建立发行人专属同口径流，允许全年减九个月累计；同申报同期冲突则拒绝。**这是有原表证据的限定例外**，普通跨tag差分仍须两个同值重叠，不放宽全局规则。2024现金支出2,781.1m，2024前三季1,934.7m，差额846.4m；排除现金流表单列的项目/企业收购。2022年及更早PPE标签有包含收购的不同总额，不与OtherPPE混接；保留这些时期的原有数据，未据此补造现金购置。
+- 显式离线XBRL补充目录增加：Dominion（715957）的现金PPE建设及核燃料；PSA（1393311）的维护、改造、能源效率、开发扩建四项现金支出之和；ED（1047862）的公用与非公用建设两项之和；CMS（811156）的现金PPE。全部组成项必须同申报、同累计区间、USD且齐全；不把缺项当零，不加入收购、应付款、融资租赁资产余额或资产处置收入。
+- CMS现金流表将现金购置标为唯一 `us-gaap:PropertyPlantAndEquipmentByTypeAxis = cms:OngoingCapitalExpendituresMember`。仅此发行人接受这一项维度；再有ConsumersEnergyCompany等主体维度或融资租赁维度立即排除，防止叠加子公司或混入非现金购置。
+- 保留现有每公司每次最多8份申报、8个历史索引、单XML32 MiB、串行384 MiB heap限制。历史补充按两年区间分批，8份不足覆盖全部时再细分区间；不扩大单请求预算，不在页面或常规日批触发原文抓取。标准映射随原有日批持续生效，原文补充仍需显式有界命令；writer保留已有非空历史补充。
+- 试读验证D、PSA、CMS在2023–2025的12季现金资本开支；ED部分季非公用分项缺失，继续留空。NEE的总额含独立电力及其他投资、DTE的总额含企业收购、ABNB仅有Other investing activities，均不拿混合总额充当资本开支。
+
+原表证据：
+- [ADP FY2024现金流表](https://www.sec.gov/Archives/edgar/data/8670/000000867024000024/adp-20240630.htm)
+- [WEC 2024年报](https://www.sec.gov/Archives/edgar/data/783325/000010781525000103/wec-20241231.htm)、[2025Q3季报含2024比较期](https://www.sec.gov/Archives/edgar/data/783325/000078332525000060/wec-20250930.htm)
+- [DLR 2024现金流表](https://www.sec.gov/Archives/edgar/data/1297996/000155837025001424/dlr-20241231x10k.htm)
+- [Dominion 2024现金流表](https://www.sec.gov/Archives/edgar/data/715957/000095017025028387/d-20241231.htm)
+- [PSA 2024现金流表及非现金附表](https://www.sec.gov/Archives/edgar/data/1393311/000139331125000036/psa-20241231.htm)
+- [CMS 2024集团及子公司现金流表](https://www.sec.gov/Archives/edgar/data/811156/000081115625000036/cms-20241231.htm)
+- [ED 2024集团现金流表](https://www.sec.gov/Archives/edgar/data/1047862/000104786225000011/ed-20241231.htm)
