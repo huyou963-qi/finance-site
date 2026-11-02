@@ -42,12 +42,14 @@ export function secDocumentUrl(cik: string, accession: string, document: string 
   return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${filename || `${accession}-index.htm`}`;
 }
 /** Failure of any historical page fails discovery, never marks a partial history complete. */
-export async function discoverSecFilings(cik: string, since: string, history = false): Promise<SecIndexRow[]> {
+export async function discoverSecFilings(cik: string, since: string, history = false, opts: { maxHistoryFiles?: number } = {}): Promise<SecIndexRow[]> {
   const padded = cik.replace(/\D/g, "").padStart(10, "0");
   const data = await fetchSecJson<{ filings?: { recent?: IndexColumns; files?: { name: string; filingTo: string }[] } }>(`https://data.sec.gov/submissions/CIK${padded}.json`);
   if (!data.filings?.recent) throw new Error("SEC submissions 缺少索引");
   const rows = secIndexRows(data.filings.recent);
-  if (history) for (const file of data.filings.files ?? []) {
+  const historyFiles = (data.filings.files ?? []).filter(file => file.filingTo >= since);
+  if (history && opts.maxHistoryFiles != null && historyFiles.length > opts.maxHistoryFiles) throw new Error("SEC历史索引超出请求预算");
+  if (history) for (const file of historyFiles) {
     if (file.filingTo < since) continue;
     if (!/^CIK\d+-submissions-\d+\.json$/.test(file.name)) throw new Error("未知 SEC 历史索引名称");
     rows.push(...secIndexRows(await fetchSecJson<IndexColumns>(`https://data.sec.gov/submissions/${file.name}`)));

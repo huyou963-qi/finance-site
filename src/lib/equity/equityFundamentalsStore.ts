@@ -12,10 +12,36 @@ import {
   type SecQuarterlyFundamentals,
 } from "@/lib/equity/secFundamentals";
 import type { QuarterFundamentalRow } from "@/lib/equity/ttm";
+import type { Prisma } from "@prisma/client";
+import { planQuarterlyWrite, quarterlyWriteWindow } from "./quarterlyWritePlan";
 
 export async function upsertQuarterlyFundamentals(
   symbol: string,
   rows: SecQuarterlyFundamentals[],
+  opts: { fillMissing?: boolean } = {},
+): Promise<number> {
+  if (!rows.length) return 0;
+  const window = quarterlyWriteWindow(rows);
+  return prisma.$transaction(async tx => {
+    const existing = await tx.equityFundamentalSnapshot.findMany({
+      where: { symbol, periodType: "Q", period: window }, take: 103,
+    });
+    if (existing.length >= 103) throw new Error("既有季度记录超出有界迁移范围");
+    const plan = planQuarterlyWrite(rows, existing, opts.fillMissing);
+    const n = await writeQuarterRows(tx, symbol, plan.rows);
+    for (const old of plan.obsolete) {
+      const removed = await tx.equityFundamentalSnapshot.deleteMany({ where: {
+        symbol, periodType: "Q", period: old.period, fiscalDate: new Date(`${old.fiscalDate}T00:00:00Z`),
+      } });
+      if (removed.count !== 1) throw new Error("财季迁移遇到并发修改，事务已回滚");
+    }
+    return n;
+  }, { timeout: 30000, maxWait: 5000, isolationLevel: "Serializable" });
+}
+
+async function writeQuarterRows(
+  client: Pick<Prisma.TransactionClient, "equityFundamentalSnapshot">,
+  symbol: string, rows: SecQuarterlyFundamentals[],
 ): Promise<number> {
   let n = 0;
   for (const r of rows) {
@@ -47,7 +73,7 @@ export async function upsertQuarterlyFundamentals(
         : null,
       asOf: fiscalDate,
     };
-    await prisma.equityFundamentalSnapshot.upsert({
+    await client.equityFundamentalSnapshot.upsert({
       where: { symbol_period: { symbol, period: r.period } },
       create: { symbol, period: r.period, ...data },
       update: data,

@@ -115,6 +115,59 @@ test("calendarQuarterLabel：常规季末与 4-4-5 周历溢出", () => {
   assert.equal(calendarQuarterLabel("2025-01-02"), "2024Q4"); // 周历溢出归上季
   assert.equal(calendarQuarterLabel("2025-06-28"), "2025Q2");
   assert.equal(calendarQuarterLabel("2024-09-28"), "2024Q3"); // AAPL FY end
+  assert.equal(calendarQuarterLabel("2025-04-05"), "2025Q1");
+  assert.equal(calendarQuarterLabel("2025-07-05"), "2025Q2");
+  assert.equal(calendarQuarterLabel("2026-01-04"), "2025Q4");
+  assert.equal(calendarQuarterLabel("2025-04-08"), "2025Q2");
+  assert.equal(calendarQuarterLabel("2025-04-05", 3), "2025Q2");
+});
+
+test("Kroger 型16周首季：Q1申报及全年锚点确认，普通四个月累计不误当季度", () => {
+  const points = [
+    dur("2024-02-04", "2025-02-01", 1000, "10-K"),
+    { ...dur("2025-02-02", "2025-05-24", 100), fp: "Q1" },
+    dur("2025-02-02", "2025-08-16", 220),
+    dur("2025-02-02", "2025-11-08", 350),
+    dur("2025-02-02", "2026-01-31", 500, "10-K"),
+  ];
+  const q = quarterlyFlowSeries(points).filter(p => p.end >= "2025-05-24");
+  assert.deepEqual(q.map(p => p.val), [100, 120, 130, 150]);
+  assert.equal(quarterlyFlowSeries(points.filter(p => p.end !== "2025-05-24")).some(p => p.end === "2025-05-24"), false);
+  assert.equal(quarterlyFlowSeries([{ ...points[1]!, fp: "Q2" }]).length, 0);
+});
+
+test("完整公用事业营业收入作骨架，EQR租赁收入只对已核实发行人映射", () => {
+  const p = dur("2025-01-01", "2025-03-31", 100);
+  const gaap = { RegulatedAndUnregulatedOperatingRevenue: { units: { USD: [p] } },
+    NetCashProvidedByUsedInOperatingActivities: { units: { USD: [{ ...p, val: 30 }] } } };
+  const utility = extractQuarterlyFundamentals({ facts: { "us-gaap": gaap } });
+  assert.equal(utility[0]?.revenue, 100);
+  assert.equal(utility[0]?.ocf, 30);
+  const lease = { facts: { "us-gaap": { OperatingLeaseLeaseIncome: { units: { USD: [p] } } } } };
+  assert.equal(extractQuarterlyFundamentals({ cik: 906107, ...lease })[0]?.revenue, 100);
+  assert.equal(extractQuarterlyFundamentals({ cik: 936340, ...lease }).length, 0);
+});
+
+test("EQR保留旧总收入，排除2019租赁子项，补齐2020换科目断档", () => {
+  const p = dur("2019-01-01", "2019-03-31", 100);
+  const bridge = [dur("2021-01-01", "2021-03-31", 110), dur("2021-04-01", "2021-06-30", 120)];
+  const gap = dur("2020-04-01", "2020-06-30", 90);
+  const facts = { cik: 906107, facts: { "us-gaap": {
+    Revenues: { units: { USD: [p] } },
+    OperatingLeaseLeaseIncome: { units: { USD: [{ ...p, val: 60 }, ...bridge] } },
+    OperatingLeasesIncomeStatementLeaseRevenue: { units: { USD: [p, gap, ...bridge] } },
+  } } };
+  const rows = extractQuarterlyFundamentals(facts, { maxQuarters: 48 });
+  assert.equal(rows.find(r => r.period === "2019Q1")?.revenue, 100);
+  assert.equal(rows.find(r => r.period === "2020Q2")?.revenue, 90);
+});
+
+test("TTM拒绝重复财季与中间断档，不能只看首末总跨度", () => {
+  const quarter = (fiscalDate: string) => ({ period: "2025Q1", fiscalDate, revenue: 1, netIncome: 1, eps: null,
+    ocf: 1, capex: 1, dividendsPaid: null, buybackPaid: null, totalAssets: null, totalLiabilities: null,
+    equity: null, longTermDebt: null, cash: null, sharesOutstanding: null });
+  assert.equal(computeTtm(["2025-03-31", "2025-03-31", "2025-09-30", "2025-12-31"].map(quarter)), null);
+  assert.notEqual(computeTtm(["2025-02-01", "2025-05-24", "2025-08-16", "2025-11-08"].map(quarter)), null);
 });
 
 test("quarterlyFlowSeries：日历财年，直取 Q1–Q3 + 差分推导 Q4", () => {
