@@ -180,7 +180,7 @@ function UserMenu({
           />
           </> : null}
           {(isAdmin || user.role === "admin_orders") ? <MenuRow
-            label="订单确认"
+            label="会员与订单"
             href="/admin/orders"
             active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}
             onClick={onClose}

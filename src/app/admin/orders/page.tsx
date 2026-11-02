@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { AdminOrdersClient } from "./AdminOrdersClient";
+import { MembershipWorkspace } from "./MembershipWorkspace";
 
 export const metadata: Metadata = {
-  title: "订单确认 — Admin",
+  title: "会员与订单管理 — Admin",
 };
 
 export default function AdminOrdersPage() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <AdminOrdersClient />
+      <MembershipWorkspace />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 type Event = { id: string; kind: string; source: string; code: string; details: unknown; createdAt: string };
-export function PaymentTrace({ orderId, online }: { orderId: string; online: boolean }) {
+export function PaymentTrace({ orderId, online, onRechecked }: { orderId: string; online: boolean; onRechecked?: () => Promise<void> }) {
   const [events, setEvents] = useState<Event[] | null>(null);
   const [hint, setHint] = useState("");
   const [busy, setBusy] = useState(false);
@@ -14,7 +14,7 @@ export function PaymentTrace({ orderId, online }: { orderId: string; online: boo
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "读取失败");
       setEvents(data.events);
-      if (recheck) setHint("已向平台核验，请刷新列表查看订单状态。");
+      if (recheck) { await onRechecked?.(); setHint(onRechecked ? "平台核验完成，订单列表已刷新。" : "已向平台核验，请刷新列表查看订单状态。"); }
     } catch (e) { setHint(e instanceof Error ? e.message : "读取失败"); }
     finally { setBusy(false); }
   }
