@@ -1,7 +1,13 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 export class PaymentError extends Error {
-  constructor(public code: string, public status = 400) { super(code); }
+  constructor(public code: string, public status = 400) { super(code); this.name = "PaymentError"; }
+}
+/** Next/tsx may load a server library through distinct CJS/ESM module instances. */
+export function isPaymentError(error: unknown): error is PaymentError {
+  if (!(error instanceof Error) || error.name !== "PaymentError") return false;
+  const candidate = error as PaymentError;
+  return typeof candidate.code === "string" && /^[A-Z_]{1,64}$/.test(candidate.code) && Number.isInteger(candidate.status) && candidate.status >= 400 && candidate.status <= 599;
 }
 export type PaymentMethod = "alipay" | "wxpay";
 export type ZpayConfig = { pid: string; key: string; baseUrl: string; methods: PaymentMethod[] };
@@ -83,7 +89,7 @@ export async function queryZpay(orderNo: string, config = zpayConfig()): Promise
     if (data?.code !== 1) throw new PaymentError("GATEWAY_NOT_FOUND", 502);
     return data as GatewayOrder;
   } catch (e) {
-    if (e instanceof PaymentError) throw e;
+    if (isPaymentError(e)) throw e;
     throw new PaymentError("GATEWAY_UNAVAILABLE", 502);
   }
 }

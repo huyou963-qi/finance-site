@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
-import { requirePaymentOrigin } from "./http";
+import { requirePaymentOrigin, paymentErrorResponse } from "./http";
+test("payment error handling remains stable across distinct module constructors", () => {
+  class AnotherModulePaymentError extends Error { name = "PaymentError"; code = "CHANNEL_UNAVAILABLE"; status = 503; }
+  assert.equal(paymentErrorResponse(new AnotherModulePaymentError()).status, 503);
+  assert.equal(paymentErrorResponse(new Error("ordinary error")).status, 500);
+  assert.equal(paymentErrorResponse({ name: "PaymentError", code: "CHANNEL_UNAVAILABLE", status: 503 }).status, 500);
+});
 test("payment CSRF accepts only explicit origins including configured production aliases", () => {
   const base = process.env.APP_BASE_URL, aliases = process.env.BILLING_ALLOWED_ORIGINS;
   try {

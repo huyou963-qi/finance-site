@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleZpayNotification } from "@/lib/billing/zpayService";
-import { parseNotification, PaymentError } from "@/lib/billing/zpay";
+import { parseNotification, isPaymentError } from "@/lib/billing/zpay";
 export const runtime = "nodejs";
 /** Gateway only. Browser return never goes through an entitlement-writing route. */
 export async function GET(req: NextRequest) {
@@ -9,6 +9,6 @@ export async function GET(req: NextRequest) {
     return new NextResponse("success", { headers: { "Cache-Control": "no-store", "Content-Type": "text/plain" } });
   } catch (e) {
     // Never leak gateway URLs, credentials, raw callback/payer data or exception text.
-    return new NextResponse("fail", { status: e instanceof PaymentError ? e.status : 503, headers: { "Cache-Control": "no-store" } });
+    return new NextResponse("fail", { status: isPaymentError(e) ? e.status : 503, headers: { "Cache-Control": "no-store" } });
   }
 }

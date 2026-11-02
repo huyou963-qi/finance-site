@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { amountForProduct, CREDIT_PACK_CREDITS, periodForProduct, type ProductType } from "./pricing";
 import { grantOrderEntitlement, serializable } from "./fulfillment";
-import { checkoutMethods, PaymentError, queryZpay, signedCheckout, validateGatewayOrder, verifyZpay, moneyInCents, zpayConfig, type GatewayOrder, type PaymentMethod } from "./zpay";
+import { checkoutMethods, PaymentError, isPaymentError, queryZpay, signedCheckout, validateGatewayOrder, verifyZpay, moneyInCents, zpayConfig, type GatewayOrder, type PaymentMethod } from "./zpay";
 
 export async function checkoutForUser(userId: string, input: { orderId?: string; productType?: ProductType; method?: PaymentMethod; idempotencyKey?: string }, returnOrigin?: string) {
   if (input.orderId !== undefined && (typeof input.orderId !== "string" || !/^[a-zA-Z0-9-]{1,64}$/.test(input.orderId))) throw new PaymentError("INVALID_REQUEST");
@@ -97,7 +97,7 @@ export async function reconcileOrder(orderId: string, source: "user" | "notify" 
     validateGatewayOrder(data, order, expectedTradeNo);
     return await fulfillVerifiedOrder(orderId, data, source, expectedTradeNo);
   } catch (e) {
-    code = e instanceof PaymentError ? e.code : e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002" ? "TRADE_REUSED" : "INTERNAL_ERROR";
+    code = isPaymentError(e) ? e.code : e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002" ? "TRADE_REUSED" : "INTERNAL_ERROR";
     const terminal = ["ORDER_MISMATCH", "TRADE_MISMATCH", "TRADE_REUSED", "INVALID_AMOUNT", "INVALID_TRADE"].includes(code);
     // Never overwrite a concurrently successful settlement.
     const retryWindow = order.createdAt.getTime() + 7 * 86400000 > now.getTime();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PaymentError } from "./zpay";
+import { PaymentError, isPaymentError } from "./zpay";
 
 export function requirePaymentOrigin(req: NextRequest) {
   const origin = req.headers.get("origin");
@@ -20,7 +20,7 @@ export async function paymentJson(req: NextRequest) {
   catch { throw new PaymentError("INVALID_REQUEST"); }
 }
 export function paymentErrorResponse(e: unknown) {
-  const code = e instanceof PaymentError ? e.code : "INTERNAL_ERROR";
+  const code = isPaymentError(e) ? e.code : "INTERNAL_ERROR";
   const messages: Record<string, string> = {
     UNAUTHORIZED: "请先登录", INVALID_REQUEST: "支付请求格式无效", INVALID_ORIGIN: "请从本站页面操作",
     NOT_CONFIGURED: "在线支付尚未配置，请稍后再试", CHANNEL_UNAVAILABLE: "支付通道审核或维护中，暂不能付款",
@@ -29,5 +29,5 @@ export function paymentErrorResponse(e: unknown) {
     ACCOUNT_REVIEW: "账号需人工处理，请联系站点客服", IDEMPOTENCY_CONFLICT: "请求已用于其他商品，请重新选择",
     UNPAID_ORDER_EXISTS: "已有该商品的待付款订单，请在我的订单中继续付款或核验状态",
   };
-  return NextResponse.json({ error: messages[code] ?? "支付请求未完成，请刷新订单状态后重试", code }, { status: e instanceof PaymentError ? e.status : 500, headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ error: messages[code] ?? "支付请求未完成，请刷新订单状态后重试", code }, { status: isPaymentError(e) ? e.status : 500, headers: { "Cache-Control": "no-store" } });
 }
