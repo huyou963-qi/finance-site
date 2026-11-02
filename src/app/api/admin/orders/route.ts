@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     await requireAdminPermission(req, "orders:write");
     const status = req.nextUrl.searchParams.get("status") ?? undefined;
     const orders = await listAllOrders({ status: status || undefined, limit: 200 });
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     const { message, status } = adminErrorResponse(e);
     return NextResponse.json({ error: message }, { status });

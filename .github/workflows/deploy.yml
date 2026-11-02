@@ -96,6 +96,8 @@ jobs:
           # 每日财报任务读取同一部署目录，覆盖源码/依赖前同样等待其退出。
           exec 7>/tmp/finance-sector-daily-disclosures.lock
           flock -w 7200 7
+          exec 6>/tmp/finance-billing.lock
+          flock -w 180 6
           export SYNC_CRON_CHECKOUT_LOCKED=1
           site_stopped=0
           restore_site() {
@@ -132,8 +134,11 @@ jobs:
           install -m 0644 scripts/ops/finance-site-dera-insider.cron /etc/cron.d/finance-site-dera-insider
           install -m 0644 scripts/ops/finance-site-gold-futures.cron /etc/cron.d/finance-site-gold-futures
           install -m 0644 scripts/ops/finance-site-data.logrotate /etc/logrotate.d/finance-site-data
+          install -m 0644 scripts/ops/finance-site-billing.cron /etc/cron.d/finance-site-billing
+          install -m 0644 scripts/ops/finance-site-billing.logrotate /etc/logrotate.d/finance-site-billing
           # Resource diagnostics survive deployments; validate before graceful reload.
           if command -v nginx >/dev/null 2>&1; then
+            install -m 0644 scripts/ops/finance-site-zpay-notify.conf /etc/nginx/snippets/finance-site-zpay-notify.conf
             install -m 0644 scripts/ops/finance-site-asset-diagnostics.conf /etc/nginx/conf.d/finance-site-asset-diagnostics.conf
             install -m 0644 scripts/ops/finance-site-asset-diagnostics.logrotate /etc/logrotate.d/finance-site-assets
             nginx -t

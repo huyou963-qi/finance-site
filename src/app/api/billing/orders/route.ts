@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
+import { checkoutMethods } from "@/lib/billing/zpay";
+import { paymentJson, requirePaymentOrigin, paymentErrorResponse } from "@/lib/billing/http";
 import {
   createPaymentOrder,
   listOrdersForUser,
@@ -31,19 +33,22 @@ export async function GET(req: NextRequest) {
     creditPack: { credits: CREDIT_PACK_CREDITS, cny: CREDIT_PACK_CNY },
     features: PLAN_FEATURES,
     payment: paymentInstructions(),
+    onlineMethods: checkoutMethods(),
   };
   if (!user) {
-    return NextResponse.json({ ...catalog, orders: [] });
+    return NextResponse.json({ ...catalog, orders: [] }, { headers: { "Cache-Control": "no-store" } });
   }
   const orders = await listOrdersForUser(user.id);
-  return NextResponse.json({ ...catalog, orders });
+  return NextResponse.json({ ...catalog, orders }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(req: NextRequest) {
   try {
+    requirePaymentOrigin(req);
     const user = await getUserByRequest(req);
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
-    const body = (await req.json()) as { productType?: string; manualNote?: string };
+    const body = (await paymentJson(req)) as { productType?: string; manualNote?: string };
+    if (body.manualNote !== undefined && (typeof body.manualNote !== "string" || body.manualNote.length > 512)) return NextResponse.json({ error: "备注无效" }, { status: 400 });
     const productType = body.productType as ProductType;
     if (!PRODUCTS.has(productType)) {
       return NextResponse.json({ error: "无效的商品类型" }, { status: 400 });
@@ -58,7 +63,6 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (e) {
-    const message = e instanceof Error ? e.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return paymentErrorResponse(e);
   }
 }

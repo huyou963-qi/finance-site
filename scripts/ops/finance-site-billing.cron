@@ -1,0 +1,5 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Lock before resolving cwd: deploy holds the same lock before replacing code/dependencies.
+* * * * * root flock -n /tmp/finance-billing.lock sh -c 'cd /opt/finance-site && timeout 100s npm run billing:reconcile -- --limit=20' >> /var/log/finance-site-billing.log 2>&1

@@ -410,7 +410,11 @@
     "data:repair-mof-fiscal-periods": "dotenv -e .env.local -- tsx scripts/data-worker/repair-mof-fiscal-periods.ts",
     "data:seed-us-financing": "dotenv -e .env.local -- tsx scripts/data-worker/seed-us-financing.ts",
     "data:sync-us-financing": "dotenv -e .env.local -- tsx scripts/data-worker/sync-us-financing.ts",
-    "data:verify-us-financing": "dotenv -e .env.local -- tsx scripts/data-worker/verify-us-financing.ts"
+    "data:verify-us-financing": "dotenv -e .env.local -- tsx scripts/data-worker/verify-us-financing.ts",
+    "billing:reconcile": "dotenv -e .env.local -- tsx scripts/billing-reconcile.ts",
+    "billing:check": "dotenv -e .env.local -- tsx scripts/billing-check.ts",
+    "billing:smoke": "dotenv -e .env.local -- tsx scripts/billing-smoke.ts",
+    "test:billing-integration": "dotenv -e .env.local -- tsx scripts/test/zpay.integration.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

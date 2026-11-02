@@ -1,0 +1,9 @@
+/var/log/finance-site-billing.log {
+    daily
+    maxsize 10M
+    rotate 14
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
