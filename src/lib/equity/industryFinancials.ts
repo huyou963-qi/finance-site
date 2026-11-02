@@ -21,12 +21,15 @@ export type FinancialMember = {
   symbol: string; name: string; weight: number; fiscalDate: string | null;
   revenueYoY: number | null; netMargin: number | null; fcf: number | null;
   status: "available" | "partial" | "missing" | "unmapped";
+  missingFields: ("revenue" | "netIncome" | "ocf" | "capex")[];
 };
 export type FinancialPeriod = {
   period: string; basis: FinancialBasis; holdingsDate: string | null;
   universeCount: number; unresolvedCount: number; equityWeight: number;
   revenue: FinancialMetric; revenueYoY: FinancialMetric; netIncome: FinancialMetric;
   netMargin: FinancialMetric; ocf: FinancialMetric; capex: FinancialMetric; fcf: FinancialMetric;
+  /** 单项原始覆盖率；曲线仍使用两项均齐全的共同样本。 */
+  cashSourceCoverage: { ocf: FinancialMetric; capex: FinancialMetric };
   members: FinancialMember[];
 };
 export type FinancialHistoryPoint = { period: string; Q: FinancialPeriod; TTM: FinancialPeriod };
@@ -149,12 +152,17 @@ export function buildIndustryFinancialHistory(input: {
       ocf: metric(row => cashReady(row) ? row.current!.ocf : null),
       capex: metric(row => cashReady(row) ? row.current!.capex : null),
       fcf: metric(row => cashReady(row) ? row.current!.ocf! - row.current!.capex! : null),
+      cashSourceCoverage: {
+        ocf: metric(row => row.current?.ocf ?? null),
+        capex: metric(row => row.current?.capex ?? null),
+      },
       members: values.map<FinancialMember>(({ member, current, previous, fiscalDate }) => ({
         symbol: member.symbol, name: member.name, weight: member.weight, fiscalDate,
         revenueYoY: current && previous && finite(current.revenue) && finite(previous.revenue) && previous.revenue > 0 ? current.revenue / previous.revenue - 1 : null,
         netMargin: current && finite(current.netIncome) && finite(current.revenue) && current.revenue > 0 ? current.netIncome / current.revenue : null,
         fcf: current && finite(current.ocf) && finite(current.capex) ? current.ocf - current.capex : null,
         status: !member.aliases.length ? "unmapped" : !current ? "missing" : [current.revenue, current.netIncome, current.ocf, current.capex].every(finite) ? "available" : "partial",
+        missingFields: (["revenue", "netIncome", "ocf", "capex"] as const).filter(field => !finite(current?.[field] ?? null)),
       })).sort((a, b) => b.weight - a.weight || a.symbol.localeCompare(b.symbol)),
     };
     return view;

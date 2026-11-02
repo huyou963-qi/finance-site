@@ -19,6 +19,9 @@ const amount = (value: number | null) => value == null ? "—" : (value / 1e9).t
 const pct = (value: number | null, sign = false) => value == null ? "—" : `${sign && value > 0 ? "+" : ""}${(value * 100).toFixed(1)}%`;
 const dateTime = (value: string | null) => value ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value)) : "暂无记录";
 const statusLabel: Record<FinancialMember["status"], string> = { available: "", partial: "字段待补齐", missing: "该期财务待更新", unmapped: "公司映射待补齐" };
+const fieldLabel = { revenue: "营收", netIncome: "净利润", ocf: "经营现金流", capex: "资本开支" };
+const memberStatus = (member: FinancialMember) => member.status === "partial" && member.missingFields?.length
+  ? `${member.missingFields.map(field => fieldLabel[field]).join("、")}待补齐` : statusLabel[member.status];
 
 function Coverage({ metric }: { metric: FinancialMetric }) {
   return <span className={`text-xs ${metric.weightCoverage != null && metric.weightCoverage < 0.8 ? "text-amber-700" : "text-fs-muted"}`}>
@@ -112,7 +115,9 @@ export function IndustryFinancialsClient() {
 
       <section className="border-t border-fs-border pt-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-fs-text">行业主要财务指标的历史变化</h2><span className="text-xs text-fs-muted">空心点：权重覆盖不足80%，不连入趋势线 · 点击图表选择报告期</span></div><div className="mt-4 grid min-w-0 gap-x-8 gap-y-5 md:grid-cols-2">
         {charts.map(chart => <section key={chart.metric} className="min-w-0"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium text-fs-text">{chart.title}</h3><span className="text-sm tabular-nums text-fs-text">{chart.percent ? pct(view[chart.metric].value) : amount(view[chart.metric].value)}</span></div><div className="mt-1 flex flex-wrap justify-between gap-1"><span className="text-xs text-fs-muted">{chart.percent ? "%" : "十亿美元"}</span><Coverage metric={view[chart.metric]} /></div><Chart periods={periods} series={chart.series} selectedPeriod={selectedPeriod} percent={chart.percent} onSelect={selectPeriod} /></section>)}
-      </div></section>
+      </div><p className="mt-3 text-xs leading-6 text-fs-muted">现金流三条线使用经营现金流与资本开支均齐全的共同样本，确保自由现金流 = 经营现金流 − 资本开支。
+        {view.cashSourceCoverage ? ` ${mode}单项数据权重覆盖：经营现金流 ${pct(view.cashSourceCoverage.ocf.weightCoverage)}；资本开支 ${pct(view.cashSourceCoverage.capex.weightCoverage)}。单项有值但另一项缺失的公司不计入这三条曲线。` : ""}
+      </p></section>
 
       <section className="border-t border-fs-border pt-5" aria-busy={loading}>
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-fs-text">行业公司速览</h2><span className="text-xs text-fs-muted">{selectedPeriod} · {mode} · FCF单位：十亿美元</span></div><p className="mt-1 text-xs text-fs-muted">按持仓权重排序；同一公司多股类合并。点击公司进入财务基本面。</p>
@@ -122,7 +127,7 @@ export function IndustryFinancialsClient() {
             const href = `/equity/stocks/${encodeURIComponent(member.symbol)}?tab=fundamentals`;
             const linked = features.can("markets") && member.status !== "unmapped";
             return <div key={member.symbol} className="grid grid-cols-3 items-center gap-2 border-b border-fs-border px-1 py-3 text-sm sm:grid-cols-[minmax(150px,1.8fr)_repeat(3,minmax(70px,1fr))_80px] sm:gap-3 sm:px-3">
-              <div className="col-span-3 min-w-0 sm:col-span-1">{linked ? <Link href={href} className="inline-flex min-h-11 max-w-full items-center gap-2 text-fs-accent-text hover:underline"><strong>{member.symbol}</strong><span className="break-words text-xs">{member.name}</span></Link> : <span className="text-fs-text">{member.symbol} · {member.name}</span>}<p className="text-xs text-fs-muted">{member.fiscalDate ? `财季末 ${member.fiscalDate}` : statusLabel[member.status]}{member.fiscalDate && statusLabel[member.status] ? ` · ${statusLabel[member.status]}` : ""}</p></div>
+              <div className="col-span-3 min-w-0 sm:col-span-1">{linked ? <Link href={href} className="inline-flex min-h-11 max-w-full items-center gap-2 text-fs-accent-text hover:underline"><strong>{member.symbol}</strong><span className="break-words text-xs">{member.name}</span></Link> : <span className="text-fs-text">{member.symbol} · {member.name}</span>}<p className="text-xs text-fs-muted">{member.fiscalDate ? `财季末 ${member.fiscalDate}` : memberStatus(member)}{member.fiscalDate && memberStatus(member) ? ` · ${memberStatus(member)}` : ""}</p></div>
               <div className="tabular-nums text-fs-text"><span className="block text-xs text-fs-muted sm:hidden">营收同比</span>{pct(member.revenueYoY, true)}</div><div className="tabular-nums text-fs-text"><span className="block text-xs text-fs-muted sm:hidden">净利率</span>{pct(member.netMargin)}</div><div className="tabular-nums text-fs-text"><span className="block text-xs text-fs-muted sm:hidden">自由现金流</span>{amount(member.fcf)}</div>
               <div className="col-span-3 sm:col-span-1">{linked ? <Link href={href} className="inline-flex min-h-11 items-center text-xs text-fs-accent-text hover:underline">基本面 →</Link> : null}</div>
             </div>;

@@ -69,6 +69,10 @@ test("cash flow lines use the same sample and missing values remain null", () =>
   assert.equal(point.capex.value, 10);
   assert.equal(point.fcf.value, 20);
   assert.equal(point.fcf.sampleCount, 1);
+  assert.equal(point.cashSourceCoverage.ocf.weightCoverage, 1);
+  assert.equal(point.cashSourceCoverage.ocf.value, 90);
+  assert.equal(point.cashSourceCoverage.capex.weightCoverage, 0.7);
+  assert.deepEqual(point.members.find(row => row.symbol === "B")!.missingFields, ["capex"]);
   assert.equal(point.members.find(row => row.symbol === "B")!.fcf, null);
 });
 

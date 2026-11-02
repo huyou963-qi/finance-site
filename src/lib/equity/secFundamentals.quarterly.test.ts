@@ -17,6 +17,49 @@ function inst(end: string, val: number, form = "10-Q", filed = "2099-01-01") {
   return { end, val, form, filed };
 }
 
+test("Verizon OtherProductive 仅在已核实 2019 年后作资本开支，旧年代其他投资不混入", () => {
+  const old = dur("2015-01-01", "2015-03-31", 100);
+  const overlap = [dur("2019-01-01", "2019-03-31", 110), dur("2019-04-01", "2019-06-30", 120), dur("2019-07-01", "2019-09-30", 130)];
+  const recent = dur("2024-10-01", "2024-12-31", 140);
+  const facts = (cik: number) => ({ cik, facts: { "us-gaap": {
+    Revenues: { units: { USD: [old, ...overlap, recent].map(p => ({ ...p, val: 1000 })) } },
+    PaymentsToAcquireProductiveAssets: { units: { USD: [old, ...overlap] } },
+    PaymentsToAcquireOtherProductiveAssets: { units: { USD: [{ ...old, val: 2 }, ...overlap, recent] } },
+  } } });
+  const rows = extractQuarterlyFundamentals(facts(732712), { maxQuarters: 48 });
+  assert.equal(rows.find(r => r.period === "2015Q1")?.capex, 100);
+  assert.equal(rows.find(r => r.period === "2024Q4")?.capex, 140);
+  assert.equal(extractQuarterlyFundamentals(facts(999), { maxQuarters: 48 }).find(r => r.period === "2024Q4")?.capex, null);
+});
+
+test("EOG 合并两项 PPE additions，缺任一项留空，排除收购与未付资本开支", () => {
+  const q1 = dur("2024-01-01", "2024-03-31", 10);
+  const q2 = dur("2024-04-01", "2024-06-30", 12);
+  const facts = { cik: 821189, facts: { "us-gaap": {
+    Revenues: { units: { USD: [q1, q2].map(p => ({ ...p, val: 100 })) } },
+    PaymentsToAcquireOilAndGasPropertyAndEquipment: { units: { USD: [q1, q2] } },
+    PaymentsToAcquireOtherPropertyPlantAndEquipment: { units: { USD: [{ ...q1, val: 2 }] } },
+    PaymentsToAcquireOilAndGasProperty: { units: { USD: [{ ...q1, val: 900 }] } },
+    CapitalExpendituresIncurredButNotYetPaid: { units: { USD: [{ end: q2.end, val: 300, form: "10-Q" }] } },
+  } } };
+  const rows = extractQuarterlyFundamentals(facts);
+  assert.equal(rows[0]?.capex, 12);
+  assert.equal(rows[1]?.capex, null);
+});
+
+test("Lilly 旧年度购置科目与年报别名跨代差分，历史 tag 在后续年份不通用", () => {
+  const old = [dur("2017-01-01", "2017-03-31", 10), dur("2017-01-01", "2017-06-30", 25), dur("2017-01-01", "2017-09-30", 45)];
+  const bridge = [dur("2019-01-01", "2019-03-31", 10), dur("2019-01-01", "2019-06-30", 25)];
+  const next = [dur("2022-01-01", "2022-03-31", 30), dur("2022-01-01", "2022-06-30", 60)];
+  const facts = { cik: 59478, facts: { "us-gaap": {
+    Revenues: { units: { USD: [dur("2017-10-01", "2017-12-31", 100)] } },
+    PaymentsForProceedsFromProductiveAssets: { units: { USD: [...old, ...bridge] } },
+    PaymentsToAcquireProductiveAssets: { units: { USD: [...bridge, ...next] } },
+    PaymentsToAcquireOtherPropertyPlantAndEquipment: { units: { USD: [dur("2017-01-01", "2017-12-31", 80, "10-K"), ...next] } },
+  } } };
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.capex, 35);
+});
+
 test("继任 CIK 仅衔接已核实的 Exxon 同集团迁册历史且截断生效日", () => {
   const facts = (cik: number, pts: ReturnType<typeof dur>[]) => ({ cik, facts: { "us-gaap": { Revenues: { units: { USD: pts } } } } });
   const now = facts(2115436, [dur("2026-07-01", "2026-09-30", 200)]);
