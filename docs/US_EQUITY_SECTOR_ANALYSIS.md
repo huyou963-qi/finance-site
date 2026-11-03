@@ -165,3 +165,6 @@ Sector ETF / SPY / 个股日线默认 **Yahoo Finance**（免密钥，不依赖 
 
 调研背景：`docs/research/US_EQUITY_INDUSTRY_RESEARCH.md`、`docs/research/US_EQUITY_OPERATING_TRACK_DECISION.md`。  
 终端级缺口与数据源拍板：`docs/STOCK_FUNDAMENTALS_TERMINAL_GAP.md`。
+
+
+行业历史财务的前身主体、SEC 主报表补充、现金资本开支组成及财年末 TTM 年报口径，见 [历史财务覆盖补充与运行说明](./US_EQUITY_HISTORY_COVERAGE.md)。

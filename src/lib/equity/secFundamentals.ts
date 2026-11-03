@@ -1,5 +1,8 @@
 import { fetchSecJson } from "./secEdgar";
 import { issuerReportedCashCapex } from "./issuerCashCapex";
+import { SEC_PREDECESSORS, mergeSecPredecessorFacts } from "./secPredecessors";
+import { reportedDurationDifference, reportedDurationSum } from "./secReportedFlows";
+import { statementSupplementFlows, STATEMENT_CAPEX_ROLES } from "./secStatementSupplement";
 /**
  * SEC EDGAR XBRL companyfacts → 三大报表标准化字段（免密钥）。
  * https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json
@@ -107,30 +110,22 @@ export async function fetchSecCompanyFacts(
     opts.timeoutMs ?? (Number(process.env.SEC_FETCH_TIMEOUT_MS) || 10_000);
   const padded = padCik(cik);
   const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${padded}.json`;
-  const facts = await fetchSecJson(url, timeoutMs);
-  // 2026-07-01 迁册后的继任注册人（8-K12B，0001193125-26-291990）。
-  // 同一合并集团，旧 CIK 财报只补到继任生效前，不将收购/拆分公司历史拼进来。
-  if (Number(cik) === 2115436) {
-    const predecessor = await fetchSecJson("https://data.sec.gov/api/xbrl/companyfacts/CIK0000034088.json", timeoutMs);
-    return mergeExxonPredecessorFacts(facts, predecessor);
+  let facts = await fetchSecJson(url, timeoutMs);
+  // 只顺序读取已核实的法定/会计前身（每家公司最多2个）；旧主体只补生效日前。
+  for (const rule of SEC_PREDECESSORS.filter(r => r.current === Number(cik))) {
+    try {
+      const predecessor = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${padCik(String(rule.predecessor))}.json`, timeoutMs);
+      facts = mergeSecPredecessorFacts(facts, predecessor);
+    } catch {
+      // 历史补充失败不阻止当前主体日批更新；已有历史仍由补空writer保留。
+      console.warn(`SEC前身财报暂不可用 current=${Number(cik)} predecessor=${rule.predecessor}`);
+    }
   }
   return facts;
 }
 
 export function mergeExxonPredecessorFacts(current: unknown, predecessor: unknown): unknown {
-  type CompanyFacts = { cik?: number | string; facts?: { "us-gaap"?: Record<string, SecConcept> } };
-  const now = current as CompanyFacts;
-  const old = predecessor as CompanyFacts;
-  if (Number(now?.cik) !== 2115436 || Number(old?.cik) !== 34088) return current;
-  const gaap = { ...now.facts?.["us-gaap"] };
-  for (const [name, concept] of Object.entries(old.facts?.["us-gaap"] ?? {})) {
-    const units = { ...gaap[name]?.units };
-    for (const [unit, points] of Object.entries(concept.units ?? {})) {
-      units[unit] = [...points.filter(p => typeof p.end === "string" && p.end < "2026-07-01"), ...(units[unit] ?? [])];
-    }
-    gaap[name] = { ...concept, ...gaap[name], units };
-  }
-  return { ...now, facts: { ...now.facts, "us-gaap": gaap } };
+  return Number((current as { cik?: number })?.cik) === 2115436 ? mergeSecPredecessorFacts(current, predecessor) : current;
 }
 
 /** 从 companyfacts 提取最近两个财年，算 YoY 与利润率 */
@@ -593,7 +588,7 @@ function pickFlowQuarterSeries(
     merged.unshift(
       ...picked.cand.series
         .filter((q) => q.end < earliest)
-        .map((q) => ({ ...q, val: q.val * picked!.factor })),
+        .map((q) => ({ ...q })),
     );
   }
 
@@ -632,20 +627,11 @@ const ERA_SPLICE_MAX_SAMPLES = 12;
  * Revenues vs SalesRevenueGoodsNet 各季 ±5% 乱跳）中位偏离本身就超阈值，仍会被拒。
  */
 const ERA_SPLICE_RATIO_STABILITY = 0.02;
-/** 比值中位数须落在此带内：±15% 视为同口径的细微差（如「商品营收」漏掉少量服务收入），
- *  超出（如银行手续费 vs 总收入的 3 倍）是两回事，拒绝拼接 */
-const ERA_SPLICE_RATIO_MIN = 0.85;
-const ERA_SPLICE_RATIO_MAX = 1.18;
+/** 重叠金额中位差不能超过2%；只接近似同口径原值，不按比例推算。 */
+const ERA_SPLICE_RATIO_MIN = 0.98;
+const ERA_SPLICE_RATIO_MAX = 1.02;
 
-/**
- * 换 tag 时代拼接的链接系数：旧序列 × 系数 = 主序列刻度。
- * 返回 null = 不可拼接（重叠不足 / 比值不稳 / 量级差太大）。
- *
- * 为什么要系数而不是直接接上：ASC606 之前的营收 tag 常只覆盖「商品」部分，
- * 比总营收低几个点（KO 实测 5.2%）。直接接会在接缝处造出假的营收 YoY，
- * 并让旧时代的 salesYield 系统性偏低；按重叠期的稳定比值链接则两者都消掉。
- * 拒绝拼接时表现为「缺失」而非错值（沿用 Phase 1 三道守卫的口径）。
- */
+/** 重叠不足、口径不同或比例不稳定时拒绝拼接；通过时仍保留原始金额。 */
 function eraSpliceFactor(
   main: readonly { end: string; val: number }[],
   older: readonly { end: string; val: number }[],
@@ -669,7 +655,8 @@ function eraSpliceFactor(
   if (median < ERA_SPLICE_RATIO_MIN || median > ERA_SPLICE_RATIO_MAX) return null;
   const devs = ratios.map((r) => Math.abs(r / median - 1)).sort((x, y) => x - y);
   if (devs[Math.floor(devs.length / 2)]! > ERA_SPLICE_RATIO_STABILITY) return null;
-  return median;
+  // 金额必须保留财报原值。重叠比值只判断口径，不作为历史金额的缩放系数。
+  return 1;
 }
 
 /** 两条单季序列按同期末求和（仅两侧都有值的季度），用于银行合成营收 */
@@ -840,6 +827,7 @@ export function extractQuarterlyFundamentals(
   if (!facts || typeof facts !== "object") return [];
   const gaap = (facts as { facts?: { "us-gaap"?: Record<string, SecConcept> } }).facts?.["us-gaap"];
   if (!gaap) return [];
+  const statement = statementSupplementFlows(facts);
 
   const flowSeries = (names: readonly string[], unitKeys: string[]) =>
     pickFlowQuarterSeries(gaap, names, unitKeys);
@@ -857,6 +845,9 @@ export function extractQuarterlyFundamentals(
   const nii = pickFlowQuarterSeries(gaap, ["InterestIncomeExpenseNet"], ["USD"]);
   const nonInterest = pickFlowQuarterSeries(gaap, ["NoninterestIncome"], ["USD"]);
   const bankTotal = nii.length && nonInterest.length ? sumFlowSeries(nii, nonInterest) : [];
+  const pmNetRevenue = Number((facts as { cik?: number }).cik) === 1413329 ? quarterlyFlowSeries(reportedDurationDifference(
+    gaap.SalesRevenueNet?.units?.USD ?? [], gaap.ExciseAndSalesTaxes?.units?.USD ?? [],
+  ).filter(p => p.end && p.end < "2018-01-01")) : [];
 
   // 发行人旧版总营收标签；其他公司同名标签可能只是分部/业务子项。
   // 仍走至少两个同口径重叠季的普通拼接校验，不缩放或覆盖已有季度。
@@ -864,10 +855,11 @@ export function extractQuarterlyFundamentals(
     ? ["RefiningAndMarketingRevenue"] // Valero：合并利润表 Operating revenues
     : [1045609, 1289490].includes(Number((facts as { cik?: number }).cik))
       ? ["RealEstateRevenueNet"] // PLD / EXR：旧版 Total revenues
-      : Number((facts as { cik?: number }).cik) === 1164727 ? ["RevenueMineralSales"] : [];
+      : Number((facts as { cik?: number }).cik) === 1164727 ? ["RevenueMineralSales"]
+        : [2012383, 1364742].includes(Number((facts as { cik?: number }).cik)) ? ["RevenuesExcludingInterestAndDividends"] : [];
   let revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
     magnitudeTieBreak: true,
-    extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal],
+    extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal, pmNetRevenue, quarterlyFlowSeries(statement.revenue)],
   });
   const originalRevenue = new Map(revenueQ.map(q => [q.end, q]));
   for (const name of revenueAliases) {
@@ -897,13 +889,35 @@ export function extractQuarterlyFundamentals(
     for (const q of rental) if (q.end >= "2020-04-01" && !combined.has(q.end)) combined.set(q.end, q);
     revenueQ = [...combined.values()].sort((a, b) => a.end.localeCompare(b.end));
   }
-  if (!revenueQ.length) return [];
-
   const grossQ = flowSeries(FLOW_CONCEPTS.grossProfit, ["USD"]);
   const opQ = flowSeries(FLOW_CONCEPTS.operatingIncome, ["USD"]);
   const niQ = flowSeries(FLOW_CONCEPTS.netIncome, ["USD"]);
+  // NetIncomeLoss为归母净利润，ProfitLoss含少数股东；只在两项同期明确披露时相减。
+  // 原有季度不变；不以缺失少数股东损益推定为零，也不使用仅持续经营的少数股东子项。
+  const parentIncome = quarterlyFlowSeries(reportedDurationDifference(
+    gaap.ProfitLoss?.units?.USD ?? [], gaap.NetIncomeLossAttributableToNoncontrollingInterest?.units?.USD ?? [],
+  ));
+  const niDates = new Set(niQ.map(q => q.end));
+  for (const q of parentIncome) if (!niDates.has(q.end)) niQ.push(q);
+  for (const q of quarterlyFlowSeries(statement.netIncome)) if (!niQ.some(p => p.end === q.end)) niQ.push(q);
+  niQ.sort((a, b) => a.end.localeCompare(b.end));
   const epsQ = flowSeries(FLOW_CONCEPTS.eps, ["USD/shares", "pure"]);
   const ocfQ = flowSeries(FLOW_CONCEPTS.ocf, ["USD"]);
+  // 明确总额优先；仅两部分在同一申报同时披露时合成全集团现金流。
+  // 保留原有仅持续经营映射的回退，不把缺失的终止经营现金流推定为零。
+  const directCash = flowSeries(["NetCashProvidedByUsedInOperatingActivities"], ["USD"]);
+  const directCashDates = new Set(directCash.map(p => p.end));
+  const summedCash = quarterlyFlowSeries(reportedDurationSum(
+    gaap.NetCashProvidedByUsedInOperatingActivitiesContinuingOperations?.units?.USD ?? [],
+    gaap.CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations?.units?.USD ?? [],
+  ));
+  for (const point of [...directCash, ...summedCash.filter(p => !directCashDates.has(p.end))]) {
+    const at = ocfQ.findIndex(p => p.end === point.end);
+    if (at < 0) ocfQ.push(point); else ocfQ[at] = point;
+  }
+  // 官方合并现金流表的明确总额补缺；不把“持续经营/已终止经营”子项改名为总额。
+  for (const q of quarterlyFlowSeries(statement.ocf)) if (!ocfQ.some(p => p.end === q.end)) ocfQ.push(q);
+  ocfQ.sort((a, b) => a.end.localeCompare(b.end));
   // 已核实的现金流表科目：Other/净额标签不能作为全市场总资本开支回退。
   // Lilly 旧 net tag 实为 PPE 购置（处置收入另列）；Verizon OtherProductive 实为 Capital expenditures。
   const issuerCik = Number((facts as { cik?: number }).cik);
@@ -911,7 +925,11 @@ export function extractQuarterlyFundamentals(
     ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsForProceedsFromProductiveAssets"]
     : issuerCik === 732712 ? ["PaymentsToAcquireOtherProductiveAssets"]
       : [8670, 783325].includes(issuerCik) ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment"]
-        : issuerCik === 1297996 ? ["PaymentsToDevelopRealEstateAssets"] : [];
+        : issuerCik === 1297996 ? ["PaymentsToDevelopRealEstateAssets"]
+          : issuerCik === 4904 ? ["PaymentsForConstructionInProcess"]
+            : issuerCik === 1705696 ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment"]
+              : issuerCik === 1751788 ? ["PaymentsToAcquireMachineryAndEquipment"]
+                : [1841666, 6769].includes(issuerCik) ? ["PaymentsToExploreAndDevelopOilAndGasProperties"] : [];
   const capexGaap = { ...gaap };
   const reportedCapex = issuerReportedCashCapex(facts);
   if (reportedCapex.length) {
@@ -929,7 +947,18 @@ export function extractQuarterlyFundamentals(
     const concept = gaap[name];
     if (concept?.units) capexGaap[name] = { ...concept, units: Object.fromEntries(Object.entries(concept.units).map(([unit, points]) => [unit, points.filter(keep)])) };
   }
-  let capexQ = pickFlowQuarterSeries(capexGaap, [...FLOW_CONCEPTS.capex, ...capexAliases], ["USD"]);
+  const capexNames = issuerCik === 4904 ? ["PaymentsForConstructionInProcess"] : [...FLOW_CONCEPTS.capex, ...capexAliases];
+  let capexQ = pickFlowQuarterSeries(capexGaap, capexNames, ["USD"]);
+  // 已核实需多项现金支出的发行人，单个PPE/改造子项不能代替完整资本开支。
+  // 普通日批空值仍由writer保留已补充总额，避免再次被局部科目覆盖。
+  if ((STATEMENT_CAPEX_ROLES[issuerCik]?.length ?? 0) > 1) capexQ = [];
+  if (issuerCik === 1327811) capexQ = quarterlyFlowSeries(gaap.PaymentsToAcquirePropertyPlantAndEquipment?.units?.USD ?? []).filter(q => q.start >= "2023-02-01");
+  if (issuerCik === 936340) capexQ = capexQ.filter(q => q.start >= "2022-01-01");
+  for (const q of quarterlyFlowSeries(statement.capex)) {
+    const at = capexQ.findIndex(p => p.end === q.end);
+    if (at < 0) capexQ.push(q); else capexQ[at] = q;
+  }
+  capexQ.sort((a, b) => a.end.localeCompare(b.end));
   if (issuerCik === 821189) {
     // EOG 现金流表把 Oil and gas 与 Other PPE additions 分列；两项都存在才求和。
     // 不包含 property acquisitions、未付资本开支或资产处置收入。
@@ -962,13 +991,20 @@ export function extractQuarterlyFundamentals(
     }
   }
 
-  // 多取 4 季缓冲：拆股归一后重算 epsYoY 需要上年同季在窗口内
-  const tail = revenueQ.slice(-(maxQuarters + 4));
+  // 营收标签断档不能吞掉同季已披露的净利润/现金流。
+  // 同一自然季保持营收骨架的实际截止日优先，不拼接日期不同的两组事实。
+  const quarterAnchors = new Map<string, FlowQuarter>();
+  for (const series of [revenueQ, niQ, ocfQ, capexQ]) for (const point of [...series].sort((a, b) => b.end.localeCompare(a.end))) {
+    const period = calendarQuarterLabel(point.end);
+    if (!quarterAnchors.has(period)) quarterAnchors.set(period, point);
+  }
+  // 多取4季缓冲：拆股归一后重算epsYoY需要上年同季在窗口内。
+  const tail = [...quarterAnchors.values()].sort((a, b) => a.end.localeCompare(b.end)).slice(-(maxQuarters + 4));
   const out: SecQuarterlyFundamentals[] = [];
   const epsDerived: boolean[] = [];
   for (const q of tail) {
     const idx = revenueQ.findIndex((r) => r.end === q.end);
-    const revenue = q.val;
+    const revenue = idx >= 0 ? revenueQ[idx]!.val : null;
     const grossHit = flowAt(grossQ, q.end);
     const opHit = flowAt(opQ, q.end);
     const niHit = flowAt(niQ, q.end);
@@ -1025,9 +1061,9 @@ export function extractQuarterlyFundamentals(
       fiscalDate: q.end,
       fiscalQuarter: null,
       revenue,
-      revenueYoY: yoyQuarter(revenueQ, idx),
-      grossMargin: revenue !== 0 && grossHit != null ? grossHit.val / revenue : null,
-      opMargin: revenue !== 0 && opHit != null ? opHit.val / revenue : null,
+      revenueYoY: idx >= 0 ? yoyQuarter(revenueQ, idx) : null,
+      grossMargin: revenue != null && revenue !== 0 && grossHit != null ? grossHit.val / revenue : null,
+      opMargin: revenue != null && revenue !== 0 && opHit != null ? opHit.val / revenue : null,
       netIncome: niHit?.val ?? null,
       eps: epsHit?.val ?? null,
       epsYoY: epsIdx >= 0 ? yoyQuarter(epsQ, epsIdx) : null,
@@ -1157,4 +1193,22 @@ export async function fetchYahooLastClose(symbol: string): Promise<number | null
   } catch {
     return null;
   }
+}
+
+/** 仅供迁移审计：旧通用PPE单项不能代表多组成地产资本开支。 */
+export function legacyPartialCapexForAudit(facts: unknown) {
+  const root = facts as { cik?: number; facts?: { "us-gaap"?: Record<string, SecConcept> } };
+  if ((STATEMENT_CAPEX_ROLES[Number(root.cik)]?.length ?? 0) <= 1) return [];
+  const gaap = root.facts?.["us-gaap"] ?? {};
+  return [...pickFlowQuarterSeries(gaap, [...FLOW_CONCEPTS.capex], ["USD"]),
+    ...FLOW_CONCEPTS.capex.flatMap(tag => quarterlyFlowSeries(gaap[tag]?.units?.USD ?? []))];
+}
+
+/** 供存量纠正审计：必须能同时证明持续和终止经营的真实季度现金额。 */
+export function continuingCashForAudit(facts: unknown) {
+  const gaap = (facts as { facts?: { "us-gaap"?: Record<string, SecConcept> } })?.facts?.["us-gaap"];
+  return {
+    continuing: quarterlyFlowSeries(gaap?.NetCashProvidedByUsedInOperatingActivitiesContinuingOperations?.units?.USD ?? []),
+    discontinued: quarterlyFlowSeries(gaap?.CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations?.units?.USD ?? []),
+  };
 }

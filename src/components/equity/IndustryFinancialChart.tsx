@@ -35,10 +35,10 @@ export function IndustryFinancialChart({ periods, series, selectedPeriod, percen
         formatter: (raw: unknown) => {
           const items = (Array.isArray(raw) ? raw : []) as {
             axisValueLabel: string; seriesName: string; value: number | null;
-            data: { sampleCount: number; universeCount: number; weightCoverage: number | null };
+            data: { sampleCount: number; universeCount: number; weightCoverage: number | null; annualSampleCount?: number };
           }[];
           return [items[0]?.axisValueLabel ?? "", ...items.filter(item => typeof item.value === "number").map(item =>
-            `${item.seriesName}${item.data.weightCoverage != null && item.data.weightCoverage < 0.8 ? "（低覆盖）" : ""}：${item.value!.toFixed(1)}${percent || series.find(row => row.name === item.seriesName)?.percent ? "%" : " 十亿美元"}\n有效 ${item.data.sampleCount}/${item.data.universeCount} 家 · 权重覆盖 ${item.data.weightCoverage == null ? "—" : `${(item.data.weightCoverage * 100).toFixed(1)}%`}`,
+            `${item.seriesName}${item.data.weightCoverage != null && item.data.weightCoverage < 0.8 ? "（低覆盖）" : ""}：${item.value!.toFixed(1)}${percent || series.find(row => row.name === item.seriesName)?.percent ? "%" : " 十亿美元"}\n有效 ${item.data.sampleCount}/${item.data.universeCount} 家 · 权重覆盖 ${item.data.weightCoverage == null ? "—" : `${(item.data.weightCoverage * 100).toFixed(1)}%`}${item.data.annualSampleCount ? `\n其中 ${item.data.annualSampleCount} 家采用财年末完整年报值` : ""}`,
           )].join("\n");
         },
       },

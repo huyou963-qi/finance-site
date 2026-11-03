@@ -134,7 +134,7 @@ export function IndustryFinancialsClient() {
           })}
         </>}
       </section>
-      <details className="border-t border-fs-border pt-3 text-xs leading-6 text-fs-muted"><summary className="min-h-11 cursor-pointer py-2 text-fs-accent-text">统计口径与数据说明</summary><p>分类对应11只 Select Sector SPDR ETF。成分来自官方持仓归档，不以证券主档的行业标签替代。公司按 CIK 去重，权重合并；未识别持仓仍计入覆盖分母。</p><p>营收同比采用本期与上年同期都有值的同一批公司；净利率使用营收和净利润同时有效的公司。现金流三条线采用相同子样本。TTM 必须有连续四季，缺季留空。覆盖不足时，数值仅代表已覆盖样本，不能视为完整行业。</p><p>金额为已有 SEC 标准化美元数据，展示单位为十亿美元。自然季度按公司实际财季末归组，不代表所有公司起止日期完全一致。当前重述值不等于当时已知值；历史持仓口径也不是 PIT 财务回测。</p><p>金融及房地产行业的现金流指标可比性有限，未补齐行业专属科目前不据此评价经营优劣。页面只读取数据库，不触发全行业外部抓取；入库后最多约5分钟缓存更新。</p></details>
+      <details className="border-t border-fs-border pt-3 text-xs leading-6 text-fs-muted"><summary className="min-h-11 cursor-pointer py-2 text-fs-accent-text">统计口径与数据说明</summary><p>分类对应11只 Select Sector SPDR ETF。成分来自官方持仓归档，不以证券主档的行业标签替代。公司按 CIK 去重，权重合并；未识别持仓仍计入覆盖分母。</p><p>营收同比采用本期与上年同期都有值的同一批公司；净利率使用营收和净利润同时有效的公司。现金流三条线采用相同子样本。TTM 在财年末优先使用已核实的完整年报；其他季度须有连续四季，缺季留空。年报不补单季，也不延用到其他季度。覆盖不足时，数值仅代表已覆盖样本，不能视为完整行业。</p><p>金额为已有 SEC 标准化美元数据，展示单位为十亿美元。自然季度按公司实际财季末归组，不代表所有公司起止日期完全一致。当前重述值不等于当时已知值；历史持仓口径也不是 PIT 财务回测。</p><p>金融及房地产行业的现金流指标可比性有限，未补齐行业专属科目前不据此评价经营优劣。页面只读取数据库，不触发全行业外部抓取；入库后最多约5分钟缓存更新。</p></details>
     </> : null}
   </div>;
 }

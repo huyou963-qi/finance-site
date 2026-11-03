@@ -25,6 +25,39 @@ function history(snapshots: FinancialSnapshot[], overrides: Partial<Parameters<t
   })[0]!;
 }
 
+test("真实财年末直接年报能提供TTM与同比，不能反填单季或沿用到下一季", () => {
+  const annual = [snapshot("A", "2025Q3", 100), snapshot("A", "2026Q3", 200)];
+  const p = history([], { annualSnapshots: annual });
+  assert.equal(p.Q.revenue.value, null);
+  assert.equal(p.TTM.revenue.value, 200);
+  assert.equal(p.TTM.revenue.annualSampleCount, 1);
+  assert.equal(p.TTM.revenue.weightCoverage, 0.7);
+  assert.equal(p.TTM.revenueYoY.value, 1);
+  assert.equal(p.TTM.fcf.value, 40);
+  assert.equal(p.TTM.members[0]?.fiscalDate, "2026-09-30");
+  assert.equal(history([], { periods: ["2026Q4"], annualSnapshots: annual }).TTM.revenue.value, null);
+});
+
+test("年报仅在同一真实截止日优先于季度推算，过渡财年日期冲突不拼接", () => {
+  const quarters = ["2025Q4", "2026Q1", "2026Q2", "2026Q3"].map(p => snapshot("A", p, 10));
+  const annual = snapshot("A", "2026Q3", 55);
+  assert.equal(history(quarters, { annualSnapshots: [annual] }).TTM.revenue.value, 55);
+  annual.fiscalDate = "2026-08-31";
+  assert.equal(history(quarters, { annualSnapshots: [annual] }).TTM.revenue.value, 40);
+  assert.equal(history([quarters[3]!], { annualSnapshots: [annual] }).TTM.revenue.value, null);
+});
+
+test("年报缺字段保持独立覆盖，现金流仍须OCF和CapEx同样本齐全", () => {
+  const a = { ...snapshot("A", "2026Q3", 100), capex: null };
+  const b = { ...snapshot("B", "2026Q3", 200), ocf: null, netIncome: null };
+  const p = history([], { annualSnapshots: [a, b] }).TTM;
+  assert.equal(p.revenue.sampleCount, 2);
+  assert.equal(p.netMargin.sampleCount, 1);
+  assert.equal(p.cashSourceCoverage.ocf.sampleCount, 1);
+  assert.equal(p.cashSourceCoverage.capex.sampleCount, 1);
+  assert.equal(p.fcf.value, null);
+});
+
 test("financial quarter boundaries cross years and leap days", () => {
   assert.equal(shiftFinancialQuarter("2026Q1", -1), "2025Q4");
   assert.equal(shiftFinancialQuarter("2026Q3", -7), "2024Q4");

@@ -16,6 +16,8 @@ export type FinancialMetric = {
   value: number | null; sampleCount: number; universeCount: number;
   /** 有效公司占该快照股票持仓的权重比例，不含现金。 */
   weightCoverage: number | null;
+  /** 本样本中直接使用完整年报值的公司数；只在真实财年末TTM出现。 */
+  annualSampleCount?: number;
 };
 export type FinancialMember = {
   symbol: string; name: string; weight: number; fiscalDate: string | null;
@@ -56,7 +58,8 @@ export function selectFinancialHoldingsDate(dates: string[], boundary: string): 
 }
 
 type Issuer = { symbol: string; name: string; aliases: string[]; weight: number };
-type Flows = { revenue: number | null; netIncome: number | null; ocf: number | null; capex: number | null };
+type FlowField = "revenue" | "netIncome" | "ocf" | "capex";
+type Flows = { revenue: number | null; netIncome: number | null; ocf: number | null; capex: number | null; annualFields?: Partial<Record<FlowField, boolean>> };
 const finite = (value: number | null): value is number => value != null && Number.isFinite(value);
 
 function issuers(holdings: FinancialHolding[], securities: FinancialSecurity[]): Issuer[] {
@@ -90,30 +93,45 @@ function issuers(holdings: FinancialHolding[], securities: FinancialSecurity[]):
 }
 
 /** 最近四个自然季度必须逐季齐全，同时复用个股 TTM 的实际财季连续性检查。 */
-function flowsAt(rows: Map<string, FinancialSnapshot>, period: string, basis: FinancialBasis): Flows | null {
+function flowsAt(rows: Map<string, FinancialSnapshot>, period: string, basis: FinancialBasis, annualRows = new Map<string, FinancialSnapshot>()): Flows | null {
   const latest = rows.get(period);
-  if (!latest) return null;
-  if (basis === "Q") return latest;
+  if (basis === "Q") return latest ?? null;
   const window: QuarterFundamentalRow[] = [];
   for (let offset = -3; offset <= 0; offset++) {
     const row = rows.get(shiftFinancialQuarter(period, offset));
-    if (!row) return null;
+    if (!row) break;
     window.push({
       ...row, eps: null, dividendsPaid: null, buybackPaid: null, totalAssets: null,
       totalLiabilities: null, equity: null, longTermDebt: null, cash: null, sharesOutstanding: null,
     });
   }
-  return computeTtm(window);
+  const rolled = window.length === 4 ? computeTtm(window) : null;
+  const annual = annualRows.get(period);
+  // 同一自然季内发生财年/截止日变更时，不拼接两个不同实际报告期。
+  if (!annual || (latest && latest.fiscalDate !== annual.fiscalDate)) return rolled;
+  const result: Flows = { revenue: null, netIncome: null, ocf: null, capex: null, annualFields: {} };
+  for (const field of ["revenue", "netIncome", "ocf", "capex"] as const) {
+    result[field] = finite(annual[field]) ? annual[field] : rolled?.[field] ?? null;
+    if (finite(annual[field])) result.annualFields![field] = true;
+  }
+  return result;
 }
 
 export function buildIndustryFinancialHistory(input: {
   periods: string[]; membership: MembershipBasis; current: FinancialUniverse | null;
   historical: Map<string, FinancialUniverse>; securities: FinancialSecurity[]; snapshots: FinancialSnapshot[];
+  /** 已核实完整财年，period已按真实截止日映射为自然季；不包含年化或过渡期。 */
+  annualSnapshots?: FinancialSnapshot[];
 }): FinancialHistoryPoint[] {
   const bySymbol = new Map<string, Map<string, FinancialSnapshot>>();
   for (const snapshot of input.snapshots) {
     if (!bySymbol.has(snapshot.symbol)) bySymbol.set(snapshot.symbol, new Map());
     bySymbol.get(snapshot.symbol)!.set(snapshot.period, snapshot);
+  }
+  const annualBySymbol = new Map<string, Map<string, FinancialSnapshot>>();
+  for (const snapshot of input.annualSnapshots ?? []) {
+    if (!annualBySymbol.has(snapshot.symbol)) annualBySymbol.set(snapshot.symbol, new Map());
+    annualBySymbol.get(snapshot.symbol)!.set(snapshot.period, snapshot);
   }
   const score = (row: FinancialSnapshot) => [row.revenue, row.netIncome, row.ocf, row.capex].filter(finite).length;
   function periodView(period: string, basis: FinancialBasis, universe: FinancialUniverse | null): FinancialPeriod {
@@ -122,30 +140,35 @@ export function buildIndustryFinancialHistory(input: {
     const values = members.map(member => {
       // 多股类按同一发行人合并；优先代表代码，缺失时使用该 CIK 下的可用季度事实。
       const rows = new Map<string, FinancialSnapshot>();
+      const annualRows = new Map<string, FinancialSnapshot>();
       for (const alias of member.aliases) {
         for (const [key, row] of bySymbol.get(alias) ?? []) {
           if (!rows.has(key) || score(row) > score(rows.get(key)!)) rows.set(key, row);
         }
+        for (const [key, row] of annualBySymbol.get(alias) ?? []) if (!annualRows.has(key) || score(row) > score(annualRows.get(key)!)) annualRows.set(key, row);
       }
-      return { member, current: flowsAt(rows, period, basis), previous: flowsAt(rows, shiftFinancialQuarter(period, -4), basis), fiscalDate: rows.get(period)?.fiscalDate ?? null };
+      return { member, current: flowsAt(rows, period, basis, annualRows), previous: flowsAt(rows, shiftFinancialQuarter(period, -4), basis, annualRows),
+        fiscalDate: rows.get(period)?.fiscalDate ?? (basis === "TTM" ? annualRows.get(period)?.fiscalDate : null) ?? null };
     });
     type Value = typeof values[number];
-    function metric(select: (row: Value) => number | null, numerator?: (selected: Value[]) => number | null): FinancialMetric {
+    function metric(select: (row: Value) => number | null, numerator?: (selected: Value[]) => number | null, annualUsed?: (row: Value) => boolean): FinancialMetric {
       const selected = values.filter(row => finite(select(row)));
+      const annualCount = basis === "TTM" && annualUsed ? selected.filter(annualUsed).length : 0;
       return {
         value: selected.length ? (numerator ? numerator(selected) : selected.reduce((sum, row) => sum + select(row)!, 0)) : null,
         sampleCount: selected.length, universeCount: members.length,
         weightCoverage: weight > 0 ? selected.reduce((sum, row) => sum + row.member.weight, 0) / weight : null,
+        ...(annualCount ? { annualSampleCount: annualCount } : {}),
       };
     }
     const cashReady = (row: Value) => row.current && finite(row.current.ocf) && finite(row.current.capex);
     const view: FinancialPeriod = {
       period, basis, holdingsDate: universe?.date ?? null, universeCount: members.length,
       unresolvedCount: members.filter(row => !row.aliases.length).length, equityWeight: weight,
-      revenue: metric(row => row.current?.revenue ?? null),
+      revenue: metric(row => row.current?.revenue ?? null, undefined, row => Boolean(row.current?.annualFields?.revenue)),
       revenueYoY: metric(row => row.current && row.previous && finite(row.current.revenue) && finite(row.previous.revenue) && row.previous.revenue > 0 ? row.current.revenue : null,
         selected => selected.reduce((sum, row) => sum + row.current!.revenue!, 0) / selected.reduce((sum, row) => sum + row.previous!.revenue!, 0) - 1),
-      netIncome: metric(row => row.current?.netIncome ?? null),
+      netIncome: metric(row => row.current?.netIncome ?? null, undefined, row => Boolean(row.current?.annualFields?.netIncome)),
       netIncomeYoY: metric(row => row.current && row.previous && finite(row.current.netIncome) && finite(row.previous.netIncome) ? row.current.netIncome : null,
         selected => {
           const previous = selected.reduce((sum, row) => sum + row.previous!.netIncome!, 0);
@@ -154,12 +177,12 @@ export function buildIndustryFinancialHistory(input: {
       netMargin: metric(row => row.current && finite(row.current.revenue) && row.current.revenue > 0 && finite(row.current.netIncome) ? row.current.netIncome : null,
         selected => selected.reduce((sum, row) => sum + row.current!.netIncome!, 0) / selected.reduce((sum, row) => sum + row.current!.revenue!, 0)),
       // 三条现金流线严格使用同一子样本，确保 FCF = OCF - CapEx。
-      ocf: metric(row => cashReady(row) ? row.current!.ocf : null),
-      capex: metric(row => cashReady(row) ? row.current!.capex : null),
-      fcf: metric(row => cashReady(row) ? row.current!.ocf! - row.current!.capex! : null),
+      ocf: metric(row => cashReady(row) ? row.current!.ocf : null, undefined, row => Boolean(row.current?.annualFields?.ocf)),
+      capex: metric(row => cashReady(row) ? row.current!.capex : null, undefined, row => Boolean(row.current?.annualFields?.capex)),
+      fcf: metric(row => cashReady(row) ? row.current!.ocf! - row.current!.capex! : null, undefined, row => Boolean(row.current?.annualFields?.ocf || row.current?.annualFields?.capex)),
       cashSourceCoverage: {
-        ocf: metric(row => row.current?.ocf ?? null),
-        capex: metric(row => row.current?.capex ?? null),
+        ocf: metric(row => row.current?.ocf ?? null, undefined, row => Boolean(row.current?.annualFields?.ocf)),
+        capex: metric(row => row.current?.capex ?? null, undefined, row => Boolean(row.current?.annualFields?.capex)),
       },
       members: values.map<FinancialMember>(({ member, current, previous, fiscalDate }) => ({
         symbol: member.symbol, name: member.name, weight: member.weight, fiscalDate,
