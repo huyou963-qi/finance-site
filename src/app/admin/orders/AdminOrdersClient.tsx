@@ -7,10 +7,11 @@ type OrderRow = {
   id: string; orderNo: string; username: string; email: string;
   productType: string; amountCny: number; credits: number; status: string;
   createdAt: string; paidAt: string; fulfilledAt: string; channel: string;
+  pricingSnapshot?: { baseCents: number; discountCents: number; campaign?: { name: string } | null } | null;
   externalId: string; lastErrorCode: string; checkAttempts: number; lastCheckedAt: string;
 };
 const statuses: Record<string, string> = { pending: "待支付", paid: "已支付", expired: "已过期", review: "需核对" };
-const products: Record<string, string> = { pro_month: "Pro 月付", pro_year: "Pro 年付", credits: "积分包" };
+const products: Record<string, string> = { pro_month: "Pro 月付", pro_year: "Pro 年付", pro_quarter: "Pro 季付", credits: "积分包" };
 const field = "mt-1 w-full rounded-lg border border-fs-border bg-fs-bg px-3 py-2 text-sm text-fs-text";
 const action = "rounded-lg border border-fs-border px-3 py-2 text-sm text-fs-text disabled:opacity-50";
 function date(value: string) { return value ? new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "—"; }
@@ -57,7 +58,7 @@ export function AdminOrdersClient() {
   }
   const visible = orders.filter(o => (!status || o.status === status) && (!channel || (channel === "online" ? o.channel === "zpay" : o.channel !== "zpay")) && `${o.orderNo} ${o.username} ${o.email} ${o.externalId}`.toLowerCase().includes(query.trim().toLowerCase()));
   function payment(o: OrderRow) {
-    return <div className="text-xs text-fs-muted"><p>{o.channel === "zpay" ? "在线支付 · 自动核验" : "人工收款"}</p><p className="mt-1 break-all">流水：{o.externalId || "—"}</p><p className="mt-1">核验 {o.checkAttempts} 次 · {o.lastErrorCode || "无异常记录"}</p><p className="mt-1">最近核验：{date(o.lastCheckedAt)}</p><PaymentTrace orderId={o.id} online={o.channel === "zpay"} onRechecked={load} /></div>;
+    return <div className="text-xs text-fs-muted"><p>{o.pricingSnapshot ? `原价 ¥${(o.pricingSnapshot.baseCents / 100).toFixed(2)} · 优惠 ¥${(o.pricingSnapshot.discountCents / 100).toFixed(2)} · ${o.pricingSnapshot.campaign?.name ?? "无活动"}` : "历史订单 · 无价格快照"}</p><p>{o.channel === "zpay" ? "在线支付 · 自动核验" : "人工收款"}</p><p className="mt-1 break-all">流水：{o.externalId || "—"}</p><p className="mt-1">核验 {o.checkAttempts} 次 · {o.lastErrorCode || "无异常记录"}</p><p className="mt-1">最近核验：{date(o.lastCheckedAt)}</p><PaymentTrace orderId={o.id} online={o.channel === "zpay"} onRechecked={load} /></div>;
   }
   function state(o: OrderRow) {
     return <><span className={`inline-block rounded-full px-2.5 py-1 text-xs ${o.status === "paid" ? "bg-fs-accent-soft text-fs-accent-text" : "bg-fs-elevated text-fs-secondary"}`}>{statuses[o.status] ?? o.status}</span><p className="mt-2 text-xs text-fs-muted">{o.fulfilledAt ? `权益已发放 · ${date(o.fulfilledAt)}` : o.status === "review" ? "请查看核验记录后处理" : o.paidAt ? "已记录收款，权益待核对" : "尚未发放权益"}</p>{manualEligible(o) && <button className={action + " mt-3"} disabled={busy} onClick={() => open(o)}>人工确认收款</button>}</>;

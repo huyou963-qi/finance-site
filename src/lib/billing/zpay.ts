@@ -61,7 +61,7 @@ export function parseGatewayJson(raw: string) {
 }
 
 export function validateGatewayOrder(data: GatewayOrder, order: { orderNo: string; merchantId: string | null; amountCny: number; paymentMethod: string | null; providerTradeNo?: string | null }, expectedTradeNo?: string) {
-  if (String(data.pid) !== order.merchantId || data.out_trade_no !== order.orderNo || data.type !== order.paymentMethod || moneyInCents(data.money) !== order.amountCny * 100) throw new PaymentError("ORDER_MISMATCH", 409);
+  if (String(data.pid) !== order.merchantId || data.out_trade_no !== order.orderNo || data.type !== order.paymentMethod || moneyInCents(data.money) !== moneyInCents(order.amountCny.toFixed(2))) throw new PaymentError("ORDER_MISMATCH", 409);
   if (!/^[a-zA-Z0-9_-]{1,128}$/.test(data.trade_no ?? "")) throw new PaymentError("INVALID_TRADE", 502);
   if ((expectedTradeNo && data.trade_no !== expectedTradeNo) || (order.providerTradeNo && order.providerTradeNo !== data.trade_no)) throw new PaymentError("TRADE_MISMATCH", 409);
   if (data.status !== 1 && data.status !== "1") throw new PaymentError("NOT_PAID", 409);
@@ -96,8 +96,8 @@ export async function queryZpay(orderNo: string, config = zpayConfig()): Promise
 
 export function signedCheckout(order: { orderNo: string; amountCny: number; paymentMethod: string | null; productType: string }, config = zpayConfig(), returnOrigin = config.baseUrl) {
   const fields: Record<string, string> = { pid: config.pid, type: order.paymentMethod!, out_trade_no: order.orderNo,
-    name: order.productType === "pro_year" ? "GekkoTech Pro 年费会员（365天）" : order.productType === "pro_month" ? "GekkoTech Pro 月费会员（30天）" : "GekkoTech 回测积分包（10次）",
-    money: `${order.amountCny}.00`, notify_url: `${config.baseUrl}/api/billing/zpay/notify`, return_url: `${returnOrigin}/pricing`, sign_type: "MD5" };
+    name: order.productType === "pro_quarter" ? "GekkoTech Pro 季费会员（90天）" : order.productType === "pro_year" ? "GekkoTech Pro 年费会员（365天）" : order.productType === "pro_month" ? "GekkoTech Pro 月费会员（30天）" : "GekkoTech 回测积分包（10次）",
+    money: order.amountCny.toFixed(2), notify_url: `${config.baseUrl}/api/billing/zpay/notify`, return_url: `${returnOrigin}/pricing`, sign_type: "MD5" };
   fields.sign = signZpay(fields, config.key);
   return { action: "https://zpayz.cn/submit.php", fields };
 }

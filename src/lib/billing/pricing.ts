@@ -10,8 +10,8 @@ export const PRICE_YEARLY_LIST_CNY = PRICE_MONTHLY_CNY * 12;
 export const CREDIT_PACK_CREDITS = 10;
 export const CREDIT_PACK_CNY = 19;
 
-export type BillingPeriod = "month" | "year";
-export type ProductType = "pro_month" | "pro_year" | "credits";
+export type BillingPeriod = "month" | "quarter" | "year";
+export type ProductType = "pro_month" | "pro_quarter" | "pro_year" | "credits";
 
 export const PLAN_FEATURES = {
   visitor: [
@@ -39,6 +39,8 @@ export function amountForProduct(productType: ProductType): number {
   switch (productType) {
     case "pro_month":
       return PRICE_MONTHLY_CNY;
+    case "pro_quarter":
+      return 109;
     case "pro_year":
       return PRICE_YEARLY_CNY;
     case "credits":
@@ -48,6 +50,7 @@ export function amountForProduct(productType: ProductType): number {
 
 export function periodForProduct(productType: ProductType): BillingPeriod | null {
   if (productType === "pro_month") return "month";
+  if (productType === "pro_quarter") return "quarter";
   if (productType === "pro_year") return "year";
   return null;
 }
@@ -56,6 +59,8 @@ export function productLabel(productType: ProductType): string {
   switch (productType) {
     case "pro_month":
       return "Pro 月付";
+    case "pro_quarter":
+      return "Pro 季付";
     case "pro_year":
       return "Pro 年付";
     case "credits":
@@ -67,6 +72,8 @@ export function addBillingPeriod(from: Date, period: BillingPeriod): Date {
   const d = new Date(from.getTime());
   if (period === "month") {
     d.setUTCDate(d.getUTCDate() + 30);
+  } else if (period === "quarter") {
+    d.setUTCDate(d.getUTCDate() + 90);
   } else {
     d.setUTCDate(d.getUTCDate() + 365);
   }

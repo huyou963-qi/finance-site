@@ -1,9 +1,9 @@
+import { quoteForOrder } from "./configStore";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "node:crypto";
 import { grantOrderEntitlement, serializable } from "./fulfillment";
 import {
   CREDIT_PACK_CREDITS,
-  amountForProduct,
   periodForProduct,
   type ProductType,
 } from "@/lib/billing/pricing";
@@ -20,7 +20,6 @@ export async function createPaymentOrder(input: {
   channel?: string;
   manualNote?: string;
 }) {
-  const amountCny = amountForProduct(input.productType);
   const period = periodForProduct(input.productType);
   const credits = input.productType === "credits" ? CREDIT_PACK_CREDITS : 0;
   const expiresAt = new Date(Date.now() + ORDER_TTL_HOURS * 60 * 60 * 1000);
@@ -28,19 +27,23 @@ export async function createPaymentOrder(input: {
   for (let attempt = 0; attempt < 5; attempt++) {
     const orderNo = randomOrderNo();
     try {
-      return await prisma.paymentOrder.create({
-        data: {
-          orderNo,
-          userId: input.userId,
-          productType: input.productType,
-          period,
-          amountCny,
-          credits,
-          status: "pending",
-          channel: input.channel ?? "manual",
-          manualNote: input.manualNote?.trim() || null,
-          expiresAt,
-        },
+      return await serializable(async tx => {
+        const quote = await quoteForOrder(tx, input.userId, input.productType);
+        return tx.paymentOrder.create({
+          data: {
+            orderNo,
+            userId: input.userId,
+            productType: input.productType,
+            period,
+            amountCny: quote.amountCents / 100,
+            pricingSnapshot: quote,
+            credits,
+            status: "pending",
+            channel: input.channel ?? "manual",
+            manualNote: input.manualNote?.trim() || null,
+            expiresAt,
+          },
+        });
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -51,6 +54,7 @@ export async function createPaymentOrder(input: {
 }
 
 export function serializeOrder(o: {
+  pricingSnapshot?: unknown;
   id: string;
   orderNo: string;
   userId: string;
@@ -80,6 +84,7 @@ export function serializeOrder(o: {
     productType: o.productType,
     period: o.period,
     amountCny: o.amountCny,
+    pricingSnapshot: o.pricingSnapshot ?? null,
     credits: o.credits,
     status: o.status,
     channel: o.channel,

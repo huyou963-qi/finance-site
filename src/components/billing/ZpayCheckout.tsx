@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-export type OnlineOrder = { id: string; orderNo: string; amountCny: number; status: string; expiresAt: string; fulfilledAt: string; channel?: string };
+export type OnlineOrder = { id: string; orderNo: string; amountCny: number; status: string; expiresAt: string; fulfilledAt: string; channel?: string; pricingSnapshot?: { baseCents: number; discountCents: number; campaign?: { name: string } | null } | null };
 export type OnlineCheckout = { order: OnlineOrder; checkout?: { action: string; fields: Record<string, string> } };
 const STORAGE_KEY = "gekkotech.pending-payment";
 export const PAYMENT_STATUS: Record<string, string> = { pending: "等待付款", paid: "已支付", expired: "付款入口已过期", review: "付款需人工核对", cancelled: "已取消" };
@@ -79,6 +79,7 @@ export function ZpayCheckout({ initial, onPaid }: { initial: OnlineCheckout | nu
     <h2 className="text-lg font-semibold text-fs-text">{settled ? "付款成功，权益已开通" : "在线支付订单"}</h2>
     <p className="mt-2 break-all text-sm text-fs-secondary">订单号：<span className="font-mono">{order.orderNo}</span></p>
     <p className="mt-2 text-sm text-fs-text">¥{order.amountCny} · {PAYMENT_STATUS[order.status] ?? order.status}</p>
+    {order.pricingSnapshot && <p className="mt-2 text-xs text-fs-muted">订单原价 ¥{(order.pricingSnapshot.baseCents / 100).toFixed(2)} · 优惠 ¥{(order.pricingSnapshot.discountCents / 100).toFixed(2)}{order.pricingSnapshot.campaign ? ` · ${order.pricingSnapshot.campaign.name}` : ""}。金额已锁定，以此订单实付为准。</p>}
     <p className="mt-2 text-xs text-fs-muted">{payable ? `付款入口有效至 ${new Date(order.expiresAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}（北京时间）` : "若已经扣款，请先核验此订单，避免重复购买。"}</p>
     <div className="mt-4 flex flex-wrap gap-3">
       {checkout && payable && checkout.action === "https://zpayz.cn/submit.php" ? <form method="post" action={checkout.action} target="_blank" rel="noopener noreferrer">

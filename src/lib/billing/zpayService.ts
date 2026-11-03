@@ -1,7 +1,8 @@
+import { quoteForOrder } from "./configStore";
 import { randomInt } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { amountForProduct, CREDIT_PACK_CREDITS, periodForProduct, type ProductType } from "./pricing";
+import { CREDIT_PACK_CREDITS, periodForProduct, type ProductType } from "./pricing";
 import { grantOrderEntitlement, serializable } from "./fulfillment";
 import { checkoutMethods, PaymentError, isPaymentError, queryZpay, signedCheckout, validateGatewayOrder, verifyZpay, moneyInCents, zpayConfig, type GatewayOrder, type PaymentMethod } from "./zpay";
 
@@ -15,7 +16,7 @@ export async function checkoutForUser(userId: string, input: { orderId?: string;
     order = await prisma.paymentOrder.findFirst({ where: { id: input.orderId, userId, channel: "zpay" } });
     if (!order) throw new PaymentError("ORDER_NOT_FOUND", 404);
   } else {
-    if (!input.productType || !["pro_month", "pro_year", "credits"].includes(input.productType)) throw new PaymentError("INVALID_PRODUCT");
+    if (!input.productType || !["pro_month", "pro_quarter", "pro_year", "credits"].includes(input.productType)) throw new PaymentError("INVALID_PRODUCT");
     if (!input.method || !config.methods.includes(input.method)) throw new PaymentError("CHANNEL_UNAVAILABLE", 503);
     if (typeof input.idempotencyKey !== "string" || !/^[a-zA-Z0-9-]{16,64}$/.test(input.idempotencyKey)) throw new PaymentError("INVALID_REQUEST");
     const { productType, method, idempotencyKey } = input;
@@ -31,12 +32,13 @@ export async function checkoutForUser(userId: string, input: { orderId?: string;
         const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
         if (user.status !== "active") throw new PaymentError("ACCOUNT_REVIEW", 409);
         if (productType !== "credits" && user.plan === "pro" && user.planExpiresAt === null) throw new PaymentError("PERMANENT_PRO", 409);
+        const quote = await quoteForOrder(tx, userId, productType);
         return tx.paymentOrder.create({ data: {
           orderNo: `${Date.now()}${String(randomInt(1e9)).padStart(9, "0")}${String(randomInt(1e9)).padStart(9, "0")}`,
-          userId, productType, period: periodForProduct(productType), amountCny: amountForProduct(productType),
+          userId, productType, period: periodForProduct(productType), amountCny: quote.amountCents / 100, pricingSnapshot: quote,
           credits: productType === "credits" ? CREDIT_PACK_CREDITS : 0, channel: "zpay", paymentMethod: method,
           merchantId: config.pid, idempotencyKey, expiresAt: new Date(Date.now() + 30 * 60000), nextCheckAt: new Date(Date.now() + 60000),
-          events: { create: { kind: "checkout_created", source: "user", code: "OK", details: { amountCny: amountForProduct(productType), method } } },
+          events: { create: { kind: "checkout_created", source: "user", code: "OK", details: { amountCny: quote.amountCents / 100, method, pricingSnapshot: quote } } },
         } });
       });
     } catch (e) {
@@ -120,7 +122,7 @@ export async function handleZpayNotification(fields: Record<string, string>) {
   const order = await prisma.paymentOrder.findUnique({ where: { orderNo: fields.out_trade_no } });
   if (!order || order.channel !== "zpay" || order.merchantId !== fields.pid) throw new PaymentError("ORDER_NOT_FOUND", 404);
   let matches = false;
-  try { matches = fields.trade_status === "TRADE_SUCCESS" && fields.type === order.paymentMethod && moneyInCents(fields.money) === order.amountCny * 100; } catch { /* classified as mismatch */ }
+  try { matches = fields.trade_status === "TRADE_SUCCESS" && fields.type === order.paymentMethod && moneyInCents(fields.money) === moneyInCents(order.amountCny.toFixed(2)); } catch { /* classified as mismatch */ }
   if (!matches) {
     // At most one event per order/code: signed anomalous notifications remain reviewable without replay growth.
     await serializable(async tx => {

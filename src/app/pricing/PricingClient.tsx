@@ -1,5 +1,6 @@
 "use client";
 
+import type { quotePrice } from "@/lib/billing/config";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { randomUUID } from "@/lib/randomId";
@@ -8,9 +9,6 @@ import {
   CREDIT_PACK_CNY,
   CREDIT_PACK_CREDITS,
   PLAN_FEATURES,
-  PRICE_MONTHLY_CNY,
-  PRICE_YEARLY_CNY,
-  PRICE_YEARLY_LIST_CNY,
   TRIAL_DAYS,
 } from "@/lib/billing/pricing";
 
@@ -44,6 +42,8 @@ export function PricingClient() {
     order: Order;
     payment: PaymentHints;
   } | null>(null);
+  const [offers, setOffers] = useState<ReturnType<typeof quotePrice>[]>([]);
+  const [catalogReady, setCatalogReady] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [onlineMethods, setOnlineMethods] = useState<string[]>([]);
   const [method, setMethod] = useState("alipay");
@@ -72,12 +72,13 @@ export function PricingClient() {
   const refreshOrders = useCallback(async () => {
     try {
       const res = await fetch("/api/billing/orders", { cache: "no-store" });
-      if (!res.ok) return;
-      const j = (await res.json()) as { orders?: Order[]; onlineMethods?: string[] };
+      if (!res.ok) throw new Error("套餐加载失败");
+      const j = (await res.json()) as { orders?: Order[]; onlineMethods?: string[]; offers?: ReturnType<typeof quotePrice>[] };
+      setOffers(j.offers ?? []); setCatalogReady(true);
       setOrders(j.orders ?? []);
       setOnlineMethods(j.onlineMethods ?? []);
     } catch {
-      /* ignore */
+      setCatalogReady(false); setHint("套餐暂时无法加载，请刷新后重试。");
     }
   }, []);
 
@@ -99,7 +100,7 @@ export function PricingClient() {
     finally { setBusy(null); }
   }
 
-  const createOrder = async (productType: "pro_month" | "pro_year" | "credits") => {
+  const createOrder = async (productType: "pro_month" | "pro_quarter" | "pro_year" | "credits") => {
     setHint(null);
     if (!loggedIn) {
       setHint("请先登录后再下单");
@@ -167,39 +168,11 @@ export function PricingClient() {
         {onlineMethods.length ? <><span>在线支付方式</span><select aria-label="在线支付方式" value={onlineMethods.includes(method) ? method : onlineMethods[0]} onChange={e => setMethod(e.target.value)} className="rounded border border-fs-border bg-white px-3 py-2">{onlineMethods.map(v => <option key={v} value={v}>{v === "alipay" ? "支付宝" : "微信支付"}</option>)}</select><span className="text-xs">付款核验后自动开通；不会自动扣款。</span></> : <span>在线支付审核或维护中。以下为人工转账订单，需管理员核实到账后开通。</span>}
       </div>
       <ZpayCheckout initial={onlineCheckout} onPaid={onPaid} />
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-fs-border bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-fs-muted">月付</p>
-          <p className="mt-2 text-3xl font-semibold text-fs-text">
-            ¥{PRICE_MONTHLY_CNY}
-            <span className="text-base font-normal text-fs-muted"> / 月</span>
-          </p>
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() => void createOrder("pro_month")}
-            className="mt-5 w-full rounded-md bg-fs-text px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-          >
-            {busy === "pro_month" ? "创建订单…" : "选择月付"}
-          </button>
-        </div>
-        <div className="rounded-xl border border-fs-accent/40 bg-fs-accent-soft/40 p-6 shadow-sm ring-1 ring-fs-accent/20">
-          <p className="text-sm font-medium text-fs-accent-text">年付 · 省 10%</p>
-          <p className="mt-2 text-3xl font-semibold text-fs-text">
-            ¥{PRICE_YEARLY_CNY}
-            <span className="text-base font-normal text-fs-muted"> / 年</span>
-          </p>
-          <p className="mt-1 text-xs text-fs-muted line-through">¥{PRICE_YEARLY_LIST_CNY}</p>
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() => void createOrder("pro_year")}
-            className="mt-5 w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-          >
-            {busy === "pro_year" ? "创建订单…" : "选择年付"}
-          </button>
-        </div>
+      {!catalogReady && <p className="mt-6 text-sm text-fs-muted">正在读取当前套餐…</p>}
+      <div className="mt-8 grid gap-4 md:grid-cols-3">
+        {offers.map(offer => <article key={offer.productType} className="rounded-xl border border-fs-border bg-fs-bg p-6"><h2 className="text-sm font-medium text-fs-text">{offer.name}</h2><p className="mt-2 text-3xl font-semibold text-fs-text">¥{(offer.amountCents / 100).toFixed(2)}</p><p className="mt-2 text-xs text-fs-muted">一次支付 · {offer.period === "month" ? "30 天" : offer.period === "quarter" ? "90 天" : "365 天"}权益</p>{offer.discountCents > 0 && <p className="mt-2 text-xs text-fs-accent-text"><del className="mr-2 text-fs-muted">¥{(offer.baseCents / 100).toFixed(2)}</del>{offer.campaign?.name} · 省 ¥{(offer.discountCents / 100).toFixed(2)}</p>}<p className="mt-3 text-xs text-fs-muted">{offer.tagline}</p><button disabled={busy !== null || !catalogReady} onClick={() => void createOrder(offer.productType)} className="mt-5 w-full rounded-lg bg-fs-accent px-4 py-2.5 text-sm text-white disabled:opacity-50">{busy === offer.productType ? "创建订单…" : `选择${offer.name}`}</button></article>)}
       </div>
+      <p className="mt-3 text-xs text-fs-muted">登录后展示适用优惠；优惠资格、活动有效期及最终金额在创建订单时由服务器确认。已生成订单保留原成交价格。</p>
 
       <div className="mt-4 rounded-xl border border-fs-border bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -211,7 +184,7 @@ export function PricingClient() {
           </div>
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || !catalogReady}
             onClick={() => void createOrder("credits")}
             className="rounded-md border border-fs-border px-4 py-2 text-sm text-fs-text hover:bg-fs-elevated disabled:opacity-50"
           >

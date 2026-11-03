@@ -22,6 +22,7 @@ export async function paymentJson(req: NextRequest) {
 export function paymentErrorResponse(e: unknown) {
   const code = isPaymentError(e) ? e.code : "INTERNAL_ERROR";
   const messages: Record<string, string> = {
+    PRODUCT_UNAVAILABLE: "该套餐已下架，请重新选择", INVALID_PRODUCT: "商品无效",
     UNAUTHORIZED: "请先登录", FORBIDDEN: "无订单管理权限", INVALID_REQUEST: "支付请求格式无效", INVALID_ORIGIN: "请从本站页面操作",
     NOT_CONFIGURED: "在线支付尚未配置，请稍后再试", CHANNEL_UNAVAILABLE: "支付通道审核或维护中，暂不能付款",
     ORDER_NOT_FOUND: "订单不存在", ORDER_NOT_PAYABLE: "订单已支付或已过期，请查看订单状态",

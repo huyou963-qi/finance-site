@@ -37,7 +37,7 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   pending: "待支付", paid: "已支付", cancelled: "已取消", expired: "已过期",
 };
 const PRODUCT_LABELS: Record<string, string> = {
-  pro_month: "Pro 月度", pro_year: "Pro 年度", credits: "积分包",
+  pro_month: "Pro 月度", pro_quarter: "Pro 季度", pro_year: "Pro 年度", credits: "积分包",
 };
 
 export function AdminUserDetailClient({ userId }: { userId: string }) {

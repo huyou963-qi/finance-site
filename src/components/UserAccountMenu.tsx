@@ -179,7 +179,7 @@ function UserMenu({
             onClick={onClose}
           />
           </> : null}
-          {(isAdmin || user.role === "admin_orders") ? <MenuRow
+          {(isAdmin || user.role === "admin_orders" || user.role === "admin_membership") ? <MenuRow
             label="会员与订单"
             href="/admin/orders"
             active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}

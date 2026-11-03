@@ -1,6 +1,6 @@
 /** Isolated PostgreSQL test database; never migrates or writes the configured application DB. */
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, scryptSync } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -20,14 +20,14 @@ async function isolatedDatabase() {
     url.pathname = `/${name}`;
     const env = { ...process.env, DATABASE_URL: url.toString(), NODE_ENV: "test", APP_BASE_URL: "http://localhost:3000", ZPAY_PID: "123456", ZPAY_KEY: "billing-test-key-never-real", ZPAY_ENABLED: "true", ZPAY_METHODS: "alipay,wxpay" };
     // Reconstruct the pre-payment schema from the working schema, so this also works after merge.
-    const added = new Set(["paymentMethod", "merchantId", "idempotencyKey", "providerTradeNo", "fulfilledAt", "lastCheckedAt", "nextCheckAt", "checkAttempts", "lastErrorCode", "events"]);
-    const baseline = readFileSync("prisma/schema.prisma", "utf8").replace(/model PaymentEvent \{[\s\S]*?\n\}/, "").replace(/model PaymentOrder \{[\s\S]*?\n\}/, block => block.split("\n").filter(line => !added.has(line.trim().split(/\s+/)[0]) && !line.includes("@@unique([userId, idempotencyKey])") && !line.includes("@@index([channel, nextCheckAt])")).join("\n"));
+    const added = new Set(["paymentMethod", "merchantId", "idempotencyKey", "providerTradeNo", "fulfilledAt", "lastCheckedAt", "nextCheckAt", "checkAttempts", "lastErrorCode", "events", "pricingSnapshot"]);
+    const baseline = readFileSync("prisma/schema.prisma", "utf8").replace(/model PaymentEvent \{[\s\S]*?\n\}/, "").replace(/model BillingConfiguration \{[\s\S]*?\n\}/, "").replace(/model BillingConfigurationAudit \{[\s\S]*?\n\}/, "").replace("amountCny   Float", "amountCny   Int").replace(/model PaymentOrder \{[\s\S]*?\n\}/, block => block.split("\n").filter(line => !added.has(line.trim().split(/\s+/)[0]) && !line.includes("@@unique([userId, idempotencyKey])") && !line.includes("@@index([channel, nextCheckAt])")).join("\n"));
     const schemaPath = join(schemaDir, "schema.prisma"); writeFileSync(schemaPath, baseline);
     const setup = spawnSync(process.execPath, ["node_modules/prisma/build/index.js", "db", "push", "--skip-generate", "--schema", schemaPath], { env, encoding: "utf8" });
     if (setup.status !== 0) throw new Error("Could not initialize isolated billing schema");
     const testDb = new PrismaClient({ datasources: { db: { url: url.toString() } } });
     try {
-      const sql = readFileSync("prisma/migrations/20261101090000_zpay_membership/migration.sql", "utf8");
+      const sql = readFileSync("prisma/migrations/20261101090000_zpay_membership/migration.sql", "utf8") + "\n" + readFileSync("prisma/migrations/20261103120000_billing_campaigns/migration.sql", "utf8");
       for (const statement of sql.split(";").filter(v => v.trim())) await testDb.$executeRawUnsafe(statement);
     } finally { await testDb.$disconnect(); }
     const run = spawnSync(process.execPath, ["node_modules/tsx/dist/cli.mjs", resolve("scripts/test/zpay.integration.ts"), "--child"], { env, stdio: "inherit" });
@@ -71,7 +71,7 @@ async function assertions() {
     return new NextRequest(`http://localhost:3000${path}`, { method: body ? "POST" : "GET", headers: { Cookie: `finance_sid=${session}`, Origin: origin, "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
   }
   function evidence(order: { orderNo: string; amountCny: number; paymentMethod: string | null }, trade = randomUUID()) {
-    return { out_trade_no: order.orderNo, trade_no: trade, pid: "123456", money: `${order.amountCny}.00`, type: order.paymentMethod!, status: 1 };
+    return { out_trade_no: order.orderNo, trade_no: trade, pid: "123456", money: order.amountCny.toFixed(2), type: order.paymentMethod!, status: 1 };
   }
   function notification(data: ReturnType<typeof evidence>, delta: Record<string, string> = {}) {
     const fields = { pid: data.pid, out_trade_no: data.out_trade_no, trade_no: data.trade_no, money: data.money, type: data.type, trade_status: "TRADE_SUCCESS", sign_type: "MD5", ...delta };
@@ -174,6 +174,62 @@ async function assertions() {
     const manual = await createPaymentOrder({ userId, productType: "pro_month" });
     await activatePaidOrder(manual.id, { id: otherId, username: "fixture-admin" }, "integration evidence");
     assert.equal((await user()).planExpiresAt, null, "manual confirmation also preserves permanent membership");
+    // Published catalog and transactional price snapshots, using a fresh first-time buyer.
+    const { defaultBillingConfig } = await import("../../src/lib/billing/config");
+    const { quoteForOrder } = await import("../../src/lib/billing/configStore");
+    const { serializable } = await import("../../src/lib/billing/fulfillment");
+    const promoUser = randomUUID();
+    await prisma.user.create({ data: { id: promoUser, role: "user", username: `promo-${promoUser}`, passHash: "disabled", passSalt: "test", createdAt: new Date() } });
+    const live = structuredClone(defaultBillingConfig);
+    live.plans[1].enabled = true; live.plans[1].price = 109.99;
+    live.campaign = { ...live.campaign, enabled: true, type: "fixed", value: 20.01, start: "2020-01-01", end: "2099-12-31" };
+    const { GET: readConfig, PUT: writeConfig } = await import("../../src/app/api/admin/billing-config/route");
+    const { encryptTotpSecret, totpCode } = await import("../../src/lib/auth/adminMfa");
+    process.env.ADMIN_MFA_ENCRYPTION_KEY = "a".repeat(64);
+    const secret = "JBSWY3DPEHPK3PXP";
+    const password = "billing-local-test-password";
+    const adminReq = (body: object, session = otherToken, origin = "http://localhost:3000") => new NextRequest("http://localhost:3000/api/admin/billing-config", { method: "PUT", headers: { Cookie: `finance_sid=${session}`, Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    assert.equal((await readConfig(req("/api/admin/billing-config", undefined, otherToken))).status, 403);
+    await prisma.user.update({ where: { id: otherId }, data: { role: "admin_orders", adminTotpSecret: encryptTotpSecret(secret), passSalt: "billing-salt", passHash: scryptSync(password, "billing-salt", 64).toString("hex") } });
+    const body = { action: "save", revision: 0, config: live, reason: "integration campaign", adminPassword: password, adminTotpCode: totpCode(secret) };
+    assert.equal((await writeConfig(adminReq(body))).status, 403, "order handlers cannot edit pricing");
+    await prisma.user.update({ where: { id: otherId }, data: { role: "admin_membership" } });
+    assert.equal((await writeConfig(adminReq(body, otherToken, "https://evil.example"))).status, 403);
+    assert.equal((await writeConfig(adminReq({ ...body, adminPassword: "wrong" }))).status, 403);
+    assert.equal((await writeConfig(adminReq({ ...body, reason: "" }))).status, 400);
+    assert.equal((await writeConfig(adminReq(body))).status, 200);
+    assert.equal((await prisma.billingConfiguration.findUniqueOrThrow({ where: { id: "default" } })).live instanceof Object, true);
+    assert.equal((await serializable(tx => quoteForOrder(tx, promoUser, "pro_month"))).amountCents, 3900, "saving a draft never changes live pricing");
+    assert.equal((await writeConfig(adminReq({ ...body, action: "publish" }))).status, 409, "stale version rejected");
+    assert.equal((await writeConfig(adminReq({ ...body, action: "publish", revision: 1 }))).status, 200);
+    assert.equal(await prisma.billingConfigurationAudit.count(), 2);
+    const audits = JSON.stringify(await prisma.billingConfigurationAudit.findMany());
+    assert.equal(audits.includes(password), false); assert.equal(audits.includes(secret), false);
+
+    const promo = await checkoutForUser(promoUser, { productType: "pro_quarter", method: "alipay", idempotencyKey: randomUUID() });
+    assert.equal(promo.order.amountCny, 89.98); assert.equal(promo.checkout.fields.money, "89.98");
+    assert.equal((promo.order.pricingSnapshot as { discountCents: number }).discountCents, 2001);
+    const reserved = await serializable(tx => quoteForOrder(tx, promoUser, "pro_month"));
+    assert.equal(reserved.discountCents, 0, "pending first purchase reserves the offer");
+    // Repricing and disabling campaigns never changes an existing payable order.
+    const next = structuredClone(live); next.plans[1].price = 199; next.campaign.enabled = false;
+    await prisma.billingConfiguration.update({ where: { id: "default" }, data: { revision: 2, live: next } });
+    const resumed = await checkoutForUser(promoUser, { orderId: promo.order.id });
+    assert.equal(resumed.checkout.fields.money, "89.98");
+    assert.deepEqual(resumed.order.pricingSnapshot, promo.order.pricingSnapshot);
+    await assert.rejects(fulfillVerifiedOrder(promo.order.id, { ...evidence(promo.order), money: "199.00" }, "test"), /ORDER_MISMATCH/);
+    await fulfillVerifiedOrder(promo.order.id, evidence(promo.order), "test");
+    const member = await prisma.user.findUniqueOrThrow({ where: { id: promoUser } });
+    assert.ok(Math.abs(member.planExpiresAt!.getTime() - Date.now() - 90 * 86400000) < 5000);
+    assert.equal((await serializable(tx => quoteForOrder(tx, promoUser, "pro_quarter"))).amountCents, 19900);
+    const hidden = structuredClone(next); hidden.plans[1].enabled = false;
+    await prisma.billingConfiguration.update({ where: { id: "default" }, data: { live: hidden } });
+    await assert.rejects(serializable(tx => quoteForOrder(tx, promoUser, "pro_quarter")), /PRODUCT_UNAVAILABLE/);
+    const configRevision = (await prisma.billingConfiguration.findUniqueOrThrow({ where: { id: "default" } })).revision;
+    assert.equal((await writeConfig(adminReq({ ...body, action: "stop", revision: configRevision }))).status, 200);
+    assert.equal(((await prisma.billingConfiguration.findUniqueOrThrow({ where: { id: "default" } })).live as typeof live).campaign.enabled, false);
+    console.log("PASS: config authorization, CSRF, credential checks, draft/publish/stop, optimistic conflict and audit");
+    console.log("PASS: fractional campaign checkout, first-purchase reservation, immutable snapshots, quarterly entitlement, hidden plans");
     console.log("PASS: suspended-account funds tracking/recovery, mismatched evidence quarantine, timeout retry, worker recovery, permanent Pro");
   } finally { global.fetch = fetchBefore; await prisma.$disconnect(); }
 }

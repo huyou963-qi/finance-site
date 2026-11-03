@@ -1,3 +1,6 @@
+import { readBillingConfig, audienceForUser } from "@/lib/billing/configStore";
+import { quotePrice, membershipProducts } from "@/lib/billing/config";
+import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
 import { checkoutMethods } from "@/lib/billing/zpay";
@@ -12,24 +15,24 @@ import {
   CREDIT_PACK_CNY,
   CREDIT_PACK_CREDITS,
   PLAN_FEATURES,
-  PRICE_MONTHLY_CNY,
-  PRICE_YEARLY_CNY,
-  PRICE_YEARLY_LIST_CNY,
   TRIAL_DAYS,
-  YEARLY_DISCOUNT,
   type ProductType,
 } from "@/lib/billing/pricing";
 
-const PRODUCTS = new Set<ProductType>(["pro_month", "pro_year", "credits"]);
+const PRODUCTS = new Set<ProductType>(["pro_month", "pro_quarter", "pro_year", "credits"]);
 
 export async function GET(req: NextRequest) {
   const user = await getUserByRequest(req);
+  const config = await readBillingConfig();
+  const { audience, firstAvailable } = await audienceForUser(prisma, user?.id);
+  const offers = membershipProducts.map(product => quotePrice(config.live, config.revision, product, audience, firstAvailable)).filter(p => p.enabled);
   const catalog = {
+    offers,
     trialDays: TRIAL_DAYS,
-    monthlyCny: PRICE_MONTHLY_CNY,
-    yearlyCny: PRICE_YEARLY_CNY,
-    yearlyListCny: PRICE_YEARLY_LIST_CNY,
-    yearlyDiscount: YEARLY_DISCOUNT,
+    monthlyCny: config.live.plans[0].price,
+    yearlyCny: config.live.plans[2].price,
+    yearlyListCny: config.live.plans[0].price * 12,
+    yearlyDiscount: Math.max(0, 1 - config.live.plans[2].price / (config.live.plans[0].price * 12)),
     creditPack: { credits: CREDIT_PACK_CREDITS, cny: CREDIT_PACK_CNY },
     features: PLAN_FEATURES,
     payment: paymentInstructions(),

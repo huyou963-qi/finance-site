@@ -108,11 +108,12 @@ model PaymentOrder {
   orderNo     String    @unique @map("order_no") @db.VarChar(32)
   userId      String    @map("user_id")
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// pro_month | pro_year | credits
+  /// pro_month | pro_quarter | pro_year | credits
   productType String    @map("product_type") @db.VarChar(32)
-  /// month | year | pack（积分包）
+  /// month | quarter | year | pack（积分包）
   period      String?   @db.VarChar(16)
-  amountCny   Int       @map("amount_cny")
+  amountCny   Float     @map("amount_cny")
+  pricingSnapshot Json? @map("pricing_snapshot")
   /// 积分包时为购买积分数
   credits     Int       @default(0)
   /// pending | paid | cancelled | expired | review（到账或核验异常待处理）
@@ -2065,5 +2066,29 @@ model WeeklyOAuthCredential {
   consumedAt  DateTime?
   @@index([grantId])
   @@index([expiresAt])
+  @@schema("public")
+}
+
+/// Single authoritative live/draft catalog; orders retain immutable pricing snapshots.
+model BillingConfiguration {
+  id String @id
+  revision Int @default(0)
+  draft Json
+  live Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("billing_configuration")
+  @@schema("public")
+}
+
+model BillingConfigurationAudit {
+  id String @id @default(cuid())
+  actorId String @map("actor_id")
+  actorUsername String @map("actor_username")
+  action String
+  reason String @db.VarChar(500)
+  before Json
+  after Json
+  createdAt DateTime @default(now()) @map("created_at")
+  @@map("billing_configuration_audit")
   @@schema("public")
 }

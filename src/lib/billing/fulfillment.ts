@@ -24,12 +24,12 @@ export async function grantOrderEntitlement(tx: Prisma.TransactionClient, order:
     await tx.creditLedgerEntry.create({ data: { userId: user.id, reason: "purchase", delta: order.credits, balanceAfter: updated.creditBalance, orderId: order.id } });
     return { before, after: { ...before, credits: updated.creditBalance } };
   }
-  if (!((order.productType === "pro_month" && order.period === "month") || (order.productType === "pro_year" && order.period === "year"))) throw new PaymentError("INVALID_PRODUCT", 409);
+  if (!((order.productType === "pro_month" && order.period === "month") || (order.productType === "pro_year" && order.period === "year") || (order.productType === "pro_quarter" && order.period === "quarter"))) throw new PaymentError("INVALID_PRODUCT", 409);
   // Permanent Pro remains permanent; unused trial days are preserved on first purchase.
   let expiresAt: Date | null = null;
   if (!(user.plan === "pro" && user.planExpiresAt === null)) {
     const base = new Date(Math.max(now.getTime(), user.plan === "pro" ? user.planExpiresAt?.getTime() ?? 0 : 0, user.trialEndsAt?.getTime() ?? 0));
-    expiresAt = addBillingPeriod(base, order.period as "month" | "year");
+    expiresAt = addBillingPeriod(base, order.period as "month" | "quarter" | "year");
   }
   await tx.user.update({ where: { id: user.id }, data: { plan: "pro", planExpiresAt: expiresAt, trialEndsAt: null } });
   return { before, after: { plan: "pro", expiresAt: expiresAt?.toISOString() ?? null, credits: user.creditBalance } };
