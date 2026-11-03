@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { GICS_SECTOR_DEFS } from "./gicsCatalog";
 import { latestCompletedQuarter } from "./fundamentalsAgg";
+import { calendarQuarterLabel } from "./secFundamentals";
 import {
   buildIndustryFinancialHistory, financialQuarterEnd, selectFinancialHoldingsDate, shiftFinancialQuarter,
   type FinancialHistoryPoint, type FinancialUniverse, type MembershipBasis,
@@ -66,20 +67,31 @@ async function readIndustryFinancials(options: IndustryFinancialOptions) {
   }
   if (securities.length > MAX_SECURITIES) throw new Error("ETF 公司数超出本页查询范围");
   const snapshots: Parameters<typeof buildIndustryFinancialHistory>[0]["snapshots"] = [];
+  const annualSnapshots: NonNullable<Parameters<typeof buildIndustryFinancialHistory>[0]["annualSnapshots"]> = [];
+  const annualStart = new Date(`${factPeriods[0]!.slice(0, 4)}-${String((Number(factPeriods[0]!.slice(-1)) - 1) * 3 + 1).padStart(2, "0")}-01T00:00:00Z`);
+  const annualEnd = new Date(`${financialQuarterEnd(latestPeriod)}T00:00:00Z`);
+  annualEnd.setUTCDate(annualEnd.getUTCDate() + 7); // 52/53周财年可在下一自然季首周结束。
+  const maxAnnualRows = Math.ceil(factPeriods.length / 4) + 2;
   let sourceUpdatedAt: string | null = null;
   // 40 个代码一批，串行查询；不触发个股读取层的外部懒回补。
   for (let index = 0; index < securities.length; index += 40) {
     const batch = securities.slice(index, index + 40);
     const rows = await prisma.equityFundamentalSnapshot.findMany({
-      where: { symbol: { in: batch.map(row => row.symbol) }, periodType: "Q", period: { in: factPeriods } },
-      select: { symbol: true, period: true, fiscalDate: true, asOf: true, revenue: true, netIncome: true, ocf: true, capex: true, updatedAt: true },
-      take: batch.length * factPeriods.length + 1,
+      where: { symbol: { in: batch.map(row => row.symbol) }, OR: [
+        { periodType: "Q", period: { in: factPeriods } },
+        { periodType: "FY12", asOf: { gte: annualStart, lte: annualEnd }, fiscalDate: { not: null } },
+      ] },
+      select: { symbol: true, period: true, periodType: true, fiscalDate: true, asOf: true, revenue: true, netIncome: true, ocf: true, capex: true, updatedAt: true },
+      take: batch.length * (factPeriods.length + maxAnnualRows) + 1,
     });
-    if (rows.length > batch.length * factPeriods.length) throw new Error("季度事实超出查询范围");
+    if (rows.length > batch.length * (factPeriods.length + maxAnnualRows)) throw new Error("季度/年报事实超出查询范围");
     for (const row of rows) {
       const updated = row.updatedAt.toISOString();
       if (!sourceUpdatedAt || updated > sourceUpdatedAt) sourceUpdatedAt = updated;
-      snapshots.push({ ...row, fiscalDate: iso(row.fiscalDate ?? row.asOf) });
+      if (row.periodType === "FY12") {
+        const fiscalDate = iso(row.fiscalDate!); const period = calendarQuarterLabel(fiscalDate);
+        if (factPeriods.includes(period)) annualSnapshots.push({ ...row, period, fiscalDate });
+      } else snapshots.push({ ...row, fiscalDate: iso(row.fiscalDate ?? row.asOf) });
     }
   }
   const current = latestHolding ? universes.get(iso(latestHolding.asOfDate)) ?? null : null;
@@ -88,7 +100,7 @@ async function readIndustryFinancials(options: IndustryFinancialOptions) {
     const universe = universes.get(date);
     if (universe) historical.set(period, universe);
   }
-  const history = buildIndustryFinancialHistory({ periods, membership: options.membership, current, historical, securities, snapshots });
+  const history = buildIndustryFinancialHistory({ periods, membership: options.membership, current, historical, securities, snapshots, annualSnapshots });
   const batch = await prisma.equityDisclosureBatch.findFirst({
     where: { symbols: { isEmpty: true } }, orderBy: [{ startedAt: "desc" }],
     select: { status: true, throughDay: true, finishedAt: true, pending: true, failed: true, remaining: true, missingIndexes: true },

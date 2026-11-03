@@ -9,6 +9,33 @@ import {
 } from "./secFundamentals";
 import { computeTtm, computeValuation, type QuarterFundamentalRow } from "./ttm";
 
+test("缺失营收不吞掉已披露季度净利润和现金流，也不把现金流值充作营收", () => {
+  const point = { start: "2024-01-01", end: "2024-03-31", val: 10, form: "10-Q", filed: "2024-05-01" };
+  const facts = { facts: { "us-gaap": {
+    NetIncomeLoss: { units: { USD: [point] } },
+    NetCashProvidedByUsedInOperatingActivities: { units: { USD: [{ ...point, val: -3 }] } },
+    PaymentsToAcquirePropertyPlantAndEquipment: { units: { USD: [{ ...point, val: 2 }] } },
+  } } };
+  const row = extractQuarterlyFundamentals(facts)[0]!;
+  assert.equal(row.period, "2024Q1");
+  assert.equal(row.revenue, null); assert.equal(row.revenueYoY, null);
+  assert.equal(row.grossMargin, null); assert.equal(row.netIncome, 10);
+  assert.equal(row.ocf, -3); assert.equal(row.capex, 2);
+});
+
+test("经营现金流明确总额优先，持续及终止经营只在同申报同时存在时相加", () => {
+  const p = { start: "2024-01-01", end: "2024-03-31", val: 10, form: "10-Q", filed: "2024-05-01", accn: "same" };
+  const facts = { facts: { "us-gaap": {
+    Revenues: { units: { USD: [{ ...p, val: 100 }] } },
+    NetCashProvidedByUsedInOperatingActivitiesContinuingOperations: { units: { USD: [p] } },
+    CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations: { units: { USD: [{ ...p, val: -3 }] } },
+    NetCashProvidedByUsedInOperatingActivities: { units: { USD: [] as typeof p[] } },
+  } } };
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.ocf, 7);
+  facts.facts["us-gaap"].NetCashProvidedByUsedInOperatingActivities.units.USD = [{ ...p, val: 8 }];
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.ocf, 8);
+});
+
 function dur(start: string, end: string, val: number, form = "10-Q", filed = "2099-01-01") {
   return { start, end, val, form, filed };
 }
@@ -16,6 +43,32 @@ function dur(start: string, end: string, val: number, form = "10-Q", filed = "20
 function inst(end: string, val: number, form = "10-Q", filed = "2099-01-01") {
   return { end, val, form, filed };
 }
+
+test("归母净利润缺口用同期合并净利润减明确少数股东损益，原值及缺项保持", () => {
+  const points = [dur("2024-01-01", "2024-03-31", 200), dur("2024-04-01", "2024-06-30", 210), dur("2024-07-01", "2024-09-30", 220)].map(p => ({ ...p, accn: "same" }));
+  const facts = { facts: { "us-gaap": {
+    Revenues: { units: { USD: points.map(p => ({ ...p, val: 1000 })) } },
+    NetIncomeLoss: { units: { USD: [{ ...points[2]!, val: 150 }] } },
+    ProfitLoss: { units: { USD: points } },
+    NetIncomeLossAttributableToNoncontrollingInterest: { units: { USD: [{ ...points[0]!, val: -10 }, { ...points[2]!, val: 20 }] } },
+  } } };
+  assert.deepEqual(extractQuarterlyFundamentals(facts).map(r => r.netIncome), [210, null, 150]);
+  facts.facts["us-gaap"].NetIncomeLossAttributableToNoncontrollingInterest.units.USD = [{ ...points[0]!, val: 10, filed: "2098-01-01" }];
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.netIncome, null);
+});
+
+test("PM旧含税营收按同申报扣除消费税，须与现代净营收重叠验证，缺税不补", () => {
+  const points = [dur("2016-10-01", "2016-12-31", 300), dur("2017-01-01", "2017-03-31", 310), dur("2017-04-01", "2017-06-30", 320)].map(p => ({ ...p, accn: "same" }));
+  const facts = { cik: 1413329, facts: { "us-gaap": {
+    RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [...points.slice(1).map(p => ({ ...p, val: p.val - 200 })), { ...dur("2024-01-01", "2024-03-31", 400), accn: "new" }] } },
+    SalesRevenueNet: { units: { USD: points } },
+    ExciseAndSalesTaxes: { units: { USD: points.map(p => ({ ...p, val: 200 })) } },
+  } } };
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.revenue, 100);
+  assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.period, "2017Q1");
+  facts.facts["us-gaap"].ExciseAndSalesTaxes.units.USD = points.slice(1).map(p => ({ ...p, val: 200 }));
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.period, "2017Q1");
+});
 
 test("发行人旧版总营收接回历史骨架及三表，子项与不一致重叠不能补入", () => {
   for (const [cik, tag] of [[1035002, "RefiningAndMarketingRevenue"], [1045609, "RealEstateRevenueNet"], [1289490, "RealEstateRevenueNet"], [1164727, "RevenueMineralSales"]] as const) {
@@ -29,12 +82,12 @@ test("发行人旧版总营收接回历史骨架及三表，子项与不一致�
     } } };
     const old = extractQuarterlyFundamentals(facts)[0]!;
     assert.equal(old.period, "2016Q4");
-    assert.deepEqual([old.revenue, old.netIncome, old.ocf, old.capex], [90, 15, 20, 5]);
-    assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.period, "2017Q1");
+    assert.deepEqual([old.revenue, old.netIncome, old.ocf, old.capex], [90, 15, 20, cik === 1045609 ? null : 5]);
+    assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.revenue, null);
     facts.facts["us-gaap"][tag]!.units.USD = points.slice(0, 2);
-    assert.equal(extractQuarterlyFundamentals(facts)[0]?.period, "2017Q1");
+    assert.equal(extractQuarterlyFundamentals(facts)[0]?.revenue, null);
     facts.facts["us-gaap"][tag]!.units.USD = points.map(p => ({ ...p, val: p.val * 3 }));
-    assert.equal(extractQuarterlyFundamentals(facts)[0]?.period, "2017Q1");
+    assert.equal(extractQuarterlyFundamentals(facts)[0]?.revenue, null);
   }
 });
 
@@ -53,12 +106,12 @@ test("WEC已核实的同一现金流总额使用年报减九个月累计，未�
     PaymentsToAcquirePropertyPlantAndEquipment: { units: { USD: q } },
     PaymentsToAcquireOtherPropertyPlantAndEquipment: { units: { USD: [dur("2024-01-01", "2024-12-31", 70, "10-K")] } },
   } } };
-  assert.equal(extractQuarterlyFundamentals(facts)[0]?.capex, 25);
-  assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.capex, null);
+  assert.equal(extractQuarterlyFundamentals(facts).find(r => r.period === "2024Q4")?.capex, 25);
+  assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 }).find(r => r.period === "2024Q4")?.capex, null);
   const old = dur("2019-01-01", "2019-12-31", 200, "10-K");
   facts.facts["us-gaap"].PaymentsToAcquirePropertyPlantAndEquipment.units.USD.push(old);
   facts.facts["us-gaap"].PaymentsToAcquireOtherPropertyPlantAndEquipment.units.USD.push({ ...old, val: 150 });
-  assert.equal(extractQuarterlyFundamentals(facts)[0]?.capex, 25);
+  assert.equal(extractQuarterlyFundamentals(facts).find(r => r.period === "2024Q4")?.capex, 25);
   facts.facts["us-gaap"].PaymentsToAcquireOtherPropertyPlantAndEquipment.units.USD.push({ ...q[0]!, val: 11 });
   assert.throws(() => extractQuarterlyFundamentals(facts), /冲突/);
 });
@@ -103,7 +156,7 @@ test("Lilly 旧年度购置科目与年报别名跨代差分，历史 tag 在后
     PaymentsToAcquireProductiveAssets: { units: { USD: [...bridge, ...next] } },
     PaymentsToAcquireOtherPropertyPlantAndEquipment: { units: { USD: [dur("2017-01-01", "2017-12-31", 80, "10-K"), ...next] } },
   } } };
-  assert.equal(extractQuarterlyFundamentals(facts)[0]?.capex, 35);
+  assert.equal(extractQuarterlyFundamentals(facts).find(r => r.period === "2017Q4")?.capex, 35);
 });
 
 test("继任 CIK 仅衔接已核实的 Exxon 同集团迁册历史且截断生效日", () => {
@@ -121,8 +174,8 @@ test("Lilly 已核实总 PPE 标签跨 FY/YTD 推导 Q4，不将 OtherPPE 推广
     PaymentsToAcquireProductiveAssets: { units: { USD: [dur("2020-01-01", "2020-03-31", 10), dur("2020-01-01", "2020-06-30", 25), dur("2020-01-01", "2020-09-30", 45)] } },
     PaymentsToAcquireOtherPropertyPlantAndEquipment: { units: { USD: [dur("2020-01-01", "2020-03-31", 10), dur("2020-01-01", "2020-06-30", 25), dur("2020-01-01", "2020-12-31", 80, "10-K")] } },
   } } });
-  assert.equal(extractQuarterlyFundamentals(facts(59478))[0]?.capex, 35);
-  assert.equal(extractQuarterlyFundamentals(facts(999))[0]?.capex, null);
+  assert.equal(extractQuarterlyFundamentals(facts(59478)).find(r => r.period === "2020Q4")?.capex, 35);
+  assert.equal(extractQuarterlyFundamentals(facts(999)).find(r => r.period === "2020Q4")?.capex, null);
 });
 
 test("换 tag 补齐中间缺口与旧年代，金额须由同期重叠证明，拒绝手续费子集", () => {
@@ -901,4 +954,16 @@ test("eraSplice：只用接缝处的连续重叠估比值（远端垃圾点不�
   const rows = extractQuarterlyFundamentals(facts, { maxQuarters: 40 });
   assert.equal(rows.length, 12);
   assert.equal(rows[0]!.period, "2020Q1");
+});
+
+
+test("换标签历史保留财报原金额，不按重叠比例缩放，也不接明显不同口径", () => {
+  const point = (year: number, val: number) => dur(`${year}-01-01`, `${year}-03-31`, val, "10-Q", `${year}-05-01`);
+  const modern = [point(2022, 100), point(2023, 100), point(2024, 100), point(2025, 100)];
+  const rows = (oldValue: number) => extractQuarterlyFundamentals({ facts: { "us-gaap": {
+    RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: modern } },
+    SalesRevenueNet: { units: { USD: [point(2021, 70), point(2022, oldValue), point(2023, oldValue)] } },
+  } } }, { maxQuarters: 40 });
+  assert.equal(rows(99).find(r => r.period === "2021Q1")?.revenue, 70);
+  assert.equal(rows(95).find(r => r.period === "2021Q1"), undefined);
 });
