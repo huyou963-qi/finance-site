@@ -325,6 +325,13 @@ npm run events:import-ingest -- <file.json>
 - 不要在未协调时大改 `MacroSection.tsx` 整体结构
 - 生产部署密钥不要写进仓库（用服务器 `.env.local` 或 GitHub Secrets）
 
+## Cursor Cloud specific instructions
+
+- 云端 Agent 用 SSH 隧道连香港 Postgres（`8.218.16.70`，本地 `127.0.0.1:15432`），**不要**把生产 `DATABASE_URL` 直连公网 5432。
+- 环境 Secrets：`HK_SSH_USER`、`HK_SSH_PRIVATE_KEY`（OpenSSH 私钥；若面板把换行压成空格，install/start 会自动还原）、`FMP_API_KEY`、`ADMIN_PASSWORD`、`ADMIN_MFA_ENCRYPTION_KEY` 等。`DATABASE_URL` 可不配——install 经 SSH 读香港 `/opt/finance-site/.env.local` 并改写到隧道端口。
+- 开机脚本：`bash /home/ubuntu/.cursor/finance-cloud/install.sh` / `exec bash /home/ubuntu/.cursor/finance-cloud/start.sh`（仓库镜像：`scripts/cloud-agent-*.sh`）。install **不会**自动对香港库跑 `prisma migrate`；需要时在对话里显式执行。
+- 开发可写香港库（seed/verify/SQL/migrate）须用户在任务中授权；代码发布仍走 GitHub Actions，不要在香港机 `git pull` 改业务代码。
+
 ## 生产部署（阿里云 / GitHub Actions）
 
 **代码不走服务器 `git pull`**。`main` push 触发 `.github/workflows/deploy.yml`：
