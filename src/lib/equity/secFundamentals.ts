@@ -858,10 +858,32 @@ export function extractQuarterlyFundamentals(
   const nonInterest = pickFlowQuarterSeries(gaap, ["NoninterestIncome"], ["USD"]);
   const bankTotal = nii.length && nonInterest.length ? sumFlowSeries(nii, nonInterest) : [];
 
+  // 发行人旧版总营收标签；其他公司同名标签可能只是分部/业务子项。
+  // 仍走至少两个同口径重叠季的普通拼接校验，不缩放或覆盖已有季度。
+  const revenueAliases: string[] = Number((facts as { cik?: number }).cik) === 1035002
+    ? ["RefiningAndMarketingRevenue"] // Valero：合并利润表 Operating revenues
+    : [1045609, 1289490].includes(Number((facts as { cik?: number }).cik))
+      ? ["RealEstateRevenueNet"] // PLD / EXR：旧版 Total revenues
+      : Number((facts as { cik?: number }).cik) === 1164727 ? ["RevenueMineralSales"] : [];
   let revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
     magnitudeTieBreak: true,
     extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal],
   });
+  const originalRevenue = new Map(revenueQ.map(q => [q.end, q]));
+  for (const name of revenueAliases) {
+    const older = quarterlyFlowSeries(pickUnitPoints(gaap[name], ["USD"]));
+    const overlaps = older.filter(q => originalRevenue.has(q.end));
+    for (const q of older) {
+      if (!revenueQ.length || q.end >= revenueQ[0]!.end) continue;
+      const nearby = [...overlaps].sort((a, b) => Math.abs(dateMs(a.end) - dateMs(q.end))
+        - Math.abs(dateMs(b.end) - dateMs(q.end))).slice(0, 4);
+      if (nearby.filter(p => p.val !== 0 && originalRevenue.get(p.end)!.val !== 0).length < 2
+        || !nearby.every(p => Math.abs(p.val - originalRevenue.get(p.end)!.val)
+          <= Math.max(1, Math.abs(p.val), Math.abs(originalRevenue.get(p.end)!.val)) * 0.02)) continue;
+      revenueQ.push(q);
+    }
+    revenueQ.sort((a, b) => a.end.localeCompare(b.end));
+  }
   if (Number((facts as { cik?: number }).cik) === 906107) {
     // EQR 2020Q2起收入表只列Rental income。保留已知总营收，租赁科目只补缺口。
     // 2019的同名ASC842子项不等于总营收；2021起才与旧租赁科目重叠一致。

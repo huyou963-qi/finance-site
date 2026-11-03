@@ -119,3 +119,11 @@ npm run equity:sync-fundamentals -- --period-type=Q --quarters=48 \
 ### 营收与净利润双轴同比
 
 两张规模图同时显示金额（左轴十亿美元）和同比（右轴百分比，橙色虚线），单季/TTM和报告期选择同步。同比使用本期和去年同期都有数据的同样本，并独立返回覆盖率；不直接相除两个不同样本的行业总额。净利润同比为（本期合计−上年合计）/上年合计绝对值，保留亏损与扭亏，上年合计为零留空。低覆盖同比同样只显示空心点、不连接趋势线。tooltip分别显示每条线单位、公司数和权重覆盖；手机版双轴保留独立边距和滚动图例。仅增加已有内存事实的聚合，无外部请求、额外数据库查询或新表，仍受既有40季/11项/16MiB缓存预算限制。
+
+### 旧版总营收与早期季度骨架（2026-11-03）
+
+Valero（1035002）旧 `RefiningAndMarketingRevenue`、Prologis（1045609）和 Extra Space Storage（1289490）旧 `RealEstateRevenueNet`、Newmont（1164727）旧 `RevenueMineralSales` 只在对应发行人补接早期营收。逐个缺季用原主序列最近四个重叠季验证，至少两个非零重叠且全部金额偏差不超过2%；不通过则保留缺失。仅补早于主序列首季的原始金额，不缩放、不改变主候选、不覆盖已有季，也不让新补值参与后续自证。其他公司同名标签可能是业务子项，不启用。
+
+营收是季度提取骨架，恢复旧季度后可同步读取同期已披露的净利润、OCF和CapEx；现金流没有事实时继续为空。沿用 fill-missing writer 和实际财季审计，生产仅针对四家公司回填2015–2017，单任务并发1、heap384MiB、10分钟超时、已有披露锁；无新表/索引/cron/在线请求，快照增量不超过48行。一次性70家公司缺口诊断原始facts缓存约252MiB，完整前后审计约21MiB，不新增日常重复归档任务。
+
+核对来源：[Valero 2017年报](https://www.sec.gov/Archives/edgar/data/1035002/000103500218000010/R43.htm)、[Prologis 2016年报](https://ir.prologis.com/financials/sec-filings/content/0001564590-17-001559/pld-10k_20161231.htm)、[EXR 2017年报季度数据](https://www.sec.gov/Archives/edgar/data/1289490/000162828018002649/R112.htm)、[Newmont官方companyfacts（含原accn/filed）](https://data.sec.gov/api/xbrl/companyfacts/CIK0001164727.json)。EXR旧科目含租金、保险与管理费合计，不以租金单项代替总额；PM旧含消费税营收及其他重组/会计口径差异本轮未拼接。
