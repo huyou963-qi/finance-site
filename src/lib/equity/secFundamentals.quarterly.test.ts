@@ -17,6 +17,27 @@ function inst(end: string, val: number, form = "10-Q", filed = "2099-01-01") {
   return { end, val, form, filed };
 }
 
+test("发行人旧版总营收接回历史骨架及三表，子项与不一致重叠不能补入", () => {
+  for (const [cik, tag] of [[1035002, "RefiningAndMarketingRevenue"], [1045609, "RealEstateRevenueNet"], [1289490, "RealEstateRevenueNet"], [1164727, "RevenueMineralSales"]] as const) {
+    const points = [dur("2016-10-01", "2016-12-31", 90), dur("2017-01-01", "2017-03-31", 100), dur("2017-04-01", "2017-06-30", 110)];
+    const facts = { cik, facts: { "us-gaap": {
+      Revenues: { units: { USD: points.slice(1) } },
+      [tag]: { units: { USD: points } },
+      NetIncomeLoss: { units: { USD: [{ ...points[0]!, val: 15 }] } },
+      NetCashProvidedByUsedInOperatingActivities: { units: { USD: [{ ...points[0]!, val: 20 }] } },
+      PaymentsToAcquirePropertyPlantAndEquipment: { units: { USD: [{ ...points[0]!, val: 5 }] } },
+    } } };
+    const old = extractQuarterlyFundamentals(facts)[0]!;
+    assert.equal(old.period, "2016Q4");
+    assert.deepEqual([old.revenue, old.netIncome, old.ocf, old.capex], [90, 15, 20, 5]);
+    assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.period, "2017Q1");
+    facts.facts["us-gaap"][tag]!.units.USD = points.slice(0, 2);
+    assert.equal(extractQuarterlyFundamentals(facts)[0]?.period, "2017Q1");
+    facts.facts["us-gaap"][tag]!.units.USD = points.map(p => ({ ...p, val: p.val * 3 }));
+    assert.equal(extractQuarterlyFundamentals(facts)[0]?.period, "2017Q1");
+  }
+});
+
 test("ADP/WEC/DLR总现金购置别名严格限发行人，不推广Other或开发子项到其他公司", () => {
   for (const [cik, tag] of [[8670, "PaymentsToAcquireOtherPropertyPlantAndEquipment"], [783325, "PaymentsToAcquireOtherPropertyPlantAndEquipment"], [1297996, "PaymentsToDevelopRealEstateAssets"]] as const) {
     const p = dur("2024-01-01", "2024-03-31", 25);
