@@ -9,6 +9,29 @@ const sample = (overrides: Partial<StatementFact> = {}): StatementFact => ({
 });
 const flows = (points: StatementFact[], cik = 999) => statementSupplementFlows({ cik, statementSupplement: points });
 
+test("公用事业报表补充保留优先级为负数的总营收，季度与年报口径一致", () => {
+  const total = sample({ cik: 788784, statement: "IS", tag: "Revenues", label: "Operating revenues", val: 90 });
+  const contract = { ...total, tag: "RevenueFromContractWithCustomerExcludingAssessedTax", val: 100 };
+  for (const points of [[total, contract], [contract, total], [total]]) {
+    assert.equal(flows(points, 788784).revenue[0]?.val, 90);
+    const annual = points.map(p => ({ ...p, end: "2024-12-31", form: "10-K", filed: "2025-02-01", source: "https://www.sec.gov/files/dera/data/financial-statement-data-sets/2025q1.zip" }));
+    assert.equal(annualStatementSnapshots({ cik: 788784, statementSupplement: annual })[0]?.revenue, 90);
+  }
+  assert.equal(flows([{ ...total, tag: "RegulatedAndUnregulatedOperatingRevenue" }], 788784).revenue[0]?.val, 90);
+});
+
+test("已核实公用事业总营收缺失时拒绝合同分项，未知标签及子公司不能冒充总额", () => {
+  const point = sample({ cik: 788784, statement: "IS", label: "Operating revenues", val: 100 });
+  for (const p of [
+    { ...point, tag: "RevenueFromContractWithCustomerExcludingAssessedTax" },
+    { ...point, tag: "UnrecognizedRevenue" },
+    { ...point, tag: "Revenues", segments: "LegalEntity=Subsidiary;" },
+    { ...point, tag: "Revenues", label: "Revenue from a subsidiary" },
+  ]) assert.deepEqual(flows([p], 788784).revenue, []);
+  assert.equal(flows([{ ...point, cik: 999, tag: "RevenueFromContractWithCustomerExcludingAssessedTax" }]).revenue[0]?.val, 100);
+  assert.deepEqual(flows([{ ...point, cik: 999, tag: "UnrecognizedRevenue" }]).revenue, []);
+});
+
 test("CPT完整年度主营营收来自其已核实的物业收入科目，拒绝管理费与过渡期", () => {
   const point = { start: "2025-01-01", end: "2025-12-31", val: 1573544000, form: "10-K", filed: "2026-02-12" };
   const facts = { cik: 906345, facts: { "us-gaap": {
