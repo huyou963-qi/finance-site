@@ -346,18 +346,16 @@ npm run events:import-ingest -- <file.json>
 **代码不走服务器 `git pull`**。`main` push 触发 `.github/workflows/deploy.yml`：
 
 1. GitHub Actions：`npm ci` → `npm run build` → `node scripts/deploy-pack.mjs` → `deploy.tar.gz`
-2. `scp` 到服务器 `/opt/finance-site/`，解压覆盖 `.next`、`node_modules`、`src`、`scripts` 等
-3. 服务器上：`npm run db:migrate` → `npm run data:apply -- --skip-migrate` → `pm2 restart finance-site`
+2. `scp` 到 `/opt/finance-site-shared/deploy.tar.gz`
+3. `scripts/ops/deploy-release.sh`：旁路解压到 `/opt/finance-site-releases/`，migrate + `data:apply`（跳过长任务），空闲端口拉起 → 部署 smoke（`/`、`/api/health`、macro-prefs、`/markets`、`/api/auth/me`、宏观 instruments BFF）→ nginx upstream 切流 → 停旧进程；切流后再 smoke，失败则自动回滚上一 release；`/opt/finance-site` 原子切换为指向新 release 的符号链接
 
-数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)。
+数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)；零停机细节见 [docs/ZERO_DOWNTIME_DEPLOY.md](./docs/ZERO_DOWNTIME_DEPLOY.md)。
 
 | 在服务器上 | 不要做 |
 |-----------|--------|
-| 保留 `.env.local`（`DATABASE_URL`、`FRED_API_KEY` 等） | `git pull` / 在服务器改业务代码 |
-| 看 Actions 日志与 `pm2 logs` | 用 `git status` 判断是否已部署最新版 |
+| 保留 shared 下 `.env.local`（`DATABASE_URL`、`FRED_API_KEY` 等） | `git pull` / 在服务器改业务代码 |
+| 看 Actions 日志与 `pm2 list`（进程名 `finance-site-a|b`） | 用 `git status` 判断是否已部署最新版 |
 | deploy 失败时手动 `npm run data:apply` | `pg_dump` 同步开发库 |
-
-若 `/opt/finance-site` 曾有 `git clone`，tar 解压后 `git status` 会一片红，可忽略或删除 `.git`。
 
 **主机卡死排查落盘**（心跳 + 压力现场 + 开机捞 OOM）：见 [docs/OPS_HOST_DIAGNOSTICS.md](./docs/OPS_HOST_DIAGNOSTICS.md)；部署后在服务器装一次 cron（`host-diagnostics-snapshot.sh` 每 2 分钟）。
 

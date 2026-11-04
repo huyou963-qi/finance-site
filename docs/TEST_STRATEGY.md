@@ -13,10 +13,10 @@
 | L0 开发反馈 | `npm run test:unit --` 或原有模块命令 | 纯函数、解析器、金融计算 | 2 分钟内 | 是 |
 | L1 快速门禁 | `npm run verify:quick` | 全部单元测试、架构守卫、Prisma validate、lint | 5 分钟内 | 是 |
 | L2 提交门禁 | `npm run verify:commit` | L1 + Next.js 生产构建/类型检查 | 10 分钟内 | 是 |
-| L3 集成/E2E | PR 或测试环境（待接入） | PostgreSQL migration、API、浏览器关键旅程 | 15 分钟内 | 核心用例是 |
+| L3 集成/E2E | `CI / l3`（Postgres 17 service） | 空库/升级 migrate、最小 API 契约、Playwright smoke | 15 分钟内 | 核心用例是 |
 | L4 数据/运行质量 | 定时任务、部署后 | 外部源契约、新鲜度、性能、安全扫描、线上 smoke | 独立运行 | 告警；严重项阻断发布 |
 
-当前已落地 L0–L2。测试运行器会递归发现 `src/**/*.{test,spec}.{ts,tsx}` 和 `tests/architecture/*`，新增测试无需再手工修改 `package.json`。
+当前已落地 L0–L3。测试运行器会递归发现 `src/**/*.{test,spec}.{ts,tsx}` 和 `tests/architecture/*`，新增测试无需再手工修改 `package.json`。L3 命令：`npm run test:l3`（migrate + API）；`npm run test:l3-prepare-e2e` + `npm run test:l3-e2e`（Playwright，需本机/CI Postgres 与已启动的 Next）。
 
 ## 3. 每次提交的固定门禁
 
@@ -72,34 +72,40 @@ CI 对所有分支 push 执行同一流程。GitHub `main` 分支保护必须要
 | 数据调度 | seed 幂等、release package、日历 fan-out、writer | 外部源契约、新鲜度/滞后告警、重试 | 单一 writer；nextRunAt 正确；失败可重跑不重写事实 |
 | Migration/部署 | schema validate、build、包内容 | 空库全量 migrate、上一版库升级、回滚演练 | migration 不改写；部署包完整；启动 health check 通过 |
 
-## 6. 下一阶段应补的自动化套件
+## 6. L3 已接入与后续加深
 
-### 6.1 PostgreSQL 集成测试（优先级 P0）
+CI job `l3` 使用 Postgres 17 service container，只创建 `finance_l3_*` 隔离库（拒绝 SSH 隧道端口 `15432`），命令见 `package.json` 的 `test:l3*`。
 
-在 CI service container 启动与生产同大版本 PostgreSQL，使用专用 `finance_site_test` 数据库：
+### 6.1 PostgreSQL 集成测试（P0 已接入；事务深度仍待加深）
 
-- 从空库执行 `prisma migrate deploy`，再运行最小 seed。
-- 从上一发布版本 schema 快照升级，验证数据保留。
+已覆盖：
+
+- 从空库执行 `prisma migrate deploy`，写入最小 `SystemMacroChartPrefs` seed。
+- 从倒数第二个 migration 升级到 tip，验证预置 `User` 行保留且 `_prisma_migrations` 完整。
+
+后续加深（仍建议独立文件、事务回滚或独立库）：
+
 - 对用户、session、偏好、订单、事件、投资案例执行真实事务测试。
 - 对 `mds` observation/vintage、价格、拆股、分红、财报执行唯一键与幂等测试。
-- 每个 test file 使用事务回滚或独立 schema，禁止共享可变顺序状态。
 
-### 6.2 API 契约测试（优先级 P0）
+### 6.2 API 契约测试（P0 已接入；矩阵仍待铺开）
 
-为每个 Route Handler 建立表驱动用例，至少覆盖：合法请求、缺参/非法参、匿名、普通用户、Pro、admin、上游超时、数据库错误。响应需断言 HTTP 状态、稳定 JSON 字段、分页边界、错误信息不包含 SQL/堆栈/密钥。OpenAPI 尚未引入前，可用 TypeScript fixture 作为契约金标准。
+已覆盖最小契约：`GET /api/health`、`GET /api/auth/me`（匿名/登录）、`GET /api/admin/feature-access`（匿名/普通/admin）、`GET/PUT /api/tools/macro-chart-prefs`（匿名读、登录写、普通禁改系统模板）、`GET /api/data/klines` 非法参数。断言 HTTP 状态、稳定 JSON 字段，并拒绝响应中出现密钥/堆栈泄漏。
 
-### 6.3 Playwright 浏览器旅程（优先级 P0）
+后续：为每个 Route Handler 建立表驱动用例（合法/缺参、Pro、上游超时、数据库错误、分页边界）。OpenAPI 尚未引入前，用 TypeScript fixture 作为契约金标准。
 
-使用隔离测试库和固定账号运行以下最小 smoke：
+### 6.3 Playwright 浏览器旅程（P0 smoke 已接入；旅程仍待加深）
 
-1. 匿名访问首页，进入宏观页并加载固定序列。
-2. 搜索 AAPL，打开 K 线，切换复权与周期，确认图表无控制台错误。
-3. 登录免费账号，保存宏观模板并刷新恢复。
-4. Pro 账号运行一个最小筛选/回测并查看结果。
-5. 普通用户访问 admin 返回无权限；admin 可查看但不在 smoke 中执行破坏性批量操作。
-6. 手机视口打开首页、宏观、行情、定价页，无水平溢出和遮挡。
+已覆盖：
 
-失败时保存 screenshot、trace、console 和 network 日志；禁止仅靠文字选择器定位易变 UI，优先使用 role/label 和稳定 `data-testid`。
+1. 匿名首页品牌与主 CTA；`/macro` `/markets` `/pricing` `/auth` 无 5xx。
+2. `GET /api/health` 探活。
+3. 免费账号登录；普通用户访问 admin 返回无权限。
+4. 手机视口首页/宏观/行情/定价无水平溢出。
+
+失败时保留 screenshot、trace、video（`test-results/` / `playwright-report/`）。优先使用 role/label；易变 UI 再补 `data-testid`。
+
+后续加深：固定序列宏观加载、AAPL K 线复权切换、宏观模板保存恢复、Pro 最小回测。
 
 ### 6.4 性能与容量（优先级 P1）
 
