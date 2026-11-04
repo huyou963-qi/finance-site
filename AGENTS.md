@@ -318,12 +318,21 @@ npm run events:import-ingest -- <file.json>
 - [ ] 新功能已列出底层复用项；未新增平行 adapter、事实表、writer 或重复计算链
 - [ ] 新增宏观指标是有明确来源 + 稳定更新方式的标准基础数据；二次指标走指标运算，未入库复合/派生序列
 
+## 观测性与安全（摘要）
+
+- 探活：`GET /api/health`（DB `SELECT 1`，响应含 `x-request-id`）
+- 请求关联：`src/middleware.ts` 为页面/API 注入 `x-request-id`；错误上报写入 `metadata.requestId`
+- 写操作同源：`requireSameOrigin`（`src/lib/http/sameOrigin.ts`）用于 auth/tools 变更接口；billing 仍用 `requirePaymentOrigin`
+- 管理端鉴权统一走 `@/lib/auth/requireAdmin`（`eventAuth.requireAdmin` 仅作兼容包装）
+- 已移除开放式 `proxy-example`；设计预览页生产默认仅管理员（`ALLOW_DESIGN_PREVIEWS=1` 可临时放开）
+
 ## 禁区
 
 - 不要删除或重写已合并的 migration
 - 不要把 API Key 写进客户端或提交到 Git
 - 不要在未协调时大改 `MacroSection.tsx` 整体结构
 - 生产部署密钥不要写进仓库（用服务器 `.env.local` 或 GitHub Secrets）
+- 不要重新引入开放式上游代理 Route Handler（SSRF）
 
 ## Cursor Cloud specific instructions
 
@@ -337,18 +346,16 @@ npm run events:import-ingest -- <file.json>
 **代码不走服务器 `git pull`**。`main` push 触发 `.github/workflows/deploy.yml`：
 
 1. GitHub Actions：`npm ci` → `npm run build` → `node scripts/deploy-pack.mjs` → `deploy.tar.gz`
-2. `scp` 到服务器 `/opt/finance-site/`，解压覆盖 `.next`、`node_modules`、`src`、`scripts` 等
-3. 服务器上：`npm run db:migrate` → `npm run data:apply -- --skip-migrate` → `pm2 restart finance-site`
+2. `scp` 到 `/opt/finance-site-shared/deploy.tar.gz`
+3. `scripts/ops/deploy-release.sh`：旁路解压到 `/opt/finance-site-releases/`，migrate + `data:apply`（跳过长任务），空闲端口拉起 → 部署 smoke（`/`、`/api/health`、macro-prefs、`/markets`、`/api/auth/me`、宏观 instruments BFF）→ nginx upstream 切流 → 停旧进程；切流后再 smoke，失败则自动回滚上一 release；`/opt/finance-site` 原子切换为指向新 release 的符号链接
 
-数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)。
+数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)；零停机细节见 [docs/ZERO_DOWNTIME_DEPLOY.md](./docs/ZERO_DOWNTIME_DEPLOY.md)。
 
 | 在服务器上 | 不要做 |
 |-----------|--------|
-| 保留 `.env.local`（`DATABASE_URL`、`FRED_API_KEY` 等） | `git pull` / 在服务器改业务代码 |
-| 看 Actions 日志与 `pm2 logs` | 用 `git status` 判断是否已部署最新版 |
+| 保留 shared 下 `.env.local`（`DATABASE_URL`、`FRED_API_KEY` 等） | `git pull` / 在服务器改业务代码 |
+| 看 Actions 日志与 `pm2 list`（进程名 `finance-site-a|b`） | 用 `git status` 判断是否已部署最新版 |
 | deploy 失败时手动 `npm run data:apply` | `pg_dump` 同步开发库 |
-
-若 `/opt/finance-site` 曾有 `git clone`，tar 解压后 `git status` 会一片红，可忽略或删除 `.git`。
 
 **主机卡死排查落盘**（心跳 + 压力现场 + 开机捞 OOM）：见 [docs/OPS_HOST_DIAGNOSTICS.md](./docs/OPS_HOST_DIAGNOSTICS.md)；部署后在服务器装一次 cron（`host-diagnostics-snapshot.sh` 每 2 分钟）。
 

@@ -41,6 +41,36 @@ test("every admin API route enforces an admin or scoped permission guard", () =>
   assert.deepEqual(violations, [], `admin routes without an admin permission guard:\n${violations.join("\n")}`);
 });
 
+test("admin API routes use canonical requireAdmin from @/lib/auth/requireAdmin", () => {
+  const apiRoot = resolve(root, "src", "app", "api", "admin");
+  const violations = walk(apiRoot, (path) => path.endsWith("route.ts")).filter((file) => {
+    const text = source(file);
+    return /\brequireAdmin\b/.test(text) && /from\s+["']@\/lib\/api\/eventAuth["']/.test(text);
+  });
+  assert.deepEqual(
+    violations,
+    [],
+    `admin routes still import requireAdmin from eventAuth:\n${violations.join("\n")}`,
+  );
+});
+
+test("open SSRF proxy-example route is removed", () => {
+  assert.equal(
+    walk(resolve(root, "src", "app", "api"), (path) => path.endsWith("route.ts")).some((file) =>
+      file.includes(`${"proxy-example"}`),
+    ),
+    false,
+  );
+});
+
+test("middleware attaches x-request-id and health route pings the database", () => {
+  const middleware = source(resolve(root, "src", "middleware.ts"));
+  const health = source(resolve(root, "src", "app", "api", "health", "route.ts"));
+  assert.match(middleware, /x-request-id|REQUEST_ID_HEADER/);
+  assert.match(health, /prisma\.\$queryRaw/);
+  assert.match(health, /ok:\s*true/);
+});
+
 test("pages directly rendering useSearchParams clients provide Suspense", () => {
   const violations = [];
   const pages = walk(resolve(root, "src", "app"), (path) => path.endsWith("page.tsx"));

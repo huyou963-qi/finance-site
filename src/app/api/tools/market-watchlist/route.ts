@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { orderWatchlistStocks, validateWatchlistStockOrder, normalizeWatchlistTabOrder, validateWatchlistTabOrder, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol } from "@/lib/data/marketWatchlist";
+import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 
 const headers = { "Cache-Control": "private, no-store" };
 
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
 
 async function mutate(req: NextRequest, remove: boolean) {
   try {
+    requireSameOrigin(req);
     const user = await getUserByRequest(req);
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401, headers });
     let body: { userId?: unknown; stock?: unknown; symbol?: unknown; groupId?: unknown };
@@ -62,6 +64,8 @@ async function mutate(req: NextRequest, remove: boolean) {
     }
     return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
   } catch (error) {
+    const originErr = sameOriginErrorResponse(error);
+    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status, headers });
     console.error("[market-watchlist] save failed", error);
     return NextResponse.json({ error: "无法保存自选股，请稍后重试" }, { status: 500, headers });
   }
@@ -72,6 +76,7 @@ export async function DELETE(req: NextRequest) { return mutate(req, true); }
 
 export async function PATCH(req: NextRequest) {
   try {
+    requireSameOrigin(req);
     const user = await getUserByRequest(req);
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401, headers });
     const body = await req.json().catch(() => null) as { userId?: unknown; action?: unknown; groupId?: unknown; name?: unknown; symbol?: unknown; order?: unknown } | null;
@@ -127,6 +132,8 @@ export async function PATCH(req: NextRequest) {
     }
     return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
   } catch (error) {
+    const originErr = sameOriginErrorResponse(error);
+    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status, headers });
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") return NextResponse.json({ error: "组名已存在" }, { status: 400, headers });
     console.error("[market-watchlist] group change failed", error);
     return NextResponse.json({ error: "无法保存分组，请稍后重试" }, { status: 500, headers });

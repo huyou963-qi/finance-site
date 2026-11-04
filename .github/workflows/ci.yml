@@ -33,6 +33,72 @@ jobs:
       - run: npm ci
       - name: Upgrade baseline schema and exercise payment transactions
         run: npm run test:billing-integration
+
+  l3:
+    name: l3
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: l3-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Isolated CI Postgres service — never production
+      DATABASE_URL: postgresql://postgres:l3-ci-only@127.0.0.1:5432/postgres # pragma: allowlist secret
+      APP_BASE_URL: http://127.0.0.1:3000
+      L3_E2E_USERNAME: l3smoke
+      L3_E2E_PASSWORD: L3SmokePass1! # pragma: allowlist secret
+      NON_PRO_FEATURE_RESTRICTIONS_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: L3 empty + upgrade migrate
+        run: npm run test:l3-db
+      - name: L3 API contracts
+        run: npm run test:l3-api
+      - name: Prepare Playwright database
+        run: |
+          npm run test:l3-prepare-e2e
+          echo "DATABASE_URL=$(cat /tmp/l3-e2e.url)" >> "$GITHUB_ENV"
+        env:
+          L3_E2E_DATABASE_URL_FILE: /tmp/l3-e2e.url
+      - name: Build app for e2e
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start server and run Playwright smoke
+        run: |
+          npx next start -H 127.0.0.1 -p 3000 &
+          echo $! > /tmp/l3-next.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:3000/api/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:3000/api/health
+          npx playwright test
+          kill "$(cat /tmp/l3-next.pid)" || true
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
   build:
     name: build
     runs-on: ubuntu-latest

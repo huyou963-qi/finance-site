@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginUser } from "@/lib/auth";
 import { LoginThrottleError } from "@/lib/auth/loginThrottle";
+import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 
 export async function POST(req: NextRequest) {
   try {
+    requireSameOrigin(req);
     const body = (await req.json()) as {
       identifier?: string;
       username?: string;
@@ -23,6 +25,8 @@ export async function POST(req: NextRequest) {
     res.headers.append("Set-Cookie", result.cookie);
     return res;
   } catch (e) {
+    const originErr = sameOriginErrorResponse(e);
+    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status });
     if (e instanceof LoginThrottleError) {
       const retryAfterSeconds = e.retryAfterSeconds;
       return NextResponse.json(

@@ -13,8 +13,15 @@ GitHub 部署串行执行，后续提交不会取消正在发布的任务。
 `sync-cron-checkout.sh` 创建 `/opt/finance-site-jp-data-releases/release-*`，
 每个目录包含自己的源码与 node_modules；稳定入口 `/opt/finance-site-jp-data`
 在锁内切换。首次迁移把原检出保留为 `legacy-*`，密钥只链接已有文件，
-`.data` 链接到保留的运行态目录。旧版本不自动清理；不可变版本之间按内容
-硬链接相同依赖文件以减少重复存储，不与网站目录共享依赖文件。
+`.data` 优先挂到 `$RELEASE_ROOT/runtime-data`（稳定运行态缓存，不随 release 删除）。
+不可变版本之间按内容硬链接相同依赖文件以减少重复存储，不与网站目录共享依赖文件。
+
+磁盘回收：`scripts/ops/prune-worker-releases.sh`（默认 `--dry-run`，生产用
+`--apply --keep 5`）在 worker/calendar 锁内：先把仍挂在 `legacy-*/.data` 的缓存
+迁到 `runtime-data`，保留 active + 最近 N 个 `release-*`，删除更旧 release 与已迁空
+的 legacy，并去掉站点旁路的一次性 `factor_snapshot_*.dump` / `next-build.tar.gz`。
+部署 workflow 在 `sync-cron-checkout` 之后自动 `--apply --keep 5`。手动回滚仍用上一
+个保留的 release，在同样双锁下 `mv -Tf` 切换稳定入口。
 
 回滚：在同样的 worker/calendar 锁下，使用临时符号链接和 `mv -Tf` 将稳定入口
 指向上一个 release；不得修改正在执行的目录。数据库变更必须兼容旧版运行代码；

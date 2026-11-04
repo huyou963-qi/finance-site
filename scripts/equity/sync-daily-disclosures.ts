@@ -15,6 +15,7 @@ async function main() {
     symbols: arg("symbols")?.split(",").map(symbol => symbol.trim().toUpperCase()).filter(Boolean),
     maxFilings: Number(arg("max-filings") ?? 300), delayMs: Number(arg("delay-ms") ?? 1000), dryRun,
     timingLimit: Number(arg("timing-limit") ?? 20),
+    filingFallbackLimit: Number(arg("filing-fallback-limit") ?? 12),
   };
   if (dryRun) {
     console.log(JSON.stringify(await syncDailyDisclosures(options), null, 2));

@@ -126,21 +126,22 @@ git push
 ```text
 git push main
   → Actions: build + deploy-pack.mjs → deploy.tar.gz
-  → scp 到服务器 /opt/finance-site/
-  → tar 解压 → db:migrate → data:apply → pm2 restart
+  → scp 到 /opt/finance-site-shared/
+  → deploy-release.sh：旁路解压 → migrate/apply → 空闲端口拉起
+  → 健康检查 → nginx upstream 切流 → 停旧进程（零停机）
 ```
 
-**服务器上不需要 `git pull`**。每次解压会覆盖文件；若目录里还有 `.git`，`git status` 会显示大量 modified，**不代表线上没更新**，以 Actions 是否成功为准。
+**服务器上不需要 `git pull`**。`/opt/finance-site` 现为指向当前 release 的符号链接；以 Actions 是否成功为准。细节见 [docs/ZERO_DOWNTIME_DEPLOY.md](./docs/ZERO_DOWNTIME_DEPLOY.md)。
 
 手动排查时：
 
 ```bash
-cd /opt/finance-site
+readlink -f /opt/finance-site
+cat /opt/finance-site-shared/active-port
 pm2 status
-pm2 logs finance-site --lines 50
-curl -fsS http://127.0.0.1:3000/
+curl -fsS http://127.0.0.1:$(cat /opt/finance-site-shared/active-port)/api/health
 # 仅当 deploy 日志里 data:apply 失败时：
-npm run data:apply
+cd /opt/finance-site && npm run data:apply
 ```
 
 数据落库细节见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)。Secrets：`DEPLOY_HOST`、`DEPLOY_SSH_KEY`（在 GitHub 仓库 Settings）。
