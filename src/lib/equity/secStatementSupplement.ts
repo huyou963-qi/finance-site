@@ -149,7 +149,9 @@ export function statementSupplementFlows(facts: unknown): Flows {
         1045609: ["RealEstateRevenueNet"], 1289490: ["RealEstateRevenueNet"],
         1164727: ["RevenueMineralSales"], 1035002: ["RefiningAndMarketingRevenue"],
       };
-      const revenuePriority = TOTAL_OPERATING_REVENUE_CIKS.has(cik) && ["Revenues", "RegulatedAndUnregulatedOperatingRevenue"].includes(p.tag)
+      const requiresOperatingTotal = TOTAL_OPERATING_REVENUE_CIKS.has(cik);
+      const isOperatingTotal = requiresOperatingTotal && ["Revenues", "RegulatedAndUnregulatedOperatingRevenue"].includes(p.tag);
+      const revenuePriority = isOperatingTotal
         ? -1 : issuerRevenue[cik]?.includes(p.tag) ? 6 : revenueTags.indexOf(p.tag);
       if (apaRevenue && /^total revenues$/i.test(p.label.trim())) select("revenue", key, point, 0);
       const pmOldGross = cik === 1413329 && p.end < "2018-01-01" && ["SalesRevenueNet", "RevenueFromContractWithCustomerIncludingAssessedTax"].includes(p.tag);
@@ -157,7 +159,8 @@ export function statementSupplementFlows(facts: unknown): Flows {
         if (p.tag === "SalesRevenueNet") pmGross.push(point);
         if (p.tag === "ExciseAndSalesTaxes") pmTax.push(point);
       }
-      if (!pmOldGross && !p.segments && p.taxonomy.startsWith("us-gaap/") && revenuePriority >= 0
+      if (!pmOldGross && !p.segments && p.taxonomy.startsWith("us-gaap/")
+        && (!requiresOperatingTotal || isOperatingTotal) && (isOperatingTotal || revenuePriority >= 0)
         && /^(?:total (?:net )?revenues?|net (?:sales|revenues?|operating revenues)|operating revenues|revenues?|sales)$/i.test(p.label.trim())) select("revenue", key, point, revenuePriority);
       if (p.tag === "NetIncomeLoss" && p.taxonomy.startsWith("us-gaap/") && !p.segments) select("netIncome", key, point, 0);
       if (p.tag === "ProfitLoss" && p.taxonomy.startsWith("us-gaap/") && !p.segments) profit.push(point);
