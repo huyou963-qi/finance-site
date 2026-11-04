@@ -6,8 +6,24 @@ import {
   quarterlyFlowSeries,
   scaleFactorsBackward,
   mergeExxonPredecessorFacts,
+  legacyPartialRevenueForAudit,
 } from "./secFundamentals";
 import { computeTtm, computeValuation, type QuarterFundamentalRow } from "./ttm";
+
+test("CPT主营营收取Property revenues，不取其他收入中的管理费；其他发行人不泛用租赁标签", () => {
+  const point = { start: "2025-01-01", end: "2025-03-31", val: 400, form: "10-Q", filed: "2025-05-01" };
+  const facts = { cik: 906345, facts: { "us-gaap": {
+    OperatingLeaseLeaseIncome: { units: { USD: [point] } },
+    RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [{ ...point, val: 3 }] } },
+  } } };
+  assert.equal(extractQuarterlyFundamentals(facts)[0]?.revenue, 400);
+  assert.ok(legacyPartialRevenueForAudit(facts).some(p => p.val === 3));
+  assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.revenue, 3);
+  assert.deepEqual(legacyPartialRevenueForAudit({ ...facts, cik: 999 }), []);
+  assert.equal(extractQuarterlyFundamentals({ cik: 906345, facts: { "us-gaap": {
+    RevenueFromContractWithCustomerExcludingAssessedTax: facts.facts["us-gaap"].RevenueFromContractWithCustomerExcludingAssessedTax,
+  } } })[0]?.revenue, undefined);
+});
 
 test("缺失营收不吞掉已披露季度净利润和现金流，也不把现金流值充作营收", () => {
   const point = { start: "2024-01-01", end: "2024-03-31", val: 10, form: "10-Q", filed: "2024-05-01" };

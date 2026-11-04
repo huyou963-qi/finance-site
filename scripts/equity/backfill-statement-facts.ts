@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "../../src/lib/prisma";
-import { calendarQuarterLabel, continuingCashForAudit, extractQuarterlyFundamentals, legacyPartialCapexForAudit } from "../../src/lib/equity/secFundamentals";
+import { calendarQuarterLabel, continuingCashForAudit, extractQuarterlyFundamentals, legacyPartialCapexForAudit, legacyPartialRevenueForAudit } from "../../src/lib/equity/secFundamentals";
 import { annualStatementSnapshots, STATEMENT_CAPEX_ROLES } from "../../src/lib/equity/secStatementSupplement";
 import { upsertQuarterlyFundamentals } from "../../src/lib/equity/equityFundamentalsStore";
 import { fiscalDateAliasProof } from "../../src/lib/equity/fiscalDateAlias";
@@ -29,7 +29,7 @@ async function main() {
     || from > through || Number(through.slice(0, 4)) - Number(from.slice(0, 4)) > 12) throw Error("缺少或超出有界参数");
   fs.writeFileSync(audit, "", { flag: "wx" });
   const log = (value: unknown) => fs.appendFileSync(audit, `${JSON.stringify(value)}\n`);
-  const stats = { companies: 0, quarterlyWrites: 0, capexCorrections: 0, ocfCorrections: 0, annualWrites: 0, annualCandidates: 0, fiscalDateRepairs: 0, unresolvedPartialCapex: 0 };
+  const stats = { companies: 0, quarterlyWrites: 0, capexCorrections: 0, ocfCorrections: 0, revenueCorrections: 0, annualWrites: 0, annualCandidates: 0, fiscalDateRepairs: 0, unresolvedPartialCapex: 0 };
   for (const symbol of symbols) {
     const merged = path.join(factDir, `${symbol}-merged.json`);
     const facts = read(fs.existsSync(merged) ? merged : path.join(factDir, `${symbol}.json`), 40 * 1024 * 1024);
@@ -52,7 +52,18 @@ async function main() {
     }
     const plan = incoming.length ? planQuarterlyWrite(incoming, existing, true) : null;
     const legacy = legacyPartialCapexForAudit(facts);
-    const corrections: { field: "capex" | "ocf"; period: string; fiscalDate: Date; before: number; after: number | null; updatedAt: Date }[] = [];
+    const corrections: { field: "capex" | "ocf" | "revenue"; period: string; fiscalDate: Date; before: number; after: number | null; updatedAt: Date }[] = [];
+    if (process.argv.includes("--repair-issuer-revenue")) {
+      const partial = legacyPartialRevenueForAudit(facts);
+      for (const old of existing) {
+        if (old.revenue == null || !old.fiscalDate) continue;
+        const date = old.fiscalDate.toISOString().slice(0, 10);
+        if (calendarQuarterLabel(date) < from || calendarQuarterLabel(date) > through) continue;
+        const next = incoming.find(r => r.fiscalDate === date);
+        if (next?.revenue != null && next.revenue > old.revenue && partial.some(p => p.end === date && close(p.val, old.revenue!)))
+          corrections.push({ field: "revenue", period: old.period, fiscalDate: old.fiscalDate, before: old.revenue, after: next.revenue, updatedAt: old.updatedAt });
+      }
+    }
     if ((STATEMENT_CAPEX_ROLES[Number(facts.cik)]?.length ?? 0) > 1) for (const old of existing) {
       if (old.capex == null || !old.fiscalDate) continue;
       const date = old.fiscalDate.toISOString().slice(0, 10);
@@ -90,7 +101,8 @@ async function main() {
         const group = corrections.filter(r => r.period === period), first = group[0]!;
         const beforeValues = Object.fromEntries(group.map(r => [r.field, r.before]));
         const afterValues = Object.fromEntries(group.map(r => [r.field, r.after]));
-        const changed = await prisma.equityFundamentalSnapshot.updateMany({ where: { symbol, period, periodType: "Q", fiscalDate: first.fiscalDate, updatedAt: first.updatedAt, ...beforeValues }, data: afterValues });
+        const revenueDerived = group.some(r => r.field === "revenue") ? { revenueYoY: null, grossMargin: null, opMargin: null } : {};
+        const changed = await prisma.equityFundamentalSnapshot.updateMany({ where: { symbol, period, periodType: "Q", fiscalDate: first.fiscalDate, updatedAt: first.updatedAt, ...beforeValues }, data: { ...afterValues, ...revenueDerived } });
         if (changed.count !== 1) throw Error(`并发修改，停止 ${symbol}/${period}`);
       }
       if (incoming.length) stats.quarterlyWrites += await upsertQuarterlyFundamentals(symbol, incoming, { fillMissing: true });
@@ -108,6 +120,7 @@ async function main() {
     } else stats.quarterlyWrites += plan?.rows.length ?? 0;
     stats.companies++; stats.fiscalDateRepairs += dateRepairs.length; stats.capexCorrections += corrections.filter(r => r.field === "capex").length; stats.ocfCorrections += corrections.filter(r => r.field === "ocf").length; stats.annualWrites += annualPlanned.length; stats.annualCandidates += annual.length;
     stats.unresolvedPartialCapex += corrections.filter(r => r.field === "capex" && r.after == null).length;
+    stats.revenueCorrections += corrections.filter(r => r.field === "revenue").length;
     console.log(JSON.stringify({ symbol, ...stats, apply }));
   }
   log({ totals: stats, apply });

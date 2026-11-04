@@ -9,6 +9,19 @@ const sample = (overrides: Partial<StatementFact> = {}): StatementFact => ({
 });
 const flows = (points: StatementFact[], cik = 999) => statementSupplementFlows({ cik, statementSupplement: points });
 
+test("CPT完整年度主营营收来自其已核实的物业收入科目，拒绝管理费与过渡期", () => {
+  const point = { start: "2025-01-01", end: "2025-12-31", val: 1573544000, form: "10-K", filed: "2026-02-12" };
+  const facts = { cik: 906345, facts: { "us-gaap": {
+    OperatingLeaseLeaseIncome: { units: { USD: [point] } },
+    RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [{ ...point, val: 12967000 }] } },
+  } } };
+  assert.equal(annualStatementSnapshots(facts)[0]?.revenue, 1573544000);
+  assert.deepEqual(annualStatementSnapshots({ ...facts, cik: 999 }), []);
+  assert.deepEqual(annualStatementSnapshots({ cik: 906345, facts: { "us-gaap": {
+    OperatingLeaseLeaseIncome: { units: { USD: [{ ...point, start: "2025-04-01" }, { ...point, val: Infinity }, { ...point, filed: "2025-01-01" }] } },
+  } } }), []);
+});
+
 test("整年直接值只接受完整财年10-K，不接9个月过渡期和10-Q累计", () => {
   const p = sample({ start: "2024-01-01", end: "2024-12-31", form: "10-K", filed: "2025-02-01", source: "https://www.sec.gov/files/dera/data/financial-statement-data-sets/2025q1.zip" });
   const rows = annualStatementSnapshots({ cik: 999, statementSupplement: [p] });

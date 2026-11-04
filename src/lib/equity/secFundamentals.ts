@@ -889,6 +889,10 @@ export function extractQuarterlyFundamentals(
     for (const q of rental) if (q.end >= "2020-04-01" && !combined.has(q.end)) combined.set(q.end, q);
     revenueQ = [...combined.values()].sort((a, b) => a.end.localeCompare(b.end));
   }
+  if (Number((facts as { cik?: number }).cik) === 906345) {
+    // CPT利润表Property revenues是主营营收；ASC606科目仅为其他收入中的管理费。
+    revenueQ = pickFlowQuarterSeries(gaap, ["OperatingLeaseLeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue"], ["USD"]);
+  }
   const grossQ = flowSeries(FLOW_CONCEPTS.grossProfit, ["USD"]);
   const opQ = flowSeries(FLOW_CONCEPTS.operatingIncome, ["USD"]);
   const niQ = flowSeries(FLOW_CONCEPTS.netIncome, ["USD"]);
@@ -1211,4 +1215,15 @@ export function continuingCashForAudit(facts: unknown) {
     continuing: quarterlyFlowSeries(gaap?.NetCashProvidedByUsedInOperatingActivitiesContinuingOperations?.units?.USD ?? []),
     discontinued: quarterlyFlowSeries(gaap?.CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations?.units?.USD ?? []),
   };
+}
+
+/** CPT旧缓存误取管理费；只有金额能与同日真实管理费事实核对时才允许迁移。 */
+export function legacyPartialRevenueForAudit(facts: unknown) {
+  const root = facts as { cik?: number; facts?: { "us-gaap"?: Record<string, SecConcept> } };
+  if (Number(root.cik) !== 906345) return [];
+  const points = root.facts?.["us-gaap"]?.RevenueFromContractWithCustomerExcludingAssessedTax?.units?.USD ?? [];
+  return [...quarterlyFlowSeries(points), ...points.filter(p => p.start && p.end && typeof p.val === "number"
+    && Number.isFinite(p.val) && p.form && /^10-[QK](?:\/A)?$/.test(p.form)
+    && (dateMs(p.end) - dateMs(p.start)) / DAY_MS >= 69 && (dateMs(p.end) - dateMs(p.start)) / DAY_MS <= 125)
+    .map(p => ({ end: p.end!, val: p.val! }))];
 }
