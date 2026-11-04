@@ -5,9 +5,10 @@ import { SEC_FINANCIAL_FORMS, writeSecFilingIndex } from "./secFilingSync";
 import { fetchSecCompanyFacts, extractQuarterlyFundamentals } from "./secFundamentals";
 import { buildSecFundamentalVintages, listSecPeriodicFilings, upsertFundamentalVintages, type SecFundamentalVintage } from "./fundamentalVintages";
 import { upsertQuarterlyFundamentals } from "./equityFundamentalsStore";
+import { supplementSecPeriodicFilingPair } from "./secFilingFacts";
 
 export type DailyDisclosureOptions = {
-  through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean; timingLimit?: number;
+  through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean; timingLimit?: number; filingFallbackLimit?: number;
 };
 export type DisclosureDiscoveryProgress = { coveredCiks: string[]; failedCiks: string[]; missingIndexes: string[]; indexed: number; failed: number };
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -15,10 +16,12 @@ const defaultDependencies = {
   prisma, pause, discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence,
   writeSecFilingIndex, fetchSecCompanyFacts, listSecPeriodicFilings, buildSecFundamentalVintages,
   extractQuarterlyFundamentals, upsertQuarterlyFundamentals, upsertFundamentalVintages,
+  supplementSecPeriodicFilingPair,
 };
+type Dependencies = Omit<typeof defaultDependencies, "supplementSecPeriodicFilingPair"> & Partial<Pick<typeof defaultDependencies, "supplementSecPeriodicFilingPair">>;
 
 /** Caller holds the batch lock. Work is bounded, serial and durable in the canonical filing row. */
-export async function syncDailyDisclosures(options: DailyDisclosureOptions = {}, dependencies = defaultDependencies,
+export async function syncDailyDisclosures(options: DailyDisclosureOptions = {}, dependencies: Dependencies = defaultDependencies,
   onDiscovery?: (progress: DisclosureDiscoveryProgress) => Promise<void>) {
   const { prisma, pause, discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence,
     writeSecFilingIndex, fetchSecCompanyFacts, listSecPeriodicFilings, buildSecFundamentalVintages,
@@ -27,6 +30,9 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
   const delayMs = Math.max(1000, options.delayMs ?? 1000);
   const maxFilings = options.maxFilings ?? 300;
   const timingLimit = options.timingLimit ?? 20;
+  const filingFallbackLimit = options.filingFallbackLimit ?? 12;
+  if (!Number.isInteger(filingFallbackLimit) || filingFallbackLimit < 0 || filingFallbackLimit > 20) throw new Error("filing-fallback-limit 必须为0–20");
+  let fallbackRemaining = filingFallbackLimit;
   if (!Number.isInteger(timingLimit) || timingLimit < 0 || timingLimit > 100) throw new Error("timing-limit 必须为 0–100");
   if (!Number.isInteger(maxFilings) || maxFilings < 1 || maxFilings > 1000 || !Number.isFinite(delayMs)) {
     throw new Error("max-filings 必须为 1–1000；delay-ms 必须为有效数字");
@@ -120,10 +126,44 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     let factsError: unknown;
     let vintages: SecFundamentalVintage[] = [];
     let financialWritten = false;
+    const primaryDeferred = new Set<string>(), primaryErrors = new Map<string, unknown>();
     if (group.some(row => SEC_FINANCIAL_FORMS.has(row.form))) {
       try {
         facts = await fetchSecCompanyFacts(cik, { timeoutMs: 60_000 });
-        const versions = listSecPeriodicFilings(facts);
+        let versions = listSecPeriodicFilings(facts);
+        if (dependencies.supplementSecPeriodicFilingPair && filingFallbackLimit > 0) {
+          const available = new Set(versions.map(row => row.accession));
+          const cachedQuarters = extractQuarterlyFundamentals(facts, { maxQuarters: 20 });
+          const missing = group.filter(row => {
+            if (!SEC_FINANCIAL_FORMS.has(row.form)) return false;
+            const quarter = cachedQuarters.find(p => p.fiscalDate === row.reportPeriodEnd?.toISOString().slice(0, 10));
+            return !available.has(row.accession) || !quarter || [quarter.revenue, quarter.netIncome, quarter.ocf, quarter.capex].some(p => p == null);
+          }).sort((a, b) => b.filedAt.getTime() - a.filedAt.getTime());
+          let companyUsed = 0;
+          const handled = new Set<string>();
+          for (const row of missing) {
+            if (handled.has(row.accession)) continue;
+            const reserved = Math.min(2 - companyUsed, fallbackRemaining);
+            if (reserved <= 0) { primaryDeferred.add(row.accession); continue; }
+            fallbackRemaining -= reserved; companyUsed += reserved;
+            try {
+              const supplemented = await dependencies.supplementSecPeriodicFilingPair(facts, Number(cik), {
+                accession: row.accession, form: row.form, filedAt: row.filedAt.toISOString().slice(0, 10), primaryDocument: row.primaryDocument,
+                reportDate: row.reportPeriodEnd?.toISOString().slice(0, 10),
+              }, reserved);
+              if (!Number.isInteger(supplemented.filingsUsed) || supplemented.filingsUsed < 1 || supplemented.filingsUsed > reserved) throw new Error("原始申报回补预算无效");
+              fallbackRemaining += reserved - supplemented.filingsUsed; companyUsed -= reserved - supplemented.filingsUsed;
+              facts = supplemented.facts;
+              for (const accession of supplemented.handledAccessions) handled.add(accession);
+              if (!handled.has(row.accession)) primaryDeferred.add(row.accession);
+            } catch (error) {
+              // 单份原始文件失败不毒化同公司的其他已就绪申报；本行仍保持pending并重试。
+              console.warn(`[SEC primary fallback ${row.accession}]`, error instanceof Error ? error.message : error);
+              primaryErrors.set(row.accession, error);
+            }
+          }
+          versions = listSecPeriodicFilings(facts);
+        }
         const oldestNeeded = versions.findIndex(version => group.some(row => row.accession === version.accession));
         // Keep the existing four-filing checkpoint window, extending only for actual pending jobs.
         const emitLastFilings = oldestNeeded < 0 ? 4 : Math.max(4, versions.length - oldestNeeded);
@@ -162,7 +202,8 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
             }
           }
           if (factsError) throw factsError;
-          if (!financialVersionReady(filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10))) {
+          if (primaryErrors.has(filing.accession)) throw primaryErrors.get(filing.accession);
+          if (primaryDeferred.has(filing.accession) || !financialVersionReady(filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10))) {
             status = "pending";
           } else if (!financialWritten) {
             const quarters = extractQuarterlyFundamentals(facts, { maxQuarters: 20 });
