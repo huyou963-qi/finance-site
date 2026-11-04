@@ -58,6 +58,12 @@ test("deploy prunes old worker releases after sync; prune keeps active and runti
   const release = read("scripts/ops/deploy-release.sh");
   const prune = read("scripts/ops/prune-worker-releases.sh");
   assert.match(release, /prune-worker-releases\.sh --apply --keep 5/);
+  assert.match(release, /export PRUNE_WORKER_RELEASES_LOCKED=1/);
+  assert.ok(
+    release.indexOf("PRUNE_WORKER_RELEASES_LOCKED=1")
+      < release.indexOf("prune-worker-releases.sh --apply"),
+    "must skip nested flock while deploy already holds worker/calendar locks",
+  );
   assert.ok(
     release.indexOf("sync-cron-checkout.sh") < release.indexOf("prune-worker-releases.sh"),
     "prune must run after the new release is activated",

@@ -297,7 +297,10 @@ exec 7>"$SECTOR_LOCK"
 flock -w 7200 7 || die "等待 sector disclosures 锁超时"
 exec 6>"$BILLING_LOCK"
 flock -w 180 6 || die "等待 billing 锁超时"
+# sync-cron-checkout / prune-worker-releases 自己也会 flock；部署已持锁时必须跳过，
+# 否则子进程对同一 lockfile 再抢排他锁会死锁（实测 #72 部署卡 30min、站点停服）。
 export SYNC_CRON_CHECKOUT_LOCKED=1
+export PRUNE_WORKER_RELEASES_LOCKED=1
 
 log "db:migrate + data:apply（旧站仍在 $OLD_PORT 服务）"
 npm run db:migrate
