@@ -130,6 +130,20 @@ test("发行人旧版总营收接回历史骨架及三表，子项与不一致�
   }
 });
 
+test("Diamondback 2022起开发支出计入资本开支，不含单独列示的油气资产收购，2021及以前的钻井子项不单列", () => {
+  const p = (start: string, end: string, val: number) => ({ start, end, val, form: "10-Q", filed: "2026-02-25" });
+  const facts = { cik: 1539838, facts: { "us-gaap": {
+    Revenues: { units: { USD: [p("2021-01-01", "2021-03-31", 800), p("2025-01-01", "2025-03-31", 1000)] } },
+    PaymentsToExploreAndDevelopOilAndGasProperties: { units: { USD: [p("2021-01-01", "2021-03-31", 400), p("2025-01-01", "2025-03-31", 942)] } },
+    PaymentsToAcquireOilAndGasProperty: { units: { USD: [p("2025-01-01", "2025-03-31", 750)] } },
+  } } };
+  const rows = Object.fromEntries(extractQuarterlyFundamentals(facts, { maxQuarters: 40 }).map(q => [q.period, q.capex]));
+  assert.equal(rows["2025Q1"], 942);
+  assert.equal(rows["2021Q1"], null);
+  const other = extractQuarterlyFundamentals({ ...facts, cik: 999 }, { maxQuarters: 40 });
+  assert.equal(other.find(q => q.period === "2025Q1")?.capex ?? null, null);
+});
+
 test("ADP/WEC/DLR总现金购置别名严格限发行人，不推广Other或开发子项到其他公司", () => {
   for (const [cik, tag] of [[8670, "PaymentsToAcquireOtherPropertyPlantAndEquipment"], [783325, "PaymentsToAcquireOtherPropertyPlantAndEquipment"], [1297996, "PaymentsToDevelopRealEstateAssets"]] as const) {
     const p = dur("2024-01-01", "2024-03-31", 25);

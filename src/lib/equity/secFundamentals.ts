@@ -945,6 +945,7 @@ export function extractQuarterlyFundamentals(
           : issuerCik === 4904 ? ["PaymentsForConstructionInProcess"]
             : issuerCik === 1705696 ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment"]
               : issuerCik === 1751788 ? ["PaymentsToAcquireMachineryAndEquipment"]
+                : issuerCik === 1539838 ? ["PaymentsToExploreAndDevelopOilAndGasProperties"]
                 : [1841666, 6769].includes(issuerCik) ? ["PaymentsToExploreAndDevelopOilAndGasProperties"] : [];
   const capexGaap = { ...gaap };
   const reportedCapex = issuerReportedCashCapex(facts);
@@ -959,7 +960,10 @@ export function extractQuarterlyFundamentals(
     ? [["PaymentsToAcquireOtherPropertyPlantAndEquipment", (p: SecFactPoint) => Boolean(p.start && p.start >= "2023-01-01")]]
     : issuerCik === 732712
     ? [["PaymentsToAcquireOtherProductiveAssets", (p: SecFactPoint) => Boolean(p.start && p.start >= "2019-01-01")]]
-    : issuerCik === 59478 ? [["PaymentsForProceedsFromProductiveAssets", (p: SecFactPoint) => Boolean(p.end && p.end <= "2019-06-30")]] : []) as [string, (p: SecFactPoint) => boolean][]) {
+    : issuerCik === 59478 ? [["PaymentsForProceedsFromProductiveAssets", (p: SecFactPoint) => Boolean(p.end && p.end <= "2019-06-30")]]
+    // Diamondback：2022 起该科目是现金流表「Additions to oil and natural gas properties」，
+    // 资产收购在 PaymentsToAcquireOilAndGasProperty。2021 及以前只是钻完井子项，不能单独当资本开支。
+    : issuerCik === 1539838 ? [["PaymentsToExploreAndDevelopOilAndGasProperties", (p: SecFactPoint) => Boolean(p.start && p.start >= "2022-01-01")]] : []) as [string, (p: SecFactPoint) => boolean][]) {
     const concept = gaap[name];
     if (concept?.units) capexGaap[name] = { ...concept, units: Object.fromEntries(Object.entries(concept.units).map(([unit, points]) => [unit, points.filter(keep)])) };
   }
