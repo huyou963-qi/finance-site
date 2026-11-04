@@ -159,6 +159,8 @@ jobs:
           # 旧代码，而部署是绿的、毫无提示。放在 migrate/data:apply 之后：只有
           # schema 与目录定义都就位了，才让调度器前进到新代码。
           sh scripts/ops/sync-cron-checkout.sh "${DEPLOY_PATH}" /opt/finance-site-jp-data
+          # 保留最近 5 个 worker release + 稳定 runtime-data；清掉可回滚窗口外的旧版本与离线 dump。
+          sh scripts/ops/prune-worker-releases.sh --apply --keep 5
 
           # 主数据 worker / 发布日历不能依赖服务器上曾经手工写过的 crontab。
           # 每次部署都从仓库幂等安装；否则订阅与发布包虽完整，nextRunAt 到期后也无人执行。

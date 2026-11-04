@@ -27,9 +27,30 @@ test("scheduler uses independent releases and deployment waits before replacing 
   assert.match(sync, /rsync -a "\$SRC_PATH\/node_modules\/" "\$RELEASE_PATH\/node_modules\/"/);
   assert.match(sync, /mv -Tf .*"\$JP_PATH"/);
   assert.match(sync, /mv "\$JP_PATH" "\$LEGACY_PATH"/);
+  assert.match(sync, /RELEASE_ROOT\/runtime-data/);
   assert.doesNotMatch(sync, /不带锁重试|ln -s "\$SRC_PATH\/node_modules"/);
   assert.ok(deploy.indexOf("flock -w 1800 8") < deploy.indexOf("rm -rf .next node_modules"));
   assert.match(deploy, /cancel-in-progress: false/);
+});
+
+test("deploy prunes old worker releases after sync; prune keeps active and runtime-data", () => {
+  const deploy = read(".github/workflows/deploy.yml");
+  const prune = read("scripts/ops/prune-worker-releases.sh");
+  assert.match(deploy, /prune-worker-releases\.sh --apply --keep 5/);
+  assert.ok(
+    deploy.indexOf("sync-cron-checkout.sh") < deploy.indexOf("prune-worker-releases.sh"),
+    "prune must run after the new release is activated",
+  );
+  assert.match(prune, /APPLY=0/);
+  assert.match(prune, /--apply\) APPLY=1/);
+  assert.match(prune, /runtime-data/);
+  assert.match(prune, /拒绝删除 active/);
+  assert.match(prune, /拒绝删除 runtime-data/);
+  assert.ok(
+    prune.indexOf("find \"$RELEASE_ROOT\" -mindepth 1 -maxdepth 1 -type d -name 'release-*' -printf '%T@")
+      < prune.lastIndexOf("migrate_runtime_data"),
+    "mtime snapshot must precede migrate/retarget so ln -sfn cannot scramble keep order",
+  );
 });
 
 test("macro selected lists show the actual latest observation on desktop and mobile", () => {
