@@ -96,6 +96,37 @@ test("lagging Company Facts stays pending and retries after the discovery window
   assert.equal(h.rows[0].dailyAttempts, 2);
 });
 
+test("a stale financial aggregate is repaired from bounded original filings before completion, then remains idempotent", async () => {
+  const h = harness("old"); let ready = false, primary = 0;
+  const versions = h.deps.listSecPeriodicFilings, vintages = h.deps.buildSecFundamentalVintages;
+  h.deps.listSecPeriodicFilings = facts => ready ? versions(facts) : [];
+  h.deps.buildSecFundamentalVintages = (facts, options) => vintages(facts, options).map(p => ({ ...p, accession: ready ? "0000320193-20-000001" : "old" }));
+  h.deps.supplementSecPeriodicFilingPair = async (_facts, cik, filing, budget) => {
+    primary++; assert.equal(cik, 320193); assert.equal(filing.reportDate, "2020-09-30"); assert.equal(budget, 2);
+    ready = true; return { facts: { cik, facts: {} }, filingsUsed: 2, handledAccessions: [filing.accession] };
+  };
+  const result = await syncDailyDisclosures(h.options, h.deps);
+  assert.equal(result.complete, 1); assert.equal(h.calls.snapshot, 1); assert.equal(primary, 1);
+  await syncDailyDisclosures(h.options, h.deps); assert.equal(primary, 1);
+});
+
+test("exhausted context budget stays pending; failed primary retrieval is durable error, never false completion", async () => {
+  for (const fails of [false, true]) {
+    const h = harness("old");
+    h.deps.listSecPeriodicFilings = () => [];
+    h.deps.supplementSecPeriodicFilingPair = async (_facts, cik, _filing, budget) => {
+      assert.equal(budget, 1);
+      if (fails) throw new Error("primary instance unavailable");
+      return { facts: { cik, facts: {} }, filingsUsed: 1, handledAccessions: [] };
+    };
+    const result = await syncDailyDisclosures({ ...h.options, filingFallbackLimit: 1 }, h.deps);
+    assert.equal(h.calls.snapshot, 0);
+    assert.equal(h.rows[0].dailyStatus, fails ? "error" : "pending");
+    assert.equal(fails ? result.failed : result.pending, 1);
+    assert.ok(h.rows[0].dailyNextAttemptAt);
+  }
+});
+
 test("fetch failures leave a durable retry record instead of claiming financial completion", async () => {
   const h = harness("error");
   const result = await syncDailyDisclosures(h.options, h.deps);
