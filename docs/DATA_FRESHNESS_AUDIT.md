@@ -3,7 +3,7 @@
 ## 为什么旧普查会漏
 
 - `data:verify-catalog -- --db` 能发现调度准入缺失，但不在日常 cron 中；它打印 `stale` 数量却不把这类状态作为失败项。
-- `lagAlerts` 只读取前 500 条启用订阅，生产实际超过 6,000 条；`DATA_LAG_ALERT_AFTER_WORKER` 和邮件/Webhook 在香港机均未配置。
+- `lagAlerts` 按 `lastError` / 高 `retryCount` / 过久未成功拉取筛选候选（上限 2,000），不再任意截取前 500 条启用订阅。生产需配置 `DATA_LAG_ALERT_AFTER_WORKER=1` 与 `DATA_LAG_SLACK_WEBHOOK_URL`（或 `DATA_LAG_WEBHOOK_URL` 指向 Slack Incoming Webhook）。
 - `verify-labor -- --db` 的月频阈值是当前月减三个月，只证明有近期历史，不证明最新发布期入库。
 - `DataSubscription.lastObsDate` 可能为空而 `MacroObservation` 已有导入历史；反过来，“抓取成功”也可能只取到源端上一期。
 - 单次 worker 按发布包展开。香港生产 `cn.safe.bop-quarterly` 有 1,686 个成员，`cn.safe.iip-quarterly` 有 776 个成员；2026-10-03 曾有一轮处理 3,002 条、耗时超过四小时。定时 `flock` 会跳过这期间的其他轮次。

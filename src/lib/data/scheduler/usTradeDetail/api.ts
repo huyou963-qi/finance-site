@@ -3,6 +3,7 @@
  * select the published partner total, not a sum of detailed commodity rows.
  */
 import { isHistoricalCensusSeries } from "./lifecycle";
+import { fetchCensusPartnerApiHttp } from "./fileTransport";
 export const CENSUS_TRADE_API = "https://api.census.gov/data/timeseries/intltrade";
 const cache = new Map<string, { at: number; promise: Promise<unknown[][]> }>();
 
@@ -68,8 +69,11 @@ async function fetchPartnerTable(side: "exports" | "imports", now: Date, key: st
     for (let attempt = 0; attempt < 2; attempt++) {
       let response: Response;
       try {
-        response = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
-      } catch {
+        // When CENSUS_FILE_PROXY_URL is set, requests go through the same
+        // audited tunnel as the four workbooks (HK direct api.census.gov → 403).
+        response = await fetchCensusPartnerApiHttp(url, { signal: AbortSignal.timeout(30_000) });
+      } catch (error) {
+        if (error instanceof Error && /proxy request failed/.test(error.message)) throw error;
         if (attempt === 0) continue;
         // Never propagate fetch errors/causes containing the credentialed URL.
         throw new Error("Census partner API network request failed after 2 attempts");
