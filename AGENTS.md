@@ -318,12 +318,21 @@ npm run events:import-ingest -- <file.json>
 - [ ] 新功能已列出底层复用项；未新增平行 adapter、事实表、writer 或重复计算链
 - [ ] 新增宏观指标是有明确来源 + 稳定更新方式的标准基础数据；二次指标走指标运算，未入库复合/派生序列
 
+## 观测性与安全（摘要）
+
+- 探活：`GET /api/health`（DB `SELECT 1`，响应含 `x-request-id`）
+- 请求关联：`src/middleware.ts` 为页面/API 注入 `x-request-id`；错误上报写入 `metadata.requestId`
+- 写操作同源：`requireSameOrigin`（`src/lib/http/sameOrigin.ts`）用于 auth/tools 变更接口；billing 仍用 `requirePaymentOrigin`
+- 管理端鉴权统一走 `@/lib/auth/requireAdmin`（`eventAuth.requireAdmin` 仅作兼容包装）
+- 已移除开放式 `proxy-example`；设计预览页生产默认仅管理员（`ALLOW_DESIGN_PREVIEWS=1` 可临时放开）
+
 ## 禁区
 
 - 不要删除或重写已合并的 migration
 - 不要把 API Key 写进客户端或提交到 Git
 - 不要在未协调时大改 `MacroSection.tsx` 整体结构
 - 生产部署密钥不要写进仓库（用服务器 `.env.local` 或 GitHub Secrets）
+- 不要重新引入开放式上游代理 Route Handler（SSRF）
 
 ## Cursor Cloud specific instructions
 

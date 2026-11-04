@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest, getUserProfile, updateUserAccount } from "@/lib/auth";
+import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 
 export async function GET(req: NextRequest) {
   const user = await getUserByRequest(req);
@@ -12,6 +13,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    requireSameOrigin(req);
     const me = await getUserByRequest(req);
     if (!me) return NextResponse.json({ error: "请先登录" }, { status: 401 });
     const body = (await req.json()) as {
@@ -31,6 +33,8 @@ export async function PATCH(req: NextRequest) {
     );
     return NextResponse.json({ user });
   } catch (e) {
+    const originErr = sameOriginErrorResponse(e);
+    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status });
     const message = e instanceof Error ? e.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 400 });
   }

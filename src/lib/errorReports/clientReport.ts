@@ -91,6 +91,10 @@ export async function reportClientError(
         digest: input.digest ?? undefined,
         metadata: {
           ...input.metadata,
+          clientRequestId:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `client-${Date.now()}`,
           ...(/ChunkLoadError|Loading (?:CSS )?chunk|SyntaxError|Unexpected token|Unexpected end of input/i.test(message)
             ? collectAssetDiagnostics(message) : {}),
         },

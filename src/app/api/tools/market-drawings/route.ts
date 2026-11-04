@@ -4,6 +4,7 @@ import { getUserByRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseWatchlistSymbol } from "@/lib/data/marketWatchlist";
 import { validateDrawings } from "@/lib/chart/marketDrawings";
+import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 const headers = { "Cache-Control": "private, no-store" };
 function scopeOf(req: NextRequest) {
   const symbol = parseWatchlistSymbol(req.nextUrl.searchParams.get("symbol"));
@@ -29,8 +30,13 @@ export async function GET(req: NextRequest) {
   }
 }
 export async function PUT(req: NextRequest) {
-  const origin = req.headers.get("origin");
-  if (origin && origin !== req.nextUrl.origin) return NextResponse.json({ error: "请求来源不正确" }, { status: 403, headers });
+  try {
+    requireSameOrigin(req);
+  } catch (e) {
+    const originErr = sameOriginErrorResponse(e);
+    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status, headers });
+    throw e;
+  }
   try {
     const user = await getUserByRequest(req);
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401, headers });

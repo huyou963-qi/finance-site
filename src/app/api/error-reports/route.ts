@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { saveErrorReportImages, type IncomingImage } from "@/lib/errorReports/attachments";
 import { notifyErrorReport } from "@/lib/errorReports/notify";
 import { allowRateLimit } from "@/lib/errorReports/rateLimit";
+import { REQUEST_ID_HEADER, resolveRequestId } from "@/lib/observability/requestId";
 import {
   ERROR_REPORT_SOURCES,
   MAX_DIGEST_LEN,
@@ -63,6 +64,12 @@ function parseImages(raw: unknown): IncomingImage[] | undefined {
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = resolveRequestId(req);
+  const withRequestId = (init?: ResponseInit) => {
+    const headers = new Headers(init?.headers);
+    headers.set(REQUEST_ID_HEADER, requestId);
+    return { ...init, headers };
+  };
   try {
     // 扫描器常发空 body / 非 JSON：按 400 拒收，不当作服务端错误刷日志
     const body = (await req.json().catch(() => null)) as {
@@ -76,11 +83,11 @@ export async function POST(req: NextRequest) {
       images?: unknown;
     } | null;
     if (!body || typeof body !== "object" || Array.isArray(body)) {
-      return NextResponse.json({ error: "请求体须为 JSON 对象" }, { status: 400 });
+      return NextResponse.json({ error: "请求体须为 JSON 对象" }, withRequestId({ status: 400 }));
     }
 
     if (!isSource(body.source)) {
-      return NextResponse.json({ error: "source 不合法" }, { status: 400 });
+      return NextResponse.json({ error: "source 不合法" }, withRequestId({ status: 400 }));
     }
     const message = clip(
       typeof body.message === "string" ? body.message : "",
@@ -91,13 +98,13 @@ export async function POST(req: NextRequest) {
       MAX_PAGE_URL_LEN,
     );
     if (!message || !pageUrl) {
-      return NextResponse.json({ error: "message 与 pageUrl 必填" }, { status: 400 });
+      return NextResponse.json({ error: "message 与 pageUrl 必填" }, withRequestId({ status: 400 }));
     }
 
     const ip = clientIp(req);
     const rateKey = `${ip}|${body.source}|${message.slice(0, 120)}`;
     if (!allowRateLimit(rateKey, 3, 5 * 60_000)) {
-      return NextResponse.json({ error: "上报过于频繁，请稍后再试" }, { status: 429 });
+      return NextResponse.json({ error: "上报过于频繁，请稍后再试" }, withRequestId({ status: 429 }));
     }
 
     let incomingImages: IncomingImage[] | undefined;
@@ -106,7 +113,7 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       return NextResponse.json(
         { error: e instanceof Error ? e.message : "图片不合法" },
-        { status: 400 },
+        withRequestId({ status: 400 }),
       );
     }
 
@@ -125,6 +132,7 @@ export async function POST(req: NextRequest) {
         : {};
     if (body.source === "manual_feature") baseMeta.feedbackKind = "feature";
     else if (body.source === "manual") baseMeta.feedbackKind = "bug";
+    baseMeta.requestId = requestId;
 
     const row = await prisma.errorReport.create({
       data: {
@@ -151,13 +159,14 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch (e) {
-      console.error("[error-reports] image save failed", e);
+      console.error("[error-reports] image save failed", requestId, e);
       return NextResponse.json(
         {
           id: row.id,
+          requestId,
           error: e instanceof Error ? e.message : "图片保存失败（文字反馈已入库）",
         },
-        { status: 201 },
+        withRequestId({ status: 201 }),
       );
     }
 
@@ -170,10 +179,10 @@ export async function POST(req: NextRequest) {
       digest: digest ?? null,
     });
 
-    return NextResponse.json({ id: row.id }, { status: 201 });
+    return NextResponse.json({ id: row.id, requestId }, withRequestId({ status: 201 }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "未知错误";
-    console.error("[error-reports] POST failed", e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[error-reports] POST failed", requestId, e);
+    return NextResponse.json({ error: msg, requestId }, withRequestId({ status: 500 }));
   }
 }
