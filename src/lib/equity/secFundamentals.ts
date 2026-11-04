@@ -858,7 +858,13 @@ export function extractQuarterlyFundamentals(
       ? ["RealEstateRevenueNet"] // PLD / EXR：旧版 Total revenues
       : Number((facts as { cik?: number }).cik) === 1164727 ? ["RevenueMineralSales"]
         : [2012383, 1364742].includes(Number((facts as { cik?: number }).cik)) ? ["RevenuesExcludingInterestAndDividends"] : [];
-  let revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
+  // Hasbro 自 FY2024 10-K（2025-02 申报）起 Revenues 只出现在分部附注、未抵销分部间收入，
+  // 合并利润表净营收是合同收入 tag；按申报日剔除，2024 年前同口径的旧点仍可拼接深历史。
+  const revenueGaap = Number((facts as { cik?: number }).cik) === 46080 && gaap.Revenues?.units
+    ? { ...gaap, Revenues: { ...gaap.Revenues, units: Object.fromEntries(Object.entries(gaap.Revenues.units)
+      .map(([unit, points]) => [unit, points.filter(p => Boolean(p.filed && p.filed < "2025-01-01"))])) } }
+    : gaap;
+  let revenueQ = pickFlowQuarterSeries(revenueGaap, FLOW_CONCEPTS.revenue, ["USD"], {
     magnitudeTieBreak: true,
     extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal, pmNetRevenue, quarterlyFlowSeries(statement.revenue)],
   });
@@ -939,6 +945,7 @@ export function extractQuarterlyFundamentals(
           : issuerCik === 4904 ? ["PaymentsForConstructionInProcess"]
             : issuerCik === 1705696 ? ["PaymentsToAcquireOtherPropertyPlantAndEquipment"]
               : issuerCik === 1751788 ? ["PaymentsToAcquireMachineryAndEquipment"]
+                : issuerCik === 1539838 ? ["PaymentsToExploreAndDevelopOilAndGasProperties"]
                 : [1841666, 6769].includes(issuerCik) ? ["PaymentsToExploreAndDevelopOilAndGasProperties"] : [];
   const capexGaap = { ...gaap };
   const reportedCapex = issuerReportedCashCapex(facts);
@@ -953,7 +960,10 @@ export function extractQuarterlyFundamentals(
     ? [["PaymentsToAcquireOtherPropertyPlantAndEquipment", (p: SecFactPoint) => Boolean(p.start && p.start >= "2023-01-01")]]
     : issuerCik === 732712
     ? [["PaymentsToAcquireOtherProductiveAssets", (p: SecFactPoint) => Boolean(p.start && p.start >= "2019-01-01")]]
-    : issuerCik === 59478 ? [["PaymentsForProceedsFromProductiveAssets", (p: SecFactPoint) => Boolean(p.end && p.end <= "2019-06-30")]] : []) as [string, (p: SecFactPoint) => boolean][]) {
+    : issuerCik === 59478 ? [["PaymentsForProceedsFromProductiveAssets", (p: SecFactPoint) => Boolean(p.end && p.end <= "2019-06-30")]]
+    // Diamondback：2022 起该科目是现金流表「Additions to oil and natural gas properties」，
+    // 资产收购在 PaymentsToAcquireOilAndGasProperty。2021 及以前只是钻完井子项，不能单独当资本开支。
+    : issuerCik === 1539838 ? [["PaymentsToExploreAndDevelopOilAndGasProperties", (p: SecFactPoint) => Boolean(p.start && p.start >= "2022-01-01")]] : []) as [string, (p: SecFactPoint) => boolean][]) {
     const concept = gaap[name];
     if (concept?.units) capexGaap[name] = { ...concept, units: Object.fromEntries(Object.entries(concept.units).map(([unit, points]) => [unit, points.filter(keep)])) };
   }

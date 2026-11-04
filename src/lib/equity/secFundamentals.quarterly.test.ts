@@ -10,6 +10,26 @@ import {
 } from "./secFundamentals";
 import { computeTtm, computeValuation, type QuarterFundamentalRow } from "./ttm";
 
+test("Hasbro 2025年起申报的Revenues是未抵销分部间收入的分部合计，季度营收取合同收入；更早同口径点仍可补历史", () => {
+  const p = (start: string, end: string, val: number, filed: string) => ({ start, end, val, form: "10-Q", filed });
+  const facts = { cik: 46080, facts: { "us-gaap": {
+    Revenues: { units: { USD: [p("2017-01-02", "2017-04-02", 849.7, "2017-04-27"), p("2017-04-03", "2017-07-02", 972.5, "2017-07-27"),
+      p("2018-01-01", "2018-04-01", 716.3, "2018-04-26"), p("2018-04-02", "2018-07-01", 904.5, "2018-07-26"),
+      p("2025-06-30", "2025-09-28", 1590.1, "2025-11-05")] } },
+    RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [p("2018-01-01", "2018-04-01", 716.3, "2019-04-25"),
+      p("2018-04-02", "2018-07-01", 904.5, "2019-07-25"), p("2025-06-30", "2025-09-28", 1387.5, "2025-11-05"),
+      p("2026-06-29", "2026-09-27", 1595.3, "2026-10-29")] } },
+  } } };
+  const rev = (f: typeof facts) => Object.fromEntries(extractQuarterlyFundamentals(f, { maxQuarters: 40 }).map(q => [q.period, q.revenue]));
+  assert.equal(rev(facts)["2025Q3"], 1387.5);
+  assert.equal(rev(facts)["2026Q3"], 1595.3);
+  assert.equal(rev(facts)["2017Q2"], 972.5);
+  const contract = facts.facts["us-gaap"].RevenueFromContractWithCustomerExcludingAssessedTax.units.USD.filter(q => q.end < "2026-01-01");
+  const beforeQ3 = { cik: 46080, facts: { "us-gaap": { ...facts.facts["us-gaap"], RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: contract } } } } };
+  assert.equal(rev(beforeQ3)["2025Q3"], 1387.5);
+  assert.equal(rev({ ...beforeQ3, cik: 999 })["2025Q3"], 1590.1);
+});
+
 test("CPT主营营收取Property revenues，不取其他收入中的管理费；其他发行人不泛用租赁标签", () => {
   const point = { start: "2025-01-01", end: "2025-03-31", val: 400, form: "10-Q", filed: "2025-05-01" };
   const facts = { cik: 906345, facts: { "us-gaap": {
@@ -108,6 +128,20 @@ test("发行人旧版总营收接回历史骨架及三表，子项与不一致�
     facts.facts["us-gaap"][tag]!.units.USD = points.map(p => ({ ...p, val: p.val * 3 }));
     assert.equal(extractQuarterlyFundamentals(facts)[0]?.revenue, null);
   }
+});
+
+test("Diamondback 2022起开发支出计入资本开支，不含单独列示的油气资产收购，2021及以前的钻井子项不单列", () => {
+  const p = (start: string, end: string, val: number) => ({ start, end, val, form: "10-Q", filed: "2026-02-25" });
+  const facts = { cik: 1539838, facts: { "us-gaap": {
+    Revenues: { units: { USD: [p("2021-01-01", "2021-03-31", 800), p("2025-01-01", "2025-03-31", 1000)] } },
+    PaymentsToExploreAndDevelopOilAndGasProperties: { units: { USD: [p("2021-01-01", "2021-03-31", 400), p("2025-01-01", "2025-03-31", 942)] } },
+    PaymentsToAcquireOilAndGasProperty: { units: { USD: [p("2025-01-01", "2025-03-31", 750)] } },
+  } } };
+  const rows = Object.fromEntries(extractQuarterlyFundamentals(facts, { maxQuarters: 40 }).map(q => [q.period, q.capex]));
+  assert.equal(rows["2025Q1"], 942);
+  assert.equal(rows["2021Q1"], null);
+  const other = extractQuarterlyFundamentals({ ...facts, cik: 999 }, { maxQuarters: 40 });
+  assert.equal(other.find(q => q.period === "2025Q1")?.capex ?? null, null);
 });
 
 test("ADP/WEC/DLR总现金购置别名严格限发行人，不推广Other或开发子项到其他公司", () => {
