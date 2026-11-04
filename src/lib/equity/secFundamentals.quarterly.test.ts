@@ -17,6 +17,9 @@ test("CPT主营营收取Property revenues，不取其他收入中的管理费；
     RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [{ ...point, val: 3 }] } },
   } } };
   assert.equal(extractQuarterlyFundamentals(facts)[0]?.revenue, 400);
+  assert.equal(extractQuarterlyFundamentals({ cik: 906345, facts: { "us-gaap": {
+    RealEstateRevenueNet: { units: { USD: [{ ...point, start: "2016-01-01", end: "2016-03-31", filed: "2016-05-01" }] } },
+  } } })[0]?.revenue, 400);
   assert.ok(legacyPartialRevenueForAudit(facts).some(p => p.val === 3));
   assert.equal(extractQuarterlyFundamentals({ ...facts, cik: 999 })[0]?.revenue, 3);
   assert.deepEqual(legacyPartialRevenueForAudit({ ...facts, cik: 999 }), []);

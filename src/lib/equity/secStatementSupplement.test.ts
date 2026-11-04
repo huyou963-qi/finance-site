@@ -16,6 +16,9 @@ test("CPT完整年度主营营收来自其已核实的物业收入科目，拒�
     RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [{ ...point, val: 12967000 }] } },
   } } };
   assert.equal(annualStatementSnapshots(facts)[0]?.revenue, 1573544000);
+  assert.equal(annualStatementSnapshots({ cik: 906345, facts: { "us-gaap": {
+    RealEstateRevenueNet: { units: { USD: [{ ...point, start: "2016-01-01", end: "2016-12-31", filed: "2017-02-01", val: 876447000 }] } },
+  } } })[0]?.revenue, 876447000);
   assert.deepEqual(annualStatementSnapshots({ ...facts, cik: 999 }), []);
   assert.deepEqual(annualStatementSnapshots({ cik: 906345, facts: { "us-gaap": {
     OperatingLeaseLeaseIncome: { units: { USD: [{ ...point, start: "2025-04-01" }, { ...point, val: Infinity }, { ...point, filed: "2025-01-01" }] } },

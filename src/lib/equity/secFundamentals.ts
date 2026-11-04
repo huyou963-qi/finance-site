@@ -891,7 +891,7 @@ export function extractQuarterlyFundamentals(
   }
   if (Number((facts as { cik?: number }).cik) === 906345) {
     // CPT利润表Property revenues是主营营收；ASC606科目仅为其他收入中的管理费。
-    revenueQ = pickFlowQuarterSeries(gaap, ["OperatingLeaseLeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue"], ["USD"]);
+    revenueQ = pickFlowQuarterSeries(gaap, ["OperatingLeaseLeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue", "RealEstateRevenueNet"], ["USD"]);
   }
   const grossQ = flowSeries(FLOW_CONCEPTS.grossProfit, ["USD"]);
   const opQ = flowSeries(FLOW_CONCEPTS.operatingIncome, ["USD"]);
