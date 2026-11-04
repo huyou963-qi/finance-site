@@ -3,23 +3,49 @@ import { parseSecDailyIndex } from "./dailyDisclosurePolicy";
 import { easternParts, parseSecAcceptanceTime } from "./disclosureTiming";
 
 /** Shared EDGAR transport and submissions discovery. All SEC consumers reuse this boundary. */
+const RETRYABLE_HTTP = new Set([429, 500, 502, 503, 504]);
+const TRANSIENT_CODES = new Set([
+  "ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "ETIMEDOUT", "EPIPE",
+  "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET",
+]);
 let tail: Promise<unknown> = Promise.resolve();
 let lastRequest = 0;
-export async function fetchSecText(url: string, timeoutMs = 30000): Promise<string> {
+
+/** 连接被重置要重试；读正文超时只再试一次。404 和其它 HTTP 错误不重试。 */
+export function secTransportFailure(error: unknown): { retry: boolean; timeout: boolean; message: string } {
+  if (!(error instanceof Error)) return { retry: false, timeout: false, message: String(error) };
+  const code = (error as { cause?: { code?: string } }).cause?.code;
+  const timeout = error.name === "TimeoutError" || /aborted due to timeout/i.test(error.message)
+    || code === "ETIMEDOUT" || code === "UND_ERR_CONNECT_TIMEOUT" || code === "UND_ERR_HEADERS_TIMEOUT" || code === "UND_ERR_BODY_TIMEOUT";
+  const reset = code != null && TRANSIENT_CODES.has(code);
+  const retry = timeout || reset || (error instanceof TypeError && /fetch failed/i.test(error.message));
+  return { retry, timeout, message: code ? `${error.message} (${code})` : error.message };
+}
+
+export async function fetchSecText(url: string, timeoutMs = 30000, fetchImpl: typeof fetch = fetch): Promise<string> {
   const u = new URL(url);
   if (u.protocol !== "https:" || !["www.sec.gov", "data.sec.gov"].includes(u.hostname)) throw new Error("非法 SEC 地址");
   const run = tail.catch(() => {}).then(async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
       await new Promise(r => setTimeout(r, Math.max(0, 250 - (Date.now() - lastRequest))));
       lastRequest = Date.now();
-      const response = await fetch(url, { headers: {
-        "User-Agent": process.env.SEC_USER_AGENT?.trim() || "hblook.com ownership-research admin@hblook.com",
-        Accept: "application/json, application/xml, text/html",
-      }, signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
-      if (response.ok) return response.text();
-      if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) throw new Error(`SEC HTTP ${response.status}`);
-      const retry = Number(response.headers.get("retry-after"));
-      await new Promise(r => setTimeout(r, Math.min(10000, Math.max(1000 * 2 ** attempt, Number.isFinite(retry) ? retry * 1000 : 0))));
+      let retryAfterMs = Math.min(10_000, 1000 * 2 ** attempt);
+      try {
+        const response = await fetchImpl(url, { headers: {
+          "User-Agent": process.env.SEC_USER_AGENT?.trim() || "hblook.com ownership-research admin@hblook.com",
+          Accept: "application/json, application/xml, text/html",
+        }, signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
+        if (response.ok) return response.text();
+        if (!RETRYABLE_HTTP.has(response.status) || attempt === 2) throw new Error(`SEC HTTP ${response.status}`);
+        const retry = Number(response.headers.get("retry-after"));
+        retryAfterMs = Math.min(10_000, Math.max(1000 * 2 ** attempt, Number.isFinite(retry) ? retry * 1000 : 0));
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith("SEC HTTP ")) throw error;
+        const failure = secTransportFailure(error);
+        // 超时已经等满 timeoutMs，再试一次；连接重置失败得快，用满 3 次。
+        if (!failure.retry || attempt === 2 || (failure.timeout && attempt >= 1)) throw new Error(failure.message);
+      }
+      await new Promise(r => setTimeout(r, retryAfterMs));
     }
     throw new Error("SEC 重试失败");
   });
