@@ -195,7 +195,7 @@ export function annualStatementSnapshots(facts: unknown) {
   const flows = statementSupplementFlows(facts);
   const root = facts as { cik?: number; facts?: { "us-gaap"?: Record<string, { units?: { USD?: SecFactPoint[] } }> } };
   if (Number(root.cik) === 906345) {
-    flows.revenue = ["OperatingLeaseLeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue"]
+    flows.revenue = ["OperatingLeaseLeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue", "RealEstateRevenueNet"]
       .flatMap(tag => root.facts?.["us-gaap"]?.[tag]?.units?.USD ?? [])
       .filter(p => typeof p.val === "number" && Number.isFinite(p.val) && Math.abs(p.val) <= Number.MAX_SAFE_INTEGER
         && Boolean(p.start && p.end && p.filed && /^10-K(?:\/A)?$/.test(p.form ?? "")
