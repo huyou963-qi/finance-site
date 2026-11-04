@@ -338,7 +338,7 @@ npm run events:import-ingest -- <file.json>
 
 1. GitHub Actions：`npm ci` → `npm run build` → `node scripts/deploy-pack.mjs` → `deploy.tar.gz`
 2. `scp` 到 `/opt/finance-site-shared/deploy.tar.gz`
-3. `scripts/ops/deploy-release.sh`：旁路解压到 `/opt/finance-site-releases/`，migrate + `data:apply`（跳过长任务），空闲端口拉起 → `/api/health` 探活 → nginx upstream 切流 → 停旧进程；`/opt/finance-site` 原子切换为指向新 release 的符号链接
+3. `scripts/ops/deploy-release.sh`：旁路解压到 `/opt/finance-site-releases/`，migrate + `data:apply`（跳过长任务），空闲端口拉起 → 部署 smoke（`/`、`/api/health`、macro-prefs、`/markets`、`/api/auth/me`、宏观 instruments BFF）→ nginx upstream 切流 → 停旧进程；切流后再 smoke，失败则自动回滚上一 release；`/opt/finance-site` 原子切换为指向新 release 的符号链接
 
 数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)；零停机细节见 [docs/ZERO_DOWNTIME_DEPLOY.md](./docs/ZERO_DOWNTIME_DEPLOY.md)。
 

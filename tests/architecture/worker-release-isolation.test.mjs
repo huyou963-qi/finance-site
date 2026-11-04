@@ -18,11 +18,18 @@ test("deployment waits before changing shared dependencies and cannot cancel a l
   assert.ok(release.indexOf("flock -w 1800 8") < release.indexOf("npm run db:migrate"));
   assert.ok(release.indexOf("flock -w 1800 9") < release.indexOf("npm run db:migrate"));
   assert.ok(
-    release.indexOf('health_check "$NEW_PORT"') < release.indexOf('ensure_nginx_upstream "$NEW_PORT"'),
+    release.indexOf('deploy_smoke "$NEW_PORT"') < release.indexOf('ensure_nginx_upstream "$NEW_PORT"'),
   );
   assert.ok(
     release.indexOf('ensure_nginx_upstream "$NEW_PORT"') < release.indexOf('pm2 delete "$LIVE_APP"'),
   );
+  // 扩探活：行情页、匿名 auth/me、宏观 instruments BFF
+  assert.match(release, /\/markets/);
+  assert.match(release, /\/api\/auth\/me/);
+  assert.match(release, /\/api\/data\/instruments\?kind=MACRO_SERIES/);
+  // 切流后失败必须能自动回滚上一 artifact
+  assert.match(release, /rollback_to_previous/);
+  assert.ok(release.indexOf("rollback_to_previous") < release.indexOf("清理旧 web release"));
 });
 test("worker dependencies belong to a preserved release and lock failure cannot fall back", () => {
   const sync = readFileSync(resolve(root, "scripts/ops/sync-cron-checkout.sh"), "utf8");

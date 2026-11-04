@@ -110,32 +110,103 @@ NGX
   systemctl reload nginx
 }
 
-health_check() {
+# 部署 smoke：首页、DB health、系统模板、行情页、匿名 auth/me、宏观 instruments BFF。
+# 成功返回 0；失败打印原因并返回 1（调用方决定是否回滚）。
+deploy_smoke_once() {
+  base="$1"
+  curl -fsS -o /dev/null --connect-timeout 2 --max-time 5 "$base/" || {
+    log "smoke 失败: GET /"
+    return 1
+  }
+  curl -fsS -o /tmp/finance-deploy-health.json --connect-timeout 2 --max-time 5 "$base/api/health" \
+    && grep -q '"ok":true' /tmp/finance-deploy-health.json || {
+    log "smoke 失败: GET /api/health"
+    return 1
+  }
+  prefs=$(curl -sS --connect-timeout 2 --max-time 5 -o /tmp/macro-prefs-check.json -w "%{http_code}" \
+    "$base/api/tools/macro-chart-prefs" || true)
+  if [ "$prefs" != "200" ] || ! grep -q '"builtinTemplateOverrides"' /tmp/macro-prefs-check.json; then
+    log "smoke 失败: GET /api/tools/macro-chart-prefs (HTTP ${prefs:-none})"
+    return 1
+  fi
+  markets=$(curl -sS --connect-timeout 2 --max-time 8 -o /dev/null -w "%{http_code}" \
+    "$base/markets" || true)
+  case "$markets" in
+    2??|3??) ;;
+    *)
+      log "smoke 失败: GET /markets (HTTP ${markets:-none})"
+      return 1
+      ;;
+  esac
+  me=$(curl -sS --connect-timeout 2 --max-time 5 -o /tmp/finance-deploy-me.json -w "%{http_code}" \
+    "$base/api/auth/me" || true)
+  if [ "$me" != "401" ] || ! grep -q '"user":null' /tmp/finance-deploy-me.json; then
+    log "smoke 失败: GET /api/auth/me 期望匿名 401+user:null (HTTP ${me:-none})"
+    return 1
+  fi
+  instruments=$(curl -sS --connect-timeout 2 --max-time 8 -o /tmp/finance-deploy-instruments.json -w "%{http_code}" \
+    "$base/api/data/instruments?kind=MACRO_SERIES&limit=1" || true)
+  if [ "$instruments" != "200" ] || ! grep -q '"total"' /tmp/finance-deploy-instruments.json; then
+    log "smoke 失败: GET /api/data/instruments 宏观 BFF (HTTP ${instruments:-none})"
+    return 1
+  fi
+  return 0
+}
+
+# 轮询 smoke；默认 30 次 × 2s。成功返回 0。
+deploy_smoke() {
   port="$1"
   base="http://127.0.0.1:${port}"
-  log "健康检查 $base ..."
-  ok=0
+  log "部署 smoke $base ..."
   i=0
   while [ "$i" -lt 30 ]; do
     i=$((i + 1))
-    if curl -fsS -o /dev/null --connect-timeout 2 --max-time 5 "$base/" \
-      && curl -fsS -o /tmp/finance-deploy-health.json --connect-timeout 2 --max-time 5 "$base/api/health" \
-      && grep -q '"ok":true' /tmp/finance-deploy-health.json; then
-      prefs=$(curl -sS --connect-timeout 2 --max-time 5 -o /tmp/macro-prefs-check.json -w "%{http_code}" \
-        "$base/api/tools/macro-chart-prefs" || true)
-      if [ "$prefs" = "200" ] && grep -q '"builtinTemplateOverrides"' /tmp/macro-prefs-check.json; then
-        ok=1
-        break
-      fi
+    if deploy_smoke_once "$base"; then
+      log "部署 smoke 通过"
+      return 0
     fi
     sleep 2
   done
-  [ "$ok" = "1" ] || {
-    log "健康检查失败"
-    pm2 logs "finance-site-${CAND_SLOT}" --lines 60 --nostream || true
-    die "新版本未通过健康检查"
+  log "部署 smoke 失败"
+  pm2 logs "finance-site-${CAND_SLOT}" --lines 60 --nostream || true
+  pm2 logs "finance-site-${LIVE_SLOT}" --lines 40 --nostream || true
+  return 1
+}
+
+# 切流后失败：nginx/符号链接/PM2 全部指回上一 release。
+rollback_to_previous() {
+  reason="${1:-post-switch smoke failed}"
+  log "回滚到上一 artifact：$reason"
+  if [ -z "${PREV_RELEASE:-}" ] || [ ! -d "$PREV_RELEASE" ]; then
+    log "ERROR: 无可用上一 release（PREV_RELEASE=${PREV_RELEASE:-empty}），无法自动回滚"
+    pm2 delete "$CAND_APP" >/dev/null 2>&1 || true
+    return 1
+  fi
+  if command -v nginx >/dev/null 2>&1; then
+    ensure_nginx_upstream "$PREV_PORT" || log "警告: nginx 回切失败"
+  fi
+  pm2 delete "$CAND_APP" >/dev/null 2>&1 || true
+  pm2 delete "$PREV_APP" >/dev/null 2>&1 || true
+  pm2 start "$PREV_RELEASE/node_modules/next/dist/bin/next" \
+    --name "$PREV_APP" \
+    --cwd "$PREV_RELEASE" \
+    -- start -p "$PREV_PORT" || {
+    log "ERROR: 无法拉起上一进程 $PREV_APP @ $PREV_PORT"
+    return 1
   }
-  log "健康检查通过"
+  if [ -L "$DEPLOY_PATH" ] || [ ! -e "$DEPLOY_PATH" ]; then
+    ln -sfn "$PREV_RELEASE" "${DEPLOY_PATH}.nextlink"
+    mv -Tf "${DEPLOY_PATH}.nextlink" "$DEPLOY_PATH"
+  fi
+  echo "$PREV_PORT" >"$PORT_FILE"
+  echo "$PREV_SLOT" >"$APP_SLOT_FILE"
+  pm2 save || true
+  if deploy_smoke_once "http://127.0.0.1:${PREV_PORT}"; then
+    log "已回滚到 $PREV_RELEASE（port=$PREV_PORT app=$PREV_APP），上一版 smoke 正常"
+  else
+    log "警告: 已切回上一 release，但 smoke 仍失败——请人工检查"
+  fi
+  return 0
 }
 
 # --- 解析当前 live 端口与 slot ---
@@ -250,13 +321,22 @@ pm2 start "$RELEASE_PATH/node_modules/next/dist/bin/next" \
   --cwd "$RELEASE_PATH" \
   -- start -p "$NEW_PORT"
 
+# 切流前记下上一 artifact，供发布后 smoke 失败自动回滚。
+PREV_PORT="$OLD_PORT"
+PREV_SLOT="$LIVE_SLOT"
+PREV_APP="$LIVE_APP"
+PREV_RELEASE=""
+if [ -e "$DEPLOY_PATH" ]; then
+  PREV_RELEASE=$(readlink -f "$DEPLOY_PATH" 2>/dev/null || true)
+fi
+
 rollback_cand() {
-  log "回滚：删除候选进程 $CAND_APP"
+  log "回滚：删除候选进程 $CAND_APP（流量仍在旧版 $PREV_PORT）"
   pm2 delete "$CAND_APP" >/dev/null 2>&1 || true
 }
 trap rollback_cand EXIT
 
-health_check "$NEW_PORT"
+deploy_smoke "$NEW_PORT" || die "新版本未通过切流前 smoke"
 
 # --- 5) 切换 nginx，再停旧进程 ---
 if command -v nginx >/dev/null 2>&1; then
@@ -269,9 +349,7 @@ log "停止旧进程 $LIVE_APP（流量已在 $NEW_PORT）"
 pm2 delete "$LIVE_APP" >/dev/null 2>&1 || true
 # 兼容历史单进程名 finance-site
 if [ "$OLD_PORT" = "3000" ]; then
-  # 若仍有旧名占用旧端口，一并去掉
   if pm2 describe finance-site >/dev/null 2>&1; then
-    # 仅当其监听旧端口时删除——用 pm2 jlist 粗判 cwd/脚本仍在时删除
     pm2 delete finance-site >/dev/null 2>&1 || true
   fi
 fi
@@ -285,6 +363,8 @@ elif [ -d "$DEPLOY_PATH" ]; then
   LEGACY="$RELEASE_ROOT/release-prelink-$(date +%Y%m%d%H%M%S)"
   log "首次迁移：实体目录改名为 $LEGACY"
   mv "$DEPLOY_PATH" "$LEGACY"
+  # 首次从实体目录迁出时，LEGACY 即上一 artifact
+  PREV_RELEASE="$LEGACY"
   ln -sfn "$RELEASE_PATH" "$DEPLOY_PATH"
 else
   ln -sfn "$RELEASE_PATH" "$DEPLOY_PATH"
@@ -293,21 +373,27 @@ fi
 echo "$NEW_PORT" >"$PORT_FILE"
 echo "$CAND_SLOT" >"$APP_SLOT_FILE"
 pm2 save || true
+# 切流后失败不再只删候选，而是完整回切上一 artifact
 trap - EXIT
 
-# --- 7) 发布后校验（经 nginx 当前 upstream / 本机新端口）---
-health_check "$NEW_PORT"
+# --- 7) 发布后 smoke；失败则自动回滚上一 release ---
+if ! deploy_smoke "$NEW_PORT"; then
+  rollback_to_previous "切流后 smoke 失败"
+  die "新版本切流后 smoke 失败，已尝试回滚"
+fi
 cd "$RELEASE_PATH"
-npm run equity:assert-seeded
+if ! npm run equity:assert-seeded; then
+  rollback_to_previous "equity:assert-seeded 失败"
+  die "equity:assert-seeded 失败，已尝试回滚"
+fi
 
-# --- 8) 只保留最近 N 个 web release（永不删当前）---
+# --- 8) 只保留最近 N 个 web release（永不删当前与刚回滚所需的上一份）---
 log "清理旧 web release（保留 $KEEP_RELEASES 个）"
 # shellcheck disable=SC2012
 ls -1dt "$RELEASE_ROOT"/release-* 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) | while read -r old; do
   case "$old" in
     "$RELEASE_PATH") continue ;;
   esac
-  # 不删仍被 DEPLOY_PATH 指向的
   if [ "$(readlink -f "$DEPLOY_PATH" 2>/dev/null || true)" = "$(readlink -f "$old" 2>/dev/null || true)" ]; then
     continue
   fi

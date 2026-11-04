@@ -45,6 +45,8 @@ test("zero-downtime deploy uses alternate port, health gate, and nginx upstream 
   assert.match(release, /NEW_PORT=3001/);
   assert.match(release, /finance_site_app/);
   assert.match(release, /\/api\/health/);
+  assert.match(release, /deploy_smoke/);
+  assert.match(release, /rollback_to_previous/);
   assert.match(health, /prisma\.\$queryRaw/);
   assert.match(health, /ok:\s*true/);
 });
