@@ -25,8 +25,9 @@ test("partner API preserves monthly NSA dollar totals, zeros and distinct import
 });
 
 test("authenticated adapter is isolated from XLSX failures, retries boundedly and redacts secrets", async () => {
-  const originalFetch = globalThis.fetch, oldKey = process.env.CENSUS_API_KEY;
+  const originalFetch = globalThis.fetch, oldKey = process.env.CENSUS_API_KEY, oldProxy = process.env.CENSUS_FILE_PROXY_URL;
   process.env.CENSUS_API_KEY = "private-test-key";
+  delete process.env.CENSUS_FILE_PROXY_URL;
   const metadata = { scrape: { provider: US_TRADE_PROVIDER } };
   try {
     let calls = 0;
@@ -73,5 +74,6 @@ test("authenticated adapter is isolated from XLSX failures, retries boundedly an
   } finally {
     globalThis.fetch = originalFetch;
     if (oldKey === undefined) delete process.env.CENSUS_API_KEY; else process.env.CENSUS_API_KEY = oldKey;
+    if (oldProxy === undefined) delete process.env.CENSUS_FILE_PROXY_URL; else process.env.CENSUS_FILE_PROXY_URL = oldProxy;
   }
 });

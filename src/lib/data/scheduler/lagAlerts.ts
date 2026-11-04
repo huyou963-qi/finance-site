@@ -29,6 +29,8 @@ export type LagAlertResult = {
 };
 
 const OUTBOX = path.join(process.cwd(), ".data", "lag-alert-outbox.log");
+/** Cap after filtering to candidates; production has 6k+ enabled subs. */
+const ALERT_CANDIDATE_LIMIT = 2_000;
 
 function lagThresholdDays(): number {
   const n = Number(process.env.DATA_LAG_DAYS_THRESHOLD?.trim() || "14");
@@ -46,22 +48,44 @@ export async function collectLagAlerts(
   prisma: PrismaClient,
   thresholdDays = lagThresholdDays(),
 ): Promise<LagAlertRow[]> {
+  const successStaleBefore = new Date(Date.now() - thresholdDays * 2 * 86_400_000);
+  // Prefer subscriptions that already look unhealthy; do not take an arbitrary
+  // first-500 slice of all enabled rows (production has 6k+).
   const subs = await prisma.dataSubscription.findMany({
-    where: { enabled: true },
+    where: {
+      enabled: true,
+      OR: [
+        { lastError: { not: null } },
+        { lastSuccessAt: null },
+        { lastSuccessAt: { lt: successStaleBefore } },
+        { retryCount: { gte: 5 } },
+      ],
+    },
     include: {
       instrument: { select: { code: true, name: true } },
     },
-    take: 500,
+    orderBy: [{ retryCount: "desc" }, { lastSuccessAt: "asc" }],
+    take: ALERT_CANDIDATE_LIMIT,
   });
+
+  const latestRuns = subs.length === 0
+    ? []
+    : await prisma.fetchRun.findMany({
+      where: { subscriptionId: { in: subs.map((s) => s.id) } },
+      orderBy: { startedAt: "desc" },
+      distinct: ["subscriptionId"],
+      select: {
+        subscriptionId: true,
+        sourceLagDays: true,
+        status: true,
+        error: true,
+      },
+    });
+  const runBySub = new Map(latestRuns.map((r) => [r.subscriptionId, r]));
 
   const alerts: LagAlertRow[] = [];
   for (const sub of subs) {
-    const lastRun = await prisma.fetchRun.findFirst({
-      where: { subscriptionId: sub.id },
-      orderBy: { startedAt: "desc" },
-      select: { sourceLagDays: true, status: true, error: true },
-    });
-
+    const lastRun = runBySub.get(sub.id);
     const lag = lastRun?.sourceLagDays ?? null;
     const successStale = staleDaysSince(sub.lastSuccessAt);
     const reasons: string[] = [];
@@ -74,6 +98,8 @@ export async function collectLagAlerts(
     }
     if (successStale != null && successStale >= thresholdDays * 2) {
       reasons.push(`${successStale} 天未成功拉取`);
+    } else if (sub.lastSuccessAt == null && sub.lastError) {
+      reasons.push("从未成功拉取");
     }
 
     if (reasons.length === 0) continue;
