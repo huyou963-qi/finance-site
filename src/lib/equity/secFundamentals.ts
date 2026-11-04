@@ -2,7 +2,7 @@ import { fetchSecJson } from "./secEdgar";
 import { issuerReportedCashCapex } from "./issuerCashCapex";
 import { SEC_PREDECESSORS, mergeSecPredecessorFacts } from "./secPredecessors";
 import { reportedDurationDifference, reportedDurationSum } from "./secReportedFlows";
-import { statementSupplementFlows, STATEMENT_CAPEX_ROLES } from "./secStatementSupplement";
+import { statementSupplementFlows, STATEMENT_CAPEX_ROLES, TOTAL_OPERATING_REVENUE_CIKS } from "./secStatementSupplement";
 /**
  * SEC EDGAR XBRL companyfacts → 三大报表标准化字段（免密钥）。
  * https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json
@@ -137,6 +137,7 @@ export function extractAnnualFundamentals(facts: unknown): SecFundamentalSnapsho
   if (!gaap) return null;
 
   const revenueConcept = firstConcept(gaap, [
+    ...(TOTAL_OPERATING_REVENUE_CIKS.has(Number((facts as { cik?: number }).cik)) ? ["Revenues", "RegulatedAndUnregulatedOperatingRevenue"] : []),
     "RevenueFromContractWithCustomerExcludingAssessedTax",
     "SalesRevenueNet",
     "Revenues",
@@ -861,6 +862,11 @@ export function extractQuarterlyFundamentals(
     magnitudeTieBreak: true,
     extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal, pmNetRevenue, quarterlyFlowSeries(statement.revenue)],
   });
+  if (TOTAL_OPERATING_REVENUE_CIKS.has(Number((facts as { cik?: number }).cik))) {
+    // 总经营收入可小于合同收入（衍生品损失），不能按末端金额较大/更新选择合同子项。
+    // 同一总额换tag仍用既有重叠验证；缺总额时保持缺失，不把合同收入冒充总营收。
+    revenueQ = pickFlowQuarterSeries(gaap, ["Revenues", "RegulatedAndUnregulatedOperatingRevenue"], ["USD"]);
+  }
   const originalRevenue = new Map(revenueQ.map(q => [q.end, q]));
   for (const name of revenueAliases) {
     const older = quarterlyFlowSeries(pickUnitPoints(gaap[name], ["USD"]));
