@@ -5,6 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# 串行部署：同组只跑一个；不取消进行中的 job，避免多个 SCP/rsync 抢写同一 tarball。
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -14,11 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     # Deployments publish code and bounded database definitions only. Data
     # acquisition and maintenance run outside the deploy SSH session.
+    # 含跨境传包抖动余量；传包本身另有分步超时（见 Copy tarball）。
     timeout-minutes: 90
     env:
       DEPLOY_USER: root
       DEPLOY_PATH: /opt/finance-site
       DEPLOY_PORT: "22"
+      # 单次 rsync 最长等待（秒）。链路极差时宁可失败告警，也不要默默卡到 job 总超时。
+      DEPLOY_RSYNC_TIMEOUT_SEC: "2400"
 
     steps:
       - name: Checkout
@@ -73,16 +77,60 @@ jobs:
         run: ssh-keyscan -H -p "${DEPLOY_PORT}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Copy tarball to server
+        id: copy-tarball
         run: |
-          scp_once() {
-            ssh -p "${DEPLOY_PORT}" \
-              -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
-              "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" "mkdir -p /opt/finance-site-shared"
-            scp -P "${DEPLOY_PORT}" \
-              -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
-              deploy.tar.gz "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:/opt/finance-site-shared/deploy.tar.gz"
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          REMOTE_DIR=/opt/finance-site-shared
+          REMOTE_TAR="${REMOTE_DIR}/deploy.tar.gz"
+          SSH_OPTS=(-p "${DEPLOY_PORT}" -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30)
+          RSYNC_RSH="ssh -p ${DEPLOY_PORT} -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30"
+          LOCAL_SIZE=$(stat -c%s deploy.tar.gz)
+          echo "local deploy.tar.gz bytes=${LOCAL_SIZE}"
+
+          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${HOST}" "mkdir -p '${REMOTE_DIR}'"
+
+          # rsync --partial --inplace：中断后可续传，避免 scp 每次重传整包。
+          rsync_once() {
+            # timeout 防止单次卡死拖到 90min job 上限才暴露
+            timeout --signal=TERM --kill-after=30 "${DEPLOY_RSYNC_TIMEOUT_SEC}" \
+              rsync -av --partial --inplace --timeout=120 \
+                -e "${RSYNC_RSH}" \
+                deploy.tar.gz "${DEPLOY_USER}@${HOST}:${REMOTE_TAR}"
           }
-          scp_once || { echo "::warning::First scp attempt failed; retrying once in 10 seconds"; sleep 10; scp_once; }
+
+          START_TS=$(date +%s)
+          ATTEMPT=1
+          MAX_ATTEMPTS=3
+          until rsync_once; do
+            RC=$?
+            if [ "${ATTEMPT}" -ge "${MAX_ATTEMPTS}" ]; then
+              ELAPSED=$(( $(date +%s) - START_TS ))
+              echo "::error::传包失败：rsync 连续 ${MAX_ATTEMPTS} 次未成功（最后 exit=${RC}，已耗时 ${ELAPSED}s）。常见原因是 GitHub runner→香港跨境链路抖动；可重跑本 workflow，或检查香港机磁盘/SSH。"
+              exit 1
+            fi
+            echo "::warning::rsync 第 ${ATTEMPT}/${MAX_ATTEMPTS} 次失败（exit=${RC}）；10s 后断点续传重试"
+            ATTEMPT=$((ATTEMPT + 1))
+            sleep 10
+          done
+          ELAPSED=$(( $(date +%s) - START_TS ))
+          echo "rsync_ok attempts=${ATTEMPT} elapsed_sec=${ELAPSED}"
+
+          # 远端完整性：大小一致 + gzip 可读，再进入零停机切流
+          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${HOST}" \
+            "REMOTE_SIZE=\$(stat -c%s '${REMOTE_TAR}'); \
+             echo remote_bytes=\$REMOTE_SIZE expected=${LOCAL_SIZE}; \
+             [ \"\$REMOTE_SIZE\" -eq ${LOCAL_SIZE} ] || { echo 'size mismatch'; exit 1; }; \
+             gzip -t '${REMOTE_TAR}' || { echo 'gzip -t failed (corrupt tarball)'; exit 1; }" \
+            || {
+              echo "::error::传包后校验失败：远端文件大小不一致或 gzip 损坏。请重跑 Deploy；勿在校验失败时继续切流。"
+              exit 1
+            }
+
+          if [ "${ELAPSED}" -gt 600 ]; then
+            echo "::warning::传包耗时 ${ELAPSED}s（>10min）。链路偏慢但已成功；若频繁出现可考虑同区域中转。"
+          fi
+          echo "copy_elapsed_sec=${ELAPSED}" >> "$GITHUB_OUTPUT"
 
       - name: Zero-downtime release on server
         run: |
@@ -94,6 +142,7 @@ jobs:
           # 拉起候选端口，健康检查通过后切 nginx upstream，再停旧进程。
           TARBALL=/opt/finance-site-shared/deploy.tar.gz
           [ -f "\$TARBALL" ] || { echo "missing \$TARBALL"; exit 1; }
+          gzip -t "\$TARBALL" || { echo "corrupt \$TARBALL"; exit 1; }
           # 始终从本次 tarball 取出 deploy-release.sh，避免「旧机无脚本 / symlink 指向旧 release」鸡生蛋问题。
           rm -rf /tmp/finance-deploy-script
           mkdir -p /tmp/finance-deploy-script
@@ -102,3 +151,8 @@ jobs:
           chmod +x "\$SCRIPT"
           TARBALL="\$TARBALL" DEPLOY_PATH="${DEPLOY_PATH}" sh "\$SCRIPT"
           EOF
+
+      - name: Deploy failure summary
+        if: failure()
+        run: |
+          echo "::error::Deploy to production 失败。请打开本 run 日志：优先看「Copy tarball to server」是否超时/校验失败，或「Zero-downtime release on server」是否在 migrate/data:apply/nginx 切流报错。concurrency 已串行，不要并行手动 scp 同一路径。"
