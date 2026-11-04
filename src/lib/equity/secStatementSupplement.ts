@@ -22,8 +22,11 @@ function validInstanceSource(p: StatementFact, proofs: Record<string, FilingStat
   const base = `https://www.sec.gov/Archives/edgar/data/${p.cik}/${p.accn?.replace(/-/g, "")}/`;
   const instance = proof.instance?.url?.slice(base.length);
   if (!proof.instance?.url?.startsWith(base) || !/^[\w.-]+_htm\.xml$/.test(instance ?? "") || p.source !== proof.instance.url || p.sha256 !== proof.instance.sha256) return false;
-  const stem = instance!.slice(0, -8);
-  return [[proof.instance, instance], [proof.presentation, `${stem}_pre.xml`], [proof.labels, `${stem}_lab.xml`], [proof.summary, "FilingSummary.xml"]]
+  if (proof.taxonomySchemaName != null && !/^[\w.-]+\.xsd$/.test(proof.taxonomySchemaName)
+    || proof.linkbaseStorage != null && proof.linkbaseStorage !== "schema") return false;
+  const stem = proof.taxonomySchemaName?.slice(0, -4) ?? instance!.slice(0, -8), embedded = proof.linkbaseStorage === "schema";
+  if (embedded && (!proof.taxonomySchemaName || proof.presentation.sha256 !== proof.labels.sha256)) return false;
+  return [[proof.instance, instance], [proof.presentation, embedded ? proof.taxonomySchemaName : `${stem}_pre.xml`], [proof.labels, embedded ? proof.taxonomySchemaName : `${stem}_lab.xml`], [proof.summary, "FilingSummary.xml"]]
     .every(([document, filename]) => typeof document === "object" && document != null
       && "url" in document && document.url === `${base}${filename}` && "sha256" in document && /^[a-f0-9]{64}$/.test(String(document.sha256)));
 }
@@ -63,6 +66,7 @@ export const STATEMENT_CAPEX_ROLES: Readonly<Record<number, readonly (readonly s
   879101: [["PaymentsForImprovementsToOperatingRealEstate", "PaymentsForCapitalImprovements"], ["PaymentsToDevelopRealEstateAssets"]],
   906345: [["PaymentsToDevelopRealEstateAssets"], ["PaymentsToAcquireOtherPropertyPlantAndEquipment"]],
   1101239: [["PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsToAcquirePropertyPlantAndEquipment"]],
+  1297996: [["PaymentsToDevelopRealEstateAssets"]],
   765880: [["PaymentsForLeasingCostsCommissionsAndTenantImprovements"], ["PaymentsToDevelopRealEstateAssets"]],
   920522: [["RevenueGeneratingCapitalExpenditures"], ["RedevelopmentExpenditures"], ["PaymentsToDevelopRealEstateAssets", "PaymentsToAcquireCommercialRealEstate"]],
   1045609: [["PaymentForPropertyImprovements", "PaymentsForCapitalImprovements", "PaymentsToAcquirePropertyPlantAndEquipment"], ["PaymentsToDevelopRealEstateAssets", "PaymentsToAcquireAndDevelopRealEstate"], ["PaymentsForLeasingCostsCommissionsAndTenantImprovements"]],
@@ -175,6 +179,7 @@ export function statementSupplementFlows(facts: unknown): Flows {
     // FANG旧版仅为钻完井子项；2022起该行明确合并基础设施和中游新增资产。
     if (cik === 1539838 && p.start >= "2022-01-01" && (!/drilling/i.test(p.label) || !/infrastructure.*midstream/i.test(p.label))) continue;
     if (cik === 1101239 && !/^purchases of (?:other )?property, plant and equipment$/i.test(p.label.trim())) continue;
+    if (cik === 1297996 && !/^improvements to investments in real estate$/i.test(p.label.trim())) continue;
     if (!specific && (!p.taxonomy.startsWith("us-gaap/") || /\bnet\b|incentive|financ|principal|interest|business/i.test(p.label)
       || !/^(?:capital expenditures|(?:purchases|additions|payments|acquisitions)(?: of| for| to)? (?:property|plant|equipment|leasehold))/i.test(p.label.trim()))) continue;
     const historicalRoles: readonly (readonly (readonly string[])[])[] = cik === 1393311
@@ -192,7 +197,12 @@ export function statementSupplementFlows(facts: unknown): Flows {
     const dteComponents = cik === 936340 && cashConcepts && (
       p.tag === "PlantAndEquipmentExpendituresUtility" && /^plant and equipment expenditures\s*[-–—]\s*utility$/i.test(p.label.trim())
       || p.tag === "PlantAndEquipmentExpendituresNonUtility" && /^plant and equipment expenditures\s*[-–—]\s*non-utility$/i.test(p.label.trim()));
+    const psa2022 = cik === 1393311 && p.start >= "2022-01-01" && p.end <= "2022-12-31" && cashConcepts
+      && !hasCashConcept("CapitalExpendituresForPropertyEnhancements") && !hasCashConcept("CapitalExpendituresForEnergyEfficiencies") && (
+        p.tag === "CapitalExpendituresToMaintainRealEstateFacilities" && /^capital expenditures to maintain real estate facilities$/i.test(p.label.trim())
+        || p.tag === "DevelopmentAndExpansionOfRealEstateFacilities" && /^development and expansion of real estate facilities$/i.test(p.label.trim()));
     const roleSets: readonly (readonly (readonly string[])[])[] = cptCombined || kimCombined ? [[[p.tag]]]
+      : psa2022 ? [[["CapitalExpendituresToMaintainRealEstateFacilities"], ["DevelopmentAndExpansionOfRealEstateFacilities"]]]
       : dteComponents ? [[["PlantAndEquipmentExpendituresUtility"], ["PlantAndEquipmentExpendituresNonUtility"]]]
       : cik === 1327811 && p.tag === "PaymentsToAcquirePropertyPlantAndEquipment" && /^capital expenditures$/i.test(p.label.trim())
         ? [[["PaymentsToAcquirePropertyPlantAndEquipment"]]] : historicalRoles.length ? historicalRoles : [configured];

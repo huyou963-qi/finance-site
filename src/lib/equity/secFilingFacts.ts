@@ -8,7 +8,7 @@ import { statementSupplementFlows, STATEMENT_CAPEX_ROLES } from "./secStatementS
 type Node = Record<string, unknown>;
 export type PeriodicFiling = Pick<SecIndexRow, "accession" | "form" | "filedAt" | "primaryDocument"> & { reportDate?: string | null };
 export type InstanceConcept = { namespace: string; points: SecFactPoint[] };
-export type InstanceData = { concepts: Map<string, InstanceConcept>; standardPrefixes: Set<string>; namespaces: Record<string, string>; registrantName?: string };
+export type InstanceData = { concepts: Map<string, InstanceConcept>; standardPrefixes: Set<string>; namespaces: Record<string, string>; registrantName?: string; schemaDocument?: string };
 const nodes = (v: unknown): Node[] => (Array.isArray(v) ? v : [v]).filter(x => x && typeof x === "object") as Node[];
 const local = (key: string) => key.split(":").at(-1)!;
 const children = (v: Node, name: string) => Object.entries(v).filter(([k]) => !k.startsWith("@_") && local(k) === name).flatMap(([, x]) => nodes(x));
@@ -87,7 +87,9 @@ export function parseSecPeriodicInstance(xml: string, filing: PeriodicFiling, ci
   const names = [...new Set(Object.entries(root).filter(([key]) => local(key) === "EntityRegistrantName"
     && /^https?:\/\/xbrl\.sec\.gov\/dei\/20\d{2}(?:-\d{2}-\d{2})?$/.test(namespaces.get(key.split(":")[0]!) ?? ""))
     .flatMap(([, values]) => nodes(values)).filter(p => contexts.has(attr(p, "contextRef"))).map(text).filter(Boolean))];
-  return { concepts, standardPrefixes, namespaces: Object.fromEntries(namespaces), ...(names.length === 1 ? { registrantName: names[0] } : {}) };
+  const schemas = [...new Set(children(root, "schemaRef").map(p => attr(p, "href")).filter(p => /^[\w.-]+\.xsd$/.test(p)))];
+  return { concepts, standardPrefixes, namespaces: Object.fromEntries(namespaces), ...(names.length === 1 ? { registrantName: names[0] } : {}),
+    ...(schemas.length === 1 ? { schemaDocument: schemas[0] } : {}) };
 }
 
 /** 相同申报与期间的冲突必须停止，不能用缓存与新文件拼出一个虚构金额。 */
@@ -157,6 +159,7 @@ export async function supplementSecPeriodicFilingPair(facts: unknown, cik: numbe
 
 export type FilingDocumentProof = { url: string; sha256: string };
 export type FilingStatementProof = {
+  taxonomySchemaName?: string; linkbaseStorage?: "schema";
   instance: FilingDocumentProof; presentation: FilingDocumentProof; labels: FilingDocumentProof; summary: FilingDocumentProof;
   cashFlowRole: string; cashFlowConcepts: string[]; namespaces: Record<string, string>; hashEncoding: "utf8-text";
 };
@@ -169,6 +172,10 @@ const locs = (link: Node) => new Map(children(link, "loc").flatMap(p => {
   const anchor = attr(p, "href").split("#")[1], split = anchor?.indexOf("_") ?? -1;
   return anchor && split > 0 ? [[attr(p, "label"), `${anchor.slice(0, split)}:${anchor.slice(split + 1)}`] as const] : [];
 }));
+const linkbases = (doc: Node): Node[] => {
+  const schema = first(doc, "schema");
+  return [...children(doc, "linkbase"), ...children(schema ?? {}, "annotation").flatMap(a => children(a, "appinfo")).flatMap(a => children(a, "linkbase"))];
+};
 
 /** 多份现金流表时不猜主体；只接受FilingSummary明确列入Statements的唯一现金流表。 */
 export function primaryCashFlowLabels(summary: string, presentation: string, labels: string, registrantName?: string) {
@@ -183,9 +190,10 @@ export function primaryCashFlowLabels(summary: string, presentation: string, lab
   }
   if (candidates.length !== 1) return null;
   const role = text(first(candidates[0]!, "Role")), map = new Map<string, Set<string>>();
-  const lroot = first(parse(labels, 8 * 1024 * 1024), "linkbase"), proot = first(parse(presentation, 8 * 1024 * 1024), "linkbase");
-  if (!lroot || !proot) return null;
-  for (const link of children(lroot, "labelLink")) {
+  const labelDoc = parse(labels, 8 * 1024 * 1024), presentationDoc = labels === presentation ? labelDoc : parse(presentation, 8 * 1024 * 1024);
+  const lroots = linkbases(labelDoc), proots = linkbases(presentationDoc);
+  if (!lroots.length || !proots.length) return null;
+  for (const link of lroots.flatMap(p => children(p, "labelLink"))) {
     const locations = locs(link), resources = new Map<string, Node[]>();
     for (const p of children(link, "label")) resources.set(attr(p, "label"), [...(resources.get(attr(p, "label")) ?? []), p]);
     for (const arc of children(link, "labelArc")) {
@@ -198,7 +206,7 @@ export function primaryCashFlowLabels(summary: string, presentation: string, lab
     }
   }
   const selected = new Map<string, Set<string>>(), all = new Set<string>();
-  for (const link of children(proot, "presentationLink").filter(p => attr(p, "role") === role)) {
+  for (const link of proots.flatMap(p => children(p, "presentationLink")).filter(p => attr(p, "role") === role)) {
     const locations = locs(link);
     for (const qname of locations.values()) all.add(qname);
     for (const arc of children(link, "presentationArc")) {
@@ -229,22 +237,27 @@ export async function supplementSecPeriodicFiling(facts: unknown, cik: number, f
     secFilingInstanceSources?: Record<string, FilingDocumentProof & { hashEncoding: "utf8-text" }>;
   };
   result.secFilingInstanceSources = { ...result.secFilingInstanceSources, [filing.accession]: { url: source, sha256: sha(xml), hashEncoding: "utf8-text" } };
-  const current = filing.reportDate ? extractQuarterlyFundamentals(result, { maxQuarters: 20 }).find(p => p.fiscalDate === filing.reportDate) : undefined;
-  if (current && [current.revenue, current.netIncome, current.ocf, current.capex].every(p => p != null)) return result;
+  // 注册过现金流口径的主体始终留取主表证明，避免后续申报切换tag时丢失本期总额。
   if (!STATEMENT_CAPEX_ROLES[cik] && !CASH_CAPEX_COMPONENTS[cik]) return result;
   const pre = one(/_pre\.xml$/i, 8 * 1024 * 1024), lab = one(/_lab\.xml$/i, 8 * 1024 * 1024), summary = one(/^FilingSummary\.xml$/i, 2 * 1024 * 1024);
-  if (pre && lab && summary) {
+  const schema = !pre && !lab && parsed.schemaDocument ? entries.find(p => p.name === parsed.schemaDocument && Number(p.size) > 0 && Number(p.size) <= 8 * 1024 * 1024) : undefined;
+  if ((pre && lab || schema) && summary) {
     const documents = [];
-    for (const file of [pre, lab, summary]) {
+    for (const file of schema ? [schema, summary] : [pre!, lab!, summary]) {
       const url = secDocumentUrl(String(cik), filing.accession, file.name), content = await transport.text(url, 20000);
       documents.push({ url, sha256: sha(content), content });
     }
-    const [p, l, s] = documents as [typeof documents[number], typeof documents[number], typeof documents[number]];
+    const [p, l, s] = (schema ? [documents[0], documents[0], documents[1]] : documents) as [typeof documents[number], typeof documents[number], typeof documents[number]];
+    if (schema) {
+      const target = attr(first(parse(p.content, 8 * 1024 * 1024), "schema") ?? {}, "targetNamespace");
+      if (!target || !Object.values(parsed.namespaces).includes(target)) throw new Error("内嵌标签schema与申报命名空间不符");
+    }
     const selected = primaryCashFlowLabels(s.content, p.content, l.content, parsed.registrantName);
     if (selected) {
       const proof: FilingStatementProof = { instance: { url: source, sha256: sha(xml) }, presentation: { url: p.url, sha256: p.sha256 },
         labels: { url: l.url, sha256: l.sha256 }, summary: { url: s.url, sha256: s.sha256 },
-        cashFlowRole: selected.role, cashFlowConcepts: selected.concepts, namespaces: parsed.namespaces, hashEncoding: "utf8-text" };
+        cashFlowRole: selected.role, cashFlowConcepts: selected.concepts, namespaces: parsed.namespaces, hashEncoding: "utf8-text",
+        ...(parsed.schemaDocument ? { taxonomySchemaName: parsed.schemaDocument } : {}), ...(schema ? { linkbaseStorage: "schema" as const } : {}) };
       const extra = [];
       for (const [qname, label] of selected.labels) for (const point of parsed.concepts.get(qname)?.points ?? []) {
         if (!point.start) continue;
