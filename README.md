@@ -84,10 +84,8 @@ npm run dev
    - `GET /api/data/macro?source=worldbank|fred` — 仍可直接拉世行 / FRED。  
    - `GET /api/data/klines?symbol=BTCUSDT&interval=1d` — 服务端转发 Binance 公开接口。  
 
-3. **通用代理示例**：`GET /api/proxy-example?path=...`  
-   - 读取 `UPSTREAM_API_BASE`、`UPSTREAM_API_KEY`；未配置上游时返回 `501`。
-
-4. 前端在拉取失败时会**回退**到本地随机演示序列，便于离线开发；生产环境应明确错误提示与监控。
+3. 前端在拉取失败时会**回退**到本地随机演示序列，便于离线开发；生产环境应明确错误提示与监控。
+   - 探活：`GET /api/health`（含 DB ping，响应带 `x-request-id`）。
 
 ## 脚本
 

@@ -114,12 +114,16 @@ async function assertions(url: string): Promise<void> {
     });
   }
 
-  const healthRes = await health();
+  const healthRes = await health(req("/api/health"));
   assert.equal(healthRes.status, 200);
-  const healthBody = (await healthRes.json()) as { ok: boolean; db: boolean; ts: string };
+  const healthBody = (await healthRes.json()) as {
+    ok: boolean; db: boolean; ts: string; requestId?: string;
+  };
   assert.equal(healthBody.ok, true);
   assert.equal(healthBody.db, true);
   assert.ok(typeof healthBody.ts === "string" && healthBody.ts.length > 0);
+  assert.ok(typeof healthBody.requestId === "string" && healthBody.requestId.length >= 8);
+  assert.equal(healthRes.headers.get("x-request-id"), healthBody.requestId);
   assertNoLeak(JSON.stringify(healthBody));
 
   const anonMe = await me(req("/api/auth/me"));

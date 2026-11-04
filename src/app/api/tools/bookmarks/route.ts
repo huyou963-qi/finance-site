@@ -4,6 +4,7 @@ import {
   loadBookmarkStateForUser,
   saveBookmarkStateForUser,
 } from "@/lib/data/userBookmarks";
+import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,12 +20,15 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    requireSameOrigin(req);
     const user = await getUserByRequest(req);
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
     const body = (await req.json()) as { state?: unknown };
     const state = await saveBookmarkStateForUser(user.id, body?.state);
     return NextResponse.json({ state });
   } catch (e) {
+    const originErr = sameOriginErrorResponse(e);
+    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status });
     const message = e instanceof Error ? e.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 400 });
   }

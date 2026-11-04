@@ -10,6 +10,7 @@ import {
   type BuiltinTemplateOverride,
   type SystemMacroChartPrefsPayload,
 } from "@/lib/data/macroChartPrefs";
+import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 
 /**
  * 系统模板（admin 在 HK 库里维护的唯一一份）对所有人可读，未登录访客也返回；
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
+    requireSameOrigin(req);
     const user = await getUserByRequest(req);
     if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
     const body = (await req.json()) as {
@@ -80,6 +82,8 @@ export async function PUT(req: NextRequest) {
       hiddenBuiltinTemplateIds: systemMacroChartPrefs.hiddenBuiltinTemplateIds ?? [],
     });
   } catch (e) {
+    const originErr = sameOriginErrorResponse(e);
+    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status });
     const message = e instanceof Error ? e.message : "未知错误";
     return NextResponse.json({ error: message }, { status: 400 });
   }
