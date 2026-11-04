@@ -8,9 +8,21 @@ import { execFileSync } from "node:child_process";
 const root = resolve(import.meta.dirname, "../..");
 test("deployment waits before changing shared dependencies and cannot cancel a live deploy", () => {
   const deploy = readFileSync(resolve(root, ".github/workflows/deploy.yml"), "utf8");
-  assert.ok(deploy.indexOf("flock -w 1800 8") < deploy.indexOf("rm -rf .next node_modules"));
-  assert.match(deploy, /flock -w 1800 9/);
+  const release = readFileSync(resolve(root, "scripts/ops/deploy-release.sh"), "utf8");
   assert.match(deploy, /cancel-in-progress: false/);
+  assert.match(deploy, /deploy-release\.sh/);
+  assert.match(deploy, /finance-site-shared\/deploy\.tar\.gz/);
+  // 不停站：禁止在切流前 pm2 stop / 原地删 live .next
+  assert.doesNotMatch(deploy, /pm2 stop finance-site/);
+  assert.doesNotMatch(release, /pm2 stop/);
+  assert.ok(release.indexOf("flock -w 1800 8") < release.indexOf("npm run db:migrate"));
+  assert.ok(release.indexOf("flock -w 1800 9") < release.indexOf("npm run db:migrate"));
+  assert.ok(
+    release.indexOf('health_check "$NEW_PORT"') < release.indexOf('ensure_nginx_upstream "$NEW_PORT"'),
+  );
+  assert.ok(
+    release.indexOf('ensure_nginx_upstream "$NEW_PORT"') < release.indexOf('pm2 delete "$LIVE_APP"'),
+  );
 });
 test("worker dependencies belong to a preserved release and lock failure cannot fall back", () => {
   const sync = readFileSync(resolve(root, "scripts/ops/sync-cron-checkout.sh"), "utf8");
