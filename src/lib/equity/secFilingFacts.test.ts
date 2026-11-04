@@ -96,6 +96,11 @@ test("CPT and KIM accept a reported combined capital line only when the complete
     const t = transport(cik), enriched = await supplementSecPeriodicFiling({ cik, facts: {} }, cik, filing, t);
     assert.equal(t.calls.length, 5);
     assert.equal(statementSupplementFlows(enriched).capex[0]?.val, 100);
+    const direct = enriched.statementSupplement!.find(p => (p as {tag: string}).tag === (cik === 906345 ? 'PaymentsToDevelopRealEstateAssets' : 'PaymentsForImprovementsToOperatingRealEstate')) as Record<string, unknown>;
+    const archive = { ...direct, source: 'https://www.sec.gov/files/dera/data/financial-statement-data-sets/2026q3.zip', sha256: 'a'.repeat(64) };
+    delete archive.sourceType; delete archive.concept;
+    enriched.statementSupplement!.unshift(archive);
+    assert.equal(statementSupplementFlows(enriched).capex[0]?.val, 100, 'an equal DERA fact cannot hide the stronger original presentation proof');
     const incomplete = structuredClone(enriched), proof = incomplete.secFilingStatementProofs![filing.accession]!;
     proof.cashFlowConcepts.push(cik === 906345 ? 'g:PaymentsToAcquireOtherPropertyPlantAndEquipment' : 'g:PaymentsToDevelopRealEstateAssets');
     assert.equal(statementSupplementFlows(incomplete).capex.length, 0, "present but valueless component cannot be assumed zero");
@@ -107,6 +112,27 @@ test("CPT and KIM accept a reported combined capital line only when the complete
   const cpt = await supplementSecPeriodicFiling({ cik: 906345, facts: {} }, 906345, filing, transport(906345, false, true));
   assert.equal(statementSupplementFlows(cpt).capex[0]?.val, 104, "a separately reported extra PPE amount remains required");
 });
+test("embedded schema linkbases require an explicit instance reference, matching namespace and complete source hashes", async () => {
+  const f = fixture(), schemaName = 'report-20260630.xsd';
+  f.xml = f.xml.replace('<x:xbrl ', '<x:xbrl xmlns:issuer="https://issuer.example/2026" ')
+    .replace('</x:xbrl>', `<link:schemaRef xlink:href="${schemaName}"/></x:xbrl>`);
+  const schema = `<xs:schema targetNamespace="https://issuer.example/2026"><xs:annotation><xs:appinfo>${f.pre}${f.lab}</xs:appinfo></xs:annotation></xs:schema>`;
+  const t = { json: async<T>() => ({directory:{item:[{name:'report-20260630_htm.xml',size:1000},{name:schemaName,size:1000},{name:'FilingSummary.xml',size:100}]}} as T),
+    text: async(url: string) => url.endsWith('_htm.xml') ? f.xml : url.endsWith('.xsd') ? schema : f.summary };
+  const result = await supplementSecPeriodicFiling({cik:906345,facts:{}},906345,filing,t);
+  assert.equal(statementSupplementFlows(result).capex[0]?.val,100);
+  const proof = result.secFilingStatementProofs![filing.accession]!;
+  assert.equal(proof.linkbaseStorage,'schema');assert.equal(proof.presentation.url,proof.labels.url);
+  const bad = structuredClone(result);bad.secFilingStatementProofs![filing.accession]!.labels.sha256='f'.repeat(64);
+  assert.throws(()=>statementSupplementFlows(bad),/元数据/);
+  await assert.rejects(()=>supplementSecPeriodicFiling({cik:906345,facts:{}},906345,filing,{...t,text:async(u:string)=>(await t.text(u)).replace('targetNamespace="https://issuer.example/2026"','targetNamespace="https://wrong.example/2026"')}),/命名空间/);
+  const absent=await supplementSecPeriodicFiling({cik:906345,facts:{}},906345,filing,{...t,text:async(u:string)=>u.endsWith('_htm.xml')?f.xml.replace(`<link:schemaRef xlink:href="${schemaName}"/>`,''):t.text(u)});
+  assert.equal(absent.secFilingStatementProofs,undefined);
+  const separate={...transport(),json:async<T>()=>({directory:{item:['report-20260630x10q_htm.xml','report-20260630_pre.xml','report-20260630_lab.xml','FilingSummary.xml'].map(name=>({name,size:1000}))}} as T),
+    text:async(u:string)=>u.endsWith('_htm.xml')?f.xml:u.endsWith('_pre.xml')?f.pre:u.endsWith('_lab.xml')?f.lab:f.summary};
+  assert.equal(statementSupplementFlows(await supplementSecPeriodicFiling({cik:906345,facts:{}},906345,filing,separate)).capex[0]?.val,100);
+});
+
 test("DTE's verified utility and non-utility cash lines remain two required components after 2022", async () => {
   const f = fixture(936340, false, true);
   f.xml = f.xml.replace('<x:xbrl ', '<x:xbrl xmlns:dte="http://www.dteenergy.com/2026" ');
@@ -120,6 +146,21 @@ test("DTE's verified utility and non-utility cash lines remain two required comp
   assert.equal(statementSupplementFlows(result).capex[0]?.val, 104);
   result.statementSupplement = result.statementSupplement?.filter(p => (p as {tag: string}).tag !== 'PlantAndEquipmentExpendituresNonUtility');
   assert.equal(statementSupplementFlows(result).capex.length, 0);
+});
+
+test("PSA 2022 accepts two historical cash lines only when the complete statement omits the newer split categories", async () => {
+  const f=fixture(1393311,false,true);
+  f.xml=f.xml.replace('<x:xbrl ','<x:xbrl xmlns:psa="https://www.publicstorage.com/2022" ').replaceAll('2026-','2022-');
+  for(const key of ['xml','pre','lab'] as const){
+    f[key]=f[key].replaceAll(key==='xml'?'g:PaymentsToDevelopRealEstateAssets':'g_PaymentsToDevelopRealEstateAssets',key==='xml'?'psa:CapitalExpendituresToMaintainRealEstateFacilities':'psa_CapitalExpendituresToMaintainRealEstateFacilities')
+      .replaceAll(key==='xml'?'g:PaymentsToAcquireOtherPropertyPlantAndEquipment':'g_PaymentsToAcquireOtherPropertyPlantAndEquipment',key==='xml'?'psa:DevelopmentAndExpansionOfRealEstateFacilities':'psa_DevelopmentAndExpansionOfRealEstateFacilities');
+  }
+  f.lab=f.lab.replace('Development and capital improvements, including land','Capital expenditures to maintain real estate facilities').replace('Other property, plant and equipment','Development and expansion of real estate facilities');
+  const t={...transport(1393311,false,true),text:async(u:string)=>u.endsWith('_htm.xml')?f.xml:u.endsWith('_pre.xml')?f.pre:u.endsWith('_lab.xml')?f.lab:f.summary};
+  const result=await supplementSecPeriodicFiling({cik:1393311,facts:{}},1393311,filing,t);
+  assert.equal(statementSupplementFlows(result).capex[0]?.val,104);
+  result.secFilingStatementProofs![filing.accession]!.cashFlowConcepts.push('psa:CapitalExpendituresForEnergyEfficiencies');
+  assert.equal(statementSupplementFlows(result).capex.length,0,'a present but valueless newer component is not zero');
 });
 
 test("lagging upstream can be repaired from at most current and prior filing, preserving a real cumulative difference", async () => {

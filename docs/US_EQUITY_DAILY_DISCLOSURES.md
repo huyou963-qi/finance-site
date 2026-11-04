@@ -97,6 +97,14 @@ GAAP 与非 GAAP 分开，缺少发布前预期快照时不输出超预期判断
 后缀精确匹配（仅归一大小写、空白和 Co/Company 标准缩写），不能按出现顺序或公司名相似程度选择子公司的报表。
 DTE 近年重新分列的 utility / non-utility 现金购置额，核对两条主表标题后同申报、同累计区间求和；
 任何一项无数字均保留缺失，附注中的应付、未付资本开支不计入现金支出。
+新版申报可能把 presentation/labels 内嵌在 XSD 中。仅读取 instance 明确引用的本申报
+schema（最多 8 MiB），核对 targetNamespace；只解析 annotation/appinfo 下的 linkbase，
+不递归下载 import/include。独立标签文件的命名也以该 schemaRef 为准，允许 instance 文件名
+带 x10q 等后缀；内嵌模式的两份证明指向同一 schema 和同一哈希。每份文件预算仍不增加。
+DLR 的 Improvements to investments in real estate 按现金流主表单列改善支出补取，
+不把同表另列的业务/资产收购及合营投资计入资本开支。
+PSA 2022 年仍使用维护及开发扩张两条现金支出主表行，仅在完整主表不列后来拆出的
+property enhancements / energy efficiencies 时接纳两项合计；不把补充披露的应付/未付金额加入现金支出。
 
 复用既有进程、锁、快照和重试状态，不新增常驻服务、表或索引。默认每轮最多读取 12 份
 申报（`--filing-fallback-limit=0..20`），每公司最多本期及前期两份、串行处理；每份最多
