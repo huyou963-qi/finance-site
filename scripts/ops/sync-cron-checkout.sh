@@ -56,7 +56,10 @@ if [ -e "$JP_PATH/.env.local" ]; then
 else
   ENV_PATH=$(readlink -f "$SRC_PATH/.env.local")
 fi
-if [ -d "$JP_PATH/.data" ]; then
+# 优先使用稳定 runtime-data，避免运行态缓存继续挂在可被清理的 legacy/旧 release 内。
+if [ -d "$RELEASE_ROOT/runtime-data" ]; then
+  CACHE_PATH="$RELEASE_ROOT/runtime-data"
+elif [ -d "$JP_PATH/.data" ]; then
   CACHE_PATH=$(readlink -f "$JP_PATH/.data")
 else
   CACHE_PATH="$RELEASE_ROOT/runtime-data"

@@ -2,11 +2,34 @@ import type { SecFactPoint } from "./secFundamentals";
 import { SEC_PREDECESSORS } from "./secPredecessors";
 import { CASH_CAPEX_COMPONENTS } from "./issuerCashCapex";
 import { reportedDurationDifference, reportedDurationSum } from "./secReportedFlows";
+import type { FilingStatementProof } from "./secFilingFacts";
 
 export type StatementFact = SecFactPoint & {
   cik: number; tag: string; taxonomy: string; statement: "IS" | "CF"; label: string;
   segments: string; coreg: string; unit: string; source: string; sha256: string; parenthetical: false;
+  sourceType?: "sec-instance"; concept?: string;
 };
+function validInstanceSource(p: StatementFact, proofs: Record<string, FilingStatementProof> | undefined) {
+  const proof = proofs?.[p.accn ?? ""];
+  if (!proof || proof.hashEncoding !== "utf8-text" || p.statement !== "CF" || !p.concept || p.concept.split(":")[1] !== p.tag
+    || !Array.isArray(proof.cashFlowConcepts) || proof.cashFlowConcepts.length > 1500 || !proof.cashFlowConcepts.includes(p.concept)
+    || typeof proof.cashFlowRole !== "string" || !/cash.*flow/i.test(proof.cashFlowRole)
+    || !proof.namespaces || typeof proof.namespaces !== "object" || Object.keys(proof.namespaces).length > 1000) return false;
+  const prefix = p.concept.split(":")[0]!, ns = proof.namespaces[prefix];
+  if (typeof ns !== "string") return false;
+  const standard = ns.match(/^https?:\/\/(?:fasb\.org|xbrl\.us)\/us-gaap\/(20\d{2})(?:-\d{2}-\d{2})?$/);
+  if (p.taxonomy !== (standard ? `us-gaap/${standard[1]}` : p.accn)) return false;
+  const base = `https://www.sec.gov/Archives/edgar/data/${p.cik}/${p.accn?.replace(/-/g, "")}/`;
+  const instance = proof.instance?.url?.slice(base.length);
+  if (!proof.instance?.url?.startsWith(base) || !/^[\w.-]+_htm\.xml$/.test(instance ?? "") || p.source !== proof.instance.url || p.sha256 !== proof.instance.sha256) return false;
+  if (proof.taxonomySchemaName != null && !/^[\w.-]+\.xsd$/.test(proof.taxonomySchemaName)
+    || proof.linkbaseStorage != null && proof.linkbaseStorage !== "schema") return false;
+  const stem = proof.taxonomySchemaName?.slice(0, -4) ?? instance!.slice(0, -8), embedded = proof.linkbaseStorage === "schema";
+  if (embedded && (!proof.taxonomySchemaName || proof.presentation.sha256 !== proof.labels.sha256)) return false;
+  return [[proof.instance, instance], [proof.presentation, embedded ? proof.taxonomySchemaName : `${stem}_pre.xml`], [proof.labels, embedded ? proof.taxonomySchemaName : `${stem}_lab.xml`], [proof.summary, "FilingSummary.xml"]]
+    .every(([document, filename]) => typeof document === "object" && document != null
+      && "url" in document && document.url === `${base}${filename}` && "sha256" in document && /^[a-f0-9]{64}$/.test(String(document.sha256)));
+}
 type Field = "revenue" | "netIncome" | "ocf" | "capex";
 type Flows = Record<Field, SecFactPoint[]>;
 const DAY = 86400000;
@@ -42,6 +65,8 @@ export const STATEMENT_CAPEX_ROLES: Readonly<Record<number, readonly (readonly s
   910606: [["PaymentsToDevelopRealEstateAssets"]],
   879101: [["PaymentsForImprovementsToOperatingRealEstate", "PaymentsForCapitalImprovements"], ["PaymentsToDevelopRealEstateAssets"]],
   906345: [["PaymentsToDevelopRealEstateAssets"], ["PaymentsToAcquireOtherPropertyPlantAndEquipment"]],
+  1101239: [["PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsToAcquirePropertyPlantAndEquipment"]],
+  1297996: [["PaymentsToDevelopRealEstateAssets"]],
   765880: [["PaymentsForLeasingCostsCommissionsAndTenantImprovements"], ["PaymentsToDevelopRealEstateAssets"]],
   920522: [["RevenueGeneratingCapitalExpenditures"], ["RedevelopmentExpenditures"], ["PaymentsToDevelopRealEstateAssets", "PaymentsToAcquireCommercialRealEstate"]],
   1045609: [["PaymentForPropertyImprovements", "PaymentsForCapitalImprovements", "PaymentsToAcquirePropertyPlantAndEquipment"], ["PaymentsToDevelopRealEstateAssets", "PaymentsToAcquireAndDevelopRealEstate"], ["PaymentsForLeasingCostsCommissionsAndTenantImprovements"]],
@@ -68,7 +93,7 @@ export const STATEMENT_EXTRA_CAPEX_TAGS = {
 
 /** 本地SEC官方批量表补充：输入仍是不可信数据，严格限制来源、主体、区间、维度和字段。 */
 export function statementSupplementFlows(facts: unknown): Flows {
-  const root = facts as { cik?: number; statementSupplement?: unknown };
+  const root = facts as { cik?: number; statementSupplement?: unknown; secFilingStatementProofs?: Record<string, FilingStatementProof> };
   const out: Flows = { revenue: [], netIncome: [], ocf: [], capex: [] };
   if (!root?.statementSupplement) return out;
   if (!Array.isArray(root.statementSupplement) || root.statementSupplement.length > 8000) throw new Error("财报补充超出单公司8000点上限");
@@ -91,15 +116,16 @@ export function statementSupplementFlows(facts: unknown): Flows {
     if (!p || !isoDate(p.start) || !isoDate(p.end) || !isoDate(p.filed) || p.end > p.filed
       || typeof p.val !== "number" || !Number.isFinite(p.val) || Math.abs(p.val) > Number.MAX_SAFE_INTEGER
       || !/^10-[KQ](?:\/A)?$/.test(p.form ?? "") || !/^\d{10}-\d{2}-\d{6}$/.test(p.accn ?? "")
-      || !/^https:\/\/www\.sec\.gov\/files\/dera\/data\/financial-statement-data-sets\/\d{4}q[1-4]\.zip$/.test(p.source ?? "")
+      || !(p.sourceType === "sec-instance" ? validInstanceSource(p, root.secFilingStatementProofs)
+        : p.sourceType == null && /^https:\/\/www\.sec\.gov\/files\/dera\/data\/financial-statement-data-sets\/\d{4}q[1-4]\.zip$/.test(p.source ?? ""))
       || !/^[a-f0-9]{64}$/.test(p.sha256 ?? "") || !/^(?:us-gaap\/\d{4}|\d{10}-\d{2}-\d{6})$/.test(p.taxonomy ?? "")
       || p.parenthetical !== false || !["IS", "CF"].includes(p.statement) || p.unit !== "USD" || p.coreg !== ""
       || typeof p.segments !== "string" || p.segments.length > 1000 || typeof p.label !== "string" || p.label.length > 500
       || typeof p.tag !== "string" || !/^[A-Za-z][\w.-]{0,199}$/.test(p.tag)) throw new Error("财报补充事实元数据无效");
     const days = (Date.parse(p.end) - Date.parse(p.start)) / DAY;
     if (days < 69 || days > 380) throw new Error("财报补充期间无效");
-    const archive = p.source.match(/\/(\d{4})q([1-4])\.zip$/)!;
-    if (p.filed.slice(0, 4) !== archive[1] || Math.ceil(Number(p.filed.slice(5, 7)) / 3) !== Number(archive[2])) throw new Error("申报日不属于来源归档季度");
+    const archive = p.source.match(/\/(\d{4})q([1-4])\.zip$/);
+    if (archive && (p.filed.slice(0, 4) !== archive[1] || Math.ceil(Number(p.filed.slice(5, 7)) / 3) !== Number(archive[2]))) throw new Error("申报日不属于来源归档季度");
     if (p.cik !== cik && !SEC_PREDECESSORS.some(r => r.current === cik && r.predecessor === p.cik && p.end! < r.before)) throw new Error("财报补充主体不是已核实的当前或前身集团");
     const cms = cik === 811156 && p.tag === "PaymentsToAcquirePropertyPlantAndEquipment"
       && p.segments === "PropertyPlantAndEquipmentByType=OngoingCapitalExpenditures;";
@@ -109,7 +135,8 @@ export function statementSupplementFlows(facts: unknown): Flows {
     const id = `${key}|${p.tag}|${p.segments}`;
     if (seen.has(id) && seen.get(id) !== p.val) throw new Error("同申报补充事实冲突");
     seen.set(id, p.val);
-    const presentation = `${id}|${p.statement}|${p.label}`;
+    // 同金额的DERA记录不能遮蔽原文附带的完整主表证明；跨来源金额冲突仍由seen拒绝。
+    const presentation = `${id}|${p.statement}|${p.label}|${p.sourceType ?? "dera"}`;
     if (presentations.has(presentation)) continue;
     presentations.add(presentation);
     const point: SecFactPoint = { start: p.start, end: p.end, val: p.val, accn: p.accn, filed: p.filed, form: p.form, fp: p.fp, fy: p.fy };
@@ -152,14 +179,34 @@ export function statementSupplementFlows(facts: unknown): Flows {
       && (p.end >= "2019-01-01" || !/^acquisition of property and equipment, net of change in related payables$/i.test(p.label.trim()))) continue;
     // FANG旧版仅为钻完井子项；2022起该行明确合并基础设施和中游新增资产。
     if (cik === 1539838 && p.start >= "2022-01-01" && (!/drilling/i.test(p.label) || !/infrastructure.*midstream/i.test(p.label))) continue;
+    if (cik === 1101239 && !/^purchases of (?:other )?property, plant and equipment$/i.test(p.label.trim())) continue;
+    if (cik === 1297996 && !/^improvements to investments in real estate$/i.test(p.label.trim())) continue;
     if (!specific && (!p.taxonomy.startsWith("us-gaap/") || /\bnet\b|incentive|financ|principal|interest|business/i.test(p.label)
       || !/^(?:capital expenditures|(?:purchases|additions|payments|acquisitions)(?: of| for| to)? (?:property|plant|equipment|leasehold))/i.test(p.label.trim()))) continue;
     const historicalRoles: readonly (readonly (readonly string[])[])[] = cik === 1393311
       ? PSA_CASH_ROLES.filter(r => p.start! >= r.from && p.start! <= r.through).map(r => r.roles)
       : cik === 1539838 ? FANG_CASH_ROLES.filter(r => p.start! >= r.from && p.start! <= r.through).map(r => r.roles)
       : cik === 936340 && p.start < "2022-01-01" ? [[["PlantAndEquipmentExpendituresUtility"], ["PlantAndEquipmentExpendituresNonUtility"]]] : [];
-    const roleSets: readonly (readonly (readonly string[])[])[] = cik === 1327811 && p.tag === "PaymentsToAcquirePropertyPlantAndEquipment" && /^capital expenditures$/i.test(p.label.trim())
-      ? [[["PaymentsToAcquirePropertyPlantAndEquipment"]]] : historicalRoles.length ? historicalRoles : [configured];
+    const cashConcepts = p.sourceType === "sec-instance" ? root.secFilingStatementProofs?.[p.accn!]?.cashFlowConcepts : undefined;
+    const hasCashConcept = (tag: string) => cashConcepts?.some(qname => qname.split(":")[1] === tag);
+    // 只在完整主表的presentation证明没有另一分列项时，接受已明确合并披露的总行。
+    // “分项无数值”与“整份主表不再列该分项”不同，前者仍然不能推定为零。
+    const cptCombined = cik === 906345 && p.tag === "PaymentsToDevelopRealEstateAssets" && cashConcepts
+      && !hasCashConcept("PaymentsToAcquireOtherPropertyPlantAndEquipment") && /^development and capital improvements(?:, including land)?$/i.test(p.label.trim());
+    const kimCombined = cik === 879101 && p.tag === "PaymentsForImprovementsToOperatingRealEstate" && cashConcepts
+      && !hasCashConcept("PaymentsToDevelopRealEstateAssets") && /^improvements to operating real estate$/i.test(p.label.trim());
+    const dteComponents = cik === 936340 && cashConcepts && (
+      p.tag === "PlantAndEquipmentExpendituresUtility" && /^plant and equipment expenditures\s*[-–—]\s*utility$/i.test(p.label.trim())
+      || p.tag === "PlantAndEquipmentExpendituresNonUtility" && /^plant and equipment expenditures\s*[-–—]\s*non-utility$/i.test(p.label.trim()));
+    const psa2022 = cik === 1393311 && p.start >= "2022-01-01" && p.end <= "2022-12-31" && cashConcepts
+      && !hasCashConcept("CapitalExpendituresForPropertyEnhancements") && !hasCashConcept("CapitalExpendituresForEnergyEfficiencies") && (
+        p.tag === "CapitalExpendituresToMaintainRealEstateFacilities" && /^capital expenditures to maintain real estate facilities$/i.test(p.label.trim())
+        || p.tag === "DevelopmentAndExpansionOfRealEstateFacilities" && /^development and expansion of real estate facilities$/i.test(p.label.trim()));
+    const roleSets: readonly (readonly (readonly string[])[])[] = cptCombined || kimCombined ? [[[p.tag]]]
+      : psa2022 ? [[["CapitalExpendituresToMaintainRealEstateFacilities"], ["DevelopmentAndExpansionOfRealEstateFacilities"]]]
+      : dteComponents ? [[["PlantAndEquipmentExpendituresUtility"], ["PlantAndEquipmentExpendituresNonUtility"]]]
+      : cik === 1327811 && p.tag === "PaymentsToAcquirePropertyPlantAndEquipment" && /^capital expenditures$/i.test(p.label.trim())
+        ? [[["PaymentsToAcquirePropertyPlantAndEquipment"]]] : historicalRoles.length ? historicalRoles : [configured];
     for (let formula = 0; formula < roleSets.length; formula++) {
       const periodRoles = roleSets[formula]!;
       const groupKey = `${key}|${periodRoles.map(tags => tags.join(",")).join(";")}`;

@@ -30,6 +30,7 @@ test("scheduler uses independent releases and deployment waits before replacing 
   assert.match(sync, /rsync -a "\$SRC_PATH\/node_modules\/" "\$RELEASE_PATH\/node_modules\/"/);
   assert.match(sync, /mv -Tf .*"\$JP_PATH"/);
   assert.match(sync, /mv "\$JP_PATH" "\$LEGACY_PATH"/);
+  assert.match(sync, /RELEASE_ROOT\/runtime-data/);
   assert.doesNotMatch(sync, /不带锁重试|ln -s "\$SRC_PATH\/node_modules"/);
   assert.match(deploy, /cancel-in-progress: false/);
   assert.match(release, /sh scripts\/ops\/sync-cron-checkout\.sh/);
@@ -49,6 +50,28 @@ test("zero-downtime deploy uses alternate port, health gate, and nginx upstream 
   assert.match(release, /rollback_to_previous/);
   assert.match(health, /prisma\.\$queryRaw/);
   assert.match(health, /ok:\s*true/);
+});
+
+test("deploy prunes old worker releases after sync; prune keeps active and runtime-data", () => {
+  // Zero-downtime path: prune runs inside deploy-release.sh after sync-cron-checkout,
+  // not inline in deploy.yml (which only invokes deploy-release.sh).
+  const release = read("scripts/ops/deploy-release.sh");
+  const prune = read("scripts/ops/prune-worker-releases.sh");
+  assert.match(release, /prune-worker-releases\.sh --apply --keep 5/);
+  assert.ok(
+    release.indexOf("sync-cron-checkout.sh") < release.indexOf("prune-worker-releases.sh"),
+    "prune must run after the new release is activated",
+  );
+  assert.match(prune, /APPLY=0/);
+  assert.match(prune, /--apply\) APPLY=1/);
+  assert.match(prune, /runtime-data/);
+  assert.match(prune, /拒绝删除 active/);
+  assert.match(prune, /拒绝删除 runtime-data/);
+  assert.ok(
+    prune.indexOf("find \"$RELEASE_ROOT\" -mindepth 1 -maxdepth 1 -type d -name 'release-*' -printf '%T@")
+      < prune.lastIndexOf("migrate_runtime_data"),
+    "mtime snapshot must precede migrate/retarget so ln -sfn cannot scramble keep order",
+  );
 });
 
 test("macro selected lists show the actual latest observation on desktop and mobile", () => {
