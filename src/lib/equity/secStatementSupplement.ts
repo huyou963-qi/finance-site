@@ -31,6 +31,8 @@ function validInstanceSource(p: StatementFact, proofs: Record<string, FilingStat
       && "url" in document && document.url === `${base}${filename}` && "sha256" in document && /^[a-f0-9]{64}$/.test(String(document.sha256)));
 }
 type Field = "revenue" | "netIncome" | "ocf" | "capex";
+/** 已核对合并利润表：合同收入另列衍生品等调整，不能代替完整经营总收入。 */
+export const TOTAL_OPERATING_REVENUE_CIKS = new Set([4904, 811156, 1130310, 715957, 1047862, 1711269, 1013871, 788784, 922224, 1692819]);
 type Flows = Record<Field, SecFactPoint[]>;
 const DAY = 86400000;
 const isoDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s)
@@ -147,7 +149,8 @@ export function statementSupplementFlows(facts: unknown): Flows {
         1045609: ["RealEstateRevenueNet"], 1289490: ["RealEstateRevenueNet"],
         1164727: ["RevenueMineralSales"], 1035002: ["RefiningAndMarketingRevenue"],
       };
-      const revenuePriority = issuerRevenue[cik]?.includes(p.tag) ? 6 : revenueTags.indexOf(p.tag);
+      const revenuePriority = TOTAL_OPERATING_REVENUE_CIKS.has(cik) && ["Revenues", "RegulatedAndUnregulatedOperatingRevenue"].includes(p.tag)
+        ? -1 : issuerRevenue[cik]?.includes(p.tag) ? 6 : revenueTags.indexOf(p.tag);
       if (apaRevenue && /^total revenues$/i.test(p.label.trim())) select("revenue", key, point, 0);
       const pmOldGross = cik === 1413329 && p.end < "2018-01-01" && ["SalesRevenueNet", "RevenueFromContractWithCustomerIncludingAssessedTax"].includes(p.tag);
       if (cik === 1413329 && p.end < "2018-01-01" && !p.segments && p.taxonomy.startsWith("us-gaap/")) {

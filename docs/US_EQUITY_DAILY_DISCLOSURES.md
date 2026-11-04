@@ -105,6 +105,10 @@ DLR 的 Improvements to investments in real estate 按现金流主表单列改�
 不把同表另列的业务/资产收购及合营投资计入资本开支。
 PSA 2022 年仍使用维护及开发扩张两条现金支出主表行，仅在完整主表不列后来拆出的
 property enhancements / energy efficiencies 时接纳两项合计；不把补充披露的应付/未付金额加入现金支出。
+经营总收入与合同收入也需区分：AEP/CMS/CNP/D/ED/EVRG/NRG/PEG/PPL/VST 的合并利润表
+总额使用 Revenues 或 RegulatedAndUnregulatedOperatingRevenue；合同收入另有衍生品等调整。
+总额可能高于或低于合同收入，不能以“金额较大”或“末端更新”选择合同子项并回写历史。
+上述发行人缺总额时保留缺失，原文回退继续补取实际总额；季度、年度与主表补充口径一致。
 
 复用既有进程、锁、快照和重试状态，不新增常驻服务、表或索引。默认每轮最多读取 12 份
 申报（`--filing-fallback-limit=0..20`），每公司最多本期及前期两份、串行处理；每份最多
