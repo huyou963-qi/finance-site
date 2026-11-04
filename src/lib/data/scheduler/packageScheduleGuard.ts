@@ -81,6 +81,12 @@ export function releaseConsumed(
   if (monthly) {
     const expected = expectedMonthlyObservation(previousReleaseAt, monthly.lagMonths).getTime();
     if (!monthly.oldest || monthly.oldest.getTime() < expected) return false;
+    // 目标月已入库，且发布之后跑成功过。就业、多 release 包仍走各自的发布证明；
+    // 个别成员没写 sourceSync，不能把单一发布包钉在每月 10 日兜底上。
+    if (runState.requiredSeriesLatestObsDate === undefined && !runState.publicationRequirements) {
+      const ran = runState.lastSuccessAt;
+      if (ran && ran.getTime() >= previousReleaseAt.getTime()) return true;
+    }
   }
   if (runState.requiredSeriesLatestObsDate !== undefined &&
       (!hasEmploymentReleaseObservation(packageId, previousReleaseAt, runState.requiredSeriesLatestObsDate) ||
@@ -170,9 +176,13 @@ export function resolvePackageNextRunAt(params: {
     }
 
     if (runState.requiredMonthlyObservation || runState.requiresPublicationProof || runState.requiredSeriesLatestObsDate !== undefined) {
-      // 跑过/源库一致不代表发布期已到齐。此前误跳下月则恢复2h探测。
-      const retry = currentNextRunAt && (!computedNextRunAt || currentNextRunAt < computedNextRunAt)
-        ? currentNextRunAt : new Date(nowMs + 2 * 3_600_000);
+      // 跑过不代表这一期的观测月已到齐。只保留几个小时内的探测；
+      // 每月 10 日兜底（远早于下一期官方发布）不是探测点，否则会把已到点的发布拖过好几天。
+      const RETRY_HORIZON_MS = 6 * 3_600_000;
+      const retryIsNear = currentNextRunAt != null
+        && currentNextRunAt.getTime() <= nowMs + RETRY_HORIZON_MS
+        && (computedNextRunAt == null || currentNextRunAt.getTime() < computedNextRunAt.getTime());
+      const retry = retryIsNear ? currentNextRunAt : new Date(nowMs + 2 * 3_600_000);
       return { nextRunAt: retry, reason: "hold_pending_release" };
     }
 
