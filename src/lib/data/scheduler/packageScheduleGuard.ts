@@ -81,12 +81,6 @@ export function releaseConsumed(
   if (monthly) {
     const expected = expectedMonthlyObservation(previousReleaseAt, monthly.lagMonths).getTime();
     if (!monthly.oldest || monthly.oldest.getTime() < expected) return false;
-    // 目标月已入库，且发布之后跑成功过。就业、多 release 包仍走各自的发布证明；
-    // 个别成员没写 sourceSync，不能把单一发布包钉在每月 10 日兜底上。
-    if (runState.requiredSeriesLatestObsDate === undefined && !runState.publicationRequirements) {
-      const ran = runState.lastSuccessAt;
-      if (ran && ran.getTime() >= previousReleaseAt.getTime()) return true;
-    }
   }
   if (runState.requiredSeriesLatestObsDate !== undefined &&
       (!hasEmploymentReleaseObservation(packageId, previousReleaseAt, runState.requiredSeriesLatestObsDate) ||

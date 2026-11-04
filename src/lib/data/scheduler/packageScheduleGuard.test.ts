@@ -372,7 +372,7 @@ test("贸易差额的每月 10 日兜底不是漏掉的发布日的重试", () =
   assert.equal(missed.reason, "hold_pending_release");
   assert.equal(missed.nextRunAt?.toISOString(), "2026-11-05T00:02:01.000Z");
 
-  const caughtUp = resolvePackageNextRunAt({
+  const monthOnly = resolvePackageNextRunAt({
     packageId: "us.census.international_trade",
     computedNextRunAt: d("2026-12-08T13:33:00.000Z"),
     currentNextRunAt: d("2026-11-10T08:00:00.000Z"),
@@ -380,6 +380,22 @@ test("贸易差额的每月 10 日兜底不是漏掉的发布日的重试", () =
     runState: {
       lastSuccessAt: d("2026-11-05T00:20:00.000Z"),
       sourceVerifiedAt: null,
+      requiresPublicationProof: true,
+      requiredMonthlyObservation: { oldest: d("2026-09-01"), lagMonths: 2 },
+    },
+    now: d("2026-11-05T00:30:00.000Z"),
+  });
+  assert.equal(monthOnly.reason, "hold_pending_release");
+  assert.equal(monthOnly.nextRunAt?.toISOString(), "2026-11-05T02:30:00.000Z");
+
+  const caughtUp = resolvePackageNextRunAt({
+    packageId: "us.census.international_trade",
+    computedNextRunAt: d("2026-12-08T13:33:00.000Z"),
+    currentNextRunAt: d("2026-11-10T08:00:00.000Z"),
+    previousReleaseAt: d("2026-11-04T13:30:00.000Z"),
+    runState: {
+      lastSuccessAt: d("2026-11-05T00:20:00.000Z"),
+      sourceVerifiedAt: d("2026-11-04T13:30:00.000Z"),
       requiresPublicationProof: true,
       requiredMonthlyObservation: { oldest: d("2026-09-01"), lagMonths: 2 },
     },
