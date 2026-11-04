@@ -4,7 +4,7 @@ Production deployment must be bounded and must not depend on long-running or rat
 
 1. Prisma migration.
 2. Idempotent catalog definitions, subscriptions, release packages, and global catalog layout.
-3. Local application restart and HTTP health check.
+3. Zero-downtime process cutover (new release on the idle port → health check → nginx upstream reload → stop old process). See [ZERO_DOWNTIME_DEPLOY.md](./ZERO_DOWNTIME_DEPLOY.md).
 
 The deployment invokes:
 

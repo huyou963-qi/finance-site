@@ -75,127 +75,30 @@ jobs:
       - name: Copy tarball to server
         run: |
           scp_once() {
+            ssh -p "${DEPLOY_PORT}" \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
+              "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" "mkdir -p /opt/finance-site-shared"
             scp -P "${DEPLOY_PORT}" \
               -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
-              deploy.tar.gz "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
+              deploy.tar.gz "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}:/opt/finance-site-shared/deploy.tar.gz"
           }
           scp_once || { echo "::warning::First scp attempt failed; retrying once in 10 seconds"; sleep 10; scp_once; }
 
-      - name: Extract and restart on server
+      - name: Zero-downtime release on server
         run: |
           ssh -p "${DEPLOY_PORT}" \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
             "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" <<EOF
           set -euo pipefail
-          cd "${DEPLOY_PATH}"
-          # 覆盖代码、共享依赖或迁移前，等待当前 worker 和 calendar 完成。
-          exec 8>/tmp/finance-data-worker.lock
-          flock -w 1800 8
-          exec 9>/tmp/finance-sync-calendar.lock
-          flock -w 1800 9
-          # 每日财报任务读取同一部署目录，覆盖源码/依赖前同样等待其退出。
-          exec 7>/tmp/finance-sector-daily-disclosures.lock
-          flock -w 7200 7
-          exec 6>/tmp/finance-billing.lock
-          flock -w 180 6
-          export SYNC_CRON_CHECKOUT_LOCKED=1
-          site_stopped=0
-          restore_site() {
-            if [ "\$site_stopped" = "1" ]; then
-              cd "${DEPLOY_PATH}"
-              pm2 restart finance-site || pm2 start npm --name finance-site -- run start
-              pm2 save || true
-            fi
-          }
-          trap restore_site EXIT
-          site_stopped=1
-          pm2 stop finance-site || true
-          # 已打开的旧版页面仍会按旧 manifest 请求带哈希的 chunk。
-          # 保留最近 30 天的静态资源，避免发布后这些请求直接 404。
-          # archive 位于 .next 外，不能被下面的清理删除。
-          mkdir -p .next-static-archive
-          if [ -d .next/static ]; then
-            cp -an .next/static/. .next-static-archive/
-          fi
-          find .next-static-archive -type f -mtime +30 -delete
-          find .next-static-archive -depth -mindepth 1 -type d -empty -delete
-          rm -rf .next node_modules
-          tar -xzf deploy.tar.gz
-          rm -f deploy.tar.gz
-          # -n 确保本次构建的同名文件始终优先。
-          cp -an .next-static-archive/. .next/static/
-
-          # Stage H 只在部署时幂等安装 cron 定义；外部数据获取仍由 cron 执行，
-          # 不进入部署 SSH 会话。heartbeat monitor 与日常任务使用独立 flock。
-          install -m 0644 scripts/ops/finance-site-sector-regime.cron /etc/cron.d/finance-site-sector-regime
-          install -m 0644 scripts/ops/finance-site-sector-history.cron /etc/cron.d/finance-site-sector-history
-          install -m 0644 scripts/ops/finance-site-quant-monthly.cron /etc/cron.d/finance-site-quant-monthly
-          install -m 0644 scripts/ops/finance-site-ownership.cron /etc/cron.d/finance-site-ownership
-          install -m 0644 scripts/ops/finance-site-dera-insider.cron /etc/cron.d/finance-site-dera-insider
-          install -m 0644 scripts/ops/finance-site-gold-futures.cron /etc/cron.d/finance-site-gold-futures
-          install -m 0644 scripts/ops/finance-site-data.logrotate /etc/logrotate.d/finance-site-data
-          install -m 0644 scripts/ops/finance-site-billing.cron /etc/cron.d/finance-site-billing
-          install -m 0644 scripts/ops/finance-site-billing.logrotate /etc/logrotate.d/finance-site-billing
-          # Resource diagnostics survive deployments; validate before graceful reload.
-          if command -v nginx >/dev/null 2>&1; then
-            install -m 0644 scripts/ops/finance-site-zpay-notify.conf /etc/nginx/snippets/finance-site-zpay-notify.conf
-            install -m 0644 scripts/ops/finance-site-asset-diagnostics.conf /etc/nginx/conf.d/finance-site-asset-diagnostics.conf
-            install -m 0644 scripts/ops/finance-site-asset-diagnostics.logrotate /etc/logrotate.d/finance-site-assets
-            nginx -t
-            systemctl reload nginx
-          fi
-          chmod +x scripts/ops/host-diagnostics-snapshot.sh scripts/ops/host-diagnostics-boot.sh
-
-          # Fast deploy: migrations plus catalog definitions, subscriptions,
-          # release packages and layout. No history backfills, calendar fetches,
-          # equity discovery, global verification or quant rebuilds happen here.
-          # Schema and code-owned catalog definitions are deployment gates. A green
-          # workflow must mean migrations and release-package membership reached DB.
-          npm run db:migrate
-          npm run data:apply -- --skip-migrate --skip-equity --skip-calendar --skip-backfill --skip-verify
-
-          # cron 的数据 worker 与日历同步跑在独立检出 /opt/finance-site-jp-data
-          # （见 crontab），DEPLOY_PATH 覆盖不到它。不同步的话线上调度器会继续跑
-          # 旧代码，而部署是绿的、毫无提示。放在 migrate/data:apply 之后：只有
-          # schema 与目录定义都就位了，才让调度器前进到新代码。
-          sh scripts/ops/sync-cron-checkout.sh "${DEPLOY_PATH}" /opt/finance-site-jp-data
-          # 保留最近 5 个 worker release + 稳定 runtime-data；清掉可回滚窗口外的旧版本与离线 dump。
-          sh scripts/ops/prune-worker-releases.sh --apply --keep 5
-
-          # 主数据 worker / 发布日历不能依赖服务器上曾经手工写过的 crontab。
-          # 每次部署都从仓库幂等安装；否则订阅与发布包虽完整，nextRunAt 到期后也无人执行。
-          install -m 0644 scripts/ops/finance-site-data-scheduler.cron /etc/cron.d/finance-site-data-scheduler
-
-          pm2 restart finance-site || pm2 start npm --name finance-site -- run start
-          pm2 save
-          site_stopped=0
-          trap - EXIT
-          sleep 5
-          curl -fsS -o /dev/null http://127.0.0.1:3000/ || (pm2 logs finance-site --lines 40 --nostream; exit 1)
-
-          # A successful home-page response alone can mask an incomplete Next
-          # artifact. The route can become available a few seconds after PM2
-          # reports the process online, so retry before declaring it missing.
-          # System templates are public (the single copy admins maintain in the
-          # DB), so without a session the endpoint must return 200 with the
-          # system template payload: not 401 (visitors would fall back to code
-          # defaults) and not 404 (missing route).
-          macro_prefs_status=""
-          for attempt in {1..12}; do
-            macro_prefs_status=\$(curl -sS --connect-timeout 2 --max-time 5 \
-              -o /tmp/macro-prefs-check.json -w "%{http_code}" \
-              http://127.0.0.1:3000/api/tools/macro-chart-prefs || true)
-            if [ "\$macro_prefs_status" = "200" ] && grep -q '"builtinTemplateOverrides"' /tmp/macro-prefs-check.json; then
-              break
-            fi
-            sleep 2
-          done
-          if [ "\$macro_prefs_status" != "200" ] || ! grep -q '"builtinTemplateOverrides"' /tmp/macro-prefs-check.json; then
-            echo "[deploy] public system template API unavailable (HTTP \$macro_prefs_status)"
-            pm2 logs finance-site --lines 40 --nostream
-            exit 1
-          fi
-
-          # Application integrity guard: local DB check only, no network fetch.
-          npm run equity:assert-seeded
+          # 零停机：不解压覆盖正在服务的目录；由 deploy-release.sh 在旁路 release
+          # 拉起候选端口，健康检查通过后切 nginx upstream，再停旧进程。
+          TARBALL=/opt/finance-site-shared/deploy.tar.gz
+          [ -f "\$TARBALL" ] || { echo "missing \$TARBALL"; exit 1; }
+          # 始终从本次 tarball 取出 deploy-release.sh，避免「旧机无脚本 / symlink 指向旧 release」鸡生蛋问题。
+          rm -rf /tmp/finance-deploy-script
+          mkdir -p /tmp/finance-deploy-script
+          tar -xzf "\$TARBALL" -C /tmp/finance-deploy-script scripts/ops/deploy-release.sh
+          SCRIPT=/tmp/finance-deploy-script/scripts/ops/deploy-release.sh
+          chmod +x "\$SCRIPT"
+          TARBALL="\$TARBALL" DEPLOY_PATH="${DEPLOY_PATH}" sh "\$SCRIPT"
           EOF
