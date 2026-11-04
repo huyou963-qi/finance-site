@@ -193,6 +193,14 @@ export function statementSupplementFlows(facts: unknown): Flows {
 /** 完整12个月或52/53周财年；不接收11个月过渡期或累计季度。 */
 export function annualStatementSnapshots(facts: unknown) {
   const flows = statementSupplementFlows(facts);
+  const root = facts as { cik?: number; facts?: { "us-gaap"?: Record<string, { units?: { USD?: SecFactPoint[] } }> } };
+  if (Number(root.cik) === 906345) {
+    flows.revenue = ["OperatingLeaseLeaseIncome", "OperatingLeasesIncomeStatementLeaseRevenue"]
+      .flatMap(tag => root.facts?.["us-gaap"]?.[tag]?.units?.USD ?? [])
+      .filter(p => typeof p.val === "number" && Number.isFinite(p.val) && Math.abs(p.val) <= Number.MAX_SAFE_INTEGER
+        && Boolean(p.start && p.end && p.filed && /^10-K(?:\/A)?$/.test(p.form ?? "")
+          && Number.isFinite(Date.parse(p.start)) && Date.parse(p.start) < Date.parse(p.end) && Date.parse(p.end) <= Date.parse(p.filed)));
+  }
   const rows = new Map<string, { fiscalDate: string; sourceFiledAt: string; revenue: number | null; netIncome: number | null; ocf: number | null; capex: number | null }>();
   for (const field of ["revenue", "netIncome", "ocf", "capex"] as const) {
     const selected = new Map<string, SecFactPoint>();
