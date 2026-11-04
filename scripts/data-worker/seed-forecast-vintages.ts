@@ -1,8 +1,8 @@
 /**
- * 指标预测：非农 / ADP 的 ALFRED 历次版本回填（幂等，随 data:apply 执行）。
+ * 指标预测：非农 / ADP / GDP 及其月度桥接指标的 ALFRED 历次版本回填（幂等，随 data:apply 执行）。
  *
  * npm run data:seed-forecast-vintages
- * npm run data:seed-forecast-vintages -- --start=2002-01-01
+ * npm run data:seed-forecast-vintages -- --start=1991-01-01
  */
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
@@ -23,7 +23,7 @@ async function main() {
       `  ${row.seriesId.padEnd(14)} fetched=${String(row.fetchedRows).padStart(6)} parsed=${String(row.parsedVintages).padStart(6)} inserted=${String(row.insertedVintages).padStart(6)}`,
     );
   }
-  if (result.series.length === 0) console.warn("  ⚠ 未找到 FRED 仪器（先跑 data:seed-labor）");
+  if (result.series.length === 0) console.warn("  ⚠ 未找到 FRED 仪器（先跑 data:seed-labor 等指标 seed）");
   console.log(`[seed-forecast-vintages] inserted total=${result.insertedVintages}`);
 }
 

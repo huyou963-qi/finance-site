@@ -57,7 +57,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   "zillow-zori": { script: "seed-zillow-zori", labelZh: "Zillow 观测租金指数 ZORI（公开 CSV）" },
   // data:apply 按目录名字母序执行、无依赖声明：键名取 labor-vintages 保证排在 labor 之后
   // （回填对象 sched_fred_ADPMNUSNERSA 由 seed-labor 创建）
-  "labor-vintages": { script: "seed-forecast-vintages", labelZh: "指标预测：非农/ADP ALFRED 历次版本回填" },
+  "labor-vintages": { script: "seed-forecast-vintages", labelZh: "指标预测：非农/ADP/GDP 及桥接指标 ALFRED 历次版本回填" },
   "eia-energy-prices": { script: "seed-eia-energy-prices", labelZh: "EIA 零售汽油/天然气/航油/取暖油（FRED）" },
   "eia-wpsr": {
     script: "seed-eia-wpsr",

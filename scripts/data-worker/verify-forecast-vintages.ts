@@ -1,5 +1,6 @@
 /**
- * 指标预测版本账本自检：非农须覆盖 2004 年以来每个月，ADP 须覆盖 2022-09 以来。
+ * 指标预测版本账本自检：非农须覆盖 2004 年以来每个月，ADP 须覆盖 2022-09 以来；
+ * GDP nowcast 的实际/名义 GDP 须覆盖 1992 年以来每个季度，月度桥接指标须覆盖 1993 年以来每个月。
  *
  * npm run data:verify-forecast-vintages -- --db
  */
@@ -8,18 +9,23 @@ loadEnvConfig(process.cwd());
 
 import { prisma } from "../../src/lib/prisma";
 
-const CHECKS = [
-  { code: "sched_fred_PAYEMS", from: "2004-01-01", maxMissing: 2 },
-  { code: "sched_fred_ADPMNUSNERSA", from: "2022-09-01", maxMissing: 1 },
-] as const;
+const GDP_MONTHLY = ["INDPRO", "PCEC96", "RSAFS", "HOUST", "NEWORDER", "BOPGSTB", "BUSINV"];
 
-function monthsBetween(from: string, to: string): string[] {
+const CHECKS: ReadonlyArray<{ code: string; from: string; maxMissing: number; stepMonths?: number }> = [
+  { code: "sched_fred_PAYEMS", from: "1993-01-01", maxMissing: 2 },
+  { code: "sched_fred_ADPMNUSNERSA", from: "2022-09-01", maxMissing: 1 },
+  { code: "sched_fred_GDPC1", from: "1992-01-01", maxMissing: 1, stepMonths: 3 },
+  { code: "sched_fred_GDP", from: "1992-01-01", maxMissing: 1, stepMonths: 3 },
+  ...GDP_MONTHLY.map((id) => ({ code: `sched_fred_${id}`, from: "1993-01-01", maxMissing: 2 })),
+];
+
+function monthsBetween(from: string, to: string, stepMonths = 1): string[] {
   const out: string[] = [];
   const d = new Date(`${from}T00:00:00Z`);
   const end = new Date(`${to}T00:00:00Z`);
   while (d <= end) {
     out.push(d.toISOString().slice(0, 10));
-    d.setUTCMonth(d.getUTCMonth() + 1);
+    d.setUTCMonth(d.getUTCMonth() + stepMonths);
   }
   return out;
 }
@@ -53,14 +59,14 @@ async function main() {
       distinct: ["obsDate"],
     });
     const have = new Set(rows.map((r) => r.obsDate.toISOString().slice(0, 10)));
-    const want = monthsBetween(check.from, latest.obsDate.toISOString().slice(0, 10));
+    const want = monthsBetween(check.from, latest.obsDate.toISOString().slice(0, 10), check.stepMonths);
     const missing = want.filter((m) => !have.has(m));
     const total = await prisma.macroObservationVintage.count({ where: { instrumentId: inst.id } });
     if (missing.length > check.maxMissing) {
-      console.error(`  ✗ ${check.code} 缺 ${missing.length} 个月的版本（例 ${missing.slice(0, 5).join(",")}）`);
+      console.error(`  ✗ ${check.code} 缺 ${missing.length} 期的版本（例 ${missing.slice(0, 5).join(",")}）`);
       errors++;
     } else {
-      console.log(`  ✓ ${check.code} 版本 ${total} 条，覆盖 ${want.length - missing.length}/${want.length} 个月`);
+      console.log(`  ✓ ${check.code} 版本 ${total} 条，覆盖 ${want.length - missing.length}/${want.length} 期`);
     }
   }
   if (errors) {

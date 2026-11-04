@@ -23,10 +23,13 @@ export type LoadedNfpInputs = NfpModelInputs & {
 };
 
 /**
- * 读某 FRED 仪器的版本账本；账本缺失的月份用当前观测补一条（视为次月 7 日首次可见），
- * 保证本地库未回填 ALFRED 时模型仍能运行。
+ * 读某宏观仪器的版本账本；账本缺失的观测期用当前观测补一条（默认视为次月 7 日首次可见，
+ * 可按序列发布节奏传入 fallbackAt），保证本地库未回填 ALFRED 时模型仍能运行。
  */
-async function loadLedger(code: string): Promise<{ ledger: RevisionLedger; latest: string | null }> {
+export async function loadLedger(
+  code: string,
+  fallbackAt: (obsDate: string) => string = (m) => addMonths(m, 1).slice(0, 8) + "07",
+): Promise<{ ledger: RevisionLedger; latest: string | null }> {
   const inst = await prisma.instrument.findUnique({ where: { code }, select: { id: true } });
   if (!inst) throw new Error(`宏观序列不存在：${code}`);
   const [vintages, obs] = await Promise.all([
@@ -53,7 +56,7 @@ async function loadLedger(code: string): Promise<{ ledger: RevisionLedger; lates
   }
   for (const o of obs) {
     const m = o.obsDate.toISOString().slice(0, 10);
-    if (!ledger.has(m)) ledger.set(m, [{ at: addMonths(m, 1).slice(0, 8) + "07", value: o.value }]);
+    if (!ledger.has(m)) ledger.set(m, [{ at: fallbackAt(m), value: o.value }]);
   }
   return { ledger, latest: obs.length ? obs[obs.length - 1]!.obsDate.toISOString().slice(0, 10) : null };
 }

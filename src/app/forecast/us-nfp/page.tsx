@@ -1,15 +1,22 @@
 import { FeatureGate } from "@/components/access/FeatureGate";
+import { UsNfpModelDetails } from "@/components/forecast/UsNfpModelDetails";
 import { UsNfpNowcastView } from "@/components/forecast/UsNfpNowcastView";
-import { getUsNfpNowcast } from "@/lib/forecast/usNfp/service";
+import { getViewerFromCookies } from "@/lib/access/featureAccess";
+import { getUsNfpNowcast, toPublicUsNfpPayload } from "@/lib/forecast/usNfp/service";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "美国非农就业预测" };
 
-/** 放在 FeatureGate 内：无权访问时不触发模型计算 */
+/** 放在 FeatureGate 内：无权访问时不触发模型计算。核心算法只在管理员的服务端渲染。 */
 async function UsNfpNowcastSection() {
-  const payload = await getUsNfpNowcast();
-  return <UsNfpNowcastView data={payload} />;
+  const [payload, viewer] = await Promise.all([getUsNfpNowcast(), getViewerFromCookies()]);
+  return (
+    <>
+      <UsNfpNowcastView data={toPublicUsNfpPayload(payload)} />
+      {viewer.role === "admin" ? <UsNfpModelDetails model={payload.model} /> : null}
+    </>
+  );
 }
 
 export default function UsNfpForecastPage() {

@@ -76,6 +76,14 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     defaults: RELEASED,
   },
   {
+    id: "forecast-us-gdp",
+    label: "指标预测 · 美国 GDP",
+    group: "预测",
+    paths: ["/forecast/us-gdp"],
+    description: "实际 GDP 季度环比折年率 nowcast 与真实时点回测",
+    defaults: RELEASED,
+  },
+  {
     id: "equity-industries",
     label: "美股行业",
     group: "美股",

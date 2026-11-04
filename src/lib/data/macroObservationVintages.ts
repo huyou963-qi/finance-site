@@ -23,12 +23,25 @@ export const REGIME_VINTAGE_INPUT_CODES = [
 ] as const;
 
 /**
- * 指标预测（/forecast/*）需要真实时点回测的序列：非农首发值与 ADP 首发值。
+ * 指标预测（/forecast/*）需要真实时点回测的序列：非农首发值与 ADP 首发值；GDP nowcast 的
+ * 实际/名义 GDP 与月度桥接指标（PAYEMS 两者共用；ISM 非 FRED 序列，按发布节奏取当前值）。
  * 由通用 ALFRED 编排器回填历史，之后每次入库由统一 writer 自动追加抓取时点版本。
  */
-export const FORECAST_FRED_VINTAGE_CODES = ["sched_fred_PAYEMS", "sched_fred_ADPMNUSNERSA"] as const;
-/** 非农 nowcast 的训练期从 2004 年起，需要 2002 年以来的版本 */
-export const FORECAST_VINTAGE_REALTIME_START = "2002-01-01";
+export const FORECAST_FRED_VINTAGE_CODES = [
+  "sched_fred_PAYEMS",
+  "sched_fred_ADPMNUSNERSA",
+  "sched_fred_GDPC1",
+  "sched_fred_GDP",
+  "sched_fred_INDPRO",
+  "sched_fred_PCEC96",
+  "sched_fred_RSAFS",
+  "sched_fred_HOUST",
+  "sched_fred_NEWORDER",
+  "sched_fred_BOPGSTB",
+  "sched_fred_BUSINV",
+] as const;
+/** GDP nowcast 训练期从 1993 年起（ALFRED GDPC1 首个版本 1991-12），需要 1991 年以来的版本 */
+export const FORECAST_VINTAGE_REALTIME_START = "1991-01-01";
 
 /** FRED 官方 real-time max；避免亚洲已跨日而 FRED 服务器仍处前一 UTC 日时请求失败。 */
 export const FRED_REALTIME_MAX = "9999-12-31";
