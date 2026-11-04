@@ -1,6 +1,10 @@
 /**
  * 美国非农 nowcast 服务：装载版本账本与周度申领 → 按「今天在目标月的第几天」同口径回测 →
  * 当前 nowcast、80% 区间、精度曲线、ADP 与 SPF 第三方对照。模型输出不入库，进程内缓存 30 分钟。
+ *
+ * 载荷分两层：公开部分（预测值、区间、回测精度、第三方对照）给可访问该页的用户；`model`
+ * （特征、贡献、截距、输入时效）属于核心算法，只给管理员。页面与 API 对非管理员调用
+ * `toPublicUsNfpPayload` 后再下发，且不把 `model` 传进客户端组件。
  */
 import { loadUsNfpNowcastInputs, type LoadedNfpInputs, type NfpFreshness } from "./inputs";
 import {
@@ -31,6 +35,8 @@ import {
   type FeatureRow,
   type SignalKey,
 } from "./model";
+
+export type { ErrorStats };
 import { SPF_PAGE_URL, loadSpfEmp, type SpfQuarter } from "./spf";
 
 /** 回测从训练样本够用的第一个月开始（2007 年前后）；图表只画 2010 年以后 */
@@ -60,7 +66,7 @@ const CURVE: Array<{ key: CurveKey; label: string; rule: AsOfRule }> = [
 
 export type AccuracyRow = { model: ErrorStats; nfp6: ErrorStats; nfp1: ErrorStats; adp?: ErrorStats };
 
-export type UsNfpNowcastPayload = {
+export type UsNfpNowcastPublicPayload = {
   generatedAt: string;
   targetMonth: string;
   latestNfpMonth: string;
@@ -70,10 +76,6 @@ export type UsNfpNowcastPayload = {
   nowcast: number;
   low: number;
   high: number;
-  features: Array<{ key: FeatureKey; label: string; unit: string; value: number; contribution: number }>;
-  /** 仅作背景展示的申领变化（不进回归） */
-  context: Array<{ key: SignalKey; label: string; unit: string; value: number }>;
-  baseline: number;
   recent: Array<{ month: string; first: number; latest: number }>;
   curve: Array<{ key: string; label: string; mae: number; rmse: number; bandHalfWidth: number; current: boolean }>;
   accuracy: { test: AccuracyRow; recent: AccuracyRow; testFrom: string; recentFrom: string };
@@ -85,8 +87,23 @@ export type UsNfpNowcastPayload = {
     rows: Array<{ quarter: string; actual: number; spf: number; model: number }>;
     stats: Record<"since2006" | "since2016" | "since2022", { n: number; spfMae: number; modelMae: number }>;
   } | null;
+};
+
+export type UsNfpModelDetails = {
+  features: Array<{ key: FeatureKey; label: string; unit: string; value: number; contribution: number }>;
+  /** 仅作背景展示的申领变化（不进回归） */
+  context: Array<{ key: SignalKey; label: string; unit: string; value: number }>;
+  baseline: number;
   freshness: NfpFreshness[];
 };
+
+export type UsNfpNowcastPayload = UsNfpNowcastPublicPayload & { model: UsNfpModelDetails };
+
+/** 非管理员看到的载荷：去掉核心算法 */
+export function toPublicUsNfpPayload(payload: UsNfpNowcastPayload): UsNfpNowcastPublicPayload {
+  const { model: _model, ...rest } = payload;
+  return rest;
+}
 
 let cache: { at: number; payload: UsNfpNowcastPayload } | null = null;
 const curveCache = new Map<string, { at: number; points: BacktestPoint[] }>();
@@ -253,20 +270,6 @@ export async function computeUsNfpNowcast(now = new Date()): Promise<UsNfpNowcas
     nowcast,
     low: nowcast + band.lower,
     high: nowcast + band.upper,
-    features: FEATURES.map((k) => ({
-      key: k,
-      label: FEATURE_LABELS[k].label,
-      unit: FEATURE_LABELS[k].unit,
-      value: x[k],
-      contribution: parts[k],
-    })),
-    context: SIGNALS.filter((s) => !(FEATURES as readonly string[]).includes(s)).map((s) => ({
-      key: s,
-      label: FEATURE_LABELS[s].label,
-      unit: FEATURE_LABELS[s].unit,
-      value: x[s],
-    })),
-    baseline,
     recent,
     curve,
     accuracy: {
@@ -289,7 +292,23 @@ export async function computeUsNfpNowcast(now = new Date()): Promise<UsNfpNowcas
     adpLatest:
       adpLatestMonth && adpLatestChange != null ? { month: adpLatestMonth, change: adpLatestChange } : null,
     spf: spf ? spfComparison(loaded, spf, d14, nowcast, today) : null,
-    freshness: loaded.freshness,
+    model: {
+      features: FEATURES.map((k) => ({
+        key: k,
+        label: FEATURE_LABELS[k].label,
+        unit: FEATURE_LABELS[k].unit,
+        value: x[k],
+        contribution: parts[k],
+      })),
+      context: SIGNALS.filter((s) => !(FEATURES as readonly string[]).includes(s)).map((s) => ({
+        key: s,
+        label: FEATURE_LABELS[s].label,
+        unit: FEATURE_LABELS[s].unit,
+        value: x[s],
+      })),
+      baseline,
+      freshness: loaded.freshness,
+    },
   };
 }
 

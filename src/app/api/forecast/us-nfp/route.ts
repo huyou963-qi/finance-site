@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api/eventAuth";
 import { checkFeatureAccess } from "@/lib/access/featureAccess";
-import { getUsNfpNowcast } from "@/lib/forecast/usNfp/service";
+import { getUsNfpNowcast, toPublicUsNfpPayload } from "@/lib/forecast/usNfp/service";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,8 @@ export async function GET() {
       return NextResponse.json({ error: "无权访问", code: gate.state }, { status: 403 });
     }
     const payload = await getUsNfpNowcast();
-    return NextResponse.json(payload, {
+    const body = gate.viewer.role === "admin" ? payload : toPublicUsNfpPayload(payload);
+    return NextResponse.json(body, {
       headers: { "Cache-Control": "private, max-age=300" },
     });
   } catch (error) {

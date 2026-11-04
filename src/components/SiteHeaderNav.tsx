@@ -35,6 +35,7 @@ const QUANT_LINKS = [
 const FORECAST_LINKS = [
   { href: "/forecast/us-cpi", featureId: "forecast-us-cpi" },
   { href: "/forecast/us-nfp", featureId: "forecast-us-nfp" },
+  { href: "/forecast/us-gdp", featureId: "forecast-us-gdp" },
 ] as const;
 
 /** 顶栏主入口：featureId 由管理员在 /admin/feature-access 控制可见性 */

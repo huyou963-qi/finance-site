@@ -4,6 +4,10 @@
  * 截止日：目标月已结束（CPI 公布前）取全月；否则取零售汽油价在当月的最新日期。回测、误差区间
  * 和克利夫兰联储对照都用同一截止日，保证月初给出的区间如实更宽、月末用满整月数据。
  * 结果是模型输出，按约束不写入宏观库；进程内缓存 30 分钟，按截止日的回测另缓存 6 小时。
+ *
+ * 载荷分两层：公开部分（预测值、区间、回测精度、分项贡献）给可访问该页的用户；`model`
+ * （分项代理、权重、回测相关、输入时效）属于核心算法，只给管理员。页面与 API 对非管理员调用
+ * `toPublicUsCpiPayload` 后再下发，且不把 `model` 传进客户端组件。
  */
 import { createHash } from "node:crypto";
 import { accuracy, correlation, errorBand, runBacktest, type AccuracyStats, type BacktestRow } from "./backtest";
@@ -83,21 +87,28 @@ export type CutoffAccuracy = {
   current: boolean;
 };
 
-export type UsCpiNowcastPayload = {
+/** 分项对总体环比的贡献。公开层只有结果，不含代理、权重和估计细节。 */
+export type CpiDriver = {
+  label: string;
+  group: ComponentGroup;
+  contribution: number;
+  prevContribution: number;
+};
+
+export type UsCpiNowcastPublicPayload = {
   generatedAt: string;
   targetMonth: string;
   latestCpiMonth: string;
   /** 本次 nowcast 用到当月第几天的高频数据；31 = 全月 */
   cutoffDay: number;
-  /** 零售汽油价在目标月的最新观测日 */
+  /** 目标月高频价格的最新观测日 */
   observedThrough: string | null;
-  relativeImportanceYear: number;
   headline: HeadlineForecast;
   core: HeadlineForecast;
   aggregates: Record<Exclude<AggregateKey, "ALL" | "CORE">, { forecast: number; prevActual: number }>;
-  components: ComponentForecast[];
-  /** 本月回归无法估计、退回 12 个月均值的分项（正常为空） */
-  fallbackComponents: string[];
+  drivers: CpiDriver[];
+  /** 有分项因数据不足退回近期均值；具体名单只在 model 里 */
+  hasFallback: boolean;
   /** 克利夫兰联储对目标月的最新 nowcast（对照用，不入库）；读取失败为 null */
   cleveland: { all: number; core: number; label: string; sourceUrl: string } | null;
   /** 预测精度随当月观测天数的变化（2018 年以来、剔除疫情月） */
@@ -117,8 +128,23 @@ export type UsCpiNowcastPayload = {
     }>;
     accuracy: Record<"exCovid" | "recent", { ALL: BenchmarkAccuracy; CORE: BenchmarkAccuracy; n: number }>;
   };
+};
+
+export type UsCpiModelDetails = {
+  relativeImportanceYear: number;
+  components: ComponentForecast[];
+  /** 本月回归无法估计、退回 12 个月均值的分项（正常为空） */
+  fallbackComponents: string[];
   freshness: InputFreshness[];
 };
+
+export type UsCpiNowcastPayload = UsCpiNowcastPublicPayload & { model: UsCpiModelDetails };
+
+/** 非管理员看到的载荷：去掉核心算法 */
+export function toPublicUsCpiPayload(payload: UsCpiNowcastPayload): UsCpiNowcastPublicPayload {
+  const { model: _model, ...rest } = payload;
+  return rest;
+}
 
 type CutoffRun = { model: PreparedModel; rows: BacktestRow[] };
 
@@ -261,12 +287,16 @@ export async function computeUsCpiNowcast(now = new Date()): Promise<UsCpiNowcas
     latestCpiMonth: loaded.latestCpiMonth,
     cutoffDay,
     observedThrough,
-    relativeImportanceYear: relativeImportanceYearFor(Number(loaded.targetMonth.slice(0, 4))),
     headline: headlineFor("ALL"),
     core: headlineFor("CORE"),
     aggregates: { FOOD: agg("FOOD"), ENE: agg("ENE"), CG: agg("CG"), CS: agg("CS") },
-    components,
-    fallbackComponents: fallbacks,
+    drivers: components.map((c) => ({
+      label: c.label,
+      group: c.group,
+      contribution: c.contribution,
+      prevContribution: c.prevContribution,
+    })),
+    hasFallback: fallbacks.length > 0,
     cleveland: cfNow
       ? { all: cfNow.all, core: cfNow.core, label: cfNow.label, sourceUrl: CLEVELAND_NOWCAST_PAGE }
       : null,
@@ -289,6 +319,11 @@ export async function computeUsCpiNowcast(now = new Date()): Promise<UsCpiNowcas
         recent: { ALL: bench(recent, "ALL"), CORE: bench(recent, "CORE"), n: recent.length },
       },
     },
-    freshness: loaded.freshness,
+    model: {
+      relativeImportanceYear: relativeImportanceYearFor(Number(loaded.targetMonth.slice(0, 4))),
+      components,
+      fallbackComponents: fallbacks,
+      freshness: loaded.freshness,
+    },
   };
 }
