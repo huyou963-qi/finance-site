@@ -122,14 +122,13 @@ export function IndustryFinancialsClient() {
       <section className="border-t border-fs-border pt-5" aria-busy={loading}>
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-fs-text">行业公司速览</h2><span className="text-xs text-fs-muted">{selectedPeriod} · {mode} · FCF单位：十亿美元</span></div><p className="mt-1 text-xs text-fs-muted">按持仓权重排序；同一公司多股类合并。点击公司进入财务基本面。</p>
         {!members ? <p role="status" className="py-6 text-sm text-fs-muted">正在读取所选季度的公司数据…</p> : !members.length ? <p className="py-6 text-sm text-fs-muted">尚无该期 ETF 股票成分，请等待持仓归档更新。</p> : <>
-          <div className="mt-3 hidden grid-cols-[minmax(150px,1.8fr)_repeat(3,minmax(70px,1fr))_80px] gap-3 bg-fs-elevated px-3 py-2 text-xs text-fs-muted sm:grid"><span>公司</span><span>营收同比</span><span>净利率</span><span>自由现金流</span><span>个股研究</span></div>
+          <div className="mt-3 hidden grid-cols-[minmax(150px,1.8fr)_repeat(3,minmax(70px,1fr))] gap-3 bg-fs-elevated px-3 py-2 text-xs text-fs-muted sm:grid"><span>公司</span><span>营收同比</span><span>净利率</span><span>自由现金流</span></div>
           {members.map(member => {
             const href = `/equity/stocks/${encodeURIComponent(member.symbol)}?tab=fundamentals`;
             const linked = features.can("markets") && member.status !== "unmapped";
-            return <div key={member.symbol} className="grid grid-cols-3 items-center gap-2 border-b border-fs-border px-1 py-3 text-sm sm:grid-cols-[minmax(150px,1.8fr)_repeat(3,minmax(70px,1fr))_80px] sm:gap-3 sm:px-3">
+            return <div key={member.symbol} className="grid grid-cols-3 items-center gap-2 border-b border-fs-border px-1 py-3 text-sm sm:grid-cols-[minmax(150px,1.8fr)_repeat(3,minmax(70px,1fr))] sm:gap-3 sm:px-3">
               <div className="col-span-3 min-w-0 sm:col-span-1">{linked ? <Link href={href} className="inline-flex min-h-11 max-w-full items-center gap-2 text-fs-accent-text hover:underline"><strong>{member.symbol}</strong><span className="break-words text-xs">{member.name}</span></Link> : <span className="text-fs-text">{member.symbol} · {member.name}</span>}<p className="text-xs text-fs-muted">{member.fiscalDate ? `财季末 ${member.fiscalDate}` : memberStatus(member)}{member.fiscalDate && memberStatus(member) ? ` · ${memberStatus(member)}` : ""}</p></div>
               <div className="tabular-nums text-fs-text"><span className="block text-xs text-fs-muted sm:hidden">营收同比</span>{pct(member.revenueYoY, true)}</div><div className="tabular-nums text-fs-text"><span className="block text-xs text-fs-muted sm:hidden">净利率</span>{pct(member.netMargin)}</div><div className="tabular-nums text-fs-text"><span className="block text-xs text-fs-muted sm:hidden">自由现金流</span>{amount(member.fcf)}</div>
-              <div className="col-span-3 sm:col-span-1">{linked ? <Link href={href} className="inline-flex min-h-11 items-center text-xs text-fs-accent-text hover:underline">基本面 →</Link> : null}</div>
             </div>;
           })}
         </>}
