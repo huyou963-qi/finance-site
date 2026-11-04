@@ -135,7 +135,8 @@ export function statementSupplementFlows(facts: unknown): Flows {
     const id = `${key}|${p.tag}|${p.segments}`;
     if (seen.has(id) && seen.get(id) !== p.val) throw new Error("同申报补充事实冲突");
     seen.set(id, p.val);
-    const presentation = `${id}|${p.statement}|${p.label}`;
+    // 同金额的DERA记录不能遮蔽原文附带的完整主表证明；跨来源金额冲突仍由seen拒绝。
+    const presentation = `${id}|${p.statement}|${p.label}|${p.sourceType ?? "dera"}`;
     if (presentations.has(presentation)) continue;
     presentations.add(presentation);
     const point: SecFactPoint = { start: p.start, end: p.end, val: p.val, accn: p.accn, filed: p.filed, form: p.form, fp: p.fp, fy: p.fy };

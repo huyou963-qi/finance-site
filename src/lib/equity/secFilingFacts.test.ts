@@ -96,6 +96,11 @@ test("CPT and KIM accept a reported combined capital line only when the complete
     const t = transport(cik), enriched = await supplementSecPeriodicFiling({ cik, facts: {} }, cik, filing, t);
     assert.equal(t.calls.length, 5);
     assert.equal(statementSupplementFlows(enriched).capex[0]?.val, 100);
+    const direct = enriched.statementSupplement!.find(p => (p as {tag: string}).tag === (cik === 906345 ? 'PaymentsToDevelopRealEstateAssets' : 'PaymentsForImprovementsToOperatingRealEstate')) as Record<string, unknown>;
+    const archive = { ...direct, source: 'https://www.sec.gov/files/dera/data/financial-statement-data-sets/2026q3.zip', sha256: 'a'.repeat(64) };
+    delete archive.sourceType; delete archive.concept;
+    enriched.statementSupplement!.unshift(archive);
+    assert.equal(statementSupplementFlows(enriched).capex[0]?.val, 100, 'an equal DERA fact cannot hide the stronger original presentation proof');
     const incomplete = structuredClone(enriched), proof = incomplete.secFilingStatementProofs![filing.accession]!;
     proof.cashFlowConcepts.push(cik === 906345 ? 'g:PaymentsToAcquireOtherPropertyPlantAndEquipment' : 'g:PaymentsToDevelopRealEstateAssets');
     assert.equal(statementSupplementFlows(incomplete).capex.length, 0, "present but valueless component cannot be assumed zero");
