@@ -858,7 +858,13 @@ export function extractQuarterlyFundamentals(
       ? ["RealEstateRevenueNet"] // PLD / EXR：旧版 Total revenues
       : Number((facts as { cik?: number }).cik) === 1164727 ? ["RevenueMineralSales"]
         : [2012383, 1364742].includes(Number((facts as { cik?: number }).cik)) ? ["RevenuesExcludingInterestAndDividends"] : [];
-  let revenueQ = pickFlowQuarterSeries(gaap, FLOW_CONCEPTS.revenue, ["USD"], {
+  // Hasbro 自 FY2024 10-K（2025-02 申报）起 Revenues 只出现在分部附注、未抵销分部间收入，
+  // 合并利润表净营收是合同收入 tag；按申报日剔除，2024 年前同口径的旧点仍可拼接深历史。
+  const revenueGaap = Number((facts as { cik?: number }).cik) === 46080 && gaap.Revenues?.units
+    ? { ...gaap, Revenues: { ...gaap.Revenues, units: Object.fromEntries(Object.entries(gaap.Revenues.units)
+      .map(([unit, points]) => [unit, points.filter(p => Boolean(p.filed && p.filed < "2025-01-01"))])) } }
+    : gaap;
+  let revenueQ = pickFlowQuarterSeries(revenueGaap, FLOW_CONCEPTS.revenue, ["USD"], {
     magnitudeTieBreak: true,
     extraSeries: [preAsc606Total, goodsQ, servicesQ, bankTotal, pmNetRevenue, quarterlyFlowSeries(statement.revenue)],
   });
