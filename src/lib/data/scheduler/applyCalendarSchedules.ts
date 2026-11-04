@@ -200,7 +200,11 @@ async function persistPackageSchedule(
       nextRunAt: data.nextRunAt,
     },
   });
-  if (data.nextRunAt != null && !data.preserveMemberRetries) {
+  // 包级时刻没变时不要重写成员。否则一次「维持 11 月 10 日兜底」的日历同步
+  // 会把仍排在发布时刻的成员（如 BOPGSTB 的 13:33）一并改掉。
+  const scheduleMoved = (previous?.nextRunAt?.getTime() ?? null) !== (data.nextRunAt?.getTime() ?? null);
+  const propagateMembers = data.nextRunAt != null && !data.preserveMemberRetries && scheduleMoved;
+  if (propagateMembers) {
     await prisma.dataSubscription.updateMany({
       where: { releasePackageId: packageId, enabled: true,
         // Worker/calendar use separate locks. A failure recorded AFTER the
@@ -223,7 +227,7 @@ async function persistPackageSchedule(
           ? `calendar_${data.scheduleState.calendarSync.status}`
           : "calendar_schedule_update",
     metadata: {
-      memberSchedulePropagated: data.nextRunAt != null && !data.preserveMemberRetries,
+      memberSchedulePropagated: propagateMembers,
       ...(data.holdReason ? { holdReason: data.holdReason } : {}),
     },
   });
