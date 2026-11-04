@@ -414,7 +414,12 @@
     "billing:reconcile": "dotenv -e .env.local -- tsx scripts/billing-reconcile.ts",
     "billing:check": "dotenv -e .env.local -- tsx scripts/billing-check.ts",
     "billing:smoke": "dotenv -e .env.local -- tsx scripts/billing-smoke.ts",
-    "test:billing-integration": "dotenv -e .env.local -- tsx scripts/test/zpay.integration.ts"
+    "test:billing-integration": "dotenv -e .env.local -- tsx scripts/test/zpay.integration.ts",
+    "test:l3-db": "tsx scripts/test/l3/migrate.integration.ts",
+    "test:l3-api": "tsx scripts/test/l3/api-contracts.integration.ts",
+    "test:l3-prepare-e2e": "tsx scripts/test/l3/prepare-e2e-db.ts",
+    "test:l3-e2e": "playwright test",
+    "test:l3": "npm run test:l3-db && npm run test:l3-api"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
@@ -449,6 +454,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/d3-geo": "^3.1.1",
     "@types/node": "^22",
