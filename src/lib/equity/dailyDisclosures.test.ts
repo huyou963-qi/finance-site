@@ -151,6 +151,70 @@ test("routine 8-K announcements are indexed without downloading Company Facts or
   assert.equal(h.calls.attachments, 0);
 });
 
+test("original-filing budget goes to a periodic report that already waited; a skipped filing keeps its attempt", async () => {
+  const rows: SecFiling[] = [];
+  const supplemented: string[] = [];
+  const specs = [
+    { cik: "0000000001", accession: "0000000001-20-000001", symbol: "NEW", form: "10-Q", attempts: 0 },
+    { cik: "0000000002", accession: "0000000002-20-000001", symbol: "OLD", form: "10-Q", attempts: 4 },
+    { cik: "0000000003", accession: "0000000003-20-000001", symbol: "AMD", form: "10-K/A", attempts: 9 },
+  ];
+  const db = {
+    equitySecurity: { findMany: async () => specs.map(spec => ({ symbol: spec.symbol, cik: spec.cik })) },
+    secFiling: {
+      findMany: async (args: { select?: unknown; take?: number; where?: { acceptedAt?: null } }) =>
+        args.where && "acceptedAt" in args.where ? [] : args.select ? rows : rows.filter(row => row.dailyStatus !== "complete").slice(0, args.take),
+      count: async () => rows.filter(row => row.dailyStatus !== "complete").length,
+      updateMany: async ({ data }: { data: { dailyStatus: string } }) => {
+        let count = 0;
+        for (const row of rows) if (data.dailyStatus === "pending" && !row.dailyStatus) {
+          row.dailyStatus = "pending"; row.dailyNextAttemptAt = new Date(0); count++;
+        }
+        return { count };
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Partial<SecFiling> & { dailyAttempts?: { increment: number } } }) => {
+        const row = rows.find(item => item.id === where.id)!;
+        const attempts = data.dailyAttempts as unknown as { increment: number } | undefined;
+        Object.assign(row, data, { dailyAttempts: row.dailyAttempts + (attempts?.increment ?? 0) });
+        return row;
+      },
+    },
+  } as unknown as PrismaClient;
+  const quarter = { period: "2020Q3", fiscalDate: "2020-09-30", fiscalQuarter: 3, revenue: 100, eps: 1 } as SecQuarterlyFundamentals;
+  await syncDailyDisclosures({ through: "2020-10-23", days: 1, filingFallbackLimit: 1 }, {
+    prisma: db, pause: async () => {},
+    fetchSecDailyIndex: async () => specs.map(spec => ({ cik: spec.cik, accession: spec.accession, form: spec.form, filedAt: "2020-10-23" })),
+    discoverSecFilings: async (cik: string) => specs.filter(spec => spec.cik === cik).map(spec => ({
+      accession: spec.accession, form: spec.form, filedAt: "2020-10-23", primaryDocument: "r.htm", items: null, description: null, reportDate: "2020-09-30",
+    })),
+    writeSecFilingIndex: async (cik: string, symbol: string, row: { accession: string; form: string }) => {
+      const spec = specs.find(item => item.accession === row.accession)!;
+      const stored = { id: row.accession, cik, symbol, ...row, filedAt: new Date("2020-10-23"), reportPeriodEnd: new Date("2020-09-30"),
+        dailyStatus: null, dailyAttempts: spec.attempts, dailyNextAttemptAt: null, earningsRelease: null, acceptedAt: new Date(), timingCheckedAt: new Date() } as unknown as SecFiling;
+      rows.push(stored); return stored;
+    },
+    fetchSecCompanyFacts: async () => ({}),
+    listSecPeriodicFilings: () => [],
+    buildSecFundamentalVintages: () => [{ ...quarter, accession: "other", form: "10-Q", filedAt: "2020-10-23", checkpoint: true }],
+    extractQuarterlyFundamentals: () => [quarter],
+    upsertQuarterlyFundamentals: async () => 1,
+    upsertFundamentalVintages: async () => 1,
+    fetchSecReleaseEvidence: async () => ({ attachments: [], publication: null, acceptedAt: null, acceptedAtSource: "https://www.sec.gov/" }),
+    fetchSecAcceptanceEvidence: async () => ({ acceptedAt: new Date(), sourceUrl: "https://www.sec.gov/" }),
+    supplementSecPeriodicFilingPair: async (_facts, _cik, filing) => {
+      supplemented.push(filing.accession);
+      return { facts: {}, filingsUsed: 1, handledAccessions: [filing.accession] };
+    },
+  });
+  assert.deepEqual(supplemented, ["0000000002-20-000001"]);
+  const bySymbol = Object.fromEntries(rows.map(row => [row.symbol, row]));
+  assert.equal(bySymbol.OLD.dailyAttempts, 5);
+  assert.equal(bySymbol.NEW.dailyAttempts, 0);
+  assert.equal(bySymbol.AMD.dailyAttempts, 9);
+  assert.ok(bySymbol.NEW.dailyNextAttemptAt! <= new Date());
+  assert.equal(bySymbol.OLD.dailyStatus, "pending");
+});
+
 test("a failed timestamp check preserves financial data and retries outside the discovery window without re-downloading facts", async () => {
   const h = harness("timing-error");
   const first = await syncDailyDisclosures(h.options, h.deps);

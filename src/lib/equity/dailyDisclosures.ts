@@ -121,12 +121,28 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
   // Only one potentially large Company Facts object is retained at a time.
   const groups = new Map<string, typeof filings>();
   for (const filing of filings) groups.set(filing.cik, [...(groups.get(filing.cik) ?? []), filing]);
-  for (const [cik, group] of groups) {
+  // The 12-slot original-filing budget is per run. Give it to filings that have already
+  // waited, and serve a periodic report before an amendment from another company.
+  const fallbackRank = (rows: typeof filings) => {
+    const financial = rows.filter(row => SEC_FINANCIAL_FORMS.has(row.form));
+    const periodic = financial.filter(row => !row.form.endsWith("/A"));
+    const pool = periodic.length ? periodic : financial;
+    return {
+      amendmentOnly: periodic.length ? 0 : 1,
+      attempts: pool.reduce((max, row) => Math.max(max, row.dailyAttempts), 0),
+      oldest: pool.reduce((min, row) => Math.min(min, row.filedAt.getTime()), Number.POSITIVE_INFINITY),
+    };
+  };
+  const orderedGroups = [...groups.entries()].sort(([, left], [, right]) => {
+    const a = fallbackRank(left), b = fallbackRank(right);
+    return a.amendmentOnly - b.amendmentOnly || b.attempts - a.attempts || a.oldest - b.oldest;
+  });
+  for (const [cik, group] of orderedGroups) {
     let facts: unknown;
     let factsError: unknown;
     let vintages: SecFundamentalVintage[] = [];
     let financialWritten = false;
-    const primaryDeferred = new Set<string>(), primaryErrors = new Map<string, unknown>();
+    const primaryDeferred = new Set<string>(), budgetSkipped = new Set<string>(), primaryErrors = new Map<string, unknown>();
     if (group.some(row => SEC_FINANCIAL_FORMS.has(row.form))) {
       try {
         facts = await fetchSecCompanyFacts(cik, { timeoutMs: 60_000 });
@@ -138,13 +154,14 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
             if (!SEC_FINANCIAL_FORMS.has(row.form)) return false;
             const quarter = cachedQuarters.find(p => p.fiscalDate === row.reportPeriodEnd?.toISOString().slice(0, 10));
             return !available.has(row.accession) || !quarter || [quarter.revenue, quarter.netIncome, quarter.ocf, quarter.capex].some(p => p == null);
-          }).sort((a, b) => b.filedAt.getTime() - a.filedAt.getTime());
+          }).sort((a, b) => Number(a.form.endsWith("/A")) - Number(b.form.endsWith("/A"))
+            || b.dailyAttempts - a.dailyAttempts || a.filedAt.getTime() - b.filedAt.getTime());
           let companyUsed = 0;
           const handled = new Set<string>();
           for (const row of missing) {
             if (handled.has(row.accession)) continue;
             const reserved = Math.min(2 - companyUsed, fallbackRemaining);
-            if (reserved <= 0) { primaryDeferred.add(row.accession); continue; }
+            if (reserved <= 0) { budgetSkipped.add(row.accession); primaryDeferred.add(row.accession); continue; }
             fallbackRemaining -= reserved; companyUsed += reserved;
             try {
               const supplemented = await dependencies.supplementSecPeriodicFilingPair(facts, Number(cik), {
@@ -215,9 +232,14 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
             financialWritten = true;
           }
         }
+        // 没分到原文回补名额不是一次失败：不累加次数，也不推迟 20 小时，否则会永远排到新申报后面。
+        const skippedForBudget = budgetSkipped.has(filing.accession) && status === "pending";
         await prisma.secFiling.update({ where: { id: filing.id }, data: {
-          dailyStatus: status, dailyProcessedAt: processedAt, dailyAttempts: { increment: 1 }, dailyError: null,
-          dailyNextAttemptAt: status === "pending" ? new Date(processedAt.getTime() + 20 * 3600_000) : null,
+          dailyStatus: status, dailyProcessedAt: processedAt, dailyError: null,
+          ...(skippedForBudget ? {} : { dailyAttempts: { increment: 1 } }),
+          dailyNextAttemptAt: status !== "pending" ? null
+            : skippedForBudget ? (filing.dailyNextAttemptAt ?? processedAt)
+            : new Date(processedAt.getTime() + 20 * 3600_000),
         } });
         if (status === "pending") result.pending++; else result.complete++;
         console.log(`[SEC daily] ${filing.symbol} ${filing.form} ${filing.accession}: ${status}`);
