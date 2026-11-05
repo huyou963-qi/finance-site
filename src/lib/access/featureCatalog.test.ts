@@ -105,6 +105,7 @@ test("导航：开发中不可见的隐藏；Pro 专属照常列出并标记 loc
   assert.ok(visitor.listed.includes("quant-factor-research"));
   assert.ok(visitor.locked.includes("quant-factor-research"));
   assert.ok(!visitor.listed.includes("tools-kline-range"));
+  assert.ok(!visitor.listed.includes("forecast-us-gdp"));
   assert.ok(!visitor.listed.includes("macro-framework"));
   assert.ok(!visitor.locked.includes("macro"));
 
@@ -158,6 +159,41 @@ test("normalize 容忍垃圾输入并退回默认值", () => {
   for (const raw of [null, undefined, 42, "x", { features: "nope" }]) {
     assert.deepEqual(normalizeFeatureAccessPolicy(raw), defaultFeatureAccessPolicy());
   }
+});
+
+test("美国 GDP Now 默认开发中，由功能页权限打开后才对用户可见", () => {
+  const policy = defaultFeatureAccessPolicy();
+  assert.equal(policy.features["forecast-us-gdp"].status, "development");
+  assert.deepEqual(policy.features["forecast-us-gdp"].preview, {
+    visitor: false,
+    standard: false,
+    pro: false,
+  });
+  assert.equal(resolveFeatureAccess(policy, "forecast-us-gdp", VISITOR), "hidden");
+  assert.equal(resolveFeatureAccess(policy, "forecast-us-gdp", STANDARD), "hidden");
+  assert.equal(resolveFeatureAccess(policy, "forecast-us-gdp", PRO), "hidden");
+  assert.equal(resolveFeatureAccess(policy, "forecast-us-gdp", ADMIN), "allowed");
+  assert.ok(!viewerFeatureMap(policy, VISITOR).listed.includes("forecast-us-gdp"));
+  assert.ok(viewerFeatureMap(policy, ADMIN).listed.includes("forecast-us-gdp"));
+
+  const opened = normalizeFeatureAccessPolicy({
+    version: 2,
+    features: {
+      "forecast-us-gdp": {
+        status: "development",
+        proOnly: false,
+        preview: { visitor: false, standard: true, pro: true },
+      },
+    },
+  });
+  assert.equal(resolveFeatureAccess(opened, "forecast-us-gdp", VISITOR), "hidden");
+  assert.equal(resolveFeatureAccess(opened, "forecast-us-gdp", STANDARD), "allowed");
+  assert.equal(resolveFeatureAccess(opened, "forecast-us-gdp", PRO), "allowed");
+
+  const released = withRule("forecast-us-gdp", { status: "released", proOnly: true });
+  assert.equal(resolveFeatureAccess(released, "forecast-us-gdp", VISITOR), "needs-register");
+  assert.equal(resolveFeatureAccess(released, "forecast-us-gdp", STANDARD), "needs-upgrade");
+  assert.equal(resolveFeatureAccess(released, "forecast-us-gdp", PRO), "allowed");
 });
 
 test("未登记的功能 id 不受管控", () => {
