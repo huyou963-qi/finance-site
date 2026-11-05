@@ -16,6 +16,7 @@ async function main() {
     maxFilings: Number(arg("max-filings") ?? 300), delayMs: Number(arg("delay-ms") ?? 1000), dryRun,
     timingLimit: Number(arg("timing-limit") ?? 20),
     filingFallbackLimit: Number(arg("filing-fallback-limit") ?? 12),
+    backlogDays: arg("backlog-days") != null ? Number(arg("backlog-days")) : undefined,
   };
   if (dryRun) {
     console.log(JSON.stringify(await syncDailyDisclosures(options), null, 2));
