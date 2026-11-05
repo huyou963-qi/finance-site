@@ -17,6 +17,9 @@
 `npm run equity:sync-daily-disclosures` 每日一次，默认截至上一美东自然日，回看 7 天。
 先下载日索引，再仅查询出现目标公告的 CIK 的 submissions。按 accession 去重；
 已完成公告不再下载。待补齐/失败任务不限于回看窗口，持久化后持续按日重试。
+`equity:sync-sec` 等路径写入的公告会留下 `daily_status=null`；日批除窗口内新发现外，
+还会把近 `--backlog-days`（默认 120）天内已带 `report_period_end` 的 10-Q/10-K，
+以及含 Item 2.02 的 8-K，重新收入待处理队列，避免财报季漏解析。
 完整财务数据仅在包含对应 accession 且 extractor 能产生对应版本时写入完成状态。
 普通 8-K 仅入索引，不下载正文；每次最多深度处理 300 份财报/业绩公告，
 单并发、任务间默认间隔 1 秒；超出部分持久排队，保留待处理。
@@ -24,6 +27,8 @@
 参数：`--through=YYYY-MM-DD`、`--days=7`（最多 31）、`--symbols=AAPL,MSFT`、
 `--max-filings=300`、`--delay-ms=1000`、`--dry-run`（仅计划，不访问外部源、不写库）。
 `--timing-limit=20` 控制回看窗口内历史已完成财报的 header 补齐上限（0 禁用）；
+`--filing-fallback-limit=12`（0–20；生产 cron 用 20）控制 companyfacts 滞后时的原文 XBRL 回补名额；
+`--backlog-days=120`（0–366）控制窗口外 null 财报重新入队的申报日回溯；
 核验失败保留已入库财务结果，并间隔七天后再尝试时点补齐，不逐日反复请求失败文件。
 已尝试但失败的时点任务保留重试资格，不因离开七天发现窗口而丢失。
 失败和待补齐分别计数，失败以非零退出；日志记录缺失的日索引（节假日可能无文件），

@@ -7,8 +7,12 @@ import { buildSecFundamentalVintages, listSecPeriodicFilings, upsertFundamentalV
 import { upsertQuarterlyFundamentals } from "./equityFundamentalsStore";
 import { supplementSecPeriodicFilingPair } from "./secFilingFacts";
 
+/** Already-indexed financial filings (e.g. from sync-sec) stay null forever unless re-queued beyond the 7-day discovery window. */
+export const ORPHAN_FINANCIAL_BACKLOG_DAYS = 120;
+
 export type DailyDisclosureOptions = {
-  through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean; timingLimit?: number; filingFallbackLimit?: number;
+  through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean;
+  timingLimit?: number; filingFallbackLimit?: number; backlogDays?: number;
 };
 export type DisclosureDiscoveryProgress = { coveredCiks: string[]; failedCiks: string[]; missingIndexes: string[]; indexed: number; failed: number };
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -31,9 +35,11 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
   const maxFilings = options.maxFilings ?? 300;
   const timingLimit = options.timingLimit ?? 20;
   const filingFallbackLimit = options.filingFallbackLimit ?? 12;
+  const backlogDays = options.backlogDays ?? ORPHAN_FINANCIAL_BACKLOG_DAYS;
   if (!Number.isInteger(filingFallbackLimit) || filingFallbackLimit < 0 || filingFallbackLimit > 20) throw new Error("filing-fallback-limit 必须为0–20");
   let fallbackRemaining = filingFallbackLimit;
   if (!Number.isInteger(timingLimit) || timingLimit < 0 || timingLimit > 100) throw new Error("timing-limit 必须为 0–100");
+  if (!Number.isInteger(backlogDays) || backlogDays < 0 || backlogDays > 366) throw new Error("backlog-days 必须为 0–366");
   if (!Number.isInteger(maxFilings) || maxFilings < 1 || maxFilings > 1000 || !Number.isFinite(delayMs)) {
     throw new Error("max-filings 必须为 1–1000；delay-ms 必须为有效数字");
   }
@@ -102,6 +108,23 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
       filedAt: { gte: new Date(`${days[0]}T00:00:00Z`), lte: new Date(`${days.at(-1)}T23:59:59Z`) } },
     data: { dailyStatus: "pending", dailyNextAttemptAt: new Date(0) },
   });
+  // sync-sec / missed windows leave daily_status null outside the rolling discovery dates.
+  // Re-queue recent already-indexed financials (and Item 2.02 releases) so Q3-season backlogs drain.
+  // Anchor to the discovery window end (not wall clock) so --through backfills stay deterministic.
+  if (backlogDays > 0) {
+    const filedSince = new Date(`${days.at(-1)}T00:00:00Z`);
+    filedSince.setUTCDate(filedSince.getUTCDate() - backlogDays);
+    await prisma.secFiling.updateMany({
+      where: { cik: { in: [...byCik.keys()] }, form: { in: [...SEC_FINANCIAL_FORMS] }, dailyStatus: null,
+        reportPeriodEnd: { not: null }, filedAt: { gte: filedSince } },
+      data: { dailyStatus: "pending", dailyNextAttemptAt: new Date(0) },
+    });
+    await prisma.secFiling.updateMany({
+      where: { cik: { in: [...byCik.keys()] }, form: { in: ["8-K", "8-K/A"] }, dailyStatus: null,
+        items: { contains: "2.02" }, filedAt: { gte: filedSince } },
+      data: { dailyStatus: "pending", dailyNextAttemptAt: new Date(0) },
+    });
+  }
   // Routine 8-K events need only the canonical index. Do not spend the financial-download budget on them.
   const routine = await prisma.secFiling.updateMany({
     where: { cik: { in: [...byCik.keys()] }, form: { in: ["8-K", "8-K/A"] }, dailyStatus: "pending",
@@ -220,7 +243,13 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
           }
           if (factsError) throw factsError;
           if (primaryErrors.has(filing.accession)) throw primaryErrors.get(filing.accession);
-          if (primaryDeferred.has(filing.accession) || !financialVersionReady(filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10))) {
+          // Ready (revenue|eps) wins over primaryDeferred. Mortgage REIT/BDC filings often have
+          // null revenue/capex so they enter the XBRL enrichment path; if companyfacts already
+          // has EPS for this accession, handledAccessions may stay empty and must not block complete.
+          const ready = financialVersionReady(
+            filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10),
+          );
+          if (!ready) {
             status = "pending";
           } else if (!financialWritten) {
             const quarters = extractQuarterlyFundamentals(facts, { maxQuarters: 20 });
