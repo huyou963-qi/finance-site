@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { DAILY_DISCLOSURE_FORMS, disclosureDays, financialVersionReady } from "./dailyDisclosurePolicy";
+import {
+  companyFactsCikCandidates, DAILY_DISCLOSURE_FORMS, disclosureDays, financialVersionReady,
+} from "./dailyDisclosurePolicy";
 import { discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence } from "./secEdgar";
 import { SEC_FINANCIAL_FORMS, writeSecFilingIndex } from "./secFilingSync";
 import { fetchSecCompanyFacts, extractQuarterlyFundamentals } from "./secFundamentals";
@@ -166,9 +168,29 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     let vintages: SecFundamentalVintage[] = [];
     let financialWritten = false;
     const primaryDeferred = new Set<string>(), budgetSkipped = new Set<string>(), primaryErrors = new Map<string, unknown>();
-    if (group.some(row => SEC_FINANCIAL_FORMS.has(row.form))) {
+    // Filing rows may use a preferred-share CIK or an issuer CIK while the accession prefix is a
+    // parent co-registrant or a filing agent. Try the row CIK first, then the accession CIK.
+    const financialSeed = group.find(row => SEC_FINANCIAL_FORMS.has(row.form));
+    let factsCik = cik;
+    if (financialSeed) {
       try {
-        facts = await fetchSecCompanyFacts(cik, { timeoutMs: 60_000 });
+        const accessions = group.filter(row => SEC_FINANCIAL_FORMS.has(row.form)).map(row => row.accession);
+        const candidates = companyFactsCikCandidates(cik, financialSeed.accession);
+        let lastError: unknown;
+        let selected: { cik: string; facts: unknown } | null = null;
+        for (const candidate of candidates) {
+          try {
+            const loaded = await fetchSecCompanyFacts(candidate, { timeoutMs: 60_000 });
+            const listed = new Set(listSecPeriodicFilings(loaded).map(row => row.accession));
+            selected = { cik: candidate, facts: loaded };
+            if (accessions.every(accession => listed.has(accession))) break;
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (!selected) throw lastError ?? new Error("companyfacts 不可用");
+        factsCik = selected.cik;
+        facts = selected.facts;
         let versions = listSecPeriodicFilings(facts);
         if (dependencies.supplementSecPeriodicFilingPair && filingFallbackLimit > 0) {
           const available = new Set(versions.map(row => row.accession));
@@ -187,7 +209,7 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
             if (reserved <= 0) { budgetSkipped.add(row.accession); primaryDeferred.add(row.accession); continue; }
             fallbackRemaining -= reserved; companyUsed += reserved;
             try {
-              const supplemented = await dependencies.supplementSecPeriodicFilingPair(facts, Number(cik), {
+              const supplemented = await dependencies.supplementSecPeriodicFilingPair(facts, Number(factsCik), {
                 accession: row.accession, form: row.form, filedAt: row.filedAt.toISOString().slice(0, 10), primaryDocument: row.primaryDocument,
                 reportDate: row.reportPeriodEnd?.toISOString().slice(0, 10),
               }, reserved);
@@ -217,7 +239,17 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
         let status = "complete";
         const isEarningsRelease = filing.form.startsWith("8-K") && filing.items?.split(",").some(item => item.trim() === "2.02");
         if (isEarningsRelease && !filing.earningsRelease) {
-          const evidence = await fetchSecReleaseEvidence(cik, filing.accession, filing.filedAt.toISOString().slice(0, 10));
+          let evidence: Awaited<ReturnType<typeof fetchSecReleaseEvidence>> | null = null;
+          let lastReleaseError: unknown;
+          for (const candidate of companyFactsCikCandidates(filing.cik, filing.accession)) {
+            try {
+              evidence = await fetchSecReleaseEvidence(candidate, filing.accession, filing.filedAt.toISOString().slice(0, 10));
+              break;
+            } catch (error) {
+              lastReleaseError = error;
+            }
+          }
+          if (!evidence) throw lastReleaseError ?? new Error("业绩附件不可用");
           await prisma.secFiling.update({ where: { id: filing.id }, data: {
             earningsRelease: { attachments: evidence.attachments, publication: evidence.publication },
             ...(evidence.acceptedAt ? { acceptedAt: evidence.acceptedAt, acceptedAtSource: evidence.acceptedAtSource } : {}),
@@ -230,7 +262,17 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
         if (SEC_FINANCIAL_FORMS.has(filing.form)) {
           if (!filing.acceptedAt && (!filing.timingCheckedAt || filing.timingCheckedAt.getTime() < Date.now() - 7 * 86_400_000)) {
             try {
-              const evidence = await fetchSecAcceptanceEvidence(cik, filing.accession);
+              let evidence: Awaited<ReturnType<typeof fetchSecAcceptanceEvidence>> | null = null;
+              let lastTimingError: unknown;
+              for (const candidate of companyFactsCikCandidates(filing.cik, filing.accession)) {
+                try {
+                  evidence = await fetchSecAcceptanceEvidence(candidate, filing.accession);
+                  break;
+                } catch (error) {
+                  lastTimingError = error;
+                }
+              }
+              if (!evidence) throw lastTimingError ?? new Error("SEC 接收时刻不可用");
               await prisma.secFiling.update({ where: { id: filing.id }, data: {
                 acceptedAt: evidence.acceptedAt, acceptedAtSource: evidence.sourceUrl, timingCheckedAt: new Date(),
               } });
@@ -242,13 +284,14 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
             }
           }
           if (factsError) throw factsError;
-          if (primaryErrors.has(filing.accession)) throw primaryErrors.get(filing.accession);
-          // Ready (revenue|eps) wins over primaryDeferred. Mortgage REIT/BDC filings often have
-          // null revenue/capex so they enter the XBRL enrichment path; if companyfacts already
-          // has EPS for this accession, handledAccessions may stay empty and must not block complete.
+          // Ready (revenue|eps|netIncome) wins over primaryDeferred and over a failed XBRL merge.
+          // SPACs/BDCs often conflict on balance-sheet tags while NI is already in companyfacts;
+          // Mortgage REIT/BDC filings may have null revenue/capex so they enter enrichment, but
+          // EPS/NI for this accession must not be blocked by empty handledAccessions.
           const ready = financialVersionReady(
             filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10),
           );
+          if (!ready && primaryErrors.has(filing.accession)) throw primaryErrors.get(filing.accession);
           if (!ready) {
             status = "pending";
           } else if (!financialWritten) {
@@ -297,7 +340,17 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     }, orderBy: [{ filedAt: "desc" }, { id: "asc" }], take: timingLimit });
     for (const filing of timingRows) {
       try {
-        const evidence = await fetchSecAcceptanceEvidence(filing.cik, filing.accession);
+        let evidence: Awaited<ReturnType<typeof fetchSecAcceptanceEvidence>> | null = null;
+        let lastTimingError: unknown;
+        for (const candidate of companyFactsCikCandidates(filing.cik, filing.accession)) {
+          try {
+            evidence = await fetchSecAcceptanceEvidence(candidate, filing.accession);
+            break;
+          } catch (error) {
+            lastTimingError = error;
+          }
+        }
+        if (!evidence) throw lastTimingError ?? new Error("SEC 接收时刻不可用");
         await prisma.secFiling.update({ where: { id: filing.id }, data: {
           acceptedAt: evidence.acceptedAt, acceptedAtSource: evidence.sourceUrl, timingCheckedAt: new Date(),
         } });

@@ -20,7 +20,9 @@
 `equity:sync-sec` 等路径写入的公告会留下 `daily_status=null`；日批除窗口内新发现外，
 还会把近 `--backlog-days`（默认 120）天内已带 `report_period_end` 的 10-Q/10-K，
 以及含 Item 2.02 的 8-K，重新收入待处理队列，避免财报季漏解析。
-完整财务数据仅在包含对应 accession 且 extractor 能产生对应版本时写入完成状态。
+完整财务数据仅在包含对应 accession 且 extractor 能产生对应版本时写入完成状态
+（营收、EPS 或净利润任一非空即可）。companyfacts / 原文先按票面 CIK 取，若与
+accession 前缀不同（优先股联合申报或代报主体）再回退到 accession CIK。
 普通 8-K 仅入索引，不下载正文；每次最多深度处理 300 份财报/业绩公告，
 单并发、任务间默认间隔 1 秒；超出部分持久排队，保留待处理。
 

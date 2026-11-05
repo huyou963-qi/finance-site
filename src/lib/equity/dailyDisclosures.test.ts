@@ -178,6 +178,125 @@ test("EPS-ready filings complete even when XBRL enrichment does not claim the ac
   assert.equal(h.calls.snapshot, 1);
 });
 
+test("preferred-share rows fall back to the accession owner CIK when the ticket CIK has no companyfacts", async () => {
+  const preferredCik = "0000071508", ownerCik = "0000065984", accession = "0000065984-20-000001";
+  const rows: SecFiling[] = [{
+    id: "enj", cik: preferredCik, symbol: "ENJ", accession, form: "10-Q",
+    filedAt: new Date("2020-10-23"), reportPeriodEnd: new Date("2020-09-30"),
+    dailyStatus: "pending", dailyAttempts: 1, dailyNextAttemptAt: new Date(0), earningsRelease: null,
+    items: null, acceptedAt: new Date(), timingCheckedAt: new Date(), primaryDocument: "etr.htm",
+  } as unknown as SecFiling];
+  const fetched: string[] = [];
+  const db = {
+    equitySecurity: { findMany: async () => [{ symbol: "ENJ", cik: preferredCik }] },
+    secFiling: {
+      findMany: async (args: { select?: unknown; take?: number; where?: { acceptedAt?: null } }) =>
+        args.where && "acceptedAt" in args.where ? [] : args.select ? rows : rows.slice(0, args.take),
+      count: async () => rows.filter(row => row.dailyStatus !== "complete").length,
+      updateMany: async () => ({ count: 0 }),
+      update: async ({ where, data }: { where: { id: string }; data: Partial<SecFiling> & { dailyAttempts?: { increment: number } } }) => {
+        const row = rows.find(item => item.id === where.id)!;
+        const attempts = data.dailyAttempts as unknown as { increment: number } | undefined;
+        Object.assign(row, data, { dailyAttempts: row.dailyAttempts + (attempts?.increment ?? 0) });
+        return row;
+      },
+    },
+  } as unknown as PrismaClient;
+  const quarter = { period: "2020Q3", fiscalDate: "2020-09-30", fiscalQuarter: 3, revenue: 200, eps: 2 } as SecQuarterlyFundamentals;
+  const result = await syncDailyDisclosures({ through: "2020-10-23", days: 1 }, {
+    prisma: db, pause: async () => {},
+    fetchSecDailyIndex: async () => [],
+    discoverSecFilings: async () => [],
+    writeSecFilingIndex: async () => rows[0]!,
+    fetchSecCompanyFacts: async (cik: string) => {
+      fetched.push(cik);
+      if (cik === preferredCik) throw new Error("SEC HTTP 404");
+      return {};
+    },
+    listSecPeriodicFilings: (_facts, ..._rest: unknown[]) =>
+      fetched.at(-1) === ownerCik ? [{ accession, form: "10-Q", filedAt: "2020-10-23" }] : [],
+    buildSecFundamentalVintages: () => [{ ...quarter, accession, form: "10-Q", filedAt: "2020-10-23", checkpoint: true }],
+    extractQuarterlyFundamentals: () => [quarter],
+    upsertQuarterlyFundamentals: async () => 1,
+    upsertFundamentalVintages: async () => 1,
+    fetchSecReleaseEvidence: async () => ({ attachments: [], publication: null, acceptedAt: null, acceptedAtSource: "https://www.sec.gov/" }),
+    fetchSecAcceptanceEvidence: async () => ({ acceptedAt: new Date("2020-10-23T20:00:00Z"), sourceUrl: "https://www.sec.gov/" }),
+  });
+  assert.deepEqual(fetched, [preferredCik, ownerCik]);
+  assert.equal(result.complete, 1);
+  assert.equal(rows[0]!.dailyStatus, "complete");
+});
+
+test("agent-filed SPACs keep the issuer CIK when the accession prefix is a filing agent", async () => {
+  const issuerCik = "0002017950", agentCik = "0001493152", accession = "0001493152-20-000001";
+  const rows: SecFiling[] = [{
+    id: "dtsq", cik: issuerCik, symbol: "DTSQ", accession, form: "10-Q",
+    filedAt: new Date("2020-10-23"), reportPeriodEnd: new Date("2020-09-30"),
+    dailyStatus: "pending", dailyAttempts: 1, dailyNextAttemptAt: new Date(0), earningsRelease: null,
+    items: null, acceptedAt: new Date(), timingCheckedAt: new Date(), primaryDocument: "form10-q.htm",
+  } as unknown as SecFiling];
+  const fetched: string[] = [];
+  const db = {
+    equitySecurity: { findMany: async () => [{ symbol: "DTSQ", cik: issuerCik }] },
+    secFiling: {
+      findMany: async (args: { select?: unknown; take?: number; where?: { acceptedAt?: null } }) =>
+        args.where && "acceptedAt" in args.where ? [] : args.select ? rows : rows.slice(0, args.take),
+      count: async () => rows.filter(row => row.dailyStatus !== "complete").length,
+      updateMany: async () => ({ count: 0 }),
+      update: async ({ where, data }: { where: { id: string }; data: Partial<SecFiling> & { dailyAttempts?: { increment: number } } }) => {
+        const row = rows.find(item => item.id === where.id)!;
+        const attempts = data.dailyAttempts as unknown as { increment: number } | undefined;
+        Object.assign(row, data, { dailyAttempts: row.dailyAttempts + (attempts?.increment ?? 0) });
+        return row;
+      },
+    },
+  } as unknown as PrismaClient;
+  const quarter = {
+    period: "2020Q3", fiscalDate: "2020-09-30", fiscalQuarter: 3, revenue: null, eps: null, netIncome: -1,
+  } as SecQuarterlyFundamentals;
+  const result = await syncDailyDisclosures({ through: "2020-10-23", days: 1 }, {
+    prisma: db, pause: async () => {},
+    fetchSecDailyIndex: async () => [],
+    discoverSecFilings: async () => [],
+    writeSecFilingIndex: async () => rows[0]!,
+    fetchSecCompanyFacts: async (cik: string) => {
+      fetched.push(cik);
+      if (cik === agentCik) throw new Error("SEC HTTP 404");
+      return {};
+    },
+    listSecPeriodicFilings: () => [{ accession, form: "10-Q", filedAt: "2020-10-23" }],
+    buildSecFundamentalVintages: () => [{ ...quarter, accession, form: "10-Q", filedAt: "2020-10-23", checkpoint: true }],
+    extractQuarterlyFundamentals: () => [quarter],
+    upsertQuarterlyFundamentals: async () => 1,
+    upsertFundamentalVintages: async () => 1,
+    fetchSecReleaseEvidence: async () => ({ attachments: [], publication: null, acceptedAt: null, acceptedAtSource: "https://www.sec.gov/" }),
+    fetchSecAcceptanceEvidence: async () => ({ acceptedAt: new Date("2020-10-23T20:00:00Z"), sourceUrl: "https://www.sec.gov/" }),
+  });
+  assert.deepEqual(fetched, [issuerCik]);
+  assert.equal(result.complete, 1);
+  assert.equal(rows[0]!.dailyStatus, "complete");
+});
+
+test("netIncome-only vintages complete even when XBRL merge conflicts", async () => {
+  const h = harness("old");
+  h.deps.listSecPeriodicFilings = () => [{ accession: "0000320193-20-000001", form: "10-Q", filedAt: "2020-10-23" }];
+  h.deps.buildSecFundamentalVintages = () => [{
+    period: "2020Q3", fiscalDate: "2020-09-30", fiscalQuarter: 3,
+    revenue: null, eps: null, netIncome: 12, ocf: null, capex: null,
+    accession: "0000320193-20-000001", form: "10-Q", filedAt: "2020-10-23", checkpoint: true,
+  } as never];
+  h.deps.extractQuarterlyFundamentals = () => [{
+    period: "2020Q3", fiscalDate: "2020-09-30", fiscalQuarter: 3, revenue: null, eps: null, netIncome: 12,
+  } as SecQuarterlyFundamentals];
+  h.deps.supplementSecPeriodicFilingPair = async () => {
+    throw new Error("缓存与申报事实冲突：us-gaap:CashAndCashEquivalentsAtCarryingValue/0000320193-20-000001||2020-09-30");
+  };
+  const result = await syncDailyDisclosures({ ...h.options, filingFallbackLimit: 2 }, h.deps);
+  assert.equal(result.complete, 1);
+  assert.equal(h.rows[0].dailyStatus, "complete");
+  assert.equal(h.calls.snapshot, 1);
+});
+
 test("a stale financial aggregate is repaired from bounded original filings before completion, then remains idempotent", async () => {
   const h = harness("old"); let ready = false, primary = 0;
   const versions = h.deps.listSecPeriodicFilings, vintages = h.deps.buildSecFundamentalVintages;
