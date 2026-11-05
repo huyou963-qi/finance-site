@@ -136,6 +136,7 @@ async function seedFredExtra() {
         code,
         kind: InstrumentKind.MACRO_SERIES,
         name: row.name,
+        ...(row.fredId === "DEXJPUS" ? { unit: "日元／美元" } : {}),
         freqLabel: row.freqLabel,
         fredSeriesId: row.fredId,
         externalRefs: {
@@ -146,6 +147,7 @@ async function seedFredExtra() {
       },
       update: {
         name: row.name,
+        ...(row.fredId === "DEXJPUS" ? { unit: "日元／美元" } : {}),
         freqLabel: row.freqLabel,
         fredSeriesId: row.fredId,
       },

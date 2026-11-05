@@ -17,6 +17,15 @@ export const NBS_FAI_ANNUAL_INTERNET_SUPPLEMENT = {
   url: "https://www.stats.gov.cn/xxgk/jd/sjjd2020/202601/t20260119_1962336.html",
 } as const;
 
+/** Exact annual facts already published outside the UUID table. Values are parsed,
+ * never stored here. Scope by UUID/year; do not substitute broad sector growth. */
+export const NBS_FAI_REVIEWED_ANNUAL_SUPPLEMENTS = [
+  { cid: "91fb952fc32d44d498e9bd4ffdbac9de", indicatorId: "e598692e003149cd97195a09f7bb4b17", year: 2025, kind: "state_controlled" as const,
+    url: "https://www.stats.gov.cn/sj/zxfb/202601/t20260119_1962326.html" },
+  { cid: "d3a73a7e6c3c4db185b05aaac3c899e1", indicatorId: "3ded0e43587f43bcb815e55b9dcbd4e9", year: 2025, kind: "real_estate" as const,
+    url: "https://www.stats.gov.cn/xxgk/sjfb/zxfb2020/202601/t20260119_1962324.html" },
+] as const;
+
 export type FaiFrequency = "monthly" | "annual";
 export type FaiCatalog = { cid: string; frequency: FaiFrequency; group: string };
 

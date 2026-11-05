@@ -1,6 +1,17 @@
 import { GOLD_PRICE_INSTRUMENTS } from "./goldPrices/catalog";
 /** Correct legacy labels without rebasing, scaling, or replacing observations. */
 export const AUDITED_DEFINITIONS = [
+  { code: "sched_wb_KR_GC_DOD_TOTL_GD_ZS", name: "韩国：中央政府债务总额占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
+  { code: "sched_wb_NL_GC_DOD_TOTL_GD_ZS", name: "荷兰：中央政府债务总额占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
+  { code: "sched_wb_PL_GC_DOD_TOTL_GD_ZS", name: "波兰：中央政府债务总额占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
+  { code: "sched_wb_PL_SL_TLF_CACT_ZS", name: "波兰：劳动参与率（15岁及以上，ILO模型估计）", unit: "%", freqLabel: "年", source: "World Bank" },
+  { code: "sched_wb_AU_NV_IND_TOTL_ZS", name: "澳大利亚：工业（含建筑业）增加值占GDP", unit: "%", freqLabel: "年", source: "World Bank" },
+  { code: "sched_fred_DEXJPUS", name: "日元／美元汇率", unit: "日元／美元", freqLabel: "日", source: "FRB H.10/FRED" },
+  { code: "mof_jp_corporate_inventories", name: "日本：法人企业棚卸资产（不含金融保险业）", unit: "百万日元", freqLabel: "季", source: "日本财务省/e-Stat" },
+  { code: "mof_jp_corporate_ordinary_profit", name: "日本：法人企业经常利润（不含金融保险业）", unit: "百万日元", freqLabel: "季", source: "日本财务省/e-Stat" },
+  { code: "mof_jp_corporate_sales", name: "日本：法人企业销售额（不含金融保险业）", unit: "百万日元", freqLabel: "季", source: "日本财务省/e-Stat" },
+  { code: "mof_jp_corporate_total_assets", name: "日本：法人企业总资产（不含金融保险业）", unit: "百万日元", freqLabel: "季", source: "日本财务省/e-Stat" },
+  { code: "mof_jp_corporate_total_liabilities", name: "日本：法人企业负债（不含金融保险业）", unit: "百万日元", freqLabel: "季", source: "日本财务省/e-Stat" },
   { code: "wgc_gold_price_usd", name: "世界黄金协会金价（日度接口，基准未确认）", unit: "美元/盎司", freqLabel: "日", source: "World Gold Council（基准未确认）" },
   { code: "nbs_cn_realestate_db24f54063787b44be", name: "中国：房地产：商品房待售面积：商业营业用房同比增长", unit: "%", freqLabel: "月", source: "国家统计局" },
   { code: "nbs_cn_realestate_e9a76c570b5c25c176", name: "中国：房地产：商品房待售面积：办公楼原值", unit: "万平方米", freqLabel: "月", source: "国家统计局" },
@@ -45,7 +56,11 @@ export function auditedDefinitionMetadata(previous: unknown, definition: typeof 
       fetchAcquisition: { ...acquisition, message: GOLD_PRICE_INSTRUMENTS[0]!.description },
     } : {}),
     ...(sourceKey ? { scrape: { ...scrape, key: sourceKey } } : {}),
-    source: definition.source, definitionAudit: definition.code === "wgc_gold_price_usd" ? "2026-10-31-benchmark-unconfirmed" : ["nbs_cn_realestate_db24f54063787b44be",
+    ...((definition.code as string).startsWith("mof_jp_corporate_") ? {
+      sourceUpdateNote: "日本财务省法人企业统计：资本金1000万日元及以上、全产业（不含金融保险业），未季调，官方e-Stat全历史回读修订。",
+      industryScope: "All industries excluding finance and insurance",
+    } : {}),
+    source: definition.source, definitionAudit: ["sched_wb_KR_GC_DOD_TOTL_GD_ZS", "sched_wb_NL_GC_DOD_TOTL_GD_ZS", "sched_wb_PL_GC_DOD_TOTL_GD_ZS", "sched_wb_PL_SL_TLF_CACT_ZS", "sched_wb_AU_NV_IND_TOTL_ZS", "sched_fred_DEXJPUS", "mof_jp_corporate_inventories", "mof_jp_corporate_ordinary_profit", "mof_jp_corporate_sales", "mof_jp_corporate_total_assets", "mof_jp_corporate_total_liabilities"].includes(definition.code) ? "2026-11-04-official-source-review" : definition.code === "wgc_gold_price_usd" ? "2026-10-31-benchmark-unconfirmed" : ["nbs_cn_realestate_db24f54063787b44be",
       "nbs_cn_realestate_e9a76c570b5c25c176"].includes(definition.code)
       ? "2026-10-24-official-source-review" : ["sched_wb_PL_NV_IND_TOTL_ZS", "sched_wb_ZA_GC_DOD_TOTL_GD_ZS",
       "sched_fred_RECPROUSM156N", "nbs_cn_realestate_ab8fa19959bcc39da7",

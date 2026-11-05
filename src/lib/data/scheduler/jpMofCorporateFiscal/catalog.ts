@@ -46,7 +46,7 @@ const corporateRows = [
 export const JP_MOF_CORPORATE_SERIES = corporateRows.map(([key, label, itemCode, sourceUnit]) => ({
   instrumentCode: `mof_jp_corporate_${key}`,
   key,
-  label,
+  label: `${label}（不含金融保险业）`,
   itemCode,
   sourceUnit,
   unit: sourceUnit === "％" ? "%" : "百万日元",
