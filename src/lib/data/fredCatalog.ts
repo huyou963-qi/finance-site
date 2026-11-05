@@ -403,6 +403,9 @@ const WORLD_BANK_INDICATORS: readonly WorldBankIndicatorDef[] = [
   { id: "SP.DYN.LE00.IN", label: "预期寿命（岁）", category: "人口与资源", frequency: "年" },
 ] as const;
 
+/** WDI indicator ids used by Phase 3 WB seed / catalog alias tombstones. */
+export const WORLD_BANK_INDICATOR_IDS: readonly string[] = WORLD_BANK_INDICATORS.map((row) => row.id);
+
 /** Phase 3：非美国家 × 18 世行指标（用于 bulk seed） */
 export function listWorldBankSeedTargets(): {
   countryCode: string;

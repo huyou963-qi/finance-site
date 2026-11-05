@@ -81,15 +81,27 @@ function countryIndicatorCount(country: AdminCatalogCountry): number {
 
 function acquisitionSortKey(row: AdminCatalogIndicator): string {
   if (row.networkAcquisitionConfirmed) return `0${row.fetchAcquisitionMethod ?? "已确认"}`;
+  if (row.acquisitionResolved) {
+    if (row.lifecycleMode === "archive") return "0历史归档";
+    if (row.lifecycleMode === "licensed") return "0授权源";
+    if (row.lifecycleMode === "projection") return "0投影序列";
+    return "0已了结";
+  }
   return "1待确定";
 }
 
 function statusSortKey(row: AdminCatalogIndicator): string {
-  if (!row.networkAcquisitionConfirmed) return "0待确定";
-  if (row.isStale) return "3未更新";
-  if (row.updateStatus === "source_current") return "2源端暂无新值";
-  if (row.updateStatus === "on_schedule") return "1等待下次更新";
-  return "4";
+  if (!row.acquisitionResolved) return "0待确定";
+  if (!row.networkAcquisitionConfirmed) {
+    if (row.lifecycleMode === "archive") return "1历史归档";
+    if (row.lifecycleMode === "licensed") return "1授权源";
+    if (row.lifecycleMode === "projection") return "1投影序列";
+    return "1已了结";
+  }
+  if (row.isStale) return "4未更新";
+  if (row.updateStatus === "source_current") return "3源端暂无新值";
+  if (row.updateStatus === "on_schedule") return "2等待下次更新";
+  return "5";
 }
 
 function sourceLinkSortKey(row: AdminCatalogIndicator): string {
@@ -167,8 +179,18 @@ function StatusCell({
   const { FetchRunBadge, SyncPackageButton } = deps;
   return (
     <>
-      {!row.networkAcquisitionConfirmed ? (
+      {!row.acquisitionResolved ? (
         <span className="text-amber-400">待确定</span>
+      ) : !row.networkAcquisitionConfirmed ? (
+        <span className="text-fs-muted">
+          {row.lifecycleMode === "archive"
+            ? "历史归档"
+            : row.lifecycleMode === "licensed"
+              ? "授权源"
+              : row.lifecycleMode === "projection"
+                ? "投影序列"
+                : "已了结"}
+        </span>
       ) : row.isStale ? (
         <span className="text-fs-negative">未更新</span>
       ) : row.updateStatus === "source_current" ? (
@@ -672,7 +694,7 @@ export function filterCountry(
       indicators = indicators.filter((i) => i.networkAcquisitionConfirmed && i.hasScheduledUpdates);
     }
     if (onlyStale) indicators = indicators.filter((i) => i.isStale);
-    if (onlyPending) indicators = indicators.filter((i) => !i.networkAcquisitionConfirmed);
+    if (onlyPending) indicators = indicators.filter((i) => !i.acquisitionResolved);
     if (onlyIncompleteOnboarding) {
       indicators = indicators.filter((i) => i.onboardingStatus === "pending_completion");
     }

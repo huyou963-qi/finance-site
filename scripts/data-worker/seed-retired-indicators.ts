@@ -25,7 +25,12 @@ import {
   SUPERSEDED_KEEP_HISTORY_CODES,
   rewriteRetiredKeys,
 } from "../../src/lib/data/retiredIndicators";
-import { buildBaseCatalogCountries, clearFredCatalogCache } from "../../src/lib/data/fredCatalog";
+import {
+  buildBaseCatalogCountries,
+  clearFredCatalogCache,
+  WORLD_BANK_INDICATOR_IDS,
+} from "../../src/lib/data/fredCatalog";
+import { parseSchedWbInstrumentCode } from "../../src/lib/data/scheduler/catalogKeyResolve";
 import {
   loadMacroCatalogLayout,
   reconcileCatalogLayoutWithBase,
@@ -79,6 +84,27 @@ async function retireInstruments(dryRun: boolean) {
  *      不再每轮对早已停更的序列做无用请求。
  * 恢复方式：删掉该 tombstone 行，数据与订阅都还在。
  */
+function wbAliasForCode(code: string, sourceSeriesKey?: string | null): string | null {
+  if (sourceSeriesKey?.includes(":")) return `wb:${sourceSeriesKey}`;
+  const parsed = parseSchedWbInstrumentCode(code, WORLD_BANK_INDICATOR_IDS);
+  return parsed ? `wb:${parsed.countryCode}:${parsed.indicatorId}` : null;
+}
+
+async function upsertExclusion(catalogKey: string, dryRun: boolean): Promise<boolean> {
+  const already = await prisma.macroCatalogExcludedKey.findUnique({
+    where: { catalogKey },
+    select: { catalogKey: true },
+  });
+  if (already) return false;
+  if (dryRun) return true;
+  await prisma.macroCatalogExcludedKey.upsert({
+    where: { catalogKey },
+    create: { catalogKey, deletedBy: ACTOR },
+    update: {},
+  });
+  return true;
+}
+
 async function hideSourceEndedInstruments(dryRun: boolean) {
   // 被标准序列取代的旧列同样只隐藏不删（模板键由 rewriteTemplates 替换）
   for (const code of [...SOURCE_ENDED_HIDDEN_CODES, ...SUPERSEDED_KEEP_HISTORY_CODES]) {
@@ -87,39 +113,50 @@ async function hideSourceEndedInstruments(dryRun: boolean) {
       where: { code },
       select: { id: true, dataSubscription: {select:{sourceId:true,sourceSeriesKey:true}} },
     });
-    if (!instrument) {
-      console.log(`  · ${code} 不在库中，跳过`);
-      continue;
-    }
-    const obs = await prisma.macroObservation.count({
-      where: { instrumentId: instrument.id },
-    });
-    const already = await prisma.macroCatalogExcludedKey.findUnique({
-      where: { catalogKey: key },
-      select: { catalogKey: true },
-    });
+    const obs = instrument
+      ? await prisma.macroObservation.count({ where: { instrumentId: instrument.id } })
+      : 0;
+    const alias = wbAliasForCode(code, instrument?.dataSubscription?.sourceSeriesKey);
     if (dryRun) {
-      console.log(`  ~ ${code}（保留 ${obs} 条观测${already ? "，tombstone 已存在" : "，将写入 tombstone"}）`);
+      console.log(
+        `  ~ ${code}（${instrument ? `保留 ${obs} 条观测` : "库中无仪器"}；将确保 mds${alias ? "+wb" : ""} tombstone）`,
+      );
       continue;
     }
-    await prisma.macroCatalogExcludedKey.upsert({
-      where: { catalogKey: key },
-      create: { catalogKey: key, deletedBy: ACTOR },
-      update: {},
-    });
-    // WDI's base catalog uses wb:CC:ID, while the DB instrument uses mds:code.
-    // Persist both identities so a fresh deployment cannot expose an empty alias.
-    if (instrument.dataSubscription?.sourceId === "worldbank" && instrument.dataSubscription.sourceSeriesKey) {
-      const alias = `wb:${instrument.dataSubscription.sourceSeriesKey}`;
-      await prisma.macroCatalogExcludedKey.upsert({where:{catalogKey:alias},create:{catalogKey:alias,deletedBy:ACTOR},update:{}});
-    }
+    await upsertExclusion(key, false);
+    // WDI base catalog uses wb:CC:ID. Always write the alias even when the
+    // instrument was never seeded / already deleted, otherwise the static WB
+    // directory keeps showing an empty “待确定” row.
+    if (alias) await upsertExclusion(alias, false);
     // 被取代的旧列同时停用订阅（tombstone 已让调度器跳过；停用让管理端状态一致，
     // 也防止别的 seed 把它当活跃序列继续维护）
-    if (SUPERSEDED_KEEP_HISTORY_CODES.includes(code)) {
+    if (instrument && SUPERSEDED_KEEP_HISTORY_CODES.includes(code)) {
       await prisma.dataSubscription.updateMany({ where: { instrumentId: instrument.id, enabled: true }, data: { enabled: false } });
     }
-    console.log(`  ✓ ${code} 已从目录隐藏并停止抓取，保留 ${obs} 条观测`);
+    console.log(
+      `  ✓ ${code} 已从目录隐藏${instrument ? `并停止抓取，保留 ${obs} 条观测` : "（无仪器，仅写 tombstone）"}`,
+    );
   }
+}
+
+/** Ensure every mds:sched_wb_* tombstone also hides the matching wb:CC:ID catalog key. */
+async function syncWorldBankAliasTombstones(dryRun: boolean) {
+  const rows = await prisma.macroCatalogExcludedKey.findMany({
+    where: { catalogKey: { startsWith: "mds:sched_wb_" } },
+    select: { catalogKey: true },
+  });
+  let written = 0;
+  for (const row of rows) {
+    const code = row.catalogKey.slice("mds:".length);
+    const alias = wbAliasForCode(code);
+    if (!alias) continue;
+    const created = await upsertExclusion(alias, dryRun);
+    if (created) {
+      written += 1;
+      console.log(`  ${dryRun ? "~" : "✓"} ${row.catalogKey} → ${alias}`);
+    }
+  }
+  console.log(`[sync-wb-aliases] ${dryRun ? "将补" : "已补"} ${written} 条 wb: tombstone`);
 }
 
 function rewriteTemplateList(list: unknown): { value: unknown; changed: boolean } {
@@ -200,6 +237,8 @@ async function main() {
     `[data:seed-retired-indicators] 源端停更 ${SOURCE_ENDED_HIDDEN_CODES.length} 条 + 被标准序列取代 ${SUPERSEDED_KEEP_HISTORY_CODES.length} 条：从目录隐藏、保留观测…`,
   );
   await hideSourceEndedInstruments(dryRun);
+  console.log("[data:seed-retired-indicators] 同步 mds:sched_wb_* → wb:CC:ID tombstone 别名…");
+  await syncWorldBankAliasTombstones(dryRun);
   console.log("[data:seed-retired-indicators] 模板替换为标准指标 / 指标运算…");
   await rewriteTemplates(dryRun);
   await reconcileLayout(dryRun);
