@@ -5,6 +5,17 @@ import * as echarts from "echarts/core";
 import { LineChart, BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import {
+  formatCompactMoney,
+  formatCompactMoneyAxis,
+  formatEps,
+  formatFundamentalSeriesValue,
+  formatMultiplier,
+  formatPct,
+  formatPctAxis,
+  formatRatio,
+  formatSignedPct,
+} from "@/lib/equity/formatFundamentalsDisplay";
 
 echarts.use([LineChart, BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
@@ -30,11 +41,38 @@ const AXIS_STYLE = {
 
 const SPLIT_LINE = { splitLine: { lineStyle: { color: "#1e2630" } } } as const;
 
-function fmtBillions(v: number): string {
-  const abs = Math.abs(v);
-  if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `${(v / 1e6).toFixed(0)}M`;
-  return v.toFixed(0);
+type AxisTooltipItem = {
+  axisValue?: string | number;
+  axisValueLabel?: string;
+  seriesName?: string;
+  value?: unknown;
+  marker?: string;
+};
+
+function readNumericValue(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (Array.isArray(value)) {
+    const last = value[value.length - 1];
+    return typeof last === "number" && Number.isFinite(last) ? last : null;
+  }
+  return null;
+}
+
+/** 统一 axis tooltip：按系列名套用金额/百分比/EPS 等格式 */
+function fundamentalAxisTooltip(
+  raw: unknown,
+  formatValue: (seriesName: string, value: number) => string = formatFundamentalSeriesValue,
+): string {
+  const items = (Array.isArray(raw) ? raw : [raw]) as AxisTooltipItem[];
+  const head = String(items[0]?.axisValueLabel ?? items[0]?.axisValue ?? "");
+  const lines: string[] = [];
+  for (const item of items) {
+    const n = readNumericValue(item.value);
+    if (n == null) continue;
+    const name = item.seriesName ?? "";
+    lines.push(`${item.marker ?? ""}${name}: ${formatValue(name, n)}`);
+  }
+  return [head, ...lines].join("<br/>");
 }
 
 function useChart(option: echarts.EChartsCoreOption) {
@@ -56,10 +94,14 @@ function useChart(option: echarts.EChartsCoreOption) {
 function baseOption(periods: string[]) {
   return {
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis" },
+    tooltip: {
+      trigger: "axis" as const,
+      confine: true,
+      formatter: (raw: unknown) => fundamentalAxisTooltip(raw),
+    },
     legend: { textStyle: { color: "#9da8b6", fontSize: 11 }, top: 0 },
     grid: { left: 52, right: 48, top: 30, bottom: 24 },
-    xAxis: { type: "category", data: periods, ...AXIS_STYLE },
+    xAxis: { type: "category" as const, data: periods, ...AXIS_STYLE },
   };
 }
 
@@ -71,6 +113,7 @@ function BarYoYChart({
   lineName,
   lineData,
   barFormatter,
+  barTooltipFormatter,
   height = 220,
 }: {
   periods: string[];
@@ -79,10 +122,22 @@ function BarYoYChart({
   lineName: string;
   lineData: (number | null)[];
   barFormatter?: (v: number) => string;
+  barTooltipFormatter?: (v: number) => string;
   height?: number;
 }) {
   const ref = useChart({
     ...baseOption(periods),
+    tooltip: {
+      trigger: "axis",
+      confine: true,
+      formatter: (raw: unknown) =>
+        fundamentalAxisTooltip(raw, (seriesName, value) => {
+          if (seriesName === lineName) return formatSignedPct(value);
+          if (seriesName === barName && barTooltipFormatter) return barTooltipFormatter(value);
+          if (seriesName === barName && barFormatter) return barFormatter(value);
+          return formatFundamentalSeriesValue(seriesName, value);
+        }),
+    },
     yAxis: [
       {
         type: "value",
@@ -91,7 +146,7 @@ function BarYoYChart({
         ...SPLIT_LINE,
         axisLabel: {
           ...AXIS_STYLE.axisLabel,
-          formatter: barFormatter ?? ((v: number) => fmtBillions(v)),
+          formatter: barFormatter ?? ((v: number) => formatCompactMoneyAxis(v)),
         },
       },
       {
@@ -101,7 +156,7 @@ function BarYoYChart({
         splitLine: { show: false },
         axisLabel: {
           ...AXIS_STYLE.axisLabel,
-          formatter: (v: number) => `${(v * 100).toFixed(0)}%`,
+          formatter: (v: number) => formatPctAxis(v),
         },
       },
     ],
@@ -138,6 +193,12 @@ function MarginChart({
 }) {
   const ref = useChart({
     ...baseOption(periods),
+    tooltip: {
+      trigger: "axis",
+      confine: true,
+      formatter: (raw: unknown) =>
+        fundamentalAxisTooltip(raw, (_name, value) => formatPct(value)),
+    },
     yAxis: {
       type: "value",
       scale: true,
@@ -145,7 +206,7 @@ function MarginChart({
       ...SPLIT_LINE,
       axisLabel: {
         ...AXIS_STYLE.axisLabel,
-        formatter: (v: number) => `${(v * 100).toFixed(0)}%`,
+        formatter: (v: number) => formatPctAxis(v),
       },
     },
     series: lines.map((l) => ({
@@ -175,12 +236,18 @@ function CashflowChart({
 }) {
   const ref = useChart({
     ...baseOption(periods),
+    tooltip: {
+      trigger: "axis",
+      confine: true,
+      formatter: (raw: unknown) =>
+        fundamentalAxisTooltip(raw, (_name, value) => formatCompactMoney(value)),
+    },
     yAxis: {
       type: "value",
       scale: true,
       ...AXIS_STYLE,
       ...SPLIT_LINE,
-      axisLabel: { ...AXIS_STYLE.axisLabel, formatter: (v: number) => fmtBillions(v) },
+      axisLabel: { ...AXIS_STYLE.axisLabel, formatter: (v: number) => formatCompactMoneyAxis(v) },
     },
     series: [
       { name: "经营现金流", type: "bar", data: ocf, itemStyle: { color: "#4c8dff" }, barMaxWidth: 16 },
@@ -209,6 +276,15 @@ export type RatioPoint = {
 export function RoeDupontChart({ ratios, height = 220 }: { ratios: RatioPoint[]; height?: number }) {
   const ref = useChart({
     ...baseOption(ratios.map((r) => r.period)),
+    tooltip: {
+      trigger: "axis",
+      confine: true,
+      formatter: (raw: unknown) =>
+        fundamentalAxisTooltip(raw, (seriesName, value) => {
+          if (seriesName === "权益乘数") return formatMultiplier(value);
+          return formatPct(value);
+        }),
+    },
     yAxis: [
       {
         type: "value",
@@ -217,7 +293,7 @@ export function RoeDupontChart({ ratios, height = 220 }: { ratios: RatioPoint[];
         ...SPLIT_LINE,
         axisLabel: {
           ...AXIS_STYLE.axisLabel,
-          formatter: (v: number) => `${(v * 100).toFixed(0)}%`,
+          formatter: (v: number) => formatPctAxis(v),
         },
       },
       {
@@ -225,7 +301,10 @@ export function RoeDupontChart({ ratios, height = 220 }: { ratios: RatioPoint[];
         scale: true,
         ...AXIS_STYLE,
         splitLine: { show: false },
-        axisLabel: { ...AXIS_STYLE.axisLabel, formatter: (v: number) => `${v.toFixed(1)}x` },
+        axisLabel: {
+          ...AXIS_STYLE.axisLabel,
+          formatter: (v: number) => formatMultiplier(v),
+        },
       },
     ],
     series: [
@@ -276,13 +355,36 @@ export function ValuationBandChart({
 }) {
   const ref = useChart({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis" },
+    tooltip: {
+      trigger: "axis",
+      confine: true,
+      formatter: (raw: unknown) =>
+        fundamentalAxisTooltip(raw, (_name, value) => formatRatio(value, 2)),
+    },
     legend: { textStyle: { color: "#9da8b6", fontSize: 11 }, top: 0 },
     grid: { left: 52, right: 48, top: 30, bottom: 24 },
     xAxis: { type: "time", ...AXIS_STYLE },
     yAxis: [
-      { type: "value", scale: true, ...AXIS_STYLE, ...SPLIT_LINE },
-      { type: "value", scale: true, ...AXIS_STYLE, splitLine: { show: false } },
+      {
+        type: "value",
+        scale: true,
+        ...AXIS_STYLE,
+        ...SPLIT_LINE,
+        axisLabel: {
+          ...AXIS_STYLE.axisLabel,
+          formatter: (v: number) => formatRatio(v, 1),
+        },
+      },
+      {
+        type: "value",
+        scale: true,
+        ...AXIS_STYLE,
+        splitLine: { show: false },
+        axisLabel: {
+          ...AXIS_STYLE.axisLabel,
+          formatter: (v: number) => formatRatio(v, 1),
+        },
+      },
     ],
     series: [
       {
@@ -339,7 +441,8 @@ export function StockFundamentalTrend({ quarters }: { quarters: FundamentalQuart
           barData={quarters.map((q) => q.eps)}
           lineName="EPS YoY"
           lineData={quarters.map((q) => q.epsYoY)}
-          barFormatter={(v) => v.toFixed(2)}
+          barFormatter={(v) => formatEps(v)}
+          barTooltipFormatter={(v) => formatEps(v)}
         />
       </div>
       <div>

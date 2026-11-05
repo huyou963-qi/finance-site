@@ -10,6 +10,14 @@ import {
   type RatioPoint,
   type ValuationBandPoint,
 } from "@/components/equity/StockFundamentalCharts";
+import {
+  formatCompactMoney,
+  formatEps,
+  formatPct,
+  formatPp,
+  formatRatio,
+  formatSignedPct,
+} from "@/lib/equity/formatFundamentalsDisplay";
 
 // ---------------------------------------------------------------------------
 // 类型（与 /api/equity/stocks/[symbol]/fundamentals、/peers 响应对齐）
@@ -93,38 +101,15 @@ type PeerRow = {
 };
 
 // ---------------------------------------------------------------------------
-// 格式化
+// 格式化（金额缩写 / 比率百分比；实现见 formatFundamentalsDisplay）
 // ---------------------------------------------------------------------------
 
-function fmtMoney(v: number | null | undefined): string {
-  if (v == null || !Number.isFinite(v)) return "—";
-  const sign = v < 0 ? "-" : "";
-  const abs = Math.abs(v);
-  if (abs >= 1e12) return `${sign}${(abs / 1e12).toFixed(2)}T`;
-  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(1)}M`;
-  return `${sign}${abs.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
-
-function fmtRatio(v: number | null | undefined, digits = 1): string {
-  if (v == null || !Number.isFinite(v)) return "—";
-  return v.toFixed(digits);
-}
-
-function fmtPct(v: number | null | undefined, digits = 1): string {
-  if (v == null || !Number.isFinite(v)) return "—";
-  return `${(v * 100).toFixed(digits)}%`;
-}
-
-function fmtSignedPct(v: number | null | undefined): string {
-  if (v == null || !Number.isFinite(v)) return "—";
-  return `${v > 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
-}
-
-function fmtPp(v: number | null | undefined): string {
-  if (v == null || !Number.isFinite(v)) return "—";
-  return `${v > 0 ? "+" : ""}${(v * 100).toFixed(1)}pp`;
-}
+const fmtMoney = formatCompactMoney;
+const fmtRatio = formatRatio;
+const fmtPct = formatPct;
+const fmtSignedPct = formatSignedPct;
+const fmtPp = formatPp;
+const fmtEps = formatEps;
 
 function signClass(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "text-fs-muted";
@@ -186,7 +171,7 @@ function statementCell(
   const v = line.sel(rows[i]!);
   if (valueMode === "value") {
     if (line.kind === "pct") return { text: fmtPct(v), cls: "text-fs-text" };
-    if (line.kind === "eps") return { text: fmtRatio(v, 2), cls: "text-fs-text" };
+    if (line.kind === "eps") return { text: fmtEps(v), cls: "text-fs-text" };
     return { text: fmtMoney(v), cls: "text-fs-text" };
   }
   const j = i - yoyLag;
@@ -551,20 +536,24 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                       {(() => {
                         const last = data.quarters[data.quarters.length - 1]!;
                         const m = data.industry.medians;
-                        const rows: [string, number | null, number | null][] = [
-                          ["营收 YoY", last.revenueYoY, m.revenueYoYMedian],
-                          ["毛利率", last.grossMargin, m.grossMarginMedian],
-                          ["营业利润率", last.opMargin, m.opMarginMedian],
-                          ["净利率", last.netMargin, m.netMarginMedian],
+                        const rows: [string, number | null, number | null, "signed" | "pct"][] = [
+                          ["营收 YoY", last.revenueYoY, m.revenueYoYMedian, "signed"],
+                          ["毛利率", last.grossMargin, m.grossMarginMedian, "pct"],
+                          ["营业利润率", last.opMargin, m.opMarginMedian, "pct"],
+                          ["净利率", last.netMargin, m.netMarginMedian, "pct"],
                         ];
-                        return rows.map(([label, own, med]) => (
+                        return rows.map(([label, own, med, kind]) => (
                           <tr key={label} className="border-t border-fs-border/50">
                             <td className="px-3 py-1.5 text-fs-text">{label}</td>
-                            <td className="px-3 py-1.5 text-right tabular-nums text-fs-text">
-                              {fmtPct(own)}
+                            <td
+                              className={`px-3 py-1.5 text-right tabular-nums ${
+                                kind === "signed" ? signClass(own) : "text-fs-text"
+                              }`}
+                            >
+                              {kind === "signed" ? fmtSignedPct(own) : fmtPct(own)}
                             </td>
                             <td className="px-3 py-1.5 text-right tabular-nums text-fs-muted">
-                              {fmtPct(med)}
+                              {kind === "signed" ? fmtSignedPct(med) : fmtPct(med)}
                             </td>
                           </tr>
                         ));
