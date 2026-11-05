@@ -36,9 +36,28 @@ export function parseSecDailyIndex(text: string): SecDailyIndexEntry[] {
   return entries;
 }
 
+/** Accession number embeds the CIK that received the accession assignment (filer or filing agent). */
+export function accessionFilingCik(accession: string): string {
+  const match = /^(\d{10})-\d{2}-\d{6}$/.exec(accession);
+  if (!match) throw new Error(`accession 格式异常：${accession}`);
+  return match[1]!;
+}
+
+/**
+ * Company Facts / Archives subject for a filing row.
+ * Prefer the equity-security CIK (issuer); if that differs from the accession prefix
+ * (preferred-share co-registrants vs filing-agent submissions), also try the accession CIK.
+ */
+export function companyFactsCikCandidates(rowCik: string, accession: string): string[] {
+  const owner = accessionFilingCik(accession);
+  return rowCik === owner ? [rowCik] : [rowCik, owner];
+}
+
 export function financialVersionReady(accession: string, vintages: readonly {
-  accession: string; revenue: number | null; eps: number | null; fiscalDate?: string;
+  accession: string; revenue: number | null; eps: number | null; netIncome?: number | null; fiscalDate?: string;
 }[], reportDate?: string | null): boolean {
+  // Operating issuers usually expose revenue or EPS. SPACs / BDCs / LPs may only land netIncome
+  // (no Revenues / EarningsPerShare* tags); NI alone is enough to acknowledge the filing version.
   return vintages.some(row => row.accession === accession && (!reportDate || row.fiscalDate === reportDate) &&
-    (row.revenue != null || row.eps != null));
+    (row.revenue != null || row.eps != null || row.netIncome != null));
 }

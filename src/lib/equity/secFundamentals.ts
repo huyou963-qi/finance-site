@@ -143,7 +143,12 @@ export function extractAnnualFundamentals(facts: unknown): SecFundamentalSnapsho
     "Revenues",
     "RevenueFromContractWithCustomerIncludingAssessedTax",
   ]);
-  const epsConcept = firstConcept(gaap, ["EarningsPerShareDiluted", "EarningsPerShareBasic"]);
+  const epsConcept = firstConcept(gaap, [
+    "EarningsPerShareDiluted", "EarningsPerShareBasic",
+    "NetIncomeLossPerOutstandingLimitedPartnershipUnitDiluted",
+    "NetIncomeLossPerOutstandingLimitedPartnershipUnitBasicNetOfTax",
+    "InvestmentCompanyInvestmentIncomeLossPerShare",
+  ]);
   const grossConcept = firstConcept(gaap, ["GrossProfit"]);
   const opConcept = firstConcept(gaap, ["OperatingIncomeLoss"]);
 
@@ -231,7 +236,16 @@ const FLOW_CONCEPTS = {
   grossProfit: ["GrossProfit"],
   operatingIncome: ["OperatingIncomeLoss"],
   netIncome: ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"],
-  eps: ["EarningsPerShareDiluted", "EarningsPerShareBasic"],
+  eps: [
+    "EarningsPerShareDiluted",
+    "EarningsPerShareBasic",
+    // Limited partnerships (e.g. AB) report unit EPS, not common-share EPS.
+    "NetIncomeLossPerOutstandingLimitedPartnershipUnitDiluted",
+    "NetIncomeLossPerOutstandingLimitedPartnershipUnitBasicNetOfTax",
+    // Registered investment companies / BDCs (e.g. NCDL) use investment-company per-share tags.
+    "InvestmentCompanyInvestmentIncomeLossPerShare",
+    "InvestmentCompanyInvestmentIncomeLossFromOperationsPerShare",
+  ],
   ocf: [
     "NetCashProvidedByUsedInOperatingActivities",
     "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { disclosureDays, parseSecDailyIndex, financialVersionReady } from "./dailyDisclosurePolicy";
+import {
+  accessionFilingCik, companyFactsCikCandidates, disclosureDays, parseSecDailyIndex, financialVersionReady,
+} from "./dailyDisclosurePolicy";
 import { parseSecReleaseAttachments } from "./secEdgar";
 
 test("default range ends on the previous Eastern date, including UTC/Eastern midnight and DST", () => {
@@ -26,8 +28,15 @@ test("daily master index handles amendments, filters unrelated forms and fails o
 test("a successful download containing only older financial versions cannot complete the new filing", () => {
   assert.equal(financialVersionReady("new", [{ accession: "old", revenue: 100, eps: 1 }]), false);
   assert.equal(financialVersionReady("new", [{ accession: "new", revenue: null, eps: null }]), false);
+  assert.equal(financialVersionReady("new", [{ accession: "new", revenue: null, eps: null, netIncome: null }]), false);
   assert.equal(financialVersionReady("new", [{ accession: "new", revenue: 0, eps: 0 }]), true);
+  assert.equal(financialVersionReady("new", [{ accession: "new", revenue: null, eps: null, netIncome: -1 }]), true);
   assert.equal(financialVersionReady("new", [{ accession: "new", revenue: 100, eps: 1, fiscalDate: "2026-06-30" }], "2026-09-30"), false);
+  assert.equal(accessionFilingCik("0000065984-26-000325"), "0000065984");
+  assert.throws(() => accessionFilingCik("bad"));
+  assert.deepEqual(companyFactsCikCandidates("0000071508", "0000065984-26-000325"), ["0000071508", "0000065984"]);
+  assert.deepEqual(companyFactsCikCandidates("0002017950", "0001493152-26-047784"), ["0002017950", "0001493152"]);
+  assert.deepEqual(companyFactsCikCandidates("0000320193", "0000320193-20-000001"), ["0000320193"]);
 });
 
 test("earnings attachments retain evidence links and readable text, excluding scripts and unsafe filenames", () => {
