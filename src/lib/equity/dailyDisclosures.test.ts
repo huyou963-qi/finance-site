@@ -157,6 +157,27 @@ test("already-indexed financial filings outside the discovery window re-enter th
   assert.equal(calls.snapshot, 1);
 });
 
+test("EPS-ready filings complete even when XBRL enrichment does not claim the accession", async () => {
+  const h = harness("old");
+  h.deps.listSecPeriodicFilings = () => [{ accession: "0000320193-20-000001", form: "10-Q", filedAt: "2020-10-23" }];
+  // revenue/ocf/capex null → enrichment path; EPS present → financialVersionReady true
+  h.deps.buildSecFundamentalVintages = () => [{
+    period: "2020Q3", fiscalDate: "2020-09-30", fiscalQuarter: 3,
+    revenue: null, eps: -1.25, netIncome: -10, ocf: null, capex: null,
+    accession: "0000320193-20-000001", form: "10-Q", filedAt: "2020-10-23", checkpoint: true,
+  } as never];
+  h.deps.extractQuarterlyFundamentals = () => [{
+    period: "2020Q3", fiscalDate: "2020-09-30", fiscalQuarter: 3, revenue: null, eps: -1.25,
+  } as SecQuarterlyFundamentals];
+  h.deps.supplementSecPeriodicFilingPair = async (_facts, _cik, filing) => ({
+    facts: { cik: 320193, facts: {} }, filingsUsed: 2, handledAccessions: [], // empty handled used to stick pending
+  });
+  const result = await syncDailyDisclosures({ ...h.options, filingFallbackLimit: 2 }, h.deps);
+  assert.equal(result.complete, 1);
+  assert.equal(h.rows[0].dailyStatus, "complete");
+  assert.equal(h.calls.snapshot, 1);
+});
+
 test("a stale financial aggregate is repaired from bounded original filings before completion, then remains idempotent", async () => {
   const h = harness("old"); let ready = false, primary = 0;
   const versions = h.deps.listSecPeriodicFilings, vintages = h.deps.buildSecFundamentalVintages;

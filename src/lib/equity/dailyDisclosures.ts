@@ -243,7 +243,13 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
           }
           if (factsError) throw factsError;
           if (primaryErrors.has(filing.accession)) throw primaryErrors.get(filing.accession);
-          if (primaryDeferred.has(filing.accession) || !financialVersionReady(filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10))) {
+          // Ready (revenue|eps) wins over primaryDeferred. Mortgage REIT/BDC filings often have
+          // null revenue/capex so they enter the XBRL enrichment path; if companyfacts already
+          // has EPS for this accession, handledAccessions may stay empty and must not block complete.
+          const ready = financialVersionReady(
+            filing.accession, vintages, filing.reportPeriodEnd?.toISOString().slice(0, 10),
+          );
+          if (!ready) {
             status = "pending";
           } else if (!financialWritten) {
             const quarters = extractQuarterlyFundamentals(facts, { maxQuarters: 20 });
