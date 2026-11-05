@@ -318,6 +318,7 @@ npm run events:import-ingest -- <file.json>
 - [ ] 若改 schema：PR 中写明 `npm run db:migrate` 步骤
 - [ ] 新功能已列出底层复用项；未新增平行 adapter、事实表、writer 或重复计算链
 - [ ] 新增宏观指标是有明确来源 + 稳定更新方式的标准基础数据；二次指标走指标运算，未入库复合/派生序列
+- [ ] 客户侧文案/公开 API 未暴露数据商管线、内部 docs、表名或密钥暗示（见 `.cursor/rules/commercial-ui-disclosure.mdc`）
 
 ## 观测性与安全（摘要）
 

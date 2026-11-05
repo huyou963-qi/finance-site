@@ -394,7 +394,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     <section className="rounded-md border border-fs-border">
       <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-fs-border bg-fs-bg/95 px-3 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium">基本面（SEC EDGAR · 三表标准化）</span>
+          <span className="text-sm font-medium">基本面</span>
           <div className="flex items-center gap-1">
             {(
               [
@@ -487,10 +487,10 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                       title={
                         label === "Forward PE"
                           ? forwardPeError
-                            ? `Forward PE：${forwardPeError}`
+                            ? "Forward PE 暂时无法计算"
                             : forwardEps != null
-                              ? `现价 / 一致预期 EPS（FMP annual）≈ ${forwardEps.toFixed(2)}`
-                              : "Forward PE（FMP analyst-estimates）"
+                              ? `现价 / 一致预期 EPS ≈ ${forwardEps.toFixed(2)}`
+                              : "现价 / 一致预期 EPS"
                           : undefined
                       }
                     >
@@ -771,15 +771,6 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
               </button>
             </div>
           ) : null}
-
-          <p className="text-[11px] leading-relaxed text-fs-muted">
-            数据源 SEC EDGAR companyfacts（US-GAAP XBRL），跨公司报表栏目已标准化到统一科目；
-            财年错位公司的 Q4 由年报差分推导，拆股后 EPS/股本已统一到最新口径；
-            估值历史按财报披露滞后 40 天计算避免前视。金融公司无毛利率/资本开支为正常现象；
-            市值带 * 表示来自主档缓存（股本缺失）。TTM/比率均为读取时计算。
-            Forward PE 来自 FMP analyst-estimates（需密钥；与一致预期修订/Surprise 等终端能力的差距见
-            docs/STOCK_FUNDAMENTALS_TERMINAL_GAP.md）。
-          </p>
         </div>
       )}
     </section>

@@ -156,7 +156,7 @@ export function EquityRegimeClient() {
         </div>
       ) : !data || !data.available ? (
         <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">
-          regime 尚未构建。运行 <code className="text-fs-text">npm run quant:build-regime</code> 后刷新。
+          行业 regime 数据尚未就绪，请稍后刷新。
         </div>
       ) : (
         <>

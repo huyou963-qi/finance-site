@@ -18,17 +18,21 @@ export async function GET(req: NextRequest) {
   }
   try {
     const payload = await fetchForwardEpsFromFmp(symbol);
+    // 不向客户端返回 attribution：商业站不暴露上游数据商与接口细节
     return NextResponse.json({
       symbol: payload.symbol,
       timeline: payload.timeline,
-      attribution: payload.attribution,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "未知错误";
-    const client =
-      message.includes("缺少") ||
+    console.error(`[forward-pe] ${symbol}: ${message}`);
+    const empty =
       message.includes("未返回") ||
-      message.includes("无效");
-    return NextResponse.json({ error: message }, { status: client ? 400 : 502 });
+      message.includes("无效") ||
+      message.includes("空");
+    return NextResponse.json(
+      { error: empty ? "无 Forward EPS" : "Forward PE 暂时无法计算" },
+      { status: empty ? 404 : 502 },
+    );
   }
 }
