@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import type { SelectedIndicatorRowMeta } from "@/components/SelectedIndicatorsList";
 import { MobileSheet } from "@/components/mobile/MobileSheet";
 import {
@@ -11,7 +10,6 @@ import {
   IconLocate,
   IconMore,
   IconSigma,
-  IconStats,
   IconTrash,
 } from "@/components/mobile/mobileIcons";
 import {
@@ -37,10 +35,6 @@ export type MacroMobileSelectedPanelProps = {
   /** 管理员可见指标来源；普通用户隐藏 */
   showSource?: boolean;
 };
-
-function statsHref(key: string, label: string) {
-  return `/tools/statistical-analysis?series=${encodeURIComponent(key)}&label=${encodeURIComponent(label)}`;
-}
 
 function metaLine(row: SelectedIndicatorRowMeta, showSource: boolean): string {
   return [
@@ -163,24 +157,15 @@ export function MacroMobileSelectedPanel({
                     {metaLine(row, showSource) || (showSource ? item.key : "")}
                   </p>
                 </div>
-                {isDerived ? (
-                  onRenameKey ? (
-                    <button
-                      type="button"
-                      onClick={() => onRenameKey(item.key)}
-                      className="inline-flex h-8 shrink-0 items-center rounded-md border border-fs-border bg-white px-2.5 text-[13px] text-fs-secondary"
-                    >
-                      改名
-                    </button>
-                  ) : null
-                ) : (
-                  <Link
-                    href={statsHref(item.key, row.label)}
-                    className="inline-flex h-8 shrink-0 items-center rounded-md border border-fs-accent/30 bg-fs-accent-soft px-2.5 text-[13px] font-medium text-fs-accent-text"
+                {isDerived && onRenameKey ? (
+                  <button
+                    type="button"
+                    onClick={() => onRenameKey(item.key)}
+                    className="inline-flex h-8 shrink-0 items-center rounded-md border border-fs-border bg-white px-2.5 text-[13px] text-fs-secondary"
                   >
-                    统计分析
-                  </Link>
-                )}
+                    改名
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setMenuIndex(index)}
@@ -263,27 +248,17 @@ export function MacroMobileSelectedPanel({
                     </button>
                   ) : null
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        closeMenu();
-                        onLocateKey(menuItem.key);
-                      }}
-                      className={actionClass}
-                    >
-                      <IconLocate />
-                      在指标树中定位
-                    </button>
-                    <Link
-                      href={statsHref(menuItem.key, rowByKey.get(menuItem.key)?.label ?? menuItem.key)}
-                      onClick={closeMenu}
-                      className={actionClass}
-                    >
-                      <IconStats />
-                      统计分析
-                    </Link>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMenu();
+                      onLocateKey(menuItem.key);
+                    }}
+                    className={actionClass}
+                  >
+                    <IconLocate />
+                    在指标树中定位
+                  </button>
                 )}
                 <button
                   type="button"

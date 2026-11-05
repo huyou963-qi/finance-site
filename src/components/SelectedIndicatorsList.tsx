@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import {
   dividerDisplayLabel,
   removeDivider,
@@ -254,15 +253,6 @@ export function SelectedIndicatorsList({
                 </span>
               ))}
             </span>
-            {!isDerived ? (
-              <Link
-                href={`/tools/statistical-analysis?series=${encodeURIComponent(item.key)}&label=${encodeURIComponent(row.label)}`}
-                className="shrink-0 rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent"
-                title="跳转到统计分析页面"
-              >
-                统计分析
-              </Link>
-            ) : null}
             {isDerived && onRenameKey ? (
               <button
                 type="button"
