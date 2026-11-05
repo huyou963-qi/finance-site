@@ -475,10 +475,10 @@ export function DataCatalogAdminMain() {
       <Drawer open={drawer === "help"} title="帮助与命令行" onClose={() => setDrawer(null)}>
         <div className="space-y-3 text-xs leading-relaxed text-fs-muted">
           <p>
-            <strong className="text-fs-secondary">待确定</strong>：尚未确认网络获取方式；下次更新与更新计划为空。
+            <strong className="text-fs-secondary">待确定</strong>：尚未确认网络获取方式，且不是已核验的历史归档 / 授权源 / 投影序列；下次更新与更新计划为空。
           </p>
           <p>
-            <strong className="text-fs-accent-text">已确认获取</strong> 后才会出现调度状态与下次更新时间。
+            <strong className="text-fs-accent-text">已确认获取</strong> 后才会出现调度状态与下次更新时间。历史归档与授权源单独标注，不计入待确定。
           </p>
           <p>
             计划任务：每小时 <code>npm run data:sync-calendar</code>，每 1–5 分钟{" "}

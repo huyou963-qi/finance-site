@@ -6,6 +6,7 @@ import {
   type UnifiedCatalogCountry,
   type UnifiedCatalogItem,
 } from "@/lib/data/fredCatalog";
+import { loadExcludedCatalogKeys } from "@/lib/data/catalogExclusions";
 import { readFetchAcquisition } from "./fetchAcquisition";
 import {
   acquisitionStatusLabel,
@@ -19,6 +20,8 @@ import {
   type AcquisitionStatus,
   type UpdateStatus,
 } from "./catalogAcquisition";
+import { instrumentCodeForCatalogKey } from "./catalogKeyResolve";
+import { freshnessScope } from "./freshnessAudit";
 import { parseReleaseRule, summarizeReleaseRule } from "./releaseRule";
 import {
   effectiveReleaseRule,
@@ -79,6 +82,14 @@ export type AdminCatalogIndicator = {
   excelBootstrap: boolean;
   /** 网络获取已确认；为 false 时不展示/不参与调度列 */
   networkAcquisitionConfirmed: boolean;
+  /**
+   * 已了结、不再计入「待确定」：网络获取已确认，或历史归档 / 授权源 / 投影序列。
+   * 管理端「待确定」筛选与统计用此字段，而非裸的 !networkAcquisitionConfirmed。
+   */
+  acquisitionResolved: boolean;
+  /** 生命周期：live 走正常调度；其余为已核实例外 */
+  lifecycleMode: "live" | "archive" | "projection" | "licensed" | null;
+  lifecycleReason: string | null;
   /** @deprecated 使用 !networkAcquisitionConfirmed */
   needsNetworkSource: boolean;
   /** 发布包 ID（Phase B） */
@@ -204,15 +215,13 @@ function resolveInstrumentForKey(
   byCode: Map<string, InstRow>,
   byFred: Map<string, InstRow>,
 ): InstRow | undefined {
-  if (key.startsWith("mds:")) {
-    return byCode.get(key.slice(4));
-  }
   if (key.startsWith("fred:")) {
     // 变体键（如 fred:CPIAUCSL::yoy）解析到同一原始序列仪器。
     const fredId = key.slice(5).split("::")[0]!.trim().toUpperCase();
     return byFred.get(fredId) ?? byCode.get(`sched_fred_${fredId}`);
   }
-  return undefined;
+  const code = instrumentCodeForCatalogKey(key);
+  return code ? byCode.get(code) : undefined;
 }
 
 function inferCountryCodeForInstrument(inst: InstRow): string {
@@ -363,12 +372,14 @@ function countIndicatorsInCountries(countries: AdminCatalogCountry[]): {
     totalIndicators += 1;
     if (isDbOnly) dbOnlyCount += 1;
     if (ind.inDatabase) inDatabase += 1;
-    if (ind.networkAcquisitionConfirmed) {
+    if (ind.acquisitionResolved) {
       fetchKnown += 1;
-      if (ind.hasScheduledUpdates) withSubscription += 1;
-      if (ind.isStale) staleCount += 1;
-      if (ind.updateStatus === "source_current") sourceCurrentCount += 1;
-      if (ind.acquisitionStatus === "ready") readyCount += 1;
+      if (ind.networkAcquisitionConfirmed) {
+        if (ind.hasScheduledUpdates) withSubscription += 1;
+        if (ind.isStale) staleCount += 1;
+        if (ind.updateStatus === "source_current") sourceCurrentCount += 1;
+        if (ind.acquisitionStatus === "ready") readyCount += 1;
+      }
     } else {
       fetchPending += 1;
     }
@@ -479,6 +490,30 @@ function enrichIndicator(
     fetchAcquisitionStatus: fa?.status ?? null,
   });
 
+  const lifecycle = inst
+    ? freshnessScope({
+        instrumentCode: inst.code,
+        metadata: inst.metadata,
+        sourceId: sub?.source.id ?? null,
+        packageId: null,
+        adapterKind: (sub?.source.adapterKind as import("@prisma/client").SourceAdapterKind) ?? null,
+        sourceSeriesKey: sub?.sourceSeriesKey ?? null,
+        enabled: sub?.enabled ?? null,
+        granularity: null,
+        nextRunAt: scheduleNextRunAt,
+        lastSuccessAt: sub?.lastSuccessAt ?? null,
+        subscribedLastObsDate: sub?.lastObsDate ?? null,
+        actualLastObsDate: latest?.obsDate ?? null,
+        actualLastValue: latest?.value ?? null,
+        lastError: sub?.lastError ?? null,
+        lastFetchStatus: lastFetch?.status ?? null,
+        lastFetchAt: lastFetch?.startedAt ?? null,
+      })
+    : null;
+  const lifecycleSettled =
+    lifecycle != null && lifecycle.mode !== "live";
+  const acquisitionResolved = networkConfirmed || lifecycleSettled;
+
   const sourceSync = rule?.type === "economic_calendar" ? rule.sourceSync : undefined;
 
   const updateStatus =
@@ -565,6 +600,9 @@ function enrichIndicator(
     calendarProvider: networkConfirmed ? calendarProvider : null,
     excelBootstrap,
     networkAcquisitionConfirmed: networkConfirmed,
+    acquisitionResolved,
+    lifecycleMode: lifecycle?.mode ?? null,
+    lifecycleReason: lifecycleSettled ? lifecycle?.reason ?? null : null,
     needsNetworkSource: needsNetwork,
     releasePackageId: pkgInfo?.packageId ?? null,
     releasePackageLabelZh: pkgInfo?.labelZh ?? null,
@@ -708,7 +746,22 @@ export async function buildAdminDataCatalog(
   const packageByInstrument = await loadPackageMapByInstrumentId(prisma);
 
   const matchedIds = collectMatchedInstrumentIds(catalog, byCode, byFred);
-  const dbOnlyInstruments = instruments.filter((i) => !matchedIds.has(i.id));
+  const excludedKeys = await loadExcludedCatalogKeys(prisma);
+  const dbOnlyInstruments = instruments.filter((i) => {
+    if (matchedIds.has(i.id)) return false;
+    if (excludedKeys.has(`mds:${i.code}`)) return false;
+    const md =
+      i.metadata && typeof i.metadata === "object"
+        ? (i.metadata as Record<string, unknown>)
+        : null;
+    const catalogKey =
+      md && typeof md.catalogKey === "string" ? md.catalogKey.trim() : "";
+    if (catalogKey && excludedKeys.has(catalogKey)) return false;
+    if (i.fredSeriesId && excludedKeys.has(`fred:${i.fredSeriesId.toUpperCase()}`)) {
+      return false;
+    }
+    return true;
+  });
 
   let countries: AdminCatalogCountry[] = catalog.countries.map((c) =>
     mapCountry(c, byCode, byFred, latestByInstrument, latestFetchByInstrument, packageByInstrument),

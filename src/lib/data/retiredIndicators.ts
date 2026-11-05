@@ -214,6 +214,26 @@ export const SOURCE_ENDED_HIDDEN_CODES: readonly string[] = [
   "sched_wb_EA_GC_BAL_CASH_GD_ZS", "sched_wb_EU_FR_INR_RINR", "sched_wb_EU_FS_AST_DOMS_GD_ZS",
   "sched_wb_IT_FS_AST_DOMS_GD_ZS", "sched_wb_NL_FM_LBL_BMNY_GD_ZS", "sched_wb_NL_GC_BAL_CASH_GD_ZS",
   "sched_wb_PL_FR_INR_RINR", "sched_wb_PL_FS_AST_DOMS_GD_ZS",
+  // 2026-11-05: WDI 对该国/指标组合全历史无数值（或 GC.BAL.CASH.GD.ZS API 175），
+  // 仪器从未入库或已清空；仍要隐藏静态 wb:CC:ID 目录别名，避免「待确定」幽灵行。
+  "sched_wb_AU_FS_AST_DOMS_GD_ZS", "sched_wb_AU_GC_BAL_CASH_GD_ZS",
+  "sched_wb_BR_FS_AST_DOMS_GD_ZS", "sched_wb_BR_GC_BAL_CASH_GD_ZS",
+  "sched_wb_CA_GC_BAL_CASH_GD_ZS",
+  "sched_wb_CH_FS_AST_DOMS_GD_ZS", "sched_wb_CH_GC_BAL_CASH_GD_ZS",
+  "sched_wb_CN_FS_AST_DOMS_GD_ZS", "sched_wb_CN_GC_BAL_CASH_GD_ZS", "sched_wb_CN_GC_DOD_TOTL_GD_ZS",
+  "sched_wb_DE_FM_LBL_BMNY_GD_ZS", "sched_wb_DE_FR_INR_RINR", "sched_wb_DE_FS_AST_DOMS_GD_ZS",
+  "sched_wb_DE_GC_BAL_CASH_GD_ZS",
+  "sched_wb_FR_FM_LBL_BMNY_GD_ZS", "sched_wb_FR_FR_INR_RINR", "sched_wb_FR_FS_AST_DOMS_GD_ZS",
+  "sched_wb_FR_GC_BAL_CASH_GD_ZS", "sched_wb_FR_GC_DOD_TOTL_GD_ZS",
+  "sched_wb_GB_FS_AST_DOMS_GD_ZS", "sched_wb_GB_GC_BAL_CASH_GD_ZS",
+  "sched_wb_ID_GC_BAL_CASH_GD_ZS",
+  "sched_wb_IN_FS_AST_DOMS_GD_ZS", "sched_wb_IN_GC_BAL_CASH_GD_ZS",
+  "sched_wb_JP_GC_BAL_CASH_GD_ZS", "sched_wb_JP_GC_DOD_TOTL_GD_ZS",
+  "sched_wb_KR_FS_AST_DOMS_GD_ZS", "sched_wb_KR_GC_BAL_CASH_GD_ZS",
+  "sched_wb_MX_GC_BAL_CASH_GD_ZS",
+  "sched_wb_SA_FR_INR_RINR", "sched_wb_SA_FS_AST_DOMS_GD_ZS", "sched_wb_SA_GC_BAL_CASH_GD_ZS",
+  "sched_wb_SA_GC_DOD_TOTL_GD_ZS",
+  "sched_wb_ZA_GC_BAL_CASH_GD_ZS",
   // FRED 标注 DISCONTINUED；8853 个观测，1986-01-02 → 2022-01-21
   "sched_fred_TEDRATE",
   // 世行已下架但留有历史，合计 272 个观测、1990–2019

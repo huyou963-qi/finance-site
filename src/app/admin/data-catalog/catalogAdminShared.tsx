@@ -379,7 +379,7 @@ export function CalendarMappingPanel({ onClose }: { onClose: () => void }) {
 }
 
 export function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
-  if (!row.networkAcquisitionConfirmed) {
+  if (!row.acquisitionResolved) {
     return (
       <div>
         <span className="text-amber-400">待确定</span>
@@ -388,6 +388,32 @@ export function AcquisitionCell({ row }: { row: AdminCatalogIndicator }) {
             ? "目录项尚未入库，须先入库并确认网络获取方式"
             : "须确认网络获取方式（FRED / BIS / REST 等）并探测通过"}
         </div>
+        {row.fetchAcquisitionMessage ? (
+          <div className="mt-0.5 text-fs-secondary" title={row.fetchAcquisitionMessage}>
+            {row.fetchAcquisitionMessage}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (!row.networkAcquisitionConfirmed) {
+    return (
+      <div>
+        <span className="text-fs-muted">
+          {row.lifecycleMode === "archive"
+            ? "历史归档"
+            : row.lifecycleMode === "licensed"
+              ? "授权源"
+              : row.lifecycleMode === "projection"
+                ? "投影序列"
+                : "已了结"}
+        </span>
+        {row.lifecycleReason ? (
+          <div className="mt-0.5 text-fs-muted" title={row.lifecycleReason}>
+            {row.lifecycleReason}
+          </div>
+        ) : null}
         {row.fetchAcquisitionMessage ? (
           <div className="mt-0.5 text-fs-secondary" title={row.fetchAcquisitionMessage}>
             {row.fetchAcquisitionMessage}
