@@ -91,3 +91,15 @@ test("Indonesia credit label includes nonbank financial sector without altering 
   assert.equal(metadata.unit, "%");
   assert.equal((metadata as Record<string, unknown>).sourceSeriesKey, "ID:FS.AST.DOMS.GD.ZS");
 });
+
+test("Nov4 labels retain central-government, ILO age, industry exclusion and FX quotation units", () => {
+  for (const country of ["KR", "NL", "PL"]) assert.match(AUDITED_DEFINITIONS.find(d => d.code === `sched_wb_${country}_GC_DOD_TOTL_GD_ZS`)!.name, /中央政府/);
+  assert.match(AUDITED_DEFINITIONS.find(d => d.code === "sched_wb_AU_NV_IND_TOTL_ZS")!.name, /含建筑业/);
+  assert.match(AUDITED_DEFINITIONS.find(d => d.code === "sched_wb_PL_SL_TLF_CACT_ZS")!.name, /15岁.*ILO模型/);
+  for (const key of ["inventories", "ordinary_profit", "sales", "total_assets", "total_liabilities"]) {
+    const d = AUDITED_DEFINITIONS.find(d => d.code === `mof_jp_corporate_${key}`)!;
+    assert.match(d.name, /不含金融保险业/);
+    assert.match(auditedDefinitionMetadata({}, d).sourceUpdateNote!, /1000万日元及以上.*不含金融保险业/);
+  }
+  assert.equal(AUDITED_DEFINITIONS.find(d => d.code === "sched_fred_DEXJPUS")!.unit, "日元／美元");
+});

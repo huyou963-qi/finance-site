@@ -50,7 +50,7 @@ async function main() {
       catalogSubcategory: series.dataset === "corporate" ? "企业财务" : series.dataset === "debt" ? "中央政府债务" : "中央政府财政决算",
       displayName: series.label, bootstrapOnly: false, source: "日本财务省", officialUrl: isCorporate ? JP_MOF_CORPORATE_PAGE : series.dataset === "debt" ? JP_MOF_DEBT_PAGE : JP_MOF_FISCAL_PAGE,
       sourceUrl, releaseScheduleUrl: isCorporate ? JP_MOF_CORPORATE_SCHEDULE : undefined, unit: series.unit, freqLabel: series.granularity === "QUARTERLY" ? "季" : "年",
-      seasonalAdjustment: "NSA", geography: "日本全国", sourceUpdateNote: isCorporate ? "法人企业统计调查官方 e-Stat 全历史；按指定行业计、全规模法人企业、全产业直接取官方原值并完整回读修订。" : series.dataset === "debt" ? "财务省官方普通国债余额季度表；完整重读滚动工作簿捕获修订。" : "财务省官方一般会计决算历史工作簿；财政年度以该年度4月1日存储，不自行拆为月度。",
+      seasonalAdjustment: "NSA", geography: "日本全国", sourceUpdateNote: isCorporate ? "法人企业统计调查官方 e-Stat 全历史；按全产业（不含金融保险业）、调查范围内各资本规模法人企业（资本金1000万日元及以上）直接取官方原值并完整回读修订。" : series.dataset === "debt" ? "财务省官方普通国债余额季度表；完整重读滚动工作簿捕获修订。" : "财务省官方一般会计决算历史工作簿；财政年度以该年度4月1日存储，不自行拆为月度。",
       scrape: { provider: JP_MOF_CORPORATE_FISCAL_PROVIDER, url: sourceUrl, script: "scripts/data-worker/sync-jp-mof-corporate-fiscal.ts" },
       fetchAcquisition: { status: "known", probedAt: new Date().toISOString(), method: isCorporate ? "estat_api" : "official_workbook", methodLabel: "scripts/data-worker/sync-jp-mof-corporate-fiscal.ts", fetchUrl: sourceUrl, officialUrl: isCorporate ? JP_MOF_CORPORATE_PAGE : JP_MOF_FISCAL_PAGE },
       attribution: "Source: Ministry of Finance Japan; Chinese labels translated by finance-site.",

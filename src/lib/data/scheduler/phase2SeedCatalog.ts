@@ -26,7 +26,7 @@ export const PHASE2_FRED_EXTRA = [
   { fredId: "BAMLH0A0HYM2", name: "美国高收益债 OAS", freqLabel: "日", frequency: "日" },
   { fredId: "DTWEXBGS", name: "美元名义广义指数", freqLabel: "日", frequency: "日" },
   { fredId: "DEXUSEU", name: "美元/欧元汇率", freqLabel: "日", frequency: "日" },
-  { fredId: "DEXJPUS", name: "日元/美元汇率", freqLabel: "日", frequency: "日" },
+  { fredId: "DEXJPUS", name: "日元／美元汇率", unit: "日元／美元", freqLabel: "日", frequency: "日" },
   { fredId: "PCEC96", name: "实际个人消费支出", freqLabel: "月", frequency: "月" },
   { fredId: "HOUST", name: "新屋开工", freqLabel: "月", frequency: "月" },
   { fredId: "CSUSHPINSA", name: "Case-Shiller 房价指数", freqLabel: "月", frequency: "月" },

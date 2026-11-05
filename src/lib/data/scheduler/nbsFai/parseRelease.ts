@@ -65,3 +65,16 @@ export function parseFaiInfrastructureRelease(html: string): FaiInfrastructureRe
     definition,
   };
 }
+
+/** Same annual reference period as UUID annual series; monthly YTD is rejected. */
+export function parseFaiReviewedAnnualRelease(html: string, year: number, kind: "state_controlled" | "real_estate"): ObservationPoint {
+  const text = compact(html).replace(/\s+/g, "");
+  const title = kind === "state_controlled" ? "全国固定资产投资基本情况" : "全国房地产开发和销售情况";
+  if (!text.includes(`${year}年${title}`)) throw new Error("年度固投原稿年份/范围不匹配");
+  const re = kind === "state_controlled" ? /国有控股(-?\d+(?:\.\d+)?)(?=其中|按构成|分|注|%|$)/g
+    : /全国房地产开发投资\d+(?:\.\d+)?亿元[，,]比上年(增长|下降)(\d+(?:\.\d+)?)%/g;
+  const values = [...text.matchAll(re)].map(m => kind === "state_controlled" ? Number(m[1]) : Number(m[2]) * (m[1] === "下降" ? -1 : 1));
+  const unique = [...new Set(values)];
+  if (unique.length !== 1 || !Number.isFinite(unique[0])) throw new Error("年度固投原稿缺少唯一同口径同比");
+  return { obsDate: new Date(Date.UTC(year, 0, 1)), value: unique[0]! };
+}

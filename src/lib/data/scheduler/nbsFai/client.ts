@@ -11,8 +11,8 @@ import {
 } from "./catalog";
 import { parseNbsFaiResponse } from "./parseResponse";
 import { parseFaiInfrastructureRelease, type FaiInfrastructureDefinition } from "./parseRelease";
-import { parseFaiAnnualInternetRelease } from "./parseRelease";
-import { NBS_FAI_ANNUAL_INTERNET_SUPPLEMENT } from "./catalog";
+import { parseFaiAnnualInternetRelease, parseFaiReviewedAnnualRelease } from "./parseRelease";
+import { NBS_FAI_ANNUAL_INTERNET_SUPPLEMENT, NBS_FAI_REVIEWED_ANNUAL_SUPPLEMENTS } from "./catalog";
 import { mergeNewReleasePoint } from "../nbsPriceRelease/monthlyTable";
 
 export type FaiIndicator = { cid: string; indicatorId: string; label: string; frequency: FaiFrequency; group: string; unit: "%" | "亿元" };
@@ -75,9 +75,25 @@ export async function fetchNbsFaiGroup(items: readonly FaiIndicator[], startYear
   if (items.some((item) => item.cid !== first.cid || item.frequency !== first.frequency)) throw new Error("固定资产投资请求分组错误");
   const result = parseNbsFaiResponse(await request(first.cid, items.map((item) => item.indicatorId), first.frequency, startYear), items.map((item) => item.indicatorId), first.frequency);
   await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Both full sync and incremental worker must use the same reviewed source path.
+  for (const item of items) {
+    const source = NBS_FAI_REVIEWED_ANNUAL_SUPPLEMENTS.find(s => s.cid === item.cid && s.indicatorId === item.indicatorId);
+    const points = result.get(item.indicatorId) ?? [];
+    if (!source || item.frequency !== "annual" || item.unit !== "%" || startYear > source.year
+      || points.some(p => p.obsDate >= new Date(Date.UTC(source.year, 0, 1)))) continue;
+    let hit = reviewedAnnualCache.get(source.url);
+    if (!hit || Date.now() - hit.at >= 60_000) {
+      const response = await fetchChinaOfficial(source.url, { headers, signal: AbortSignal.timeout(30_000) });
+      if (!response.ok) throw new Error(`年度固投官方补充源 HTTP ${response.status}`);
+      hit = { at: Date.now(), html: await response.text() };
+      reviewedAnnualCache.set(source.url, hit);
+    }
+    result.set(item.indicatorId, mergeNewReleasePoint(points, parseFaiReviewedAnnualRelease(hit.html, source.year, source.kind)));
+  }
   return result;
 }
 
+const reviewedAnnualCache = new Map<string, { at: number; html: string }>();
 let annualSupplementCache: { at: number; point: ObservationPoint } | undefined;
 export async function fetchNbsFaiSeries(item: FaiIndicator, startYear: number) {
   const points = (await fetchNbsFaiGroup([item], startYear)).get(item.indicatorId) ?? [];

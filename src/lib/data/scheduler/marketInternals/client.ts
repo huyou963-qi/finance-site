@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { applyReviewedMembershipChanges } from "./reviewedMembershipChanges";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { unzipSync, strFromU8 } from "fflate";
@@ -60,7 +62,7 @@ export function loadDailyStyleProxies(): Promise<DailyValues[]> {
   });
 }
 
-type MembershipSource = { html: string; anchor: string; source: string; corroboration?: { baselineAnchor: string; asOf: string; confirmedDates?: string[] } };
+type MembershipSource = { current?: string[]; changes?: ReturnType<typeof parseWikipediaSp500Changes>; html: string; anchor: string; source: string; corroboration?: { baselineAnchor: string; asOf: string; confirmedDates?: string[] } };
 export async function loadMembershipSource(live: boolean, dependencies = { readBaseline: readMembershipBaseline, saveBaseline: saveMembershipBaseline, fetchHoldings: fetchSsgaDailyHoldings, recordConfirmation: recordMembershipConfirmation }): Promise<MembershipSource> {
   if (live) {
     try {
@@ -91,11 +93,16 @@ export async function loadMembershipSource(live: boolean, dependencies = { readB
         // US交易所股票代码；排除现金、期货和2602335D等非上市CVR权益，不能忽略任何有效股票代码的差异。
         const actual = holdings.rows.filter((r) => r.symbol && /^[A-Z]{1,5}(?:-[A-Z])?$/.test(r.symbol)).map((r) => normalizeSp500Ticker(r.symbol!)).filter((s): s is string => s != null);
         const todayNy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-        validateCorroboration(expected, actual, holdings.asOfDate, todayNy);
-        const confirmedDates = await dependencies.recordConfirmation(baseline, holdings.asOfDate);
+        const reviewed = applyReviewedMembershipChanges(expected, parseWikipediaSp500Changes(baseline.html), baseline.anchor, holdings.asOfDate);
+        validateCorroboration(reviewed.current, actual, holdings.asOfDate, todayNy);
+        // Bind confirmations to the exact original baseline AND official event evidence.
+        // Do not save transformed HTML as a Wikipedia snapshot.
+        const proofBaseline = reviewed.sources.length ? { ...baseline,
+          sha256: createHash("sha256").update(JSON.stringify([baseline.sha256, reviewed.changes, reviewed.sources])).digest("hex") } : baseline;
+        const confirmedDates = await dependencies.recordConfirmation(proofBaseline, holdings.asOfDate);
         const reason = error instanceof Error ? error.message : String(error);
-        return { html: baseline.html, anchor: holdings.asOfDate,
-          source: `${baseline.source};baseline=${baseline.anchor};corroborated=${ssgaDailyHoldingsUrl("SPY")};holdingsAsOf=${holdings.asOfDate};Wikipedia unavailable: ${reason}`,
+        return { html: baseline.html, current: reviewed.current, changes: reviewed.changes, anchor: holdings.asOfDate,
+          source: `${baseline.source};officialChanges=${reviewed.sources.join(",")};baseline=${baseline.anchor};corroborated=${ssgaDailyHoldingsUrl("SPY")};holdingsAsOf=${holdings.asOfDate};Wikipedia unavailable: ${reason}`,
           corroboration: { baselineAnchor: baseline.anchor, asOf: holdings.asOfDate, confirmedDates } };
       } catch (corroborationError) {
         throw new Error(`在线成分名单不可用，禁止自动回退旧快照：${error instanceof Error ? error.message : String(error)}；独立日度校验失败：${corroborationError instanceof Error ? corroborationError.message : String(corroborationError)}`);
@@ -118,7 +125,7 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
   }
   const table = sliceTableById(source.html, "constituents");
   if (!table) throw new Error("标普500当前名单缺失");
-  const current = [...new Set(parseWikipediaSp500Html(table).map((r) => normalizeSp500Ticker(r.symbol)).filter((s): s is string => s != null))];
+  const current = source.current ?? [...new Set(parseWikipediaSp500Html(table).map((r) => normalizeSp500Ticker(r.symbol)).filter((s): s is string => s != null))];
   if (current.length < 495 || current.length > 510) throw new Error(`标普500锚点名单规模异常: ${current.length}`);
   if (options.refreshPrices) {
     // 复用行情库自身的节流、日内缓存、失败/退市语义；不把旧价复制为新观测。
@@ -130,7 +137,7 @@ export async function buildDailyBreadth(from = "1995-01-01", options = { live: t
   const calendarRows = await prisma.equityDailyBar.findMany({ where: { symbol: "SPY", date: { gte: warmup, lt: upperBound }, close: { gt: 0 } }, orderBy: { date: "asc" }, select: { date: true } });
   const calendar = calendarRows.map((r) => r.date.toISOString().slice(0, 10));
   const indexByDate = new Map(calendar.map((date, index) => [date, index]));
-  const membership = historicalDailyMembership(calendar.filter((d) => d >= from && (!source.corroboration || (isConfirmedMembershipDate(d, source.corroboration.baselineAnchor, source.corroboration.asOf) || source.corroboration.confirmedDates?.includes(d)))), current, parseWikipediaSp500Changes(source.html), source.anchor);
+  const membership = historicalDailyMembership(calendar.filter((d) => d >= from && (!source.corroboration || (isConfirmedMembershipDate(d, source.corroboration.baselineAnchor, source.corroboration.asOf) || source.corroboration.confirmedDates?.includes(d)))), current, source.changes ?? parseWikipediaSp500Changes(source.html), source.anchor);
   const totals = new Map([...membership].map(([date, members]) => [date, { members: members.size, eligible50: 0, eligible200: 0, above50: 0, above200: 0 }]));
   const symbols = [...new Set([...membership.values()].flatMap((set) => [...set]))].sort();
   for (let start = 0; start < symbols.length; start += 20) {
