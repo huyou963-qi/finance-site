@@ -477,7 +477,7 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
             </>
           ) : (
             <p className="text-sm text-fs-muted">
-              暂无财报快照。请运行 npm run equity:sync-fundamentals
+              暂无财报快照
             </p>
           )}
         </section>

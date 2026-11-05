@@ -164,7 +164,7 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
         <div className="flex h-24 items-center justify-center text-sm text-fs-muted">加载中…</div>
       ) : transactions.length === 0 ? (
         <div className="px-3 py-4 text-sm text-fs-muted">
-          暂无内部人交易数据。批量同步：npm run quant:sync-form4
+          暂无内部人交易数据
         </div>
       ) : (
         <>
