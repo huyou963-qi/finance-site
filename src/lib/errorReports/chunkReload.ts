@@ -1,17 +1,28 @@
 const RELOAD_FLAG_KEY = "chunk-reload-attempt";
+const RELOAD_PAGE_KEY = "chunk-reload-page";
+/** 刷新后的一次性 query，避免 Firefox 把 location.reload() 从 bfcache 还原成同一份坏页面。 */
+export const STALE_ASSET_RELOAD_QUERY = "_fsr";
 /** 上次自动刷新的时间戳在这个窗口内视为“刚刚试过”，避免刷新失败时死循环。 */
 const RELOAD_GUARD_MS = 15_000;
+const CACHE_BUST_WAIT_MS = 500;
+
+function errorText(input: unknown): string {
+  return input instanceof Error
+    ? `${input.name} ${input.message}`
+    : typeof input === "string"
+      ? input
+      : "";
+}
+
+function currentPageId(): string {
+  return String(typeof performance !== "undefined" ? performance.timeOrigin : Date.now());
+}
 
 /** Next.js 静态资源加载失败：常见于服务端发布新版本后，用户仍停留在旧版页面上引用了已被替换的 chunk 文件。 */
 export function isChunkLoadError(input: unknown): boolean {
-  const message =
-    input instanceof Error
-      ? `${input.name} ${input.message}`
-      : typeof input === "string"
-        ? input
-        : "";
-  return /ChunkLoadError|Loading chunk [\w.-]+ failed|Loading CSS chunk [\w.-]+ failed/i.test(
-    message,
+  if (input instanceof Error && input.name === "ChunkLoadError") return true;
+  return /ChunkLoadError|Loading chunk .+? failed|Loading CSS chunk .+? failed|Failed to load chunk|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(
+    errorText(input),
   );
 }
 
@@ -41,20 +52,130 @@ export function isLikelyCorruptedScriptSyntaxError(event: {
   }
 }
 
+export function isStaleClientAssetError(
+  input: unknown,
+  syntaxEvent?: { message?: string; filename?: string },
+): boolean {
+  const syntax =
+    syntaxEvent ??
+    (input instanceof Error
+      ? { message: input.message }
+      : { message: typeof input === "string" ? input : "" });
+  return isChunkLoadError(input) || isLikelyCorruptedScriptSyntaxError(syntax);
+}
+
+export function extractFailedStaticAssetUrl(input: unknown, filename?: string): string | undefined {
+  const fromMessage = errorText(input).match(/https?:\/\/[^\s)]+\/_next\/static\/[^\s)]+/)?.[0];
+  if (fromMessage) return fromMessage;
+  if (filename && filename.includes("/_next/static/")) return filename;
+  return undefined;
+}
+
+function readAttempt(): { at: number; page: string } | null {
+  try {
+    const at = Number(sessionStorage.getItem(RELOAD_FLAG_KEY) ?? 0);
+    if (!at) return null;
+    return { at, page: sessionStorage.getItem(RELOAD_PAGE_KEY) ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+function writeAttempt(): void {
+  try {
+    sessionStorage.setItem(RELOAD_FLAG_KEY, String(Date.now()));
+    sessionStorage.setItem(RELOAD_PAGE_KEY, currentPageId());
+  } catch {
+    /* sessionStorage 不可用时仍刷新，只是不再有防抖保护 */
+  }
+}
+
+function reloadHref(): string {
+  const url = new URL(window.location.href);
+  url.searchParams.set(STALE_ASSET_RELOAD_QUERY, String(Date.now()));
+  return url.toString();
+}
+
+function navigateHard(): void {
+  window.location.replace(reloadHref());
+}
+
+function bustCachedAssetThenReload(input?: unknown, filename?: string): void {
+  const asset = extractFailedStaticAssetUrl(input, filename);
+  const go = () => navigateHard();
+  if (!asset) {
+    go();
+    return;
+  }
+  let sameOrigin = false;
+  try {
+    sameOrigin = new URL(asset, window.location.href).origin === new URL(window.location.href).origin;
+  } catch {
+    sameOrigin = false;
+  }
+  if (!sameOrigin) {
+    go();
+    return;
+  }
+  const timer = window.setTimeout(go, CACHE_BUST_WAIT_MS);
+  void window.fetch(asset, { cache: "reload", credentials: "same-origin" })
+    .catch(() => undefined)
+    .finally(() => {
+      window.clearTimeout(timer);
+      go();
+    });
+}
+
 /**
  * 检测到 chunk 加载失败 / 静态资源损坏时尝试整页刷新一次（拉取最新 HTML/资源清单）。
- * 用 sessionStorage 记录最近一次尝试时间，短时间内已刷新过就不再刷新（避免死循环），
- * 返回值表示是否已经（或将要）触发刷新——调用方据此决定要不要照常上报错误。
+ * 同一文档上多个 handler（window.onerror、unhandledrejection、error.tsx）会同时触发：
+ * 第一次真正发起刷新，后续调用视为“刷新已在进行”并返回 true，避免误报崩溃。
+ * 若刷新后的新文档在短窗口内再次失败，返回 false，让调用方上报并展示手动刷新。
  */
-export function reloadStaleAssetOnce(): boolean {
+export function reloadStaleAssetOnce(input?: unknown, filename?: string): boolean {
   if (typeof window === "undefined") return false;
-  try {
-    const last = Number(sessionStorage.getItem(RELOAD_FLAG_KEY) ?? 0);
-    if (Date.now() - last < RELOAD_GUARD_MS) return false;
-    sessionStorage.setItem(RELOAD_FLAG_KEY, String(Date.now()));
-  } catch {
-    /* sessionStorage 不可用时也放行刷新，只是不再有防抖保护 */
+  const prev = readAttempt();
+  if (prev && Date.now() - prev.at < RELOAD_GUARD_MS) {
+    return prev.page === currentPageId();
   }
-  window.location.reload();
+  writeAttempt();
+  bustCachedAssetThenReload(input, filename);
   return true;
+}
+
+/** 用户点「刷新页面」时忽略短窗口守卫。 */
+export function forceReloadStaleAssets(input?: unknown, filename?: string): void {
+  if (typeof window === "undefined") return;
+  writeAttempt();
+  bustCachedAssetThenReload(input, filename);
+}
+
+export function recoverStaleClientAsset(
+  input: unknown,
+  syntaxEvent?: { message?: string; filename?: string },
+): boolean {
+  if (!isStaleClientAssetError(input, syntaxEvent)) return false;
+  return reloadStaleAssetOnce(input, syntaxEvent?.filename);
+}
+
+/** 成功加载后去掉刷新用的 query，避免污染可分享地址。 */
+export function stripStaleAssetReloadQuery(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(STALE_ASSET_RELOAD_QUERY)) return;
+    url.searchParams.delete(STALE_ASSET_RELOAD_QUERY);
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", next);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Firefox 可能把 reload 还原成 bfcache 快照；若刚因过期资源触发过刷新，再强制跳一次。 */
+export function recoverIfBfCacheAfterStaleReload(persisted: boolean): void {
+  if (!persisted || typeof window === "undefined") return;
+  const prev = readAttempt();
+  if (!prev || Date.now() - prev.at >= RELOAD_GUARD_MS) return;
+  forceReloadStaleAssets();
 }
