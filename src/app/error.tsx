@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { reportClientError } from "@/lib/errorReports/clientReport";
 import {
-  isChunkLoadError,
-  isLikelyCorruptedScriptSyntaxError,
+  forceReloadStaleAssets,
+  isStaleClientAssetError,
   reloadStaleAssetOnce,
 } from "@/lib/errorReports/chunkReload";
 
@@ -15,18 +15,19 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const stale = isStaleClientAssetError(error);
+  const [recovering, setRecovering] = useState(stale);
   const [reportHint, setReportHint] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    if (
-      (isChunkLoadError(error) || isLikelyCorruptedScriptSyntaxError({ message: error.message })) &&
-      reloadStaleAssetOnce()
-    ) {
+    if (stale && reloadStaleAssetOnce(error)) {
+      setRecovering(true);
       return;
     }
+    setRecovering(false);
     void reportClientError({
       source: "auto_crash",
       message: error.message || "页面渲染错误",
@@ -34,7 +35,7 @@ export default function Error({
       digest: error.digest,
       metadata: { name: error.name },
     });
-  }, [error]);
+  }, [error, stale]);
 
   const sendManual = async () => {
     setSending(true);
@@ -51,6 +52,28 @@ export default function Error({
     if (result.error) setReportHint("上报失败：" + result.error);
     else setReportHint("已提交，感谢反馈");
   };
+
+  if (stale) {
+    return (
+      <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-16 text-fs-text">
+        <h1 className="text-xl font-semibold">{recovering ? "正在更新页面" : "页面加载失败"}</h1>
+        <p className="text-sm text-fs-muted">
+          {recovering
+            ? "页面资源已过期或加载中断，正在重新加载。"
+            : "页面资源加载失败，请刷新后再试。"}
+        </p>
+        {recovering ? null : (
+          <button
+            type="button"
+            onClick={() => forceReloadStaleAssets(error)}
+            className="self-start rounded bg-fs-accent px-3 py-1.5 text-sm text-white hover:opacity-90"
+          >
+            刷新页面
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-16 text-fs-text">

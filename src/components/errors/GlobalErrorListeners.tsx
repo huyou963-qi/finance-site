@@ -5,9 +5,9 @@ import { reportClientError } from "@/lib/errorReports/clientReport";
 import { isExtensionScriptError, isPageExitAbort } from "@/lib/errorReports/browserNoise";
 import { describeRejection } from "@/lib/errorReports/rejectionReason";
 import {
-  isChunkLoadError,
-  isLikelyCorruptedScriptSyntaxError,
-  reloadStaleAssetOnce,
+  recoverIfBfCacheAfterStaleReload,
+  recoverStaleClientAsset,
+  stripStaleAssetReloadQuery,
 } from "@/lib/errorReports/chunkReload";
 
 /**
@@ -38,17 +38,16 @@ export function GlobalErrorListeners() {
   useEffect(() => {
     let pageExiting = false;
     const onPageHide = () => { pageExiting = true; };
-    const onPageShow = () => { pageExiting = false; };
+    const onPageShow = (event: PageTransitionEvent) => {
+      pageExiting = false;
+      recoverIfBfCacheAfterStaleReload(event.persisted);
+    };
+    stripStaleAssetReloadQuery();
     const onError = (event: ErrorEvent) => {
       const message = event.message || "window.onerror";
       if (isBenignBrowserNoise(message) || isOpaqueCrossOriginError(event)) return;
       if (isExtensionScriptError(event.filename, event.error instanceof Error ? event.error.stack : undefined)) return;
-      if (
-        (isChunkLoadError(event.error ?? message) || isLikelyCorruptedScriptSyntaxError(event)) &&
-        reloadStaleAssetOnce()
-      ) {
-        return;
-      }
+      if (recoverStaleClientAsset(event.error ?? message, event)) return;
       const stack =
         event.error instanceof Error
           ? event.error.stack
@@ -69,7 +68,7 @@ export function GlobalErrorListeners() {
       const reason = event.reason;
       if (isPageExitAbort(reason, pageExiting)) return;
       if (reason instanceof Error && isExtensionScriptError(undefined, reason.stack)) return;
-      if (isChunkLoadError(reason) && reloadStaleAssetOnce()) return;
+      if (recoverStaleClientAsset(reason)) return;
       const { message, stack, reasonType } = describeRejection(reason);
       void reportClientError({
         source: "auto_window",
