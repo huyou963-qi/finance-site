@@ -7,16 +7,32 @@
 不新增同义公告表或财务表。新增 SecFiling 字段只表达日批处理状态、重试时间和
 从该公告提取的业绩附件证据；可从 SEC 日索引、submissions 和原文重建。
 
-首版覆盖 equity_security 已登记 CIK 的公司，公告类型为 8-K、10-Q、10-K 及修订版。
+覆盖基本面覆盖范围内已登记 CIK 的公司（见下文「范围」），公告类型为 8-K、10-Q、10-K 及修订版。
 外国发行人的 6-K/20-F、公司 IR 先于 SEC 的新闻稿、市场预期和 AI 摘要暂不纳入。
 新闻稿保留原文摘录与附件，基础中文摘要仅提取可核对的信息，不将不确定的非 GAAP 数字写入标准三表。
 首版只提取 EX-99 的 HTML 附件；PDF 等其他格式仍可通过公告原文的附件清单访问。
 
 ## 运行与调度
 
-`npm run equity:sync-daily-disclosures` 每日一次，默认截至上一美东自然日，回看 7 天。
-先下载日索引，再仅查询出现目标公告的 CIK 的 submissions。按 accession 去重；
-已完成公告不再下载。待补齐/失败任务不限于回看窗口，持久化后持续按日重试。
+`npm run equity:sync-daily-disclosures` 每日两次，默认截至上一美东自然日，回看 7 天。
+先下载日索引，再对每份新公告读取它自己的 SGML 头（`-index-headers.html`，几 KB），
+从中取表单、申报日、报告期、8-K 数字 item、主文档与 SEC 接收时刻，一次请求同时完成索引与时点核验。
+头文件缺失、与日索引表单不一致或申报人不含该 CIK 时，才回退到该公司的 submissions（数 MB）。
+按 accession 去重；已完成公告不再下载。
+
+范围（2026-11）：公告索引、companyfacts 下载、季度快照与 vintage 统一只覆盖基本面覆盖范围
+（`fundamentalsCoverage.ts`：已有季度快照 ∪ 带 GICS 的标普成分 ∪ `index_constituent` 各指数最新成分），
+重点为标普 500 与罗素 2000；批次记录的 covered_ciks 即此范围。`equity_security` 中其余公司
+（约四千家，无历史财务可展示）不再每日入索引：个股页在库内无公告时仍会懒回补一次，之后不自动刷新。
+全收的硬件成本其实很低（每行约 0.8 KB、约 100 MB/年），收窄是为了让公告、财务与价格使用同一份公司名单。
+接入罗素 2000 只需把成分写入 `index_constituent`。显式 `--symbols` 时按名单处理，不受覆盖范围限制。
+
+实测依据（2026-11-02 至 11-06 财报周）：全宇宙 6,070 个 CIK 中 2,178 家在 5 个交易日内有申报，
+高峰日 1,300 份；旧实现逐公司拉 submissions（压缩后约 0.5 MB、亚洲访问 3–5 秒）并固定间隔 1 秒，
+仅发现阶段就超过 cron 的 90 分钟上限，批次被杀后停在 running。现改为每份公告几 KB 的头文件，
+不再固定间隔（共享 SEC transport 已限速至每秒 4 次以内，低于 SEC 的 10 次），
+并以 `--budget-minutes`（默认 75）在到点前停止领取新任务，批次记为 partial，未发现的 CIK 计入
+failedCiks（页面不会据此宣称当日无公告），未处理的公告留在持久队列由下一轮继续。待补齐/失败任务不限于回看窗口，持久化后持续按日重试。
 `equity:sync-sec` 等路径写入的公告会留下 `daily_status=null`；日批除窗口内新发现外，
 还会把近 `--backlog-days`（默认 120）天内已带 `report_period_end` 的 10-Q/10-K，
 以及含 Item 2.02 的 8-K，重新收入待处理队列，避免财报季漏解析。
@@ -24,10 +40,11 @@
 （营收、EPS 或净利润任一非空即可）。companyfacts / 原文先按票面 CIK 取，若与
 accession 前缀不同（优先股联合申报或代报主体）再回退到 accession CIK。
 普通 8-K 仅入索引，不下载正文；每次最多深度处理 300 份财报/业绩公告，
-单并发、任务间默认间隔 1 秒；超出部分持久排队，保留待处理。
+单并发、仅受共享 SEC transport 限速；超出部分持久排队，保留待处理。
 
 参数：`--through=YYYY-MM-DD`、`--days=7`（最多 31）、`--symbols=AAPL,MSFT`、
-`--max-filings=300`、`--delay-ms=1000`、`--dry-run`（仅计划，不访问外部源、不写库）。
+`--max-filings=300`、`--delay-ms=0`（任务间额外等待，默认不加）、`--budget-minutes=75`、
+`--dry-run`（仅计划，不访问外部源、不写库）。
 `--timing-limit=20` 控制回看窗口内历史已完成财报的 header 补齐上限（0 禁用）；
 `--filing-fallback-limit=12`（0–20；生产 cron 用 20）控制 companyfacts 滞后时的原文 XBRL 回补名额；
 `--backlog-days=120`（0–366）控制窗口外 null 财报重新入队的申报日回溯；
@@ -36,7 +53,8 @@ accession 前缀不同（优先股联合申报或代报主体）再回退到 acc
 失败和待补齐分别计数，失败以非零退出；日志记录缺失的日索引（节假日可能无文件），
 后续回看会重试。停机超过窗口时，用 through/days 分段补跑，不将漏日视为完整覆盖。
 
-cron 替换原周度任务，每日北京时间 19:15（美东 06:15/07:15）执行；沿用部署自动安装的 sector-history cron。
+cron 替换原周度任务，每日北京时间 19:15（美东 06:15/07:15）与 11:15 各执行一次；第二轮用于消化
+每轮 300 份的深度处理上限和 companyfacts 滞后，时间与持股、量化月任务错开。沿用部署自动安装的 sector-history cron。
 服务器 cron 必须支持 CRON_TZ；若不支持，按 docs/US_EQUITY_SECTOR_ANALYSIS.md 的
 部署说明核对 cron 时区，改为服务器当地的固定时间（香港推荐每天 19:15，覆盖全年美东日终）。
 数据库 advisory lock 防止手工和定时任务重叠；flock 防止同机 cron 重叠。

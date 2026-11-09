@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type { PrismaClient } from "@prisma/client";
 import { runRecordedDisclosureBatch } from "./disclosureBatchRunner";
 
-function harness(mode: "success" | "partial" | "missing-index" | "fatal" = "success") {
+function harness(mode: "success" | "partial" | "missing-index" | "budget" | "fatal" = "success") {
   const writes: Record<string, unknown>[] = [];
   const db = { equityDisclosureBatch: {
     updateMany: async ({ data }: { data: Record<string, unknown> }) => { writes.push({ interrupted: data }); return { count: 0 }; },
@@ -12,7 +12,8 @@ function harness(mode: "success" | "partial" | "missing-index" | "fatal" = "succ
   } } as unknown as PrismaClient;
   const sync: NonNullable<Parameters<typeof runRecordedDisclosureBatch>[1]>["syncDailyDisclosures"] = async (options, _deps, progress) => {
     if (mode === "fatal") throw new Error("source failed");
-    const result = { days: ["2020-10-23"], coveredCompanies: 1, indexed: 1, complete: 1, pending: 0,
+    const result = { days: ["2020-10-23"], coveredCompanies: 1, financialCompanies: 1, indexed: 1, complete: 1, pending: 0,
+      budgetExhausted: mode === "budget",
       failed: mode === "partial" ? 1 : 0, remaining: mode === "partial" ? 2 : 0,
       missingIndexes: mode === "missing-index" ? ["2020-10-23"] : [], failedCiks: [], timingUpdated: 0 };
     if (!options?.dryRun) await progress?.({ coveredCiks: ["0000320193"], failedCiks: [], missingIndexes: result.missingIndexes, indexed: 1, failed: result.failed });
@@ -31,7 +32,7 @@ test("record the scope, discovery coverage and final successful counters", async
 });
 
 test("partial source coverage or backlog is never recorded as a complete success", async () => {
-  for (const mode of ["partial", "missing-index"] as const) {
+  for (const mode of ["partial", "missing-index", "budget"] as const) {
     const h = harness(mode);
     await runRecordedDisclosureBatch({ through: "2020-10-23", days: 1 }, h.dependencies);
     assert.equal(h.writes.at(-1)?.status, "partial");

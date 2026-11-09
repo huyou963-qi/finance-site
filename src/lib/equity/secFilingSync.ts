@@ -19,8 +19,11 @@ export type SecFilingSyncResult = {
   financialSymbols: string[];
 };
 
-export async function writeSecFilingIndex(cik: string, symbol: string, row: SecIndexRow) {
+/** timing: SGML-header acceptance evidence fetched together with the index row (daily batch). */
+export async function writeSecFilingIndex(cik: string, symbol: string, row: SecIndexRow,
+  timing?: { acceptedAt: Date; acceptedAtSource: string }) {
   const data = { symbol, form: row.form, filedAt: new Date(`${row.filedAt}T00:00:00Z`),
+    ...(timing ? { acceptedAt: timing.acceptedAt, acceptedAtSource: timing.acceptedAtSource, timingCheckedAt: new Date() } : {}),
     url: secDocumentUrl(cik, row.accession, row.primaryDocument), items: row.items,
     primaryDocument: row.primaryDocument, primaryDocDescription: row.description,
     ...(row.acceptanceReportedAt ? { acceptanceReportedAt: row.acceptanceReportedAt } : {}),
