@@ -8,7 +8,13 @@ set -euo pipefail
 
 ROOT=$(pwd)
 WORK=$(mktemp -d)
-trap 'kill "${NEXT_PID:-0}" 2>/dev/null || true; rm -rf "${WORK}"' EXIT
+NEXT_PID=""
+# 注意：不能 kill 0（会杀掉整个进程组，含 CI step 自身）
+cleanup() {
+  if [ -n "${NEXT_PID}" ]; then kill "${NEXT_PID}" 2>/dev/null || true; fi
+  rm -rf "${WORK}"
+}
+trap cleanup EXIT
 
 node scripts/deploy-pack.mjs --with-deps
 KEY=$(cat deploy-deps-key.txt)
@@ -84,7 +90,7 @@ echo "GET / -> ${CODE}"
 [ -n "${CODE}" ] && [ "${CODE}" != "000" ] || { cat "${WORK}/next.log"; echo "::error::首页无应答"; exit 1; }
 # @prisma/client 能加载 schema 对应的生成客户端
 ( cd "${REL}" && node -e 'const {PrismaClient}=require("@prisma/client"); new PrismaClient(); console.log("prisma client ok")' )
-kill "${NEXT_PID}"; wait "${NEXT_PID}" 2>/dev/null || true; NEXT_PID=0
+kill "${NEXT_PID}"; wait "${NEXT_PID}" 2>/dev/null || true; NEXT_PID=""
 
 # prune：删一个 release 后，无引用的旧 key 被清理，在用 key 保留
 mkdir -p "${SHARED}/deps/0000000000000000deadbeef/node_modules"
