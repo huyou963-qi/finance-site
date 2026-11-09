@@ -62,6 +62,13 @@ schema 或数据的部署 key 不变；改 lockfile、升 Node（`.nvmrc`）或�
 - `/opt/finance-site-jp-data` 调度检出照旧从 release 的 `node_modules` 复制（`sync-cron-checkout.sh` 未改）。
 - 服务器运行时仍需要 devDependencies 里的 `tsx`、`prisma`、`dotenv-cli`（`db:migrate`、`data:*`、`equity:*` 与全部 cron 都经 `npm run` 调用），因此依赖包仍是完整的 `npm ci` 结果，没有 `--omit=dev`。
 
+### 改代码时的约束
+
+- 服务器运行时要读的新顶层目录/文件必须加进 `scripts/deploy-pack.mjs` 的打包列表（smoke 只覆盖 `next start`，不覆盖 tsx 脚本和 cron）。
+- 由仓库文件生成、写进 `node_modules` 的产物只能进应用包（同 `node_modules/.prisma`）。
+- 改依赖包内容规则时递增 `DEPS_FORMAT`。
+- 加依赖只需改 `package.json` + lockfile，CI 自动上传新依赖包。
+
 ### 自检
 
 - CI `build` job 的 `Deploy package smoke`（`scripts/ci/deploy-package-smoke.sh`）：打两个包并报告大小，

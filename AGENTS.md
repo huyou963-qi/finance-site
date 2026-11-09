@@ -317,6 +317,7 @@ npm run events:import-ingest -- <file.json>
 - [ ] 浏览器端 ID 用 `src/lib/randomId.ts`
 - [ ] 本地 `npm run build` 通过（或说明为何 CI 会通过）
 - [ ] 若改 schema：PR 中写明 `npm run db:migrate` 步骤
+- [ ] 若新增服务器运行时要读的顶层目录/文件：已加进 `scripts/deploy-pack.mjs` 打包列表
 - [ ] 新功能已列出底层复用项；未新增平行 adapter、事实表、writer 或重复计算链
 - [ ] 新增宏观指标是有明确来源 + 稳定更新方式的标准基础数据；二次指标走指标运算，未入库复合/派生序列
 - [ ] 客户侧文案/公开 API 未暴露数据商管线、内部 docs、表名或密钥暗示（见 `.cursor/rules/commercial-ui-disclosure.mdc`）
@@ -353,6 +354,16 @@ npm run events:import-ingest -- <file.json>
 3. `scripts/ops/deploy-release.sh`：旁路解压到 `/opt/finance-site-releases/`，migrate + `data:apply`（跳过长任务），空闲端口拉起 → 部署 smoke（`/`、`/api/health`、macro-prefs、`/markets`、`/api/auth/me`、宏观 instruments BFF）→ nginx upstream 切流 → 停旧进程；切流后再 smoke，失败则自动回滚上一 release；`/opt/finance-site` 原子切换为指向新 release 的符号链接
 
 数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)；零停机细节见 [docs/ZERO_DOWNTIME_DEPLOY.md](./docs/ZERO_DOWNTIME_DEPLOY.md)。
+
+**部署包约束（改代码时必读）**——部署包分成应用包和依赖包两份，依赖包按 lockfile 哈希在服务器上复用：
+
+- 服务器运行时要读的**新顶层目录或文件**（新的 JSON 数据目录、新配置文件等）必须加进 `scripts/deploy-pack.mjs` 的 `required`/`optional` 列表，否则服务器上缺文件。CI 的 `Deploy package smoke` 只验证 `next start`，不覆盖 tsx 数据脚本和 cron。
+- 由仓库文件**生成**、又写进 `node_modules` 的产物（如 `prisma generate` 产出的 `node_modules/.prisma`）只能放应用包，不能进依赖包：依赖包只在 lockfile 变化时才更新，不会跟着代码走。
+- 改依赖包的内容规则（排除项、目录布局）时，递增 `deploy-pack.mjs` 里的 `DEPS_FORMAT`，否则服务器继续复用旧依赖。
+- 加或升级依赖照常改 `package.json` + `package-lock.json` 即可：哈希自动变，CI 自动打包并上传依赖包，无需手动操作。
+- 不要在服务器 release 里 `npm install`、`prisma generate` 或原地改 `node_modules`：各 release 与 `/opt/finance-site-shared/deps/<key>` 用硬链接共享文件，改一处会同时改坏其它 release。
+- 不要 `npm ci --omit=dev`，也不要把 `tsx`、`prisma`、`dotenv-cli` 从依赖里删掉：它们虽在 devDependencies，服务器的 `db:migrate`、`data:*`、`equity:*` 和全部 cron 都要用。
+- 怀疑服务器共享依赖损坏：Actions → Deploy to production → Run workflow，勾选 `force_deps_upload`。
 
 | 在服务器上 | 不要做 |
 |-----------|--------|
