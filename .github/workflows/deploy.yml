@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_deps_upload:
+        description: 重新打包并上传 node_modules 依赖包（怀疑服务器共享依赖损坏时）
+        type: boolean
+        default: false
 
 # 串行部署：同组只跑一个；不取消进行中的 job，避免多个 SCP/rsync 抢写同一 tarball。
 concurrency:
@@ -23,6 +28,7 @@ jobs:
       DEPLOY_PORT: "22"
       # 单次 rsync 最长等待（秒）。链路极差时宁可失败告警，也不要默默卡到 job 总超时。
       DEPLOY_RSYNC_TIMEOUT_SEC: "2400"
+      SHARED_DIR: /opt/finance-site-shared
 
     steps:
       - name: Checkout
@@ -43,8 +49,11 @@ jobs:
           APP_BASE_URL: http://localhost:3000
         run: npm run verify:commit
 
-      - name: Pack release tarball
-        run: node scripts/deploy-pack.mjs
+      - name: Pack app tarball
+        id: pack
+        run: |
+          node scripts/deploy-pack.mjs
+          echo "deps_key=$(cat deploy-deps-key.txt)" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact (backup)
         uses: actions/upload-artifact@v4
@@ -76,57 +85,52 @@ jobs:
       - name: Add server to known_hosts
         run: ssh-keyscan -H -p "${DEPLOY_PORT}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Copy tarball to server
+      # 依赖只由 package-lock.json + .nvmrc 决定；服务器已有同 key 的共享依赖时不打包、不上传。
+      - name: Check shared dependencies on server
+        id: deps
+        env:
+          DEPS_KEY: ${{ steps.pack.outputs.deps_key }}
+          FORCE_DEPS: ${{ inputs.force_deps_upload && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          DIR="${SHARED_DIR}/deps/${DEPS_KEY}"
+          SSH_OPTS=(-p "${DEPLOY_PORT}" -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30)
+          if [ "${FORCE_DEPS}" = "true" ]; then
+            echo "force_deps_upload=true，重新上传依赖包"
+            echo "need_deps=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" \
+              "grep -qx '${DEPS_KEY}' '${DIR}/.complete' && [ -f '${DIR}/node_modules/next/dist/bin/next' ]"; then
+            echo "服务器已有共享依赖 ${DIR}，本次只传应用包"
+            echo "need_deps=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "服务器缺共享依赖 ${DIR}（lockfile/Node 变了或首次），本次上传依赖包"
+            echo "need_deps=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack dependency tarball
+        if: steps.deps.outputs.need_deps == 'true'
+        run: node scripts/deploy-pack.mjs --deps-only
+
+      - name: Copy tarballs to server
         id: copy-tarball
+        env:
+          NEED_DEPS: ${{ steps.deps.outputs.need_deps }}
         run: |
           set -euo pipefail
           HOST="${{ secrets.DEPLOY_HOST }}"
-          REMOTE_DIR=/opt/finance-site-shared
-          REMOTE_TAR="${REMOTE_DIR}/deploy.tar.gz"
           SSH_OPTS=(-p "${DEPLOY_PORT}" -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30)
-          RSYNC_RSH="ssh -p ${DEPLOY_PORT} -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30"
-          LOCAL_SIZE=$(stat -c%s deploy.tar.gz)
-          echo "local deploy.tar.gz bytes=${LOCAL_SIZE}"
-
-          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${HOST}" "mkdir -p '${REMOTE_DIR}'"
-
-          # rsync --partial --inplace：中断后可续传，避免 scp 每次重传整包。
-          rsync_once() {
-            # timeout 防止单次卡死拖到 90min job 上限才暴露
-            timeout --signal=TERM --kill-after=30 "${DEPLOY_RSYNC_TIMEOUT_SEC}" \
-              rsync -av --partial --inplace --timeout=120 \
-                -e "${RSYNC_RSH}" \
-                deploy.tar.gz "${DEPLOY_USER}@${HOST}:${REMOTE_TAR}"
-          }
-
+          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${HOST}" "mkdir -p '${SHARED_DIR}'"
           START_TS=$(date +%s)
-          ATTEMPT=1
-          MAX_ATTEMPTS=3
-          until rsync_once; do
-            RC=$?
-            if [ "${ATTEMPT}" -ge "${MAX_ATTEMPTS}" ]; then
-              ELAPSED=$(( $(date +%s) - START_TS ))
-              echo "::error::传包失败：rsync 连续 ${MAX_ATTEMPTS} 次未成功（最后 exit=${RC}，已耗时 ${ELAPSED}s）。常见原因是 GitHub runner→香港跨境链路抖动；可重跑本 workflow，或检查香港机磁盘/SSH。"
-              exit 1
-            fi
-            echo "::warning::rsync 第 ${ATTEMPT}/${MAX_ATTEMPTS} 次失败（exit=${RC}）；10s 后断点续传重试"
-            ATTEMPT=$((ATTEMPT + 1))
-            sleep 10
-          done
+          bash scripts/ci/deploy-upload.sh deploy.tar.gz "${DEPLOY_USER}@${HOST}" "${SHARED_DIR}/deploy.tar.gz"
+          if [ "${NEED_DEPS}" = "true" ]; then
+            bash scripts/ci/deploy-upload.sh deploy-deps.tar.gz "${DEPLOY_USER}@${HOST}" "${SHARED_DIR}/deploy-deps.tar.gz"
+          else
+            # 清掉上次失败遗留的依赖包，免得服务器拿它覆盖已有共享依赖
+            ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${HOST}" "rm -f '${SHARED_DIR}/deploy-deps.tar.gz'"
+          fi
           ELAPSED=$(( $(date +%s) - START_TS ))
-          echo "rsync_ok attempts=${ATTEMPT} elapsed_sec=${ELAPSED}"
-
-          # 远端完整性：大小一致 + gzip 可读，再进入零停机切流
-          ssh "${SSH_OPTS[@]}" "${DEPLOY_USER}@${HOST}" \
-            "REMOTE_SIZE=\$(stat -c%s '${REMOTE_TAR}'); \
-             echo remote_bytes=\$REMOTE_SIZE expected=${LOCAL_SIZE}; \
-             [ \"\$REMOTE_SIZE\" -eq ${LOCAL_SIZE} ] || { echo 'size mismatch'; exit 1; }; \
-             gzip -t '${REMOTE_TAR}' || { echo 'gzip -t failed (corrupt tarball)'; exit 1; }" \
-            || {
-              echo "::error::传包后校验失败：远端文件大小不一致或 gzip 损坏。请重跑 Deploy；勿在校验失败时继续切流。"
-              exit 1
-            }
-
           if [ "${ELAPSED}" -gt 600 ]; then
             echo "::warning::传包耗时 ${ELAPSED}s（>10min）。链路偏慢但已成功；若频繁出现可考虑同区域中转。"
           fi
@@ -134,25 +138,41 @@ jobs:
 
       - name: Zero-downtime release on server
         run: |
-          ssh -p "${DEPLOY_PORT}" \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
-            "${DEPLOY_USER}@${{ secrets.DEPLOY_HOST }}" <<EOF
+          set -euo pipefail
+          HOST="${{ secrets.DEPLOY_HOST }}"
+          release_once() {
+            ssh -p "${DEPLOY_PORT}" \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=6 -o ConnectTimeout=30 \
+              "${DEPLOY_USER}@${HOST}" <<EOF
           set -euo pipefail
           # 零停机：不解压覆盖正在服务的目录；由 deploy-release.sh 在旁路 release
           # 拉起候选端口，健康检查通过后切 nginx upstream，再停旧进程。
           TARBALL=/opt/finance-site-shared/deploy.tar.gz
           [ -f "\$TARBALL" ] || { echo "missing \$TARBALL"; exit 1; }
           gzip -t "\$TARBALL" || { echo "corrupt \$TARBALL"; exit 1; }
-          # 始终从本次 tarball 取出 deploy-release.sh，避免「旧机无脚本 / symlink 指向旧 release」鸡生蛋问题。
+          # 始终从本次 tarball 取出发布脚本，避免「旧机无脚本 / symlink 指向旧 release」鸡生蛋问题。
           rm -rf /tmp/finance-deploy-script
           mkdir -p /tmp/finance-deploy-script
-          tar -xzf "\$TARBALL" -C /tmp/finance-deploy-script scripts/ops/deploy-release.sh
+          tar -xzf "\$TARBALL" -C /tmp/finance-deploy-script \
+            scripts/ops/deploy-release.sh scripts/ops/install-release-deps.sh
           SCRIPT=/tmp/finance-deploy-script/scripts/ops/deploy-release.sh
           chmod +x "\$SCRIPT"
           TARBALL="\$TARBALL" DEPLOY_PATH="${DEPLOY_PATH}" sh "\$SCRIPT"
           EOF
+          }
+          RC=0
+          release_once || RC=$?
+          if [ "${RC}" -eq 3 ]; then
+            # 服务器在任何改动之前报告共享依赖缺失（检查后被删/不完整）：补传依赖包再发布一次。
+            echo "::warning::服务器共享依赖不可用，回退为上传依赖包后重试"
+            [ -f deploy-deps.tar.gz ] || node scripts/deploy-pack.mjs --deps-only
+            bash scripts/ci/deploy-upload.sh deploy-deps.tar.gz "${DEPLOY_USER}@${HOST}" "${SHARED_DIR}/deploy-deps.tar.gz"
+            RC=0
+            release_once || RC=$?
+          fi
+          exit "${RC}"
 
       - name: Deploy failure summary
         if: failure()
         run: |
-          echo "::error::Deploy to production 失败。请打开本 run 日志：优先看「Copy tarball to server」是否超时/校验失败，或「Zero-downtime release on server」是否在 migrate/data:apply/nginx 切流报错。concurrency 已串行，不要并行手动 scp 同一路径。"
+          echo "::error::Deploy to production 失败。请打开本 run 日志：优先看「Copy tarballs to server」是否超时/校验失败，或「Zero-downtime release on server」是否在 migrate/data:apply/nginx 切流报错。concurrency 已串行，不要并行手动 scp 同一路径。"

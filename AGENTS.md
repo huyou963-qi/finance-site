@@ -348,8 +348,8 @@ npm run events:import-ingest -- <file.json>
 
 **代码不走服务器 `git pull`**。`main` push 触发 `.github/workflows/deploy.yml`：
 
-1. GitHub Actions：`npm ci` → `npm run build` → `node scripts/deploy-pack.mjs` → `deploy.tar.gz`
-2. `scp` 到 `/opt/finance-site-shared/deploy.tar.gz`
+1. GitHub Actions：`npm ci` → `npm run build` → `node scripts/deploy-pack.mjs` → 应用包 `deploy.tar.gz`（不含 `.next/cache`、不含 `node_modules`）
+2. rsync 到 `/opt/finance-site-shared/deploy.tar.gz`；依赖包 `deploy-deps.tar.gz` 只在服务器缺该 lockfile 哈希的 `/opt/finance-site-shared/deps/<key>` 时才上传，release 用硬链接取用（详见 [docs/ZERO_DOWNTIME_DEPLOY.md](./docs/ZERO_DOWNTIME_DEPLOY.md)「依赖增量上传」）
 3. `scripts/ops/deploy-release.sh`：旁路解压到 `/opt/finance-site-releases/`，migrate + `data:apply`（跳过长任务），空闲端口拉起 → 部署 smoke（`/`、`/api/health`、macro-prefs、`/markets`、`/api/auth/me`、宏观 instruments BFF）→ nginx upstream 切流 → 停旧进程；切流后再 smoke，失败则自动回滚上一 release；`/opt/finance-site` 原子切换为指向新 release 的符号链接
 
 数据库与指标订阅由 deploy 脚本幂等落库，详见 [docs/DATA_DEPLOY_SYNC.md](./docs/DATA_DEPLOY_SYNC.md)；零停机细节见 [docs/ZERO_DOWNTIME_DEPLOY.md](./docs/ZERO_DOWNTIME_DEPLOY.md)。

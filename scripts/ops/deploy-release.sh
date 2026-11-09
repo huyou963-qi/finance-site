@@ -18,7 +18,7 @@ TARBALL="${TARBALL:-$DEPLOY_PATH/deploy.tar.gz}"
 KEEP_RELEASES="${KEEP_WEB_RELEASES:-2}"
 APP_SLOT_FILE="$SHARED/active-slot"
 PORT_FILE="$SHARED/active-port"
-UPSTREAM_CONF=/etc/nginx/conf.d/finance-site-upstream.conf
+UPSTREAM_CONF="${UPSTREAM_CONF:-/etc/nginx/conf.d/finance-site-upstream.conf}"
 NGINX_SITE="${NGINX_SITE:-/etc/nginx/sites-enabled/finance-site}"
 
 WORKER_LOCK=/tmp/finance-data-worker.lock
@@ -34,6 +34,27 @@ command -v pm2 >/dev/null 2>&1 || die "需要 pm2"
 command -v curl >/dev/null 2>&1 || die "需要 curl"
 
 [ -f "$TARBALL" ] || die "找不到 tarball: $TARBALL"
+
+# --- 0) 共享依赖（拆包部署）：应用包带 .deploy-deps-key 时，node_modules 来自
+# $SHARED/deps/<key>（按 lockfile 复用，见 install-release-deps.sh）。缺失且没有依赖包时
+# 以退出码 3 结束——此时还没解压、没删 tarball、没碰任何服务，CI 补传依赖包后可直接重跑。
+# 旧式整包（不带 key，自带完整 node_modules）跳过这一步。
+DEPS_SCRIPT="$(cd "$(dirname "$0")" && pwd)/install-release-deps.sh"
+DEPS_KEY=$(tar -xzf "$TARBALL" -O .deploy-deps-key 2>/dev/null | tr -d '[:space:]' || true)
+run_deps() {
+  SHARED_PATH="$SHARED" RELEASE_ROOT="$RELEASE_ROOT" sh "$DEPS_SCRIPT" "$@"
+}
+if [ -n "$DEPS_KEY" ]; then
+  [ -f "$DEPS_SCRIPT" ] || die "找不到 $DEPS_SCRIPT"
+  log "deps_key=$DEPS_KEY"
+  rc=0
+  run_deps ensure "$DEPS_KEY" || rc=$?
+  if [ "$rc" -eq 3 ]; then
+    log "共享依赖不可用，需要上传依赖包后重试（未做任何改动）"
+    exit 3
+  fi
+  [ "$rc" -eq 0 ] || die "共享依赖准备失败 (exit $rc)"
+fi
 
 mkdir -p "$RELEASE_ROOT" "$SHARED" "$SHARED/.next-static-archive" "$SHARED/logs"
 
@@ -260,6 +281,10 @@ if [ -d "$RELEASE_PATH/.next/static" ]; then
   cp -an "$RELEASE_PATH/.next/static/." "$SHARED/.next-static-archive/" 2>/dev/null || true
 fi
 
+if [ -n "$DEPS_KEY" ]; then
+  run_deps link "$RELEASE_PATH" "$DEPS_KEY" || die "共享依赖链接进 release 失败"
+fi
+
 link_shared_into_release "$RELEASE_PATH"
 [ -d "$RELEASE_PATH/.next" ] || die "release 缺少 .next"
 [ -d "$RELEASE_PATH/node_modules" ] || die "release 缺少 node_modules"
@@ -403,5 +428,10 @@ ls -1dt "$RELEASE_ROOT"/release-* 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) 
   log "rm -rf $old"
   rm -rf "$old"
 done
+
+# 共享依赖只留仍被现存 release 引用的 key（release 自身是硬链接，删共享目录不影响回滚）
+if [ -f "$DEPS_SCRIPT" ]; then
+  run_deps prune || log "警告: 共享依赖清理失败（不阻断发布）"
+fi
 
 log "完成：active_port=$NEW_PORT app=$CAND_APP release=$RELEASE_PATH"
