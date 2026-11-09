@@ -31,9 +31,28 @@
 
 一次显示一张表（三个切换按钮带科目数），最新一期在最左，桌面与手机共用同一组件 `StockStatementsTable.tsx`。手机端隐藏科目数、收窄科目列，表格在框内横向滚动，页面无横向溢出。
 
+## 覆盖范围：美股公众流通市值前 3000（第四步）
+
+基本面覆盖 = 已有季度快照 ∪ 标普 500（带 GICS）∪ `index_constituent` 各指数最新成分。小盘部分不用罗素 2000 名单：FTSE Russell 成分数据需授权，ETF 持仓文件只是近似且条款未核实。改为自建名单 `US_TOP3000`：
+
+- 指标：各公司 10-K 封面的公众流通市值 `dei:EntityPublicFloat`（SEC 事实，可追溯到申报，无需下载股价）。每年在公司第二财季末测一次，因此名单**每年 6 月重建一次**（与罗素年度重组同节奏）；一年内新上市、尚无 10-K 的公司在下次重建时进入。
+- 资格：`equity_security` 中有 CIK 的交易所上市证券；排除 Nasdaq Trader 证券目录标记为 ETF 的代码；须为仍在申报的 US-GAAP 公司（15 个月内有 10-Q/10-K 事实，IFRS 外国申报人不在内）；18 个月内有 10-K 公众流通市值。
+- 排名按 CIK（同一公司多股类合并），取前 3000，名单写入该公司全部上市股类。页面对外称「美股公众流通市值前 3000」，不称罗素指数。
+- 只收普通股：证券须在 Nasdaq Trader 目录中，且名称为普通股、普通单位、ordinary shares 或 shares of beneficial interest；权证、单位、权利、优先股、存托凭证、票据不单独覆盖（2026-11 实测排除 1,469 个此类代码）。
+- 公众流通市值量级纠错：申报值超过 6 万亿美元、超过总资产 200 倍、或同时超过总资产 20 倍且超过正权益 150 倍时视为申报人量级错误，依次除以 1,000、1,000,000 取第一个合理值并在报告中列出（2026-11 归档 20 家，如 Cabot 申报 4.4e15、Trustmark 9.6e11）。
+- 构建：`npm run equity:build-fundamentals-universe -- --facts-zip=.data/sec-bulk/companyfacts.zip`（先出报告，`--apply` 才写库），规则与单测在 `fundamentalsUniverse.ts`。2026-11-09 结果：3,000 家公司 / 3,024 个代码，第 1,000 名约 39 亿美元、第 3,000 名约 6,800 万美元；与标普 500 合并后覆盖 3,229 个代码。
+- 核查：`npm run equity:verify-fundamentals-coverage`（只读）报告每家公司季度深度、最新财季与滞后（最新财季距今超过 200 天），滞后或无数据占比超阈值时非零退出，可挂在日批之后告警。
+
 ## 历史回填
 
-已有快照的公司重跑一次即可补齐全部历史季度的科目（companyfacts 自带 2009 年起的全部 XBRL 事实）：
+第 1～3 步的科目补全与第四步的历史补全是同一个动作（同一份 companyfacts、同一提取器与 writer），合并为一次离线回填：在开发机下载 SEC 全量归档（约 1.4 GB，每周更新；**不要在生产机下载或解压**），`sync-fundamentals` 加 `--facts-zip` 从归档读取，不访问 data.sec.gov、不加请求间隔：
+
+```bash
+curl -H "User-Agent: <name> <email>" -o .data/sec-bulk/companyfacts.zip https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip
+npm run equity:sync-fundamentals -- --period-type=Q --quarters=70 --facts-zip=.data/sec-bulk/companyfacts.zip   --symbols-file=.data/sec-bulk/universe-<日期>.symbols.txt --resume-log=.data/sec-bulk/backfill.log
+```
+
+`--facts-zip` 只替换数据来源（`fetchSecCompanyFacts` 的 `load` 参数，前身合并逻辑共用），其余与联网路径完全一致。逐公司联网重跑也可以（每家一次请求）：
 
 ```bash
 npm run equity:sync-fundamentals -- --period-type=Q --quarters=70 --symbols-file=<名单> --resume-log=<日志>

@@ -261,6 +261,8 @@
     "equity:assert-seeded": "dotenv -e .env.local -- tsx scripts/equity/assert-seeded.ts",
     "equity:sync-profiles": "dotenv -e .env.local -- tsx scripts/equity/sync-profiles.ts",
     "equity:sync-fundamentals": "dotenv -e .env.local -- tsx scripts/equity/sync-fundamentals.ts",
+    "equity:build-fundamentals-universe": "dotenv -e .env.local -- tsx scripts/equity/build-fundamentals-universe.ts",
+    "equity:verify-fundamentals-coverage": "dotenv -e .env.local -- tsx scripts/equity/verify-fundamentals-coverage.ts",
     "equity:sync-weekly-fundamentals": "dotenv -e .env.local -- tsx scripts/equity/sync-weekly-fundamentals.ts",
     "equity:sync-daily-disclosures": "dotenv -e .env.local -- tsx scripts/equity/sync-daily-disclosures.ts",
     "equity:sync-fundamental-vintages": "dotenv -e .env.local -- tsx scripts/equity/sync-fundamental-vintages.ts",

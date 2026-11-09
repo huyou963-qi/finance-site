@@ -10,6 +10,8 @@
  *   # 深历史回填（幂等可续跑）：名单走文件，成功的 symbol 记进 resume-log，重跑自动跳过
  *   npm run equity:sync-fundamentals -- --period-type=Q --quarters=70 \
  *     --symbols-file=tmp/backfill-universe.txt --resume-log=tmp/backfill.log
+ *   # 离线：从 SEC 全量归档读 companyfacts（开发机，不访问 data.sec.gov、不加请求间隔）
+ *   npm run equity:sync-fundamentals -- --period-type=Q --quarters=70  *     --facts-zip=.data/sec-bulk/companyfacts.zip --symbols-file=... --resume-log=...
  *
  * 注意：`--limit` 只在「无显式名单」模式下默认生效（100）；给了 --symbols/--symbols-file
  * 时默认不截断（历史上 --limit 静默截断名单是踩过的坑），要截断请显式传 --limit。
@@ -28,6 +30,7 @@ import { upsertQuarterlyFundamentals } from "../../src/lib/equity/equityFundamen
 import { planQuarterlyWrite, quarterlyWriteWindow } from "../../src/lib/equity/quarterlyWritePlan";
 import { supplementSecCashCapex } from "../../src/lib/equity/secCashFlowSupplement";
 import { CASH_CAPEX_COMPONENTS } from "../../src/lib/equity/issuerCashCapex";
+import { openSecBulkArchive, type SecBulkArchive } from "../../src/lib/equity/secBulkArchive";
 
 function argValue(name: string): string | undefined {
   const eq = process.argv.find((a) => a.startsWith(`${name}=`));
@@ -80,6 +83,11 @@ async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const auditFile = argValue("--audit-file");
   const cashSupplement = process.argv.includes("--supplement-cash-flow");
+  const factsZip = argValue("--facts-zip");
+  const archive: SecBulkArchive | null = factsZip ? await openSecBulkArchive(factsZip) : null;
+  if (archive) console.log(`离线读取 SEC 全量归档：${factsZip}（${archive.ciks().length} 家公司）`);
+  // 归档模式不访问 data.sec.gov，不需要请求间隔
+  const pause = (ms: number) => archive ? Promise.resolve() : sleep(ms);
   if (cashSupplement && (periodType !== "Q" || !(symbolsArg || symbolsFile) || !auditFile)) throw new Error("申报补充须指定季度、名单和审计文件");
   if ((dryRun || fillMissing) && periodType !== "Q") throw new Error("--dry-run/--fill-missing 仅支持季度回填");
   if ([fromPeriod, throughPeriod].some(p => p != null && !/^\d{4}Q[1-4]$/.test(p))
@@ -164,7 +172,7 @@ async function main() {
       continue;
     }
     try {
-      let facts = await fetchSecCompanyFacts(cik);
+      let facts = await fetchSecCompanyFacts(cik, archive ? { load: archive.read } : {});
       if (cashSupplement && CASH_CAPEX_COMPONENTS[Number(cik)]) {
         const missing = extractQuarterlyFundamentals(facts, { maxQuarters: quarters })
           .filter(r => r.capex == null && (!fromPeriod || r.period >= fromPeriod) && (!throughPeriod || r.period <= throughPeriod));
@@ -180,7 +188,7 @@ async function main() {
           skipped += 1;
           console.log(`unavailable in requested range: ${symbol}`);
           if (!dryRun) markDone(symbol);
-          await sleep(delayMs);
+          await pause(delayMs);
           continue;
         }
         let rows = incoming;
@@ -199,7 +207,7 @@ async function main() {
             console.log(`unchanged ${symbol}`);
             ok += 1;
             if (!dryRun) markDone(symbol);
-            await sleep(delayMs);
+            await pause(delayMs);
             continue;
           }
         }
@@ -207,7 +215,7 @@ async function main() {
           fail += 1;
           failed.push(symbol);
           console.warn(`no quarterly facts: ${symbol}`);
-          await sleep(delayMs);
+          await pause(delayMs);
           continue;
         }
         const n = dryRun ? rows.length : await upsertQuarterlyFundamentals(symbol, incoming, { fillMissing });
@@ -219,7 +227,7 @@ async function main() {
         console.log(
           `ok [${seen}/${total}] ${symbol} Q×${n} rekey-removed=${removedPeriods} ${first.fiscalDate}→${last.fiscalDate} rev=${last.revenue?.toExponential(2) ?? "n/a"} revYoY=${last.revenueYoY?.toFixed(3) ?? "n/a"} eta=${(eta / 60000).toFixed(0)}m`,
         );
-        await sleep(delayMs);
+        await pause(delayMs);
         continue;
       }
 
@@ -228,7 +236,7 @@ async function main() {
         fail += 1;
         failed.push(symbol);
         console.warn(`no annual facts: ${symbol}`);
-        await sleep(delayMs);
+        await pause(delayMs);
         continue;
       }
 
@@ -302,7 +310,7 @@ async function main() {
       failed.push(symbol);
       console.warn(`fail ${symbol}:`, e instanceof Error ? e.message : e);
     }
-    await sleep(delayMs);
+    await pause(delayMs);
   }
 
   console.log(
@@ -319,6 +327,7 @@ async function main() {
       2,
     ),
   );
+  await archive?.close();
   if (fail) process.exitCode = 1;
 }
 
