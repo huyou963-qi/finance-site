@@ -7,14 +7,19 @@
  * 实测 186 条饿死，BIS 22 条自 08-31 起未跑、Ritter IPO / FINRA 融资余额从未跑过。
  *
  * 集中在 data:seed 入口兜底：seed 前后各取一次快照，规则与启用状态都没变、却被往后推的
- * probe_interval 订阅恢复原 nextRunAt。只管 probe_interval：日历型规则由 data:sync-calendar
- * 管，个别 seed 还会刻意写入精确的官方发布时刻（如 BOJ 资金循环），不能改回。
+ * probe_interval 订阅恢复原 nextRunAt。独立的日历型订阅不管：由 data:sync-calendar 管，
+ * 个别 seed 还会刻意写入精确的官方发布时刻（如 BOJ 资金循环），不能改回。
+ *
+ * 发布包成员（2026-11-09）：排期归发布包所有（日历同步与 worker 扇出），seed 写的每月兜底
+ * 只会把成员推到包之后。11-09 部署把约 840 条成员改成 11-10 08:00，中国 PPI 当天发布却
+ * 要晚一天才抓。前后都在同一个包里、启用状态没变的成员，被推迟同样恢复。
  */
 export type SubscriptionScheduleSnapshot = {
   id: string;
   nextRunAt: Date | null;
   releaseRule: unknown;
   enabled: boolean;
+  releasePackageId?: string | null;
 };
 
 function isProbeInterval(rule: unknown): boolean {
@@ -38,7 +43,9 @@ export function findDelayedProbeSchedules(
   for (const row of after) {
     const old = prev.get(row.id);
     if (!old || !row.nextRunAt) continue;
-    if (!isProbeInterval(row.releaseRule) || !sameJson(old.releaseRule, row.releaseRule)) continue;
+    const samePackageMember = row.releasePackageId != null && old.releasePackageId === row.releasePackageId;
+    const unchangedProbe = isProbeInterval(row.releaseRule) && sameJson(old.releaseRule, row.releaseRule);
+    if (!samePackageMember && !unchangedProbe) continue;
     if (old.enabled !== row.enabled) continue;
     if (old.nextRunAt && row.nextRunAt.getTime() <= old.nextRunAt.getTime()) continue;
     out.push({ id: row.id, restoreTo: old.nextRunAt, delayedTo: row.nextRunAt });
