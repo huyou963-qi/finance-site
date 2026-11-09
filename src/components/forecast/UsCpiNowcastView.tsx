@@ -17,7 +17,31 @@ const signed = (v: number, d = 2) => (Number.isFinite(v) ? (v > 0 ? "+" : "") + 
 const cutoffText = (d: number) => (d >= 31 ? "全月" : d <= 0 ? "尚无当月数据" : `1–${d} 日`);
 const rate = (v: number) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "—");
 
-function Kpi({ label, value, unit = "%", sub, lead }: { label: string; value: string; unit?: string; sub: string; lead?: boolean }) {
+/** 克利夫兰联储对照：其 nowcast 与「本模型 − 克利夫兰联储」的差（百分点） */
+type KpiCompare = { value: number; diff: number };
+
+/** 本模型值与克利夫兰联储值都有效时才给出对照 */
+function compareWith(model: number, cleveland: number | null | undefined): KpiCompare | null {
+  return cleveland != null && Number.isFinite(cleveland) && Number.isFinite(model)
+    ? { value: cleveland, diff: model - cleveland }
+    : null;
+}
+
+function Kpi({
+  label,
+  value,
+  unit = "%",
+  sub,
+  lead,
+  compare,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  sub: string;
+  lead?: boolean;
+  compare?: KpiCompare | null;
+}) {
   return (
     <div className="flex flex-col gap-1.5 bg-fs-bg px-4 py-3.5">
       <span className="text-[13px] text-fs-muted">{label}</span>
@@ -26,6 +50,16 @@ function Kpi({ label, value, unit = "%", sub, lead }: { label: string; value: st
         <span className="ml-0.5 text-base text-fs-muted">{unit}</span>
       </span>
       <span className="font-mono text-xs tabular-nums text-fs-muted">{sub}</span>
+      {compare ? (
+        <span className="mt-1 flex flex-wrap items-center gap-x-1.5 border-t border-fs-border pt-2 text-xs text-fs-secondary">
+          <span aria-hidden className="inline-block h-0 w-3 border-t-2 border-dashed" style={{ borderColor: CLEVELAND_LINE }} />
+          <span>克利夫兰联储</span>
+          <span className="font-mono tabular-nums text-fs-text">{pct(compare.value)}%</span>
+          <span className="text-fs-muted">·</span>
+          <span>差</span>
+          <span className="font-mono tabular-nums text-fs-text">{signed(compare.diff)}</span>
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -93,6 +127,7 @@ function AccuracyTable({ data }: { data: UsCpiNowcastPublicPayload["backtest"]["
 export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) {
   const [backtestKey, setBacktestKey] = useState<"ALL" | "CORE">("ALL");
   const prevLabel = `${Number(data.latestCpiMonth.slice(5, 7))} 月`;
+  const cf = data.cleveland;
   const target = monthZh(data.targetMonth);
   const energyPp = data.drivers.filter((c) => c.group === "能源").reduce((s, c) => s + c.contribution, 0);
   const otherPp = data.drivers.filter((c) => c.group !== "能源").reduce((s, c) => s + c.contribution, 0);
@@ -124,10 +159,32 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
 
       <section className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-fs-border bg-fs-border sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi lead label="总体 CPI 环比（季调）" value={pct(data.headline.mom)} sub={headlineSub(data.headline, prevLabel)} />
-          <Kpi lead label="核心 CPI 环比（季调）" value={pct(data.core.mom)} sub={headlineSub(data.core, prevLabel)} />
-          <Kpi label="总体 CPI 同比" value={pct(data.headline.yoy)} sub={`${prevLabel} ${pct(data.headline.prevYoy)}%`} />
-          <Kpi label="核心 CPI 同比" value={pct(data.core.yoy)} sub={`${prevLabel} ${pct(data.core.prevYoy)}%`} />
+          <Kpi
+            lead
+            label="总体 CPI 环比（季调）"
+            value={pct(data.headline.mom)}
+            sub={headlineSub(data.headline, prevLabel)}
+            compare={compareWith(data.headline.mom, cf?.all)}
+          />
+          <Kpi
+            lead
+            label="核心 CPI 环比（季调）"
+            value={pct(data.core.mom)}
+            sub={headlineSub(data.core, prevLabel)}
+            compare={compareWith(data.core.mom, cf?.core)}
+          />
+          <Kpi
+            label="总体 CPI 同比"
+            value={pct(data.headline.yoy)}
+            sub={`${prevLabel} ${pct(data.headline.prevYoy)}%`}
+            compare={compareWith(data.headline.yoy, cf?.allYoy)}
+          />
+          <Kpi
+            label="核心 CPI 同比"
+            value={pct(data.core.yoy)}
+            sub={`${prevLabel} ${pct(data.core.prevYoy)}%`}
+            compare={compareWith(data.core.yoy, cf?.coreYoy)}
+          />
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-fs-secondary sm:grid-cols-4">
           {(
@@ -138,9 +195,9 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
               ["核心服务", data.aggregates.CS],
             ] as const
           ).map(([label, v]) => (
-            <div key={label} className="flex items-baseline gap-2">
+            <div key={label} className="flex flex-wrap items-baseline gap-x-2">
               <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: GROUP_COLOR[label] }} />
-              <span>{label}</span>
+              <span className="whitespace-nowrap">{label}</span>
               <span className="font-mono tabular-nums text-fs-text">{signed(v.forecast)}%</span>
               <span className="font-mono text-xs tabular-nums text-fs-muted">
                 {prevLabel} {signed(v.prevActual)}
@@ -148,17 +205,17 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
             </div>
           ))}
         </div>
-        {data.cleveland ? (
-          <p className="flex flex-wrap items-baseline gap-x-2 text-[13px] text-fs-secondary">
-            <span className="inline-block h-0 w-4 border-t-2 border-dashed" style={{ borderColor: CLEVELAND_LINE }} />
-            <span>
-              对照：克利夫兰联储 {data.cleveland.label} 对 {target} 的 nowcast 为总体{" "}
-              <span className="font-mono tabular-nums text-fs-text">{pct(data.cleveland.all)}%</span>、核心{" "}
-              <span className="font-mono tabular-nums text-fs-text">{pct(data.cleveland.core)}%</span>
-              （本模型 {pct(data.headline.mom)}% / {pct(data.core.mom)}%，差{" "}
-              {signed(data.headline.mom - data.cleveland.all)} / {signed(data.core.mom - data.cleveland.core)} 个百分点）。
-            </span>
-            <a href={data.cleveland.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-fs-accent-text hover:underline">
+        {cf ? (
+          <p className="text-xs leading-relaxed text-fs-muted">
+            <span
+              aria-hidden
+              className="mr-1.5 inline-block h-0 w-4 border-t-2 border-dashed align-middle"
+              style={{ borderColor: CLEVELAND_LINE }}
+            />
+            卡片中的克利夫兰联储为其 {cf.label}
+            {cf.yoyLabel && cf.yoyLabel !== cf.label ? `（同比 ${cf.yoyLabel}）` : ""} 对 {target} 的最新 nowcast
+            {cf.allYoy == null ? "，同比暂缺" : ""}；「差」= 本模型 − 克利夫兰联储，单位为百分点。第三方模型输出，仅作对照、不入库。{" "}
+            <a href={cf.sourceUrl} target="_blank" rel="noreferrer" className="text-fs-accent-text hover:underline">
               来源
             </a>
           </p>

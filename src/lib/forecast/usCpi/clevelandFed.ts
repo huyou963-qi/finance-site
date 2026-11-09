@@ -6,11 +6,19 @@
  *
  * 口径：与本模型同一信息时点——取目标月内截止日（含）之前的最后一次 nowcast（`clevelandAsOf`）。
  * 数组按「非 vline」类别对齐（vline 是 CPI/PCE 发布标记，不带数据点）。
+ * 环比（nowcast_month.json）与同比（nowcast_year.json）两份文件结构相同、各约 7.6MB，分别缓存；
+ * 同比只用于页面头部对照，读取失败不影响环比对照与回测。
  * 来源：https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting
  */
 export const CLEVELAND_NOWCAST_URL =
   "https://www.clevelandfed.org/-/media/files/webcharts/inflationnowcasting/nowcast_month.json";
+export const CLEVELAND_NOWCAST_YOY_URL =
+  "https://www.clevelandfed.org/-/media/files/webcharts/inflationnowcasting/nowcast_year.json";
 export const CLEVELAND_NOWCAST_PAGE = "https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting";
+
+/** mom = 季调环比 %，yoy = 同比 % */
+export type ClevelandKind = "mom" | "yoy";
+const CLEVELAND_URLS: Record<ClevelandKind, string> = { mom: CLEVELAND_NOWCAST_URL, yoy: CLEVELAND_NOWCAST_YOY_URL };
 
 const CACHE_TTL_MS = 6 * 3_600_000;
 const FAILURE_RETRY_MS = 10 * 60_000;
@@ -20,7 +28,7 @@ export type ClevelandPoint = { all: number; core: number; label: string; mm: num
 export type ClevelandMonth = {
   /** 目标月 YYYY-MM-01 */
   month: string;
-  /** 逐日 nowcast（季调环比 %），按发布顺序 */
+  /** 逐日 nowcast（环比文件为季调环比 %，同比文件为同比 %），按发布顺序 */
   points: ClevelandPoint[];
   /** 该目标月最新一次 nowcast */
   latest: ClevelandPoint | null;
@@ -66,27 +74,28 @@ export function parseClevelandNowcast(raw: unknown): Map<string, ClevelandMonth>
   return out;
 }
 
-let cache: { at: number; data: Map<string, ClevelandMonth> | null } | null = null;
+const caches: Partial<Record<ClevelandKind, { at: number; data: Map<string, ClevelandMonth> | null }>> = {};
 
-/** 读取并缓存；源站不可达时返回 null（页面降级为不画对照线），10 分钟后再试 */
-export async function loadClevelandNowcast(): Promise<Map<string, ClevelandMonth> | null> {
+/** 读取并缓存；源站不可达时返回 null（页面降级为不画对照），10 分钟后再试 */
+export async function loadClevelandNowcast(kind: ClevelandKind = "mom"): Promise<Map<string, ClevelandMonth> | null> {
+  const cache = caches[kind];
   if (cache) {
     const ttl = cache.data ? CACHE_TTL_MS : FAILURE_RETRY_MS;
     if (Date.now() - cache.at < ttl) return cache.data;
   }
   try {
-    const res = await fetch(CLEVELAND_NOWCAST_URL, {
+    const res = await fetch(CLEVELAND_URLS[kind], {
       headers: { "User-Agent": "finance-site/1.0", Accept: "application/json" },
       signal: AbortSignal.timeout(60_000),
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = parseClevelandNowcast(await res.json());
-    cache = { at: Date.now(), data };
+    caches[kind] = { at: Date.now(), data };
     return data;
   } catch (error) {
-    console.warn(`[usCpiNowcast] 克利夫兰联储 nowcast 读取失败：${error instanceof Error ? error.message : error}`);
-    cache = { at: Date.now(), data: null };
+    console.warn(`[usCpiNowcast] 克利夫兰联储 ${kind} nowcast 读取失败：${error instanceof Error ? error.message : error}`);
+    caches[kind] = { at: Date.now(), data: null };
     return null;
   }
 }
