@@ -12,7 +12,8 @@ import {
   type SecQuarterlyFundamentals,
 } from "@/lib/equity/secFundamentals";
 import type { QuarterFundamentalRow } from "@/lib/equity/ttm";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import { readStatementLines, type StatementLines } from "./statementTemplate";
 import { planQuarterlyWrite, quarterlyWriteWindow } from "./quarterlyWritePlan";
 
 export async function upsertQuarterlyFundamentals(
@@ -72,6 +73,8 @@ async function writeQuarterRows(
         ? new Date(`${r.firstReportedAt}T00:00:00.000Z`)
         : null,
       asOf: fiscalDate,
+      // undefined = 调用方没有科目明细，不动库内 lines；空对象写 NULL。
+      ...(r.lines === undefined ? {} : { lines: Object.keys(r.lines).length ? r.lines : Prisma.DbNull }),
     };
     await client.equityFundamentalSnapshot.upsert({
       where: { symbol_period: { symbol, period: r.period } },
@@ -103,6 +106,8 @@ export type QuarterSnapshotRow = QuarterFundamentalRow & {
   opMargin: number | null;
   /** PIT：该季事实首次披露日 YYYY-MM-DD（无则 null） */
   firstReportedAt: string | null;
+  /** 三张报表其余标准化科目（同业等手工构造的行可省略） */
+  lines?: StatementLines;
 };
 
 function toRow(r: {
@@ -128,6 +133,7 @@ function toRow(r: {
   sharesOutstanding: number | null;
   dividendsPaid: number | null;
   buybackPaid: number | null;
+  lines?: unknown;
 }): QuarterSnapshotRow {
   return {
     period: r.period,
@@ -153,6 +159,7 @@ function toRow(r: {
     longTermDebt: r.longTermDebt,
     cash: r.cash,
     sharesOutstanding: r.sharesOutstanding,
+    lines: readStatementLines(r.lines),
   };
 }
 

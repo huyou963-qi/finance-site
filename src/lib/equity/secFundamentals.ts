@@ -3,6 +3,8 @@ import { issuerReportedCashCapex } from "./issuerCashCapex";
 import { SEC_PREDECESSORS, mergeSecPredecessorFacts } from "./secPredecessors";
 import { reportedDurationDifference, reportedDurationSum } from "./secReportedFlows";
 import { statementSupplementFlows, STATEMENT_CAPEX_ROLES, TOTAL_OPERATING_REVENUE_CIKS } from "./secStatementSupplement";
+import { STATEMENT_LINE_TAGS } from "./statementLineTags";
+import { statementLineKind, type StatementLines } from "./statementTemplate";
 /**
  * SEC EDGAR XBRL companyfacts → 三大报表标准化字段（免密钥）。
  * https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json
@@ -221,6 +223,8 @@ export type SecQuarterlyFundamentals = {
    * 注意与去重语义分开：字段值取同期最新 filed（容纳重述），首披露日取最早 filed。
    */
   firstReportedAt: string | null;
+  /** 三张报表其余标准化科目（statementTemplate 中非 headline 的科目），无数据的科目不出现 */
+  lines?: StatementLines;
 };
 
 /** 各标准化字段的候选 US-GAAP tag（按优先级回退，跨公司报表栏目标准化的核心映射表） */
@@ -728,6 +732,30 @@ function pickInstantSeries(
   return merged;
 }
 
+type LineSeries = { code: string; kind: ReturnType<typeof statementLineKind>; at: Map<string, number> };
+
+/** 三张报表其余科目：沿用同一套候选择优与累计差分，按季末日期取值。 */
+function statementLineSeries(gaap: Record<string, SecConcept>): LineSeries[] {
+  const out: LineSeries[] = [];
+  for (const [code, tags] of Object.entries(STATEMENT_LINE_TAGS)) {
+    const kind = statementLineKind(code);
+    if (!kind || kind === "ratio") continue;
+    const at = new Map<string, number>();
+    if (kind === "instant" || kind === "sharesInstant") {
+      for (const [end, p] of pickInstantSeries(gaap, tags, [kind === "instant" ? "USD" : "shares"])) at.set(end, p.val);
+    } else {
+      const unit = kind === "flow" ? ["USD"] : kind === "perShare" ? ["USD/shares"] : ["shares"];
+      for (const q of pickFlowQuarterSeries(gaap, tags, unit)) {
+        // 加权平均股数不可由「全年 − 九个月」差分得到单季，只收直接披露的季度。
+        if (kind === "sharesFlow" && q.derived) continue;
+        at.set(q.end, q.val);
+      }
+    }
+    if (at.size) out.push({ code, kind, at });
+  }
+  return out;
+}
+
 function yoyQuarter(series: FlowQuarter[], idx: number): number | null {
   const curr = series[idx]!;
   const currEndMs = dateMs(curr.end);
@@ -1036,6 +1064,7 @@ export function extractQuarterlyFundamentals(
   const tail = [...quarterAnchors.values()].sort((a, b) => a.end.localeCompare(b.end)).slice(-(maxQuarters + 4));
   const out: SecQuarterlyFundamentals[] = [];
   const epsDerived: boolean[] = [];
+  const lineSeries = statementLineSeries(gaap);
   for (const q of tail) {
     const idx = revenueQ.findIndex((r) => r.end === q.end);
     const revenue = idx >= 0 ? revenueQ[idx]!.val : null;
@@ -1112,6 +1141,7 @@ export function extractQuarterlyFundamentals(
       cash: cashPt?.val ?? null,
       sharesOutstanding: sharesPt?.val ?? null,
       firstReportedAt: firstReportedAt || null,
+      lines: quarterLines(lineSeries, q.end),
     });
   }
 
@@ -1158,6 +1188,17 @@ export function extractQuarterlyFundamentals(
   );
   const epsFactors = scaleFactorsBackward(impliedShares);
   out.forEach((r, i) => {
+    if (!r.lines) return;
+    const f = epsFactors[i];
+    for (const series of lineSeries) {
+      if (series.kind !== "perShare" && series.kind !== "sharesFlow") continue;
+      const v = r.lines[series.code];
+      if (v == null || f === 1 || f === undefined) continue;
+      if (f == null) delete r.lines[series.code];
+      else r.lines[series.code] = series.kind === "perShare" ? v / f : v * f;
+    }
+  });
+  out.forEach((r, i) => {
     if (r.eps == null) return;
     const f = epsFactors[i];
     if (f == null) r.eps = null; // 隐含股本判脏 → EPS 刻度不可信，丢弃
@@ -1178,6 +1219,25 @@ export function extractQuarterlyFundamentals(
   return [...byPeriod.values()]
     .sort((a, b) => a.fiscalDate.localeCompare(b.fiscalDate))
     .slice(-maxQuarters);
+}
+
+function quarterLines(series: readonly LineSeries[], end: string): StatementLines {
+  const lines: StatementLines = {};
+  for (const s of series) {
+    const v = s.at.get(end);
+    // 累计差分会留下浮点尾差（2.0999999…）；金额与股数取整，每股保留 6 位小数。
+    if (v != null && Number.isFinite(v)) lines[s.code] = s.kind === "perShare" ? Math.round(v * 1e6) / 1e6 : Math.round(v);
+  }
+  // 银行的 InterestExpense 是存款与借款的经营性利息支出，不是工商业的融资费用。
+  if (lines.netInterestIncome != null && lines.interestExpense != null) {
+    const operating = lines.interestExpenseOperating;
+    if (operating == null) lines.interestExpenseOperating = lines.interestExpense;
+    // 两个标签报的是同一笔经营性利息支出时只保留一行，避免在「利润」段重复出现。
+    if (operating == null || Math.abs(operating - lines.interestExpense) <= Math.abs(operating) * 0.01) delete lines.interestExpense;
+  }
+  // 同理，银行的证券利息（InvestmentIncomeInterest）是经营性利息收入的组成部分，不是营业外收入。
+  if (lines.netInterestIncome != null) delete lines.interestIncomeNonoperating;
+  return lines;
 }
 
 /** SEC 全市场 ticker → CIK（约 1 次请求，可缓存） */

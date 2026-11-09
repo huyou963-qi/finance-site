@@ -1,10 +1,17 @@
 import { calendarQuarterLabel, type SecQuarterlyFundamentals as Quarter } from "./secFundamentals";
 import { shiftFinancialQuarter } from "./industryFinancials";
+import { readStatementLines, type StatementLines } from "./statementTemplate";
 
 export const QUARTER_VALUE_FIELDS = ["fiscalQuarter", "revenue", "revenueYoY", "grossMargin", "opMargin", "netIncome", "eps", "epsYoY", "ocf", "capex", "dividendsPaid", "buybackPaid", "totalAssets", "totalLiabilities", "equity", "longTermDebt", "cash", "sharesOutstanding"] as const;
-export type StoredQuarter = Partial<Omit<Quarter, "fiscalDate" | "firstReportedAt">> & {
-  period: string; fiscalDate: Date | string | null; firstReportedAt?: Date | string | null;
+export type StoredQuarter = Partial<Omit<Quarter, "fiscalDate" | "firstReportedAt" | "lines">> & {
+  period: string; fiscalDate: Date | string | null; firstReportedAt?: Date | string | null; lines?: unknown;
 };
+
+/** 逐科目合并：前者优先，缺失科目保留另一侧（用于补空写入与同财季遗留副本合并）。 */
+function mergeLines(preferred: StatementLines | undefined, fallback: StatementLines | undefined): StatementLines {
+  return { ...(fallback ?? {}), ...(preferred ?? {}) };
+}
+const linesKey = (lines: StatementLines | undefined) => JSON.stringify(Object.entries(lines ?? {}).sort(([a], [b]) => a.localeCompare(b)));
 const iso = (value: Date | string | null | undefined) => value instanceof Date ? value.toISOString().slice(0, 10) : value?.slice(0, 10) ?? null;
 
 export function quarterlyWriteWindow(rows: Quarter[]) {
@@ -20,6 +27,7 @@ function storedValue(row: StoredQuarter): Quarter | null {
   if (!date) return null;
   const value = { period: row.period, fiscalDate: date, firstReportedAt: iso(row.firstReportedAt) } as Quarter;
   for (const key of QUARTER_VALUE_FIELDS) Object.assign(value, { [key]: row[key] ?? null });
+  value.lines = readStatementLines(row.lines);
   return value;
 }
 
@@ -51,6 +59,8 @@ export function planQuarterlyWrite(incoming: Quarter[], existing: StoredQuarter[
           && Math.abs(a - b) > Math.max(1, Math.abs(a), Math.abs(b)) * 1e-12) throw new Error(`同财季副本金额冲突：${row.fiscalDate}/${key}`);
         if (a == null && b != null) { Object.assign(other, { [key]: b }); filled = true; }
       }
+      const lines = mergeLines(other.lines, row.lines);
+      if (linesKey(lines) !== linesKey(other.lines)) { other.lines = lines; filled = true; }
       if (filled) other.firstReportedAt = [other.firstReportedAt ?? "", row.firstReportedAt ?? ""].sort().at(-1) || null;
     } else final.set(row.period, row);
   }
@@ -78,6 +88,10 @@ export function planQuarterlyWrite(incoming: Quarter[], existing: StoredQuarter[
       Object.assign(merged, { [key]: value });
       if (value !== old[key]) changed = true;
     }
+    // lines 总是来自同一次完整提取：普通写入整体替换（模板或口径调整后不残留旧科目），
+    // 补空模式只增不改；调用方未提供 lines（旧路径）时原样保留库内科目。
+    merged.lines = row.lines === undefined ? old.lines : fillMissing ? mergeLines(old.lines, row.lines) : { ...row.lines };
+    if (linesKey(merged.lines) !== linesKey(old.lines)) changed = true;
     merged.firstReportedAt = changed || !fillMissing
       ? [old.firstReportedAt ?? "", row.firstReportedAt ?? ""].sort().at(-1) || null : old.firstReportedAt;
     final.set(row.period, merged);
@@ -93,7 +107,7 @@ export function planQuarterlyWrite(incoming: Quarter[], existing: StoredQuarter[
   const rows = [...final.values()].filter(row => {
     const old = before.get(row.period);
     return !old || iso(old.fiscalDate) !== row.fiscalDate || QUARTER_VALUE_FIELDS.some(k => (old[k] ?? null) !== row[k])
-      || iso(old.firstReportedAt) !== row.firstReportedAt;
+      || iso(old.firstReportedAt) !== row.firstReportedAt || linesKey(readStatementLines(old.lines)) !== linesKey(row.lines);
   }).sort((a, b) => a.period.localeCompare(b.period));
   const obsolete = relabelled.filter(r => !final.has(r.from)).map(r => ({ period: r.from, fiscalDate: r.fiscalDate }));
   return { rows, obsolete, relabelled, skipped };

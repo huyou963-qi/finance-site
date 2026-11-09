@@ -58,6 +58,7 @@ finance-site/
 1. `equity:seed-sp500` → Wikipedia 成分 + GICS → `mds.equity_security`
 2. 浏览器 → `/equity/sectors`；收益 `GET /api/equity/sector-returns`（Yahoo Finance Sector ETF，可选 Tiingo）
 3. 财报聚合 / 经营叙事见 [docs/US_EQUITY_SECTOR_ANALYSIS.md](./docs/US_EQUITY_SECTOR_ANALYSIS.md)
+4. 个股三张报表：143 个标准化科目（利润表 51、资产负债表 71、现金流量表 21）的并集模板，按披露自动判定银行/保险/券商/REIT/一般企业格式，`equity_fundamental_snapshot.lines` JSONB + 原 13 个独立列；规则见 [docs/STOCK_FINANCIAL_STATEMENTS.md](./docs/STOCK_FINANCIAL_STATEMENTS.md)
 
 ### 用户偏好
 

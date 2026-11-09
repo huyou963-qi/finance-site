@@ -18,6 +18,8 @@ import {
   formatRatio,
   formatSignedPct,
 } from "@/lib/equity/formatFundamentalsDisplay";
+import { StockStatementsTable } from "@/components/equity/StockStatementsTable";
+import type { StatementLines } from "@/lib/equity/statementTemplate";
 
 // ---------------------------------------------------------------------------
 // 类型（与 /api/equity/stocks/[symbol]/fundamentals、/peers 响应对齐）
@@ -33,6 +35,8 @@ type StatementRow = FundamentalQuarterPoint & {
   longTermDebt: number | null;
   cash: number | null;
   sharesOutstanding: number | null;
+  /** 三张报表其余标准化科目 */
+  lines?: StatementLines;
 };
 
 type RatioRow = RatioPoint & {
@@ -116,74 +120,6 @@ function signClass(v: number | null | undefined): string {
   if (v > 0) return "text-emerald-400";
   if (v < 0) return "text-red-400";
   return "text-fs-muted";
-}
-
-// ---------------------------------------------------------------------------
-// 报表明细行定义
-// ---------------------------------------------------------------------------
-
-type LineKind = "money" | "pct" | "eps";
-type LineDef = { label: string; kind: LineKind; sel: (r: StatementRow) => number | null };
-type SectionDef = { section: string; lines: LineDef[] };
-
-const STATEMENT_SECTIONS: SectionDef[] = [
-  {
-    section: "利润表",
-    lines: [
-      { label: "营收", kind: "money", sel: (r) => r.revenue },
-      { label: "净利润", kind: "money", sel: (r) => r.netIncome },
-      { label: "稀释 EPS", kind: "eps", sel: (r) => r.eps },
-      { label: "毛利率", kind: "pct", sel: (r) => r.grossMargin },
-      { label: "营业利润率", kind: "pct", sel: (r) => r.opMargin },
-      { label: "净利率", kind: "pct", sel: (r) => r.netMargin },
-    ],
-  },
-  {
-    section: "资产负债表",
-    lines: [
-      { label: "总资产", kind: "money", sel: (r) => r.totalAssets },
-      { label: "总负债", kind: "money", sel: (r) => r.totalLiabilities },
-      { label: "股东权益", kind: "money", sel: (r) => r.equity },
-      { label: "长期债务", kind: "money", sel: (r) => r.longTermDebt },
-      { label: "现金及等价物", kind: "money", sel: (r) => r.cash },
-      { label: "流通股本", kind: "money", sel: (r) => r.sharesOutstanding },
-    ],
-  },
-  {
-    section: "现金流量表",
-    lines: [
-      { label: "经营现金流", kind: "money", sel: (r) => r.ocf },
-      { label: "资本开支", kind: "money", sel: (r) => r.capex },
-      { label: "自由现金流", kind: "money", sel: (r) => r.fcf },
-      { label: "分红支付", kind: "money", sel: (r) => r.dividendsPaid },
-      { label: "股票回购", kind: "money", sel: (r) => r.buybackPaid },
-    ],
-  },
-];
-
-function statementCell(
-  rows: StatementRow[],
-  i: number,
-  line: LineDef,
-  valueMode: "value" | "yoy",
-  yoyLag: number,
-): { text: string; cls: string } {
-  const v = line.sel(rows[i]!);
-  if (valueMode === "value") {
-    if (line.kind === "pct") return { text: fmtPct(v), cls: "text-fs-text" };
-    if (line.kind === "eps") return { text: fmtEps(v), cls: "text-fs-text" };
-    return { text: fmtMoney(v), cls: "text-fs-text" };
-  }
-  const j = i - yoyLag;
-  if (j < 0) return { text: "—", cls: "text-fs-muted" };
-  const prev = line.sel(rows[j]!);
-  if (line.kind === "pct") {
-    const d = v != null && prev != null ? v - prev : null;
-    return { text: fmtPp(d), cls: signClass(d) };
-  }
-  if (v == null || prev == null || prev <= 0) return { text: "—", cls: "text-fs-muted" };
-  const d = v / prev - 1;
-  return { text: fmtSignedPct(d), cls: signClass(d) };
 }
 
 // ---------------------------------------------------------------------------
@@ -619,31 +555,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-md border border-fs-border/60">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="text-xs text-fs-muted">
-                    <tr>
-                      <th className="sticky left-0 bg-fs-bg px-3 py-1.5">科目</th>
-                      {statementRows.map((r) => (
-                        <th key={r.period} className="px-3 py-1.5 text-right" title={r.fiscalDate}>
-                          {r.period}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {STATEMENT_SECTIONS.map((sec) => (
-                      <SectionRows
-                        key={sec.section}
-                        section={sec}
-                        rows={statementRows}
-                        valueMode={valueMode}
-                        yoyLag={yoyLag}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <StockStatementsTable rows={statementRows} valueMode={valueMode} yoyLag={yoyLag} />
             </>
           ) : null}
 
@@ -763,42 +675,5 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
         </div>
       )}
     </section>
-  );
-}
-
-function SectionRows({
-  section,
-  rows,
-  valueMode,
-  yoyLag,
-}: {
-  section: SectionDef;
-  rows: StatementRow[];
-  valueMode: "value" | "yoy";
-  yoyLag: number;
-}) {
-  return (
-    <>
-      <tr className="border-t border-fs-border/50 bg-fs-elevated/30">
-        <td colSpan={rows.length + 1} className="px-3 py-1 text-[11px] font-medium text-fs-muted">
-          {section.section}
-        </td>
-      </tr>
-      {section.lines.map((line) => (
-        <tr key={line.label} className="border-t border-fs-border/40">
-          <td className="sticky left-0 whitespace-nowrap bg-fs-bg px-3 py-1.5 text-fs-text">
-            {line.label}
-          </td>
-          {rows.map((_, i) => {
-            const { text, cls } = statementCell(rows, i, line, valueMode, yoyLag);
-            return (
-              <td key={rows[i]!.period} className={`px-3 py-1.5 text-right tabular-nums ${cls}`}>
-                {text}
-              </td>
-            );
-          })}
-        </tr>
-      ))}
-    </>
   );
 }
