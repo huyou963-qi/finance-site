@@ -417,3 +417,48 @@ test("previousReleaseAt 为空（首次同步）时不触发任何 hold", () => 
   assert.equal(decision.reason, "calendar");
   assert.equal(decision.nextRunAt?.toISOString(), "2026-10-15T12:30:00.000Z");
 });
+
+test("复刻 2026-11-05 事故：已过且已跑过的重试点不能被每小时同步原样保留", () => {
+  // 美国 17 个包 11-05 01:01 被 hold 到 03:01；成员 03:01 后都跑过，
+  // 之后每次日历同步仍把包钉在 11-05 03:01，后台显示 300+ 条「未更新」。
+  const stuck = d("2026-11-05T03:01:29Z");
+  const now = d("2026-11-09T04:00:00Z");
+  const decision = resolvePackageNextRunAt({
+    computedNextRunAt: d("2026-11-10T13:33:00Z"),
+    currentNextRunAt: stuck,
+    previousReleaseAt: d("2026-10-24T12:30:00Z"),
+    runState: { lastSuccessAt: d("2026-11-05T03:05:00Z"), sourceVerifiedAt: null,
+      requiredMonthlyObservation: { oldest: d("2026-08-01"), lagMonths: 1 } },
+    now,
+  });
+  assert.equal(decision.reason, "hold_pending_release");
+  assert.equal(decision.nextRunAt?.toISOString(), "2026-11-09T06:00:00.000Z");
+});
+
+test("复刻 2026-11-09 BOP 空转：已跑过的过去探测点改排下一次，不超过下一期发布", () => {
+  const now = d("2026-11-09T02:00:00Z");
+  const base = {
+    previousReleaseAt: d("2026-09-24T12:30:00Z"),
+    currentNextRunAt: d("2026-11-09T01:48:17Z"),
+    runState: { lastSuccessAt: d("2026-11-09T01:51:00Z"), sourceVerifiedAt: d("2026-09-01T00:00:00Z") },
+    now,
+  };
+  const later = resolvePackageNextRunAt({ ...base, computedNextRunAt: d("2026-12-18T13:33:00Z") });
+  assert.equal(later.nextRunAt?.toISOString(), "2026-11-09T04:00:00.000Z");
+  const soon = resolvePackageNextRunAt({ ...base, computedNextRunAt: d("2026-11-09T03:00:00Z") });
+  assert.equal(soon.nextRunAt?.toISOString(), "2026-11-09T03:00:00.000Z");
+});
+
+test("已过但还没跑过的时刻仍然保留给 worker（含 hold_due_run）", () => {
+  const due = d("2026-11-09T01:33:00Z");
+  const now = d("2026-11-09T02:00:00Z");
+  const notRun = { lastSuccessAt: d("2026-10-17T13:17:00Z"), sourceVerifiedAt: null };
+  assert.equal(resolvePackageNextRunAt({ computedNextRunAt: d("2026-12-09T01:33:00Z"),
+    currentNextRunAt: due, previousReleaseAt: null, runState: notRun, now }).nextRunAt, due);
+  // 跑过之后，未知上一期发布时不再 hold_due_run，改跟日历
+  const ran = resolvePackageNextRunAt({ computedNextRunAt: d("2026-12-09T01:33:00Z"),
+    currentNextRunAt: due, previousReleaseAt: null,
+    runState: { lastSuccessAt: d("2026-11-09T01:40:00Z"), sourceVerifiedAt: null }, now });
+  assert.equal(ran.reason, "calendar");
+  assert.equal(ran.nextRunAt?.toISOString(), "2026-12-09T01:33:00.000Z");
+});

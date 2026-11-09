@@ -70,6 +70,21 @@ function graceMinutes(override?: number): number {
   return DEFAULT_GRACE_MINUTES;
 }
 
+/**
+ * 现有排期已经过去、而且全部成员在那之后都跑过：这个时刻已经执行完了，不能再「保持」。
+ *
+ * 2026-11 生产事故：三处 hold 分支都把「已过的时刻」当作「快到期的时刻」保留，
+ * 于是每小时的日历同步把同一个过去时刻写回去——美国 17 个包从 11-05 03:01 起卡了 4 天，
+ * BOP 包 11-09 被 worker 每 5 分钟整包重跑 2.5 小时。还没跑过的过去时刻仍然保留，
+ * 交给 worker 去执行。
+ */
+function alreadyRanSince(current: Date | null, runState: PackageRunState, now: Date): boolean {
+  return current != null && current.getTime() <= now.getTime() &&
+    runState.lastSuccessAt != null && runState.lastSuccessAt.getTime() >= current.getTime();
+}
+
+const POST_RELEASE_RETRY_MS = 2 * 3_600_000;
+
 /** 上一期发布是否已被消费：在它之后确认过「本地 == 源端」。 */
 export function releaseConsumed(
   runState: PackageRunState,
@@ -155,6 +170,7 @@ export function resolvePackageNextRunAt(params: {
   } = params;
 
   const nowMs = now.getTime();
+  const currentAlreadyRan = alreadyRanSince(currentNextRunAt, runState, now);
   // Keep a bounded retry before the next official release. A calendar refresh
   // must neither erase the retry nor pull it forward on every hourly sync.
   if (runState.hasUnresolvedFailures && currentNextRunAt && computedNextRunAt &&
@@ -174,9 +190,10 @@ export function resolvePackageNextRunAt(params: {
       // 每月 10 日兜底（远早于下一期官方发布）不是探测点，否则会把已到点的发布拖过好几天。
       const RETRY_HORIZON_MS = 6 * 3_600_000;
       const retryIsNear = currentNextRunAt != null
+        && !currentAlreadyRan
         && currentNextRunAt.getTime() <= nowMs + RETRY_HORIZON_MS
         && (computedNextRunAt == null || currentNextRunAt.getTime() < computedNextRunAt.getTime());
-      const retry = retryIsNear ? currentNextRunAt : new Date(nowMs + 2 * 3_600_000);
+      const retry = retryIsNear ? currentNextRunAt : new Date(nowMs + POST_RELEASE_RETRY_MS);
       return { nextRunAt: retry, reason: "hold_pending_release" };
     }
 
@@ -193,6 +210,13 @@ export function resolvePackageNextRunAt(params: {
       currentNextRunAt &&
       (!computedNextRunAt || currentNextRunAt.getTime() < computedNextRunAt.getTime())
     ) {
+      if (currentAlreadyRan) {
+        // 这个探测点已跑过仍未消费：排下一次探测，但不越过下一期发布。
+        const retry = nowMs + POST_RELEASE_RETRY_MS;
+        const next = computedNextRunAt && computedNextRunAt.getTime() < retry
+          ? computedNextRunAt : new Date(retry);
+        return { nextRunAt: next, reason: "hold_pending_release" };
+      }
       return { nextRunAt: currentNextRunAt, reason: "hold_pending_release" };
     }
   }
@@ -206,6 +230,7 @@ export function resolvePackageNextRunAt(params: {
     }
     const dueCutoff = nowMs + graceMinutes(params.graceMinutes) * 60_000;
     if (
+      !currentAlreadyRan &&
       currentNextRunAt.getTime() <= dueCutoff &&
       computedNextRunAt.getTime() > currentNextRunAt.getTime()
     ) {

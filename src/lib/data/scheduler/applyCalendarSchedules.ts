@@ -204,16 +204,28 @@ async function persistPackageSchedule(
   // 会把仍排在发布时刻的成员（如 BOPGSTB 的 13:33）一并改掉。
   const scheduleMoved = (previous?.nextRunAt?.getTime() ?? null) !== (data.nextRunAt?.getTime() ?? null);
   const propagateMembers = data.nextRunAt != null && !data.preserveMemberRetries && scheduleMoved;
+  // Worker/calendar use separate locks. A failure recorded AFTER the
+  // run-state snapshot must also retain its retry at SQL write time.
+  const memberFilter = packageId === "us.census.international_trade"
+    ? { OR: [{ lastError: null }, { lastError: "" }] } : {};
+  let membersPulledForward = 0;
   if (propagateMembers) {
     await prisma.dataSubscription.updateMany({
-      where: { releasePackageId: packageId, enabled: true,
-        // Worker/calendar use separate locks. A failure recorded AFTER the
-        // run-state snapshot must also retain its retry at SQL write time.
-        ...(packageId === "us.census.international_trade"
-          ? { OR: [{ lastError: null }, { lastError: "" }] } : {}),
-      },
+      where: { releasePackageId: packageId, enabled: true, ...memberFilter },
       data: { nextRunAt: data.nextRunAt },
     });
+  } else if (data.nextRunAt != null && !data.preserveMemberRetries) {
+    // 包级时刻没变，但成员可能被别处（部署时 seed 写回每月兜底）排到了包之后。
+    // worker 只看成员排期，这样包到期了却永远没人跑（2026-11-09 中国 PPI 132 条）。
+    // 只把晚于包的成员拉回；早于包的（如 BOPGSTB 的发布时刻）保持不动。
+    const pulled = await prisma.dataSubscription.updateMany({
+      where: { releasePackageId: packageId, enabled: true, nextRunAt: { gt: data.nextRunAt }, ...memberFilter },
+      data: { nextRunAt: data.nextRunAt },
+    });
+    membersPulledForward = pulled.count;
+    if (membersPulledForward > 0) {
+      console.info(`[calendar] ${packageId}：${membersPulledForward} 条成员排期晚于发布包，已拉回 ${data.nextRunAt.toISOString()}`);
+    }
   }
   await recordScheduleChange(prisma, {
     releasePackageId: packageId,
@@ -228,6 +240,7 @@ async function persistPackageSchedule(
           : "calendar_schedule_update",
     metadata: {
       memberSchedulePropagated: propagateMembers,
+      ...(membersPulledForward > 0 ? { membersPulledForward } : {}),
       ...(data.holdReason ? { holdReason: data.holdReason } : {}),
     },
   });

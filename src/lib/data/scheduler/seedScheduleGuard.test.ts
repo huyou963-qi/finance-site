@@ -46,3 +46,21 @@ test("不动：提前了、新建的、规则变了、启用状态变了、日�
   ];
   assert.deepEqual(findDelayedProbeSchedules(before, after), []);
 });
+
+test("发布包成员被 seed 推到每月兜底时恢复（2026-11-09 中国 PPI）", () => {
+  const cal = { type: "economic_calendar", fallback: { type: "monthly_day", day: 10 } };
+  const before: SubscriptionScheduleSnapshot[] = [
+    { id: "ppi", nextRunAt: d("2026-11-09T01:33:00Z"), releaseRule: cal, enabled: true, releasePackageId: "cn.nbs.ppi" },
+    { id: "moved", nextRunAt: d("2026-11-09T01:33:00Z"), releaseRule: cal, enabled: true, releasePackageId: "cn.nbs.ppi" },
+    { id: "standalone", nextRunAt: d("2026-11-09T01:33:00Z"), releaseRule: cal, enabled: true, releasePackageId: null },
+  ];
+  const after: SubscriptionScheduleSnapshot[] = [
+    { id: "ppi", nextRunAt: d("2026-11-10T08:00:00Z"), releaseRule: { ...cal, releaseDelayMinutes: 3 }, enabled: true, releasePackageId: "cn.nbs.ppi" },
+    { id: "moved", nextRunAt: d("2026-11-10T08:00:00Z"), releaseRule: cal, enabled: true, releasePackageId: "cn.nbs.cpi" },
+    { id: "standalone", nextRunAt: d("2026-11-10T08:00:00Z"), releaseRule: cal, enabled: true, releasePackageId: null },
+  ];
+  assert.deepEqual(
+    findDelayedProbeSchedules(before, after).map((r) => [r.id, r.restoreTo?.toISOString()]),
+    [["ppi", "2026-11-09T01:33:00.000Z"]],
+  );
+});

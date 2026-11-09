@@ -4,7 +4,7 @@
  * npm run data:seed -- --catalog=cpi
  * npm run data:seed -- --list
  *
- * 转发前后各取一次订阅排期快照：seed 把 probe_interval 订阅的 nextRunAt 往后推的，恢复原值
+ * 转发前后各取一次订阅排期快照：seed 把 probe_interval 订阅或发布包成员的 nextRunAt 往后推的，恢复原值
  * （见 seedScheduleGuard.ts——54 个 seed 的 update 分支都会重设 nextRunAt，频繁部署会饿死探测）。
  */
 import { spawnSync } from "node:child_process";
@@ -30,7 +30,7 @@ function forwardArgs(): string[] {
 
 async function snapshot(prisma: PrismaClient): Promise<SubscriptionScheduleSnapshot[]> {
   return prisma.dataSubscription.findMany({
-    select: { id: true, nextRunAt: true, releaseRule: true, enabled: true },
+    select: { id: true, nextRunAt: true, releaseRule: true, enabled: true, releasePackageId: true },
   });
 }
 
@@ -40,7 +40,7 @@ async function restoreDelayedProbes(prisma: PrismaClient, before: SubscriptionSc
   for (const row of delayed) {
     await prisma.dataSubscription.update({ where: { id: row.id }, data: { nextRunAt: row.restoreTo } });
   }
-  console.info(`[data:seed] 恢复 ${delayed.length} 条被 seed 推迟的探测排期（probe_interval，规则未变）`);
+  console.info(`[data:seed] 恢复 ${delayed.length} 条被 seed 推迟的排期（probe_interval 规则未变，或发布包成员）`);
 }
 
 async function main() {
