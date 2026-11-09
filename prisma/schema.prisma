@@ -1253,6 +1253,8 @@ model EquityFundamentalSnapshot {
   fiscalQuarter     Int?      @map("fiscal_quarter") @db.SmallInt
   /// 该季数据首次向市场披露日（PIT：各字段来源事实点最早 filed 的 max；值仍取最新重述）
   firstReportedAt   DateTime? @map("first_reported_at") @db.Date
+  /// 三张报表其余标准化科目 {科目代码: 数值}（statementTemplate.ts 中非独立列的科目；无数据不写键）
+  lines             Json?
   asOf              DateTime  @map("as_of") @db.Date
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")

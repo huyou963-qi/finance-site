@@ -5,6 +5,7 @@
  */
 
 import type { QuarterFundamentalRow } from "@/lib/equity/ttm";
+import { aggregateStatementLines, type StatementLines } from "./statementTemplate";
 
 export type QuarterRatioPoint = {
   period: string;
@@ -117,6 +118,8 @@ export function computeQuarterRatios(quarters: QuarterFundamentalRow[]): Quarter
 export type FiscalYearRow = QuarterFundamentalRow & {
   /** 组内季度标签（升序） */
   quarterPeriods: string[];
+  /** 三张报表其余科目的财年合计（规则见 aggregateStatementLines） */
+  lines: StatementLines;
   revenueYoY: number | null;
   grossMargin: number | null;
   opMargin: number | null;
@@ -124,6 +127,7 @@ export type FiscalYearRow = QuarterFundamentalRow & {
 };
 
 type QuarterWithMargins = QuarterFundamentalRow & {
+  lines?: StatementLines;
   grossMargin?: number | null;
   opMargin?: number | null;
   /** 财季位置 1–4（10-K 锚定）；存在时年度分组按 FQ4 对齐公司真实财年 */
@@ -210,6 +214,7 @@ export function aggregateFiscalYears(quarters: QuarterWithMargins[]): FiscalYear
       longTermDebt: last.longTermDebt,
       cash: last.cash,
       sharesOutstanding: last.sharesOutstanding,
+      lines: aggregateStatementLines(g.map((r) => r.lines ?? {})),
     };
   });
 
