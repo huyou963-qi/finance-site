@@ -109,8 +109,19 @@ export type UsCpiNowcastPublicPayload = {
   drivers: CpiDriver[];
   /** 有分项因数据不足退回近期均值；具体名单只在 model 里 */
   hasFallback: boolean;
-  /** 克利夫兰联储对目标月的最新 nowcast（对照用，不入库）；读取失败为 null */
-  cleveland: { all: number; core: number; label: string; sourceUrl: string } | null;
+  /**
+   * 克利夫兰联储对目标月的最新 nowcast（对照用，不入库）；环比读取失败为 null。
+   * all/core 为季调环比；allYoy/coreYoy 为同比，同比文件读取失败或尚无该月时为 null。
+   */
+  cleveland: {
+    all: number;
+    core: number;
+    label: string;
+    allYoy: number | null;
+    coreYoy: number | null;
+    yoyLabel: string | null;
+    sourceUrl: string;
+  } | null;
   /** 预测精度随当月观测天数的变化（2018 年以来、剔除疫情月） */
   cutoffCurve: CutoffAccuracy[];
   backtest: {
@@ -177,7 +188,11 @@ function runForCutoff(loaded: LoadedInputs, cutoffDay: number, reuse: boolean): 
 }
 
 export async function computeUsCpiNowcast(now = new Date()): Promise<UsCpiNowcastPayload> {
-  const [loaded, cleveland] = await Promise.all([loadUsCpiNowcastInputs(), loadClevelandNowcast()]);
+  const [loaded, cleveland, clevelandYoy] = await Promise.all([
+    loadUsCpiNowcastInputs(),
+    loadClevelandNowcast("mom"),
+    loadClevelandNowcast("yoy"),
+  ]);
   const { cutoffDay, observedThrough } = observedCutoffDay(
     loaded.targetMonth,
     loaded.hfDaily.GASRETAIL ?? new Map(),
@@ -276,6 +291,7 @@ export async function computeUsCpiNowcast(now = new Date()): Promise<UsCpiNowcas
 
   const agg = (k: Exclude<AggregateKey, "ALL" | "CORE">) => ({ forecast: nowcast[k], prevActual: model.mom[k]![prev]! });
   const cfNow = cleveland?.get(loaded.targetMonth)?.latest ?? null;
+  const cfYoyNow = clevelandYoy?.get(loaded.targetMonth)?.latest ?? null;
   const cfOrNull = (month: string, key: "ALL" | "CORE") => {
     const v = cfAsOf(month, key, cutoffDay);
     return Number.isFinite(v) ? v : null;
@@ -298,7 +314,15 @@ export async function computeUsCpiNowcast(now = new Date()): Promise<UsCpiNowcas
     })),
     hasFallback: fallbacks.length > 0,
     cleveland: cfNow
-      ? { all: cfNow.all, core: cfNow.core, label: cfNow.label, sourceUrl: CLEVELAND_NOWCAST_PAGE }
+      ? {
+        all: cfNow.all,
+        core: cfNow.core,
+        label: cfNow.label,
+        allYoy: cfYoyNow?.all ?? null,
+        coreYoy: cfYoyNow?.core ?? null,
+        yoyLabel: cfYoyNow?.label ?? null,
+        sourceUrl: CLEVELAND_NOWCAST_PAGE,
+      }
       : null,
     cutoffCurve,
     backtest: {
