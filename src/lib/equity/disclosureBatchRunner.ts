@@ -19,7 +19,7 @@ export async function runRecordedDisclosureBatch(options: DailyDisclosureOptions
     const result = await dependencies.syncDailyDisclosures(options, undefined, async progress => {
       await db.equityDisclosureBatch.update({ where: { id: batch.id }, data: progress });
     });
-    const status = result.failed || result.missingIndexes.length || result.remaining ? "partial" : "success";
+    const status = result.failed || result.missingIndexes.length || result.remaining || result.budgetExhausted ? "partial" : "success";
     await db.equityDisclosureBatch.update({ where: { id: batch.id }, data: {
       status, finishedAt: new Date(), indexed: result.indexed, complete: result.complete,
       pending: result.pending, failed: result.failed, remaining: result.remaining,

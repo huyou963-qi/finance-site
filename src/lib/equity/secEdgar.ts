@@ -172,6 +172,42 @@ export async function fetchSecAcceptanceEvidence(cik: string, accession: string)
   if (!acceptedAt) throw new Error("SEC 接收时刻无法从 SGML 头可靠核验");
   return { acceptedAt, sourceUrl };
 }
+
+export type SecFilingHeader = SecIndexRow & { filerCiks: string[]; acceptedAt: Date | null; sourceUrl: string };
+const sgmlDate = (raw?: string) => raw && /^\d{8}$/.test(raw) ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` : null;
+
+/**
+ * One filing's SGML header (a few KB) carries the same index fields as the per-company
+ * submissions JSON (MBs): form, filing date, period, numeric 8-K items and the primary document.
+ * Returns null when the header is not the expected filing, so callers fall back to submissions.
+ */
+export function parseSecFilingHeader(source: string, accession: string, sourceUrl = ""): SecFilingHeader | null {
+  const text = source.replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&amp;/gi, "&");
+  const header = text.match(/<SEC-HEADER>([\s\S]*?)<\/SEC-HEADER>/i)?.[1];
+  if (!header) return null;
+  const field = (name: string) => header.match(new RegExp(`^<${name}>([^\\r\\n<]*)`, "im"))?.[1]?.trim();
+  const form = field("TYPE"), filedAt = sgmlDate(field("FILING-DATE"));
+  if (field("ACCESSION-NUMBER") !== accession || !form || !filedAt) return null;
+  const items = [...header.matchAll(/^<ITEMS>([^\r\n<]*)/gim)].map(match => match[1].trim()).filter(Boolean);
+  if (items.some(item => !/^\d{1,2}\.\d{2}$/.test(item))) return null;
+  const filerCiks = [...header.matchAll(/^<CIK>(\d{1,10})/gim)].map(match => match[1].padStart(10, "0"));
+  // Primary document is the SEQUENCE 1 document, matching submissions.primaryDocument.
+  let primaryDocument: string | null = null, description: string | null = null;
+  for (const block of text.matchAll(/<DOCUMENT>([\s\S]*?)<\/DOCUMENT>/gi)) {
+    if (block[1].match(/<SEQUENCE>\s*([^\r\n<]+)/i)?.[1]?.trim() !== "1") continue;
+    primaryDocument = block[1].match(/<FILENAME>\s*([^\r\n<]+)/i)?.[1]?.trim() || null;
+    description = block[1].match(/<DESCRIPTION>\s*([^\r\n<]+)/i)?.[1]?.trim() || null;
+    break;
+  }
+  return { accession, form, filedAt, primaryDocument, description, items: items.length ? items.join(",") : null,
+    reportDate: sgmlDate(field("PERIOD")), acceptanceReportedAt: null, filerCiks,
+    acceptedAt: parseSecAcceptanceTime(source), sourceUrl };
+}
+
+export async function fetchSecFilingHeader(cik: string, accession: string) {
+  const sourceUrl = secAcceptanceUrl(cik, accession);
+  return parseSecFilingHeader(await fetchSecText(sourceUrl), accession, sourceUrl);
+}
 export async function fetchSecReleaseEvidence(cik: string, accession: string, filedAt = new Date().toISOString().slice(0, 10)) {
   const url = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${accession}.txt`;
   return parseSecReleaseEvidence(await fetchSecText(url, 60_000), cik, accession, filedAt);

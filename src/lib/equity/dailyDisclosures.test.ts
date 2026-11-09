@@ -16,7 +16,7 @@ function harness(mode: "ready" | "old" | "error" | "routine" | "timing-error" = 
     equitySecurity: { findMany: async () => [{ symbol: "AAPL", cik }] },
     secFiling: {
       findMany: async (args: { select?: unknown; take?: number; where?: {
-        acceptedAt?: null; filedAt?: { gte: Date; lte: Date };
+        acceptedAt?: null; filedAt?: { gte: Date; lte: Date }; cik?: string | { in: string[] };
         AND?: { OR?: { timingCheckedAt?: null | { lt: Date }; filedAt?: { gte: Date; lte: Date } }[] }[];
       } }) => {
         if (args.where && "acceptedAt" in args.where) {
@@ -26,12 +26,14 @@ function harness(mode: "ready" | "old" | "error" | "routine" | "timing-error" = 
               ? !row.timingCheckedAt && within(row.filedAt, condition.filedAt)
               : row.timingCheckedAt && condition.timingCheckedAt && row.timingCheckedAt < condition.timingCheckedAt.lt)).slice(0, args.take);
         }
-        return args.select ? rows : due().slice(0, args.take);
+        const scope = args.where?.cik;
+        return args.select ? rows : due().filter(row => typeof scope !== "object" || scope.in.includes(row.cik)).slice(0, args.take);
       },
       count: async () => rows.filter(row => row.dailyStatus !== "complete").length,
-      updateMany: async ({ data }: { data: { dailyStatus: string } }) => {
+      updateMany: async ({ where, data }: { where?: { cik?: { in: string[] } }; data: { dailyStatus: string } }) => {
         let count = 0;
         for (const row of rows) {
+          if (where?.cik && !where.cik.in.includes(row.cik)) continue;
           if (data.dailyStatus === "pending" && !row.dailyStatus) {
             row.dailyStatus = "pending"; row.dailyNextAttemptAt = new Date(0); count++;
           } else if (data.dailyStatus === "complete" && row.form === "8-K" && row.dailyStatus === "pending") {
@@ -428,4 +430,66 @@ test("a failed timestamp check preserves financial data and retries outside the 
   assert.equal(retry.timingUpdated, 1);
   assert.equal(h.headerCalls(), 2);
   assert.equal(h.calls.facts, 1);
+});
+
+function withHeader(h: ReturnType<typeof harness>, form = "10-Q") {
+  const writes: { timing?: unknown }[] = [];
+  const write = h.deps.writeSecFilingIndex;
+  h.deps.writeSecFilingIndex = async (cik, symbol, row, timing) => { writes.push({ timing }); return write(cik, symbol, row, timing); };
+  h.deps.fetchSecFilingHeader = async (_cik, accession) => ({
+    accession, form, filedAt: "2020-10-23", primaryDocument: "report.htm", items: null, description: null,
+    reportDate: "2020-09-30", acceptanceReportedAt: null, filerCiks: ["0000320193"],
+    acceptedAt: new Date("2020-10-23T20:00:00Z"), sourceUrl: "https://www.sec.gov/header",
+  });
+  return writes;
+}
+
+test("discovery reads the small per-filing header instead of company submissions and keeps its acceptance time", async () => {
+  const h = harness();
+  const writes = withHeader(h);
+  const result = await syncDailyDisclosures(h.options, h.deps);
+  assert.equal(result.complete, 1);
+  assert.equal(h.calls.discovery, 0);
+  assert.deepEqual(writes[0].timing, { acceptedAt: new Date("2020-10-23T20:00:00Z"), acceptedAtSource: "https://www.sec.gov/header" });
+});
+
+test("a header that does not match the daily index falls back to company submissions", async () => {
+  const h = harness();
+  withHeader(h, "8-K");
+  const result = await syncDailyDisclosures(h.options, h.deps);
+  assert.equal(h.calls.discovery, 1);
+  assert.equal(result.indexed, 1);
+});
+
+test("companies outside fundamentals coverage are skipped entirely and not claimed as covered", async () => {
+  const h = harness();
+  h.deps.loadFundamentalsCoverage = async () => new Set(["MSFT"]);
+  const result = await syncDailyDisclosures(h.options, h.deps);
+  assert.equal(result.coveredCompanies, 0);
+  assert.equal(result.indexed, 0);
+  assert.equal(h.calls.facts + h.calls.discovery, 0);
+  assert.equal(h.rows.length, 0);
+});
+
+test("covered companies keep full discovery and financial processing", async () => {
+  const h = harness();
+  h.deps.loadFundamentalsCoverage = async () => new Set(["AAPL"]);
+  const result = await syncDailyDisclosures(h.options, h.deps);
+  assert.equal(result.coveredCompanies, 1);
+  assert.equal(result.complete, 1);
+  assert.equal(h.calls.facts, 1);
+});
+
+test("an exhausted time budget stops new work and never claims complete discovery", async () => {
+  const h = harness();
+  let clock = 0;
+  h.deps.now = () => clock;
+  const fetchIndex = h.deps.fetchSecDailyIndex;
+  h.deps.fetchSecDailyIndex = async day => { const rows = await fetchIndex(day); clock = 11 * 60_000; return rows; };
+  const result = await syncDailyDisclosures({ ...h.options, budgetMinutes: 10 }, h.deps);
+  assert.equal(result.budgetExhausted, true);
+  assert.deepEqual(result.failedCiks, ["0000320193"]);
+  assert.equal(h.calls.discovery, 0);
+  assert.equal(h.calls.facts, 0);
+  assert.equal(result.failed, 0);
 });

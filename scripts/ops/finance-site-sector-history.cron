@@ -13,7 +13,11 @@ FINANCE_SITE_PATH=/opt/finance-site
 
 # 每天北京时间 19:15（美东 06:15/07:15）处理上一日公告，回看七天补漏。
 # 替代原周度财报任务，不做盘中轮询；固定香港时区避免夏令时调度切换。
-# 单并发、512MB heap、低 CPU 优先级；90 分钟超时后未完成任务留待下一批。
+# 单并发、512MB heap、低 CPU 优先级；脚本默认 75 分钟预算到点自行收尾记为 partial，
+# 90 分钟 timeout 仅作兜底；未完成任务留待下一批。
 # filing-fallback-limit=20：财报季 companyfacts 滞后时尽量用原文 XBRL 回补；backlog 默认 120 天重收 sync-sec 留下的 null 队列。
 CRON_TZ=Asia/Hong_Kong
 15 19 * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-daily-disclosures.lock nice -n 10 timeout --signal=TERM --kill-after=30s 90m env NODE_OPTIONS=--max-old-space-size=512 npm run equity:sync-daily-disclosures -- --filing-fallback-limit=20 >> logs/sector-daily-disclosures.log 2>&1
+# 第二轮（香港 11:15）：每轮最多深度处理 300 份，财报季积压与 companyfacts 滞后靠它加倍消化。
+# 与 03:20 持股任务（最长到 07:20）和 19:10 量化月任务错开，避免同机并发访问 SEC。
+15 11 * * * root cd "$FINANCE_SITE_PATH" && mkdir -p logs .data && flock -n /tmp/finance-sector-daily-disclosures.lock nice -n 10 timeout --signal=TERM --kill-after=30s 90m env NODE_OPTIONS=--max-old-space-size=512 npm run equity:sync-daily-disclosures -- --filing-fallback-limit=20 >> logs/sector-daily-disclosures.log 2>&1

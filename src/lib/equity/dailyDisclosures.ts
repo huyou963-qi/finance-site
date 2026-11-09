@@ -2,12 +2,13 @@ import { prisma } from "@/lib/prisma";
 import {
   companyFactsCikCandidates, DAILY_DISCLOSURE_FORMS, disclosureDays, financialVersionReady,
 } from "./dailyDisclosurePolicy";
-import { discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence } from "./secEdgar";
+import { discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence, fetchSecFilingHeader } from "./secEdgar";
 import { SEC_FINANCIAL_FORMS, writeSecFilingIndex } from "./secFilingSync";
 import { fetchSecCompanyFacts, extractQuarterlyFundamentals } from "./secFundamentals";
 import { buildSecFundamentalVintages, listSecPeriodicFilings, upsertFundamentalVintages, type SecFundamentalVintage } from "./fundamentalVintages";
 import { upsertQuarterlyFundamentals } from "./equityFundamentalsStore";
 import { supplementSecPeriodicFilingPair } from "./secFilingFacts";
+import { loadFundamentalsCoverage } from "./fundamentalsCoverage";
 
 /** Already-indexed financial filings (e.g. from sync-sec) stay null forever unless re-queued beyond the 7-day discovery window. */
 export const ORPHAN_FINANCIAL_BACKLOG_DAYS = 120;
@@ -15,6 +16,8 @@ export const ORPHAN_FINANCIAL_BACKLOG_DAYS = 120;
 export type DailyDisclosureOptions = {
   through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean;
   timingLimit?: number; filingFallbackLimit?: number; backlogDays?: number;
+  /** Stop starting new work after this many minutes so the run ends as a recorded partial batch, not a kill. */
+  budgetMinutes?: number;
 };
 export type DisclosureDiscoveryProgress = { coveredCiks: string[]; failedCiks: string[]; missingIndexes: string[]; indexed: number; failed: number };
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -22,9 +25,10 @@ const defaultDependencies = {
   prisma, pause, discoverSecFilings, fetchSecDailyIndex, fetchSecReleaseEvidence, fetchSecAcceptanceEvidence,
   writeSecFilingIndex, fetchSecCompanyFacts, listSecPeriodicFilings, buildSecFundamentalVintages,
   extractQuarterlyFundamentals, upsertQuarterlyFundamentals, upsertFundamentalVintages,
-  supplementSecPeriodicFilingPair,
+  supplementSecPeriodicFilingPair, fetchSecFilingHeader, loadFundamentalsCoverage, now: Date.now,
 };
-type Dependencies = Omit<typeof defaultDependencies, "supplementSecPeriodicFilingPair"> & Partial<Pick<typeof defaultDependencies, "supplementSecPeriodicFilingPair">>;
+type OptionalDependency = "supplementSecPeriodicFilingPair" | "fetchSecFilingHeader" | "loadFundamentalsCoverage" | "now";
+type Dependencies = Omit<typeof defaultDependencies, OptionalDependency> & Partial<Pick<typeof defaultDependencies, OptionalDependency>>;
 
 /** Caller holds the batch lock. Work is bounded, serial and durable in the canonical filing row. */
 export async function syncDailyDisclosures(options: DailyDisclosureOptions = {}, dependencies: Dependencies = defaultDependencies,
@@ -33,7 +37,14 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     writeSecFilingIndex, fetchSecCompanyFacts, listSecPeriodicFilings, buildSecFundamentalVintages,
     extractQuarterlyFundamentals, upsertQuarterlyFundamentals, upsertFundamentalVintages } = dependencies;
   const days = disclosureDays(new Date(), options.days ?? 7, options.through);
-  const delayMs = Math.max(1000, options.delayMs ?? 1000);
+  // The shared SEC transport already spaces requests (at most 4/s; SEC allows 10/s). The old extra
+  // fixed pause stretched earnings-week runs past the cron timeout.
+  const delayMs = Math.max(0, options.delayMs ?? 0);
+  const clock = dependencies.now ?? Date.now;
+  const budgetMinutes = options.budgetMinutes;
+  if (budgetMinutes != null && (!Number.isFinite(budgetMinutes) || budgetMinutes <= 0 || budgetMinutes > 24 * 60)) throw new Error("budget-minutes 必须为 1–1440");
+  const deadline = budgetMinutes ? clock() + budgetMinutes * 60_000 : Number.POSITIVE_INFINITY;
+  const overBudget = () => clock() >= deadline;
   const maxFilings = options.maxFilings ?? 300;
   const timingLimit = options.timingLimit ?? 20;
   const filingFallbackLimit = options.filingFallbackLimit ?? 12;
@@ -54,17 +65,27 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     const cik = security.cik!.replace(/\D/g, "").padStart(10, "0");
     byCik.set(cik, [...(byCik.get(cik) ?? []), security]);
   }
-  const result = { days, coveredCompanies: byCik.size, indexed: 0, complete: 0, pending: 0, failed: 0, missingIndexes: [] as string[], failedCiks: [] as string[], remaining: 0, timingUpdated: 0 };
+  // One universe for filings, financials and the batch record: the fundamentals coverage
+  // (S&P 500 + tracked index constituents + companies with history). Companies outside it have no
+  // history to show; their stock page still backfills once on first visit. --symbols runs as asked.
+  const coverage = options.symbols?.length || !dependencies.loadFundamentalsCoverage ? null
+    : await dependencies.loadFundamentalsCoverage(prisma);
+  if (coverage) for (const [cik, rows] of byCik) {
+    if (!rows.some(row => coverage.has(row.symbol.toUpperCase()))) byCik.delete(cik);
+  }
+  const financialCiks = [...byCik.keys()];
+  const result = { days, coveredCompanies: byCik.size, financialCompanies: financialCiks.length, indexed: 0, complete: 0, pending: 0, failed: 0,
+    missingIndexes: [] as string[], failedCiks: [] as string[], remaining: 0, timingUpdated: 0, budgetExhausted: false };
   if (options.dryRun) return { ...result, dryRun: true };
-  const targets = new Map<string, Set<string>>();
+  const targets = new Map<string, Map<string, string>>();
   for (const day of days) {
     // EDGAR has no regular weekend dissemination; holiday/missing files remain visible in the log.
     if ([0, 6].includes(new Date(`${day}T12:00:00Z`).getUTCDay())) continue;
     try {
       for (const entry of await fetchSecDailyIndex(day)) {
         if (!byCik.has(entry.cik)) continue;
-        const accessions = targets.get(entry.cik) ?? new Set<string>();
-        accessions.add(entry.accession);
+        const accessions = targets.get(entry.cik) ?? new Map<string, string>();
+        accessions.set(entry.accession, entry.form);
         targets.set(entry.cik, accessions);
       }
     } catch (error) {
@@ -76,37 +97,68 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     await pause(delayMs);
   }
   for (const [cik, accessions] of targets) {
+    if (overBudget()) {
+      // Not attempted is not "no filings": keep this company out of the complete-discovery claim.
+      result.budgetExhausted = true;
+      result.failedCiks.push(cik);
+      continue;
+    }
     try {
       const existing = await prisma.secFiling.findMany({
-        where: { cik, accession: { in: [...accessions] } },
+        where: { cik, accession: { in: [...accessions.keys()] } },
         select: { accession: true, form: true, primaryDocument: true, reportPeriodEnd: true, dailyStatus: true },
       });
       const known = new Set(existing.map(row => row.accession));
       const needsMetadata = new Set(existing.filter(row => row.dailyStatus === null &&
         (!row.primaryDocument || (SEC_FINANCIAL_FORMS.has(row.form) && !row.reportPeriodEnd))).map(row => row.accession));
-      if ([...accessions].every(accession => known.has(accession)) && !needsMetadata.size) continue;
-      const rows = await discoverSecFilings(cik, days[0], true);
-      for (const row of rows) {
-        if (!accessions.has(row.accession) || (known.has(row.accession) && !needsMetadata.has(row.accession))) continue;
-        await writeSecFilingIndex(cik, byCik.get(cik)![0].symbol, row);
-        if (!known.has(row.accession)) result.indexed++;
+      const wanted = [...accessions.keys()].filter(accession => !known.has(accession) || needsMetadata.has(accession));
+      if (!wanted.length) continue;
+      const symbol = byCik.get(cik)![0].symbol;
+      // One small SGML header per filing replaces the multi-MB per-company submissions JSON and
+      // also carries the SEC acceptance time. Anything unexpected falls back to submissions.
+      const viaSubmissions: string[] = [];
+      for (const accession of wanted) {
+        let header: Awaited<ReturnType<typeof fetchSecFilingHeader>> = null;
+        if (dependencies.fetchSecFilingHeader) {
+          try {
+            header = await dependencies.fetchSecFilingHeader(cik, accession);
+          } catch (error) {
+            console.warn(`[SEC header ${accession}]`, error instanceof Error ? error.message : error);
+          }
+        }
+        if (!header || header.form !== accessions.get(accession) || !header.filerCiks.includes(cik)) {
+          viaSubmissions.push(accession);
+          continue;
+        }
+        await writeSecFilingIndex(cik, symbol, header,
+          header.acceptedAt ? { acceptedAt: header.acceptedAt, acceptedAtSource: header.sourceUrl } : undefined);
+        if (!known.has(accession)) result.indexed++;
+        await pause(delayMs);
       }
-      if ([...accessions].some(accession => !known.has(accession) && !rows.some(row => row.accession === accession))) {
-        throw new Error("日索引与 submissions 不一致，下一批次重试");
+      if (viaSubmissions.length) {
+        const rows = await discoverSecFilings(cik, days[0], true);
+        for (const row of rows) {
+          if (!viaSubmissions.includes(row.accession)) continue;
+          await writeSecFilingIndex(cik, symbol, row);
+          if (!known.has(row.accession)) result.indexed++;
+        }
+        if (viaSubmissions.some(accession => !known.has(accession) && !rows.some(row => row.accession === accession))) {
+          throw new Error("日索引与 submissions 不一致，下一批次重试");
+        }
+        await pause(delayMs);
       }
     } catch (error) {
       result.failed++;
       result.failedCiks.push(cik);
       console.warn(`[SEC daily discovery ${cik}]`, error instanceof Error ? error.message : error);
     }
-    await pause(delayMs);
   }
   await onDiscovery?.({ coveredCiks: [...byCik.keys()], failedCiks: result.failedCiks,
     missingIndexes: result.missingIndexes, indexed: result.indexed, failed: result.failed });
   const now = new Date();
   // Persist the queue before applying the per-run limit. A backlog must survive the seven-day discovery window.
   await prisma.secFiling.updateMany({
-    where: { cik: { in: [...byCik.keys()] }, form: { in: [...DAILY_DISCLOSURE_FORMS] }, dailyStatus: null,
+    where: { cik: { in: financialCiks }, form: { in: [...DAILY_DISCLOSURE_FORMS] }, dailyStatus: null,
       filedAt: { gte: new Date(`${days[0]}T00:00:00Z`), lte: new Date(`${days.at(-1)}T23:59:59Z`) } },
     data: { dailyStatus: "pending", dailyNextAttemptAt: new Date(0) },
   });
@@ -117,26 +169,26 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     const filedSince = new Date(`${days.at(-1)}T00:00:00Z`);
     filedSince.setUTCDate(filedSince.getUTCDate() - backlogDays);
     await prisma.secFiling.updateMany({
-      where: { cik: { in: [...byCik.keys()] }, form: { in: [...SEC_FINANCIAL_FORMS] }, dailyStatus: null,
+      where: { cik: { in: financialCiks }, form: { in: [...SEC_FINANCIAL_FORMS] }, dailyStatus: null,
         reportPeriodEnd: { not: null }, filedAt: { gte: filedSince } },
       data: { dailyStatus: "pending", dailyNextAttemptAt: new Date(0) },
     });
     await prisma.secFiling.updateMany({
-      where: { cik: { in: [...byCik.keys()] }, form: { in: ["8-K", "8-K/A"] }, dailyStatus: null,
+      where: { cik: { in: financialCiks }, form: { in: ["8-K", "8-K/A"] }, dailyStatus: null,
         items: { contains: "2.02" }, filedAt: { gte: filedSince } },
       data: { dailyStatus: "pending", dailyNextAttemptAt: new Date(0) },
     });
   }
   // Routine 8-K events need only the canonical index. Do not spend the financial-download budget on them.
   const routine = await prisma.secFiling.updateMany({
-    where: { cik: { in: [...byCik.keys()] }, form: { in: ["8-K", "8-K/A"] }, dailyStatus: "pending",
+    where: { cik: { in: financialCiks }, form: { in: ["8-K", "8-K/A"] }, dailyStatus: "pending",
       dailyNextAttemptAt: { lte: now }, OR: [{ items: null }, { NOT: { items: { contains: "2.02" } } }] },
     data: { dailyStatus: "complete", dailyProcessedAt: now, dailyNextAttemptAt: null,
       dailyAttempts: { increment: 1 }, dailyError: null },
   });
   result.complete += routine.count;
   const where = {
-    cik: { in: [...byCik.keys()] }, form: { in: [...DAILY_DISCLOSURE_FORMS] },
+    cik: { in: financialCiks }, form: { in: [...DAILY_DISCLOSURE_FORMS] },
     OR: [
       { dailyStatus: null, filedAt: { gte: new Date(`${days[0]}T00:00:00Z`), lte: new Date(`${days.at(-1)}T23:59:59Z`) } },
       { dailyStatus: { in: ["pending", "error"] }, dailyNextAttemptAt: { lte: now } },
@@ -163,6 +215,7 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
     return a.amendmentOnly - b.amendmentOnly || b.attempts - a.attempts || a.oldest - b.oldest;
   });
   for (const [cik, group] of orderedGroups) {
+    if (overBudget()) { result.budgetExhausted = true; break; }
     let facts: unknown;
     let factsError: unknown;
     let vintages: SecFundamentalVintage[] = [];
@@ -329,7 +382,7 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
   }
   if (timingLimit) {
     const timingRows = await prisma.secFiling.findMany({ where: {
-      cik: { in: [...byCik.keys()] }, acceptedAt: null, dailyStatus: "complete",
+      cik: { in: financialCiks }, acceptedAt: null, dailyStatus: "complete",
       AND: [
         { OR: [{ form: { in: [...SEC_FINANCIAL_FORMS] } }, { form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" } }] },
         { OR: [
@@ -339,6 +392,7 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
       ],
     }, orderBy: [{ filedAt: "desc" }, { id: "asc" }], take: timingLimit });
     for (const filing of timingRows) {
+      if (overBudget()) { result.budgetExhausted = true; break; }
       try {
         let evidence: Awaited<ReturnType<typeof fetchSecAcceptanceEvidence>> | null = null;
         let lastTimingError: unknown;
