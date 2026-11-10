@@ -206,6 +206,8 @@ import {
   type MacroSelectedListItem,
 } from "@/lib/macroSelectedList";
 import { useTr } from "@/i18n/TextProvider";
+import { localizeCatalogItems, localizeMacroPayload } from "@/i18n/dataLabels";
+import { useDataLabel } from "@/i18n/useDataLabel";
 
 type MainTab = "selected" | "charts" | "templates";
 
@@ -553,7 +555,9 @@ function readMacroReplaceKey(): string | null {
 }
 
 export function MacroSection() {
+  const tr = useTr();
   const tx = useTr();
+  const pickLabel = useDataLabel();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1419,11 +1423,14 @@ export function MacroSection() {
 
   const resolveSeriesLabel = useCallback(
     (key: string, extractLabels?: ReadonlyMap<string, string>) =>
-      resolveMacroSeriesLabel(key, {
-        catalogLabelByKey,
-        overrides: extractLabels ?? macroSeriesLabelByKey,
-      }),
-    [catalogLabelByKey, macroSeriesLabelByKey],
+      // 兜底名（如「美国 · …」）由前端拼出中文：按界面语言显示
+      pickLabel(
+        resolveMacroSeriesLabel(key, {
+          catalogLabelByKey,
+          overrides: extractLabels ?? macroSeriesLabelByKey,
+        }),
+      ),
+    [catalogLabelByKey, macroSeriesLabelByKey, pickLabel],
   );
 
   const resolveTemplateConfig = useCallback(
@@ -2028,7 +2035,7 @@ export function MacroSection() {
         .then((j) => {
           if (cancelled) return;
           if (Array.isArray(j.countries) && Array.isArray(j.allowlistKeys)) {
-            setCatalogCountries(j.countries);
+            setCatalogCountries(localizeCatalogItems(j.countries, pickLabel));
             setCatalogAllowlist(new Set(j.allowlistKeys));
             setCatalogLabelExtras(
               j.labelExtras && typeof j.labelExtras === "object" ? j.labelExtras : {},
@@ -2050,7 +2057,7 @@ export function MacroSection() {
     return () => {
       cancelled = true;
     };
-  }, [tx]);
+  }, [tx, pickLabel]);
 
   const refreshCatalog = useCallback(() => {
     fetch("/api/data/fmp-catalog")
@@ -2066,7 +2073,7 @@ export function MacroSection() {
       })
       .then((j) => {
         if (Array.isArray(j.countries) && Array.isArray(j.allowlistKeys)) {
-          setCatalogCountries(j.countries);
+          setCatalogCountries(localizeCatalogItems(j.countries, pickLabel));
           setCatalogAllowlist(new Set(j.allowlistKeys));
           setCatalogLabelExtras(
             j.labelExtras && typeof j.labelExtras === "object" ? j.labelExtras : {},
@@ -2077,7 +2084,7 @@ export function MacroSection() {
       .catch(() => {
         /* 刷新失败保留旧目录 */
       });
-  }, []);
+  }, [pickLabel]);
 
   const expandAllowlistForKey = useCallback((key: string, label?: string) => {
     setCatalogAllowlist((prev) => {
@@ -2505,7 +2512,7 @@ export function MacroSection() {
       })
       .then((data) => {
         if (cancelled) return;
-        setPayload(data);
+        setPayload(localizeMacroPayload(data, pickLabel));
         if (data.source === "mds") {
           const keys = data.series.map((s) => s.key).filter(Boolean) as string[];
           if (keys.length > 0) setExtractedSet(new Set(keys));
@@ -2529,7 +2536,7 @@ export function MacroSection() {
     return () => {
       cancelled = true;
     };
-  }, [requestedMdsInstruments, requestedQuery, extractNonce, tx]);
+  }, [requestedMdsInstruments, requestedQuery, extractNonce, tx, pickLabel]);
 
   /** 勾选「美国衰退」时拉取 FRED USREC，压成 NBER 区间供时序图 markArea */
   useEffect(() => {
@@ -3462,7 +3469,7 @@ export function MacroSection() {
                               <MacroTemplateIntroPanel
                                 key={introTemplateId}
                                 templateName={introTemplateMeta.name}
-                                templateDescription={introTemplateMeta.description}
+                                templateDescription={tr(introTemplateMeta.description)}
                                 introText={introTemplateMeta.introText}
                                 introHtml={introTemplateMeta.introHtml}
                                 chartSections={introChartSections ?? undefined}
@@ -3993,7 +4000,7 @@ export function MacroSection() {
                   onClick={() => setChartSidePanelTab(id)}
                   className={mobileSegClass(chartSidePanelTab === id)}
                 >
-                  {label}
+                  {tr(label)}
                 </button>
               ))}
             </div>
@@ -4012,7 +4019,7 @@ export function MacroSection() {
                     onClick={() => setChartPropsTab(id)}
                     className={mobileSegClass(chartPropsTab === id)}
                   >
-                    {label}
+                    {tr(label)}
                   </button>
                 ))}
               </div>
@@ -4451,7 +4458,7 @@ export function MacroSection() {
                                         : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                                     }`}
                                   >
-                                    {label}
+                                    {tr(label)}
                                   </button>
                                 ))}
                               </div>
@@ -4480,7 +4487,7 @@ export function MacroSection() {
                                         : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                                     }`}
                                   >
-                                    {label}
+                                    {tr(label)}
                                   </button>
                                 ))}
                               </div>

@@ -27,7 +27,7 @@ export function MacroSurpriseEvidence({ payload, compact = false }: { payload: u
   const e = result.evidence;
   const direction = result.direction === "inline" ? tr("基本符合预期") : result.direction === "above" ? tr("高于预期") : tr("低于预期");
   return <div className={`rounded border p-2 text-xs ${result.large ? "border-amber-500/60 bg-amber-500/10" : "border-fs-border"}`}>
-    {typeof e.label === "string" && <p className="mb-1 font-medium">{e.label}</p>}
+    {typeof e.label === "string" && <p className="mb-1 font-medium">{tr(e.label)}</p>}
     <div className="flex flex-wrap gap-x-3 gap-y-1 tabular-nums">
       <span>{tr("首发")} {e.actual} {e.unit}</span><span>{tr("一致预期")} {e.consensus} {e.unit}</span>
       <span>{tr("差值")} {result.difference! > 0 ? "+" : ""}{Number(result.difference!.toPrecision(6))} {e.unit}</span>

@@ -163,7 +163,7 @@ function HistoricalFactGate({ quality }: { quality: SectorStageTransmissionRespo
       </div>
       <div className="mt-2 grid gap-2 md:grid-cols-3">
         {cards.map(([label, layer, method]) => (
-          <div key={tr(label)} className={`rounded-lg border px-3 py-2.5 ${layer.strict ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/60"}`}>
+          <div key={label} className={`rounded-lg border px-3 py-2.5 ${layer.strict ? "border-emerald-200 bg-emerald-50/70" : "border-amber-200 bg-amber-50/60"}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="text-[11px] font-medium text-fs-text">{tr(label)}</div>
               <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${layer.strict ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
@@ -260,7 +260,7 @@ function ReturnBridge({ row }: { row: SectorStageTransmissionRow }) {
       </div>
       <div className="mt-2 grid gap-2 sm:grid-cols-5">
         {parts.map(([label, value, className], index) => (
-          <div key={tr(label)} className={`rounded-md border px-2.5 py-2 ${className}`}>
+          <div key={label} className={`rounded-md border px-2.5 py-2 ${className}`}>
             <div className="flex items-center justify-between gap-1 text-[9px] font-medium">
               <span>{tr(label)}</span>
               {index > 0 ? <span>{index === 1 ? "=" : "+"}</span> : null}
@@ -519,7 +519,7 @@ export function SectorStageTransmissionPanel({
           ] as const
         ).map(([label, value], index) => (
           <div
-            key={tr(label)}
+            key={label}
             className={`px-4 py-3 sm:px-5 ${
               index === 0
                 ? ""

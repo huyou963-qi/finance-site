@@ -231,13 +231,13 @@ export function MacroTemplateFolderSection({
         onDrop={(e) => handleFolderDrop(folder, key, e)}
       >
         <div className="flex flex-wrap items-center gap-1.5 px-1.5 py-1">
-          <FolderToggle open={open} onToggle={() => toggleFolder(key)} label={label} />
+          <FolderToggle open={open} onToggle={() => toggleFolder(key)} label={tr(label)} />
           <span
             className={`min-w-0 truncate text-[11px] font-medium ${
               folder ? "flex-1 text-fs-secondary" : "text-fs-muted"
             }`}
           >
-            {label}
+            {tr(label)}
           </span>
           <span className="text-[10px] text-fs-secondary">({groupTemplates.length})</span>
           {folder ? (

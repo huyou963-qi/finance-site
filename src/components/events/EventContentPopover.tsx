@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useTr } from "@/i18n/TextProvider";
 
 const POPOVER_MAX_W = 360;
 const POPOVER_MAX_H = 320;
@@ -52,6 +53,7 @@ export function EventContentPopover({
   title,
   onDismiss,
 }: EventContentPopoverProps) {
+  const tr = useTr();
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -87,7 +89,7 @@ export function EventContentPopover({
     >
       {title ? (
         <p className="mb-1.5 border-b border-fs-border/80 pb-1.5 text-xs font-semibold text-fs-text">
-          {title}
+          {tr(title)}
         </p>
       ) : null}
       <div className="whitespace-pre-wrap break-words text-fs-secondary">{content}</div>

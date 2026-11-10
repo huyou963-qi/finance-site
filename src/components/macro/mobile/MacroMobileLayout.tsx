@@ -76,7 +76,7 @@ export function MacroMobileLayout({
         danger ? "text-fs-negative" : "text-fs-text"
       }`}
     >
-      {label}
+      {tr(label)}
     </button>
   );
 

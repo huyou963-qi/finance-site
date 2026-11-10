@@ -730,7 +730,7 @@ export function MacroChartIndicatorAssignment({
             {(() => {
               const hint = slotModeHint(slotMode(slot), bySlot[slot].length);
               return hint ? (
-                <p className="mb-1 text-[10px] leading-relaxed text-amber-400/90">{hint}</p>
+                <p className="mb-1 text-[10px] leading-relaxed text-amber-400/90">{tr(hint)}</p>
               ) : null;
             })()}
             <div className="flex min-h-[28px] flex-col gap-1">

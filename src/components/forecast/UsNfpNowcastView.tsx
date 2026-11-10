@@ -18,7 +18,7 @@ function Kpi({ label, value, sub, lead }: { label: string; value: string; sub: s
   const tr = useTr();
   return (
     <div className="flex flex-col gap-1.5 bg-fs-bg px-4 py-3.5">
-      <span className="text-[13px] text-fs-muted">{label}</span>
+      <span className="text-[13px] text-fs-muted">{tr(label)}</span>
       <span className={`font-mono text-[30px] leading-none tabular-nums ${lead ? "text-fs-accent-text" : "text-fs-text"}`}>
         {value}
         <span className="ml-1 text-base text-fs-muted">{tr("千人")}</span>
@@ -52,7 +52,7 @@ function AccuracyTable({ title, row, showAdp }: { title: string; row: AccuracyRo
       <table className="w-full min-w-[520px] border-collapse text-[13px]">
         <thead className="bg-fs-elevated text-xs text-fs-muted">
           <tr>
-            <th className="px-2.5 py-2 text-left font-medium">{title}</th>
+            <th className="px-2.5 py-2 text-left font-medium">{tr(title)}</th>
             <th className="px-2.5 py-2 text-right font-medium">MAE</th>
             <th className="px-2.5 py-2 text-right font-medium">RMSE</th>
             <th className="px-2.5 py-2 text-right font-medium">{tr("月数")}</th>
@@ -64,7 +64,7 @@ function AccuracyTable({ title, row, showAdp }: { title: string; row: AccuracyRo
               key={l.key}
               className={`border-t border-fs-border ${l.me ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}`}
             >
-              <td className="px-2.5 py-2">{l.label}</td>
+              <td className="px-2.5 py-2">{tr(l.label)}</td>
               <StatCells s={l.s} />
             </tr>
           ))}
@@ -136,7 +136,7 @@ export function UsNfpNowcastView({ data }: { data: UsNfpNowcastPublicPayload }) 
                   key={c.key}
                   className={`border-t border-fs-border ${c.current ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}`}
                 >
-                  <td className="px-2.5 py-2">{c.label}</td>
+                  <td className="px-2.5 py-2">{tr(c.label)}</td>
                   <td className="px-2.5 py-2 text-right font-mono tabular-nums">{f1(c.mae)}</td>
                   <td className="px-2.5 py-2 text-right font-mono tabular-nums">{f1(c.rmse)}</td>
                   <td className="px-2.5 py-2 text-right font-mono tabular-nums">±{f1(c.bandHalfWidth)}</td>
@@ -190,7 +190,7 @@ export function UsNfpNowcastView({ data }: { data: UsNfpNowcastPublicPayload }) 
                   ] as const
                 ).map(([label, s]) => (
                   <tr key={label} className="border-t border-fs-border text-fs-secondary">
-                    <td className="px-2.5 py-2">{label}</td>
+                    <td className="px-2.5 py-2">{tr(label)}</td>
                     <td className="px-2.5 py-2 text-right font-mono font-medium tabular-nums text-fs-text">{f1(s.modelMae)}</td>
                     <td className="px-2.5 py-2 text-right font-mono tabular-nums">{f1(s.spfMae)}</td>
                     <td className="px-2.5 py-2 text-right font-mono tabular-nums">{s.n}</td>

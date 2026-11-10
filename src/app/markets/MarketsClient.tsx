@@ -682,7 +682,7 @@ export function MarketsClient() {
                       {marketSymbolLabel(h.symbol)}
                     </span>
                     <span className="line-clamp-2 text-[9px] text-fs-muted">
-                      <span className="text-fs-secondary">{h.name}</span>
+                      <span className="text-fs-secondary">{tr(h.name)}</span>
                       {h.exchange ? (
                         <span className="text-fs-muted"> · {h.exchange}</span>
                       ) : null}

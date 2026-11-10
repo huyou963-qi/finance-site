@@ -246,7 +246,7 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
           >
             <p className="text-[11px] tracking-wider text-fs-muted">{tr("时代阶段")}</p>
             <div className="mt-0.5 flex items-baseline gap-2">
-              <h2 className="min-w-0 truncate text-[17px] font-semibold text-fs-text">{s.title}</h2>
+              <h2 className="min-w-0 truncate text-[17px] font-semibold text-fs-text">{tr(s.title)}</h2>
               {s.range ? (
                 <span className="shrink-0 text-[13px] tabular-nums text-fs-muted">{s.range}</span>
               ) : null}

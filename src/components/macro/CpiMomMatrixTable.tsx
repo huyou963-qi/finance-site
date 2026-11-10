@@ -203,7 +203,7 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
                       row.indent,
                     )} ${row.emphasize ? "font-semibold text-fs-text" : "text-fs-secondary"}`}
                   >
-                    <span className="whitespace-nowrap">{row.labelZh}</span>
+                    <span className="whitespace-nowrap">{tr(row.labelZh)}</span>
                     <span className="ml-2 hidden text-[10px] text-fs-muted sm:inline">
                       {row.labelEn}
                     </span>

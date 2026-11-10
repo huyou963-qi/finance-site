@@ -147,7 +147,7 @@ export function MacroChartAxisSettings({
               key={slot}
               className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
             >
-              <div className="text-[11px] font-medium text-fs-muted">{title}</div>
+              <div className="text-[11px] font-medium text-fs-muted">{tr(title)}</div>
               <p className="mt-0.5 text-[10px] text-fs-secondary">
                 {tr(ALT_AXIS_HINT[mode] ?? "当前图种无 Y 轴范围设置")}
               </p>
@@ -161,7 +161,7 @@ export function MacroChartAxisSettings({
               key={slot}
               className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
             >
-              <div className="text-[11px] font-medium text-fs-muted">{title}</div>
+              <div className="text-[11px] font-medium text-fs-muted">{tr(title)}</div>
               <p className="mt-0.5 text-[10px] text-fs-secondary">{tr("暂无指标")}</p>
             </div>
           );
@@ -176,7 +176,7 @@ export function MacroChartAxisSettings({
             key={slot}
             className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
           >
-            <div className="mb-1.5 text-[11px] font-medium text-fs-secondary">{title}</div>
+            <div className="mb-1.5 text-[11px] font-medium text-fs-secondary">{tr(title)}</div>
             <AxisSideRow
               fieldId={`${slot}-left`}
               label={tr("左轴")}
@@ -242,7 +242,7 @@ function AxisSideRow({
   if (disabled) {
     return (
       <div className="mb-1 flex items-center gap-2 text-[10px] text-fs-secondary last:mb-0">
-        <span className="w-7 shrink-0">{label}</span>
+        <span className="w-7 shrink-0">{tr(label)}</span>
         <span>{disabledHint ?? tr("不可用")}</span>
       </div>
     );
@@ -253,7 +253,7 @@ function AxisSideRow({
 
   return (
     <div className="mb-1.5 flex flex-wrap items-center gap-1.5 last:mb-0">
-      <span className="w-7 shrink-0 text-[10px] text-fs-muted">{label}</span>
+      <span className="w-7 shrink-0 text-[10px] text-fs-muted">{tr(label)}</span>
       <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
         <input
           type="radio"

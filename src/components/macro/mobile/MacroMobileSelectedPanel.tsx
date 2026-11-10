@@ -144,7 +144,7 @@ export function MacroMobileSelectedPanel({
                     {isDerived ? (
                       <span className="mr-1.5 inline-flex rounded border border-fs-accent/30 bg-fs-accent-soft px-1.5 align-[2px] text-[11px] text-fs-accent-text">{tr("派生")}</span>
                     ) : null}
-                    {row.label}
+                    {tr(row.label)}
                   </p>
                   <p className="mt-0.5 truncate text-xs tabular-nums text-fs-muted">
                     {metaLine(row, showSource, tr) || (showSource ? item.key : "")}

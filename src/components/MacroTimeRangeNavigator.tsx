@@ -244,7 +244,7 @@ export function MacroTimeRangeNavigator({
                 className={tickClass}
                 style={isFirst || isLast ? undefined : { left: `${t.pct}%` }}
               >
-                {t.label}
+                {tr(t.label)}
               </span>
             );
           })}

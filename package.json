@@ -325,6 +325,7 @@
     "articles:import": "dotenv -e .env.local -- tsx scripts/articles/import-article.ts",
     "seo:baidu-push": "dotenv -e .env.local -- tsx scripts/seo/baidu-push-sitemap.ts",
     "test": "node scripts/test/run-test-suite.mjs --scope=all",
+    "i18n:indicator-names": "dotenv -e .env.local -- tsx scripts/i18n/indicator-names.ts",
     "test:unit": "node scripts/test/run-test-suite.mjs --scope=unit",
     "test:kline-cache-integration": "dotenv -e .env.local -- tsx scripts/test/kline-cache.integration.ts",
     "markets:cache-prune": "dotenv -e .env.local -- tsx scripts/ops/prune-kline-cache.ts",

@@ -38,7 +38,7 @@ export function LayerSymbolInput({ value, onChange, label }: {
   return (
     <div className="min-w-0 flex-1 basis-24">
       <input
-        role="combobox" aria-label={label} aria-autocomplete="list"
+        role="combobox" aria-label={tr(label)} aria-autocomplete="list"
         aria-expanded={focused && !!value.trim()} aria-controls={id}
         aria-activedescendant={active >= 0 ? `${id}-${active}` : undefined}
         value={value} placeholder={tr("代码或名称")} autoComplete="off"
@@ -54,7 +54,7 @@ export function LayerSymbolInput({ value, onChange, label }: {
         }}
         className="w-full min-w-0 rounded border border-fs-border bg-fs-elevated px-1.5 py-1 text-[11px] text-fs-text"
       />
-      {selected?.symbol === value && !focused ? <p className="mt-1 break-words text-[10px] text-fs-secondary">{selected.name} · {selected.exchange}</p> : null}
+      {selected?.symbol === value && !focused ? <p className="mt-1 break-words text-[10px] text-fs-secondary">{tr(selected.name)} · {selected.exchange}</p> : null}
       {focused && value.trim() ? (
         <div id={id} role="listbox" aria-label={tr("{label}搜索结果", { label })} className="mt-1 max-h-40 overflow-y-auto rounded border border-fs-border bg-fs-bg text-[11px]">
           {message ? <p role="status" className="p-2 text-fs-muted">{message}</p> : null}
@@ -63,7 +63,7 @@ export function LayerSymbolInput({ value, onChange, label }: {
               onMouseDown={(e) => e.preventDefault()} onClick={() => select(item)}
               className={`block w-full break-words px-2 py-1.5 text-left hover:bg-fs-elevated ${active === index ? "bg-fs-elevated" : ""}`}>
               <span className="font-mono text-fs-text">{item.symbol}</span>
-              <span className="ml-1 text-fs-secondary">{item.name} · {item.exchange}</span>
+              <span className="ml-1 text-fs-secondary">{tr(item.name)} · {item.exchange}</span>
             </button>
           ))}
         </div>

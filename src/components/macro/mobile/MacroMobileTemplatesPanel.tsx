@@ -123,7 +123,7 @@ export function MacroMobileTemplatesPanel({
       >
         <IconChart size={18} />
       </span>
-      <span className="min-w-0 flex-1 text-sm leading-snug text-fs-text">{tpl.name}</span>
+      <span className="min-w-0 flex-1 text-sm leading-snug text-fs-text">{tr(tpl.name)}</span>
       {tpl.id === activeTemplateId ? (
         <span className="shrink-0 rounded border border-fs-accent/30 bg-fs-accent-soft px-1.5 text-[11px] text-fs-accent-text">{tr("当前")}</span>
       ) : null}
@@ -171,7 +171,7 @@ export function MacroMobileTemplatesPanel({
           className="flex min-h-13 w-full items-center gap-2 py-1.5 pl-3 pr-2 text-left"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold text-fs-text">{dim.label}</span>
+            <span className="block text-[15px] font-semibold text-fs-text">{tr(dim.label)}</span>
             {open ? (
               <span className="mt-0.5 block text-xs leading-normal text-fs-muted">
                 {MACRO_TEMPLATE_DIMENSION_LINKS[id].blurb}
@@ -226,7 +226,7 @@ export function MacroMobileTemplatesPanel({
                       : "text-fs-secondary"
                   }`}
                 >
-                  {label}
+                  {tr(label)}
                 </button>
               ))}
             </div>
@@ -248,7 +248,7 @@ export function MacroMobileTemplatesPanel({
                             : "border-fs-border bg-white text-fs-text"
                         }`}
                       >
-                        {c.label}
+                        {tr(c.label)}
                       </button>
                     );
                   })}
@@ -323,7 +323,7 @@ export function MacroMobileTemplatesPanel({
                       }`}
                     >
                       <span className="max-w-full truncate text-sm font-semibold">
-                        {getMacroTemplateDimension(id).shortLabel}
+                        {tr(getMacroTemplateDimension(id).shortLabel)}
                       </span>
                       <span className="text-xs tabular-nums opacity-75">{count} {tr("个模板")}</span>
                     </button>
@@ -335,7 +335,7 @@ export function MacroMobileTemplatesPanel({
         })}
       </MobileSheet>
 
-      <MobileSheet open={menuTpl != null} onClose={() => setMenuTpl(null)} title={menuTpl?.name}>
+      <MobileSheet open={menuTpl != null} onClose={() => setMenuTpl(null)} title={menuTpl?.name ? tr(menuTpl.name) : undefined}>
         {menuTpl ? (
           <div className="pb-2">
             <button

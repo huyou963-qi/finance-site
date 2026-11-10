@@ -394,7 +394,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
                           key={section.title}
                           className="text-[10px] leading-relaxed text-fs-secondary"
                         >
-                          <span className="font-medium text-fs-text">【{section.title}】</span>
+                          <span className="font-medium text-fs-text">【{tr(section.title)}】</span>
                           {section.body}
                         </p>
                       ))}
@@ -512,7 +512,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
         ) : selected ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 z-[55] flex justify-center px-4">
             <div className="pointer-events-auto max-w-xl rounded-lg border border-fs-border bg-white/95 px-3 py-1.5 text-[11px] text-fs-secondary shadow-sm backdrop-blur">
-              <span className="font-medium text-fs-text">{selected.event.title}</span>
+              <span className="font-medium text-fs-text">{tr(selected.event.title)}</span>
               {selected.eraTag ? (
                 <>
                   <span className="mx-2 text-fs-muted">·</span>

@@ -125,7 +125,7 @@ export function EventHoverCard({
           {event.eventType ? <EventTag>{event.eventType}</EventTag> : null}
         </div>
         {event.title ? (
-          <h3 className="mt-1.5 text-sm font-semibold leading-snug text-fs-text">{event.title}</h3>
+          <h3 className="mt-1.5 text-sm font-semibold leading-snug text-fs-text">{tr(event.title)}</h3>
         ) : null}
         {tags.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -144,7 +144,7 @@ export function EventHoverCard({
             {primary.map((sec) => (
               <div key={sec.title}>
                 <p className="text-[10px] font-medium uppercase tracking-wide text-fs-muted">
-                  {sec.title}
+                  {tr(sec.title)}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-fs-secondary">
                   {sec.body}

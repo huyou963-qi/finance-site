@@ -31,6 +31,9 @@ export type FileScan = {
 /** wrapLabels 模式下视为「显示标签」的属性/变量名 */
 const LABEL_PROPS = new Set(["label", "title", "desc", "description", "hint", "shortLabel", "labelZh", "nameZh", "group"]);
 
+/** wrapLabels 不处理的属性 */
+const NON_DISPLAY_ATTRS = /^(key|value|defaultValue|id|htmlFor|name|href|src|data-[\w-]+)$/;
+
 /** 直接写变量名时只认这些（group/nameZh 这类名字常是对象，不按变量名包裹） */
 const LABEL_IDENTIFIERS = new Set(["label", "title", "desc", "description", "hint"]);
 
@@ -341,6 +344,8 @@ export function scanFile(
       opts.wrapLabels &&
       ts.isJsxExpression(node) &&
       node.expression &&
+      // key / 表单值 / id 等不是显示文字：翻译会造成重复 key 或把英文写回数据
+      !(ts.isJsxAttribute(node.parent) && NON_DISPLAY_ATTRS.test(node.parent.name.getText(sf))) &&
       ((ts.isPropertyAccessExpression(node.expression) && LABEL_PROPS.has(node.expression.name.text)) ||
         (ts.isIdentifier(node.expression) && LABEL_IDENTIFIERS.has(node.expression.text)))
     ) {

@@ -98,7 +98,7 @@ function DividerLabelEditor({
       title={tr("点击编辑分组名称")}
       className="min-w-0 flex-1 truncate text-left text-[10px] font-medium tracking-wide text-fs-accent-text hover:text-fs-accent"
     >
-      —— {label} ——
+      —— {tr(label)} ——
     </button>
   );
 }
@@ -191,7 +191,7 @@ export function SelectedIndicatorsList({
               >
                 ⋮⋮
               </span>
-              <DividerLabelEditor id={item.id} label={label} onSave={saveDividerLabel} />
+              <DividerLabelEditor id={item.id} label={tr(label)} onSave={saveDividerLabel} />
               <button
                 type="button"
                 onClick={() => onChange(removeDivider(items, item.id))}
@@ -244,13 +244,13 @@ export function SelectedIndicatorsList({
               ⋮⋮
             </span>
             <span className="min-w-0 max-w-[38%] shrink truncate text-xs font-medium text-fs-text">
-              {row.label}
+              {tr(row.label)}
             </span>
             <span className="min-w-0 flex-1 truncate text-right text-[10px] leading-tight text-fs-secondary tabular-nums">
               {visibleMeta.map(([label, value], metaIndex) => (
                 <span key={label}>
                   {metaIndex > 0 ? <span className="mx-1.5 text-fs-secondary">|</span> : null}
-                  <span className="text-fs-secondary">{label}</span>：{value}
+                  <span className="text-fs-secondary">{tr(label)}</span>：{value}
                 </span>
               ))}
             </span>

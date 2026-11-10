@@ -139,9 +139,9 @@ export const MacroExtractedDataTable = memo(function MacroExtractedDataTable({
                 key={column.key}
                 className="whitespace-nowrap border-b border-r border-fs-border bg-fs-elevated px-2 py-1 text-left font-medium"
                 style={{ width: widths.columns.get(column.key) }}
-                title={column.label}
+                title={tr(column.label)}
               >
-                {column.label}
+                {tr(column.label)}
               </th>
             ))}
           </tr>

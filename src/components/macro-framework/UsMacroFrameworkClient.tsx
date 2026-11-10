@@ -142,7 +142,7 @@ function SectorFlowDiagram() {
           <g key={n.id}>
             <rect x={n.x} y={n.y} width={boxW} height={boxH} rx={6} fill="#ffffff" stroke={SVG_BORDER} strokeWidth={1.5} />
             <text x={n.x + boxW / 2} y={n.y + 22} textAnchor="middle" fontSize={13} fontWeight={600} fill={SVG_TEXT}>
-              {n.label}
+              {tr(n.label)}
             </text>
             <text x={n.x + boxW / 2} y={n.y + 38} textAnchor="middle" fontSize={10} fill={SVG_TEXT_MUTED}>
               {n.sub}
@@ -180,7 +180,7 @@ function MatrixIndicatorCard({
       <div className="flex gap-1.5">
         <div className="w-0.5 shrink-0 rounded-sm" style={{ background: accent, minHeight: 32 }} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[11px] font-medium leading-tight text-fs-text">{ind.nameZh}</div>
+          <div className="truncate text-[11px] font-medium leading-tight text-fs-text">{tr(ind.nameZh)}</div>
           <div className="truncate font-mono text-[9px] text-fs-muted">{ind.nameEn}</div>
         </div>
       </div>
@@ -335,7 +335,7 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
           ].map((s) => (
             <div key={s.label} className="rounded-lg border border-fs-border bg-fs-elevated px-3 py-2">
               <div className={`text-base font-semibold ${s.cls ?? "text-fs-text"}`}>{s.value}</div>
-              <div className="text-[11px] text-fs-muted">{s.label}</div>
+              <div className="text-[11px] text-fs-muted">{tr(s.label)}</div>
             </div>
           ))}
         </div>
@@ -424,7 +424,7 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
         {selectedId && indById[selectedId] && (
           <div className="rounded-lg border border-fs-border bg-fs-elevated/80 p-4 text-sm">
             <div className="font-medium text-fs-text">
-              {indById[selectedId].nameZh}
+              {tr(indById[selectedId].nameZh)}
               <span className="ml-2 font-normal text-fs-muted">{indById[selectedId].nameEn}</span>
             </div>
             <div className="mt-2 flex flex-wrap gap-4 text-fs-secondary">
@@ -442,7 +442,7 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
                 {MATRIX_CATEGORY_LABEL[INDICATOR_MATRIX_CATEGORY[selectedId] ?? "activity"]}
               </span>
             </div>
-            <p className="mt-2 text-fs-secondary">{indById[selectedId].description}</p>
+            <p className="mt-2 text-fs-secondary">{tr(indById[selectedId].description)}</p>
             <div className="mt-3 max-w-md">
               <div className="mb-1 text-[10px] uppercase tracking-wide text-fs-muted">{tr("近 6 期走势")}</div>
               {indById[selectedId].sparkline.length > 0 ? (

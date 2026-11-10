@@ -4,6 +4,7 @@ import type { IChartApi, ISeriesApi, Time, UTCTimestamp } from "lightweight-char
 import { SITE } from "@/lib/siteTheme";
 import { createDrawing, pointCount, type DrawingTool, type DrawingPoint, type MarketDrawing } from "@/lib/chart/marketDrawings";
 import { drawingGeometry, drawingHandles, drawingProjector } from "@/lib/chart/drawingGeometry";
+import { useTr } from "@/i18n/TextProvider";
 export type SvgOverlayShape = MarketDrawing;
 export type DrawingDraftPreview = { tool: Exclude<DrawingTool, "cursor">; placed: DrawingPoint[]; hover: DrawingPoint | null };
 export type VisibleExtremaOverlay = {
@@ -65,6 +66,7 @@ function renderExtremaMarker(
 }
 
 export function ChartDrawingOverlay({ chart, candleSeries, shapes, width, height, draftPreview, selectedShapeId, visibleExtrema, onHandlePointerDown }: Props) {
+ const tr = useTr();
  if (!chart || !candleSeries || width <= 0) return null;
  const project = drawingProjector(chart, candleSeries);
  const draw = (d: MarketDrawing, draft = false) => {
@@ -74,8 +76,8 @@ export function ChartDrawingOverlay({ chart, candleSeries, shapes, width, height
    return <g key={d.id} opacity={draft ? 0.65 : 1}>
     {drawingGeometry(d, project, width, height).map((s, i) => {
       const col = s.color ?? color, strokeWidth = (d.lineWidth ?? 2) + (selected ? 0.5 : 0);
-      if (s.kind === "text") return <text key={i} x={s.a.x + 4} y={s.a.y} fill={col} fontSize={12} paintOrder="stroke" stroke={SITE.bg} strokeWidth={3}>{s.label}</text>;
-      if (s.kind === "line") return <g key={i}><line x1={s.a.x} y1={s.a.y} x2={s.b.x} y2={s.b.y} stroke={col} strokeWidth={strokeWidth} strokeDasharray={dash} />{s.label && <text x={Math.min(width - 6, Math.max(6, s.b.x))} y={s.b.y - 5} textAnchor="end" fontSize={11} fill={col} paintOrder="stroke" stroke={SITE.bg} strokeWidth={3}>{s.label}</text>}</g>;
+      if (s.kind === "text") return <text key={i} x={s.a.x + 4} y={s.a.y} fill={col} fontSize={12} paintOrder="stroke" stroke={SITE.bg} strokeWidth={3}>{tr(s.label)}</text>;
+      if (s.kind === "line") return <g key={i}><line x1={s.a.x} y1={s.a.y} x2={s.b.x} y2={s.b.y} stroke={col} strokeWidth={strokeWidth} strokeDasharray={dash} />{s.label && <text x={Math.min(width - 6, Math.max(6, s.b.x))} y={s.b.y - 5} textAnchor="end" fontSize={11} fill={col} paintOrder="stroke" stroke={SITE.bg} strokeWidth={3}>{tr(s.label)}</text>}</g>;
       const x = Math.min(s.a.x, s.b.x), y = Math.min(s.a.y, s.b.y), w = Math.abs(s.b.x - s.a.x), h = Math.abs(s.b.y - s.a.y);
       return s.kind === "ellipse" ? <ellipse key={i} cx={x + w / 2} cy={y + h / 2} rx={w / 2} ry={h / 2} fill={col} fillOpacity={0.12} stroke={col} strokeWidth={strokeWidth} strokeDasharray={dash}/> : <rect key={i} x={x} y={y} width={w} height={h} fill={col} fillOpacity={0.12} stroke={col} strokeWidth={strokeWidth} strokeDasharray={dash}/>;
     })}

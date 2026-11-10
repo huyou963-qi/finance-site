@@ -829,9 +829,10 @@ function IndicatorNumField({
   step?: number;
   onCommit: (n: number) => void;
 }) {
+  const tx = useTr();
   return (
     <label className="flex items-center gap-1 text-[11px] text-fs-muted">
-      <span className="shrink-0">{label}</span>
+      <span className="shrink-0">{tx(label)}</span>
       <input
         type="number"
         value={value}
@@ -3589,7 +3590,7 @@ export function StockChartWorkspace({
                   className="inline-block h-1.5 w-3 shrink-0 rounded-sm"
                   style={{ background: d.color }}
                 />
-                <span className="truncate text-fs-secondary">{d.label}</span>
+                <span className="truncate text-fs-secondary">{tx(d.label)}</span>
                 {d.lastValue != null ? (
                   <span className="ml-auto font-mono text-fs-text">
                     {d.lastValue.toPrecision(4)}
@@ -3618,7 +3619,7 @@ export function StockChartWorkspace({
                     : "bg-fs-elevated text-fs-muted hover:bg-fs-border"
                 }`}
               >
-                {x.label}
+                {tx(x.label)}
               </button>
             ))}
             <button
@@ -3677,7 +3678,7 @@ export function StockChartWorkspace({
                       : "bg-fs-elevated text-fs-muted hover:bg-fs-border"
                   }`}
                 >
-                  {x.label}
+                  {tx(x.label)}
                 </button>
               ))}
               <button
@@ -3803,7 +3804,7 @@ export function StockChartWorkspace({
                   {ch.layers?.map((ly) => (
                     <span key={ly.label} className="contents">
                       <span className="truncate text-fs-muted" style={{ color: ly.color }}>
-                        {ly.label}
+                        {tx(ly.label)}
                       </span>
                       <span
                         className="text-right font-mono"

@@ -129,7 +129,7 @@ export function MacroSystemTemplateBrowser({
                           : "border-fs-border/50 text-fs-muted"
                     }`}
                   >
-                    {c.label}
+                    {tr(c.label)}
                   </button>
                 );
               })}
@@ -234,7 +234,7 @@ export function MacroSystemTemplateBrowser({
                       </svg>
                     </div>
                     <div className="min-w-0 flex-1 self-center">
-                      <div className="text-[13px] font-medium text-fs-text">{tpl.name}</div>
+                      <div className="text-[13px] font-medium text-fs-text">{tr(tpl.name)}</div>
                     </div>
                     <div className="flex shrink-0 flex-col gap-1 [&_button]:min-w-[4.25rem] [&_button]:rounded [&_button]:px-2.5 [&_button]:py-1 [&_button]:text-[11px]">
                       {renderActions(tpl)}

@@ -165,7 +165,7 @@ export function EventListRow({
               ) : null}
             </div>
             {event.title ? (
-              <p className="mt-0.5 text-[11px] font-medium text-fs-text">{event.title}</p>
+              <p className="mt-0.5 text-[11px] font-medium text-fs-text">{tr(event.title)}</p>
             ) : null}
             <p className="mt-0.5 line-clamp-3 text-[11px] leading-snug text-fs-secondary">
               {preview}

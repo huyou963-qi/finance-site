@@ -121,14 +121,14 @@ export function KlineRangeStatsPanel({
             }
       }
       role="dialog"
-      aria-label={title}
+      aria-label={tr(title)}
     >
       <div
         className="mb-3 flex cursor-move touch-none select-none items-start justify-between gap-2 border-b border-fs-border pb-2"
         onPointerDown={handleDragStart}
       >
         <h3 className="text-sm font-semibold" style={{ color: accentColor }}>
-          {title}
+          {tr(title)}
         </h3>
         <button
           type="button"
@@ -193,7 +193,7 @@ export function KlineRangeStatsPanel({
                       style={{ background: ly.color }}
                     />
                     <span className="truncate font-medium text-fs-text">
-                      {ly.label}
+                      {tr(ly.label)}
                     </span>
                     <span className="ml-auto font-mono text-[10px] text-fs-muted">
                       {ly.count}{" "}{tr("点")}</span>
@@ -248,9 +248,10 @@ function Cell({
   valueClass?: string;
   valueColor?: string;
 }) {
+  const tr = useTr();
   return (
     <div className="min-w-0">
-      <div className="text-fs-muted">{label}</div>
+      <div className="text-fs-muted">{tr(label)}</div>
       <div
         className={`truncate font-mono text-xs ${valueColor ? "" : valueClass}`}
         style={valueColor ? { color: valueColor } : undefined}

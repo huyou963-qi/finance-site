@@ -491,7 +491,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
               {kpis.map(([label, value, hint]) => (
                 <div
-                  key={tr(label)}
+                  key={label}
                   className="rounded-md border border-fs-border bg-fs-elevated/40 px-2.5 py-1.5"
                   title={(hint ? tr(hint) : hint)}
                 >
@@ -532,7 +532,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                     ] as const
                   ).map(([label, value]) => (
                     <div
-                      key={tr(label)}
+                      key={label}
                       className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2"
                       title={
                         label === "Forward PE"
@@ -624,7 +624,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                           [tr("净利率"), last.netMargin, m.netMarginMedian, "pct"],
                         ];
                         return rows.map(([label, own, med, kind]) => (
-                          <tr key={tr(label)} className="border-t border-fs-border/50">
+                          <tr key={label} className="border-t border-fs-border/50">
                             <td className="px-3 py-1.5 text-fs-text">{tr(label)}</td>
                             <td
                               className={`px-3 py-1.5 text-right tabular-nums ${

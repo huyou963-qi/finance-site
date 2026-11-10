@@ -137,6 +137,7 @@ function buildLayout(
 }
 
 function DimNodeView({ data }: NodeProps<DimNode>) {
+  const tr = useTr();
   const dim = getMacroTemplateDimension(data.dimId);
   const isHub = data.dimId === "economy";
 
@@ -165,7 +166,7 @@ function DimNodeView({ data }: NodeProps<DimNode>) {
         position={Position.Top}
         className="!h-1.5 !w-1.5 !min-h-0 !min-w-0 !border-0 !bg-zinc-400"
       />
-      <div className="text-[11px] font-semibold leading-tight">{dim.shortLabel}</div>
+      <div className="text-[11px] font-semibold leading-tight">{tr(dim.shortLabel)}</div>
       <div
         className={`mt-0.5 text-[9px] tabular-nums ${
           data.selected && !isHub ? "text-fs-accent-text/80" : "text-fs-muted"

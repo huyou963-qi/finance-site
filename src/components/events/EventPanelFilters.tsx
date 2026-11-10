@@ -58,7 +58,7 @@ export function EventFilterSummary({ filters, onChange, compact = false }: Pick<
   });
   return <div aria-label={tr("生效内容条件")} className={`flex items-center gap-1 text-xs text-fs-muted ${compact ? "min-h-7 overflow-x-auto whitespace-nowrap [&>button]:min-h-6 [&>button]:shrink-0 [&>button]:py-0" : "flex-wrap py-1"}`}>
     <span>{chips.length ? tr("已选条件") : tr("内容条件：不限")}</span>
-    {chips.map(chip => <button key={chip.key} type="button" className={`${control} max-w-full bg-fs-accent-soft text-fs-accent-text break-words`} aria-label={tr("移除{label}", { label: chip.label })} onClick={chip.remove}>{chip.label} ×</button>)}
+    {chips.map(chip => <button key={chip.key} type="button" className={`${control} max-w-full bg-fs-accent-soft text-fs-accent-text break-words`} aria-label={tr("移除{label}", { label: chip.label })} onClick={chip.remove}>{tr(chip.label)} ×</button>)}
     {chips.length > 0 && <button type="button" className={control} onClick={() => onChange(clearEventContentFilters(filters))}>{tr("清除内容条件")}</button>}
   </div>;
 }
@@ -104,7 +104,7 @@ export function EventPanelFilters({ filters, onChange, onResetToSymbolDefault, c
         <span className="text-xs text-fs-muted">{tr("类型（多选）")}</span>
         <button type="button" className={control} onClick={() => patch({ typeFamilies: [...ALL_EVENT_TYPE_FAMILY_IDS], companyKinds: undefined })}>{tr("全部类型")}</button>
         <button type="button" className={control} onClick={() => patch({ typeFamilies: [], companyKinds: [] })}>{tr("清空类型")}</button>
-        {EVENT_TYPE_FAMILIES.map(f => <button key={f.id} type="button" aria-pressed={filters.typeFamilies.includes(f.id)} className={`${control} ${filters.typeFamilies.includes(f.id) ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => toggleFamily(f.id)}>{f.label}</button>)}
+        {EVENT_TYPE_FAMILIES.map(f => <button key={f.id} type="button" aria-pressed={filters.typeFamilies.includes(f.id)} className={`${control} ${filters.typeFamilies.includes(f.id) ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => toggleFamily(f.id)}>{tr(f.label)}</button>)}
       </div>
       {!filters.typeFamilies.length && <p className="text-xs text-fs-muted">{tr("未选择任何类型，结果为空；选择一种类型或点击“全部类型”。")}</p>}
       {filters.typeFamilies.includes("company") && <div className="flex flex-wrap items-center gap-1">

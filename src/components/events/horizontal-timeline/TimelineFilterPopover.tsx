@@ -31,6 +31,7 @@ function FilterChip({
   label: string;
   onClick: () => void;
 }) {
+  const tr = useTr();
   return (
     <button
       type="button"
@@ -41,7 +42,7 @@ function FilterChip({
           : "border-fs-border text-fs-secondary hover:border-fs-accent/25 hover:bg-fs-elevated"
       }`}
     >
-      {label}
+      {tr(label)}
     </button>
   );
 }
@@ -129,7 +130,7 @@ export function TimelineFilterPopover({ filters, onChange }: TimelineFilterPopov
               {IMPORTANCE_OPTIONS.map(({ value, label }) => (
                 <FilterChip
                   key={value}
-                  label={label}
+                  label={tr(label)}
                   active={filters.importances.includes(value)}
                   onClick={() =>
                     patch({

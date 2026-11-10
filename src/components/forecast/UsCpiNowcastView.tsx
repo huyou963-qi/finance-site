@@ -47,7 +47,7 @@ function Kpi({
   const tr = useTr();
   return (
     <div className="flex flex-col gap-1.5 bg-fs-bg px-4 py-3.5">
-      <span className="text-[13px] text-fs-muted">{label}</span>
+      <span className="text-[13px] text-fs-muted">{tr(label)}</span>
       <span className={`font-mono text-[30px] leading-none tabular-nums ${lead ? "text-fs-accent-text" : "text-fs-text"}`}>
         {value}
         <span className="ml-0.5 text-base text-fs-muted">{unit}</span>
@@ -114,7 +114,7 @@ function AccuracyTable({ data }: { data: UsCpiNowcastPublicPayload["backtest"]["
                   if (!stats) return null;
                   return (
                     <tr key={r.key} className={r.key === "model" ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}>
-                      <td className="px-2.5 py-2">{r.label}</td>
+                      <td className="px-2.5 py-2">{tr(r.label)}</td>
                       {cells(stats)}
                     </tr>
                   );
@@ -199,7 +199,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
           ).map(([label, v]) => (
             <div key={label} className="flex flex-wrap items-baseline gap-x-2">
               <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: GROUP_COLOR[label] }} />
-              <span className="whitespace-nowrap">{label}</span>
+              <span className="whitespace-nowrap">{tr(label)}</span>
               <span className="font-mono tabular-nums text-fs-text">{signed(v.forecast)}%</span>
               <span className="font-mono text-xs tabular-nums text-fs-muted">
                 {prevLabel} {signed(v.prevActual)}
@@ -213,7 +213,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
               aria-hidden
               className="mr-1.5 inline-block h-0 w-4 border-t-2 border-dashed align-middle"
               style={{ borderColor: CLEVELAND_LINE }}
-            />{tr("卡片中的克利夫兰联储为其")}{" "}{cf.label}
+            />{tr("卡片中的克利夫兰联储为其")}{" "}{tr(cf.label)}
             {cf.yoyLabel && cf.yoyLabel !== cf.label ? tr("（同比 {yoyLabel}）", { yoyLabel: cf.yoyLabel }) : ""} {tr("对")} {target}{" "}{tr("的最新 nowcast")}{cf.allYoy == null ? tr("，同比暂缺") : ""}{tr("；「差」= 本模型 − 克利夫兰联储，单位为百分点。第三方模型输出，仅作对照、不入库。")}{" "}
             <a href={cf.sourceUrl} target="_blank" rel="noreferrer" className="text-fs-accent-text hover:underline">{tr("来源")}</a>
           </p>

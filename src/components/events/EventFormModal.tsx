@@ -193,7 +193,7 @@ export function EventFormModal({
         className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-fs-border bg-fs-bg shadow-xl"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-fs-border px-4 py-2">
-          <h2 className="text-sm font-semibold text-fs-text">{title}</h2>
+          <h2 className="text-sm font-semibold text-fs-text">{tr(title)}</h2>
           <button type="button" onClick={onClose} className="text-fs-muted hover:text-fs-text">
             ✕
           </button>

@@ -306,7 +306,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                       : "text-fs-muted hover:bg-fs-elevated"
                   }`}
                 >
-                  {label}
+                  {tr(label)}
                 </button>
               ))}
             </div>

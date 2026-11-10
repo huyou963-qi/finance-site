@@ -311,7 +311,7 @@ export function EquityBacktestClient() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <span className="text-xs text-fs-muted">{tr("regime 择时（可选，勾选 = 允许持仓的宏观状态）")}</span>
             {REGIME_CHOICES.map((g) => (
-              <div key={tr(g.group)} className="flex flex-wrap items-center gap-1.5">
+              <div key={g.group} className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs text-fs-muted">{tr(g.group)}</span>
                 {g.items.map((it) => {
                   const on = regimeFilter.has(it.key);

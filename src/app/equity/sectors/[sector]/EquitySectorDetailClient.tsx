@@ -384,7 +384,7 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
             <div className="grid gap-3 sm:grid-cols-2">
               {macroSeries.slice(0, 4).map((s) => (
                 <div
-                  key={tr(s.label)}
+                  key={s.label}
                   className="rounded-md border border-fs-border bg-fs-elevated/30 p-2"
                 >
                   <div className="mb-1 text-xs text-fs-muted">{tr(s.label)}</div>
@@ -418,7 +418,7 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
                   { label: tr("PE 中位"), v: fund.peMedian, pct: false },
                 ].map((x) => (
                   <div
-                    key={tr(x.label)}
+                    key={x.label}
                     className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2"
                   >
                     <div className="text-[11px] text-fs-muted">{tr(x.label)}</div>

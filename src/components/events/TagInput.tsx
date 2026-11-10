@@ -51,7 +51,7 @@ export function TagInput({
 
   return (
     <label className="block text-[11px] text-fs-muted">
-      {label}
+      {tr(label)}
       <div className="mt-0.5 rounded border border-fs-border bg-fs-elevated px-1.5 py-1">
         <div className="mb-1 flex flex-wrap gap-1">
           {values.map((v) => {

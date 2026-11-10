@@ -46,9 +46,10 @@ const inputClass =
 const labelClass = "mb-0.5 block text-[11px] font-medium text-fs-muted";
 
 function Field({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+  const tr = useTr();
   return (
     <label className={`min-w-0 ${className}`}>
-      <span className={labelClass}>{label}</span>
+      <span className={labelClass}>{tr(label)}</span>
       {children}
     </label>
   );
@@ -133,7 +134,7 @@ function StepEditor({
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fs-accent-soft text-xs font-semibold text-fs-accent-text">
           {index + 1}
         </span>
-        <span className="flex-1 text-[13px] font-semibold text-fs-text">{title}</span>
+        <span className="flex-1 text-[13px] font-semibold text-fs-text">{tr(title)}</span>
         <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="h-7 px-2 text-xs text-fs-muted disabled:opacity-25">↑</button>
         <button type="button" disabled={index === total - 1} onClick={() => onMove(1)} className="h-7 px-2 text-xs text-fs-muted disabled:opacity-25">↓</button>
         <button type="button" onClick={onRemove} className="h-7 px-2 text-xs text-red-600">{tr("删除")}</button>
@@ -295,7 +296,8 @@ function PreviewPanel({ result, title = "结果预览" }: { result: MacroCalcula
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-lg border border-fs-border bg-white px-1 py-1.5"><div className="text-sm font-semibold text-fs-text">{value}</div><div className="text-[10px] text-fs-muted">{label}</div></div>;
+  const tr = useTr();
+  return <div className="rounded-lg border border-fs-border bg-white px-1 py-1.5"><div className="text-sm font-semibold text-fs-text">{value}</div><div className="text-[10px] text-fs-muted">{tr(label)}</div></div>;
 }
 
 function FormulaEditor({
@@ -368,16 +370,16 @@ function FormulaEditor({
           {candidates.map((item) => (
             <button key={`${item.function ? "fn" : "input"}-${item.name}`} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => insert(item.name, item.function)} className="flex w-full items-center gap-3 border-b border-fs-border/70 px-3 py-2 text-left text-xs last:border-0 hover:bg-fs-elevated">
               <span className="w-24 shrink-0 font-mono font-semibold text-fs-accent-text">{item.signature}</span>
-              <span className="truncate text-fs-muted">{item.description}</span>
+              <span className="truncate text-fs-muted">{tr(item.description)}</span>
             </button>
           ))}
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {inputs.map((input) => <button key={input.alias} type="button" onClick={() => insert(input.alias, false)} className="rounded border border-fs-accent/30 bg-fs-accent-soft px-2 py-1 font-mono text-[11px] text-fs-accent-text" title={input.label}>{input.alias}</button>)}
+        {inputs.map((input) => <button key={input.alias} type="button" onClick={() => insert(input.alias, false)} className="rounded border border-fs-accent/30 bg-fs-accent-soft px-2 py-1 font-mono text-[11px] text-fs-accent-text" title={tr(input.label)}>{input.alias}</button>)}
         {MACRO_FORMULA_FUNCTIONS.map((item) => <button key={item.name} type="button" onClick={() => insert(item.name, true)} onMouseEnter={() => setHint(item)} className="rounded border border-fs-border bg-fs-elevated px-2 py-1 font-mono text-[11px] text-fs-secondary">{item.name}</button>)}
       </div>
-      <p className="mt-2 text-xs text-fs-muted"><span className="font-mono font-medium text-fs-text">{hint.signature}</span>：{hint.description}</p>
+      <p className="mt-2 text-xs text-fs-muted"><span className="font-mono font-medium text-fs-text">{hint.signature}</span>：{tr(hint.description)}</p>
       <div className="mt-2 rounded-lg bg-fs-elevated px-3 py-2 text-xs text-fs-muted">
         <span className="font-medium text-fs-text">{tr("公式预览：")}</span><span className="break-all font-mono">{preview || "—"}</span>
       </div>
@@ -936,7 +938,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
               <div className="min-w-0">
                 <Field label={tr("指标")}>
                   <select value={targetKey} onChange={(event) => setTargetKey(event.target.value)} className={`${inputClass} w-full`}>
-                    {singleOptions.map((option) => <option key={option.key} value={option.key}>{option.derived ? "ƒ " : ""}{option.label}</option>)}
+                    {singleOptions.map((option) => <option key={option.key} value={option.key}>{option.derived ? "ƒ " : ""}{tr(option.label)}</option>)}
                   </select>
                 </Field>
                 <Field label={tr("派生指标名称（可重命名）")} className="mt-2 block">
@@ -977,7 +979,7 @@ export function MacroCalculationWorkbench(props: MacroCalculationWorkbenchProps)
                       return <div key={`${index}-${key}`} className="grid grid-cols-[34px_minmax(0,1fr)] items-start gap-2 rounded-lg bg-fs-elevated p-2">
                         <div className="mt-4 flex h-9 items-center justify-center rounded-md bg-fs-accent-soft text-[13px] font-semibold text-fs-accent-text">{aliases[index]}</div>
                         <div className="grid min-w-0 grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_110px_140px_72px_36px]">
-                          <Field label={tr("指标")} className="col-span-2 sm:col-span-1"><select value={key} onChange={(event) => setInputKeys((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} className={`${inputClass} w-full`}>{availableInputOptions.map((option) => <option key={option.key} value={option.key}>{option.derived ? "ƒ " : ""}{option.label}</option>)}</select></Field>
+                          <Field label={tr("指标")} className="col-span-2 sm:col-span-1"><select value={key} onChange={(event) => setInputKeys((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} className={`${inputClass} w-full`}>{availableInputOptions.map((option) => <option key={option.key} value={option.key}>{option.derived ? "ƒ " : ""}{tr(option.label)}</option>)}</select></Field>
                           <Field label={tr("聚合")}><ResampleSelect value={settings.resample} onChange={(resample) => updateInputSettings(index, key, { resample })} /></Field>
                           <Field label={tr("缺失值")}><FillSelect value={settings.fill} onChange={(fill) => updateInputSettings(index, key, { fill })} /></Field>
                           <Field label={tr("最大缺口")}>{numberInput(settings.maxGap, (maxGap) => updateInputSettings(index, key, { maxGap: Math.max(1, maxGap) }), 1, 120)}</Field>

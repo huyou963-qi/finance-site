@@ -275,7 +275,7 @@ function MetricsPair({ is, oos }: { is: WindowMetrics | null; oos: WindowMetrics
             const ov = oos?.[row.k] as number | null | undefined;
             const delta = iv != null && ov != null ? ov - iv : null;
             return (
-              <tr key={tr(row.label)} className="border-t border-fs-border">
+              <tr key={row.label} className="border-t border-fs-border">
                 <td className="px-3 py-2 text-fs-muted">{tr(row.label)}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-fs-text">{row.fmt(iv)}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-fs-text">{row.fmt(ov)}</td>

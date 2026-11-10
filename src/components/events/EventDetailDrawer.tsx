@@ -113,7 +113,7 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
               {sections.map((sec) => (
                 <section key={sec.title}>
                   <h3 className="border-b border-fs-border/60 pb-1 text-xs font-semibold text-fs-text">
-                    {sec.title}
+                    {tr(sec.title)}
                   </h3>
                   <p className={`mt-2 whitespace-pre-wrap leading-relaxed text-fs-secondary ${docked ? "text-xs" : "text-sm"}`}>
                     {sec.body}

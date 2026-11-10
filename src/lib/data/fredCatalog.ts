@@ -35,6 +35,8 @@ export type UnifiedCatalogProvider = "fred" | "wb" | "mds";
 export type UnifiedCatalogItem = {
   key: string;
   label: string;
+  /** 英文展示名（库内 Instrument.nameEn）；英文站优先显示，没有时按词典翻译 label */
+  labelEn?: string;
   frequency: UnifiedCatalogFrequency;
   provider: UnifiedCatalogProvider;
   countryCode: string;
@@ -534,6 +536,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
     select: {
       code: true,
       name: true,
+      nameEn: true,
       freqLabel: true,
       metadata: true,
       dataSubscription: { select: { sourceId: true, source: { select: { name: true } } } },
@@ -582,6 +585,7 @@ async function loadMdsCatalog(): Promise<UnifiedCatalogCountry[]> {
     categoryItems.push({
       key: `mds:${row.code}`,
       label,
+      ...(row.nameEn?.trim() ? { labelEn: row.nameEn.trim() } : {}),
       frequency: normalizeFrequency(row.freqLabel),
       provider: "mds",
       countryCode,
@@ -679,6 +683,7 @@ async function loadPromotedSearchCatalog(): Promise<UnifiedCatalogCountry[]> {
     select: {
       code: true,
       name: true,
+      nameEn: true,
       freqLabel: true,
       fredSeriesId: true,
       metadata: true,
@@ -722,6 +727,7 @@ async function loadPromotedSearchCatalog(): Promise<UnifiedCatalogCountry[]> {
     items.push({
       key: catalogKey,
       label,
+      ...(row.nameEn?.trim() ? { labelEn: row.nameEn.trim() } : {}),
       frequency: normalizeFrequency(row.freqLabel),
       provider,
       countryCode,

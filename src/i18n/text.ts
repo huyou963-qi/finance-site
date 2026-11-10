@@ -25,11 +25,16 @@ export function translateText(source: string, dict: TextDict | null, values?: Te
   return interpolate(template, values);
 }
 
-export type Tr = (source: string, values?: TextValues) => string;
+/** 空值原样返回（显示处常直接包 tr(x.label)，x.label 可能为 null） */
+export interface Tr {
+  (source: string, values?: TextValues): string;
+  (source: string | null | undefined, values?: TextValues): string | null | undefined;
+}
 
 export function makeTr(dict: TextDict | null): Tr {
-  return (source, values) => translateText(source, dict, values);
+  return ((source: string | null | undefined, values?: TextValues) =>
+    source == null ? source : translateText(source, dict, values)) as Tr;
 }
 
 /** 不翻译的 tr：给「组件外辅助函数」的 tr 参数做默认值，未传入时保持中文 */
-export const identityTr: Tr = (source, values) => interpolate(source, values);
+export const identityTr: Tr = makeTr(null);

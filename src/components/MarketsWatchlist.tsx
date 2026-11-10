@@ -228,7 +228,7 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
                     </span>
                   </span>
                   <span className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-[10px] leading-4 text-fs-muted" title={stock.name}>{stock.name}</span>
+                    <span className="min-w-0 truncate text-[10px] leading-4 text-fs-muted" title={tr(stock.name)}>{tr(stock.name)}</span>
                     <span className={`shrink-0 font-mono text-[10px] tabular-nums ${(quotes[stock.symbol]?.changePercent ?? 0) > 0 ? "text-fs-positive" : (quotes[stock.symbol]?.changePercent ?? 0) < 0 ? "text-fs-negative" : "text-fs-muted"}`} aria-label={tr("{symbol} 当天涨跌幅", { symbol: stock.symbol })}>
                       {quotes[stock.symbol]?.changePercent != null ? `${quotes[stock.symbol]!.changePercent! > 0 ? "+" : ""}${quotes[stock.symbol]!.changePercent!.toFixed(2)}%` : "—"}
                     </span>

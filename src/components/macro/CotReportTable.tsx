@@ -75,9 +75,10 @@ function NetSparkline({ values }: { values: number[] }) {
 }
 
 function DataRow({ row }: { row: CotReportRow }) {
+  const tr = useTr();
   return (
     <tr className="border-b border-fs-border hover:bg-fs-elevated/40">
-      <td className="whitespace-nowrap px-2 py-1.5 text-sm text-fs-text">{row.label}</td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-sm text-fs-text">{tr(row.label)}</td>
       <td className="px-2 py-1.5 text-right text-sm tabular-nums text-fs-text">
         {fmtInt(row.long)}
       </td>
@@ -280,6 +281,7 @@ export function CotReportTable() {
 }
 
 function SectorBlock({ label, rows }: { label: string; rows: CotReportRow[] }) {
+  const tr = useTr();
   return (
     <>
       <tr className="bg-fs-elevated">
@@ -287,7 +289,7 @@ function SectorBlock({ label, rows }: { label: string; rows: CotReportRow[] }) {
           colSpan={12}
           className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-fs-accent-text/90"
         >
-          {label}
+          {tr(label)}
         </td>
       </tr>
       {rows.map((row) => (

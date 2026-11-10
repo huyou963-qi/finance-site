@@ -290,7 +290,7 @@ function WeeklyClientInner() {
                 <div className="mt-4 flex flex-wrap gap-3 max-md:grid max-md:grid-cols-3 max-md:gap-2">
                   {activeMeta.kpis.map((k) => (
                     <div
-                      key={tr(k.label)}
+                      key={k.label}
                       className="min-w-[7.5rem] rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 max-md:min-w-0 max-md:px-2.5"
                     >
                       <div className="truncate text-[11px] text-fs-muted">{tr(k.label)}</div>

@@ -13,9 +13,10 @@ const pct = (v: number | null | undefined, d = 2) => (v != null && Number.isFini
 const signed = (v: number) => (Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v.toFixed(2)}` : "—");
 
 function Kpi({ label, value, sub, lead }: { label: string; value: string; sub: string; lead?: boolean }) {
+  const tr = useTr();
   return (
     <div className="flex flex-col gap-1.5 bg-fs-bg px-4 py-3.5">
-      <span className="text-[13px] text-fs-muted">{label}</span>
+      <span className="text-[13px] text-fs-muted">{tr(label)}</span>
       <span className={`font-mono text-[30px] leading-none tabular-nums ${lead ? "text-fs-accent-text" : "text-fs-text"}`}>
         {value}
         <span className="ml-0.5 text-base text-fs-muted">%</span>
@@ -49,7 +50,7 @@ function AccuracyTable({ title, row, showGdpNow }: { title: string; row: GdpAccu
       <table className="w-full min-w-[480px] border-collapse text-[13px]">
         <thead className="bg-fs-elevated text-xs text-fs-muted">
           <tr>
-            <th className="px-2.5 py-2 text-left font-medium">{title}</th>
+            <th className="px-2.5 py-2 text-left font-medium">{tr(title)}</th>
             <th className="px-2.5 py-2 text-right font-medium">MAE</th>
             <th className="px-2.5 py-2 text-right font-medium">RMSE</th>
             <th className="px-2.5 py-2 text-right font-medium">{tr("季度数")}</th>
@@ -61,7 +62,7 @@ function AccuracyTable({ title, row, showGdpNow }: { title: string; row: GdpAccu
               key={l.key}
               className={`border-t border-fs-border ${l.me ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}`}
             >
-              <td className="px-2.5 py-2">{l.label}</td>
+              <td className="px-2.5 py-2">{tr(l.label)}</td>
               <StatCells s={l.s} />
             </tr>
           ))}
@@ -142,7 +143,7 @@ export function UsGdpNowcastView({ data }: { data: UsGdpNowcastPublicPayload }) 
                   className={`border-t border-fs-border ${c.current ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}`}
                 >
                   <td className="px-2.5 py-2">
-                    {c.label}
+                    {tr(c.label)}
                     {c.current ? <span className="ml-2 text-xs text-fs-accent-text">{tr("本次")}</span> : null}
                   </td>
                   <td className="px-2.5 py-2 text-right font-mono tabular-nums">{pct(c.mae)}</td>

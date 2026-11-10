@@ -75,7 +75,7 @@ export function MacroChartDrawingToolbar({
           <button
             key={t.id}
             type="button"
-            title={t.title}
+            title={tr(t.title)}
             onClick={() => onToolChange(t.id)}
             className={`rounded px-2 py-1 text-[11px] transition ${
               tool === t.id

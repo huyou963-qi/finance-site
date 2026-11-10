@@ -26,7 +26,7 @@ export async function fetchMdsMacroFromRequest(
 
   const insts = await prisma.instrument.findMany({
     where: { id: { in: ids } },
-    select: { id: true, name: true, code: true },
+    select: { id: true, name: true, nameEn: true, code: true },
   });
   if (insts.length === 0) {
     throw new Error("未找到任何标的，请检查 instrumentId");
@@ -58,6 +58,7 @@ export async function fetchMdsMacroFromRequest(
     const m = byInst.get(inst.id) ?? new Map();
     return {
       name: inst.name,
+      ...(inst.nameEn?.trim() ? { nameEn: inst.nameEn.trim() } : {}),
       data: categories.map((d) => (m.has(d) ? m.get(d)! : null)),
       key: `mds:${inst.id}`,
     };

@@ -73,6 +73,7 @@ function TreeSectionHeader({
   level: "country" | "category" | "subgroup";
   children: ReactNode;
 }) {
+  const tr = useTr();
   const levelClass =
     level === "country"
       ? "text-sm font-semibold text-fs-text max-md:text-base"
@@ -84,7 +85,7 @@ function TreeSectionHeader({
     <div
       className={`flex items-center gap-2 ${level === "country" ? "px-3 py-2" : "px-2 py-1.5"} max-md:py-2`}
     >
-      <ExpandToggle open={open} onToggle={onToggle} label={label} disabled={disabled} />
+      <ExpandToggle open={open} onToggle={onToggle} label={tr(label)} disabled={disabled} />
       <button
         type="button"
         disabled={disabled}
@@ -151,7 +152,7 @@ function IndicatorPickRow({
             onChange={onToggle}
           />
           <span className="min-w-0 flex-1">
-            <span className="block text-[11px] leading-snug text-fs-secondary max-md:text-[15px]">{label}</span>
+            <span className="block text-[11px] leading-snug text-fs-secondary max-md:text-[15px]">{tr(label)}</span>
             {showEn ? (
               <span className="mt-0.5 block truncate text-[9px] leading-snug text-fs-muted">
                 {labelEn}
@@ -710,10 +711,10 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                     level="country"
                     open={countryOpen}
                     onToggle={() => toggleCountry(country.code)}
-                    label={country.name}
+                    label={tr(country.name)}
                     disabled={disabled}
                   >
-                    {country.name}
+                    {tr(country.name)}
                     <span className="ml-2 text-[11px] font-normal text-fs-muted">
                       {country.code}
                     </span>
@@ -729,10 +730,10 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                                 level="category"
                                 open={categoryOpen}
                                 onToggle={() => toggleCategory(country.code, category.name)}
-                                label={category.name}
+                                label={tr(category.name)}
                                 disabled={disabled}
                               >
-                                {category.name}
+                                {tr(category.name)}
                               </TreeSectionHeader>
                               {categoryOpen ? (
                                 <ul className="space-y-0.5 border-t border-fs-border/70 py-1.5 pl-7 pr-2">
@@ -740,7 +741,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                                     <IndicatorPickRow
                                       key={key}
                                       itemKey={key}
-                                      label={label}
+                                      label={tr(label)}
                                       frequency={frequency}
                                       checked={selectedKeys.has(key)}
                                       highlighted={highlightKey === key}
@@ -774,10 +775,10 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                                                 subgroup.name,
                                               )
                                             }
-                                            label={subgroup.name}
+                                            label={tr(subgroup.name)}
                                             disabled={disabled}
                                           >
-                                            {subgroup.name}
+                                            {tr(subgroup.name)}
                                           </TreeSectionHeader>
                                           {sgOpen ? (
                                             <ul className="space-y-0.5 border-t border-fs-border py-1 pl-5 pr-1">
@@ -785,7 +786,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                                                 <IndicatorPickRow
                                                   key={key}
                                                   itemKey={key}
-                                                  label={label}
+                                                  label={tr(label)}
                                                   frequency={frequency}
                                                   checked={selectedKeys.has(key)}
                                                   highlighted={highlightKey === key}
@@ -825,7 +826,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                 <IndicatorPickRow
                   key={`pending-${hit.key}`}
                   itemKey={hit.key}
-                  label={hit.title}
+                  label={tr(hit.title)}
                   labelEn={hit.titleEn}
                   frequency={hit.frequency ?? "—"}
                   checked={selectedKeys.has(hit.key)}
@@ -897,7 +898,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                       <IndicatorPickRow
                         key={`ext-fred-${hit.sourceSeriesKey}`}
                         itemKey={rowKey}
-                        label={hit.title}
+                        label={tr(hit.title)}
                         labelEn={hit.titleEn}
                         frequency={hit.frequency ?? "—"}
                         checked={hit.key ? selectedKeys.has(hit.key) : false}
@@ -947,7 +948,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                       <IndicatorPickRow
                         key={`ext-wb-${hit.sourceSeriesKey}`}
                         itemKey={rowKey}
-                        label={hit.title}
+                        label={tr(hit.title)}
                         labelEn={hit.titleEn}
                         frequency={hit.frequency ?? tr("年")}
                         checked={hit.key ? selectedKeys.has(hit.key) : false}
