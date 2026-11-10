@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { localizeHref } from "@/i18n/locales";
+import { localizeServerMessage } from "@/i18n/serverMessages";
+
+const MFA_SESSION_EXPIRED = "设置会话已过期，请重新登录"; // i18n-ignore: 服务端错误原文
 import { Link } from "@/i18n/navigation";
 import { AuthPageShell, authInputClass } from "@/components/auth/AuthPageShell";
 import { WechatQrPanel } from "@/components/auth/WechatQrPanel";
@@ -54,9 +57,9 @@ export function AuthClient() {
     const wechatError = searchParams.get("wechat_error");
     if (wechatError) {
       setMethod("wechat");
-      setHint(t("wechatFailed", { error: wechatError }));
+      setHint(t("wechatFailed", { error: localizeServerMessage(wechatError, locale) }));
     }
-  }, [searchParams, t]);
+  }, [searchParams, t, locale]);
 
   useEffect(() => {
     if (!loginLock) return;
@@ -115,7 +118,7 @@ export function AuthClient() {
         }
       }
       if (!res.ok) {
-        if (mfaSetup && payload.error?.includes("设置会话已过期") /* i18n-ignore: 匹配服务端错误文本 */) {
+        if (mfaSetup && payload.error && payload.error === localizeServerMessage(MFA_SESSION_EXPIRED, locale)) {
           setMfaSetup(null);
           setTotpCode("");
         }

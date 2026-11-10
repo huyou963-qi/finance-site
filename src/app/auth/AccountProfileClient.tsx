@@ -1,6 +1,7 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { localizeServerMessage } from "@/i18n/serverMessages";
 import { useEffect, useState } from "react";
 import {
   AuthPageShell,
@@ -41,6 +42,7 @@ export function AccountProfileClient({
   wechatError?: string | null;
 } = {}) {
   const t = useTranslations("profile");
+  const locale = useLocale();
   const tc = useTranslations("common");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [email, setEmail] = useState("");
@@ -54,7 +56,7 @@ export function AccountProfileClient({
   const [wechatEnabled, setWechatEnabled] = useState(false);
   const [wechatHint, setWechatHint] = useState<string | null>(
     wechatError
-      ? t("wechatFailed", { error: wechatError })
+      ? t("wechatFailed", { error: localizeServerMessage(wechatError, locale) })
       : wechatStatus === "welcome"
         ? t("wechatWelcome")
         : wechatStatus === "bound"
