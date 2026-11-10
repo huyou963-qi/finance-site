@@ -213,3 +213,29 @@ export async function getQuarterlyFundamentalsDbFirst(
   }
   return rows.map(toRow).sort((a, b) => a.fiscalDate.localeCompare(b.fiscalDate));
 }
+
+/**
+ * 多只股票一次读取季度序列（只读库，不现场回补）。返回 symbol → 升序季度；库内无数据的
+ * symbol 不出现在结果里。since 限定期末日下界，避免把全部深历史读出来。
+ */
+export async function getQuarterlyFundamentalsBatch(
+  symbols: readonly string[],
+  opts: { since?: string } = {},
+): Promise<Map<string, QuarterSnapshotRow[]>> {
+  const out = new Map<string, QuarterSnapshotRow[]>();
+  if (!symbols.length) return out;
+  const rows = await prisma.equityFundamentalSnapshot.findMany({
+    where: {
+      symbol: { in: [...symbols] },
+      periodType: "Q",
+      ...(opts.since ? { asOf: { gte: new Date(`${opts.since}T00:00:00.000Z`) } } : {}),
+    },
+  });
+  for (const r of rows) {
+    const list = out.get(r.symbol) ?? [];
+    list.push(toRow(r));
+    out.set(r.symbol, list);
+  }
+  for (const list of out.values()) list.sort((a, b) => a.fiscalDate.localeCompare(b.fiscalDate));
+  return out;
+}
