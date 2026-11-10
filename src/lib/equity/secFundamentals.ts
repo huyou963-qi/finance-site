@@ -106,17 +106,20 @@ function firstConcept(
  */
 export async function fetchSecCompanyFacts(
   cik: string,
-  opts: { timeoutMs?: number } = {},
+  opts: {
+    timeoutMs?: number;
+    /** 读取 companyfacts 的来源（默认 data.sec.gov）；离线回填传入 SEC 全量归档的读取器 */
+    load?: (paddedCik: string) => Promise<unknown>;
+  } = {},
 ): Promise<unknown> {
   const timeoutMs =
     opts.timeoutMs ?? (Number(process.env.SEC_FETCH_TIMEOUT_MS) || 10_000);
-  const padded = padCik(cik);
-  const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${padded}.json`;
-  let facts = await fetchSecJson(url, timeoutMs);
+  const load = opts.load ?? ((padded: string) => fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${padded}.json`, timeoutMs));
+  let facts = await load(padCik(cik));
   // 只顺序读取已核实的法定/会计前身（每家公司最多2个）；旧主体只补生效日前。
   for (const rule of SEC_PREDECESSORS.filter(r => r.current === Number(cik))) {
     try {
-      const predecessor = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${padCik(String(rule.predecessor))}.json`, timeoutMs);
+      const predecessor = await load(padCik(String(rule.predecessor)));
       facts = mergeSecPredecessorFacts(facts, predecessor);
     } catch {
       // 历史补充失败不阻止当前主体日批更新；已有历史仍由补空writer保留。

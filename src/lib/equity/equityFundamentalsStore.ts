@@ -23,7 +23,7 @@ export async function upsertQuarterlyFundamentals(
 ): Promise<number> {
   if (!rows.length) return 0;
   const window = quarterlyWriteWindow(rows);
-  return prisma.$transaction(async tx => {
+  const attempt = () => prisma.$transaction(async tx => {
     const existing = await tx.equityFundamentalSnapshot.findMany({
       where: { symbol, periodType: "Q", period: window }, take: 103,
     });
@@ -38,6 +38,22 @@ export async function upsertQuarterlyFundamentals(
     }
     return n;
   }, { timeout: 30000, maxWait: 5000, isolationLevel: "Serializable" });
+  return retrySerializationFailure(attempt);
+}
+
+/**
+ * Serializable 事务在并发写入（日批与回填、或多进程回填）时会被数据库拒绝并要求重试（Prisma P2034）。
+ * 整个事务重新执行：重新读取库内现值、重新规划，因此合并语义不变。其他错误立即抛出。
+ */
+export async function retrySerializationFailure<T>(run: () => Promise<T>, attempts = 5, pause = (ms: number) => new Promise(r => setTimeout(r, ms))): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await run();
+    } catch (error) {
+      if ((error as { code?: string })?.code !== "P2034" || i >= attempts) throw error;
+      await pause(100 * 2 ** i + Math.floor(Math.random() * 200));
+    }
+  }
 }
 
 async function writeQuarterRows(
