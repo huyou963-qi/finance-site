@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requestSignupChannel } from "@/i18n/requestChannel";
 import { localizeServerMessage, requestLocale } from "@/i18n/serverMessages";
+import { registrationPhoneRequired } from "@/lib/auth/phonePolicy";
 import { requestRegistrationVerification } from "@/lib/auth";
 import { buildVerifyUrl, sendRegisterVerifyEmail } from "@/lib/mail";
 import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
@@ -19,6 +21,8 @@ export async function POST(req: NextRequest) {
       body.password ?? "",
       body.email ?? "",
       body.phone ?? "",
+      // 中文站必须填手机号；英文站（海外）可只用邮箱注册
+      { phoneRequired: registrationPhoneRequired(await requestSignupChannel(req)) },
     );
     const locale = requestLocale(req);
     const verifyUrl = buildVerifyUrl(pending.token, locale);

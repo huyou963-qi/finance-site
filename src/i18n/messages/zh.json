@@ -178,7 +178,9 @@
     "useEmailRegister": "使用邮箱注册",
     "wechatLogin": "微信扫码登录",
     "wechatRegister": "微信扫码注册",
-    "lockedNotice": "为保护账户，登录已暂停。剩余 <time></time>。倒计时结束后请重新登录；若正在绑定验证器，请使用届时显示的新密钥。"
+    "lockedNotice": "为保护账户，登录已暂停。剩余 <time></time>。倒计时结束后请重新登录；若正在绑定验证器，请使用届时显示的新密钥。",
+    "optionalSuffix": "（选填）",
+    "phoneOptionalPlaceholder": "选填，仅支持中国大陆手机号"
   },
   "authShell": {
     "intro": "登录后即可使用宏观仪表盘、行情图表与 AI 周度观察。",
@@ -232,7 +234,8 @@
     "wechatBoundAs": "已绑定：{name}",
     "unbind": "解绑",
     "wechatNotBound": "未绑定，绑定后可扫码登录本账号",
-    "bindWechat": "绑定微信"
+    "bindWechat": "绑定微信",
+    "phoneOptionalPlaceholder": "选填，仅支持中国大陆手机号"
   },
   "recover": {
     "submitted": "请求已提交，请查收邮件",

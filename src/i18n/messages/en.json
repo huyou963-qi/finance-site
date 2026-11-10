@@ -178,7 +178,9 @@
     "useEmailRegister": "Sign up with email",
     "wechatLogin": "Log in with WeChat",
     "wechatRegister": "Sign up with WeChat",
-    "lockedNotice": "Login is paused to protect your account. Time left: <time></time>. Log in again when the countdown ends; if you're setting up an authenticator, use the new key shown then."
+    "lockedNotice": "Login is paused to protect your account. Time left: <time></time>. Log in again when the countdown ends; if you're setting up an authenticator, use the new key shown then.",
+    "optionalSuffix": " (optional)",
+    "phoneOptionalPlaceholder": "Optional. Mainland China numbers only"
   },
   "authShell": {
     "intro": "Log in to use macro dashboards, market charts and AI weekly insights.",
@@ -232,7 +234,8 @@
     "wechatBoundAs": "Linked: {name}",
     "unbind": "Unlink",
     "wechatNotBound": "Not linked. Link it to log in by scanning.",
-    "bindWechat": "Link WeChat"
+    "bindWechat": "Link WeChat",
+    "phoneOptionalPlaceholder": "Optional. Mainland China numbers only"
   },
   "recover": {
     "submitted": "Request sent. Check your email.",

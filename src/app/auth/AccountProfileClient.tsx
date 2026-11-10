@@ -163,6 +163,8 @@ export function AccountProfileClient({
 
   // 与服务端 phoneRequiredForUser 一致：管理员、微信注册账号可不填联系方式
   const contactOptional = profile.role === "admin" || !!profile.wechatBound;
+  // 英文站（海外）注册的账号没有手机号，可保持为空；已有号码的账号仍不可清空（见 phonePolicy）
+  const phoneOptional = contactOptional || (locale === "en" && !profile.phone);
   const hasPassword = profile.hasPassword !== false;
 
   const membershipLabel = profile.hasProAccess
@@ -230,14 +232,20 @@ export function AccountProfileClient({
         </label>
         <label className="block text-sm text-fs-secondary">
           {t("phone")}
-          {contactOptional ? t("optionalSuffix") : ""}
+          {phoneOptional ? t("optionalSuffix") : ""}
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder={contactOptional ? t("optional") : t("phonePlaceholder")}
+            placeholder={
+              contactOptional
+                ? t("optional")
+                : phoneOptional
+                  ? t("phoneOptionalPlaceholder")
+                  : t("phonePlaceholder")
+            }
             className={authInputClass}
-            required={!contactOptional}
+            required={!phoneOptional}
           />
         </label>
 

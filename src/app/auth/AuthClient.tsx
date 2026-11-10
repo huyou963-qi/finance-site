@@ -18,6 +18,8 @@ export function AuthClient() {
   const tc = useTranslations("common");
   const locale = useLocale();
   const home = localizeHref("/", locale);
+  // 英文站面向海外用户：可只用邮箱注册（服务端同样按功能权限校验，见 phonePolicy）
+  const phoneOptional = locale === "en";
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [method, setMethod] = useState<"password" | "wechat">("password");
@@ -269,14 +271,15 @@ export function AuthClient() {
               </label>
               <label className="block text-sm text-fs-secondary">
                 {t("phone")}
+                {phoneOptional ? t("optionalSuffix") : ""}
                 <input
                   type="tel"
                   autoComplete="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder={t("phonePlaceholder")}
+                  placeholder={phoneOptional ? t("phoneOptionalPlaceholder") : t("phonePlaceholder")}
                   className={authInputClass}
-                  required
+                  required={!phoneOptional}
                 />
               </label>
             </>
@@ -329,7 +332,7 @@ export function AuthClient() {
               !username.trim() ||
               (!password && !mfaSetup) ||
               ((mfaRequired || mfaSetup) && totpCode.length !== (useRecoveryCode ? 16 : 6)) ||
-              (mode === "register" && (!email.trim() || !phone.trim()))
+              (mode === "register" && (!email.trim() || (!phoneOptional && !phone.trim())))
             }
             className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
           >

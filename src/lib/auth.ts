@@ -6,6 +6,7 @@ import { accessSummary, userHasProAccess } from "@/lib/billing/access";
 import { TRIAL_DAYS } from "@/lib/billing/pricing";
 import { decryptTotpSecret, encryptTotpSecret, newTotpSecret, verifyTotp } from "@/lib/auth/adminMfa";
 import { checkLoginThrottle, clearLoginFailures, recordLoginFailure } from "@/lib/auth/loginThrottle";
+import { profilePhoneRequired, type SignupChannel } from "@/lib/auth/phonePolicy";
 import {
   parseUserPlan,
   validateUserPlan,
@@ -247,11 +248,15 @@ export async function registerUser(
   };
 }
 
+/** 待验证注册表的 phone 列不可为空；海外邮箱注册（不填手机号）存空串 */
+const NO_PENDING_PHONE = "";
+
 export async function requestRegistrationVerification(
   usernameRaw: string,
   passwordRaw: string,
   emailRaw: string,
   phoneRaw: string,
+  options?: { phoneRequired?: boolean },
 ): Promise<{
   token: string;
   expiresAt: string;
@@ -262,7 +267,8 @@ export async function requestRegistrationVerification(
   const username = validateUsername(usernameRaw);
   const password = validatePassword(passwordRaw);
   const email = validateEmail(emailRaw);
-  const phone = validatePhone(phoneRaw);
+  // 默认必填中国大陆手机号；海外（英文站）注册可不填，见 src/lib/auth/phonePolicy.ts
+  const phone = parseOptionalPhone(phoneRaw, { required: options?.phoneRequired ?? true });
 
   await ensureAdminSeed();
 
@@ -274,8 +280,10 @@ export async function requestRegistrationVerification(
   const existsEmail = await prisma.user.findFirst({ where: { email } });
   if (existsEmail) throw new Error("邮箱已被注册");
 
-  const existsPhone = await prisma.user.findFirst({ where: { phone } });
-  if (existsPhone) throw new Error("手机号已被注册");
+  if (phone) {
+    const existsPhone = await prisma.user.findFirst({ where: { phone } });
+    if (existsPhone) throw new Error("手机号已被注册");
+  }
 
   await prisma.pendingRegistration.deleteMany({
     where: {
@@ -288,7 +296,8 @@ export async function requestRegistrationVerification(
       OR: [
         { username: { equals: username, mode: "insensitive" } },
         { email: { equals: email, mode: "insensitive" } },
-        { phone },
+        // 没填手机号时不按空串匹配，以免删掉其他海外用户的待验证注册
+        ...(phone ? [{ phone }] : []),
       ],
     },
   });
@@ -303,7 +312,7 @@ export async function requestRegistrationVerification(
       token,
       username,
       email,
-      phone,
+      phone: phone ?? NO_PENDING_PHONE,
       passHash: hashPassword(password, salt),
       passSalt: salt,
       createdAt: new Date(),
@@ -311,7 +320,7 @@ export async function requestRegistrationVerification(
     },
   });
 
-  return { token, expiresAt: expiresAt.toISOString(), username, email, phone };
+  return { token, expiresAt: expiresAt.toISOString(), username, email, phone: phone ?? "" };
 }
 
 export async function verifyRegistrationToken(
@@ -349,10 +358,13 @@ export async function verifyRegistrationToken(
     throw new Error("邮箱已被注册，请更换后重试");
   }
 
-  const existsPhone = await prisma.user.findFirst({ where: { phone: row.phone } });
-  if (existsPhone) {
-    await prisma.pendingRegistration.delete({ where: { token: t } });
-    throw new Error("手机号已被注册，请更换后重试");
+  const pendingPhone = row.phone === NO_PENDING_PHONE ? null : row.phone;
+  if (pendingPhone) {
+    const existsPhone = await prisma.user.findFirst({ where: { phone: pendingPhone } });
+    if (existsPhone) {
+      await prisma.pendingRegistration.delete({ where: { token: t } });
+      throw new Error("手机号已被注册，请更换后重试");
+    }
   }
 
   const user = await prisma.$transaction(async (tx) => {
@@ -362,7 +374,7 @@ export async function verifyRegistrationToken(
         id: uid(),
         username: row.username,
         email: row.email,
-        phone: row.phone,
+        phone: pendingPhone,
         emailVerifiedAt: new Date(),
         passHash: row.passHash,
         passSalt: row.passSalt,
@@ -382,7 +394,7 @@ export async function verifyRegistrationToken(
     role: user.role as Role,
     plan: parseUserPlan(user.plan),
     email: user.email!,
-    phone: user.phone!,
+    phone: user.phone ?? "",
   };
 }
 
@@ -850,7 +862,13 @@ export async function updateUserAccount(
     role?: Role;
     plan?: UserPlan;
   },
-  options?: { currentPassword?: string; byAdmin?: boolean; tx?: Prisma.TransactionClient },
+  options?: {
+    currentPassword?: string;
+    byAdmin?: boolean;
+    tx?: Prisma.TransactionClient;
+    /** 请求来自哪个站；英文站的海外账号可不填手机号（见 phonePolicy） */
+    channel?: SignupChannel;
+  },
 ) {
   if (!options?.tx) await ensureAdminSeed();
   const db = options?.tx ?? prisma;
@@ -891,7 +909,9 @@ export async function updateUserAccount(
 
   if (patch.phone !== undefined) {
     const phone = parseOptionalPhone(patch.phone, {
-      required: phoneRequiredForUser(user),
+      required: options?.channel
+        ? profilePhoneRequired(phoneRequiredForUser(user), user.phone, options.channel)
+        : phoneRequiredForUser(user),
     });
     if (phone) {
       const existsPhone = await db.user.findFirst({

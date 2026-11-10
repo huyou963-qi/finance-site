@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requestSignupChannel } from "@/i18n/requestChannel";
 import { localizeServerMessage, requestLocale } from "@/i18n/serverMessages";
 import { getUserByRequest, getUserProfile, updateUserAccount } from "@/lib/auth";
 import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
@@ -31,7 +32,7 @@ export async function PATCH(req: NextRequest) {
         phone: body.phone,
         password: body.password,
       },
-      { currentPassword: body.currentPassword },
+      { currentPassword: body.currentPassword, channel: await requestSignupChannel(req) },
     );
     return NextResponse.json({ user });
   } catch (e) {
