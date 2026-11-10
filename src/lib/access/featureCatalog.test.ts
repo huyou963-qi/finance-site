@@ -210,3 +210,9 @@ test("路由映射取最长前缀", () => {
   assert.equal(featureIdForPath("/pricing"), null);
   assert.equal(featureIdForPath("/macrofoo"), null);
 });
+
+test("英文界面默认保持开发中（上线由管理员在 /admin/feature-access 操作，不改代码默认值）", () => {
+  const def = FEATURE_CATALOG.find((f) => f.id === "site-language-en");
+  assert.ok(def);
+  assert.equal(def.defaults.status, "development");
+});
