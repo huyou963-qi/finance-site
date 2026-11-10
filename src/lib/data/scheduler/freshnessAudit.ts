@@ -1,11 +1,12 @@
 import { SourceAdapterKind, type DataGranularity } from "@prisma/client";
 import { subscriptionEligibleForSchedule } from "./subscriptionEligibility";
 import { isHistoricalCensusSeries } from "./usTradeDetail/lifecycle";
+import { sourcePendingUntil } from "./sourcePending";
 
 export type FreshnessFindingCode =
   | "no_subscription" | "disabled" | "unschedulable" | "no_observations"
   | "never_fetched" | "bookkeeping_drift" | "fetch_error" | "overdue"
-  | "source_ahead" | "source_value_differs" | "source_probe_failed";
+  | "source_ahead" | "source_value_differs" | "source_probe_failed" | "source_pending";
 
 export type FreshnessFinding = {
   code: FreshnessFindingCode;
@@ -83,7 +84,14 @@ export function inspectFreshnessRow(row: FreshnessAuditRow, now: Date): Freshnes
     row.actualLastObsDate.getTime() !== row.subscribedLastObsDate.getTime())) {
     add("bookkeeping_drift", "warning", `订阅末期 ${row.subscribedLastObsDate?.toISOString().slice(0, 10) ?? "空"}，实际观测 ${row.actualLastObsDate.toISOString().slice(0, 10)}`);
   }
-  if (row.lastError || row.lastFetchStatus === "FAILED") {
+  const pendingUntil = sourcePendingUntil(row.lastError);
+  if (pendingUntil) {
+    // Source published the period but has not filled this member yet; only
+    // an alarm once the source's normal catch-up window has passed.
+    const late = now > pendingUntil;
+    add("source_pending", late ? "critical" : "warning",
+      `${late ? "源端补齐已超期" : `源端待补齐（宽限至 ${pendingUntil.toISOString().slice(0, 10)}）`}：${row.lastError!.slice(0, 160)}`);
+  } else if (row.lastError || row.lastFetchStatus === "FAILED") {
     add("fetch_error", "critical", (row.lastError ?? "最近一次抓取失败").slice(0, 180));
   }
   if (row.enabled && row.nextRunAt) {

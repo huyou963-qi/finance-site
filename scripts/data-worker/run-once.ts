@@ -20,6 +20,7 @@ import { syncSafePackage } from "../../src/lib/data/scheduler/safeExternal/syncP
 import { parsePackageReleaseTemplate } from "../../src/lib/data/scheduler/releasePackageStore";
 import { syncCensusPackage } from "../../src/lib/data/scheduler/usTradeDetail/syncPackage";
 import { backoffFailedPackage } from "../../src/lib/data/scheduler/packageFailureBackoff";
+import { isSourcePending } from "../../src/lib/data/scheduler/sourcePending";
 
 loadEnvConfig(process.cwd());
 
@@ -193,11 +194,16 @@ async function main() {
         fail += 1;
         console.log(`FAIL: ${result.error}`);
         if (sub.releasePackageId && sharedCalendarSchedule) {
-          failedPackages.set(sub.releasePackageId, {
-            memberCode: sub.instrument.code,
-            error: result.error ?? "unknown package member failure",
-          });
-          await backoffFailedPackage(prisma, sub, result.error ?? "unknown");
+          // The source is up but this member's period is not out yet: keep
+          // fetching the siblings that do have it, and retry the package.
+          const sourcePending = isSourcePending(result.error);
+          if (!sourcePending) {
+            failedPackages.set(sub.releasePackageId, {
+              memberCode: sub.instrument.code,
+              error: result.error ?? "unknown package member failure",
+            });
+          }
+          await backoffFailedPackage(prisma, sub, result.error ?? "unknown", new Date(), { sourcePending });
         }
       } else {
         if (result.status === "skipped") skipped += 1;

@@ -1,5 +1,5 @@
 export const JP_CAO_WATCHERS_PAGE_URL = "https://www5.cao.go.jp/keizai3/watcher.html";
-export const JP_CAO_WATCHERS_WORKBOOK_URL = "https://www5.cao.go.jp/keizai3/watcher/watcher5.xls";
+export const JP_CAO_WATCHERS_WORKBOOK_URL = "https://www5.cao.go.jp/keizai3/watcher/watcher5.xlsx";
 export const JP_CAO_WATCHERS_SCHEDULE_URL = "https://www5.cao.go.jp/keizai3/watcher/watcher-yotei.html";
 export const JP_CAO_WATCHERS_TERMS_URL = "https://www.cao.go.jp/notice/rule.html";
 export const JP_CAO_WATCHERS_SOURCE_ID = "jp-cao-economy-watchers";

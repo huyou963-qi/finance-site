@@ -52,3 +52,13 @@ test("projections are checked against their actual fact store, not exempted unco
   assert.deepEqual(inspectFreshnessRow({...projection,projectionLastObsDate:new Date("2026-09-01")},now),[]);
   assert.ok(inspectFreshnessRow({...projection,projectionLastObsDate:new Date("2020-01-01")},now).some(f=>f.code==="overdue"));
 });
+
+test("a source-pending member is a warning inside its grace window and critical after it", () => {
+  const lastError = "[source_pending until=2026-10-05] 国家统计局 PPI：已发布 2026-09，但 x 未列入月报且国家数据尚未补齐";
+  const pending = { ...base, lastError, lastFetchStatus: "FAILED" };
+  const inside = inspectFreshnessRow(pending, now);
+  assert.ok(inside.some((f) => f.code === "source_pending" && f.severity === "warning"));
+  assert.ok(!inside.some((f) => f.code === "fetch_error"));
+  const after = inspectFreshnessRow(pending, new Date("2026-10-06T00:00:00Z"));
+  assert.ok(after.some((f) => f.code === "source_pending" && f.severity === "critical"));
+});

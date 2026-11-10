@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as XLSX from "xlsx";
-import { fetchNbsPpiIncremental } from "./nbsPpiAdapter";
+import { fetchNbsPpiIncremental, nbsPpiPortalGapError, nbsReleaseDate } from "./nbsPpiAdapter";
+import { isSourcePending, sourcePendingUntil } from "../sourcePending";
 import { clearPriceWorkbookCache } from "../nbsPriceRelease/client";
 
 const workbook = () => {
@@ -42,4 +43,18 @@ test("PPI official release closes JSON publication lag; missing industries do no
       assert.equal(fileReads,1);
     });
   } finally {globalThis.fetch=original;clearPriceWorkbookCache();}
+});
+
+test("a member one month behind the release is source-pending; an older gap is a plain failure", () => {
+  const october = new Date("2026-10-01T00:00:00Z");
+  const article = "https://www.stats.gov.cn/sj/zxfb/202611/t20261110_1960000.html";
+  const pending = nbsPpiPortalGapError("nbs_cn_ppi_repair_index", october, new Date("2026-09-01T00:00:00Z"), article);
+  assert.ok(isSourcePending(pending.message));
+  assert.equal(sourcePendingUntil(pending.message)?.toISOString().slice(0, 10), "2026-11-17");
+  assert.match(pending.message, /尚未补齐/);
+  const stale = nbsPpiPortalGapError("nbs_cn_ppi_repair_index", october, new Date("2026-08-01T00:00:00Z"), article);
+  assert.ok(!isSourcePending(stale.message));
+  assert.ok(!isSourcePending(nbsPpiPortalGapError("nbs_cn_ppi_repair_index", october, undefined, article).message));
+  // No date in the article URL: assume the 15th of the following month.
+  assert.equal(nbsReleaseDate("202611/ppi.html", october).toISOString().slice(0, 10), "2026-11-15");
 });

@@ -25,3 +25,20 @@ test("a failed later member cannot fan a preserved past nextRunAt over the packa
     assert.ok(writes.every(x => x.nextRunAt?.getTime() === next.getTime()));
   }
 });
+
+test("a source-pending member reschedules siblings without stamping them failed", async () => {
+  const siblingWrites: Record<string, unknown>[] = [];
+  const p = { dataSubscription: {
+    update: async () => ({}),
+    updateMany: async (q: { data: Record<string, unknown> }) => { siblingWrites.push(q.data); },
+  }, releasePackage: {
+    findUnique: async () => ({ nextRunAt: null }), update: async () => ({}),
+  }, $transaction: async (qs: Promise<unknown>[]) => Promise.all(qs),
+  scheduleAuditEvent: { create: async () => ({}) } } as unknown as PrismaClient;
+  const sub = { id: "pending", releasePackageId: "pkg", retryCount: 0, instrument: { code: "pending" } } as SubscriptionWithRelations;
+  const now = new Date("2026-11-10T10:00Z");
+  const next = await backoffFailedPackage(p, sub, "[source_pending until=2026-11-17] lag", now, { sourcePending: true });
+  assert.deepEqual(siblingWrites, [{ nextRunAt: next }]);
+  await backoffFailedPackage(p, sub, "HTTP 500", now);
+  assert.match(String((siblingWrites as Record<string, unknown>[])[1]?.lastError), /package member pending failed/);
+});
