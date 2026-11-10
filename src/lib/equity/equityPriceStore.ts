@@ -562,3 +562,32 @@ export async function getOwnershipMarketContext(symbol: string, asOf: string) {
   return { splits, adv20, volumeDays: volumes.length, latest, source: coverage?.source ?? null,
     issue: adv20 == null ? "需要最近七日内结束的20根有效日线成交量" : null };
 }
+
+/**
+ * 多标的日线窗口 + 拆股事件，一次读取、只读库（不触发远端回补）。
+ * 返回原始口径（close 已按拆股调整、adjClose 含分红），复权与因子计算交给
+ * priceAdjustment / factorCompute。供「股票数据」页按截止日、区间批量取行情。
+ */
+export async function getRawDailyBarWindowsDbOnly(options: {
+  symbols: readonly string[];
+  from: Date;
+  to: Date;
+}): Promise<{ bars: Map<string, RawDailyBar[]>; splits: Map<string, SplitEvent[]> }> {
+  const symbols = [...new Set(options.symbols.map(normalizeSymbol).filter(Boolean))];
+  if (symbols.length === 0 || options.from > options.to) return { bars: new Map(), splits: new Map() };
+  const [rows, splits] = await Promise.all([
+    prisma.equityDailyBar.findMany({
+      where: { symbol: { in: symbols }, date: { gte: options.from, lte: options.to } },
+      orderBy: [{ symbol: "asc" }, { date: "asc" }],
+      select: { symbol: true, ...BAR_SELECT },
+    }),
+    readSplits(symbols),
+  ]);
+  const bars = new Map<string, RawDailyBar[]>();
+  for (const r of rows) {
+    const list = bars.get(r.symbol) ?? [];
+    list.push(rowToRaw(r));
+    bars.set(r.symbol, list);
+  }
+  return { bars, splits };
+}

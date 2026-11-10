@@ -274,6 +274,7 @@
     "equity:sync-dera-insider": "dotenv -e .env.local -- node --max-old-space-size=768 node_modules/tsx/dist/cli.mjs scripts/equity/sync-dera-insider.ts",
     "equity:check-dera-prices": "dotenv -e .env.local -- tsx scripts/equity/check-dera-prices.ts",
     "equity:verify-dera-insider": "dotenv -e .env.local -- tsx scripts/equity/verify-dera-insider.ts",
+    "equity:verify-stock-data-factors": "dotenv -e .env.local -- tsx scripts/equity/verify-stock-data-factors.ts",
     "equity:build-backfill-universe": "dotenv -e .env.local -- tsx scripts/equity/build-backfill-universe.ts",
     "equity:sync-sec": "dotenv -e .env.local -- tsx scripts/equity/sync-sec.ts",
     "equity:sync-prices": "dotenv -e .env.local -- tsx scripts/equity/sync-prices.ts",

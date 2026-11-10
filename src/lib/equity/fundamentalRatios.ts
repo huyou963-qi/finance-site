@@ -126,7 +126,7 @@ export type FiscalYearRow = QuarterFundamentalRow & {
   epsYoY: number | null;
 };
 
-type QuarterWithMargins = QuarterFundamentalRow & {
+export type QuarterWithMargins = QuarterFundamentalRow & {
   lines?: StatementLines;
   grossMargin?: number | null;
   opMargin?: number | null;
@@ -141,7 +141,7 @@ function spanDays(a: string, b: string): number {
 }
 
 function sumOrNull(
-  rows: QuarterWithMargins[],
+  rows: readonly QuarterWithMargins[],
   sel: (r: QuarterWithMargins) => number | null | undefined,
 ): number | null {
   let acc = 0;
@@ -151,6 +151,67 @@ function sumOrNull(
     acc += v;
   }
   return acc;
+}
+
+/**
+ * 四个连续季度合成一期：流量求和、时点取末季、毛利/营业利润率按营收加权重算。
+ * 财年（aggregateFiscalYears）与任意 TTM 窗口共用这一口径。period 标为末季标签，调用方可覆盖。
+ */
+export function aggregateQuarterGroup(g: readonly QuarterWithMargins[]): FiscalYearRow {
+  const last = g[3]!;
+  const revenue = sumOrNull(g, (r) => r.revenue);
+  const grossAmt = sumOrNull(g, (r) =>
+    r.grossMargin != null && r.revenue != null ? r.grossMargin * r.revenue : null,
+  );
+  const opAmt = sumOrNull(g, (r) =>
+    r.opMargin != null && r.revenue != null ? r.opMargin * r.revenue : null,
+  );
+  const ocf = sumOrNull(g, (r) => r.ocf);
+  const capex = sumOrNull(g, (r) => r.capex);
+  return {
+    period: last.period,
+    fiscalDate: last.fiscalDate,
+    quarterPeriods: g.map((r) => r.period),
+    revenue,
+    revenueYoY: null,
+    grossMargin: revenue != null && revenue !== 0 && grossAmt != null ? grossAmt / revenue : null,
+    opMargin: revenue != null && revenue !== 0 && opAmt != null ? opAmt / revenue : null,
+    netIncome: sumOrNull(g, (r) => r.netIncome),
+    eps: sumOrNull(g, (r) => r.eps),
+    epsYoY: null,
+    ocf,
+    capex,
+    dividendsPaid: sumOrNull(g, (r) => r.dividendsPaid),
+    buybackPaid: sumOrNull(g, (r) => r.buybackPaid),
+    totalAssets: last.totalAssets,
+    totalLiabilities: last.totalLiabilities,
+    equity: last.equity,
+    longTermDebt: last.longTermDebt,
+    cash: last.cash,
+    sharesOutstanding: last.sharesOutstanding,
+    lines: aggregateStatementLines(g.map((r) => r.lines ?? {})),
+  };
+}
+
+/**
+ * 截至第 end 季（升序下标）的滚动 4 季合成（TTM）。四季跨度不像连续四个季度（断档）时返回 null，
+ * 与 aggregateFiscalYears 的断档判据一致。
+ */
+export function aggregateTrailingFour(rows: readonly QuarterWithMargins[], end: number): FiscalYearRow | null {
+  if (end < 3 || end >= rows.length) return null;
+  const g = rows.slice(end - 3, end + 1);
+  const span = spanDays(g[0]!.fiscalDate, g[3]!.fiscalDate);
+  if (span < 240 || span > 300) return null;
+  return aggregateQuarterGroup(g);
+}
+
+/** 报表展示用的两个派生值：FCF = 经营现金流 − 资本开支；净利率 = 净利润 / 营收 */
+export function withStatementDerived<T extends { revenue: number | null; netIncome: number | null; ocf: number | null; capex: number | null }>(r: T): T & { fcf: number | null; netMargin: number | null } {
+  return {
+    ...r,
+    fcf: r.ocf != null && r.capex != null ? r.ocf - r.capex : null,
+    netMargin: r.netIncome != null && r.revenue != null && r.revenue !== 0 ? r.netIncome / r.revenue : null,
+  };
 }
 
 /**
@@ -182,41 +243,10 @@ export function aggregateFiscalYears(quarters: QuarterWithMargins[]): FiscalYear
     }
   }
 
-  const out: FiscalYearRow[] = groups.map((g) => {
-    const last = g[3]!;
-    const revenue = sumOrNull(g, (r) => r.revenue);
-    const grossAmt = sumOrNull(g, (r) =>
-      r.grossMargin != null && r.revenue != null ? r.grossMargin * r.revenue : null,
-    );
-    const opAmt = sumOrNull(g, (r) =>
-      r.opMargin != null && r.revenue != null ? r.opMargin * r.revenue : null,
-    );
-    const ocf = sumOrNull(g, (r) => r.ocf);
-    const capex = sumOrNull(g, (r) => r.capex);
-    return {
-      period: `FY${last.fiscalDate.slice(0, 4)}`,
-      fiscalDate: last.fiscalDate,
-      quarterPeriods: g.map((r) => r.period),
-      revenue,
-      revenueYoY: null,
-      grossMargin: revenue != null && revenue !== 0 && grossAmt != null ? grossAmt / revenue : null,
-      opMargin: revenue != null && revenue !== 0 && opAmt != null ? opAmt / revenue : null,
-      netIncome: sumOrNull(g, (r) => r.netIncome),
-      eps: sumOrNull(g, (r) => r.eps),
-      epsYoY: null,
-      ocf,
-      capex,
-      dividendsPaid: sumOrNull(g, (r) => r.dividendsPaid),
-      buybackPaid: sumOrNull(g, (r) => r.buybackPaid),
-      totalAssets: last.totalAssets,
-      totalLiabilities: last.totalLiabilities,
-      equity: last.equity,
-      longTermDebt: last.longTermDebt,
-      cash: last.cash,
-      sharesOutstanding: last.sharesOutstanding,
-      lines: aggregateStatementLines(g.map((r) => r.lines ?? {})),
-    };
-  });
+  const out: FiscalYearRow[] = groups.map((g) => ({
+    ...aggregateQuarterGroup(g),
+    period: `FY${g[3]!.fiscalDate.slice(0, 4)}`,
+  }));
 
   for (let i = 1; i < out.length; i++) {
     const curr = out[i]!;
