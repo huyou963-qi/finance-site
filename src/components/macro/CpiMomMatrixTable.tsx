@@ -8,6 +8,7 @@ import {
   type CpiMomMatrixRow,
 } from "@/lib/data/cpi/cpiMomMatrixCatalog";
 import { compareMacroPeriodLabels, formatMacroPeriodDisplay } from "@/lib/macroPeriodLabel";
+import { useTr } from "@/i18n/TextProvider";
 
 type UnifiedSeries = { key: string; name: string; data: (number | null)[] };
 type UnifiedPayload = { categories: string[]; series: UnifiedSeries[] };
@@ -93,6 +94,7 @@ function indentPadding(indent: CpiMomMatrixRow["indent"]): string {
 }
 
 export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number }) {
+  const tr = useTr();
   const [payload, setPayload] = useState<UnifiedPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,7 +114,7 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
         if (!cancelled) setPayload(json);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "加载失败");
+        if (!cancelled) setError(e instanceof Error ? e.message : tr("加载失败"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -120,7 +122,7 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tr]);
 
   const { columns, momByRow, yoyByRow, latestPeriod } = useMemo(() => {
     if (!payload) {
@@ -153,19 +155,18 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
   }, [payload, months]);
 
   if (loading) {
-    return <div className="py-10 text-center text-sm text-fs-muted">加载 CPI 分项数据中…</div>;
+    return <div className="py-10 text-center text-sm text-fs-muted">{tr("加载 CPI 分项数据中…")}</div>;
   }
   if (error) {
     return (
-      <div className="py-10 text-center text-sm text-red-400">
-        加载失败：{error}
+      <div className="py-10 text-center text-sm text-red-400">{tr("加载失败：")}{error}
       </div>
     );
   }
 
   const yoyTitle = latestPeriod
-    ? `相对最新月（${formatMacroPeriodDisplay(latestPeriod, columns)}）的去年同月`
-    : "相对最新月的去年同月";
+    ? tr("相对最新月（{v0}）的去年同月", { v0: formatMacroPeriodDisplay(latestPeriod, columns) })
+    : tr("相对最新月的去年同月");
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto">
@@ -173,9 +174,7 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
         <table className="w-max min-w-full border-separate border-spacing-0 text-xs">
           <thead>
             <tr className="bg-fs-elevated">
-              <th className="sticky left-0 z-10 border-b border-fs-border bg-fs-elevated px-3 py-2 text-left font-semibold text-fs-text">
-                分项（季调环比 %）
-              </th>
+              <th className="sticky left-0 z-10 border-b border-fs-border bg-fs-elevated px-3 py-2 text-left font-semibold text-fs-text">{tr("分项（季调环比 %）")}</th>
               {columns.map((c) => (
                 <th
                   key={c}
@@ -187,12 +186,8 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
               <th
                 className="border-b border-l border-fs-border bg-fs-elevated px-3 py-2 text-right font-semibold text-fs-text whitespace-nowrap"
                 title={yoyTitle}
-              >
-                同比 %
-              </th>
-              <th className="border-b border-l border-fs-border bg-fs-elevated px-3 py-2 text-right font-semibold text-fs-text whitespace-nowrap">
-                权重 %
-              </th>
+              >{tr("同比 %")}</th>
+              <th className="border-b border-l border-fs-border bg-fs-elevated px-3 py-2 text-right font-semibold text-fs-text whitespace-nowrap">{tr("权重 %")}</th>
             </tr>
           </thead>
           <tbody>

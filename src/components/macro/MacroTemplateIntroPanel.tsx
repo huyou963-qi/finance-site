@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { INTRO_HTML_MAX_LEN, sanitizeMacroIntroHtml } from "@/lib/data/macroIntroHtml";
+import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
 
 export type MacroTemplateIntroIndicator = { key: string; label: string };
 export type MacroTemplateIntroChartSection = { slotKey: string; title: string };
@@ -24,12 +26,12 @@ const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (char) => ({
 })[char] ?? char);
 
 function legacyIntro(chartSections: MacroTemplateIntroChartSection[] | undefined,
-  indicators: MacroTemplateIntroIndicator[], notes: Record<string, string>): string {
+  indicators: MacroTemplateIntroIndicator[], notes: Record<string, string>, tr: Tr): string {
   const blocks: string[] = [];
   if (chartSections?.length) {
     chartSections.forEach(({ slotKey, title }, index) => {
       const note = notes[slotKey]?.trim();
-      if (note) blocks.push(`图 ${index + 1} · ${title}\n${note}`);
+      if (note) blocks.push(`${tr("图 {n}", { n: index + 1 })} · ${title}\n${note}`);
     });
   } else {
     indicators.forEach(({ key, label }) => {
@@ -48,6 +50,7 @@ function textToParagraphs(text: string): string {
 export function MacroTemplateIntroPanel({ templateName, templateDescription, introText,
   introHtml, chartSections, indicators, notes, onIntroHtmlChange, editable = false,
   className = "" }: MacroTemplateIntroPanelProps) {
+  const tr = useTr();
   const editorRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Range | null>(null);
   const lastValidRef = useRef("");
@@ -55,9 +58,9 @@ export function MacroTemplateIntroPanel({ templateName, templateDescription, int
   const canEdit = editable && Boolean(onIntroHtmlChange);
   const initialHtml = useMemo(() => {
     if (introHtml !== null && introHtml !== undefined) return sanitizeMacroIntroHtml(introHtml) ?? "";
-    const body = introText?.trim() || legacyIntro(chartSections, indicators, notes);
+    const body = introText?.trim() || legacyIntro(chartSections, indicators, notes, tr);
     return textToParagraphs([templateDescription?.trim(), body].filter(Boolean).join("\n\n"));
-  }, [introHtml, introText, templateDescription, chartSections, indicators, notes]);
+  }, [introHtml, introText, chartSections, indicators, notes, tr, templateDescription]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -148,24 +151,23 @@ export function MacroTemplateIntroPanel({ templateName, templateDescription, int
   return (
     <div className={`flex min-h-0 flex-1 flex-col gap-2 ${className}`}>
       <p className="shrink-0 text-[11px] font-medium text-fs-text">
-        {templateName?.trim() || "当前工作区"}
+        {templateName?.trim() || tr("当前工作区")}
       </p>
       {canEdit && (
         <div className="flex shrink-0 flex-wrap items-center gap-1" onMouseDown={rememberSelection}>
-          <select aria-label="字体" title="字体" className={selectClass} defaultValue="" onChange={(e) => { command("fontName", e.target.value); e.target.value = ""; }}>
-            <option value="" disabled>字体</option>
+          <select aria-label={tr("字体")} title={tr("字体")} className={selectClass} defaultValue="" onChange={(e) => { command("fontName", e.target.value); e.target.value = ""; }}>
+            <option value="" disabled>{tr("字体")}</option>
             {["Arial", "Georgia", "Times New Roman", "Microsoft YaHei", "SimSun"].map((font) => <option key={font} value={font}>{font}</option>)}
           </select>
-          <select aria-label="字体大小" title="字体大小" className={selectClass} defaultValue="" onChange={(e) => { setFontSize(e.target.value); e.target.value = ""; }}>
-            <option value="" disabled>字号</option>
+          <select aria-label={tr("字体大小")} title={tr("字体大小")} className={selectClass} defaultValue="" onChange={(e) => { setFontSize(e.target.value); e.target.value = ""; }}>
+            <option value="" disabled>{tr("字号")}</option>
             {["10", "12", "14", "16", "18", "20", "24", "28", "32"].map((size) => <option key={size} value={size}>{size}px</option>)}
           </select>
-          <label className="flex items-center gap-1 text-[10px] text-fs-text" title="字体颜色">
-            字色 <input type="color" aria-label="字体颜色" defaultValue="#222222" className="h-6 w-6 cursor-pointer" onChange={(e) => command("foreColor", e.target.value)} />
+          <label className="flex items-center gap-1 text-[10px] text-fs-text" title={tr("字体颜色")}>{tr("字色")}{" "}<input type="color" aria-label={tr("字体颜色")} defaultValue="#222222" className="h-6 w-6 cursor-pointer" onChange={(e) => command("foreColor", e.target.value)} />
           </label>
-          <button type="button" title="新段落" className={selectClass} onMouseDown={(e) => e.preventDefault()} onClick={() => command("formatBlock", "p")}>段落</button>
-          <select aria-label="行间距" title="行间距" className={selectClass} defaultValue="" onChange={(e) => { setLineHeight(e.target.value); e.target.value = ""; }}>
-            <option value="" disabled>行距</option>
+          <button type="button" title={tr("新段落")} className={selectClass} onMouseDown={(e) => e.preventDefault()} onClick={() => command("formatBlock", "p")}>{tr("段落")}</button>
+          <select aria-label={tr("行间距")} title={tr("行间距")} className={selectClass} defaultValue="" onChange={(e) => { setLineHeight(e.target.value); e.target.value = ""; }}>
+            <option value="" disabled>{tr("行距")}</option>
             {["1", "1.25", "1.5", "1.75", "2", "2.5"].map((spacing) => <option key={spacing} value={spacing}>{spacing}</option>)}
           </select>
         </div>
@@ -173,7 +175,7 @@ export function MacroTemplateIntroPanel({ templateName, templateDescription, int
       <div
         ref={editorRef}
         role="textbox"
-        aria-label="模板介绍"
+        aria-label={tr("模板介绍")}
         aria-multiline="true"
         contentEditable={canEdit}
         suppressContentEditableWarning

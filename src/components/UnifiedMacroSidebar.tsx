@@ -16,6 +16,7 @@ import {
   labelForVariantKey,
   variantKeysForBase,
 } from "@/lib/data/fredTitleZh";
+import { useTr } from "@/i18n/TextProvider";
 
 function categoryCompositeKey(countryCode: string, categoryName: string, subgroupName?: string | null) {
   return categoryTreeKey(countryCode, categoryName, subgroupName);
@@ -39,12 +40,13 @@ function ExpandToggle({
   label: string;
   disabled?: boolean;
 }) {
+  const tr = useTr();
   return (
     <button
       type="button"
       disabled={disabled}
       aria-expanded={open}
-      aria-label={open ? `折叠${label}` : `展开${label}`}
+      aria-label={open ? tr("折叠{label}", { label }) : tr("展开{label}", { label })}
       onClick={(e) => {
         e.stopPropagation();
         onToggle();
@@ -122,6 +124,7 @@ function IndicatorPickRow({
   badge?: string | null;
   weakBadge?: boolean;
 }) {
+  const tr = useTr();
   const showEn =
     Boolean(labelEn?.trim()) &&
     labelEn!.trim() !== label.trim() &&
@@ -134,7 +137,7 @@ function IndicatorPickRow({
           e.preventDefault();
           onDoubleClickAdd?.();
         }}
-        title={onDoubleClickAdd ? "双击选择原值/同比/环比后添加" : undefined}
+        title={onDoubleClickAdd ? tr("双击选择原值/同比/环比后添加") : undefined}
         className={`flex flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 transition max-md:flex-nowrap max-md:gap-2 max-md:py-1.5 ${
           disabled ? "opacity-40" : "hover:bg-fs-elevated/90"
         } ${highlighted ? "bg-cyan-950/45 ring-1 ring-cyan-500/50" : ""}`}
@@ -156,9 +159,7 @@ function IndicatorPickRow({
             ) : null}
           </span>
           {weakBadge ? (
-            <span className="shrink-0 rounded border border-fs-border/80 px-1 py-0 text-[9px] text-fs-muted">
-              弱译
-            </span>
+            <span className="shrink-0 rounded border border-fs-border/80 px-1 py-0 text-[9px] text-fs-muted">{tr("弱译")}</span>
           ) : null}
           {badge ? (
             <span className="shrink-0 rounded border border-amber-800/60 bg-amber-950/30 px-1 py-0 text-[9px] text-amber-200/90">
@@ -174,8 +175,8 @@ function IndicatorPickRow({
             type="button"
             disabled={disabled}
             onClick={onDoubleClickAdd}
-            aria-label="选择原值/同比/环比后添加"
-            title="选择原值/同比/环比后添加"
+            aria-label={tr("选择原值/同比/环比后添加")}
+            title={tr("选择原值/同比/环比后添加")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-fs-border bg-white text-lg leading-none text-fs-secondary active:bg-fs-elevated disabled:opacity-40 md:hidden"
           >
             +
@@ -210,6 +211,7 @@ function VariantPickerModal({
   onCancel: () => void;
   onConfirm: (choices: { level: boolean; yoy: boolean; mom: boolean }) => void;
 }) {
+  const tr = useTr();
   const defaults = defaultVariantChoices({
     frequency: target.frequency,
     units: target.units,
@@ -237,10 +239,10 @@ function VariantPickerModal({
       className="absolute inset-0 z-40 flex items-end justify-center bg-black/50 p-3 sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="选择添加形态"
+      aria-label={tr("选择添加形态")}
     >
       <div className="w-full max-w-sm rounded-lg border border-fs-border bg-fs-bg p-3 shadow-xl">
-        <p className="text-xs font-medium text-fs-text">添加指标形态</p>
+        <p className="text-xs font-medium text-fs-text">{tr("添加指标形态")}</p>
         <p className="mt-1 text-[11px] leading-snug text-fs-secondary">{target.titleZh}</p>
         {target.titleEn && target.titleEn !== target.titleZh ? (
           <p className="mt-0.5 text-[10px] text-fs-muted">{target.titleEn}</p>
@@ -252,47 +254,37 @@ function VariantPickerModal({
               checked={level}
               onChange={(e) => setLevel(e.target.checked)}
               className="accent-fs-accent"
-            />
-            原值（水平序列）
-          </label>
+            />{tr("原值（水平序列）")}</label>
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
               checked={yoy}
               onChange={(e) => setYoy(e.target.checked)}
               className="accent-fs-accent"
-            />
-            同比
-          </label>
+            />{tr("同比")}</label>
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
               checked={mom}
               onChange={(e) => setMom(e.target.checked)}
               className="accent-fs-accent"
-            />
-            环比
-          </label>
+            />{tr("环比")}</label>
         </div>
-        <p className="mt-2 text-[10px] text-fs-muted">
-          同比/环比在客户端由原值计算，不额外拉取 FRED 序列。
-        </p>
+        <p className="mt-2 text-[10px] text-fs-muted">{tr("同比/环比在客户端由原值计算，不额外拉取 FRED 序列。")}</p>
         <div className="mt-3 flex justify-end gap-2">
           <button
             type="button"
             disabled={busy}
             onClick={onCancel}
             className="rounded border border-fs-border px-2.5 py-1 text-[11px] text-fs-muted hover:text-fs-text disabled:opacity-40"
-          >
-            取消
-          </button>
+          >{tr("取消")}</button>
           <button
             type="button"
             disabled={busy || !any}
             onClick={() => onConfirm({ level, yoy, mom })}
             className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2.5 py-1 text-[11px] font-medium text-fs-accent-text disabled:opacity-40"
           >
-            {busy ? "处理中…" : "确认添加"}
+            {busy ? tr("处理中…") : tr("确认添加")}
           </button>
         </div>
       </div>
@@ -330,6 +322,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
   onAllowlistExpand,
   onAllowlistExpandMany,
 }: UnifiedMacroSidebarProps) {
+  const tr = useTr();
   const count = selectedKeys.size;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -433,7 +426,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
         if (cancelled) return;
         setExternalHits([]);
         setPendingLocalHits([]);
-        setExternalNote(e instanceof Error ? e.message : "外部搜索失败");
+        setExternalNote(e instanceof Error ? e.message : tr("外部搜索失败"));
       })
       .finally(() => {
         if (!cancelled) setExternalLoading(false);
@@ -441,7 +434,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, tr]);
 
   function toggleCountry(code: string) {
     setOpenCountries((prev) => {
@@ -623,7 +616,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
           title?: string;
         };
         if (!res.ok) throw new Error(j.error ?? `${res.status}`);
-        if (!j.key) throw new Error("入库未返回指标键");
+        if (!j.key) throw new Error(tr("入库未返回指标键"));
         baseKey = j.key.includes("::") ? j.key.split("::")[0]! : j.key;
         baseLabel = j.title?.trim() || target.titleZh;
         onCatalogRefresh?.();
@@ -642,7 +635,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
       addKeys(keys);
       setVariantTarget(null);
     } catch (e) {
-      setExternalNote(e instanceof Error ? e.message : "添加外部指标失败");
+      setExternalNote(e instanceof Error ? e.message : tr("添加外部指标失败"));
     } finally {
       setOnboardingKey(null);
     }
@@ -661,11 +654,10 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col gap-3">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-fs-muted">
-        <span>
-          已选 <span className="text-fs-secondary">{count}</span> / {MACRO_MAX_SERIES}
-          <span className="text-fs-muted">（指标数上限）</span>
+        <span>{tr("已选")}{" "}<span className="text-fs-secondary">{count}</span> / {MACRO_MAX_SERIES}
+          <span className="text-fs-muted">{tr("（指标数上限）")}</span>
           {limitHint ? (
-            <span className="ml-2 text-amber-300/90">已达上限</span>
+            <span className="ml-2 text-amber-300/90">{tr("已达上限")}</span>
           ) : null}
         </span>
         <button
@@ -673,9 +665,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
           onClick={resetDefault}
           disabled={disabled}
           className="rounded border border-fs-border px-2 py-0.5 text-fs-muted hover:border-fs-border hover:text-fs-text disabled:opacity-40"
-        >
-          恢复默认
-        </button>
+        >{tr("恢复默认")}</button>
       </div>
 
       <label className="block shrink-0 text-xs text-fs-muted">
@@ -683,30 +673,27 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="例如：中国、GDP、通胀、利率、贸易…"
+          placeholder={tr("例如：中国、GDP、通胀、利率、贸易…")}
           disabled={disabled}
-          aria-label="搜索指标"
+          aria-label={tr("搜索指标")}
           className="w-full rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm max-md:py-2.5 text-fs-text placeholder:text-fs-secondary focus:border-fs-border focus:outline-none disabled:opacity-40"
         />
       </label>
       {isSearchMode ? (
-        <p className="shrink-0 text-[10px] leading-relaxed text-fs-muted">
-          站内在上、外部在下；双击可选原值/同比/环比。外部新指标会弱译中文名并草稿入库。
-        </p>
+        <p className="shrink-0 text-[10px] leading-relaxed text-fs-muted">{tr("站内在上、外部在下；双击可选原值/同比/环比。外部新指标会弱译中文名并草稿入库。")}</p>
       ) : null}
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pr-1">
         {catalogError ? (
-          <p className="rounded-md border border-amber-900/50 bg-amber-950/20 px-2 py-2 text-[11px] leading-relaxed text-amber-100/90">
-            指标目录加载失败：{catalogError}
+          <p className="rounded-md border border-amber-900/50 bg-amber-950/20 px-2 py-2 text-[11px] leading-relaxed text-amber-100/90">{tr("指标目录加载失败：")}{catalogError}
           </p>
         ) : null}
         {!catalogCountries && !catalogError ? (
-          <p className="py-6 text-center text-xs text-fs-muted">正在加载宏观指标目录…</p>
+          <p className="py-6 text-center text-xs text-fs-muted">{tr("正在加载宏观指标目录…")}</p>
         ) : null}
 
         {isSearchMode ? (
-          <p className="mb-1.5 px-0.5 text-[11px] font-medium text-fs-secondary">站内指标</p>
+          <p className="mb-1.5 px-0.5 text-[11px] font-medium text-fs-secondary">{tr("站内指标")}</p>
         ) : null}
 
         <ul className="space-y-2">
@@ -832,9 +819,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
 
         {isSearchMode && pendingLocalHits.length > 0 ? (
           <div className="mt-3 rounded-md border border-amber-900/40 bg-amber-950/15">
-            <p className="border-b border-amber-900/30 px-3 py-1.5 text-[11px] font-medium text-amber-100/90">
-              待完善（可临时使用）
-            </p>
+            <p className="border-b border-amber-900/30 px-3 py-1.5 text-[11px] font-medium text-amber-100/90">{tr("待完善（可临时使用）")}</p>
             <ul className="space-y-0.5 px-2 py-1.5">
               {pendingLocalHits.map((hit) => (
                 <IndicatorPickRow
@@ -847,7 +832,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                   highlighted={highlightKey === hit.key}
                   disabled={disabled}
                   atLimit={count >= MACRO_MAX_SERIES}
-                  badge="待完善"
+                  badge={tr("待完善")}
                   weakBadge={hit.labelZhWeak}
                   onToggle={() => toggle(hit.key)}
                   onDoubleClickAdd={() =>
@@ -876,10 +861,8 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
 
         {isSearchMode ? (
           <div className="mt-3 space-y-2 border-t border-fs-border pt-3">
-            <p className="px-0.5 text-[11px] font-medium text-fs-secondary">
-              外部源
-              {externalLoading ? (
-                <span className="ml-2 font-normal text-fs-muted">搜索中…</span>
+            <p className="px-0.5 text-[11px] font-medium text-fs-secondary">{tr("外部源")}{externalLoading ? (
+                <span className="ml-2 font-normal text-fs-muted">{tr("搜索中…")}</span>
               ) : null}
             </p>
             {externalNote ? (
@@ -924,10 +907,10 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                         weakBadge={hit.labelZhWeak}
                         badge={
                           hit.alreadyLocal
-                            ? "已入库"
+                            ? tr("已入库")
                             : busy
-                              ? "入库中…"
-                              : "外部"
+                              ? tr("入库中…")
+                              : tr("外部")
                         }
                         onToggle={openExt}
                         onDoubleClickAdd={openExt}
@@ -966,7 +949,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                         itemKey={rowKey}
                         label={hit.title}
                         labelEn={hit.titleEn}
-                        frequency={hit.frequency ?? "年"}
+                        frequency={hit.frequency ?? tr("年")}
                         checked={hit.key ? selectedKeys.has(hit.key) : false}
                         highlighted={false}
                         disabled={disabled || busy}
@@ -974,10 +957,10 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
                         weakBadge={hit.labelZhWeak}
                         badge={
                           hit.alreadyLocal
-                            ? "已入库"
+                            ? tr("已入库")
                             : busy
-                              ? "入库中…"
-                              : "外部"
+                              ? tr("入库中…")
+                              : tr("外部")
                         }
                         onToggle={openExt}
                         onDoubleClickAdd={openExt}
@@ -991,7 +974,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
             fredExternal.length === 0 &&
             wbExternal.length === 0 &&
             !externalNote ? (
-              <p className="py-2 text-center text-[11px] text-fs-muted">无外部源匹配</p>
+              <p className="py-2 text-center text-[11px] text-fs-muted">{tr("无外部源匹配")}</p>
             ) : null}
           </div>
         ) : null}
@@ -1000,7 +983,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
         !catalogError &&
         filteredCountries.length === 0 &&
         !isSearchMode ? (
-          <p className="py-4 text-center text-xs text-fs-muted">无匹配项，请调整搜索词</p>
+          <p className="py-4 text-center text-xs text-fs-muted">{tr("无匹配项，请调整搜索词")}</p>
         ) : null}
         {catalogCountries &&
         !catalogError &&
@@ -1008,7 +991,7 @@ export const UnifiedMacroSidebar = memo(function UnifiedMacroSidebar({
         filteredCountries.length === 0 &&
         externalHits.length === 0 &&
         !externalLoading ? (
-          <p className="py-4 text-center text-xs text-fs-muted">无匹配项，请调整搜索词</p>
+          <p className="py-4 text-center text-xs text-fs-muted">{tr("无匹配项，请调整搜索词")}</p>
         ) : null}
       </div>
 

@@ -5,6 +5,7 @@ import ReactECharts from "echarts-for-react";
 import type { MacroPayload } from "@/lib/data/types";
 import { macroPayloadToChartOption } from "@/lib/macroChartOption";
 import { buildMacroDemoSeries } from "@/lib/sampleSeries";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroChartProps = {
   source?: "worldbank" | "fred";
@@ -18,6 +19,7 @@ export function MacroChart({
   fredSeriesId = "CPIAUCSL",
   worldbankSeries,
 }: MacroChartProps) {
+  const tr = useTr();
   const [payload, setPayload] = useState<MacroPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -67,14 +69,14 @@ export function MacroChart({
         if (cancelled) return;
         const demo = buildMacroDemoSeries();
         setPayload({
-          title: "演示数据（离线）",
+          title: tr("演示数据（离线）"),
           source: "worldbank",
           categories: demo.categories,
           series: [
-            { name: "演示序列 A", data: demo.inflation as (number | null)[] },
-            { name: "演示序列 B", data: demo.policyRate as (number | null)[] },
+            { name: tr("演示序列 A"), data: demo.inflation as (number | null)[] },
+            { name: tr("演示序列 B"), data: demo.policyRate as (number | null)[] },
           ],
-          attribution: "无法拉取远程宏观数据，已显示本地演示序列（随机，非真实）。",
+          attribution: tr("无法拉取远程宏观数据，已显示本地演示序列（随机，非真实）。"),
         });
       })
       .finally(() => {
@@ -84,7 +86,7 @@ export function MacroChart({
     return () => {
       cancelled = true;
     };
-  }, [source, fredSeriesId, worldbankSeries]);
+  }, [source, fredSeriesId, worldbankSeries, tr]);
 
   const chartHeight = "clamp(22rem, 58vh, 44rem)";
 
@@ -93,9 +95,7 @@ export function MacroChart({
       <div
         className="flex w-full items-center justify-center text-sm text-fs-muted"
         style={{ minHeight: chartHeight }}
-      >
-        正在加载宏观数据…
-      </div>
+      >{tr("正在加载宏观数据…")}</div>
     );
   }
 

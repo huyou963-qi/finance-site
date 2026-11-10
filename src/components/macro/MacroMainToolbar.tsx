@@ -1,5 +1,7 @@
 "use client";
 
+import { useTr } from "@/i18n/TextProvider";
+
 export type MacroMainTab = "selected" | "charts" | "templates";
 
 export type MacroMainToolbarProps = {
@@ -25,6 +27,7 @@ export function MacroMainToolbar({
   canDeleteActiveTemplate = false,
   onDeleteActiveTemplate,
 }: MacroMainToolbarProps) {
+  const tr = useTr();
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1.5">
       <button
@@ -32,13 +35,11 @@ export function MacroMainToolbar({
         onClick={onExtractData}
         disabled={extractDisabled}
         className="rounded-md border border-fs-accent/30 bg-fs-accent-soft px-2.5 py-1 text-xs font-medium text-fs-accent-text transition hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        提取数据
-      </button>
+      >{tr("提取数据")}</button>
       <div
         className="flex shrink-0 items-center gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5"
         role="tablist"
-        aria-label="宏观功能模块"
+        aria-label={tr("宏观功能模块")}
       >
         <button
           type="button"
@@ -50,9 +51,7 @@ export function MacroMainToolbar({
               ? "border border-fs-accent bg-fs-accent-soft text-fs-accent-text"
               : "border border-transparent text-fs-text hover:border-fs-border hover:bg-fs-elevated/40"
           }`}
-        >
-          已选指标
-        </button>
+        >{tr("已选指标")}</button>
         <span className="h-4 w-px shrink-0 bg-fs-border/90" aria-hidden />
         <button
           type="button"
@@ -64,9 +63,7 @@ export function MacroMainToolbar({
               ? "border border-fs-accent bg-fs-accent-soft text-fs-accent-text"
               : "border border-transparent text-fs-text hover:border-fs-border hover:bg-fs-elevated/40"
           }`}
-        >
-          图表
-        </button>
+        >{tr("图表")}</button>
         <span className="h-4 w-px shrink-0 bg-fs-border/90" aria-hidden />
         <button
           type="button"
@@ -78,35 +75,27 @@ export function MacroMainToolbar({
               ? "border border-fs-accent bg-fs-accent-soft text-fs-accent-text"
               : "border border-transparent text-fs-text hover:border-fs-border hover:bg-fs-elevated/40"
           }`}
-        >
-          模板库
-        </button>
+        >{tr("模板库")}</button>
         <span className="h-4 w-px shrink-0 bg-fs-border/90" aria-hidden />
         <button
           type="button"
           onClick={onCreateTemplate}
           className="rounded border border-transparent px-2 py-1 text-[11px] font-medium text-fs-text transition hover:border-fs-border hover:bg-fs-elevated"
-          title="清空当前配置并新建模板草稿"
-        >
-          新建模板
-        </button>
+          title={tr("清空当前配置并新建模板草稿")}
+        >{tr("新建模板")}</button>
         <button
           type="button"
           onClick={onSaveTemplate}
           className="rounded border border-transparent px-2 py-1 text-[11px] font-medium text-fs-text transition hover:border-fs-border hover:bg-fs-elevated"
-          title={isAdmin ? "选择保存为系统模板或我的模板" : "命名后保存到我的模板"}
-        >
-          保存模板
-        </button>
+          title={isAdmin ? tr("选择保存为系统模板或我的模板") : tr("命名后保存到我的模板")}
+        >{tr("保存模板")}</button>
         {canDeleteActiveTemplate && onDeleteActiveTemplate ? (
           <button
             type="button"
             onClick={onDeleteActiveTemplate}
             className="rounded border border-transparent px-2 py-1 text-[11px] font-medium text-fs-text transition hover:border-fs-border hover:bg-fs-elevated"
-            title={isAdmin ? "删除当前系统模板或我的模板" : "删除当前我的模板"}
-          >
-            删除模板
-          </button>
+            title={isAdmin ? tr("删除当前系统模板或我的模板") : tr("删除当前我的模板")}
+          >{tr("删除模板")}</button>
         ) : null}
       </div>
     </div>

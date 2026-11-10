@@ -25,6 +25,7 @@ import {
 } from "@/lib/macroChartOption";
 import { MacroChartAxisSettings } from "@/components/MacroChartAxisSettings";
 import type { MacroPayload } from "@/lib/data/types";
+import { useTr } from "@/i18n/TextProvider";
 
 const DRAG_TYPE = "application/x-finance-macro-key";
 
@@ -76,6 +77,7 @@ export function MacroChartIndicatorAssignment({
   chartPayload = null,
   tab,
 }: MacroChartIndicatorAssignmentProps) {
+  const tr = useTr();
   const [dragOver, setDragOver] = useState<
     | { kind: "slot"; slot: number }
     | { kind: "indicator"; slot: number; key: string; edge: "before" | "after" }
@@ -297,14 +299,14 @@ export function MacroChartIndicatorAssignment({
   }
 
   function slotModeHint(mode: MacroChartSlotMode, count: number): string | null {
-    if (mode === "cpiMomMatrix") return "此模式使用固定 CPI 分项目录，无需拖入指标";
-    if (mode === "cotReport") return "此模式使用 CFTC 管理基金持仓报告，无需拖入指标";
-    if (mode === "waterfall" && count < 2) return "瀑布图至少 2 个指标（首项起点，末项合计）";
-    if (mode === "heatmap" && count < 2) return "热力图至少 2 个指标";
-    if (mode === "xyScatter" && count !== 2) return "XY 散点需要恰好 2 个指标（第 1=X，第 2=Y）";
-    if (mode === "boxplot" && count < 1) return "箱线图至少 1 个指标";
-    if (mode === "radar" && count < 3) return "雷达图至少 3 个指标";
-    if (mode === "seasonal" && count > 1) return "季节图仅支持 1 个指标";
+    if (mode === "cpiMomMatrix") return tr("此模式使用固定 CPI 分项目录，无需拖入指标");
+    if (mode === "cotReport") return tr("此模式使用 CFTC 管理基金持仓报告，无需拖入指标");
+    if (mode === "waterfall" && count < 2) return tr("瀑布图至少 2 个指标（首项起点，末项合计）");
+    if (mode === "heatmap" && count < 2) return tr("热力图至少 2 个指标");
+    if (mode === "xyScatter" && count !== 2) return tr("XY 散点需要恰好 2 个指标（第 1=X，第 2=Y）");
+    if (mode === "boxplot" && count < 1) return tr("箱线图至少 1 个指标");
+    if (mode === "radar" && count < 3) return tr("雷达图至少 3 个指标");
+    if (mode === "seasonal" && count > 1) return tr("季节图仅支持 1 个指标");
     return null;
   }
 
@@ -368,12 +370,12 @@ export function MacroChartIndicatorAssignment({
             onUpdateDisplayConfig={onUpdateDisplayConfig}
           />
         ) : (
-          <p className="text-[11px] text-fs-muted">暂无图表数据，无法设置坐标轴范围。</p>
+          <p className="text-[11px] text-fs-muted">{tr("暂无图表数据，无法设置坐标轴范围。")}</p>
         )
       ) : tab === "global" ? (
         <>
       <div className="rounded-lg border border-fs-border bg-fs-elevated/35 px-2 py-2">
-        <div className="mb-1 text-[11px] font-medium text-fs-muted">图例与交互</div>
+        <div className="mb-1 text-[11px] font-medium text-fs-muted">{tr("图例与交互")}</div>
         <div className="grid grid-cols-2 gap-2 text-[11px]">
           <label className="flex items-center gap-1.5 text-fs-secondary">
             <input
@@ -381,21 +383,15 @@ export function MacroChartIndicatorAssignment({
               checked={displayConfig.showLegend}
               onChange={(e) => onUpdateDisplayConfig({ showLegend: e.target.checked })}
               className="accent-fs-accent"
-            />
-            显示图例
-          </label>
+            />{tr("显示图例")}</label>
           <label className="flex items-center gap-1.5 text-fs-secondary">
             <input
               type="checkbox"
               checked={displayConfig.showTooltip}
               onChange={(e) => onUpdateDisplayConfig({ showTooltip: e.target.checked })}
               className="accent-fs-accent"
-            />
-            十字线提示
-          </label>
-          <label className="text-fs-muted">
-            图例位置
-            <select
+            />{tr("十字线提示")}</label>
+          <label className="text-fs-muted">{tr("图例位置")}<select
               value={displayConfig.legendPosition}
               onChange={(e) =>
                 onUpdateDisplayConfig({
@@ -404,13 +400,11 @@ export function MacroChartIndicatorAssignment({
               }
               className="ml-1 rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
             >
-              <option value="bottom">底部</option>
-              <option value="top">顶部</option>
+              <option value="bottom">{tr("底部")}</option>
+              <option value="top">{tr("顶部")}</option>
             </select>
           </label>
-          <label className="text-fs-muted">
-            末值小数位
-            <input
+          <label className="text-fs-muted">{tr("末值小数位")}<input
               type="number"
               min={0}
               max={6}
@@ -427,7 +421,7 @@ export function MacroChartIndicatorAssignment({
       </div>
 
       <div className="rounded-lg border border-fs-border bg-fs-elevated/35 px-2 py-2">
-        <div className="mb-1 text-[11px] font-medium text-fs-muted">坐标与网格</div>
+        <div className="mb-1 text-[11px] font-medium text-fs-muted">{tr("坐标与网格")}</div>
         <div className="grid grid-cols-2 gap-2 text-[11px]">
           <label className="flex items-center gap-1.5 text-fs-secondary">
             <input
@@ -435,21 +429,15 @@ export function MacroChartIndicatorAssignment({
               checked={displayConfig.showGridLines}
               onChange={(e) => onUpdateDisplayConfig({ showGridLines: e.target.checked })}
               className="accent-fs-accent"
-            />
-            显示网格线
-          </label>
+            />{tr("显示网格线")}</label>
           <label className="flex items-center gap-1.5 text-fs-secondary">
             <input
               type="checkbox"
               checked={displayConfig.lineSmooth}
               onChange={(e) => onUpdateDisplayConfig({ lineSmooth: e.target.checked })}
               className="accent-fs-accent"
-            />
-            线条平滑
-          </label>
-          <label className="text-fs-muted">
-            X轴旋转
-            <input
+            />{tr("线条平滑")}</label>
+          <label className="text-fs-muted">{tr("X轴旋转")}<input
               type="number"
               min={0}
               max={80}
@@ -462,9 +450,7 @@ export function MacroChartIndicatorAssignment({
               className="ml-1 w-12 rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
             />
           </label>
-          <label className="text-fs-muted">
-            X轴字号
-            <input
+          <label className="text-fs-muted">{tr("X轴字号")}<input
               type="number"
               min={8}
               max={16}
@@ -477,9 +463,7 @@ export function MacroChartIndicatorAssignment({
               className="ml-1 w-12 rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
             />
           </label>
-          <label className="text-fs-muted">
-            Y轴字号
-            <input
+          <label className="text-fs-muted">{tr("Y轴字号")}<input
               type="number"
               min={8}
               max={16}
@@ -496,7 +480,7 @@ export function MacroChartIndicatorAssignment({
       </div>
 
       <div className="rounded-lg border border-fs-border bg-fs-elevated/35 px-2 py-2">
-        <div className="mb-1 text-[11px] font-medium text-fs-muted">图形默认样式</div>
+        <div className="mb-1 text-[11px] font-medium text-fs-muted">{tr("图形默认样式")}</div>
         <div className="grid grid-cols-2 gap-2 text-[11px]">
           <label className="flex items-center gap-1.5 text-fs-secondary">
             <input
@@ -504,12 +488,8 @@ export function MacroChartIndicatorAssignment({
               checked={displayConfig.showSymbols}
               onChange={(e) => onUpdateDisplayConfig({ showSymbols: e.target.checked })}
               className="accent-fs-accent"
-            />
-            显示拐点
-          </label>
-          <label className="text-fs-muted">
-            线宽
-            <input
+            />{tr("显示拐点")}</label>
+          <label className="text-fs-muted">{tr("线宽")}<input
               type="number"
               min={1}
               max={5}
@@ -523,9 +503,7 @@ export function MacroChartIndicatorAssignment({
               className="ml-1 w-14 rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
             />
           </label>
-          <label className="text-fs-muted">
-            面积透明度
-            <input
+          <label className="text-fs-muted">{tr("面积透明度")}<input
               type="number"
               min={0.05}
               max={1}
@@ -539,9 +517,7 @@ export function MacroChartIndicatorAssignment({
               className="ml-1 w-14 rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
             />
           </label>
-          <label className="text-fs-muted">
-            柱宽
-            <input
+          <label className="text-fs-muted">{tr("柱宽")}<input
               type="number"
               min={6}
               max={40}
@@ -554,9 +530,7 @@ export function MacroChartIndicatorAssignment({
               className="ml-1 w-12 rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
             />
           </label>
-          <label className="text-fs-muted">
-            点大小
-            <input
+          <label className="text-fs-muted">{tr("点大小")}<input
               type="number"
               min={2}
               max={16}
@@ -583,17 +557,15 @@ export function MacroChartIndicatorAssignment({
         }`}
       >
         <div className="mb-1.5 flex items-start justify-between gap-2">
-          <span className="shrink-0 text-[11px] font-medium text-fs-muted">待选集</span>
-          <p className="min-w-0 flex-1 text-right text-[11px] leading-relaxed text-fs-secondary">
-            拖指标到各图绘制；拖到待选集则不绘制。
-            {hiddenSlotCount > 0
-              ? `已关闭 ${hiddenSlotCount} 图，当前按 ${effectiveMacroLayoutMode(layoutMode, layoutMode - hiddenSlotCount)} 图布局绘制。`
+          <span className="shrink-0 text-[11px] font-medium text-fs-muted">{tr("待选集")}</span>
+          <p className="min-w-0 flex-1 text-right text-[11px] leading-relaxed text-fs-secondary">{tr("拖指标到各图绘制；拖到待选集则不绘制。")}{hiddenSlotCount > 0
+              ? tr("已关闭 {hiddenSlotCount} 图，当前按 {v1} 图布局绘制。", { hiddenSlotCount, v1: effectiveMacroLayoutMode(layoutMode, layoutMode - hiddenSlotCount) })
               : ""}
           </p>
         </div>
         <div className="flex min-h-[24px] flex-wrap gap-1">
           {pool.length === 0 ? (
-            <span className="text-[11px] text-fs-secondary">无</span>
+            <span className="text-[11px] text-fs-secondary">{tr("无")}</span>
           ) : (
             pool.map((key) => (
               <button
@@ -628,7 +600,7 @@ export function MacroChartIndicatorAssignment({
               <button
                 type="button"
                 onClick={() => setSlotHidden(slot, !slotHidden(slot))}
-                title={slotHidden(slot) ? "显示此图" : "关闭此图的显示"}
+                title={slotHidden(slot) ? tr("显示此图") : tr("关闭此图的显示")}
                 aria-pressed={!slotHidden(slot)}
                 className={`shrink-0 rounded border px-1 py-0.5 text-[10px] leading-none ${
                   slotHidden(slot)
@@ -636,58 +608,54 @@ export function MacroChartIndicatorAssignment({
                     : "border-fs-accent/40 bg-fs-accent-soft text-fs-accent-text"
                 }`}
               >
-                {slotHidden(slot) ? "隐藏" : "显示"}
+                {slotHidden(slot) ? tr("隐藏") : tr("显示")}
               </button>
               <input
                 type="checkbox"
                 checked={slotShowTitle(slot)}
                 onChange={(e) => setSlotShowTitle(slot, e.target.checked)}
                 className="accent-fs-accent"
-                title="在图表上显示名称"
+                title={tr("在图表上显示名称")}
               />
               <input
                 type="text"
                 value={displayConfig.slotTitles?.[slot] ?? ""}
                 onChange={(e) => setSlotTitle(slot, e.target.value)}
                 disabled={!slotShowTitle(slot)}
-                placeholder={`图 ${slot + 1}`}
+                placeholder={tr("图 {v0}", { v0: slot + 1 })}
                 className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-1.5 py-0.5 text-[11px] text-fs-secondary placeholder:text-fs-secondary disabled:opacity-40"
               />
               {slotMode(slot) === "timeSeries" ? (
                 <label
                   className="flex shrink-0 items-center gap-0.5 text-[10px] text-fs-muted"
-                  title="显示此图中所有指标的最新值标签"
+                  title={tr("显示此图中所有指标的最新值标签")}
                 >
                   <input
                     type="checkbox"
                     checked={slotShowEndLabels(slot)}
                     onChange={(e) => setSlotShowEndLabels(slot, e.target.checked)}
                     className="accent-fs-accent"
-                  />
-                  末值
-                </label>
+                  />{tr("末值")}</label>
               ) : null}
               <select
                 value={slotMode(slot)}
                 onChange={(e) => setSlotMode(slot, e.target.value as MacroChartSlotMode)}
                 className={ctrlSelect}
-                title="展示类型"
+                title={tr("展示类型")}
               >
-                <option value="timeSeries">时序</option>
-                <option value="seasonal">季节图</option>
-                <option value="pie">饼图</option>
-                <option value="waterfall">瀑布图</option>
-                <option value="heatmap">热力图</option>
-                <option value="xyScatter">XY散点</option>
-                <option value="boxplot">箱线图</option>
-                <option value="radar">雷达图</option>
-                <option value="cpiMomMatrix">CPI 环比表</option>
-                <option value="cotReport">期货持仓表</option>
+                <option value="timeSeries">{tr("时序")}</option>
+                <option value="seasonal">{tr("季节图")}</option>
+                <option value="pie">{tr("饼图")}</option>
+                <option value="waterfall">{tr("瀑布图")}</option>
+                <option value="heatmap">{tr("热力图")}</option>
+                <option value="xyScatter">{tr("XY散点")}</option>
+                <option value="boxplot">{tr("箱线图")}</option>
+                <option value="radar">{tr("雷达图")}</option>
+                <option value="cpiMomMatrix">{tr("CPI 环比表")}</option>
+                <option value="cotReport">{tr("期货持仓表")}</option>
               </select>
               {slotMode(slot) === "seasonal" ? (
-                <label className="flex shrink-0 items-center gap-0.5 text-[10px] text-fs-muted" title="展示近几年">
-                  近
-                  <input
+                <label className="flex shrink-0 items-center gap-0.5 text-[10px] text-fs-muted" title={tr("展示近几年")}>{tr("近")}<input
                     type="number"
                     min={2}
                     max={15}
@@ -699,9 +667,7 @@ export function MacroChartIndicatorAssignment({
                       )
                     }
                     className={`${ctrlNum} w-10`}
-                  />
-                  年
-                </label>
+                  />{tr("年")}</label>
               ) : null}
               {slotMode(slot) === "pie" ? (
                 <select
@@ -709,7 +675,7 @@ export function MacroChartIndicatorAssignment({
                   onChange={(e) => setSlotPieYear(slot, e.target.value)}
                   disabled={availableYears.length === 0}
                   className={`${ctrlSelect} w-14`}
-                  title="数据年份"
+                  title={tr("数据年份")}
                 >
                   {availableYears.length === 0 ? (
                     <option value="">—</option>
@@ -728,7 +694,7 @@ export function MacroChartIndicatorAssignment({
                   onChange={(e) => setSlotWaterfallYear(slot, e.target.value)}
                   disabled={availableYears.length === 0}
                   className={`${ctrlSelect} w-14`}
-                  title="数据年份"
+                  title={tr("数据年份")}
                 >
                   {availableYears.length === 0 ? (
                     <option value="">—</option>
@@ -747,7 +713,7 @@ export function MacroChartIndicatorAssignment({
                   onChange={(e) => setSlotRadarYear(slot, e.target.value)}
                   disabled={availableYears.length === 0}
                   className={`${ctrlSelect} w-14`}
-                  title="数据年份"
+                  title={tr("数据年份")}
                 >
                   {availableYears.length === 0 ? (
                     <option value="">—</option>
@@ -769,7 +735,7 @@ export function MacroChartIndicatorAssignment({
             })()}
             <div className="flex min-h-[28px] flex-col gap-1">
               {bySlot[slot].length === 0 ? (
-                <span className="text-[11px] text-fs-secondary">拖入指标…</span>
+                <span className="text-[11px] text-fs-secondary">{tr("拖入指标…")}</span>
               ) : (
                 bySlot[slot].map((key, seriesIndex) => {
                   const cfg = seriesVisualMap[key] ?? {};
@@ -804,7 +770,7 @@ export function MacroChartIndicatorAssignment({
                         onChange={(e) =>
                           onUpdateSeriesVisual(key, { color: e.target.value })
                         }
-                        title="颜色"
+                        title={tr("颜色")}
                         className="h-5 w-6 shrink-0 cursor-pointer rounded border border-fs-border bg-fs-elevated p-0"
                       />
                       {!isAltSlot ? (
@@ -817,10 +783,10 @@ export function MacroChartIndicatorAssignment({
                               })
                             }
                             className={`${ctrlSelect} w-11`}
-                            title="坐标轴"
+                            title={tr("坐标轴")}
                           >
-                            <option value="left">左</option>
-                            <option value="right">右</option>
+                            <option value="left">{tr("左")}</option>
+                            <option value="right">{tr("右")}</option>
                           </select>
                           <select
                             value={cfg.inverse ? "inverse" : "normal"}
@@ -830,10 +796,10 @@ export function MacroChartIndicatorAssignment({
                               })
                             }
                             className={`${ctrlSelect} w-16`}
-                            title="指标显示方向（反向将数值取相反数）"
+                            title={tr("指标显示方向（反向将数值取相反数）")}
                           >
-                            <option value="normal">正向</option>
-                            <option value="inverse">反向</option>
+                            <option value="normal">{tr("正向")}</option>
+                            <option value="inverse">{tr("反向")}</option>
                           </select>
                           <select
                             value={cfg.chartType ?? "line"}
@@ -843,11 +809,11 @@ export function MacroChartIndicatorAssignment({
                               })
                             }
                             className={`${ctrlSelect} max-w-[5rem]`}
-                            title="图形类型"
+                            title={tr("图形类型")}
                           >
                             {CHART_TYPES.map((t) => (
                               <option key={t.value} value={t.value}>
-                                {t.label}
+                                {tr(t.label)}
                               </option>
                             ))}
                           </select>
@@ -863,7 +829,7 @@ export function MacroChartIndicatorAssignment({
                               })
                             }
                             className={ctrlNum}
-                            title="线宽"
+                            title={tr("线宽")}
                           />
                           <input
                             type="number"
@@ -880,7 +846,7 @@ export function MacroChartIndicatorAssignment({
                               })
                             }
                             className={ctrlNum}
-                            title="透明度"
+                            title={tr("透明度")}
                           />
                         </>
                       ) : null}

@@ -51,6 +51,7 @@ import {
 import { randomUUID } from "@/lib/randomId";
 import { CpiMomMatrixTable } from "@/components/macro/CpiMomMatrixTable";
 import { CotReportTable } from "@/components/macro/CotReportTable";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroChartPanelProps = {
   slice: MacroChartSlice | null;
@@ -108,6 +109,7 @@ export function MacroChartPanel({
   onInteraction,
   cursorLink,
 }: MacroChartPanelProps) {
+  const tr = useTr();
   const cursorLinkRef = useRef(cursorLink);
   cursorLinkRef.current = cursorLink;
   const chartRef = useRef<EChartsType | null>(null);
@@ -437,7 +439,7 @@ export function MacroChartPanel({
         return;
       }
       if (tool === "text") {
-        const text = window.prompt("标注文字", "")?.trim();
+        const text = window.prompt(tr("标注文字"), "")?.trim();
         if (!text) return;
         const drawing = withDefaultStyle(
           { id: randomUUID(), kind: "text", category: data.category, y: data.y, text },
@@ -505,7 +507,7 @@ export function MacroChartPanel({
       window.removeEventListener("mousemove", onWindowMove);
       window.removeEventListener("mouseup", endDrag);
     };
-  }, [categories, isAltChart, opt]);
+  }, [categories, isAltChart, opt, tr]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -541,11 +543,7 @@ export function MacroChartPanel({
         className={`flex h-full min-h-0 flex-col items-center justify-center rounded-lg border border-dashed border-fs-border/90 bg-fs-bg/40 px-2 text-center text-[11px] leading-relaxed text-fs-muted ${className ?? ""}`}
       >
         {emptyHint ?? (
-          <>
-            此图暂无序列
-            <br />
-            请在左侧勾选指标并选择对应图号
-          </>
+          <>{tr("此图暂无序列")}<br />{tr("请在左侧勾选指标并选择对应图号")}</>
         )}
       </div>
     );
@@ -557,7 +555,7 @@ export function MacroChartPanel({
         className={`flex h-full min-h-0 flex-col items-center justify-center rounded-lg border border-dashed border-fs-border/90 bg-fs-bg/40 px-2 text-center text-[11px] leading-relaxed text-fs-muted ${className ?? ""}`}
       >
         {isPie && pieYear
-          ? `${pieYear} 年暂无可用数据，请换一年份或检查指标数值`
+          ? tr("{pieYear} 年暂无可用数据，请换一年份或检查指标数值", { pieYear })
           : isSeasonal
             ? describeSeasonalChartEmptyReason(
                 slice ? { ...slice, series: slice.series.slice(0, 1) } : slice,
@@ -573,7 +571,7 @@ export function MacroChartPanel({
                     ? describeBoxplotChartEmptyReason(slice)
                     : isRadar
                       ? describeRadarChartEmptyReason(slice)
-                      : (emptyHint ?? "暂无可用图表数据")}
+                      : (emptyHint ?? tr("暂无可用图表数据"))}
       </div>
     );
   }

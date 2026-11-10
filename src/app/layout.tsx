@@ -9,6 +9,8 @@ import { BaiduTongjiScript } from "@/components/analytics/BaiduTongjiScript";
 import { CANONICAL_SITE_URL, DEFAULT_OG_IMAGE } from "@/lib/seo/siteUrl";
 import { HTML_LANG, localizeHref } from "@/i18n/locales";
 import { getRequestLocale, isEnglishPublic } from "@/i18n/server";
+import { getTextDict } from "@/i18n/serverText";
+import { TextProvider } from "@/i18n/TextProvider";
 import "./globals.css";
 
 /** 百度搜索资源平台「HTML 标签验证」的 content 值（codeva-xxx） */
@@ -69,6 +71,7 @@ export default async function RootLayout({
   const { requested, locale, pathname } = await getRequestLocale();
   // 英文未对当前身份开放：清掉英文偏好并回到中文页（经 API 清 cookie，避免与 middleware 互相重定向）
   if (requested !== locale) redirect(`/api/i18n/reset?to=${encodeURIComponent(pathname)}`);
+  const textDict = await getTextDict();
   return (
     <html lang={HTML_LANG[locale]} className="h-full" suppressHydrationWarning>
       <body
@@ -76,10 +79,12 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         <NextIntlClientProvider>
-          <SiteHeaderShell />
-          <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pt-1 pb-3">
-            {children}
-          </main>
+          <TextProvider dict={textDict}>
+            <SiteHeaderShell />
+            <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pt-1 pb-3">
+              {children}
+            </main>
+          </TextProvider>
         </NextIntlClientProvider>
         <GlobalErrorListeners />
         <BaiduPageView />

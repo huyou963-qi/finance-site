@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MacroPayload } from "@/lib/data/types";
 import { formatMacroDisplayNumber } from "@/lib/formatMacroValue";
 import { formatMacroPeriodDisplay } from "@/lib/macroPeriodLabel";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroExtractedTableColumn = {
   key: string;
@@ -46,6 +47,7 @@ export const MacroExtractedDataTable = memo(function MacroExtractedDataTable({
   timeSort,
   onToggleTimeSort,
 }: Props) {
+  const tr = useTr();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState({ scrollTop: 0, height: 0 });
@@ -122,14 +124,12 @@ export const MacroExtractedDataTable = memo(function MacroExtractedDataTable({
                 onClick={onToggleTimeSort}
                 className="inline-flex items-center gap-1 text-fs-secondary hover:text-fs-accent-text"
                 title={
-                  timeSort === "asc" ? "按时间升序，点击切换为降序" : "按时间降序，点击切换为升序"
+                  timeSort === "asc" ? tr("按时间升序，点击切换为降序") : tr("按时间降序，点击切换为升序")
                 }
                 aria-label={
-                  timeSort === "asc" ? "时间升序，点击切换为降序" : "时间降序，点击切换为升序"
+                  timeSort === "asc" ? tr("时间升序，点击切换为降序") : tr("时间降序，点击切换为升序")
                 }
-              >
-                时间
-                <span className="text-[10px] text-fs-accent-text" aria-hidden>
+              >{tr("时间")}<span className="text-[10px] text-fs-accent-text" aria-hidden>
                   {timeSort === "asc" ? "↑" : "↓"}
                 </span>
               </button>

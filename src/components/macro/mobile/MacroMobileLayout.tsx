@@ -10,6 +10,7 @@ import {
   IconMore,
   IconTable,
 } from "@/components/mobile/mobileIcons";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroMobileTab = "tree" | "selected" | "data" | "charts" | "templates";
 
@@ -61,6 +62,7 @@ export function MacroMobileLayout({
   charts,
   templates,
 }: MacroMobileLayoutProps) {
+  const tr = useTr();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const menuAction = (label: string, onClick: () => void, danger = false) => (
@@ -82,7 +84,7 @@ export function MacroMobileLayout({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex min-h-13 shrink-0 items-center gap-2 border-b border-fs-border py-1 pl-3 pr-1">
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <h1 className="shrink-0 text-base font-semibold text-fs-text">宏观数据</h1>
+          <h1 className="shrink-0 text-base font-semibold text-fs-text">{tr("宏观数据")}</h1>
           <span className="truncate text-xs text-fs-muted">{subtitle}</span>
         </div>
         <button
@@ -91,12 +93,12 @@ export function MacroMobileLayout({
           disabled={extractDisabled}
           className="h-9 shrink-0 rounded-md border border-fs-accent/30 bg-fs-accent-soft px-3 text-sm font-medium text-fs-accent-text active:border-fs-accent disabled:opacity-40"
         >
-          {extracting ? "提取中…" : "提取数据"}
+          {extracting ? tr("提取中…") : tr("提取数据")}
         </button>
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
-          aria-label="模板操作"
+          aria-label={tr("模板操作")}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated"
         >
           <IconMore size={22} />
@@ -120,7 +122,7 @@ export function MacroMobileLayout({
       </div>
 
       <nav
-        aria-label="宏观功能模块"
+        aria-label={tr("宏观功能模块")}
         className="flex shrink-0 border-t border-fs-border bg-white/95"
       >
         {TABS.map(({ id, label, Icon }) => {
@@ -136,7 +138,7 @@ export function MacroMobileLayout({
               }`}
             >
               <Icon size={22} />
-              <span>{label}</span>
+              <span>{tr(label)}</span>
               {id === "selected" && selectedBadge > 0 ? (
                 <span className="absolute left-[calc(50%+4px)] top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-fs-accent px-1 text-[10px] font-semibold text-white">
                   {selectedBadge}
@@ -147,11 +149,11 @@ export function MacroMobileLayout({
         })}
       </nav>
 
-      <MobileSheet open={menuOpen} onClose={() => setMenuOpen(false)} title="模板">
+      <MobileSheet open={menuOpen} onClose={() => setMenuOpen(false)} title={tr("模板")}>
         <div className="pb-2">
-          {menuAction("新建模板", onCreateTemplate)}
-          {menuAction("保存模板", onSaveTemplate)}
-          {onDeleteTemplate ? menuAction("删除当前模板", onDeleteTemplate, true) : null}
+          {menuAction(tr("新建模板"), onCreateTemplate)}
+          {menuAction(tr("保存模板"), onSaveTemplate)}
+          {onDeleteTemplate ? menuAction(tr("删除当前模板"), onDeleteTemplate, true) : null}
         </div>
       </MobileSheet>
     </div>
