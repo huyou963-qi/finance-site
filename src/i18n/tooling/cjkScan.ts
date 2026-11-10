@@ -552,7 +552,11 @@ export function scanFile(
     edits.push({ start: pos, end: pos, text: `${pos ? "\n" : ""}${imports.join("\n")}${pos ? "" : "\n"}` });
   }
 
-  return { edits, sources, manual, existing };
+  // 落在另一处替换范围内的编辑（如模板字符串里的辅助函数调用）留到下一轮：同一轮叠加会写坏代码
+  const safe = edits.filter(
+    (e) => !edits.some((o) => o !== e && o.end > o.start && o.start <= e.start && e.end <= o.end && (o.start < e.start || e.end < o.end)),
+  );
+  return { edits: safe, sources, manual, existing };
 }
 
 export function applyEdits(code: string, edits: Replacement[]): string {

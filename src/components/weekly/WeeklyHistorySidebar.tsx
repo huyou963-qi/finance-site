@@ -12,6 +12,7 @@ import {
   regimeShort,
   weekEndingToIsoWeekValue,
 } from "@/lib/weekly/sidebarNav";
+import { useTr } from "@/i18n/TextProvider";
 
 type QuickFilter = "latest" | "prevMonth" | "prevQuarter" | null;
 
@@ -29,6 +30,7 @@ function SidebarCard({
   pinned?: boolean;
   onClick: () => void;
 }) {
+  const tr = useTr();
   return (
     <button
       type="button"
@@ -40,13 +42,11 @@ function SidebarCard({
       }`}
     >
       {pinned ? (
-        <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-fs-accent/90">
-          当前选中
-        </div>
+        <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-fs-accent/90">{tr("当前选中")}</div>
       ) : null}
       <div className="text-sm font-semibold text-fs-text">{item.meta.weekEnding}</div>
       <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-fs-muted">
-        {item.meta.title}
+        {tr(item.meta.title)}
       </div>
       <div className="mt-2 inline-block rounded bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-secondary">
         {regimeShort(item.meta.regime)}
@@ -74,6 +74,7 @@ export function WeeklyHistorySidebar({
   variant?: "sidebar" | "sheet";
   className?: string;
 }) {
+  const tr = useTr();
   const [weekInput, setWeekInput] = useState("");
   const [jumpError, setJumpError] = useState<string | null>(null);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("latest");
@@ -131,10 +132,10 @@ export function WeeklyHistorySidebar({
       else if (filter === "prevMonth") target = findLatestInPreviousMonth(list);
       else if (filter === "prevQuarter") target = findLatestInPreviousQuarter(list);
       if (target) onSelect(target.id);
-      else if (filter === "prevMonth") setJumpError("上月暂无周报");
-      else if (filter === "prevQuarter") setJumpError("上季度暂无周报");
+      else if (filter === "prevMonth") setJumpError(tr("上月暂无周报"));
+      else if (filter === "prevQuarter") setJumpError(tr("上季度暂无周报"));
     },
-    [list, onSelect],
+    [list, onSelect, tr],
   );
 
   const handleJump = useCallback(() => {
@@ -145,8 +146,8 @@ export function WeeklyHistorySidebar({
       onSelect(found.id);
       return;
     }
-    setJumpError("该周暂无周报，请换一周");
-  }, [list, onSelect, weekInput]);
+    setJumpError(tr("该周暂无周报，请换一周"));
+  }, [list, onSelect, weekInput, tr]);
 
   const handleCardSelect = useCallback(
     (id: string) => {
@@ -174,15 +175,13 @@ export function WeeklyHistorySidebar({
               setJumpError(null);
             }}
             className="min-w-0 flex-1 rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-xs text-fs-text outline-none focus:border-fs-accent/40 focus:ring-1 focus:ring-fs-accent/30 max-md:h-11"
-            aria-label="选择 ISO 周"
+            aria-label={tr("选择 ISO 周")}
           />
           <button
             type="button"
             onClick={handleJump}
             className="shrink-0 rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-xs font-medium text-fs-text transition hover:border-fs-border hover:bg-fs-border hover:text-fs-text max-md:h-11 max-md:px-4 max-md:text-sm"
-          >
-            跳转
-          </button>
+          >{tr("跳转")}</button>
         </div>
         {jumpError ? <p className="mt-1.5 text-[11px] text-amber-400/90">{jumpError}</p> : null}
         <div className="mt-2.5 flex flex-wrap gap-1.5 max-md:gap-2">
@@ -194,9 +193,7 @@ export function WeeklyHistorySidebar({
                 ? "border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text"
                 : "border-fs-border text-fs-muted hover:border-fs-border hover:text-fs-text"
             }`}
-          >
-            最新
-          </button>
+          >{tr("最新")}</button>
           <button
             type="button"
             onClick={() => applyQuick("prevMonth")}
@@ -205,9 +202,7 @@ export function WeeklyHistorySidebar({
                 ? "border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text"
                 : "border-fs-border text-fs-muted hover:border-fs-border hover:text-fs-text"
             }`}
-          >
-            上月
-          </button>
+          >{tr("上月")}</button>
           <button
             type="button"
             onClick={() => applyQuick("prevQuarter")}
@@ -216,9 +211,7 @@ export function WeeklyHistorySidebar({
                 ? "border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text"
                 : "border-fs-border text-fs-muted hover:border-fs-border hover:text-fs-text"
             }`}
-          >
-            上季度
-          </button>
+          >{tr("上季度")}</button>
         </div>
       </div>
 
@@ -234,19 +227,15 @@ export function WeeklyHistorySidebar({
         ))}
         {hasMore ? (
           <>
-            <p className="mt-1 px-1 text-[11px] leading-relaxed text-fs-muted">
-              … 更早还有 {olderCount} 条，继续向下滚动加载
-            </p>
+            <p className="mt-1 px-1 text-[11px] leading-relaxed text-fs-muted">{tr("… 更早还有")}{" "}{olderCount}{" "}{tr("条，继续向下滚动加载")}</p>
             <div ref={sentinelRef} className="h-1 w-full" aria-hidden />
           </>
         ) : list.length > RECENT_SIDEBAR_COUNT ? (
-          <p className="mt-1 px-1 text-[11px] leading-relaxed text-fs-muted">已显示全部</p>
+          <p className="mt-1 px-1 text-[11px] leading-relaxed text-fs-muted">{tr("已显示全部")}</p>
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-fs-border px-3 py-2 text-[11px] text-fs-muted">
-        共 {total} 条 · 按截至日期倒序
-      </div>
+      <div className="shrink-0 border-t border-fs-border px-3 py-2 text-[11px] text-fs-muted">{tr("共")}{" "}{total}{" "}{tr("条 · 按截至日期倒序")}</div>
     </aside>
   );
 }

@@ -3,19 +3,24 @@ import Link from "next/link";
 import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { listArticles } from "@/lib/articles/articleStore";
+import { getServerTr } from "@/i18n/serverText";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "专题文章 — GekkoTech",
-  description: "聚焦特殊问题、当前政策与市场传导的研究文章。",
+export async function generateMetadata(): Promise<Metadata> {
+  const tr = await getServerTr();
+  return {
+  title: tr("专题文章 — GekkoTech"),
+  description: tr("聚焦特殊问题、当前政策与市场传导的研究文章。"),
 };
+}
 
 function dateLabel(value: string | null): string {
   return value ? new Date(value).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) : "";
 }
 
 export default async function ArticlesPage() {
+  const tr = await getServerTr();
   const gate = await checkFeatureAccess("articles");
   if (gate.state !== "allowed") {
     return (
@@ -26,11 +31,9 @@ export default async function ArticlesPage() {
   return (
     <div className="min-h-full bg-fs-bg px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-5xl">
-        <h1 className="sr-only">专题文章</h1>
+        <h1 className="sr-only">{tr("专题文章")}</h1>
         {articles.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-fs-border p-10 text-center text-sm text-fs-muted">
-            暂无已发布文章。
-          </div>
+          <div className="rounded-xl border border-dashed border-fs-border p-10 text-center text-sm text-fs-muted">{tr("暂无已发布文章。")}</div>
         ) : (
           <div className="space-y-5">
             {articles.map((article) => (
@@ -57,18 +60,17 @@ export default async function ArticlesPage() {
                         {article.category}
                       </span>
                       <span>{dateLabel(article.publishedAt)}</span>
-                      {article.dataCutoff ? <span>· 数据截至 {dateLabel(article.dataCutoff)}</span> : null}
+                      {article.dataCutoff ? <span>{tr("· 数据截至")} {dateLabel(article.dataCutoff)}</span> : null}
                     </div>
                     <h2 className="mt-3 text-xl font-semibold leading-snug text-fs-text group-hover:text-fs-accent-text">
-                      {article.title}
+                      {tr(article.title)}
                     </h2>
                     <p className="mt-2 line-clamp-3 text-sm leading-6 text-fs-secondary">{article.summary}</p>
                     <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2 pt-4">
                       {article.tags.map((tag) => (
                         <span key={tag} className="text-xs text-fs-muted">#{tag}</span>
                       ))}
-                      <span className="ml-auto text-sm font-medium text-fs-accent-text">
-                        阅读全文 <span className="inline-block transition group-hover:translate-x-0.5">→</span>
+                      <span className="ml-auto text-sm font-medium text-fs-accent-text">{tr("阅读全文")}{" "}<span className="inline-block transition group-hover:translate-x-0.5">→</span>
                       </span>
                     </div>
                   </div>

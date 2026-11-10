@@ -10,6 +10,7 @@ export async function loadEnglishText(): Promise<TextDict> {
     import("./macro.json"),
     import("./markets.json"),
     import("./equity.json"),
+    import("./content.json"),
   ]);
   return Object.assign({}, ...modules.map((m) => m.default)) as TextDict;
 }

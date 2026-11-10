@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTr } from "@/i18n/TextProvider";
+import { identityTr, type Tr } from "@/i18n/text";
 
 type AssetMeta = {
   asset: "10Y" | "SPX" | "XAU";
@@ -95,14 +97,14 @@ function createTemplate(
 
 function normalizeTemplate(
   raw: Partial<Template>,
-  defaults: { start: string; end: string; assets: ("10Y" | "SPX" | "XAU")[] },
+  defaults: { start: string; end: string; assets: ("10Y" | "SPX" | "XAU")[] }, tr: Tr = identityTr,
 ): Template {
   const assets = raw.draftAssets?.length
     ? (raw.draftAssets.filter((a) => a === "10Y" || a === "SPX" || a === "XAU") as ("10Y" | "SPX" | "XAU")[])
     : defaults.assets;
   return {
     id: String(raw.id || uid()),
-    name: String(raw.name || "未命名模板"),
+    name: String(raw.name || tr("未命名模板")),
     createdAt: String(raw.createdAt || nowIso()),
     updatedAt: String(raw.updatedAt || nowIso()),
     runs: Array.isArray(raw.runs) ? (raw.runs as ReturnRun[]) : [],
@@ -116,10 +118,10 @@ async function loadPersisted(defaults: {
   start: string;
   end: string;
   assets: ("10Y" | "SPX" | "XAU")[];
-}): Promise<PersistedState | null> {
+}, tr: Tr = identityTr): Promise<PersistedState | null> {
   const res = await fetch("/api/tools/asset-return-templates", { cache: "no-store" });
   if (res.status === 401) {
-    throw new Error("请先登录后再使用模板功能");
+    throw new Error(tr("请先登录后再使用模板功能"));
   }
   try {
     if (!res.ok) return null;
@@ -128,7 +130,7 @@ async function loadPersisted(defaults: {
     if (!state || state.version !== 1 || !Array.isArray(state.templates) || state.templates.length === 0) {
       return null;
     }
-    const templates = state.templates.map((t) => normalizeTemplate(t, defaults));
+    const templates = state.templates.map((t) => normalizeTemplate(t, defaults, tr));
     const activeRaw = String(state.activeTemplateId ?? templates[0]!.id);
     const activeTemplateId = templates.some((t) => t.id === activeRaw) ? activeRaw : templates[0]!.id;
     return { version: 1, templates, activeTemplateId };
@@ -137,7 +139,7 @@ async function loadPersisted(defaults: {
   }
 }
 
-async function savePersisted(templates: Template[], activeTemplateId: string) {
+async function savePersisted(templates: Template[], activeTemplateId: string, tr: Tr = identityTr) {
   const state: PersistedState = { version: 1, templates, activeTemplateId };
   const res = await fetch("/api/tools/asset-return-templates", {
     method: "PUT",
@@ -145,11 +147,12 @@ async function savePersisted(templates: Template[], activeTemplateId: string) {
     body: JSON.stringify({ state }),
   });
   if (!res.ok) {
-    throw new Error(res.status === 401 ? "会话已失效，请重新登录" : "模板保存失败");
+    throw new Error(res.status === 401 ? tr("会话已失效，请重新登录") : tr("模板保存失败"));
   }
 }
 
 export function MarketsToolsClient() {
+  const tr = useTr();
   const [assetsMeta, setAssetsMeta] = useState<AssetMeta[]>([]);
   const [apiDefaults, setApiDefaults] = useState<{
     start: string;
@@ -179,10 +182,10 @@ export function MarketsToolsClient() {
 
   useEffect(() => {
     if (!hydrated || templates.length === 0 || !activeTemplateId) return;
-    savePersisted(templates, activeTemplateId).catch((e) => {
-      setHint(e instanceof Error ? e.message : "模板保存失败");
+    savePersisted(templates, activeTemplateId, tr).catch((e) => {
+      setHint(e instanceof Error ? e.message : tr("模板保存失败"));
     });
-  }, [templates, activeTemplateId, hydrated]);
+  }, [templates, activeTemplateId, hydrated, tr]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,7 +207,7 @@ export function MarketsToolsClient() {
           start: payload.defaults.start,
           end: payload.defaults.end,
           assets: payload.defaults.pickedAssets,
-        });
+        }, tr);
         if (stored && stored.templates.length > 0) {
           const id =
             stored.templates.some((t) => t.id === stored.activeTemplateId) && stored.activeTemplateId
@@ -213,7 +216,7 @@ export function MarketsToolsClient() {
           setTemplates(stored.templates);
           setActiveTemplateId(id);
         } else {
-          const t = createTemplate("模板 1", {
+          const t = createTemplate(tr("模板 1"), {
             start: payload.defaults.start,
             end: payload.defaults.end,
             assets: payload.defaults.pickedAssets,
@@ -225,14 +228,14 @@ export function MarketsToolsClient() {
         setHint(null);
       } catch (e) {
         if (cancelled) return;
-        const message = e instanceof Error ? e.message : "未知错误";
-        setHint(`加载失败：${message}`);
+        const message = e instanceof Error ? e.message : tr("未知错误");
+        setHint(tr("加载失败：{message}", { message }));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tr]);
 
   const start = activeTemplate?.draftStart ?? "";
   const end = activeTemplate?.draftEnd ?? "";
@@ -270,8 +273,8 @@ export function MarketsToolsClient() {
       patchActiveTemplate((t) => ({ ...t, runs: [run, ...t.runs] }));
       setHint(null);
     } catch (e) {
-      const message = e instanceof Error ? e.message : "未知错误";
-      setHint(`加载失败：${message}`);
+      const message = e instanceof Error ? e.message : tr("未知错误");
+      setHint(tr("加载失败：{message}", { message }));
     } finally {
       setLoading(false);
     }
@@ -280,7 +283,7 @@ export function MarketsToolsClient() {
   const newTemplate = () => {
     const def = apiDefaults ?? { start: "", end: "", assets: ["10Y", "SPX", "XAU"] as ("10Y" | "SPX" | "XAU")[] };
     const n = templates.length + 1;
-    const t = createTemplate(`模板 ${n}`, def);
+    const t = createTemplate(tr("模板 {n}", { n }), def);
     setTemplates((prev) => [...prev, t]);
     setActiveTemplateId(t.id);
   };
@@ -302,19 +305,13 @@ export function MarketsToolsClient() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-fs-text">K线区间统计</h1>
-        <p className="mt-1 text-sm text-fs-muted">
-          使用本地 Excel（10Y、SPX、XAU）日线数据，统计任意两个日期区间的回报：Close→Close 与
-          Low→High。多条统计会保存在当前<strong className="text-fs-secondary">模板</strong>
-          中，刷新页面后仍可打开继续查看。
-        </p>
+        <h1 className="text-xl font-semibold text-fs-text">{tr("K线区间统计")}</h1>
+        <p className="mt-1 text-sm text-fs-muted">{tr("使用本地 Excel（10Y、SPX、XAU）日线数据，统计任意两个日期区间的回报：Close→Close 与 Low→High。多条统计会保存在当前")}<strong className="text-fs-secondary">{tr("模板")}</strong>{tr("中，刷新页面后仍可打开继续查看。")}</p>
       </div>
 
       <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-fs-muted">
-            当前模板
-            <select
+          <label className="flex min-w-[10rem] flex-col gap-1 text-xs text-fs-muted">{tr("当前模板")}<select
               value={activeTemplateId}
               onChange={(e) => setActiveTemplateId(e.target.value)}
               disabled={!hydrated || templates.length === 0}
@@ -322,14 +319,11 @@ export function MarketsToolsClient() {
             >
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name}（{t.runs.length} 条统计）
-                </option>
+                  {t.name}（{t.runs.length}{" "}{tr("条统计）")}</option>
               ))}
             </select>
           </label>
-          <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-fs-muted">
-            模板名称
-            <input
+          <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-fs-muted">{tr("模板名称")}<input
               type="text"
               value={activeTemplate?.name ?? ""}
               disabled={!activeTemplate}
@@ -342,30 +336,23 @@ export function MarketsToolsClient() {
             disabled={!hydrated}
             onClick={newTemplate}
             className="rounded-md border border-fs-border bg-fs-elevated px-3 py-1.5 text-sm text-fs-text hover:bg-fs-elevated"
-          >
-            新建模板
-          </button>
+          >{tr("新建模板")}</button>
           <button
             type="button"
             disabled={!hydrated || templates.length <= 1}
             onClick={() => activeTemplate && deleteTemplate(activeTemplate.id)}
             className="rounded-md border border-rose-800 bg-rose-950/30 px-3 py-1.5 text-sm text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            删除当前模板
-          </button>
+          >{tr("删除当前模板")}</button>
         </div>
         {activeTemplate ? (
-          <p className="mt-2 text-xs text-fs-muted">
-            本模板已自动保存到服务端文件。上次更新：{activeTemplate.updatedAt.slice(0, 19).replace("T", " ")}
+          <p className="mt-2 text-xs text-fs-muted">{tr("本模板已自动保存到服务端文件。上次更新：")}{activeTemplate.updatedAt.slice(0, 19).replace("T", " ")}
           </p>
         ) : null}
       </section>
 
       <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs text-fs-muted">
-            起始日期
-            <input
+          <label className="flex flex-col gap-1 text-xs text-fs-muted">{tr("起始日期")}<input
               type="date"
               value={start}
               onChange={(e) => setStart(e.target.value)}
@@ -373,9 +360,7 @@ export function MarketsToolsClient() {
               className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-fs-muted">
-            结束日期
-            <input
+          <label className="flex flex-col gap-1 text-xs text-fs-muted">{tr("结束日期")}<input
               type="date"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
@@ -406,7 +391,7 @@ export function MarketsToolsClient() {
                       );
                     }}
                   />
-                  {asset.label}
+                  {tr(asset.label)}
                 </label>
               );
             })}
@@ -417,21 +402,17 @@ export function MarketsToolsClient() {
             onClick={() => calculateAndAppendRun().catch(() => {})}
             className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-3 py-1.5 text-sm text-fs-accent-text disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? "计算中..." : "计算区间回报"}
+            {loading ? tr("计算中...") : tr("计算区间回报")}
           </button>
         </div>
-        <p className="mt-2 text-xs text-fs-muted">
-          非交易日会自动映射到起始日后的首个交易日与结束日前的最后交易日。
-        </p>
+        <p className="mt-2 text-xs text-fs-muted">{tr("非交易日会自动映射到起始日后的首个交易日与结束日前的最后交易日。")}</p>
       </section>
 
-      {hint ? <p className="text-sm text-rose-300">{hint}</p> : null}
+      {hint ? <p className="text-sm text-rose-300">{tr(hint)}</p> : null}
 
       <section className="space-y-4">
         {runs.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-fs-border bg-fs-bg/40 p-4 text-sm text-fs-muted">
-            当前模板尚无统计结果，点击上方「计算区间回报」后会追加到本模板并自动保存。
-          </div>
+          <div className="rounded-lg border border-dashed border-fs-border bg-fs-bg/40 p-4 text-sm text-fs-muted">{tr("当前模板尚无统计结果，点击上方「计算区间回报」后会追加到本模板并自动保存。")}</div>
         ) : null}
         {runs.map((run, idx) => {
           const bestCloseToClose =
@@ -448,9 +429,7 @@ export function MarketsToolsClient() {
               {idx > 0 ? <div className="h-px w-full bg-fs-elevated" /> : null}
               <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs text-fs-muted">
-                    统计时间：{run.createdAt} ｜ 查询区间：{run.request.start} ~ {run.request.end}
-                    ｜ 资产：{run.request.assets.join(", ")}
+                  <div className="text-xs text-fs-muted">{tr("统计时间：")}{run.createdAt} {tr("｜ 查询区间：")}{run.request.start} ~ {run.request.end}{tr("｜ 资产：")}{run.request.assets.join(", ")}
                   </div>
                   <button
                     type="button"
@@ -458,14 +437,12 @@ export function MarketsToolsClient() {
                       patchActiveTemplate((t) => ({ ...t, runs: t.runs.filter((x) => x.id !== run.id) }))
                     }
                     className="rounded-md border border-rose-700 bg-rose-950/40 px-2 py-1 text-xs text-rose-200 hover:bg-rose-900/40"
-                  >
-                    删除该统计
-                  </button>
+                  >{tr("删除该统计")}</button>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-                    <h2 className="text-sm font-medium text-fs-text">Close→Close 最优资产</h2>
+                    <h2 className="text-sm font-medium text-fs-text">{tr("Close→Close 最优资产")}</h2>
                     <p className="mt-2 text-lg font-semibold text-fs-accent-text">
                       {bestCloseToClose
                         ? `${bestCloseToClose.asset} · ${fmtPct(bestCloseToClose.closeToCloseReturn)}`
@@ -473,7 +450,7 @@ export function MarketsToolsClient() {
                     </p>
                   </div>
                   <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-                    <h2 className="text-sm font-medium text-fs-text">Low→High 最优资产</h2>
+                    <h2 className="text-sm font-medium text-fs-text">{tr("Low→High 最优资产")}</h2>
                     <p className="mt-2 text-lg font-semibold text-fs-accent-text">
                       {bestLowToHigh
                         ? `${bestLowToHigh.asset} · ${fmtPct(bestLowToHigh.lowToHighReturn)}`
@@ -486,15 +463,15 @@ export function MarketsToolsClient() {
                   <table className="min-w-full text-xs md:text-sm">
                     <thead className="bg-fs-elevated text-fs-secondary">
                       <tr>
-                        <th className="px-2 py-2 text-left">资产</th>
-                        <th className="px-2 py-2 text-left">实际起止</th>
+                        <th className="px-2 py-2 text-left">{tr("资产")}</th>
+                        <th className="px-2 py-2 text-left">{tr("实际起止")}</th>
                         <th className="px-2 py-2 text-right">Close→Close</th>
                         <th className="px-2 py-2 text-right">Low→High</th>
-                        <th className="px-2 py-2 text-right">起始收盘</th>
-                        <th className="px-2 py-2 text-right">结束收盘</th>
-                        <th className="px-2 py-2 text-right">起始最低</th>
-                        <th className="px-2 py-2 text-right">结束最高</th>
-                        <th className="px-2 py-2 text-right">交易日</th>
+                        <th className="px-2 py-2 text-right">{tr("起始收盘")}</th>
+                        <th className="px-2 py-2 text-right">{tr("结束收盘")}</th>
+                        <th className="px-2 py-2 text-right">{tr("起始最低")}</th>
+                        <th className="px-2 py-2 text-right">{tr("结束最高")}</th>
+                        <th className="px-2 py-2 text-right">{tr("交易日")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -523,12 +500,11 @@ export function MarketsToolsClient() {
       </section>
 
       <section className="rounded-lg border border-fs-border bg-fs-bg/40 p-3 text-xs text-fs-muted">
-        <p>数据覆盖：</p>
+        <p>{tr("数据覆盖：")}</p>
         <div className="mt-1 flex flex-wrap gap-3">
           {assetsMeta.map((m) => (
             <span key={m.asset}>
-              {m.asset}: {m.firstDate} ~ {m.lastDate}（{m.rows} 行）
-            </span>
+              {m.asset}: {m.firstDate} ~ {m.lastDate}（{m.rows}{" "}{tr("行）")}</span>
           ))}
         </div>
       </section>

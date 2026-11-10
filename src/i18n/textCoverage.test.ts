@@ -46,10 +46,24 @@ export const TRANSLATED_FEATURE_PATHS = [
   "src/components/equity",
   "src/app/quant",
   "src/components/quant",
+  // 时间线、周报、文章、工具页（文章编辑器与授权管理只给管理员，不翻译）
+  "src/app/events/EventsClient.tsx",
+  "src/app/events/page.tsx",
+  "src/app/events/layout.tsx",
+  "src/app/weekly",
+  "src/components/weekly",
+  "src/app/articles/page.tsx",
+  "src/app/articles/layout.tsx",
+  "src/app/articles/[slug]",
+  "src/app/articles/preview",
+  "src/app/articles/charts",
+  "src/components/articles",
+  "src/app/tools",
+  "src/app/markets-tools",
 ];
 
 /** 用 --thread-helpers 处理过的模块：组件外辅助函数也必须带 tr（其余模块的辅助函数在显示处翻译） */
-const THREADED_PATHS = ["src/app/equity", "src/components/equity", "src/app/quant", "src/components/quant"];
+const THREADED_PATHS = ["src/app/equity", "src/components/equity", "src/app/quant", "src/components/quant", "src/app/events", "src/app/weekly", "src/components/weekly", "src/app/articles", "src/components/articles", "src/app/tools", "src/app/markets-tools"];
 
 function files(): string[] {
   const walk = (p: string): string[] =>

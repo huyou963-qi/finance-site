@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import { getAccessUserByToken, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { getArticleById } from "@/lib/articles/articleStore";
 import { ArticleDocument } from "@/components/articles/ArticleDocument";
+import { getServerTr } from "@/i18n/serverText";
 export const dynamic = "force-dynamic";
-export const metadata = { title: "文章预览", robots: { index: false, follow: false } };
+export async function generateMetadata() {
+  const tr = await getServerTr();
+  return { title: tr("文章预览"), robots: { index: false, follow: false } };
+}
 export default async function PreviewArticle({ params }: { params: Promise<{ id: string }> }) {
   const user = await getAccessUserByToken((await cookies()).get(SESSION_COOKIE_NAME)?.value);
   if (!user || user.role !== "admin") notFound();
