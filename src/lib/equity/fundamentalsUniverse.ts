@@ -81,12 +81,12 @@ export function latestPublicFloat(facts: unknown, asOf: string): {
 
 /**
  * Common equity only, judged from the Nasdaq Trader security name: common stock / shares / units,
- * ordinary shares, shares of beneficial interest. Warrants, rights, units, preferred and depositary
+ * capital stock (e.g. Alphabet Class C, GOOG), ordinary shares, shares of beneficial interest. Warrants, rights, units, preferred and depositary
  * shares, notes and debentures need no fundamentals coverage of their own.
  */
 export function isCommonEquityName(name: string): boolean {
   const n = name.toLowerCase();
-  const common = /common (stock|shares|units?)|ordinary shares|shares of beneficial interest|class [a-z] (common|ordinary)/.test(n);
+  const common = /common (stock|shares|units?)|capital stock|ordinary shares|shares of beneficial interest|class [a-z] (common|ordinary)/.test(n);
   if (!common) return false;
   // 名称里同时出现这些词的是附属证券（如「Units, each consisting of one share of Common Stock and …」）
   return !/\bwarrants?\b|\brights?\b|preferred|preference|depositary|\bnotes?\b|debentures?|subordinated|\bunits?\b(?!.*\bcommon units?\b)/.test(n)

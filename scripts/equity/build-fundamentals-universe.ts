@@ -36,7 +36,12 @@ async function main() {
 
   const directory = await loadNasdaqSymbolDirectory();
   // 目录两份文件任一失败时加载器会返回不完整结果：宁可停下，也不拿半份目录排除证券。
-  if (directory.length < 6000) throw new Error(`Nasdaq 证券目录不完整（${directory.length} 行），稍后重试`);
+  // 必须分别检查：otherlisted.txt 一份就有约 7,700 行，只看总数拦不住 nasdaqlisted.txt 失败。
+  const nasdaqRows = directory.filter(d => d.exchange === "Nasdaq").length;
+  const otherRows = directory.length - nasdaqRows;
+  if (nasdaqRows < 3000 || otherRows < 3000) {
+    throw new Error(`Nasdaq 证券目录不完整（Nasdaq 上市 ${nasdaqRows} 行、其他交易所 ${otherRows} 行），稍后重试`);
+  }
   const listed = new Map(directory.map(d => [d.symbol, d]));
   const securities = await prisma.equitySecurity.findMany({ where: { cik: { not: null } }, select: { symbol: true, cik: true } });
   const byCik = new Map<string, string[]>();

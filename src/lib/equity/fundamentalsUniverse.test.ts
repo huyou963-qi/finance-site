@@ -86,7 +86,8 @@ test("scale errors in public float are corrected on the latest 10-K, falling bac
 
 test("only common equity names are kept", () => {
   for (const name of ["Apple Inc. - Common Stock", "Alphabet Inc. - Class A Common Stock", "Equity Residential Common Shares of Beneficial Interest",
-    "Enterprise Products Partners L.P. Common Units", "Bright Horizons Family Solutions Inc. Common Stock", "Accenture plc Class A Ordinary Shares"]) {
+    "Enterprise Products Partners L.P. Common Units", "Bright Horizons Family Solutions Inc. Common Stock", "Accenture plc Class A Ordinary Shares",
+    "Alphabet Inc. - Class C Capital Stock", "Zillow Group, Inc. - Class C Capital Stock"]) {
     assert.equal(isCommonEquityName(name), true, name);
   }
   for (const name of ["CleanSpark, Inc. - Warrant", "Novanta Inc. - Units", "Acme Acquisition Corp - Units, each consisting of one share of Class A Common Stock and one Right",
