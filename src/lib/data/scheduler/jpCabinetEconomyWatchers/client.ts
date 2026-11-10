@@ -33,16 +33,18 @@ export async function fetchJpCaoWatchersWorkbook(fixturePath?: string): Promise<
     if (discoveredUrl !== JP_CAO_WATCHERS_WORKBOOK_URL) {
       throw new Error(`Cabinet Office Economy Watchers workbook URL changed: ${discoveredUrl}`);
     }
-    const response = await throttledFetch(discoveredUrl, "application/vnd.ms-excel");
+    // 2026-11 the Cabinet Office moved from watcher5.xls (frozen at the
+    // 2026-09 release) to watcher5.xlsx; same sheets and layout.
+    const response = await throttledFetch(discoveredUrl, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     if (!response.ok) throw new Error(`Cabinet Office Economy Watchers workbook HTTP ${response.status}`);
     const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.subarray(0, 4).toString("hex") !== "d0cf11e0") {
-      throw new Error("Cabinet Office Economy Watchers response is not an OLE Excel workbook");
+    if (buffer.subarray(0, 4).toString("hex") !== "504b0304") {
+      throw new Error("Cabinet Office Economy Watchers response is not an xlsx workbook");
     }
     const sha256 = createHash("sha256").update(buffer).digest("hex");
     const dir = path.join(process.cwd(), ".data", "jp-cao-economy-watchers", "snapshots");
     await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, `${sha256}.xls`), buffer, { flag: "wx" }).catch((error: NodeJS.ErrnoException) => {
+    await writeFile(path.join(dir, `${sha256}.xlsx`), buffer, { flag: "wx" }).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "EEXIST") throw error;
     });
     await writeFile(path.join(dir, "latest.json"), JSON.stringify({
@@ -53,7 +55,7 @@ export async function fetchJpCaoWatchersWorkbook(fixturePath?: string): Promise<
       contentLength: buffer.length,
       etag: response.headers.get("etag"),
       lastModified: response.headers.get("last-modified"),
-      parserVersion: 1,
+      parserVersion: 2,
     }, null, 2));
     cached = { at: Date.now(), buffer };
     return buffer;

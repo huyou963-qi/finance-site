@@ -5,8 +5,8 @@ import * as XLSX from "xlsx";
 import { JP_CAO_WATCHERS_SERIES } from "./catalog";
 import { parseJpCaoWatchersIndexPage, parseJpCaoWatchersWorkbook } from "./parser";
 
-const asOf = new Date("2026-09-13T00:00:00Z");
-const fixture = readFileSync(new URL("./fixtures/watcher5.xls", import.meta.url));
+const asOf = new Date("2026-11-10T00:00:00Z");
+const fixture = readFileSync(new URL("./fixtures/watcher5.xlsx", import.meta.url));
 const indexFixture = readFileSync(new URL("./fixtures/index.html", import.meta.url), "utf8");
 
 function mutate(edit: (workbook: XLSX.WorkBook) => void): Buffer {
@@ -16,7 +16,7 @@ function mutate(edit: (workbook: XLSX.WorkBook) => void): Buffer {
 }
 
 test("discovers the one official seasonally adjusted workbook", () => {
-  assert.equal(parseJpCaoWatchersIndexPage(indexFixture), "https://www5.cao.go.jp/keizai3/watcher/watcher5.xls");
+  assert.equal(parseJpCaoWatchersIndexPage(indexFixture), "https://www5.cao.go.jp/keizai3/watcher/watcher5.xlsx");
   assert.throws(() => parseJpCaoWatchersIndexPage(indexFixture.replace("全国の分野・業種別、地域別ＤＩの推移", "other")));
   assert.throws(() => parseJpCaoWatchersIndexPage(indexFixture + indexFixture));
 });
@@ -24,15 +24,15 @@ test("discovers the one official seasonally adjusted workbook", () => {
 test("parses the two national headline current/outlook DI histories", () => {
   const parsed = parseJpCaoWatchersWorkbook(fixture, asOf);
   assert.equal(Object.keys(parsed.series).length, 2);
-  assert.equal(parsed.sourceLatestObsDate.toISOString(), "2026-08-01T00:00:00.000Z");
+  assert.equal(parsed.sourceLatestObsDate.toISOString(), "2026-10-01T00:00:00.000Z");
   for (const target of JP_CAO_WATCHERS_SERIES) {
     const points = parsed.series[target.instrumentCode];
-    assert.equal(points.length, 296);
+    assert.equal(points.length, 298);
     assert.equal(points[0].obsDate.toISOString(), "2002-01-01T00:00:00.000Z");
-    assert.equal(points.at(-1)!.obsDate.toISOString(), "2026-08-01T00:00:00.000Z");
+    assert.equal(points.at(-1)!.obsDate.toISOString(), "2026-10-01T00:00:00.000Z");
   }
-  assert.equal(parsed.series.cao_jp_watchers_current_total_di_sa.at(-1)!.value, 46.4);
-  assert.equal(parsed.series.cao_jp_watchers_outlook_total_di_sa.at(-1)!.value, 48.3);
+  assert.equal(parsed.series.cao_jp_watchers_current_total_di_sa.at(-1)!.value, 46.1);
+  assert.equal(parsed.series.cao_jp_watchers_outlook_total_di_sa.at(-1)!.value, 46.5);
 });
 
 test("fails closed on a missing sheet or changed scope/header", () => {
@@ -58,7 +58,7 @@ test("fails closed on unknown values, a date gap, duplicate or future month", ()
   assert.throws(() => parseJpCaoWatchersWorkbook(mutate((workbook) => {
     workbook.Sheets["分野別（先行き)"].C8.v = 1;
   }), asOf));
-  assert.throws(() => parseJpCaoWatchersWorkbook(fixture, new Date("2026-07-01T00:00:00Z")));
+  assert.throws(() => parseJpCaoWatchersWorkbook(fixture, new Date("2026-09-01T00:00:00Z")));
 });
 
 test("returns old seasonal revisions instead of slicing to recent months", () => {
@@ -66,5 +66,5 @@ test("returns old seasonal revisions instead of slicing to recent months", () =>
     workbook.Sheets["分野別（現状）"].D7.v = 35.5;
   }), asOf);
   assert.equal(revised.series.cao_jp_watchers_current_total_di_sa[0].value, 35.5);
-  assert.equal(revised.series.cao_jp_watchers_current_total_di_sa.length, 296);
+  assert.equal(revised.series.cao_jp_watchers_current_total_di_sa.length, 298);
 });

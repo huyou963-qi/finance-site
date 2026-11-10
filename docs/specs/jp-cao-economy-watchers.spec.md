@@ -20,14 +20,14 @@
 ## 3. 官方来源、合规与请求控制
 
 - 官方长期表页：<https://www5.cao.go.jp/keizai3/watcher.html>
-- 季调工作簿：<https://www5.cao.go.jp/keizai3/watcher/watcher5.xls>
+- 季调工作簿：<https://www5.cao.go.jp/keizai3/watcher/watcher5.xlsx>
 - 官方公表予定：<https://www5.cao.go.jp/keizai3/watcher/watcher-yotei.html>
 - 内阁府利用规则：<https://www.cao.go.jp/notice/rule.html>
 - 2026-09-13 文件：305,664 bytes，OLE/BIFF Excel，SHA-256 `EB6D0B440E2F4FAB0CF34225B6568D9E5494175885D27231680026861C131614`。
 
 `www5.cao.go.jp/robots.txt` 在实测时返回内阁府 404 页面，没有该 origin 的机器人禁抓声明。内阁府利用规则采用公共数据利用规约，允许复制、公开传输、翻译、修改及商业使用，但要求来源标注；数值和简单表格数据可自由使用。本实现保留官方 attribution 与利用规则 URL。
 
-生产每轮先访问一个公开目录 HTML，以精确锚点唯一发现 `watcher5.xls`，再下载一个工作簿；所有 8 条序列共享 60 秒缓存。请求串行、两次请求至少相隔 5 秒、30 秒超时，无并发、无认证、无访问控制规避。工作簿按 SHA-256 保存到 `.data/jp-cao-economy-watchers/snapshots/`。
+生产每轮先访问一个公开目录 HTML，以精确锚点唯一发现 `watcher5.xlsx`，再下载一个工作簿；所有 8 条序列共享 60 秒缓存。请求串行、两次请求至少相隔 5 秒、30 秒超时，无并发、无认证、无访问控制规避。工作簿按 SHA-256 保存到 `.data/jp-cao-economy-watchers/snapshots/`。
 
 ## 4. 解析、防御和修订语义
 

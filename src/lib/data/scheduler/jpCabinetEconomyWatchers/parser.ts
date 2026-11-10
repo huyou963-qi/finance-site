@@ -97,7 +97,7 @@ function parseSheet(
 }
 
 /**
- * Official watcher5.xls layout (validated rather than inferred positionally):
+ * Official watcher5.xlsx layout (formerly watcher5.xls, same layout) (validated rather than inferred positionally):
  * - two source sheets: national sector DI for current conditions and outlook;
  * - row 4/5 contains merged sector headers, data begins at row 7;
  * - year appears only on January rows and month is a separate integer column;
@@ -128,7 +128,7 @@ export function parseJpCaoWatchersWorkbook(buffer: Buffer, now = new Date()): Jp
 export function parseJpCaoWatchersIndexPage(html: string): string {
   const links = [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
     .map((match) => ({ href: match[1], text: compact(match[2].replace(/<[^>]+>/g, " ")) }))
-    .filter((link) => link.text.includes("全国の分野・業種別、地域別ＤＩの推移") && /\.xls(?:\?|$)/i.test(link.href));
+    .filter((link) => link.text.includes("全国の分野・業種別、地域別ＤＩの推移") && /\.xlsx(?:\?|$)/i.test(link.href));
   if (links.length !== 1) throw new Error(`Cabinet Office Economy Watchers expected one seasonal workbook link; found ${links.length}`);
   return new URL(links[0].href, "https://www5.cao.go.jp/keizai3/watcher.html").toString();
 }
