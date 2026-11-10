@@ -12,6 +12,12 @@ import { loadFundamentalsCoverage } from "./fundamentalsCoverage";
 
 /** Already-indexed financial filings (e.g. from sync-sec) stay null forever unless re-queued beyond the 7-day discovery window. */
 export const ORPHAN_FINANCIAL_BACKLOG_DAYS = 120;
+/**
+ * Filings deep-processed per run. Earnings-season peaks reach ~1,300 covered filings a day
+ * (2026-11-05); at ~15 filings/min two daily runs of 1,000 clear that the same day, and the
+ * 75-minute budget still ends a run early if SEC is slow. The old 300 left a multi-week backlog.
+ */
+export const DEFAULT_DAILY_MAX_FILINGS = 1000;
 
 export type DailyDisclosureOptions = {
   through?: string; days?: number; symbols?: string[]; maxFilings?: number; delayMs?: number; dryRun?: boolean;
@@ -45,7 +51,7 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
   if (budgetMinutes != null && (!Number.isFinite(budgetMinutes) || budgetMinutes <= 0 || budgetMinutes > 24 * 60)) throw new Error("budget-minutes 必须为 1–1440");
   const deadline = budgetMinutes ? clock() + budgetMinutes * 60_000 : Number.POSITIVE_INFINITY;
   const overBudget = () => clock() >= deadline;
-  const maxFilings = options.maxFilings ?? 300;
+  const maxFilings = options.maxFilings ?? DEFAULT_DAILY_MAX_FILINGS;
   const timingLimit = options.timingLimit ?? 20;
   const filingFallbackLimit = options.filingFallbackLimit ?? 12;
   const backlogDays = options.backlogDays ?? ORPHAN_FINANCIAL_BACKLOG_DAYS;

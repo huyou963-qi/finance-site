@@ -339,6 +339,19 @@ test("fetch failures leave a durable retry record instead of claiming financial 
   assert.equal(h.calls.snapshot, 0);
 });
 
+test("each run deep-processes up to 1,000 filings by default, enough for an earnings-season peak day", async () => {
+  const h = harness();
+  const secFiling = (h.deps.prisma as unknown as { secFiling: { findMany: (args: { select?: unknown; take?: number; where?: object }) => Promise<unknown> } }).secFiling;
+  const original = secFiling.findMany;
+  const takes: (number | undefined)[] = [];
+  secFiling.findMany = async args => {
+    if (!args.select && !(args.where && "acceptedAt" in args.where)) takes.push(args.take);
+    return original(args);
+  };
+  await syncDailyDisclosures(h.options, h.deps);
+  assert.deepEqual(takes, [1000]);
+});
+
 test("dry-run has no source requests and no writes", async () => {
   const h = harness();
   await syncDailyDisclosures({ ...h.options, dryRun: true }, h.deps);
