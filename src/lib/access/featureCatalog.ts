@@ -113,7 +113,7 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     group: "美股",
     paths: ["/equity/data"],
     description: "多只美股 × 多个基本面指标的取数表（上线时设为 Pro 专属）",
-    // 开发中，用户确认发布前不对客户开放，也不加导航入口（2026-11）
+    // 开发中：导航入口照常登记（按权限过滤，管理员可见），用户确认发布前不对客户开放（2026-11）
     defaults: IN_DEVELOPMENT,
   },
   {
