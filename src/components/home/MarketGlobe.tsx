@@ -5,6 +5,7 @@ import type { GeometryObject, Topology } from "topojson-specification";
 import { geoCircle, geoGraticule, geoOrthographic, geoPath, geoRotation } from "d3-geo";
 import { feature, mesh } from "topojson-client";
 import countriesTopology from "world-atlas/countries-110m.json";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   buildGlobeGeometry,
@@ -17,17 +18,17 @@ import {
   type GlobeGeometry,
 } from "./globeLighting";
 
-type Market = { city: string; exchange: string; code: string; symbol: string; lon: number; lat: number; session: string };
+type Market = { exchange: string; code: string; symbol: string; lon: number; lat: number; session: string };
 
 const MARKETS: Market[] = [
-  { city: "纽约", exchange: "NYSE / Nasdaq", code: "US", symbol: "^GSPC", lon: -74.006, lat: 40.713, session: "09:30–16:00 ET" },
-  { city: "伦敦", exchange: "London Stock Exchange", code: "UK", symbol: "^FTSE", lon: -0.128, lat: 51.507, session: "08:00–16:30 GMT" },
-  { city: "法兰克福", exchange: "Deutsche Börse", code: "DE", symbol: "^GDAXI", lon: 8.682, lat: 50.111, session: "09:00–17:30 CET" },
-  { city: "东京", exchange: "Tokyo Stock Exchange", code: "JP", symbol: "^N225", lon: 139.692, lat: 35.69, session: "09:00–15:30 JST" },
-  { city: "香港", exchange: "Hong Kong Exchanges", code: "HK", symbol: "^HSI", lon: 114.169, lat: 22.319, session: "09:30–16:00 HKT" },
-  { city: "上海", exchange: "Shanghai Stock Exchange", code: "CN", symbol: "000001.SS", lon: 121.474, lat: 31.23, session: "09:30–15:00 CST" },
-  { city: "新加坡", exchange: "Singapore Exchange", code: "SG", symbol: "^STI", lon: 103.82, lat: 1.352, session: "09:00–17:00 SGT" },
-  { city: "悉尼", exchange: "Australian Securities Exchange", code: "AU", symbol: "^AXJO", lon: 151.209, lat: -33.869, session: "10:00–16:00 AET" },
+  { exchange: "NYSE / Nasdaq", code: "US", symbol: "^GSPC", lon: -74.006, lat: 40.713, session: "09:30–16:00 ET" },
+  { exchange: "London Stock Exchange", code: "UK", symbol: "^FTSE", lon: -0.128, lat: 51.507, session: "08:00–16:30 GMT" },
+  { exchange: "Deutsche Börse", code: "DE", symbol: "^GDAXI", lon: 8.682, lat: 50.111, session: "09:00–17:30 CET" },
+  { exchange: "Tokyo Stock Exchange", code: "JP", symbol: "^N225", lon: 139.692, lat: 35.69, session: "09:00–15:30 JST" },
+  { exchange: "Hong Kong Exchanges", code: "HK", symbol: "^HSI", lon: 114.169, lat: 22.319, session: "09:30–16:00 HKT" },
+  { exchange: "Shanghai Stock Exchange", code: "CN", symbol: "000001.SS", lon: 121.474, lat: 31.23, session: "09:30–15:00 CST" },
+  { exchange: "Singapore Exchange", code: "SG", symbol: "^STI", lon: 103.82, lat: 1.352, session: "09:00–17:00 SGT" },
+  { exchange: "Australian Securities Exchange", code: "AU", symbol: "^AXJO", lon: 151.209, lat: -33.869, session: "10:00–16:00 AET" },
 ];
 
 /** CanvasRenderingContext2D.roundRect 在部分较旧浏览器（如 Chrome < 99）上不存在，手动画路径兜底。 */
@@ -111,7 +112,14 @@ const clockSnapshot = () => Math.floor(Date.now() / CLOCK_TICK_MS) * CLOCK_TICK_
 /** 首页是 build 期静态预渲染：服务端/水合阶段不出时间，否则预渲染时刻≠浏览器时刻触发 React #418 */
 const serverClockSnapshot = () => null;
 
+type MarketCode = "US" | "UK" | "DE" | "JP" | "HK" | "CN" | "SG" | "AU";
+
 export function MarketGlobe() {
+  const t = useTranslations("home");
+  const cityName = (market: Market) => t(`cities.${market.code as MarketCode}`);
+  // 画布在长驻动画循环里绘制，经 ref 读取当前语言的城市名
+  const cityNameRef = useRef(cityName);
+  cityNameRef.current = cityName;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rotationRef = useRef<[number, number, number]>([-104, -18, 0]);
   const zoomRef = useRef(1);
@@ -518,7 +526,7 @@ export function MarketGlobe() {
         if (!isVisible(market.lon, market.lat)) return;
         const point = projection([market.lon, market.lat]);
         if (!point) return;
-        const active = activeMarketRef.current.city === market.city;
+        const active = activeMarketRef.current.code === market.code;
         const dark = illumination(market.lon, market.lat, sun) < -0.05;
         const color = dark ? "244, 167, 72" : "35, 131, 226";
         context.beginPath(); context.arc(point[0], point[1], (7 + pulse * (active ? 9 : 4)) * dpr, 0, Math.PI * 2);
@@ -531,7 +539,8 @@ export function MarketGlobe() {
           const changeLabel = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`;
           context.save();
           context.font = `500 ${9.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
-          const cityWidth = context.measureText(market.city).width;
+          const cityLabel = cityNameRef.current(market);
+          const cityWidth = context.measureText(cityLabel).width;
           context.font = `650 ${10.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
           const changeWidth = context.measureText(changeLabel).width;
           const paddingX = 8 * dpr;
@@ -576,7 +585,7 @@ export function MarketGlobe() {
           context.font = `500 ${9.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
           context.fillStyle = "rgba(226, 232, 240, 0.72)";
           context.textBaseline = "middle";
-          context.fillText(market.city, cityX, middleY);
+          context.fillText(cityLabel, cityX, middleY);
           context.font = `650 ${10.5 * dpr}px ui-sans-serif, system-ui, sans-serif`;
           context.fillStyle = `rgb(${marketColor})`;
           context.fillText(changeLabel, cityX + cityWidth + textGap, middleY);
@@ -627,9 +636,9 @@ export function MarketGlobe() {
   };
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[820px] select-none" aria-label="全球主要资本市场交互地球">
+    <div className="relative mx-auto aspect-square w-full max-w-[820px] select-none" aria-label={t("globeLabel")}>
       <canvas ref={canvasRef} className="h-full w-full cursor-grab touch-none active:cursor-grabbing" role="img" tabIndex={0}
-        aria-label="可拖动旋转的全球市场地球。方向键旋转，滚轮缩放，市场节点可点击。"
+        aria-label={t("globeHelp")}
         onPointerDown={(event) => {
           event.currentTarget.setPointerCapture(event.pointerId);
           dragRef.current = { x: event.clientX, y: event.clientY, rotation: [...rotationRef.current] };
@@ -669,15 +678,15 @@ export function MarketGlobe() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#00bfa5]">{selected.code} MARKET</div>
-            <div className="mt-0.5 text-base font-semibold text-slate-900">{selected.city} · {selected.exchange}</div>
+            <div className="mt-0.5 text-base font-semibold text-slate-900">{cityName(selected)} · {selected.exchange}</div>
           </div>
           <div className="shrink-0 text-right text-[11px] leading-5 text-slate-500">{selected.session}</div>
         </div>
-        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-0.5" aria-label="选择主要市场">
+        <div className="mt-3 flex gap-1.5 overflow-x-auto pb-0.5" aria-label={t("chooseMarket")}>
           {MARKETS.map((market) => (
             <button key={market.code} type="button" onClick={() => focusMarket(market)}
               className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${selected.code === market.code ? "bg-[#00bfa5] text-white" : "bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"}`}>
-              {market.city}
+              {cityName(market)}
             </button>
           ))}
         </div>

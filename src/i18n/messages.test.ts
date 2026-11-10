@@ -22,6 +22,30 @@ const TRANSLATED_FILES = [
   "src/components/LanguageSwitcher.tsx",
   "src/components/SiteHeaderShell.tsx",
   "src/i18n/navigation.tsx",
+  "src/app/error.tsx",
+  "src/app/global-error.tsx",
+  "src/app/auth/page.tsx",
+  "src/app/auth/AuthClient.tsx",
+  "src/app/auth/AccountProfileClient.tsx",
+  "src/app/auth/recover/page.tsx",
+  "src/app/auth/recover/RecoverAccountClient.tsx",
+  "src/app/auth/reset-password/page.tsx",
+  "src/app/auth/reset-password/ResetPasswordClient.tsx",
+  "src/app/auth/verify/page.tsx",
+  "src/app/auth/verify/VerifyClient.tsx",
+  "src/app/pricing/page.tsx",
+  "src/app/pricing/PricingClient.tsx",
+  "src/components/UserAccountMenu.tsx",
+  "src/components/access/FeatureAccessUnavailable.tsx",
+  "src/components/access/FeatureLocked.tsx",
+  "src/components/auth/AuthPageShell.tsx",
+  "src/components/auth/WechatQrPanel.tsx",
+  "src/components/billing/ProPaywall.tsx",
+  "src/components/billing/ZpayCheckout.tsx",
+  "src/components/errors/ReportBugButton.tsx",
+  "src/components/home/HomeLanding.tsx",
+  "src/components/home/MarketGlobe.tsx",
+  "src/components/home/SiteAnnouncementDialog.tsx",
 ];
 
 test("parseLocale 只认 en，其余回退中文", () => {
@@ -58,6 +82,13 @@ test("英文缺键时回退中文，嵌套合并", () => {
   assert.deepEqual(merged, { a: { x: "A", y: "乙" }, b: "丙" });
 });
 
+test("每个功能目录项都有显示名（锁定页、导航用）", async () => {
+  const { FEATURE_CATALOG } = await import("@/lib/access/featureCatalog");
+  const names = (zh as Messages).features as Messages;
+  const missing = FEATURE_CATALOG.map((f) => f.id).filter((id) => typeof names[id] !== "string");
+  assert.deepEqual(missing, []);
+});
+
 test("en.json 不含 zh.json 没有的键（中文是键名的唯一来源）", () => {
   const zhKeys = new Set(flattenMessageKeys(zh as Messages));
   const orphan = flattenMessageKeys(en as Messages).filter((k) => !zhKeys.has(k));
@@ -68,6 +99,9 @@ test("已翻译文件不含硬编码中文", () => {
   const cjk = /[㐀-鿿＀-￯]/;
   for (const file of TRANSLATED_FILES) {
     const src = readFileSync(resolve(process.cwd(), file), "utf8")
+      .split("\n")
+      .filter((line) => !line.includes("i18n-ignore"))
+      .join("\n")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
     const bad = src

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { ActiveSiteAnnouncement } from "@/lib/siteAnnouncement";
 
@@ -14,6 +15,7 @@ export function SiteAnnouncementDialog({
   preview?: boolean;
   onClose?: () => void;
 }) {
+  const t = useTranslations("home");
   const [open, setOpen] = useState(preview);
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export function SiteAnnouncementDialog({
               </h2>
               {preview ? (
                 <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700">
-                  预览
+                  {t("announcementPreview")}
                 </span>
               ) : null}
             </div>
@@ -90,7 +92,7 @@ export function SiteAnnouncementDialog({
           onClick={close}
           className="mt-6 w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
         >
-          我知道了
+          {t("announcementOk")}
         </button>
       </section>
     </div>

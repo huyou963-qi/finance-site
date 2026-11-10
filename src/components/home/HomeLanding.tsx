@@ -1,14 +1,18 @@
 "use client";
 
-import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 import { MarketGlobe } from "@/components/home/MarketGlobe";
 import { useEffect, useState } from "react";
 import { SiteAnnouncementDialog } from "@/components/home/SiteAnnouncementDialog";
 import type { ActiveSiteAnnouncement } from "@/lib/siteAnnouncement";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
+import { Link } from "@/i18n/navigation";
+import { formatNumber } from "@/lib/i18n/format";
 
 export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnouncement | null }) {
+  const t = useTranslations("home");
+  const locale = useLocale();
   const features = useVisibleFeatures();
   const [macroSeriesCount, setMacroSeriesCount] = useState<string>("—");
 
@@ -24,16 +28,16 @@ export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnounce
       })
       .then((payload) => {
         if (typeof payload.total === "number") {
-          setMacroSeriesCount(new Intl.NumberFormat("zh-CN").format(payload.total));
+          setMacroSeriesCount(formatNumber(payload.total, locale));
         }
       })
       .catch((error: unknown) => {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
-          console.warn("首页宏观序列数读取失败", error);
+          console.warn("home: macro series count failed", error);
         }
       });
     return () => controller.abort();
-  }, []);
+  }, [locale]);
 
   return (
     <div className="relative mx-auto flex min-h-full w-full max-w-[1840px] flex-1 flex-col overflow-hidden">
@@ -44,31 +48,31 @@ export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnounce
           <div className="mb-6 flex items-center">
             <GekkoTechWordmark size="hero" />
           </div>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#00bfa5]">实时观察世界资金脉搏</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#00bfa5]">{t("eyebrow")}</p>
           <h1 className="text-[2.7rem] font-semibold leading-[1.05] tracking-[-0.045em] text-slate-950 sm:text-5xl lg:text-[4.75rem] xl:text-[5rem]">
-            全球市场，
+            {t("headline1")}
             <br />
-            <span className="text-slate-400">此刻同屏。</span>
+            <span className="text-slate-400">{t("headline2")}</span>
           </h1>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             {features.can("markets") ? (
               <Link href="/markets" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
-                行情 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
+                {t("markets")} <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
               </Link>
             ) : null}
             {features.can("macro") ? (
               <Link href="/macro" className="group rounded-full bg-slate-950 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-600">
-                进入宏观 <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
+                {t("enterMacro")} <span className="ml-1 inline-block transition group-hover:translate-x-0.5">↗</span>
               </Link>
             ) : null}
             {features.can("weekly") ? (
               <Link href="/weekly" className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-                AI周度观察
+                {t("weekly")}
               </Link>
             ) : null}
           </div>
           <div className="mt-12 grid max-w-[560px] grid-cols-3 border-t border-slate-200 pt-5">
-            {[[macroSeriesCount, "宏观序列"], ["8", "全球市场"], ["每周", "AI 研判"]].map(([value, label]) => (
+            {[[macroSeriesCount, t("statSeries")], ["8", t("statMarkets")], [t("statWeekly"), t("statAi")]].map(([value, label]) => (
               <div key={label} className="border-r border-slate-200 last:border-0 first:pr-4 [&:not(:first-child)]:px-4">
                 <div className="text-lg font-semibold text-slate-900">{value}</div>
                 <div className="mt-0.5 text-xs text-slate-500">{label}</div>
@@ -80,7 +84,7 @@ export function HomeLanding({ announcement }: { announcement: ActiveSiteAnnounce
           <MarketGlobe />
           <div className="pointer-events-none absolute right-[4%] top-[13%] hidden text-right xl:block">
             <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">SOLAR POSITION</div>
-            <div className="mt-1 text-xs text-slate-500">日夜交界随季节与时间实时更新</div>
+            <div className="mt-1 text-xs text-slate-500">{t("solarNote")}</div>
           </div>
         </div>
       </section>

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { PricingClient } from "./PricingClient";
 
-export const metadata: Metadata = {
-  title: "定价 — GekkoTech Pro",
-  description: "GekkoTech 美股研究工作台 Pro 订阅：月付 ¥39、年付 ¥421，新户 7 天试用",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pricing");
+  return { title: t("metaTitle"), description: t("metaDescription") };
+}
 
 export default function PricingPage() {
   return (

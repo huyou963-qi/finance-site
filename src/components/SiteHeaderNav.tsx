@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CommonLinksMenu } from "@/components/CommonLinksMenu";
@@ -13,7 +13,13 @@ import { ENGLISH_FEATURE_ID } from "@/i18n/locales";
 import { Link, useLocalePathname } from "@/i18n/navigation";
 
 const linkBase =
-  "relative inline-flex min-h-12 items-center px-2.5 text-[15px] font-semibold tracking-[0.025em] transition-colors outline-none after:absolute after:bottom-1 after:left-2.5 after:right-2.5 after:h-0.5 after:rounded-full after:bg-linear-to-r after:from-[#00c8ad] after:to-[#075f78] after:opacity-0 after:transition-opacity focus-visible:ring-2 focus-visible:ring-fs-accent/50 max-md:min-h-10 max-md:rounded-md max-md:text-sm";
+  "relative inline-flex min-h-12 items-center whitespace-nowrap font-semibold transition-colors outline-none after:absolute after:bottom-1 after:h-0.5 after:rounded-full after:bg-linear-to-r after:from-[#00c8ad] after:to-[#075f78] after:opacity-0 after:transition-opacity focus-visible:ring-2 focus-visible:ring-fs-accent/50 max-md:min-h-10 max-md:rounded-md max-md:text-sm";
+
+/** 字号与内边距：英文标签更长，较窄的桌面宽度下收紧一点，避免顶栏折成两行 */
+const linkSize = {
+  zh: "px-2.5 text-[15px] tracking-[0.025em] after:left-2.5 after:right-2.5",
+  en: "px-1.5 text-[14px] tracking-normal after:left-1.5 after:right-1.5 2xl:px-2.5 2xl:text-[15px] 2xl:after:left-2.5 2xl:after:right-2.5",
+} as const;
 
 const TOOL_LINKS = [
   { href: "/markets-tools", labelKey: "toolKlineRange", featureId: "tools-kline-range" },
@@ -191,6 +197,7 @@ export function SiteHeaderNav() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const features = useVisibleFeatures();
   const t = useTranslations("nav");
+  const locale = useLocale();
   const showLanguage = features.can(ENGLISH_FEATURE_ID);
 
   const articlesActive = matchesAny(pathname, ["/articles"]);
@@ -231,7 +238,7 @@ export function SiteHeaderNav() {
   const isAdmin = me?.role === "admin";
 
   const linkClass = (active: boolean) =>
-    `${linkBase} ${
+    `${linkBase} ${linkSize[locale]} ${
       active
         ? "text-[#062f42] after:opacity-100"
         : "text-fs-muted hover:text-[#062f42]"

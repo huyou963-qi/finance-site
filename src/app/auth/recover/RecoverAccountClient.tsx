@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { AuthPageShell, authInputClass } from "@/components/auth/AuthPageShell";
+import { Link } from "@/i18n/navigation";
 
 type RecoveryKind = "username" | "password";
 
 export function RecoverAccountClient() {
+  const t = useTranslations("recover");
+  const tc = useTranslations("common");
   const searchParams = useSearchParams();
   const [kind, setKind] = useState<RecoveryKind>(
     searchParams.get("kind") === "username" ? "username" : "password",
@@ -27,9 +30,9 @@ export function RecoverAccountClient() {
       });
       const payload = (await response.json()) as { error?: string; message?: string };
       if (!response.ok) throw new Error(payload.error ?? `HTTP ${response.status}`);
-      setHint(payload.message ?? "请求已提交，请查收邮件");
+      setHint(payload.message ?? t("submitted"));
     } catch (error) {
-      setHint(error instanceof Error ? error.message : "提交失败");
+      setHint(error instanceof Error ? error.message : tc("submitFailed"));
     } finally {
       setLoading(false);
     }
@@ -37,13 +40,13 @@ export function RecoverAccountClient() {
 
   return (
     <AuthPageShell>
-      <h1 className="text-xl font-semibold text-fs-text">找回账户</h1>
-      <p className="mt-1 text-sm text-fs-muted">通过注册邮箱找回用户名或重置密码。</p>
+      <h1 className="text-xl font-semibold text-fs-text">{t("title")}</h1>
+      <p className="mt-1 text-sm text-fs-muted">{t("subtitle")}</p>
 
       <div className="mt-6 grid grid-cols-2 gap-1 rounded-lg border border-fs-border bg-fs-bg p-1">
         {([
-          { id: "username" as const, label: "找回用户名" },
-          { id: "password" as const, label: "重置密码" },
+          { id: "username" as const, label: t("findUsername") },
+          { id: "password" as const, label: t("resetPassword") },
         ]).map((item) => (
           <button
             key={item.id}
@@ -71,7 +74,7 @@ export function RecoverAccountClient() {
         }}
       >
         <label className="block text-sm text-fs-secondary">
-          注册邮箱
+          {t("email")}
           <input
             type="email"
             autoComplete="email"
@@ -87,13 +90,13 @@ export function RecoverAccountClient() {
           disabled={loading || !email.trim()}
           className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
         >
-          {loading ? "发送中…" : kind === "username" ? "发送用户名邮件" : "发送密码重置邮件"}
+          {loading ? t("sending") : kind === "username" ? t("sendUsername") : t("sendReset")}
         </button>
       </form>
 
       {hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
       <Link href="/auth" className="mt-6 inline-block text-sm text-fs-accent-text underline">
-        返回登录
+        {t("backToLogin")}
       </Link>
     </AuthPageShell>
   );
