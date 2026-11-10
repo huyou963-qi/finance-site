@@ -1,30 +1,30 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useTransition } from "react";
-import { LOCALES, LOCALE_COOKIE, parseLocale, type AppLocale } from "@/i18n/locales";
+import { useState } from "react";
+import { LOCALES, localizeHref, parseLocale, type AppLocale } from "@/i18n/locales";
 
-const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
-
-function writeLocaleCookie(locale: AppLocale) {
-  document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax`;
+/** 切换后的目标地址：英文直接进 /en 页面（middleware 记住偏好）；中文经 API 清掉偏好 */
+function switchTarget(locale: AppLocale): string {
+  const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (locale === "en") return localizeHref(here, "en");
+  return `/api/i18n/reset?to=${encodeURIComponent(localizeHref(here, "zh"))}`;
 }
 
 /**
- * 中文 / English 分段切换。写 cookie 后刷新服务端组件，URL 不变。
+ * 中文 / English 分段切换：在 /x 与 /en/x 之间整页跳转
+ * （根布局的 html lang 与文案要整页重新渲染，不能用客户端路由）。
  * 是否展示由调用方按 `features.can(ENGLISH_FEATURE_ID)` 决定。
  */
 export function LanguageSwitcher({ className = "" }: { className?: string }) {
   const t = useTranslations("language");
   const current = parseLocale(useLocale());
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
   const choose = (locale: AppLocale) => {
     if (locale === current || pending) return;
-    writeLocaleCookie(locale);
-    startTransition(() => router.refresh());
+    setPending(true);
+    window.location.assign(switchTarget(locale));
   };
 
   return (

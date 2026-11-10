@@ -15,7 +15,8 @@
 
 ## 界面多语言
 
-- 中英文切换走 `next-intl` + cookie（URL 不变），中文为默认，英文缺键回退中文；开关是功能目录里的 `site-language-en`（开发中，仅管理员可见）。
+- 英文版面向海外用户，语言由网址决定：中文无前缀，英文 `/en/...`（middleware 转发到同一页面，页面文件不挪目录）；中文为默认，英文缺键回退中文；开关是功能目录里的 `site-language-en`（开发中，仅管理员可见）。
+- 站内链接用 `@/i18n/navigation` 的 `Link` 和 `useLocalePathname()`，不要直接用 `next/link` / `usePathname()`。
 - 新写或改动的界面文案优先放 `src/i18n/messages/zh.json` / `en.json`；已翻译文件登记在 `src/i18n/messages.test.ts`，不得再写硬编码中文。详见 [docs/I18N.md](./docs/I18N.md)。
 
 ## 用户管理

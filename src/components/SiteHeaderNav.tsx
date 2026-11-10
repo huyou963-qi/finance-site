@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -12,6 +10,7 @@ import { IconClose, IconMenu } from "@/components/mobile/mobileIcons";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 import { ENGLISH_FEATURE_ID } from "@/i18n/locales";
+import { Link, useLocalePathname } from "@/i18n/navigation";
 
 const linkBase =
   "relative inline-flex min-h-12 items-center px-2.5 text-[15px] font-semibold tracking-[0.025em] transition-colors outline-none after:absolute after:bottom-1 after:left-2.5 after:right-2.5 after:h-0.5 after:rounded-full after:bg-linear-to-r after:from-[#00c8ad] after:to-[#075f78] after:opacity-0 after:transition-opacity focus-visible:ring-2 focus-visible:ring-fs-accent/50 max-md:min-h-10 max-md:rounded-md max-md:text-sm";
@@ -185,7 +184,7 @@ function MobileNavDrawer({
 }
 
 export function SiteHeaderNav() {
-  const pathname = usePathname();
+  const pathname = useLocalePathname();
   const [me, setMe] = useState<{ username: string; role: "admin" | "user" } | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);

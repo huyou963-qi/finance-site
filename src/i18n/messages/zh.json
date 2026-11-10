@@ -1,4 +1,8 @@
 {
+  "meta": {
+    "title": "GekkoTech — 宏观与行情研究",
+    "description": "宏观仪表盘、多资产行情与 AI 周度观察"
+  },
   "nav": {
     "markets": "行情",
     "macro": "宏观数据",

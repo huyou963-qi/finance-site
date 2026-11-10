@@ -1,4 +1,8 @@
 {
+  "meta": {
+    "title": "GekkoTech — Macro & Market Research",
+    "description": "Macro dashboards, multi-asset markets and AI weekly insights"
+  },
   "nav": {
     "markets": "Markets",
     "macro": "Macro Data",
