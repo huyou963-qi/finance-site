@@ -7,14 +7,21 @@ import {
   formatPct,
 } from "@/lib/equity/formatFundamentalsDisplay";
 import { columnParamLabel, getIndicator, UNIT_LABELS } from "./indicatorRegistry";
-import { CELL_STATUS_LABELS, type Cell, type ColumnSpec, type IndicatorUnit, type StockDataRow } from "./types";
+import { CELL_STATUS_LABELS, type Cell, type ColumnSpec, type IndicatorUnit, type Scale, type StockDataRow } from "./types";
 
-export function formatCellValue(unit: IndicatorUnit, cell: Cell | undefined): { text: string; muted: boolean } {
+const SCALE_DIVISOR: Record<Exclude<Scale, "auto">, number> = { raw: 1, k: 1e3, m: 1e6, b: 1e9 };
+const SCALE_PREFIX: Record<Exclude<Scale, "auto">, string> = { raw: "", k: "千", m: "百万", b: "十亿" };
+
+export function formatCellValue(unit: IndicatorUnit, cell: Cell | undefined, scale?: Scale): { text: string; muted: boolean } {
   if (!cell) return { text: "", muted: true };
   if (cell.s !== "ok") return { text: CELL_STATUS_LABELS[cell.s], muted: true };
   const v = cell.v;
   if (typeof v === "string") return { text: v, muted: false };
   if (v == null) return { text: "—", muted: true };
+  if ((unit === "money" || unit === "shares") && scale && scale !== "auto") {
+    const x = v / SCALE_DIVISOR[scale];
+    return { text: x.toLocaleString("en-US", { maximumFractionDigits: scale === "raw" ? 0 : 2 }), muted: false };
+  }
   switch (unit) {
     case "money":
     case "shares": return { text: formatCompactMoney(v), muted: false };
@@ -27,11 +34,42 @@ export function formatCellValue(unit: IndicatorUnit, cell: Cell | undefined): { 
 
 export function columnHeader(col: ColumnSpec): { label: string; params: string; unit: string } {
   const def = getIndicator(col.indicatorId);
+  const scale = col.params.scale;
+  const prefix = scale && scale !== "auto" ? SCALE_PREFIX[scale] : "";
   return {
     label: def?.label ?? col.indicatorId,
     params: columnParamLabel(col.params),
-    unit: def ? UNIT_LABELS[def.unit] : "",
+    unit: def ? `${prefix}${UNIT_LABELS[def.unit]}` : "",
   };
+}
+
+/**
+ * 导出用的原始值（不缩写）：金额按列的显示单位折算；百分比在 CSV 里写成百分数，
+ * 在 XLSX 里保留小数并由单元格格式显示为百分比；没有值的格子写状态文字。
+ */
+export function exportValue(col: ColumnSpec, cell: Cell | undefined, pctAsPercent: boolean): string | number {
+  if (!cell) return "";
+  if (cell.s !== "ok") return CELL_STATUS_LABELS[cell.s];
+  if (typeof cell.v !== "number") return cell.v ?? "";
+  const unit = getIndicator(col.indicatorId)?.unit;
+  if (unit === "pct") return pctAsPercent ? Number((cell.v * 100).toPrecision(12)) : cell.v;
+  const scale = col.params.scale;
+  if ((unit === "money" || unit === "shares") && scale && scale !== "auto") return Number((cell.v / SCALE_DIVISOR[scale]).toPrecision(12));
+  return cell.v;
+}
+
+/** 列头一行文字：指标名 [参数] (单位) */
+export function columnHeaderText(col: ColumnSpec): string {
+  const h = columnHeader(col);
+  return [h.label, h.params && `[${h.params}]`, h.unit && `(${h.unit})`].filter(Boolean).join(" ");
+}
+
+/** XLSX 用的二维数组：第一行列头，之后每只股票一行；pctColumns 是需要设百分比格式的列下标 */
+export function buildSheetData(rows: readonly StockDataRow[], columns: readonly ColumnSpec[]): { aoa: (string | number)[][]; pctColumns: number[] } {
+  const aoa: (string | number)[][] = [["代码", "名称", ...columns.map(columnHeaderText)]];
+  for (const r of rows) aoa.push([r.symbol, r.name, ...columns.map((c) => exportValue(c, r.cells[c.key], false))]);
+  const pctColumns = columns.flatMap((c, i) => (getIndicator(c.indicatorId)?.unit === "pct" ? [i + 2] : []));
+  return { aoa, pctColumns };
 }
 
 export type SortState = { key: string; dir: "asc" | "desc" } | null;
@@ -63,22 +101,10 @@ function csvEscape(s: string): string {
 
 /** 导出原始数值（不缩写）；百分比导出为百分数，没有值的格子写状态文字 */
 export function buildCsv(rows: readonly StockDataRow[], columns: readonly ColumnSpec[]): string {
-  const header = ["代码", "名称", ...columns.map((c) => {
-    const h = columnHeader(c);
-    return [h.label, h.params && `[${h.params}]`, h.unit && `(${h.unit})`].filter(Boolean).join(" ");
-  })];
+  const header = ["代码", "名称", ...columns.map(columnHeaderText)];
   const lines = [header.map(csvEscape).join(",")];
   for (const r of rows) {
-    const cells = columns.map((c) => {
-      const cell = r.cells[c.key];
-      if (!cell) return "";
-      if (cell.s !== "ok") return CELL_STATUS_LABELS[cell.s];
-      if (typeof cell.v === "number") {
-        const unit = getIndicator(c.indicatorId)?.unit;
-        return String(unit === "pct" ? Number((cell.v * 100).toPrecision(12)) : cell.v);
-      }
-      return cell.v ?? "";
-    });
+    const cells = columns.map((c) => exportValue(c, r.cells[c.key], true));
     lines.push([r.symbol, r.name, ...cells].map((s) => csvEscape(String(s))).join(","));
   }
   // BOM 让 Excel 按 UTF-8 打开中文

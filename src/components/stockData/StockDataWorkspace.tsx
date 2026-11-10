@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { randomUUID } from "@/lib/randomId";
-import { buildCsv, sortRows, type SortState } from "@/lib/equity/stockData/display";
+import { buildColumns, columnCountAfterEdit, editColumns, expandToGroups, multiPeriodCount } from "@/lib/equity/stockData/columns";
+import { buildCsv, buildSheetData, sortRows, type SortState } from "@/lib/equity/stockData/display";
+import { systemTemplates, type StockDataTemplate } from "@/lib/equity/stockData/templates";
 import { getIndicator, INDICATORS, normalizeParams, publicIndicator } from "@/lib/equity/stockData/indicatorRegistry";
 import { normalizeUsTicker } from "@/lib/equity/stockData/request";
 import {
@@ -12,6 +14,7 @@ import {
   type ColumnParams,
   type ColumnSpec,
   type IndicatorDef,
+  type MultiPeriod,
   type StockDataResponse,
   type StockDataRow,
 } from "@/lib/equity/stockData/types";
@@ -19,14 +22,30 @@ import { DataGrid } from "./DataGrid";
 import { IndicatorPanel } from "./IndicatorPanel";
 import { ParamEditor } from "./ParamEditor";
 import { StockPoolPanel, type PickedStock } from "./StockPoolPanel";
+import { TemplatePanel } from "./TemplatePanel";
 
 type Draft = { stocks: PickedStock[]; columns: ColumnSpec[] };
 type Editor = { mode: "add"; defs: IndicatorDef[] } | { mode: "edit"; keys: string[] };
 type MobileTab = "stocks" | "indicators" | "table";
+type LeftTab = "indicators" | "templates";
 
 const DRAFT_KEY = "gekko.stockData.draft.v1";
 const PUBLIC_INDICATORS = INDICATORS.map(publicIndicator);
 const newKey = () => randomUUID().slice(0, 8);
+const SYSTEM_TEMPLATES = systemTemplates(newKey);
+
+/** 取数签名：显示单位只影响显示，不算「有未刷新改动」 */
+const fetchSignature = (symbols: string[], columns: ColumnSpec[]) =>
+  JSON.stringify([symbols, columns.map((c) => ({ ...c, params: { ...c.params, scale: undefined } }))]);
+
+function downloadBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const col = (indicatorId: string): ColumnSpec => ({
   key: newKey(),
@@ -72,9 +91,13 @@ export function StockDataWorkspace() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [editor, setEditor] = useState<Editor | null>(null);
   const [mobileTab, setMobileTab] = useState<MobileTab>("table");
+  const [leftTab, setLeftTab] = useState<LeftTab>("indicators");
+  const [myTemplates, setMyTemplates] = useState<StockDataTemplate[] | null>(null);
+  const [templateError, setTemplateError] = useState("");
+  const [saving, setSaving] = useState<{ name: string; withStocks: boolean; busy: boolean; error: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const draftKey = JSON.stringify([draft.stocks.map((s) => s.symbol), draft.columns]);
+  const draftKey = fetchSignature(draft.stocks.map((s) => s.symbol), draft.columns);
   const stale = !!result && fetchedKey !== draftKey;
 
   const showToast = useCallback((text: string, goTable = false) => {
@@ -107,7 +130,7 @@ export function StockDataWorkspace() {
         setDraft(next);
       }
       setResult(res);
-      setFetchedKey(JSON.stringify([next.stocks.map((s) => s.symbol), next.columns]));
+      setFetchedKey(fetchSignature(next.stocks.map((s) => s.symbol), next.columns));
     } catch {
       setError({ text: "网络异常，请稍后重试" });
     } finally {
@@ -124,6 +147,19 @@ export function StockDataWorkspace() {
     if (d.stocks.length && d.columns.length) void fetchData(d);
   }, [fetchData]);
   useEffect(() => { if (restored) writeDraft(draft); }, [draft, restored]);
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      const r = await fetch("/api/equity/stock-data/templates");
+      const j = await r.json();
+      if (!r.ok) { setTemplateError(j.error || "无法读取模板"); return; }
+      setTemplateError("");
+      setMyTemplates(j.templates as StockDataTemplate[]);
+    } catch {
+      setTemplateError("网络异常，模板未加载");
+    }
+  }, []);
+  useEffect(() => { if (leftTab === "templates" && myTemplates == null) void loadTemplates(); }, [leftTab, myTemplates, loadTemplates]);
 
   // ---------- 股票 ----------
   const inTable = useMemo(() => new Set(draft.stocks.map((s) => s.symbol)), [draft.stocks]);
@@ -150,13 +186,14 @@ export function StockDataWorkspace() {
   };
 
   // ---------- 列 ----------
-  const insertColumns = (defs: IndicatorDef[], params: ColumnParams) => {
+  const insertColumns = (defs: IndicatorDef[], params: ColumnParams, multi?: MultiPeriod) => {
     const room = MAX_COLUMNS - draft.columns.length;
     if (room <= 0) { showToast(`单次最多 ${MAX_COLUMNS} 列，请先删除部分列`); return; }
-    const cols = defs.slice(0, room).map((d) => ({ key: newKey(), indicatorId: d.id, params: normalizeParams(d, params) }));
+    const all = defs.flatMap((d) => buildColumns(d, params, multi, newKey));
+    const cols = all.slice(0, room);
     setDraft((d) => ({ ...d, columns: [...d.columns, ...cols] }));
-    const skipped = defs.length - cols.length;
-    showToast(`已加入第 ${draft.columns.length + 1}${cols.length > 1 ? `–${draft.columns.length + cols.length}` : ""} 列${skipped ? `；超出上限，${skipped} 个未加入` : ""}`, true);
+    const skipped = all.length - cols.length;
+    showToast(`已加入第 ${draft.columns.length + 1}${cols.length > 1 ? `–${draft.columns.length + cols.length}` : ""} 列${skipped ? `；超出上限，${skipped} 列未加入` : ""}`, true);
   };
 
   const addIndicators = (defs: IndicatorDef[]) => {
@@ -168,27 +205,33 @@ export function StockDataWorkspace() {
   const addIndicatorIds = (ids: string[]) =>
     addIndicators(ids.map((id) => PUBLIC_INDICATORS.find((d) => d.id === id)).filter((d): d is IndicatorDef => !!d));
 
-  const editableSelected = draft.columns.filter((c) => selectedCols.has(c.key) && getIndicator(c.indicatorId)?.params.length);
+  /** 有参数可改的选中列（多报告期的组自动扩到整组） */
+  const editableSelected = useMemo(() => {
+    const keys = new Set(expandToGroups(draft.columns, selectedCols));
+    return draft.columns.filter((c) => keys.has(c.key) && getIndicator(c.indicatorId)?.params.length);
+  }, [draft.columns, selectedCols]);
 
-  const confirmEditor = (params: ColumnParams) => {
+  const confirmEditor = (params: ColumnParams, multi: MultiPeriod | undefined) => {
     if (!editor) return;
-    if (editor.mode === "add") insertColumns(editor.defs, params);
-    else {
-      const keys = new Set(editor.keys);
-      setDraft((d) => ({
-        ...d,
-        columns: d.columns.map((c) => (keys.has(c.key) ? { ...c, params: normalizeParams(getIndicator(c.indicatorId)!, params) } : c)),
-      }));
-    }
+    if (editor.mode === "add") insertColumns(editor.defs, params, multi);
+    else setDraft((d) => ({ ...d, columns: editColumns(d.columns, editor.keys, params, multi, newKey) }));
     setEditor(null);
   };
+
+  const totalColumnsFor = (multi: MultiPeriod | undefined) =>
+    !editor
+      ? draft.columns.length
+      : editor.mode === "add"
+        ? draft.columns.length + editor.defs.reduce((n, d) => n + (d.params.includes("period") ? multiPeriodCount(multi) : 1), 0)
+        : columnCountAfterEdit(draft.columns, editor.keys, multi);
 
   const editorDefs = editor
     ? editor.mode === "add"
       ? editor.defs
-      : editor.keys.map((k) => draft.columns.find((c) => c.key === k)).filter((c): c is ColumnSpec => !!c).map((c) => publicIndicator(getIndicator(c.indicatorId)!))
+      : [...new Set(editor.keys.map((k) => draft.columns.find((c) => c.key === k)?.indicatorId).filter((id): id is string => !!id))].map((id) => publicIndicator(getIndicator(id)!))
     : [];
-  const editorInitial: ColumnParams = editor?.mode === "edit" ? draft.columns.find((c) => c.key === editor.keys[0])?.params ?? {} : {};
+  const editorFirst = editor?.mode === "edit" ? draft.columns.find((c) => c.key === editor.keys[0]) : undefined;
+  const editorInitial: ColumnParams = editorFirst?.params ?? {};
 
   // ---------- 选择、删除、排序 ----------
   const toggleIn = (set: Set<string>, key: string, multi: boolean) => {
@@ -223,14 +266,78 @@ export function StockDataWorkspace() {
     [draft.stocks, byResult, sort],
   );
 
-  const exportCsv = () => {
-    const blob = new Blob([buildCsv(rows, draft.columns)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `股票数据-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const fileStem = () => `股票数据-${new Date().toISOString().slice(0, 10)}`;
+  const exportCsv = () => downloadBlob(new Blob([buildCsv(rows, draft.columns)], { type: "text/csv;charset=utf-8" }), `${fileStem()}.csv`);
+  const exportXlsx = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const { aoa, pctColumns } = buildSheetData(rows, draft.columns);
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      for (let r = 1; r < aoa.length; r++) {
+        for (const c of pctColumns) {
+          const cell = ws[XLSX.utils.encode_cell({ r, c })];
+          if (cell && cell.t === "n") cell.z = "0.00%";
+        }
+      }
+      ws["!cols"] = aoa[0]!.map((_, i) => ({ wch: i < 2 ? 12 : 18 }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "股票数据");
+      const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      downloadBlob(new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${fileStem()}.xlsx`);
+    } catch {
+      showToast("导出失败，请改用 CSV");
+    }
+  };
+
+  // ---------- 模板 ----------
+  const applyTemplate = (t: StockDataTemplate, withStocks: boolean) => {
+    // 换新的列标识和组标识，避免和当前的排序、选中状态串号
+    const regroup = new Map<string, string>();
+    const columns = t.columns.slice(0, MAX_COLUMNS).map((c) => {
+      let groupId: string | undefined;
+      if (c.groupId) {
+        groupId = regroup.get(c.groupId) ?? newKey();
+        regroup.set(c.groupId, groupId);
+      }
+      return { ...c, key: newKey(), ...(groupId ? { groupId } : {}) };
+    });
+    const stocks = withStocks && t.symbols?.length ? t.symbols.slice(0, MAX_SYMBOLS).map((symbol) => ({ symbol, name: symbol })) : null;
+    setDraft((d) => ({ columns, stocks: stocks ?? d.stocks }));
+    setSort(null);
+    setSelectedCols(new Set());
+    showToast(`已应用「${t.name}」：${columns.length} 列${stocks ? `、${stocks.length} 只股票` : ""}，点「提取数据」刷新`, true);
+  };
+
+  const deleteTemplate = async (t: StockDataTemplate) => {
+    try {
+      const r = await fetch(`/api/equity/stock-data/templates?id=${encodeURIComponent(t.id)}`, { method: "DELETE" });
+      if (!r.ok) { showToast((await r.json()).error || "删除失败"); return; }
+      setMyTemplates((list) => list?.filter((x) => x.id !== t.id) ?? null);
+      showToast(`已删除「${t.name}」`);
+    } catch {
+      showToast("网络异常，删除失败");
+    }
+  };
+
+  const saveTemplate = async () => {
+    if (!saving) return;
+    const name = saving.name.trim();
+    if (!name) { setSaving({ ...saving, error: "请填写模板名称" }); return; }
+    setSaving({ ...saving, busy: true, error: "" });
+    try {
+      const r = await fetch("/api/equity/stock-data/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, columns: draft.columns, symbols: saving.withStocks ? draft.stocks.map((s) => s.symbol) : null }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setSaving({ ...saving, busy: false, error: j.error || "保存失败" }); return; }
+      setSaving(null);
+      setMyTemplates(null);
+      showToast(j.overwritten ? `已覆盖模板「${name}」` : `已保存模板「${name}」`);
+    } catch {
+      setSaving({ ...saving, busy: false, error: "网络异常，保存失败" });
+    }
   };
 
   const canFetch = draft.stocks.length > 0 && draft.columns.length > 0 && !loading;
@@ -241,6 +348,8 @@ export function StockDataWorkspace() {
     { label: "删除列", run: deleteColumns, disabled: !selectedCols.size },
     { label: "删除行", run: deleteRows, disabled: !selectedRows.size },
     { label: "清空股票", run: clearAll, disabled: !draft.stocks.length },
+    { label: "保存模板", run: () => setSaving({ name: "", withStocks: false, busy: false, error: "" }), disabled: !draft.columns.length },
+    { label: "导出 Excel", run: () => void exportXlsx(), disabled: !canExport },
     { label: "导出 CSV", run: exportCsv, disabled: !canExport },
   ];
 
@@ -348,7 +457,25 @@ export function StockDataWorkspace() {
         {/* 电脑：左栏上下两块；手机：按标签只显示其一 */}
         <aside className={`min-h-0 w-full flex-col border-fs-border md:flex md:w-[300px] md:shrink-0 md:border-r ${mobileTab === "table" ? "hidden" : "flex"}`}>
           <div className={`min-h-0 flex-col md:flex md:flex-[3] md:border-b md:border-fs-border ${mobileTab === "indicators" ? "flex flex-1" : "hidden"}`}>
-            <IndicatorPanel indicators={PUBLIC_INDICATORS} onAdd={addIndicators} />
+            <div role="tablist" aria-label="指标与模板" className="flex border-b border-fs-border">
+              {([["indicators", "指标库"], ["templates", "模板"]] as [LeftTab, string][]).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={leftTab === id}
+                  onClick={() => setLeftTab(id)}
+                  className={`min-h-9 flex-1 text-sm ${leftTab === id ? "border-b-2 border-fs-accent font-semibold" : "text-fs-muted"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {leftTab === "indicators" ? (
+              <IndicatorPanel indicators={PUBLIC_INDICATORS} onAdd={addIndicators} />
+            ) : (
+              <TemplatePanel system={SYSTEM_TEMPLATES} mine={myTemplates} loadError={templateError} onApply={applyTemplate} onDelete={(t) => void deleteTemplate(t)} />
+            )}
           </div>
           <div className={`min-h-0 flex-col md:flex md:flex-[2] ${mobileTab === "stocks" ? "flex flex-1" : "hidden"}`}>
             <StockPoolPanel inTable={inTable} onAdd={addStocks} />
@@ -357,7 +484,7 @@ export function StockDataWorkspace() {
         <section aria-label="数据表格" className={`min-h-0 min-w-0 flex-1 flex-col md:flex ${mobileTab === "table" ? "flex" : "hidden"}`}>
           {tableArea}
           <p className="border-t border-fs-border px-3 py-1.5 text-xs text-fs-muted">
-            财务数据来自上市公司公开披露的定期报告，取最新修订值；报告期按公司财年。悬停单元格可看实际报告期与截止日。
+            财务数据来自上市公司公开披露的定期报告，取最新修订值；报告期按公司财年。估值只用截止日之前已披露的财报。悬停单元格可看实际报告期或交易日。
           </p>
         </section>
       </div>
@@ -371,11 +498,48 @@ export function StockDataWorkspace() {
         </div>
       ) : null}
 
+      {saving ? (
+        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/30 md:items-center" role="presentation" onClick={() => !saving.busy && setSaving(null)}>
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-label="保存模板"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => { e.preventDefault(); void saveTemplate(); }}
+            onKeyDown={(e) => { if (e.key === "Escape" && !saving.busy) setSaving(null); }}
+            className="w-full rounded-t-2xl border border-fs-border bg-fs-bg p-4 shadow-xl md:w-[400px] md:rounded-xl"
+          >
+            <h2 className="text-base font-semibold">保存模板</h2>
+            <p className="mt-1 text-xs text-fs-muted">保存当前的 {draft.columns.length} 列及其参数；同名模板会被覆盖。</p>
+            <input
+              autoFocus
+              maxLength={60}
+              value={saving.name}
+              onChange={(e) => setSaving({ ...saving, name: e.target.value })}
+              placeholder="模板名称"
+              aria-label="模板名称"
+              className="mt-3 min-h-10 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm"
+            />
+            <label className="mt-3 flex min-h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={saving.withStocks} disabled={!draft.stocks.length} onChange={(e) => setSaving({ ...saving, withStocks: e.target.checked })} />
+              连同当前 {draft.stocks.length} 只股票一起保存
+            </label>
+            {saving.error ? <p role="alert" className="mt-2 text-sm text-fs-accent">{saving.error}</p> : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" disabled={saving.busy} onClick={() => setSaving(null)} className="min-h-10 rounded-lg border border-fs-border px-4 text-sm">取消</button>
+              <button type="submit" disabled={saving.busy} className="min-h-10 rounded-lg bg-fs-accent px-4 text-sm text-white disabled:opacity-40">{saving.busy ? "保存中…" : "保存"}</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
       {editor ? (
         <ParamEditor
           title={editor.mode === "add" ? `加入 ${editorDefs.length} 列` : `修改 ${editorDefs.length} 列的参数`}
           indicators={editorDefs}
           initial={editorInitial}
+          initialMulti={editorFirst?.multi}
+          totalColumnsFor={totalColumnsFor}
           onConfirm={confirmEditor}
           onCancel={() => setEditor(null)}
         />

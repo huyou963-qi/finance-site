@@ -80,6 +80,7 @@ model User {
   bookmarkState       UserBookmarkState?
   marketWatchlist     UserMarketWatchlistItem[]
   marketWatchlistGroups UserMarketWatchlistGroup[]
+  stockDataTemplates  UserStockDataTemplate[]
   marketWatchlistTabOrder String[] @default([])
   marketWatchlistStockOrder String[] @default([])
   marketDrawings     UserMarketDrawing[]
@@ -483,6 +484,22 @@ model UserMacroChartPrefs {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   prefs  Json
 
+  @@schema("public")
+}
+
+/// 「股票数据」页（/equity/data）的用户列模板：columns 与查询请求的列结构一致，symbols 可选
+model UserStockDataTemplate {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(60)
+  columns   Json
+  symbols   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, name])
+  @@map("user_stock_data_template")
   @@schema("public")
 }
 

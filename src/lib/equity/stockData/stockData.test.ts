@@ -18,7 +18,7 @@ test("indicator ids are unique and cover every statement line", () => {
 
 test("indicator tree keeps registration order", () => {
   const tree = buildIndicatorTree(INDICATORS);
-  assert.deepEqual(tree.children.map((c) => c.label), ["证券信息", "财务报表", "财务指标"]);
+  assert.deepEqual(tree.children.map((c) => c.label), ["证券信息", "财务报表", "财务指标", "估值指标", "行情指标", "趋势与风险"]);
   assert.deepEqual(tree.children[1]!.children.map((c) => c.label), ["利润表", "资产负债表", "现金流量表"]);
 });
 

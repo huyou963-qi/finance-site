@@ -20,6 +20,7 @@ import {
 } from "@/lib/equity/statementTemplate";
 import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
 import { getIndicator, normalizeParams, type RatioField, type SecurityField } from "./indicatorRegistry";
+import type { MarketResolver } from "./marketResolve";
 import type { Cell, ColumnSpec, PeriodSpec, StockDataRow } from "./types";
 
 export type SecurityInfo = {
@@ -197,8 +198,11 @@ function securityCell(input: SymbolInput, p: Prepared | null, field: SecurityFie
   }
 }
 
-/** 计算一只股票的全部列（列定义已通过 parseQuery 校验） */
-export function resolveRow(input: SymbolInput, columns: readonly ColumnSpec[]): StockDataRow {
+/**
+ * 计算一只股票的全部列（列定义已通过 parseColumns 校验）。
+ * 行情、估值、趋势类交给 market（没有这类列时可不传）。
+ */
+export function resolveRow(input: SymbolInput, columns: readonly ColumnSpec[], market?: MarketResolver): StockDataRow {
   let prepared: Prepared | null | undefined;
   const getPrepared = () => {
     if (prepared === undefined) prepared = input.quarters.length ? prepare(input.quarters) : null;
@@ -211,6 +215,17 @@ export function resolveRow(input: SymbolInput, columns: readonly ColumnSpec[]): 
     const src = def.source;
     if (src.kind === "security") {
       cells[col.key] = securityCell(input, src.field === "statementProfile" || src.field.startsWith("latest") ? getPrepared() : null, src.field);
+      continue;
+    }
+    if (src.kind === "price" || src.kind === "trend" || src.kind === "valuation") {
+      const params = normalizeParams(def, col.params);
+      cells[col.key] = !market
+        ? { v: null, s: "noPrice" }
+        : src.kind === "price"
+          ? market.priceCell(src.field, params)
+          : src.kind === "trend"
+            ? market.trend(src.key, params)
+            : market.valuation(src.field, params);
       continue;
     }
     if (input.isFund) { cells[col.key] = { v: null, s: "notApplicable" }; continue; }

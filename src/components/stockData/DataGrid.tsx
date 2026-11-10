@@ -103,7 +103,7 @@ export function DataGrid({ rows, columns, sort, onSort, selectedCols, selectedRo
                 {columns.map((c) => {
                   const unit = getIndicator(c.indicatorId)?.unit ?? "text";
                   const cell = r.cells[c.key];
-                  const { text, muted } = loading && !cell ? { text: "", muted: true } : formatCellValue(unit, cell);
+                  const { text, muted } = loading && !cell ? { text: "", muted: true } : formatCellValue(unit, cell, c.params.scale);
                   const numeric = cell?.s === "ok" && typeof cell.v === "number";
                   const title = cell?.p ? `${cell.p}${cell.d ? `（截至 ${cell.d}）` : ""}` : undefined;
                   return (

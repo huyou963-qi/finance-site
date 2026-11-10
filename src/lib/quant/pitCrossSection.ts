@@ -105,6 +105,8 @@ export type BuildPitCrossSectionOptions = {
   staleDays?: number;
   /** 预载的 close(T) 表（build 脚本批量场景注入，省去逐月查询）；缺省自查库 */
   closes?: Map<string, { close: number; date: string }>;
+  /** 市值下限（低于此视为股本口径错、按缺失处理），默认 1 亿美元（指数成分股口径） */
+  minPlausibleMarketCap?: number;
 };
 
 /**
@@ -115,7 +117,6 @@ export async function buildPitCrossSection(
   t: string,
   opts: BuildPitCrossSectionOptions = {},
 ): Promise<PitCrossSection> {
-  const staleDays = opts.staleDays ?? 7;
   const universeAsOf = await resolveUniverseAsOf(t);
   if (!universeAsOf) throw new Error(`T=${t} 之前无 ${SP500_INDEX_CODE} 成分快照`);
 
@@ -124,7 +125,20 @@ export async function buildPitCrossSection(
     select: { symbol: true },
   });
   const symbols = members.map((m) => m.symbol).sort();
+  return { t, universeAsOf, rows: await buildPitRows(symbols, t, opts) };
+}
 
+/**
+ * 任意一组 symbol 在 T 时点的 PIT 行（截面与「股票数据」页共用的唯一装配逻辑）。
+ * 只读库；不在库里的 symbol 也返回一行（quarters 为空、close 为 null）。
+ */
+export async function buildPitRows(
+  symbols: string[],
+  t: string,
+  opts: BuildPitCrossSectionOptions = {},
+): Promise<PitEquityRow[]> {
+  const staleDays = opts.staleDays ?? 7;
+  const minMarketCap = opts.minPlausibleMarketCap ?? MIN_PLAUSIBLE_MARKET_CAP;
   const tDate = new Date(`${t}T00:00:00.000Z`);
   const [snaps, closes] = await Promise.all([
     prisma.equityFundamentalSnapshot.findMany({
@@ -225,7 +239,7 @@ export async function buildPitCrossSection(
   }
 
   const tMs = tDate.getTime();
-  const rows: PitEquityRow[] = symbols.map((symbol) => {
+  return symbols.map((symbol): PitEquityRow => {
     const quarters = quartersBySymbol.get(symbol) ?? [];
     const latestQuarter = quarters.length ? quarters[quarters.length - 1]! : null;
 
@@ -255,7 +269,7 @@ export async function buildPitCrossSection(
         ? close * sharesCurrent
         : null;
     // 绝对下限兜底：指数成分股市值不可能低于 1 亿美元，低于此必是股本口径错（如 SPG 的 8000 股）
-    const marketCap = rawMarketCap != null && rawMarketCap >= MIN_PLAUSIBLE_MARKET_CAP ? rawMarketCap : null;
+    const marketCap = rawMarketCap != null && rawMarketCap >= minMarketCap ? rawMarketCap : null;
 
     return {
       symbol,
@@ -267,6 +281,4 @@ export async function buildPitCrossSection(
       marketCap,
     };
   });
-
-  return { t, universeAsOf, rows };
 }
