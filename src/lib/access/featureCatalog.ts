@@ -121,7 +121,8 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     group: "美股",
     paths: ["/investments"],
     description: "投资案例与交易记录",
-    defaults: RELEASED,
+    // 投资案例功能未完成，用户确认上线前不对客户开放（2026-11）
+    defaults: IN_DEVELOPMENT,
   },
   {
     id: "quant-regime",
