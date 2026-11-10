@@ -5,6 +5,7 @@ import {
   computeFfoPerShareTtm,
   chooseOverviewProfile,
   dimensionBlueprint,
+  isSeriesHiddenByDefault,
   sliceOverviewDimensions,
   ffoOf,
   type DimensionChart,
@@ -231,10 +232,14 @@ test("gross margin is derived from cost of revenue when no gross profit is repor
 
 test("extreme EPS growth is hidden by default but kept in the legend", () => {
   const rows = EIGHT.map((r, i) => (i === 3 ? { ...r, eps: 0.01 } : r)).map((r) => ({ ...r, epsYoY: undefined }));
-  const growth = chart(buildOverviewDimensions(rows, "general").charts, "growth");
-  const eps = growth.series.find((x) => x.name === "EPS YoY");
-  assert.equal(eps?.hidden, true);
-  assert.equal(growth.series.find((x) => x.name === "营收 YoY")?.hidden, undefined);
+  const d = buildOverviewDimensions(rows, "general");
+  const growth = chart(d.charts, "growth");
+  const eps = growth.series.find((x) => x.name === "EPS YoY")!;
+  assert.equal(isSeriesHiddenByDefault(eps), true);
+  assert.equal(isSeriesHiddenByDefault(growth.series.find((x) => x.name === "营收 YoY")!), false);
+  // 尖峰在区间外（下标 7 的同比来自下标 3 的低基数），只看前 7 期时不收起
+  const earlier = chart(sliceOverviewDimensions(d, 0, 6).charts, "growth");
+  assert.equal(isSeriesHiddenByDefault(earlier.series.find((x) => x.name === "EPS YoY")!), false);
 });
 
 test("annual rows: each row is a full year and YoY compares with the previous row", () => {

@@ -15,7 +15,11 @@ import {
   formatRatio,
   formatSignedPct,
 } from "@/lib/equity/formatFundamentalsDisplay";
-import type { DimensionChart, DimensionUnit } from "@/lib/equity/overviewDimensions";
+import {
+  isSeriesHiddenByDefault,
+  type DimensionChart,
+  type DimensionUnit,
+} from "@/lib/equity/overviewDimensions";
 
 echarts.use([LineChart, BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
@@ -142,7 +146,8 @@ export function DimensionChartView({
       chart.series.some((s) => s.axis === axis && s.type === "bar"),
     );
     const useRightAxis = axisUnits[1] != null;
-    const selected = Object.fromEntries(chart.series.map((s) => [s.name, !s.hidden]));
+    // chart 已截取到展示区间，默认收起按可见数据判断
+    const selected = Object.fromEntries(chart.series.map((s) => [s.name, !isSeriesHiddenByDefault(s)]));
     return {
       ...baseOption(periods),
       legend: {

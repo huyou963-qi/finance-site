@@ -33,6 +33,8 @@ export type DimensionSeries = {
   stack?: string;
   /** 默认在图例中关闭（量级差太多会压扁其他线，需要时点开） */
   hidden?: boolean;
+  /** 展示区间内同比超过 ±300% 时默认收起（见 isSeriesHiddenByDefault） */
+  hideWhenExtreme?: boolean;
 };
 
 export type DimensionChart = {
@@ -256,18 +258,28 @@ export function computeFfoPerShareTtm(
 // 各维度（一般企业）
 // ---------------------------------------------------------------------------
 
-/** @param includeEps REIT 传 false：折旧大、EPS 基数小，同比动辄上千 %，改看每股 FFO */
 /** 同比超过 ±300% 的系列默认收起：基数接近零时（扭亏、低基数）会把其余增速线压平 */
 const YOY_HIDE_THRESHOLD = 3;
 
-function hideIfExtreme(ser: DimensionSeries): DimensionSeries {
-  return ser.data.some((v) => v != null && Math.abs(v) > YOY_HIDE_THRESHOLD) ? { ...ser, hidden: true } : ser;
+/**
+ * 图例里是否默认关闭。必须用「当前展示区间」的数据判断（传入已截取的系列）：
+ * 用全量历史判断时，区间外的一次扭亏尖峰会让近 5 年都正常的增速线被收起。
+ */
+export function isSeriesHiddenByDefault(ser: DimensionSeries): boolean {
+  if (ser.hidden) return true;
+  return !!ser.hideWhenExtreme && ser.data.some((v) => v != null && Math.abs(v) > YOY_HIDE_THRESHOLD);
 }
 
+/** @param includeEps REIT 传 false：折旧大、EPS 基数小，同比动辄上千 %，改看每股 FFO */
 function growthChart(s: QuarterSeries, extra: DimensionSeries[] = [], includeEps = true): DimensionChart {
   const chart = growthChartRaw(s, extra, includeEps);
   // 营收增速是主线，不收起
-  return { ...chart, series: chart.series.map((ser) => (ser.name === "营收 YoY" || ser.type === "bar" ? ser : hideIfExtreme(ser))) };
+  return {
+    ...chart,
+    series: chart.series.map((ser) =>
+      ser.name === "营收 YoY" || ser.type === "bar" ? ser : { ...ser, hideWhenExtreme: true },
+    ),
+  };
 }
 
 function growthChartRaw(s: QuarterSeries, extra: DimensionSeries[], includeEps: boolean): DimensionChart {

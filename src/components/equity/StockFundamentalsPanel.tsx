@@ -594,7 +594,8 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                       ) : null
                     }
                   />
-                  {data.valuationHistory && data.valuationHistory.points.length >= 8 ? (
+                  {/* 按区间过滤后的点数判断：区间落在股价窗口之外时显示占位，而不是空图 */}
+                  {valuationPoints.length >= 8 ? (
                     <ValuationBandChart
                       points={valuationPoints}
                       primaryName={`${valuationLabel} (TTM)`}
