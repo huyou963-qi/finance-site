@@ -2,22 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CommonLinksMenu } from "@/components/CommonLinksMenu";
 import { ReportBugButton } from "@/components/errors/ReportBugButton";
 import { UserAccountMenu } from "@/components/UserAccountMenu";
 import { IconClose, IconMenu } from "@/components/mobile/mobileIcons";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
+import { ENGLISH_FEATURE_ID } from "@/i18n/locales";
 
 const linkBase =
   "relative inline-flex min-h-12 items-center px-2.5 text-[15px] font-semibold tracking-[0.025em] transition-colors outline-none after:absolute after:bottom-1 after:left-2.5 after:right-2.5 after:h-0.5 after:rounded-full after:bg-linear-to-r after:from-[#00c8ad] after:to-[#075f78] after:opacity-0 after:transition-opacity focus-visible:ring-2 focus-visible:ring-fs-accent/50 max-md:min-h-10 max-md:rounded-md max-md:text-sm";
 
 const TOOL_LINKS = [
-  { href: "/markets-tools", label: "K线区间统计", featureId: "tools-kline-range" },
+  { href: "/markets-tools", labelKey: "toolKlineRange", featureId: "tools-kline-range" },
   {
     href: "/tools/statistical-analysis",
-    label: "统计分析",
+    labelKey: "toolStatisticalAnalysis",
     featureId: "tools-statistical-analysis",
   },
 ] as const;
@@ -40,40 +43,40 @@ const FORECAST_LINKS = [
 
 /** 顶栏主入口：featureId 由管理员在 /admin/feature-access 控制可见性 */
 const MAIN_LINKS = [
-  { featureId: "markets", href: "/markets", label: "行情", match: ["/markets", "/equity/stocks"] },
-  { featureId: "macro", href: "/macro", label: "宏观数据", match: ["/macro"] },
+  { featureId: "markets", href: "/markets", labelKey: "markets", match: ["/markets", "/equity/stocks"] },
+  { featureId: "macro", href: "/macro", labelKey: "macro", match: ["/macro"] },
   {
     featureId: "equity-industries",
     href: "/equity/industries",
-    label: "美股行业",
+    labelKey: "equityIndustries",
     match: ["/equity/industries"],
   },
   {
     featureId: "equity-sectors",
     href: "/equity/sectors",
-    label: "美股历史",
+    labelKey: "equitySectors",
     match: ["/equity/sectors"],
   },
   {
     featureId: "equity-ownership",
     href: "/equity/ownership",
-    label: "持股监控",
+    labelKey: "equityOwnership",
     match: ["/equity/ownership"],
   },
   {
     featureId: "equity-stock-data",
     href: "/equity/data",
-    label: "股票数据",
+    labelKey: "equityStockData",
     match: ["/equity/data"],
   },
   {
     featureId: "investments",
     href: "/investments",
-    label: "投资记录",
+    labelKey: "investments",
     match: ["/investments"],
   },
-  { featureId: "events", href: "/events", label: "时间线", match: ["/events"] },
-  { featureId: "weekly", href: "/weekly", label: "AI周度观察", match: ["/weekly"] },
+  { featureId: "events", href: "/events", labelKey: "events", match: ["/events"] },
+  { featureId: "weekly", href: "/weekly", labelKey: "weekly", match: ["/weekly"] },
 ] as const;
 
 const QUANT_MATCH = [
@@ -106,12 +109,16 @@ function MobileNavDrawer({
   onClose,
   links,
   toolLinks,
+  showLanguage,
 }: {
   open: boolean;
   onClose: () => void;
   links: MobileNavLink[];
   toolLinks: MobileNavLink[];
+  showLanguage: boolean;
 }) {
+  const t = useTranslations("nav");
+  const tLang = useTranslations("language");
   if (!open) return null;
 
   const row = (item: MobileNavLink) => (
@@ -135,20 +142,20 @@ function MobileNavDrawer({
     <div className="fixed inset-0 z-[10000] md:hidden">
       <button
         type="button"
-        aria-label="关闭菜单"
+        aria-label={t("closeMenu")}
         className="absolute inset-0 bg-black/45"
         onClick={onClose}
       />
       <nav
-        aria-label="站点导航"
+        aria-label={t("siteNavigation")}
         className="absolute inset-y-0 right-0 flex w-[min(300px,calc(100vw-64px))] flex-col bg-fs-bg shadow-2xl"
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-fs-border pl-4 pr-1">
-          <span className="text-sm font-semibold text-fs-text">导航</span>
+          <span className="text-sm font-semibold text-fs-text">{t("drawerTitle")}</span>
           <button
             type="button"
             onClick={onClose}
-            aria-label="关闭菜单"
+            aria-label={t("closeMenu")}
             className="flex h-11 w-11 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated"
           >
             <IconClose size={22} />
@@ -158,12 +165,18 @@ function MobileNavDrawer({
           <div className="flex flex-col gap-0.5">{links.map(row)}</div>
           {toolLinks.length > 0 ? (
             <>
-              <p className="mt-3 px-3 pb-1 text-xs font-medium text-fs-muted">工具</p>
+              <p className="mt-3 px-3 pb-1 text-xs font-medium text-fs-muted">{t("tools")}</p>
               <div className="flex flex-col gap-0.5">{toolLinks.map(row)}</div>
             </>
           ) : null}
           <div className="mx-3 my-3 h-px bg-fs-border" />
-          {row({ href: "/pricing", label: "Pro 会员", active: false })}
+          {row({ href: "/pricing", label: t("proMembership"), active: false })}
+          {showLanguage ? (
+            <div className="flex h-12 items-center justify-between px-3">
+              <span className="text-base text-fs-text">{tLang("label")}</span>
+              <LanguageSwitcher />
+            </div>
+          ) : null}
         </div>
       </nav>
     </div>,
@@ -178,6 +191,8 @@ export function SiteHeaderNav() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
   const features = useVisibleFeatures();
+  const t = useTranslations("nav");
+  const showLanguage = features.can(ENGLISH_FEATURE_ID);
 
   const articlesActive = matchesAny(pathname, ["/articles"]);
   const quantActive = matchesAny(pathname, QUANT_MATCH);
@@ -241,7 +256,7 @@ export function SiteHeaderNav() {
             className={linkClass(active)}
             aria-current={active ? "page" : undefined}
           >
-            {item.label}
+            {t(item.labelKey)}
             {features.locked(item.featureId) ? <ProMark /> : null}
           </Link>
         );
@@ -252,22 +267,22 @@ export function SiteHeaderNav() {
       .filter((item) => features.can(item.featureId))
       .map((item) => ({
         href: item.href,
-        label: item.label,
+        label: t(item.labelKey),
         active: matchesAny(pathname, item.match),
         pro: features.locked(item.featureId),
       }));
 
   const mobileLinks: MobileNavLink[] = [
     ...mainMobileLinks(marketAndMacroLinks),
-    ...(forecastHref ? [{ href: forecastHref, label: "指标预测", active: forecastActive }] : []),
+    ...(forecastHref ? [{ href: forecastHref, label: t("forecast"), active: forecastActive }] : []),
     ...mainMobileLinks(beforeQuant),
-    ...(quantHref ? [{ href: quantHref, label: "量化", active: quantActive }] : []),
+    ...(quantHref ? [{ href: quantHref, label: t("quant"), active: quantActive }] : []),
     ...mainMobileLinks(afterQuant),
     ...(features.can("articles") || isAdmin
       ? [
           {
             href: isAdmin ? "/articles/editor" : "/articles",
-            label: isAdmin ? "发布文章" : "专题文章",
+            label: isAdmin ? t("publishArticle") : t("articles"),
             active: articlesActive,
           },
         ]
@@ -275,7 +290,7 @@ export function SiteHeaderNav() {
   ];
   const mobileToolLinks: MobileNavLink[] = visibleTools.map((item) => ({
     href: item.href,
-    label: item.label,
+    label: t(item.labelKey),
     active: matchesAny(pathname, [item.href]),
     pro: features.locked(item.featureId),
   }));
@@ -290,7 +305,7 @@ export function SiteHeaderNav() {
             className={linkClass(forecastActive)}
             aria-current={forecastActive ? "page" : undefined}
           >
-            指标预测
+            {t("forecast")}
           </Link>
         ) : null}
         {renderMain(beforeQuant)}
@@ -300,7 +315,7 @@ export function SiteHeaderNav() {
             className={linkClass(quantActive)}
             aria-current={quantActive ? "page" : undefined}
           >
-            量化
+            {t("quant")}
           </Link>
         ) : null}
         {renderMain(afterQuant)}
@@ -310,7 +325,7 @@ export function SiteHeaderNav() {
             className={linkClass(articlesActive)}
             aria-current={articlesActive ? "page" : undefined}
           >
-            {isAdmin ? "发布文章" : "专题文章"}
+            {isAdmin ? t("publishArticle") : t("articles")}
           </Link>
         ) : null}
         {visibleTools.length > 0 ? (
@@ -322,7 +337,7 @@ export function SiteHeaderNav() {
               onClick={() => setToolsOpen((v) => !v)}
               className={linkClass(toolsActive)}
             >
-              工具
+              {t("tools")}
               <span className="ml-0.5 text-[10px] opacity-70" aria-hidden>
                 ▾
               </span>
@@ -347,7 +362,7 @@ export function SiteHeaderNav() {
                       aria-current={active ? "page" : undefined}
                       onClick={() => setToolsOpen(false)}
                     >
-                      {item.label}
+                      {t(item.labelKey)}
                       {features.locked(item.featureId) ? <ProMark /> : null}
                     </Link>
                   );
@@ -359,18 +374,19 @@ export function SiteHeaderNav() {
         {isAdmin ? <CommonLinksMenu me={me} /> : null}
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5 max-md:gap-0.5">
+        {showLanguage ? <LanguageSwitcher className="max-md:hidden" /> : null}
         <Link
           href="/pricing"
           className={linkClass(matchesAny(pathname, ["/pricing"]))}
         >
-          Pro
+          {t("pro")}
         </Link>
         <ReportBugButton />
         <UserAccountMenu />
         <button
           type="button"
           onClick={() => setMobileNavOpen(true)}
-          aria-label="打开导航菜单"
+          aria-label={t("openMenu")}
           aria-expanded={mobileNavOpen}
           className="flex h-11 w-11 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated md:hidden"
         >
@@ -382,6 +398,7 @@ export function SiteHeaderNav() {
         onClose={() => setMobileNavOpen(false)}
         links={mobileLinks}
         toolLinks={mobileToolLinks}
+        showLanguage={showLanguage}
       />
     </nav>
   );

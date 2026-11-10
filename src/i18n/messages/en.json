@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "markets": "Markets",
+    "macro": "Macro Data",
+    "forecast": "Nowcasts",
+    "equityIndustries": "US Industries",
+    "equitySectors": "US Market History",
+    "equityOwnership": "Insider Monitor",
+    "equityStockData": "Stock Data",
+    "investments": "Investments",
+    "quant": "Quant",
+    "events": "Timeline",
+    "weekly": "AI Weekly",
+    "articles": "Articles",
+    "publishArticle": "Publish Article",
+    "tools": "Tools",
+    "toolKlineRange": "Price Range Stats",
+    "toolStatisticalAnalysis": "Statistical Analysis",
+    "pro": "Pro",
+    "proMembership": "Pro Membership",
+    "drawerTitle": "Menu",
+    "siteNavigation": "Site navigation",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close menu"
+  },
+  "language": {
+    "label": "Language",
+    "switcher": "Change interface language",
+    "zh": "中文",
+    "en": "English"
+  }
+}

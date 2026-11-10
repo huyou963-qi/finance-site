@@ -36,6 +36,11 @@ export type FeatureDefinition = {
   label: string;
   /** 管理页分组标题 */
   group: string;
+  /**
+   * page（默认）：功能页，paths 至少一项。
+   * setting：不对应页面的站点级开关（如英文界面），paths 为空，入口由对应组件按 can() 过滤。
+   */
+  kind?: "page" | "setting";
   /** 覆盖的路由：精确路径或前缀（`/x` 命中 `/x` 与 `/x/...`） */
   paths: readonly string[];
   description: string;
@@ -213,9 +218,27 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     description: "序列统计分析工具",
     defaults: IN_DEVELOPMENT,
   },
+  {
+    id: "site-language-en",
+    label: "英文界面",
+    group: "站点",
+    kind: "setting",
+    paths: [],
+    description: "顶栏与手机导航里的语言切换（中文 / English）；未开放的身份即使带 en cookie 也按中文渲染",
+    // 英文翻译分阶段进行，用户确认发布前只有管理员能切换（2026-11）
+    defaults: IN_DEVELOPMENT,
+  },
 ] as const;
 
-export const FEATURE_GROUP_ORDER: readonly string[] = ["宏观", "预测", "美股", "量化", "内容", "工具"];
+export const FEATURE_GROUP_ORDER: readonly string[] = [
+  "宏观",
+  "预测",
+  "美股",
+  "量化",
+  "内容",
+  "工具",
+  "站点",
+];
 
 export const FEATURE_AUDIENCE_LABELS: Record<FeatureAudience, string> = {
   visitor: "游客",

@@ -13,6 +13,11 @@
 - **管理员永远可见全部功能页**：功能页权限配置（`/admin/feature-access`）只管游客/普通用户/Pro 三类身份，不管管理员。每个登记在 `featureCatalog.ts` 的页面都必须有经 `useVisibleFeatures().can(...)` 过滤的导航入口（电脑版+手机版），开发中的页面也一样——过滤后客户看不到、管理员看得到；不加入口会让管理员也找不到页面。详见 [docs/FEATURE_ACCESS.md](./docs/FEATURE_ACCESS.md)。
 - **未经用户确认发布（release）的功能，不得出现在客户可见的位置**：顶部导航、页面内按钮/链接/快捷入口、首页卡片、文案里的引导都算。新功能页在 `featureCatalog.ts` 登记为 `IN_DEVELOPMENT`，由管理员在 `/admin/feature-access` 切换上线；页面内指向其他功能的链接同样要用 `useVisibleFeatures().can(...)` 过滤。功能做了一半、或用户没说要上线时，不要顺手加**未经权限过滤**的入口——先问。
 
+## 界面多语言
+
+- 中英文切换走 `next-intl` + cookie（URL 不变），中文为默认，英文缺键回退中文；开关是功能目录里的 `site-language-en`（开发中，仅管理员可见）。
+- 新写或改动的界面文案优先放 `src/i18n/messages/zh.json` / `en.json`；已翻译文件登记在 `src/i18n/messages.test.ts`，不得再写硬编码中文。详见 [docs/I18N.md](./docs/I18N.md)。
+
 ## 用户管理
 
 - `/admin/users` 为 P0–P2 后台入口；最高管理员、客服只读、会员运营、订单处理四种后台岗位使用不同权限，全部须密码加 TOTP。会员及积分手工调整、订单确认、批量标签与导出均需原因与审计。

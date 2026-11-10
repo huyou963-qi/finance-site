@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "markets": "行情",
+    "macro": "宏观数据",
+    "forecast": "指标预测",
+    "equityIndustries": "美股行业",
+    "equitySectors": "美股历史",
+    "equityOwnership": "持股监控",
+    "equityStockData": "股票数据",
+    "investments": "投资记录",
+    "quant": "量化",
+    "events": "时间线",
+    "weekly": "AI周度观察",
+    "articles": "专题文章",
+    "publishArticle": "发布文章",
+    "tools": "工具",
+    "toolKlineRange": "K线区间统计",
+    "toolStatisticalAnalysis": "统计分析",
+    "pro": "Pro",
+    "proMembership": "Pro 会员",
+    "drawerTitle": "导航",
+    "siteNavigation": "站点导航",
+    "openMenu": "打开导航菜单",
+    "closeMenu": "关闭菜单"
+  },
+  "language": {
+    "label": "语言",
+    "switcher": "切换界面语言",
+    "zh": "中文",
+    "en": "English"
+  }
+}

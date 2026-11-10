@@ -44,7 +44,8 @@ test("catalog ids are unique and groups are declared", () => {
   assert.equal(new Set(ids).size, ids.length);
   for (const f of FEATURE_CATALOG) {
     assert.ok(FEATURE_GROUP_ORDER.includes(f.group), `未登记的分组: ${f.group}`);
-    assert.ok(f.paths.length > 0);
+    if (f.kind === "setting") assert.equal(f.paths.length, 0, f.id);
+    else assert.ok(f.paths.length > 0, f.id);
     for (const p of f.paths) assert.ok(p.startsWith("/"), p);
     if (f.adminOnly) assert.equal(f.defaults.status, "development", f.id);
   }

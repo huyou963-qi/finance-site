@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
 import { SiteHeaderShell } from "@/components/SiteHeaderShell";
 import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
 import { BaiduPageView } from "@/components/analytics/BaiduPageView";
 import { BaiduTongjiScript } from "@/components/analytics/BaiduTongjiScript";
 import { CANONICAL_SITE_URL, DEFAULT_OG_IMAGE } from "@/lib/seo/siteUrl";
+import { HTML_LANG, parseLocale } from "@/i18n/locales";
 import "./globals.css";
 
 /** 百度搜索资源平台「HTML 标签验证」的 content 值（codeva-xxx） */
@@ -40,21 +43,25 @@ export const metadata: Metadata = {
     : {}),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 语言来自 cookie（src/i18n/request.ts），因此根布局按请求渲染。
+  const locale = parseLocale(await getLocale());
   return (
-    <html lang="zh-CN" className="h-full" suppressHydrationWarning>
+    <html lang={HTML_LANG[locale]} className="h-full" suppressHydrationWarning>
       <body
         className="flex h-full min-h-0 flex-col antialiased"
         suppressHydrationWarning
       >
-        <SiteHeaderShell />
-        <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pt-1 pb-3">
-          {children}
-        </main>
+        <NextIntlClientProvider>
+          <SiteHeaderShell />
+          <main className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto pt-1 pb-3">
+            {children}
+          </main>
+        </NextIntlClientProvider>
         <GlobalErrorListeners />
         <BaiduPageView />
         <BaiduTongjiScript />
