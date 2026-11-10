@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  RoeDupontChart,
-  StockFundamentalTrend,
+  DimensionChartView,
   ValuationBandChart,
   type FundamentalQuarterPoint,
   type RatioPoint,
@@ -16,10 +15,16 @@ import {
   formatPct,
   formatPp,
   formatRatio,
+  formatMultiplier,
   formatSignedPct,
 } from "@/lib/equity/formatFundamentalsDisplay";
 import { StockStatementsTable } from "@/components/equity/StockStatementsTable";
-import type { StatementLines } from "@/lib/equity/statementTemplate";
+import {
+  STATEMENT_PROFILE_NAMES,
+  type StatementLines,
+  type StatementProfile,
+} from "@/lib/equity/statementTemplate";
+import { buildOverviewDimensions, sliceOverviewDimensions } from "@/lib/equity/overviewDimensions";
 
 // ---------------------------------------------------------------------------
 // 类型（与 /api/equity/stocks/[symbol]/fundamentals、/peers 响应对齐）
@@ -37,6 +42,8 @@ type StatementRow = FundamentalQuarterPoint & {
   sharesOutstanding: number | null;
   /** 三张报表其余标准化科目 */
   lines?: StatementLines;
+  /** 年报行：组内季度标签（升序） */
+  quarterPeriods?: string[];
 };
 
 type RatioRow = RatioPoint & {
@@ -78,6 +85,10 @@ type FundamentalsPayload = {
     pbCurrent: number | null;
     pbPercentile: number | null;
   } | null;
+  /** 估值带口径：一般为 PE，REIT 为 P/FFO */
+  valuationMetric?: "pe" | "pffo";
+  /** 按披露科目判定的报表格式 */
+  profile?: StatementProfile;
   industry: {
     nameEn: string;
     medians: {
@@ -115,6 +126,13 @@ const fmtSignedPct = formatSignedPct;
 const fmtPp = formatPp;
 const fmtEps = formatEps;
 
+/** 一次载入的季度数，与深历史回填（--quarters=70）对齐 */
+const MAX_QUARTERS = 70;
+/** 默认展示近 5 年 */
+const DEFAULT_QUARTERS = 20;
+
+const DIMENSION_MARKS = ["①", "②", "③", "④", "⑤", "⑥", "⑦"];
+
 function signClass(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "text-fs-muted";
   if (v > 0) return "text-emerald-400";
@@ -136,8 +154,11 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
   const [data, setData] = useState<FundamentalsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  /** 默认 20；可扩至 40/70 与回填深度对齐 */
-  const [quartersLimit, setQuartersLimit] = useState(20);
+  /**
+   * 展示区间（按财季末日期，含两端），季报 / 年报共用；null = 默认近 5 年。
+   * 一次载入全部历史（与深回填 70 季对齐），切换区间不再请求。
+   */
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null);
 
   const [tab, setTab] = useState<TabId>("overview");
   const [viewMode, setViewMode] = useState<"Q" | "FY">("Q");
@@ -157,7 +178,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
   const [forwardPeError, setForwardPeError] = useState<string | null>(null);
 
   useEffect(() => {
-    setQuartersLimit(20);
+    setRange(null);
     setPeers(null);
     setPeerUniverseCount(null);
     setForwardPe(null);
@@ -211,7 +232,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
       setLoading(true);
       setError(null);
       try {
-        const qs = new URLSearchParams({ quarters: String(quartersLimit) });
+        const qs = new URLSearchParams({ quarters: String(MAX_QUARTERS) });
         const r = await fetch(
           `/api/equity/stocks/${encodeURIComponent(symbol)}/fundamentals?${qs}`,
           { cache: "no-store" },
@@ -228,7 +249,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [symbol, quartersLimit]);
+  }, [symbol]);
 
   useEffect(() => {
     if (tab !== "peers" || peers != null) return;
@@ -262,6 +283,63 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
   }, [tab, peers, symbol]);
 
   const lastRatio = data?.ratios.length ? data.ratios[data.ratios.length - 1]! : null;
+  const profile: StatementProfile = data?.profile ?? "general";
+  const isFinancial = profile === "bank" || profile === "insurer" || profile === "broker";
+  const valuationLabel = data?.valuationMetric === "pffo" ? "P/FFO" : "PE";
+
+  const periodRows: StatementRow[] = useMemo(
+    () => (viewMode === "Q" ? (data?.quarters ?? []) : (data?.fiscalYears ?? [])),
+    [data, viewMode],
+  );
+
+  /** 默认近 5 年：起点 = 倒数第 20 季的季末 */
+  const effectiveRange = useMemo(() => {
+    if (range) return range;
+    const qs = data?.quarters ?? [];
+    if (!qs.length) return null;
+    return { from: qs[Math.max(0, qs.length - DEFAULT_QUARTERS)]!.fiscalDate, to: qs[qs.length - 1]!.fiscalDate };
+  }, [range, data]);
+
+  /** 当前频率下区间对应的行下标 [start, end] */
+  const [rangeStart, rangeEnd] = useMemo(() => {
+    if (!effectiveRange || !periodRows.length) return [0, Math.max(0, periodRows.length - 1)];
+    let start = periodRows.findIndex((r) => r.fiscalDate >= effectiveRange.from);
+    let end = -1;
+    periodRows.forEach((r, i) => {
+      if (r.fiscalDate <= effectiveRange.to) end = i;
+    });
+    if (start < 0) start = periodRows.length - 1;
+    if (end < start) end = start;
+    return [start, end];
+  }, [effectiveRange, periodRows]);
+
+  /** 年报的起点取该财年第一季的季末，切回季报时区间不缩水 */
+  const startBound = useCallback(
+    (row: StatementRow): string => {
+      if (viewMode === "Q") return row.fiscalDate;
+      const firstQ = row.quarterPeriods?.[0];
+      return data?.quarters.find((q) => q.period === firstQ)?.fiscalDate ?? row.fiscalDate;
+    },
+    [data, viewMode],
+  );
+
+  const dimensions = useMemo(() => {
+    if (!data || !periodRows.length) return null;
+    // 在全量序列上算 TTM / 同比，再截区间
+    return sliceOverviewDimensions(buildOverviewDimensions(periodRows, profile, viewMode), rangeStart, rangeEnd);
+  }, [data, periodRows, profile, viewMode, rangeStart, rangeEnd]);
+
+  const valuationPoints = useMemo(() => {
+    const pts = data?.valuationHistory?.points ?? [];
+    if (!periodRows.length) return pts;
+    const fromSec = Date.parse(`${startBound(periodRows[rangeStart]!)}T00:00:00Z`) / 1000;
+    // 区间止于最新一期时画到今天；否则画到期末后一季（财报披露滞后）
+    const toSec =
+      rangeEnd >= periodRows.length - 1
+        ? Infinity
+        : Date.parse(`${periodRows[rangeEnd]!.fiscalDate}T00:00:00Z`) / 1000 + 90 * 86_400;
+    return pts.filter((p) => p.t >= fromSec && p.t <= toSec);
+  }, [data, periodRows, rangeStart, rangeEnd, startBound]);
 
   const sortedPeers = useMemo(() => {
     if (!peers) return null;
@@ -276,7 +354,6 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     });
   }, [peers, peerSort]);
 
-  const statementRows = viewMode === "Q" ? (data?.quarters ?? []) : (data?.fiscalYears ?? []);
   const yoyLag = viewMode === "Q" ? 4 : 1;
 
   const kpis: [string, string, string?][] = lastRatio
@@ -285,11 +362,14 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
         ["ROA (TTM)", fmtPct(lastRatio.roaTtm)],
         ["净利率 (TTM)", fmtPct(lastRatio.netMarginTtm)],
         ["资产负债率", fmtPct(lastRatio.debtRatio)],
-        ["净债务", fmtMoney(lastRatio.netDebt)],
+        // 金融公司的负债主要是存款、保单与客户资金，净债务没有意义，改看杠杆
+        isFinancial
+          ? ["杠杆（总资产/权益）", formatMultiplier(lastRatio.equityMultiplier)]
+          : ["净债务", fmtMoney(lastRatio.netDebt)],
         ["派息率 (TTM)", fmtPct(lastRatio.payoutRatioTtm)],
         ["近 4 季回购", fmtSignedPct(lastRatio.buybackRate)],
         [
-          "PE 历史分位",
+          `${valuationLabel} 历史分位`,
           data?.valuationHistory?.pePercentile != null
             ? `${(data.valuationHistory.pePercentile * 100).toFixed(0)}%`
             : "—",
@@ -339,11 +419,60 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
             ))}
           </div>
         </div>
-        {data?.ttm ? (
-          <span className="text-[11px] text-fs-muted">
-            TTM 覆盖 {data.ttm.periods[0]} – {data.ttm.periods[3]}
-            {data.quarters.length ? ` · 已载 ${data.quarters.length} 季` : ""}
-          </span>
+        {data && periodRows.length && tab !== "peers" ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center rounded border border-fs-border p-0.5" role="group" aria-label="报告期类型">
+              {(
+                [
+                  ["Q", "季报"],
+                  ["FY", "年报"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={viewMode === id}
+                  onClick={() => setViewMode(id)}
+                  className={`rounded px-2 py-0.5 transition-colors ${
+                    viewMode === id ? "bg-fs-accent/20 text-fs-accent-text" : "text-fs-muted hover:text-fs-text"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <select
+              aria-label="起始报告期"
+              value={rangeStart}
+              onChange={(e) => {
+                const row = periodRows[Number(e.target.value)]!;
+                setRange({ from: startBound(row), to: periodRows[rangeEnd]!.fiscalDate });
+              }}
+              className="rounded border border-fs-border bg-fs-bg px-1.5 py-1 text-xs text-fs-text tabular-nums"
+            >
+              {periodRows.map((r, i) => (
+                <option key={r.period} value={i} disabled={i > rangeEnd}>
+                  {r.period}
+                </option>
+              ))}
+            </select>
+            <span className="text-fs-muted">至</span>
+            <select
+              aria-label="结束报告期"
+              value={rangeEnd}
+              onChange={(e) => {
+                const row = periodRows[Number(e.target.value)]!;
+                setRange({ from: startBound(periodRows[rangeStart]!), to: row.fiscalDate });
+              }}
+              className="rounded border border-fs-border bg-fs-bg px-1.5 py-1 text-xs text-fs-text tabular-nums"
+            >
+              {periodRows.map((r, i) => (
+                <option key={r.period} value={i} disabled={i < rangeStart}>
+                  {r.period}
+                </option>
+              ))}
+            </select>
+          </div>
         ) : null}
       </div>
 
@@ -424,28 +553,52 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                 </div>
               ) : null}
 
-              <StockFundamentalTrend quarters={data.quarters} />
+              {profile !== "general" ? (
+                <p className="text-[11px] text-fs-muted">
+                  按「{STATEMENT_PROFILE_NAMES[profile]}」披露格式选取指标；不良率、资本充足率、出租率等不在财报科目内，未展示。
+                </p>
+              ) : null}
 
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div>
-                  <div className="px-1 pb-1 text-xs text-fs-muted">盈利能力与杜邦分解（TTM）</div>
-                  <RoeDupontChart ratios={data.ratios} />
-                </div>
-                <div>
-                  <div className="flex items-baseline justify-between px-1 pb-1">
-                    <span className="text-xs text-fs-muted">估值历史带（约 5 年）</span>
-                    {data.valuationHistory?.pePercentile != null ? (
-                      <span className="text-[11px] text-fs-muted">
-                        当前 PE {fmtRatio(data.valuationHistory.peCurrent)} · 分位{" "}
-                        {(data.valuationHistory.pePercentile * 100).toFixed(0)}%
-                        {data.valuationHistory.pbPercentile != null
-                          ? ` · PB 分位 ${(data.valuationHistory.pbPercentile * 100).toFixed(0)}%`
-                          : ""}
-                      </span>
-                    ) : null}
+              <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+                {dimensions?.charts.map((chart) => (
+                  <div key={chart.id} className="min-w-0">
+                    <DimensionTitle mark={DIMENSION_MARKS[chart.index - 1]!} title={chart.title} note={chart.note} />
+                    {chart.series.length ? (
+                      <DimensionChartView periods={dimensions.periods} chart={chart} />
+                    ) : (
+                      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-fs-border text-xs text-fs-muted">
+                        该公司未披露所需科目
+                      </div>
+                    )}
                   </div>
+                ))}
+
+                <div className="min-w-0 lg:col-span-2 2xl:col-span-3">
+                  <DimensionTitle
+                    mark={DIMENSION_MARKS[6]!}
+                    title="估值（约 5 年）"
+                    note={
+                      data.valuationMetric === "pffo"
+                        ? "P/FFO = 股价 / TTM 每股 FFO（近似）；REIT 折旧大，PE 失真。财报按季末 + 40 天视为可得，避免前视"
+                        : "PE = 股价 / TTM EPS，PB = 股价 / 每股净资产；财报按季末 + 40 天视为可得，避免前视"
+                    }
+                    extra={
+                      data.valuationHistory?.pePercentile != null ? (
+                        <>
+                          当前 {valuationLabel} {fmtRatio(data.valuationHistory.peCurrent)} · 分位{" "}
+                          {(data.valuationHistory.pePercentile * 100).toFixed(0)}%
+                          {data.valuationHistory.pbPercentile != null
+                            ? ` · PB 分位 ${(data.valuationHistory.pbPercentile * 100).toFixed(0)}%`
+                            : ""}
+                        </>
+                      ) : null
+                    }
+                  />
                   {data.valuationHistory && data.valuationHistory.points.length >= 8 ? (
-                    <ValuationBandChart points={data.valuationHistory.points} />
+                    <ValuationBandChart
+                      points={valuationPoints}
+                      primaryName={`${valuationLabel} (TTM)`}
+                    />
                   ) : (
                     <div className="flex h-40 items-center justify-center text-sm text-fs-muted">
                       历史不足
@@ -507,27 +660,6 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                 <div className="flex items-center gap-1">
                   {(
                     [
-                      ["Q", "季度"],
-                      ["FY", "年度"],
-                    ] as const
-                  ).map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setViewMode(id)}
-                      className={`rounded px-2 py-0.5 text-xs transition-colors ${
-                        viewMode === id
-                          ? "bg-fs-accent/20 text-fs-accent-text"
-                          : "text-fs-muted hover:text-fs-text"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1">
-                  {(
-                    [
                       ["value", "数值"],
                       ["yoy", "同比"],
                     ] as const
@@ -555,7 +687,12 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                 </span>
               </div>
 
-              <StockStatementsTable rows={statementRows} valueMode={valueMode} yoyLag={yoyLag} />
+              <StockStatementsTable
+                rows={periodRows}
+                valueMode={valueMode}
+                yoyLag={yoyLag}
+                visibleRange={[rangeStart, rangeEnd]}
+              />
             </>
           ) : null}
 
@@ -645,35 +782,37 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
             </p>
           ) : null}
 
-          {tab === "statements" && data && quartersLimit < 70 ? (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() =>
-                  setQuartersLimit((n) => (n < 40 ? 40 : 70))
-                }
-                className="rounded border border-fs-border px-3 py-1 text-xs text-fs-secondary hover:bg-fs-elevated hover:text-fs-text"
-              >
-                {quartersLimit < 40
-                  ? "加载更多历史（至 40 季）"
-                  : "加载更深历史（至 70 季）"}
-              </button>
-            </div>
-          ) : null}
-
-          {tab === "overview" && data && quartersLimit < 40 ? (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => setQuartersLimit(40)}
-                className="rounded border border-fs-border px-3 py-1 text-xs text-fs-secondary hover:bg-fs-elevated hover:text-fs-text"
-              >
-                扩展趋势历史（至 40 季）
-              </button>
-            </div>
-          ) : null}
         </div>
       )}
     </section>
+  );
+}
+
+/** 维度图标题：编号 + 名称；口径说明点开查看（手机无 hover，用 details 而非 title） */
+function DimensionTitle({
+  mark,
+  title,
+  note,
+  extra,
+}: {
+  mark: string;
+  title: string;
+  note?: string;
+  extra?: ReactNode;
+}) {
+  return (
+    <details className="group px-1 pb-1">
+      <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-x-2 [&::-webkit-details-marker]:hidden">
+        <span className="text-xs text-fs-muted">
+          <span className="mr-1 text-fs-text">{mark}</span>
+          {title}
+          {note ? (
+            <span className="ml-1.5 text-[10px] text-fs-muted/70 group-open:text-fs-accent-text">口径</span>
+          ) : null}
+        </span>
+        {extra ? <span className="text-[11px] text-fs-muted">{extra}</span> : null}
+      </summary>
+      {note ? <p className="mt-1 text-[11px] leading-relaxed text-fs-muted">{note}</p> : null}
+    </details>
   );
 }

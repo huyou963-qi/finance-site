@@ -7,6 +7,7 @@ import { aggregateFiscalYears, computeQuarterRatios } from "@/lib/equity/fundame
 import { loadStockContext } from "@/lib/equity/stockDetail";
 import { computeTtm, computeValuation } from "@/lib/equity/ttm";
 import { computeValuationHistory } from "@/lib/equity/valuationHistory";
+import { chooseOverviewProfile, computeFfoPerShareTtm } from "@/lib/equity/overviewDimensions";
 
 type Ctx = { params: Promise<{ symbol: string }> };
 
@@ -38,15 +39,27 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const fiscalYears = aggregateFiscalYears(rows);
     const ttm = computeTtm(rows);
 
+    const profile = chooseOverviewProfile(rows);
+    /** REIT 折旧大、净利润失真，估值带用 P/FFO 代替 PE */
+    const valuationMetric: "pe" | "pffo" = profile === "reit" ? "pffo" : "pe";
+
     let price: number | null = null;
     let valuationHistory = null;
     if (rows.length) {
       const { closes } = await getDailyClosesDbFirst([stock.symbol], VALUATION_HISTORY_DAYS);
       const pts = closes[stock.symbol] ?? [];
       price = pts.length ? pts[pts.length - 1]!.close : null;
+      const ffoByDate =
+        valuationMetric === "pffo"
+          ? new Map(computeFfoPerShareTtm(rows).map((f) => [f.fiscalDate, f.ffoPerShareTtm]))
+          : null;
       valuationHistory = computeValuationHistory(
         pts,
-        ratios.map((r) => ({ fiscalDate: r.fiscalDate, epsTtm: r.epsTtm, bvps: r.bvps })),
+        ratios.map((r) => ({
+          fiscalDate: r.fiscalDate,
+          epsTtm: ffoByDate ? (ffoByDate.get(r.fiscalDate) ?? null) : r.epsTtm,
+          bvps: r.bvps,
+        })),
       );
     }
 
@@ -74,6 +87,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       ttm,
       valuation,
       valuationHistory,
+      valuationMetric,
+      profile,
       industry: stock.industry
         ? { nameEn: stock.industry.nameEn, medians: peerMedians }
         : null,

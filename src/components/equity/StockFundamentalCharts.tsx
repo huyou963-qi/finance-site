@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as echarts from "echarts/core";
 import { LineChart, BarChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
@@ -8,7 +8,6 @@ import { CanvasRenderer } from "echarts/renderers";
 import {
   formatCompactMoney,
   formatCompactMoneyAxis,
-  formatEps,
   formatFundamentalSeriesValue,
   formatMultiplier,
   formatPct,
@@ -16,6 +15,7 @@ import {
   formatRatio,
   formatSignedPct,
 } from "@/lib/equity/formatFundamentalsDisplay";
+import type { DimensionChart, DimensionUnit } from "@/lib/equity/overviewDimensions";
 
 echarts.use([LineChart, BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
@@ -105,162 +105,91 @@ function baseOption(periods: string[]) {
   };
 }
 
-/** 柱（量值）+ 线（同比%）双轴季度图 */
-function BarYoYChart({
+const UNIT_AXIS_FORMAT: Record<DimensionUnit, (v: number) => string> = {
+  money: (v) => formatCompactMoneyAxis(v),
+  // 净息差、信用成本等常在 0–3% 之间，取整会出现重复刻度，保留至多一位小数
+  pct: (v) => `${Number((v * 100).toFixed(1))}%`,
+  signedPct: (v) => `${Number((v * 100).toFixed(1))}%`,
+  // REIT 资产周转率约 0.08x、利息覆盖可达数十倍：按 3 位有效数字避免重复刻度
+  multiple: (v) => `${Math.abs(v) >= 100 ? v.toFixed(0) : Number(v.toPrecision(3))}x`,
+  days: (v) => `${v.toFixed(0)}天`,
+};
+
+const UNIT_VALUE_FORMAT: Record<DimensionUnit, (v: number) => string> = {
+  money: (v) => formatCompactMoney(v),
+  pct: (v) => formatPct(v),
+  signedPct: (v) => formatSignedPct(v),
+  multiple: (v) => formatMultiplier(v, 2),
+  days: (v) => `${v.toFixed(0)} 天`,
+};
+
+/** 七维度概览的通用图：按规格画柱/线、左右双轴、单位格式 */
+export function DimensionChartView({
   periods,
-  barName,
-  barData,
-  lineName,
-  lineData,
-  barFormatter,
-  barTooltipFormatter,
-  height = 220,
+  chart,
+  height = 230,
 }: {
   periods: string[];
-  barName: string;
-  barData: (number | null)[];
-  lineName: string;
-  lineData: (number | null)[];
-  barFormatter?: (v: number) => string;
-  barTooltipFormatter?: (v: number) => string;
+  chart: DimensionChart;
   height?: number;
 }) {
-  const ref = useChart({
-    ...baseOption(periods),
-    tooltip: {
-      trigger: "axis",
-      confine: true,
-      formatter: (raw: unknown) =>
-        fundamentalAxisTooltip(raw, (seriesName, value) => {
-          if (seriesName === lineName) return formatSignedPct(value);
-          if (seriesName === barName && barTooltipFormatter) return barTooltipFormatter(value);
-          if (seriesName === barName && barFormatter) return barFormatter(value);
-          return formatFundamentalSeriesValue(seriesName, value);
+  const option = useMemo(() => {
+    const unitByName = new Map(chart.series.map((s) => [s.name, s.unit]));
+    const axisUnits = ([0, 1] as const).map(
+      (axis) => chart.series.find((s) => s.axis === axis)?.unit ?? null,
+    );
+    const axisHasBar = ([0, 1] as const).map((axis) =>
+      chart.series.some((s) => s.axis === axis && s.type === "bar"),
+    );
+    const useRightAxis = axisUnits[1] != null;
+    const selected = Object.fromEntries(chart.series.map((s) => [s.name, !s.hidden]));
+    return {
+      ...baseOption(periods),
+      legend: {
+        type: "scroll" as const,
+        textStyle: { color: "#9da8b6", fontSize: 11 },
+        pageTextStyle: { color: "#9da8b6" },
+        pageIconColor: "#9da8b6",
+        top: 0,
+        selected,
+      },
+      tooltip: {
+        trigger: "axis" as const,
+        confine: true,
+        formatter: (raw: unknown) =>
+          fundamentalAxisTooltip(raw, (name, value) =>
+            UNIT_VALUE_FORMAT[unitByName.get(name) ?? "pct"](value),
+          ),
+      },
+      grid: { left: 52, right: useRightAxis ? 52 : 16, top: 30, bottom: 24 },
+      yAxis: ([0, 1] as const)
+        .filter((axis) => axis === 0 || useRightAxis)
+        .map((axis) => {
+          const unit = axisUnits[axis] ?? "pct";
+          return {
+            type: "value" as const,
+            // 柱从 0 起才不误导；纯折线轴按数据范围缩放
+            scale: !axisHasBar[axis],
+            ...AXIS_STYLE,
+            ...(axis === 0 ? SPLIT_LINE : { splitLine: { show: false } }),
+            axisLabel: { ...AXIS_STYLE.axisLabel, formatter: UNIT_AXIS_FORMAT[unit] },
+          };
         }),
-    },
-    yAxis: [
-      {
-        type: "value",
-        scale: true,
-        ...AXIS_STYLE,
-        ...SPLIT_LINE,
-        axisLabel: {
-          ...AXIS_STYLE.axisLabel,
-          formatter: barFormatter ?? ((v: number) => formatCompactMoneyAxis(v)),
-        },
-      },
-      {
-        type: "value",
-        scale: true,
-        ...AXIS_STYLE,
-        splitLine: { show: false },
-        axisLabel: {
-          ...AXIS_STYLE.axisLabel,
-          formatter: (v: number) => formatPctAxis(v),
-        },
-      },
-    ],
-    series: [
-      {
-        name: barName,
-        type: "bar",
-        data: barData,
-        itemStyle: { color: "#4c8dff" },
-        barMaxWidth: 26,
-      },
-      {
-        name: lineName,
-        type: "line",
-        yAxisIndex: 1,
-        data: lineData,
+      series: chart.series.map((s) => ({
+        name: s.name,
+        type: s.type,
+        yAxisIndex: useRightAxis ? s.axis : 0,
+        data: s.data,
+        stack: s.stack,
         showSymbol: false,
-        itemStyle: { color: "#f2c94c" },
-      },
-    ],
-  });
-  return <div ref={ref} style={{ width: "100%", height }} />;
-}
-
-/** 利润率多线图（%） */
-function MarginChart({
-  periods,
-  lines,
-  height = 220,
-}: {
-  periods: string[];
-  lines: { name: string; data: (number | null)[]; color: string }[];
-  height?: number;
-}) {
-  const ref = useChart({
-    ...baseOption(periods),
-    tooltip: {
-      trigger: "axis",
-      confine: true,
-      formatter: (raw: unknown) =>
-        fundamentalAxisTooltip(raw, (_name, value) => formatPct(value)),
-    },
-    yAxis: {
-      type: "value",
-      scale: true,
-      ...AXIS_STYLE,
-      ...SPLIT_LINE,
-      axisLabel: {
-        ...AXIS_STYLE.axisLabel,
-        formatter: (v: number) => formatPctAxis(v),
-      },
-    },
-    series: lines.map((l) => ({
-      name: l.name,
-      type: "line",
-      data: l.data,
-      showSymbol: false,
-      itemStyle: { color: l.color },
-    })),
-  });
-  return <div ref={ref} style={{ width: "100%", height }} />;
-}
-
-/** 现金流：OCF/CapEx/FCF 柱组 */
-function CashflowChart({
-  periods,
-  ocf,
-  capex,
-  fcf,
-  height = 220,
-}: {
-  periods: string[];
-  ocf: (number | null)[];
-  capex: (number | null)[];
-  fcf: (number | null)[];
-  height?: number;
-}) {
-  const ref = useChart({
-    ...baseOption(periods),
-    tooltip: {
-      trigger: "axis",
-      confine: true,
-      formatter: (raw: unknown) =>
-        fundamentalAxisTooltip(raw, (_name, value) => formatCompactMoney(value)),
-    },
-    yAxis: {
-      type: "value",
-      scale: true,
-      ...AXIS_STYLE,
-      ...SPLIT_LINE,
-      axisLabel: { ...AXIS_STYLE.axisLabel, formatter: (v: number) => formatCompactMoneyAxis(v) },
-    },
-    series: [
-      { name: "经营现金流", type: "bar", data: ocf, itemStyle: { color: "#4c8dff" }, barMaxWidth: 16 },
-      {
-        name: "资本开支",
-        type: "bar",
-        data: capex.map((v) => (v == null ? null : -v)),
-        itemStyle: { color: "#ef6461" },
-        barMaxWidth: 16,
-      },
-      { name: "自由现金流", type: "bar", data: fcf, itemStyle: { color: "#3ecf8e" }, barMaxWidth: 16 },
-    ],
-  });
+        connectNulls: false,
+        barMaxWidth: s.stack ? 22 : 14,
+        itemStyle: { color: s.color },
+        lineStyle: s.dashed ? { type: "dashed" as const } : undefined,
+      })),
+    };
+  }, [periods, chart]);
+  const ref = useChart(option);
   return <div ref={ref} style={{ width: "100%", height }} />;
 }
 
@@ -272,85 +201,17 @@ export type RatioPoint = {
   equityMultiplier: number | null;
 };
 
-/** 盈利能力（TTM）：ROE/ROA/净利率 % 线 + 权益乘数右轴（杜邦视角） */
-export function RoeDupontChart({ ratios, height = 220 }: { ratios: RatioPoint[]; height?: number }) {
-  const ref = useChart({
-    ...baseOption(ratios.map((r) => r.period)),
-    tooltip: {
-      trigger: "axis",
-      confine: true,
-      formatter: (raw: unknown) =>
-        fundamentalAxisTooltip(raw, (seriesName, value) => {
-          if (seriesName === "权益乘数") return formatMultiplier(value);
-          return formatPct(value);
-        }),
-    },
-    yAxis: [
-      {
-        type: "value",
-        scale: true,
-        ...AXIS_STYLE,
-        ...SPLIT_LINE,
-        axisLabel: {
-          ...AXIS_STYLE.axisLabel,
-          formatter: (v: number) => formatPctAxis(v),
-        },
-      },
-      {
-        type: "value",
-        scale: true,
-        ...AXIS_STYLE,
-        splitLine: { show: false },
-        axisLabel: {
-          ...AXIS_STYLE.axisLabel,
-          formatter: (v: number) => formatMultiplier(v),
-        },
-      },
-    ],
-    series: [
-      {
-        name: "ROE (TTM)",
-        type: "line",
-        data: ratios.map((r) => r.roeTtm),
-        showSymbol: false,
-        itemStyle: { color: "#4c8dff" },
-      },
-      {
-        name: "ROA (TTM)",
-        type: "line",
-        data: ratios.map((r) => r.roaTtm),
-        showSymbol: false,
-        itemStyle: { color: "#3ecf8e" },
-      },
-      {
-        name: "净利率 (TTM)",
-        type: "line",
-        data: ratios.map((r) => r.netMarginTtm),
-        showSymbol: false,
-        itemStyle: { color: "#f2c94c" },
-      },
-      {
-        name: "权益乘数",
-        type: "line",
-        yAxisIndex: 1,
-        data: ratios.map((r) => r.equityMultiplier),
-        showSymbol: false,
-        lineStyle: { type: "dashed" },
-        itemStyle: { color: "#9da8b6" },
-      },
-    ],
-  });
-  return <div ref={ref} style={{ width: "100%", height }} />;
-}
-
 export type ValuationBandPoint = { t: number; pe: number | null; pb: number | null };
 
 /** 估值历史带：PE(TTM) 左轴 + PB 右轴，时间轴 */
 export function ValuationBandChart({
   points,
+  primaryName = "PE (TTM)",
   height = 240,
 }: {
   points: ValuationBandPoint[];
+  /** 左轴估值倍数名称：一般为 PE (TTM)，REIT 为 P/FFO (TTM) */
+  primaryName?: string;
   height?: number;
 }) {
   const ref = useChart({
@@ -388,7 +249,7 @@ export function ValuationBandChart({
     ],
     series: [
       {
-        name: "PE (TTM)",
+        name: primaryName,
         type: "line",
         showSymbol: false,
         data: points.map((p) => [p.t * 1000, p.pe]),
@@ -405,55 +266,4 @@ export function ValuationBandChart({
     ],
   });
   return <div ref={ref} style={{ width: "100%", height }} />;
-}
-
-/** 逐季基本面 2×2 图组：营收/YoY、利润率、EPS/YoY、现金流 */
-export function StockFundamentalTrend({ quarters }: { quarters: FundamentalQuarterPoint[] }) {
-  const periods = quarters.map((q) => q.period);
-  return (
-    <div className="grid gap-3 lg:grid-cols-2">
-      <div>
-        <div className="px-1 pb-1 text-xs text-fs-muted">单季营收与同比</div>
-        <BarYoYChart
-          periods={periods}
-          barName="营收"
-          barData={quarters.map((q) => q.revenue)}
-          lineName="营收 YoY"
-          lineData={quarters.map((q) => q.revenueYoY)}
-        />
-      </div>
-      <div>
-        <div className="px-1 pb-1 text-xs text-fs-muted">利润率</div>
-        <MarginChart
-          periods={periods}
-          lines={[
-            { name: "毛利率", data: quarters.map((q) => q.grossMargin), color: "#4c8dff" },
-            { name: "营业利润率", data: quarters.map((q) => q.opMargin), color: "#f2c94c" },
-            { name: "净利率", data: quarters.map((q) => q.netMargin), color: "#3ecf8e" },
-          ]}
-        />
-      </div>
-      <div>
-        <div className="px-1 pb-1 text-xs text-fs-muted">单季稀释 EPS 与同比</div>
-        <BarYoYChart
-          periods={periods}
-          barName="EPS"
-          barData={quarters.map((q) => q.eps)}
-          lineName="EPS YoY"
-          lineData={quarters.map((q) => q.epsYoY)}
-          barFormatter={(v) => formatEps(v)}
-          barTooltipFormatter={(v) => formatEps(v)}
-        />
-      </div>
-      <div>
-        <div className="px-1 pb-1 text-xs text-fs-muted">单季现金流（资本开支取负向展示）</div>
-        <CashflowChart
-          periods={periods}
-          ocf={quarters.map((q) => q.ocf)}
-          capex={quarters.map((q) => q.capex)}
-          fcf={quarters.map((q) => q.fcf)}
-        />
-      </div>
-    </div>
-  );
 }

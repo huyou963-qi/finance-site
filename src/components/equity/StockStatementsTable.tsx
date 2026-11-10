@@ -32,6 +32,8 @@ type Props = {
   rows: StatementPeriod[];
   valueMode: "value" | "yoy";
   yoyLag: number;
+  /** 展示的行下标区间 [start, end]（含两端）；省略 = 全部。区间外的行仍用于计算同比 */
+  visibleRange?: [number, number];
 };
 
 const STATEMENTS: StatementCode[] = ["IS", "BS", "CF"];
@@ -75,15 +77,18 @@ function cell(rows: StatementPeriod[], i: number, line: StatementLine, valueMode
  * 三张报表明细：一次看一张表，最新一期在最左（手机屏幕窄，先看到的就是最新数据）。
  * 本公司在所选期间完全没有数据的科目整行隐藏，不同行业的公司只显示自己披露的科目。
  */
-export function StockStatementsTable({ rows, valueMode, yoyLag }: Props) {
+export function StockStatementsTable({ rows, valueMode, yoyLag, visibleRange }: Props) {
   const [statement, setStatement] = useState<StatementCode>("IS");
 
   // 报表格式由本公司自己披露的科目判定；银行、保险等的利润表按行业习惯排序
   const profile = useMemo(() => detectStatementProfile(rows), [rows]);
 
+  const [lo, hi] = visibleRange ?? [0, rows.length - 1];
+  const shown = useMemo(() => rows.slice(lo, hi + 1), [rows, lo, hi]);
+
   const visible = useMemo(() => {
     const lines = orderStatementLines(STATEMENT_LINES, profile)
-      .filter(l => l.statement === statement && rows.some(r => rawValue(r, l) != null));
+      .filter(l => l.statement === statement && shown.some(r => rawValue(r, l) != null));
     const groups: { group: string; lines: StatementLine[] }[] = [];
     for (const line of lines) {
       const last = groups.at(-1);
@@ -91,14 +96,14 @@ export function StockStatementsTable({ rows, valueMode, yoyLag }: Props) {
       else groups.push({ group: line.group, lines: [line] });
     }
     return groups;
-  }, [rows, statement, profile]);
+  }, [shown, statement, profile]);
 
   const counts = useMemo(() => Object.fromEntries(STATEMENTS.map(code => [code,
-    STATEMENT_LINES.filter(l => l.statement === code && rows.some(r => rawValue(r, l) != null)).length])) as Record<StatementCode, number>,
-  [rows]);
+    STATEMENT_LINES.filter(l => l.statement === code && shown.some(r => rawValue(r, l) != null)).length])) as Record<StatementCode, number>,
+  [shown]);
 
   // 列：最新在左
-  const order = useMemo(() => rows.map((_, i) => i).reverse(), [rows]);
+  const order = useMemo(() => shown.map((_, k) => lo + k).reverse(), [shown, lo]);
 
   return (
     <div className="space-y-2">
