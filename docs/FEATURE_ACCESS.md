@@ -45,6 +45,9 @@
 2. 页面 `page.tsx` 用 `<FeatureGate featureId="...">` 包住内容（异步页可用 `checkFeatureAccess` 内联判定），
    并加 `export const dynamic = "force-dynamic"`（守卫要读 cookie）。
 3. 导航入口用 `useVisibleFeatures().can("...")` 过滤、`.locked("...")` 加 Pro 标记。
+   **其他页面里指向该功能的按钮/链接/快捷入口同样要过滤**，否则开发中的功能会从页内入口漏给客户
+   （例：行情页、个股研究页曾直接链到未完成的「创建投资案例」，已移除）。
+   功能没经用户确认发布前，不要在任何客户可见位置新增入口。
 4. 仅管理员可用且永不开放的页面打上 `adminOnly: true`，管理页会锁定该行。
 
 ## 部署

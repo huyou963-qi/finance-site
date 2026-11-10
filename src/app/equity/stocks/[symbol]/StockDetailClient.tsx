@@ -205,7 +205,13 @@ export function StockDetailClient({
 
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 py-3 sm:px-4">
+    <div className="flex w-full min-w-0 flex-1 items-stretch">
+      {/* 电脑版：分页贴最左侧，整列高度，标签栏随滚动吸顶 */}
+      <aside className="hidden w-36 shrink-0 border-r border-fs-border bg-fs-bg md:block">
+        <ResearchTabList activeTab={activeTab} onSelect={setActiveTab} variant="rail" />
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-4 px-3 py-3 pb-24 sm:px-4 md:pb-3">
       <header className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
       <div className="flex min-w-0 items-baseline gap-4 overflow-x-auto whitespace-nowrap lg:flex-1">
         <h1 className="shrink-0 text-base font-semibold text-fs-text">
@@ -249,45 +255,10 @@ export function StockDetailClient({
           >
             在行情工作台打开 →
           </Link>
-          <Link
-            href={`/investments?symbol=${encodeURIComponent(symbol)}`}
-            className="rounded-md border border-fs-border px-2 py-1 text-xs text-fs-accent-text hover:bg-fs-accent-soft"
-          >
-            创建投资案例
-          </Link>
         </div>
       </header>
 
-      <div className="flex min-w-0 items-start gap-3 sm:gap-5">
-        <div role="tablist" aria-label="个股研究分页" aria-orientation="vertical" className="sticky top-3 flex w-24 shrink-0 flex-col gap-1 rounded-md border border-fs-border bg-fs-bg p-1 sm:w-36 sm:p-2">
-          {RESEARCH_TABS.map((tab, index) => (
-            <button
-              key={tab.id}
-              id={`stock-research-tab-${tab.id}`}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              aria-controls={`stock-research-panel-${tab.id}`}
-              tabIndex={activeTab === tab.id ? 0 : -1}
-              onClick={() => setActiveTab(tab.id)}
-              onKeyDown={(event) => {
-                let next = index;
-                if (event.key === "ArrowDown") next = (index + 1) % RESEARCH_TABS.length;
-                else if (event.key === "ArrowUp") next = (index + RESEARCH_TABS.length - 1) % RESEARCH_TABS.length;
-                else if (event.key === "Home") next = 0;
-                else if (event.key === "End") next = RESEARCH_TABS.length - 1;
-                else return;
-                event.preventDefault();
-                setActiveTab(RESEARCH_TABS[next].id);
-                document.getElementById(`stock-research-tab-${RESEARCH_TABS[next].id}`)?.focus();
-              }}
-              className={`min-h-11 rounded px-2 py-2 text-left text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-fs-accent sm:px-3 sm:text-sm ${activeTab === tab.id ? "bg-fs-accent-soft font-medium text-fs-accent-text" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div id={`stock-research-panel-${activeTab}`} role="tabpanel" aria-labelledby={`stock-research-tab-${activeTab}`} tabIndex={0} className="min-w-0 flex-1">
+        <div id={`stock-research-panel-${activeTab}`} role="tabpanel" aria-labelledby={`stock-research-tab-${activeTab}`} tabIndex={0} className="min-w-0">
       {activeTab === "prices" ? <div className="flex min-w-0 flex-col gap-4">
       {error ? (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
@@ -430,6 +401,75 @@ export function StockDetailClient({
       {activeTab === "insiders" ? <StockInsiderTransactionsPanel symbol={symbol} /> : null}
         </div>
       </div>
+
+      {/* 手机版：分页固定在屏幕底部（内容列已留出 pb-24） */}
+      <nav
+        aria-label="个股研究分页"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-fs-border bg-fs-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+      >
+        <ResearchTabList activeTab={activeTab} onSelect={setActiveTab} variant="bottom" />
+      </nav>
+    </div>
+  );
+}
+
+/**
+ * 个股研究分页。rail = 电脑版左侧竖排；bottom = 手机版底部横排。
+ * 两处同时在 DOM 里（CSS 切换显隐），按钮 id 只给 rail，供 tabpanel 的 aria-labelledby 引用。
+ */
+function ResearchTabList({
+  activeTab,
+  onSelect,
+  variant,
+}: {
+  activeTab: ResearchTab;
+  onSelect: (tab: ResearchTab) => void;
+  variant: "rail" | "bottom";
+}) {
+  const rail = variant === "rail";
+  const idPrefix = rail ? "stock-research-tab" : "stock-research-tab-m";
+  return (
+    <div
+      role="tablist"
+      aria-label="个股研究分页"
+      aria-orientation={rail ? "vertical" : "horizontal"}
+      className={rail ? "sticky top-0 flex flex-col gap-1 p-2" : "grid grid-cols-4"}
+    >
+      {RESEARCH_TABS.map((tab, index) => {
+        const selected = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            id={`${idPrefix}-${tab.id}`}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            aria-controls={`stock-research-panel-${tab.id}`}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onSelect(tab.id)}
+            onKeyDown={(event) => {
+              const prevKey = rail ? "ArrowUp" : "ArrowLeft";
+              const nextKey = rail ? "ArrowDown" : "ArrowRight";
+              let next = index;
+              if (event.key === nextKey) next = (index + 1) % RESEARCH_TABS.length;
+              else if (event.key === prevKey) next = (index + RESEARCH_TABS.length - 1) % RESEARCH_TABS.length;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = RESEARCH_TABS.length - 1;
+              else return;
+              event.preventDefault();
+              onSelect(RESEARCH_TABS[next].id);
+              document.getElementById(`${idPrefix}-${RESEARCH_TABS[next].id}`)?.focus();
+            }}
+            className={
+              rail
+                ? `min-h-11 rounded px-3 py-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-fs-accent ${selected ? "bg-fs-accent-soft font-medium text-fs-accent-text" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`
+                : `flex min-h-14 items-center justify-center border-t-2 px-1 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-fs-accent ${selected ? "border-fs-accent font-medium text-fs-accent-text" : "border-transparent text-fs-muted"}`
+            }
+          >
+            {tab.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
