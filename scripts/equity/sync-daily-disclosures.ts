@@ -13,7 +13,7 @@ async function main() {
   const options = {
     through: arg("through"), days: Number(arg("days") ?? 7),
     symbols: arg("symbols")?.split(",").map(symbol => symbol.trim().toUpperCase()).filter(Boolean),
-    maxFilings: Number(arg("max-filings") ?? 300), delayMs: Number(arg("delay-ms") ?? 0), dryRun,
+    maxFilings: arg("max-filings") != null ? Number(arg("max-filings")) : undefined, delayMs: Number(arg("delay-ms") ?? 0), dryRun,
     // Ends cleanly (partial batch) well before the cron's hard 90-minute timeout.
     budgetMinutes: Number(arg("budget-minutes") ?? 75),
     timingLimit: Number(arg("timing-limit") ?? 20),

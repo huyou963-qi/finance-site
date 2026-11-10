@@ -39,11 +39,12 @@ failedCiks（页面不会据此宣称当日无公告），未处理的公告留�
 完整财务数据仅在包含对应 accession 且 extractor 能产生对应版本时写入完成状态
 （营收、EPS 或净利润任一非空即可）。companyfacts / 原文先按票面 CIK 取，若与
 accession 前缀不同（优先股联合申报或代报主体）再回退到 accession CIK。
-普通 8-K 仅入索引，不下载正文；每次最多深度处理 300 份财报/业绩公告，
+普通 8-K 仅入索引，不下载正文；每次最多深度处理 1,000 份财报/业绩公告（实测约每分钟 15 份，
+财报季高峰日约 1,300 份由两轮当天消化；原上限 300 使财报季积压数周），
 单并发、仅受共享 SEC transport 限速；超出部分持久排队，保留待处理。
 
 参数：`--through=YYYY-MM-DD`、`--days=7`（最多 31）、`--symbols=AAPL,MSFT`、
-`--max-filings=300`、`--delay-ms=0`（任务间额外等待，默认不加）、`--budget-minutes=75`、
+`--max-filings=1000`（1–1000）、`--delay-ms=0`（任务间额外等待，默认不加）、`--budget-minutes=75`、
 `--dry-run`（仅计划，不访问外部源、不写库）。
 `--timing-limit=20` 控制回看窗口内历史已完成财报的 header 补齐上限（0 禁用）；
 `--filing-fallback-limit=12`（0–20；生产 cron 用 20）控制 companyfacts 滞后时的原文 XBRL 回补名额；
@@ -54,7 +55,7 @@ accession 前缀不同（优先股联合申报或代报主体）再回退到 acc
 后续回看会重试。停机超过窗口时，用 through/days 分段补跑，不将漏日视为完整覆盖。
 
 cron 替换原周度任务，每日北京时间 19:15（美东 06:15/07:15）与 11:15 各执行一次；第二轮用于消化
-每轮 300 份的深度处理上限和 companyfacts 滞后，时间与持股、量化月任务错开。沿用部署自动安装的 sector-history cron。
+首轮未处理完的高峰日余量和 companyfacts 滞后，时间与持股、量化月任务错开。沿用部署自动安装的 sector-history cron。
 服务器 cron 必须支持 CRON_TZ；若不支持，按 docs/US_EQUITY_SECTOR_ANALYSIS.md 的
 部署说明核对 cron 时区，改为服务器当地的固定时间（香港推荐每天 19:15，覆盖全年美东日终）。
 数据库 advisory lock 防止手工和定时任务重叠；flock 防止同机 cron 重叠。
