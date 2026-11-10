@@ -5,6 +5,7 @@ import type { TimelineEventNode } from "@/components/events/horizontal-timeline/
 import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
 import { formatEventOccurredAt } from "@/lib/data/marketEvents";
 import { resolveEventTimelineImage, staticEventImage } from "@/lib/data/eventTimelineMedia";
+import { useTr } from "@/i18n/TextProvider";
 
 /** 时间轴卡片配图：先用静态图库/主题规则，缺失时再异步解析维基缩略图 */
 export function useTimelineEventImage(node: TimelineEventNode | null): string | null {
@@ -42,6 +43,7 @@ export function useTimelineEventImage(node: TimelineEventNode | null): string | 
 }
 
 function TimelineImage({ url, children }: { url: string | null; children?: React.ReactNode }) {
+  const tr = useTr();
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [url]);
   return (
@@ -57,9 +59,7 @@ function TimelineImage({ url, children }: { url: string | null; children?: React
           onError={() => setBroken(true)}
         />
       ) : (
-        <div className="flex h-full items-center justify-center bg-fs-elevated text-[10px] text-fs-muted">
-          历史影像
-        </div>
+        <div className="flex h-full items-center justify-center bg-fs-elevated text-[10px] text-fs-muted">{tr("历史影像")}</div>
       )}
       {children}
     </div>
@@ -97,6 +97,7 @@ export function EventTimelineCard({
   selected,
   onSelect,
 }: EventTimelineCardProps) {
+  const tr = useTr();
   const { event, summary, impact } = node;
   const imageUrl = useTimelineEventImage(node);
 
@@ -131,12 +132,12 @@ export function EventTimelineCard({
             ) : null}
           </div>
           <h3 className="line-clamp-2 text-xs font-semibold leading-snug text-fs-text">
-            {event.title ?? "未命名事件"}
+            {event.title ?? tr("未命名事件")}
           </h3>
           <p className="line-clamp-2 text-[10px] leading-relaxed text-fs-secondary">{summary}</p>
           {impact ? (
             <p className="line-clamp-2 border-l-2 border-fs-accent/40 pl-1.5 text-[10px] leading-relaxed text-fs-secondary">
-              <span className="font-medium text-fs-accent-text">影响 </span>
+              <span className="font-medium text-fs-accent-text">{tr("影响")} </span>
               {impact}
             </p>
           ) : null}
@@ -180,6 +181,7 @@ export function EventTimelineClusterCard({
   onExpand,
   onSelectEvent,
 }: EventTimelineClusterCardProps) {
+  const tr = useTr();
   const imageUrl = useTimelineEventImage(cover);
   const first = formatEventOccurredAt(nodes[0].event);
   const last = formatEventOccurredAt(nodes[nodes.length - 1].event);
@@ -217,8 +219,7 @@ export function EventTimelineClusterCard({
         <div className="relative flex min-h-0 shrink flex-col overflow-hidden rounded-lg border border-fs-border bg-white shadow-sm transition group-hover:border-fs-accent/35 group-hover:shadow-md">
           <TimelineImage url={imageUrl}>
             <div className="absolute right-1.5 top-1.5 rounded-full bg-fs-accent px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white shadow">
-              {nodes.length} 个事件
-            </div>
+              {nodes.length}{" "}{tr("个事件")}</div>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2 pb-1.5 pt-6">
               <time className="text-[10px] font-medium tabular-nums text-white/95">{range}</time>
             </div>
@@ -237,14 +238,14 @@ export function EventTimelineClusterCard({
                   <span
                     className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${IMPORTANCE_DOT[n.event.importance] ?? "bg-fs-muted"}`}
                   />
-                  <span className="line-clamp-1">{n.event.title ?? "未命名事件"}</span>
+                  <span className="line-clamp-1">{n.event.title ?? tr("未命名事件")}</span>
                 </button>
               </li>
             ))}
             <li className="pt-0.5 text-[10px] font-medium text-fs-accent-text">
               {canExpand
-                ? `滚轮放大或点击展开${nodes.length > preview.length ? ` · 另有 ${nodes.length - preview.length} 条` : ""}`
-                : "点击查看全部"}
+                ? tr("滚轮放大或点击展开{v0}", { v0: nodes.length > preview.length ? tr(" · 另有 {v0} 条", { v0: nodes.length - preview.length }) : "" })
+                : tr("点击查看全部")}
             </li>
           </ul>
         </div>

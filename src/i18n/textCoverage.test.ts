@@ -25,6 +25,22 @@ export const TRANSLATED_FEATURE_PATHS = [
   "src/components/MacroTimeRangeNavigator.tsx",
   "src/components/SelectedIndicatorsList.tsx",
   "src/components/UnifiedMacroSidebar.tsx",
+  // 指标预测（*ModelDetails 只给管理员看，不翻译）
+  "src/app/forecast",
+  "src/components/forecast/ForecastSidebarNav.tsx",
+  "src/components/forecast/UsCpiNowcastCharts.tsx",
+  "src/components/forecast/UsCpiNowcastView.tsx",
+  "src/components/forecast/UsGdpNowcastCharts.tsx",
+  "src/components/forecast/UsGdpNowcastView.tsx",
+  "src/components/forecast/UsNfpNowcastCharts.tsx",
+  "src/components/forecast/UsNfpNowcastView.tsx",
+  // 行情与事件
+  "src/app/markets",
+  "src/components/CandlestickPanel.tsx",
+  "src/components/StockChartWorkspace.tsx",
+  "src/components/MarketsWatchlist.tsx",
+  "src/components/chart",
+  "src/components/events",
 ];
 
 function files(): string[] {

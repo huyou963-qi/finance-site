@@ -56,7 +56,7 @@ export function buildTicks(pxPerYear: number, fromX: number, toX: number): Timel
         ticks.push({
           key: `${y}-${m}`,
           x,
-          label: m === 0 ? String(y) : `${m + 1}月`,
+          label: m === 0 ? String(y) : `${m + 1}月`, // i18n-ignore: 数据/内容格式，显示处另行处理
           major: m === 0,
         });
       }

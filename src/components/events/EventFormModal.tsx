@@ -22,6 +22,7 @@ import {
 } from "@/lib/data/eventTaxonomy";
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
+import { useTr } from "@/i18n/TextProvider";
 
 export type EventFormValues = {
   title: string;
@@ -91,7 +92,7 @@ export function eventToFormValues(event: MarketEventDto): EventFormValues {
     markerLabel: event.markerLabel ?? "",
     sourceUrl: event.sourceUrl ?? "",
     color: event.color ?? "",
-    readingLinks: (event.readingLinks ?? []).map(l => `${l.title ?? "扩展阅读"}|${l.url}`).join("\n"),
+    readingLinks: (event.readingLinks ?? []).map(l => `${l.title ?? "扩展阅读"}|${l.url}`).join("\n"), // i18n-ignore: 数据/内容格式，显示处另行处理
   };
 }
 
@@ -102,7 +103,7 @@ export function formValuesToPayload(form: EventFormValues) {
       : form.occurredAt;
   return {
     color: form.color || null,
-    readingLinks: form.readingLinks.split("\n").filter(l => l.trim()).map(l => { const i = l.indexOf("|"); return { title: i < 0 ? "扩展阅读" : l.slice(0, i).trim(), url: (i < 0 ? l : l.slice(i + 1)).trim() }; }),
+    readingLinks: form.readingLinks.split("\n").filter(l => l.trim()).map(l => { const i = l.indexOf("|"); return { title: i < 0 ? "扩展阅读" : l.slice(0, i).trim(), url: (i < 0 ? l : l.slice(i + 1)).trim() }; }), // i18n-ignore: 数据/内容格式，显示处另行处理
     title: form.title.trim() || null,
     content: form.content.trim(),
     occurredAt,
@@ -145,6 +146,7 @@ export function EventFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const tr = useTr();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,11 +175,11 @@ export function EventFormModal({
         body: JSON.stringify(payload),
       });
       const j = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) throw new Error(j.error ?? "保存失败");
+      if (!r.ok) throw new Error(j.error ?? tr("保存失败"));
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : tr("保存失败"));
     } finally {
       setSaving(false);
     }
@@ -197,20 +199,14 @@ export function EventFormModal({
           </button>
         </div>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3 text-[11px]">
-          <p className="text-[10px] text-fs-muted">
-            批量补录请用 AI Skill（market-event-ingest）；本表单用于纠错与少量补漏。
-          </p>
-          <label className="block text-fs-muted">
-            标题（可选）
-            <input
+          <p className="text-[10px] text-fs-muted">{tr("批量补录请用 AI Skill（market-event-ingest）；本表单用于纠错与少量补漏。")}</p>
+          <label className="block text-fs-muted">{tr("标题（可选）")}<input
               value={form.title}
               onChange={(e) => patch({ title: e.target.value })}
               className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
             />
           </label>
-          <label className="block text-fs-muted">
-            事件内容 *
-            <textarea
+          <label className="block text-fs-muted">{tr("事件内容 *")}<textarea
               value={form.content}
               onChange={(e) => patch({ content: e.target.value })}
               rows={4}
@@ -218,22 +214,18 @@ export function EventFormModal({
             />
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-fs-muted">
-              时间精度
-              <select
+            <label className="block text-fs-muted">{tr("时间精度")}<select
                 value={form.datePrecision}
                 onChange={(e) =>
                   patch({ datePrecision: e.target.value as EventDatePrecision })
                 }
                 className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
               >
-                <option value="DATE">仅日期</option>
-                <option value="DATETIME">日期+时间</option>
+                <option value="DATE">{tr("仅日期")}</option>
+                <option value="DATETIME">{tr("日期+时间")}</option>
               </select>
             </label>
-            <label className="block text-fs-muted">
-              重要性
-              <select
+            <label className="block text-fs-muted">{tr("重要性")}<select
                 value={form.importance}
                 onChange={(e) =>
                   patch({ importance: e.target.value as EventImportance })
@@ -249,9 +241,7 @@ export function EventFormModal({
             </label>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-fs-muted">
-              发生日期 *
-              <input
+            <label className="block text-fs-muted">{tr("发生日期 *")}<input
                 type="date"
                 value={form.occurredAt}
                 onChange={(e) => patch({ occurredAt: e.target.value })}
@@ -259,9 +249,7 @@ export function EventFormModal({
               />
             </label>
             {form.datePrecision === "DATETIME" ? (
-              <label className="block text-fs-muted">
-                时间 (UTC)
-                <input
+              <label className="block text-fs-muted">{tr("时间 (UTC)")}<input
                   type="time"
                   value={form.occurredTime}
                   onChange={(e) => patch({ occurredTime: e.target.value })}
@@ -269,9 +257,7 @@ export function EventFormModal({
                 />
               </label>
             ) : (
-              <label className="block text-fs-muted">
-                影响范围
-                <select
+              <label className="block text-fs-muted">{tr("影响范围")}<select
                   value={form.scope}
                   onChange={(e) => patch({ scope: e.target.value as EventScope })}
                   className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
@@ -286,9 +272,7 @@ export function EventFormModal({
             )}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-fs-muted">
-              事件类型
-              <select
+            <label className="block text-fs-muted">{tr("事件类型")}<select
                 value={form.eventType}
                 onChange={(e) => patch({ eventType: e.target.value })}
                 className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
@@ -301,20 +285,16 @@ export function EventFormModal({
                 ))}
               </select>
             </label>
-            <label className="block text-fs-muted">
-              图上缩略字
-              <input
+            <label className="block text-fs-muted">{tr("图上缩略字")}<input
                 value={form.markerLabel}
                 onChange={(e) => patch({ markerLabel: e.target.value.slice(0, 16) })}
-                placeholder="如 降息、财报"
+                placeholder={tr("如 降息、财报")}
                 className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
               />
             </label>
           </div>
           {form.datePrecision === "DATETIME" ? (
-            <label className="block text-fs-muted">
-              影响范围
-              <select
+            <label className="block text-fs-muted">{tr("影响范围")}<select
                 value={form.scope}
                 onChange={(e) => patch({ scope: e.target.value as EventScope })}
                 className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
@@ -328,63 +308,61 @@ export function EventFormModal({
             </label>
           ) : null}
           <TagInput
-            label="国家标签"
+            label={tr("国家标签")}
             values={form.countries}
             onChange={(countries) => patch({ countries })}
-            placeholder="如 CN、US，回车添加"
+            placeholder={tr("如 CN、US，回车添加")}
             suggestions={COUNTRY_SUGGESTIONS}
             uppercase
           />
           <TagInput
-            label="行业标签（GICS）"
+            label={tr("行业标签（GICS）")}
             values={form.industries}
             onChange={(industries) => patch({ industries })}
-            placeholder="信息技术、金融…"
+            placeholder={tr("信息技术、金融…")}
             suggestions={EVENT_INDUSTRY_QUICK_SUGGESTIONS}
             formatLabel={formatIndustryTagLabel}
             normalizeAdd={normalizeIndustryTag}
           />
           <TagInput
-            label="资产标签"
+            label={tr("资产标签")}
             values={form.assets}
             onChange={(assets) => patch({ assets })}
-            placeholder="如 AAPL、000300.SH"
+            placeholder={tr("如 AAPL、000300.SH")}
             uppercase
           />
           <TagInput
-            label="人物"
+            label={tr("人物")}
             values={form.persons}
             onChange={(persons) => patch({ persons })}
             placeholder="Powell…"
           />
           <TagInput
-            label="机构"
+            label={tr("机构")}
             values={form.institutions}
             onChange={(institutions) => patch({ institutions })}
             placeholder="Fed…"
           />
           <TagInput
-            label="自由标签"
+            label={tr("自由标签")}
             values={form.tags}
             onChange={(tags) => patch({ tags })}
-            placeholder="关税、AI…"
+            placeholder={tr("关税、AI…")}
           />
           <TagInput
-            label="宏观指标 key（可选）"
+            label={tr("宏观指标 key（可选）")}
             values={form.macroKeys}
             onChange={(macroKeys) => patch({ macroKeys })}
-            placeholder="如 fred:CPIAUCSL"
+            placeholder={tr("如 fred:CPIAUCSL")}
           />
-          <label className="block text-fs-muted">
-            来源链接
-            <input
+          <label className="block text-fs-muted">{tr("来源链接")}<input
               value={form.sourceUrl}
               onChange={(e) => patch({ sourceUrl: e.target.value })}
               className="mt-0.5 w-full rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
             />
           </label>
-          <label className="block text-fs-muted">事件默认颜色（可选）<div className="mt-1 flex items-center gap-2"><input type="color" aria-label="事件默认颜色" value={form.color || "#475569"} onChange={e => patch({ color: e.target.value })} /><button type="button" onClick={() => patch({ color: "" })}>使用系统配色</button></div></label>
-          <label className="block text-fs-muted">扩展阅读（可选，每行：标题|网址）<textarea aria-label="扩展阅读" value={form.readingLinks} onChange={e => patch({ readingLinks: e.target.value })} className="mt-1 w-full rounded border border-fs-border p-2" rows={3} /></label>
+          <label className="block text-fs-muted">{tr("事件默认颜色（可选）")}<div className="mt-1 flex items-center gap-2"><input type="color" aria-label={tr("事件默认颜色")} value={form.color || "#475569"} onChange={e => patch({ color: e.target.value })} /><button type="button" onClick={() => patch({ color: "" })}>{tr("使用系统配色")}</button></div></label>
+          <label className="block text-fs-muted">{tr("扩展阅读（可选，每行：标题|网址）")}<textarea aria-label={tr("扩展阅读")} value={form.readingLinks} onChange={e => patch({ readingLinks: e.target.value })} className="mt-1 w-full rounded border border-fs-border p-2" rows={3} /></label>
           {error ? <p className="text-rose-300">{error}</p> : null}
         </div>
         <div className="flex shrink-0 justify-end gap-2 border-t border-fs-border px-4 py-2">
@@ -392,16 +370,14 @@ export function EventFormModal({
             type="button"
             onClick={onClose}
             className="rounded border border-fs-border px-3 py-1 text-fs-secondary hover:bg-fs-elevated"
-          >
-            取消
-          </button>
+          >{tr("取消")}</button>
           <button
             type="button"
             disabled={saving}
             onClick={() => void submit()}
             className="rounded border border-fs-accent/40 bg-fs-accent-soft/50 px-3 py-1 text-fs-accent-text hover:border-fs-accent disabled:opacity-50"
           >
-            {saving ? "保存中…" : "保存"}
+            {saving ? tr("保存中…") : tr("保存")}
           </button>
         </div>
       </div>

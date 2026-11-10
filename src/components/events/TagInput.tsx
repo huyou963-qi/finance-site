@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTr } from "@/i18n/TextProvider";
 
 export function TagInput({
   label,
@@ -23,6 +24,7 @@ export function TagInput({
   /** 添加时规范存储值（如中文行业名 → GICS code） */
   normalizeAdd?: (raw: string) => string;
 }) {
+  const tr = useTr();
   const [draft, setDraft] = useState("");
 
   const toStored = useCallback(
@@ -65,7 +67,7 @@ export function TagInput({
                   type="button"
                   className="text-fs-muted hover:text-rose-300"
                   onClick={() => onChange(values.filter((x) => x !== v))}
-                  aria-label={`移除 ${shown}`}
+                  aria-label={tr("移除 {shown}", { shown })}
                 >
                   ×
                 </button>

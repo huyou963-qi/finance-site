@@ -8,6 +8,7 @@ export async function loadEnglishText(): Promise<TextDict> {
   const modules = await Promise.all([
     import("./common.json"),
     import("./macro.json"),
+    import("./markets.json"),
   ]);
   return Object.assign({}, ...modules.map((m) => m.default)) as TextDict;
 }

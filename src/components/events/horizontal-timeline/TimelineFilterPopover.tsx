@@ -11,6 +11,7 @@ import {
   toggleFilterItem,
   type TimelineFilterState,
 } from "@/components/events/horizontal-timeline/timelineFilters";
+import { useTr } from "@/i18n/TextProvider";
 
 const IMPORTANCE_OPTIONS = (
   Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]
@@ -46,6 +47,7 @@ function FilterChip({
 }
 
 export function TimelineFilterPopover({ filters, onChange }: TimelineFilterPopoverProps) {
+  const tr = useTr();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const active = hasActiveTimelineFilters(filters);
@@ -84,34 +86,30 @@ export function TimelineFilterPopover({ filters, onChange }: TimelineFilterPopov
           aria-hidden
         >
           <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
-        </svg>
-        筛选
-        {active ? (
-          <span className="h-1.5 w-1.5 rounded-full bg-fs-accent" aria-label="已启用筛选" />
+        </svg>{tr("筛选")}{active ? (
+          <span className="h-1.5 w-1.5 rounded-full bg-fs-accent" aria-label={tr("已启用筛选")} />
         ) : null}
       </button>
 
       {open ? (
         <div
           role="dialog"
-          aria-label="时间轴筛选"
+          aria-label={tr("时间轴筛选")}
           className="absolute right-0 top-full z-[70] mt-1.5 w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-fs-border bg-white p-3 shadow-lg"
         >
           <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-fs-text">筛选条件</p>
+            <p className="text-xs font-semibold text-fs-text">{tr("筛选条件")}</p>
             {active ? (
               <button
                 type="button"
                 onClick={() => onChange({ ...DEFAULT_TIMELINE_FILTERS })}
                 className="text-[10px] text-fs-muted hover:text-fs-text"
-              >
-                重置
-              </button>
+              >{tr("重置")}</button>
             ) : null}
           </div>
 
           <label className="mb-3 block">
-            <span className="mb-1 block text-[10px] font-medium text-fs-muted">国家</span>
+            <span className="mb-1 block text-[10px] font-medium text-fs-muted">{tr("国家")}</span>
             <select
               value={filters.country}
               onChange={(e) => patch({ country: e.target.value })}
@@ -126,7 +124,7 @@ export function TimelineFilterPopover({ filters, onChange }: TimelineFilterPopov
           </label>
 
           <fieldset className="mb-3">
-            <legend className="mb-1.5 text-[10px] font-medium text-fs-muted">重要性</legend>
+            <legend className="mb-1.5 text-[10px] font-medium text-fs-muted">{tr("重要性")}</legend>
             <div className="flex flex-wrap gap-1">
               {IMPORTANCE_OPTIONS.map(({ value, label }) => (
                 <FilterChip
@@ -141,16 +139,16 @@ export function TimelineFilterPopover({ filters, onChange }: TimelineFilterPopov
                 />
               ))}
             </div>
-            <p className="mt-1 text-[9px] text-fs-muted">不选表示全部</p>
+            <p className="mt-1 text-[9px] text-fs-muted">{tr("不选表示全部")}</p>
           </fieldset>
 
           <fieldset>
-            <legend className="mb-1.5 text-[10px] font-medium text-fs-muted">事件类型</legend>
+            <legend className="mb-1.5 text-[10px] font-medium text-fs-muted">{tr("事件类型")}</legend>
             <div className="flex flex-wrap gap-1">
               {TIMELINE_FILTER_EVENT_TYPES.map((t) => (
                 <FilterChip
                   key={t}
-                  label={t}
+                  label={tr(t)}
                   active={filters.eventTypes.includes(t)}
                   onClick={() =>
                     patch({
@@ -160,7 +158,7 @@ export function TimelineFilterPopover({ filters, onChange }: TimelineFilterPopov
                 />
               ))}
             </div>
-            <p className="mt-1 text-[9px] text-fs-muted">不选表示全部</p>
+            <p className="mt-1 text-[9px] text-fs-muted">{tr("不选表示全部")}</p>
           </fieldset>
         </div>
       ) : null}

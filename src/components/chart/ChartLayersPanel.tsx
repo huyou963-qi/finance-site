@@ -14,6 +14,7 @@ import { LayerSymbolInput } from "./LayerSymbolInput";
 import { requireExactLayerSymbols } from "@/lib/chart/layerSymbolSearch";
 import { parseLayerExpression } from "@/lib/chart/layerExpression";
 import type { UseChartLayersReturn } from "@/hooks/useChartLayers";
+import { useTr } from "@/i18n/TextProvider";
 
 const FUND_METRICS = Object.keys(FUNDAMENTAL_METRIC_LABEL) as FundamentalMetric[];
 
@@ -44,6 +45,7 @@ type Props = {
 };
 
 export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePanel = false }: Props) {
+  const tr = useTr();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const [addMode, setAddMode] = useState<"price" | "expr" | "fund">("price");
@@ -87,8 +89,8 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
 
   const summary =
     layers.filter((l) => l.visible).length > 0
-      ? `${layers.filter((l) => l.visible).length} 层`
-      : "无叠加";
+      ? tr("{length} 层", { length: layers.filter((l) => l.visible).length })
+      : tr("无叠加");
 
   const [validating, setValidating] = useState(false);
 
@@ -98,13 +100,13 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
     try {
       setFormError(null);
       if (!canAdd) {
-        setFormError(`最多 ${CHART_LAYER_MAX} 条叠加层`);
+        setFormError(tr("最多 {CHART_LAYER_MAX} 条叠加层", { CHART_LAYER_MAX }));
         return;
       }
       if (addMode === "price") {
         const sym = priceSym.trim().toUpperCase();
         if (!sym) {
-          setFormError("请输入标的代码");
+          setFormError(tr("请输入标的代码"));
           return;
         }
         await requireExactLayerSymbols([sym]);
@@ -132,13 +134,13 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
       }
       const sym = fundSym.trim().toUpperCase() || primarySymbol.trim().toUpperCase();
       if (!sym) {
-        setFormError("请输入基本面标的");
+        setFormError(tr("请输入基本面标的"));
         return;
       }
       await requireExactLayerSymbols([sym]);
       addLayer({ kind: "fundamental", symbol: sym, metric: fundMetric });
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : "资产校验失败");
+      setFormError(e instanceof Error ? e.message : tr("资产校验失败"));
     } finally { setValidating(false); }
   };
 
@@ -154,9 +156,9 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
         }`}
         aria-expanded={open}
         aria-haspopup="menu"
-        title="多资产 / 运算 / 基本面叠加与坐标轴"
+        title={tr("多资产 / 运算 / 基本面叠加与坐标轴")}
       >
-        <span className="text-fs-muted">{inlinePanel ? "叠加设置" : "叠加"}</span>
+        <span className="text-fs-muted">{inlinePanel ? tr("叠加设置") : tr("叠加")}</span>
         <span
           className={
             layers.some((l) => l.visible)
@@ -177,21 +179,18 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
           className={inlinePanel ? "mt-2 w-full min-w-0 rounded-md border border-fs-border bg-fs-bg p-2" : "absolute left-0 top-[calc(100%+6px)] z-[100] max-h-[min(70vh,32rem)] w-[min(92vw,24rem)] overflow-y-auto rounded-md border border-fs-border bg-fs-bg p-3 shadow-xl"}
         >
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-medium text-fs-secondary">
-              序列层（最多 {CHART_LAYER_MAX}）
+            <span className="text-[11px] font-medium text-fs-secondary">{tr("序列层（最多")}{" "}{CHART_LAYER_MAX}）
             </span>
             <label className="ml-auto flex items-center gap-1 text-[10px] text-fs-muted">
               <input
                 type="checkbox"
                 checked={compareMode}
                 onChange={(e) => setCompareMode(e.target.checked)}
-              />
-              对比模式（价格指数化）
-            </label>
+              />{tr("对比模式（价格指数化）")}</label>
           </div>
 
           {layers.length === 0 ? (
-            <p className="mb-2 text-[10px] text-fs-muted">尚未添加叠加层</p>
+            <p className="mb-2 text-[10px] text-fs-muted">{tr("尚未添加叠加层")}</p>
           ) : (
             <ul className="mb-2 space-y-2">
               {layers.map((layer) => {
@@ -208,7 +207,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                         onChange={(e) =>
                           updateLayer(layer.id, { visible: e.target.checked })
                         }
-                        aria-label="显示"
+                        aria-label={tr("显示")}
                       />
                       <input
                         type="color"
@@ -231,14 +230,10 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                         type="button"
                         className="text-[10px] text-fs-muted hover:text-red-400"
                         onClick={() => removeLayer(layer.id)}
-                      >
-                        删除
-                      </button>
+                      >{tr("删除")}</button>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
-                      <label className="flex items-center gap-1 text-fs-muted">
-                        轴
-                        <select
+                      <label className="flex items-center gap-1 text-fs-muted">{tr("轴")}<select
                           value={axisToSelect(layer.axis)}
                           onChange={(e) =>
                             updateLayer(layer.id, {
@@ -247,19 +242,15 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                           }
                           className="rounded border border-fs-border bg-fs-bg px-1 py-0.5 text-fs-text"
                         >
-                          <option value="right">右轴</option>
-                          <option value="left">左轴</option>
-                          <option value={`scale:${layer.id.slice(0, 8)}`}>
-                            独立轴
-                          </option>
-                          <option value="pane:sub1">副图1</option>
-                          <option value="pane:sub2">副图2</option>
-                          <option value="pane:overlayPane">主图独立</option>
+                          <option value="right">{tr("右轴")}</option>
+                          <option value="left">{tr("左轴")}</option>
+                          <option value={`scale:${layer.id.slice(0, 8)}`}>{tr("独立轴")}</option>
+                          <option value="pane:sub1">{tr("副图1")}</option>
+                          <option value="pane:sub2">{tr("副图2")}</option>
+                          <option value="pane:overlayPane">{tr("主图独立")}</option>
                         </select>
                       </label>
-                      <label className="flex items-center gap-1 text-fs-muted">
-                        变换
-                        <select
+                      <label className="flex items-center gap-1 text-fs-muted">{tr("变换")}<select
                           value={layer.transform}
                           onChange={(e) =>
                             updateLayer(layer.id, {
@@ -268,23 +259,20 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                           }
                           className="rounded border border-fs-border bg-fs-bg px-1 py-0.5 text-fs-text"
                         >
-                          <option value="raw">原始</option>
-                          <option value="index100">指数化100</option>
-                          <option value="pctChange">涨跌幅%</option>
+                          <option value="raw">{tr("原始")}</option>
+                          <option value="index100">{tr("指数化100")}</option>
+                          <option value="pctChange">{tr("涨跌幅%")}</option>
                         </select>
                       </label>
                       {d?.lastValue != null ? (
-                        <span className="font-mono text-fs-secondary">
-                          最新 {d.lastValue.toPrecision(4)}
+                        <span className="font-mono text-fs-secondary">{tr("最新")}{" "}{d.lastValue.toPrecision(4)}
                         </span>
                       ) : null}
                       {d?.error ? (
                         <span className="text-amber-500">{d.error}</span>
                       ) : null}
                       {d && d.alignedCount > 0 && layer.source.kind === "expr" ? (
-                        <span className="text-fs-muted">
-                          对齐 {d.alignedCount} 日
-                        </span>
+                        <span className="text-fs-muted">{tr("对齐")}{" "}{d.alignedCount}{" "}{tr("日")}</span>
                       ) : null}
                     </div>
                   </li>
@@ -303,9 +291,9 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
             <div className="mb-1 flex gap-1 text-[10px]">
               {(
                 [
-                  ["price", "资产"],
-                  ["expr", "运算"],
-                  ["fund", "基本面"],
+                  ["price", tr("资产")],
+                  ["expr", tr("运算")],
+                  ["fund", tr("基本面")],
                 ] as const
               ).map(([k, label]) => (
                 <button
@@ -325,7 +313,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
 
             {addMode === "price" ? (
               <div className="flex gap-1">
-                <LayerSymbolInput value={priceSym} onChange={setPriceSym} label="叠加资产" />
+                <LayerSymbolInput value={priceSym} onChange={setPriceSym} label={tr("叠加资产")} />
               </div>
             ) : null}
 
@@ -333,7 +321,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
               <div className="space-y-1">
                 {!useAdvanced ? (
                   <div className="flex flex-wrap items-center gap-1">
-                    <LayerSymbolInput value={exprLeft} onChange={setExprLeft} label="运算左侧资产" />
+                    <LayerSymbolInput value={exprLeft} onChange={setExprLeft} label={tr("运算左侧资产")} />
                     <select
                       value={exprOp}
                       onChange={(e) => setExprOp(e.target.value as "-" | "/")}
@@ -342,7 +330,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                       <option value="-">−</option>
                       <option value="/">/</option>
                     </select>
-                    <LayerSymbolInput value={exprRight} onChange={setExprRight} label="运算右侧资产" />
+                    <LayerSymbolInput value={exprRight} onChange={setExprRight} label={tr("运算右侧资产")} />
                   </div>
                 ) : (
                   <input
@@ -357,14 +345,14 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                   className="text-[10px] text-fs-muted underline"
                   onClick={() => setUseAdvanced((v) => !v)}
                 >
-                  {useAdvanced ? "简易模式" : "高级表达式"}
+                  {useAdvanced ? tr("简易模式") : tr("高级表达式")}
                 </button>
               </div>
             ) : null}
 
             {addMode === "fund" ? (
               <div className="flex flex-wrap gap-1">
-                <LayerSymbolInput value={fundSym} onChange={setFundSym} label="基本面资产" />
+                <LayerSymbolInput value={fundSym} onChange={setFundSym} label={tr("基本面资产")} />
                 <select
                   value={fundMetric}
                   onChange={(e) =>
@@ -390,7 +378,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
               </p>
             ) : null}
             {loadingExtra ? (
-              <p className="mt-1 text-[10px] text-fs-muted">加载叠加数据…</p>
+              <p className="mt-1 text-[10px] text-fs-muted">{tr("加载叠加数据…")}</p>
             ) : null}
 
             <button
@@ -399,7 +387,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
               disabled={!canAdd || validating}
               className="mt-2 w-full rounded bg-fs-elevated py-1 text-[11px] text-fs-text hover:bg-fs-border disabled:opacity-40"
             >
-              {validating ? "校验资产…" : "添加"}
+              {validating ? tr("校验资产…") : tr("添加")}
             </button>
           </div>
         </div>

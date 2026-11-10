@@ -1,6 +1,6 @@
 /**
  * 包裹 tr() 后，把 tr/tx 补进 useEffect/useMemo/useCallback 的依赖数组
- * （只应用 react-hooks/exhaustive-deps 对「缺少 tr/tx」这一类告警给出的建议修复）。
+ * （只处理 react-hooks/exhaustive-deps「缺少 tr/tx」这一类告警，在原依赖数组末尾追加，不改其他依赖）。
  *   node scripts/i18n/fix-tr-deps.mjs <文件...>
  */
 import { ESLint } from "eslint";
@@ -20,7 +20,13 @@ for (let pass = 0; pass < 5; pass++) {
     let lastStart = Infinity;
     for (const f of fixes) {
       if (f.range[1] > lastStart) continue; // 重叠的留到下一轮
-      code = code.slice(0, f.range[0]) + f.text + code.slice(f.range[1]);
+      // 只用建议给出的「依赖数组位置」，自己在原数组末尾追加 tr/tx：
+      // ESLint 的建议文本会改写已有依赖（如把 payload?.x 改成 payload.x），不能直接用。
+      const original = code.slice(f.range[0], f.range[1]);
+      const name = /\btx\b/.test(f.text) && !/\btx\b/.test(original) ? "tx" : "tr";
+      const body = original.replace(/^\[/, "").replace(/\]$/, "").replace(/,\s*$/, "");
+      const next = body.trim() ? `[${body.replace(/\s+$/, "")}, ${name}]` : `[${name}]`;
+      code = code.slice(0, f.range[0]) + next + code.slice(f.range[1]);
       lastStart = f.range[0];
       changed++;
     }

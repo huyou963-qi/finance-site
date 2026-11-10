@@ -31,6 +31,15 @@ import {
   yearToX,
   type PackedItem,
 } from "@/components/events/horizontal-timeline/timelinePacking";
+import { useLocale } from "next-intl";
+import { useTr } from "@/i18n/TextProvider";
+
+/** 刻度标签：年份原样；中文月份「3月」在英文站显示为 Mar */
+function monthTickLabel(label: string, locale: string): string {
+  const m = /^(\d{1,2})月$/.exec(label); // i18n-ignore: 解析 buildTicks 的中文月份
+  if (!m || locale !== "en") return label;
+  return new Date(Date.UTC(2000, Number(m[1]) - 1, 1)).toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+}
 
 const MIN_ZOOM = 0.35;
 /** 最大约 5900px/年（≈16px/天），足以把同一周内的事件拉开 */
@@ -52,6 +61,8 @@ export type HorizontalHistoryTimelineProps = {
 };
 
 export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineProps) {
+  const tr = useTr();
+  const locale = useLocale();
   const viewportRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const lastX = useRef(0);
@@ -243,7 +254,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
           <button
             type="button"
             onClick={() => zoomBy(1.6)}
-            aria-label="放大"
+            aria-label={tr("放大")}
             className="flex h-11 w-11 items-center justify-center text-xl text-fs-secondary hover:bg-fs-elevated active:bg-fs-elevated md:h-9 md:w-9 md:text-lg"
           >
             +
@@ -252,7 +263,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
           <button
             type="button"
             onClick={() => zoomBy(1 / 1.6)}
-            aria-label="缩小"
+            aria-label={tr("缩小")}
             className="flex h-11 w-11 items-center justify-center text-xl text-fs-secondary hover:bg-fs-elevated active:bg-fs-elevated md:h-9 md:w-9 md:text-lg"
           >
             −
@@ -370,9 +381,9 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
                   style={{ width: textW, transform: `translateX(${textOffset}px)` }}
                 >
                   <p className="shrink-0 text-[10px] font-medium uppercase tracking-widest text-fs-muted">
-                    {band.fromYear}–{band.toYear >= 2020 ? "今" : band.toYear}
+                    {band.fromYear}–{band.toYear >= 2020 ? tr("今") : band.toYear}
                   </p>
-                  <p className="mt-0.5 shrink-0 truncate text-sm font-semibold text-fs-text">{band.tag}</p>
+                  <p className="mt-0.5 shrink-0 truncate text-sm font-semibold text-fs-text">{tr(band.tag)}</p>
                   {band.headerSections && band.headerSections.length > 0 && bandW > 120 ? (
                     <div
                       className="mt-1 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5"
@@ -434,7 +445,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
                     t.major ? "text-sm font-semibold text-fs-text" : "text-xs text-fs-secondary"
                   }`}
                 >
-                  {t.label}
+                  {monthTickLabel(t.label, locale)}
                 </span>
               ) : null}
             </div>
@@ -467,14 +478,12 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
           >
             <div className="max-h-[60%] w-full max-w-xl overflow-hidden rounded-lg border border-fs-border bg-white shadow-lg">
               <div className="flex items-center justify-between border-b border-fs-border px-3 py-2">
-                <span className="text-xs font-semibold text-fs-text">
-                  同期 {clusterList.length} 个事件
-                </span>
+                <span className="text-xs font-semibold text-fs-text">{tr("同期")}{" "}{clusterList.length}{" "}{tr("个事件")}</span>
                 <button
                   type="button"
                   onClick={() => setClusterList(null)}
                   className="rounded px-2 text-sm text-fs-muted hover:bg-fs-elevated"
-                  aria-label="关闭"
+                  aria-label={tr("关闭")}
                 >
                   ×
                 </button>
@@ -492,7 +501,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
                       </time>
                       <EventImportanceBadge importance={n.event.importance} />
                       <span className="line-clamp-1 text-xs text-fs-text">
-                        {n.event.title ?? "未命名事件"}
+                        {n.event.title ?? tr("未命名事件")}
                       </span>
                     </button>
                   </li>
@@ -507,7 +516,7 @@ export function HorizontalHistoryTimeline({ events }: HorizontalHistoryTimelineP
               {selected.eraTag ? (
                 <>
                   <span className="mx-2 text-fs-muted">·</span>
-                  <span>{selected.eraTag}</span>
+                  <span>{tr(selected.eraTag)}</span>
                 </>
               ) : null}
             </div>

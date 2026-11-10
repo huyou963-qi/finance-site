@@ -1,6 +1,7 @@
 "use client";
 
 import type { EventViewFilterState } from "@/lib/chart/eventViewFilters";
+import { useTr } from "@/i18n/TextProvider";
 
 type Props = {
   prefs: EventViewFilterState;
@@ -14,6 +15,7 @@ export function ChartEventMarkersToolbar({
   onChange,
   layout = "inline",
 }: Props) {
+  const tr = useTr();
   const patch = (p: Partial<EventViewFilterState>) =>
     onChange({ ...prefs, ...p });
   const isPanel = layout === "panel";
@@ -32,9 +34,7 @@ export function ChartEventMarkersToolbar({
           checked={prefs.markersEnabled}
           onChange={(e) => patch({ markersEnabled: e.target.checked })}
           className="accent-[var(--fs-accent,#2383e2)]"
-        />
-        图上标记
-      </label>
+        />{tr("图上标记")}</label>
       {prefs.markersEnabled ? (
         <div
           className={
@@ -49,27 +49,21 @@ export function ChartEventMarkersToolbar({
               checked={prefs.includeSec}
               onChange={(e) => patch({ includeSec: e.target.checked })}
               className="accent-[var(--fs-accent,#2383e2)]"
-            />
-            SEC公司
-          </label>
+            />{tr("SEC公司")}</label>
           <label className="inline-flex cursor-pointer items-center gap-1.5 text-fs-muted">
             <input
               type="checkbox"
               checked={prefs.includeMarket}
               onChange={(e) => patch({ includeMarket: e.target.checked })}
               className="accent-[var(--fs-accent,#2383e2)]"
-            />
-            其它事件
-          </label>
+            />{tr("其它事件")}</label>
           <label className="inline-flex cursor-pointer items-center gap-1.5 text-fs-muted">
             <input
               type="checkbox"
               checked={prefs.showLabel}
               onChange={(e) => patch({ showLabel: e.target.checked })}
               className="accent-[var(--fs-accent,#2383e2)]"
-            />
-            显示文字
-          </label>
+            />{tr("显示文字")}</label>
         </div>
       ) : null}
     </div>

@@ -126,6 +126,10 @@ import {
 } from "@/lib/data/klineShared";
 import { randomUUID } from "@/lib/randomId";
 import { KLINE, SITE } from "@/lib/siteTheme";
+import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
+import { useLocale } from "next-intl";
+import { formatCompactNumber } from "@/lib/i18n/format";
 
 /** 首屏与每次向左追加的条数（与 /api/data/klines?limit= 一致） */
 const KLINE_INITIAL_LIMIT = KLINE_PAGE_SIZE;
@@ -638,8 +642,9 @@ function fmtPriceCompact(x: number): string {
   return x.toLocaleString("zh-CN", { maximumFractionDigits: 6 });
 }
 
-function fmtVolumeZh(v: number): string {
+function fmtVolumeZh(v: number, locale: string): string {
   if (!Number.isFinite(v) || v < 0) return "—";
+  if (locale === "en") return formatCompactNumber(v, "en", 2);
   if (v >= 1e8) return `${(v / 1e8).toFixed(2)} 亿`;
   if (v >= 1e4) return `${(v / 1e4).toFixed(2)} 万`;
   return v.toLocaleString("zh-CN", { maximumFractionDigits: 0 });
@@ -804,8 +809,8 @@ function wireSpecsToRangeEntries(
   return out;
 }
 
-function rangePanelTitle(index: number): string {
-  return index === 0 ? "区间统计" : `区间统计${index + 1}`;
+function rangePanelTitle(index: number, tr: Tr): string {
+  return index === 0 ? tr("区间统计") : tr("区间统计{n}", { n: index + 1 });
 }
 
 /** 指标设置弹层内的紧凑数字输入 */
@@ -877,6 +882,8 @@ export function StockChartWorkspace({
   seekToTimeSec = null,
   seekToTimeVersion = 0,
 }: StockChartWorkspaceProps) {
+  const tx = useTr();
+  const locale = useLocale();
   const localEventStore = useLocalCompanyEvents(symbol, localEvents === undefined);
   const localChartEvents = localEvents ?? localEventStore.events;
   const selectedEventIdRef = useRef(selectedEventId);
@@ -1060,7 +1067,7 @@ export function StockChartWorkspace({
   drawingApiRef.current = drawingApi;
   const [magnet, setMagnet] = useState(true);
   const magnetRef = useRef(magnet); magnetRef.current = magnet;
-  const [annotationText, setAnnotationText] = useState("备注");
+  const [annotationText, setAnnotationText] = useState(tx("备注"));
   const annotationTextRef = useRef(annotationText); annotationTextRef.current = annotationText;
   const [editingDrawing, setEditingDrawing] = useState<MarketDrawing | null>(null);
   const editingCleanup = useRef<(() => void) | null>(null);
@@ -1241,7 +1248,7 @@ export function StockChartWorkspace({
         setPayload(null);
         setHint(null);
         setKlineError(
-          e instanceof Error ? e.message : "K 线接口请求失败",
+          e instanceof Error ? e.message : tx("K 线接口请求失败"),
         );
       })
       .finally(() => {
@@ -1250,7 +1257,7 @@ export function StockChartWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [symbol, interval, source, priceAdjustment]);
+  }, [symbol, interval, source, priceAdjustment, tx]);
 
   useEffect(() => { setSelectedDrawingId(null); setPlotDraft(null); }, [symbol, source, priceAdjustment]);
 
@@ -1343,7 +1350,7 @@ export function StockChartWorkspace({
         setQuarterlyPe([]);
         setTtmPeSource(null);
         setTtmPeError(
-          e instanceof Error ? e.message : "TTM PE 数据加载失败",
+          e instanceof Error ? e.message : tx("TTM PE 数据加载失败"),
         );
       }
     };
@@ -1352,7 +1359,7 @@ export function StockChartWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [symbol, needsTtmPe]);
+  }, [symbol, needsTtmPe, tx]);
 
   const ttmPeLine = useMemo(() => {
     if (secTtmPeDaily.length) return secTtmPeDaily;
@@ -1384,15 +1391,15 @@ export function StockChartWorkspace({
       high: {
         t: ext.high.time as UTCTimestamp,
         price: ext.high.price,
-        text: `高 ${fmtPriceCompact(ext.high.price)}`,
+        text: tx("高 {v0}", { v0: fmtPriceCompact(ext.high.price) }),
       },
       low: {
         t: ext.low.time as UTCTimestamp,
         price: ext.low.price,
-        text: `低 ${fmtPriceCompact(ext.low.price)}`,
+        text: tx("低 {v0}", { v0: fmtPriceCompact(ext.low.price) }),
       },
     };
-  }, [candles, loading, overlayLayoutTick]);
+  }, [candles, loading, overlayLayoutTick, tx]);
 
   const loadMoreHistory = useCallback(async () => {
     if (loading || loadingOlderRef.current) {
@@ -1469,7 +1476,7 @@ export function StockChartWorkspace({
       }
       const chunk = (await r.json()) as KlinePayload;
       if (chunk.cache?.state === "stale") {
-        setHint(chunk.attribution ?? "部分历史行情正在更新，暂用缓存");
+        setHint(chunk.attribution ?? tx("部分历史行情正在更新，暂用缓存"));
       }
       logCandleSeriesReport("client", "loadMore.chunk", chunk.candles, interval, {
         chunkSource: chunk.source,
@@ -1523,7 +1530,7 @@ export function StockChartWorkspace({
     } finally {
       loadingOlderRef.current = false;
     }
-  }, [loading, source, symbol, interval, priceAdjustment]);
+  }, [loading, interval, source, symbol, priceAdjustment, tx]);
 
   const loadMoreHistoryRef = useRef<() => void>(() => {});
   loadMoreHistoryRef.current = () => {
@@ -2561,7 +2568,7 @@ export function StockChartWorkspace({
       } else {
         if (["trend", "ray", "extended", "channel"].includes(tcur) && points[0].t === points[1].t && points[0].p === points[1].p) return;
         const id = randomUUID();
-        const drawing = createDrawing(tcur, points, id, annotationTextRef.current.trim() || "备注");
+        const drawing = createDrawing(tcur, points, id, annotationTextRef.current.trim() || tx("备注"));
         drawingApiRef.current.setDrawings(ds => [...ds, drawing]);
         plotDraftRef.current = null; setPlotDraft(null);
         setSelectedDrawingId(id); setTool("cursor"); toolRef.current = "cursor";
@@ -2785,23 +2792,7 @@ export function StockChartWorkspace({
         layerSeries: [],
       };
       };
-  }, [
-    loading,
-    symbol,
-    source,
-    overlayStructKey,
-    layersStructKey,
-    subParams,
-    subPane1.visible,
-    subPane1.content,
-    subPane2.visible,
-    subPane2.content,
-    interval,
-    schedulePaneLayoutMetrics,
-    forceHideSubPanes,
-    payload?.pricePrecision,
-    payload?.observationOnly,
-  ]);
+  }, [loading, symbol, source, overlayStructKey, layersStructKey, subParams, subPane1.visible, subPane1.content, subPane2.visible, subPane2.content, interval, schedulePaneLayoutMetrics, forceHideSubPanes, payload?.pricePrecision, payload?.observationOnly, tx]);
 
   /** 可见区间内拉取事件标记并打到主图蜡烛上 */
   const privateEventMarkers = useMemo(
@@ -3245,17 +3236,17 @@ export function StockChartWorkspace({
     setScreenshotHint(null);
     try {
       await copyElementScreenshotToClipboard(el, { backgroundColor: "#ffffff" });
-      setScreenshotHint("已复制");
+      setScreenshotHint(tx("已复制"));
       screenshotHintTimerRef.current = window.setTimeout(() => {
         setScreenshotHint(null);
         screenshotHintTimerRef.current = null;
       }, 1800);
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "截图失败");
+      window.alert(e instanceof Error ? e.message : tx("截图失败"));
     } finally {
       setScreenshotBusy(false);
     }
-  }, [screenshotBusy]);
+  }, [screenshotBusy, tx]);
 
   useEffect(() => {
     return () => {
@@ -3266,7 +3257,7 @@ export function StockChartWorkspace({
   }, []);
 
   const subModeTabs: { id: SubPaneContent; label: string }[] = [
-    { id: "volume", label: "成交量" },
+    { id: "volume", label: tx("成交量") },
     { id: "kdj", label: "KDJ" },
     { id: "macd", label: "MACD" },
     { id: "rsi", label: "RSI" },
@@ -3282,10 +3273,8 @@ export function StockChartWorkspace({
             : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-fs-border bg-fs-elevated px-6 text-center"
         }
       >
-        <p className="text-sm text-fs-muted">尚未选择标的</p>
-        <p className="max-w-md text-xs leading-relaxed text-fs-secondary">
-          在上方输入框输入代码或公司名称，从联想列表中选择；也可输入完整代码后按 Enter 加载 K 线。
-        </p>
+        <p className="text-sm text-fs-muted">{tx("尚未选择标的")}</p>
+        <p className="max-w-md text-xs leading-relaxed text-fs-secondary">{tx("在上方输入框输入代码或公司名称，从联想列表中选择；也可输入完整代码后按 Enter 加载 K 线。")}</p>
       </div>
     );
   }
@@ -3299,13 +3288,11 @@ export function StockChartWorkspace({
             : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-rose-900/50 bg-fs-bg px-6 py-8 text-center"
         }
       >
-        <p className="text-sm font-medium text-rose-200">行情接口失败</p>
+        <p className="text-sm font-medium text-rose-200">{tx("行情接口失败")}</p>
         <p className="max-w-lg whitespace-pre-wrap font-mono text-xs leading-relaxed text-rose-100/90">
           {klineError}
         </p>
-        <p className="max-w-lg text-left text-[11px] leading-relaxed text-fs-muted">
-          行情来自 Yahoo Finance（美股，免密钥）；日/周线由服务端按拆股事件与现金分红精确复权，可能因代码无效或网络波动失败。
-        </p>
+        <p className="max-w-lg text-left text-[11px] leading-relaxed text-fs-muted">{tx("行情来自 Yahoo Finance（美股，免密钥）；日/周线由服务端按拆股事件与现金分红精确复权，可能因代码无效或网络波动失败。")}</p>
       </div>
     );
   }
@@ -3318,9 +3305,7 @@ export function StockChartWorkspace({
             ? "flex min-h-[50dvh] flex-1 items-center justify-center text-sm text-fs-muted"
             : "flex h-[560px] items-center justify-center text-sm text-fs-muted"
         }
-      >
-        正在加载行情…
-      </div>
+      >{tx("正在加载行情…")}</div>
     );
   }
 
@@ -3334,15 +3319,15 @@ export function StockChartWorkspace({
   const chartSettings = (
     <>
       <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
-        <span className="sr-only">K 线涨跌颜色</span>
+        <span className="sr-only">{tx("K 线涨跌颜色")}</span>
         <select
           value={candleColorMode}
           onChange={(e) => {
             const v = e.target.value;
             if (v === "red-up" || v === "green-up") setCandleColorMode(v);
           }}
-          title="K 线涨跌颜色：红涨绿跌 / 红跌绿涨"
-          aria-label="K 线涨跌颜色"
+          title={tx("K 线涨跌颜色：红涨绿跌 / 红跌绿涨")}
+          aria-label={tx("K 线涨跌颜色")}
           className="h-[22px] max-w-[6.5rem] cursor-pointer rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
         >
           {KLINE_CANDLE_COLOR_MODES.map((mode) => (
@@ -3364,9 +3349,9 @@ export function StockChartWorkspace({
           }`}
           aria-expanded={overlayMenuOpen}
           aria-haspopup="menu"
-          title="设置主图叠加（MA / BOLL 可同时显示）与各指标参数"
+          title={tx("设置主图叠加（MA / BOLL 可同时显示）与各指标参数")}
         >
-          <span className="text-fs-muted">{settingsPortalEl ? "主图叠加指标" : "指标"}</span>
+          <span className="text-fs-muted">{settingsPortalEl ? tx("主图叠加指标") : tx("指标")}</span>
           <span
             className={
               overlaySummary.length
@@ -3374,7 +3359,7 @@ export function StockChartWorkspace({
                 : "text-fs-muted"
             }
           >
-            {overlaySummary.length ? overlaySummary.join(" · ") : "无叠加"}
+            {overlaySummary.length ? overlaySummary.join(" · ") : tx("无叠加")}
           </span>
           <span className="text-[10px] text-fs-muted" aria-hidden>
             ▾
@@ -3385,9 +3370,7 @@ export function StockChartWorkspace({
             role="menu"
             className={settingsPortalEl ? "mt-2 w-full rounded-md border border-fs-border bg-fs-bg p-2" : "absolute left-0 top-[calc(100%+6px)] z-[100] w-[19rem] rounded-md border border-fs-border bg-fs-bg p-3 shadow-xl"}
           >
-            <div className="mb-1 text-[11px] font-medium text-fs-secondary">
-              主图叠加（可同时显示）
-            </div>
+            <div className="mb-1 text-[11px] font-medium text-fs-secondary">{tx("主图叠加（可同时显示）")}</div>
             <label className="flex items-center gap-2 py-1 text-[11px] text-fs-text">
               <input
                 type="checkbox"
@@ -3407,7 +3390,7 @@ export function StockChartWorkspace({
                   }
                 }}
                 placeholder="5, 10, 20"
-                title="均线周期，逗号分隔（最多 6 条）"
+                title={tx("均线周期，逗号分隔（最多 6 条）")}
                 className="flex-1 rounded border border-fs-border bg-fs-elevated px-1.5 py-0.5 text-fs-text outline-none focus:border-fs-accent/70"
               />
             </label>
@@ -3419,7 +3402,7 @@ export function StockChartWorkspace({
               />
               <span className="w-9 shrink-0">BOLL</span>
               <IndicatorNumField
-                label="周期"
+                label={tx("周期")}
                 value={indicators.boll.period}
                 min={2}
                 max={250}
@@ -3430,7 +3413,7 @@ export function StockChartWorkspace({
                 }
               />
               <IndicatorNumField
-                label="倍数"
+                label={tx("倍数")}
                 value={indicators.boll.mult}
                 min={0.1}
                 max={10}
@@ -3441,9 +3424,7 @@ export function StockChartWorkspace({
               />
             </div>
 
-            <div className="mb-1 mt-2 border-t border-fs-border pt-2 text-[11px] font-medium text-fs-secondary">
-              副图参数
-            </div>
+            <div className="mb-1 mt-2 border-t border-fs-border pt-2 text-[11px] font-medium text-fs-secondary">{tx("副图参数")}</div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-0.5">
               <span className="w-9 shrink-0 text-[11px] text-fs-text">KDJ</span>
               <IndicatorNumField
@@ -3477,7 +3458,7 @@ export function StockChartWorkspace({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-0.5">
               <span className="w-9 shrink-0 text-[11px] text-fs-text">MACD</span>
               <IndicatorNumField
-                label="快"
+                label={tx("快")}
                 value={indicators.macd.fast}
                 min={1}
                 max={200}
@@ -3486,7 +3467,7 @@ export function StockChartWorkspace({
                 }
               />
               <IndicatorNumField
-                label="慢"
+                label={tx("慢")}
                 value={indicators.macd.slow}
                 min={2}
                 max={400}
@@ -3495,7 +3476,7 @@ export function StockChartWorkspace({
                 }
               />
               <IndicatorNumField
-                label="信号"
+                label={tx("信号")}
                 value={indicators.macd.signal}
                 min={1}
                 max={100}
@@ -3509,7 +3490,7 @@ export function StockChartWorkspace({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 py-0.5">
               <span className="w-9 shrink-0 text-[11px] text-fs-text">RSI</span>
               <IndicatorNumField
-                label="周期"
+                label={tx("周期")}
                 value={indicators.rsi.period}
                 min={2}
                 max={250}
@@ -3524,9 +3505,7 @@ export function StockChartWorkspace({
                   setIndicators({ ...DEFAULT_INDICATOR_SETTINGS })
                 }
                 className="rounded px-2 py-0.5 text-[11px] text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-              >
-                恢复默认
-              </button>
+              >{tx("恢复默认")}</button>
             </div>
           </div>
         ) : null}
@@ -3543,27 +3522,25 @@ export function StockChartWorkspace({
         aria-pressed={rangeStatsEnabled}
         title={
           rangeStatsEnabled
-            ? "关闭区间统计并隐藏面板。开启时：不按 Shift 左键拖拽可左右平移查看更早 K 线；按住 Shift 在主图拖拽划定区间"
-            : "开启后在十字模式下：不按 Shift 左键拖拽平移；按住 Shift 拖拽划定区间统计"
+            ? tx("关闭区间统计并隐藏面板。开启时：不按 Shift 左键拖拽可左右平移查看更早 K 线；按住 Shift 在主图拖拽划定区间")
+            : tx("开启后在十字模式下：不按 Shift 左键拖拽平移；按住 Shift 拖拽划定区间统计")
         }
         className={`h-7 shrink-0 whitespace-nowrap rounded px-2 text-[11px] transition-colors md:h-auto md:py-1 ${
           rangeStatsEnabled
             ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30 hover:bg-fs-accent-soft"
             : "bg-fs-elevated text-fs-muted hover:bg-fs-border hover:text-fs-text"
         }`}
-      >
-        区间统计
-      </button>
+      >{tx("区间统计")}</button>
       <button
         type="button"
         onClick={() => void handleScreenshot()}
         disabled={screenshotBusy}
-        title="截取主图与副图（含画线）到剪贴板"
+        title={tx("截取主图与副图（含画线）到剪贴板")}
         className="h-7 shrink-0 whitespace-nowrap rounded border border-fs-border bg-fs-elevated px-2 text-[11px] font-medium text-fs-text transition hover:border-fs-accent/40 hover:bg-fs-accent-soft hover:text-fs-accent-text disabled:cursor-wait disabled:opacity-60 md:h-auto md:py-1"
       >
-        <span className="md:hidden">截图</span><span className="hidden md:inline">{screenshotBusy ? "截图中…" : screenshotHint ? screenshotHint : "截图"}</span>
+        <span className="md:hidden">{tx("截图")}</span><span className="hidden md:inline">{screenshotBusy ? tx("截图中…") : screenshotHint ? screenshotHint : tx("截图")}</span>
       </button>
-      <span role="status" className="sr-only">{screenshotBusy ? "截图中…" : screenshotHint}</span>
+      <span role="status" className="sr-only">{screenshotBusy ? tx("截图中…") : screenshotHint}</span>
       <MarketDrawingToolbar {...drawingApi} tool={tool} onTool={next => { setTool(next); toolRef.current = next; setPlotDraft(null); plotDraftRef.current = null; }} selectedId={selectedDrawingId} onSelect={setSelectedDrawingId} onChange={setDrawings} magnet={magnet} onMagnet={setMagnet} text={annotationText} onText={setAnnotationText} />
       {!eventViewFiltersControlled ? (
         <ChartEventMarkersToolbar
@@ -3646,7 +3623,7 @@ export function StockChartWorkspace({
             ))}
             <button
               type="button"
-              title={subPane1.visible ? "隐藏此副图" : "显示此副图"}
+              title={subPane1.visible ? tx("隐藏此副图") : tx("显示此副图")}
               onClick={() =>
                 setSubPane1((s) => ({ ...s, visible: !s.visible }))
               }
@@ -3656,7 +3633,7 @@ export function StockChartWorkspace({
                   : "bg-fs-accent-soft text-fs-accent-text hover:bg-fs-accent-soft"
               }`}
             >
-              {subPane1.visible ? "隐藏" : "显示"}
+              {subPane1.visible ? tx("隐藏") : tx("显示")}
             </button>
             {subPane1.content === "ttmpe" && ttmPeError ? (
               <span className="truncate text-[10px] text-amber-300/90" title={ttmPeError}>
@@ -3664,7 +3641,7 @@ export function StockChartWorkspace({
               </span>
             ) : null}
             {subPane1.content === "ttmpe" && !ttmPeError && ttmPeSource ? (
-              <span className="text-[10px] text-fs-muted" title="TTM PE 数据源">
+              <span className="text-[10px] text-fs-muted" title={tx("TTM PE 数据源")}>
                 {ttmPeSource === "sec" ? "SEC" : "FMP"}
               </span>
             ) : null}
@@ -3682,7 +3659,7 @@ export function StockChartWorkspace({
               <div
                 role="separator"
                 aria-orientation="horizontal"
-                title="上下拖动：调节副图1与副图2高度（仅顶部窄条）"
+                title={tx("上下拖动：调节副图1与副图2高度（仅顶部窄条）")}
                 className="relative z-[30] shrink-0 cursor-ns-resize touch-none border-b border-amber-500/45 bg-gradient-to-b from-amber-500/20 to-transparent hover:from-amber-500/35"
                 style={{ height: 7 }}
                 onPointerDown={attachPaneSplitterDrag("12")}
@@ -3705,7 +3682,7 @@ export function StockChartWorkspace({
               ))}
               <button
                 type="button"
-                title={subPane2.visible ? "隐藏此副图" : "显示此副图"}
+                title={subPane2.visible ? tx("隐藏此副图") : tx("显示此副图")}
                 onClick={() =>
                   setSubPane2((s) => ({ ...s, visible: !s.visible }))
                 }
@@ -3715,7 +3692,7 @@ export function StockChartWorkspace({
                     : "bg-fs-accent-soft text-fs-accent-text hover:bg-fs-accent-soft"
                 }`}
               >
-                {subPane2.visible ? "隐藏" : "显示"}
+                {subPane2.visible ? tx("隐藏") : tx("显示")}
               </button>
               {subPane2.content === "ttmpe" && ttmPeError ? (
                 <span
@@ -3726,7 +3703,7 @@ export function StockChartWorkspace({
                 </span>
               ) : null}
               {subPane2.content === "ttmpe" && !ttmPeError && ttmPeSource ? (
-                <span className="text-[10px] text-fs-muted" title="TTM PE 数据源">
+                <span className="text-[10px] text-fs-muted" title={tx("TTM PE 数据源")}>
                   {ttmPeSource === "sec" ? "SEC" : "FMP"}
                 </span>
               ) : null}
@@ -3768,7 +3745,7 @@ export function StockChartWorkspace({
             </div>
             {(() => {
               const ch = crosshairOhlcv;
-              if (payload?.observationOnly) return <div className="text-fs-text">日度收益率：<span className="font-mono">{fmtPriceCompact(ch.close)}%</span></div>;
+              if (payload?.observationOnly) return <div className="text-fs-text">{tx("日度收益率：")}<span className="font-mono">{fmtPriceCompact(ch.close)}%</span></div>;
               const delta = ch.close - ch.open;
               const pct =
                 ch.open !== 0 ? (delta / ch.open) * 100 : 0;
@@ -3776,32 +3753,32 @@ export function StockChartWorkspace({
               const dColor = upA ? candleColors.up : candleColors.down;
               return (
                 <div className="grid grid-cols-[2.5rem_1fr] gap-x-2 gap-y-0.5 text-fs-text">
-                  <span className="text-fs-muted">开盘</span>
+                  <span className="text-fs-muted">{tx("开盘")}</span>
                   <span className="text-right font-mono text-fs-text">
                     {fmtPriceCompact(ch.open)}
                   </span>
-                  <span className="text-fs-muted">最高</span>
+                  <span className="text-fs-muted">{tx("最高")}</span>
                   <span
                     className="text-right font-mono"
                     style={{ color: candleColors.up }}
                   >
                     {fmtPriceCompact(ch.high)}
                   </span>
-                  <span className="text-fs-muted">最低</span>
+                  <span className="text-fs-muted">{tx("最低")}</span>
                   <span
                     className="text-right font-mono"
                     style={{ color: candleColors.down }}
                   >
                     {fmtPriceCompact(ch.low)}
                   </span>
-                  <span className="text-fs-muted">收盘</span>
+                  <span className="text-fs-muted">{tx("收盘")}</span>
                   <span
                     className="text-right font-mono"
                     style={{ color: dColor }}
                   >
                     {fmtPriceCompact(ch.close)}
                   </span>
-                  <span className="text-fs-muted">涨跌额</span>
+                  <span className="text-fs-muted">{tx("涨跌额")}</span>
                   <span
                     className="text-right font-mono"
                     style={{ color: dColor }}
@@ -3810,7 +3787,7 @@ export function StockChartWorkspace({
                       ? `${delta >= 0 ? "+" : ""}${fmtPriceCompact(delta)}`
                       : "—"}
                   </span>
-                  <span className="text-fs-muted">涨跌幅</span>
+                  <span className="text-fs-muted">{tx("涨跌幅")}</span>
                   <span
                     className="text-right font-mono"
                     style={{ color: dColor }}
@@ -3820,8 +3797,8 @@ export function StockChartWorkspace({
                       : "—"}
                   </span>
                   {payload?.volumeAvailable !== false ? <>
-                    <span className="text-fs-muted">成交量</span>
-                    <span className="text-right font-mono text-fs-secondary">{fmtVolumeZh(ch.volume)}</span>
+                    <span className="text-fs-muted">{tx("成交量")}</span>
+                    <span className="text-right font-mono text-fs-secondary">{fmtVolumeZh(ch.volume, locale)}</span>
                   </> : null}
                   {ch.layers?.map((ly) => (
                     <span key={ly.label} className="contents">
@@ -3871,24 +3848,24 @@ export function StockChartWorkspace({
                   />
                   <div
                     role="slider"
-                    aria-label={`区间${idx + 1}起点`}
+                    aria-label={tx("区间{v0}起点", { v0: idx + 1 })}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={Math.max(0, candles.length - 1)}
                     aria-valuenow={r.i0}
-                    title="拖动调整区间起点"
+                    title={tx("拖动调整区间起点")}
                     className="pointer-events-auto absolute top-0 bottom-0 z-[19] w-2.5 -translate-x-1/2 cursor-ew-resize touch-none hover:bg-white/10"
                     style={{ left: px.left }}
                     onPointerDown={attachRangeEdgeDrag(r.id, "left")}
                   />
                   <div
                     role="slider"
-                    aria-label={`区间${idx + 1}终点`}
+                    aria-label={tx("区间{v0}终点", { v0: idx + 1 })}
                     aria-orientation="horizontal"
                     aria-valuemin={0}
                     aria-valuemax={Math.max(0, candles.length - 1)}
                     aria-valuenow={r.i1}
-                    title="拖动调整区间终点"
+                    title={tx("拖动调整区间终点")}
                     className="pointer-events-auto absolute top-0 bottom-0 z-[19] w-2.5 -translate-x-1/2 cursor-ew-resize touch-none hover:bg-white/10"
                     style={{ left: px.left + px.width }}
                     onPointerDown={attachRangeEdgeDrag(r.id, "right")}
@@ -3921,7 +3898,7 @@ export function StockChartWorkspace({
           <div
             role="separator"
             aria-orientation="horizontal"
-            title="上下拖动：调节主图与副图1高度（靠左青边）"
+            title={tx("上下拖动：调节主图与副图1高度（靠左青边）")}
             className="pointer-events-auto absolute left-0 right-0 z-[18] h-3 -translate-y-1/2 cursor-ns-resize touch-none border-l-4 border-fs-accent/55 hover:bg-fs-border/60"
             style={{ top: splitterY.sep01 }}
             onPointerDown={attachPaneSplitterDrag("01")}
@@ -3935,7 +3912,7 @@ export function StockChartWorkspace({
               key={r.id}
               stats={r.stats}
               layerStats={r.layerStats}
-              title={rangePanelTitle(idx)}
+              title={rangePanelTitle(idx, tx)}
               accentColor={r.color}
               upColor={candleColors.up}
               downColor={candleColors.down}

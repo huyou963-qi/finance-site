@@ -8,6 +8,7 @@ import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
 import { EventDetailDrawer } from "@/components/events/EventDetailDrawer";
 import { EventHoverCard } from "@/components/events/EventHoverCard";
 import { eventPreviewContent } from "@/lib/data/eventContentDisplay";
+import { useTr } from "@/i18n/TextProvider";
 
 function isSecDerivedEvent(event: MarketEventDto): boolean {
   return event.sourceKind === "sec" || event.id.startsWith("stock:");
@@ -36,6 +37,7 @@ export function EventListRow({
   onDelete,
   rowRef,
 }: EventListRowProps) {
+  const tr = useTr();
   const articleRef = useRef<HTMLElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -120,7 +122,7 @@ export function EventListRow({
         }}
         tabIndex={0}
         role="button"
-        aria-label={event.title ? `查看事件：${event.title}` : "查看事件详情"}
+        aria-label={event.title ? tr("查看事件：{title}", { title: event.title }) : tr("查看事件详情")}
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -134,9 +136,7 @@ export function EventListRow({
                   SEC
                 </span>
               ) : event.sourceKind === "ai_skill" ? (
-                <span className="rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[9px] text-fs-muted">
-                  录入
-                </span>
+                <span className="rounded border border-fs-border bg-fs-elevated px-1 py-0 text-[9px] text-fs-muted">{tr("录入")}</span>
               ) : null}
               {event.eventType ? (
                 <span className="text-[10px] text-fs-muted">
@@ -170,7 +170,7 @@ export function EventListRow({
             <p className="mt-0.5 line-clamp-3 text-[11px] leading-snug text-fs-secondary">
               {preview}
             </p>
-            <p className="mt-1 text-[9px] text-fs-muted">悬停预览 · 点击查看全文</p>
+            <p className="mt-1 text-[9px] text-fs-muted">{tr("悬停预览 · 点击查看全文")}</p>
           </div>
           {isAdmin && !secDerived ? (
             <div className="flex shrink-0 flex-col gap-0.5">
@@ -181,9 +181,7 @@ export function EventListRow({
                   onEdit(event);
                 }}
                 className="text-[10px] text-fs-muted hover:text-fs-text"
-              >
-                编辑
-              </button>
+              >{tr("编辑")}</button>
               <button
                 type="button"
                 onClick={(e) => {
@@ -191,9 +189,7 @@ export function EventListRow({
                   onDelete(event.id);
                 }}
                 className="text-[10px] text-fs-muted hover:text-fs-negative"
-              >
-                删除
-              </button>
+              >{tr("删除")}</button>
             </div>
           ) : null}
         </div>
