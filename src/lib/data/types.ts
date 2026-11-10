@@ -13,6 +13,8 @@ export type KlineFetchWindowOptions = {
 /** 单条宏观序列（世界银行序列请带 key 以便多图分配） */
 export type MacroSeriesItem = {
   name: string;
+  /** 英文展示名（库内 Instrument.nameEn），英文站优先显示 */
+  nameEn?: string;
   data: (number | null)[];
   /** 如 fmp:GDP 或历史 wb:/fred: 键（若仍使用旧路由） */
   key?: string;

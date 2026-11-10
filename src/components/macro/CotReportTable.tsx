@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CotReportPayload, CotReportRow } from "@/lib/data/cot/cotReportTypes";
 import type { CotSector } from "@/lib/data/cot/cotProductCatalog";
+import { useTr } from "@/i18n/TextProvider";
 
 function fmtInt(v: number | null): string {
   if (v == null || !Number.isFinite(v)) return "—";
@@ -74,9 +75,10 @@ function NetSparkline({ values }: { values: number[] }) {
 }
 
 function DataRow({ row }: { row: CotReportRow }) {
+  const tr = useTr();
   return (
     <tr className="border-b border-fs-border hover:bg-fs-elevated/40">
-      <td className="whitespace-nowrap px-2 py-1.5 text-sm text-fs-text">{row.label}</td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-sm text-fs-text">{tr(row.label)}</td>
       <td className="px-2 py-1.5 text-right text-sm tabular-nums text-fs-text">
         {fmtInt(row.long)}
       </td>
@@ -157,6 +159,7 @@ function CotReportTableView({
   data: CotReportPayload | null;
   loading: boolean;
 }) {
+  const tr = useTr();
   const bySector = useMemo(() => {
     if (!data) return new Map<CotSector, CotReportRow[]>();
     const map = new Map<CotSector, CotReportRow[]>();
@@ -173,9 +176,7 @@ function CotReportTableView({
       <table className="w-full min-w-[1100px] border-collapse text-left">
         <thead>
           <tr className="bg-fs-elevated/90 text-xs font-medium uppercase tracking-wide text-fs-text">
-            <th className="px-2 py-2" rowSpan={2}>
-              品种
-            </th>
+            <th className="px-2 py-2" rowSpan={2}>{tr("品种")}</th>
             <th className="border-l border-fs-border px-2 py-2 text-center" colSpan={7}>
               Managed Money Positions
             </th>
@@ -202,9 +203,7 @@ function CotReportTableView({
         <tbody>
           {loading && !data ? (
             <tr>
-              <td colSpan={12} className="px-4 py-8 text-center text-sm text-fs-muted">
-                加载 COT 数据…
-              </td>
+              <td colSpan={12} className="px-4 py-8 text-center text-sm text-fs-muted">{tr("加载 COT 数据…")}</td>
             </tr>
           ) : null}
 
@@ -262,12 +261,11 @@ function CotReportTableView({
 
 /** 宏观模板槽位：自拉数据的期货持仓表（带报告周与来源） */
 export function CotReportTable() {
+  const tr = useTr();
   const { data, error, loading } = useCotReport();
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs text-fs-muted">
-        Managed Money 持仓 · CFTC Disaggregated Combined
-        {data?.reportDateLabel ? (
+      <p className="text-xs text-fs-muted">{tr("Managed Money 持仓 · CFTC Disaggregated Combined")}{data?.reportDateLabel ? (
           <span className="ml-2 text-fs-secondary">Week to Tuesday: {data.reportDateLabel}</span>
         ) : null}
       </p>
@@ -277,14 +275,13 @@ export function CotReportTable() {
         </div>
       ) : null}
       <CotReportTableView data={data} loading={loading} />
-      <p className="text-[11px] text-fs-muted">
-        数据来源：{data?.source ?? "CFTC"}。净仓 = 管理基金多头 − 空头；未含 spread。
-      </p>
+      <p className="text-[11px] text-fs-muted">{tr("数据来源：")}{data?.source ?? "CFTC"}{tr("。净仓 = 管理基金多头 − 空头；未含 spread。")}</p>
     </div>
   );
 }
 
 function SectorBlock({ label, rows }: { label: string; rows: CotReportRow[] }) {
+  const tr = useTr();
   return (
     <>
       <tr className="bg-fs-elevated">
@@ -292,7 +289,7 @@ function SectorBlock({ label, rows }: { label: string; rows: CotReportRow[] }) {
           colSpan={12}
           className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-fs-accent-text/90"
         >
-          {label}
+          {tr(label)}
         </td>
       </tr>
       {rows.map((row) => (

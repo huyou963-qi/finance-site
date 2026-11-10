@@ -14,6 +14,7 @@ import {
   type ChartEarningsMark,
   type StockPriceBar,
 } from "@/components/equity/StockPriceChart";
+import { useTr } from "@/i18n/TextProvider";
 
 type WindowRow = {
   id: string;
@@ -85,6 +86,7 @@ export function StockDetailClient({
   gicsSubIndustry: string | null;
   marketCap: number | null;
 }) {
+  const tr = useTr();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<ResearchTab>(() => RESEARCH_TABS.find(tab => tab.id === requestedTab)?.id ?? "prices");
@@ -118,10 +120,10 @@ export function StockDetailClient({
           events?: StockEvent[];
         };
         return (j.events ?? []).filter(event => event.type !== "8k" || event.items.includes("2.02")).map((e) => {
-          const parts = [e.titleZh, e.timing?.displayBasis === "company-publication" && !e.timing.publishedAt ? `${e.date} 公司原文日期，时刻/时区未知` : `${e.date} 美东`];
-          if (e.timing) parts.push(e.timing.displayBasis === "company-publication" ? "公司发布" : e.timing.displayBasis === "sec-acceptance" ? "SEC 接收日" : "仅 SEC 申报日期，时刻未知");
+          const parts = [e.titleZh, e.timing?.displayBasis === "company-publication" && !e.timing.publishedAt ? tr("{date} 公司原文日期，时刻/时区未知", { date: e.date }) : tr("{date} 美东", { date: e.date })];
+          if (e.timing) parts.push(e.timing.displayBasis === "company-publication" ? tr("公司发布") : e.timing.displayBasis === "sec-acceptance" ? tr("SEC 接收日") : tr("仅 SEC 申报日期，时刻未知"));
           if (e.metrics?.revenueYoY != null)
-            parts.push(`营收 ${fmtPct(e.metrics.revenueYoY)}`);
+            parts.push(tr("营收 {v0}", { v0: fmtPct(e.metrics.revenueYoY) }));
           if (e.metrics?.eps != null) parts.push(`GAAP EPS ${e.metrics.eps.toFixed(2)}`);
           if (e.reactionDetails) parts.push(`${e.reactionDetails.label}${e.reaction != null ? ` ${fmtPct(e.reaction)}` : ""}`);
           return { date: e.date, labelZh: parts.join(" · ") };
@@ -136,16 +138,16 @@ export function StockDetailClient({
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, tr]);
 
   const loadProfile = useCallback(async () => {
     const r = await fetch(`/api/equity/stocks/${encodeURIComponent(symbol)}/profile`, {
       cache: "no-store",
     });
     const j = (await r.json()) as { error?: string; windows?: WindowRow[] };
-    if (!r.ok) throw new Error(j.error ?? "加载失败");
+    if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
     setWindows(j.windows ?? []);
-  }, [symbol]);
+  }, [symbol, tr]);
 
   const loadRange = useCallback(async () => {
     const preset = RANGE_PRESETS.find((p) => p.id === rangeId) ?? RANGE_PRESETS[2];
@@ -177,13 +179,13 @@ export function StockDetailClient({
         excessVsIndustry: number | null;
       };
     };
-    if (!pricesRes.ok) throw new Error(pricesJson.error ?? "行情加载失败");
-    if (!relRes.ok) throw new Error(relJson.error ?? "相对强弱加载失败");
+    if (!pricesRes.ok) throw new Error(pricesJson.error ?? tr("行情加载失败"));
+    if (!relRes.ok) throw new Error(relJson.error ?? tr("相对强弱加载失败"));
 
     setBars(pricesJson.bars ?? []);
     setSeries(relJson.series ?? []);
     setRangeReturns(relJson.returns ?? null);
-  }, [symbol, rangeId]);
+  }, [symbol, rangeId, tr]);
 
   useEffect(() => {
     let cancelled = false;
@@ -193,7 +195,7 @@ export function StockDetailClient({
       try {
         await Promise.all([loadProfile(), loadRange()]);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "加载失败");
+        if (!cancelled) setError(e instanceof Error ? e.message : tr("加载失败"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -201,7 +203,7 @@ export function StockDetailClient({
     return () => {
       cancelled = true;
     };
-  }, [loadProfile, loadRange]);
+  }, [loadProfile, loadRange, tr]);
 
 
   return (
@@ -218,10 +220,8 @@ export function StockDetailClient({
           {symbol}
           <span className="ml-2 text-sm font-normal">{name}</span>
         </h1>
-      <nav aria-label="个股行业路径" className="shrink-0 text-xs text-fs-muted">
-        <Link href="/equity/sectors" className="hover:text-fs-accent-text">
-          美股历史
-        </Link>
+      <nav aria-label={tr("个股行业路径")} className="shrink-0 text-xs text-fs-muted">
+        <Link href="/equity/sectors" className="hover:text-fs-accent-text">{tr("美股历史")}</Link>
         <span className="mx-1">/</span>
         {sectorSlug && sectorNameZh ? (
           <Link
@@ -231,7 +231,7 @@ export function StockDetailClient({
             {sectorNameZh}
           </Link>
         ) : (
-          <span>未分类</span>
+          <span>{tr("未分类")}</span>
         )}
         {sectorSlug && industrySlug && industryName ? (
           <>
@@ -252,9 +252,7 @@ export function StockDetailClient({
           <Link
             href={`/markets?symbol=${encodeURIComponent(symbol)}`}
             className="text-xs text-fs-accent-text hover:underline"
-          >
-            在行情工作台打开 →
-          </Link>
+          >{tr("在行情工作台打开 →")}</Link>
         </div>
       </header>
 
@@ -267,23 +265,21 @@ export function StockDetailClient({
       ) : null}
 
       <section className="overflow-x-auto rounded-md border border-fs-border">
-        <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">
-          区间收益（个股 vs 基准）
-        </div>
+        <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">{tr("区间收益（个股 vs 基准）")}</div>
         <table className="min-w-full whitespace-nowrap text-left text-sm">
           <thead className="text-xs text-fs-muted">
             <tr>
-              <th className="px-3 py-2">窗口</th>
-              <th className="px-3 py-2 text-right">绝对收益</th>
-              <th className="px-3 py-2 text-right">相对 SPY</th>
-              <th className="px-3 py-2 text-right">相对 Sector ETF</th>
-              <th className="px-3 py-2 text-right">相对 Industry 等权</th>
+              <th className="px-3 py-2">{tr("窗口")}</th>
+              <th className="px-3 py-2 text-right">{tr("绝对收益")}</th>
+              <th className="px-3 py-2 text-right">{tr("相对 SPY")}</th>
+              <th className="px-3 py-2 text-right">{tr("相对 Sector ETF")}</th>
+              <th className="px-3 py-2 text-right">{tr("相对 Industry 等权")}</th>
             </tr>
           </thead>
           <tbody>
             {windows.map((w) => (
               <tr key={w.id} className="border-t border-fs-border/60">
-                <td className="px-3 py-2 text-fs-text">{w.labelZh}</td>
+                <td className="px-3 py-2 text-fs-text">{tr(w.labelZh)}</td>
                 <td className={`px-3 py-2 text-right tabular-nums ${pctClass(w.absoluteReturn)}`}>
                   {loading ? "…" : fmtPct(w.absoluteReturn)}
                 </td>
@@ -304,9 +300,7 @@ export function StockDetailClient({
             ))}
             {!loading && windows.length === 0 ? (
               <tr className="border-t border-fs-border/60">
-                <td colSpan={5} className="px-3 py-3 text-center text-fs-muted">
-                  暂无数据
-                </td>
+                <td colSpan={5} className="px-3 py-3 text-center text-fs-muted">{tr("暂无数据")}</td>
               </tr>
             ) : null}
           </tbody>
@@ -315,7 +309,7 @@ export function StockDetailClient({
 
       <section className="rounded-md border border-fs-border">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-fs-border bg-fs-elevated/40 px-3 py-2">
-          <span className="text-sm font-medium">走势</span>
+          <span className="text-sm font-medium">{tr("走势")}</span>
           <div className="flex items-center gap-1">
             {RANGE_PRESETS.map((p) => (
               <button
@@ -328,7 +322,7 @@ export function StockDetailClient({
                     : "text-fs-muted hover:text-fs-text"
                 }`}
               >
-                {p.labelZh}
+                {tr(p.labelZh)}
               </button>
             ))}
           </div>
@@ -338,20 +332,18 @@ export function StockDetailClient({
             <StockPriceChart bars={bars} earningsMarks={earningsMarks} />
           ) : (
             <div className="flex h-40 items-center justify-center text-sm text-fs-muted">
-              {loading ? "加载中…" : "暂无行情数据"}
+              {loading ? tr("加载中…") : tr("暂无行情数据")}
             </div>
           )}
         </div>
       </section>
 
       <section className="rounded-md border border-fs-border">
-        <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">
-          相对强弱（归一化净值，起点=100）
-        </div>
+        <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">{tr("相对强弱（归一化净值，起点=100）")}</div>
         {rangeReturns ? (
           <div className="grid grid-cols-2 gap-2 px-3 pt-3 sm:grid-cols-4">
             <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2">
-              <div className="text-[11px] text-fs-muted">区间绝对收益</div>
+              <div className="text-[11px] text-fs-muted">{tr("区间绝对收益")}</div>
               <div
                 className={`mt-0.5 text-sm font-medium ${pctClass(rangeReturns.absoluteReturn)}`}
               >
@@ -359,13 +351,13 @@ export function StockDetailClient({
               </div>
             </div>
             <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2">
-              <div className="text-[11px] text-fs-muted">相对 SPY</div>
+              <div className="text-[11px] text-fs-muted">{tr("相对 SPY")}</div>
               <div className={`mt-0.5 text-sm font-medium ${pctClass(rangeReturns.excessVsSpy)}`}>
                 {fmtPct(rangeReturns.excessVsSpy)}
               </div>
             </div>
             <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2">
-              <div className="text-[11px] text-fs-muted">相对 Sector ETF</div>
+              <div className="text-[11px] text-fs-muted">{tr("相对 Sector ETF")}</div>
               <div
                 className={`mt-0.5 text-sm font-medium ${pctClass(rangeReturns.excessVsSectorEtf)}`}
               >
@@ -373,7 +365,7 @@ export function StockDetailClient({
               </div>
             </div>
             <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2">
-              <div className="text-[11px] text-fs-muted">相对 Industry 等权</div>
+              <div className="text-[11px] text-fs-muted">{tr("相对 Industry 等权")}</div>
               <div
                 className={`mt-0.5 text-sm font-medium ${pctClass(rangeReturns.excessVsIndustry)}`}
               >
@@ -389,7 +381,7 @@ export function StockDetailClient({
             />
           ) : (
             <div className="flex h-40 items-center justify-center text-sm text-fs-muted">
-              {loading ? "加载中…" : "暂无对比数据"}
+              {loading ? tr("加载中…") : tr("暂无对比数据")}
             </div>
           )}
         </div>
@@ -404,7 +396,7 @@ export function StockDetailClient({
 
       {/* 手机版：分页固定在屏幕底部（内容列已留出 pb-24） */}
       <nav
-        aria-label="个股研究分页"
+        aria-label={tr("个股研究分页")}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-fs-border bg-fs-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
         <ResearchTabList activeTab={activeTab} onSelect={setActiveTab} variant="bottom" />
@@ -426,12 +418,13 @@ function ResearchTabList({
   onSelect: (tab: ResearchTab) => void;
   variant: "rail" | "bottom";
 }) {
+  const tr = useTr();
   const rail = variant === "rail";
   const idPrefix = rail ? "stock-research-tab" : "stock-research-tab-m";
   return (
     <div
       role="tablist"
-      aria-label="个股研究分页"
+      aria-label={tr("个股研究分页")}
       aria-orientation={rail ? "vertical" : "horizontal"}
       className={rail ? "sticky top-0 flex flex-col gap-1 p-2" : "grid grid-cols-4"}
     >
@@ -466,7 +459,7 @@ function ResearchTabList({
                 : `flex min-h-14 items-center justify-center border-t-2 px-1 text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-fs-accent ${selected ? "border-fs-accent font-medium text-fs-accent-text" : "border-transparent text-fs-muted"}`
             }
           >
-            {tab.label}
+            {tr(tab.label)}
           </button>
         );
       })}

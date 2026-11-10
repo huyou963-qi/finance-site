@@ -9,6 +9,7 @@ import * as echarts from "echarts/core";
 import { BarChart, LineChart, ScatterChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent, DataZoomComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([BarChart, LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -53,6 +54,7 @@ export type ContributionItem = {
 
 /** 分项对总体环比的贡献（基点），竖线标记为上月实际贡献 */
 export function ContributionChart({ items, prevLabel }: { items: ContributionItem[]; prevLabel: string }) {
+  const tr = useTr();
   const sorted = useMemo(() => [...items].sort((a, b) => a.contribution - b.contribution), [items]);
   const option = useMemo<echarts.EChartsCoreOption>(
     () => ({
@@ -64,7 +66,7 @@ export function ContributionChart({ items, prevLabel }: { items: ContributionIte
         itemWidth: 12,
         itemHeight: 8,
         textStyle: { color: INK_MUTED, fontSize: 12 },
-        data: ["本月预测", prevLabel],
+        data: [tr("本月预测"), prevLabel],
       },
       tooltip: {
         trigger: "axis",
@@ -75,7 +77,7 @@ export function ContributionChart({ items, prevLabel }: { items: ContributionIte
         type: "value",
         axisLabel: { color: INK_MUTED, fontSize: 11, formatter: (v: number) => `${v}` },
         splitLine: { lineStyle: { color: GRID } },
-        name: "基点",
+        name: tr("基点"),
         nameTextStyle: { color: INK_MUTED, fontSize: 11 },
       },
       yAxis: {
@@ -87,7 +89,7 @@ export function ContributionChart({ items, prevLabel }: { items: ContributionIte
       },
       series: [
         {
-          name: "本月预测",
+          name: tr("本月预测"),
           type: "bar",
           barWidth: "58%",
           data: sorted.map((i) => ({
@@ -113,7 +115,7 @@ export function ContributionChart({ items, prevLabel }: { items: ContributionIte
         },
       ],
     }),
-    [sorted, prevLabel],
+    [tr, prevLabel, sorted],
   );
   return useChart(option, Math.max(360, sorted.length * 26 + 60));
 }
@@ -122,6 +124,7 @@ export type BacktestPoint = { month: string; forecast: number; actual: number; c
 
 /** 回测：灰柱 = 实际公布环比，蓝线 = 当月 22 日的模型预测，紫色虚线 = 同口径克利夫兰联储 */
 export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[]; height?: number }) {
+  const tr = useTr();
   const hasCleveland = points.some((p) => p.cleveland != null);
   const option = useMemo<echarts.EChartsCoreOption>(
     () => ({
@@ -133,7 +136,7 @@ export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[
         itemWidth: 14,
         itemHeight: 8,
         textStyle: { color: INK_MUTED, fontSize: 12 },
-        data: hasCleveland ? ["实际", "模型预测", "克利夫兰联储"] : ["实际", "模型预测"],
+        data: hasCleveland ? [tr("实际"), tr("模型预测"), tr("克利夫兰联储")] : [tr("实际"), tr("模型预测")],
       },
       tooltip: {
         trigger: "axis",
@@ -154,14 +157,14 @@ export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[
       dataZoom: [{ type: "slider", height: 18, bottom: 8, borderColor: GRID }, { type: "inside" }],
       series: [
         {
-          name: "实际",
+          name: tr("实际"),
           type: "bar",
           barWidth: "60%",
           itemStyle: { color: ACTUAL_BAR },
           data: points.map((p) => (Number.isFinite(p.actual) ? +p.actual.toFixed(3) : null)),
         },
         {
-          name: "模型预测",
+          name: tr("模型预测"),
           type: "line",
           symbol: "none",
           lineStyle: { color: MODEL_LINE, width: 2 },
@@ -172,7 +175,7 @@ export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[
         ...(hasCleveland
           ? [
               {
-                name: "克利夫兰联储",
+                name: tr("克利夫兰联储"),
                 type: "line",
                 symbol: "none",
                 connectNulls: false,
@@ -185,7 +188,7 @@ export function BacktestChart({ points, height = 280 }: { points: BacktestPoint[
           : []),
       ],
     }),
-    [points, hasCleveland],
+    [hasCleveland, tr, points],
   );
   return useChart(option, height);
 }

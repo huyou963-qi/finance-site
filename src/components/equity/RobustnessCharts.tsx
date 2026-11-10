@@ -19,6 +19,7 @@ import {
   DataZoomComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([
   LineChart,
@@ -68,6 +69,7 @@ export function IsOosNavChart({
   oosNav: SplitNav[];
   splitDate: string;
 }) {
+  const tr = useTr();
   const isTail = isNav.length ? isNav[isNav.length - 1]!.nav : 1;
   const oosScaled = oosNav.map((p) => ({ date: p.date, nav: p.nav * isTail }));
   // 合并 x 轴（去重分割点）
@@ -85,7 +87,7 @@ export function IsOosNavChart({
     animation: false,
     color: [SERIES_BLUE, OOS_AMBER],
     legend: {
-      data: ["样本内 (IS)", "样本外 (OOS)"],
+      data: [tr("样本内 (IS)"), tr("样本外 (OOS)")],
       textStyle: { color: "#c3c2b7", fontSize: 12 },
       top: 0,
       right: 8,
@@ -115,7 +117,7 @@ export function IsOosNavChart({
     },
     series: [
       {
-        name: "样本内 (IS)",
+        name: tr("样本内 (IS)"),
         type: "line",
         data: isData,
         showSymbol: false,
@@ -123,13 +125,13 @@ export function IsOosNavChart({
         markLine: {
           silent: true,
           symbol: "none",
-          label: { color: OOS_AMBER, fontSize: 10, formatter: "分割" },
+          label: { color: OOS_AMBER, fontSize: 10, formatter: tr("分割") },
           lineStyle: { color: OOS_AMBER, type: "dashed" },
           data: [{ xAxis: splitDate }],
         },
       },
       {
-        name: "样本外 (OOS)",
+        name: tr("样本外 (OOS)"),
         type: "line",
         data: oosData,
         showSymbol: false,
@@ -145,6 +147,7 @@ export type StitchedPoint = { date: string; nav: number; segment: number };
 
 /** walk-forward 拼接净值：单蓝线 + 交替 markArea 标注各 OOS 测试段段界。 */
 export function WalkforwardNavChart({ stitched }: { stitched: StitchedPoint[] }) {
+  const tr = useTr();
   const dates = stitched.map((p) => p.date);
   // 交替段的 markArea 区间（相邻同色不区分，交替淡色带标段界）
   const areas: [{ xAxis: string }, { xAxis: string }][] = [];
@@ -186,7 +189,7 @@ export function WalkforwardNavChart({ stitched }: { stitched: StitchedPoint[] })
     },
     series: [
       {
-        name: "样本外拼接净值",
+        name: tr("样本外拼接净值"),
         type: "line",
         data: stitched.map((p) => p.nav),
         showSymbol: false,

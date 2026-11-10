@@ -1,14 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { localizeHref } from "@/i18n/locales";
+import { localizeServerMessage } from "@/i18n/serverMessages";
+
+const MFA_SESSION_EXPIRED = "设置会话已过期，请重新登录"; // i18n-ignore: 服务端错误原文
+import { Link } from "@/i18n/navigation";
 import { AuthPageShell, authInputClass } from "@/components/auth/AuthPageShell";
 import { WechatQrPanel } from "@/components/auth/WechatQrPanel";
 import { AccountProfileClient } from "./AccountProfileClient";
 
 export function AuthClient() {
   const searchParams = useSearchParams();
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
+  const locale = useLocale();
+  const home = localizeHref("/", locale);
+  // 英文站面向海外用户：可只用邮箱注册（服务端同样按功能权限校验，见 phonePolicy）
+  const phoneOptional = locale === "en";
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [method, setMethod] = useState<"password" | "wechat">("password");
@@ -48,9 +59,9 @@ export function AuthClient() {
     const wechatError = searchParams.get("wechat_error");
     if (wechatError) {
       setMethod("wechat");
-      setHint(`微信登录失败：${wechatError}`);
+      setHint(t("wechatFailed", { error: localizeServerMessage(wechatError, locale) }));
     }
-  }, [searchParams]);
+  }, [searchParams, t, locale]);
 
   useEffect(() => {
     if (!loginLock) return;
@@ -59,11 +70,11 @@ export function AuthClient() {
       setClockNow(now);
       if (now >= loginLock.until) {
         setLoginLock(null);
-        setHint("等待已结束，请重新输入密码登录。绑定验证器时请使用新显示的密钥。");
+        setHint(t("lockEnded"));
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [loginLock]);
+  }, [loginLock, t]);
 
   const submit = async () => {
     setLoading(true);
@@ -109,7 +120,7 @@ export function AuthClient() {
         }
       }
       if (!res.ok) {
-        if (mfaSetup && payload.error?.includes("设置会话已过期")) {
+        if (mfaSetup && payload.error && payload.error === localizeServerMessage(MFA_SESSION_EXPIRED, locale)) {
           setMfaSetup(null);
           setTotpCode("");
         }
@@ -117,12 +128,12 @@ export function AuthClient() {
       }
       if (payload.mfaRequired) {
         setMfaRequired(true);
-        setHint("请输入验证器中的 6 位动态验证码");
+        setHint(t("enterTotp"));
         return;
       }
       if (payload.mfaSetup && payload.setupToken && payload.secret && payload.uri) {
         setMfaSetup({ token: payload.setupToken, secret: payload.secret, uri: payload.uri });
-        setHint("管理员首次登录：请在验证器中添加下方密钥，然后输入动态验证码完成绑定");
+        setHint(t("adminMfaSetup"));
         return;
       }
       if (payload.recoveryCodes) {
@@ -131,14 +142,14 @@ export function AuthClient() {
       }
       setHint(
         mode === "login"
-          ? "登录成功，正在跳转…"
-          : (payload.message ?? "注册请求已提交，请查收邮箱并点击确认链接"),
+          ? t("loginSuccess")
+          : (payload.message ?? t("registerSubmitted")),
       );
       if (mode === "login") {
-        window.location.href = "/";
+        window.location.href = home;
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "未知错误";
+      const msg = e instanceof Error ? e.message : tc("unknownError");
       setHint(msg);
     } finally {
       setLoading(false);
@@ -148,19 +159,19 @@ export function AuthClient() {
   if (loggedIn === null) {
     return (
       <AuthPageShell>
-        <p className="text-sm text-fs-muted">加载中…</p>
+        <p className="text-sm text-fs-muted">{tc("loading")}</p>
       </AuthPageShell>
     );
   }
 
   if (recoveryCodes) {
     return <AuthPageShell>
-      <h1 className="text-xl font-semibold text-fs-text">管理员双重验证已启用</h1>
-      <p className="mt-3 text-sm text-fs-secondary">请立即将以下一次性恢复码保存在安全位置。每个恢复码只能使用一次，关闭此页后不会再次显示。</p>
+      <h1 className="text-xl font-semibold text-fs-text">{t("recoveryTitle")}</h1>
+      <p className="mt-3 text-sm text-fs-secondary">{t("recoveryBody")}</p>
       <div className="mt-4 grid grid-cols-2 gap-2 rounded-md border border-fs-border bg-fs-elevated p-4 font-mono text-sm text-fs-text">
         {recoveryCodes.map((code) => <code key={code}>{code}</code>)}
       </div>
-      <button type="button" onClick={() => { window.location.href = "/"; }} className="mt-5 rounded-md bg-fs-accent px-4 py-2 text-sm text-white">已保存，进入首页</button>
+      <button type="button" onClick={() => { window.location.href = home; }} className="mt-5 rounded-md bg-fs-accent px-4 py-2 text-sm text-white">{t("recoverySaved")}</button>
     </AuthPageShell>;
   }
 
@@ -176,25 +187,25 @@ export function AuthClient() {
   return (
     <AuthPageShell>
       <h1 className="text-xl font-semibold text-fs-text">
-        {mode === "login" ? "欢迎回来" : "创建账户"}
+        {mode === "login" ? t("welcomeBack") : t("createAccount")}
       </h1>
       <p className="mt-1 text-sm text-fs-muted">
         {method === "wechat"
-          ? "打开手机微信扫一扫，未注册的微信将自动创建账户"
+          ? t("wechatSubtitle")
           : mode === "login"
-            ? "使用用户名、手机号或邮箱与密码登录 GekkoTech"
-            : "填写信息并完成邮箱验证"}
+            ? t("loginSubtitle")
+            : t("registerSubtitle")}
       </p>
 
       <div
         className="mt-6 grid grid-cols-2 gap-1 rounded-lg border border-fs-border bg-fs-bg p-1"
         role="tablist"
-        aria-label="登录或注册"
+        aria-label={t("tabsLabel")}
       >
         {(
           [
-            { id: "login" as const, label: "登录" },
-            { id: "register" as const, label: "注册" },
+            { id: "login" as const, label: t("login") },
+            { id: "register" as const, label: t("register") },
           ] as const
         ).map((tab) => (
           <button
@@ -233,13 +244,13 @@ export function AuthClient() {
           }}
         >
           <label className="block text-sm text-fs-secondary">
-            {mode === "login" ? "账号" : "用户名"}
+            {mode === "login" ? t("account") : t("username")}
             <input
               type="text"
               autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder={mode === "login" ? "用户名 / 手机号 / 邮箱" : "请输入用户名"}
+              placeholder={mode === "login" ? t("identifierPlaceholder") : t("usernamePlaceholder")}
               className={authInputClass}
             />
           </label>
@@ -247,7 +258,7 @@ export function AuthClient() {
           {mode === "register" ? (
             <>
               <label className="block text-sm text-fs-secondary">
-                邮箱
+                {t("email")}
                 <input
                   type="email"
                   autoComplete="email"
@@ -259,15 +270,16 @@ export function AuthClient() {
                 />
               </label>
               <label className="block text-sm text-fs-secondary">
-                手机号
+                {t("phone")}
+                {phoneOptional ? t("optionalSuffix") : ""}
                 <input
                   type="tel"
                   autoComplete="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="11 位中国大陆手机号"
+                  placeholder={phoneOptional ? t("phoneOptionalPlaceholder") : t("phonePlaceholder")}
                   className={authInputClass}
-                  required
+                  required={!phoneOptional}
                 />
               </label>
             </>
@@ -275,20 +287,20 @@ export function AuthClient() {
 
           {mfaSetup ? (
             <div className="rounded-md border border-fs-border bg-fs-elevated p-3 text-sm text-fs-secondary">
-              <p>验证器密钥（仅本次显示，请妥善保存）：</p>
+              <p>{t("mfaKeyLabel")}</p>
               <code className="mt-1 block break-all text-fs-text">{mfaSetup.secret}</code>
-              <p className="mt-2 text-xs">在验证器中手动添加 TOTP 账户，名称为 GekkoTech。绑定会话 10 分钟后过期。</p>
+              <p className="mt-2 text-xs">{t("mfaKeyHelp")}</p>
             </div>
           ) : null}
 
           <label className="block text-sm text-fs-secondary">
-            密码
+            {t("password")}
             <input
               type="password"
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === "login" ? "请输入密码" : "至少 8 位，含字母与数字"}
+              placeholder={mode === "login" ? t("passwordPlaceholder") : t("newPasswordPlaceholder")}
               className={authInputClass}
               disabled={!!mfaSetup}
             />
@@ -296,7 +308,7 @@ export function AuthClient() {
 
           {mfaRequired || mfaSetup ? (
             <label className="block text-sm text-fs-secondary">
-              双重验证码
+              {t("mfaCode")}
               <input
                 inputMode={useRecoveryCode ? "text" : "numeric"}
                 autoComplete="one-time-code"
@@ -304,13 +316,13 @@ export function AuthClient() {
                 maxLength={useRecoveryCode ? 16 : 6}
                 value={totpCode}
                 onChange={(e) => setTotpCode(useRecoveryCode ? e.target.value.replace(/[^a-fA-F0-9]/g, "").toUpperCase() : e.target.value.replace(/\D/g, ""))}
-                placeholder={useRecoveryCode ? "16 位一次性恢复码" : "6 位动态验证码"}
+                placeholder={useRecoveryCode ? t("recoveryCodePlaceholder") : t("totpPlaceholder")}
                 className={authInputClass}
                 required
               />
             </label>
           ) : null}
-          {mfaRequired && !mfaSetup ? <button type="button" className="text-sm text-fs-accent-text" onClick={() => { setUseRecoveryCode((value) => !value); setTotpCode(""); }}>{useRecoveryCode ? "使用动态验证码" : "使用一次性恢复码"}</button> : null}
+          {mfaRequired && !mfaSetup ? <button type="button" className="text-sm text-fs-accent-text" onClick={() => { setUseRecoveryCode((value) => !value); setTotpCode(""); }}>{useRecoveryCode ? t("useTotp") : t("useRecovery")}</button> : null}
 
           <button
             type="submit"
@@ -320,20 +332,20 @@ export function AuthClient() {
               !username.trim() ||
               (!password && !mfaSetup) ||
               ((mfaRequired || mfaSetup) && totpCode.length !== (useRecoveryCode ? 16 : 6)) ||
-              (mode === "register" && (!email.trim() || !phone.trim()))
+              (mode === "register" && (!email.trim() || (!phoneOptional && !phone.trim())))
             }
             className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
           >
-            {loading ? "提交中…" : remainingLockSeconds > 0 ? `请等待 ${remainingLockLabel}` : mfaSetup ? "完成验证并登录" : mode === "login" ? "登录" : "注册并发送验证邮件"}
+            {loading ? tc("submitting") : remainingLockSeconds > 0 ? t("waitFor", { time: remainingLockLabel }) : mfaSetup ? t("verifyAndLogin") : mode === "login" ? t("login") : t("registerAndSend")}
           </button>
 
           {mode === "login" ? (
             <div className="flex items-center justify-between text-sm">
               <Link href="/auth/recover?kind=username" className="text-fs-accent-text hover:underline">
-                找回用户名
+                {t("findUsername")}
               </Link>
               <Link href="/auth/recover?kind=password" className="text-fs-accent-text hover:underline">
-                忘记密码
+                {t("forgotPassword")}
               </Link>
             </div>
           ) : null}
@@ -344,7 +356,7 @@ export function AuthClient() {
         <>
           <div className="mt-6 flex items-center gap-3 text-xs text-fs-muted">
             <span className="h-px flex-1 bg-fs-border" />
-            或
+            {t("or")}
             <span className="h-px flex-1 bg-fs-border" />
           </div>
           <button
@@ -357,14 +369,14 @@ export function AuthClient() {
           >
             {method === "wechat" ? (
               mode === "login" ? (
-                "使用用户名密码登录"
+                t("usePassword")
               ) : (
-                "使用邮箱注册"
+                t("useEmailRegister")
               )
             ) : (
               <>
                 <WechatIcon />
-                {mode === "login" ? "微信扫码登录" : "微信扫码注册"}
+                {mode === "login" ? t("wechatLogin") : t("wechatRegister")}
               </>
             )}
           </button>
@@ -373,7 +385,9 @@ export function AuthClient() {
 
       {remainingLockSeconds > 0 ? (
         <p role="status" className="mt-4 break-words rounded-md border border-fs-border bg-fs-elevated p-3 text-sm text-fs-secondary">
-          为保护账户，登录已暂停。剩余 <strong className="tabular-nums text-fs-text">{remainingLockLabel}</strong>。倒计时结束后请重新登录；若正在绑定验证器，请使用届时显示的新密钥。
+          {t.rich("lockedNotice", {
+            time: () => <strong className="tabular-nums text-fs-text">{remainingLockLabel}</strong>,
+          })}
         </p>
       ) : hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
     </AuthPageShell>

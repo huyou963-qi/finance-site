@@ -47,6 +47,7 @@ import {
   classifyChartSymbol,
   deriveEventFilterDraft,
 } from "@/lib/data/chartSymbolProfile";
+import { useTr } from "@/i18n/TextProvider";
 
 type SymbolHit = {
   symbol: string;
@@ -74,6 +75,7 @@ function displayNameForSymbol(sym: string): string | undefined {
 }
 
 export function MarketsClient() {
+  const tr = useTr();
   const [detailEvent, setDetailEvent] = useState<MarketEventDto | null>(null);
   const [detailOpenVersion, setDetailOpenVersion] = useState(0);
   const openEventDetail = useCallback((event: MarketEventDto) => {
@@ -509,7 +511,7 @@ export function MarketsClient() {
         .catch((e) => {
           if (reqIdRef.current !== myId) return;
           setHits([]);
-          setSearchError(e instanceof Error ? e.message : "搜索失败");
+          setSearchError(e instanceof Error ? e.message : tr("搜索失败"));
           setOpen(true);
         })
         .finally(() => {
@@ -520,7 +522,7 @@ export function MarketsClient() {
     return () => {
       window.clearTimeout(t);
     };
-  }, [query, symbol]);
+  }, [query, symbol, tr]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -541,7 +543,8 @@ export function MarketsClient() {
     if (s !== symbol) setLoadedSymbol("");
     setSymbol(s);
     setQuery(marketSymbolLabel(s));
-    setPickedName(name ?? displayNameForSymbol(s));
+    const fallbackName = displayNameForSymbol(s);
+    setPickedName(name ?? (fallbackName ? tr(fallbackName) : undefined));
     setOpen(false);
     setHits([]);
     setSearchError(null);
@@ -583,41 +586,37 @@ export function MarketsClient() {
   const pageSettings = (
     <>
         <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted">
-          <span className="md:hidden">复权类型</span>
+          <span className="md:hidden">{tr("复权类型")}</span>
           <select
             value={effectiveAdjustment}
             disabled={regionalInstrument?.market === "GOLD" || yieldInstrument}
             onChange={(e) =>
                 setPriceAdjustment(e.target.value as PriceAdjustmentMode)
               }
-              title={yieldInstrument ? "国债收益率不复权" : regionalInstrument?.market === "GOLD" ? "现货黄金不复权" : regionalInstrument ? "东方财富前复权 / 后复权 / 不复权；以供应商口径为准" : "前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。"}
-              aria-label="K 线价格复权"
-              className="h-[22px] max-w-[5.5rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
+              title={yieldInstrument ? tr("国债收益率不复权") : regionalInstrument?.market === "GOLD" ? tr("现货黄金不复权") : regionalInstrument ? tr("东方财富前复权 / 后复权 / 不复权；以供应商口径为准") : tr("前复权：历史价按拆股与现金分红对齐最新尺度；后复权：锚定上市首日名义价；不复权：当日真实成交价。")}
+              aria-label={tr("K 线价格复权")}
+              className="h-[22px] max-w-[9rem] rounded border border-fs-border bg-fs-elevated px-1 py-0 font-mono text-[10px] text-fs-text focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
           >
-            <option value="forward">前复权</option>
-            <option value="backward">后复权</option>
-            <option value="none">不复权</option>
+            <option value="forward">{tr("前复权")}</option>
+            <option value="backward">{tr("后复权")}</option>
+            <option value="none">{tr("不复权")}</option>
           </select>
         </label>
 
         <label
           className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted"
-          title="多屏幕多页面时间与光标的同步"
+          title={tr("多屏幕多页面时间与光标的同步")}
         >
           <input
             type="checkbox"
             checked={pageSync}
             onChange={(e) => handlePageSyncChange(e.target.checked)}
             className="h-3 w-3 shrink-0 rounded border-fs-border"
-            aria-label="页面同步：多屏幕多页面时间与光标的同步"
-          />
-          页面同步
-        </label>
-        <label className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted" title="叠加 NBER 美国衰退区间（FRED USREC）">
-          <input type="checkbox" checked={showRecession} onChange={(e) => setShowRecession(e.target.checked)} className="h-3 w-3 shrink-0 rounded border-fs-border" aria-label="美国衰退" />
-          美国衰退
-        </label>
-        {showRecession && recessionError ? <span role="status" className="text-[10px] text-rose-300">衰退数据加载失败，请重新勾选重试</span> : null}
+            aria-label={tr("页面同步：多屏幕多页面时间与光标的同步")}
+          />{tr("页面同步")}</label>
+        <label className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap text-[10px] text-fs-muted" title={tr("叠加 NBER 美国衰退区间（FRED USREC）")}>
+          <input type="checkbox" checked={showRecession} onChange={(e) => setShowRecession(e.target.checked)} className="h-3 w-3 shrink-0 rounded border-fs-border" aria-label={tr("美国衰退")} />{tr("美国衰退")}</label>
+        {showRecession && recessionError ? <span role="status" className="text-[10px] text-rose-300">{tr("衰退数据加载失败，请重新勾选重试")}</span> : null}
 
     </>
   );
@@ -625,7 +624,7 @@ export function MarketsClient() {
   const toolbar = (
       <div ref={rootRef} className="relative z-20 flex min-w-0 shrink-0 flex-wrap items-center gap-1.5 overflow-visible py-0">
         <div className="relative min-h-[28px] min-w-0 flex-1 md:min-h-[26px] md:min-w-[100px] md:max-w-[12rem]">
-          <span className="sr-only">代码</span>
+          <span className="sr-only">{tr("代码")}</span>
           <input
             ref={inputRef}
             type="text"
@@ -648,8 +647,8 @@ export function MarketsClient() {
               }
               if (e.key === "Escape") setOpen(false);
             }}
-            placeholder="搜股票、ETF、股指、汇率、美债"
-            title="支持常用代码和中文名称，例如 SOXX、SPX、DXY、US2Y、US10Y、EURUSD、600519.SH、00700.HK"
+            placeholder={tr("搜股票、ETF、股指、汇率、美债")}
+            title={tr("支持常用代码和中文名称，例如 SOXX、SPX、DXY、US2Y、US10Y、EURUSD、600519.SH、00700.HK")}
             className="h-7 w-full md:h-[26px] rounded border border-fs-border bg-fs-elevated py-0 pl-2 pr-2 font-mono text-[10px] leading-[26px] text-fs-text placeholder:text-fs-muted focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600/40"
             autoComplete="off"
             autoCapitalize="none"
@@ -658,7 +657,7 @@ export function MarketsClient() {
           {showPanel ? (
             <ul className="absolute left-0 right-0 top-full z-50 mt-0.5 max-h-72 overflow-auto rounded border border-fs-border bg-fs-elevated py-0.5 shadow-xl">
               {searchLoading ? (
-                <li className="px-2 py-1 text-[10px] text-fs-muted">搜索中…</li>
+                <li className="px-2 py-1 text-[10px] text-fs-muted">{tr("搜索中…")}</li>
               ) : null}
               {searchError ? (
                 <li className="px-2 py-1 text-[10px] text-rose-300">
@@ -669,9 +668,7 @@ export function MarketsClient() {
               !searchError &&
               hits.length === 0 &&
               query.trim().length > 0 ? (
-                <li className="px-2 py-1 text-[10px] text-fs-muted">
-                  可搜股票或ETF、标普500（SPX）、美元指数（DXY）、两年美债（US2Y）、十年美债（US10Y）、欧元美元（EURUSD）、黄金等；也可输入代码后按 Enter。
-                </li>
+                <li className="px-2 py-1 text-[10px] text-fs-muted">{tr("可搜股票或ETF、标普500（SPX）、美元指数（DXY）、两年美债（US2Y）、十年美债（US10Y）、欧元美元（EURUSD）、黄金等；也可输入代码后按 Enter。")}</li>
               ) : null}
               {hits.map((h, idx) => (
                 <li key={`${h.symbol}-${idx}`}>
@@ -685,7 +682,7 @@ export function MarketsClient() {
                       {marketSymbolLabel(h.symbol)}
                     </span>
                     <span className="line-clamp-2 text-[9px] text-fs-muted">
-                      <span className="text-fs-secondary">{h.name}</span>
+                      <span className="text-fs-secondary">{tr(h.name)}</span>
                       {h.exchange ? (
                         <span className="text-fs-muted"> · {h.exchange}</span>
                       ) : null}
@@ -703,18 +700,17 @@ export function MarketsClient() {
         <div ref={settingsRef} className="static shrink-0 md:hidden">
           <button ref={settingsButtonRef} type="button" onClick={() => { setOpen(false); setSettingsOpen(v => !v); }}
             className="h-7 rounded border border-fs-border bg-fs-elevated px-3 text-[11px] text-fs-text"
-            aria-expanded={settingsOpen} aria-controls="markets-mobile-settings">设置 ▾</button>
-          <section id="markets-mobile-settings" role="dialog" aria-label="行情设置" hidden={!settingsOpen}
+            aria-expanded={settingsOpen} aria-controls="markets-mobile-settings">{tr("设置 ▾")}</button>
+          <section id="markets-mobile-settings" role="dialog" aria-label={tr("行情设置")} hidden={!settingsOpen}
             className="absolute inset-x-0 top-8 z-[90] max-h-[70dvh] overflow-y-auto rounded-lg border border-fs-border bg-fs-bg p-3 shadow-xl">
-            <header className="mb-3 flex items-center justify-between text-xs font-medium text-fs-text">
-              行情设置<button type="button" aria-label="关闭行情设置" className="h-7 px-2" onClick={() => { setSettingsOpen(false); settingsButtonRef.current?.focus(); }}>✕</button>
+            <header className="mb-3 flex items-center justify-between text-xs font-medium text-fs-text">{tr("行情设置")}<button type="button" aria-label={tr("关闭行情设置")} className="h-7 px-2" onClick={() => { setSettingsOpen(false); settingsButtonRef.current?.focus(); }}>✕</button>
             </header>
             <div ref={setMobileSettingsMount} className="flex min-w-0 flex-col items-start gap-3" />
             <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-fs-border pt-3">{pageSettings}</div>
             {dataHint ? <p className="mt-3 text-[10px] text-fs-muted">{dataHint}</p> : null}
           </section>
         </div>
-        <div className="flex w-full min-w-0 items-center gap-1 md:contents" aria-label="行情快捷工具">
+        <div className="flex w-full min-w-0 items-center gap-1 md:contents" aria-label={tr("行情快捷工具")}>
         <label className="flex shrink-0 items-center text-[9px] text-fs-muted">
           <select
             value={interval}
@@ -722,19 +718,19 @@ export function MarketsClient() {
               const v = e.target.value;
               if (isKlineInterval(v)) pickInterval(v);
             }}
-            title="K 线周期"
-            aria-label="K 线周期"
+            title={tr("K 线周期")}
+            aria-label={tr("K 线周期")}
             className="h-7 min-w-[3.75rem] md:h-[22px] md:min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           >
             {KLINE_INTERVALS.filter(iv => !findMarketInstrument(symbol)?.fredSeriesId || iv === "1d" || iv === "1w").map((iv) => (
               <option key={iv} value={iv}>
-                {INTERVAL_LABEL[iv]}
+                {tr(INTERVAL_LABEL[iv])}
               </option>
             ))}
           </select>
         </label>
 
-          <div ref={setChartToolbarMount} className="flex min-w-0 flex-1 items-center gap-1 md:flex-none md:flex-wrap md:gap-2" aria-label="主图与画线工具" />
+          <div ref={setChartToolbarMount} className="flex min-w-0 flex-1 items-center gap-1 md:flex-none md:flex-wrap md:gap-2" aria-label={tr("主图与画线工具")} />
         </div>
 
         <div className="hidden md:contents">{pageSettings}</div>
@@ -760,22 +756,18 @@ export function MarketsClient() {
                 </span>
               ) : null}
               <span className="rounded bg-fs-elevated px-1 py-0 font-mono text-[9px] leading-none text-fs-muted">
-                {INTERVAL_LABEL[interval]}
+                {tr(INTERVAL_LABEL[interval])}
               </span>
               {classifyChartSymbol(symbol).kind === "equity" ? (
                 <a
                   href={`/equity/stocks/${encodeURIComponent(symbol.trim().toUpperCase())}`}
                   className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] leading-none text-fs-accent-text hover:bg-fs-accent-soft"
-                  title="打开个股研究页（基本面 / 同业 / 事件）"
-                >
-                  个股研究
-                </a>
+                  title={tr("打开个股研究页（基本面 / 同业 / 事件）")}
+                >{tr("个股研究")}</a>
               ) : null}
             </>
           ) : (
-            <span className="text-[10px] leading-none text-fs-secondary">
-              选择标的后显示
-            </span>
+            <span className="text-[10px] leading-none text-fs-secondary">{tr("选择标的后显示")}</span>
           )}
         </div>
       </div>
@@ -850,8 +842,8 @@ export function MarketsClient() {
             onClick={() => setEventShelfOpen((v) => !v)}
             className="absolute -top-1 flex h-7 w-12 items-center justify-center rounded-md border border-fs-border bg-fs-elevated text-fs-secondary shadow-sm hover:bg-fs-accent-soft hover:text-fs-accent-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-fs-accent sm:h-5 sm:w-10"
             aria-expanded={eventShelfOpen}
-            aria-label={eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
-            title={eventShelfOpen ? "折叠事件筛选器" : "展开事件筛选器"}
+            aria-label={eventShelfOpen ? tr("折叠事件筛选器") : tr("展开事件筛选器")}
+            title={eventShelfOpen ? tr("折叠事件筛选器") : tr("展开事件筛选器")}
           >
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d={eventShelfOpen ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6"} />

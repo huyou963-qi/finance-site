@@ -31,6 +31,7 @@ import type { NberRecessionBand } from "@/lib/data/nberRecessionBands";
 import type { MacroRegimeBand } from "@/lib/data/macroRegimeBands";
 import { indicesFromDataZoomPct } from "@/lib/timeRangeSlice";
 import { dataIndexFromConvert } from "@/lib/timeCursor";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroMultiChartGridProps = {
   payload: MacroPayload;
@@ -231,6 +232,7 @@ export function MacroMultiChartGrid({
   rangeOverride = null,
   rangeOverrideVersion = 0,
 }: MacroMultiChartGridProps) {
+  const tr = useTr();
   const buckets = useMemo(
     () =>
       partitionMacroSeries(
@@ -727,9 +729,7 @@ export function MacroMultiChartGrid({
 
   if (visibleSlots.length === 0) {
     return (
-      <div className="flex min-h-[200px] w-full flex-1 items-center justify-center rounded-lg border border-dashed border-fs-border text-sm text-fs-muted">
-        所有图形已在「单图设置」中关闭显示。
-      </div>
+      <div className="flex min-h-[200px] w-full flex-1 items-center justify-center rounded-lg border border-dashed border-fs-border text-sm text-fs-muted">{tr("所有图形已在「单图设置」中关闭显示。")}</div>
     );
   }
 

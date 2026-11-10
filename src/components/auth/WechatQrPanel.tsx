@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 /** 微信官方内嵌二维码脚本；实例化后在容器里渲染一个 iframe，扫码确认后顶层窗口跳到 redirect_uri */
@@ -24,7 +25,7 @@ type WechatConfig =
 
 let scriptPromise: Promise<void> | null = null;
 
-function loadWxLogin(): Promise<void> {
+function loadWxLogin(failedMessage: string): Promise<void> {
   if ((window as unknown as { WxLogin?: WxLoginCtor }).WxLogin) return Promise.resolve();
   if (!scriptPromise) {
     scriptPromise = new Promise<void>((resolve, reject) => {
@@ -34,7 +35,7 @@ function loadWxLogin(): Promise<void> {
       el.onload = () => resolve();
       el.onerror = () => {
         scriptPromise = null;
-        reject(new Error("微信二维码加载失败"));
+        reject(new Error(failedMessage));
       };
       document.head.appendChild(el);
     });
@@ -43,6 +44,8 @@ function loadWxLogin(): Promise<void> {
 }
 
 export function WechatQrPanel({ mode }: { mode: "login" | "bind" }) {
+  const t = useTranslations("wechat");
+  const tc = useTranslations("common");
   const containerId = `wx-qr-${mode}`;
   const [status, setStatus] = useState<"loading" | "ready" | "disabled" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +65,7 @@ export function WechatQrPanel({ mode }: { mode: "login" | "bind" }) {
         if (mounted.current) setStatus("disabled");
         return;
       }
-      await loadWxLogin();
+      await loadWxLogin(t("loadFailed"));
       if (!mounted.current) return;
       const container = document.getElementById(containerId);
       if (!container) return;
@@ -81,7 +84,7 @@ export function WechatQrPanel({ mode }: { mode: "login" | "bind" }) {
       setStatus("ready");
     })().catch((e) => {
       if (!mounted.current) return;
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : t("genericFailed"));
       setStatus("error");
     });
 
@@ -90,10 +93,10 @@ export function WechatQrPanel({ mode }: { mode: "login" | "bind" }) {
       mounted.current = false;
       window.clearTimeout(timer);
     };
-  }, [mode, containerId, nonce]);
+  }, [mode, containerId, nonce, t]);
 
   if (status === "disabled") {
-    return <p className="py-6 text-center text-sm text-fs-muted">微信登录暂未开放</p>;
+    return <p className="py-6 text-center text-sm text-fs-muted">{t("disabled")}</p>;
   }
 
   return (
@@ -104,17 +107,17 @@ export function WechatQrPanel({ mode }: { mode: "login" | "bind" }) {
           <div className="absolute inset-0 flex items-center justify-center text-sm text-fs-muted">
             {status === "error" ? (
               <span>
-                {error}，
+                {error}{" "}
                 <button
                   type="button"
                   onClick={() => setNonce((n) => n + 1)}
                   className="text-fs-accent-text underline"
                 >
-                  重试
+                  {tc("retry")}
                 </button>
               </span>
             ) : (
-              "二维码加载中…"
+              t("qrLoading")
             )}
           </div>
         ) : null}
@@ -123,7 +126,7 @@ export function WechatQrPanel({ mode }: { mode: "login" | "bind" }) {
         href={`/api/auth/wechat/start?mode=${mode}`}
         className="mt-2 text-xs text-fs-muted underline hover:text-fs-secondary"
       >
-        二维码无法显示？在微信官方页面扫码
+        {t("fallback")}
       </a>
     </div>
   );

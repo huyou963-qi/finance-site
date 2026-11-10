@@ -25,6 +25,8 @@ import {
   IconMore,
   IconTrash,
 } from "@/components/mobile/mobileIcons";
+import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
 
 type CountryId = Exclude<MacroTemplateScope, "global">;
 
@@ -42,8 +44,8 @@ export type MacroMobileTemplatesPanelProps = {
   userPanel: ReactNode;
 };
 
-function layerLabel(group: MacroTemplateRelationGroup): string {
-  return group.id === "hub" ? "枢纽" : group.label;
+function layerLabel(group: MacroTemplateRelationGroup, tr: Tr): string {
+  return tr(group.id === "hub" ? "枢纽" : group.label);
 }
 
 function segClass(active: boolean) {
@@ -66,6 +68,7 @@ export function MacroMobileTemplatesPanel({
   adminExtra,
   userPanel,
 }: MacroMobileTemplatesPanelProps) {
+  const tr = useTr();
   const [view, setView] = useState<"system" | "mine">("system");
   const [mode, setMode] = useState<MacroTemplateBrowseMode>("country");
   const [country, setCountry] = useState<CountryId>("US");
@@ -120,25 +123,21 @@ export function MacroMobileTemplatesPanel({
       >
         <IconChart size={18} />
       </span>
-      <span className="min-w-0 flex-1 text-sm leading-snug text-fs-text">{tpl.name}</span>
+      <span className="min-w-0 flex-1 text-sm leading-snug text-fs-text">{tr(tpl.name)}</span>
       {tpl.id === activeTemplateId ? (
-        <span className="shrink-0 rounded border border-fs-accent/30 bg-fs-accent-soft px-1.5 text-[11px] text-fs-accent-text">
-          当前
-        </span>
+        <span className="shrink-0 rounded border border-fs-accent/30 bg-fs-accent-soft px-1.5 text-[11px] text-fs-accent-text">{tr("当前")}</span>
       ) : null}
       <button
         type="button"
         disabled={loading}
         onClick={() => onLoad(tpl)}
         className="h-8 shrink-0 rounded-md border border-fs-accent/30 bg-fs-accent-soft px-3 text-[13px] font-medium text-fs-accent-text active:border-fs-accent disabled:opacity-40"
-      >
-        加载
-      </button>
+      >{tr("加载")}</button>
       {onDelete ? (
         <button
           type="button"
           onClick={() => setMenuTpl(tpl)}
-          aria-label="更多操作"
+          aria-label={tr("更多操作")}
           className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated"
         >
           <IconMore size={20} />
@@ -172,7 +171,7 @@ export function MacroMobileTemplatesPanel({
           className="flex min-h-13 w-full items-center gap-2 py-1.5 pl-3 pr-2 text-left"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold text-fs-text">{dim.label}</span>
+            <span className="block text-[15px] font-semibold text-fs-text">{tr(dim.label)}</span>
             {open ? (
               <span className="mt-0.5 block text-xs leading-normal text-fs-muted">
                 {MACRO_TEMPLATE_DIMENSION_LINKS[id].blurb}
@@ -200,12 +199,8 @@ export function MacroMobileTemplatesPanel({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
-        <button type="button" onClick={() => setView("system")} className={segClass(view === "system")}>
-          系统模板
-        </button>
-        <button type="button" onClick={() => setView("mine")} className={segClass(view === "mine")}>
-          我的模板
-        </button>
+        <button type="button" onClick={() => setView("system")} className={segClass(view === "system")}>{tr("系统模板")}</button>
+        <button type="button" onClick={() => setView("mine")} className={segClass(view === "mine")}>{tr("我的模板")}</button>
       </div>
 
       {view === "mine" ? (
@@ -216,8 +211,8 @@ export function MacroMobileTemplatesPanel({
             <div className="flex shrink-0 gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
               {(
                 [
-                  ["country", "国家"],
-                  ["global", "全球"],
+                  ["country", tr("国家")],
+                  ["global", tr("全球")],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -231,7 +226,7 @@ export function MacroMobileTemplatesPanel({
                       : "text-fs-secondary"
                   }`}
                 >
-                  {label}
+                  {tr(label)}
                 </button>
               ))}
             </div>
@@ -253,7 +248,7 @@ export function MacroMobileTemplatesPanel({
                             : "border-fs-border bg-white text-fs-text"
                         }`}
                       >
-                        {c.label}
+                        {tr(c.label)}
                       </button>
                     );
                   })}
@@ -263,37 +258,29 @@ export function MacroMobileTemplatesPanel({
                   onClick={() => setMapOpen(true)}
                   className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-fs-border bg-white px-2.5 text-[13px] font-medium text-fs-text active:bg-fs-elevated"
                 >
-                  <IconGrid size={16} />
-                  结构图
-                </button>
+                  <IconGrid size={16} />{tr("结构图")}</button>
               </>
             ) : null}
           </div>
 
           {mode === "global" ? (
             globalTemplates.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-fs-border px-4 py-8 text-center text-sm text-fs-muted">
-                暂无全球对比模板。
-              </p>
+              <p className="rounded-lg border border-dashed border-fs-border px-4 py-8 text-center text-sm text-fs-muted">{tr("暂无全球对比模板。")}</p>
             ) : (
               <section>
-                <h3 className="px-0.5 pb-1.5 text-xs font-semibold tracking-wide text-fs-muted">
-                  全球对比模板
-                </h3>
+                <h3 className="px-0.5 pb-1.5 text-xs font-semibold tracking-wide text-fs-muted">{tr("全球对比模板")}</h3>
                 <ul className="overflow-hidden rounded-lg border border-fs-border bg-white [&>li:first-child]:border-t-0">
                   {globalTemplates.map(templateRow)}
                 </ul>
               </section>
             )
           ) : countryTotal === 0 ? (
-            <p className="rounded-lg border border-dashed border-fs-border px-4 py-8 text-center text-sm text-fs-muted">
-              该国暂无系统模板。
-            </p>
+            <p className="rounded-lg border border-dashed border-fs-border px-4 py-8 text-center text-sm text-fs-muted">{tr("该国暂无系统模板。")}</p>
           ) : (
             MACRO_TEMPLATE_RELATION_GROUPS.map((group) => (
               <section key={group.id}>
                 <h3 className="px-0.5 pb-1.5 text-xs font-semibold tracking-wide text-fs-muted">
-                  {layerLabel(group)}
+                  {layerLabel(group, tr)}
                 </h3>
                 <div className="flex flex-col gap-2">{group.dimensionIds.map(dimensionCard)}</div>
               </section>
@@ -307,19 +294,17 @@ export function MacroMobileTemplatesPanel({
       <MobileSheet
         open={mapOpen}
         onClose={() => setMapOpen(false)}
-        title={`宏观结构图 · ${countryLabel}`}
+        title={tr("宏观结构图 · {countryLabel}", { countryLabel })}
         size="full"
       >
-        <p className="px-4 pb-1.5 pt-3 text-[13px] leading-relaxed text-fs-muted">
-          自上而下：总量 → 实体与需求 → 价格 → 政策 → 综合研判。点任一维度，回到列表并展开它。
-        </p>
+        <p className="px-4 pb-1.5 pt-3 text-[13px] leading-relaxed text-fs-muted">{tr("自上而下：总量 → 实体与需求 → 价格 → 政策 → 综合研判。点任一维度，回到列表并展开它。")}</p>
         {MACRO_TEMPLATE_RELATION_GROUPS.map((group) => {
           const n = group.dimensionIds.length;
           const colsClass = n >= 3 ? "grid-cols-3" : n === 2 ? "grid-cols-2" : "grid-cols-1";
           return (
             <div key={group.id} className="flex gap-2.5 border-t border-fs-border/70 px-4 py-2.5">
               <span className="w-14 shrink-0 pt-2 text-xs font-semibold leading-snug text-fs-muted">
-                {layerLabel(group)}
+                {layerLabel(group, tr)}
               </span>
               <div className={`grid min-w-0 flex-1 gap-2 ${colsClass}`}>
                 {group.dimensionIds.map((id) => {
@@ -338,9 +323,9 @@ export function MacroMobileTemplatesPanel({
                       }`}
                     >
                       <span className="max-w-full truncate text-sm font-semibold">
-                        {getMacroTemplateDimension(id).shortLabel}
+                        {tr(getMacroTemplateDimension(id).shortLabel)}
                       </span>
-                      <span className="text-xs tabular-nums opacity-75">{count} 个模板</span>
+                      <span className="text-xs tabular-nums opacity-75">{count} {tr("个模板")}</span>
                     </button>
                   );
                 })}
@@ -350,7 +335,7 @@ export function MacroMobileTemplatesPanel({
         })}
       </MobileSheet>
 
-      <MobileSheet open={menuTpl != null} onClose={() => setMenuTpl(null)} title={menuTpl?.name}>
+      <MobileSheet open={menuTpl != null} onClose={() => setMenuTpl(null)} title={menuTpl?.name ? tr(menuTpl.name) : undefined}>
         {menuTpl ? (
           <div className="pb-2">
             <button
@@ -363,9 +348,7 @@ export function MacroMobileTemplatesPanel({
               }}
               className="flex h-13 w-full items-center gap-3.5 border-t border-fs-border px-5 text-left text-base text-fs-text active:bg-fs-elevated disabled:opacity-40"
             >
-              <IconChart />
-              加载
-            </button>
+              <IconChart />{tr("加载")}</button>
             {onDelete ? (
               <button
                 type="button"
@@ -377,9 +360,7 @@ export function MacroMobileTemplatesPanel({
                 }}
                 className="flex h-13 w-full items-center gap-3.5 border-t border-fs-border px-5 text-left text-base text-fs-negative active:bg-fs-elevated disabled:opacity-40"
               >
-                <IconTrash />
-                删除系统模板
-              </button>
+                <IconTrash />{tr("删除系统模板")}</button>
             ) : null}
           </div>
         ) : null}

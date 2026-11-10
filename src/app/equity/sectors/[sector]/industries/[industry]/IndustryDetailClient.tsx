@@ -7,6 +7,8 @@ import {
   ValuationGrowthScatter,
   type ScatterPoint,
 } from "@/components/equity/ValuationGrowthScatter";
+import { useTr } from "@/i18n/TextProvider";
+import { identityTr, type Tr } from "@/i18n/text";
 
 type Constituent = {
   symbol: string;
@@ -58,10 +60,10 @@ function pctClass(v: number | null | undefined): string {
   return "text-fs-muted";
 }
 
-function styleLabel(style: string | null | undefined): string {
-  if (style === "cyclical") return "周期";
-  if (style === "defensive") return "防御";
-  if (style === "both") return "两者";
+function styleLabel(style: string | null | undefined, tr: Tr = identityTr): string {
+  if (style === "cyclical") return tr("周期");
+  if (style === "defensive") return tr("防御");
+  if (style === "both") return tr("两者");
   return "—";
 }
 
@@ -72,6 +74,7 @@ export function IndustryDetailClient({
   sectorSlug: string;
   industrySlug: string;
 }) {
+  const tr = useTr();
   const searchParams = useSearchParams();
   const [from, setFrom] = useState(searchParams.get("from") ?? isoDaysAgo(63));
   const [to, setTo] = useState(searchParams.get("to") ?? todayIso());
@@ -109,18 +112,18 @@ export function IndustryDetailClient({
         };
         constituents?: Constituent[];
       };
-      if (!r.ok) throw new Error(j.error ?? "加载失败");
+      if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
       setSectorNameZh(j.nameZh ?? "");
       setIndustryName(j.industry?.nameEn ?? industrySlug);
       setStyle(j.industry?.style ?? null);
       setBasket(j.basket ?? null);
       setConstituents(j.constituents ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr("加载失败"));
     } finally {
       setLoading(false);
     }
-  }, [sectorSlug, industrySlug, from, to]);
+  }, [sectorSlug, industrySlug, from, to, tr]);
 
   useEffect(() => {
     void load();
@@ -146,9 +149,7 @@ export function IndustryDetailClient({
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4">
       <div className="text-xs text-fs-muted">
-        <Link href="/equity/sectors" className="hover:text-fs-accent-text">
-          美股历史
-        </Link>
+        <Link href="/equity/sectors" className="hover:text-fs-accent-text">{tr("美股历史")}</Link>
         <span className="mx-1">/</span>
         <Link
           href={`/equity/sectors/${encodeURIComponent(sectorSlug)}`}
@@ -161,24 +162,19 @@ export function IndustryDetailClient({
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-fs-text">{industryName}</h1>
-          <p className="mt-0.5 text-sm text-fs-muted">
-            GICS Industry · 风格 {styleLabel(style)}
-            {loading ? " · 加载中…" : ` · ${constituents.length} 只成分`}
+          <p className="mt-0.5 text-sm text-fs-muted">{tr("GICS Industry · 风格")}{" "}{styleLabel(style, tr)}
+            {loading ? tr(" · 加载中…") : tr(" · {length} 只成分", { length: constituents.length })}
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2 text-xs">
-          <label className="text-fs-muted">
-            开始
-            <input
+          <label className="text-fs-muted">{tr("开始")}<input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               className="ml-1 rounded border border-fs-border bg-white px-1.5 py-0.5 text-fs-text"
             />
           </label>
-          <label className="text-fs-muted">
-            截止
-            <input
+          <label className="text-fs-muted">{tr("截止")}<input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
@@ -197,13 +193,13 @@ export function IndustryDetailClient({
       {basket ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2">
-            <div className="text-[11px] text-fs-muted">等权绝对收益</div>
+            <div className="text-[11px] text-fs-muted">{tr("等权绝对收益")}</div>
             <div className={`mt-0.5 text-sm font-medium ${pctClass(basket.equalWeightReturn)}`}>
               {fmtPct(basket.equalWeightReturn)}
             </div>
           </div>
           <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2">
-            <div className="text-[11px] text-fs-muted">相对 SPY</div>
+            <div className="text-[11px] text-fs-muted">{tr("相对 SPY")}</div>
             <div className={`mt-0.5 text-sm font-medium ${pctClass(basket.excessVsSpy)}`}>
               {fmtPct(basket.excessVsSpy)}
             </div>
@@ -215,7 +211,7 @@ export function IndustryDetailClient({
             </div>
           </div>
           <div className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2">
-            <div className="text-[11px] text-fs-muted">行情覆盖</div>
+            <div className="text-[11px] text-fs-muted">{tr("行情覆盖")}</div>
             <div className="mt-0.5 text-sm font-medium text-fs-text">
               {(basket.coverage * 100).toFixed(0)}%
             </div>
@@ -226,20 +222,18 @@ export function IndustryDetailClient({
       <ValuationGrowthScatter points={scatterPoints} />
 
       <section className="overflow-x-auto rounded-md border border-fs-border">
-        <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">
-          成分股（估值为季度口径：最新季 YoY · TTM PE）
-        </div>
+        <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">{tr("成分股（估值为季度口径：最新季 YoY · TTM PE）")}</div>
         <table className="min-w-full text-left text-sm">
           <thead className="text-xs text-fs-muted">
             <tr>
-              <th className="px-3 py-2">代码</th>
-              <th className="px-3 py-2">名称</th>
+              <th className="px-3 py-2">{tr("代码")}</th>
+              <th className="px-3 py-2">{tr("名称")}</th>
               <th className="px-3 py-2">Sub-Industry</th>
-              <th className="px-3 py-2 text-right">市值</th>
-              <th className="px-3 py-2 text-right">绝对收益</th>
-              <th className="px-3 py-2 text-right">相对 SPY</th>
-              <th className="px-3 py-2 text-right">相对行业</th>
-              <th className="px-3 py-2 text-right">营收YoY</th>
+              <th className="px-3 py-2 text-right">{tr("市值")}</th>
+              <th className="px-3 py-2 text-right">{tr("绝对收益")}</th>
+              <th className="px-3 py-2 text-right">{tr("相对 SPY")}</th>
+              <th className="px-3 py-2 text-right">{tr("相对行业")}</th>
+              <th className="px-3 py-2 text-right">{tr("营收YoY")}</th>
               <th className="px-3 py-2 text-right">TTM PE</th>
               <th className="px-3 py-2 text-right">PB</th>
               <th className="px-3 py-2" />
@@ -283,15 +277,11 @@ export function IndustryDetailClient({
                   <Link
                     href={`/equity/stocks/${encodeURIComponent(c.symbol)}`}
                     className="mr-2 text-xs text-fs-accent-text hover:underline"
-                  >
-                    个股
-                  </Link>
+                  >{tr("个股")}</Link>
                   <Link
                     href={`/markets?symbol=${encodeURIComponent(c.symbol)}`}
                     className="text-xs text-fs-muted hover:text-fs-accent-text hover:underline"
-                  >
-                    K线
-                  </Link>
+                  >{tr("K线")}</Link>
                 </td>
               </tr>
             ))}

@@ -2,8 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 
 export function VerifyClient() {
+  const t = useTranslations("verify");
+  const tc = useTranslations("common");
   const params = useSearchParams();
   const token = params.get("token") ?? "";
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
@@ -12,7 +16,7 @@ export function VerifyClient() {
   useEffect(() => {
     if (!token) {
       setStatus("error");
-      setMsg("缺少 token，请从邮件链接进入");
+      setMsg(t("missingToken"));
       return;
     }
     setStatus("loading");
@@ -25,24 +29,24 @@ export function VerifyClient() {
         const payload = (await r.json()) as { message?: string; error?: string };
         if (!r.ok) throw new Error(payload.error ?? `${r.status}`);
         setStatus("ok");
-        setMsg(payload.message ?? "验证成功");
+        setMsg(payload.message ?? t("success"));
       })
       .catch((e) => {
         setStatus("error");
-        setMsg(e instanceof Error ? e.message : "未知错误");
+        setMsg(e instanceof Error ? e.message : tc("unknownError"));
       });
-  }, [token]);
+  }, [token, t, tc]);
 
   return (
     <div className="space-y-3 rounded-lg border border-fs-border bg-fs-bg/60 p-4">
-      <h1 className="text-xl font-semibold text-fs-text">邮箱确认</h1>
+      <h1 className="text-xl font-semibold text-fs-text">{t("title")}</h1>
       <p className="text-sm text-fs-secondary">
-        {status === "loading" ? "正在验证链接…" : msg || "处理中"}
+        {status === "loading" ? t("verifying") : msg || t("processing")}
       </p>
       {status === "ok" ? (
-        <a className="text-sm text-fs-accent-text underline" href="/auth">
-          去登录
-        </a>
+        <Link className="text-sm text-fs-accent-text underline" href="/auth">
+          {t("goLogin")}
+        </Link>
       ) : null}
     </div>
   );

@@ -13,6 +13,7 @@ import {
   eventDisplayContent,
   eraPreviewSummary,
 } from "@/lib/data/eventContentDisplay";
+import { useTr } from "@/i18n/TextProvider";
 
 export type EventTimelineViewProps = {
   events: MarketEventDto[];
@@ -41,6 +42,7 @@ function EraSection({
   onDelete: (id: string) => void;
   rowRef?: (id: string, el: HTMLLIElement | null) => void;
 }) {
+  const tr = useTr();
   const [expanded, setExpanded] = useState(group.defaultExpanded);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
@@ -81,8 +83,7 @@ function EraSection({
                 <span className="text-[9px] text-fs-muted">{phase}</span>
               ) : null}
               <span className="text-[10px] text-fs-muted">
-                {children.length} 条事件
-              </span>
+                {children.length}{" "}{tr("条事件")}</span>
               {era.sourceUrl ? (
                 <a
                   href={era.sourceUrl}
@@ -113,7 +114,7 @@ function EraSection({
               onClick={() => setSummaryOpen((v) => !v)}
               className="mb-1.5 text-[10px] text-fs-muted hover:text-fs-secondary"
             >
-              {summaryOpen ? "收起阶段分析 ▴" : "展开阶段分析 ▾"}
+              {summaryOpen ? tr("收起阶段分析 ▴") : tr("展开阶段分析 ▾")}
             </button>
             {summaryOpen ? (
               <pre className="mb-2 max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-fs-border bg-fs-bg/60 p-2 text-[10px] leading-relaxed text-fs-secondary">
@@ -151,6 +152,7 @@ export function EventTimelineView({
   onDelete,
   rowRef,
 }: EventTimelineViewProps) {
+  const tr = useTr();
   const model = useMemo(() => buildEventTimeline(events), [events]);
 
   if (!model.hasEraStructure) {
@@ -188,7 +190,7 @@ export function EventTimelineView({
       ))}
       {model.orphans.length > 0 ? (
         <li className="pt-2">
-          <p className="mb-1.5 px-1 text-[10px] font-medium text-fs-muted">未归类事件</p>
+          <p className="mb-1.5 px-1 text-[10px] font-medium text-fs-muted">{tr("未归类事件")}</p>
           <ul className="space-y-1.5">
             {model.orphans.map((ev) => (
               <EventListRow

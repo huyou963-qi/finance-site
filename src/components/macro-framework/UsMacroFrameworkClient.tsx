@@ -18,6 +18,7 @@ import { generateAllCategoryBriefs } from "@/lib/macro-framework/categoryAnalysi
 import type { IndicatorTiming, MacroIndicator } from "@/lib/macro-framework/types";
 import { indicatorsById } from "@/lib/macro-framework/mergeIndicators";
 import { changeArrow, formatValue, sparklinePath, timingAccent } from "@/lib/macro-framework/utils";
+import { useTr } from "@/i18n/TextProvider";
 
 const TIMINGS: IndicatorTiming[] = ["leading", "coincident", "lagging"];
 
@@ -27,6 +28,7 @@ const MACRO_VIGNETTE_MONTH = "2026-07";
 const MATRIX_GRID = "grid grid-cols-[11rem_minmax(360px,1fr)_minmax(360px,1fr)_minmax(360px,1fr)]";
 
 function MatrixColumnHeader({ timing, withDivider }: { timing: IndicatorTiming; withDivider?: boolean }) {
+  const tr = useTr();
   const accent = timingAccent(timing);
   return (
     <div
@@ -36,8 +38,7 @@ function MatrixColumnHeader({ timing, withDivider }: { timing: IndicatorTiming; 
     >
       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent }} />
       <span className="text-sm font-semibold tracking-wide" style={{ color: accent }}>
-        {TIMING_LABEL[timing]}指标
-      </span>
+        {TIMING_LABEL[timing]}{tr("指标")}</span>
     </div>
   );
 }
@@ -56,6 +57,7 @@ function boxEdgeInset(ux: number, uy: number, halfW: number, halfH: number, gap 
 }
 
 function SectorFlowDiagram() {
+  const tr = useTr();
   const W = 720;
   const H = 400;
   const cx = W / 2;
@@ -67,11 +69,11 @@ function SectorFlowDiagram() {
   const halfH = boxH / 2;
 
   const nodeDefs = [
-    { id: "corporate", label: "企业部门", sub: "Corporate" },
-    { id: "household", label: "居民部门", sub: "Household" },
-    { id: "fiscal", label: "政府", sub: "财政政策" },
-    { id: "monetary", label: "央行", sub: "货币政策" },
-    { id: "financial", label: "金融部门", sub: "Financial" },
+    { id: "corporate", label: tr("企业部门"), sub: "Corporate" },
+    { id: "household", label: tr("居民部门"), sub: "Household" },
+    { id: "fiscal", label: tr("政府"), sub: tr("财政政策") },
+    { id: "monetary", label: tr("央行"), sub: tr("货币政策") },
+    { id: "financial", label: tr("金融部门"), sub: "Financial" },
   ] as const;
 
   const nodes = nodeDefs.map((n, i) => {
@@ -140,7 +142,7 @@ function SectorFlowDiagram() {
           <g key={n.id}>
             <rect x={n.x} y={n.y} width={boxW} height={boxH} rx={6} fill="#ffffff" stroke={SVG_BORDER} strokeWidth={1.5} />
             <text x={n.x + boxW / 2} y={n.y + 22} textAnchor="middle" fontSize={13} fontWeight={600} fill={SVG_TEXT}>
-              {n.label}
+              {tr(n.label)}
             </text>
             <text x={n.x + boxW / 2} y={n.y + 38} textAnchor="middle" fontSize={10} fill={SVG_TEXT_MUTED}>
               {n.sub}
@@ -163,6 +165,7 @@ function MatrixIndicatorCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const tr = useTr();
   const accent = timingAccent(timing);
   const chg = changeArrow(ind.value, ind.prevValue);
 
@@ -177,7 +180,7 @@ function MatrixIndicatorCard({
       <div className="flex gap-1.5">
         <div className="w-0.5 shrink-0 rounded-sm" style={{ background: accent, minHeight: 32 }} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[11px] font-medium leading-tight text-fs-text">{ind.nameZh}</div>
+          <div className="truncate text-[11px] font-medium leading-tight text-fs-text">{tr(ind.nameZh)}</div>
           <div className="truncate font-mono text-[9px] text-fs-muted">{ind.nameEn}</div>
         </div>
       </div>
@@ -207,7 +210,7 @@ function MatrixIndicatorCard({
             />
           </svg>
         ) : (
-          <div className="flex h-6 items-center text-[9px] text-fs-muted">暂无序列</div>
+          <div className="flex h-6 items-center text-[9px] text-fs-muted">{tr("暂无序列")}</div>
         )}
       </div>
     </button>
@@ -249,6 +252,7 @@ function MatrixCell({
 }
 
 export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndicator[] }) {
+  const tr = useTr();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -305,15 +309,13 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
     <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-4 py-4 lg:px-6">
       <div className="space-y-5">
         <header>
-          <h1 className="flex items-baseline gap-2 text-xl font-semibold text-fs-text">
-            美国宏观分析框架
-            <span className="text-sm font-normal text-fs-muted">{MACRO_VIGNETTE_MONTH}</span>
+          <h1 className="flex items-baseline gap-2 text-xl font-semibold text-fs-text">{tr("美国宏观分析框架")}<span className="text-sm font-normal text-fs-muted">{MACRO_VIGNETTE_MONTH}</span>
           </h1>
         </header>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
           {[
-            { label: "周期阶段", value: "晚期扩张", cls: "text-fs-text" },
+            { label: tr("周期阶段"), value: tr("晚期扩张"), cls: "text-fs-text" },
             {
               label: "NFCI",
               value: formatValue(indById.nfci?.value ?? null, indById.nfci?.unit ?? "σ"),
@@ -328,12 +330,12 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
               cls: "text-fs-text",
             },
             { label: "GDPNow", value: "N/A", cls: "text-fs-muted" },
-            { label: "衰退概率", value: "N/A", cls: "text-fs-muted" },
-            { label: "扩散指数", value: "N/A", cls: "text-fs-muted" },
+            { label: tr("衰退概率"), value: "N/A", cls: "text-fs-muted" },
+            { label: tr("扩散指数"), value: "N/A", cls: "text-fs-muted" },
           ].map((s) => (
             <div key={s.label} className="rounded-lg border border-fs-border bg-fs-elevated px-3 py-2">
               <div className={`text-base font-semibold ${s.cls ?? "text-fs-text"}`}>{s.value}</div>
-              <div className="text-[11px] text-fs-muted">{s.label}</div>
+              <div className="text-[11px] text-fs-muted">{tr(s.label)}</div>
             </div>
           ))}
         </div>
@@ -341,9 +343,9 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
         <section className="overflow-x-auto">
           <div className="grid min-w-[980px] grid-cols-[240px_minmax(400px,1fr)_260px] items-start gap-5">
             <aside className="rounded-lg border border-fs-border bg-fs-elevated/80 p-4">
-              <h3 className="text-xs font-medium text-fs-secondary">宏观状态</h3>
+              <h3 className="text-xs font-medium text-fs-secondary">{tr("宏观状态")}</h3>
               <p className="mt-2 text-xs leading-relaxed text-fs-text">{MACRO_STATE_BRIEF}</p>
-              <h3 className="mt-4 text-xs font-medium text-fs-secondary">分歧</h3>
+              <h3 className="mt-4 text-xs font-medium text-fs-secondary">{tr("分歧")}</h3>
               <ul className="mt-2 space-y-1.5 text-xs text-fs-secondary">
                 {CONTRADICTION_SIGNALS.map((item) => (
                   <li key={item}>{item}</li>
@@ -354,11 +356,11 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
               <SectorFlowDiagram />
             </div>
             <aside className="rounded-lg border border-fs-border bg-fs-elevated/80 p-4">
-              <h3 className="mb-2 text-xs font-medium text-fs-secondary">数据日历（7 天）</h3>
+              <h3 className="mb-2 text-xs font-medium text-fs-secondary">{tr("数据日历（7 天）")}</h3>
               <div className="grid grid-cols-[2.5rem_1fr_2rem] gap-x-2 text-[10px] text-fs-muted">
-                <span>日期</span>
-                <span>事件</span>
-                <span className="text-right">重要性</span>
+                <span>{tr("日期")}</span>
+                <span>{tr("事件")}</span>
+                <span className="text-right">{tr("重要性")}</span>
               </div>
               <ul className="mt-1 space-y-1 text-xs text-fs-secondary">
                 {CALENDAR.map((c) => (
@@ -391,7 +393,7 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
                     }`}
                   >
                     <div className="text-xs font-semibold text-fs-text">{MATRIX_CATEGORY_LABEL[cat]}</div>
-                    <div className="mt-1.5 text-[10px] font-medium text-fs-accent-text">近况分析</div>
+                    <div className="mt-1.5 text-[10px] font-medium text-fs-accent-text">{tr("近况分析")}</div>
                     <p className="mt-0.5 text-[10px] leading-relaxed text-fs-secondary">
                       {categoryBriefs[cat] ?? MATRIX_CATEGORY_DESC[cat]}
                     </p>
@@ -422,12 +424,11 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
         {selectedId && indById[selectedId] && (
           <div className="rounded-lg border border-fs-border bg-fs-elevated/80 p-4 text-sm">
             <div className="font-medium text-fs-text">
-              {indById[selectedId].nameZh}
+              {tr(indById[selectedId].nameZh)}
               <span className="ml-2 font-normal text-fs-muted">{indById[selectedId].nameEn}</span>
             </div>
             <div className="mt-2 flex flex-wrap gap-4 text-fs-secondary">
-              <span>
-                最新{" "}
+              <span>{tr("最新")}{" "}
                 <strong className="text-fs-text">
                   {formatValue(indById[selectedId].value, indById[selectedId].unit)}
                 </strong>
@@ -441,9 +442,9 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
                 {MATRIX_CATEGORY_LABEL[INDICATOR_MATRIX_CATEGORY[selectedId] ?? "activity"]}
               </span>
             </div>
-            <p className="mt-2 text-fs-secondary">{indById[selectedId].description}</p>
+            <p className="mt-2 text-fs-secondary">{tr(indById[selectedId].description)}</p>
             <div className="mt-3 max-w-md">
-              <div className="mb-1 text-[10px] uppercase tracking-wide text-fs-muted">近 6 期走势</div>
+              <div className="mb-1 text-[10px] uppercase tracking-wide text-fs-muted">{tr("近 6 期走势")}</div>
               {indById[selectedId].sparkline.length > 0 ? (
                 <svg
                   className="h-16 w-full rounded border border-fs-border bg-white p-2"
@@ -459,9 +460,7 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
                   />
                 </svg>
               ) : (
-                <div className="rounded border border-fs-border bg-white p-4 text-xs text-fs-muted">
-                  本地库暂无历史观测
-                </div>
+                <div className="rounded border border-fs-border bg-white p-4 text-xs text-fs-muted">{tr("本地库暂无历史观测")}</div>
               )}
             </div>
           </div>

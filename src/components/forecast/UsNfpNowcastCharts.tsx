@@ -9,6 +9,8 @@ import * as echarts from "echarts/core";
 import { BarChart, LineChart, ScatterChart } from "echarts/charts";
 import { DataZoomComponent, GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
 
 echarts.use([BarChart, LineChart, ScatterChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -36,12 +38,13 @@ function useChart(option: echarts.EChartsCoreOption, height: number) {
 }
 
 const num = (v: number | null | undefined) => (v != null && Number.isFinite(v) ? Math.round(v) : null);
-const valueFmt = (v: unknown) => (typeof v === "number" ? `${Math.round(v)} 千人` : "—");
+const valueFmt = (v: unknown, tr: Tr) => (typeof v === "number" ? tr("{n} 千人", { n: Math.round(v) }) : "—");
 
 export type NfpBacktestPoint = { month: string; forecast: number; actual: number; adp: number | null };
 
 /** 灰柱 = 非农首发实际，蓝线 = 同一时点的模型预测，橙点 = ADP 首发（2022-09 起） */
 export function NfpBacktestChart({ points }: { points: NfpBacktestPoint[] }) {
+  const tr = useTr();
   const hasAdp = points.some((p) => p.adp != null);
   const option = useMemo<echarts.EChartsCoreOption>(
     () => ({
@@ -53,9 +56,9 @@ export function NfpBacktestChart({ points }: { points: NfpBacktestPoint[] }) {
         itemWidth: 14,
         itemHeight: 8,
         textStyle: { color: INK_MUTED, fontSize: 12 },
-        data: hasAdp ? ["首发实际", "模型预测", "ADP 首发"] : ["首发实际", "模型预测"],
+        data: hasAdp ? [tr("首发实际"), tr("模型预测"), tr("ADP 首发")] : [tr("首发实际"), tr("模型预测")],
       },
-      tooltip: { trigger: "axis", valueFormatter: valueFmt },
+      tooltip: { trigger: "axis", valueFormatter: (v: unknown) => valueFmt(v, tr) },
       xAxis: {
         type: "category",
         data: points.map((p) => p.month.slice(0, 7)),
@@ -75,9 +78,9 @@ export function NfpBacktestChart({ points }: { points: NfpBacktestPoint[] }) {
         { type: "inside", start: 45, end: 100 },
       ],
       series: [
-        { name: "首发实际", type: "bar", barWidth: "60%", itemStyle: { color: ACTUAL_BAR }, data: points.map((p) => num(p.actual)) },
+        { name: tr("首发实际"), type: "bar", barWidth: "60%", itemStyle: { color: ACTUAL_BAR }, data: points.map((p) => num(p.actual)) },
         {
-          name: "模型预测",
+          name: tr("模型预测"),
           type: "line",
           symbol: "none",
           lineStyle: { color: MODEL_LINE, width: 2 },
@@ -88,7 +91,7 @@ export function NfpBacktestChart({ points }: { points: NfpBacktestPoint[] }) {
         ...(hasAdp
           ? [
               {
-                name: "ADP 首发",
+                name: tr("ADP 首发"),
                 type: "scatter",
                 symbolSize: 6,
                 itemStyle: { color: ADP_DOT },
@@ -99,7 +102,7 @@ export function NfpBacktestChart({ points }: { points: NfpBacktestPoint[] }) {
           : []),
       ],
     }),
-    [points, hasAdp],
+    [hasAdp, tr, points],
   );
   return useChart(option, 300);
 }
@@ -108,6 +111,7 @@ export type SpfRow = { quarter: string; actual: number; spf: number; model: numb
 
 /** 季度平均月增量：实际（首发口径）柱、SPF 中位数虚线、本模型实线 */
 export function SpfComparisonChart({ rows }: { rows: SpfRow[] }) {
+  const tr = useTr();
   const option = useMemo<echarts.EChartsCoreOption>(
     () => ({
       animation: false,
@@ -118,9 +122,9 @@ export function SpfComparisonChart({ rows }: { rows: SpfRow[] }) {
         itemWidth: 14,
         itemHeight: 8,
         textStyle: { color: INK_MUTED, fontSize: 12 },
-        data: ["实际（季均月增量）", "本模型", "SPF 中位数"],
+        data: [tr("实际（季均月增量）"), tr("本模型"), tr("SPF 中位数")],
       },
-      tooltip: { trigger: "axis", valueFormatter: valueFmt },
+      tooltip: { trigger: "axis", valueFormatter: (v: unknown) => valueFmt(v, tr) },
       xAxis: {
         type: "category",
         data: rows.map((r) => r.quarter),
@@ -130,9 +134,9 @@ export function SpfComparisonChart({ rows }: { rows: SpfRow[] }) {
       },
       yAxis: { type: "value", axisLabel: { color: INK_MUTED, fontSize: 11 }, splitLine: { lineStyle: { color: GRID } } },
       series: [
-        { name: "实际（季均月增量）", type: "bar", barWidth: "55%", itemStyle: { color: ACTUAL_BAR }, data: rows.map((r) => num(r.actual)) },
+        { name: tr("实际（季均月增量）"), type: "bar", barWidth: "55%", itemStyle: { color: ACTUAL_BAR }, data: rows.map((r) => num(r.actual)) },
         {
-          name: "本模型",
+          name: tr("本模型"),
           type: "line",
           symbol: "circle",
           symbolSize: 4,
@@ -141,7 +145,7 @@ export function SpfComparisonChart({ rows }: { rows: SpfRow[] }) {
           data: rows.map((r) => num(r.model)),
         },
         {
-          name: "SPF 中位数",
+          name: tr("SPF 中位数"),
           type: "line",
           symbol: "none",
           lineStyle: { color: SPF_LINE, width: 1.5, type: "dashed" },
@@ -150,7 +154,7 @@ export function SpfComparisonChart({ rows }: { rows: SpfRow[] }) {
         },
       ],
     }),
-    [rows],
+    [rows, tr],
   );
   return useChart(option, 260);
 }

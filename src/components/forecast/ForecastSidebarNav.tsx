@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
+import { Link, useLocalePathname } from "@/i18n/navigation";
+import { useTr } from "@/i18n/TextProvider";
 
 export const FORECAST_NAV = [
   { href: "/forecast/us-cpi", label: "美国 CPI 预测", featureId: "forecast-us-cpi" },
@@ -11,13 +11,14 @@ export const FORECAST_NAV = [
 ] as const;
 
 export function ForecastSidebarNav({ mobile = false }: { mobile?: boolean }) {
-  const pathname = usePathname();
+  const tr = useTr();
+  const pathname = useLocalePathname();
   const features = useVisibleFeatures();
 
   return (
     <nav
       className={mobile ? "flex gap-1 overflow-x-auto border-b border-fs-border p-2" : "flex flex-col gap-0.5 p-3"}
-      aria-label="指标预测分页"
+      aria-label={tr("指标预测分页")}
     >
       {FORECAST_NAV.filter((item) => features.can(item.featureId)).map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -34,7 +35,7 @@ export function ForecastSidebarNav({ mobile = false }: { mobile?: boolean }) {
             }`}
             aria-current={active ? "page" : undefined}
           >
-            {item.label}
+            {tr(item.label)}
           </Link>
         );
       })}

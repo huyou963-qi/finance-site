@@ -8,6 +8,7 @@ import {
   updateDividerLabel,
   type MacroSelectedListItem,
 } from "@/lib/macroSelectedList";
+import { useTr } from "@/i18n/TextProvider";
 
 export type SelectedIndicatorRowMeta = {
   key: string;
@@ -40,6 +41,7 @@ function DividerLabelEditor({
   label: string;
   onSave: (id: string, nextLabel: string) => void;
 }) {
+  const tr = useTr();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(label);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +83,7 @@ function DividerLabelEditor({
             }
           }}
           onBlur={commit}
-          placeholder="分组名称"
+          placeholder={tr("分组名称")}
           className="min-w-0 flex-1 rounded border border-fs-accent/50 bg-white px-1.5 py-0 text-[10px] text-fs-text outline-none focus:border-fs-accent"
         />
         <span className="shrink-0 text-fs-accent">——</span>
@@ -93,10 +95,10 @@ function DividerLabelEditor({
     <button
       type="button"
       onClick={() => setEditing(true)}
-      title="点击编辑分组名称"
+      title={tr("点击编辑分组名称")}
       className="min-w-0 flex-1 truncate text-left text-[10px] font-medium tracking-wide text-fs-accent-text hover:text-fs-accent"
     >
-      —— {label} ——
+      —— {tr(label)} ——
     </button>
   );
 }
@@ -110,6 +112,7 @@ export function SelectedIndicatorsList({
   onLocateKey,
   showSource = false,
 }: Props) {
+  const tr = useTr();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
 
@@ -163,7 +166,7 @@ export function SelectedIndicatorsList({
   });
 
   if (items.length === 0) {
-    return <p className="px-2 py-3 text-xs text-fs-muted">暂无已选指标。</p>;
+    return <p className="px-2 py-3 text-xs text-fs-muted">{tr("暂无已选指标。")}</p>;
   }
 
   return (
@@ -183,19 +186,17 @@ export function SelectedIndicatorsList({
               <span
                 {...dragHandleProps(index)}
                 className="cursor-grab select-none text-[10px] text-fs-secondary active:cursor-grabbing"
-                title="拖动调整分界线位置"
-                aria-label="拖动分界线"
+                title={tr("拖动调整分界线位置")}
+                aria-label={tr("拖动分界线")}
               >
                 ⋮⋮
               </span>
-              <DividerLabelEditor id={item.id} label={label} onSave={saveDividerLabel} />
+              <DividerLabelEditor id={item.id} label={tr(label)} onSave={saveDividerLabel} />
               <button
                 type="button"
                 onClick={() => onChange(removeDivider(items, item.id))}
                 className="shrink-0 rounded border border-fs-accent/50 bg-white px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent hover:bg-fs-accent-soft"
-              >
-                删除分组
-              </button>
+              >{tr("删除分组")}</button>
             </li>
           );
         }
@@ -204,12 +205,12 @@ export function SelectedIndicatorsList({
         if (!row) return null;
         const isDerived = item.type === "derived";
         const metadataEntries: Array<[string, string | undefined]> = [
-          ["国家", row.country],
-          ["单位", row.unit],
-          ["最新观测", row.updatedAt],
-          ["频率", row.frequency],
-          ...(showSource ? [["来源", row.source] as [string, string | undefined]] : []),
-          ["范围", row.range],
+          [tr("国家"), row.country],
+          [tr("单位"), row.unit],
+          [tr("最新观测"), row.updatedAt],
+          [tr("频率"), row.frequency],
+          ...(showSource ? [[tr("来源"), row.source] as [string, string | undefined]] : []),
+          [tr("范围"), row.range],
         ];
         const visibleMeta = metadataEntries.filter((entry): entry is [string, string] => {
           const value = entry[1];
@@ -224,7 +225,7 @@ export function SelectedIndicatorsList({
             title={[
               ...(showSource ? [item.key] : []),
               ...visibleMeta.map(([label, value]) => `${label}：${value}`),
-              isDerived ? "拖动调整顺序" : "拖动调整顺序；双击定位到左侧指标树",
+              isDerived ? tr("拖动调整顺序") : tr("拖动调整顺序；双击定位到左侧指标树"),
             ].join("\n")}
             className={`flex cursor-pointer items-center gap-1.5 px-2 py-1 hover:bg-fs-elevated/80 ${
               isDropTarget ? "bg-fs-elevated ring-1 ring-inset ring-fs-accent/40" : ""
@@ -237,19 +238,19 @@ export function SelectedIndicatorsList({
             <span
               {...dragHandleProps(index)}
               className="shrink-0 cursor-grab select-none px-0.5 text-[11px] text-fs-secondary active:cursor-grabbing"
-              title="拖动调整顺序"
-              aria-label="拖动排序"
+              title={tr("拖动调整顺序")}
+              aria-label={tr("拖动排序")}
             >
               ⋮⋮
             </span>
             <span className="min-w-0 max-w-[38%] shrink truncate text-xs font-medium text-fs-text">
-              {row.label}
+              {tr(row.label)}
             </span>
             <span className="min-w-0 flex-1 truncate text-right text-[10px] leading-tight text-fs-secondary tabular-nums">
               {visibleMeta.map(([label, value], metaIndex) => (
                 <span key={label}>
                   {metaIndex > 0 ? <span className="mx-1.5 text-fs-secondary">|</span> : null}
-                  <span className="text-fs-secondary">{label}</span>：{value}
+                  <span className="text-fs-secondary">{tr(label)}</span>：{value}
                 </span>
               ))}
             </span>
@@ -258,17 +259,13 @@ export function SelectedIndicatorsList({
                 type="button"
                 onClick={() => onRenameKey(item.key)}
                 className="shrink-0 rounded border border-fs-border px-1.5 py-0 text-[10px] text-fs-secondary hover:border-fs-accent"
-              >
-                改名
-              </button>
+              >{tr("改名")}</button>
             ) : null}
             <button
               type="button"
               onClick={() => onRemoveKey(item.key)}
               className="shrink-0 rounded border border-fs-negative/50 bg-white px-1.5 py-0 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
-            >
-              删除
-            </button>
+            >{tr("删除")}</button>
           </li>
         );
       })}

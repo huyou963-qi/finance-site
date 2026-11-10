@@ -20,6 +20,8 @@ import {
   updateDividerLabel,
   type MacroSelectedListItem,
 } from "@/lib/macroSelectedList";
+import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
 
 export type MacroMobileSelectedPanelProps = {
   items: MacroSelectedListItem[];
@@ -36,12 +38,12 @@ export type MacroMobileSelectedPanelProps = {
   showSource?: boolean;
 };
 
-function metaLine(row: SelectedIndicatorRowMeta, showSource: boolean): string {
+function metaLine(row: SelectedIndicatorRowMeta, showSource: boolean, tr: Tr): string {
   return [
     row.country,
     row.frequency,
     row.unit,
-    row.updatedAt ? `观测 ${row.updatedAt}` : undefined,
+    row.updatedAt ? tr("观测 {updatedAt}", { updatedAt: row.updatedAt }) : undefined,
     showSource ? row.source : undefined,
   ]
     .filter((v): v is string => Boolean(v && v !== "-" && v !== "—"))
@@ -65,6 +67,7 @@ export function MacroMobileSelectedPanel({
   onOpenCalc,
   showSource = false,
 }: MacroMobileSelectedPanelProps) {
+  const tr = useTr();
   const [menuIndex, setMenuIndex] = useState<number | null>(null);
   const menuItem = menuIndex != null ? items[menuIndex] : undefined;
   const closeMenu = () => setMenuIndex(null);
@@ -76,18 +79,16 @@ export function MacroMobileSelectedPanel({
   };
 
   let menuTitle = "";
-  if (menuItem?.type === "divider") menuTitle = `分组：${dividerDisplayLabel(menuItem)}`;
+  if (menuItem?.type === "divider") menuTitle = tr("分组：{v0}", { v0: dividerDisplayLabel(menuItem) });
   else if (menuItem) menuTitle = rowByKey.get(menuItem.key)?.label ?? menuItem.key;
 
   return (
     <div>
       <div className="flex items-center gap-2 px-3 py-2.5">
         <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold text-fs-text">
-            已选指标 <span className="font-normal text-fs-muted">{displayCount}</span>
+          <p className="text-base font-semibold text-fs-text">{tr("已选指标")}{" "}<span className="font-normal text-fs-muted">{displayCount}</span>
           </p>
-          <p className="mt-0.5 text-xs text-fs-muted">
-            原始指标 {rawCount}/{maxSeries}
+          <p className="mt-0.5 text-xs text-fs-muted">{tr("原始指标")}{" "}{rawCount}/{maxSeries}
           </p>
         </div>
         <button
@@ -96,23 +97,17 @@ export function MacroMobileSelectedPanel({
           disabled={items.length === 0}
           className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text active:bg-fs-elevated disabled:opacity-40"
         >
-          <IconSigma size={16} />
-          指标运算
-        </button>
+          <IconSigma size={16} />{tr("指标运算")}</button>
         <button
           type="button"
           onClick={() => onChange([...items, createDividerItem()])}
           disabled={items.length === 0}
           className="inline-flex h-9 shrink-0 items-center rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text active:bg-fs-elevated disabled:opacity-40"
-        >
-          + 分割线
-        </button>
+        >{tr("+ 分割线")}</button>
       </div>
 
       {items.length === 0 ? (
-        <p className="border-t border-fs-border px-3 py-8 text-center text-sm text-fs-muted">
-          暂无已选指标，到「指标」里勾选。
-        </p>
+        <p className="border-t border-fs-border px-3 py-8 text-center text-sm text-fs-muted">{tr("暂无已选指标，到「指标」里勾选。")}</p>
       ) : (
         <ul className="border-t border-fs-border">
           {items.map((item, index) => {
@@ -128,7 +123,7 @@ export function MacroMobileSelectedPanel({
                   <button
                     type="button"
                     onClick={() => setMenuIndex(index)}
-                    aria-label="分组操作"
+                    aria-label={tr("分组操作")}
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-accent-text"
                   >
                     <IconMore size={22} />
@@ -147,14 +142,12 @@ export function MacroMobileSelectedPanel({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium text-fs-text">
                     {isDerived ? (
-                      <span className="mr-1.5 inline-flex rounded border border-fs-accent/30 bg-fs-accent-soft px-1.5 align-[2px] text-[11px] text-fs-accent-text">
-                        派生
-                      </span>
+                      <span className="mr-1.5 inline-flex rounded border border-fs-accent/30 bg-fs-accent-soft px-1.5 align-[2px] text-[11px] text-fs-accent-text">{tr("派生")}</span>
                     ) : null}
-                    {row.label}
+                    {tr(row.label)}
                   </p>
                   <p className="mt-0.5 truncate text-xs tabular-nums text-fs-muted">
-                    {metaLine(row, showSource) || (showSource ? item.key : "")}
+                    {metaLine(row, showSource, tr) || (showSource ? item.key : "")}
                   </p>
                 </div>
                 {isDerived && onRenameKey ? (
@@ -162,14 +155,12 @@ export function MacroMobileSelectedPanel({
                     type="button"
                     onClick={() => onRenameKey(item.key)}
                     className="inline-flex h-8 shrink-0 items-center rounded-md border border-fs-border bg-white px-2.5 text-[13px] text-fs-secondary"
-                  >
-                    改名
-                  </button>
+                  >{tr("改名")}</button>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => setMenuIndex(index)}
-                  aria-label="更多操作"
+                  aria-label={tr("更多操作")}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated"
                 >
                   <IconMore size={22} />
@@ -180,9 +171,7 @@ export function MacroMobileSelectedPanel({
         </ul>
       )}
 
-      <p className="px-3 py-3.5 text-[13px] leading-relaxed text-fs-muted">
-        点右上「提取数据」后，到「数据」查看数值、到「图表」看走势。
-      </p>
+      <p className="px-3 py-3.5 text-[13px] leading-relaxed text-fs-muted">{tr("点右上「提取数据」后，到「数据」查看数值、到「图表」看走势。")}</p>
 
       <MobileSheet open={menuItem != null} onClose={closeMenu} title={menuTitle}>
         {menuItem && menuIndex != null ? (
@@ -193,32 +182,26 @@ export function MacroMobileSelectedPanel({
               onClick={() => move(menuIndex, menuIndex - 1)}
               className={actionClass}
             >
-              <IconArrowUp />
-              上移
-            </button>
+              <IconArrowUp />{tr("上移")}</button>
             <button
               type="button"
               disabled={menuIndex === items.length - 1}
               onClick={() => move(menuIndex, menuIndex + 1)}
               className={actionClass}
             >
-              <IconArrowDown />
-              下移
-            </button>
+              <IconArrowDown />{tr("下移")}</button>
             {menuItem.type === "divider" ? (
               <>
                 <button
                   type="button"
                   onClick={() => {
-                    const next = window.prompt("分组名称", dividerDisplayLabel(menuItem));
+                    const next = window.prompt(tr("分组名称"), dividerDisplayLabel(menuItem));
                     if (next != null) onChange(updateDividerLabel(items, menuItem.id, next));
                     closeMenu();
                   }}
                   className={actionClass}
                 >
-                  <IconEdit />
-                  编辑分组名称
-                </button>
+                  <IconEdit />{tr("编辑分组名称")}</button>
                 <button
                   type="button"
                   onClick={() => {
@@ -227,9 +210,7 @@ export function MacroMobileSelectedPanel({
                   }}
                   className={`${actionClass} text-fs-negative`}
                 >
-                  <IconTrash />
-                  删除分组
-                </button>
+                  <IconTrash />{tr("删除分组")}</button>
               </>
             ) : (
               <>
@@ -243,9 +224,7 @@ export function MacroMobileSelectedPanel({
                       }}
                       className={actionClass}
                     >
-                      <IconEdit />
-                      改名
-                    </button>
+                      <IconEdit />{tr("改名")}</button>
                   ) : null
                 ) : (
                   <button
@@ -256,9 +235,7 @@ export function MacroMobileSelectedPanel({
                     }}
                     className={actionClass}
                   >
-                    <IconLocate />
-                    在指标树中定位
-                  </button>
+                    <IconLocate />{tr("在指标树中定位")}</button>
                 )}
                 <button
                   type="button"
@@ -268,9 +245,7 @@ export function MacroMobileSelectedPanel({
                   }}
                   className={`${actionClass} text-fs-negative`}
                 >
-                  <IconTrash />
-                  删除
-                </button>
+                  <IconTrash />{tr("删除")}</button>
               </>
             )}
           </div>

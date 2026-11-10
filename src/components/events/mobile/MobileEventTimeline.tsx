@@ -10,6 +10,7 @@ import {
   extractEventSection,
 } from "@/lib/data/eventContentDisplay";
 import { resolveEventTimelineImage, staticEventImage } from "@/lib/data/eventTimelineMedia";
+import { useTr } from "@/i18n/TextProvider";
 
 /** 浅色底的重要性标签（桌面 EventImportanceBadge 沿用深色主题配色） */
 const IMPORTANCE_STYLE: Record<EventImportance, string> = {
@@ -33,6 +34,7 @@ type TimelineSection = {
 };
 
 function EventThumb({ event, eraTag }: { event: MarketEventDto; eraTag: string | null }) {
+  const tr = useTr();
   const ref = useRef<HTMLDivElement>(null);
   const [near, setNear] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(() => staticEventImage(event));
@@ -88,9 +90,7 @@ function EventThumb({ event, eraTag }: { event: MarketEventDto; eraTag: string |
           onError={() => setBroken(true)}
         />
       ) : (
-        <span className="flex h-full items-center justify-center text-[10px] text-fs-muted">
-          历史影像
-        </span>
+        <span className="flex h-full items-center justify-center text-[10px] text-fs-muted">{tr("历史影像")}</span>
       )}
     </div>
   );
@@ -104,6 +104,7 @@ export type MobileEventTimelineProps = {
 
 /** 手机竖屏时间线：按时代分段上下滚动，顶部时代标签横向滑动快速跳转。 */
 export function MobileEventTimeline({ events, onSelect }: MobileEventTimelineProps) {
+  const tr = useTr();
   const scrollRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
   const sectionEls = useRef(new Map<string, HTMLElement>());
@@ -118,8 +119,8 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
         ? [
             {
               id: "all",
-              chipLabel: "全部事件",
-              title: "全部事件",
+              chipLabel: tr("全部事件"),
+              title: tr("全部事件"),
               range: null,
               intro: null,
               eraTag: null,
@@ -132,8 +133,8 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
       .filter((g) => g.children.length > 0)
       .map((g) => ({
         id: g.era.id,
-        chipLabel: g.meta.eraTag ?? g.era.title ?? "时代阶段",
-        title: g.era.title ?? g.meta.eraTag ?? "时代阶段",
+        chipLabel: g.meta.eraTag ?? g.era.title ?? tr("时代阶段"),
+        title: g.era.title ?? g.meta.eraTag ?? tr("时代阶段"),
         range: formatEraDateRange(g.meta, g.era),
         intro: eraTimelineHeaderSections(g.era.content)[0]?.body ?? null,
         eraTag: g.meta.eraTag,
@@ -142,8 +143,8 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
     if (model.orphans.length > 0) {
       out.push({
         id: "orphans",
-        chipLabel: "其他事件",
-        title: "其他事件",
+        chipLabel: tr("其他事件"),
+        title: tr("其他事件"),
         range: null,
         intro: null,
         eraTag: null,
@@ -151,7 +152,7 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
       });
     }
     return out;
-  }, [events]);
+  }, [events, tr]);
 
   const currentId = activeId ?? sections[0]?.id ?? null;
 
@@ -197,7 +198,7 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
 
   if (sections.length === 0) {
     return (
-      <p className="flex flex-1 items-center justify-center p-6 text-sm text-fs-muted">暂无匹配事件</p>
+      <p className="flex flex-1 items-center justify-center p-6 text-sm text-fs-muted">{tr("暂无匹配事件")}</p>
     );
   }
 
@@ -243,9 +244,9 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
             className="sticky z-10 border-b border-fs-border bg-fs-elevated px-3 py-2.5"
             style={{ top: CHIPS_ROW_H }}
           >
-            <p className="text-[11px] tracking-wider text-fs-muted">时代阶段</p>
+            <p className="text-[11px] tracking-wider text-fs-muted">{tr("时代阶段")}</p>
             <div className="mt-0.5 flex items-baseline gap-2">
-              <h2 className="min-w-0 truncate text-[17px] font-semibold text-fs-text">{s.title}</h2>
+              <h2 className="min-w-0 truncate text-[17px] font-semibold text-fs-text">{tr(s.title)}</h2>
               {s.range ? (
                 <span className="shrink-0 text-[13px] tabular-nums text-fs-muted">{s.range}</span>
               ) : null}
@@ -260,7 +261,7 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
             <span className="absolute bottom-0 left-[23px] top-0 w-0.5 bg-fs-border" aria-hidden />
             {s.events.map((event) => {
               const summary =
-                extractEventSection(event.content, "事件概述") ??
+                extractEventSection(event.content, tr("事件概述")) ??
                 eventPreviewContent(event.content, 100);
               const critical = event.importance === "CRITICAL" || event.importance === "HIGH";
               return (
@@ -291,7 +292,7 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
                         ) : null}
                       </div>
                       <h3 className="mt-1.5 line-clamp-2 text-[15px] font-semibold leading-snug text-fs-text">
-                        {event.title ?? "未命名事件"}
+                        {event.title ?? tr("未命名事件")}
                       </h3>
                       {summary ? (
                         <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-fs-secondary">

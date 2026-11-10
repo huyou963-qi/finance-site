@@ -9,6 +9,7 @@ import { MarketDrawingOwnerContext } from "@/hooks/useMarketDrawings";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMarketQuotes } from "@/hooks/useMarketQuotes";
 import { useWatchlistStockSort } from "@/hooks/useWatchlistStockSort";
+import { useTr } from "@/i18n/TextProvider";
 
 function WatchlistChevron({ collapsed }: { collapsed: boolean }) {
   return <svg viewBox="0 0 10 14" className="h-3 w-2.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={collapsed ? "M3.5 2.5 7.5 7l-4 4.5" : "M6.5 2.5 2.5 7l4 4.5"} /></svg>;
@@ -17,15 +18,16 @@ function WatchlistChevron({ collapsed }: { collapsed: boolean }) {
 const HANDLE_CLASS = "absolute left-1/2 top-1/2 z-10 flex h-7 w-3 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm border border-fs-border/70 bg-fs-elevated text-fs-muted shadow-sm transition hover:border-fs-accent hover:bg-fs-accent-soft hover:text-fs-text";
 
 function GroupEditor({ group, disabled, onChange }: { group: WatchlistGroup; disabled: boolean; onChange: (change: WatchlistGroupChange) => Promise<boolean> }) {
+  const tr = useTr();
   const [name, setName] = useState(group.name);
   const [deleting, setDeleting] = useState(false);
   return <div className="space-y-1">
     <form onSubmit={(event) => { event.preventDefault(); void onChange({ action: "renameGroup", groupId: group.id, name }); }} className="flex items-center gap-1">
-      <input aria-label={`编辑组名 ${group.name}`} value={name} onChange={(event) => setName(event.target.value)} maxLength={30} disabled={disabled} className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1 text-xs" />
-      <button disabled={disabled || name.trim() === group.name} className="min-h-8 px-1 text-xs text-fs-accent-text">保存</button>
-      <button type="button" disabled={disabled} onClick={() => setDeleting((value) => !value)} aria-label={`删除分组 ${group.name}`} className="min-h-8 px-1 text-xs text-fs-muted">删除</button>
+      <input aria-label={tr("编辑组名 {name}", { name: group.name })} value={name} onChange={(event) => setName(event.target.value)} maxLength={30} disabled={disabled} className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1 text-xs" />
+      <button disabled={disabled || name.trim() === group.name} className="min-h-8 px-1 text-xs text-fs-accent-text">{tr("保存")}</button>
+      <button type="button" disabled={disabled} onClick={() => setDeleting((value) => !value)} aria-label={tr("删除分组 {name}", { name: group.name })} className="min-h-8 px-1 text-xs text-fs-muted">{tr("删除")}</button>
     </form>
-    {deleting ? <div className="rounded border border-fs-border p-2 text-xs"><p>删除后，组内股票移回未分组。</p><button disabled={disabled} onClick={() => void onChange({ action: "deleteGroup", groupId: group.id })} className="mr-3 min-h-8 text-fs-negative">确认删除分组</button><button onClick={() => setDeleting(false)} className="min-h-8 text-fs-muted">取消</button></div> : null}
+    {deleting ? <div className="rounded border border-fs-border p-2 text-xs"><p>{tr("删除后，组内股票移回未分组。")}</p><button disabled={disabled} onClick={() => void onChange({ action: "deleteGroup", groupId: group.id })} className="mr-3 min-h-8 text-fs-negative">{tr("确认删除分组")}</button><button onClick={() => setDeleting(false)} className="min-h-8 text-fs-muted">{tr("取消")}</button></div> : null}
   </div>;
 }
 
@@ -39,6 +41,7 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
   rightPanel?: ReactNode;
   rightPanelOpenVersion?: number;
 }) {
+  const tr = useTr();
   const [open, setOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [mobileTab, setMobileTab] = useState<"watchlist" | "chart" | "details">("chart");
@@ -60,7 +63,7 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
   const [draftOrder, setDraftOrder] = useState<string[] | null>(null);
   const [draggingTab, setDraggingTab] = useState<string | null>(null);
   const orderedIds = normalizeWatchlistTabOrder(groups, draftOrder ?? tabOrder);
-  const tabNames = new Map([...[{ id: "all", name: "全部" }, { id: "", name: "未分组" }], ...groups].map((group) => [group.id, group.name]));
+  const tabNames = new Map([...[{ id: "all", name: tr("全部") }, { id: "", name: tr("未分组") }], ...groups].map((group) => [group.id, group.name]));
   const tabDragCleanup = useRef<(() => void) | null>(null);
   const tabsRef = useRef<HTMLElement>(null);
   const [selectedGroup, setSelectedGroup] = useState("all");
@@ -193,55 +196,55 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
   const currentAdded = stocks.some((stock) => stock.symbol === symbol);
 
   const panel = (
-    <aside id="markets-watchlist-panel" aria-label="行情自选股" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }} className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-white" style={isMobile ? { flex: "1 1 auto", width: "100%" } : { width: sidebarWidth, maxWidth: 520 }}>
-          {isMobile ? <div className="flex shrink-0 justify-end px-3"><button ref={closeRef} type="button" onClick={close} className="min-h-11 rounded px-2 text-xs text-fs-accent-text">返回行情</button></div> : null}
+    <aside id="markets-watchlist-panel" aria-label={tr("行情自选股")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }} className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-white" style={isMobile ? { flex: "1 1 auto", width: "100%" } : { width: sidebarWidth, maxWidth: 520 }}>
+          {isMobile ? <div className="flex shrink-0 justify-end px-3"><button ref={closeRef} type="button" onClick={close} className="min-h-11 rounded px-2 text-xs text-fs-accent-text">{tr("返回行情")}</button></div> : null}
           <div data-watchlist-scroll className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 md:px-4 md:py-4">
             <div className="flex items-start gap-1">
-              <nav ref={tabsRef} aria-label="自选股分组" className="flex min-w-0 flex-1 flex-wrap gap-1 pb-1">
+              <nav ref={tabsRef} aria-label={tr("自选股分组")} className="flex min-w-0 flex-1 flex-wrap gap-1 pb-1">
                 {orderedIds.map((id) => <span key={id} data-watchlist-tab={id} className={`flex max-w-full shrink-0 items-center rounded-md border bg-white text-xs ${activeGroup === id ? "border-fs-accent/50 font-semibold text-fs-accent-text" : "border-fs-border text-fs-muted"} ${draggingTab === id ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
                   <button type="button" aria-pressed={activeGroup === id} disabled={!ready || saving} onClick={() => { setSelectedGroup(id); setRemovingStock(null); }} onKeyDown={(event) => { if (event.altKey && ["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title={tabNames.get(id)} className="min-h-8 min-w-0 max-w-32 flex-1 truncate pl-2 pr-1">{tabNames.get(id)}</button>
-                  <button type="button" aria-label={`拖动 ${tabNames.get(id)} 分组排序`} disabled={!ready || saving} onPointerDown={(event) => startTabDrag(event, id)} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title="拖动排序；方向键前移或后移" className="min-h-8 w-4 cursor-grab touch-none select-none text-fs-muted active:cursor-grabbing">⋮</button>
+                  <button type="button" aria-label={tr("拖动 {v0} 分组排序", { v0: tabNames.get(id) })} disabled={!ready || saving} onPointerDown={(event) => startTabDrag(event, id)} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight"].includes(event.key)) { event.preventDefault(); shiftTab(id, event.key === "ArrowLeft" ? -1 : 1); } }} title={tr("拖动排序；方向键前移或后移")} className="min-h-8 w-4 cursor-grab touch-none select-none text-fs-muted active:cursor-grabbing">⋮</button>
                 </span>)}
               </nav>
-              <button type="button" disabled={!ready || saving} aria-expanded={managing} onClick={() => setManaging((value) => !value)} className="min-h-8 shrink-0 rounded px-2 text-xs text-fs-accent-text">{managing ? "完成" : "管理分组"}</button>
+              <button type="button" disabled={!ready || saving} aria-expanded={managing} onClick={() => setManaging((value) => !value)} className="min-h-8 shrink-0 rounded px-2 text-xs text-fs-accent-text">{managing ? tr("完成") : tr("管理分组")}</button>
             </div>
-            {managing ? <section aria-label="分组管理" className="space-y-2 rounded-lg border border-fs-border bg-fs-elevated/40 p-2">
-              <div aria-label="分组排序" className="space-y-1">{orderedIds.map((id, index) => <div key={id} className="flex items-center gap-1 text-xs"><span className="min-w-0 flex-1 truncate">{tabNames.get(id)}</span><button type="button" aria-label={`前移 ${tabNames.get(id)}`} disabled={!ready || saving || index === 0} onClick={() => shiftTab(id, -1)} className="min-h-8 px-1 text-fs-accent-text disabled:text-fs-muted/50">前移</button><button type="button" aria-label={`后移 ${tabNames.get(id)}`} disabled={!ready || saving || index === orderedIds.length - 1} onClick={() => shiftTab(id, 1)} className="min-h-8 px-1 text-fs-accent-text disabled:text-fs-muted/50">后移</button></div>)}</div>
+            {managing ? <section aria-label={tr("分组管理")} className="space-y-2 rounded-lg border border-fs-border bg-fs-elevated/40 p-2">
+              <div aria-label={tr("分组排序")} className="space-y-1">{orderedIds.map((id, index) => <div key={id} className="flex items-center gap-1 text-xs"><span className="min-w-0 flex-1 truncate">{tabNames.get(id)}</span><button type="button" aria-label={tr("前移 {v0}", { v0: tabNames.get(id) })} disabled={!ready || saving || index === 0} onClick={() => shiftTab(id, -1)} className="min-h-8 px-1 text-fs-accent-text disabled:text-fs-muted/50">{tr("前移")}</button><button type="button" aria-label={tr("后移 {v0}", { v0: tabNames.get(id) })} disabled={!ready || saving || index === orderedIds.length - 1} onClick={() => shiftTab(id, 1)} className="min-h-8 px-1 text-fs-accent-text disabled:text-fs-muted/50">{tr("后移")}</button></div>)}</div>
               <form onSubmit={async (event) => { event.preventDefault(); if (await changeGroup({ action: "createGroup", name: newGroupName })) setNewGroupName(""); }} className="flex items-center gap-1">
-                <input aria-label="新分组名称" placeholder="新分组名称" maxLength={30} value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} disabled={!ready || saving} className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1 text-xs" />
-                <button disabled={!ready || saving || !newGroupName.trim()} className="min-h-8 shrink-0 px-1 text-xs text-fs-accent-text">新增</button>
+                <input aria-label={tr("新分组名称")} placeholder={tr("新分组名称")} maxLength={30} value={newGroupName} onChange={(event) => setNewGroupName(event.target.value)} disabled={!ready || saving} className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1 text-xs" />
+                <button disabled={!ready || saving || !newGroupName.trim()} className="min-h-8 shrink-0 px-1 text-xs text-fs-accent-text">{tr("新增")}</button>
               </form>
               {groups.map((group) => <GroupEditor key={`${group.id}:${group.name}`} group={group} disabled={!ready || saving} onChange={changeGroup} />)}
             </section> : null}
-            {canAddCurrent && symbol && !currentAdded && ready ? <button type="button" disabled={saving} onClick={() => add({ symbol, name: name ?? symbol, exchange: "" })} className="min-h-10 w-full rounded-lg border border-fs-border px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">☆ 添加当前标的 {marketSymbolLabel(symbol)}</button> : null}
-            {!ready ? <p className="text-sm text-fs-muted">加载自选股…</p> : !visibleStocks.length ? <p className="rounded-lg border border-dashed border-fs-border p-3 text-xs leading-5 text-fs-muted">{stocks.length ? "此分组暂无股票，可在股票卡片中调整分组。" : "在行情页顶部选择标的后，点击添加当前标的。"}</p> : <ul className="space-y-1">
+            {canAddCurrent && symbol && !currentAdded && ready ? <button type="button" disabled={saving} onClick={() => add({ symbol, name: name ?? symbol, exchange: "" })} className="min-h-10 w-full rounded-lg border border-fs-border px-2 text-xs text-fs-accent-text hover:bg-fs-accent-soft disabled:text-fs-muted">{tr("☆ 添加当前标的")} {marketSymbolLabel(symbol)}</button> : null}
+            {!ready ? <p className="text-sm text-fs-muted">{tr("加载自选股…")}</p> : !visibleStocks.length ? <p className="rounded-lg border border-dashed border-fs-border p-3 text-xs leading-5 text-fs-muted">{stocks.length ? tr("此分组暂无股票，可在股票卡片中调整分组。") : tr("在行情页顶部选择标的后，点击添加当前标的。")}</p> : <ul className="space-y-1">
               {visibleStocks.map((stock) => <li key={stock.symbol} data-watchlist-stock={stock.symbol} className={`flex flex-wrap items-center rounded-lg border ${symbol === stock.symbol ? "border-fs-accent/30 bg-fs-accent-soft" : "border-transparent bg-fs-elevated/50"} ${stockSort.dragging === stock.symbol ? "opacity-50 ring-1 ring-fs-accent" : ""}`}>
-                <button type="button" aria-label={`拖动 ${stock.symbol} 排序`} title="拖动排序；方向键上移或下移" disabled={!ready || saving || visibleStocks.length < 2} onPointerDown={event => stockSort.start(event, stock.symbol)} onKeyDown={event => { if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); stockSort.shift(stock.symbol, event.key === "ArrowUp" ? -1 : 1); } }} className="min-h-11 w-5 shrink-0 cursor-grab touch-none select-none text-xs text-fs-muted active:cursor-grabbing disabled:opacity-30">⋮⋮</button>
-                <button type="button" aria-label={`查看 ${stock.symbol} 行情`} aria-pressed={symbol === stock.symbol} onClick={() => { onSelect(stock.symbol, stock.name); if (isMobile) close(); }} className="min-w-0 flex-1 rounded px-2 py-1.5 text-left hover:text-fs-accent-text">
+                <button type="button" aria-label={tr("拖动 {symbol} 排序", { symbol: stock.symbol })} title={tr("拖动排序；方向键上移或下移")} disabled={!ready || saving || visibleStocks.length < 2} onPointerDown={event => stockSort.start(event, stock.symbol)} onKeyDown={event => { if (["ArrowUp", "ArrowDown"].includes(event.key)) { event.preventDefault(); stockSort.shift(stock.symbol, event.key === "ArrowUp" ? -1 : 1); } }} className="min-h-11 w-5 shrink-0 cursor-grab touch-none select-none text-xs text-fs-muted active:cursor-grabbing disabled:opacity-30">⋮⋮</button>
+                <button type="button" aria-label={tr("查看 {symbol} 行情", { symbol: stock.symbol })} aria-pressed={symbol === stock.symbol} onClick={() => { onSelect(stock.symbol, stock.name); if (isMobile) close(); }} className="min-w-0 flex-1 rounded px-2 py-1.5 text-left hover:text-fs-accent-text">
                   <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-                    <span className="min-w-0 truncate text-xs font-semibold leading-4" title={`行情源代码：${stock.symbol}`}>{marketSymbolLabel(stock.symbol)}</span>
-                    <span className="shrink-0 font-mono text-xs tabular-nums text-fs-text" title={quotes[stock.symbol]?.time ? `行情时间：${new Date(quotes[stock.symbol]!.time! * 1000).toLocaleString("zh-CN")} · ${quotes[stock.symbol]?.currency ?? ""}` : quotes[stock.symbol] ? `最新行情 · ${quotes[stock.symbol]?.currency ?? ""}（供应商未提供时间）` : "行情暂不可用"}>
+                    <span className="min-w-0 truncate text-xs font-semibold leading-4" title={tr("行情源代码：{symbol}", { symbol: stock.symbol })}>{marketSymbolLabel(stock.symbol)}</span>
+                    <span className="shrink-0 font-mono text-xs tabular-nums text-fs-text" title={quotes[stock.symbol]?.time ? tr("行情时间：{v0} · {v1}", { v0: new Date(quotes[stock.symbol]!.time! * 1000).toLocaleString("zh-CN"), v1: quotes[stock.symbol]?.currency ?? "" }) : quotes[stock.symbol] ? tr("最新行情 · {v0}（供应商未提供时间）", { v0: quotes[stock.symbol]?.currency ?? "" }) : tr("行情暂不可用")}>
                       {quotes[stock.symbol]?.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) ?? "—"}
                     </span>
                   </span>
                   <span className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate text-[10px] leading-4 text-fs-muted" title={stock.name}>{stock.name}</span>
-                    <span className={`shrink-0 font-mono text-[10px] tabular-nums ${(quotes[stock.symbol]?.changePercent ?? 0) > 0 ? "text-fs-positive" : (quotes[stock.symbol]?.changePercent ?? 0) < 0 ? "text-fs-negative" : "text-fs-muted"}`} aria-label={`${stock.symbol} 当天涨跌幅`}>
+                    <span className="min-w-0 truncate text-[10px] leading-4 text-fs-muted" title={tr(stock.name)}>{tr(stock.name)}</span>
+                    <span className={`shrink-0 font-mono text-[10px] tabular-nums ${(quotes[stock.symbol]?.changePercent ?? 0) > 0 ? "text-fs-positive" : (quotes[stock.symbol]?.changePercent ?? 0) < 0 ? "text-fs-negative" : "text-fs-muted"}`} aria-label={tr("{symbol} 当天涨跌幅", { symbol: stock.symbol })}>
                       {quotes[stock.symbol]?.changePercent != null ? `${quotes[stock.symbol]!.changePercent! > 0 ? "+" : ""}${quotes[stock.symbol]!.changePercent!.toFixed(2)}%` : "—"}
                     </span>
                   </span>
                 </button>
                 <div className="flex shrink-0 flex-col self-stretch justify-center border-l border-fs-border/50">
-                <button type="button" aria-label={`移除 ${stock.symbol}`} aria-expanded={removingStock === stock.symbol} disabled={!ready || saving} onClick={() => { setRemovingStock(stock.symbol); setMovingStock(null); }} className="h-6 w-8 rounded text-xs text-fs-muted  hover:bg-fs-elevated hover:text-fs-negative">×</button>
-                <button type="button" aria-label={`调整 ${stock.symbol} 分组`} aria-expanded={movingStock === stock.symbol} disabled={!ready || saving} onClick={() => setMovingStock((current) => current === stock.symbol ? null : stock.symbol)} className="h-6 w-8 rounded text-xs text-fs-muted hover:bg-fs-elevated">⋯</button>
+                <button type="button" aria-label={tr("移除 {symbol}", { symbol: stock.symbol })} aria-expanded={removingStock === stock.symbol} disabled={!ready || saving} onClick={() => { setRemovingStock(stock.symbol); setMovingStock(null); }} className="h-6 w-8 rounded text-xs text-fs-muted  hover:bg-fs-elevated hover:text-fs-negative">×</button>
+                <button type="button" aria-label={tr("调整 {symbol} 分组", { symbol: stock.symbol })} aria-expanded={movingStock === stock.symbol} disabled={!ready || saving} onClick={() => setMovingStock((current) => current === stock.symbol ? null : stock.symbol)} className="h-6 w-8 rounded text-xs text-fs-muted hover:bg-fs-elevated">⋯</button>
                 </div>
-                {removingStock === stock.symbol ? <div role="group" aria-label={`确认移除 ${stock.symbol}`} className="order-last w-full border-t border-fs-border px-2 py-1.5 text-xs" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setRemovingStock(null); } }}><p>确认从自选股移除 {stock.symbol}？</p><div className="flex gap-3"><button type="button" disabled={!ready || saving} onClick={async () => { if (await change(stock, true)) setRemovingStock(null); }} className="min-h-8 text-fs-negative">确认移除</button><button type="button" disabled={saving} onClick={() => setRemovingStock(null)} className="min-h-8 text-fs-muted">取消</button></div></div> : null}
+                {removingStock === stock.symbol ? <div role="group" aria-label={tr("确认移除 {symbol}", { symbol: stock.symbol })} className="order-last w-full border-t border-fs-border px-2 py-1.5 text-xs" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setRemovingStock(null); } }}><p>{tr("确认从自选股移除")} {stock.symbol}？</p><div className="flex gap-3"><button type="button" disabled={!ready || saving} onClick={async () => { if (await change(stock, true)) setRemovingStock(null); }} className="min-h-8 text-fs-negative">{tr("确认移除")}</button><button type="button" disabled={saving} onClick={() => setRemovingStock(null)} className="min-h-8 text-fs-muted">{tr("取消")}</button></div></div> : null}
 
-                {movingStock === stock.symbol ? <div className="w-full border-t border-fs-border p-1.5"><select aria-label={`${stock.symbol} 所属分组`} disabled={!ready || saving} value={stock.groupId ?? ""} onChange={async (event) => { if (await changeGroup({ action: "moveStock", symbol: stock.symbol, groupId: event.target.value || null })) setMovingStock(null); }} className="min-h-8 w-full rounded border border-fs-border bg-fs-bg px-2 text-xs"><option value="">未分组</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></div> : null}
+                {movingStock === stock.symbol ? <div className="w-full border-t border-fs-border p-1.5"><select aria-label={tr("{symbol} 所属分组", { symbol: stock.symbol })} disabled={!ready || saving} value={stock.groupId ?? ""} onChange={async (event) => { if (await changeGroup({ action: "moveStock", symbol: stock.symbol, groupId: event.target.value || null })) setMovingStock(null); }} className="min-h-8 w-full rounded border border-fs-border bg-fs-bg px-2 text-xs"><option value="">{tr("未分组")}</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></div> : null}
               </li>)}
             </ul>}
           </div>
-          {storageError ? <div role="status" className="shrink-0 border-t border-fs-border px-3 py-2 text-xs text-fs-negative">{storageError}<button type="button" disabled={saving} onClick={() => void reload()} className="ml-2 underline">重新加载</button></div> : null}
+          {storageError ? <div role="status" className="shrink-0 border-t border-fs-border px-3 py-2 text-xs text-fs-negative">{storageError}<button type="button" disabled={saving} onClick={() => void reload()} className="ml-2 underline">{tr("重新加载")}</button></div> : null}
     </aside>
   );
 
@@ -251,36 +254,36 @@ export function MarketsWatchlist({ children, toolbar, symbol, name, canAddCurren
       <div className="relative z-30 shrink-0 border-b border-fs-border bg-white px-1 pb-2 lg:px-2">{toolbar}</div>
       <div className="flex min-h-0 min-w-0 flex-1 items-stretch overflow-hidden">
         {panelOpen ? panel : null}
-        {!isMobile && !open ? <button ref={toggleRef} type="button" onClick={() => setOpen(true)} className="group relative flex w-3 shrink-0 items-stretch border-r border-fs-border bg-fs-elevated/90 transition hover:bg-fs-accent-soft/40" title="展开自选股" aria-label="展开自选股" aria-expanded={false} aria-controls="markets-watchlist-panel"><span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" /><span className={HANDLE_CLASS}><WatchlistChevron collapsed /></span></button> : null}
+        {!isMobile && !open ? <button ref={toggleRef} type="button" onClick={() => setOpen(true)} className="group relative flex w-3 shrink-0 items-stretch border-r border-fs-border bg-fs-elevated/90 transition hover:bg-fs-accent-soft/40" title={tr("展开自选股")} aria-label={tr("展开自选股")} aria-expanded={false} aria-controls="markets-watchlist-panel"><span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" /><span className={HANDLE_CLASS}><WatchlistChevron collapsed /></span></button> : null}
         {!isMobile && open ? <div className="group relative flex w-3 shrink-0 items-stretch border-x border-fs-border bg-fs-elevated/90">
-          <div role="separator" tabIndex={0} aria-label="调整自选股宽度" aria-orientation="vertical" aria-valuemin={200} aria-valuemax={520} aria-valuenow={sidebarWidth} title="拖拽调节自选股宽度" onMouseDown={startResize} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); setSidebarWidth((width) => event.key === "Home" ? 200 : event.key === "End" ? 520 : Math.min(520, Math.max(200, width + (event.key === "ArrowRight" ? 20 : -20)))); } }} className="absolute inset-0 cursor-col-resize hover:bg-fs-accent-soft/60"><span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" /></div>
-          <button ref={closeRef} type="button" onClick={close} onKeyDown={(event) => { if (event.key === "Escape") close(); }} onMouseDown={(event) => event.stopPropagation()} className={HANDLE_CLASS} title="折叠自选股" aria-label="折叠自选股" aria-expanded={true} aria-controls="markets-watchlist-panel"><WatchlistChevron collapsed={false} /></button>
+          <div role="separator" tabIndex={0} aria-label={tr("调整自选股宽度")} aria-orientation="vertical" aria-valuemin={200} aria-valuemax={520} aria-valuenow={sidebarWidth} title={tr("拖拽调节自选股宽度")} onMouseDown={startResize} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); setSidebarWidth((width) => event.key === "Home" ? 200 : event.key === "End" ? 520 : Math.min(520, Math.max(200, width + (event.key === "ArrowRight" ? 20 : -20)))); } }} className="absolute inset-0 cursor-col-resize hover:bg-fs-accent-soft/60"><span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" /></div>
+          <button ref={closeRef} type="button" onClick={close} onKeyDown={(event) => { if (event.key === "Escape") close(); }} onMouseDown={(event) => event.stopPropagation()} className={HANDLE_CLASS} title={tr("折叠自选股")} aria-label={tr("折叠自选股")} aria-expanded={true} aria-controls="markets-watchlist-panel"><WatchlistChevron collapsed={false} /></button>
         </div> : null}
         <div className={`min-h-0 min-w-0 flex-1 flex-col ${isMobile && (panelOpen || detailsOpen) ? "hidden" : "flex"}`}>{children}</div>
         {!isMobile && hasRightPanel ? <div className="group relative flex w-3 shrink-0 items-stretch border-x border-fs-border bg-fs-elevated/90">
-          {rightOpen ? <div role="separator" tabIndex={0} aria-label="调整事件详情宽度" aria-orientation="vertical"
-            aria-valuemin={200} aria-valuemax={520} aria-valuenow={rightWidth} title="拖拽调节事件详情宽度"
+          {rightOpen ? <div role="separator" tabIndex={0} aria-label={tr("调整事件详情宽度")} aria-orientation="vertical"
+            aria-valuemin={200} aria-valuemax={520} aria-valuenow={rightWidth} title={tr("拖拽调节事件详情宽度")}
             onMouseDown={event => startResize(event, "right")}
             onKeyDown={event => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
               event.preventDefault(); setRightWidth(width => event.key === "Home" ? 200 : event.key === "End" ? 520 : Math.min(520, Math.max(200, width + (event.key === "ArrowLeft" ? 20 : -20))));
             } }} className="absolute inset-0 cursor-col-resize hover:bg-fs-accent-soft/60"><span className="mx-auto block h-full w-px bg-fs-border" /></div> : null}
           <button type="button" onClick={() => setRightOpen(value => !value)} onMouseDown={event => event.stopPropagation()}
-            className={HANDLE_CLASS} title={rightOpen ? "折叠事件详情" : "展开事件详情"}
-            aria-label={rightOpen ? "折叠事件详情" : "展开事件详情"} aria-expanded={rightOpen} aria-controls="markets-event-detail-panel">
+            className={HANDLE_CLASS} title={rightOpen ? tr("折叠事件详情") : tr("展开事件详情")}
+            aria-label={rightOpen ? tr("折叠事件详情") : tr("展开事件详情")} aria-expanded={rightOpen} aria-controls="markets-event-detail-panel">
             <WatchlistChevron collapsed={rightOpen} />
           </button>
         </div> : null}
         {detailsOpen ? <div className="flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-white"
           style={isMobile ? { flex: "1 1 auto", width: "100%" } : { width: rightWidth, maxWidth: 520 }}>
-          {isMobile ? <div className="flex shrink-0 justify-end px-3"><button type="button" onClick={() => setMobileTab("chart")} className="min-h-11 rounded px-2 text-xs text-fs-accent-text">返回行情</button></div> : null}
+          {isMobile ? <div className="flex shrink-0 justify-end px-3"><button type="button" onClick={() => setMobileTab("chart")} className="min-h-11 rounded px-2 text-xs text-fs-accent-text">{tr("返回行情")}</button></div> : null}
           {rightPanel}
         </div> : null}
       </div>
-      {isMobile ? <nav aria-label="行情功能模块" className="flex shrink-0 border-t border-fs-border bg-white/95">
-        <button ref={toggleRef} type="button" onClick={() => setMobileTab("watchlist")} aria-current={panelOpen ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><span className="text-base leading-none" aria-hidden="true">☆</span><span>自选股</span></button>
-        <button type="button" onClick={() => setMobileTab("chart")} aria-current={mobileTab === "chart" ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${mobileTab === "chart" ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7" /></svg><span>行情</span></button>
+      {isMobile ? <nav aria-label={tr("行情功能模块")} className="flex shrink-0 border-t border-fs-border bg-white/95">
+        <button ref={toggleRef} type="button" onClick={() => setMobileTab("watchlist")} aria-current={panelOpen ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${panelOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><span className="text-base leading-none" aria-hidden="true">☆</span><span>{tr("自选股")}</span></button>
+        <button type="button" onClick={() => setMobileTab("chart")} aria-current={mobileTab === "chart" ? "page" : undefined} className={`flex h-8 flex-1 items-center justify-center gap-1.5 text-[11px] ${mobileTab === "chart" ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}><svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 4v16h16M7 15l4-5 4 3 5-7" /></svg><span>{tr("行情")}</span></button>
         {hasRightPanel ? <button type="button" onClick={() => setMobileTab("details")} aria-current={detailsOpen ? "page" : undefined}
-          className={`flex h-8 flex-1 items-center justify-center text-[11px] ${detailsOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}>事件详情</button> : null}
+          className={`flex h-8 flex-1 items-center justify-center text-[11px] ${detailsOpen ? "font-semibold text-fs-accent-text" : "text-fs-muted"}`}>{tr("事件详情")}</button> : null}
       </nav> : null}
     </div>
     </MarketDrawingOwnerContext.Provider>

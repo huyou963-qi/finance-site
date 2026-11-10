@@ -1,3 +1,4 @@
+import { identityTr, type Tr } from "@/i18n/text";
 /**
  * regime 展示常量（Phase 4 WS5）+ 分歧色阶。
  * 四象限配色取 dataviz 校验通过的分类 4 色集（blue/green/magenta/yellow，全对 CVD 通过），

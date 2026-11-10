@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { localizeServerMessage, requestLocale } from "@/i18n/serverMessages";
 import { getUserByRequest } from "@/lib/auth";
 import { getWechatConfig, issueOAuthState, wechatCallbackUrl } from "@/lib/auth/wechat";
 
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const mode = req.nextUrl.searchParams.get("mode") === "bind" ? "bind" : "login";
   if (mode === "bind" && !(await getUserByRequest(req))) {
-    return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    return NextResponse.json({ error: localizeServerMessage("请先登录", requestLocale(req)) }, { status: 401 });
   }
 
   const { state, cookie } = issueOAuthState(mode);

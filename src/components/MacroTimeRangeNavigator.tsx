@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroTimeRangeNavigatorProps = {
   categories: string[];
@@ -83,6 +84,7 @@ export function MacroTimeRangeNavigator({
   onRangePctChange,
   className,
 }: MacroTimeRangeNavigatorProps) {
+  const tr = useTr();
   const trackRef = useRef<HTMLDivElement>(null);
   const [trackWidthPx, setTrackWidthPx] = useState(0);
   const n = categories.length;
@@ -206,7 +208,7 @@ export function MacroTimeRangeNavigator({
           />
           <button
             type="button"
-            aria-label="拖动左边界"
+            aria-label={tr("拖动左边界")}
             className="absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-elevated p-0 hover:bg-fs-accent-soft"
             style={{ left: `${leftPct}%` }}
             onPointerDown={(e) => {
@@ -217,7 +219,7 @@ export function MacroTimeRangeNavigator({
           />
           <button
             type="button"
-            aria-label="拖动右边界"
+            aria-label={tr("拖动右边界")}
             className="absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-elevated p-0 hover:bg-fs-accent-soft"
             style={{ left: `${rightPct}%` }}
             onPointerDown={(e) => {
@@ -242,7 +244,7 @@ export function MacroTimeRangeNavigator({
                 className={tickClass}
                 style={isFirst || isLast ? undefined : { left: `${t.pct}%` }}
               >
-                {t.label}
+                {tr(t.label)}
               </span>
             );
           })}

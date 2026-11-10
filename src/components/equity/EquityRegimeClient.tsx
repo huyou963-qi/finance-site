@@ -22,6 +22,7 @@ import {
   onColorInk,
   type RegimeKey,
 } from "@/components/equity/regimeVisuals";
+import { useTr } from "@/i18n/TextProvider";
 
 type RegimeInputs = {
   growthZ: number | null;
@@ -71,6 +72,7 @@ function num(v: number | null | undefined, d = 2): string {
 }
 
 export function EquityRegimeClient() {
+  const tr = useTr();
   const [data, setData] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,14 +82,14 @@ export function EquityRegimeClient() {
     fetch("/api/equity/regime", { cache: "no-store" })
       .then(async (r) => {
         const json = await r.json();
-        if (!r.ok) throw new Error(json?.error ?? "请求失败");
+        if (!r.ok) throw new Error(json?.error ?? tr("请求失败"));
         return json as ApiResponse;
       })
       .then((json) => {
         if (!cancelled) setData(json);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "请求失败");
+        if (!cancelled) setError(e instanceof Error ? e.message : tr("请求失败"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -95,7 +97,7 @@ export function EquityRegimeClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tr]);
 
   const timelinePoints: RegimePoint[] = useMemo(() => {
     if (!data) return [];
@@ -134,30 +136,22 @@ export function EquityRegimeClient() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-lg font-semibold text-fs-text">宏观 Regime</h1>
-        <p className="text-sm text-fs-muted">
-          增长×通胀四象限（近似 PIT）+ 分 regime 的行业表现 · NBER 衰退对照
-        </p>
+        <h1 className="text-lg font-semibold text-fs-text">{tr("宏观 Regime")}</h1>
+        <p className="text-sm text-fs-muted">{tr("增长×通胀四象限（近似 PIT）+ 分 regime 的行业表现 · NBER 衰退对照")}</p>
         <Link
           href="/quant/factor-research"
           className="ml-auto text-sm text-fs-accent-text hover:underline"
-        >
-          因子研究 →
-        </Link>
+        >{tr("因子研究 →")}</Link>
       </header>
 
       {loading ? (
-        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">
-          加载中…
-        </div>
+        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">{tr("加载中…")}</div>
       ) : error ? (
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-6 text-sm text-red-400">
           {error}
         </div>
       ) : !data || !data.available ? (
-        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">
-          行业 regime 数据尚未就绪，请稍后刷新。
-        </div>
+        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">{tr("行业 regime 数据尚未就绪，请稍后刷新。")}</div>
       ) : (
         <>
           {/* 当前 regime + 四象限图例 */}
@@ -168,7 +162,7 @@ export function EquityRegimeClient() {
                 style={{ borderColor: `${REGIME_COLOR[currentRegime]}66` }}
               >
                 <div className="text-xs text-fs-muted">
-                  {currentOfficial ? "当前实时月度锚" : "最新落库 regime"}（{currentDate}）
+                  {currentOfficial ? tr("当前实时月度锚") : tr("最新落库 regime")}（{currentDate}）
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   <span
@@ -179,24 +173,20 @@ export function EquityRegimeClient() {
                     {REGIME_LABEL[currentRegime]}
                   </span>
                   {!currentOfficial && data.current?.recession === 1 ? (
-                    <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-xs text-red-400">
-                      NBER 衰退
-                    </span>
+                    <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-xs text-red-400">{tr("NBER 衰退")}</span>
                   ) : null}
                 </div>
                 <div className="mt-1 text-sm text-fs-muted">{REGIME_DESC[currentRegime]}</div>
                 {currentOfficial ? (
-                  <div className="mt-1 text-xs text-fs-muted">
-                    请求时按最新官方月度输入重算；历史时间线仍使用已落库快照。
-                  </div>
+                  <div className="mt-1 text-xs text-fs-muted">{tr("请求时按最新官方月度输入重算；历史时间线仍使用已落库快照。")}</div>
                 ) : null}
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <div className="text-xs text-fs-muted">增长 z</div>
+                    <div className="text-xs text-fs-muted">{tr("增长 z")}</div>
                     <div className="tabular-nums text-fs-text">{num(currentGrowthZ)}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-fs-muted">通胀动量 z</div>
+                    <div className="text-xs text-fs-muted">{tr("通胀动量 z")}</div>
                     <div className="tabular-nums text-fs-text">
                       {num(currentInflationMomZ)}
                     </div>
@@ -205,7 +195,7 @@ export function EquityRegimeClient() {
               </div>
             ) : null}
             <div className="rounded-lg border border-fs-border p-4">
-              <div className="mb-2 text-sm font-medium text-fs-text">四象限</div>
+              <div className="mb-2 text-sm font-medium text-fs-text">{tr("四象限")}</div>
               <div className="grid grid-cols-2 gap-2">
                 {REGIME_ORDER.map((rk) => (
                   <div key={rk} className="flex items-center gap-2 text-sm">
@@ -223,25 +213,21 @@ export function EquityRegimeClient() {
 
           {/* regime 时间线 */}
           <section className="mb-5 rounded-lg border border-fs-border p-4">
-            <h2 className="mb-2 text-sm font-medium text-fs-text">
-              Regime 时间线（{data.sectorPerformance.start} → {data.sectorPerformance.end}）
+            <h2 className="mb-2 text-sm font-medium text-fs-text">{tr("Regime 时间线（")}{data.sectorPerformance.start} → {data.sectorPerformance.end}）
             </h2>
             <RegimeTimelineChart points={timelinePoints} />
-            <p className="mt-1 text-xs text-fs-muted">
-              背景色带 = 当期象限；增长 z 转负领先/同步 NBER 衰退。全程 as-of（用估算发布日）防前视。
-              底部滑块可调时间范围，图内滚轮缩放。
-            </p>
+            <p className="mt-1 text-xs text-fs-muted">{tr("背景色带 = 当期象限；增长 z 转负领先/同步 NBER 衰退。全程 as-of（用估算发布日）防前视。 底部滑块可调时间范围，图内滚轮缩放。")}</p>
             <RegimeMethodologyNote />
           </section>
 
           {/* 分 regime 行业收益热力图 */}
           <section className="mb-5 rounded-lg border border-fs-border p-4">
-            <h2 className="mb-3 text-sm font-medium text-fs-text">分 Regime 的 GICS 行业次期等权收益（月均）</h2>
+            <h2 className="mb-3 text-sm font-medium text-fs-text">{tr("分 Regime 的 GICS 行业次期等权收益（月均）")}</h2>
             <div className="overflow-x-auto">
               <table className="min-w-[560px] text-sm">
                 <thead>
                   <tr className="text-xs text-fs-muted">
-                    <th className="px-2 py-1 text-left font-medium">行业 \ regime</th>
+                    <th className="px-2 py-1 text-left font-medium">{tr("行业 \\ regime")}</th>
                     {data.sectorPerformance.regimes.map((rk) => (
                       <th key={rk} className="px-2 py-1 text-center font-medium">
                         <span
@@ -265,7 +251,7 @@ export function EquityRegimeClient() {
                             key={rk}
                             className="px-2 py-1 text-center tabular-nums"
                             style={{ background: divergingColor(v, sectorScale), color: onColorInk(v, sectorScale) }}
-                            title={`${s} · ${REGIME_LABEL[rk]}：${pct(v)}（${cell?.periods ?? 0} 期）`}
+                            title={tr("{s} · {v1}：{v2}（{v3} 期）", { s, v1: REGIME_LABEL[rk], v2: pct(v), v3: cell?.periods ?? 0 })}
                           >
                             {pct(v)}
                           </td>
@@ -274,7 +260,7 @@ export function EquityRegimeClient() {
                     </tr>
                   ))}
                   <tr className="border-t-2 border-fs-border">
-                    <th className="whitespace-nowrap px-2 py-1 text-left font-medium text-fs-text">全市场等权</th>
+                    <th className="whitespace-nowrap px-2 py-1 text-left font-medium text-fs-text">{tr("全市场等权")}</th>
                     {data.sectorPerformance.regimes.map((rk) => {
                       const cell = data.sectorPerformance.marketByRegime[rk];
                       return (
@@ -287,10 +273,7 @@ export function EquityRegimeClient() {
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-xs text-fs-muted">
-              红=高于零的月均收益 · 蓝=低于零 · 灰≈零。GICS 现值近似（非 PIT，早年退市股无归属）。
-              回测可用 regimeFilter 只在选定象限持仓（见回测页）。
-            </p>
+            <p className="mt-2 text-xs text-fs-muted">{tr("红=高于零的月均收益 · 蓝=低于零 · 灰≈零。GICS 现值近似（非 PIT，早年退市股无归属）。 回测可用 regimeFilter 只在选定象限持仓（见回测页）。")}</p>
           </section>
         </>
       )}

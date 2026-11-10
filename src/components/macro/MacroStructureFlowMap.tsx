@@ -15,6 +15,7 @@ import {
   getMacroTemplateDimension,
   type MacroTemplateDimensionId,
 } from "@/lib/data/macroTemplateTaxonomy";
+import { useTr } from "@/i18n/TextProvider";
 
 type DimNodeData = {
   dimId: MacroTemplateDimensionId;
@@ -136,6 +137,7 @@ function buildLayout(
 }
 
 function DimNodeView({ data }: NodeProps<DimNode>) {
+  const tr = useTr();
   const dim = getMacroTemplateDimension(data.dimId);
   const isHub = data.dimId === "economy";
 
@@ -164,7 +166,7 @@ function DimNodeView({ data }: NodeProps<DimNode>) {
         position={Position.Top}
         className="!h-1.5 !w-1.5 !min-h-0 !min-w-0 !border-0 !bg-zinc-400"
       />
-      <div className="text-[11px] font-semibold leading-tight">{dim.shortLabel}</div>
+      <div className="text-[11px] font-semibold leading-tight">{tr(dim.shortLabel)}</div>
       <div
         className={`mt-0.5 text-[9px] tabular-nums ${
           data.selected && !isHub ? "text-fs-accent-text/80" : "text-fs-muted"
@@ -239,13 +241,14 @@ export function MacroStructureFlowMap({
   loading: boolean;
   onSelect: (id: MacroTemplateDimensionId) => void;
 }) {
+  const tr = useTr();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   return (
-    <aside className="min-w-0" aria-label="宏观结构图">
+    <aside className="min-w-0" aria-label={tr("宏观结构图")}>
       <div className="mb-2">
-        <h4 className="text-[13px] font-semibold text-fs-text">宏观结构图</h4>
+        <h4 className="text-[13px] font-semibold text-fs-text">{tr("宏观结构图")}</h4>
       </div>
 
       <div className="relative grid grid-cols-[5rem_minmax(0,1fr)] gap-1.5">
@@ -256,7 +259,7 @@ export function MacroStructureFlowMap({
               className="absolute left-0 text-[13px] font-bold leading-tight text-fs-text"
               style={{ top: l.top }}
             >
-              {l.text}
+              {tr(l.text)}
             </div>
           ))}
         </div>
@@ -275,9 +278,7 @@ export function MacroStructureFlowMap({
               />
             </ReactFlowProvider>
           ) : (
-            <div className="flex h-full items-center justify-center text-[11px] text-fs-muted">
-              加载结构图…
-            </div>
+            <div className="flex h-full items-center justify-center text-[11px] text-fs-muted">{tr("加载结构图…")}</div>
           )}
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   eventDisplayContent,
   parseEventSections,
 } from "@/lib/data/eventContentDisplay";
+import { useTr } from "@/i18n/TextProvider";
 
 function MetaTag({ children }: { children: string }) {
   return (
@@ -26,6 +27,7 @@ export type EventDetailDrawerProps = {
 };
 
 export function EventDetailDrawer({ event, onClose, presentation = "modal" }: EventDetailDrawerProps) {
+  const tr = useTr();
   const docked = presentation === "sidebar";
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => { if (docked) scrollRef.current?.scrollTo({ top: 0 }); }, [docked, event?.id]);
@@ -42,8 +44,8 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
 
   const presentationFields = readEventPresentation(event.payload);
   const legacyReading = safeEventUrl(event.sourceUrl) && /(^|\.)wikipedia\.org$/i.test(new URL(event.sourceUrl!).hostname);
-  const sources = eventLinks([...(event.sources ?? presentationFields.sources ?? []), ...(!legacyReading && safeEventUrl(event.sourceUrl) ? [{ url: event.sourceUrl!, title: "原始来源" }] : [])]);
-  const reading = eventLinks([...(event.readingLinks ?? presentationFields.readingLinks ?? []), ...(legacyReading ? [{ url: event.sourceUrl!, title: "背景阅读" }] : [])]);
+  const sources = eventLinks([...(event.sources ?? presentationFields.sources ?? []), ...(!legacyReading && safeEventUrl(event.sourceUrl) ? [{ url: event.sourceUrl!, title: tr("原始来源") }] : [])]);
+  const reading = eventLinks([...(event.readingLinks ?? presentationFields.readingLinks ?? []), ...(legacyReading ? [{ url: event.sourceUrl!, title: tr("背景阅读") }] : [])]);
   const sections = parseEventSections(event.content);
   const fallback = eventDisplayContent(event.content);
   const tags = [
@@ -56,7 +58,7 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
       <aside
         id={docked ? "markets-event-detail-panel" : undefined}
         role={docked ? "complementary" : "dialog"}
-        aria-label={docked ? "事件详情" : undefined}
+        aria-label={docked ? tr("事件详情") : undefined}
         aria-modal={docked ? undefined : true}
         aria-labelledby={docked ? undefined : "event-detail-title"}
         className={docked ? "flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-white [overflow-wrap:anywhere]" : "relative flex h-full w-full max-w-md flex-col border-l border-fs-border bg-fs-bg shadow-2xl max-md:h-[88dvh] max-md:max-w-none max-md:overflow-hidden max-md:rounded-t-2xl max-md:border-l-0"}
@@ -65,18 +67,16 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
         <header className={docked ? "border-b border-fs-border pb-3" : "shrink-0 border-b border-fs-border px-4 py-3"}>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-wide text-fs-muted">事件详情</p>
+              <p className="text-[10px] uppercase tracking-wide text-fs-muted">{tr("事件详情")}</p>
               <h2 id="event-detail-title" className={`mt-1 font-semibold text-fs-text ${docked ? "text-xs leading-5" : "text-base"}`}>
-                {event.title ?? "未命名事件"}
+                {event.title ?? tr("未命名事件")}
               </h2>
             </div>
             <button
               type="button"
               onClick={onClose}
               className="shrink-0 rounded border border-fs-border px-2 py-1 text-xs text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
-            >
-              关闭
-            </button>
+            >{tr("关闭")}</button>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
             <time className="text-xs tabular-nums text-cyan-400/95">
@@ -92,10 +92,10 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
               ))}
             </div>
           ) : null}
-          {event.matchReasons?.length ? <p className="mt-2 text-[10px] text-fs-muted">显示原因：{event.matchReasons.join("、")}</p> : null}
+          {event.matchReasons?.length ? <p className="mt-2 text-[10px] text-fs-muted">{tr("显示原因：")}{event.matchReasons.join("、")}</p> : null}
           {event.macroKeys.length > 0 ? (
             <div className="mt-2">
-              <p className="text-[10px] text-fs-muted">关联宏观指标</p>
+              <p className="text-[10px] text-fs-muted">{tr("关联宏观指标")}</p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {event.macroKeys.map((k) => (
                   <MetaTag key={k}>{k}</MetaTag>
@@ -113,7 +113,7 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
               {sections.map((sec) => (
                 <section key={sec.title}>
                   <h3 className="border-b border-fs-border/60 pb-1 text-xs font-semibold text-fs-text">
-                    {sec.title}
+                    {tr(sec.title)}
                   </h3>
                   <p className={`mt-2 whitespace-pre-wrap leading-relaxed text-fs-secondary ${docked ? "text-xs" : "text-sm"}`}>
                     {sec.body}
@@ -129,10 +129,10 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
         </div>
 
         <footer className={docked ? "border-t border-fs-border py-3" : "shrink-0 border-t border-fs-border px-4 py-3"}>
-          {sources.length > 0 && <section className="mb-2"><h3 className="text-xs font-medium">事实来源</h3><ul className="mt-1 space-y-1">{sources.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer" className="break-words text-xs text-fs-accent-text underline">{link.title || link.note || new URL(link.url).hostname} ↗</a></li>)}</ul></section>}
-          {reading.length > 0 && <section><h3 className="text-xs font-medium">扩展阅读</h3><ul className="mt-1 space-y-1">{reading.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer" className="break-words text-xs text-fs-accent-text underline">{link.title || link.note || new URL(link.url).hostname} ↗</a></li>)}</ul></section>}
+          {sources.length > 0 && <section className="mb-2"><h3 className="text-xs font-medium">{tr("事实来源")}</h3><ul className="mt-1 space-y-1">{sources.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer" className="break-words text-xs text-fs-accent-text underline">{link.title || link.note || new URL(link.url).hostname} ↗</a></li>)}</ul></section>}
+          {reading.length > 0 && <section><h3 className="text-xs font-medium">{tr("扩展阅读")}</h3><ul className="mt-1 space-y-1">{reading.map(link => <li key={link.url}><a href={link.url} target="_blank" rel="noopener noreferrer" className="break-words text-xs text-fs-accent-text underline">{link.title || link.note || new URL(link.url).hostname} ↗</a></li>)}</ul></section>}
           {event.createdByUsername ? (
-            <p className="mt-2 text-[10px] text-fs-muted">录入：{event.createdByUsername}</p>
+            <p className="mt-2 text-[10px] text-fs-muted">{tr("录入：")}{event.createdByUsername}</p>
           ) : null}
         </footer>
         </div>
@@ -140,7 +140,7 @@ export function EventDetailDrawer({ event, onClose, presentation = "modal" }: Ev
   );
   return docked ? panel : (
     <div className="fixed inset-0 z-[10000] flex justify-end max-md:flex-col">
-      <button type="button" className="absolute inset-0 bg-black/45" aria-label="关闭详情" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-black/45" aria-label={tr("关闭详情")} onClick={onClose} />
       {panel}
     </div>
   );

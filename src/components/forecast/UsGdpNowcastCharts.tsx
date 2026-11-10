@@ -8,6 +8,7 @@ import * as echarts from "echarts/core";
 import { BarChart, LineChart } from "echarts/charts";
 import { DataZoomComponent, GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -39,6 +40,7 @@ const valueFmt = (v: unknown) => (typeof v === "number" ? `${v.toFixed(2)}%` : "
 export type GdpBacktestPoint = { quarter: string; forecast: number; actual: number; gdpNow: number | null };
 
 export function GdpBacktestChart({ points }: { points: GdpBacktestPoint[] }) {
+  const tr = useTr();
   const hasNow = points.some((p) => p.gdpNow != null);
   const option = useMemo<echarts.EChartsCoreOption>(
     () => ({
@@ -50,7 +52,7 @@ export function GdpBacktestChart({ points }: { points: GdpBacktestPoint[] }) {
         itemWidth: 14,
         itemHeight: 8,
         textStyle: { color: INK_MUTED, fontSize: 12 },
-        data: hasNow ? ["首发实际", "模型预测", "GDPNow"] : ["首发实际", "模型预测"],
+        data: hasNow ? [tr("首发实际"), tr("模型预测"), "GDPNow"] : [tr("首发实际"), tr("模型预测")],
       },
       tooltip: { trigger: "axis", valueFormatter: valueFmt },
       xAxis: {
@@ -70,9 +72,9 @@ export function GdpBacktestChart({ points }: { points: GdpBacktestPoint[] }) {
         { type: "inside", start: 55, end: 100 },
       ],
       series: [
-        { name: "首发实际", type: "bar", barWidth: "60%", itemStyle: { color: ACTUAL_BAR }, data: points.map((p) => num(p.actual)) },
+        { name: tr("首发实际"), type: "bar", barWidth: "60%", itemStyle: { color: ACTUAL_BAR }, data: points.map((p) => num(p.actual)) },
         {
-          name: "模型预测",
+          name: tr("模型预测"),
           type: "line",
           symbol: "none",
           lineStyle: { color: MODEL_LINE, width: 2 },
@@ -95,7 +97,7 @@ export function GdpBacktestChart({ points }: { points: GdpBacktestPoint[] }) {
           : []),
       ],
     }),
-    [points, hasNow],
+    [hasNow, tr, points],
   );
   return useChart(option, 320);
 }

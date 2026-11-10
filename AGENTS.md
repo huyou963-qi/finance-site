@@ -13,6 +13,15 @@
 - **管理员永远可见全部功能页**：功能页权限配置（`/admin/feature-access`）只管游客/普通用户/Pro 三类身份，不管管理员。每个登记在 `featureCatalog.ts` 的页面都必须有经 `useVisibleFeatures().can(...)` 过滤的导航入口（电脑版+手机版），开发中的页面也一样——过滤后客户看不到、管理员看得到；不加入口会让管理员也找不到页面。详见 [docs/FEATURE_ACCESS.md](./docs/FEATURE_ACCESS.md)。
 - **未经用户确认发布（release）的功能，不得出现在客户可见的位置**：顶部导航、页面内按钮/链接/快捷入口、首页卡片、文案里的引导都算。新功能页在 `featureCatalog.ts` 登记为 `IN_DEVELOPMENT`，由管理员在 `/admin/feature-access` 切换上线；页面内指向其他功能的链接同样要用 `useVisibleFeatures().can(...)` 过滤。功能做了一半、或用户没说要上线时，不要顺手加**未经权限过滤**的入口——先问。
 
+## 界面多语言
+
+- 英文版面向海外用户，语言由网址决定：中文无前缀，英文 `/en/...`（middleware 转发到同一页面，页面文件不挪目录）；中文为默认，英文缺键回退中文；开关是功能目录里的 `site-language-en`（开发中，仅管理员可见）。
+- 站内链接用 `@/i18n/navigation` 的 `Link` 和 `useLocalePathname()`，不要直接用 `next/link` / `usePathname()`。
+- auth 相关报错/提示文字改动或新增时，同步在 `src/i18n/serverMessages.ts` 写英文（有单测扫描）。英文均为 AI 初译 + 人工抽查。
+- 海外用户只用邮箱注册：英文站（且英文对该访问者开放）注册可不填手机号，中文站仍必须填中国大陆手机号；规则在 `src/lib/auth/phonePolicy.ts`，接口用 `requestSignupChannel(req)` 判定，勿只看 cookie。
+- 外壳（导航、登录、定价、首页）文案放 `src/i18n/messages/zh.json` / `en.json`，已翻译文件登记在 `src/i18n/messages.test.ts`，不得再写硬编码中文。
+- 功能页用「中文原文即键」：`tr("中文")`（`useTr()` / `getServerTr()`），英文在 `src/i18n/text/en/*.json`；改中文文案要同步改英文字典，`textCoverage.test.ts` 检查已翻译模块无漏包裹、无缺英文。工具 `scripts/i18n/wrap-cjk.ts`。详见 [docs/I18N.md](./docs/I18N.md)。
+
 ## 用户管理
 
 - `/admin/users` 为 P0–P2 后台入口；最高管理员、客服只读、会员运营、订单处理四种后台岗位使用不同权限，全部须密码加 TOTP。会员及积分手工调整、订单确认、批量标签与导出均需原因与审计。

@@ -1,5 +1,6 @@
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
+import { Link } from "@/i18n/navigation";
 
 function MiniSparkline({ className }: { className?: string }) {
   return (
@@ -16,6 +17,7 @@ function MiniSparkline({ className }: { className?: string }) {
 }
 
 function AuthBrandAside() {
+  const t = useTranslations("authShell");
   return (
     <aside className="flex min-h-0 flex-col justify-between border-b border-fs-border bg-fs-elevated p-8 lg:col-span-2 lg:overflow-y-auto lg:border-b-0 lg:border-r">
       <div>
@@ -23,14 +25,10 @@ function AuthBrandAside() {
           <GekkoTechWordmark size="md" />
         </Link>
         <p className="mt-5 text-sm leading-relaxed text-fs-secondary">
-          登录后即可使用宏观仪表盘、行情图表与 AI 周度观察。
+          {t("intro")}
         </p>
         <ul className="mt-6 space-y-3 text-sm text-fs-secondary">
-          {[
-            "宏观序列模板与图表偏好云端保存",
-            "多资产行情与研究工作区",
-            "注册后邮箱验证，保障账户安全",
-          ].map((item) => (
+          {[t("point1"), t("point2"), t("point3")].map((item) => (
             <li key={item} className="flex gap-2.5">
               <span
                 className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-fs-accent"

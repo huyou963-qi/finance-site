@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CandlestickData, IChartApi } from "lightweight-charts";
+import { useTr } from "@/i18n/TextProvider";
 
 type Props = {
   chart: IChartApi | null;
@@ -30,6 +31,7 @@ function clampRange(
 }
 
 export function ChartTimeRangeBrush({ chart, candles }: Props) {
+  const tr = useTr();
   const n = candles.length;
   const trackRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState<{ from: number; to: number } | null>(
@@ -169,14 +171,14 @@ export function ChartTimeRangeBrush({ chart, candles }: Props) {
         />
         <button
           type="button"
-          aria-label="拖动左边界"
+          aria-label={tr("拖动左边界")}
           className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
           style={{ left: `${leftPct}%` }}
           onPointerDown={onPointerDownLeft}
         />
         <button
           type="button"
-          aria-label="拖动右边界"
+          aria-label={tr("拖动右边界")}
           className="pointer-events-auto absolute top-0 bottom-0 z-[1] w-2 -translate-x-1/2 cursor-ew-resize border-0 bg-fs-accent p-0 hover:bg-fs-accent-text"
           style={{ left: `${rightPct}%` }}
           onPointerDown={onPointerDownRight}

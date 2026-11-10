@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { reportClientError } from "@/lib/errorReports/clientReport";
 import {
@@ -15,6 +16,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations("errors");
+  const tc = useTranslations("common");
   const stale = isStaleClientAssetError(error);
   const [recovering, setRecovering] = useState(stale);
   const [reportHint, setReportHint] = useState<string | null>(null);
@@ -30,37 +33,35 @@ export default function Error({
     setRecovering(false);
     void reportClientError({
       source: "auto_crash",
-      message: error.message || "页面渲染错误",
+      message: error.message || t("renderError"),
       stack: error.stack,
       digest: error.digest,
       metadata: { name: error.name },
     });
-  }, [error, stale]);
+  }, [error, stale, t]);
 
   const sendManual = async () => {
     setSending(true);
     setReportHint(null);
     const result = await reportClientError({
       source: "manual",
-      message: error.message || "页面渲染错误",
+      message: error.message || t("renderError"),
       stack: error.stack,
       digest: error.digest,
       userNote: note.trim() || undefined,
       metadata: { name: error.name, from: "error.tsx" },
     });
     setSending(false);
-    if (result.error) setReportHint("上报失败：" + result.error);
-    else setReportHint("已提交，感谢反馈");
+    if (result.error) setReportHint(t("reportFailed", { error: result.error }));
+    else setReportHint(t("reportSent"));
   };
 
   if (stale) {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-16 text-fs-text">
-        <h1 className="text-xl font-semibold">{recovering ? "正在更新页面" : "页面加载失败"}</h1>
+        <h1 className="text-xl font-semibold">{recovering ? t("updatingTitle") : t("loadFailedTitle")}</h1>
         <p className="text-sm text-fs-muted">
-          {recovering
-            ? "页面资源已过期或加载中断，正在重新加载。"
-            : "页面资源加载失败，请刷新后再试。"}
+          {recovering ? t("updatingBody") : t("loadFailedBody")}
         </p>
         {recovering ? null : (
           <button
@@ -68,7 +69,7 @@ export default function Error({
             onClick={() => forceReloadStaleAssets(error)}
             className="self-start rounded bg-fs-accent px-3 py-1.5 text-sm text-white hover:opacity-90"
           >
-            刷新页面
+            {t("refresh")}
           </button>
         )}
       </div>
@@ -77,12 +78,10 @@ export default function Error({
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-16 text-fs-text">
-      <h1 className="text-xl font-semibold">出错了</h1>
-      <p className="text-sm text-fs-muted">
-        页面加载或渲染时发生错误。错误信息已自动发送给维护人员，你也可以补充说明后再次报告。
-      </p>
+      <h1 className="text-xl font-semibold">{t("title")}</h1>
+      <p className="text-sm text-fs-muted">{t("body")}</p>
       <p className="rounded border border-fs-border bg-fs-elevated px-3 py-2 font-mono text-xs break-all text-fs-muted">
-        {error.message || "未知错误"}
+        {error.message || t("unknown")}
         {error.digest ? " | digest " + error.digest : ""}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -91,14 +90,14 @@ export default function Error({
           onClick={() => reset()}
           className="rounded bg-fs-accent px-3 py-1.5 text-sm text-white hover:opacity-90"
         >
-          重试
+          {tc("retry")}
         </button>
         <button
           type="button"
           onClick={() => setShowNote((v) => !v)}
           className="rounded border border-fs-border px-3 py-1.5 text-sm hover:bg-fs-elevated"
         >
-          报告问题
+          {t("report")}
         </button>
       </div>
       {showNote ? (
@@ -107,7 +106,7 @@ export default function Error({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
-            placeholder="可选：描述你当时在做什么"
+            placeholder={t("notePlaceholder")}
             className="w-full rounded border border-fs-border bg-fs-bg px-3 py-2 text-sm"
           />
           <button
@@ -116,7 +115,7 @@ export default function Error({
             onClick={() => void sendManual()}
             className="self-start rounded border border-fs-border px-3 py-1.5 text-sm hover:bg-fs-elevated disabled:opacity-50"
           >
-            {sending ? "提交中" : "提交补充说明"}
+            {sending ? tc("submitting") : t("sendNote")}
           </button>
         </div>
       ) : null}

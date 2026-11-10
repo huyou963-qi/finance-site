@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { localizeServerMessage, requestLocale } from "@/i18n/serverMessages";
 import { completeAdminMfaSetup } from "@/lib/auth";
 import { LoginThrottleError } from "@/lib/auth/loginThrottle";
 
 export async function POST(req: NextRequest) {
+  const t = (message: string) => localizeServerMessage(message, requestLocale(req));
   try {
     const body = (await req.json()) as { setupToken?: string; code?: string };
     const { cookie, user, recoveryCodes } = await completeAdminMfaSetup(body.setupToken ?? "", body.code ?? "");
@@ -13,10 +15,10 @@ export async function POST(req: NextRequest) {
     if (error instanceof LoginThrottleError) {
       const retryAfterSeconds = error.retryAfterSeconds;
       return NextResponse.json(
-        { error: error.message, retryAfterSeconds, lockedUntil: error.lockedUntil.toISOString() },
+        { error: t(error.message), retryAfterSeconds, lockedUntil: error.lockedUntil.toISOString() },
         { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } },
       );
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : "设置失败" }, { status: 400 });
+    return NextResponse.json({ error: t(error instanceof Error ? error.message : "设置失败") }, { status: 400 });
   }
 }

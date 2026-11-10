@@ -6,6 +6,7 @@ import type { MarketEventDto } from "@/lib/data/marketEvents";
 import { formatEventOccurredAt } from "@/lib/data/marketEvents";
 import { EventImportanceBadge } from "@/components/events/EventImportanceBadge";
 import { eventHoverCardSections } from "@/lib/data/eventContentDisplay";
+import { useTr } from "@/i18n/TextProvider";
 
 const CARD_W = 420;
 const CARD_MAX_H = 480;
@@ -64,6 +65,7 @@ export function EventHoverCard({
   onDismiss,
   onOpenDetail,
 }: EventHoverCardProps) {
+  const tr = useTr();
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showFade, setShowFade] = useState(false);
@@ -108,7 +110,7 @@ export function EventHoverCard({
   return createPortal(
     <div
       role="dialog"
-      aria-label={event.title ? `事件预览：${event.title}` : "事件预览"}
+      aria-label={event.title ? tr("事件预览：{title}", { title: event.title }) : tr("事件预览")}
       className="flex flex-col overflow-hidden rounded-lg border border-fs-border bg-fs-elevated text-[11px] leading-relaxed text-fs-text shadow-2xl ring-1 ring-fs-border/80"
       style={cardStyle(anchor)}
       onMouseEnter={cancelHide}
@@ -123,7 +125,7 @@ export function EventHoverCard({
           {event.eventType ? <EventTag>{event.eventType}</EventTag> : null}
         </div>
         {event.title ? (
-          <h3 className="mt-1.5 text-sm font-semibold leading-snug text-fs-text">{event.title}</h3>
+          <h3 className="mt-1.5 text-sm font-semibold leading-snug text-fs-text">{tr(event.title)}</h3>
         ) : null}
         {tags.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -136,13 +138,13 @@ export function EventHoverCard({
 
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-y-auto px-3 py-2.5">
         {primary.length === 0 ? (
-          <p className="text-fs-muted">暂无正文</p>
+          <p className="text-fs-muted">{tr("暂无正文")}</p>
         ) : (
           <div className="space-y-3">
             {primary.map((sec) => (
               <div key={sec.title}>
                 <p className="text-[10px] font-medium uppercase tracking-wide text-fs-muted">
-                  {sec.title}
+                  {tr(sec.title)}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-fs-secondary">
                   {sec.body}
@@ -150,7 +152,7 @@ export function EventHoverCard({
               </div>
             ))}
             {extraCount > 0 ? (
-              <p className="text-[10px] text-fs-muted">还有 {extraCount} 个段落，点击查看全文</p>
+              <p className="text-[10px] text-fs-muted">{tr("还有")} {extraCount} {tr("个段落，点击查看全文")}</p>
             ) : null}
           </div>
         )}
@@ -167,9 +169,7 @@ export function EventHoverCard({
           type="button"
           onClick={onOpenDetail}
           className="text-[11px] font-medium text-fs-accent-text hover:underline"
-        >
-          查看全文
-        </button>
+        >{tr("查看全文")}</button>
         {event.sourceUrl ? (
           <a
             href={event.sourceUrl}
@@ -177,11 +177,9 @@ export function EventHoverCard({
             rel="noopener noreferrer"
             className="text-[11px] text-cyan-500/90 hover:underline"
             onClick={(e) => e.stopPropagation()}
-          >
-            延伸阅读 ↗
-          </a>
+          >{tr("延伸阅读 ↗")}</a>
         ) : (
-          <span className="text-[10px] text-fs-muted">点击进入全文</span>
+          <span className="text-[10px] text-fs-muted">{tr("点击进入全文")}</span>
         )}
       </div>
     </div>,

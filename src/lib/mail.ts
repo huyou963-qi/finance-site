@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import nodemailer from "nodemailer";
+import { localizeHref, type AppLocale } from "@/i18n/locales";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const OUTBOX_FILE = path.join(DATA_DIR, "mail-outbox.log");
@@ -13,14 +14,15 @@ function getBaseUrl(): string {
   );
 }
 
-export function buildVerifyUrl(token: string): string {
+/** 邮件里的链接跟随用户提交时的界面语言（英文指向 /en 页面） */
+export function buildVerifyUrl(token: string, locale: AppLocale = "zh"): string {
   const base = getBaseUrl().replace(/\/+$/, "");
-  return `${base}/auth/verify?token=${encodeURIComponent(token)}`;
+  return `${base}${localizeHref(`/auth/verify?token=${encodeURIComponent(token)}`, locale)}`;
 }
 
-export function buildPasswordResetUrl(token: string): string {
+export function buildPasswordResetUrl(token: string, locale: AppLocale = "zh"): string {
   const base = getBaseUrl().replace(/\/+$/, "");
-  return `${base}/auth/reset-password?token=${encodeURIComponent(token)}`;
+  return `${base}${localizeHref(`/auth/reset-password?token=${encodeURIComponent(token)}`, locale)}`;
 }
 
 async function appendOutbox(text: string) {
@@ -71,7 +73,16 @@ async function sendAuthEmail(options: {
   return { delivered: true as const, fallback: false as const };
 }
 
-export async function sendRegisterVerifyEmail(to: string, verifyUrl: string) {
+export async function sendRegisterVerifyEmail(to: string, verifyUrl: string, locale: AppLocale = "zh") {
+  if (locale === "en") {
+    return sendAuthEmail({
+      to,
+      subject: "Confirm your GekkoTech email",
+      text: `Click the link below to finish signing up (valid for 30 minutes):\n${verifyUrl}`,
+      html: `<p>Click the link below to finish signing up (valid for 30 minutes):</p><p><a href="${escapeHtml(verifyUrl)}">${escapeHtml(verifyUrl)}</a></p>`,
+      fallbackTag: "MAIL_FALLBACK",
+    });
+  }
   return sendAuthEmail({
     to,
     subject: "请确认你的注册邮箱",
@@ -81,7 +92,16 @@ export async function sendRegisterVerifyEmail(to: string, verifyUrl: string) {
   });
 }
 
-export async function sendUsernameRecoveryEmail(to: string, username: string) {
+export async function sendUsernameRecoveryEmail(to: string, username: string, locale: AppLocale = "zh") {
+  if (locale === "en") {
+    return sendAuthEmail({
+      to,
+      subject: "Your GekkoTech username",
+      text: `The username you asked for is: ${username}\n\nIf you didn't request this, you can ignore this email.`,
+      html: `<p>The username you asked for is:</p><p><strong>${escapeHtml(username)}</strong></p><p>If you didn't request this, you can ignore this email.</p>`,
+      fallbackTag: "USERNAME_RECOVERY",
+    });
+  }
   return sendAuthEmail({
     to,
     subject: "你的 GekkoTech 用户名",
@@ -91,7 +111,16 @@ export async function sendUsernameRecoveryEmail(to: string, username: string) {
   });
 }
 
-export async function sendPasswordResetEmail(to: string, resetUrl: string) {
+export async function sendPasswordResetEmail(to: string, resetUrl: string, locale: AppLocale = "zh") {
+  if (locale === "en") {
+    return sendAuthEmail({
+      to,
+      subject: "Reset your GekkoTech password",
+      text: `Click the link below to reset your password (valid for 30 minutes, one use only):\n${resetUrl}\n\nIf you didn't request this, you can ignore this email.`,
+      html: `<p>Click the link below to reset your password (valid for 30 minutes, one use only):</p><p><a href="${escapeHtml(resetUrl)}">Reset password</a></p><p>If you didn't request this, you can ignore this email.</p>`,
+      fallbackTag: "PASSWORD_RESET",
+    });
+  }
   return sendAuthEmail({
     to,
     subject: "重置你的 GekkoTech 密码",

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
+import { useTr } from "@/i18n/TextProvider";
 
 export const QUANT_NAV = [
   { href: "/quant/regime", label: "Regime", featureId: "quant-regime" },
@@ -17,11 +18,12 @@ function isNavActive(pathname: string, href: string): boolean {
 }
 
 export function QuantSidebarNav() {
+  const tr = useTr();
   const pathname = usePathname();
   const features = useVisibleFeatures();
 
   return (
-    <nav className="flex flex-col gap-0.5 p-3" aria-label="量化研究分页">
+    <nav className="flex flex-col gap-0.5 p-3" aria-label={tr("量化研究分页")}>
       {QUANT_NAV.filter((item) => features.can(item.featureId)).map((item) => {
         const active = isNavActive(pathname, item.href);
         return (
@@ -35,7 +37,7 @@ export function QuantSidebarNav() {
             }`}
             aria-current={active ? "page" : undefined}
           >
-            {item.label}
+            {tr(item.label)}
             {features.locked(item.featureId) ? (
               <span className="ml-1.5 rounded-sm bg-linear-to-r from-[#00c8ad] to-[#075f78] px-1 text-[10px] font-semibold leading-4 text-white">
                 Pro

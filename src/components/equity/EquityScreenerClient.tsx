@@ -27,6 +27,8 @@ import {
   type ScreenerStats,
 } from "@/lib/quant/screener";
 import type { StrategyRow } from "@/lib/quant/screenerStrategies";
+import { useTr } from "@/i18n/TextProvider";
+import { identityTr, type Tr } from "@/i18n/text";
 
 /**
  * 基本面因子的最早可用年 = 注册表里含 fundamental 的因子中最小的 startYear。
@@ -105,8 +107,8 @@ function defaultConfig(): ScreenerConfig {
   };
 }
 
-function factorTooltip(d: FactorDef): string {
-  return `${d.nameEn}\n${d.note}\n数据起点：${d.startYear} 年`;
+function factorTooltip(d: FactorDef, tr: Tr = identityTr): string {
+  return tr("{nameEn}\n{note}\n数据起点：{startYear} 年", { nameEn: d.nameEn, note: d.note, startYear: d.startYear });
 }
 
 function fmtValue(v: number | null | undefined): string {
@@ -150,6 +152,7 @@ function FactorSelect({
   onChange: (key: string) => void;
   placeholder?: string;
 }) {
+  const tr = useTr();
   return (
     <select
       value={value}
@@ -158,16 +161,16 @@ function FactorSelect({
     >
       {placeholder != null ? <option value="">{placeholder}</option> : null}
       {CATEGORY_ORDER.map((cat) => (
-        <optgroup key={cat} label={CATEGORY_LABELS[cat]}>
+        <optgroup key={cat} label={tr(CATEGORY_LABELS[cat])}>
           {FACTOR_DEFS.filter((d) => d.category === cat).map((d) => (
             <option
               key={d.key}
               value={d.key}
               disabled={d.startYear > year}
-              title={factorTooltip(d)}
+              title={factorTooltip(d, tr)}
             >
-              {d.nameZh}
-              {d.startYear > year ? `（${d.startYear} 起）` : ""}
+              {tr(d.nameZh)}
+              {d.startYear > year ? tr("（{startYear} 起）", { startYear: d.startYear }) : ""}
             </option>
           ))}
         </optgroup>
@@ -179,6 +182,7 @@ function FactorSelect({
 const BACKTEST_CONFIG_KEY = "equityBacktestNewConfig.v1";
 
 export function EquityScreenerClient() {
+  const tr = useTr();
   const router = useRouter();
   const [dates, setDates] = useState<string[]>([]);
   const [config, setConfig] = useState<ScreenerConfig>(defaultConfig);
@@ -315,7 +319,7 @@ export function EquityScreenerClient() {
         cache: "no-store",
       });
       const j = (await r.json()) as QueryResponse;
-      if (!r.ok) throw new Error(j.error ?? "查询失败");
+      if (!r.ok) throw new Error(j.error ?? tr("查询失败"));
       setResult({
         date: j.date!,
         rows: j.rows ?? [],
@@ -323,11 +327,11 @@ export function EquityScreenerClient() {
         sectorContext: j.sectorContext ?? null,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "查询失败");
+      setError(e instanceof Error ? e.message : tr("查询失败"));
     } finally {
       setLoading(false);
     }
-  }, [config]);
+  }, [config, tr]);
 
   // ── 策略操作（WS4） ───────────────────────────────────────────────────────
   const loadStrategy = (id: string) => {
@@ -345,7 +349,7 @@ export function EquityScreenerClient() {
     try {
       const current = strategies?.find((x) => x.id === currentStrategyId);
       if (asNew || !current) {
-        const name = window.prompt("策略名称：", current ? `${current.name} 副本` : "我的策略");
+        const name = window.prompt(tr("策略名称："), current ? tr("{name} 副本", { name: current.name }) : tr("我的策略"));
         if (!name) return;
         const r = await fetch("/api/equity/screener/strategies", {
           method: "POST",
@@ -356,12 +360,12 @@ export function EquityScreenerClient() {
         if (!r.ok) {
           throw new Error(
             j.code === "NEEDS_PRO"
-              ? `${j.error ?? "需要 Pro"}（前往 /pricing 升级）`
-              : j.error ?? "保存失败",
+              ? tr("{v0}（前往 /pricing 升级）", { v0: j.error ?? tr("需要 Pro") })
+              : j.error ?? tr("保存失败"),
           );
         }
         setCurrentStrategyId(j.strategy!.id);
-        setStrategyMsg(`已保存「${j.strategy!.name}」`);
+        setStrategyMsg(tr("已保存「{name}」", { name: j.strategy!.name }));
       } else {
         const r = await fetch(`/api/equity/screener/strategies/${current.id}`, {
           method: "PUT",
@@ -372,22 +376,22 @@ export function EquityScreenerClient() {
         if (!r.ok) {
           throw new Error(
             j.code === "NEEDS_PRO"
-              ? `${j.error ?? "需要 Pro"}（前往 /pricing 升级）`
-              : j.error ?? "保存失败",
+              ? tr("{v0}（前往 /pricing 升级）", { v0: j.error ?? tr("需要 Pro") })
+              : j.error ?? tr("保存失败"),
           );
         }
-        setStrategyMsg(`已更新「${current.name}」`);
+        setStrategyMsg(tr("已更新「{name}」", { name: current.name }));
       }
       await reloadStrategies();
     } catch (e) {
-      setStrategyMsg(e instanceof Error ? e.message : "保存失败");
+      setStrategyMsg(e instanceof Error ? e.message : tr("保存失败"));
     }
   };
 
   const renameStrategy = async () => {
     const current = strategies?.find((x) => x.id === currentStrategyId);
     if (!current) return;
-    const name = window.prompt("新名称：", current.name);
+    const name = window.prompt(tr("新名称："), current.name);
     if (!name || name === current.name) return;
     try {
       const r = await fetch(`/api/equity/screener/strategies/${current.id}`, {
@@ -396,29 +400,29 @@ export function EquityScreenerClient() {
         body: JSON.stringify({ name }),
       });
       const j = (await r.json()) as { error?: string };
-      if (!r.ok) throw new Error(j.error ?? "重命名失败");
-      setStrategyMsg("已重命名");
+      if (!r.ok) throw new Error(j.error ?? tr("重命名失败"));
+      setStrategyMsg(tr("已重命名"));
       await reloadStrategies();
     } catch (e) {
-      setStrategyMsg(e instanceof Error ? e.message : "重命名失败");
+      setStrategyMsg(e instanceof Error ? e.message : tr("重命名失败"));
     }
   };
 
   const deleteStrategy = async () => {
     const current = strategies?.find((x) => x.id === currentStrategyId);
     if (!current) return;
-    if (!window.confirm(`删除策略「${current.name}」？`)) return;
+    if (!window.confirm(tr("删除策略「{name}」？", { name: current.name }))) return;
     try {
       const r = await fetch(`/api/equity/screener/strategies/${current.id}`, {
         method: "DELETE",
       });
       const j = (await r.json()) as { error?: string };
-      if (!r.ok) throw new Error(j.error ?? "删除失败");
+      if (!r.ok) throw new Error(j.error ?? tr("删除失败"));
       setCurrentStrategyId("");
-      setStrategyMsg("已删除");
+      setStrategyMsg(tr("已删除"));
       await reloadStrategies();
     } catch (e) {
-      setStrategyMsg(e instanceof Error ? e.message : "删除失败");
+      setStrategyMsg(e instanceof Error ? e.message : tr("删除失败"));
     }
   };
 
@@ -485,13 +489,11 @@ export function EquityScreenerClient() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6">
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">选股器</h1>
-        <span className="text-xs text-fs-muted">
-          标普500 历史成分月频 PIT 因子截面（{dates.length} 期）
-        </span>
+        <h1 className="text-xl font-semibold">{tr("选股器")}</h1>
+        <span className="text-xs text-fs-muted">{tr("标普500 历史成分月频 PIT 因子截面（")}{dates.length}{" "}{tr("期）")}</span>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {strategies === null ? (
-            <span className="text-xs text-fs-muted">登录后可保存/加载策略</span>
+            <span className="text-xs text-fs-muted">{tr("登录后可保存/加载策略")}</span>
           ) : (
             <>
               <select
@@ -499,27 +501,19 @@ export function EquityScreenerClient() {
                 onChange={(e) => loadStrategy(e.target.value)}
                 className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1 text-sm"
               >
-                <option value="">— 选择策略 —</option>
+                <option value="">{tr("— 选择策略 —")}</option>
                 {strategies.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
               </select>
-              <button type="button" onClick={() => void saveStrategy(false)} className="rounded-md border border-fs-border px-2 py-1 text-sm hover:bg-fs-elevated">
-                保存
-              </button>
-              <button type="button" onClick={() => void saveStrategy(true)} className="rounded-md border border-fs-border px-2 py-1 text-sm hover:bg-fs-elevated">
-                另存为
-              </button>
+              <button type="button" onClick={() => void saveStrategy(false)} className="rounded-md border border-fs-border px-2 py-1 text-sm hover:bg-fs-elevated">{tr("保存")}</button>
+              <button type="button" onClick={() => void saveStrategy(true)} className="rounded-md border border-fs-border px-2 py-1 text-sm hover:bg-fs-elevated">{tr("另存为")}</button>
               {currentStrategyId ? (
                 <>
-                  <button type="button" onClick={() => void renameStrategy()} className="rounded-md border border-fs-border px-2 py-1 text-sm hover:bg-fs-elevated">
-                    重命名
-                  </button>
-                  <button type="button" onClick={() => void deleteStrategy()} className="rounded-md border border-fs-border px-2 py-1 text-sm text-red-400 hover:bg-fs-elevated">
-                    删除
-                  </button>
+                  <button type="button" onClick={() => void renameStrategy()} className="rounded-md border border-fs-border px-2 py-1 text-sm hover:bg-fs-elevated">{tr("重命名")}</button>
+                  <button type="button" onClick={() => void deleteStrategy()} className="rounded-md border border-fs-border px-2 py-1 text-sm text-red-400 hover:bg-fs-elevated">{tr("删除")}</button>
                 </>
               ) : null}
             </>
@@ -529,31 +523,27 @@ export function EquityScreenerClient() {
             type="button"
             onClick={researchTheseFactors}
             className="rounded-md border border-fs-border px-2.5 py-1 text-sm text-fs-text hover:bg-fs-elevated"
-            title="用当前条件/排序引用到的因子做 IC/分层/相关性研究"
-          >
-            研究这些因子 →
-          </button>
+            title={tr("用当前条件/排序引用到的因子做 IC/分层/相关性研究")}
+          >{tr("研究这些因子 →")}</button>
           <button
             type="button"
             onClick={backtestThisStrategy}
             className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-2.5 py-1 text-sm text-fs-accent-text hover:opacity-90"
-            title="以当前条件/排序配置发起历史回测（月度调仓 vs SPY）"
-          >
-            回测此策略 →
-          </button>
+            title={tr("以当前条件/排序配置发起历史回测（月度调仓 vs SPY）")}
+          >{tr("回测此策略 →")}</button>
         </div>
       </div>
 
       {/* ── 配置面板 ── */}
       <div className="mb-4 rounded-lg border border-fs-border bg-fs-elevated/40 p-4">
         <div className="mb-3 flex flex-wrap items-center gap-3">
-          <label className="text-sm text-fs-muted">截面日期</label>
+          <label className="text-sm text-fs-muted">{tr("截面日期")}</label>
           <select
             value={config.date ?? ""}
             onChange={(e) => patchConfig({ date: e.target.value || null })}
             className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1 text-sm"
           >
-            <option value="">最新（{latestDate ?? "…"}）</option>
+            <option value="">{tr("最新（")}{latestDate ?? "…"}）</option>
             {[...dates].reverse().map((d) => (
               <option key={d} value={d}>
                 {d}
@@ -563,22 +553,18 @@ export function EquityScreenerClient() {
           {config.date != null ? (
             <span
               className="text-xs text-fs-muted"
-              title="具体日期会随策略一起保存；加载该策略将按此历史截面查询（回测语义）。选「最新」则始终查最新期。"
-            >
-              已钉定该截面（随策略保存）
-            </span>
+              title={tr("具体日期会随策略一起保存；加载该策略将按此历史截面查询（回测语义）。选「最新」则始终查最新期。")}
+            >{tr("已钉定该截面（随策略保存）")}</span>
           ) : null}
           {effectiveYear < FUNDAMENTAL_START_YEAR ? (
-            <span className="text-xs text-amber-800">
-              所选日期早于 {FUNDAMENTAL_START_YEAR}：基本面/估值类因子无数据，已置灰
-            </span>
+            <span className="text-xs text-amber-800">{tr("所选日期早于")}{" "}{FUNDAMENTAL_START_YEAR}{tr("：基本面/估值类因子无数据，已置灰")}</span>
           ) : null}
-          <label className="ml-4 text-sm text-fs-muted">最小市值</label>
+          <label className="ml-4 text-sm text-fs-muted">{tr("最小市值")}</label>
           <input
             type="number"
             min={0}
             step={1}
-            placeholder="不限"
+            placeholder={tr("不限")}
             value={config.universe?.minMarketCap != null ? config.universe.minMarketCap / 1e9 : ""}
             onChange={(e) =>
               patchConfig({
@@ -590,11 +576,11 @@ export function EquityScreenerClient() {
             }
             className="w-24 rounded-md border border-fs-border bg-fs-elevated px-2 py-1 text-sm"
           />
-          <span className="text-xs text-fs-muted">十亿美元</span>
+          <span className="text-xs text-fs-muted">{tr("十亿美元")}</span>
         </div>
 
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-sm text-fs-muted">行业</span>
+          <span className="mr-1 text-sm text-fs-muted">{tr("行业")}</span>
           {GICS_SECTOR_DEFS.map((s) => {
             const active = config.universe?.sectors?.includes(s.sector) ?? false;
             return (
@@ -608,7 +594,7 @@ export function EquityScreenerClient() {
                     : "border-fs-border text-fs-muted hover:bg-fs-elevated"
                 }`}
               >
-                {s.nameZh}
+                {tr(s.nameZh)}
               </button>
             );
           })}
@@ -633,7 +619,7 @@ export function EquityScreenerClient() {
                 >
                   {(Object.keys(METRIC_LABELS) as ScreenerMetric[]).map((m) => (
                     <option key={m} value={m}>
-                      {METRIC_LABELS[m]}
+                      {tr(METRIC_LABELS[m])}
                     </option>
                   ))}
                 </select>
@@ -653,7 +639,7 @@ export function EquityScreenerClient() {
                 >
                   {(Object.keys(OP_LABELS) as ScreenerOp[]).map((o) => (
                     <option key={o} value={o}>
-                      {OP_LABELS[o]}
+                      {tr(OP_LABELS[o])}
                     </option>
                   ))}
                 </select>
@@ -687,18 +673,17 @@ export function EquityScreenerClient() {
                   />
                 ) : null}
                 {def ? (
-                  <span className="text-xs text-fs-muted" title={factorTooltip(def)}>
-                    {def.higherIsBetter ? "↑优" : "↓优"} · {def.startYear} 起
-                  </span>
+                  <span className="text-xs text-fs-muted" title={factorTooltip(def, tr)}>
+                    {def.higherIsBetter ? tr("↑优") : tr("↓优")} · {def.startYear}{" "}{tr("起")}</span>
                 ) : null}
                 {unavailable ? (
-                  <span className="text-xs text-amber-800">所选日期无该因子数据</span>
+                  <span className="text-xs text-amber-800">{tr("所选日期无该因子数据")}</span>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => removeCondition(i)}
                   className="rounded-md px-1.5 text-fs-muted hover:text-red-400"
-                  aria-label="删除条件"
+                  aria-label={tr("删除条件")}
                 >
                   ✕
                 </button>
@@ -706,14 +691,14 @@ export function EquityScreenerClient() {
             );
           })}
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-fs-muted">添加条件</span>
-            <FactorSelect value="" year={effectiveYear} onChange={addCondition} placeholder="— 选择因子 —" />
+            <span className="text-fs-muted">{tr("添加条件")}</span>
+            <FactorSelect value="" year={effectiveYear} onChange={addCondition} placeholder={tr("— 选择因子 —")} />
           </div>
         </div>
 
         {/* 排序/复合打分 */}
         <div className="flex flex-wrap items-center gap-3 border-t border-fs-border pt-3 text-sm">
-          <span className="text-fs-muted">排序</span>
+          <span className="text-fs-muted">{tr("排序")}</span>
           <div className="flex overflow-hidden rounded-md border border-fs-border">
             {(["single", "composite"] as const).map((m) => (
               <button
@@ -726,7 +711,7 @@ export function EquityScreenerClient() {
                     : "text-fs-muted hover:bg-fs-elevated"
                 }`}
               >
-                {m === "single" ? "单因子" : "复合打分"}
+                {m === "single" ? tr("单因子") : tr("复合打分")}
               </button>
             ))}
           </div>
@@ -737,7 +722,7 @@ export function EquityScreenerClient() {
               onChange={(k) =>
                 patchConfig({ ranking: { ...config.ranking, sortFactor: k || null } })
               }
-              placeholder="— 不排序 —"
+              placeholder={tr("— 不排序 —")}
             />
           ) : (
             <div className="flex flex-wrap items-center gap-2">
@@ -747,7 +732,7 @@ export function EquityScreenerClient() {
                   <span
                     key={w.factorKey}
                     className="flex items-center gap-1 rounded-md border border-fs-border bg-fs-elevated px-2 py-0.5"
-                    title={def ? factorTooltip(def) : undefined}
+                    title={def ? factorTooltip(def, tr) : undefined}
                   >
                     {def?.nameZh ?? w.factorKey}
                     <span className="text-xs text-fs-muted">{def?.higherIsBetter ? "↑" : "↓"}</span>
@@ -780,15 +765,15 @@ export function EquityScreenerClient() {
                         })
                       }
                       className="px-0.5 text-fs-muted hover:text-red-400"
-                      aria-label="移除权重"
+                      aria-label={tr("移除权重")}
                     >
                       ✕
                     </button>
                   </span>
                 );
               })}
-              <FactorSelect value="" year={effectiveYear} onChange={addWeight} placeholder="+ 加权因子" />
-              <span className="text-xs text-fs-muted">复合分 = Σ 权重×Z分×方向</span>
+              <FactorSelect value="" year={effectiveYear} onChange={addWeight} placeholder={tr("+ 加权因子")} />
+              <span className="text-xs text-fs-muted">{tr("复合分 = Σ 权重×Z分×方向")}</span>
             </div>
           )}
           <label className="ml-2 text-fs-muted">Top N</label>
@@ -797,7 +782,7 @@ export function EquityScreenerClient() {
             min={1}
             step={1}
             value={config.ranking.topN ?? ""}
-            placeholder="全部"
+            placeholder={tr("全部")}
             onChange={(e) =>
               patchConfig({
                 ranking: {
@@ -814,7 +799,7 @@ export function EquityScreenerClient() {
             disabled={loading}
             className="ml-auto rounded-md bg-fs-accent-soft px-4 py-1.5 font-medium text-fs-accent-text ring-1 ring-fs-accent/25 hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? "查询中…" : "查询"}
+            {loading ? tr("查询中…") : tr("查询")}
           </button>
         </div>
       </div>
@@ -829,30 +814,25 @@ export function EquityScreenerClient() {
       {result ? (
         <>
           <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fs-muted">
-            <span>
-              截面 <span className="text-fs-text">{result.date}</span>
+            <span>{tr("截面")}{" "}<span className="text-fs-text">{result.date}</span>
             </span>
-            <span>
-              宇宙 <span className="text-fs-text">{result.stats.universeTotal}</span> 只
-            </span>
-            {result.stats.excludedBySector ? <span>行业过滤剔除 {result.stats.excludedBySector}</span> : null}
-            {result.stats.excludedByMarketCap ? <span>市值过滤剔除 {result.stats.excludedByMarketCap}</span> : null}
+            <span>{tr("宇宙")}{" "}<span className="text-fs-text">{result.stats.universeTotal}</span>{" "}{tr("只")}</span>
+            {result.stats.excludedBySector ? <span>{tr("行业过滤剔除")} {result.stats.excludedBySector}</span> : null}
+            {result.stats.excludedByMarketCap ? <span>{tr("市值过滤剔除")} {result.stats.excludedByMarketCap}</span> : null}
             {result.stats.droppedNull ? (
-              <span title={Object.entries(result.stats.excludedByNull).map(([k, n]) => `${FACTOR_MAP.get(k)?.nameZh ?? k}: ${n}`).join("；")}>
-                因子缺失剔除 {result.stats.droppedNull}
+              <span title={Object.entries(result.stats.excludedByNull).map(([k, n]) => `${FACTOR_MAP.get(k)?.nameZh ?? k}: ${n}`).join("；")}>{tr("因子缺失剔除")}{" "}{result.stats.droppedNull}
               </span>
             ) : null}
-            <span>条件未过 {result.stats.filteredOut}</span>
-            <span>
-              命中 <span className="text-fs-text">{result.stats.matched}</span>
-              {result.stats.returned < result.stats.matched ? `（显示前 ${result.stats.returned}）` : ""}
+            <span>{tr("条件未过")} {result.stats.filteredOut}</span>
+            <span>{tr("命中")}{" "}<span className="text-fs-text">{result.stats.matched}</span>
+              {result.stats.returned < result.stats.matched ? tr("（显示前 {returned}）", { returned: result.stats.returned }) : ""}
             </span>
           </div>
 
           {sectorMedians && shownFactorKeys.length ? (
             <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2 text-xs">
               <span className="text-fs-muted">
-                {sectorNameZh.get(sectorMedians.sector) ?? sectorMedians.sector} 行业中位数（{result.date}）
+                {sectorNameZh.get(sectorMedians.sector) ?? sectorMedians.sector} {tr("行业中位数（")}{result.date}）
               </span>
               {shownFactorKeys.map((k) => {
                 const row = sectorMedians.map.get(k);
@@ -878,15 +858,13 @@ export function EquityScreenerClient() {
               <thead>
                 <tr className="border-b border-fs-border bg-fs-elevated/60 text-left text-xs text-fs-muted">
                   <th className="px-2 py-2">#</th>
-                  <th className="px-2 py-2">代码</th>
-                  <th className="px-2 py-2">名称</th>
-                  <th className="px-2 py-2">行业</th>
-                  <th className="cursor-pointer px-2 py-2 text-right" onClick={() => clickSort("marketCap")}>
-                    市值{sortIndicator("marketCap")}
+                  <th className="px-2 py-2">{tr("代码")}</th>
+                  <th className="px-2 py-2">{tr("名称")}</th>
+                  <th className="px-2 py-2">{tr("行业")}</th>
+                  <th className="cursor-pointer px-2 py-2 text-right" onClick={() => clickSort("marketCap")}>{tr("市值")}{sortIndicator("marketCap")}
                   </th>
                   {isComposite ? (
-                    <th className="cursor-pointer px-2 py-2 text-right" onClick={() => clickSort("score")}>
-                      复合分{sortIndicator("score")}
+                    <th className="cursor-pointer px-2 py-2 text-right" onClick={() => clickSort("score")}>{tr("复合分")}{sortIndicator("score")}
                     </th>
                   ) : null}
                   {shownFactorKeys.map((k) => {
@@ -895,7 +873,7 @@ export function EquityScreenerClient() {
                       <th
                         key={k}
                         className="cursor-pointer px-2 py-2 text-right"
-                        title={def ? factorTooltip(def) : undefined}
+                        title={def ? factorTooltip(def, tr) : undefined}
                         onClick={() => clickSort(k)}
                       >
                         {def?.nameZh ?? k}
@@ -939,22 +917,16 @@ export function EquityScreenerClient() {
                 ))}
                 {!sortedRows.length ? (
                   <tr>
-                    <td colSpan={6 + shownFactorKeys.length} className="px-3 py-6 text-center text-sm text-fs-muted">
-                      无符合条件的股票（试放宽条件或检查因子缺失剔除数）
-                    </td>
+                    <td colSpan={6 + shownFactorKeys.length} className="px-3 py-6 text-center text-sm text-fs-muted">{tr("无符合条件的股票（试放宽条件或检查因子缺失剔除数）")}</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
           </div>
-          <div className="mt-2 text-xs text-fs-muted">
-            单元格 = 原始值 + <span className="text-emerald-400">全市场Z分</span>（红负绿正）；行业为现值 GICS 口径；市值为 PIT 口径（close×股本）。
-          </div>
+          <div className="mt-2 text-xs text-fs-muted">{tr("单元格 = 原始值 +")}{" "}<span className="text-emerald-400">{tr("全市场Z分")}</span>{tr("（红负绿正）；行业为现值 GICS 口径；市值为 PIT 口径（close×股本）。")}</div>
         </>
       ) : (
-        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">
-          配置条件后点击「查询」；支持任意历史月末截面（2000 起技术面、{FUNDAMENTAL_START_YEAR} 起基本面）。
-        </div>
+        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">{tr("配置条件后点击「查询」；支持任意历史月末截面（2000 起技术面、")}{FUNDAMENTAL_START_YEAR}{" "}{tr("起基本面）。")}</div>
       )}
     </div>
   );

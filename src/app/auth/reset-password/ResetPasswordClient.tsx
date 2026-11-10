@@ -1,11 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { AuthPageShell, authInputClass } from "@/components/auth/AuthPageShell";
+import { Link } from "@/i18n/navigation";
 
 export function ResetPasswordClient() {
+  const t = useTranslations("reset");
   const token = useSearchParams().get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -15,7 +17,7 @@ export function ResetPasswordClient() {
 
   const submit = async () => {
     if (password !== confirmation) {
-      setHint("两次输入的密码不一致");
+      setHint(t("mismatch"));
       return;
     }
     setLoading(true);
@@ -29,9 +31,9 @@ export function ResetPasswordClient() {
       const payload = (await response.json()) as { error?: string; message?: string };
       if (!response.ok) throw new Error(payload.error ?? `HTTP ${response.status}`);
       setComplete(true);
-      setHint(payload.message ?? "密码已重置");
+      setHint(payload.message ?? t("done"));
     } catch (error) {
-      setHint(error instanceof Error ? error.message : "重置失败");
+      setHint(error instanceof Error ? error.message : t("failed"));
     } finally {
       setLoading(false);
     }
@@ -39,11 +41,11 @@ export function ResetPasswordClient() {
 
   return (
     <AuthPageShell>
-      <h1 className="text-xl font-semibold text-fs-text">重置密码</h1>
-      <p className="mt-1 text-sm text-fs-muted">设置至少 8 位的新密码。成功后所有旧登录会话将退出。</p>
+      <h1 className="text-xl font-semibold text-fs-text">{t("title")}</h1>
+      <p className="mt-1 text-sm text-fs-muted">{t("subtitle")}</p>
 
       {!token ? (
-        <p className="mt-6 text-sm text-fs-negative">重置链接无效，请重新申请。</p>
+        <p className="mt-6 text-sm text-fs-negative">{t("invalidLink")}</p>
       ) : complete ? null : (
         <form
           className="mt-6 space-y-4"
@@ -53,7 +55,7 @@ export function ResetPasswordClient() {
           }}
         >
           <label className="block text-sm text-fs-secondary">
-            新密码
+            {t("newPassword")}
             <input
               type="password"
               autoComplete="new-password"
@@ -65,7 +67,7 @@ export function ResetPasswordClient() {
             />
           </label>
           <label className="block text-sm text-fs-secondary">
-            确认新密码
+            {t("confirmPassword")}
             <input
               type="password"
               autoComplete="new-password"
@@ -81,14 +83,14 @@ export function ResetPasswordClient() {
             disabled={loading || password.length < 8 || confirmation.length < 8}
             className="w-full rounded-md bg-fs-accent px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 disabled:opacity-50"
           >
-            {loading ? "重置中…" : "重置密码"}
+            {loading ? t("resetting") : t("submit")}
           </button>
         </form>
       )}
 
       {hint ? <p className="mt-4 text-sm text-fs-secondary">{hint}</p> : null}
       <Link href="/auth" className="mt-6 inline-block text-sm text-fs-accent-text underline">
-        {complete ? "使用新密码登录" : "返回登录"}
+        {complete ? t("loginWithNew") : t("backToLogin")}
       </Link>
     </AuthPageShell>
   );

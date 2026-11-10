@@ -151,9 +151,9 @@ export function buildTimelineEventNodes(
       t: fractionalYear(event.occurredAt),
       eraTag,
       summary:
-        extractEventSection(event.content, "事件概述") ??
+        extractEventSection(event.content, "事件概述") ?? // i18n-ignore: 数据/内容格式，显示处另行处理
         eventPreviewContent(event.content, 100),
-      impact: extractEventSection(event.content, "主要影响"),
+      impact: extractEventSection(event.content, "主要影响"), // i18n-ignore: 数据/内容格式，显示处另行处理
     };
   });
 }

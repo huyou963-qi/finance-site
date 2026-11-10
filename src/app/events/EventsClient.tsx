@@ -34,6 +34,7 @@ import {
 } from "@/lib/data/marketEventTimeline";
 import { ProPaywall } from "@/components/billing/ProPaywall";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTr } from "@/i18n/TextProvider";
 
 type EventsView = "timeline" | "list";
 type MobileEventsView = "vertical" | "horizontal";
@@ -81,6 +82,7 @@ function mobileChipClass(active: boolean) {
 }
 
 export function EventsClient() {
+  const tr = useTr();
   const router = useRouter();
   const searchParams = useSearchParams();
   const view: EventsView = searchParams.get("view") === "list" ? "list" : "timeline";
@@ -134,7 +136,7 @@ export function EventsClient() {
       const sp = new URLSearchParams({ limit: "2000" });
       const r = await fetch(`/api/events?${sp.toString()}`, { cache: "no-store" });
       if (r.status === 401) {
-        setError("请先登录后查看时间线");
+        setError(tr("请先登录后查看时间线"));
         setEvents([]);
         setTotal(0);
         return;
@@ -146,15 +148,15 @@ export function EventsClient() {
         return;
       }
       const j = (await r.json()) as { events?: MarketEventDto[]; total?: number; error?: string };
-      if (!r.ok) throw new Error(j.error ?? "加载失败");
+      if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
       setEvents(sortEventsAsc(j.events ?? []));
       setTotal(j.total ?? j.events?.length ?? 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr("加载失败"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tr]);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -169,7 +171,7 @@ export function EventsClient() {
       sp.set("limit", "2000");
       const r = await fetch(`/api/events?${sp.toString()}`, { cache: "no-store" });
       if (r.status === 401) {
-        setError("请先登录后查看时间线");
+        setError(tr("请先登录后查看时间线"));
         setEvents([]);
         setTotal(0);
         return;
@@ -185,15 +187,15 @@ export function EventsClient() {
         total?: number;
         error?: string;
       };
-      if (!r.ok) throw new Error(j.error ?? "加载失败");
+      if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
       setEvents(sortEventsAsc(j.events ?? []));
       setTotal(j.total ?? 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr("加载失败"));
     } finally {
       setLoading(false);
     }
-  }, [q, from, to, country, importance]);
+  }, [q, from, to, country, importance, tr]);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -234,11 +236,11 @@ export function EventsClient() {
       : visibleEvents.filter((e) => !isEraHeaderEvent(e)).length > 0;
 
   const onDelete = async (id: string) => {
-    if (!window.confirm("确定删除？")) return;
+    if (!window.confirm(tr("确定删除？"))) return;
     const r = await fetch(`/api/events/${id}`, { method: "DELETE" });
     if (!r.ok) {
       const j = (await r.json().catch(() => ({}))) as { error?: string };
-      window.alert(j.error ?? "删除失败");
+      window.alert(j.error ?? tr("删除失败"));
       return;
     }
     if (view === "timeline") void loadTimeline();
@@ -251,7 +253,7 @@ export function EventsClient() {
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex min-h-13 shrink-0 items-center gap-2 border-b border-fs-border py-1 pl-3 pr-1">
-          <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-fs-text">历史时间线</h1>
+          <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-fs-text">{tr("历史时间线")}</h1>
           <div className="flex shrink-0 gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
             {(["vertical", "horizontal"] as const).map((v) => (
               <button
@@ -265,7 +267,7 @@ export function EventsClient() {
                     : "text-fs-secondary"
                 }`}
               >
-                {v === "vertical" ? "纵向" : "横轴"}
+                {v === "vertical" ? tr("纵向") : tr("横轴")}
               </button>
             ))}
           </div>
@@ -273,7 +275,7 @@ export function EventsClient() {
             <button
               type="button"
               onClick={() => setMobileFilterOpen(true)}
-              aria-label="筛选事件"
+              aria-label={tr("筛选事件")}
               className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated"
             >
               <IconFilter size={22} />
@@ -289,8 +291,8 @@ export function EventsClient() {
         {error === "NEEDS_PRO" ? (
           <div className="flex flex-1 items-center justify-center p-4">
             <ProPaywall
-              title="事件时间线需要 Pro"
-              description="深度浏览历史市场事件时间线需开通 Pro 或处于试用期。"
+              title={tr("事件时间线需要 Pro")}
+              description={tr("深度浏览历史市场事件时间线需开通 Pro 或处于试用期。")}
             />
           </div>
         ) : error ? (
@@ -298,9 +300,7 @@ export function EventsClient() {
             {error}
           </p>
         ) : loading ? (
-          <p className="flex flex-1 items-center justify-center text-sm text-fs-muted">
-            加载时间线数据…
-          </p>
+          <p className="flex flex-1 items-center justify-center text-sm text-fs-muted">{tr("加载时间线数据…")}</p>
         ) : mobileView === "vertical" ? (
           <MobileEventTimeline events={mobileVisibleEvents} onSelect={setMobileDetailEvent} />
         ) : (
@@ -314,29 +314,25 @@ export function EventsClient() {
         <MobileSheet
           open={mobileFilterOpen}
           onClose={() => setMobileFilterOpen(false)}
-          title="筛选事件"
+          title={tr("筛选事件")}
           footer={
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => setMobileFilters({ ...DEFAULT_TIMELINE_FILTERS })}
                 className="h-11 flex-1 rounded-lg border border-fs-border text-base text-fs-text"
-              >
-                重置
-              </button>
+              >{tr("重置")}</button>
               <button
                 type="button"
                 onClick={() => setMobileFilterOpen(false)}
                 className="h-11 flex-[2] rounded-lg border border-fs-accent/30 bg-fs-accent-soft text-base font-medium text-fs-accent-text"
-              >
-                完成
-              </button>
+              >{tr("完成")}</button>
             </div>
           }
         >
           <div className="flex flex-col gap-5 px-4 pb-4 pt-2">
             <label className="block">
-              <span className="mb-1.5 block text-[13px] text-fs-muted">国家</span>
+              <span className="mb-1.5 block text-[13px] text-fs-muted">{tr("国家")}</span>
               <select
                 value={mobileFilters.country}
                 onChange={(e) => patchMobileFilters({ country: e.target.value })}
@@ -350,7 +346,7 @@ export function EventsClient() {
               </select>
             </label>
             <fieldset>
-              <legend className="mb-1.5 text-[13px] text-fs-muted">重要性（不选表示全部）</legend>
+              <legend className="mb-1.5 text-[13px] text-fs-muted">{tr("重要性（不选表示全部）")}</legend>
               <div className="flex flex-wrap gap-2">
                 {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
                   <button
@@ -369,7 +365,7 @@ export function EventsClient() {
               </div>
             </fieldset>
             <fieldset>
-              <legend className="mb-1.5 text-[13px] text-fs-muted">事件类型（不选表示全部）</legend>
+              <legend className="mb-1.5 text-[13px] text-fs-muted">{tr("事件类型（不选表示全部）")}</legend>
               <div className="flex flex-wrap gap-2">
                 {TIMELINE_FILTER_EVENT_TYPES.map((t) => (
                   <button
@@ -398,24 +394,20 @@ export function EventsClient() {
       <div className="relative flex h-full min-h-0 flex-col">
         <div className="pointer-events-none absolute left-3 top-3 z-[60] flex items-center gap-1.5">
           <div className="pointer-events-auto flex rounded-lg border border-fs-border bg-white/95 p-0.5 shadow-sm backdrop-blur">
-            <button type="button" className={viewToggleClass(true)} aria-current="page">
-              横轴
-            </button>
+            <button type="button" className={viewToggleClass(true)} aria-current="page">{tr("横轴")}</button>
             <button
               type="button"
               className={viewToggleClass(false)}
               onClick={() => setView("list")}
-            >
-              列表
-            </button>
+            >{tr("列表")}</button>
           </div>
         </div>
 
         {error === "NEEDS_PRO" ? (
           <div className="flex flex-1 items-center justify-center p-6">
             <ProPaywall
-              title="事件时间线需要 Pro"
-              description="深度浏览历史市场事件时间线需开通 Pro 或处于试用期。"
+              title={tr("事件时间线需要 Pro")}
+              description={tr("深度浏览历史市场事件时间线需开通 Pro 或处于试用期。")}
             />
           </div>
         ) : error ? (
@@ -423,9 +415,7 @@ export function EventsClient() {
             {error}
           </p>
         ) : loading ? (
-          <p className="flex flex-1 items-center justify-center text-sm text-fs-muted">
-            加载时间线数据…
-          </p>
+          <p className="flex flex-1 items-center justify-center text-sm text-fs-muted">{tr("加载时间线数据…")}</p>
         ) : (
           <div className="min-h-0 flex-1">
             <HorizontalHistoryTimeline events={events} />
@@ -439,19 +429,13 @@ export function EventsClient() {
     <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col gap-3 overflow-y-auto px-4 py-4 lg:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-fs-text">历史时间线 · 列表</h1>
-          <p className="text-xs text-fs-muted">
-            美国历史经济时代（1776—今）：按时代折叠浏览，悬停预览、点击查看详情。
-          </p>
+          <h1 className="text-lg font-semibold text-fs-text">{tr("历史时间线 · 列表")}</h1>
+          <p className="text-xs text-fs-muted">{tr("美国历史经济时代（1776—今）：按时代折叠浏览，悬停预览、点击查看详情。")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-fs-border bg-fs-bg p-0.5">
-            <button type="button" className={viewToggleClass(false)} onClick={() => setView("timeline")}>
-              横轴
-            </button>
-            <button type="button" className={viewToggleClass(true)} aria-current="page">
-              列表
-            </button>
+            <button type="button" className={viewToggleClass(false)} onClick={() => setView("timeline")}>{tr("横轴")}</button>
+            <button type="button" className={viewToggleClass(true)} aria-current="page">{tr("列表")}</button>
           </div>
           {isAdmin ? (
             <button
@@ -461,49 +445,39 @@ export function EventsClient() {
                 setFormOpen(true);
               }}
               className="rounded border border-fs-accent/40 bg-fs-accent-soft px-3 py-1.5 text-xs text-fs-accent-text hover:border-fs-accent"
-            >
-              新建事件
-            </button>
+            >{tr("新建事件")}</button>
           ) : null}
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2 rounded-lg border border-fs-border bg-fs-elevated p-2 text-[11px]">
-        <label className="text-fs-muted">
-          搜索
-          <input
+        <label className="text-fs-muted">{tr("搜索")}<input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
-            placeholder="标题或内容"
+            placeholder={tr("标题或内容")}
           />
         </label>
-        <label className="text-fs-muted">
-          起
-          <input
+        <label className="text-fs-muted">{tr("起")}<input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
             className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           />
         </label>
-        <label className="text-fs-muted">
-          止
-          <input
+        <label className="text-fs-muted">{tr("止")}<input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
             className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           />
         </label>
-        <label className="text-fs-muted">
-          国家
-          <select
+        <label className="text-fs-muted">{tr("国家")}<select
             value={country}
             onChange={(e) => setCountry(e.target.value)}
             className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           >
-            <option value="">全部</option>
+            <option value="">{tr("全部")}</option>
             {MACRO_COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
                 {c.name}
@@ -511,14 +485,12 @@ export function EventsClient() {
             ))}
           </select>
         </label>
-        <label className="text-fs-muted">
-          重要性
-          <select
+        <label className="text-fs-muted">{tr("重要性")}<select
             value={importance}
             onChange={(e) => setImportance(e.target.value as EventImportance | "")}
             className="ml-1 rounded border border-fs-border bg-fs-elevated px-2 py-1 text-fs-text"
           >
-            <option value="">全部</option>
+            <option value="">{tr("全部")}</option>
             {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
               <option key={k} value={k}>
                 {EVENT_IMPORTANCE_LABELS[k]}
@@ -530,15 +502,13 @@ export function EventsClient() {
           type="button"
           onClick={() => void loadList()}
           className="self-end rounded border border-fs-border px-2 py-1 text-fs-secondary hover:bg-fs-elevated"
-        >
-          筛选
-        </button>
+        >{tr("筛选")}</button>
       </div>
 
       {error === "NEEDS_PRO" ? (
         <ProPaywall
-          title="事件时间线需要 Pro"
-          description="深度浏览历史市场事件时间线需开通 Pro 或处于试用期。"
+          title={tr("事件时间线需要 Pro")}
+          description={tr("深度浏览历史市场事件时间线需开通 Pro 或处于试用期。")}
         />
       ) : error ? (
         <p className="rounded border border-rose-900/50 bg-rose-950/20 px-3 py-2 text-sm text-rose-200">
@@ -548,9 +518,9 @@ export function EventsClient() {
 
       <div className="min-h-[16rem] flex-1 overflow-y-auto rounded-lg border border-fs-border bg-fs-bg/40 px-3 py-3">
         {loading ? (
-          <p className="p-6 text-center text-sm text-fs-muted">加载中…</p>
+          <p className="p-6 text-center text-sm text-fs-muted">{tr("加载中…")}</p>
         ) : !hasVisible ? (
-          <p className="p-6 text-center text-sm text-fs-muted">暂无匹配事件</p>
+          <p className="p-6 text-center text-sm text-fs-muted">{tr("暂无匹配事件")}</p>
         ) : (
           <EventTimelineView
             key={`${q}-${from}-${to}-${country}-${importance}`}
@@ -564,14 +534,12 @@ export function EventsClient() {
           />
         )}
       </div>
-      <p className="text-[10px] text-fs-secondary">
-        共 {total} 条
-        {timelineModel.hasEraStructure ? ` · ${timelineModel.groups.length} 个时代阶段` : ""}
+      <p className="text-[10px] text-fs-secondary">{tr("共")}{" "}{total}{" "}{tr("条")}{timelineModel.hasEraStructure ? tr(" · {length} 个时代阶段", { length: timelineModel.groups.length }) : ""}
       </p>
 
       <EventFormModal
         open={formOpen}
-        title={editEvent ? "编辑事件" : "新建事件"}
+        title={editEvent ? tr("编辑事件") : tr("新建事件")}
         initial={editEvent ? eventToFormValues(editEvent) : emptyEventForm()}
         editId={editEvent?.id ?? null}
         onClose={() => {

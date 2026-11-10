@@ -13,6 +13,7 @@ import {
   IconChevronRight,
 } from "@/components/mobile/mobileIcons";
 import Link from "next/link";
+import { useTr } from "@/i18n/TextProvider";
 
 function kpiTone(label: string, dir: "up" | "down" | "flat"): string {
   if (label === "HY OAS" && dir === "up") return "text-fs-negative";
@@ -23,6 +24,7 @@ function kpiTone(label: string, dir: "up" | "down" | "flat"): string {
 }
 
 function WeeklyClientInner() {
+  const tr = useTr();
   const router = useRouter();
   const searchParams = useSearchParams();
   const reportIdFromUrl = searchParams.get("report");
@@ -54,7 +56,7 @@ function WeeklyClientInner() {
     try {
       const r = await fetch("/api/weekly-reports?limit=100", { cache: "no-store" });
       if (r.status === 401) {
-        setError("请先登录后查看 AI周度观察");
+        setError(tr("请先登录后查看 AI周度观察"));
         setList([]);
         setTotal(0);
         return [];
@@ -64,18 +66,18 @@ function WeeklyClientInner() {
         total?: number;
         error?: string;
       };
-      if (!r.ok) throw new Error(j.error ?? "加载列表失败");
+      if (!r.ok) throw new Error(j.error ?? tr("加载列表失败"));
       const reports = j.reports ?? [];
       setList(reports);
       setTotal(j.total ?? reports.length);
       return reports;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr("加载失败"));
       return [];
     } finally {
       setListLoading(false);
     }
-  }, []);
+  }, [tr]);
 
   useEffect(() => {
     void loadList();
@@ -94,14 +96,14 @@ function WeeklyClientInner() {
   const deleteSelected = useCallback(async () => {
     if (!selectedId || !detail) return;
     const label = detail.meta.weekEnding;
-    if (!window.confirm(`确定删除 ${label} 这期周报？此操作不可恢复。`)) return;
+    if (!window.confirm(tr("确定删除 {label} 这期周报？此操作不可恢复。", { label }))) return;
     setDeleting(true);
     setError(null);
     try {
       const r = await fetch(`/api/weekly-reports/${selectedId}`, { method: "DELETE" });
       const j = (await r.json()) as { error?: string };
-      if (r.status === 403) throw new Error("无管理员权限");
-      if (!r.ok) throw new Error(j.error ?? "删除失败");
+      if (r.status === 403) throw new Error(tr("无管理员权限"));
+      if (!r.ok) throw new Error(j.error ?? tr("删除失败"));
       const remaining = await loadList();
       if (remaining.length > 0) {
         selectReport(remaining[0]!.id);
@@ -111,11 +113,11 @@ function WeeklyClientInner() {
         router.replace("/weekly", { scroll: false });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : tr("删除失败"));
     } finally {
       setDeleting(false);
     }
-  }, [selectedId, detail, loadList, selectReport, router]);
+  }, [selectedId, detail, loadList, selectReport, router, tr]);
 
   useEffect(() => {
     if (list.length === 0) {
@@ -142,13 +144,13 @@ function WeeklyClientInner() {
     setTruncated(false);
     fetch(`/api/weekly-reports/${selectedId}`, { cache: "no-store" })
       .then(async (r) => {
-        if (r.status === 401) throw new Error("请先登录");
+        if (r.status === 401) throw new Error(tr("请先登录"));
         const j = (await r.json()) as {
           report?: WeeklyReportDetail;
           error?: string;
           truncated?: boolean;
         };
-        if (!r.ok) throw new Error(j.error ?? "加载详情失败");
+        if (!r.ok) throw new Error(j.error ?? tr("加载详情失败"));
         setTruncated(Boolean(j.truncated));
         return j.report ?? null;
       })
@@ -157,7 +159,7 @@ function WeeklyClientInner() {
       })
       .catch((e) => {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "加载详情失败");
+          setError(e instanceof Error ? e.message : tr("加载详情失败"));
           setDetail(null);
         }
       })
@@ -167,7 +169,7 @@ function WeeklyClientInner() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedId, tr]);
 
   const activeMeta = detail?.meta ?? list.find((x) => x.id === selectedId)?.meta;
 
@@ -177,11 +179,11 @@ function WeeklyClientInner() {
   const newerReportId = selectedIndex > 0 ? (list[selectedIndex - 1]?.id ?? null) : null;
 
   const emptyState = useMemo(() => {
-    if (listLoading) return "加载中…";
+    if (listLoading) return tr("加载中…");
     if (error) return error;
-    if (total === 0) return "暂无周报。Automation 写入后会显示在这里。";
+    if (total === 0) return tr("暂无周报。Automation 写入后会显示在这里。");
     return null;
-  }, [listLoading, error, total]);
+  }, [listLoading, error, total, tr]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col">
@@ -200,7 +202,7 @@ function WeeklyClientInner() {
             >
               <IconCalendar size={16} className="shrink-0 text-fs-muted" />
               <span className="truncate tabular-nums">
-                {activeMeta ? `截至 ${activeMeta.weekEnding}` : "历史周报"}
+                {activeMeta ? tr("截至 {weekEnding}", { weekEnding: activeMeta.weekEnding }) : tr("历史周报")}
               </span>
               <IconChevronDown size={16} className="shrink-0 text-fs-muted" />
             </button>
@@ -214,7 +216,7 @@ function WeeklyClientInner() {
               type="button"
               disabled={!olderReportId}
               onClick={() => olderReportId && selectReport(olderReportId)}
-              aria-label="上一期"
+              aria-label={tr("上一期")}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated disabled:opacity-30"
             >
               <IconChevronLeft size={22} />
@@ -223,7 +225,7 @@ function WeeklyClientInner() {
               type="button"
               disabled={!newerReportId}
               onClick={() => newerReportId && selectReport(newerReportId)}
-              aria-label="下一期"
+              aria-label={tr("下一期")}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated disabled:opacity-30"
             >
               <IconChevronRight size={22} />
@@ -240,21 +242,15 @@ function WeeklyClientInner() {
 
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 max-md:px-3 lg:px-8 lg:py-5">
             {detailLoading && !detail ? (
-              <div className="text-sm text-fs-muted">加载报告…</div>
+              <div className="text-sm text-fs-muted">{tr("加载报告…")}</div>
             ) : detail && activeMeta ? (
               <div className="w-full min-w-0">
                 {truncated ? (
-                  <div className="mb-4 rounded-lg border border-fs-accent/30 bg-fs-accent-soft/50 px-3 py-2 text-sm text-fs-secondary">
-                    当前为摘要预览。{" "}
-                    <Link href="/pricing" className="font-medium text-fs-accent-text underline">
-                      升级 Pro
-                    </Link>{" "}
-                    阅读全文。
-                  </div>
+                  <div className="mb-4 rounded-lg border border-fs-accent/30 bg-fs-accent-soft/50 px-3 py-2 text-sm text-fs-secondary">{tr("当前为摘要预览。")}{" "}
+                    <Link href="/pricing" className="font-medium text-fs-accent-text underline">{tr("升级 Pro")}</Link>{" "}{tr("阅读全文。")}</div>
                 ) : null}
                 <div className="mb-4 flex flex-wrap items-center gap-2 max-md:mb-0">
-                  <h2 className="text-lg font-semibold text-fs-text max-md:hidden">
-                    截至 {activeMeta.weekEnding}
+                  <h2 className="text-lg font-semibold text-fs-text max-md:hidden">{tr("截至")}{" "}{activeMeta.weekEnding}
                   </h2>
                   <span className="rounded bg-fs-elevated px-2 py-0.5 text-xs text-fs-secondary max-md:hidden">
                     {activeMeta.scope}
@@ -266,18 +262,17 @@ function WeeklyClientInner() {
                       disabled={deleting}
                       className="ml-auto rounded-md border border-fs-negative/40 px-2.5 py-1 text-xs font-medium text-fs-negative hover:bg-fs-negative/10 disabled:opacity-50 max-md:mb-3"
                     >
-                      {deleting ? "删除中…" : "删除本期"}
+                      {deleting ? tr("删除中…") : tr("删除本期")}
                     </button>
                   ) : null}
                 </div>
                 <h1 className="text-xl font-semibold leading-snug text-fs-text md:hidden">
-                  {activeMeta.title}
+                  {tr(activeMeta.title)}
                 </h1>
-                <p className="mt-1.5 text-xs tabular-nums text-fs-muted md:hidden">
-                  生成 {activeMeta.generatedAt}
+                <p className="mt-1.5 text-xs tabular-nums text-fs-muted md:hidden">{tr("生成")}{" "}{activeMeta.generatedAt}
                 </p>
                 <p className="text-sm text-fs-muted max-md:hidden">
-                  {activeMeta.title} · 生成 {activeMeta.generatedAt}
+                  {tr(activeMeta.title)} {tr("· 生成")} {activeMeta.generatedAt}
                 </p>
                 {error ? <p className="mt-2 text-sm text-fs-negative">{error}</p> : null}
 
@@ -286,8 +281,7 @@ function WeeklyClientInner() {
                     <span className="font-medium text-fs-text">
                       Regime: {activeMeta.regime}
                     </span>
-                    <span className="rounded bg-fs-elevated px-2 py-0.5 text-xs text-fs-secondary">
-                      信心 {activeMeta.regimeConfidence}
+                    <span className="rounded bg-fs-elevated px-2 py-0.5 text-xs text-fs-secondary">{tr("信心")}{" "}{activeMeta.regimeConfidence}
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-fs-muted">{activeMeta.summaryOneLiner}</p>
@@ -299,7 +293,7 @@ function WeeklyClientInner() {
                       key={k.label}
                       className="min-w-[7.5rem] rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 max-md:min-w-0 max-md:px-2.5"
                     >
-                      <div className="truncate text-[11px] text-fs-muted">{k.label}</div>
+                      <div className="truncate text-[11px] text-fs-muted">{tr(k.label)}</div>
                       <div className={`text-base font-semibold ${kpiTone(k.label, k.dir)}`}>
                         {k.value}
                       </div>
@@ -313,14 +307,14 @@ function WeeklyClientInner() {
                 <WeeklyMarkdown content={detail.bodyMarkdown} />
               </div>
             ) : (
-              <div className="text-sm text-fs-muted">请选择左侧周报</div>
+              <div className="text-sm text-fs-muted">{tr("请选择左侧周报")}</div>
             )}
           </main>
 
           <MobileSheet
             open={historyOpen}
             onClose={() => setHistoryOpen(false)}
-            title="历史周报"
+            title={tr("历史周报")}
             size="tall"
           >
             <WeeklyHistorySidebar
@@ -341,12 +335,11 @@ function WeeklyClientInner() {
 }
 
 export function WeeklyClient() {
+  const tr = useTr();
   return (
     <Suspense
       fallback={
-        <div className="flex flex-1 items-center justify-center p-8 text-sm text-fs-muted">
-          加载中…
-        </div>
+        <div className="flex flex-1 items-center justify-center p-8 text-sm text-fs-muted">{tr("加载中…")}</div>
       }
     >
       <WeeklyClientInner />

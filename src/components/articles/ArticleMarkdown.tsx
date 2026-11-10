@@ -7,15 +7,17 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { ArticleChart } from "./ArticleChart";
 import { chartReferenceId } from "@/lib/market/chartReference";
+import { useTr } from "@/i18n/TextProvider";
 
 export function ArticleMarkdown({ content }: { content: string }) {
+  const tr = useTr();
   return (
     <div className="article-md weekly-md">
       <ReactMarkdown skipHtml components={{ pre({ children, node, ...props }) {
         void node;
         if (React.isValidElement<{ className?: string; children?: React.ReactNode }>(children) && children.props.className === "language-gekko-chart") {
           const id = chartReferenceId(String(children.props.children ?? ""));
-          return id ? <ArticleChart referenceId={id} /> : <p className="text-sm text-fs-muted">图表引用格式无效</p>;
+          return id ? <ArticleChart referenceId={id} /> : <p className="text-sm text-fs-muted">{tr("图表引用格式无效")}</p>;
         }
         return <pre {...props}>{children}</pre>;
       } }} remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]} rehypePlugins={[[rehypeKatex, { trust: false, strict: "error", maxExpand: 1000 }]]}>{content}</ReactMarkdown>

@@ -9,12 +9,14 @@ import type { HeadlineForecast, UsCpiNowcastPublicPayload } from "@/lib/forecast
 
 type AccuracyStats = { mae: number; rmse: number; within01: number; roundHit: number };
 import { BacktestChart, CLEVELAND_LINE, ContributionChart, GROUP_COLOR } from "./UsCpiNowcastCharts";
+import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
 
-const monthZh = (iso: string) => `${iso.slice(0, 4)} 年 ${Number(iso.slice(5, 7))} 月`;
+const monthZh = (iso: string, tr: Tr) => tr("{year} 年 {month} 月", { year: iso.slice(0, 4), month: Number(iso.slice(5, 7)) });
 const pct = (v: number, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "—");
 const signed = (v: number, d = 2) => (Number.isFinite(v) ? (v > 0 ? "+" : "") + v.toFixed(d) : "—");
 /** 截止日文案：31 表示全月 */
-const cutoffText = (d: number) => (d >= 31 ? "全月" : d <= 0 ? "尚无当月数据" : `1–${d} 日`);
+const cutoffText = (d: number, tr: Tr) => (d >= 31 ? tr("全月") : d <= 0 ? tr("尚无当月数据") : tr("1–{d} 日", { d }));
 const rate = (v: number) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "—");
 
 /** 克利夫兰联储对照：其 nowcast 与「本模型 − 克利夫兰联储」的差（百分点） */
@@ -42,9 +44,10 @@ function Kpi({
   lead?: boolean;
   compare?: KpiCompare | null;
 }) {
+  const tr = useTr();
   return (
     <div className="flex flex-col gap-1.5 bg-fs-bg px-4 py-3.5">
-      <span className="text-[13px] text-fs-muted">{label}</span>
+      <span className="text-[13px] text-fs-muted">{tr(label)}</span>
       <span className={`font-mono text-[30px] leading-none tabular-nums ${lead ? "text-fs-accent-text" : "text-fs-text"}`}>
         {value}
         <span className="ml-0.5 text-base text-fs-muted">{unit}</span>
@@ -53,10 +56,10 @@ function Kpi({
       {compare ? (
         <span className="mt-1 flex flex-wrap items-center gap-x-1.5 border-t border-fs-border pt-2 text-xs text-fs-secondary">
           <span aria-hidden className="inline-block h-0 w-3 border-t-2 border-dashed" style={{ borderColor: CLEVELAND_LINE }} />
-          <span>克利夫兰联储</span>
+          <span>{tr("克利夫兰联储")}</span>
           <span className="font-mono tabular-nums text-fs-text">{pct(compare.value)}%</span>
           <span className="text-fs-muted">·</span>
-          <span>差</span>
+          <span>{tr("差")}</span>
           <span className="font-mono tabular-nums text-fs-text">{signed(compare.diff)}</span>
         </span>
       ) : null}
@@ -64,16 +67,17 @@ function Kpi({
   );
 }
 
-function headlineSub(h: HeadlineForecast, prevLabel: string) {
-  return `80% 区间 ${pct(h.low)} ~ ${pct(h.high)} · ${prevLabel} ${pct(h.prevMom)}`;
+function headlineSub(h: HeadlineForecast, prevLabel: string, tr: Tr) {
+  return tr("80% 区间 {low} ~ {high} · {prevLabel} {prev}", { low: pct(h.low), high: pct(h.high), prevLabel, prev: pct(h.prevMom) });
 }
 
 function AccuracyTable({ data }: { data: UsCpiNowcastPublicPayload["backtest"]["accuracy"] }) {
+  const tr = useTr();
   const rows: Array<{ key: "model" | "cleveland" | "mean12" | "lastMonth"; label: string }> = [
-    { key: "model", label: "本模型" },
-    { key: "cleveland", label: "克利夫兰联储 nowcast" },
-    { key: "mean12", label: "过去 12 个月均值" },
-    { key: "lastMonth", label: "上月值" },
+    { key: "model", label: tr("本模型") },
+    { key: "cleveland", label: tr("克利夫兰联储 nowcast") },
+    { key: "mean12", label: tr("过去 12 个月均值") },
+    { key: "lastMonth", label: tr("上月值") },
   ];
   const cells = (s: AccuracyStats) => (
     <>
@@ -88,11 +92,11 @@ function AccuracyTable({ data }: { data: UsCpiNowcastPublicPayload["backtest"]["
       <table className="w-full min-w-[640px] border-collapse text-[13px]">
         <thead>
           <tr className="text-xs text-fs-muted">
-            <th className="px-2.5 py-2 text-left font-medium">环比预测误差（百分点）</th>
+            <th className="px-2.5 py-2 text-left font-medium">{tr("环比预测误差（百分点）")}</th>
             <th className="px-2.5 py-2 text-right font-medium">MAE</th>
             <th className="px-2.5 py-2 text-right font-medium">RMSE</th>
-            <th className="px-2.5 py-2 text-right font-medium">|误差|≤0.1</th>
-            <th className="px-2.5 py-2 text-right font-medium">取整命中</th>
+            <th className="px-2.5 py-2 text-right font-medium">{tr("|误差|≤0.1")}</th>
+            <th className="px-2.5 py-2 text-right font-medium">{tr("取整命中")}</th>
           </tr>
         </thead>
         <tbody>
@@ -101,8 +105,8 @@ function AccuracyTable({ data }: { data: UsCpiNowcastPublicPayload["backtest"]["
               <Fragment key={`${period}-${k}`}>
                 <tr className="border-t border-fs-border">
                   <td colSpan={5} className="px-2.5 pb-1 pt-3 text-xs font-medium text-fs-secondary">
-                    {k === "ALL" ? "总体 CPI" : "核心 CPI"} ·{" "}
-                    {period === "exCovid" ? `2018 年以来，剔除 2020 年 3–6 月（N=${data.exCovid.n}）` : `2023 年以来（N=${data.recent.n}）`}
+                    {k === "ALL" ? tr("总体 CPI") : tr("核心 CPI")} ·{" "}
+                    {period === "exCovid" ? tr("2018 年以来，剔除 2020 年 3–6 月（N={n}）", { n: data.exCovid.n }) : tr("2023 年以来（N={n}）", { n: data.recent.n })}
                   </td>
                 </tr>
                 {rows.map((r) => {
@@ -110,7 +114,7 @@ function AccuracyTable({ data }: { data: UsCpiNowcastPublicPayload["backtest"]["
                   if (!stats) return null;
                   return (
                     <tr key={r.key} className={r.key === "model" ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}>
-                      <td className="px-2.5 py-2">{r.label}</td>
+                      <td className="px-2.5 py-2">{tr(r.label)}</td>
                       {cells(stats)}
                     </tr>
                   );
@@ -125,10 +129,11 @@ function AccuracyTable({ data }: { data: UsCpiNowcastPublicPayload["backtest"]["
 }
 
 export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) {
+  const tr = useTr();
   const [backtestKey, setBacktestKey] = useState<"ALL" | "CORE">("ALL");
-  const prevLabel = `${Number(data.latestCpiMonth.slice(5, 7))} 月`;
+  const prevLabel = tr("{v0} 月", { v0: Number(data.latestCpiMonth.slice(5, 7)) });
   const cf = data.cleveland;
-  const target = monthZh(data.targetMonth);
+  const target = monthZh(data.targetMonth, tr);
   const energyPp = data.drivers.filter((c) => c.group === "能源").reduce((s, c) => s + c.contribution, 0);
   const otherPp = data.drivers.filter((c) => c.group !== "能源").reduce((s, c) => s + c.contribution, 0);
 
@@ -147,40 +152,37 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-6">
       <header className="flex flex-col gap-2 border-b border-fs-border pb-5">
-        <p className="font-mono text-xs uppercase tracking-[0.08em] text-fs-accent-text">
-          CPI-U · 目标月 {target} · 当月数据已观测{cutoffText(data.cutoffDay)}
+        <p className="font-mono text-xs uppercase tracking-[0.08em] text-fs-accent-text">{tr("CPI-U · 目标月")}{" "}{target} {tr("· 当月数据已观测")}{cutoffText(data.cutoffDay, tr)}
         </p>
-        <h1 className="text-2xl font-semibold text-balance text-fs-text">美国 CPI 预测</h1>
-        <p className="max-w-3xl text-sm leading-relaxed text-fs-secondary">
-          预测下一次公布的 {target} CPI，包含季调环比、同比和按同样观测天数校准的历史误差。最新已公布 CPI 为{" "}
-          {monthZh(data.latestCpiMonth)}。数值为季调环比，同比按未季调口径换算。
-        </p>
+        <h1 className="text-2xl font-semibold text-balance text-fs-text">{tr("美国 CPI 预测")}</h1>
+        <p className="max-w-3xl text-sm leading-relaxed text-fs-secondary">{tr("预测下一次公布的")}{" "}{target} {tr("CPI，包含季调环比、同比和按同样观测天数校准的历史误差。最新已公布 CPI 为")}{" "}
+          {monthZh(data.latestCpiMonth, tr)}{tr("。数值为季调环比，同比按未季调口径换算。")}</p>
       </header>
 
       <section className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-fs-border bg-fs-border sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
             lead
-            label="总体 CPI 环比（季调）"
+            label={tr("总体 CPI 环比（季调）")}
             value={pct(data.headline.mom)}
-            sub={headlineSub(data.headline, prevLabel)}
+            sub={headlineSub(data.headline, prevLabel, tr)}
             compare={compareWith(data.headline.mom, cf?.all)}
           />
           <Kpi
             lead
-            label="核心 CPI 环比（季调）"
+            label={tr("核心 CPI 环比（季调）")}
             value={pct(data.core.mom)}
-            sub={headlineSub(data.core, prevLabel)}
+            sub={headlineSub(data.core, prevLabel, tr)}
             compare={compareWith(data.core.mom, cf?.core)}
           />
           <Kpi
-            label="总体 CPI 同比"
+            label={tr("总体 CPI 同比")}
             value={pct(data.headline.yoy)}
             sub={`${prevLabel} ${pct(data.headline.prevYoy)}%`}
             compare={compareWith(data.headline.yoy, cf?.allYoy)}
           />
           <Kpi
-            label="核心 CPI 同比"
+            label={tr("核心 CPI 同比")}
             value={pct(data.core.yoy)}
             sub={`${prevLabel} ${pct(data.core.prevYoy)}%`}
             compare={compareWith(data.core.yoy, cf?.coreYoy)}
@@ -189,15 +191,15 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-fs-secondary sm:grid-cols-4">
           {(
             [
-              ["食品", data.aggregates.FOOD],
-              ["能源", data.aggregates.ENE],
-              ["核心商品", data.aggregates.CG],
-              ["核心服务", data.aggregates.CS],
+              [tr("食品"), data.aggregates.FOOD],
+              [tr("能源"), data.aggregates.ENE],
+              [tr("核心商品"), data.aggregates.CG],
+              [tr("核心服务"), data.aggregates.CS],
             ] as const
           ).map(([label, v]) => (
             <div key={label} className="flex flex-wrap items-baseline gap-x-2">
               <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: GROUP_COLOR[label] }} />
-              <span className="whitespace-nowrap">{label}</span>
+              <span className="whitespace-nowrap">{tr(label)}</span>
               <span className="font-mono tabular-nums text-fs-text">{signed(v.forecast)}%</span>
               <span className="font-mono text-xs tabular-nums text-fs-muted">
                 {prevLabel} {signed(v.prevActual)}
@@ -211,37 +213,29 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
               aria-hidden
               className="mr-1.5 inline-block h-0 w-4 border-t-2 border-dashed align-middle"
               style={{ borderColor: CLEVELAND_LINE }}
-            />
-            卡片中的克利夫兰联储为其 {cf.label}
-            {cf.yoyLabel && cf.yoyLabel !== cf.label ? `（同比 ${cf.yoyLabel}）` : ""} 对 {target} 的最新 nowcast
-            {cf.allYoy == null ? "，同比暂缺" : ""}；「差」= 本模型 − 克利夫兰联储，单位为百分点。第三方模型输出，仅作对照、不入库。{" "}
-            <a href={cf.sourceUrl} target="_blank" rel="noreferrer" className="text-fs-accent-text hover:underline">
-              来源
-            </a>
+            />{tr("卡片中的克利夫兰联储为其")}{" "}{tr(cf.label)}
+            {cf.yoyLabel && cf.yoyLabel !== cf.label ? tr("（同比 {yoyLabel}）", { yoyLabel: cf.yoyLabel }) : ""} {tr("对")} {target}{" "}{tr("的最新 nowcast")}{cf.allYoy == null ? tr("，同比暂缺") : ""}{tr("；「差」= 本模型 − 克利夫兰联储，单位为百分点。第三方模型输出，仅作对照、不入库。")}{" "}
+            <a href={cf.sourceUrl} target="_blank" rel="noreferrer" className="text-fs-accent-text hover:underline">{tr("来源")}</a>
           </p>
         ) : null}
         {data.hasFallback ? (
-          <p className="rounded-md border border-[#f1c40f]/40 bg-[#fdf6d8] px-3 py-2 text-[13px] text-fs-secondary">
-            部分分项本月数据不足，已用近期均值替代。
-          </p>
+          <p className="rounded-md border border-[#f1c40f]/40 bg-[#fdf6d8] px-3 py-2 text-[13px] text-fs-secondary">{tr("部分分项本月数据不足，已用近期均值替代。")}</p>
         ) : null}
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-fs-text">当月看到的数据越多，预测越准</h2>
-        <p className="max-w-3xl text-sm text-fs-secondary">
-          本次预测用到当月已观测的 <span className="font-medium text-fs-text">{cutoffText(data.cutoffDay)}</span>
-          {data.observedThrough ? `（价格最新至 ${data.observedThrough}）` : ""}。误差区间按同样的观测天数回测校准：月初区间更宽，月末到公布前用满整月数据。
-        </p>
+        <h2 className="text-lg font-semibold text-fs-text">{tr("当月看到的数据越多，预测越准")}</h2>
+        <p className="max-w-3xl text-sm text-fs-secondary">{tr("本次预测用到当月已观测的")}{" "}<span className="font-medium text-fs-text">{cutoffText(data.cutoffDay, tr)}</span>
+          {data.observedThrough ? tr("（价格最新至 {observedThrough}）", { observedThrough: data.observedThrough }) : ""}{tr("。误差区间按同样的观测天数回测校准：月初区间更宽，月末到公布前用满整月数据。")}</p>
         <div className="overflow-x-auto rounded-md border border-fs-border">
           <table className="w-full min-w-[560px] border-collapse text-[13px]">
             <thead className="bg-fs-elevated text-xs text-fs-muted">
               <tr>
-                <th className="px-2.5 py-2 text-left font-medium">当月数据截至</th>
-                <th className="px-2.5 py-2 text-right font-medium">总体 MAE</th>
-                <th className="px-2.5 py-2 text-right font-medium">总体 80% 区间宽度</th>
-                <th className="px-2.5 py-2 text-right font-medium">核心 MAE</th>
-                <th className="px-2.5 py-2 text-right font-medium">克利夫兰联储 总体 MAE</th>
+                <th className="px-2.5 py-2 text-left font-medium">{tr("当月数据截至")}</th>
+                <th className="px-2.5 py-2 text-right font-medium">{tr("总体 MAE")}</th>
+                <th className="px-2.5 py-2 text-right font-medium">{tr("总体 80% 区间宽度")}</th>
+                <th className="px-2.5 py-2 text-right font-medium">{tr("核心 MAE")}</th>
+                <th className="px-2.5 py-2 text-right font-medium">{tr("克利夫兰联储 总体 MAE")}</th>
               </tr>
             </thead>
             <tbody>
@@ -251,8 +245,8 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
                   className={`border-t border-fs-border ${c.current ? "bg-fs-accent-soft/60 font-medium text-fs-text" : "text-fs-secondary"}`}
                 >
                   <td className="px-2.5 py-2">
-                    {cutoffText(c.cutoffDay)}
-                    {c.current ? <span className="ml-2 text-xs text-fs-accent-text">本次</span> : null}
+                    {cutoffText(c.cutoffDay, tr)}
+                    {c.current ? <span className="ml-2 text-xs text-fs-accent-text">{tr("本次")}</span> : null}
                   </td>
                   <td className="px-2.5 py-2 text-right font-mono tabular-nums">{pct(c.allMae, 3)}</td>
                   <td className="px-2.5 py-2 text-right font-mono tabular-nums">±{pct(c.allBandWidth / 2, 2)}</td>
@@ -265,18 +259,16 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-fs-muted">2018 年以来逐月样本外回测，剔除 2020 年 3–6 月；单位为百分点。</p>
+        <p className="text-xs text-fs-muted">{tr("2018 年以来逐月样本外回测，剔除 2020 年 3–6 月；单位为百分点。")}</p>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-fs-text">本月由什么驱动</h2>
-        <p className="max-w-3xl text-sm text-fs-secondary">
-          各分项对总体环比的拉动。能源合计约 <span className="font-mono tabular-nums text-fs-text">{signed(energyPp)}</span> 个百分点，其余分项合计约{" "}
-          <span className="font-mono tabular-nums text-fs-text">{signed(otherPp)}</span>。黑色竖线为 {prevLabel} 实际贡献。
-        </p>
+        <h2 className="text-lg font-semibold text-fs-text">{tr("本月由什么驱动")}</h2>
+        <p className="max-w-3xl text-sm text-fs-secondary">{tr("各分项对总体环比的拉动。能源合计约")}{" "}<span className="font-mono tabular-nums text-fs-text">{signed(energyPp)}</span> {tr("个百分点，其余分项合计约")}{" "}
+          <span className="font-mono tabular-nums text-fs-text">{signed(otherPp)}</span>{tr("。黑色竖线为")} {prevLabel}{" "}{tr("实际贡献。")}</p>
         <div className="rounded-md border border-fs-border bg-fs-bg p-3">
           <ContributionChart
-            prevLabel={`${prevLabel}实际`}
+            prevLabel={tr("{prevLabel}实际", { prevLabel })}
             items={data.drivers.map((c) => ({
               label: c.label,
               group: c.group,
@@ -289,7 +281,7 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold text-fs-text">历史回测</h2>
+          <h2 className="text-lg font-semibold text-fs-text">{tr("历史回测")}</h2>
           <div className="flex gap-1 rounded-md border border-fs-border p-0.5 text-[13px]" role="tablist">
             {(["ALL", "CORE"] as const).map((k) => (
               <button
@@ -302,16 +294,16 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
                   backtestKey === k ? "bg-fs-accent-soft font-medium text-fs-accent-text" : "text-fs-muted hover:text-fs-text"
                 }`}
               >
-                {k === "ALL" ? "总体 CPI" : "核心 CPI"}
+                {k === "ALL" ? tr("总体 CPI") : tr("核心 CPI")}
               </button>
             ))}
           </div>
         </div>
         <p className="max-w-3xl text-sm text-fs-secondary">
-          {data.backtest.from.slice(0, 7)} 至 {data.backtest.to.slice(0, 7)} 逐月滚动：每个月只用当时可得的数据，预测当月再与公布值比较。剔除疫情月后，总体环比平均误差{" "}
-          <span className="font-mono tabular-nums text-fs-text">{pct(accEx.ALL.model.mae, 3)}</span> 个百分点（12 个月均值基准{" "}
-          {pct(accEx.ALL.mean12.mae, 3)}），核心{" "}
-          <span className="font-mono tabular-nums text-fs-text">{pct(accEx.CORE.model.mae, 3)}</span>（基准 {pct(accEx.CORE.mean12.mae, 3)}）。
+          {data.backtest.from.slice(0, 7)} {tr("至")} {data.backtest.to.slice(0, 7)} {tr("逐月滚动：每个月只用当时可得的数据，预测当月再与公布值比较。剔除疫情月后，总体环比平均误差")}{" "}
+          <span className="font-mono tabular-nums text-fs-text">{pct(accEx.ALL.model.mae, 3)}</span> {tr("个百分点（12 个月均值基准")}{" "}
+          {pct(accEx.ALL.mean12.mae, 3)}{tr("），核心")}{" "}
+          <span className="font-mono tabular-nums text-fs-text">{pct(accEx.CORE.model.mae, 3)}</span>{tr("（基准")} {pct(accEx.CORE.mean12.mae, 3)}）。
         </p>
         <div className="rounded-md border border-fs-border bg-fs-bg p-3">
           <BacktestChart points={btPoints} />
@@ -319,13 +311,10 @@ export function UsCpiNowcastView({ data }: { data: UsCpiNowcastPublicPayload }) 
         <div className="rounded-md border border-fs-border bg-fs-bg p-3">
           <AccuracyTable data={data.backtest.accuracy} />
         </div>
-        <p className="max-w-3xl text-xs leading-relaxed text-fs-muted">
-          「取整命中」指预测与公布值四舍五入到 0.1 后完全相同。克利夫兰联储取每个目标月同一截止日之前的最后一次 nowcast，与本模型同一信息时点；其数据为第三方模型输出，仅作对照、不入库。
-        </p>
+        <p className="max-w-3xl text-xs leading-relaxed text-fs-muted">{tr("「取整命中」指预测与公布值四舍五入到 0.1 后完全相同。克利夫兰联储取每个目标月同一截止日之前的最后一次 nowcast，与本模型同一信息时点；其数据为第三方模型输出，仅作对照、不入库。")}</p>
       </section>
 
-      <p className="text-xs text-fs-muted">
-        结果按最新入库数据定期重算；计算时间 {data.generatedAt.slice(0, 16).replace("T", " ")} UTC。
+      <p className="text-xs text-fs-muted">{tr("结果按最新入库数据定期重算；计算时间")}{" "}{data.generatedAt.slice(0, 16).replace("T", " ")} UTC。
       </p>
     </div>
   );

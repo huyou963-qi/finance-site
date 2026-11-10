@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requestSignupChannel } from "@/i18n/requestChannel";
+import { localizeServerMessage, requestLocale } from "@/i18n/serverMessages";
 import { getUserByRequest, getUserProfile, updateUserAccount } from "@/lib/auth";
 import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 
@@ -12,10 +14,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const t = (message: string) => localizeServerMessage(message, requestLocale(req));
   try {
     requireSameOrigin(req);
     const me = await getUserByRequest(req);
-    if (!me) return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    if (!me) return NextResponse.json({ error: t("请先登录") }, { status: 401 });
     const body = (await req.json()) as {
       email?: string;
       phone?: string;
@@ -29,13 +32,13 @@ export async function PATCH(req: NextRequest) {
         phone: body.phone,
         password: body.password,
       },
-      { currentPassword: body.currentPassword },
+      { currentPassword: body.currentPassword, channel: await requestSignupChannel(req) },
     );
     return NextResponse.json({ user });
   } catch (e) {
     const originErr = sameOriginErrorResponse(e);
-    if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status });
+    if (originErr) return NextResponse.json({ error: t(originErr.error) }, { status: originErr.status });
     const message = e instanceof Error ? e.message : "未知错误";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: t(message) }, { status: 400 });
   }
 }

@@ -6,6 +6,7 @@ import {
   MACRO_DRAWING_TOOLS,
   resolveDrawingStyle,
 } from "@/lib/macroChartDrawing";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroChartDrawingToolbarProps = {
   tool: MacroDrawingTool;
@@ -43,6 +44,7 @@ export function MacroChartDrawingToolbar({
   screenshotBusy = false,
   screenshotHint = null,
 }: MacroChartDrawingToolbarProps) {
+  const tr = useTr();
   const activeStyle = selectedDrawing
     ? resolveDrawingStyle(selectedDrawing.style)
     : drawStyle;
@@ -57,23 +59,23 @@ export function MacroChartDrawingToolbar({
           type="button"
           onClick={() => void onScreenshot()}
           disabled={screenshotBusy}
-          title="截取图表区域（含作图标注）到剪贴板"
+          title={tr("截取图表区域（含作图标注）到剪贴板")}
           className="rounded-md border border-fs-border/90 bg-fs-elevated px-2.5 py-1 text-[11px] font-medium text-fs-text transition hover:border-fs-accent/40 hover:bg-fs-accent-soft hover:text-fs-accent-text disabled:cursor-wait disabled:opacity-60"
         >
-          {screenshotBusy ? "截图中…" : screenshotHint ? screenshotHint : "截图"}
+          {screenshotBusy ? tr("截图中…") : screenshotHint ? screenshotHint : tr("截图")}
         </button>
       ) : null}
       <div
         className="flex flex-wrap items-center gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5"
         role="toolbar"
-        aria-label="作图工具"
+        aria-label={tr("作图工具")}
       >
-        <span className="shrink-0 px-1.5 text-[10px] font-medium text-fs-muted">作图</span>
+        <span className="shrink-0 px-1.5 text-[10px] font-medium text-fs-muted">{tr("作图")}</span>
         {MACRO_DRAWING_TOOLS.map((t) => (
           <button
             key={t.id}
             type="button"
-            title={t.title}
+            title={tr(t.title)}
             onClick={() => onToolChange(t.id)}
             className={`rounded px-2 py-1 text-[11px] transition ${
               tool === t.id
@@ -81,7 +83,7 @@ export function MacroChartDrawingToolbar({
                 : "text-fs-secondary hover:bg-fs-elevated hover:text-fs-text"
             }`}
           >
-            {t.label}
+            {tr(t.label)}
           </button>
         ))}
         <span className="mx-0.5 h-4 w-px shrink-0 bg-fs-border/90" aria-hidden />
@@ -89,30 +91,24 @@ export function MacroChartDrawingToolbar({
           type="button"
           onClick={onClear}
           className="rounded px-2 py-1 text-[11px] text-fs-muted transition hover:bg-fs-elevated hover:text-rose-200"
-          title="清除当前所有子图标注"
-        >
-          清除
-        </button>
+          title={tr("清除当前所有子图标注")}
+        >{tr("清除")}</button>
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-md border border-fs-border/90 bg-fs-elevated px-1.5 py-0.5">
         <span className="text-[10px] text-fs-muted">
-          {selectedDrawing ? "选中样式" : "默认样式"}
+          {selectedDrawing ? tr("选中样式") : tr("默认样式")}
         </span>
         {showLineControls ? (
           <>
-            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted" title="线条颜色">
-              线色
-              <input
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted" title={tr("线条颜色")}>{tr("线色")}<input
                 type="color"
                 value={activeStyle.color}
                 onChange={(e) => styleTarget({ color: e.target.value })}
                 className="h-5 w-6 cursor-pointer rounded border border-fs-border bg-fs-elevated p-0"
               />
             </label>
-            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
-              粗细
-              <input
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">{tr("粗细")}<input
                 type="number"
                 min={0.5}
                 max={6}
@@ -132,11 +128,11 @@ export function MacroChartDrawingToolbar({
                 styleTarget({ lineStyle: e.target.value as MacroDrawingStyle["lineStyle"] })
               }
               className="rounded border border-fs-border bg-fs-elevated px-1 py-0.5 text-[10px] text-fs-text"
-              title="线条风格"
+              title={tr("线条风格")}
             >
               {LINE_STYLES.map((s) => (
                 <option key={s.value} value={s.value}>
-                  {s.label}
+                  {tr(s.label)}
                 </option>
               ))}
             </select>
@@ -144,18 +140,14 @@ export function MacroChartDrawingToolbar({
         ) : null}
         {isText || tool === "text" ? (
           <>
-            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
-              字色
-              <input
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">{tr("字色")}<input
                 type="color"
                 value={activeStyle.textColor}
                 onChange={(e) => styleTarget({ textColor: e.target.value })}
                 className="h-5 w-6 cursor-pointer rounded border border-fs-border bg-fs-elevated p-0"
               />
             </label>
-            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
-              字号
-              <input
+            <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">{tr("字号")}<input
                 type="number"
                 min={8}
                 max={24}
@@ -171,13 +163,13 @@ export function MacroChartDrawingToolbar({
           </>
         ) : null}
         {!selectedDrawing && !showLineControls && tool !== "text" ? (
-          <span className="text-[10px] text-fs-secondary">选中文本或切到文本工具</span>
+          <span className="text-[10px] text-fs-secondary">{tr("选中文本或切到文本工具")}</span>
         ) : null}
       </div>
 
       {selectedDrawing ? (
         <div className="flex flex-wrap items-center gap-1 rounded-md border border-sky-800/60 bg-sky-950/25 px-1.5 py-0.5">
-          <span className="text-[10px] text-sky-200/90">已选中</span>
+          <span className="text-[10px] text-sky-200/90">{tr("已选中")}</span>
           {selectedDrawing.kind === "text" ? (
             <input
               type="text"
@@ -188,26 +180,24 @@ export function MacroChartDrawingToolbar({
           ) : (
             <span className="text-[10px] text-fs-muted">
               {selectedDrawing.kind === "hline"
-                ? "水平线"
+                ? tr("水平线")
                 : selectedDrawing.kind === "vline"
-                  ? "垂直线"
+                  ? tr("垂直线")
                   : selectedDrawing.kind === "trend"
-                    ? "趋势线"
-                    : "矩形"}
+                    ? tr("趋势线")
+                    : tr("矩形")}
             </span>
           )}
           <button
             type="button"
             onClick={onDeleteSelected}
             className="rounded border border-rose-900/60 px-1.5 py-0.5 text-[10px] text-rose-300 hover:bg-rose-950/40"
-            title="Delete 删除"
-          >
-            删除
-          </button>
+            title={tr("Delete 删除")}
+          >{tr("删除")}</button>
           <span className="text-[10px] text-fs-secondary">Del</span>
         </div>
       ) : (
-        <span className="text-[10px] text-fs-secondary">十字模式下点击可选中并拖动</span>
+        <span className="text-[10px] text-fs-secondary">{tr("十字模式下点击可选中并拖动")}</span>
       )}
     </div>
   );

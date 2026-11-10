@@ -6,15 +6,17 @@ import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { resolveArticleCover } from "@/lib/articles/articleSchema";
 import { getPublishedArticleBySlug } from "@/lib/articles/articleStore";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/seo/siteUrl";
+import { getServerTr } from "@/i18n/serverText";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const tr = await getServerTr();
   const article = await getPublishedArticleBySlug((await params).slug);
   if (!article) {
-    return { title: "文章不存在 — GekkoTech" };
+    return { title: tr("文章不存在 — GekkoTech") };
   }
 
   const url = absoluteUrl(`/articles/${article.slug}`);

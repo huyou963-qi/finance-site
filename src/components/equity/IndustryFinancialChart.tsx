@@ -7,6 +7,7 @@ import { GridComponent, LegendComponent, TooltipComponent, MarkLineComponent } f
 import { CanvasRenderer } from "echarts/renderers";
 import { SITE } from "@/lib/siteTheme";
 import type { FinancialMetric } from "@/lib/equity/industryFinancials";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, MarkLineComponent, CanvasRenderer]);
 
@@ -16,6 +17,7 @@ export function IndustryFinancialChart({ periods, series, selectedPeriod, percen
   periods: string[]; series: FinancialChartSeries[]; selectedPeriod: string;
   percent?: boolean; onSelect: (period: string) => void;
 }) {
+  const tr = useTr();
   const ref = useRef<HTMLDivElement>(null);
   const callback = useRef(onSelect);
   callback.current = onSelect;
@@ -38,15 +40,15 @@ export function IndustryFinancialChart({ periods, series, selectedPeriod, percen
             data: { sampleCount: number; universeCount: number; weightCoverage: number | null; annualSampleCount?: number };
           }[];
           return [items[0]?.axisValueLabel ?? "", ...items.filter(item => typeof item.value === "number").map(item =>
-            `${item.seriesName}${item.data.weightCoverage != null && item.data.weightCoverage < 0.8 ? "（低覆盖）" : ""}：${item.value!.toFixed(1)}${percent || series.find(row => row.name === item.seriesName)?.percent ? "%" : " 十亿美元"}\n有效 ${item.data.sampleCount}/${item.data.universeCount} 家 · 权重覆盖 ${item.data.weightCoverage == null ? "—" : `${(item.data.weightCoverage * 100).toFixed(1)}%`}${item.data.annualSampleCount ? `\n其中 ${item.data.annualSampleCount} 家采用财年末完整年报值` : ""}`,
+            tr("{seriesName}{v1}：{v2}{v3}\n有效 {sampleCount}/{universeCount} 家 · 权重覆盖 {v6}{v7}", { seriesName: item.seriesName, v1: item.data.weightCoverage != null && item.data.weightCoverage < 0.8 ? tr("（低覆盖）") : "", v2: item.value!.toFixed(1), v3: percent || series.find(row => row.name === item.seriesName)?.percent ? "%" : tr(" 十亿美元"), sampleCount: item.data.sampleCount, universeCount: item.data.universeCount, v6: item.data.weightCoverage == null ? "—" : `${(item.data.weightCoverage * 100).toFixed(1)}%`, v7: item.data.annualSampleCount ? tr("\n其中 {annualSampleCount} 家采用财年末完整年报值", { annualSampleCount: item.data.annualSampleCount }) : "" }),
           )].join("\n");
         },
       },
       xAxis: { type: "category", data: periods, boundaryGap: false, axisTick: { show: false },
         axisLabel: { color: SITE.muted, fontSize: 11, hideOverlap: true }, axisLine: { lineStyle: { color: SITE.border } } },
       yAxis: [
-        { type: "value", name: dual ? "十亿美元" : undefined, scale: true, axisLabel: { color: SITE.muted, fontSize: 11 }, splitLine: { lineStyle: { color: SITE.border } } },
-        ...(dual ? [{ type: "value", name: "同比 %", position: "right", scale: true, axisLabel: { color: SITE.muted, fontSize: 11, formatter: "{value}%" }, splitLine: { show: false } }] : []),
+        { type: "value", name: dual ? tr("十亿美元") : undefined, scale: true, axisLabel: { color: SITE.muted, fontSize: 11 }, splitLine: { lineStyle: { color: SITE.border } } },
+        ...(dual ? [{ type: "value", name: tr("同比 %"), position: "right", scale: true, axisLabel: { color: SITE.muted, fontSize: 11, formatter: "{value}%" }, splitLine: { show: false } }] : []),
       ],
       series: series.flatMap((row, index) => [{
         name: row.name, yAxisIndex: dual && row.percent ? 1 : 0, type: "line", connectNulls: false, showSymbol: true, symbol: "circle", symbolSize: 5,
@@ -76,7 +78,7 @@ export function IndustryFinancialChart({ periods, series, selectedPeriod, percen
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(element);
     return () => { observer.disconnect(); chart.dispose(); };
-  }, [periods, series, selectedPeriod, percent]);
+  }, [periods, series, selectedPeriod, percent, tr]);
 
-  return <div ref={ref} className="h-56 w-full min-w-0" role="img" aria-label={`${series.map(row => row.name).join("、")}历史趋势，单位${percent ? "百分比" : series.some(row => row.percent) ? "金额为十亿美元，同比为百分比" : "十亿美元"}；可用上方报告期控件选择季度`} />;
+  return <div ref={ref} className="h-56 w-full min-w-0" role="img" aria-label={tr("{v0}历史趋势，单位{v1}；可用上方报告期控件选择季度", { v0: series.map(row => row.name).join("、"), v1: percent ? tr("百分比") : series.some(row => row.percent) ? tr("金额为十亿美元，同比为百分比") : tr("十亿美元") })} />;
 }

@@ -15,6 +15,7 @@ import {
   isAltMacroSlotMode,
   resolveMacroSlotTitle,
 } from "@/lib/macroChartOption";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroChartAxisSettingsProps = {
   layoutMode: 1 | 2 | 3 | 4 | 5 | 6;
@@ -70,6 +71,7 @@ export function MacroChartAxisSettings({
   displayConfig,
   onUpdateDisplayConfig,
 }: MacroChartAxisSettingsProps) {
+  const tr = useTr();
   const buckets = useMemo(
     () => partitionMacroSeries(payload, layoutMode, slotAssignment),
     [payload, layoutMode, slotAssignment],
@@ -123,16 +125,12 @@ export function MacroChartAxisSettings({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] leading-relaxed text-fs-muted">
-          为每副图单独设置左右 Y 轴范围；自动模式随当前图内数据缩放。
-        </p>
+        <p className="text-[11px] leading-relaxed text-fs-muted">{tr("为每副图单独设置左右 Y 轴范围；自动模式随当前图内数据缩放。")}</p>
         <button
           type="button"
           onClick={setAllAuto}
           className="shrink-0 rounded border border-fs-border px-2 py-0.5 text-[10px] text-fs-muted hover:border-fs-border hover:text-fs-text"
-        >
-          全部自动
-        </button>
+        >{tr("全部自动")}</button>
       </div>
 
       {Array.from({ length: layoutMode }, (_, slot) => {
@@ -140,7 +138,7 @@ export function MacroChartAxisSettings({
         const title =
           resolveMacroSlotTitle(slot, layoutMode, displayConfig, {
             seriesLabel: buckets[slot]?.[0]?.name,
-          }) ?? `图 ${slot + 1}`;
+          }) ?? tr("图 {v0}", { v0: slot + 1 });
         const seriesCount = buckets[slot]?.length ?? 0;
 
         if (mode === "pie" || (isAltMacroSlotMode(mode) && mode !== "seasonal")) {
@@ -149,9 +147,9 @@ export function MacroChartAxisSettings({
               key={slot}
               className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
             >
-              <div className="text-[11px] font-medium text-fs-muted">{title}</div>
+              <div className="text-[11px] font-medium text-fs-muted">{tr(title)}</div>
               <p className="mt-0.5 text-[10px] text-fs-secondary">
-                {ALT_AXIS_HINT[mode] ?? "当前图种无 Y 轴范围设置"}
+                {tr(ALT_AXIS_HINT[mode] ?? "当前图种无 Y 轴范围设置")}
               </p>
             </div>
           );
@@ -163,8 +161,8 @@ export function MacroChartAxisSettings({
               key={slot}
               className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
             >
-              <div className="text-[11px] font-medium text-fs-muted">{title}</div>
-              <p className="mt-0.5 text-[10px] text-fs-secondary">暂无指标</p>
+              <div className="text-[11px] font-medium text-fs-muted">{tr(title)}</div>
+              <p className="mt-0.5 text-[10px] text-fs-secondary">{tr("暂无指标")}</p>
             </div>
           );
         }
@@ -178,10 +176,10 @@ export function MacroChartAxisSettings({
             key={slot}
             className="rounded-md border border-fs-border bg-fs-elevated/40 px-2 py-1.5"
           >
-            <div className="mb-1.5 text-[11px] font-medium text-fs-secondary">{title}</div>
+            <div className="mb-1.5 text-[11px] font-medium text-fs-secondary">{tr(title)}</div>
             <AxisSideRow
               fieldId={`${slot}-left`}
-              label="左轴"
+              label={tr("左轴")}
               range={left}
               onModeChange={(mode) =>
                 patchSlotAxis(slot, "left", {
@@ -195,10 +193,10 @@ export function MacroChartAxisSettings({
             />
             <AxisSideRow
               fieldId={`${slot}-right`}
-              label="右轴"
+              label={tr("右轴")}
               range={right}
               disabled={!hasRight}
-              disabledHint="无右轴序列"
+              disabledHint={tr("无右轴序列")}
               onModeChange={(mode) =>
                 patchSlotAxis(slot, "right", {
                   mode,
@@ -237,14 +235,15 @@ function AxisSideRow({
   onMaxChange: (max: number | undefined) => void;
   onAutoFill: () => void;
 }) {
+  const tr = useTr();
   const mode = range.mode ?? "auto";
   const isManual = mode === "manual";
 
   if (disabled) {
     return (
       <div className="mb-1 flex items-center gap-2 text-[10px] text-fs-secondary last:mb-0">
-        <span className="w-7 shrink-0">{label}</span>
-        <span>{disabledHint ?? "不可用"}</span>
+        <span className="w-7 shrink-0">{tr(label)}</span>
+        <span>{disabledHint ?? tr("不可用")}</span>
       </div>
     );
   }
@@ -254,7 +253,7 @@ function AxisSideRow({
 
   return (
     <div className="mb-1.5 flex flex-wrap items-center gap-1.5 last:mb-0">
-      <span className="w-7 shrink-0 text-[10px] text-fs-muted">{label}</span>
+      <span className="w-7 shrink-0 text-[10px] text-fs-muted">{tr(label)}</span>
       <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
         <input
           type="radio"
@@ -262,9 +261,7 @@ function AxisSideRow({
           checked={mode === "auto"}
           onChange={() => onModeChange("auto")}
           className="accent-fs-accent"
-        />
-        自动
-      </label>
+        />{tr("自动")}</label>
       <label className="flex items-center gap-0.5 text-[10px] text-fs-muted">
         <input
           type="radio"
@@ -272,10 +269,8 @@ function AxisSideRow({
           checked={mode === "manual"}
           onChange={() => onModeChange("manual")}
           className="accent-fs-accent"
-        />
-        手动
-      </label>
-      <span className="text-[10px] text-fs-secondary">最小</span>
+        />{tr("手动")}</label>
+      <span className="text-[10px] text-fs-secondary">{tr("最小")}</span>
       <input
         type="number"
         step="any"
@@ -284,7 +279,7 @@ function AxisSideRow({
         onChange={(e) => onMinChange(parseNumInput(e.target.value))}
         className={inputCls}
       />
-      <span className="text-[10px] text-fs-secondary">最大</span>
+      <span className="text-[10px] text-fs-secondary">{tr("最大")}</span>
       <input
         type="number"
         step="any"
@@ -297,10 +292,8 @@ function AxisSideRow({
         type="button"
         onClick={onAutoFill}
         className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:border-fs-border hover:text-fs-text"
-        title="按当前图内数据计算并填入最小/最大"
-      >
-        按数据填入
-      </button>
+        title={tr("按当前图内数据计算并填入最小/最大")}
+      >{tr("按数据填入")}</button>
     </div>
   );
 }

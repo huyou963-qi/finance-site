@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { MacroPayload } from "@/lib/data/types";
 import { unifiedSeriesDisplayName } from "@/lib/data/macroCatalog";
+import { useTr } from "@/i18n/TextProvider";
 
 function seriesDisplayLabel(key: string, labelByKey: Map<string, string>): string {
   return labelByKey.get(key) ?? unifiedSeriesDisplayName(key);
@@ -210,6 +211,7 @@ function corr(a: (number | null)[], b: (number | null)[]): number | null {
 }
 
 export function StatisticalAnalysisClient() {
+  const tr = useTr();
   const searchParams = useSearchParams();
   const initialSeries = (searchParams.get("series") ?? "").trim();
   const initialLabel = (searchParams.get("label") ?? "").trim();
@@ -374,7 +376,7 @@ export function StatisticalAnalysisClient() {
 
   const runAnalysis = async () => {
     if (parsedSeries.length === 0) {
-      setError("请先输入至少一个指标（fred:/wb:/mds:）。");
+      setError(tr("请先输入至少一个指标（fred:/wb:/mds:）。"));
       return;
     }
     setLoading(true);
@@ -387,11 +389,11 @@ export function StatisticalAnalysisClient() {
       const res = await fetch(`/api/data/macro?${params.toString()}`, { cache: "no-store" });
       const json = (await res.json().catch(() => ({}))) as MacroPayload & { error?: string };
       if (!res.ok || json.error) {
-        throw new Error(json.error || "统计分析数据加载失败");
+        throw new Error(json.error || tr("统计分析数据加载失败"));
       }
       setPayload(json);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "统计分析数据加载失败");
+      setError(e instanceof Error ? e.message : tr("统计分析数据加载失败"));
       setPayload(null);
     } finally {
       setLoading(false);
@@ -403,17 +405,13 @@ export function StatisticalAnalysisClient() {
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row lg:items-start">
         <aside className="flex w-full shrink-0 flex-col gap-3 lg:sticky lg:top-4 lg:w-[min(100%,320px)] xl:w-[340px]">
           <div>
-            <h1 className="text-xl font-semibold text-fs-text">统计分析</h1>
-            <p className="mt-1 text-sm text-fs-muted">
-              面向宏观序列的完整分析工作台：支持样本筛选、预处理、描述统计与相关性矩阵。
-            </p>
+            <h1 className="text-xl font-semibold text-fs-text">{tr("统计分析")}</h1>
+            <p className="mt-1 text-sm text-fs-muted">{tr("面向宏观序列的完整分析工作台：支持样本筛选、预处理、描述统计与相关性矩阵。")}</p>
           </div>
 
           <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
             <div className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-xs text-fs-muted">
-                指标
-                <textarea
+              <label className="flex flex-col gap-1 text-xs text-fs-muted">{tr("指标")}<textarea
                   value={seriesEditing ? seriesInput : seriesDisplayInput}
                   onChange={(e) => setSeriesInput(e.target.value)}
                   onFocus={() => setSeriesEditing(true)}
@@ -422,33 +420,29 @@ export function StatisticalAnalysisClient() {
                   rows={4}
                   title={
                     seriesEditing
-                      ? "编辑指标代码（fred:/wb:/mds:，逗号分隔）"
+                      ? tr("编辑指标代码（fred:/wb:/mds:，逗号分隔）")
                       : parsedSeries.join(", ")
                   }
                   className={`rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text ${
                     seriesEditing ? "" : "cursor-text"
                   }`}
-                  placeholder="例如：mds:debtcap_us_leverage_household,fred:UNRATE"
+                  placeholder={tr("例如：mds:debtcap_us_leverage_household,fred:UNRATE")}
                 />
                 <span className="text-[10px] text-fs-muted">
                   {seriesEditing
-                    ? "正在编辑代码；失焦后显示指标名"
-                    : "点击可编辑代码（fred:/wb:/mds:，逗号分隔）"}
+                    ? tr("正在编辑代码；失焦后显示指标名")
+                    : tr("点击可编辑代码（fred:/wb:/mds:，逗号分隔）")}
                 </span>
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1 text-xs text-fs-muted">
-                  起始日期
-                  <input
+                <label className="flex flex-col gap-1 text-xs text-fs-muted">{tr("起始日期")}<input
                     type="date"
                     value={start}
                     onChange={(e) => setStart(e.target.value)}
                     className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs text-fs-muted">
-                  结束日期
-                  <input
+                <label className="flex flex-col gap-1 text-xs text-fs-muted">{tr("结束日期")}<input
                     type="date"
                     value={end}
                     onChange={(e) => setEnd(e.target.value)}
@@ -456,17 +450,15 @@ export function StatisticalAnalysisClient() {
                   />
                 </label>
               </div>
-              <label className="flex flex-col gap-1 text-xs text-fs-muted">
-                预处理
-                <select
+              <label className="flex flex-col gap-1 text-xs text-fs-muted">{tr("预处理")}<select
                   value={mode}
                   onChange={(e) => setMode(e.target.value as PreprocessMode)}
                   className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1.5 text-sm text-fs-text"
                 >
-                  <option value="none">原始值</option>
-                  <option value="zscore">Z-Score 标准化</option>
-                  <option value="base100">首值=100 指数化</option>
-                  <option value="pctchange">环比变化率</option>
+                  <option value="none">{tr("原始值")}</option>
+                  <option value="zscore">{tr("Z-Score 标准化")}</option>
+                  <option value="base100">{tr("首值=100 指数化")}</option>
+                  <option value="pctchange">{tr("环比变化率")}</option>
                 </select>
               </label>
               <button
@@ -475,9 +467,9 @@ export function StatisticalAnalysisClient() {
                 disabled={loading}
                 className="w-full rounded-md border border-fs-accent/40 bg-fs-accent-soft px-3 py-2 text-sm text-fs-accent-text disabled:opacity-50"
               >
-                {loading ? "分析中..." : "运行分析"}
+                {loading ? tr("分析中...") : tr("运行分析")}
               </button>
-              <span className="text-xs text-fs-muted">当前指标数：{parsedSeries.length}</span>
+              <span className="text-xs text-fs-muted">{tr("当前指标数：")}{parsedSeries.length}</span>
             </div>
             {error ? <p className="mt-2 text-sm text-rose-300">{error}</p> : null}
           </section>
@@ -488,19 +480,19 @@ export function StatisticalAnalysisClient() {
             <>
           <section className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-              <div className="text-xs text-fs-muted">样本点（日期）</div>
+              <div className="text-xs text-fs-muted">{tr("样本点（日期）")}</div>
               <div className="mt-1 text-lg font-semibold text-fs-text">
                 {processed.categories.length}
               </div>
             </div>
             <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-              <div className="text-xs text-fs-muted">分析序列数</div>
+              <div className="text-xs text-fs-muted">{tr("分析序列数")}</div>
               <div className="mt-1 text-lg font-semibold text-fs-text">
                 {processed.series.length}
               </div>
             </div>
             <div className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-              <div className="text-xs text-fs-muted">样本区间</div>
+              <div className="text-xs text-fs-muted">{tr("样本区间")}</div>
               <div className="mt-1 text-sm text-fs-text">
                 {processed.categories[0] ?? "-"} ~{" "}
                 {processed.categories[processed.categories.length - 1] ?? "-"}
@@ -509,20 +501,20 @@ export function StatisticalAnalysisClient() {
           </section>
 
           <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-            <h2 className="mb-2 text-sm font-medium text-fs-text">描述统计</h2>
+            <h2 className="mb-2 text-sm font-medium text-fs-text">{tr("描述统计")}</h2>
             <div className="overflow-auto">
               <table className="min-w-full border-collapse text-xs">
                 <thead className="bg-fs-elevated text-fs-secondary">
                   <tr>
-                    <th className="border border-fs-border px-2 py-1 text-left">序列</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">有效</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">缺失</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">最小</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">中位数</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">均值</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">标准差</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">最大</th>
-                    <th className="border border-fs-border px-2 py-1 text-right">最新</th>
+                    <th className="border border-fs-border px-2 py-1 text-left">{tr("序列")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("有效")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("缺失")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("最小")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("中位数")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("均值")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("标准差")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("最大")}</th>
+                    <th className="border border-fs-border px-2 py-1 text-right">{tr("最新")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -545,10 +537,8 @@ export function StatisticalAnalysisClient() {
           </section>
 
           <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-            <h2 className="mb-1 text-sm font-medium text-fs-text">分布柱状图（自适应分箱）</h2>
-            <p className="mb-3 text-xs text-fs-muted">
-              step 按每个指标数据自动计算：优先 IQR（Freedman–Diaconis），样本离散度不足时回退 Sturges。
-            </p>
+            <h2 className="mb-1 text-sm font-medium text-fs-text">{tr("分布柱状图（自适应分箱）")}</h2>
+            <p className="mb-3 text-xs text-fs-muted">{tr("step 按每个指标数据自动计算：优先 IQR（Freedman–Diaconis），样本离散度不足时回退 Sturges。")}</p>
             <div className="space-y-3">
               {histograms.map((h) => (
                 <div key={h.key} className="rounded border border-fs-border bg-fs-elevated/35 p-2">
@@ -557,11 +547,9 @@ export function StatisticalAnalysisClient() {
                     <span className="rounded border border-fs-border px-1 py-0 text-[10px] text-fs-muted">
                       step={fmt(h.step, 6)}
                     </span>
-                    <span className="text-fs-muted">
-                      区间 {fmt(h.min)} ~ {fmt(h.max)}，样本 {h.total}
+                    <span className="text-fs-muted">{tr("区间")}{" "}{fmt(h.min)} ~ {fmt(h.max)}{tr("，样本")} {h.total}
                     </span>
-                    <span className="text-fs-muted">
-                      均值 {fmt(h.mean)}，标准差 {fmt(h.std)}
+                    <span className="text-fs-muted">{tr("均值")}{" "}{fmt(h.mean)}{tr("，标准差")} {fmt(h.std)}
                     </span>
                   </div>
                   <div className="overflow-x-auto">
@@ -617,9 +605,7 @@ export function StatisticalAnalysisClient() {
                                 fill="rgba(16,185,129,0.78)"
                                 className="cursor-pointer transition-opacity hover:opacity-100 opacity-90"
                               >
-                                <title>{`${binLabel}
-数量: ${b.count}
-占比: ${pctText(b.count)}`}</title>
+                                <title>{tr("{binLabel}\n数量: {count}\n占比: {v2}", { binLabel, count: b.count, v2: pctText(b.count) })}</title>
                               </rect>
                             );
                           })}
@@ -658,7 +644,7 @@ export function StatisticalAnalysisClient() {
                                 fontSize="10"
                                 fill={l.color}
                               >
-                                {l.label}
+                                {tr(l.label)}
                               </text>
                             </g>
                           ))}
@@ -685,9 +671,7 @@ export function StatisticalAnalysisClient() {
                             textAnchor="middle"
                             fontSize="10"
                             fill="#94a3b8"
-                          >
-                            分布区间
-                          </text>
+                          >{tr("分布区间")}</text>
                           <text
                             x={padL + plotW}
                             y={H - 10}
@@ -754,12 +738,12 @@ export function StatisticalAnalysisClient() {
           </section>
 
           <section className="rounded-lg border border-fs-border bg-fs-bg/60 p-3">
-            <h2 className="mb-2 text-sm font-medium text-fs-text">相关性矩阵（Pearson）</h2>
+            <h2 className="mb-2 text-sm font-medium text-fs-text">{tr("相关性矩阵（Pearson）")}</h2>
             <div className="overflow-auto">
               <table className="min-w-full border-collapse text-xs">
                 <thead className="bg-fs-elevated text-fs-secondary">
                   <tr>
-                    <th className="border border-fs-border px-2 py-1 text-left">序列</th>
+                    <th className="border border-fs-border px-2 py-1 text-left">{tr("序列")}</th>
                     {processed.series.map((s) => (
                       <th key={s.key ?? s.name} className="border border-fs-border px-2 py-1 text-right">
                         {s.name}
@@ -798,7 +782,7 @@ export function StatisticalAnalysisClient() {
             </>
           ) : (
             <section className="rounded-lg border border-dashed border-fs-border bg-fs-bg/30 p-8 text-center">
-              <p className="text-sm text-fs-muted">配置左侧指标与日期范围，点击「运行分析」查看统计结果。</p>
+              <p className="text-sm text-fs-muted">{tr("配置左侧指标与日期范围，点击「运行分析」查看统计结果。")}</p>
             </section>
           )}
         </div>

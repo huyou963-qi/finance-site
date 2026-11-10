@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
@@ -18,6 +19,8 @@ type FeedbackKind = "bug" | "feature";
  * 弹窗会相对顶栏居中而贴在视口顶部。
  */
 export function ReportBugButton() {
+  const t = useTranslations("feedback");
+  const tc = useTranslations("common");
   const titleId = useId();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -69,7 +72,7 @@ export function ReportBugButton() {
     setHint(null);
     const room = MAX_IMAGES - images.length;
     if (room <= 0) {
-      setHint(`最多上传 ${MAX_IMAGES} 张图片`);
+      setHint(t("tooManyImages", { max: MAX_IMAGES }));
       return;
     }
     const picked = [...files].slice(0, room);
@@ -83,7 +86,7 @@ export function ReportBugButton() {
       setImages((prev) => [...prev, ...next]);
       setPreviews((prev) => [...prev, ...urls]);
     } catch (e) {
-      setHint(e instanceof Error ? e.message : "图片处理失败");
+      setHint(e instanceof Error ? e.message : t("imageFailed"));
     }
   };
 
@@ -113,13 +116,13 @@ export function ReportBugButton() {
     });
     setSending(false);
     if (result.error && !result.id) {
-      setHint(`提交失败：${result.error}`);
+      setHint(t("failed", { error: result.error }));
       return;
     }
     if (result.error && result.id) {
-      setHint(`已提交（${result.error}）`);
+      setHint(t("sentWithWarning", { error: result.error }));
     } else {
-      setHint("已提交，感谢反馈");
+      setHint(t("sent"));
     }
     setTimeout(() => close(), 900);
   };
@@ -139,11 +142,9 @@ export function ReportBugButton() {
               onClick={(e) => e.stopPropagation()}
             >
               <h2 id={titleId} className="mb-1 text-base font-semibold text-fs-text">
-                反馈
+                {t("title")}
               </h2>
-              <p className="mb-3 text-xs text-fs-muted">
-                可报告使用问题，也可提交产品新需求；可选附带截图。当前页面地址会一并发送。
-              </p>
+              <p className="mb-3 text-xs text-fs-muted">{t("intro")}</p>
 
               <div className="mb-3 flex gap-2">
                 <button
@@ -155,7 +156,7 @@ export function ReportBugButton() {
                       : "border-fs-border text-fs-muted hover:bg-fs-elevated"
                   }`}
                 >
-                  报告问题
+                  {t("kindBug")}
                 </button>
                 <button
                   type="button"
@@ -166,41 +167,33 @@ export function ReportBugButton() {
                       : "border-fs-border text-fs-muted hover:bg-fs-elevated"
                   }`}
                 >
-                  新需求
+                  {t("kindFeature")}
                 </button>
               </div>
 
               <label className="mb-1 block text-xs text-fs-muted">
-                {kind === "feature" ? "需求简述（必填）" : "问题简述（必填）"}
+                {kind === "feature" ? t("summaryFeature") : t("summaryBug")}
               </label>
               <input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="mb-3 w-full rounded border border-fs-border bg-fs-elevated px-3 py-2 text-sm"
-                placeholder={
-                  kind === "feature"
-                    ? "例如：希望宏观图支持导出 PDF"
-                    : "例如：宏观图加载失败 / 登录按钮无响应"
-                }
+                placeholder={kind === "feature" ? t("placeholderFeature") : t("placeholderBug")}
                 maxLength={500}
               />
 
-              <label className="mb-1 block text-xs text-fs-muted">补充说明（可选）</label>
+              <label className="mb-1 block text-xs text-fs-muted">{t("details")}</label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
                 className="mb-3 w-full rounded border border-fs-border bg-fs-elevated px-3 py-2 text-sm"
-                placeholder={
-                  kind === "feature"
-                    ? "使用场景、期望效果等"
-                    : "复现步骤、期望结果等"
-                }
+                placeholder={kind === "feature" ? t("detailsFeature") : t("detailsBug")}
                 maxLength={2000}
               />
 
               <label className="mb-1 block text-xs text-fs-muted">
-                截图（可选，最多 {MAX_IMAGES} 张）
+                {t("screenshots", { max: MAX_IMAGES })}
               </label>
               <input
                 type="file"
@@ -225,7 +218,7 @@ export function ReportBugButton() {
                         type="button"
                         onClick={() => removeImage(i)}
                         className="absolute right-0 top-0 bg-black/60 px-1 text-[10px] text-white"
-                        aria-label="移除图片"
+                        aria-label={t("removeImage")}
                       >
                         ×
                       </button>
@@ -234,16 +227,16 @@ export function ReportBugButton() {
                 </div>
               ) : null}
 
-              <section className="my-3 flex flex-wrap items-center gap-4 border-t border-fs-border pt-3" aria-label="联系方式">
+              <section className="my-3 flex flex-wrap items-center gap-4 border-t border-fs-border pt-3" aria-label={t("contactSection")}>
                 <a
                   href="/contact/wechat-qr.jpg"
-                  download="微信联系方式.jpg"
+                  download={t("wechatFile")}
                   className="shrink-0 rounded border border-fs-border bg-white p-2"
-                  aria-label="保存微信联系二维码"
+                  aria-label={t("wechatSave")}
                 >
                   <Image
                     src="/contact/wechat-qr.jpg"
-                    alt="微信联系方式二维码"
+                    alt={t("wechatAlt")}
                     width={694}
                     height={650}
                     unoptimized
@@ -251,10 +244,8 @@ export function ReportBugButton() {
                   />
                 </a>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-medium text-fs-text">联系方式：微信</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-fs-muted">
-                    扫码添加微信，也可点击二维码保存后，在微信中识别图片。
-                  </p>
+                  <h3 className="text-sm font-medium text-fs-text">{t("wechatTitle")}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-fs-muted">{t("wechatBody")}</p>
                 </div>
               </section>
 
@@ -265,7 +256,7 @@ export function ReportBugButton() {
                   onClick={close}
                   className="rounded border border-fs-border px-3 py-1.5 text-sm hover:bg-fs-elevated"
                 >
-                  取消
+                  {tc("cancel")}
                 </button>
                 <button
                   type="button"
@@ -273,7 +264,7 @@ export function ReportBugButton() {
                   onClick={() => void submit()}
                   className="rounded bg-fs-accent px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  {sending ? "提交中…" : "提交"}
+                  {sending ? tc("submitting") : tc("submit")}
                 </button>
               </div>
             </div>
@@ -291,8 +282,8 @@ export function ReportBugButton() {
           setOpen(true);
         }}
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-fs-border text-fs-muted transition hover:border-fs-accent/40 hover:bg-fs-elevated hover:text-fs-accent-text"
-        title="反馈问题或新需求"
-        aria-label="反馈问题或新需求"
+        title={t("open")}
+        aria-label={t("open")}
       >
         <span className="text-[15px] font-semibold leading-none" aria-hidden>
           ?

@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { localizeHref } from "@/i18n/locales";
+import { Link, useLocalePathname } from "@/i18n/navigation";
 
 export type AuthUser = {
   id: string;
@@ -70,21 +71,22 @@ function MenuRow({
 }
 
 function GuestMenu({ onClose }: { onClose: () => void }) {
+  const t = useTranslations("account");
   return (
     <div className="w-72 overflow-hidden rounded-lg border border-fs-border bg-fs-bg shadow-xl">
       <div className="border-b border-fs-border px-4 py-3">
-        <p className="text-sm font-medium text-fs-text">账户</p>
-        <p className="mt-0.5 text-xs text-fs-muted">登录后同步宏观模板与偏好</p>
+        <p className="text-sm font-medium text-fs-text">{t("guestTitle")}</p>
+        <p className="mt-0.5 text-xs text-fs-muted">{t("guestSubtitle")}</p>
       </div>
-      <MenuRow label="登录" href="/auth" onClick={onClose} />
-      <MenuRow label="注册" href="/auth?register=1" hint="7天试用" onClick={onClose} />
-      <MenuRow label="查看定价" href="/pricing" onClick={onClose} />
+      <MenuRow label={t("login")} href="/auth" onClick={onClose} />
+      <MenuRow label={t("register")} href="/auth?register=1" hint={t("trialHint")} onClick={onClose} />
+      <MenuRow label={t("viewPricing")} href="/pricing" onClick={onClose} />
       <div className="flex items-center justify-between border-t border-fs-border px-4 py-2.5 text-xs">
         <Link href="/auth/recover?kind=username" onClick={onClose} className="text-fs-muted hover:text-fs-text">
-          找回用户名
+          {t("findUsername")}
         </Link>
         <Link href="/auth/recover?kind=password" onClick={onClose} className="text-fs-muted hover:text-fs-text">
-          忘记密码
+          {t("forgotPassword")}
         </Link>
       </div>
     </div>
@@ -102,6 +104,7 @@ function UserMenu({
   onClose: () => void;
   onLogout: () => void;
 }) {
+  const t = useTranslations("account");
   const verified = Boolean(user.emailVerifiedAt);
   const isAdmin = user.role === "admin";
   const isStaff = user.role.startsWith("admin_");
@@ -126,45 +129,45 @@ function UserMenu({
           <p className="truncate text-sm font-medium text-fs-text">{displayEmail}</p>
           <p className="text-xs text-fs-muted">
             {user.username}
-            {isAdmin ? " · 最高管理员" : isStaff ? " · 后台人员" : ""}
-            {verified ? " · 已验证" : " · 未验证邮箱"}
+            {isAdmin ? t("roleAdmin") : isStaff ? t("roleStaff") : ""}
+            {verified ? t("verified") : t("unverified")}
           </p>
         </div>
       </div>
 
-      <MenuSection title="账户" />
-      <MenuRow label="个人资料" href="/auth" active={authActive} onClick={onClose} />
+      <MenuSection title={t("sectionAccount")} />
+      <MenuRow label={t("profile")} href="/auth" active={authActive} onClick={onClose} />
       <MenuRow
-        label="升级 Pro"
+        label={t("upgradePro")}
         href="/pricing"
-        hint={user.plan === "pro" ? "续费" : "¥39 起"}
+        hint={user.plan === "pro" ? t("renew") : t("priceFrom")}
         active={pathname === "/pricing" || pathname.startsWith("/pricing/")}
         onClick={onClose}
       />
-      {!verified ? <MenuRow label="验证邮箱" href="/auth/verify" onClick={onClose} /> : null}
+      {!verified ? <MenuRow label={t("verifyEmail")} href="/auth/verify" onClick={onClose} /> : null}
 
-      <MenuSection title="偏好" />
-      <MenuRow label="宏观图表" href="/macro" onClick={onClose} />
+      <MenuSection title={t("sectionPreferences")} />
+      <MenuRow label={t("macroCharts")} href="/macro" onClick={onClose} />
 
       {isAdmin || isStaff ? (
         <>
-          <MenuSection title="管理" />
+          <MenuSection title={t("sectionAdmin")} />
           {isAdmin ? <>
           <MenuRow
-            label="数据更新目录"
+            label={t("adminDataCatalog")}
             href="/admin/data-catalog"
             active={adminDataActive}
             onClick={onClose}
           />
           </> : null}
           <MenuRow
-            label="用户管理"
+            label={t("adminUsers")}
             href="/admin/users"
             active={adminUsersActive}
             onClick={onClose}
           />
           {isAdmin ? <><MenuRow
-            label="功能页权限"
+            label={t("adminFeatureAccess")}
             href="/admin/feature-access"
             active={
               pathname === "/admin/feature-access" ||
@@ -173,20 +176,20 @@ function UserMenu({
             onClick={onClose}
           />
           <MenuRow
-            label="首页公告"
+            label={t("adminAnnouncement")}
             href="/admin/site-announcement"
             active={adminAnnouncementActive}
             onClick={onClose}
           />
           </> : null}
           {(isAdmin || user.role === "admin_orders" || user.role === "admin_membership") ? <MenuRow
-            label="会员与订单"
+            label={t("adminOrders")}
             href="/admin/orders"
             active={pathname === "/admin/orders" || pathname.startsWith("/admin/orders/")}
             onClick={onClose}
           /> : null}
           {isAdmin ? <MenuRow
-            label="用户反馈"
+            label={t("adminFeedback")}
             href="/admin/error-reports"
             active={adminErrorsActive}
             onClick={onClose}
@@ -194,9 +197,9 @@ function UserMenu({
         </>
       ) : null}
 
-      <MenuSection title="通用" />
+      <MenuSection title={t("sectionGeneral")} />
       <MenuRow
-        label="退出登录"
+        label={t("logout")}
         danger
         onClick={() => {
           onClose();
@@ -208,7 +211,9 @@ function UserMenu({
 }
 
 export function UserAccountMenu() {
-  const pathname = usePathname();
+  const t = useTranslations("account");
+  const locale = useLocale();
+  const pathname = useLocalePathname();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -249,7 +254,7 @@ export function UserAccountMenu() {
 
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-    window.location.href = "/auth";
+    window.location.href = localizeHref("/auth", locale);
   };
 
   const authActive = pathname === "/auth" || pathname.startsWith("/auth/");
@@ -260,8 +265,8 @@ export function UserAccountMenu() {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={user ? "账户菜单" : "登录"}
-        title={user ? `账户：${user.username}` : "登录"}
+        aria-label={user ? t("menuLabel") : t("login")}
+        title={user ? t("menuTitle", { username: user.username }) : t("login")}
         onClick={() => setOpen((v) => !v)}
         className={`rounded-md p-2 transition outline-none focus-visible:ring-2 focus-visible:ring-fs-accent/50 ${
           open || (authActive && !user)

@@ -44,7 +44,8 @@ test("catalog ids are unique and groups are declared", () => {
   assert.equal(new Set(ids).size, ids.length);
   for (const f of FEATURE_CATALOG) {
     assert.ok(FEATURE_GROUP_ORDER.includes(f.group), `未登记的分组: ${f.group}`);
-    assert.ok(f.paths.length > 0);
+    if (f.kind === "setting") assert.equal(f.paths.length, 0, f.id);
+    else assert.ok(f.paths.length > 0, f.id);
     for (const p of f.paths) assert.ok(p.startsWith("/"), p);
     if (f.adminOnly) assert.equal(f.defaults.status, "development", f.id);
   }
@@ -208,4 +209,10 @@ test("路由映射取最长前缀", () => {
   assert.equal(featureIdForPath("/quant/backtest/abc"), "quant-backtest");
   assert.equal(featureIdForPath("/pricing"), null);
   assert.equal(featureIdForPath("/macrofoo"), null);
+});
+
+test("英文界面默认保持开发中（上线由管理员在 /admin/feature-access 操作，不改代码默认值）", () => {
+  const def = FEATURE_CATALOG.find((f) => f.id === "site-language-en");
+  assert.ok(def);
+  assert.equal(def.defaults.status, "development");
 });

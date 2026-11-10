@@ -30,6 +30,7 @@ import {
   multipleTestingCorrection,
   type MultipleTestingResult,
 } from "@/lib/quant/robustness";
+import { useTr } from "@/i18n/TextProvider";
 
 const CATEGORY_LABELS: Record<FactorCategory, string> = {
   valuation: "估值",
@@ -127,6 +128,7 @@ function icClass(v: number | null | undefined): string {
 }
 
 export function EquityFactorResearchClient() {
+  const tr = useTr();
   const [selected, setSelected] = useState<Set<string>>(new Set(["mom12_1", "earningsYield"]));
   const [focused, setFocused] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -197,7 +199,7 @@ export function EquityFactorResearchClient() {
 
   const run = useCallback(async () => {
     if (selected.size === 0) {
-      setError("请至少选择一个因子");
+      setError(tr("请至少选择一个因子"));
       return;
     }
     setLoading(true);
@@ -210,20 +212,20 @@ export function EquityFactorResearchClient() {
       });
       const json = (await res.json()) as { error?: string; code?: string } & Report;
       if (!res.ok) {
-        const msg = json?.error ?? "请求失败";
+        const msg = json?.error ?? tr("请求失败");
         throw new Error(
-          json?.code === "NEEDS_PRO" ? `${msg}（前往 /pricing）` : msg,
+          json?.code === "NEEDS_PRO" ? tr("{msg}（前往 /pricing）", { msg }) : msg,
         );
       }
       const rep = json as Report;
       setReport(rep);
       setFocused(rep.factors[0]?.factorKey ?? null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "请求失败");
+      setError(e instanceof Error ? e.message : tr("请求失败"));
     } finally {
       setLoading(false);
     }
-  }, [selected]);
+  }, [selected, tr]);
 
   const cumSeries: CumulativeICSeries[] = useMemo(() => {
     if (!report) return [];
@@ -242,23 +244,19 @@ export function EquityFactorResearchClient() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-lg font-semibold text-fs-text">因子研究</h1>
-        <p className="text-sm text-fs-muted">
-          月频截面 IC/IR、五分层、行业中性化对照与因子相关性（前向收益 = 次调仓期总收益）
-        </p>
+        <h1 className="text-lg font-semibold text-fs-text">{tr("因子研究")}</h1>
+        <p className="text-sm text-fs-muted">{tr("月频截面 IC/IR、五分层、行业中性化对照与因子相关性（前向收益 = 次调仓期总收益）")}</p>
         <Link
           href="/quant/screener"
           className="ml-auto text-sm text-fs-accent-text hover:underline"
-        >
-          ← 选股器
-        </Link>
+        >{tr("← 选股器")}</Link>
       </header>
 
       {/* 因子选择 */}
       <section className="mb-4 rounded-lg border border-fs-border p-4">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-medium text-fs-text">选择因子（最多 8）</span>
-          <span className="text-xs text-fs-muted">已选 {selected.size}</span>
+          <span className="text-sm font-medium text-fs-text">{tr("选择因子（最多 8）")}</span>
+          <span className="text-xs text-fs-muted">{tr("已选")} {selected.size}</span>
         </div>
         <div className="space-y-2">
           {CATEGORY_ORDER.map((cat) => {
@@ -266,7 +264,7 @@ export function EquityFactorResearchClient() {
             if (!defs.length) return null;
             return (
               <div key={cat} className="flex flex-wrap items-center gap-1.5">
-                <span className="w-10 shrink-0 text-xs text-fs-muted">{CATEGORY_LABELS[cat]}</span>
+                <span className="w-10 shrink-0 text-xs text-fs-muted">{tr(CATEGORY_LABELS[cat])}</span>
                 {defs.map((d) => {
                   const on = selected.has(d.key);
                   return (
@@ -274,14 +272,14 @@ export function EquityFactorResearchClient() {
                       key={d.key}
                       type="button"
                       onClick={() => toggle(d.key)}
-                      title={`${d.nameEn}｜${d.higherIsBetter ? "越大越好" : "越小越好"}｜${d.startYear} 起`}
+                      title={tr("{nameEn}｜{v1}｜{startYear} 起", { nameEn: d.nameEn, v1: d.higherIsBetter ? tr("越大越好") : tr("越小越好"), startYear: d.startYear })}
                       className={`rounded-md px-2 py-0.5 text-xs ring-1 transition ${
                         on
                           ? "bg-fs-accent-soft text-fs-accent-text ring-fs-accent/30"
                           : "text-fs-muted ring-fs-border hover:text-fs-text"
                       }`}
                     >
-                      {d.nameZh}
+                      {tr(d.nameZh)}
                     </button>
                   );
                 })}
@@ -296,20 +294,18 @@ export function EquityFactorResearchClient() {
             disabled={loading || selected.size === 0}
             className="rounded-md bg-fs-accent-soft px-4 py-1.5 text-sm font-medium text-fs-accent-text ring-1 ring-fs-accent/25 hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? "计算中…" : "运行研究"}
+            {loading ? tr("计算中…") : tr("运行研究")}
           </button>
           {error ? <span className="text-sm text-red-400">{error}</span> : null}
           {loading ? (
-            <span className="text-xs text-fs-muted">首次全历史约 10–20 秒，请稍候…</span>
+            <span className="text-xs text-fs-muted">{tr("首次全历史约 10–20 秒，请稍候…")}</span>
           ) : null}
         </div>
       </section>
 
       {report ? (
         <>
-          <p className="mb-3 text-xs text-fs-muted">
-            区间 {report.start} → {report.end}｜价格宇宙 {report.symbolCount} 只｜
-            {report.regimeAvailable ? "已接入 regime" : "regime 未构建（分 regime 表为空，运行 quant:build-regime）"}
+          <p className="mb-3 text-xs text-fs-muted">{tr("区间")}{" "}{report.start} → {report.end}{tr("｜价格宇宙")} {report.symbolCount}{" "}{tr("只｜")}{report.regimeAvailable ? tr("已接入 regime") : tr("regime 未构建（分 regime 表为空，运行 quant:build-regime）")}
           </p>
 
           {/* IC/IR 汇总表 */}
@@ -317,17 +313,15 @@ export function EquityFactorResearchClient() {
             <table className="w-full min-w-[820px] text-sm">
               <thead className="bg-fs-elevated text-xs text-fs-muted">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">因子</th>
-                  <th className="px-3 py-2 text-right font-medium">均值 IC</th>
-                  <th className="px-3 py-2 text-right font-medium">年化 IR</th>
-                  <th className="px-3 py-2 text-right font-medium">t 值</th>
-                  <th className="px-3 py-2 text-center font-medium" title={`多重检验校正（同时看 ${report.factors.length} 个因子，α=0.05）：BH=Benjamini-Hochberg(FDR)，Bonf=Bonferroni`}>
-                    多重检验后
-                  </th>
+                  <th className="px-3 py-2 text-left font-medium">{tr("因子")}</th>
+                  <th className="px-3 py-2 text-right font-medium">{tr("均值 IC")}</th>
+                  <th className="px-3 py-2 text-right font-medium">{tr("年化 IR")}</th>
+                  <th className="px-3 py-2 text-right font-medium">{tr("t 值")}</th>
+                  <th className="px-3 py-2 text-center font-medium" title={tr("多重检验校正（同时看 {length} 个因子，α=0.05）：BH=Benjamini-Hochberg(FDR)，Bonf=Bonferroni", { length: report.factors.length })}>{tr("多重检验后")}</th>
                   <th className="px-3 py-2 text-right font-medium">IC&gt;0 胜率</th>
-                  <th className="px-3 py-2 text-right font-medium">行业中性 IC</th>
-                  <th className="px-3 py-2 text-right font-medium">分层价差</th>
-                  <th className="px-3 py-2 text-right font-medium">期数</th>
+                  <th className="px-3 py-2 text-right font-medium">{tr("行业中性 IC")}</th>
+                  <th className="px-3 py-2 text-right font-medium">{tr("分层价差")}</th>
+                  <th className="px-3 py-2 text-right font-medium">{tr("期数")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -340,7 +334,7 @@ export function EquityFactorResearchClient() {
                     }`}
                   >
                     <td className="px-3 py-2 text-fs-text">
-                      {f.nameZh}
+                      {tr(f.nameZh)}
                       <span className="ml-1 text-xs text-fs-muted">
                         {f.higherIsBetter ? "↑" : "↓"}
                       </span>
@@ -358,7 +352,7 @@ export function EquityFactorResearchClient() {
                       {(() => {
                         const r = mtcByFactor.get(f.factorKey);
                         if (!r) return <span className="text-fs-muted">—</span>;
-                        const title = `原始 p=${r.pValue.toExponential(2)}｜BH=${r.bh.toExponential(2)}｜Bonferroni=${r.bonferroni.toExponential(2)}`;
+                        const title = tr("原始 p={v0}｜BH={v1}｜Bonferroni={v2}", { v0: r.pValue.toExponential(2), v1: r.bh.toExponential(2), v2: r.bonferroni.toExponential(2) });
                         if (r.bhSignificant) {
                           return (
                             <span
@@ -367,16 +361,14 @@ export function EquityFactorResearchClient() {
                                   ? "bg-emerald-500/15 text-emerald-400"
                                   : "bg-fs-accent-soft text-fs-accent-text"
                               }`}
-                              title={title}
+                              title={tr(title)}
                             >
-                              {r.bonferroniSignificant ? "显著✓" : "BH 显著"}
+                              {r.bonferroniSignificant ? tr("显著✓") : tr("BH 显著")}
                             </span>
                           );
                         }
                         return (
-                          <span className="rounded px-1.5 py-0.5 text-xs text-fs-muted" title={title}>
-                            不显著
-                          </span>
+                          <span className="rounded px-1.5 py-0.5 text-xs text-fs-muted" title={tr(title)}>{tr("不显著")}</span>
                         );
                       })()}
                     </td>
@@ -396,15 +388,12 @@ export function EquityFactorResearchClient() {
                 ))}
               </tbody>
             </table>
-            <p className="border-t border-fs-border px-3 py-2 text-xs text-fs-muted">
-              IC = 因子 zscore 与次期收益的 Spearman 秩相关；行业中性 IC 用 sectorZscore（行业内标准化）。
-              两者差值 = 行业暴露对因子有效性的贡献。点击行切换下方聚焦因子。
-            </p>
+            <p className="border-t border-fs-border px-3 py-2 text-xs text-fs-muted">{tr("IC = 因子 zscore 与次期收益的 Spearman 秩相关；行业中性 IC 用 sectorZscore（行业内标准化）。 两者差值 = 行业暴露对因子有效性的贡献。点击行切换下方聚焦因子。")}</p>
           </section>
 
           {/* 累计 IC 曲线 */}
           <section className="mb-5 rounded-lg border border-fs-border p-4">
-            <h2 className="mb-2 text-sm font-medium text-fs-text">累计 IC 曲线</h2>
+            <h2 className="mb-2 text-sm font-medium text-fs-text">{tr("累计 IC 曲线")}</h2>
             <CumulativeICChart series={cumSeries} />
           </section>
 
@@ -413,8 +402,7 @@ export function EquityFactorResearchClient() {
             <section className="mb-5 grid gap-4 md:grid-cols-2">
               <div className="rounded-lg border border-fs-border p-4">
                 <h2 className="mb-2 text-sm font-medium text-fs-text">
-                  {focusedFactor.nameZh}：{focusedFactor.quantiles} 分位组次期收益
-                </h2>
+                  {tr(focusedFactor.nameZh)}：{focusedFactor.quantiles}{" "}{tr("分位组次期收益")}</h2>
                 <QuantileBarChart
                   groupReturns={focusedFactor.layering.meanGroupReturns}
                   quantiles={focusedFactor.quantiles}
@@ -423,16 +411,14 @@ export function EquityFactorResearchClient() {
                   <table className="mt-2 w-full text-xs">
                     <thead className="text-fs-muted">
                       <tr>
-                        <th className="py-1 text-left font-medium">组</th>
-                        <th className="py-1 text-right font-medium">算术月均</th>
+                        <th className="py-1 text-left font-medium">{tr("组")}</th>
+                        <th className="py-1 text-right font-medium">{tr("算术月均")}</th>
                         <th
                           className="py-1 text-right font-medium"
-                          title="(∏(1+r))^(1/n)−1，含波动拖累，这才是实际能拿到的复利收益"
-                        >
-                          几何月均
-                        </th>
-                        <th className="py-1 text-right font-medium">累计净值</th>
-                        <th className="py-1 text-right font-medium">年化波动</th>
+                          title={tr("(∏(1+r))^(1/n)−1，含波动拖累，这才是实际能拿到的复利收益")}
+                        >{tr("几何月均")}</th>
+                        <th className="py-1 text-right font-medium">{tr("累计净值")}</th>
+                        <th className="py-1 text-right font-medium">{tr("年化波动")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -461,27 +447,22 @@ export function EquityFactorResearchClient() {
                   </table>
                 ) : null}
                 <p className="mt-1 text-xs text-fs-muted">
-                  Q{focusedFactor.quantiles}−Q1 价差{" "}
+                  Q{focusedFactor.quantiles}{tr("−Q1 价差")}{" "}
                   <span className={icClass(focusedFactor.layering.meanSpread)}>
                     {signPct(focusedFactor.layering.meanSpread)}
-                  </span>
-                  （价差 IR {num(focusedFactor.layering.spreadIR)}）。价差符号与均值 IC 一致 = 单调有效。
-                  <br />
-                  柱图与「算术月均」不含波动拖累，会系统性高估高波动组；判断哪组真的更赚钱看
-                  <span className="text-fs-text">几何月均 / 累计净值</span>。
+                  </span>{tr("（价差 IR")}{" "}{num(focusedFactor.layering.spreadIR)}{tr("）。价差符号与均值 IC 一致 = 单调有效。")}<br />{tr("柱图与「算术月均」不含波动拖累，会系统性高估高波动组；判断哪组真的更赚钱看")}<span className="text-fs-text">{tr("几何月均 / 累计净值")}</span>。
                 </p>
               </div>
               <div className="rounded-lg border border-fs-border p-4">
                 <h2 className="mb-2 text-sm font-medium text-fs-text">
-                  {focusedFactor.nameZh}：分 regime 的均值 IC
-                </h2>
+                  {tr(focusedFactor.nameZh)}{tr("：分 regime 的均值 IC")}</h2>
                 {report.regimeAvailable ? (
                   <table className="w-full text-sm">
                     <thead className="text-xs text-fs-muted">
                       <tr>
                         <th className="py-1 text-left font-medium">regime</th>
-                        <th className="py-1 text-right font-medium">均值 IC</th>
-                        <th className="py-1 text-right font-medium">期数</th>
+                        <th className="py-1 text-right font-medium">{tr("均值 IC")}</th>
+                        <th className="py-1 text-right font-medium">{tr("期数")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -506,24 +487,23 @@ export function EquityFactorResearchClient() {
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-sm text-fs-muted">regime 未构建，运行 quant:build-regime 后可见。</p>
+                  <p className="text-sm text-fs-muted">{tr("regime 未构建，运行 quant:build-regime 后可见。")}</p>
                 )}
               </div>
 
               {focusedFactor.icDecay?.length ? (
                 <div className="rounded-lg border border-fs-border p-4 md:col-span-2">
                   <h2 className="mb-2 text-sm font-medium text-fs-text">
-                    {focusedFactor.nameZh}：IC 衰减曲线（信号能撑多久）
-                  </h2>
+                    {tr(focusedFactor.nameZh)}{tr("：IC 衰减曲线（信号能撑多久）")}</h2>
                   <table className="w-full text-sm">
                     <thead className="text-xs text-fs-muted">
                       <tr>
-                        <th className="py-1 text-left font-medium">前瞻期</th>
-                        <th className="py-1 text-right font-medium">均值 IC</th>
-                        <th className="py-1 text-right font-medium">相对 1 月</th>
-                        <th className="py-1 text-right font-medium">每期 IR</th>
+                        <th className="py-1 text-left font-medium">{tr("前瞻期")}</th>
+                        <th className="py-1 text-right font-medium">{tr("均值 IC")}</th>
+                        <th className="py-1 text-right font-medium">{tr("相对 1 月")}</th>
+                        <th className="py-1 text-right font-medium">{tr("每期 IR")}</th>
                         <th className="py-1 text-right font-medium">IC&gt;0 胜率</th>
-                        <th className="py-1 text-right font-medium">期数</th>
+                        <th className="py-1 text-right font-medium">{tr("期数")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -532,7 +512,7 @@ export function EquityFactorResearchClient() {
                         const ratio = base !== 0 ? d.meanIC / base : null;
                         return (
                           <tr key={d.horizon} className="border-t border-fs-border">
-                            <td className="py-1.5 text-fs-text">{d.horizon} 月</td>
+                            <td className="py-1.5 text-fs-text">{d.horizon} {tr("月")}</td>
                             <td className={`py-1.5 text-right tabular-nums ${icClass(d.meanIC)}`}>
                               {num(d.meanIC, 4)}
                             </td>
@@ -555,7 +535,7 @@ export function EquityFactorResearchClient() {
                     衰减慢（3/6 月 IC 仍接近 1 月）说明信号寿命长，月频调仓多付的换手成本大概率
                     买不到额外收益，可考虑季频；衰减快则必须高频调仓。
                     注意 horizon&gt;1 的收益窗口互相重叠，IR 被自相关放大，只可横向比形状，
-                    <span className="text-fs-text">不能当显著性用</span>。
+                    <span className="text-fs-text">{tr("不能当显著性用")}</span>。
                   </p>
                 </div>
               ) : null}
@@ -565,7 +545,7 @@ export function EquityFactorResearchClient() {
           {/* 相关热力图 */}
           {report.correlation.factorKeys.length >= 2 ? (
             <section className="mb-5 rounded-lg border border-fs-border p-4">
-              <h2 className="mb-2 text-sm font-medium text-fs-text">因子截面相关（时间平均 Pearson）</h2>
+              <h2 className="mb-2 text-sm font-medium text-fs-text">{tr("因子截面相关（时间平均 Pearson）")}</h2>
               <div className="overflow-x-auto">
                 <table className="text-xs">
                   <thead>
@@ -603,16 +583,12 @@ export function EquityFactorResearchClient() {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-xs text-fs-muted">
-                红=正相关（因子冗余）· 蓝=负相关 · 灰≈无关。构建复合策略时避免高正相关因子叠加。
-              </p>
+              <p className="mt-2 text-xs text-fs-muted">{tr("红=正相关（因子冗余）· 蓝=负相关 · 灰≈无关。构建复合策略时避免高正相关因子叠加。")}</p>
             </section>
           ) : null}
         </>
       ) : (
-        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">
-          选择因子后点击「运行研究」查看 IC/IR、分层与相关性。
-        </div>
+        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">{tr("选择因子后点击「运行研究」查看 IC/IR、分层与相关性。")}</div>
       )}
     </div>
   );

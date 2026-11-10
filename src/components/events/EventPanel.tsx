@@ -45,6 +45,7 @@ import {
   deriveEventFilterDraft,
   type ChartSymbolProfile,
 } from "@/lib/data/chartSymbolProfile";
+import { useTr } from "@/i18n/TextProvider";
 
 const TRACKING_STORAGE_KEY = "event-panel-tracking-v1";
 
@@ -211,6 +212,7 @@ export function EventPanel({
   viewFilters: viewFiltersProp,
   onViewFiltersChange,
 }: EventPanelProps) {
+  const tr = useTr();
   const [events, setEvents] = useState<MarketEventDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -462,20 +464,20 @@ export function EventPanel({
     try {
       const r = await fetch(listUrl, { cache: "no-store" });
       if (r.status === 401) {
-        setAuthHint("登录后可查看关联事件");
+        setAuthHint(tr("登录后可查看关联事件"));
         setEvents([]);
         return;
       }
       const j = (await r.json()) as { events?: MarketEventDto[]; error?: string };
-      if (!r.ok) throw new Error(j.error ?? "加载失败");
+      if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
       setEvents(j.events ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr("加载失败"));
       setEvents([]);
     } finally {
       setLoading(false);
     }
-  }, [listUrl]);
+  }, [listUrl, tr]);
 
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store" })
@@ -515,14 +517,14 @@ export function EventPanel({
 
   const onDelete = async (id: string) => {
     if (id.startsWith("stock:")) {
-      window.alert("SEC 派生事件不可删除");
+      window.alert(tr("SEC 派生事件不可删除"));
       return;
     }
-    if (!window.confirm("确定删除该事件？")) return;
+    if (!window.confirm(tr("确定删除该事件？"))) return;
     const r = await fetch(`/api/events/${id}`, { method: "DELETE" });
     if (!r.ok) {
       const j = (await r.json().catch(() => ({}))) as { error?: string };
-      window.alert(j.error ?? "删除失败");
+      window.alert(j.error ?? tr("删除失败"));
       return;
     }
     void load();
@@ -538,16 +540,14 @@ export function EventPanel({
 
   const rangeHint =
     useRangeMode && rangeFrom && rangeTo
-      ? `时间轴 ${rangeFrom} ~ ${rangeTo}${
-          sortedEvents.length
+      ? tr("时间轴 {rangeFrom} ~ {rangeTo}{v2}", { rangeFrom, rangeTo, v2: sortedEvents.length
             ? filtersActive
-              ? ` · ${filteredEvents.length}/${sortedEvents.length} 条`
-              : ` · ${sortedEvents.length} 条`
-            : ""
-        }`
+              ? tr(" · {length}/{length2} 条", { length: filteredEvents.length, length2: sortedEvents.length })
+              : tr(" · {length} 条", { length: sortedEvents.length })
+            : "" })
       : contextDate
-        ? `上下文 ${contextDate} ±${lookbackDays}天`
-        : "调整底部时间轴以加载事件";
+        ? tr("上下文 {contextDate} ±{lookbackDays}天", { contextDate, lookbackDays })
+        : tr("调整底部时间轴以加载事件");
 
   return (
     <section className={shellClass}>
@@ -576,10 +576,8 @@ export function EventPanel({
                     });
                   }}
                   className="h-3 w-3 shrink-0 rounded border-fs-border accent-[var(--fs-accent,#2383e2)]"
-                  aria-label="图上显示：在 K 线上标记事件"
-                />
-                图上显示
-              </label>
+                  aria-label={tr("图上显示：在 K 线上标记事件")}
+                />{tr("图上显示")}</label>
             ) : null}
             <label className="flex shrink-0 cursor-pointer items-center gap-1 text-[10px] text-fs-muted">
               <input
@@ -587,22 +585,18 @@ export function EventPanel({
                 checked={eventTracking}
                 onChange={(e) => setEventTracking(e.target.checked)}
                 className="h-3 w-3 shrink-0 rounded border-fs-border accent-[var(--fs-accent,#2383e2)]"
-                aria-label="事件追踪：十字线移动时滚动到最近事件"
-              />
-              事件追踪
-            </label>
+                aria-label={tr("事件追踪：十字线移动时滚动到最近事件")}
+              />{tr("事件追踪")}</label>
             <div className="min-w-0 flex-1">
               {!embedded ? (
-                <h3 className="text-[11px] font-semibold text-fs-text">事件记录</h3>
+                <h3 className="text-[11px] font-semibold text-fs-text">{tr("事件记录")}</h3>
               ) : null}
               <p
                 className={`truncate text-[10px] text-fs-muted ${embedded ? "" : "mt-0"}`}
               >
                 {rangeHint}
                 {eventTracking ? (
-                  <span className="ml-1 text-[9px] text-fs-accent-text/80">
-                    · 十字线联动
-                  </span>
+                  <span className="ml-1 text-[9px] text-fs-accent-text/80">{tr("· 十字线联动")}</span>
                 ) : null}
               </p>
             </div>
@@ -616,16 +610,12 @@ export function EventPanel({
                   setFormOpen(true);
                 }}
                 className="rounded border border-fs-accent/30 px-1.5 py-0.5 text-[10px] text-fs-accent-text hover:bg-fs-accent-soft"
-              >
-                新建
-              </button>
+              >{tr("新建")}</button>
             ) : null}
             <Link
               href="/events"
               className="rounded border border-fs-border px-1.5 py-0.5 text-[10px] text-fs-muted hover:text-fs-text"
-            >
-              全部
-            </Link>
+            >{tr("全部")}</Link>
           </div>
         </div>
         <EventPanelFilters
@@ -641,20 +631,20 @@ export function EventPanel({
         className={`min-h-0 flex-1 overflow-y-auto ${embedded ? "" : "px-2 py-2"} ${compact ? "max-h-48" : ""}`}
       >
         {loading ? (
-          <p className="py-4 text-center text-[11px] text-fs-muted">加载中…</p>
+          <p className="py-4 text-center text-[11px] text-fs-muted">{tr("加载中…")}</p>
         ) : authHint ? (
           <p className="py-4 text-center text-[11px] text-fs-muted">{authHint}</p>
         ) : error ? (
           <p className="py-4 text-center text-[11px] text-fs-negative">{error}</p>
         ) : !listUrl ? (
           <p className="py-4 text-center text-[11px] text-fs-secondary">
-            {useRangeMode ? "暂无时间轴范围" : "移动图表十字线以加载事件"}
+            {useRangeMode ? tr("暂无时间轴范围") : tr("移动图表十字线以加载事件")}
           </p>
         ) : !hasVisibleTimeline ? (
           <p className="py-4 text-center text-[11px] text-fs-muted">
             {filtersActive
-              ? "无匹配事件，请调整筛选条件"
-              : `该时段无事件${isAdmin ? "，可点击「新建」添加" : ""}`}
+              ? tr("无匹配事件，请调整筛选条件")
+              : tr("该时段无事件{v0}", { v0: isAdmin ? tr("，可点击「新建」添加") : "" })}
           </p>
         ) : (
           <EventTimelineView
@@ -682,7 +672,7 @@ export function EventPanel({
       </div>
       <EventFormModal
         open={formOpen}
-        title={editEvent ? "编辑事件" : "新建事件"}
+        title={editEvent ? tr("编辑事件") : tr("新建事件")}
         initial={formInitial}
         editId={editEvent?.id ?? null}
         onClose={() => {

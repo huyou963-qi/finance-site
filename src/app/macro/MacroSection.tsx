@@ -205,6 +205,9 @@ import {
   syncListWithKeys,
   type MacroSelectedListItem,
 } from "@/lib/macroSelectedList";
+import { useTr } from "@/i18n/TextProvider";
+import { localizeCatalogItems, localizeMacroPayload } from "@/i18n/dataLabels";
+import { useDataLabel } from "@/i18n/useDataLabel";
 
 type MainTab = "selected" | "charts" | "templates";
 
@@ -269,6 +272,22 @@ type MdsIndicatorAttrs = {
   updatedAt: string;
   range: string;
 };
+
+/** 收起侧栏的竖排标签：中文逐字竖排，英文用竖排文字 */
+function VerticalTabLabel({ text }: { text: string }) {
+  const tr = useTr();
+  const shown = tr(text);
+  if (shown === text) {
+    return (
+      <>
+        {Array.from(text).map((char, i) => (
+          <span key={i}>{char}</span>
+        ))}
+      </>
+    );
+  }
+  return <span className="[writing-mode:vertical-rl]">{shown}</span>;
+}
 
 const COUNTRY_ZH_BY_CODE: Record<string, string> = {
   CN: "中国",
@@ -536,6 +555,9 @@ function readMacroReplaceKey(): string | null {
 }
 
 export function MacroSection() {
+  const tr = useTr();
+  const tx = useTr();
+  const pickLabel = useDataLabel();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -632,17 +654,17 @@ export function MacroSection() {
     setScreenshotHint(null);
     try {
       await copyElementScreenshotToClipboard(el, { backgroundColor: "#ffffff" });
-      setScreenshotHint("已复制");
+      setScreenshotHint(tx("已复制"));
       screenshotHintTimerRef.current = window.setTimeout(() => {
         setScreenshotHint(null);
         screenshotHintTimerRef.current = null;
       }, 1800);
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : "截图失败");
+      window.alert(e instanceof Error ? e.message : tx("截图失败"));
     } finally {
       setScreenshotBusy(false);
     }
-  }, [screenshotBusy]);
+  }, [screenshotBusy, tx]);
 
   useEffect(() => {
     return () => {
@@ -1180,10 +1202,10 @@ export function MacroSection() {
         return out;
       });
       if (truncated) {
-        window.alert(`最多只能选择 ${MACRO_MAX_SERIES} 个指标`);
+        window.alert(tx("最多只能选择 {MACRO_MAX_SERIES} 个指标", { MACRO_MAX_SERIES }));
       }
     },
-    [selectedKeys],
+    [selectedKeys, tx],
   );
 
   const updateSeriesVisual = useCallback(
@@ -1401,11 +1423,14 @@ export function MacroSection() {
 
   const resolveSeriesLabel = useCallback(
     (key: string, extractLabels?: ReadonlyMap<string, string>) =>
-      resolveMacroSeriesLabel(key, {
-        catalogLabelByKey,
-        overrides: extractLabels ?? macroSeriesLabelByKey,
-      }),
-    [catalogLabelByKey, macroSeriesLabelByKey],
+      // 兜底名（如「美国 · …」）由前端拼出中文：按界面语言显示
+      pickLabel(
+        resolveMacroSeriesLabel(key, {
+          catalogLabelByKey,
+          overrides: extractLabels ?? macroSeriesLabelByKey,
+        }),
+      ),
+    [catalogLabelByKey, macroSeriesLabelByKey, pickLabel],
   );
 
   const resolveTemplateConfig = useCallback(
@@ -1420,7 +1445,7 @@ export function MacroSection() {
       const templateKeys = resolvedTpl.selectedKeys.slice(0, MACRO_MAX_SERIES);
       if (resolvedTpl.selectedKeys.length > MACRO_MAX_SERIES) {
         window.alert(
-          `模板包含 ${resolvedTpl.selectedKeys.length} 个指标，已截断为最多 ${MACRO_MAX_SERIES} 个`,
+          tx("模板包含 {length} 个指标，已截断为最多 {MACRO_MAX_SERIES} 个", { length: resolvedTpl.selectedKeys.length, MACRO_MAX_SERIES }),
         );
       }
       setLayoutMode(resolvedTpl.layoutMode);
@@ -1443,7 +1468,7 @@ export function MacroSection() {
       setDerivedCalcs([...(resolvedTpl.derivedCalcs ?? [])]);
       setActiveTemplateId(resolvedTpl.id);
     },
-    [resolveTemplateConfig],
+    [resolveTemplateConfig, tx],
   );
 
   /** 应用模板 → 提取数据 → 跳转图表（与顶部「提取数据」一致，但用模板内指标） */
@@ -1472,12 +1497,12 @@ export function MacroSection() {
         }
         setError(
           tpl.id === BUILTIN_US_OVERVIEW_TEMPLATE.id
-            ? "数据库中暂无 US_Overview 数据。"
+            ? tx("数据库中暂无 US_Overview 数据。")
             : tpl.id === BUILTIN_CHINA_OVERVIEW_TEMPLATE.id
-              ? "数据库中暂无 China_Overview 数据。"
+              ? tx("数据库中暂无 China_Overview 数据。")
               : tpl.id === BUILTIN_JAPAN_OVERVIEW_TEMPLATE.id
-                ? "数据库中暂无 Japan_Overview 数据。"
-            : "模板内没有可提取的指标",
+                ? tx("数据库中暂无 Japan_Overview 数据。")
+            : tx("模板内没有可提取的指标"),
         );
         setPayload(null);
         setRequestedQuery(null);
@@ -1505,7 +1530,7 @@ export function MacroSection() {
       setRequestedQuery(query);
       setExtractNonce((n) => n + 1);
     },
-    [applyTemplate, catalogAllowlist, resolveTemplateConfig],
+    [applyTemplate, catalogAllowlist, resolveTemplateConfig, tx],
   );
 
   const builtinFolders = useMemo(() => systemBuiltinFolders, [systemBuiltinFolders]);
@@ -1549,7 +1574,7 @@ export function MacroSection() {
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(j.error ?? `保存失败 (${res.status})`);
+        throw new Error(j.error ?? tx("保存失败 ({status})", { status: res.status }));
       }
       const j = (await res.json()) as {
         builtinTemplateOverrides?: Record<string, BuiltinTemplateOverride>;
@@ -1560,7 +1585,7 @@ export function MacroSection() {
         setBuiltinTemplateOverrides(next);
       }
     },
-    [],
+    [tx],
   );
 
   const persistSystemTemplateData = useCallback(
@@ -1571,7 +1596,7 @@ export function MacroSection() {
       builtinTemplateFolderIds?: Record<string, string | null>;
     }) => {
       if (!isAdmin) {
-        throw new Error("仅管理员可修改系统模板");
+        throw new Error(tx("仅管理员可修改系统模板"));
       }
       const res = await fetch("/api/tools/macro-chart-prefs", {
         method: "PUT",
@@ -1585,7 +1610,7 @@ export function MacroSection() {
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(j.error ?? `保存系统模板失败 (${res.status})`);
+        throw new Error(j.error ?? tx("保存系统模板失败 ({status})", { status: res.status }));
       }
       const j = (await res.json()) as {
         builtinTemplateOverrides?: Record<string, BuiltinTemplateOverride>;
@@ -1606,7 +1631,7 @@ export function MacroSection() {
         setBuiltinTemplateFolderIds(j.builtinTemplateFolderIds);
       }
     },
-    [isAdmin],
+    [isAdmin, tx],
   );
 
   const saveCurrentAsSystemTemplate = useCallback(
@@ -1666,7 +1691,7 @@ export function MacroSection() {
       if (
         targetId &&
         !isSameTemplate &&
-        !window.confirm(`已存在同名系统模板「${trimmed}」，是否覆盖？`)
+        !window.confirm(tx("已存在同名系统模板「{trimmed}」，是否覆盖？", { trimmed }))
       ) {
         return;
       }
@@ -1765,28 +1790,11 @@ export function MacroSection() {
       setActiveTemplateId(targetId);
       setMainTab("templates");
     },
-    [
-      activeTemplate,
-      builtinTemplateFolderIds,
-      builtinTemplateOverrides,
-      builtInTemplates,
-      customBuiltinTemplates,
-      derivedCalcs,
-      displayConfig,
-      isAdmin,
-      layoutMode,
-      orderedSelectedKeys,
-      persistSystemTemplateData,
-      selectedListItems,
-      seriesCalcConfigMap,
-      seriesVisualMap,
-      slotAssignment,
-      systemBuiltinFolders,
-    ],
+    [isAdmin, systemBuiltinFolders, activeTemplate, orderedSelectedKeys, selectedListItems, layoutMode, slotAssignment, seriesVisualMap, displayConfig, seriesCalcConfigMap, derivedCalcs, builtInTemplates, customBuiltinTemplates, tx, builtinTemplateOverrides, builtinTemplateFolderIds, persistSystemTemplateData],
   );
 
   const saveCurrentAsTemplate = useCallback((nameInput?: string, folderId?: string | null) => {
-    const trimmed = (nameInput ?? window.prompt("模板名称", activeTemplate?.name ?? "") ?? "").trim();
+    const trimmed = (nameInput ?? window.prompt(tx("模板名称"), activeTemplate?.name ?? "") ?? "").trim();
     if (!trimmed) return;
 
     const existing = savedTemplates.find((t) => t.name.trim() === trimmed);
@@ -1830,7 +1838,7 @@ export function MacroSection() {
 
     if (existing) {
       const isSameTemplate = activeTemplate?.id === existing.id && !activeTemplate.builtIn;
-      if (!isSameTemplate && !window.confirm(`已存在同名模板「${trimmed}」，是否覆盖？`)) {
+      if (!isSameTemplate && !window.confirm(tx("已存在同名模板「{trimmed}」，是否覆盖？", { trimmed }))) {
         return;
       }
       setSavedTemplates((prev) =>
@@ -1858,24 +1866,10 @@ export function MacroSection() {
     setSavedTemplates((prev) => [next, ...prev].slice(0, 30));
     setActiveTemplateId(id);
     setNewTemplateName("");
-  }, [
-    activeTemplate,
-    activeTemplateId,
-    derivedCalcs,
-    displayConfig,
-    layoutMode,
-    orderedSelectedKeys,
-    savedTemplates,
-    selectedListItems,
-    seriesCalcConfigMap,
-    seriesVisualMap,
-    slotAssignment,
-    templateIndicatorNotes,
-    userFolders,
-  ]);
+  }, [activeTemplate, activeTemplateId, derivedCalcs, displayConfig, layoutMode, orderedSelectedKeys, savedTemplates, selectedListItems, seriesCalcConfigMap, seriesVisualMap, slotAssignment, templateIndicatorNotes, tx, userFolders]);
 
   const createNewTemplateDraft = useCallback(() => {
-    if (!window.confirm("新建模板会清空当前模板配置，继续？")) return;
+    if (!window.confirm(tx("新建模板会清空当前模板配置，继续？"))) return;
     setActiveTemplateId(null);
     setNewTemplateName("");
     setLayoutMode(1);
@@ -1891,7 +1885,7 @@ export function MacroSection() {
     setRequestedQuery(null);
     setRequestedMdsInstruments(null);
     setMainTab("selected");
-  }, []);
+  }, [tx]);
 
   const openSaveTemplateDialog = useCallback(
     (opts?: { defaultMode?: "user" | "builtin"; defaultName?: string }) => {
@@ -1901,7 +1895,7 @@ export function MacroSection() {
       const defaultName =
         opts?.defaultName?.trim() ||
         newTemplateName.trim() ||
-        (activeTemplate?.name ? activeTemplate.name : defaultMode === "builtin" ? "系统新模板" : "我的新模板");
+        (activeTemplate?.name ? activeTemplate.name : defaultMode === "builtin" ? tx("系统新模板") : tx("我的新模板"));
       setTemplateNameDraft(defaultName);
       if (defaultMode === "builtin" && activeTemplate?.builtIn) {
         setNewTemplateFolderId(builtinTemplateFolderIds[activeTemplate.id] ?? "");
@@ -1912,12 +1906,7 @@ export function MacroSection() {
       }
       setTemplateNameDialogOpen(true);
     },
-    [
-      activeTemplate,
-      builtinTemplateFolderIds,
-      isAdmin,
-      newTemplateName,
-    ],
+    [activeTemplate, builtinTemplateFolderIds, isAdmin, newTemplateName, tx],
   );
 
   const quickSaveTemplateToMine = useCallback(() => {
@@ -1936,7 +1925,7 @@ export function MacroSection() {
         setTemplateNameDialogOpen(false);
         setTemplateNameDraft("");
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : "保存系统模板失败");
+        window.alert(e instanceof Error ? e.message : tx("保存系统模板失败"));
       }
       return;
     }
@@ -1947,14 +1936,7 @@ export function MacroSection() {
     setTemplateNameDialogOpen(false);
     setTemplateNameDraft("");
     setMainTab("templates");
-  }, [
-    isAdmin,
-    newTemplateFolderId,
-    saveCurrentAsSystemTemplate,
-    saveCurrentAsTemplate,
-    templateNameDraft,
-    templateSaveMode,
-  ]);
+  }, [isAdmin, newTemplateFolderId, saveCurrentAsSystemTemplate, saveCurrentAsTemplate, templateNameDraft, templateSaveMode, tx]);
 
   const cancelSaveTemplateDialog = useCallback(() => {
     setTemplateNameDialogOpen(false);
@@ -1965,13 +1947,13 @@ export function MacroSection() {
     async (tpl: MacroChartTemplate) => {
       if (!tpl.builtIn) return;
       if (!isAdmin) {
-        window.alert("仅管理员可删除系统模板");
+        window.alert(tx("仅管理员可删除系统模板"));
         return;
       }
       const isHardcoded = HARDCODED_BUILTIN_TEMPLATE_IDS.has(tpl.id);
       const msg = isHardcoded
-        ? `从系统模板列表中移除「${tpl.name}」？（内置模板将从全员列表隐藏，管理员覆盖配置一并清除）`
-        : `删除系统模板「${tpl.name}」？删除后所有用户将无法再加载。`;
+        ? tx("从系统模板列表中移除「{name}」？（内置模板将从全员列表隐藏，管理员覆盖配置一并清除）", { name: tpl.name })
+        : tx("删除系统模板「{name}」？删除后所有用户将无法再加载。", { name: tpl.name });
       if (!window.confirm(msg)) return;
 
       const nextFolderIds = { ...builtinTemplateFolderIds };
@@ -2001,18 +1983,10 @@ export function MacroSection() {
         }
         if (activeTemplateId === tpl.id) setActiveTemplateId(null);
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : "删除系统模板失败");
+        window.alert(e instanceof Error ? e.message : tx("删除系统模板失败"));
       }
     },
-    [
-      activeTemplateId,
-      builtinTemplateFolderIds,
-      builtinTemplateOverrides,
-      customBuiltinTemplates,
-      hiddenBuiltinTemplateIds,
-      isAdmin,
-      persistSystemTemplateData,
-    ],
+    [activeTemplateId, builtinTemplateFolderIds, builtinTemplateOverrides, customBuiltinTemplates, hiddenBuiltinTemplateIds, isAdmin, persistSystemTemplateData, tx],
   );
 
   const deleteActiveTemplate = useCallback(() => {
@@ -2021,15 +1995,15 @@ export function MacroSection() {
       void deleteSystemTemplate(activeTemplate);
       return;
     }
-    if (!window.confirm(`删除模板「${activeTemplate.name}」？`)) return;
+    if (!window.confirm(tx("删除模板「{name}」？", { name: activeTemplate.name }))) return;
     setSavedTemplates((prev) => prev.filter((x) => x.id !== activeTemplate.id));
     setActiveTemplateId(null);
-  }, [activeTemplate, deleteSystemTemplate]);
+  }, [activeTemplate, deleteSystemTemplate, tx]);
 
   const restoreSystemTemplate = useCallback(
     async (templateId: string) => {
       if (!isAdmin) {
-        window.alert("仅管理员可恢复系统模板");
+        window.alert(tx("仅管理员可恢复系统模板"));
         return;
       }
       const nextHidden = hiddenBuiltinTemplateIds.filter((id) => id !== templateId);
@@ -2038,10 +2012,10 @@ export function MacroSection() {
         await persistSystemTemplateData({ hiddenBuiltinTemplateIds: nextHidden });
       } catch (e) {
         setHiddenBuiltinTemplateIds(hiddenBuiltinTemplateIds);
-        window.alert(e instanceof Error ? e.message : "恢复系统模板失败");
+        window.alert(e instanceof Error ? e.message : tx("恢复系统模板失败"));
       }
     },
-    [hiddenBuiltinTemplateIds, isAdmin, persistSystemTemplateData],
+    [hiddenBuiltinTemplateIds, isAdmin, persistSystemTemplateData, tx],
   );
 
   useEffect(() => {
@@ -2061,14 +2035,14 @@ export function MacroSection() {
         .then((j) => {
           if (cancelled) return;
           if (Array.isArray(j.countries) && Array.isArray(j.allowlistKeys)) {
-            setCatalogCountries(j.countries);
+            setCatalogCountries(localizeCatalogItems(j.countries, pickLabel));
             setCatalogAllowlist(new Set(j.allowlistKeys));
             setCatalogLabelExtras(
               j.labelExtras && typeof j.labelExtras === "object" ? j.labelExtras : {},
             );
             setCatalogLoadError(null);
           } else {
-            throw new Error("目录响应格式异常");
+            throw new Error(tx("目录响应格式异常"));
           }
         })
         .catch((e) => {
@@ -2076,14 +2050,14 @@ export function MacroSection() {
           setCatalogCountries(null);
           setCatalogAllowlist(null);
           setCatalogLabelExtras({});
-          setCatalogLoadError(e instanceof Error ? e.message : "加载失败");
+          setCatalogLoadError(e instanceof Error ? e.message : tx("加载失败"));
         });
     }
     void loadCatalog();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tx, pickLabel]);
 
   const refreshCatalog = useCallback(() => {
     fetch("/api/data/fmp-catalog")
@@ -2099,7 +2073,7 @@ export function MacroSection() {
       })
       .then((j) => {
         if (Array.isArray(j.countries) && Array.isArray(j.allowlistKeys)) {
-          setCatalogCountries(j.countries);
+          setCatalogCountries(localizeCatalogItems(j.countries, pickLabel));
           setCatalogAllowlist(new Set(j.allowlistKeys));
           setCatalogLabelExtras(
             j.labelExtras && typeof j.labelExtras === "object" ? j.labelExtras : {},
@@ -2110,7 +2084,7 @@ export function MacroSection() {
       .catch(() => {
         /* 刷新失败保留旧目录 */
       });
-  }, []);
+  }, [pickLabel]);
 
   const expandAllowlistForKey = useCallback((key: string, label?: string) => {
     setCatalogAllowlist((prev) => {
@@ -2538,7 +2512,7 @@ export function MacroSection() {
       })
       .then((data) => {
         if (cancelled) return;
-        setPayload(data);
+        setPayload(localizeMacroPayload(data, pickLabel));
         if (data.source === "mds") {
           const keys = data.series.map((s) => s.key).filter(Boolean) as string[];
           if (keys.length > 0) setExtractedSet(new Set(keys));
@@ -2551,8 +2525,8 @@ export function MacroSection() {
           e instanceof Error
             ? e.message
             : mdsRaw
-              ? "无法加载本地宏观数据"
-              : "无法加载数据（请检查网络或上游服务）",
+              ? tx("无法加载本地宏观数据")
+              : tx("无法加载数据（请检查网络或上游服务）"),
         );
       })
       .finally(() => {
@@ -2562,7 +2536,7 @@ export function MacroSection() {
     return () => {
       cancelled = true;
     };
-  }, [requestedMdsInstruments, requestedQuery, extractNonce]);
+  }, [requestedMdsInstruments, requestedQuery, extractNonce, tx, pickLabel]);
 
   /** 勾选「美国衰退」时拉取 FRED USREC，压成 NBER 区间供时序图 markArea */
   useEffect(() => {
@@ -2621,7 +2595,7 @@ export function MacroSection() {
 
   function handleExtractData() {
     if (!seriesQuery) {
-      setError("请先选择至少一个指标");
+      setError(tx("请先选择至少一个指标"));
       setPayload(null);
       setRequestedQuery(null);
       setRequestedMdsInstruments(null);
@@ -2743,7 +2717,7 @@ export function MacroSection() {
   function renameDerivedCalc(id: string) {
     const current = derivedCalcs.find((x) => x.id === id);
     if (!current) return;
-    const next = window.prompt("运算指标名称", current.name)?.trim();
+    const next = window.prompt(tx("运算指标名称"), current.name)?.trim();
     if (!next) return;
     setDerivedCalcs((prev) => prev.map((x) => (x.id === id ? { ...x, name: next } : x)));
   }
@@ -2938,15 +2912,17 @@ export function MacroSection() {
       m.set(key, {
         key,
         label: calcSuffix ? `${baseLabel}（${calcSuffix}）` : baseLabel,
-        frequency:
+        // 频率/单位/国家来自目录与库内中文元数据：在这里统一按界面语言翻译
+        frequency: tx(
           extracted?.frequency ??
-          mdsAttrs?.frequency ??
-          catalogMetaByKey.get(attrLookupKey)?.frequency ??
-          catalogMetaByKey.get(key)?.frequency ??
-          "-",
+            mdsAttrs?.frequency ??
+            catalogMetaByKey.get(attrLookupKey)?.frequency ??
+            catalogMetaByKey.get(key)?.frequency ??
+            "-",
+        ),
         range: extracted?.range ?? mdsAttrs?.range ?? "-",
-        unit: effectiveUnit ?? mdsAttrs?.unit ?? "-",
-        country: mdsAttrs?.country ?? "-",
+        unit: tx(effectiveUnit ?? mdsAttrs?.unit ?? "-"),
+        country: tx(mdsAttrs?.country ?? "-"),
         updatedAt: mdsAttrs?.updatedAt ?? "-",
         source: mdsAttrs?.source ?? "-",
       });
@@ -2958,7 +2934,7 @@ export function MacroSection() {
       m.set(key, {
         key,
         label: calc.name,
-        frequency: extracted?.frequency,
+        frequency: extracted?.frequency ? tx(extracted.frequency) : undefined,
         range: extracted?.range,
         unit: calc.unitLabel,
         country: undefined,
@@ -2967,17 +2943,7 @@ export function MacroSection() {
       });
     }
     return m;
-  }, [
-    orderedSelectedKeys,
-    catalogMetaByKey,
-    derivedCalcs,
-    extractedMetaByKey,
-    mdsAttrsByKey,
-    mdsUnitByKey,
-    resolveSeriesLabel,
-    seriesCalcConfigMap,
-    seriesDisplayLabelByKey,
-  ]);
+  }, [orderedSelectedKeys, mdsAttrsByKey, extractedMetaByKey, seriesCalcConfigMap, resolveSeriesLabel, seriesDisplayLabelByKey, mdsUnitByKey, tx, catalogMetaByKey, derivedCalcs]);
 
   const derivedKeySet = useMemo(
     () => new Set(derivedCalcs.map((x) => `calc:${x.id}`)),
@@ -3138,9 +3104,9 @@ export function MacroSection() {
       .sort((a, b) => a - b);
     return slots.map((slot) => ({
       slotKey: String(slot),
-      title: slotTitles[slot] ?? `图 ${slot + 1}`,
+      title: slotTitles[slot] ?? tx("图 {v0}", { v0: slot + 1 }),
     }));
-  }, [activeTemplate, resolveTemplateConfig]);
+  }, [activeTemplate, resolveTemplateConfig, tx]);
 
   const mergedIntroNotes = useMemo(() => {
     const user = templateIndicatorNotes[introTemplateId] ?? {};
@@ -3175,13 +3141,13 @@ export function MacroSection() {
           await persistSystemTemplateData({ customBuiltinTemplates: pending.templates });
         }
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : "保存总介绍失败");
+        window.alert(e instanceof Error ? e.message : tx("保存总介绍失败"));
       }
     })();
     introSaveInFlightRef.current = save;
     await save;
     if (introSaveInFlightRef.current === save) introSaveInFlightRef.current = null;
-  }, [isAdmin, persistBuiltinTemplateOverrides, persistSystemTemplateData]);
+  }, [isAdmin, persistBuiltinTemplateOverrides, persistSystemTemplateData, tx]);
 
   /** admin 修改系统模板的介绍富文本：写入系统模板并防抖保存 */
   const patchBuiltinTemplateIntro = useCallback(
@@ -3297,7 +3263,7 @@ export function MacroSection() {
       return { time: 88, columns: new Map<string, number>() };
     }
 
-    const timeHeaderUnits = estimateTableTextWidthUnits("时间 ↓");
+    const timeHeaderUnits = estimateTableTextWidthUnits(tx("时间 ↓"));
     let timeDataUnits = 0;
     for (const cat of displayPayload.categories) {
       timeDataUnits = Math.max(
@@ -3325,7 +3291,7 @@ export function MacroSection() {
     }
 
     return { time, columns };
-  }, [displayPayload, tableColumns, tableValueByKey]);
+  }, [displayPayload, tableColumns, tableValueByKey, tx]);
 
   useLayoutEffect(() => {
     if (!chartSettingsOpen || chartSettingsWidthPx !== null || !chartSplitRowRef.current) return;
@@ -3471,10 +3437,9 @@ export function MacroSection() {
 
   // 桌面与手机布局共用的面板片段
   const extractedDataBody = loading ? (
-                      <p className="px-3 py-6 text-center text-xs text-fs-muted">正在加载…</p>
+                      <p className="px-3 py-6 text-center text-xs text-fs-muted">{tx("正在加载…")}</p>
                     ) : error ? (
-                      <p className="px-3 py-6 text-center text-xs text-amber-500">
-                        加载失败：{error}
+                      <p className="px-3 py-6 text-center text-xs text-amber-500">{tx("加载失败：")}{error}
                       </p>
                     ) : displayPayload ? (
                       <MacroExtractedDataTable
@@ -3487,9 +3452,7 @@ export function MacroSection() {
                         onToggleTimeSort={toggleTableTimeSort}
                       />
                     ) : (
-                      <p className="px-3 py-6 text-center text-xs text-fs-muted">
-                        点击「提取数据」后，各指标数值将显示在此处。
-                      </p>
+                      <p className="px-3 py-6 text-center text-xs text-fs-muted">{tx("点击「提取数据」后，各指标数值将显示在此处。")}</p>
                     );
 
   const chartSidePanelBody = chartSidePanelTab === "events" ? (
@@ -3506,7 +3469,7 @@ export function MacroSection() {
                               <MacroTemplateIntroPanel
                                 key={introTemplateId}
                                 templateName={introTemplateMeta.name}
-                                templateDescription={introTemplateMeta.description}
+                                templateDescription={tr(introTemplateMeta.description)}
                                 introText={introTemplateMeta.introText}
                                 introHtml={introTemplateMeta.introHtml}
                                 chartSections={introChartSections ?? undefined}
@@ -3540,12 +3503,8 @@ export function MacroSection() {
                             />
                             {chartPropsTab === "global" ? (
                               <div className="mt-3 border-t border-fs-border pt-3">
-                                <p className="mb-2 text-[10px] leading-relaxed text-fs-muted">
-                                  常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图、瀑布图、热力图、XY散点、箱线图、雷达图。季节图仅支持单指标（月度/季度）；瀑布图按槽内顺序拆解增减（末项为合计）；热力图为指标相关矩阵；XY散点需恰好 2 个指标；雷达图需 ≥3 个指标并按历史区间归一化；饼图/瀑布图/雷达图可切换数据年份；并支持任意序列切到右轴。
-                                </p>
-                                <div className="rounded-md border border-fs-border/90 bg-fs-elevated/80 p-2 text-[10px] text-fs-muted">
-                                  建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。
-                                </div>
+                                <p className="mb-2 text-[10px] leading-relaxed text-fs-muted">{tx("常见金融分析图形已支持：折线、虚线、面积、阶梯线、柱状、散点、饼图、季节图、瀑布图、热力图、XY散点、箱线图、雷达图。季节图仅支持单指标（月度/季度）；瀑布图按槽内顺序拆解增减（末项为合计）；热力图为指标相关矩阵；XY散点需恰好 2 个指标；雷达图需 ≥3 个指标并按历史区间归一化；饼图/瀑布图/雷达图可切换数据年份；并支持任意序列切到右轴。")}</p>
+                                <div className="rounded-md border border-fs-border/90 bg-fs-elevated/80 p-2 text-[10px] text-fs-muted">{tx("建议：同比增速/利率用左轴，价格指数或规模量用右轴；离散事件点可用散点，结构变化可用柱状。")}</div>
                               </div>
                             ) : null}
                               </>
@@ -3553,7 +3512,7 @@ export function MacroSection() {
 
   const hiddenBuiltinRestore = isAdmin && hiddenHardcodedBuiltinTemplates.length > 0 ? (
                   <div className="mt-3 rounded-lg border border-fs-border bg-fs-bg/40 px-2 py-2">
-                    <p className="text-[10px] font-medium text-fs-muted">已隐藏的内置系统模板</p>
+                    <p className="text-[10px] font-medium text-fs-muted">{tx("已隐藏的内置系统模板")}</p>
                     <ul className="mt-1.5 flex flex-wrap gap-1.5">
                       {hiddenHardcodedBuiltinTemplates.map((tpl) => (
                         <li key={tpl.id}>
@@ -3562,9 +3521,8 @@ export function MacroSection() {
                             disabled={loading}
                             onClick={() => restoreSystemTemplate(tpl.id)}
                             className="rounded border border-fs-border px-2 py-0.5 text-[10px] text-fs-secondary hover:border-fs-accent/40 hover:text-fs-accent-text disabled:opacity-40"
-                            title={`恢复「${tpl.name}」到系统模板列表`}
-                          >
-                            恢复「{tpl.name}」
+                            title={tx("恢复「{name}」到系统模板列表", { name: tpl.name })}
+                          >{tx("恢复「{name}」", { name: tpl.name })}
                           </button>
                         </li>
                       ))}
@@ -3574,13 +3532,13 @@ export function MacroSection() {
 
   const userTemplatesPanel = (
               <div className="rounded-lg border border-fs-border/90 bg-fs-bg/60 p-3">
-                <h3 className="text-sm font-medium text-fs-text">我的模板</h3>
+                <h3 className="text-sm font-medium text-fs-text">{tx("我的模板")}</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <input
                     type="text"
                     value={newTemplateName}
                     onChange={(e) => setNewTemplateName(e.target.value)}
-                    placeholder="模板名称"
+                    placeholder={tx("模板名称")}
                     className="min-w-[10rem] flex-1 rounded border border-fs-border bg-fs-elevated px-2 py-0.5 text-[11px] text-fs-text placeholder:text-fs-secondary focus:border-fs-accent focus:outline-none"
                   />
                   <button
@@ -3597,9 +3555,7 @@ export function MacroSection() {
                           )
                     }
                     className="rounded border border-fs-accent/50 bg-fs-accent-soft px-2 py-0.5 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent"
-                  >
-                    保存当前配置
-                  </button>
+                  >{tx("保存当前配置")}</button>
                 </div>
 
                 <MacroTemplateFolderSection
@@ -3610,7 +3566,7 @@ export function MacroSection() {
                   onCreateFolder={addUserTemplateFolder}
                   onRenameFolder={renameUserTemplateFolder}
                   onDeleteFolder={deleteUserTemplateFolder}
-                  emptyText="还没有自定义模板。"
+                  emptyText={tx("还没有自定义模板。")}
                   renderActions={(tpl) => (
                     <>
                       <button
@@ -3618,15 +3574,13 @@ export function MacroSection() {
                         disabled={loading}
                         onClick={() => applyTemplateAndExtract(tpl)}
                         className="rounded border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        加载
-                      </button>
+                      >{tx("加载")}</button>
                       <div className="flex gap-0.5">
                         <button
                           type="button"
                           onClick={() => {
                             setActiveTemplateId(tpl.id);
-                            if (window.confirm(`用当前配置覆盖模板「${tpl.name}」？`)) {
+                            if (window.confirm(tx("用当前配置覆盖模板「{name}」？", { name: tpl.name }))) {
                               setSavedTemplates((prev) =>
                                 prev.map((x) =>
                                   x.id === tpl.id
@@ -3656,22 +3610,18 @@ export function MacroSection() {
                             }
                           }}
                           className="flex-1 rounded border border-fs-border text-fs-secondary hover:border-fs-border"
-                        >
-                          覆盖
-                        </button>
+                        >{tx("覆盖")}</button>
                         <button
                           type="button"
                           onClick={() => {
                             setActiveTemplateId(tpl.id);
-                            if (window.confirm(`删除模板「${tpl.name}」？`)) {
+                            if (window.confirm(tx("删除模板「{name}」？", { name: tpl.name }))) {
                               setSavedTemplates((prev) => prev.filter((x) => x.id !== tpl.id));
                               setActiveTemplateId((prev) => (prev === tpl.id ? null : prev));
                             }
                           }}
                           className="flex-1 rounded border border-fs-negative/50 bg-white font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50"
-                        >
-                          删除
-                        </button>
+                        >{tx("删除")}</button>
                       </div>
                     </>
                   )}
@@ -3686,7 +3636,7 @@ export function MacroSection() {
                   templates={builtInTemplates}
                   folderIdByTemplate={builtinTemplateFolderIds}
                   loading={loading}
-                  emptyText="暂无系统模板。"
+                  emptyText={tx("暂无系统模板。")}
                   renderActions={(tpl) => (
                     <div className="flex w-full flex-col gap-1">
                       <button
@@ -3694,18 +3644,14 @@ export function MacroSection() {
                         disabled={loading}
                         onClick={() => applyTemplateAndExtract(tpl)}
                         className="w-full rounded-md border border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        加载
-                      </button>
+                      >{tx("加载")}</button>
                       {isAdmin ? (
                         <button
                           type="button"
                           disabled={loading}
                           onClick={() => deleteSystemTemplate(tpl)}
                           className="w-full rounded-md border border-fs-negative/50 bg-fs-elevated px-1.5 py-0.5 text-[10px] font-medium text-fs-negative hover:border-fs-negative hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          删除
-                        </button>
+                        >{tx("删除")}</button>
                       ) : null}
                     </div>
                   )}
@@ -3720,11 +3666,11 @@ export function MacroSection() {
   const templateNameDialog = templateNameDialogOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-fs-bg/75 px-4">
           <div className="w-full max-w-md rounded-lg border border-fs-border bg-fs-elevated p-4 shadow-2xl">
-            <h3 className="text-sm font-medium text-fs-text">保存模板</h3>
+            <h3 className="text-sm font-medium text-fs-text">{tx("保存模板")}</h3>
             <p className="mt-1 text-xs text-fs-muted">
               {templateSaveMode === "builtin" && isAdmin
-                ? "保存为系统模板后，所有用户均可在「系统模板」中加载。"
-                : "保存为我的模板，仅自己可见。"}
+                ? tx("保存为系统模板后，所有用户均可在「系统模板」中加载。")
+                : tx("保存为我的模板，仅自己可见。")}
             </p>
             {isAdmin ? (
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-fs-secondary">
@@ -3742,9 +3688,7 @@ export function MacroSection() {
                       }
                     }}
                     className="h-3 w-3 border-fs-border"
-                  />
-                  我的模板
-                </label>
+                  />{tx("我的模板")}</label>
                 <label className="flex cursor-pointer items-center gap-1.5">
                   <input
                     type="radio"
@@ -3759,9 +3703,7 @@ export function MacroSection() {
                       }
                     }}
                     className="h-3 w-3 border-fs-border"
-                  />
-                  系统模板
-                </label>
+                  />{tx("系统模板")}</label>
               </div>
             ) : null}
             <form
@@ -3775,18 +3717,18 @@ export function MacroSection() {
                 type="text"
                 value={templateNameDraft}
                 onChange={(e) => setTemplateNameDraft(e.target.value)}
-                placeholder="例如：美国总览-利率通胀版"
+                placeholder={tx("例如：美国总览-利率通胀版")}
                 autoFocus
                 className="rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-sm text-fs-text placeholder:text-fs-muted focus:border-fs-accent focus:outline-none"
               />
               <label className="flex items-center gap-2 text-xs text-fs-muted">
-                <span className="shrink-0">保存到文件夹</span>
+                <span className="shrink-0">{tx("保存到文件夹")}</span>
                 <select
                   value={newTemplateFolderId}
                   onChange={(e) => setNewTemplateFolderId(e.target.value)}
                   className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 py-1.5 text-xs text-fs-text"
                 >
-                  <option value="">未分类</option>
+                  <option value="">{tx("未分类")}</option>
                   {(templateSaveMode === "builtin" ? builtinFolders : userFolders).map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name}
@@ -3799,15 +3741,13 @@ export function MacroSection() {
                   type="button"
                   onClick={cancelSaveTemplateDialog}
                   className="rounded border border-fs-border px-3 py-1.5 text-xs text-fs-secondary hover:border-fs-border"
-                >
-                  取消
-                </button>
+                >{tx("取消")}</button>
                 <button
                   type="submit"
                   disabled={!templateNameDraft.trim()}
                   className="rounded border border-fs-accent/50 bg-fs-accent-soft px-3 py-1.5 text-xs font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {templateSaveMode === "builtin" && isAdmin ? "保存为系统模板" : "保存为我的模板"}
+                  {templateSaveMode === "builtin" && isAdmin ? tx("保存为系统模板") : tx("保存为我的模板")}
                 </button>
               </div>
             </form>
@@ -3849,26 +3789,26 @@ export function MacroSection() {
             </button>
           ) : null}
           <label className="flex shrink-0 items-center text-[13px] text-fs-muted">
-            <span className="sr-only">图表数量</span>
+            <span className="sr-only">{tx("图表数量")}</span>
             <select
               value={layoutMode}
               onChange={(e) => setLayoutMode(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)}
-              aria-label="图表数量"
+              aria-label={tx("图表数量")}
               className="h-9 rounded-md border border-fs-border bg-white px-2 text-fs-text"
             >
-              <option value={1}>1 张</option>
-              <option value={2}>2 张</option>
-              <option value={3}>3 张</option>
-              <option value={4}>4 张</option>
-              <option value={5}>5 张</option>
-              <option value={6}>6 张</option>
+              <option value={1}>{tx("1 张")}</option>
+              <option value={2}>{tx("2 张")}</option>
+              <option value={3}>{tx("3 张")}</option>
+              <option value={4}>{tx("4 张")}</option>
+              <option value={5}>{tx("5 张")}</option>
+              <option value={6}>{tx("6 张")}</option>
             </select>
           </label>
           <button
             type="button"
             aria-pressed={Boolean(displayConfig.showRecessionShading)}
-            aria-label="美国衰退阴影"
-            title="叠加 NBER 美国衰退区间"
+            aria-label={tx("美国衰退阴影")}
+            title={tx("叠加 NBER 美国衰退区间")}
             onClick={() =>
               setDisplayConfig((prev) => ({
                 ...prev,
@@ -3880,9 +3820,7 @@ export function MacroSection() {
                 ? "border-fs-accent/30 bg-fs-accent-soft text-fs-accent-text"
                 : "border-fs-border bg-white text-fs-text"
             }`}
-          >
-            衰退
-          </button>
+          >{tx("衰退")}</button>
           <span className="flex-1" />
           <button
             type="button"
@@ -3891,18 +3829,12 @@ export function MacroSection() {
               setMobileChartSettingsOpen(true);
             }}
             className="h-9 shrink-0 rounded-md border border-fs-border bg-white px-3 text-sm font-medium text-fs-text"
-          >
-            设置
-          </button>
+          >{tx("设置")}</button>
         </div>
         <p className="flex items-center gap-1.5 px-3 pb-2 text-xs text-fs-muted">
-          <IconInfo size={14} />
-          画线、截图、页面同步请在电脑端使用
-        </p>
+          <IconInfo size={14} />{tx("画线、截图、页面同步请在电脑端使用")}</p>
         {loading ? (
-          <div className="flex min-h-[200px] items-center justify-center text-sm text-fs-muted">
-            正在加载…
-          </div>
+          <div className="flex min-h-[200px] items-center justify-center text-sm text-fs-muted">{tx("正在加载…")}</div>
         ) : chartGridPayload ? (
           <div className="flex flex-col gap-2 px-2">
             {error ? (
@@ -3932,7 +3864,7 @@ export function MacroSection() {
           </div>
         ) : (
           <div className="mx-3 rounded-lg border border-dashed border-fs-border p-8 text-center text-sm text-fs-muted">
-            {error ? `加载失败：${error}` : "暂无数据"}
+            {error ? tx("加载失败：{error}", { error }) : tx("暂无数据")}
           </div>
         )}
       </div>
@@ -3943,7 +3875,7 @@ export function MacroSection() {
         <MacroMobileLayout
           tab={mobileTab}
           onTabChange={onMobileTabChange}
-          subtitle={activeTemplate ? activeTemplate.name : `${orderedDisplayKeys.length} 个指标`}
+          subtitle={activeTemplate ? activeTemplate.name : tx("{length} 个指标", { length: orderedDisplayKeys.length })}
           selectedBadge={orderedDisplayKeys.length}
           onExtract={() => {
             handleExtractData();
@@ -3993,8 +3925,8 @@ export function MacroSection() {
             <>
               <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold text-fs-text">提取数据</p>
-                  <p className="mt-0.5 text-xs text-fs-muted">表格可左右滑动</p>
+                  <p className="text-base font-semibold text-fs-text">{tx("提取数据")}</p>
+                  <p className="mt-0.5 text-xs text-fs-muted">{tx("表格可左右滑动")}</p>
                 </div>
                 <button
                   type="button"
@@ -4050,16 +3982,16 @@ export function MacroSection() {
         <MobileSheet
           open={mobileChartSettingsOpen}
           onClose={() => setMobileChartSettingsOpen(false)}
-          title="图表设置"
+          title={tx("图表设置")}
           size="full"
         >
           <div className="sticky top-0 z-10 flex flex-col gap-2 border-b border-fs-border bg-fs-bg px-3 py-2.5">
             <div className="flex gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
               {(
                 [
-                  ["settings", "图形设置"],
-                  ["events", "事件记录"],
-                  ["intro", "模板介绍"],
+                  ["settings", tx("图形设置")],
+                  ["events", tx("事件记录")],
+                  ["intro", tx("模板介绍")],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -4068,7 +4000,7 @@ export function MacroSection() {
                   onClick={() => setChartSidePanelTab(id)}
                   className={mobileSegClass(chartSidePanelTab === id)}
                 >
-                  {label}
+                  {tr(label)}
                 </button>
               ))}
             </div>
@@ -4076,9 +4008,9 @@ export function MacroSection() {
               <div className="flex gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
                 {(
                   [
-                    ["global", "全图设置"],
-                    ["single", "单图设置"],
-                    ["axis", "轴设置"],
+                    ["global", tx("全图设置")],
+                    ["single", tx("单图设置")],
+                    ["axis", tx("轴设置")],
                   ] as const
                 ).map(([id, label]) => (
                   <button
@@ -4087,7 +4019,7 @@ export function MacroSection() {
                     onClick={() => setChartPropsTab(id)}
                     className={mobileSegClass(chartPropsTab === id)}
                   >
-                    {label}
+                    {tr(label)}
                   </button>
                 ))}
               </div>
@@ -4106,15 +4038,13 @@ export function MacroSection() {
         <MobileSheet
           open={mobileDateRangeOpen}
           onClose={() => setMobileDateRangeOpen(false)}
-          title="图表时间区间"
+          title={tx("图表时间区间")}
           footer={
             <button
               type="button"
               onClick={() => setMobileDateRangeOpen(false)}
               className="h-11 w-full rounded-lg border border-fs-accent/30 bg-fs-accent-soft text-base font-medium text-fs-accent-text"
-            >
-              完成
-            </button>
+            >{tx("完成")}</button>
           }
         >
           {chartDateRange ? (
@@ -4156,9 +4086,7 @@ export function MacroSection() {
             onClick={() => setMobileCalcOpen(true)}
             className="ml-3 inline-flex items-center gap-1.5 rounded-md border border-fs-accent/30 bg-fs-accent-soft px-2.5 py-1 text-xs font-medium text-fs-accent-text transition hover:border-fs-accent disabled:opacity-40 sm:ml-4"
           >
-            <span aria-hidden>Σ</span>
-            指标运算
-            {visibleDerivedKeys.length > 0 ? (
+            <span aria-hidden>Σ</span>{tx("指标运算")}{visibleDerivedKeys.length > 0 ? (
               <span className="rounded-full bg-white/80 px-1 py-0 text-[10px] leading-4">
                 {visibleDerivedKeys.length}
               </span>
@@ -4197,7 +4125,7 @@ export function MacroSection() {
               screenshotHint={screenshotHint}
             />
           <label className="flex shrink-0 flex-wrap items-center gap-2 text-xs font-medium text-fs-muted">
-            <span className="shrink-0">图表布局</span>
+            <span className="shrink-0">{tx("图表布局")}</span>
             <select
               value={layoutMode}
               onChange={(e) =>
@@ -4205,12 +4133,12 @@ export function MacroSection() {
               }
               className="min-w-[10rem] rounded-md border border-fs-border bg-fs-bg px-2 py-1.5 text-xs text-fs-text focus:border-fs-accent focus:outline-none focus:ring-1 focus:ring-fs-accent/30"
             >
-              <option value={1}>单图</option>
-              <option value={2}>2 图（上下）</option>
-              <option value={3}>3 图（纵向）</option>
-              <option value={4}>4 图（田字）</option>
-              <option value={5}>5 图（2x3）</option>
-              <option value={6}>6 图（2x3）</option>
+              <option value={1}>{tx("单图")}</option>
+              <option value={2}>{tx("2 图（上下）")}</option>
+              <option value={3}>{tx("3 图（纵向）")}</option>
+              <option value={4}>{tx("4 图（田字）")}</option>
+              <option value={5}>{tx("5 图（2x3）")}</option>
+              <option value={6}>{tx("6 图（2x3）")}</option>
             </select>
           </label>
           <div className="group relative shrink-0">
@@ -4220,18 +4148,14 @@ export function MacroSection() {
                 checked={pageSyncEnabled}
                 onChange={(e) => setPageSyncEnabled(e.target.checked)}
                 className="h-3 w-3 shrink-0 rounded border-fs-border"
-                aria-label="页面同步"
+                aria-label={tx("页面同步")}
                 aria-describedby="macro-page-sync-tip"
-              />
-              页面同步
-            </label>
+              />{tx("页面同步")}</label>
             <div
               id="macro-page-sync-tip"
               role="tooltip"
               className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 hidden w-max max-w-[14rem] rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-[11px] leading-snug text-fs-text shadow-lg group-hover:block"
-            >
-              多显示器多窗口时，数据同步展示。
-            </div>
+            >{tx("多显示器多窗口时，数据同步展示。")}</div>
           </div>
           <div className="group relative shrink-0">
             <label className="flex cursor-pointer items-center gap-1 rounded-md border border-fs-border bg-fs-bg/45 px-2 py-1.5 text-xs text-fs-secondary hover:border-fs-border">
@@ -4245,18 +4169,14 @@ export function MacroSection() {
                   }))
                 }
                 className="h-3 w-3 shrink-0 rounded border-fs-border"
-                aria-label="美国衰退"
+                aria-label={tx("美国衰退")}
                 aria-describedby="macro-recession-shading-tip"
-              />
-              美国衰退
-            </label>
+              />{tx("美国衰退")}</label>
             <div
               id="macro-recession-shading-tip"
               role="tooltip"
               className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 hidden w-max max-w-[14rem] rounded-md border border-fs-border bg-fs-elevated px-2.5 py-1.5 text-[11px] leading-snug text-fs-text shadow-lg group-hover:block"
-            >
-              叠加 NBER 美国衰退区间（FRED USREC）。
-            </div>
+            >{tx("叠加 NBER 美国衰退区间（FRED USREC）。")}</div>
           </div>
           </>
         ) : null}
@@ -4271,8 +4191,8 @@ export function MacroSection() {
             type="button"
             onClick={() => setSidebarCollapsed(false)}
             className="group relative hidden w-3 shrink-0 items-stretch border-r border-fs-border bg-fs-elevated/90 transition hover:bg-fs-accent-soft/40 lg:flex"
-            title="展开指标树"
-            aria-label="展开指标树"
+            title={tx("展开指标树")}
+            aria-label={tx("展开指标树")}
           >
             <span className="mx-auto block h-full w-px bg-fs-border transition-colors group-hover:bg-fs-accent" />
             <span className="absolute left-1/2 top-1/2 z-10 flex h-7 w-3 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm border border-fs-border/70 bg-fs-elevated text-fs-muted shadow-sm transition group-hover:border-fs-accent group-hover:bg-fs-accent-soft group-hover:text-fs-text">
@@ -4320,7 +4240,7 @@ export function MacroSection() {
               className="group relative hidden w-3 shrink-0 items-stretch border-x border-fs-border bg-fs-elevated/90 lg:flex"
             >
               <div
-                title="拖拽调节指标树宽度"
+                title={tx("拖拽调节指标树宽度")}
                 onMouseDown={startSidebarResize}
                 className="absolute inset-0 cursor-col-resize hover:bg-fs-accent-soft/60"
               >
@@ -4331,8 +4251,8 @@ export function MacroSection() {
                 onClick={() => setSidebarCollapsed(true)}
                 onMouseDown={(e) => e.stopPropagation()}
                 className="absolute left-1/2 top-1/2 z-10 flex h-7 w-3 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm border border-fs-border/70 bg-fs-elevated text-fs-muted shadow-sm transition hover:border-fs-accent hover:bg-fs-accent-soft hover:text-fs-text"
-                title="折叠指标树"
-                aria-label="折叠指标树"
+                title={tx("折叠指标树")}
+                aria-label={tx("折叠指标树")}
               >
                 <svg
                   viewBox="0 0 10 14"
@@ -4367,12 +4287,9 @@ export function MacroSection() {
                   }
                 >
                   <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
-                    <span>
-                      已选指标
-                      <span className="ml-2 font-normal text-fs-secondary">
+                    <span>{tx("已选指标")}<span className="ml-2 font-normal text-fs-secondary">
                         {orderedDisplayKeys.length}
-                        <span className="ml-1 text-fs-muted">
-                          （原始指标 {selectedKeys.size}/{MACRO_MAX_SERIES}）
+                        <span className="ml-1 text-fs-muted">{tx("（原始指标 {count}/{max}）", { count: selectedKeys.size, max: MACRO_MAX_SERIES })}
                         </span>
                       </span>
                     </span>
@@ -4386,10 +4303,8 @@ export function MacroSection() {
                         ])
                       }
                       className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:opacity-40"
-                      title="在列表末尾添加分割线"
-                    >
-                      添加分割线
-                    </button>
+                      title={tx("在列表末尾添加分割线")}
+                    >{tx("添加分割线")}</button>
                   </div>
                   <div className="min-h-0 flex-1 overflow-y-auto rounded-t-lg border border-b-0 border-fs-border/90 bg-fs-bg/60">
                     <SelectedIndicatorsList
@@ -4407,7 +4322,7 @@ export function MacroSection() {
                 <div
                   role="separator"
                   aria-orientation="horizontal"
-                  title="上下拖动调节已选指标与提取数据高度"
+                  title={tx("上下拖动调节已选指标与提取数据高度")}
                   onMouseDown={startSelectedExtractResize}
                   className="group h-1.5 shrink-0 cursor-ns-resize border-y border-fs-border bg-fs-elevated/90 hover:bg-fs-accent-soft"
                 >
@@ -4416,14 +4331,14 @@ export function MacroSection() {
 
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="flex shrink-0 items-center justify-between gap-2 border-b border-fs-border px-2 py-1 text-[11px] font-medium text-fs-muted">
-                    <span>提取数据</span>
+                    <span>{tx("提取数据")}</span>
                     <div className="flex items-center gap-1">
-                      <span className="font-normal text-fs-secondary">导出</span>
+                      <span className="font-normal text-fs-secondary">{tx("导出")}</span>
                       <button
                         type="button"
                         disabled={!displayPayload}
                         onClick={() => exportExtractedData("csv")}
-                        title="导出为 CSV"
+                        title={tx("导出为 CSV")}
                         className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         CSV
@@ -4432,7 +4347,7 @@ export function MacroSection() {
                         type="button"
                         disabled={!displayPayload}
                         onClick={() => exportExtractedData("xlsx")}
-                        title="导出为 Excel"
+                        title={tx("导出为 Excel")}
                         className="rounded border border-fs-accent/50 bg-fs-accent-soft px-1.5 py-0 text-[10px] font-medium text-fs-accent-text hover:border-fs-accent disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         XLSX
@@ -4451,9 +4366,7 @@ export function MacroSection() {
           ) : mainTab === "charts" ? (
             <section className="flex min-h-0 flex-1 flex-col gap-2">
               {loading ? (
-                <div className="flex min-h-[200px] flex-1 items-center justify-center text-sm text-fs-muted">
-                  正在加载…
-                </div>
+                <div className="flex min-h-[200px] flex-1 items-center justify-center text-sm text-fs-muted">{tx("正在加载…")}</div>
               ) : chartGridPayload ? (
                 <div className="flex min-h-0 flex-1 flex-col gap-2">
                   {error ? (
@@ -4511,7 +4424,7 @@ export function MacroSection() {
                         <div
                           role="separator"
                           aria-orientation="vertical"
-                          title="拖拽调节宽度"
+                          title={tx("拖拽调节宽度")}
                           onMouseDown={startChartSettingsResize}
                           className="group w-1.5 shrink-0 cursor-col-resize border-x border-fs-border bg-fs-elevated/90 hover:bg-fs-accent-soft"
                         >
@@ -4530,9 +4443,9 @@ export function MacroSection() {
                               <div className="flex min-w-0 flex-1 gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5">
                                 {(
                                   [
-                                    { id: "settings" as const, label: "图形设置" },
-                                    { id: "events" as const, label: "事件记录" },
-                                    { id: "intro" as const, label: "模板介绍" },
+                                    { id: "settings" as const, label: tx("图形设置") },
+                                    { id: "events" as const, label: tx("事件记录") },
+                                    { id: "intro" as const, label: tx("模板介绍") },
                                   ] as const
                                 ).map(({ id, label }) => (
                                   <button
@@ -4545,7 +4458,7 @@ export function MacroSection() {
                                         : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                                     }`}
                                   >
-                                    {label}
+                                    {tr(label)}
                                   </button>
                                 ))}
                               </div>
@@ -4553,17 +4466,15 @@ export function MacroSection() {
                                 type="button"
                                 onClick={() => setChartSettingsOpen(false)}
                                 className="shrink-0 rounded border border-fs-border px-2 py-0.5 text-[11px] text-fs-muted hover:border-fs-border hover:text-fs-text"
-                              >
-                                收起
-                              </button>
+                              >{tx("收起")}</button>
                             </div>
                             {chartSidePanelTab === "settings" ? (
                               <div className="flex min-w-0 gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5">
                                 {(
                                   [
-                                    { id: "global" as const, label: "全图设置" },
-                                    { id: "single" as const, label: "单图设置" },
-                                    { id: "axis" as const, label: "轴设置" },
+                                    { id: "global" as const, label: tx("全图设置") },
+                                    { id: "single" as const, label: tx("单图设置") },
+                                    { id: "axis" as const, label: tx("轴设置") },
                                   ] as const
                                 ).map(({ id, label }) => (
                                   <button
@@ -4576,7 +4487,7 @@ export function MacroSection() {
                                         : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                                     }`}
                                   >
-                                    {label}
+                                    {tr(label)}
                                   </button>
                                 ))}
                               </div>
@@ -4602,12 +4513,9 @@ export function MacroSection() {
                             setChartSettingsOpen(true);
                           }}
                           className="flex flex-1 flex-col items-center justify-center gap-0.5 py-3 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text"
-                          title="展开图形设置"
+                          title={tx("展开图形设置")}
                         >
-                          <span>图</span>
-                          <span>形</span>
-                          <span>设</span>
-                          <span>置</span>
+                          <VerticalTabLabel text={"图形设置" /* i18n-ignore: 组件内自行翻译 */} />
                         </button>
                         <button
                           type="button"
@@ -4616,10 +4524,9 @@ export function MacroSection() {
                             setChartSettingsOpen(true);
                           }}
                           className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-fs-border py-3 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text"
-                          title="展开事件记录"
+                          title={tx("展开事件记录")}
                         >
-                          <span>事</span>
-                          <span>件</span>
+                          <VerticalTabLabel text={"事件" /* i18n-ignore: 组件内自行翻译 */} />
                         </button>
                         <button
                           type="button"
@@ -4628,12 +4535,9 @@ export function MacroSection() {
                             setChartSettingsOpen(true);
                           }}
                           className="flex flex-1 flex-col items-center justify-center gap-0.5 border-t border-fs-border py-2 text-[11px] leading-tight text-fs-muted transition hover:bg-fs-elevated hover:text-fs-text"
-                          title="展开模板介绍"
+                          title={tx("展开模板介绍")}
                         >
-                          <span>模</span>
-                          <span>板</span>
-                          <span>介</span>
-                          <span>绍</span>
+                          <VerticalTabLabel text={"模板介绍" /* i18n-ignore: 组件内自行翻译 */} />
                         </button>
                       </div>
                     )}
@@ -4647,7 +4551,7 @@ export function MacroSection() {
                       : "flex flex-1 items-center justify-center rounded-lg border border-dashed border-fs-border p-8 text-center text-sm text-fs-muted"
                   }
                 >
-                  {error ? `加载失败：${error}` : "暂无数据"}
+                  {error ? tx("加载失败：{error}", { error }) : tx("暂无数据")}
                 </div>
               )}
             </section>

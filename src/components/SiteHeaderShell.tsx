@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { GekkoTechWordmark } from "@/components/brand/GekkoTechWordmark";
 import { SiteHeaderNav } from "@/components/SiteHeaderNav";
+import { Link } from "@/i18n/navigation";
 
 export function SiteHeaderShell() {
   return (

@@ -10,6 +10,7 @@ import {
   TooltipComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([
   CandlestickChart,
@@ -51,6 +52,7 @@ export function StockPriceChart({
   earningsMarks?: ChartEarningsMark[];
   height?: number;
 }) {
+  const tr = useTr();
   const ref = useRef<HTMLDivElement>(null);
 
   const option = useMemo(() => {
@@ -140,7 +142,7 @@ export function StockPriceChart({
       ],
       series: [
         {
-          name: "日K",
+          name: tr("日K"),
           type: "candlestick",
           data: kline,
           itemStyle: {
@@ -164,7 +166,7 @@ export function StockPriceChart({
             : undefined,
         },
         {
-          name: "成交量",
+          name: tr("成交量"),
           type: "bar",
           xAxisIndex: 1,
           yAxisIndex: 1,
@@ -172,7 +174,7 @@ export function StockPriceChart({
         },
       ],
     };
-  }, [bars, earningsMarks]);
+  }, [bars, earningsMarks, tr]);
 
   useEffect(() => {
     if (!ref.current) return;

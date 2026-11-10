@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MacroChartDateRangeControlProps = {
   from: string | null;
@@ -26,6 +27,7 @@ export function MacroChartDateRangeControl({
   onChange,
   variant = "desktop",
 }: MacroChartDateRangeControlProps) {
+  const tr = useTr();
   const [draftFrom, setDraftFrom] = useState(from ?? "");
   const [draftTo, setDraftTo] = useState(to ?? "");
 
@@ -54,15 +56,15 @@ export function MacroChartDateRangeControl({
         mobile ? "gap-1.5 text-[13px]" : "gap-1 rounded-md border border-fs-border/90 bg-fs-elevated px-1.5 py-0.5 text-[11px]"
       } text-fs-muted`}
       role="group"
-      aria-label="图表时间区间"
+      aria-label={tr("图表时间区间")}
     >
-      {mobile ? null : <span className="shrink-0">区间</span>}
+      {mobile ? null : <span className="shrink-0">{tr("区间")}</span>}
       <input
         type="date"
         value={draftFrom}
         min={min ?? undefined}
         max={draftTo || max || undefined}
-        aria-label="开始日期"
+        aria-label={tr("开始日期")}
         onChange={(e) => {
           setDraftFrom(e.target.value);
           commit(e.target.value, draftTo);
@@ -70,13 +72,13 @@ export function MacroChartDateRangeControl({
         onBlur={() => setDraftFrom(from ?? "")}
         className={inputClass}
       />
-      <span className="shrink-0">至</span>
+      <span className="shrink-0">{tr("至")}</span>
       <input
         type="date"
         value={draftTo}
         min={draftFrom || min || undefined}
         max={max ?? undefined}
-        aria-label="结束日期"
+        aria-label={tr("结束日期")}
         onChange={(e) => {
           setDraftTo(e.target.value);
           commit(draftFrom, e.target.value);

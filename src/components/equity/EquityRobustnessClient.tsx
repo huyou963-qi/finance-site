@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ScreenerConfig } from "@/lib/quant/screener";
 import type { StrategyRow } from "@/lib/quant/screenerStrategies";
 import type { ScanAxis, RobustnessMode, RobustnessSpec } from "@/lib/quant/robustnessData";
+import { useTr } from "@/i18n/TextProvider";
 
 const INCOMING_CONFIG_KEY = "equityRobustnessNewConfig.v1";
 
@@ -80,6 +81,7 @@ function parseNums(s: string): number[] {
 }
 
 export function EquityRobustnessClient() {
+  const tr = useTr();
   const router = useRouter();
   const [runs, setRuns] = useState<RunListItem[] | null>(null);
   const [anonymous, setAnonymous] = useState(false);
@@ -131,14 +133,14 @@ export function EquityRobustnessClient() {
         const parsed = JSON.parse(raw) as { config: ScreenerConfig; name?: string };
         if (parsed?.config) {
           setIncomingConfig(parsed.config);
-          if (parsed.name) setName(`稳健性：${parsed.name}`);
+          if (parsed.name) setName(tr("稳健性：{name}", { name: parsed.name }));
         }
         sessionStorage.removeItem(INCOMING_CONFIG_KEY);
       }
     } catch {
       // 忽略损坏数据
     }
-  }, [reloadRuns]);
+  }, [reloadRuns, tr]);
 
   useEffect(() => {
     if (!runs?.some((r) => r.status === "queued" || r.status === "running")) return;
@@ -157,10 +159,10 @@ export function EquityRobustnessClient() {
       if (vals.length) axes.push({ key: "topN", kind: "topN", values: vals });
     }
     if (scanFactor && factorKeys.length >= 2) {
-      axes.push({ key: "因子", kind: "sortFactor", values: factorKeys });
+      axes.push({ key: tr("因子"), kind: "sortFactor", values: factorKeys });
     }
     if (scanWeighting) {
-      axes.push({ key: "加权", kind: "weighting", values: ["equal", "mcap"] });
+      axes.push({ key: tr("加权"), kind: "weighting", values: ["equal", "mcap"] });
     }
     return axes;
   };
@@ -173,15 +175,15 @@ export function EquityRobustnessClient() {
   const submit = async () => {
     setFormError(null);
     if (!configToRun) {
-      setFormError("请选择一个已存策略，或从选股器带入配置");
+      setFormError(tr("请选择一个已存策略，或从选股器带入配置"));
       return;
     }
     if ((mode === "scan" || mode === "walkforward" || mode === "oos") && gridSize > 64) {
-      setFormError(`参数网格 ${gridSize} 点过大（上限 64），请收窄扫描轴`);
+      setFormError(tr("参数网格 {gridSize} 点过大（上限 64），请收窄扫描轴", { gridSize }));
       return;
     }
     if (mode === "scan" && axes.length === 0) {
-      setFormError("参数扫描模式需至少启用一个扫描轴");
+      setFormError(tr("参数扫描模式需至少启用一个扫描轴"));
       return;
     }
     const spec: RobustnessSpec = {
@@ -198,7 +200,7 @@ export function EquityRobustnessClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim() || (selectedStrategy ? `稳健性：${selectedStrategy.name}` : "未命名稳健性分析"),
+          name: name.trim() || (selectedStrategy ? tr("稳健性：{name}", { name: selectedStrategy.name }) : tr("未命名稳健性分析")),
           config: configToRun,
           params: { start: start || null, end: end || null, weighting, execution: "nextClose", costBps },
           spec,
@@ -207,19 +209,19 @@ export function EquityRobustnessClient() {
       const j = (await r.json()) as { id?: string; error?: string; code?: string };
       if (!r.ok || !j.id) {
         if (j.code === "NEEDS_PRO" || j.code === "NEEDS_PRO_OR_CREDITS") {
-          throw new Error(`${j.error ?? "需要 Pro"} — 前往 /pricing 升级或购买积分`);
+          throw new Error(tr("{v0} — 前往 /pricing 升级或购买积分", { v0: j.error ?? tr("需要 Pro") }));
         }
-        throw new Error(j.error ?? "创建失败");
+        throw new Error(j.error ?? tr("创建失败"));
       }
       router.push(`/quant/robustness/${j.id}`);
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : "创建失败");
+      setFormError(e instanceof Error ? e.message : tr("创建失败"));
       setSubmitting(false);
     }
   };
 
   const deleteRun = async (id: string, runName: string) => {
-    if (!window.confirm(`删除稳健性分析「${runName}」？`)) return;
+    if (!window.confirm(tr("删除稳健性分析「{runName}」？", { runName }))) return;
     try {
       await fetch(`/api/equity/robustness/${id}`, { method: "DELETE" });
       await reloadRuns();
@@ -233,37 +235,26 @@ export function EquityRobustnessClient() {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold">过拟合防护 · 稳健性分析</h1>
-        <span className="text-xs text-fs-muted">
-          样本外分割 · Walk-Forward · 参数扫描 + Deflated Sharpe，靶向「选择性过拟合」
-        </span>
-        <Link href="/quant/backtest" className="ml-auto text-sm text-fs-accent-text hover:underline">
-          单策略回测 →
-        </Link>
+        <h1 className="text-xl font-semibold">{tr("过拟合防护 · 稳健性分析")}</h1>
+        <span className="text-xs text-fs-muted">{tr("样本外分割 · Walk-Forward · 参数扫描 + Deflated Sharpe，靶向「选择性过拟合」")}</span>
+        <Link href="/quant/backtest" className="ml-auto text-sm text-fs-accent-text hover:underline">{tr("单策略回测 →")}</Link>
       </div>
 
-      <div className="mb-4 rounded-md border border-fs-border bg-fs-elevated/30 px-3 py-2 text-xs text-fs-muted">
-        平台因子已 PIT、无前视；过拟合风险在<span className="text-fs-text">人工的策略选择</span>（挑哪些因子/阈值/topN）。
-        本工具把「从一堆参数里挑最优」这一动作放到样本外与多重检验下检验——单跑一个固定策略只测时间稳定性，不等于免疫。
-      </div>
+      <div className="mb-4 rounded-md border border-fs-border bg-fs-elevated/30 px-3 py-2 text-xs text-fs-muted">{tr("平台因子已 PIT、无前视；过拟合风险在")}<span className="text-fs-text">{tr("人工的策略选择")}</span>{tr("（挑哪些因子/阈值/topN）。 本工具把「从一堆参数里挑最优」这一动作放到样本外与多重检验下检验——单跑一个固定策略只测时间稳定性，不等于免疫。")}</div>
 
       {/* ── 新建表单 ── */}
       <div className="mb-6 rounded-lg border border-fs-border bg-fs-elevated/40 p-4">
         {anonymous ? (
-          <div className="mb-3 rounded-md border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-800">
-            登录后可发起并保存稳健性分析。
-          </div>
+          <div className="mb-3 rounded-md border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 text-xs text-amber-800">{tr("登录后可发起并保存稳健性分析。")}</div>
         ) : null}
         <div className="flex flex-wrap items-end gap-3 text-sm">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-fs-muted">策略来源</label>
+            <label className="text-xs text-fs-muted">{tr("策略来源")}</label>
             {incomingConfig ? (
-              <span className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-2 py-1 text-fs-accent-text">
-                来自选股器的配置 ✓
-              </span>
+              <span className="rounded-md border border-fs-accent/40 bg-fs-accent-soft px-2 py-1 text-fs-accent-text">{tr("来自选股器的配置 ✓")}</span>
             ) : (
               <select value={strategyId} onChange={(e) => setStrategyId(e.target.value)} className={fieldCls}>
-                <option value="">— 选择已存策略 —</option>
+                <option value="">{tr("— 选择已存策略 —")}</option>
                 {(strategies ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -273,51 +264,51 @@ export function EquityRobustnessClient() {
             )}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-fs-muted">名称</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="未命名稳健性分析" className={`w-48 ${fieldCls}`} />
+            <label className="text-xs text-fs-muted">{tr("名称")}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("未命名稳健性分析")} className={`w-48 ${fieldCls}`} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-fs-muted">模式</label>
+            <label className="text-xs text-fs-muted">{tr("模式")}</label>
             <select value={mode} onChange={(e) => setMode(e.target.value as RobustnessMode)} className={fieldCls}>
-              <option value="oos">样本外分割（IS 挑参 / OOS 检验）</option>
-              <option value="scan">参数扫描（稳健性面 + DSR）</option>
-              <option value="walkforward">Walk-Forward（滚动 OOS 拼接）</option>
+              <option value="oos">{tr("样本外分割（IS 挑参 / OOS 检验）")}</option>
+              <option value="scan">{tr("参数扫描（稳健性面 + DSR）")}</option>
+              <option value="walkforward">{tr("Walk-Forward（滚动 OOS 拼接）")}</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-fs-muted">加权</label>
+            <label className="text-xs text-fs-muted">{tr("加权")}</label>
             <select value={weighting} onChange={(e) => setWeighting(e.target.value)} className={fieldCls}>
-              <option value="equal">等权</option>
-              <option value="mcap">市值加权</option>
-              <option value="score">打分加权</option>
+              <option value="equal">{tr("等权")}</option>
+              <option value="mcap">{tr("市值加权")}</option>
+              <option value="score">{tr("打分加权")}</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-fs-muted">成本(bp)</label>
+            <label className="text-xs text-fs-muted">{tr("成本(bp)")}</label>
             <input type="number" min={0} step={1} value={costBps} onChange={(e) => setCostBps(Number(e.target.value))} className={`w-20 ${fieldCls}`} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-fs-muted">起始</label>
+            <label className="text-xs text-fs-muted">{tr("起始")}</label>
             <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={fieldCls} />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-fs-muted">结束</label>
+            <label className="text-xs text-fs-muted">{tr("结束")}</label>
             <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className={fieldCls} />
           </div>
           {mode === "oos" ? (
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-fs-muted">IS/OOS 分割日</label>
+              <label className="text-xs text-fs-muted">{tr("IS/OOS 分割日")}</label>
               <input type="date" value={splitDate} onChange={(e) => setSplitDate(e.target.value)} className={fieldCls} />
             </div>
           ) : null}
           {mode === "walkforward" ? (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-fs-muted">测试折数</label>
+                <label className="text-xs text-fs-muted">{tr("测试折数")}</label>
                 <input type="number" min={1} max={12} value={folds} onChange={(e) => setFolds(Number(e.target.value))} className={`w-20 ${fieldCls}`} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-xs text-fs-muted">最少训练期</label>
+                <label className="text-xs text-fs-muted">{tr("最少训练期")}</label>
                 <input type="number" min={6} value={minTrainPeriods} onChange={(e) => setMinTrainPeriods(Number(e.target.value))} className={`w-20 ${fieldCls}`} />
               </div>
             </>
@@ -327,10 +318,10 @@ export function EquityRobustnessClient() {
         {/* 扫描轴 */}
         <div className="mt-3 rounded-md border border-fs-border/60 bg-fs-elevated/30 p-3">
           <div className="mb-2 flex items-center gap-2 text-xs text-fs-muted">
-            <span className="font-medium text-fs-text">扫描轴</span>
-            <span>参数网格 = 各轴取值笛卡尔积</span>
+            <span className="font-medium text-fs-text">{tr("扫描轴")}</span>
+            <span>{tr("参数网格 = 各轴取值笛卡尔积")}</span>
             <span className={`ml-auto rounded px-1.5 py-0.5 tabular-nums ${gridSize > 64 ? "bg-red-400/15 text-red-400" : "bg-fs-elevated text-fs-text"}`}>
-              {gridSize} 点 / N={gridSize}
+              {gridSize} {tr("点 / N=")}{gridSize}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -341,11 +332,11 @@ export function EquityRobustnessClient() {
             </label>
             <label className="flex items-center gap-1.5">
               <input type="checkbox" checked={scanWeighting} onChange={(e) => setScanWeighting(e.target.checked)} />
-              <span>加权 (equal×mcap)</span>
+              <span>{tr("加权 (equal×mcap)")}</span>
             </label>
             <label className="flex items-center gap-1.5">
               <input type="checkbox" checked={scanFactor} onChange={(e) => setScanFactor(e.target.checked)} />
-              <span>排序因子</span>
+              <span>{tr("排序因子")}</span>
             </label>
           </div>
           {scanFactor ? (
@@ -361,15 +352,13 @@ export function EquityRobustnessClient() {
                       : "border-fs-border text-fs-muted hover:text-fs-text"
                   }`}
                 >
-                  {c.label}
+                  {tr(c.label)}
                 </button>
               ))}
-              {factorKeys.length < 2 ? <span className="self-center text-xs text-red-400">至少选 2 个</span> : null}
+              {factorKeys.length < 2 ? <span className="self-center text-xs text-red-400">{tr("至少选 2 个")}</span> : null}
             </div>
           ) : null}
-          <div className="mt-2 text-[11px] text-fs-muted">
-            提示：网格别开太大（3×3=9、3×3×2=18 足够展示邻域）。空网格 = 固定策略（walk-forward 只测时间稳定性）。
-          </div>
+          <div className="mt-2 text-[11px] text-fs-muted">{tr("提示：网格别开太大（3×3=9、3×3×2=18 足够展示邻域）。空网格 = 固定策略（walk-forward 只测时间稳定性）。")}</div>
         </div>
 
         <div className="mt-3 flex items-center">
@@ -379,7 +368,7 @@ export function EquityRobustnessClient() {
             disabled={submitting || anonymous}
             className="ml-auto rounded-md bg-fs-accent-soft px-4 py-1.5 font-medium text-fs-accent-text ring-1 ring-fs-accent/25 hover:opacity-90 disabled:opacity-50"
           >
-            {submitting ? "创建中…" : "发起稳健性分析"}
+            {submitting ? tr("创建中…") : tr("发起稳健性分析")}
           </button>
         </div>
         {formError ? <div className="mt-2 text-xs text-red-400">{formError}</div> : null}
@@ -387,23 +376,21 @@ export function EquityRobustnessClient() {
 
       {/* ── run 列表 ── */}
       {runs == null ? (
-        <div className="py-10 text-center text-sm text-fs-muted">加载中…</div>
+        <div className="py-10 text-center text-sm text-fs-muted">{tr("加载中…")}</div>
       ) : runs.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">
-          还没有稳健性分析。选择策略、设定模式与扫描轴，「发起稳健性分析」。
-        </div>
+        <div className="rounded-lg border border-dashed border-fs-border px-4 py-10 text-center text-sm text-fs-muted">{tr("还没有稳健性分析。选择策略、设定模式与扫描轴，「发起稳健性分析」。")}</div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-fs-border">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-fs-border bg-fs-elevated/60 text-left text-xs text-fs-muted">
-                <th className="px-3 py-2">名称</th>
-                <th className="px-3 py-2">模式</th>
-                <th className="px-3 py-2">状态</th>
-                <th className="px-3 py-2 text-right">网格</th>
-                <th className="px-3 py-2 text-right">头条夏普</th>
+                <th className="px-3 py-2">{tr("名称")}</th>
+                <th className="px-3 py-2">{tr("模式")}</th>
+                <th className="px-3 py-2">{tr("状态")}</th>
+                <th className="px-3 py-2 text-right">{tr("网格")}</th>
+                <th className="px-3 py-2 text-right">{tr("头条夏普")}</th>
                 <th className="px-3 py-2 text-right">DSR</th>
-                <th className="px-3 py-2">创建</th>
+                <th className="px-3 py-2">{tr("创建")}</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -414,11 +401,11 @@ export function EquityRobustnessClient() {
                     <Link href={`/quant/robustness/${r.id}`} className="font-medium text-fs-accent-text hover:underline">
                       {r.name}
                     </Link>
-                    {r.summary?.oosCollapsed ? <span className="ml-1 text-xs text-red-400" title="样本外崩溃">⚠</span> : null}
+                    {r.summary?.oosCollapsed ? <span className="ml-1 text-xs text-red-400" title={tr("样本外崩溃")}>⚠</span> : null}
                   </td>
-                  <td className="px-3 py-2 text-xs text-fs-muted">{MODE_LABEL[r.mode] ?? r.mode}</td>
+                  <td className="px-3 py-2 text-xs text-fs-muted">{tr(MODE_LABEL[r.mode]) ?? r.mode}</td>
                   <td className={`px-3 py-2 text-xs ${STATUS_CLASS[r.status]}`}>
-                    {STATUS_LABEL[r.status]}
+                    {tr(STATUS_LABEL[r.status])}
                     {r.status === "failed" && r.error ? <span className="ml-1 text-fs-muted" title={r.error}>ⓘ</span> : null}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-fs-muted">{r.summary?.gridSize ?? "—"}</td>
@@ -432,9 +419,7 @@ export function EquityRobustnessClient() {
                   </td>
                   <td className="px-3 py-2 text-xs text-fs-muted tabular-nums">{r.createdAt.slice(0, 16).replace("T", " ")}</td>
                   <td className="px-3 py-2 text-right">
-                    <button type="button" onClick={() => void deleteRun(r.id, r.name)} className="text-xs text-fs-muted hover:text-red-400">
-                      删除
-                    </button>
+                    <button type="button" onClick={() => void deleteRun(r.id, r.name)} className="text-xs text-fs-muted hover:text-red-400">{tr("删除")}</button>
                   </td>
                 </tr>
               ))}
