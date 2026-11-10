@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { normalizeTickerSymbol } from "@/lib/data/tickerSymbolNormalize";
 import { symbolSearchErrorForUser } from "@/lib/data/symbolSearchUserMessage";
+import { useTr } from "@/i18n/TextProvider";
 
 type Hit = { symbol: string; name: string; exchange: string };
 
@@ -11,6 +12,7 @@ type Hit = { symbol: string; name: string; exchange: string };
  * 个股研究页顶栏：搜索切换标的（走 symbol-search，跳转 /equity/stocks/[symbol]）。
  */
 export function StockSymbolSwitcher({ currentSymbol }: { currentSymbol: string }) {
+  const tr = useTr();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
@@ -98,8 +100,8 @@ export function StockSymbolSwitcher({ currentSymbol }: { currentSymbol: string }
           }
           if (e.key === "Escape") setOpen(false);
         }}
-        placeholder="切换标的…"
-        aria-label="搜索并切换个股"
+        placeholder={tr("切换标的…")}
+        aria-label={tr("搜索并切换个股")}
         className="h-8 w-full rounded border border-fs-border bg-fs-elevated px-2 text-xs text-fs-text placeholder:text-fs-muted focus:border-fs-accent/60 focus:outline-none"
       />
       {open && (hits.length > 0 || loading || error) ? (
@@ -108,7 +110,7 @@ export function StockSymbolSwitcher({ currentSymbol }: { currentSymbol: string }
           className="absolute right-0 z-30 mt-1 max-h-64 w-[min(100vw-2rem,18rem)] overflow-auto rounded-md border border-fs-border bg-fs-bg py-1 shadow-xl"
         >
           {loading ? (
-            <li className="px-3 py-2 text-[11px] text-fs-muted">搜索中…</li>
+            <li className="px-3 py-2 text-[11px] text-fs-muted">{tr("搜索中…")}</li>
           ) : null}
           {error ? (
             <li className="px-3 py-2 text-[11px] text-red-700">{error}</li>

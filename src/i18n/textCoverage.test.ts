@@ -41,7 +41,15 @@ export const TRANSLATED_FEATURE_PATHS = [
   "src/components/MarketsWatchlist.tsx",
   "src/components/chart",
   "src/components/events",
+  // 美股行业 / 美股历史 / 持股监控 / 个股 与 量化
+  "src/app/equity",
+  "src/components/equity",
+  "src/app/quant",
+  "src/components/quant",
 ];
+
+/** 用 --thread-helpers 处理过的模块：组件外辅助函数也必须带 tr（其余模块的辅助函数在显示处翻译） */
+const THREADED_PATHS = ["src/app/equity", "src/components/equity", "src/app/quant", "src/components/quant"];
 
 function files(): string[] {
   const walk = (p: string): string[] =>
@@ -69,7 +77,8 @@ test("已翻译的功能页：组件里没有未包裹的中文，且每条原�
   for (const file of files()) {
     const code = readFileSync(file, "utf8");
     const trName = /const tx = (useTr\(\)|await getServerTr\(\))/.test(code) ? "tx" : "tr";
-    const scan = scanFile(file, code, { trName });
+    const threadHelpers = THREADED_PATHS.some((p) => file.includes(`/${p}`));
+    const scan = scanFile(file, code, { trName, threadHelpers });
     for (const s of scan.sources) unwrapped.push(`${file}: ${s}`);
     const manual = scan.manual.filter((m) => !m.reason.startsWith("数据位置")).map((m) => m.text);
     for (const s of [...scan.existing, ...manual]) if (!(s in dict)) missing.add(s);

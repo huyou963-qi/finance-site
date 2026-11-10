@@ -25,6 +25,7 @@ import {
   type StatementProfile,
 } from "@/lib/equity/statementTemplate";
 import { buildOverviewDimensions, sliceOverviewDimensions } from "@/lib/equity/overviewDimensions";
+import { useTr } from "@/i18n/TextProvider";
 
 // ---------------------------------------------------------------------------
 // 类型（与 /api/equity/stocks/[symbol]/fundamentals、/peers 响应对齐）
@@ -151,6 +152,7 @@ type PeerSortKey = keyof Pick<
 >;
 
 export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
+  const tr = useTr();
   const [data, setData] = useState<FundamentalsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +203,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
         };
         if (!r.ok) throw new Error(j.error ?? `${r.status}`);
         const timeline = j.timeline ?? [];
-        if (!timeline.length) throw new Error("无 Forward EPS");
+        if (!timeline.length) throw new Error(tr("无 Forward EPS"));
         const latest = timeline[timeline.length - 1]!;
         if (cancelled) return;
         setForwardEps(latest.forwardEps);
@@ -209,13 +211,13 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
         if (cancelled) return;
         setForwardEps(null);
         setForwardPe(null);
-        setForwardPeError(e instanceof Error ? e.message : "Forward PE 不可用");
+        setForwardPeError(e instanceof Error ? e.message : tr("Forward PE 不可用"));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, tr]);
 
   useEffect(() => {
     const price = data?.valuation?.price;
@@ -238,10 +240,10 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
           { cache: "no-store" },
         );
         const j = (await r.json()) as FundamentalsPayload & { error?: string };
-        if (!r.ok) throw new Error(j.error ?? "基本面加载失败");
+        if (!r.ok) throw new Error(j.error ?? tr("基本面加载失败"));
         if (!cancelled) setData(j);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "基本面加载失败");
+        if (!cancelled) setError(e instanceof Error ? e.message : tr("基本面加载失败"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -249,7 +251,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, tr]);
 
   useEffect(() => {
     if (tab !== "peers" || peers != null) return;
@@ -266,13 +268,13 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
           peers?: PeerRow[];
           industry?: { peerCount?: number };
         };
-        if (!r.ok) throw new Error(j.error ?? "同业数据加载失败");
+        if (!r.ok) throw new Error(j.error ?? tr("同业数据加载失败"));
         if (!cancelled) {
           setPeers(j.peers ?? []);
           setPeerUniverseCount(j.industry?.peerCount ?? j.peers?.length ?? null);
         }
       } catch (e) {
-        if (!cancelled) setPeersError(e instanceof Error ? e.message : "同业数据加载失败");
+        if (!cancelled) setPeersError(e instanceof Error ? e.message : tr("同业数据加载失败"));
       } finally {
         if (!cancelled) setPeersLoading(false);
       }
@@ -280,7 +282,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [tab, peers, symbol]);
+  }, [tab, peers, symbol, tr]);
 
   const lastRatio = data?.ratios.length ? data.ratios[data.ratios.length - 1]! : null;
   const profile: StatementProfile = data?.profile ?? "general";
@@ -360,31 +362,31 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     ? [
         ["ROE (TTM)", fmtPct(lastRatio.roeTtm)],
         ["ROA (TTM)", fmtPct(lastRatio.roaTtm)],
-        ["净利率 (TTM)", fmtPct(lastRatio.netMarginTtm)],
-        ["资产负债率", fmtPct(lastRatio.debtRatio)],
+        [tr("净利率 (TTM)"), fmtPct(lastRatio.netMarginTtm)],
+        [tr("资产负债率"), fmtPct(lastRatio.debtRatio)],
         // 金融公司的负债主要是存款、保单与客户资金，净债务没有意义，改看杠杆
         isFinancial
-          ? ["杠杆（总资产/权益）", formatMultiplier(lastRatio.equityMultiplier)]
-          : ["净债务", fmtMoney(lastRatio.netDebt)],
-        ["派息率 (TTM)", fmtPct(lastRatio.payoutRatioTtm)],
-        ["近 4 季回购", fmtSignedPct(lastRatio.buybackRate)],
+          ? [tr("杠杆（总资产/权益）"), formatMultiplier(lastRatio.equityMultiplier)]
+          : [tr("净债务"), fmtMoney(lastRatio.netDebt)],
+        [tr("派息率 (TTM)"), fmtPct(lastRatio.payoutRatioTtm)],
+        [tr("近 4 季回购"), fmtSignedPct(lastRatio.buybackRate)],
         [
-          `${valuationLabel} 历史分位`,
+          tr("{valuationLabel} 历史分位", { valuationLabel }),
           data?.valuationHistory?.pePercentile != null
             ? `${(data.valuationHistory.pePercentile * 100).toFixed(0)}%`
             : "—",
           data?.valuationHistory?.peMin != null && data?.valuationHistory?.peMax != null
-            ? `区间 ${data.valuationHistory.peMin.toFixed(1)}–${data.valuationHistory.peMax.toFixed(1)}`
+            ? tr("区间 {v0}–{v1}", { v0: data.valuationHistory.peMin.toFixed(1), v1: data.valuationHistory.peMax.toFixed(1) })
             : undefined,
         ],
       ]
     : [];
 
   const peerCols: { key: PeerSortKey; label: string; fmt: (r: PeerRow) => string; cls?: (r: PeerRow) => string }[] = [
-    { key: "marketCap", label: "市值", fmt: (r) => fmtMoney(r.marketCap) },
-    { key: "revenueYoY", label: "营收 YoY", fmt: (r) => fmtSignedPct(r.revenueYoY), cls: (r) => signClass(r.revenueYoY) },
-    { key: "grossMargin", label: "毛利率", fmt: (r) => fmtPct(r.grossMargin) },
-    { key: "netMargin", label: "净利率", fmt: (r) => fmtPct(r.netMargin) },
+    { key: "marketCap", label: tr("市值"), fmt: (r) => fmtMoney(r.marketCap) },
+    { key: "revenueYoY", label: tr("营收 YoY"), fmt: (r) => fmtSignedPct(r.revenueYoY), cls: (r) => signClass(r.revenueYoY) },
+    { key: "grossMargin", label: tr("毛利率"), fmt: (r) => fmtPct(r.grossMargin) },
+    { key: "netMargin", label: tr("净利率"), fmt: (r) => fmtPct(r.netMargin) },
     { key: "roeTtm", label: "ROE(TTM)", fmt: (r) => fmtPct(r.roeTtm) },
     { key: "peTtm", label: "PE(TTM)", fmt: (r) => fmtRatio(r.peTtm) },
     { key: "pb", label: "PB", fmt: (r) => fmtRatio(r.pb) },
@@ -395,13 +397,13 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
     <section className="rounded-md border border-fs-border">
       <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b border-fs-border bg-fs-bg/95 px-3 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium">基本面</span>
+          <span className="text-sm font-medium">{tr("基本面")}</span>
           <div className="flex items-center gap-1">
             {(
               [
-                ["overview", "概览"],
-                ["statements", "报表"],
-                ["peers", "同业"],
+                ["overview", tr("概览")],
+                ["statements", tr("报表")],
+                ["peers", tr("同业")],
               ] as [TabId, string][]
             ).map(([id, label]) => (
               <button
@@ -414,18 +416,18 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                     : "text-fs-muted hover:text-fs-text"
                 }`}
               >
-                {label}
+                {tr(label)}
               </button>
             ))}
           </div>
         </div>
         {data && periodRows.length && tab !== "peers" ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <div className="flex items-center rounded border border-fs-border p-0.5" role="group" aria-label="报告期类型">
+            <div className="flex items-center rounded border border-fs-border p-0.5" role="group" aria-label={tr("报告期类型")}>
               {(
                 [
-                  ["Q", "季报"],
-                  ["FY", "年报"],
+                  ["Q", tr("季报")],
+                  ["FY", tr("年报")],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -437,12 +439,12 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                     viewMode === id ? "bg-fs-accent/20 text-fs-accent-text" : "text-fs-muted hover:text-fs-text"
                   }`}
                 >
-                  {label}
+                  {tr(label)}
                 </button>
               ))}
             </div>
             <select
-              aria-label="起始报告期"
+              aria-label={tr("起始报告期")}
               value={rangeStart}
               onChange={(e) => {
                 const row = periodRows[Number(e.target.value)]!;
@@ -456,9 +458,9 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                 </option>
               ))}
             </select>
-            <span className="text-fs-muted">至</span>
+            <span className="text-fs-muted">{tr("至")}</span>
             <select
-              aria-label="结束报告期"
+              aria-label={tr("结束报告期")}
               value={rangeEnd}
               onChange={(e) => {
                 const row = periodRows[Number(e.target.value)]!;
@@ -479,11 +481,9 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
       {error ? (
         <div className="px-3 py-3 text-sm text-red-300">{error}</div>
       ) : loading ? (
-        <div className="flex h-32 items-center justify-center text-sm text-fs-muted">加载中…</div>
+        <div className="flex h-32 items-center justify-center text-sm text-fs-muted">{tr("加载中…")}</div>
       ) : !data || data.quarters.length === 0 ? (
-        <div className="flex h-32 items-center justify-center text-sm text-fs-muted">
-          暂无季度财报数据（可运行 equity:sync-fundamentals -- --period-type=Q 回补）
-        </div>
+        <div className="flex h-32 items-center justify-center text-sm text-fs-muted">{tr("暂无季度财报数据（可运行 equity:sync-fundamentals -- --period-type=Q 回补）")}</div>
       ) : (
         <div className="flex flex-col gap-4 px-3 py-3">
           {/* KPI 条（各 tab 常驻） */}
@@ -491,11 +491,11 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
               {kpis.map(([label, value, hint]) => (
                 <div
-                  key={label}
+                  key={tr(label)}
                   className="rounded-md border border-fs-border bg-fs-elevated/40 px-2.5 py-1.5"
-                  title={hint}
+                  title={(hint ? tr(hint) : hint)}
                 >
-                  <div className="text-[10px] text-fs-muted">{label}</div>
+                  <div className="text-[10px] text-fs-muted">{tr(label)}</div>
                   <div className="mt-0.5 text-sm font-medium text-fs-text tabular-nums">{value}</div>
                 </div>
               ))}
@@ -509,7 +509,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                   {(
                     [
                       [
-                        "市值",
+                        tr("市值"),
                         `${fmtMoney(data.valuation.marketCap)}${data.valuation.marketCapSource === "profile" ? "*" : ""}`,
                       ],
                       ["PE (TTM)", fmtRatio(data.valuation.peTtm)],
@@ -525,26 +525,26 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                       ["PS (TTM)", fmtRatio(data.valuation.psTtm)],
                       ["EV", fmtMoney(data.valuation.ev)],
                       [
-                        "FCF 收益率 / 股息率",
+                        tr("FCF 收益率 / 股息率"),
                         `${fmtPct(data.valuation.fcfYield)} / ${fmtPct(data.valuation.dividendYield)}`,
                       ],
-                      ["回购收益率", fmtPct(data.valuation.buybackYield)],
+                      [tr("回购收益率"), fmtPct(data.valuation.buybackYield)],
                     ] as const
                   ).map(([label, value]) => (
                     <div
-                      key={label}
+                      key={tr(label)}
                       className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2"
                       title={
                         label === "Forward PE"
                           ? forwardPeError
-                            ? "Forward PE 暂时无法计算"
+                            ? tr("Forward PE 暂时无法计算")
                             : forwardEps != null
-                              ? `现价 / 一致预期 EPS ≈ ${forwardEps.toFixed(2)}`
-                              : "现价 / 一致预期 EPS"
+                              ? tr("现价 / 一致预期 EPS ≈ {v0}", { v0: forwardEps.toFixed(2) })
+                              : tr("现价 / 一致预期 EPS")
                           : undefined
                       }
                     >
-                      <div className="text-[11px] text-fs-muted">{label}</div>
+                      <div className="text-[11px] text-fs-muted">{tr(label)}</div>
                       <div className="mt-0.5 text-sm font-medium text-fs-text tabular-nums">
                         {value}
                       </div>
@@ -554,21 +554,17 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
               ) : null}
 
               {profile !== "general" ? (
-                <p className="text-[11px] text-fs-muted">
-                  按「{STATEMENT_PROFILE_NAMES[profile]}」披露格式选取指标；不良率、资本充足率、出租率等不在财报科目内，未展示。
-                </p>
+                <p className="text-[11px] text-fs-muted">{tr("按「")}{STATEMENT_PROFILE_NAMES[profile]}{tr("」披露格式选取指标；不良率、资本充足率、出租率等不在财报科目内，未展示。")}</p>
               ) : null}
 
               <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
                 {dimensions?.charts.map((chart) => (
                   <div key={chart.id} className="min-w-0">
-                    <DimensionTitle mark={DIMENSION_MARKS[chart.index - 1]!} title={chart.title} note={chart.note} />
+                    <DimensionTitle mark={DIMENSION_MARKS[chart.index - 1]!} title={tr(chart.title)} note={chart.note} />
                     {chart.series.length ? (
                       <DimensionChartView periods={dimensions.periods} chart={chart} />
                     ) : (
-                      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-fs-border text-xs text-fs-muted">
-                        该公司未披露所需科目
-                      </div>
+                      <div className="flex h-40 items-center justify-center rounded-md border border-dashed border-fs-border text-xs text-fs-muted">{tr("该公司未披露所需科目")}</div>
                     )}
                   </div>
                 ))}
@@ -576,19 +572,18 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                 <div className="min-w-0 lg:col-span-2 2xl:col-span-3">
                   <DimensionTitle
                     mark={DIMENSION_MARKS[6]!}
-                    title="估值（约 5 年）"
+                    title={tr("估值（约 5 年）")}
                     note={
                       data.valuationMetric === "pffo"
-                        ? "P/FFO = 股价 / TTM 每股 FFO（近似）；REIT 折旧大，PE 失真。财报按季末 + 40 天视为可得，避免前视"
-                        : "PE = 股价 / TTM EPS，PB = 股价 / 每股净资产；财报按季末 + 40 天视为可得，避免前视"
+                        ? tr("P/FFO = 股价 / TTM 每股 FFO（近似）；REIT 折旧大，PE 失真。财报按季末 + 40 天视为可得，避免前视")
+                        : tr("PE = 股价 / TTM EPS，PB = 股价 / 每股净资产；财报按季末 + 40 天视为可得，避免前视")
                     }
                     extra={
                       data.valuationHistory?.pePercentile != null ? (
-                        <>
-                          当前 {valuationLabel} {fmtRatio(data.valuationHistory.peCurrent)} · 分位{" "}
+                        <>{tr("当前")}{" "}{valuationLabel} {fmtRatio(data.valuationHistory.peCurrent)} {tr("· 分位")}{" "}
                           {(data.valuationHistory.pePercentile * 100).toFixed(0)}%
                           {data.valuationHistory.pbPercentile != null
-                            ? ` · PB 分位 ${(data.valuationHistory.pbPercentile * 100).toFixed(0)}%`
+                            ? tr(" · PB 分位 {v0}%", { v0: (data.valuationHistory.pbPercentile * 100).toFixed(0) })
                             : ""}
                         </>
                       ) : null
@@ -601,25 +596,21 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                       primaryName={`${valuationLabel} (TTM)`}
                     />
                   ) : (
-                    <div className="flex h-40 items-center justify-center text-sm text-fs-muted">
-                      历史不足
-                    </div>
+                    <div className="flex h-40 items-center justify-center text-sm text-fs-muted">{tr("历史不足")}</div>
                   )}
                 </div>
               </div>
 
               {data.industry && data.industry.medians.sampleCount >= 3 ? (
                 <div className="overflow-x-auto rounded-md border border-fs-border/60">
-                  <div className="border-b border-fs-border/60 px-3 py-1.5 text-xs text-fs-muted">
-                    最新季度 vs {data.industry.nameEn} 中位数（样本{" "}
-                    {data.industry.medians.sampleCount}）· 逐行对比见「同业」页签
-                  </div>
+                  <div className="border-b border-fs-border/60 px-3 py-1.5 text-xs text-fs-muted">{tr("最新季度 vs")}{" "}{data.industry.nameEn} {tr("中位数（样本")}{" "}
+                    {data.industry.medians.sampleCount}{tr("）· 逐行对比见「同业」页签")}</div>
                   <table className="min-w-full text-left text-sm">
                     <thead className="text-xs text-fs-muted">
                       <tr>
-                        <th className="px-3 py-1.5">指标</th>
+                        <th className="px-3 py-1.5">{tr("指标")}</th>
                         <th className="px-3 py-1.5 text-right">{symbol}</th>
-                        <th className="px-3 py-1.5 text-right">行业中位数</th>
+                        <th className="px-3 py-1.5 text-right">{tr("行业中位数")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -627,14 +618,14 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                         const last = data.quarters[data.quarters.length - 1]!;
                         const m = data.industry.medians;
                         const rows: [string, number | null, number | null, "signed" | "pct"][] = [
-                          ["营收 YoY", last.revenueYoY, m.revenueYoYMedian, "signed"],
-                          ["毛利率", last.grossMargin, m.grossMarginMedian, "pct"],
-                          ["营业利润率", last.opMargin, m.opMarginMedian, "pct"],
-                          ["净利率", last.netMargin, m.netMarginMedian, "pct"],
+                          [tr("营收 YoY"), last.revenueYoY, m.revenueYoYMedian, "signed"],
+                          [tr("毛利率"), last.grossMargin, m.grossMarginMedian, "pct"],
+                          [tr("营业利润率"), last.opMargin, m.opMarginMedian, "pct"],
+                          [tr("净利率"), last.netMargin, m.netMarginMedian, "pct"],
                         ];
                         return rows.map(([label, own, med, kind]) => (
-                          <tr key={label} className="border-t border-fs-border/50">
-                            <td className="px-3 py-1.5 text-fs-text">{label}</td>
+                          <tr key={tr(label)} className="border-t border-fs-border/50">
+                            <td className="px-3 py-1.5 text-fs-text">{tr(label)}</td>
                             <td
                               className={`px-3 py-1.5 text-right tabular-nums ${
                                 kind === "signed" ? signClass(own) : "text-fs-text"
@@ -661,8 +652,8 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                 <div className="flex items-center gap-1">
                   {(
                     [
-                      ["value", "数值"],
-                      ["yoy", "同比"],
+                      ["value", tr("数值")],
+                      ["yoy", tr("同比")],
                     ] as const
                   ).map(([id, label]) => (
                     <button
@@ -675,16 +666,16 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                           : "text-fs-muted hover:text-fs-text"
                       }`}
                     >
-                      {label}
+                      {tr(label)}
                     </button>
                   ))}
                 </div>
                 <span className="text-[11px] text-fs-muted">
                   {valueMode === "yoy"
                     ? viewMode === "Q"
-                      ? "同比 = vs 上年同季；利润率为百分点差"
-                      : "同比 = vs 上一财年；利润率为百分点差"
-                    : "单位 USD；股本为股数"}
+                      ? tr("同比 = vs 上年同季；利润率为百分点差")
+                      : tr("同比 = vs 上一财年；利润率为百分点差")
+                    : tr("单位 USD；股本为股数")}
                 </span>
               </div>
 
@@ -701,19 +692,15 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
             peersError ? (
               <div className="py-3 text-sm text-red-300">{peersError}</div>
             ) : peersLoading || sortedPeers == null ? (
-              <div className="flex h-24 items-center justify-center text-sm text-fs-muted">
-                加载同业数据…
-              </div>
+              <div className="flex h-24 items-center justify-center text-sm text-fs-muted">{tr("加载同业数据…")}</div>
             ) : sortedPeers.length === 0 ? (
-              <div className="flex h-24 items-center justify-center text-sm text-fs-muted">
-                无同业数据
-              </div>
+              <div className="flex h-24 items-center justify-center text-sm text-fs-muted">{tr("无同业数据")}</div>
             ) : (
               <div className="overflow-x-auto rounded-md border border-fs-border/60">
                 <table className="min-w-full text-left text-sm">
                   <thead className="text-xs text-fs-muted">
                     <tr>
-                      <th className="sticky left-0 bg-fs-bg px-3 py-1.5">代码 / 名称</th>
+                      <th className="sticky left-0 bg-fs-bg px-3 py-1.5">{tr("代码 / 名称")}</th>
                       {peerCols.map((c) => (
                         <th
                           key={c.key}
@@ -724,11 +711,11 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
                             )
                           }
                         >
-                          {c.label}
+                          {tr(c.label)}
                           {peerSort.key === c.key ? (peerSort.desc ? " ↓" : " ↑") : ""}
                         </th>
                       ))}
-                      <th className="px-3 py-1.5 text-right">最新季</th>
+                      <th className="px-3 py-1.5 text-right">{tr("最新季")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -777,10 +764,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
           sortedPeers &&
           peerUniverseCount != null &&
           peerUniverseCount > sortedPeers.length ? (
-            <p className="text-[11px] text-fs-muted">
-              同业 Industry 共 {peerUniverseCount} 只，本表按市值展示前 {sortedPeers.length}{" "}
-              只。
-            </p>
+            <p className="text-[11px] text-fs-muted">{tr("同业 Industry 共")}{" "}{peerUniverseCount} {tr("只，本表按市值展示前")} {sortedPeers.length}{" "}{tr("只。")}</p>
           ) : null}
 
         </div>
@@ -801,14 +785,15 @@ function DimensionTitle({
   note?: string;
   extra?: ReactNode;
 }) {
+  const tr = useTr();
   return (
     <details className="group px-1 pb-1">
       <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-x-2 [&::-webkit-details-marker]:hidden">
         <span className="text-xs text-fs-muted">
           <span className="mr-1 text-fs-text">{mark}</span>
-          {title}
+          {tr(title)}
           {note ? (
-            <span className="ml-1.5 text-[10px] text-fs-muted/70 group-open:text-fs-accent-text">口径</span>
+            <span className="ml-1.5 text-[10px] text-fs-muted/70 group-open:text-fs-accent-text">{tr("口径")}</span>
           ) : null}
         </span>
         {extra ? <span className="text-[11px] text-fs-muted">{extra}</span> : null}

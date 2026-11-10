@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavChart, TurnoverChart, type NavPoint } from "@/components/equity/BacktestCharts";
+import { useTr } from "@/i18n/TextProvider";
 
 type RunStatus = "queued" | "running" | "done" | "failed";
 
@@ -170,11 +171,12 @@ function StatTile({
   sub?: string;
   tone?: "pos" | "neg" | "neutral";
 }) {
+  const tr = useTr();
   const valueClass =
     tone === "pos" ? "text-emerald-400" : tone === "neg" ? "text-red-400" : "text-fs-text";
   return (
     <div className="rounded-lg border border-fs-border bg-fs-elevated/40 px-3 py-2.5">
-      <div className="text-xs text-fs-muted">{label}</div>
+      <div className="text-xs text-fs-muted">{tr(label)}</div>
       <div className={`mt-0.5 text-lg font-semibold tabular-nums ${valueClass}`}>{value}</div>
       {sub ? <div className="text-[11px] text-fs-muted">{sub}</div> : null}
     </div>
@@ -182,6 +184,7 @@ function StatTile({
 }
 
 export function EquityBacktestReportClient({ runId }: { runId: string }) {
+  const tr = useTr();
   const [run, setRun] = useState<RunDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -192,14 +195,14 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
           cache: "no-store",
         });
         const j = (await r.json()) as { run?: RunDetail; error?: string };
-        if (!r.ok) throw new Error(j.error ?? "加载失败");
+        if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
         return j.run ?? null;
       } catch (e) {
-        setError(e instanceof Error ? e.message : "加载失败");
+        setError(e instanceof Error ? e.message : tr("加载失败"));
         return null;
       }
     },
-    [runId],
+    [runId, tr],
   );
 
   // 初次加载完整详情
@@ -241,9 +244,7 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
   if (error && !run) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-6">
-        <Link href="/quant/backtest" className="text-sm text-fs-accent-text hover:underline">
-          ← 返回回测列表
-        </Link>
+        <Link href="/quant/backtest" className="text-sm text-fs-accent-text hover:underline">{tr("← 返回回测列表")}</Link>
         <div className="mt-4 rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-400">
           {error}
         </div>
@@ -253,9 +254,7 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
 
   if (!run) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-10 text-center text-sm text-fs-muted">
-        加载中…
-      </div>
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 text-center text-sm text-fs-muted">{tr("加载中…")}</div>
     );
   }
 
@@ -265,31 +264,25 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6">
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link href="/quant/backtest" className="text-sm text-fs-accent-text hover:underline">
-          ← 回测列表
-        </Link>
+        <Link href="/quant/backtest" className="text-sm text-fs-accent-text hover:underline">{tr("← 回测列表")}</Link>
         <h1 className="text-xl font-semibold">{run.name}</h1>
         <span className="text-xs text-fs-muted">
-          {WEIGHTING_LABEL[run.params.weighting] ?? run.params.weighting} ·{" "}
-          {run.params.execution === "nextClose" ? "次日收盘成交" : "当日收盘成交"} · 成本{" "}
-          {run.params.costBps}bp/单边
-        </span>
+          {tr(WEIGHTING_LABEL[run.params.weighting]) ?? run.params.weighting} ·{" "}
+          {run.params.execution === "nextClose" ? tr("次日收盘成交") : tr("当日收盘成交")} {tr("· 成本")}{" "}
+          {run.params.costBps}{tr("bp/单边")}</span>
       </div>
 
       {run.status === "queued" || run.status === "running" ? (
         <div className="rounded-lg border border-fs-border bg-fs-elevated/40 px-4 py-10 text-center">
           <div className="text-sm text-fs-text">
-            {run.status === "queued" ? "排队中…" : "回测执行中…"}
+            {run.status === "queued" ? tr("排队中…") : tr("回测执行中…")}
           </div>
-          <div className="mt-1 text-xs text-fs-muted">
-            月度重放选股 → 价格批载 → 逐日估值，请稍候（页面自动刷新）
-          </div>
+          <div className="mt-1 text-xs text-fs-muted">{tr("月度重放选股 → 价格批载 → 逐日估值，请稍候（页面自动刷新）")}</div>
         </div>
       ) : null}
 
       {run.status === "failed" ? (
-        <div className="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-400">
-          执行失败：{run.error ?? "未知错误"}
+        <div className="rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-400">{tr("执行失败：")}{run.error ?? tr("未知错误")}
         </div>
       ) : null}
 
@@ -297,38 +290,37 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
         <>
           {/* ── 指标卡 ── */}
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-            <StatTile label="年化收益 CAGR" value={pct(m.cagr)} tone={m.cagr >= 0 ? "pos" : "neg"} sub={`基准 ${pct(m.benchCagr)}`} />
-            <StatTile label="年化波动" value={pct(m.vol)} sub="252 日口径" />
-            <StatTile label="夏普" value={num(m.sharpe, 2)} sub="rf=0" />
-            <StatTile label="最大回撤" value={pct(m.maxDrawdown)} tone="neg" sub={`基准 ${pct(m.benchMaxDrawdown)}`} />
+            <StatTile label={tr("年化收益 CAGR")} value={pct(m.cagr)} tone={m.cagr >= 0 ? "pos" : "neg"} sub={tr("基准 {v0}", { v0: pct(m.benchCagr) })} />
+            <StatTile label={tr("年化波动")} value={pct(m.vol)} sub={tr("252 日口径")} />
+            <StatTile label={tr("夏普")} value={num(m.sharpe, 2)} sub="rf=0" />
+            <StatTile label={tr("最大回撤")} value={pct(m.maxDrawdown)} tone="neg" sub={tr("基准 {v0}", { v0: pct(m.benchMaxDrawdown) })} />
             <StatTile label="Calmar" value={num(m.calmar, 2)} sub="CAGR/|MDD|" />
-            <StatTile label="月胜率 vs SPY" value={pct(m.monthlyWinRate)} sub={`${m.monthlyCount} 月`} />
-            <StatTile label="平均年换手" value={`${num(m.avgAnnualTurnover, 2)}×`} sub="单边口径" />
+            <StatTile label={tr("月胜率 vs SPY")} value={pct(m.monthlyWinRate)} sub={tr("{monthlyCount} 月", { monthlyCount: m.monthlyCount })} />
+            <StatTile label={tr("平均年换手")} value={`${num(m.avgAnnualTurnover, 2)}×`} sub={tr("单边口径")} />
           </div>
           {/* 主动风险：夏普高可能只是 beta 高，IR 才回答「选股本身有没有超额」 */}
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <StatTile
-              label="信息比 IR"
+              label={tr("信息比 IR")}
               value={num(m.informationRatio, 2)}
               tone={m.informationRatio != null ? (m.informationRatio >= 0 ? "pos" : "neg") : undefined}
-              sub="年化超额/跟踪误差"
+              sub={tr("年化超额/跟踪误差")}
             />
-            <StatTile label="跟踪误差" value={pct(m.trackingError)} sub="年化，vs SPY" />
+            <StatTile label={tr("跟踪误差")} value={pct(m.trackingError)} sub={tr("年化，vs SPY")} />
             <StatTile
-              label="累计超额"
+              label={tr("累计超额")}
               value={pct(m.cumulativeExcess)}
               tone={m.cumulativeExcess != null ? (m.cumulativeExcess >= 0 ? "pos" : "neg") : undefined}
-              sub="全区间涨幅之差"
+              sub={tr("全区间涨幅之差")}
             />
           </div>
 
           {/* ── NAV 曲线 ── */}
           <div className="mb-4 rounded-lg border border-fs-border bg-fs-elevated/20 p-3">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-sm font-medium">净值曲线（对数轴，起点归一）</span>
+              <span className="text-sm font-medium">{tr("净值曲线（对数轴，起点归一）")}</span>
               <span className="text-xs text-fs-muted">
-                {run.nav[0]?.date} → {run.nav[run.nav.length - 1]?.date} · {run.nav.length} 交易日
-              </span>
+                {run.nav[0]?.date} → {run.nav[run.nav.length - 1]?.date} · {run.nav.length}{" "}{tr("交易日")}</span>
             </div>
             <NavChart nav={run.nav} />
           </div>
@@ -336,14 +328,14 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
           {/* ── 数据边界透明化 ── */}
           {s ? (
             <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-xs">
-              <div className="mb-1 font-medium text-amber-800">数据边界（结论审慎性）</div>
+              <div className="mb-1 font-medium text-amber-800">{tr("数据边界（结论审慎性）")}</div>
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
-                <span>回测起点 <span className="text-fs-text">{s.effectiveStart}</span>（策略数据下限 {s.dataFloor}）</span>
-                <span>调仓 <span className="text-fs-text">{s.rebalanceCount}</span> 期</span>
-                <span>持仓宇宙 <span className="text-fs-text">{s.symbolCount}</span> 只</span>
-                <span>累计无价跳过 <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.noPriceSkipped, 0)}</span> 次</span>
-                <span>累计清算 <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.liquidated, 0)}</span> 次</span>
-                <span>累计权重缺失剔除 <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.droppedNoWeight, 0)}</span> 次</span>
+                <span>{tr("回测起点")} <span className="text-fs-text">{s.effectiveStart}</span>{tr("（策略数据下限")} {s.dataFloor}）</span>
+                <span>{tr("调仓")} <span className="text-fs-text">{s.rebalanceCount}</span> {tr("期")}</span>
+                <span>{tr("持仓宇宙")} <span className="text-fs-text">{s.symbolCount}</span> {tr("只")}</span>
+                <span>{tr("累计无价跳过")} <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.noPriceSkipped, 0)}</span> {tr("次")}</span>
+                <span>{tr("累计清算")} <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.liquidated, 0)}</span> {tr("次")}</span>
+                <span>{tr("累计权重缺失剔除")} <span className="text-fs-text">{s.periods.reduce((a, p) => a + p.droppedNoWeight, 0)}</span> {tr("次")}</span>
               </div>
             </div>
           ) : null}
@@ -351,38 +343,30 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
           {/* ── 宏观状态覆盖度（本回测见过多少种宏观环境） ── */}
           {s?.regimeCoverage ? (
             <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2.5 text-xs">
-              <div className="mb-1 font-medium text-amber-800">宏观状态覆盖度（结论适用范围）</div>
+              <div className="mb-1 font-medium text-amber-800">{tr("宏观状态覆盖度（结论适用范围）")}</div>
               <div className="mb-1.5 flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
                 {(["recovery", "overheat", "stagflation", "contraction"] as const).map((q) => {
                   const n = s.regimeCoverage!.byQuadrant[q] ?? 0;
                   const thin = s.regimeCoverage!.thinQuadrants.includes(q);
                   return (
                     <span key={q}>
-                      {REGIME_LABEL[q]}{" "}
-                      <span className={thin ? "text-amber-800" : "text-fs-text"}>{n}</span> 期
-                      {thin ? <span className="text-amber-800">（样本薄）</span> : null}
+                      {tr(REGIME_LABEL[q])}{" "}
+                      <span className={thin ? "text-amber-800" : "text-fs-text"}>{n}</span>{" "}{tr("期")}{thin ? <span className="text-amber-800">{tr("（样本薄）")}</span> : null}
                     </span>
                   );
                 })}
                 {s.regimeCoverage.unknown > 0 ? (
-                  <span>未知 <span className="text-fs-text">{s.regimeCoverage.unknown}</span> 期</span>
+                  <span>{tr("未知")} <span className="text-fs-text">{s.regimeCoverage.unknown}</span> {tr("期")}</span>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-fs-muted">
-                <span>
-                  其中 <span className="text-fs-text">NBER 实际衰退期</span>{" "}
+                <span>{tr("其中")}{" "}<span className="text-fs-text">{tr("NBER 实际衰退期")}</span>{" "}
                   <span className={s.regimeCoverage.recessionThin ? "text-amber-800" : "text-fs-text"}>
                     {s.regimeCoverage.recessionPeriods}
-                  </span>{" "}
-                  期
-                </span>
+                  </span>{" "}{tr("期")}</span>
               </div>
               {s.regimeCoverage.recessionThin ? (
-                <div className="mt-1.5 text-amber-800">
-                  ⚠ 衰退样本不足：本回测几乎没有经历真实衰退，
-                  <span className="text-fs-text">最大回撤 / 下行防御相关结论不可靠</span>。
-                  注意「衰退式」象限只表示增长动能向下，中周期放缓也计入，
-                  <span className="text-fs-text">不等于实际衰退</span>。
+                <div className="mt-1.5 text-amber-800">{tr("⚠ 衰退样本不足：本回测几乎没有经历真实衰退，")}<span className="text-fs-text">{tr("最大回撤 / 下行防御相关结论不可靠")}</span>{tr("。 注意「衰退式」象限只表示增长动能向下，中周期放缓也计入，")}<span className="text-fs-text">{tr("不等于实际衰退")}</span>。
                 </div>
               ) : null}
             </div>
@@ -391,15 +375,15 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
           {/* ── 年度收益 + 换手 ── */}
           <div className="mb-4 grid gap-4 lg:grid-cols-2">
             <div className="rounded-lg border border-fs-border bg-fs-elevated/20 p-3">
-              <div className="mb-2 text-sm font-medium">年度收益 vs SPY</div>
+              <div className="mb-2 text-sm font-medium">{tr("年度收益 vs SPY")}</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-fs-border text-left text-xs text-fs-muted">
-                      <th className="px-2 py-1.5">年份</th>
-                      <th className="px-2 py-1.5 text-right">策略</th>
+                      <th className="px-2 py-1.5">{tr("年份")}</th>
+                      <th className="px-2 py-1.5 text-right">{tr("策略")}</th>
                       <th className="px-2 py-1.5 text-right">SPY</th>
-                      <th className="px-2 py-1.5 text-right">超额</th>
+                      <th className="px-2 py-1.5 text-right">{tr("超额")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -419,7 +403,7 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
               </div>
             </div>
             <div className="rounded-lg border border-fs-border bg-fs-elevated/20 p-3">
-              <div className="mb-2 text-sm font-medium">逐期双边换手率</div>
+              <div className="mb-2 text-sm font-medium">{tr("逐期双边换手率")}</div>
               <TurnoverChart points={turnoverPoints} />
             </div>
           </div>
@@ -427,8 +411,8 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
           {/* ── 逐期持仓 ── */}
           <div className="rounded-lg border border-fs-border bg-fs-elevated/20 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium">逐期持仓明细</span>
-              <span className="text-xs text-fs-muted">共 {positionsByPeriod.length} 期，展开查看每期成分与退出原因</span>
+              <span className="text-sm font-medium">{tr("逐期持仓明细")}</span>
+              <span className="text-xs text-fs-muted">{tr("共")} {positionsByPeriod.length} {tr("期，展开查看每期成分与退出原因")}</span>
             </div>
             <div className="max-h-[30rem] space-y-1.5 overflow-y-auto">
               {positionsByPeriod.map(([date, rows]) => {
@@ -437,14 +421,13 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
                   <details key={date} className="rounded-md border border-fs-border/60 bg-fs-elevated/30">
                     <summary className="cursor-pointer px-3 py-2 text-sm">
                       <span className="tabular-nums">{date}</span>
-                      <span className="ml-3 text-xs text-fs-muted">
-                        持仓 {rows.length}
+                      <span className="ml-3 text-xs text-fs-muted">{tr("持仓")}{" "}{rows.length}
                         {period ? (
                           <>
-                            {" · "}宇宙 {period.universeTotal ?? "—"} · 命中 {period.matched ?? "—"}
-                            {period.noPriceSkipped ? ` · 无价跳过 ${period.noPriceSkipped}` : ""}
-                            {period.liquidated ? ` · 清算 ${period.liquidated}` : ""}
-                            {" · "}换手 {pct(period.turnover, 1)}
+                            {" · "}{tr("宇宙")} {period.universeTotal ?? "—"} {tr("· 命中")} {period.matched ?? "—"}
+                            {period.noPriceSkipped ? tr(" · 无价跳过 {noPriceSkipped}", { noPriceSkipped: period.noPriceSkipped }) : ""}
+                            {period.liquidated ? tr(" · 清算 {liquidated}", { liquidated: period.liquidated }) : ""}
+                            {" · "}{tr("换手")} {pct(period.turnover, 1)}
                           </>
                         ) : null}
                       </span>
@@ -454,10 +437,10 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
                         <thead>
                           <tr className="text-left text-fs-muted">
                             <th className="px-2 py-1">#</th>
-                            <th className="px-2 py-1">代码</th>
-                            <th className="px-2 py-1 text-right">权重</th>
-                            <th className="px-2 py-1 text-right">入场价(复权)</th>
-                            <th className="px-2 py-1">退出</th>
+                            <th className="px-2 py-1">{tr("代码")}</th>
+                            <th className="px-2 py-1 text-right">{tr("权重")}</th>
+                            <th className="px-2 py-1 text-right">{tr("入场价(复权)")}</th>
+                            <th className="px-2 py-1">{tr("退出")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -471,7 +454,7 @@ export function EquityBacktestReportClient({ runId }: { runId: string }) {
                               </td>
                               <td className="px-2 py-1 text-right tabular-nums">{pct(p.weight, 1)}</td>
                               <td className="px-2 py-1 text-right tabular-nums">{num(p.entryPrice, 2)}</td>
-                              <td className="px-2 py-1 text-fs-muted">{p.exitReason ? EXIT_LABEL[p.exitReason] ?? p.exitReason : "—"}</td>
+                              <td className="px-2 py-1 text-fs-muted">{p.exitReason ? tr(EXIT_LABEL[p.exitReason]) ?? p.exitReason : "—"}</td>
                             </tr>
                           ))}
                         </tbody>

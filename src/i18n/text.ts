@@ -30,3 +30,6 @@ export type Tr = (source: string, values?: TextValues) => string;
 export function makeTr(dict: TextDict | null): Tr {
   return (source, values) => translateText(source, dict, values);
 }
+
+/** 不翻译的 tr：给「组件外辅助函数」的 tr 参数做默认值，未传入时保持中文 */
+export const identityTr: Tr = (source, values) => interpolate(source, values);

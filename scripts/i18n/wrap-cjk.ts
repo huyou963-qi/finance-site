@@ -3,6 +3,8 @@
  *
  *   npx tsx scripts/i18n/wrap-cjk.ts <文件或目录...>             # 只报告
  *   npx tsx scripts/i18n/wrap-cjk.ts <...> --write                # 写回文件
+ *   npx tsx scripts/i18n/wrap-cjk.ts <...> --wrap-labels          # JSX 里显示 {x.label}/{x.title}/{label} 的地方加 tr（安全：中文站不变）
+ *   npx tsx scripts/i18n/wrap-cjk.ts <...> --thread-helpers       # 组件外的小写辅助函数加 tr 参数（默认不翻译）并在同文件调用处传入
  *   npx tsx scripts/i18n/wrap-cjk.ts <...> --sources=out.json     # 导出尚无英文的原文（给翻译用）
  */
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
@@ -11,6 +13,8 @@ import { applyEdits, scanFile } from "../../src/i18n/tooling/cjkScan";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");
+const threadHelpers = args.includes("--thread-helpers");
+const wrapLabels = args.includes("--wrap-labels");
 const sourcesOut = args.find((a) => a.startsWith("--sources="))?.slice("--sources=".length);
 const dictArg = args.find((a) => a.startsWith("--dict="))?.slice("--dict=".length);
 const targets = args.filter((a) => !a.startsWith("--"));
@@ -32,7 +36,7 @@ for (const file of targets.flatMap(walk)) {
   const usesTrName = /(\(|,|\bconst|\blet|\bvar)\s*tr\b\s*[,)=:]/.test(code) && !/const tr = (useTr|await getServerTr)\(\)/.test(code);
   const trName = usesTrName ? "tx" : "tr";
   const collides = usesTrName && /\btx\b/.test(code) && !/const tx = (useTr|await getServerTr)\(\)/.test(code);
-  const scan = scanFile(file, code, { trName });
+  const scan = scanFile(file, code, { trName, threadHelpers, wrapLabels });
   // 组件外的中文（常量标签、解析器报错等）通常在显示处 tr(变量)，同样需要英文
   const manualTexts = scan.manual.filter((m) => !m.reason.startsWith("数据位置")).map((m) => m.text);
   for (const s of [...scan.sources, ...scan.existing, ...manualTexts]) if (!known.has(s)) allSources.add(s);

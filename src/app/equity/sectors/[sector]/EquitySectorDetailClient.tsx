@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SectorNavChart } from "@/components/equity/SectorCharts";
 import { SectorIndustryTab } from "@/components/equity/SectorIndustryTab";
 import { WeeklyMarkdown } from "@/components/weekly/WeeklyMarkdown";
+import { useTr } from "@/i18n/TextProvider";
 
 type Constituent = {
   symbol: string;
@@ -87,6 +88,7 @@ function pctClass(v: number | null | undefined): string {
 }
 
 export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string }) {
+  const tr = useTr();
   const [tab, setTab] = useState<TabId>("price");
   const [sector, setSector] = useState<string>("");
   const [nameZh, setNameZh] = useState("");
@@ -124,18 +126,18 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
         style?: string;
         constituents?: Constituent[];
       };
-      if (!r.ok) throw new Error(j.error ?? "加载失败");
+      if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
       setSector(j.sector ?? "");
       setNameZh(j.nameZh ?? "");
       setEtf(j.etf ?? "");
       setStyle(j.style ?? "");
       setConstituents(j.constituents ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr("加载失败"));
     } finally {
       setLoading(false);
     }
-  }, [sectorSlug]);
+  }, [sectorSlug, tr]);
 
   useEffect(() => {
     void loadCore();
@@ -243,7 +245,7 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
       bodyMarkdown?: string;
     };
     setSelectedBrief({
-      title: j.meta?.title ?? "经营简报",
+      title: j.meta?.title ?? tr("经营简报"),
       bodyMarkdown: j.bodyMarkdown ?? "",
     });
   };
@@ -251,9 +253,7 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-3 sm:px-4">
       <div className="text-xs text-fs-muted">
-        <Link href="/equity/sectors" className="hover:text-fs-accent-text">
-          ← 美股历史
-        </Link>
+        <Link href="/equity/sectors" className="hover:text-fs-accent-text">{tr("← 美股历史")}</Link>
       </div>
 
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -267,15 +267,14 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
           <p className="mt-0.5 text-sm text-fs-muted">
             {sector}
             {style ? ` · ${style}` : ""}
-            {loading ? " · 加载中…" : ` · ${constituents.length} 只成分`}
+            {loading ? tr(" · 加载中…") : tr(" · {length} 只成分", { length: constituents.length })}
           </p>
         </div>
         {etf ? (
           <Link
             href={`/markets?symbol=${encodeURIComponent(etf)}`}
             className="rounded-md bg-fs-accent-soft px-3 py-1.5 text-xs font-medium text-fs-accent-text ring-1 ring-fs-accent/25"
-          >
-            在行情页打开 {etf}
+          >{tr("在行情页打开")}{" "}{etf}
           </Link>
         ) : null}
       </header>
@@ -298,7 +297,7 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
                 : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
             }`}
           >
-            {t.label}
+            {tr(t.label)}
           </button>
         ))}
       </div>
@@ -315,21 +314,19 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
                 ]}
               />
             ) : (
-              <p className="py-6 text-center text-sm text-fs-muted">暂无 ETF 行情</p>
+              <p className="py-6 text-center text-sm text-fs-muted">{tr("暂无 ETF 行情")}</p>
             )}
           </section>
 
           <section className="overflow-x-auto rounded-md border border-fs-border">
-            <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">
-              成分股（按市值）
-            </div>
+            <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">{tr("成分股（按市值）")}</div>
             <table className="min-w-full text-left text-sm">
               <thead className="text-xs text-fs-muted">
                 <tr>
-                  <th className="px-3 py-2">代码</th>
-                  <th className="px-3 py-2">名称</th>
-                  <th className="px-3 py-2">行业</th>
-                  <th className="px-3 py-2">市值</th>
+                  <th className="px-3 py-2">{tr("代码")}</th>
+                  <th className="px-3 py-2">{tr("名称")}</th>
+                  <th className="px-3 py-2">{tr("行业")}</th>
+                  <th className="px-3 py-2">{tr("市值")}</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -351,15 +348,11 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
                       <Link
                         href={`/equity/stocks/${encodeURIComponent(c.symbol)}`}
                         className="mr-2 text-xs text-fs-accent-text hover:underline"
-                      >
-                        个股
-                      </Link>
+                      >{tr("个股")}</Link>
                       <Link
                         href={`/markets?symbol=${encodeURIComponent(c.symbol)}`}
                         className="text-xs text-fs-muted hover:text-fs-accent-text hover:underline"
-                      >
-                        K线
-                      </Link>
+                      >{tr("K线")}</Link>
                     </td>
                   </tr>
                 ))}
@@ -378,25 +371,23 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
           {macroMap?.noteZh ? (
             <p className="text-sm text-fs-muted">
               {macroMap.noteZh}
-              {macroMap.pending ? "（映射待扩展）" : ""}
+              {macroMap.pending ? tr("（映射待扩展）") : ""}
             </p>
           ) : null}
           {macroMap?.macroTemplateId ? (
             <Link
               href={`/macro?template=${encodeURIComponent(macroMap.macroTemplateId)}`}
               className="text-sm text-fs-accent-text hover:underline"
-            >
-              打开宏观模板 →
-            </Link>
+            >{tr("打开宏观模板 →")}</Link>
           ) : null}
           {macroSeries.length ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {macroSeries.slice(0, 4).map((s) => (
                 <div
-                  key={s.label}
+                  key={tr(s.label)}
                   className="rounded-md border border-fs-border bg-fs-elevated/30 p-2"
                 >
-                  <div className="mb-1 text-xs text-fs-muted">{s.label}</div>
+                  <div className="mb-1 text-xs text-fs-muted">{tr(s.label)}</div>
                   <SectorNavChart
                     series={[{ name: s.label, data: s.points }]}
                     height={160}
@@ -407,8 +398,8 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
           ) : (
             <p className="text-sm text-fs-muted">
               {macroMap?.pending
-                ? "本行业宏观映射待扩展"
-                : "暂无宏观序列（请确认已 seed 对应指标）"}
+                ? tr("本行业宏观映射待扩展")
+                : tr("暂无宏观序列（请确认已 seed 对应指标）")}
             </p>
           )}
         </section>
@@ -420,38 +411,37 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
             <>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {[
-                  { label: "营收增速中位", v: fund.revenueYoYMedian, pct: true },
-                  { label: "EPS 增速中位", v: fund.epsYoYMedian, pct: true },
-                  { label: "毛利率中位", v: fund.grossMarginMedian, pct: true },
-                  { label: "营业利润率中位", v: fund.opMarginMedian, pct: true },
-                  { label: "PE 中位", v: fund.peMedian, pct: false },
+                  { label: tr("营收增速中位"), v: fund.revenueYoYMedian, pct: true },
+                  { label: tr("EPS 增速中位"), v: fund.epsYoYMedian, pct: true },
+                  { label: tr("毛利率中位"), v: fund.grossMarginMedian, pct: true },
+                  { label: tr("营业利润率中位"), v: fund.opMarginMedian, pct: true },
+                  { label: tr("PE 中位"), v: fund.peMedian, pct: false },
                 ].map((x) => (
                   <div
-                    key={x.label}
+                    key={tr(x.label)}
                     className="rounded-md border border-fs-border bg-fs-elevated/40 px-3 py-2"
                   >
-                    <div className="text-[11px] text-fs-muted">{x.label}</div>
+                    <div className="text-[11px] text-fs-muted">{tr(x.label)}</div>
                     <div className={`text-sm font-medium ${x.pct ? pctClass(x.v) : "text-fs-text"}`}>
                       {x.pct ? fmtPct(x.v) : x.v == null ? "—" : x.v.toFixed(1)}
                     </div>
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-fs-muted">
-                样本 {fund.sampleCount}/{fund.universeCount}（覆盖率{" "}
+              <p className="text-xs text-fs-muted">{tr("样本")}{" "}{fund.sampleCount}/{fund.universeCount}{tr("（覆盖率")}{" "}
                 {(fund.coveragePct * 100).toFixed(0)}%）
-                {fund.coveragePct < 0.5 ? " · 覆盖不足 50%，解读需谨慎" : ""}
+                {fund.coveragePct < 0.5 ? tr(" · 覆盖不足 50%，解读需谨慎") : ""}
               </p>
               {fund.members?.length ? (
                 <div className="overflow-x-auto rounded-md border border-fs-border">
                   <table className="min-w-full text-left text-sm">
                     <thead className="text-xs text-fs-muted">
                       <tr>
-                        <th className="px-3 py-2">代码</th>
-                        <th className="px-3 py-2">营收 YoY</th>
+                        <th className="px-3 py-2">{tr("代码")}</th>
+                        <th className="px-3 py-2">{tr("营收 YoY")}</th>
                         <th className="px-3 py-2">EPS YoY</th>
                         <th className="px-3 py-2">PE</th>
-                        <th className="px-3 py-2">期间</th>
+                        <th className="px-3 py-2">{tr("期间")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -476,9 +466,7 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
               ) : null}
             </>
           ) : (
-            <p className="text-sm text-fs-muted">
-              暂无财报快照
-            </p>
+            <p className="text-sm text-fs-muted">{tr("暂无财报快照")}</p>
           )}
         </section>
       ) : null}
@@ -487,18 +475,15 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
         <section className="flex flex-col gap-4">
           {resonance ? (
             <div className="rounded-md border border-fs-border bg-fs-elevated/30 p-3">
-              <h2 className="mb-2 text-sm font-medium text-fs-text">
-                同业互证 · {resonance.periodMonth}
+              <h2 className="mb-2 text-sm font-medium text-fs-text">{tr("同业互证 ·")}{" "}{resonance.periodMonth}
               </h2>
               <WeeklyMarkdown content={resonance.bodyMarkdown} />
             </div>
           ) : (
-            <p className="text-sm text-fs-muted">暂无同业互证（需 Automation ingest）</p>
+            <p className="text-sm text-fs-muted">{tr("暂无同业互证（需 Automation ingest）")}</p>
           )}
           <div className="rounded-md border border-fs-border">
-            <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">
-              公司经营简报
-            </div>
+            <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium">{tr("公司经营简报")}</div>
             <ul className="divide-y divide-fs-border/60">
               {briefs.map((b) => (
                 <li key={b.id} className="flex items-start justify-between gap-2 px-3 py-2">
@@ -514,27 +499,23 @@ export function EquitySectorDetailClient({ sectorSlug }: { sectorSlug: string })
                     type="button"
                     onClick={() => void openBrief(b.id)}
                     className="shrink-0 text-xs text-fs-accent-text hover:underline"
-                  >
-                    阅读
-                  </button>
+                  >{tr("阅读")}</button>
                 </li>
               ))}
               {!briefs.length ? (
-                <li className="px-3 py-4 text-sm text-fs-muted">暂无简报</li>
+                <li className="px-3 py-4 text-sm text-fs-muted">{tr("暂无简报")}</li>
               ) : null}
             </ul>
           </div>
           {selectedBrief ? (
             <div className="rounded-md border border-fs-border bg-fs-elevated/30 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-medium">{selectedBrief.title}</h3>
+                <h3 className="text-sm font-medium">{tr(selectedBrief.title)}</h3>
                 <button
                   type="button"
                   className="text-xs text-fs-muted hover:text-fs-text"
                   onClick={() => setSelectedBrief(null)}
-                >
-                  关闭
-                </button>
+                >{tr("关闭")}</button>
               </div>
               <WeeklyMarkdown content={selectedBrief.bodyMarkdown} />
             </div>

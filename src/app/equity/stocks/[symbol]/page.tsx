@@ -6,25 +6,28 @@ import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { loadStockContext } from "@/lib/equity/stockDetail";
 import { absoluteUrl } from "@/lib/seo/siteUrl";
 import { StockDetailClient } from "./StockDetailClient";
+import { getServerTr } from "@/i18n/serverText";
 
 type Props = { params: Promise<{ symbol: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const tr = await getServerTr();
   const { symbol } = await params;
   const stock = await loadStockContext(symbol);
-  if (!stock) return { title: "股票不存在 — GekkoTech" };
+  if (!stock) return { title: tr("股票不存在 — GekkoTech") };
 
   const scope = [stock.sectorDef?.nameZh, stock.industry?.nameEn].filter(Boolean).join(" · ");
   return {
-    title: `${stock.name}（${stock.symbol}）股价、财务与行业对比 — GekkoTech`,
+    title: tr("{name}（{symbol}）股价、财务与行业对比 — GekkoTech", { name: stock.name, symbol: stock.symbol }),
     description: scope
-      ? `${stock.name} ${stock.symbol} 属于 ${scope} 板块，提供 K 线行情、基本面数据与同行业个股对比。`
-      : `${stock.name} ${stock.symbol} 的 K 线行情与基本面数据。`,
+      ? tr("{name} {symbol} 属于 {scope} 板块，提供 K 线行情、基本面数据与同行业个股对比。", { name: stock.name, symbol: stock.symbol, scope })
+      : tr("{name} {symbol} 的 K 线行情与基本面数据。", { name: stock.name, symbol: stock.symbol }),
     alternates: { canonical: absoluteUrl(`/equity/stocks/${stock.symbol}`) },
   };
 }
 
 export default async function StockDetailPage({ params }: Props) {
+  const tr = await getServerTr();
   const gate = await checkFeatureAccess("markets");
   if (gate.state !== "allowed") {
     return (
@@ -52,9 +55,7 @@ export default async function StockDetailPage({ params }: Props) {
       />
       <Suspense
         fallback={
-          <div className="flex flex-1 items-center justify-center text-sm text-fs-muted">
-            加载中…
-          </div>
+          <div className="flex flex-1 items-center justify-center text-sm text-fs-muted">{tr("加载中…")}</div>
         }
       >
         <StockDetailClient

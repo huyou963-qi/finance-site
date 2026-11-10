@@ -11,6 +11,7 @@ import * as echarts from "echarts/core";
 import { BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -68,6 +69,7 @@ function codeBadgeClass(code: string): string {
 }
 
 function NetTrendChart({ monthly }: { monthly: InsiderMonthlyNet[] }) {
+  const tr = useTr();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current || !monthly.length) return;
@@ -93,7 +95,7 @@ function NetTrendChart({ monthly }: { monthly: InsiderMonthlyNet[] }) {
       },
       series: [
         {
-          name: "净买卖（P/S 口径）",
+          name: tr("净买卖（P/S 口径）"),
           type: "bar",
           data: monthly.map((m) => ({
             value: m.netValue,
@@ -108,11 +110,12 @@ function NetTrendChart({ monthly }: { monthly: InsiderMonthlyNet[] }) {
       window.removeEventListener("resize", onResize);
       chart.dispose();
     };
-  }, [monthly]);
+  }, [monthly, tr]);
   return <div ref={ref} style={{ height: 200, width: "100%" }} />;
 }
 
 export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
+  const tr = useTr();
   const [transactions, setTransactions] = useState<InsiderTransactionRow[]>([]);
   const [coverageMessage, setCoverageMessage] = useState("");
   const [monthly, setMonthly] = useState<InsiderMonthlyNet[]>([]);
@@ -133,14 +136,14 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
           transactions?: InsiderTransactionRow[];
           monthly?: InsiderMonthlyNet[];
         };
-        if (!r.ok) throw new Error(j.error ?? "内部人交易加载失败");
+        if (!r.ok) throw new Error(j.error ?? tr("内部人交易加载失败"));
         if (cancelled) return;
         setTransactions(j.transactions ?? []);
         setMonthly(j.monthly ?? []);
         setCoverageMessage(j.coverageMessage ?? "");
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "加载失败");
+        if (!cancelled) setError(e instanceof Error ? e.message : tr("加载失败"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -148,29 +151,27 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, tr]);
 
   return (
     <section className="rounded-md border border-fs-border">
       <div className="flex items-center justify-between gap-2 border-b border-fs-border bg-fs-elevated/40 px-3 py-2">
-        <span className="text-sm font-medium text-fs-text">内部人交易</span>
-        <Link className="text-xs text-fs-accent" href={`/equity/ownership?symbol=${encodeURIComponent(symbol)}`}>完整持股与供给监控 ↗</Link>
+        <span className="text-sm font-medium text-fs-text">{tr("内部人交易")}</span>
+        <Link className="text-xs text-fs-accent" href={`/equity/ownership?symbol=${encodeURIComponent(symbol)}`}>{tr("完整持股与供给监控 ↗")}</Link>
       </div>
 
       {coverageMessage ? <p className="px-3 py-2 text-xs text-fs-muted">{coverageMessage}</p> : null}
       {error ? <div className="px-3 py-3 text-sm text-red-300">{error}</div> : null}
 
       {loading ? (
-        <div className="flex h-24 items-center justify-center text-sm text-fs-muted">加载中…</div>
+        <div className="flex h-24 items-center justify-center text-sm text-fs-muted">{tr("加载中…")}</div>
       ) : transactions.length === 0 ? (
-        <div className="px-3 py-4 text-sm text-fs-muted">
-          暂无内部人交易数据
-        </div>
+        <div className="px-3 py-4 text-sm text-fs-muted">{tr("暂无内部人交易数据")}</div>
       ) : (
         <>
           {monthly.length > 0 ? (
             <div className="border-b border-fs-border px-3 py-3">
-              <div className="mb-1 text-xs font-medium text-fs-muted">月度已确认净买卖（市场 / 私下 P/S 口径）</div>
+              <div className="mb-1 text-xs font-medium text-fs-muted">{tr("月度已确认净买卖（市场 / 私下 P/S 口径）")}</div>
               <NetTrendChart monthly={monthly} />
             </div>
           ) : null}
@@ -179,13 +180,13 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-fs-bg/95 text-fs-muted">
                 <tr className="border-b border-fs-border">
-                  <th className="px-3 py-1.5 text-left font-medium">日期</th>
-                  <th className="px-2 py-1.5 text-left font-medium">申报人</th>
-                  <th className="px-2 py-1.5 text-left font-medium">身份</th>
-                  <th className="px-2 py-1.5 text-left font-medium">类型</th>
-                  <th className="px-2 py-1.5 text-right font-medium">股数</th>
-                  <th className="px-2 py-1.5 text-right font-medium">价格</th>
-                  <th className="px-2 py-1.5 text-right font-medium">交易后持股</th>
+                  <th className="px-3 py-1.5 text-left font-medium">{tr("日期")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tr("申报人")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tr("身份")}</th>
+                  <th className="px-2 py-1.5 text-left font-medium">{tr("类型")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{tr("股数")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{tr("价格")}</th>
+                  <th className="px-2 py-1.5 text-right font-medium">{tr("交易后持股")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -197,11 +198,11 @@ export function StockInsiderTransactionsPanel({ symbol }: { symbol: string }) {
                     <td className="px-3 py-1.5 tabular-nums text-fs-text">{t.transactionDate}</td>
                     <td className="px-2 py-1.5 text-fs-text">{t.filerName ?? "—"}</td>
                     <td className="px-2 py-1.5 text-fs-muted">
-                      {t.officerTitle ?? (t.isDirector ? "董事" : t.isTenPercentOwner ? "10% 股东" : t.isOfficer ? "高管" : "—")}
+                      {t.officerTitle ?? (t.isDirector ? tr("董事") : t.isTenPercentOwner ? tr("10% 股东") : t.isOfficer ? tr("高管") : "—")}
                     </td>
                     <td className="px-2 py-1.5">
                       <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${codeBadgeClass(t.transactionCode)}`}>
-                        {CODE_LABEL_ZH[t.transactionCode] ?? t.transactionCode}
+                        {tr(CODE_LABEL_ZH[t.transactionCode]) ?? t.transactionCode}
                       </span>
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-fs-text">

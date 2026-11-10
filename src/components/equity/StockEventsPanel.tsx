@@ -11,6 +11,8 @@ import { groupStockEvents, type StockEventGroup } from "@/lib/equity/stockEventG
 import type { StockDisclosureHealth as Health } from "@/lib/equity/disclosureHealthPolicy";
 import { StockEventGroupRow } from "./StockEventGroupRow";
 import { StockDisclosureHealth } from "./StockDisclosureHealth";
+import { useTr } from "@/i18n/TextProvider";
+import { identityTr, type Tr } from "@/i18n/text";
 
 type Brief = {
   id: string;
@@ -28,11 +30,12 @@ const TYPE_FILTERS: { id: StockEvent["type"]; labelZh: string }[] = [
   { id: "insider-plan", labelZh: "内部人计划" },
 ];
 
-function monthLabel(iso: string): string {
-  return `${iso.slice(0, 4)} 年 ${Number(iso.slice(5, 7))} 月`;
+function monthLabel(iso: string, tr: Tr = identityTr): string {
+  return tr("{v0} 年 {v1} 月", { v0: iso.slice(0, 4), v1: Number(iso.slice(5, 7)) });
 }
 
 export function StockEventsPanel({ symbol }: { symbol: string }) {
+  const tr = useTr();
   const [events, setEvents] = useState<StockEvent[]>([]);
   const [health, setHealth] = useState<Health | null>(null);
   const [briefs, setBriefs] = useState<Brief[]>([]);
@@ -53,7 +56,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
         cache: "no-store",
       }).then(async (r) => {
         const j = (await r.json()) as { error?: string; events?: StockEvent[]; sync?: Health };
-        if (!r.ok) throw new Error(j.error ?? "事件加载失败");
+        if (!r.ok) throw new Error(j.error ?? tr("事件加载失败"));
         return { events: j.events ?? [], health: j.sync ?? null };
       }),
       fetch(`/api/equity/company-operating-briefs?symbol=${encodeURIComponent(symbol)}&limit=6`, {
@@ -73,7 +76,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
         setBriefs(br);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "加载失败");
+        if (!cancelled) setError(e instanceof Error ? e.message : tr("加载失败"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -81,7 +84,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, tr]);
 
   const visible = useMemo(
     () =>
@@ -117,8 +120,8 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
     <section className="min-w-0 rounded-md border border-fs-border">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-fs-border bg-fs-elevated/40 px-3 py-2">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-sm font-medium text-fs-text">事件与叙事</span>
-          <span className="text-xs text-fs-muted">每日批量更新 · 精确时刻按美东</span>
+          <span className="text-sm font-medium text-fs-text">{tr("事件与叙事")}</span>
+          <span className="text-xs text-fs-muted">{tr("每日批量更新 · 精确时刻按美东")}</span>
         </div>
         <div className="flex flex-wrap items-center gap-1 text-xs">
           {TYPE_FILTERS.map((t) => (
@@ -133,7 +136,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
                   : "text-fs-muted hover:text-fs-text"
               }`}
             >
-              {t.labelZh}
+              {tr(t.labelZh)}
             </button>
           ))}
           <button
@@ -143,9 +146,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
             className={`ml-1 rounded px-2 py-0.5 transition-colors ${
               majorOnly ? "bg-amber-500/20 text-amber-800" : "text-fs-muted hover:text-fs-text"
             }`}
-          >
-            仅重大
-          </button>
+          >{tr("仅重大")}</button>
         </div>
       </div>
 
@@ -154,17 +155,17 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
       {error ? <div className="px-3 py-3 text-sm text-red-300">{error}</div> : null}
 
       {loading ? (
-        <div className="flex h-24 items-center justify-center text-sm text-fs-muted">加载中…</div>
+        <div className="flex h-24 items-center justify-center text-sm text-fs-muted">{tr("加载中…")}</div>
       ) : byMonth.length === 0 ? (
         <div className="px-3 py-4 text-sm text-fs-muted">
-          {events.length ? "当前筛选条件下暂无事件。" : "暂无已入库事件，请结合上方每日更新状态判断数据是否齐全。"}
+          {events.length ? tr("当前筛选条件下暂无事件。") : tr("暂无已入库事件，请结合上方每日更新状态判断数据是否齐全。")}
         </div>
       ) : (
         <div className="max-h-[32rem] overflow-y-auto px-3 py-2">
           {byMonth.map((g) => (
             <div key={g.month} className="mb-2">
               <div className="sticky top-0 bg-fs-bg/95 py-1 text-[11px] font-medium text-fs-muted">
-                {monthLabel(g.rows[0]!.date)}
+                {monthLabel(g.rows[0]!.date, tr)}
               </div>
               <ul className="flex flex-col gap-1">
                 {g.rows.map(group => <StockEventGroupRow key={group.key} group={group} />)}
@@ -175,7 +176,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
       )}
 
       <div className="border-t border-fs-border px-3 py-2">
-        <div className="text-xs font-medium text-fs-muted">经营叙事</div>
+        <div className="text-xs font-medium text-fs-muted">{tr("经营叙事")}</div>
         {briefs.length ? (
           <ul className="mt-1 flex flex-col gap-2">
             {briefs.map((b) => (
@@ -194,7 +195,7 @@ export function StockEventsPanel({ symbol }: { symbol: string }) {
             ))}
           </ul>
         ) : (
-          <p className="mt-1 text-xs text-fs-muted">经营叙事由外部 ingest 提供，尚未接入。</p>
+          <p className="mt-1 text-xs text-fs-muted">{tr("经营叙事由外部 ingest 提供，尚未接入。")}</p>
         )}
       </div>
     </section>

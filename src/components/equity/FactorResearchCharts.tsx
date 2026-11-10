@@ -17,6 +17,7 @@ import {
   MarkLineComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([
   LineChart,
@@ -64,6 +65,7 @@ export type CumulativeICSeries = { name: string; dates: string[]; cumIC: number[
 
 /** 多因子累计 IC 曲线（每因子一条，legend 标识） */
 export function CumulativeICChart({ series }: { series: CumulativeICSeries[] }) {
+  const tr = useTr();
   const dates = series[0]?.dates ?? [];
   const option: echarts.EChartsCoreOption = {
     backgroundColor: "transparent",
@@ -93,7 +95,7 @@ export function CumulativeICChart({ series }: { series: CumulativeICSeries[] }) 
     },
     yAxis: {
       type: "value",
-      name: "累计 IC",
+      name: tr("累计 IC"),
       nameTextStyle: { color: INK_MUTED, fontSize: 10 },
       axisLabel: { color: INK_MUTED, fontSize: 10 },
       splitLine: { lineStyle: { color: GRID_LINE } },
@@ -119,8 +121,9 @@ export function QuantileBarChart({
   groupReturns: (number | null)[];
   quantiles: number;
 }) {
+  const tr = useTr();
   const labels = Array.from({ length: quantiles }, (_, i) =>
-    i === 0 ? `Q1（最低）` : i === quantiles - 1 ? `Q${quantiles}（最高）` : `Q${i + 1}`,
+    i === 0 ? tr("Q1（最低）") : i === quantiles - 1 ? tr("Q{quantiles}（最高）", { quantiles }) : `Q${i + 1}`,
   );
   const option: echarts.EChartsCoreOption = {
     backgroundColor: "transparent",
@@ -153,7 +156,7 @@ export function QuantileBarChart({
     },
     series: [
       {
-        name: "分位组次期等权收益",
+        name: tr("分位组次期等权收益"),
         type: "bar",
         data: groupReturns.map((v) => (v == null ? null : v)),
         itemStyle: { borderRadius: [3, 3, 0, 0] },

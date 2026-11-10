@@ -1,9 +1,13 @@
 import { FeatureGate } from "@/components/access/FeatureGate";
 import { EquityRobustnessReportClient } from "@/components/equity/EquityRobustnessReportClient";
+import { getServerTr } from "@/i18n/serverText";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "稳健性报告" };
+export async function generateMetadata() {
+  const tr = await getServerTr();
+  return { title: tr("稳健性报告") };
+}
 
 export default async function QuantRobustnessReportPage({
   params,

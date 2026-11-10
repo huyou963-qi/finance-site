@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function QuantIndexPage() {
+export default async function QuantIndexPage() {
   redirect("/quant/regime");
 }

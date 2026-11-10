@@ -6,6 +6,7 @@ import { SectorRegimeForwardStudyPanel } from "@/components/equity/SectorRegimeF
 import { SectorRegimeLiveLedgerPanel } from "@/components/equity/SectorRegimeLiveLedgerPanel";
 import { SectorRegimeNowcastPanel } from "@/components/equity/SectorRegimeNowcastPanel";
 import { STYLE_BUCKETS } from "@/lib/equity/styleBuckets";
+import { useTr } from "@/i18n/TextProvider";
 
 type View = "current" | "history" | "evidence";
 type FundamentalRow = {
@@ -44,6 +45,7 @@ function formatQuarter(value: string | null | undefined): string {
 }
 
 function CurrentFundamentalPanel({ rows, loading }: { rows: FundamentalRow[]; loading: boolean }) {
+  const tr = useTr();
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => (FUNDAMENTAL_SECTOR_ORDER.get(a.sector) ?? Number.MAX_SAFE_INTEGER) - (FUNDAMENTAL_SECTOR_ORDER.get(b.sector) ?? Number.MAX_SAFE_INTEGER)),
     [rows],
@@ -64,34 +66,35 @@ function CurrentFundamentalPanel({ rows, loading }: { rows: FundamentalRow[]; lo
   }, [rows]);
 
   return (
-    <section className="rounded-xl border border-fs-border bg-fs-elevated/20" aria-label="当前行业基本面验证">
+    <section className="rounded-xl border border-fs-border bg-fs-elevated/20" aria-label={tr("当前行业基本面验证")}>
       <header className="border-b border-fs-border px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-fs-text">当前基本面是否支撑行业表现？</h2>
-            <p className="mt-1 text-xs leading-5 text-fs-muted">按当前已完成季度滚动统计；每周纳入 SEC 新披露的 10-Q/10-K。覆盖率表示已披露公司占行业样本的比例，不是买卖建议。</p>
+            <h2 className="text-base font-semibold text-fs-text">{tr("当前基本面是否支撑行业表现？")}</h2>
+            <p className="mt-1 text-xs leading-5 text-fs-muted">{tr("按当前已完成季度滚动统计；每周纳入 SEC 新披露的 10-Q/10-K。覆盖率表示已披露公司占行业样本的比例，不是买卖建议。")}</p>
           </div>
-          <div className="shrink-0 text-xs font-medium tabular-nums text-fs-muted">本季：{formatQuarter(summary.period)} · 滚动披露</div>
+          <div className="shrink-0 text-xs font-medium tabular-nums text-fs-muted">{tr("本季：")}{formatQuarter(summary.period)} {tr("· 滚动披露")}</div>
         </div>
       </header>
 
       {rows.length ? (
         <div className="space-y-4 px-4 py-4 sm:px-5">
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border border-fs-border bg-fs-bg/30 p-3"><div className="text-[10px] text-fs-muted">营收增速领先</div><div className="mt-1 text-sm font-semibold text-fs-text">{summary.growth?.nameZh ?? "—"}</div><div className={`mt-1 text-lg tabular-nums ${pctClass(summary.growth?.revenueYoYMedian)}`}>{fmtPct(summary.growth?.revenueYoYMedian)}</div></div>
-            <div className="rounded-lg border border-fs-border bg-fs-bg/30 p-3"><div className="text-[10px] text-fs-muted">正 PE 中位数最低</div><div className="mt-1 text-sm font-semibold text-fs-text">{summary.value?.nameZh ?? "—"}</div><div className="mt-1 text-lg tabular-nums text-fs-text">{summary.value?.peMedian?.toFixed(1) ?? "—"}</div></div>
-            <div className="rounded-lg border border-fs-border bg-fs-bg/30 p-3"><div className="text-[10px] text-fs-muted">本季平均披露覆盖</div><div className="mt-1 text-sm font-semibold text-fs-text">滚动横截面</div><div className="mt-1 text-lg tabular-nums text-fs-text">{summary.coverage == null ? "—" : `${(summary.coverage * 100).toFixed(0)}%`}</div></div>
+            <div className="rounded-lg border border-fs-border bg-fs-bg/30 p-3"><div className="text-[10px] text-fs-muted">{tr("营收增速领先")}</div><div className="mt-1 text-sm font-semibold text-fs-text">{summary.growth?.nameZh ?? "—"}</div><div className={`mt-1 text-lg tabular-nums ${pctClass(summary.growth?.revenueYoYMedian)}`}>{fmtPct(summary.growth?.revenueYoYMedian)}</div></div>
+            <div className="rounded-lg border border-fs-border bg-fs-bg/30 p-3"><div className="text-[10px] text-fs-muted">{tr("正 PE 中位数最低")}</div><div className="mt-1 text-sm font-semibold text-fs-text">{summary.value?.nameZh ?? "—"}</div><div className="mt-1 text-lg tabular-nums text-fs-text">{summary.value?.peMedian?.toFixed(1) ?? "—"}</div></div>
+            <div className="rounded-lg border border-fs-border bg-fs-bg/30 p-3"><div className="text-[10px] text-fs-muted">{tr("本季平均披露覆盖")}</div><div className="mt-1 text-sm font-semibold text-fs-text">{tr("滚动横截面")}</div><div className="mt-1 text-lg tabular-nums text-fs-text">{summary.coverage == null ? "—" : `${(summary.coverage * 100).toFixed(0)}%`}</div></div>
           </div>
           <div className="overflow-x-auto rounded-lg border border-fs-border bg-fs-bg/20">
-            <table className="min-w-[820px] w-full text-left text-xs"><thead className="bg-fs-elevated/50 text-[10px] text-fs-muted"><tr><th className="px-3 py-2 font-medium">行业</th><th className="px-3 py-2 font-medium">本季营收增速中位</th><th className="px-3 py-2 font-medium">前季营收增速中位</th><th className="px-3 py-2 font-medium">本季 TTM PE 中位</th><th className="px-3 py-2 font-medium">前季 TTM PE 中位</th><th className="px-3 py-2 font-medium">披露覆盖</th></tr></thead><tbody>{sortedRows.map((row) => <tr key={row.sector} className="border-t border-fs-border/60"><td className="px-3 py-2 text-fs-text">{row.nameZh}{row.basis === "FY" ? <span className="ml-1.5 text-[9px] text-fs-muted">年报</span> : null}</td><td className={`px-3 py-2 tabular-nums ${pctClass(row.revenueYoYMedian)}`}>{fmtPct(row.revenueYoYMedian)}</td><td className={`px-3 py-2 tabular-nums ${pctClass(row.previousRevenueYoYMedian)}`}>{fmtPct(row.previousRevenueYoYMedian)}</td><td className="px-3 py-2 tabular-nums text-fs-text">{row.peMedian?.toFixed(1) ?? "—"}</td><td className="px-3 py-2 tabular-nums text-fs-text">{row.previousPeMedian?.toFixed(1) ?? "—"}</td><td className="px-3 py-2 tabular-nums text-fs-muted">{(row.coveragePct * 100).toFixed(0)}% <span className="text-[9px]">({row.sampleCount}/{row.universeCount})</span></td></tr>)}</tbody></table>
+            <table className="min-w-[820px] w-full text-left text-xs"><thead className="bg-fs-elevated/50 text-[10px] text-fs-muted"><tr><th className="px-3 py-2 font-medium">{tr("行业")}</th><th className="px-3 py-2 font-medium">{tr("本季营收增速中位")}</th><th className="px-3 py-2 font-medium">{tr("前季营收增速中位")}</th><th className="px-3 py-2 font-medium">{tr("本季 TTM PE 中位")}</th><th className="px-3 py-2 font-medium">{tr("前季 TTM PE 中位")}</th><th className="px-3 py-2 font-medium">{tr("披露覆盖")}</th></tr></thead><tbody>{sortedRows.map((row) => <tr key={row.sector} className="border-t border-fs-border/60"><td className="px-3 py-2 text-fs-text">{tr(row.nameZh)}{row.basis === "FY" ? <span className="ml-1.5 text-[9px] text-fs-muted">{tr("年报")}</span> : null}</td><td className={`px-3 py-2 tabular-nums ${pctClass(row.revenueYoYMedian)}`}>{fmtPct(row.revenueYoYMedian)}</td><td className={`px-3 py-2 tabular-nums ${pctClass(row.previousRevenueYoYMedian)}`}>{fmtPct(row.previousRevenueYoYMedian)}</td><td className="px-3 py-2 tabular-nums text-fs-text">{row.peMedian?.toFixed(1) ?? "—"}</td><td className="px-3 py-2 tabular-nums text-fs-text">{row.previousPeMedian?.toFixed(1) ?? "—"}</td><td className="px-3 py-2 tabular-nums text-fs-muted">{(row.coveragePct * 100).toFixed(0)}% <span className="text-[9px]">({row.sampleCount}/{row.universeCount})</span></td></tr>)}</tbody></table>
           </div>
         </div>
-      ) : <div className="px-4 py-6 text-sm text-fs-muted sm:px-5">{loading ? "正在汇总最新 SEC 财报…" : "行业基本面快照暂不可用，当前判断仅显示宏观研究结论。"}</div>}
+      ) : <div className="px-4 py-6 text-sm text-fs-muted sm:px-5">{loading ? tr("正在汇总最新 SEC 财报…") : tr("行业基本面快照暂不可用，当前判断仅显示宏观研究结论。")}</div>}
     </section>
   );
 }
 
 export function EquitySectorsClient() {
+  const tr = useTr();
   const [view, setView] = useState<View>("current");
   const [fundRows, setFundRows] = useState<FundamentalRow[]>([]);
   const [fundLoading, setFundLoading] = useState(true);
@@ -105,22 +108,22 @@ export function EquitySectorsClient() {
   }, []);
 
   const tabs: Array<{ id: View; label: string; description: string }> = [
-    { id: "current", label: "当前判断", description: "现在的宏观环境与基本面" },
-    { id: "history", label: "历史复盘", description: "类似阶段的行业轮动与原因" },
-    { id: "evidence", label: "证据与方法", description: "检验、前瞻账本与限制" },
+    { id: "current", label: tr("当前判断"), description: tr("现在的宏观环境与基本面") },
+    { id: "history", label: tr("历史复盘"), description: tr("类似阶段的行业轮动与原因") },
+    { id: "evidence", label: tr("证据与方法"), description: tr("检验、前瞻账本与限制") },
   ];
 
   return (
     <div className={`flex w-full max-w-none flex-col gap-4 px-2 py-3 ${view === "history" ? "xl:h-full xl:min-h-0 xl:overflow-hidden" : ""}`}>
       <section className="rounded-xl border border-fs-border bg-fs-elevated/20">
-        <nav className="flex flex-wrap items-center justify-between gap-2 px-3 py-2" aria-label="行业研究视图">
+        <nav className="flex flex-wrap items-center justify-between gap-2 px-3 py-2" aria-label={tr("行业研究视图")}>
           <div className="flex flex-wrap gap-1">
-            {tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setView(tab.id)} aria-pressed={view === tab.id} className={`rounded-md px-3 py-2 text-left transition ${view === tab.id ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`}><span className="block text-sm font-semibold">{tab.label}</span><span className="mt-0.5 block text-[10px] font-semibold opacity-80">{tab.description}</span></button>)}
+            {tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setView(tab.id)} aria-pressed={view === tab.id} className={`rounded-md px-3 py-2 text-left transition ${view === tab.id ? "bg-fs-accent-soft text-fs-accent-text ring-1 ring-fs-accent/30" : "text-fs-muted hover:bg-fs-elevated hover:text-fs-text"}`}><span className="block text-sm font-semibold">{tr(tab.label)}</span><span className="mt-0.5 block text-[10px] font-semibold opacity-80">{tr(tab.description)}</span></button>)}
           </div>
           <div className="px-1 text-right">
-            <h1 className="text-sm font-semibold tracking-[0.14em] text-fs-accent-text">美股历史</h1>
-            <p className="mt-0.5 text-xs text-fs-muted">从当前宏观环境出发，用历史相似阶段解释行业强弱，再用基本面与可审计证据验证结论。</p>
-            <p className="mt-0.5 text-xs text-fs-muted">先看现在，再回看历史；研究证据单独呈现。</p>
+            <h1 className="text-sm font-semibold tracking-[0.14em] text-fs-accent-text">{tr("美股历史")}</h1>
+            <p className="mt-0.5 text-xs text-fs-muted">{tr("从当前宏观环境出发，用历史相似阶段解释行业强弱，再用基本面与可审计证据验证结论。")}</p>
+            <p className="mt-0.5 text-xs text-fs-muted">{tr("先看现在，再回看历史；研究证据单独呈现。")}</p>
           </div>
         </nav>
       </section>

@@ -6,6 +6,7 @@ import * as echarts from "echarts/core";
 import { ScatterChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, MarkLineComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, CanvasRenderer]);
 
@@ -32,6 +33,7 @@ export function ValuationGrowthScatter({
   points: ScatterPoint[];
   height?: number;
 }) {
+  const tr = useTr();
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -67,12 +69,12 @@ export function ValuationGrowthScatter({
       backgroundColor: "transparent",
       tooltip: {
         formatter: (p: { name: string; value: [number, number] }) =>
-          `<b>${p.name}</b><br/>营收YoY: ${p.value[0].toFixed(1)}%<br/>TTM PE: ${p.value[1].toFixed(1)}<br/><span style="opacity:.7">点击打开个股研究</span>`,
+          tr("<b>{name}</b><br/>营收YoY: {v1}%<br/>TTM PE: {v2}<br/><span style=\"opacity:.7\">点击打开个股研究</span>", { name: p.name, v1: p.value[0].toFixed(1), v2: p.value[1].toFixed(1) }),
       },
       grid: { left: 48, right: 16, top: 20, bottom: 40 },
       xAxis: {
         type: "value",
-        name: "最新季营收同比 %",
+        name: tr("最新季营收同比 %"),
         nameLocation: "middle",
         nameGap: 26,
         nameTextStyle: { color: "#9da8b6", fontSize: 10 },
@@ -129,17 +131,15 @@ export function ValuationGrowthScatter({
       window.removeEventListener("resize", onResize);
       chart.dispose();
     };
-  }, [data, medianX, medianY, router]);
+  }, [data, medianX, medianY, router, tr]);
 
   if (data.length < 3) return null;
 
   return (
     <section className="rounded-md border border-fs-border">
       <div className="flex items-baseline justify-between border-b border-fs-border bg-fs-elevated/40 px-3 py-2">
-        <span className="text-sm font-medium text-fs-text">估值 – 成长（虚线为行业中位数）</span>
-        <span className="text-[11px] text-fs-muted">
-          点击圆点打开个股
-          {excluded > 0 ? ` · 已剔除 PE>${PE_CAP} 共 ${excluded} 点` : ""}
+        <span className="text-sm font-medium text-fs-text">{tr("估值 – 成长（虚线为行业中位数）")}</span>
+        <span className="text-[11px] text-fs-muted">{tr("点击圆点打开个股")}{excluded > 0 ? tr(" · 已剔除 PE>{PE_CAP} 共 {excluded} 点", { PE_CAP, excluded }) : ""}
         </span>
       </div>
       <div ref={ref} style={{ height }} className="w-full cursor-pointer" />

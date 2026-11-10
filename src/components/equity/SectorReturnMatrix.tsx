@@ -9,6 +9,8 @@ import {
   sectorSlug,
   type GicsSector,
 } from "@/lib/equity/gicsCatalog";
+import { useTr } from "@/i18n/TextProvider";
+import { identityTr, type Tr } from "@/i18n/text";
 
 export type SectorColumnMeta = {
   sector: string;
@@ -134,7 +136,7 @@ function isStyleGroupStart(sector: string): boolean {
 
 async function fetchPeriodReturns(
   startDate: string,
-  endDate: string,
+  endDate: string, tr: Tr = identityTr,
 ): Promise<Omit<PeriodReturns, "loading">> {
   const q = new URLSearchParams({ from: startDate, to: endDate });
   const r = await fetch(`/api/equity/sector-returns?${q}`, { cache: "no-store" });
@@ -147,7 +149,7 @@ async function fetchPeriodReturns(
       excessVsSpy: number | null;
     }[];
   };
-  if (!r.ok) throw new Error(j.error ?? "加载失败");
+  if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
 
   const absolute: Record<string, number | null> = {};
   const excess: Record<string, number | null> = {};
@@ -159,6 +161,7 @@ async function fetchPeriodReturns(
 }
 
 export function SectorReturnMatrix() {
+  const tr = useTr();
   const [blocks, setBlocks] = useState<PeriodBlock[]>(defaultBlocks);
 
   const loadBlock = useCallback(async (id: string, startDate: string, endDate: string) => {
@@ -171,7 +174,7 @@ export function SectorReturnMatrix() {
                 ...b,
                 returns: {
                   ...emptyReturns(),
-                  error: "截止日期须不早于开始日期",
+                  error: tr("截止日期须不早于开始日期"),
                 },
               }
             : b,
@@ -189,7 +192,7 @@ export function SectorReturnMatrix() {
     );
 
     try {
-      const data = await fetchPeriodReturns(startDate, endDate);
+      const data = await fetchPeriodReturns(startDate, endDate, tr);
       setBlocks((prev) =>
         prev.map((b) =>
           b.id === id
@@ -205,14 +208,14 @@ export function SectorReturnMatrix() {
                 ...b,
                 returns: {
                   ...emptyReturns(),
-                  error: e instanceof Error ? e.message : "加载失败",
+                  error: e instanceof Error ? e.message : tr("加载失败"),
                 },
               }
             : b,
         ),
       );
     }
-  }, []);
+  }, [tr]);
 
   // 初始块加载
   useEffect(() => {
@@ -289,13 +292,9 @@ export function SectorReturnMatrix() {
                 type="button"
                 onClick={addBlock}
                 className="rounded-md bg-fs-accent-soft px-2.5 py-1 text-xs font-medium text-fs-accent-text ring-1 ring-fs-accent/25 hover:opacity-90"
-              >
-                新建区间
-              </button>
+              >{tr("新建区间")}</button>
             </th>
-            <th className="min-w-[4.5rem] border-b border-r border-fs-border px-2 py-1.5 text-center font-medium">
-              基准
-            </th>
+            <th className="min-w-[4.5rem] border-b border-r border-fs-border px-2 py-1.5 text-center font-medium">{tr("基准")}</th>
             {styleGroups.map((g, gi) => (
               <th
                 key={g.id}
@@ -306,8 +305,7 @@ export function SectorReturnMatrix() {
                     : "border-b border-r border-fs-border px-2 py-1.5 text-center font-medium"
                 }
               >
-                {g.nameZh}行业
-              </th>
+                {tr(g.nameZh)}{tr("行业")}</th>
             ))}
           </tr>
           <tr className="bg-fs-elevated/30 text-xs">
@@ -315,7 +313,7 @@ export function SectorReturnMatrix() {
               colSpan={2}
               className="sticky left-0 z-10 min-w-[14rem] border-b border-r border-fs-border bg-fs-elevated/80 px-2 py-1.5"
             >
-              <div className="flex flex-wrap items-center gap-1" role="group" aria-label="第一个区间快捷窗口">
+              <div className="flex flex-wrap items-center gap-1" role="group" aria-label={tr("第一个区间快捷窗口")}>
                 {MATRIX_PRESETS.map((p) => {
                   const active = selectedPreset === p.id;
                   return (
@@ -329,15 +327,13 @@ export function SectorReturnMatrix() {
                           : "rounded px-1.5 py-0.5 text-[11px] font-medium text-fs-muted hover:bg-fs-elevated hover:text-fs-text"
                       }
                     >
-                      {p.label}
+                      {tr(p.label)}
                     </button>
                   );
                 })}
               </div>
             </th>
-            <th className="min-w-[4.5rem] border-b border-r border-fs-border px-1.5 py-1.5 text-center font-medium text-fs-text">
-              标普500
-              <div className="text-[10px] font-normal text-fs-muted">SPY</div>
+            <th className="min-w-[4.5rem] border-b border-r border-fs-border px-1.5 py-1.5 text-center font-medium text-fs-text">{tr("标普500")}<div className="text-[10px] font-normal text-fs-muted">SPY</div>
             </th>
             {COLUMN_ORDER.map((c, ci) => (
               <th
@@ -355,7 +351,7 @@ export function SectorReturnMatrix() {
                   className="text-fs-accent-text hover:underline"
                   title={c.sector}
                 >
-                  {c.nameZh}
+                  {tr(c.nameZh)}
                 </Link>
                 <div className="text-[10px] font-normal text-fs-muted">{c.etf}</div>
               </th>
@@ -395,6 +391,7 @@ function PeriodBlockRows({
   onRemove: (id: string) => void;
   totalCols: number;
 }) {
+  const tr = useTr();
   const dateCell =
     "sticky left-0 z-10 min-w-[8.5rem] border-r border-fs-border bg-fs-elevated px-2 py-1 text-xs text-fs-muted";
   const metricCell =
@@ -439,16 +436,14 @@ function PeriodBlockRows({
       <tr className="border-t border-fs-border/50">
         <td className={dateCell}>
           <div className="flex items-center gap-1">
-            <span className="shrink-0">开始日期</span>
+            <span className="shrink-0">{tr("开始日期")}</span>
             {canRemove ? (
               <button
                 type="button"
                 onClick={() => onRemove(block.id)}
                 className="ml-auto text-[10px] text-fs-muted hover:text-red-400"
-                title="删除此区间"
-              >
-                删除
-              </button>
+                title={tr("删除此区间")}
+              >{tr("删除")}</button>
             ) : null}
           </div>
           <input
@@ -458,9 +453,7 @@ function PeriodBlockRows({
             className={dateInputClass}
           />
         </td>
-        <td className={metricCell}>
-          绝对收益
-          {block.returns.loading ? (
+        <td className={metricCell}>{tr("绝对收益")}{block.returns.loading ? (
             <span className="ml-1 text-[10px] text-fs-muted">…</span>
           ) : null}
         </td>
@@ -479,7 +472,7 @@ function PeriodBlockRows({
 
       <tr className="border-t border-fs-border/40">
         <td className={dateCell}>
-          <div>截止日期</div>
+          <div>{tr("截止日期")}</div>
           <input
             type="date"
             value={block.endDate}
@@ -487,9 +480,9 @@ function PeriodBlockRows({
             className={dateInputClass}
           />
         </td>
-        <td className={metricCell}>相对收益</td>
+        <td className={metricCell}>{tr("相对收益")}</td>
         <td className={`${valueCell} text-fs-muted`}>
-          {block.returns.loading ? "…" : spyExcess == null ? "—" : "基准"}
+          {block.returns.loading ? "…" : spyExcess == null ? "—" : tr("基准")}
         </td>
         {COLUMN_ORDER.map((c, ci) => {
           const v = block.returns.excess[c.sector] ?? null;

@@ -19,6 +19,7 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { REGIME_COLOR, REGIME_LABEL, type RegimeKey } from "@/components/equity/regimeVisuals";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([
   LineChart,
@@ -60,6 +61,7 @@ function regimeBands(points: RegimePoint[]) {
 }
 
 export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
+  const tr = useTr();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ref.current) return;
@@ -79,7 +81,7 @@ export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
       animation: false,
       color: [GROWTH_LINE, INFL_LINE],
       legend: {
-        data: ["增长 z", "通胀动量 z"],
+        data: [tr("增长 z"), tr("通胀动量 z")],
         textStyle: { color: "#c3c2b7", fontSize: 12 },
         top: 0,
         right: 8,
@@ -128,7 +130,7 @@ export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
             (a) => `${a.marker}${a.seriesName}: ${a.value == null ? "—" : a.value.toFixed(2)}`,
           );
           const regimeLine = p
-            ? `<div style="margin-top:4px">regime: <b>${REGIME_LABEL[p.regime]}</b>${p.recession === 1 ? " · NBER 衰退" : ""}</div>`
+            ? `<div style="margin-top:4px">regime: <b>${REGIME_LABEL[p.regime]}</b>${p.recession === 1 ? tr(" · NBER 衰退") : ""}</div>`
             : "";
           return `<div>${date}</div>${lines.join("<br/>")}${regimeLine}`;
         },
@@ -150,7 +152,7 @@ export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
       },
       series: [
         {
-          name: "增长 z",
+          name: tr("增长 z"),
           type: "line",
           data: points.map((p) => p.growthZ),
           showSymbol: false,
@@ -164,7 +166,7 @@ export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
           },
         },
         {
-          name: "通胀动量 z",
+          name: tr("通胀动量 z"),
           type: "line",
           data: points.map((p) => p.inflationMomZ),
           showSymbol: false,
@@ -179,6 +181,6 @@ export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
       window.removeEventListener("resize", onResize);
       chart.dispose();
     };
-  }, [points]);
+  }, [points, tr]);
   return <div ref={ref} style={{ width: "100%", height: 340 }} />;
 }

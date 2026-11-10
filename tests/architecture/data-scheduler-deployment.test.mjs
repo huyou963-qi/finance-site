@@ -89,6 +89,7 @@ test("macro selected lists show the actual latest observation on desktop and mob
   assert.match(route, /macroPoints:\s*\{/);
   assert.match(route, /latestObsDate: macroPoints\[0\]\?\.obsDate/);
   assert.match(macro, /typeof item\.latestObsDate === "string"/);
-  assert.match(desktop, /\["最新观测", row\.updatedAt\]/);
-  assert.match(mobile, /`观测 \$\{row\.updatedAt\}`/);
+  // 文案经 tr() 按界面语言显示（中文站原样）
+  assert.match(desktop, /\[tr\("最新观测"\), row\.updatedAt\]/);
+  assert.match(mobile, /tr\("观测 \{updatedAt\}", \{ updatedAt: row\.updatedAt \}\)/);
 });

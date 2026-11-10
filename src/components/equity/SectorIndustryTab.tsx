@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { industrySlug } from "@/lib/equity/gicsIndustryCatalog";
+import { useTr } from "@/i18n/TextProvider";
+import { identityTr, type Tr } from "@/i18n/text";
 
 type IndustryRow = {
   code: string;
@@ -59,10 +61,10 @@ function pctClass(v: number | null | undefined): string {
   return "text-fs-muted";
 }
 
-function styleLabel(style: IndustryRow["style"]): string {
-  if (style === "cyclical") return "周期";
-  if (style === "defensive") return "防御";
-  return "两者";
+function styleLabel(style: IndustryRow["style"], tr: Tr = identityTr): string {
+  if (style === "cyclical") return tr("周期");
+  if (style === "defensive") return tr("防御");
+  return tr("两者");
 }
 
 function styleBadgeClass(style: IndustryRow["style"]): string {
@@ -78,6 +80,7 @@ export function SectorIndustryTab({
   sectorSlug: string;
   sectorNameZh: string;
 }) {
+  const tr = useTr();
   const [{ from, to }, setRange] = useState(() => rangeForPreset("3m"));
   const [rows, setRows] = useState<IndustryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,14 +96,14 @@ export function SectorIndustryTab({
         { cache: "no-store" },
       );
       const j = (await r.json()) as { error?: string; industries?: IndustryRow[] };
-      if (!r.ok) throw new Error(j.error ?? "加载失败");
+      if (!r.ok) throw new Error(j.error ?? tr("加载失败"));
       setRows(j.industries ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      setError(e instanceof Error ? e.message : tr("加载失败"));
     } finally {
       setLoading(false);
     }
-  }, [sectorSlug, from, to]);
+  }, [sectorSlug, from, to, tr]);
 
   useEffect(() => {
     void load();
@@ -139,25 +142,21 @@ export function SectorIndustryTab({
             </button>
           ))}
         </div>
-        <label className="text-xs text-fs-muted">
-          开始
-          <input
+        <label className="text-xs text-fs-muted">{tr("开始")}<input
             type="date"
             value={from}
             onChange={(e) => onManualDate("from", e.target.value)}
             className="ml-1 rounded border border-fs-border bg-white px-1.5 py-0.5 text-xs text-fs-text"
           />
         </label>
-        <label className="text-xs text-fs-muted">
-          截止
-          <input
+        <label className="text-xs text-fs-muted">{tr("截止")}<input
             type="date"
             value={to}
             onChange={(e) => onManualDate("to", e.target.value)}
             className="ml-1 rounded border border-fs-border bg-white px-1.5 py-0.5 text-xs text-fs-text"
           />
         </label>
-        {loading ? <span className="text-xs text-fs-muted">加载中…</span> : null}
+        {loading ? <span className="text-xs text-fs-muted">{tr("加载中…")}</span> : null}
       </div>
 
       {error ? (
@@ -168,16 +167,15 @@ export function SectorIndustryTab({
 
       <section className="overflow-x-auto rounded-md border border-fs-border">
         <div className="border-b border-fs-border bg-fs-elevated/40 px-3 py-2 text-sm font-medium text-fs-text">
-          GICS Industry（{sectorNameZh}）· 等权篮子
-        </div>
+          GICS Industry（{sectorNameZh}{tr("）· 等权篮子")}</div>
         <table className="min-w-full text-left text-sm">
           <thead className="text-xs text-fs-muted">
             <tr>
               <th className="px-3 py-2">Industry</th>
-              <th className="px-3 py-2">风格</th>
-              <th className="px-3 py-2 text-right">成分数</th>
-              <th className="px-3 py-2 text-right">绝对收益</th>
-              <th className="px-3 py-2 text-right">相对 SPY</th>
+              <th className="px-3 py-2">{tr("风格")}</th>
+              <th className="px-3 py-2 text-right">{tr("成分数")}</th>
+              <th className="px-3 py-2 text-right">{tr("绝对收益")}</th>
+              <th className="px-3 py-2 text-right">{tr("相对 SPY")}</th>
             </tr>
           </thead>
           <tbody>
@@ -195,7 +193,7 @@ export function SectorIndustryTab({
                   <span
                     className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ring-1 ${styleBadgeClass(row.style)}`}
                   >
-                    {styleLabel(row.style)}
+                    {styleLabel(row.style, tr)}
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-fs-muted">

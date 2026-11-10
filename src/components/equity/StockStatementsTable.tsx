@@ -19,6 +19,7 @@ import {
   type StatementLine,
   type StatementLines,
 } from "@/lib/equity/statementTemplate";
+import { useTr } from "@/i18n/TextProvider";
 
 /** 一期报表：独立列（营收、净利润等）+ lines 里的其余科目 */
 export type StatementPeriod = Partial<Record<HeadlineField, number | null>> & {
@@ -78,6 +79,7 @@ function cell(rows: StatementPeriod[], i: number, line: StatementLine, valueMode
  * 本公司在所选期间完全没有数据的科目整行隐藏，不同行业的公司只显示自己披露的科目。
  */
 export function StockStatementsTable({ rows, valueMode, yoyLag, visibleRange }: Props) {
+  const tr = useTr();
   const [statement, setStatement] = useState<StatementCode>("IS");
 
   // 报表格式由本公司自己披露的科目判定；银行、保险等的利润表按行业习惯排序
@@ -108,7 +110,7 @@ export function StockStatementsTable({ rows, valueMode, yoyLag, visibleRange }: 
   return (
     <div className="space-y-2">
       <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-      <div role="tablist" aria-label="选择报表" className="grid grid-cols-3 gap-1 rounded-md border border-fs-border/60 p-0.5 sm:inline-grid sm:w-auto">
+      <div role="tablist" aria-label={tr("选择报表")} className="grid grid-cols-3 gap-1 rounded-md border border-fs-border/60 p-0.5 sm:inline-grid sm:w-auto">
         {STATEMENTS.map(code => (
           <button
             key={code}
@@ -125,23 +127,20 @@ export function StockStatementsTable({ rows, valueMode, yoyLag, visibleRange }: 
           </button>
         ))}
       </div>
-      <span className="text-[11px] text-fs-muted" title="按本公司披露的报表科目自动判定">
-        报表格式：{STATEMENT_PROFILE_NAMES[profile]}
+      <span className="text-[11px] text-fs-muted" title={tr("按本公司披露的报表科目自动判定")}>{tr("报表格式：")}{STATEMENT_PROFILE_NAMES[profile]}
       </span>
       </div>
 
       {visible.length === 0 ? (
-        <div className="flex h-24 items-center justify-center rounded-md border border-fs-border/60 text-sm text-fs-muted">
-          所选期间暂无{STATEMENT_NAMES[statement]}数据
-        </div>
+        <div className="flex h-24 items-center justify-center rounded-md border border-fs-border/60 text-sm text-fs-muted">{tr("所选期间暂无")}{STATEMENT_NAMES[statement]}{tr("数据")}</div>
       ) : (
         <div className="overflow-x-auto rounded-md border border-fs-border/60">
           <table className="min-w-full text-left text-sm">
             <thead className="text-xs text-fs-muted">
               <tr>
-                <th className="sticky left-0 z-10 bg-fs-bg px-2 py-1.5 sm:px-3">科目</th>
+                <th className="sticky left-0 z-10 bg-fs-bg px-2 py-1.5 sm:px-3">{tr("科目")}</th>
                 {order.map(i => (
-                  <th key={rows[i]!.period} className="whitespace-nowrap px-2 py-1.5 text-right font-normal sm:px-3" title={`截止 ${rows[i]!.fiscalDate}`}>
+                  <th key={rows[i]!.period} className="whitespace-nowrap px-2 py-1.5 text-right font-normal sm:px-3" title={tr("截止 {fiscalDate}", { fiscalDate: rows[i]!.fiscalDate })}>
                     {rows[i]!.period}
                   </th>
                 ))}
@@ -155,9 +154,7 @@ export function StockStatementsTable({ rows, valueMode, yoyLag, visibleRange }: 
           </table>
         </div>
       )}
-      <p className="text-[11px] leading-5 text-fs-muted">
-        已隐藏本公司未披露的科目。部分明细取自报表附注，不一定与合计逐项相加；现金流量表中的流出项以负数显示。
-      </p>
+      <p className="text-[11px] leading-5 text-fs-muted">{tr("已隐藏本公司未披露的科目。部分明细取自报表附注，不一定与合计逐项相加；现金流量表中的流出项以负数显示。")}</p>
     </div>
   );
 }
@@ -166,10 +163,11 @@ function GroupRows({ group, lines, rows, order, valueMode, yoyLag }: {
   group: string; lines: StatementLine[]; rows: StatementPeriod[]; order: number[];
   valueMode: Props["valueMode"]; yoyLag: number;
 }) {
+  const tr = useTr();
   return (
     <>
       <tr className="border-t border-fs-border/50 bg-fs-elevated/30">
-        <td className="sticky left-0 z-10 bg-fs-elevated px-2 py-1 text-[11px] font-medium text-fs-muted sm:px-3">{group}</td>
+        <td className="sticky left-0 z-10 bg-fs-elevated px-2 py-1 text-[11px] font-medium text-fs-muted sm:px-3">{tr(group)}</td>
         <td colSpan={order.length} />
       </tr>
       {lines.map(line => (
@@ -177,7 +175,7 @@ function GroupRows({ group, lines, rows, order, valueMode, yoyLag }: {
           <td className={`sticky left-0 z-10 w-[6.5rem] min-w-[6.5rem] max-w-[6.5rem] bg-fs-bg px-2 py-1.5 text-[13px] leading-snug sm:w-auto sm:max-w-none sm:px-3 sm:text-sm sm:whitespace-nowrap ${
             line.total ? "font-medium text-fs-text" : "text-fs-text/90"
           }`}>
-            {line.label}
+            {tr(line.label)}
           </td>
           {order.map(i => {
             const { text, cls } = cell(rows, i, line, valueMode, yoyLag);

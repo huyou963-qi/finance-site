@@ -1,9 +1,13 @@
 import { FeatureGate } from "@/components/access/FeatureGate";
 import { EquityBacktestReportClient } from "@/components/equity/EquityBacktestReportClient";
+import { getServerTr } from "@/i18n/serverText";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "回测报告" };
+export async function generateMetadata() {
+  const tr = await getServerTr();
+  return { title: tr("回测报告") };
+}
 
 export default async function QuantBacktestReportPage({
   params,

@@ -19,6 +19,7 @@ import {
   DataZoomComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([
   LineChart,
@@ -57,6 +58,7 @@ export type NavPoint = { date: string; nav: number; benchNav: number | null };
 
 /** NAV 对数曲线 vs SPY。nav/benchNav 均起点归一（=1）。 */
 export function NavChart({ nav }: { nav: NavPoint[] }) {
+  const tr = useTr();
   const dates = nav.map((p) => p.date);
   const hasBench = nav.some((p) => p.benchNav != null);
   const option: echarts.EChartsCoreOption = {
@@ -64,7 +66,7 @@ export function NavChart({ nav }: { nav: NavPoint[] }) {
     animation: false,
     color: [SERIES_BLUE, BENCH_GRAY],
     legend: {
-      data: hasBench ? ["策略", "SPY 基准"] : ["策略"],
+      data: hasBench ? [tr("策略"), tr("SPY 基准")] : [tr("策略")],
       textStyle: { color: "#c3c2b7", fontSize: 12 },
       top: 0,
       right: 8,
@@ -109,7 +111,7 @@ export function NavChart({ nav }: { nav: NavPoint[] }) {
     ],
     series: [
       {
-        name: "策略",
+        name: tr("策略"),
         type: "line",
         data: nav.map((p) => p.nav),
         showSymbol: false,
@@ -119,7 +121,7 @@ export function NavChart({ nav }: { nav: NavPoint[] }) {
       ...(hasBench
         ? [
             {
-              name: "SPY 基准",
+              name: tr("SPY 基准"),
               type: "line" as const,
               data: nav.map((p) => p.benchNav),
               showSymbol: false,
@@ -137,6 +139,7 @@ export type TurnoverPoint = { date: string; turnover: number };
 
 /** 逐调仓期双边换手率柱状。 */
 export function TurnoverChart({ points }: { points: TurnoverPoint[] }) {
+  const tr = useTr();
   const option: echarts.EChartsCoreOption = {
     backgroundColor: "transparent",
     animation: false,
@@ -163,7 +166,7 @@ export function TurnoverChart({ points }: { points: TurnoverPoint[] }) {
     },
     series: [
       {
-        name: "双边换手率",
+        name: tr("双边换手率"),
         type: "bar",
         data: points.map((p) => p.turnover),
         itemStyle: { borderRadius: [3, 3, 0, 0] },

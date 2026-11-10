@@ -9,6 +9,7 @@ export async function loadEnglishText(): Promise<TextDict> {
     import("./common.json"),
     import("./macro.json"),
     import("./markets.json"),
+    import("./equity.json"),
   ]);
   return Object.assign({}, ...modules.map((m) => m.default)) as TextDict;
 }
