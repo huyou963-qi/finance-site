@@ -356,23 +356,23 @@ export function StockDataWorkspace() {
   const tableArea = (
     <div className="flex min-h-0 flex-1 flex-col">
       {error ? (
-        <div role="alert" className="m-3 rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 text-sm">
+        <div role="alert" className="m-3 rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 md:py-1 text-sm md:text-xs">
           {error.text}
           {error.needsPro ? <Link href="/pricing" className="ml-3 text-fs-accent">了解 Pro 会员</Link> : null}
         </div>
       ) : null}
       {notice ? (
-        <div role="status" className="mx-3 mt-3 flex items-start gap-3 rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 text-sm text-fs-muted">
+        <div role="status" className="mx-3 mt-3 flex items-start gap-3 rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 md:py-1 text-sm md:text-xs text-fs-muted">
           <span className="min-w-0 flex-1">{notice}</span>
           <button type="button" onClick={() => setNotice("")} aria-label="关闭提示" className="shrink-0">✕</button>
         </div>
       ) : null}
       {!draft.stocks.length || !draft.columns.length ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm text-fs-muted">
-          <p className="text-base text-fs-text">{!draft.stocks.length ? "先选股票" : "再选指标"}</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm md:text-xs text-fs-muted">
+          <p className="text-base md:text-sm text-fs-text">{!draft.stocks.length ? "先选股票" : "再选指标"}</p>
           <p>{!draft.stocks.length ? "从自选股、系统股票池或搜索框加入美股，最多 50 只。" : "在指标目录里双击，或拖到这里，最多 50 列。"}</p>
           <div className="mt-2 flex gap-2 md:hidden">
-            <button type="button" onClick={() => setMobileTab(!draft.stocks.length ? "stocks" : "indicators")} className="min-h-10 rounded-lg bg-fs-accent px-4 text-white">
+            <button type="button" onClick={() => setMobileTab(!draft.stocks.length ? "stocks" : "indicators")} className="min-h-10 md:min-h-8 rounded-lg bg-fs-accent px-4 text-white">
               {!draft.stocks.length ? "去选股票" : "去选指标"}
             </button>
           </div>
@@ -398,25 +398,25 @@ export function StockDataWorkspace() {
   return (
     <div className="flex min-h-[560px] flex-1 flex-col text-fs-text">
       {/* 工具条 */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-fs-border px-3 py-2 md:px-4">
-        <h1 className="mr-2 text-base font-semibold">股票数据</h1>
+      <div className="flex flex-wrap items-center gap-2 border-b border-fs-border px-3 py-2 md:py-1 md:px-4">
+        <h1 className="mr-2 text-base md:text-sm font-semibold">股票数据</h1>
         <button
           type="button"
           onClick={() => { void fetchData(draft); setMobileTab("table"); }}
           disabled={!canFetch}
-          className="min-h-9 rounded-lg bg-fs-accent px-4 text-sm text-white disabled:opacity-40"
+          className="min-h-9 md:min-h-7 rounded-lg bg-fs-accent px-4 text-sm md:text-xs text-white disabled:opacity-40"
         >
           {loading ? "提取中…" : "提取数据"}
         </button>
         <div className="hidden flex-wrap items-center gap-1 md:flex">
           {actions.map((a) => (
-            <button key={a.label} type="button" onClick={a.run} disabled={a.disabled} className="min-h-9 rounded-lg px-3 text-sm hover:bg-fs-elevated disabled:opacity-40">
+            <button key={a.label} type="button" onClick={a.run} disabled={a.disabled} className="min-h-9 md:min-h-7 rounded-lg px-3 text-sm md:text-xs hover:bg-fs-elevated disabled:opacity-40">
               {a.label}
             </button>
           ))}
         </div>
         <details className="relative md:hidden">
-          <summary className="flex min-h-9 cursor-pointer list-none items-center rounded-lg border border-fs-border px-3 text-sm" aria-label="更多操作">⋯</summary>
+          <summary className="flex min-h-9 md:min-h-7 cursor-pointer list-none items-center rounded-lg border border-fs-border px-3 text-sm md:text-xs" aria-label="更多操作">⋯</summary>
           <div className="absolute left-0 top-full z-40 mt-1 w-40 rounded-lg border border-fs-border bg-fs-bg py-1 shadow-lg">
             {actions.map((a) => (
               <button
@@ -424,7 +424,7 @@ export function StockDataWorkspace() {
                 type="button"
                 disabled={a.disabled}
                 onClick={(e) => { a.run(); (e.currentTarget.closest("details") as HTMLDetailsElement | null)?.removeAttribute("open"); }}
-                className="block min-h-10 w-full px-3 text-left text-sm hover:bg-fs-elevated disabled:opacity-40"
+                className="block min-h-10 md:min-h-8 w-full px-3 text-left text-sm md:text-xs hover:bg-fs-elevated disabled:opacity-40"
               >
                 {a.label}
               </button>
@@ -446,7 +446,7 @@ export function StockDataWorkspace() {
             role="tab"
             aria-selected={mobileTab === id}
             onClick={() => setMobileTab(id)}
-            className={`min-h-10 flex-1 text-sm ${mobileTab === id ? "border-b-2 border-fs-accent font-semibold" : "text-fs-muted"}`}
+            className={`min-h-10 md:min-h-8 flex-1 text-sm md:text-xs ${mobileTab === id ? "border-b-2 border-fs-accent font-semibold" : "text-fs-muted"}`}
           >
             {label}
           </button>
@@ -455,7 +455,7 @@ export function StockDataWorkspace() {
 
       <div className="flex min-h-0 flex-1">
         {/* 电脑：左栏上下两块；手机：按标签只显示其一 */}
-        <aside className={`min-h-0 w-full flex-col border-fs-border md:flex md:w-[300px] md:shrink-0 md:border-r ${mobileTab === "table" ? "hidden" : "flex"}`}>
+        <aside className={`min-h-0 w-full flex-col border-fs-border md:flex md:w-[248px] md:shrink-0 md:border-r ${mobileTab === "table" ? "hidden" : "flex"}`}>
           <div className={`min-h-0 flex-col md:flex md:flex-[3] md:border-b md:border-fs-border ${mobileTab === "indicators" ? "flex flex-1" : "hidden"}`}>
             <div role="tablist" aria-label="指标与模板" className="flex border-b border-fs-border">
               {([["indicators", "指标库"], ["templates", "模板"]] as [LeftTab, string][]).map(([id, label]) => (
@@ -465,7 +465,7 @@ export function StockDataWorkspace() {
                   role="tab"
                   aria-selected={leftTab === id}
                   onClick={() => setLeftTab(id)}
-                  className={`min-h-9 flex-1 text-sm ${leftTab === id ? "border-b-2 border-fs-accent font-semibold" : "text-fs-muted"}`}
+                  className={`min-h-9 md:min-h-7 flex-1 text-sm md:text-xs ${leftTab === id ? "border-b-2 border-fs-accent font-semibold" : "text-fs-muted"}`}
                 >
                   {label}
                 </button>
@@ -490,7 +490,7 @@ export function StockDataWorkspace() {
       </div>
 
       {toast ? (
-        <div role="status" className="fixed inset-x-4 bottom-4 z-[150] mx-auto flex max-w-md items-center gap-3 rounded-lg bg-fs-text px-4 py-3 text-sm text-white shadow-lg">
+        <div role="status" className="fixed inset-x-4 bottom-4 z-[150] mx-auto flex max-w-md items-center gap-3 rounded-lg bg-fs-text px-4 py-3 text-sm md:text-xs text-white shadow-lg">
           <span className="min-w-0 flex-1">{toast.text}</span>
           {toast.goTable && mobileTab !== "table" ? (
             <button type="button" onClick={() => { setMobileTab("table"); setToast(null); }} className="shrink-0 font-semibold text-white underline md:hidden">去表格</button>
@@ -509,7 +509,7 @@ export function StockDataWorkspace() {
             onKeyDown={(e) => { if (e.key === "Escape" && !saving.busy) setSaving(null); }}
             className="w-full rounded-t-2xl border border-fs-border bg-fs-bg p-4 shadow-xl md:w-[400px] md:rounded-xl"
           >
-            <h2 className="text-base font-semibold">保存模板</h2>
+            <h2 className="text-base md:text-sm font-semibold">保存模板</h2>
             <p className="mt-1 text-xs text-fs-muted">保存当前的 {draft.columns.length} 列及其参数；同名模板会被覆盖。</p>
             <input
               autoFocus
@@ -518,16 +518,16 @@ export function StockDataWorkspace() {
               onChange={(e) => setSaving({ ...saving, name: e.target.value })}
               placeholder="模板名称"
               aria-label="模板名称"
-              className="mt-3 min-h-10 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm"
+              className="mt-3 min-h-10 md:min-h-8 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm md:text-xs"
             />
-            <label className="mt-3 flex min-h-9 items-center gap-2 text-sm">
+            <label className="mt-3 flex min-h-9 md:min-h-7 items-center gap-2 text-sm md:text-xs">
               <input type="checkbox" checked={saving.withStocks} disabled={!draft.stocks.length} onChange={(e) => setSaving({ ...saving, withStocks: e.target.checked })} />
               连同当前 {draft.stocks.length} 只股票一起保存
             </label>
-            {saving.error ? <p role="alert" className="mt-2 text-sm text-fs-accent">{saving.error}</p> : null}
+            {saving.error ? <p role="alert" className="mt-2 text-sm md:text-xs text-fs-accent">{saving.error}</p> : null}
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" disabled={saving.busy} onClick={() => setSaving(null)} className="min-h-10 rounded-lg border border-fs-border px-4 text-sm">取消</button>
-              <button type="submit" disabled={saving.busy} className="min-h-10 rounded-lg bg-fs-accent px-4 text-sm text-white disabled:opacity-40">{saving.busy ? "保存中…" : "保存"}</button>
+              <button type="button" disabled={saving.busy} onClick={() => setSaving(null)} className="min-h-10 md:min-h-8 rounded-lg border border-fs-border px-4 text-sm md:text-xs">取消</button>
+              <button type="submit" disabled={saving.busy} className="min-h-10 md:min-h-8 rounded-lg bg-fs-accent px-4 text-sm md:text-xs text-white disabled:opacity-40">{saving.busy ? "保存中…" : "保存"}</button>
             </div>
           </form>
         </div>

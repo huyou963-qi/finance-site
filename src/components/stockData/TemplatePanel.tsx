@@ -31,7 +31,7 @@ export function TemplatePanel({ system, mine, loadError, onApply, onDelete }: Pr
     const expanded = open === t.id;
     return (
       <li key={t.id} className="border-b border-fs-border last:border-b-0">
-        <button type="button" onClick={() => setOpen(expanded ? null : t.id)} aria-expanded={expanded} className="flex min-h-10 w-full items-center gap-2 px-3 text-left text-sm hover:bg-fs-elevated">
+        <button type="button" onClick={() => setOpen(expanded ? null : t.id)} aria-expanded={expanded} className="flex min-h-10 md:min-h-8 w-full items-center gap-2 px-3 text-left text-sm md:text-xs hover:bg-fs-elevated">
           <span className="min-w-0 flex-1 truncate">{t.name}</span>
           <span className="shrink-0 text-xs text-fs-muted">{t.columns.length} 列{t.symbols?.length ? ` · ${t.symbols.length} 只` : ""}</span>
         </button>
@@ -39,18 +39,18 @@ export function TemplatePanel({ system, mine, loadError, onApply, onDelete }: Pr
           <div className="space-y-2 px-3 pb-3 text-xs">
             <p className="text-fs-muted">{summary.get(t.id)}</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => onApply(t, false)} className="min-h-9 rounded-lg bg-fs-accent px-3 text-white">应用列</button>
+              <button type="button" onClick={() => onApply(t, false)} className="min-h-9 md:min-h-7 rounded-lg bg-fs-accent px-3 text-white">应用列</button>
               {t.symbols?.length ? (
-                <button type="button" onClick={() => onApply(t, true)} className="min-h-9 rounded-lg border border-fs-border px-3">连同股票应用</button>
+                <button type="button" onClick={() => onApply(t, true)} className="min-h-9 md:min-h-7 rounded-lg border border-fs-border px-3">连同股票应用</button>
               ) : null}
               {!t.system ? (
                 confirmDelete === t.id ? (
                   <>
-                    <button type="button" onClick={() => { onDelete(t); setConfirmDelete(null); }} className="min-h-9 rounded-lg border border-fs-border px-3 text-fs-accent">确认删除</button>
-                    <button type="button" onClick={() => setConfirmDelete(null)} className="min-h-9 rounded-lg px-3">取消</button>
+                    <button type="button" onClick={() => { onDelete(t); setConfirmDelete(null); }} className="min-h-9 md:min-h-7 rounded-lg border border-fs-border px-3 text-fs-accent">确认删除</button>
+                    <button type="button" onClick={() => setConfirmDelete(null)} className="min-h-9 md:min-h-7 rounded-lg px-3">取消</button>
                   </>
                 ) : (
-                  <button type="button" onClick={() => setConfirmDelete(t.id)} className="min-h-9 rounded-lg px-3 text-fs-muted">删除</button>
+                  <button type="button" onClick={() => setConfirmDelete(t.id)} className="min-h-9 md:min-h-7 rounded-lg px-3 text-fs-muted">删除</button>
                 )
               ) : null}
             </div>

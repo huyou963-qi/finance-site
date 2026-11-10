@@ -61,7 +61,7 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
           onDoubleClick={() => addIds(active && selected.length > 1 ? selected : [d.id])}
           title={d.note}
           aria-pressed={active}
-          className={`flex min-h-8 w-full items-center gap-2 rounded px-2 text-left text-sm ${active ? "bg-fs-accent text-white" : "hover:bg-fs-elevated"}`}
+          className={`flex min-h-8 md:min-h-6 w-full items-center gap-2 rounded px-2 text-left text-sm md:text-xs ${active ? "bg-fs-accent text-white" : "hover:bg-fs-elevated"}`}
         >
           <span className="truncate">{d.label}</span>
           {showPath ? <span className={`ml-auto shrink-0 truncate text-xs ${active ? "text-white/80" : "text-fs-muted"}`}>{d.path.slice(1).join(" › ") || d.path[0]}</span> : null}
@@ -78,7 +78,7 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
           type="button"
           onClick={() => toggle(path)}
           aria-expanded={isOpen}
-          className="flex min-h-8 w-full items-center gap-1 rounded px-1 text-left text-sm hover:bg-fs-elevated"
+          className="flex min-h-8 md:min-h-6 w-full items-center gap-1 rounded px-1 text-left text-sm md:text-xs hover:bg-fs-elevated"
           style={{ fontWeight: depth === 0 ? 600 : 500 }}
         >
           <span aria-hidden className="inline-block w-4 text-center text-xs text-fs-muted">{isOpen ? "▾" : "▸"}</span>
@@ -96,29 +96,26 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
 
   return (
     <section aria-label="指标" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-fs-border px-3 py-2">
-        <h2 className="text-sm font-semibold">指标</h2>
-        <span className="text-xs text-fs-muted">双击或拖到表格加列</span>
-      </div>
       <div className="px-3 pt-2">
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜索指标，如 营业收入、ROE"
+          title="双击指标或拖到表格即可加列"
           aria-label="搜索指标"
-          className="min-h-9 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm"
+          className="min-h-9 md:min-h-7 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm md:text-xs"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 md:py-1">
         {q ? (
-          matches.length ? <ul>{matches.map((d) => leaf(d, true))}</ul> : <p className="px-2 py-6 text-center text-sm text-fs-muted">没有匹配的指标</p>
+          matches.length ? <ul>{matches.map((d) => leaf(d, true))}</ul> : <p className="px-2 py-6 text-center text-sm md:text-xs text-fs-muted">没有匹配的指标</p>
         ) : (
           <ul>{tree.children.map((c) => branch(c, c.label, 0))}</ul>
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 border-t border-fs-border px-3 py-2">
-        <label className="flex min-h-9 items-center gap-1.5 text-xs text-fs-muted">
+      <div className="flex items-center justify-between gap-2 border-t border-fs-border px-3 py-2 md:py-1">
+        <label className="flex min-h-9 md:min-h-7 items-center gap-1.5 text-xs text-fs-muted">
           <input type="checkbox" checked={multi} onChange={(e) => { setMulti(e.target.checked); if (!e.target.checked) setSelected((p) => p.slice(-1)); }} />
           多选{selected.length ? ` · 已选 ${selected.length} 个` : ""}
         </label>
@@ -126,7 +123,7 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
           type="button"
           disabled={!selected.length}
           onClick={() => addIds(selected)}
-          className="min-h-9 rounded-lg bg-fs-accent px-3 text-sm text-white disabled:opacity-40"
+          className="min-h-9 md:min-h-7 rounded-lg bg-fs-accent px-3 text-sm md:text-xs text-white disabled:opacity-40"
         >
           加入表格
         </button>
