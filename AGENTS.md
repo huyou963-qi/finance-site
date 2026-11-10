@@ -373,6 +373,8 @@ npm run events:import-ingest -- <file.json>
 | 看 Actions 日志与 `pm2 list`（进程名 `finance-site-a|b`） | 用 `git status` 判断是否已部署最新版 |
 | deploy 失败时手动 `npm run data:apply` | `pg_dump` 同步开发库 |
 
+**生产库备份到家里群晖**：香港 cron 本机生成（业务表每天、`mds` 核心每周、PG17 物理备份月全量+周增量），群晖（192.168.1.12，容器 `finance-db-backup`，数据在共享文件夹 `db-backup`）只读 rsync 限速拉取并每周/每月自动恢复演练。香港公网出口只有约 1 Mbps：不要跨境直接跑 `pg_dump`，也不要做 WAL 实时流复制。部署与恢复步骤见 [docs/OPS_NAS_BACKUP.md](./docs/OPS_NAS_BACKUP.md)。
+
 **主机卡死排查落盘**（心跳 + 压力现场 + 开机捞 OOM）：见 [docs/OPS_HOST_DIAGNOSTICS.md](./docs/OPS_HOST_DIAGNOSTICS.md)；部署后在服务器装一次 cron（`host-diagnostics-snapshot.sh` 每 2 分钟）。
 
 ## 部署参考（内网 Windows）

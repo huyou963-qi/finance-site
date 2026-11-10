@@ -1,0 +1,24 @@
+services:
+  db-backup:
+    build: .
+    container_name: finance-db-backup
+    restart: unless-stopped
+    init: true   # 回收后台拉取任务退出后的子进程
+    environment:
+      TZ: Asia/Shanghai
+      HK_HOST: 8.218.16.70
+      HK_SSH_PORT: "22"
+      HK_SSH_USER: nasbackup
+      SSH_KEY_PATH: /run/keys/id_ed25519
+      SSH_KNOWN_HOSTS_PATH: /run/keys/known_hosts
+      BACKUP_ROOT: /backup
+      # 香港公网出口约 1 Mbps（≈120 KB/s）且与网站共用；单位 KB/s
+      SMALL_BWLIMIT: "80"
+      PHYS_BWLIMIT: "50"
+      # 可选：失败时推送到 Slack 兼容 webhook
+      ALERT_WEBHOOK_URL: ""
+    volumes:
+      # 首次 init-keys 会在这里生成私钥，所以不能只读挂载
+      - ./keys:/run/keys
+      # 改成群晖上的加密共享文件夹（里面会有 .env.local 等密钥）
+      - /volume1/db-backup:/backup
