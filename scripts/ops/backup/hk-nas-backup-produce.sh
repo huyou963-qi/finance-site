@@ -78,6 +78,12 @@ do_files() {
   tar -czf "$w/etc-nginx.tgz" -C /etc nginx 2>/dev/null || true
   tar -czf "$w/etc-postgresql.tgz" -C /etc postgresql 2>/dev/null || true
   tar -czf "$w/etc-cron.d.tgz" -C /etc cron.d 2>/dev/null || true
+  # HTTPS 证书与 certbot 账号（含私钥；群晖侧只放管理员可读的共享文件夹）
+  [ -d /etc/letsencrypt ] && tar -czf "$w/etc-letsencrypt.tgz" -C /etc letsencrypt
+  # 系统级服务定义：pm2 开机自启、ufw 规则
+  tar -czf "$w/etc-system.tgz" -C / etc/systemd/system/pm2-root.service etc/ufw/user.rules etc/ufw/user6.rules 2>/dev/null || true
+  # 各账号登记的 SSH 公钥（群晖中国官网代理 china-proxy 反向隧道、群晖备份 nasbackup、GitHub 部署 root）
+  tar -czf "$w/ssh-authorized-keys.tgz" -C / root/.ssh/authorized_keys home/china-proxy/.ssh/authorized_keys home/nasbackup/.ssh/authorized_keys 2>/dev/null || true
   [ -d /root/deploy-bak ] && tar -czf "$w/root-deploy-bak.tgz" -C /root deploy-bak
   crontab -l -u root > "$w/crontab-root.txt" 2>/dev/null || true
   date +%Y-%m-%dT%H:%M:%S%z > "$w/exported-at.txt"
