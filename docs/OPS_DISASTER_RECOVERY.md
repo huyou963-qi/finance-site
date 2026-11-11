@@ -129,3 +129,39 @@ for p in / /api/health /macro /markets /equity/sectors; do curl -sk -o /dev/null
 | 2026-11-10 | 逻辑恢复（app 20261110-1816 + core 20261110）+ 生产同款部署脚本 | ✅ 通过：nginx+HTTPS 下 5 个页面全部 200，`/api/health` 正常，用户 86、宏观观测 147 万行，`equity:assert-seeded` 通过 | 装软件 20 分钟（群晖访问 Ubuntu 源慢，云服务器通常 2–3 分钟）；恢复数据库 5 分钟；部署 93 分钟（大部分时间花在 `data:apply` 从各数据源重新拉数） | ① 备份放在 `/root` 下，postgres 用户读不到 → 先复制到临时目录；② 中途失败留下的空库会被误判为「已恢复」，脚本一路「成功」到底 → 改为检查核心表，空库自动删掉重来，恢复后行数为 0 直接报错；③ Windows 打源码包会改成 CRLF，导致依赖 key 不一致（见上） |
 
 **按这次演练估算真实恢复耗时**：新机器约 3 小时可以对外服务，其中开机和下载备份约 30 分钟，脚本约 30 分钟，部署约 1.5 小时，改 DNS 生效约 10 分钟。逻辑恢复时大表要在之后 1–3 天内于后台补齐。
+
+### 演练机 compose（Container Manager → 项目 → 新增 → 创建 docker-compose.yml，路径 `/docker/dr-rehearsal`）
+
+把 `<你的 SSH 公钥>` 换成操作电脑的公钥（建议单独生成一把，例如 `ssh-keygen -t ed25519 -f ~/.ssh/dr_rehearsal_ed25519`）。容器是特权模式（为了跑 systemd），创建时需要你本人在 DSM 里确认；演练完就删掉。
+
+```yaml
+services:
+  dr-rehearsal:
+    image: jrei/systemd-ubuntu:22.04
+    container_name: dr-rehearsal
+    hostname: dr-rehearsal
+    privileged: true
+    cgroup: host
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - /volume1/db-backup:/restore:ro
+    ports:
+      - "22922:22"
+      - "28080:80"
+      - "28443:443"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - >-
+        set -e;
+        if ! command -v sshd >/dev/null; then apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openssh-server >/dev/null; fi;
+        mkdir -p /root/.ssh;
+        echo '<你的 SSH 公钥>' > /root/.ssh/authorized_keys;
+        chmod 700 /root/.ssh; chmod 600 /root/.ssh/authorized_keys;
+        systemctl enable ssh >/dev/null 2>&1 || true;
+        exec /lib/systemd/systemd
+```
+启动后约 2 分钟能 SSH 上去：`ssh -i ~/.ssh/dr_rehearsal_ed25519 -p 22922 root@192.168.1.12`。
