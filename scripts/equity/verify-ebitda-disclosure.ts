@@ -6,8 +6,10 @@
  *
  * Usage:
  *   npm run equity:verify-ebitda-disclosure
- *   npm run equity:verify-ebitda-disclosure -- --sample=40 --out=/opt/cursor/artifacts/ebitda-disclosure.json
+ *   npm run equity:verify-ebitda-disclosure -- --sample=0
+ *   npm run equity:verify-ebitda-disclosure -- --sample=40 --out=.data/ebitda-disclosure.json
  *
+ * 默认只打印 JSON；传 `--out=` 才落盘（默认不写 `/opt/cursor/...`，本地/生产可写）。
  * 退出码：永远 0（源端稀缺是预期，不是脚本故障）。用 JSON 的 framesEmpty / dbEmpty 做运维结论。
  */
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -33,6 +35,15 @@ function arg(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
+/** 显式 `--name=0` 保留 0；缺省用 fallback；非法数字回退 fallback。 */
+function nonNegIntArg(name: string, fallback: number): number {
+  const raw = arg(name);
+  if (raw == null || raw === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.floor(n));
+}
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -56,9 +67,9 @@ async function fetchFrame(
 }
 
 async function main() {
-  const out = arg("out") ?? "/opt/cursor/artifacts/ebitda-disclosure.json";
-  const sampleN = Math.max(0, Number(arg("sample") ?? 30) || 30);
-  const delayMs = Math.max(100, Number(arg("delay-ms") ?? 200) || 200);
+  const out = arg("out"); // 可选；不传则只 stdout
+  const sampleN = nonNegIntArg("sample", 30);
+  const delayMs = Math.max(100, nonNegIntArg("delay-ms", 200));
 
   const frames: {
     taxonomy: string;
@@ -162,9 +173,11 @@ async function main() {
           : "frames 有命中：应对命中发行人跑 equity:sync-fundamentals --period-type=Q 回灌。",
   };
 
-  mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
+  if (out) {
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, JSON.stringify(report, null, 2));
+  }
 }
 
 main()
