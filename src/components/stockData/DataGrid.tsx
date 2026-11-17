@@ -110,7 +110,7 @@ export function DataGrid({
               style={{ width: IDX_W, minWidth: IDX_W, maxWidth: IDX_W }}
             >{tr("序号")}</th>
             <th
-              className={`${th} sticky z-30 left-0 ${freezeMd ? "md:left-8" : ""}`}
+              className={`${th} z-30 ${freezeMd ? "sticky left-0 md:left-8" : "sticky left-0 md:static"}`}
               style={{ width: SYM_W, minWidth: SYM_W, maxWidth: SYM_W }}
             >
               <button type="button" onClick={() => onSort("$symbol")} className="flex items-center gap-1">{tr("代码")} <span className="text-xs text-fs-muted">{sortMark(sort, "$symbol")}</span></button>
@@ -180,7 +180,7 @@ export function DataGrid({
                   </button>
                 </td>
                 <td
-                  className={`${td} ${bg} sticky z-10 left-0 truncate font-medium ${freezeMd ? "md:left-8" : ""}`}
+                  className={`${td} ${bg} z-10 truncate font-medium ${freezeMd ? "sticky left-0 md:left-8" : "sticky left-0 md:static"}`}
                   style={{ width: SYM_W, minWidth: SYM_W, maxWidth: SYM_W }}
                 >
                   {linkMarkets ? (

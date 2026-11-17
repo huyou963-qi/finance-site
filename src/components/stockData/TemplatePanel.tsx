@@ -28,7 +28,7 @@ export function TemplatePanel({ system, mine, loadError, onApply, onDelete }: Pr
     const m = new Map<string, string>();
     for (const t of [...system, ...(mine ?? [])]) {
       const names = [...new Set(t.columns.map((c) => columnHeader(c).label))];
-      const poolHint = t.defaultPool ? tr(" · 默认股票：{label}", { label: t.defaultPool.label }) : "";
+      const poolHint = t.defaultPool ? tr(" · 默认股票：{label}", { label: tr(t.defaultPool.label) }) : "";
       m.set(
         t.id,
         tr("{length} 列：{v1}{v2}", {
@@ -45,7 +45,7 @@ export function TemplatePanel({ system, mine, loadError, onApply, onDelete }: Pr
     const expanded = open === t.id;
     const withStocks = canApplyWithStocks(t);
     const withStocksLabel = t.defaultPool
-      ? tr("应用列 + {label}", { label: t.defaultPool.label })
+      ? tr("应用列 + {label}", { label: tr(t.defaultPool.label) })
       : tr("连同股票应用");
     return (
       <li key={t.id} className="border-b border-fs-border last:border-b-0">
@@ -53,7 +53,7 @@ export function TemplatePanel({ system, mine, loadError, onApply, onDelete }: Pr
           <span className="min-w-0 flex-1 truncate">{tr(t.name)}</span>
           <span className="shrink-0 text-xs text-fs-muted">
             {t.columns.length} {tr("列")}
-            {t.symbols?.length ? tr(" · {length} 只", { length: t.symbols.length }) : t.defaultPool ? tr(" · {label}", { label: t.defaultPool.label }) : ""}
+            {t.symbols?.length ? tr(" · {length} 只", { length: t.symbols.length }) : t.defaultPool ? tr(" · {label}", { label: tr(t.defaultPool.label) }) : ""}
           </span>
         </button>
         {expanded ? (
