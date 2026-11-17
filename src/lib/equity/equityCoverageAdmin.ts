@@ -126,7 +126,7 @@ export async function loadEquityCoverageReport(db: PrismaClient): Promise<Equity
       withAnyEbitda: withAny.size,
       sampleMissing,
       samplePresent,
-      note: "EBITDA 仅在发行人公开披露对应标签时入库；多数大票「未披露」通常是源端未打该标签，不是页面取数错误。",
+      note: "EBITDA 仅在发行人公开披露对应 XBRL 标签时入库。SEC frames 对白名单标签近年无发行人数据，库内为 0 通常是源端未打标，不是页面或 sync 故障；禁止用营业利润+折旧推算入库。",
     },
     prices: {
       coverageRows: priceRows.length,
