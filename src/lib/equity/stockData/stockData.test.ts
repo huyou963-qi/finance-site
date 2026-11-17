@@ -47,6 +47,28 @@ test("system templates cover valuation / quality / growth / technical presets", 
   assert.ok(byId.get("sys:quality")!.columns.some((c) => c.indicatorId === "fs.grossMargin"));
   assert.ok(byId.get("sys:technical")!.columns.some((c) => c.indicatorId === "tech.rsi14"));
   assert.ok(byId.get("sys:income3y")!.columns.some((c) => c.indicatorId === "fs.ebitda"));
+  for (const id of ["sys:valuation", "sys:quality", "sys:growth", "sys:trend"]) {
+    assert.equal(byId.get(id)!.defaultPool?.id, "sp500");
+    assert.equal(byId.get(id)!.defaultPool?.limit, 50);
+  }
+  assert.equal(byId.get("sys:technical")!.defaultPool ?? null, null);
+  assert.equal(byId.get("sys:income3y")!.defaultPool ?? null, null);
+});
+
+test("indicator search matches Chinese, English, aliases and pinyin", async () => {
+  const { matchesIndicatorQuery, filterIndicators } = await import("./indicatorSearch");
+  const revenue = getIndicator("fs.revenue")!;
+  assert.ok(matchesIndicatorQuery(revenue, "营业收入"));
+  assert.ok(matchesIndicatorQuery(revenue, "revenue"));
+  assert.ok(matchesIndicatorQuery(revenue, "yysr"));
+  assert.ok(matchesIndicatorQuery(revenue, "yingye"));
+  assert.ok(matchesIndicatorQuery(getIndicator("ratio.roeTtm")!, "roe"));
+  assert.ok(filterIndicators(INDICATORS, "ebitda").some((d) => d.id === "fs.ebitda"));
+  // 短别名只精确/正向包含，避免 pe⊂price、ps⊂eps 误伤
+  assert.ok(matchesIndicatorQuery(getIndicator("val.pe")!, "pe"));
+  assert.equal(matchesIndicatorQuery(getIndicator("val.pe")!, "price"), false);
+  assert.equal(matchesIndicatorQuery(getIndicator("val.ps")!, "eps"), false);
+  assert.ok(matchesIndicatorQuery(getIndicator("fs.eps")!, "eps"));
 });
 
 test("normalizeParams adds defaults and drops params an indicator does not take", () => {
@@ -245,9 +267,12 @@ test("CSV exports raw numbers, percent as percent, and status words", () => {
       { key: "x", indicatorId: "fs.inventory", params: { period: { kind: "latestFY" } } },
     ],
   );
-  const [head, row] = csv.replace("﻿", "").trim().split("\r\n");
-  assert.equal(head, "代码,名称,毛利率 [最新年报] (%),营业收入 [最新年报] (美元),存货 [最新年报] (美元)");
-  assert.equal(row, 'AAPL,"Apple, Inc.",25,430000000000,未披露');
+  const lines = csv.replace("﻿", "").trimEnd().split("\r\n");
+  assert.equal(lines[0], "代码,名称,毛利率 [最新年报] (%),营业收入 [最新年报] (美元),存货 [最新年报] (美元)");
+  assert.equal(lines[1], 'AAPL,"Apple, Inc.",25,430000000000,未披露');
+  assert.equal(lines[2], "");
+  assert.ok(lines[3]?.includes("说明：财务类"));
+  assert.ok(lines.some((l) => l.includes("本表列参数摘录")));
 });
 
 test("result filters keep AND semantics and skip non-ok cells", () => {

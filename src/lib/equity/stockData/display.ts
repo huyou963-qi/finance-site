@@ -65,10 +65,41 @@ export function columnHeaderText(col: ColumnSpec): string {
   return [h.label, h.params && `[${h.params}]`, h.unit && `(${h.unit})`].filter(Boolean).join(" ");
 }
 
-/** XLSX 用的二维数组：第一行列头，之后每只股票一行；pctColumns 是需要设百分比格式的列下标 */
+/**
+ * 导出脚注（业务语言）：报告期 / 修订口径 / 复权说明；不写数据商、表名或管线。
+ * 供 CSV / XLSX 共用。
+ */
+export function exportFootnoteLines(columns: readonly ColumnSpec[]): string[] {
+  const lines = [
+    "说明：财务类取上市公司公开定期报告的最新修订值；报告期按公司财年。",
+    "估值类只用截止日之前已披露的财报。表内金额为原始数值（未做市值缩写）；百分比在 CSV 中为百分数。",
+  ];
+  const adjusts = [...new Set(columns.map((c) => c.params.adjust).filter(Boolean))];
+  if (adjusts.length) {
+    const labels = adjusts.map((a) => (a === "forward" ? "前复权" : a === "none" ? "不复权" : String(a)));
+    lines.push(`行情与部分技术指标价格口径：${labels.join("、")}（见各列参数）。`);
+  }
+  const periods = [
+    ...new Set(
+      columns
+        .map((c) => columnParamLabel(c.params))
+        .filter(Boolean),
+    ),
+  ].slice(0, 8);
+  if (periods.length) lines.push(`本表列参数摘录：${periods.join("；")}${periods.length >= 8 ? "…" : ""}`);
+  return lines;
+}
+
+function appendFootnotes(aoa: (string | number)[][], columns: readonly ColumnSpec[]): void {
+  aoa.push([]);
+  for (const line of exportFootnoteLines(columns)) aoa.push([line]);
+}
+
+/** XLSX 用的二维数组：第一行列头，之后每只股票一行；末尾脚注；pctColumns 是需要设百分比格式的列下标 */
 export function buildSheetData(rows: readonly StockDataRow[], columns: readonly ColumnSpec[]): { aoa: (string | number)[][]; pctColumns: number[] } {
   const aoa: (string | number)[][] = [["代码", "名称", ...columns.map(columnHeaderText)]];
   for (const r of rows) aoa.push([r.symbol, r.name, ...columns.map((c) => exportValue(c, r.cells[c.key], false))]);
+  appendFootnotes(aoa, columns);
   const pctColumns = columns.flatMap((c, i) => (getIndicator(c.indicatorId)?.unit === "pct" ? [i + 2] : []));
   return { aoa, pctColumns };
 }
@@ -100,7 +131,7 @@ function csvEscape(s: string): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** 导出原始数值（不缩写）；百分比导出为百分数，没有值的格子写状态文字 */
+/** 导出原始数值（不缩写）；百分比导出为百分数，没有值的格子写状态文字；末尾附参数脚注 */
 export function buildCsv(rows: readonly StockDataRow[], columns: readonly ColumnSpec[]): string {
   const header = ["代码", "名称", ...columns.map(columnHeaderText)];
   const lines = [header.map(csvEscape).join(",")];
@@ -108,6 +139,8 @@ export function buildCsv(rows: readonly StockDataRow[], columns: readonly Column
     const cells = columns.map((c) => exportValue(c, r.cells[c.key], true));
     lines.push([r.symbol, r.name, ...cells].map((s) => csvEscape(String(s))).join(","));
   }
+  lines.push("");
+  for (const note of exportFootnoteLines(columns)) lines.push(csvEscape(note));
   // BOM 让 Excel 按 UTF-8 打开中文
   return `﻿${lines.join("\r\n")}\r\n`;
 }

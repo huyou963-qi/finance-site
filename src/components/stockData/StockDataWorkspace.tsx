@@ -1,12 +1,19 @@
 "use client";
 
 import { Link } from "@/i18n/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 import { randomUUID } from "@/lib/randomId";
 import { buildColumns, columnCountAfterEdit, editColumns, expandToGroups, multiPeriodCount } from "@/lib/equity/stockData/columns";
 import { buildCsv, buildSheetData, formatCellValue, sortRows, type SortState } from "@/lib/equity/stockData/display";
 import { computeGroupStats } from "@/lib/equity/stockData/groupStats";
+import {
+  clampLeftWidth,
+  LEFT_WIDTH_DEFAULT,
+  readLayoutPrefs,
+  writeLayoutPrefs,
+  type StockDataLayoutPrefs,
+} from "@/lib/equity/stockData/layoutPrefs";
 import { applyResultFilters, FILTER_OP_LABELS, type FilterOp, type ResultFilter } from "@/lib/equity/stockData/resultFilter";
 import { systemTemplates, type StockDataTemplate } from "@/lib/equity/stockData/templates";
 import { getIndicator, INDICATORS, normalizeParams, publicIndicator } from "@/lib/equity/stockData/indicatorRegistry";
@@ -106,7 +113,16 @@ export function StockDataWorkspace() {
   const [activeFilters, setActiveFilters] = useState<ResultFilter[]>([]);
   const [seriesTarget, setSeriesTarget] = useState<{ symbol: string; name: string; column: ColumnSpec } | null>(null);
   const [groupValueKey, setGroupValueKey] = useState("");
+  const [layout, setLayout] = useState<StockDataLayoutPrefs>({
+    leftWidthPx: LEFT_WIDTH_DEFAULT,
+    colWidths: {},
+    freezeIdentity: true,
+  });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leftResize = useRef<{ startX: number; startW: number } | null>(null);
+  const applySeq = useRef(0);
+  const applyAbort = useRef<AbortController | null>(null);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
 
   const draftKey = fetchSignature(draft.stocks.map((s) => s.symbol), draft.columns);
   const stale = !!result && fetchedKey !== draftKey;
@@ -149,15 +165,45 @@ export function StockDataWorkspace() {
     }
   }, [tr]);
 
-  // 恢复上次的草稿（刷新不丢），有股票和列时自动取一次数
+  // 恢复上次的草稿与布局（刷新不丢），有股票和列时自动取一次数
   useEffect(() => {
     const saved = readDraft();
     const d = saved && (saved.stocks.length || saved.columns.length) ? saved : { stocks: [], columns: defaultColumns() };
     setDraft(d);
+    setLayout(readLayoutPrefs());
     setRestored(true);
     if (d.stocks.length && d.columns.length) void fetchData(d);
   }, [fetchData]);
   useEffect(() => { if (restored) writeDraft(draft); }, [draft, restored]);
+  useEffect(() => { if (restored) writeLayoutPrefs(layout); }, [layout, restored]);
+
+  const patchLayout = useCallback((patch: Partial<StockDataLayoutPrefs>) => {
+    setLayout((prev) => ({ ...prev, ...patch, colWidths: patch.colWidths ?? prev.colWidths }));
+  }, []);
+
+  const onColWidthChange = useCallback((indicatorId: string, widthPx: number) => {
+    setLayout((prev) => ({
+      ...prev,
+      colWidths: { ...prev.colWidths, [indicatorId]: widthPx },
+    }));
+  }, []);
+
+  const startLeftResize = (e: ReactMouseEvent) => {
+    e.preventDefault();
+    leftResize.current = { startX: e.clientX, startW: layout.leftWidthPx };
+    const onMove = (ev: MouseEvent) => {
+      const cur = leftResize.current;
+      if (!cur) return;
+      patchLayout({ leftWidthPx: clampLeftWidth(cur.startW + (ev.clientX - cur.startX)) });
+    };
+    const onUp = () => {
+      leftResize.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -300,7 +346,9 @@ export function StockDataWorkspace() {
       const XLSX = await import("xlsx");
       const { aoa, pctColumns } = buildSheetData(rows, draft.columns);
       const ws = XLSX.utils.aoa_to_sheet(aoa);
-      for (let r = 1; r < aoa.length; r++) {
+      // 只给数据行设百分比格式（末尾脚注行跳过）
+      const dataRowEnd = 1 + rows.length;
+      for (let r = 1; r < dataRowEnd; r++) {
         for (const c of pctColumns) {
           const cell = ws[XLSX.utils.encode_cell({ r, c })];
           if (cell && cell.t === "n") cell.z = "0.00%";
@@ -317,7 +365,12 @@ export function StockDataWorkspace() {
   };
 
   // ---------- 模板 ----------
-  const applyTemplate = (t: StockDataTemplate, withStocks: boolean) => {
+  const applyTemplate = async (t: StockDataTemplate, withStocks: boolean) => {
+    const seq = ++applySeq.current;
+    applyAbort.current?.abort();
+    const ac = new AbortController();
+    applyAbort.current = ac;
+    setApplyingTemplate(true);
     // 换新的列标识和组标识，避免和当前的排序、选中状态串号
     const regroup = new Map<string, string>();
     const columns = t.columns.slice(0, MAX_COLUMNS).map((c) => {
@@ -328,11 +381,47 @@ export function StockDataWorkspace() {
       }
       return { ...c, key: newKey(), ...(groupId ? { groupId } : {}) };
     });
-    const stocks = withStocks && t.symbols?.length ? t.symbols.slice(0, MAX_SYMBOLS).map((symbol) => ({ symbol, name: symbol })) : null;
-    setDraft((d) => ({ columns, stocks: stocks ?? d.stocks }));
-    setSort(null);
-    setSelectedCols(new Set());
-    showToast(tr("已应用「{name}」：{length} 列{v2}，点「提取数据」刷新", { name: t.name, length: columns.length, v2: stocks ? tr("、{length} 只股票", { length: stocks.length }) : "" }), true);
+    let stocks: PickedStock[] | null = null;
+    try {
+      if (withStocks) {
+        if (t.symbols?.length) {
+          stocks = t.symbols.slice(0, MAX_SYMBOLS).map((symbol) => ({ symbol, name: symbol }));
+        } else if (t.defaultPool) {
+          try {
+            const r = await fetch(`/api/equity/stock-data/pools?id=${encodeURIComponent(t.defaultPool.id)}`, {
+              signal: ac.signal,
+            });
+            if (seq !== applySeq.current) return;
+            const j = await r.json();
+            if (seq !== applySeq.current) return;
+            if (!r.ok) {
+              showToast(j.error || tr("无法读取默认股票池"));
+              return;
+            }
+            const members = (j.members as { symbol: string; name: string }[] | undefined) ?? [];
+            stocks = members.slice(0, Math.min(t.defaultPool.limit, MAX_SYMBOLS)).map((m) => ({
+              symbol: m.symbol,
+              name: m.name || m.symbol,
+            }));
+            if (!stocks.length) {
+              showToast(tr("默认股票池暂无成分"));
+              return;
+            }
+          } catch (e) {
+            if (ac.signal.aborted || seq !== applySeq.current) return;
+            showToast(tr("网络异常，未能加载股票池"));
+            return;
+          }
+        }
+      }
+      if (seq !== applySeq.current) return;
+      setDraft((d) => ({ columns, stocks: stocks ?? d.stocks }));
+      setSort(null);
+      setSelectedCols(new Set());
+      showToast(tr("已应用「{name}」：{length} 列{v2}，点「提取数据」刷新", { name: t.name, length: columns.length, v2: stocks ? tr("、{length} 只股票", { length: stocks.length }) : "" }), true);
+    } finally {
+      if (seq === applySeq.current) setApplyingTemplate(false);
+    }
   };
 
   const deleteTemplate = async (t: StockDataTemplate) => {
@@ -376,6 +465,11 @@ export function StockDataWorkspace() {
     { label: tr("删除行"), run: deleteRows, disabled: !selectedRows.size },
     { label: tr("清空股票"), run: clearAll, disabled: !draft.stocks.length },
     { label: tr("保存模板"), run: () => setSaving({ name: "", withStocks: false, busy: false, error: "" }), disabled: !draft.columns.length },
+    {
+      label: layout.freezeIdentity ? tr("取消冻结列") : tr("冻结代码列"),
+      run: () => patchLayout({ freezeIdentity: !layout.freezeIdentity }),
+      disabled: false,
+    },
     { label: tr("导出 Excel"), run: () => void exportXlsx(), disabled: !canExport },
     { label: tr("导出 CSV"), run: exportCsv, disabled: !canExport },
   ];
@@ -516,6 +610,9 @@ export function StockDataWorkspace() {
           linkMarkets={features.can("markets")}
           linkStock={features.can("markets")}
           onCellClick={(symbol, name, column) => setSeriesTarget({ symbol, name, column })}
+          colWidths={layout.colWidths}
+          onColWidthChange={onColWidthChange}
+          freezeIdentity={layout.freezeIdentity}
         />
       )}
     </div>
@@ -586,8 +683,11 @@ export function StockDataWorkspace() {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        {/* 电脑：左栏上下两块；手机：按标签只显示其一 */}
-        <aside className={`min-h-0 w-full flex-col border-fs-border md:flex md:w-[248px] md:shrink-0 md:border-r ${mobileTab === "table" ? "hidden" : "flex"}`}>
+        {/* 电脑：左栏上下两块（可拖宽）；手机：按标签只显示其一 */}
+        <aside
+          className={`relative min-h-0 w-full flex-col border-fs-border md:flex md:shrink-0 md:border-r md:w-[var(--sd-left-w)] ${mobileTab === "table" ? "hidden" : "flex"}`}
+          style={{ ["--sd-left-w" as string]: `${layout.leftWidthPx}px` }}
+        >
           <div className={`min-h-0 flex-col md:flex md:flex-[3] md:border-b md:border-fs-border ${mobileTab === "indicators" ? "flex flex-1" : "hidden"}`}>
             <div role="tablist" aria-label={tr("指标与模板")} className="flex border-b border-fs-border">
               {([["indicators", tr("指标库")], ["templates", tr("模板")]] as [LeftTab, string][]).map(([id, label]) => (
@@ -606,12 +706,19 @@ export function StockDataWorkspace() {
             {leftTab === "indicators" ? (
               <IndicatorPanel indicators={PUBLIC_INDICATORS} onAdd={addIndicators} />
             ) : (
-              <TemplatePanel system={SYSTEM_TEMPLATES} mine={myTemplates} loadError={templateError} onApply={applyTemplate} onDelete={(t) => void deleteTemplate(t)} />
+                <TemplatePanel system={SYSTEM_TEMPLATES} mine={myTemplates} loadError={templateError} applying={applyingTemplate} onApply={(t, w) => void applyTemplate(t, w)} onDelete={(t) => void deleteTemplate(t)} />
             )}
           </div>
           <div className={`min-h-0 flex-col md:flex md:flex-[2] ${mobileTab === "stocks" ? "flex flex-1" : "hidden"}`}>
             <StockPoolPanel inTable={inTable} onAdd={addStocks} remainingSlots={MAX_SYMBOLS - draft.stocks.length} />
           </div>
+          <button
+            type="button"
+            aria-label={tr("拖动调整左栏宽度")}
+            title={tr("拖动调整左栏宽度")}
+            onMouseDown={startLeftResize}
+            className="absolute inset-y-0 right-0 z-30 hidden w-1.5 cursor-col-resize hover:bg-fs-accent/30 md:block"
+          />
         </aside>
         <section aria-label={tr("数据表格")} className={`min-h-0 min-w-0 flex-1 flex-col md:flex ${mobileTab === "table" ? "flex" : "hidden"}`}>
           {tableArea}

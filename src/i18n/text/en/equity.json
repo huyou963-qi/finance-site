@@ -1631,5 +1631,20 @@
   "股东回报": "Shareholder returns",
   "每股指标": "Per share",
   "成长能力": "Growth",
-  "风险": "Risk"
+  "风险": "Risk",
+  "搜索指标，如 营业收入、ROE、yysr": "Search indicators, e.g. revenue, ROE, yysr",
+  "支持中文、英文与拼音；双击或拖到表格即可加列": "Chinese, English, and pinyin; double-click or drag onto the grid to add columns",
+  "应用模板会替换表格里现有的列。系统模板可一键带上默认股票池。": "Applying a template replaces current columns. System templates can also load a default stock pool.",
+  " · 默认股票：{label}": " · Default stocks: {label}",
+  "应用列 + {label}": "Apply columns + {label}",
+  " · {label}": " · {label}",
+  "无法读取默认股票池": "Could not load the default stock pool",
+  "默认股票池暂无成分": "The default stock pool has no members",
+  "网络异常，未能加载股票池": "Network error; could not load the stock pool",
+  "取消冻结列": "Unfreeze identity columns",
+  "冻结代码列": "Freeze identity columns",
+  "拖动调整左栏宽度": "Drag to resize the left panel",
+  "拖动调整列宽": "Drag to resize column",
+  "标普 500 前 50": "S&P 500 top 50",
+  "应用中…": "Applying…"
 }
