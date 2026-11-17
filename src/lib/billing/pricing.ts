@@ -15,15 +15,18 @@ export type ProductType = "pro_month" | "pro_quarter" | "pro_year" | "credits";
 
 export const PLAN_FEATURES = {
   visitor: [
+    "首次访问起 7 天免费体验（到期引导注册）",
     "首页与品牌介绍",
     "宏观部分模板只读",
     "美股基础 K 线",
     "行业概览",
   ],
   standard: [
+    "注册即送 7 天 Pro 试用",
     "登录后保存书签与宏观图表偏好",
     "有限使用选股器（不可保存策略）",
     "AI 周报标题与摘要",
+    "试用结束后 Pro 功能引导升级",
   ],
   pro: [
     "AI 周报全文",

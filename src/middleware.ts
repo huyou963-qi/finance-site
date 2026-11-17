@@ -7,6 +7,12 @@ import {
   localizeHref,
   splitLocalePath,
 } from "@/i18n/locales";
+import {
+  GUEST_TRIAL_COOKIE,
+  guestTrialCookieOptions,
+  newGuestStartedValue,
+  parseGuestStartedAt,
+} from "@/lib/access/guestTrial";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -68,6 +74,22 @@ export function middleware(req: NextRequest) {
     res = NextResponse.next({ request: { headers: requestHeaders } });
   }
   res.headers.set(REQUEST_ID_HEADER, requestId);
+
+  // 游客首次访问打点：7 天免费体验从此刻起算（已有合法 cookie 不覆盖）
+  if (isPage && (req.method === "GET" || req.method === "HEAD")) {
+    const existing = parseGuestStartedAt(req.cookies.get(GUEST_TRIAL_COOKIE)?.value);
+    if (existing == null) {
+      const secure =
+        req.nextUrl.protocol === "https:" ||
+        req.headers.get("x-forwarded-proto") === "https";
+      res.cookies.set(
+        GUEST_TRIAL_COOKIE,
+        newGuestStartedValue(),
+        guestTrialCookieOptions(secure),
+      );
+    }
+  }
+
   return res;
 }
 

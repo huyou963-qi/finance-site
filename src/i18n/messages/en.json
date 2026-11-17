@@ -71,9 +71,12 @@
     "unavailableBody": "The service is busy. Please try again shortly.",
     "badgeDevelopment": "Coming soon",
     "badgePro": "Pro feature",
+    "badgeGuestExpired": "Guest trial ended",
     "developmentTitle": "{name} is coming soon",
     "developmentBody": "This feature isn't available yet. We'll launch it as soon as it's ready.",
     "proTitle": "{name} is a Pro feature",
+    "guestExpiredTitle": "Sign up to keep using {name}",
+    "guestExpiredBody": "Guests get {days} free days. After you sign up, you get another {days}-day Pro trial. When that ends, Pro features require an upgrade.",
     "registerBody": "Sign up for a free {days}-day Pro trial with full access to every Pro feature. No payment required.",
     "registerCta": "Sign up free, try {days} days",
     "loginCta": "Have an account? Log in",
@@ -370,15 +373,18 @@
     },
     "features": {
       "visitor": {
-        "0": "Home page and overview",
-        "1": "Read-only access to some macro templates",
-        "2": "Basic US stock price charts",
-        "3": "Industry overview"
+        "0": "7 free days from first visit (then prompted to sign up)",
+        "1": "Home page and overview",
+        "2": "Read-only access to some macro templates",
+        "3": "Basic US stock price charts",
+        "4": "Industry overview"
       },
       "standard": {
-        "0": "Save bookmarks and macro chart settings",
-        "1": "Limited stock screener (can't save strategies)",
-        "2": "AI weekly report titles and summaries"
+        "0": "7-day Pro trial on signup",
+        "1": "Save bookmarks and macro chart settings",
+        "2": "Limited stock screener (can't save strategies)",
+        "3": "AI weekly report titles and summaries",
+        "4": "After trial, Pro features prompt an upgrade"
       },
       "pro": {
         "0": "Full AI weekly reports",

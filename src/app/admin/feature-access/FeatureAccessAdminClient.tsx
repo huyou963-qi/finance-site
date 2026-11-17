@@ -242,8 +242,8 @@ export function FeatureAccessAdminClient() {
         </div>
         <div className="rounded-lg border border-fs-accent/25 bg-fs-accent-soft/50 p-3 text-xs leading-5 text-fs-secondary">
           <p className="mb-1 text-sm font-medium text-fs-accent-text">已上线</p>
-          所有人都能在导航里看到入口，只需配置是否「Pro 专属」。Pro 专属时：Pro 用户（含 7
-          天试用期内）正常使用；游客被引导注册（注册即送 7 天 Pro 试用）；普通用户（试用已结束）被引导升级 Pro。
+          所有人都能在导航里看到入口，只需配置是否「Pro 专属」。访问漏斗：游客自首次访问起免费体验 7
+          天，到期后引导注册；注册即送 7 天 Pro 试用；试用结束后，Pro 专属功能引导付费升级。
         </div>
       </div>
       <p className="text-xs text-fs-muted">
