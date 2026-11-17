@@ -36,13 +36,15 @@ export function StockPoolPanel({ inTable, onAdd, remainingSlots = 50 }: Props) {
   const [watch, setWatch] = useState<(WatchlistData & { userId: string | null }) | null>(null);
   const [watchError, setWatchError] = useState("");
   const [group, setGroup] = useState("all");
-  const loadWatchlist = () =>
+  useEffect(() => {
+    let cancelled = false;
     fetch("/api/tools/market-watchlist", { cache: "no-store" })
       .then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; })
-      .then((j) => { setWatch(j); setWatchError(""); })
-      .catch((e) => setWatchError(e.message || tr("无法加载自选股")))
-      .finally(() => setWatchReady(true));
-  useEffect(() => { void loadWatchlist(); }, [tr]);
+      .then((j) => { if (!cancelled) { setWatch(j); setWatchError(""); } })
+      .catch((e) => { if (!cancelled) setWatchError(e.message || tr("无法加载自选股")); })
+      .finally(() => { if (!cancelled) setWatchReady(true); });
+    return () => { cancelled = true; };
+  }, [tr]);
 
   // 自选为空时默认切到系统股票池，方便第一次使用
   useEffect(() => {
