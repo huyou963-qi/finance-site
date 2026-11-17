@@ -20,6 +20,11 @@ import {
   type FeatureViewer,
   type ViewerFeatureMap,
 } from "@/lib/access/featureCatalog";
+import {
+  GUEST_TRIAL_COOKIE,
+  isGuestTrialExpired,
+  parseGuestStartedAt,
+} from "@/lib/access/guestTrial";
 
 const CACHE_TTL_MS = 15_000;
 
@@ -61,10 +66,15 @@ export async function saveFeatureAccessPolicy(
   return policy;
 }
 
+function guestExpiredFromCookie(raw: string | undefined | null): boolean {
+  return isGuestTrialExpired(parseGuestStartedAt(raw));
+}
+
 function toViewer(
   access: { role: Role; plan: string; planExpiresAt: Date | null; trialEndsAt: Date | null } | null,
+  guestTrialExpired = false,
 ): FeatureViewer {
-  if (!access) return { role: null, hasProAccess: false };
+  if (!access) return { role: null, hasProAccess: false, guestTrialExpired };
   const hasProAccess = userHasProAccess(access);
   const trialEnded = Boolean(access.trialEndsAt && access.trialEndsAt.getTime() <= Date.now());
   return { role: access.role === "admin" ? "admin" : "user", hasProAccess, trialEnded };
@@ -72,17 +82,20 @@ function toViewer(
 
 /** 服务端组件 / 页面守卫用：从 cookie 解析访问者身份。 */
 export const getViewerFromCookies = reactCache(async (): Promise<FeatureViewer> => {
-  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value ?? null;
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE_NAME)?.value ?? null;
   const access = await getAccessUserByToken(token);
-  return toViewer(access);
+  const guestTrialExpired = guestExpiredFromCookie(jar.get(GUEST_TRIAL_COOKIE)?.value);
+  return toViewer(access, guestTrialExpired);
 });
 
 /** Route Handler 用：从请求解析访问者身份。 */
 export async function getViewerFromRequest(req: NextRequest): Promise<FeatureViewer> {
   const me = await getUserByRequest(req);
-  if (!me) return { role: null, hasProAccess: false };
+  const guestTrialExpired = guestExpiredFromCookie(req.cookies.get(GUEST_TRIAL_COOKIE)?.value);
+  if (!me) return { role: null, hasProAccess: false, guestTrialExpired };
   const access = await getUserAccessRecord(me.id);
-  return toViewer(access);
+  return toViewer(access, guestTrialExpired);
 }
 
 export type FeatureGateResult = {

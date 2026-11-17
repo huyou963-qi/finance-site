@@ -100,6 +100,35 @@ test("已上线 Pro 专属：游客引导注册、普通用户引导升级、Pro
   assert.equal(resolveFeatureAccess(policy, "weekly", ADMIN), "allowed");
 });
 
+test("游客 7 天体验到期后：免费与 Pro 页均引导注册；登录用户不受影响", () => {
+  const expired: FeatureViewer = { role: null, hasProAccess: false, guestTrialExpired: true };
+  const policy = defaultFeatureAccessPolicy();
+  assert.equal(resolveFeatureAccess(policy, "macro", expired), "needs-register");
+  assert.equal(resolveFeatureAccess(policy, "quant-factor-research", expired), "needs-register");
+  assert.equal(resolveFeatureAccess(policy, "macro", VISITOR), "allowed");
+  assert.equal(resolveFeatureAccess(policy, "macro", STANDARD), "allowed");
+  assert.equal(resolveFeatureAccess(policy, "quant-factor-research", STANDARD), "needs-upgrade");
+
+  const map = viewerFeatureMap(policy, expired);
+  assert.ok(map.listed.includes("macro"));
+  assert.ok(map.locked.includes("macro"));
+  assert.ok(map.locked.includes("quant-factor-research"));
+});
+
+test("游客体验到期：开发中且对游客预览的改为引导注册，未预览仍 hidden", () => {
+  const expired: FeatureViewer = { role: null, hasProAccess: false, guestTrialExpired: true };
+  const preview = withRule("weekly", {
+    status: "development",
+    preview: { visitor: true, standard: false, pro: false },
+  });
+  assert.equal(resolveFeatureAccess(preview, "weekly", expired), "needs-register");
+  const hidden = withRule("weekly", {
+    status: "development",
+    preview: { visitor: false, standard: false, pro: false },
+  });
+  assert.equal(resolveFeatureAccess(hidden, "weekly", expired), "hidden");
+});
+
 test("导航：开发中不可见的隐藏；Pro 专属照常列出并标记 locked", () => {
   const policy = defaultFeatureAccessPolicy();
   const visitor = viewerFeatureMap(policy, VISITOR);

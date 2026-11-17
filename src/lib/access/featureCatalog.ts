@@ -4,6 +4,11 @@
  * 四类用户：游客（未登录）、普通用户（已注册，无 Pro 权益）、Pro 用户（付费未过期或
  * 7 天试用期内）、管理员。管理员永远拥有最高权限，不受任何配置影响。
  *
+ * 访问漏斗：
+ * 1. 游客自首次访问起可免费使用已上线非 Pro 功能 7 天；到期后任意功能页引导注册。
+ * 2. 注册即送 7 天 Pro 试用（试用期内 audience=pro）。
+ * 3. 试用结束后，已上线非 Pro 功能仍可用；Pro 专属功能引导付费升级。
+ *
  * 每个功能页处于两种状态之一，由管理员在 `/admin/feature-access` 配置：
  *
  * - 开发中（development）：按「游客 / 普通用户 / Pro 用户」三列分别控制是否可见（预览）。
@@ -262,13 +267,18 @@ export type FeatureViewer = {
   hasProAccess: boolean;
   /** 是否用过试用（试用已结束）。仅用于锁定页文案区分「试用已结束」与「升级 Pro」 */
   trialEnded?: boolean;
+  /**
+   * 游客 7 天免费体验是否已结束。仅 role=null 时有意义；
+   * 到期后已上线功能一律 needs-register（含原先免费页）。
+   */
+  guestTrialExpired?: boolean;
 };
 
 /**
  * 访问判定：
  * - allowed：可以正常使用
  * - hidden：开发中且对该身份不可见（导航无入口，直达显示「开发中」）
- * - needs-register：已上线的 Pro 专属功能，游客 → 引导注册（送 7 天试用）
+ * - needs-register：游客需注册（Pro 专属，或游客 7 天体验已到期）
  * - needs-upgrade：已上线的 Pro 专属功能，普通用户 → 引导升级 Pro
  */
 export type FeatureAccessState = "allowed" | "hidden" | "needs-register" | "needs-upgrade";
@@ -367,6 +377,15 @@ export function resolveFeatureAccess(
   if (!rule) return "allowed"; // 未登记的页面不受管控
   const audience = viewerAudience(viewer);
   if (audience === "admin") return "allowed";
+
+  // 游客 7 天体验到期：开发中预览也改为引导注册；不可见的仍 hidden
+  if (audience === "visitor" && viewer.guestTrialExpired) {
+    if (rule.status === "development") {
+      return rule.preview.visitor ? "needs-register" : "hidden";
+    }
+    return "needs-register";
+  }
+
   if (rule.status === "development") return rule.preview[audience] ? "allowed" : "hidden";
   if (!rule.proOnly || audience === "pro") return "allowed";
   return audience === "visitor" ? "needs-register" : "needs-upgrade";

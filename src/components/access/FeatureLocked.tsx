@@ -14,7 +14,7 @@ const secondaryBtn = "rounded-md border border-fs-border px-4 py-2 text-sm text-
 /**
  * 功能页无权访问时的占位页，按原因给不同引导：
  * - hidden：功能开发中，暂未开放
- * - needs-register：游客访问 Pro 功能 → 注册即送 7 天 Pro 试用
+ * - needs-register：游客需注册（Pro 专属，或游客 7 天体验到期）
  * - needs-upgrade：普通用户访问 Pro 功能 → 升级 Pro（区分试用已结束）
  */
 export async function FeatureLocked({
@@ -48,9 +48,10 @@ export async function FeatureLocked({
       </Link>
     );
   } else if (state === "needs-register") {
-    badge = t("badgePro");
-    title = t("proTitle", { name });
-    body = t("registerBody", { days });
+    const guestExpired = Boolean(viewer.guestTrialExpired);
+    badge = guestExpired ? t("badgeGuestExpired") : t("badgePro");
+    title = guestExpired ? t("guestExpiredTitle", { name }) : t("proTitle", { name });
+    body = guestExpired ? t("guestExpiredBody", { days }) : t("registerBody", { days });
     actions = (
       <>
         <Link href="/auth?register=1" className={primaryBtn}>
