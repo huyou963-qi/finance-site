@@ -7,14 +7,18 @@ import {
   cpiWeightForFredId,
   type CpiMomMatrixRow,
 } from "@/lib/data/cpi/cpiMomMatrixCatalog";
+import {
+  CPI_MOM_MATRIX_DEFAULT_MONTHS,
+  CPI_MOM_MATRIX_MAX_MONTHS,
+  clampCpiMomMonthRange,
+  defaultCpiMomMonthRange,
+  filterCpiMomColumns,
+} from "@/lib/data/cpi/cpiMomMatrixRange";
 import { compareMacroPeriodLabels, formatMacroPeriodDisplay } from "@/lib/macroPeriodLabel";
 import { useTr } from "@/i18n/TextProvider";
 
 type UnifiedSeries = { key: string; name: string; data: (number | null)[] };
 type UnifiedPayload = { categories: string[]; series: UnifiedSeries[] };
-
-/** 展示多少个月（列数）。BLS Table A 通常展示最近 7 个月。 */
-const DEFAULT_MONTHS = 7;
 
 function fredKey(fredId: string): string {
   return `fred:${fredId}`;
@@ -59,12 +63,12 @@ function shiftYearPeriod(period: string, deltaYears: number): string | null {
 
 function computeYoy(
   levels: Map<string, number>,
-  latestPeriod: string | null,
+  endPeriod: string | null,
 ): number | null {
-  if (!latestPeriod) return null;
-  const prev = shiftYearPeriod(latestPeriod, -1);
+  if (!endPeriod) return null;
+  const prev = shiftYearPeriod(endPeriod, -1);
   if (!prev) return null;
-  const cur = levels.get(latestPeriod);
+  const cur = levels.get(endPeriod);
   const base = levels.get(prev);
   if (cur == null || base == null || base === 0) return null;
   return (cur / base - 1) * 100;
@@ -93,11 +97,16 @@ function indentPadding(indent: CpiMomMatrixRow["indent"]): string {
   return ["pl-3", "pl-6", "pl-10", "pl-14"][indent] ?? "pl-3";
 }
 
-export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number }) {
+const selectClass =
+  "h-7 rounded border border-fs-border bg-fs-bg px-1.5 text-[11px] text-fs-text focus:border-fs-accent focus:outline-none";
+
+export function CpiMomMatrixTable() {
   const tr = useTr();
   const [payload, setPayload] = useState<UnifiedPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<{ start: string; end: string } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     const series = CPI_MOM_MATRIX_FRED_IDS.map(fredKey).join(",");
@@ -124,35 +133,79 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
     };
   }, [tr]);
 
-  const { columns, momByRow, yoyByRow, latestPeriod } = useMemo(() => {
+  const { allPeriods, momByRow, levelsByRow } = useMemo(() => {
     if (!payload) {
       return {
-        columns: [] as string[],
+        allPeriods: [] as string[],
         momByRow: new Map<string, Map<string, number>>(),
-        yoyByRow: new Map<string, number | null>(),
-        latestPeriod: null as string | null,
+        levelsByRow: new Map<string, Map<string, number>>(),
       };
     }
     const seriesByKey = new Map(payload.series.map((s) => [s.key, s]));
     const perRow = new Map<string, Map<string, number>>();
-    const perYoy = new Map<string, number | null>();
+    const perLevels = new Map<string, Map<string, number>>();
     const periodSet = new Set<string>();
     for (const row of CPI_MOM_MATRIX_ROWS) {
       const s = seriesByKey.get(fredKey(row.fredId));
       const mom = s ? computeMomByPeriod(payload.categories, s.data) : new Map<string, number>();
+      const levels = s ? levelByPeriod(payload.categories, s.data) : new Map<string, number>();
       perRow.set(row.fredId, mom);
+      perLevels.set(row.fredId, levels);
       for (const p of mom.keys()) periodSet.add(p);
     }
-    const allPeriods = [...periodSet].sort(compareMacroPeriodLabels);
-    const cols = allPeriods.slice(-months);
-    const latest = cols.length > 0 ? cols[cols.length - 1]! : null;
-    for (const row of CPI_MOM_MATRIX_ROWS) {
-      const s = seriesByKey.get(fredKey(row.fredId));
-      const levels = s ? levelByPeriod(payload.categories, s.data) : new Map<string, number>();
-      perYoy.set(row.fredId, computeYoy(levels, latest));
+    const periods = [...periodSet].sort(compareMacroPeriodLabels);
+    return { allPeriods: periods, momByRow: perRow, levelsByRow: perLevels };
+  }, [payload]);
+
+  const effectiveRange = useMemo(() => {
+    if (allPeriods.length === 0) return null;
+    if (!range) return defaultCpiMomMonthRange(allPeriods, CPI_MOM_MATRIX_DEFAULT_MONTHS);
+    return (
+      clampCpiMomMonthRange(allPeriods, range.start, range.end, "end") ??
+      defaultCpiMomMonthRange(allPeriods, CPI_MOM_MATRIX_DEFAULT_MONTHS)
+    );
+  }, [allPeriods, range]);
+
+  const { columns, yoyByRow, endPeriod } = useMemo(() => {
+    if (!effectiveRange) {
+      return {
+        columns: [] as string[],
+        yoyByRow: new Map<string, number | null>(),
+        endPeriod: null as string | null,
+      };
     }
-    return { columns: cols, momByRow: perRow, yoyByRow: perYoy, latestPeriod: latest };
-  }, [payload, months]);
+    const cols = filterCpiMomColumns(allPeriods, effectiveRange.start, effectiveRange.end);
+    const end = effectiveRange.end;
+    const perYoy = new Map<string, number | null>();
+    for (const row of CPI_MOM_MATRIX_ROWS) {
+      perYoy.set(row.fredId, computeYoy(levelsByRow.get(row.fredId) ?? new Map(), end));
+    }
+    return { columns: cols, yoyByRow: perYoy, endPeriod: end };
+  }, [allPeriods, effectiveRange, levelsByRow]);
+
+  const setStartMonth = (nextStart: string) => {
+    if (!effectiveRange) return;
+    const next = clampCpiMomMonthRange(
+      allPeriods,
+      nextStart,
+      effectiveRange.end,
+      "start",
+      CPI_MOM_MATRIX_MAX_MONTHS,
+    );
+    if (next) setRange(next);
+  };
+
+  const setEndMonth = (nextEnd: string) => {
+    if (!effectiveRange) return;
+    const next = clampCpiMomMonthRange(
+      allPeriods,
+      effectiveRange.start,
+      nextEnd,
+      "end",
+      CPI_MOM_MATRIX_MAX_MONTHS,
+    );
+    if (next) setRange(next);
+  };
 
   if (loading) {
     return <div className="py-10 text-center text-sm text-fs-muted">{tr("加载 CPI 分项数据中…")}</div>;
@@ -164,12 +217,46 @@ export function CpiMomMatrixTable({ months = DEFAULT_MONTHS }: { months?: number
     );
   }
 
-  const yoyTitle = latestPeriod
-    ? tr("相对最新月（{v0}）的去年同月", { v0: formatMacroPeriodDisplay(latestPeriod, columns) })
-    : tr("相对最新月的去年同月");
+  const yoyTitle = endPeriod
+    ? tr("相对结束月（{v0}）的去年同月", { v0: formatMacroPeriodDisplay(endPeriod, columns) })
+    : tr("相对结束月的去年同月");
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-auto">
+      <div className="flex flex-wrap items-center justify-end gap-2 text-[11px] text-fs-muted">
+        <label className="flex items-center gap-1.5">
+          <span className="shrink-0">{tr("开始月份")}</span>
+          <select
+            className={selectClass}
+            value={effectiveRange?.start ?? ""}
+            aria-label={tr("开始月份")}
+            disabled={allPeriods.length === 0}
+            onChange={(e) => setStartMonth(e.target.value)}
+          >
+            {allPeriods.map((p) => (
+              <option key={`start-${p}`} value={p}>
+                {formatMacroPeriodDisplay(p, allPeriods)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5">
+          <span className="shrink-0">{tr("结束月份")}</span>
+          <select
+            className={selectClass}
+            value={effectiveRange?.end ?? ""}
+            aria-label={tr("结束月份")}
+            disabled={allPeriods.length === 0}
+            onChange={(e) => setEndMonth(e.target.value)}
+          >
+            {allPeriods.map((p) => (
+              <option key={`end-${p}`} value={p}>
+                {formatMacroPeriodDisplay(p, allPeriods)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div className="overflow-x-auto rounded-lg border border-fs-border">
         <table className="w-max min-w-full border-separate border-spacing-0 text-xs">
           <thead>
