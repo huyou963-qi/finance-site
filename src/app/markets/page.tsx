@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { FeatureGate } from "@/components/access/FeatureGate";
 import { getServerTr } from "@/i18n/serverText";
 import { MarketsClient } from "./MarketsClient";
@@ -13,11 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function MarketsPage() {
+export default async function MarketsPage() {
+  const tr = await getServerTr();
   return (
     <FeatureGate featureId="markets">
       <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <MarketsClient />
+        <Suspense fallback={<p className="px-4 py-12 text-sm text-fs-muted">{tr("加载中…")}</p>}>
+          <MarketsClient />
+        </Suspense>
       </div>
     </FeatureGate>
   );
