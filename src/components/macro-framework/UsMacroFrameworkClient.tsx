@@ -38,7 +38,7 @@ function MatrixColumnHeader({ timing, withDivider }: { timing: IndicatorTiming; 
     >
       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent }} />
       <span className="text-sm font-semibold tracking-wide" style={{ color: accent }}>
-        {TIMING_LABEL[timing]}{tr("指标")}</span>
+        {tr(TIMING_LABEL[timing])}{tr("指标")}</span>
     </div>
   );
 }
@@ -302,8 +302,8 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
         ...matrix[cat].lagging,
       ];
     }
-    return generateAllCategoryBriefs(grouped);
-  }, [matrix]);
+    return generateAllCategoryBriefs(grouped, tr, (ind) => tr(ind.nameZh));
+  }, [matrix, tr]);
 
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col px-4 py-4 lg:px-6">
@@ -344,11 +344,11 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
           <div className="grid min-w-[980px] grid-cols-[240px_minmax(400px,1fr)_260px] items-start gap-5">
             <aside className="rounded-lg border border-fs-border bg-fs-elevated/80 p-4">
               <h3 className="text-xs font-medium text-fs-secondary">{tr("宏观状态")}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-fs-text">{MACRO_STATE_BRIEF}</p>
+              <p className="mt-2 text-xs leading-relaxed text-fs-text">{tr(MACRO_STATE_BRIEF)}</p>
               <h3 className="mt-4 text-xs font-medium text-fs-secondary">{tr("分歧")}</h3>
               <ul className="mt-2 space-y-1.5 text-xs text-fs-secondary">
                 {CONTRADICTION_SIGNALS.map((item) => (
-                  <li key={item}>{item}</li>
+                  <li key={item}>{tr(item)}</li>
                 ))}
               </ul>
             </aside>
@@ -366,8 +366,8 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
                 {CALENDAR.map((c) => (
                   <li key={c.date} className="grid grid-cols-[2.5rem_1fr_2rem] items-center gap-x-2">
                     <span className="font-mono text-fs-muted">{c.date.slice(5)}</span>
-                    <span className="truncate">{c.event}</span>
-                    <span className="text-right text-fs-muted">{c.impact}</span>
+                    <span className="truncate">{tr(c.event)}</span>
+                    <span className="text-right text-fs-muted">{tr(c.impact)}</span>
                   </li>
                 ))}
               </ul>
@@ -392,10 +392,10 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
                         : ""
                     }`}
                   >
-                    <div className="text-xs font-semibold text-fs-text">{MATRIX_CATEGORY_LABEL[cat]}</div>
+                    <div className="text-xs font-semibold text-fs-text">{tr(MATRIX_CATEGORY_LABEL[cat])}</div>
                     <div className="mt-1.5 text-[10px] font-medium text-fs-accent-text">{tr("近况分析")}</div>
                     <p className="mt-0.5 text-[10px] leading-relaxed text-fs-secondary">
-                      {categoryBriefs[cat] ?? MATRIX_CATEGORY_DESC[cat]}
+                      {categoryBriefs[cat] ?? tr(MATRIX_CATEGORY_DESC[cat])}
                     </p>
                   </div>
                   {TIMINGS.map((timing, colIdx) => (
@@ -436,10 +436,10 @@ export function UsMacroFrameworkClient({ indicators }: { indicators: MacroIndica
               <span>{indById[selectedId].asOfDate}</span>
               {isAdmin ? <span>{indById[selectedId].source}</span> : null}
               <span style={{ color: timingAccent(indById[selectedId].timing) }}>
-                {TIMING_LABEL[indById[selectedId].timing]}
+                {tr(TIMING_LABEL[indById[selectedId].timing])}
               </span>
               <span>
-                {MATRIX_CATEGORY_LABEL[INDICATOR_MATRIX_CATEGORY[selectedId] ?? "activity"]}
+                {tr(MATRIX_CATEGORY_LABEL[INDICATOR_MATRIX_CATEGORY[selectedId] ?? "activity"])}
               </span>
             </div>
             <p className="mt-2 text-fs-secondary">{tr(indById[selectedId].description)}</p>

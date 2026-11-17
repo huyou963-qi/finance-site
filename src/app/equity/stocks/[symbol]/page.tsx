@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { loadStockContext } from "@/lib/equity/stockDetail";
+import { localeAlternates } from "@/lib/seo/localeAlternates";
 import { absoluteUrl } from "@/lib/seo/siteUrl";
 import { StockDetailClient } from "./StockDetailClient";
 import { getServerTr } from "@/i18n/serverText";
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: scope
       ? tr("{name} {symbol} 属于 {scope} 板块，提供 K 线行情、基本面数据与同行业个股对比。", { name: stock.name, symbol: stock.symbol, scope })
       : tr("{name} {symbol} 的 K 线行情与基本面数据。", { name: stock.name, symbol: stock.symbol }),
-    alternates: { canonical: absoluteUrl(`/equity/stocks/${stock.symbol}`) },
+    alternates: await localeAlternates(`/equity/stocks/${stock.symbol}`),
   };
 }
 

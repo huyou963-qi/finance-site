@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { FeatureGate } from "@/components/access/FeatureGate";
 import { getSectorDef, sectorFromSlug } from "@/lib/equity/gicsCatalog";
-import { absoluteUrl } from "@/lib/seo/siteUrl";
+import { localeAlternates } from "@/lib/seo/localeAlternates";
 import { EquitySectorDetailClient } from "./EquitySectorDetailClient";
 import { getServerTr } from "@/i18n/serverText";
 
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: tr("{nameZh}（{sector}）行业收益、财报与成分股 — GekkoTech", { nameZh: def.nameZh, sector: def.sector }),
     description: tr("{nameZh}板块（对标 {etf}）的收益表现、财报叙事与成分股一览。", { nameZh: def.nameZh, etf: def.etf }),
-    alternates: { canonical: absoluteUrl(`/equity/sectors/${slug}`) },
+    alternates: await localeAlternates(`/equity/sectors/${slug}`),
   };
 }
 

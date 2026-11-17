@@ -14,14 +14,24 @@ export function makePickLabel(locale: string, translate: (zh: string) => string)
   return (zh, en) => (locale === "en" ? en?.trim() || translateComposite(zh, translate) : zh);
 }
 
-/** 整句没有译文时，按「 · 」拆开逐段翻译（如「美国 · 实际 GDP」由前端拼出的组合名） */
+/**
+ * 整句没有译文时，按常见分隔符拆开逐段翻译。
+ * 例：「美国 · 实际 GDP」「中国：外汇与国际收支：经常账户」由前端/种子拼出的组合名。
+ */
 export function translateComposite(zh: string, translate: (zh: string) => string): string {
   const whole = translate(zh);
-  if (whole !== zh || !zh.includes(" · ")) return whole;
-  return zh
-    .split(" · ")
-    .map((part) => translate(part))
-    .join(" · ");
+  if (whole !== zh) return whole;
+  for (const sep of [" · ", "：", ":"]) {
+    if (!zh.includes(sep)) continue;
+    const parts = zh.split(sep);
+    if (parts.length < 2) continue;
+    const translated = parts.map((part) => translate(part.trim()));
+    // 至少有一段翻成功才拼回去，避免无意义重拼
+    if (translated.some((t, i) => t !== parts[i].trim())) {
+      return translated.join(sep === ":" ? ": " : sep);
+    }
+  }
+  return whole;
 }
 
 /** 目录里每个指标的显示名换成当前语言（key、分类名不变） */

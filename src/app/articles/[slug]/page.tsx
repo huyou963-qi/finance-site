@@ -5,6 +5,9 @@ import { checkFeatureAccess } from "@/lib/access/featureAccess";
 import { FeatureLocked } from "@/components/access/FeatureLocked";
 import { resolveArticleCover } from "@/lib/articles/articleSchema";
 import { getPublishedArticleBySlug } from "@/lib/articles/articleStore";
+import { getRequestLocale } from "@/i18n/server";
+import { localizeHref } from "@/i18n/locales";
+import { localeAlternates } from "@/lib/seo/localeAlternates";
 import { absoluteUrl, DEFAULT_OG_IMAGE } from "@/lib/seo/siteUrl";
 import { getServerTr } from "@/i18n/serverText";
 
@@ -14,12 +17,14 @@ type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const tr = await getServerTr();
+  const { locale } = await getRequestLocale();
   const article = await getPublishedArticleBySlug((await params).slug);
   if (!article) {
     return { title: tr("文章不存在 — GekkoTech") };
   }
 
-  const url = absoluteUrl(`/articles/${article.slug}`);
+  const path = `/articles/${article.slug}`;
+  const url = absoluteUrl(localizeHref(path, locale));
   const cover = resolveArticleCover(article.coverImageUrl, article.bodyMarkdown);
   const image = cover?.startsWith("/") ? absoluteUrl(cover) : cover;
   // 全文一张图都没有时退回站点默认分享图，保证每篇文章都有卡片配图。
@@ -28,14 +33,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${(article.seoTitle || article.title)} — GekkoTech`,
     description: (article.seoDescription || article.summary),
-    alternates: { canonical: url },
+    alternates: await localeAlternates(path),
     // Next 的 metadata 合并是浅层的：这里的 openGraph/twitter 会整体覆盖根布局的同名对象，
     // 站点级字段必须重复一遍，否则文章页会丢掉 site_name / locale / twitter:site。
     openGraph: {
       title: (article.seoTitle || article.title),
       description: (article.seoDescription || article.summary),
       siteName: "GekkoTech",
-      locale: "zh_CN",
+      locale: locale === "en" ? "en_US" : "zh_CN",
       type: "article",
       url,
       images,
