@@ -159,14 +159,38 @@ function statementCell(p: Prepared, line: StatementLine, period: PeriodSpec, bas
   return valueCell(lineValue(withStatementDerived(p.quarters[loc.index]!), line), label);
 }
 
+/** 流动比率、利息保障倍数读报表明细科目；其余走 computeQuarterRatios */
+function ratioAt(p: Prepared, field: RatioField, i: number): number | null {
+  if (field === "ffoPerShareTtm") return p.ffo[i] ?? null;
+  if (field === "currentRatio") {
+    const row = p.quarters[i]!;
+    const ca = finite(row.lines?.currentAssets);
+    const cl = finite(row.lines?.currentLiabilities);
+    return ca != null && cl != null && cl !== 0 ? ca / cl : null;
+  }
+  if (field === "interestCoverage") {
+    if (i < 3) return null;
+    let oi = 0;
+    let ie = 0;
+    for (let k = i - 3; k <= i; k++) {
+      const o = finite(p.quarters[k]!.lines?.operatingIncome);
+      const e = finite(p.quarters[k]!.lines?.interestExpense);
+      if (o == null || e == null) return null;
+      oi += o;
+      ie += Math.abs(e);
+    }
+    return ie !== 0 ? oi / ie : null;
+  }
+  return finite(p.ratios[i]?.[field] ?? null);
+}
+
 function ratioCell(p: Prepared, field: RatioField, period: PeriodSpec): Cell {
   const loc = locate(p, period);
   if (!loc) return { v: null, s: "noPeriod" };
   const label = labelOf(p, loc);
   const i = loc.type === "FY" ? loc.endIndex : loc.index;
   if (i < 0) return { v: null, s: "na", ...label };
-  const v = field === "ffoPerShareTtm" ? p.ffo[i] ?? null : p.ratios[i]?.[field] ?? null;
-  return valueCell(finite(v), label);
+  return valueCell(ratioAt(p, field, i), label);
 }
 
 function revenueAccelAt(p: Prepared, loc: Located): number | null {

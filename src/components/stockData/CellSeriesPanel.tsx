@@ -9,6 +9,7 @@ import { columnHeader, formatCellValue } from "@/lib/equity/stockData/display";
 import { getIndicator } from "@/lib/equity/stockData/indicatorRegistry";
 import { buildHistoryColumns } from "@/lib/equity/stockData/seriesQuery";
 import type { ColumnSpec, StockDataResponse } from "@/lib/equity/stockData/types";
+import { useTr } from "@/i18n/TextProvider";
 
 echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -23,6 +24,7 @@ type Props = {
  * 点格子弹出的时序面板：对同一指标拉多期/多截止日，用现有 query 接口，简单折线展示。
  */
 export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
+  const tr = useTr();
   const def = getIndicator(column.indicatorId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,7 +38,7 @@ export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
   useEffect(() => {
     if (!historyCols?.length) {
       setLoading(false);
-      setError("该指标暂不支持时序");
+      setError(tr("该指标暂不支持时序"));
       return;
     }
     let cancelled = false;
@@ -51,13 +53,13 @@ export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
         });
         const j = await r.json();
         if (!r.ok) {
-          if (!cancelled) setError(j.error || "取数失败");
+          if (!cancelled) setError(j.error || tr("取数失败"));
           return;
         }
         const res = j as StockDataResponse;
         const row = res.rows[0];
         if (!row) {
-          if (!cancelled) setError("无数据");
+          if (!cancelled) setError(tr("无数据"));
           return;
         }
         const next = historyCols.map((c) => {
@@ -72,13 +74,13 @@ export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
         });
         if (!cancelled) setPoints(next);
       } catch {
-        if (!cancelled) setError("网络异常");
+        if (!cancelled) setError(tr("网络异常"));
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [symbol, historyCols, def?.unit]);
+  }, [symbol, historyCols, def?.unit, tr]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -120,18 +122,18 @@ export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
   }, [loading, error, points, def?.unit]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-6" role="dialog" aria-modal="true" aria-label="指标时序">
-      <button type="button" className="absolute inset-0 cursor-default" aria-label="关闭" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-6" role="dialog" aria-modal="true" aria-label={tr("指标时序")}>
+      <button type="button" className="absolute inset-0 cursor-default" aria-label={tr("关闭")} onClick={onClose} />
       <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-2xl border border-fs-border bg-fs-bg shadow-xl md:rounded-2xl">
         <div className="flex items-start gap-3 border-b border-fs-border px-4 py-3">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">{def?.label ?? column.indicatorId}</p>
             <p className="text-xs text-fs-muted">{symbol} · {name}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-fs-muted hover:bg-fs-elevated" aria-label="关闭">✕</button>
+          <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-fs-muted hover:bg-fs-elevated" aria-label={tr("关闭")}>✕</button>
         </div>
         <div className="min-h-0 flex-1 p-4">
-          {loading ? <p className="text-sm text-fs-muted">加载中…</p> : null}
+          {loading ? <p className="text-sm text-fs-muted">{tr("加载中…")}</p> : null}
           {error ? <p role="alert" className="text-sm text-fs-muted">{error}</p> : null}
           {!loading && !error ? <div id="stock-data-cell-series-chart" className="h-64 w-full md:h-80" /> : null}
         </div>

@@ -41,9 +41,10 @@ export const TRANSLATED_FEATURE_PATHS = [
   "src/components/MarketsWatchlist.tsx",
   "src/components/chart",
   "src/components/events",
-  // 美股行业 / 美股历史 / 持股监控 / 个股 与 量化
+  // 美股行业 / 美股历史 / 持股监控 / 个股 / 股票数据 与 量化
   "src/app/equity",
   "src/components/equity",
+  "src/components/stockData",
   "src/app/quant",
   "src/components/quant",
   // 时间线、周报、文章、工具页（文章编辑器与授权管理只给管理员，不翻译）

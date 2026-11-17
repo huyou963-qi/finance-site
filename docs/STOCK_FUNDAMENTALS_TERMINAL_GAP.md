@@ -55,6 +55,13 @@
 | A. 扩展 SEC tag 白名单（EBITDA 等） | **EBITDA / 利息 / 流动资产等已接入模板**；仅保存发行人直接披露标签，不由营业利润+折旧推算 |
 | B. 完整 as-reported 浏览 | 超出当前产品边界 |
 
+### EBITDA 覆盖核对（2026-11-17）
+
+- 标签位与取数链路已通：`fs.ebitda` 进「股票数据」与三年利润表模板；管理端 `/admin/equity-coverage` 汇总「最新季有 EBITDA / 历史任一季有」占比与样本。
+- **HK 库抽查（宇宙 4221）**：`lines` 含 `ebitda` 的季度行 = **0**（`withLatestEbitda` / `withAnyEbitda` 均为 0）。同库 AAPL 最新季已有 `currentAssets` / `operatingIncome` 等科目，说明扩展科目写入正常，**EBITDA 为 0 是尚未用新标签白名单回灌**（或发行人未披露可识别标签），不是页面 bug。
+- 不要用营业利润+折旧反推入库。日批/全量 `equity:sync` 后再看管理端覆盖率；若回灌后仍接近 0，则属源端标签稀缺，产品侧保持「未披露」。
+- 运维对照：`npm run equity:verify-fundamentals-coverage` + `/admin/equity-coverage`。
+
 ## 决策记录模板
 
 ```

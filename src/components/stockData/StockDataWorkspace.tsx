@@ -27,6 +27,7 @@ import { IndicatorPanel } from "./IndicatorPanel";
 import { ParamEditor } from "./ParamEditor";
 import { StockPoolPanel, type PickedStock } from "./StockPoolPanel";
 import { TemplatePanel } from "./TemplatePanel";
+import { useTr } from "@/i18n/TextProvider";
 
 type Draft = { stocks: PickedStock[]; columns: ColumnSpec[] };
 type Editor = { mode: "add"; defs: IndicatorDef[] } | { mode: "edit"; keys: string[] };
@@ -82,6 +83,7 @@ function writeDraft(d: Draft) {
 }
 
 export function StockDataWorkspace() {
+  const tr = useTr();
   const features = useVisibleFeatures();
   const [draft, setDraft] = useState<Draft>({ stocks: [], columns: [] });
   const [restored, setRestored] = useState(false);
@@ -127,7 +129,7 @@ export function StockDataWorkspace() {
       });
       const j = await r.json();
       if (!r.ok) {
-        setError({ text: j.error || "取数失败", needsPro: j.code === "NEEDS_PRO" });
+        setError({ text: j.error || tr("取数失败"), needsPro: j.code === "NEEDS_PRO" });
         return;
       }
       const res = j as StockDataResponse;
@@ -135,17 +137,17 @@ export function StockDataWorkspace() {
       if (res.ignored.length) {
         const ignored = new Set(res.ignored.map((s) => normalizeUsTicker(s) ?? s));
         next = { ...d, stocks: d.stocks.filter((s) => !ignored.has(s.symbol)) };
-        setNotice(`已忽略 ${res.ignored.length} 只非美股标的：${res.ignored.slice(0, 8).join("、")}${res.ignored.length > 8 ? " 等" : ""}`);
+        setNotice(tr("已忽略 {length} 只非美股标的：{v1}{v2}", { length: res.ignored.length, v1: res.ignored.slice(0, 8).join("、"), v2: res.ignored.length > 8 ? tr(" 等") : "" }));
         setDraft(next);
       }
       setResult(res);
       setFetchedKey(fetchSignature(next.stocks.map((s) => s.symbol), next.columns));
     } catch {
-      setError({ text: "网络异常，请稍后重试" });
+      setError({ text: tr("网络异常，请稍后重试") });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tr]);
 
   // 恢复上次的草稿（刷新不丢），有股票和列时自动取一次数
   useEffect(() => {
@@ -161,13 +163,13 @@ export function StockDataWorkspace() {
     try {
       const r = await fetch("/api/equity/stock-data/templates");
       const j = await r.json();
-      if (!r.ok) { setTemplateError(j.error || "无法读取模板"); return; }
+      if (!r.ok) { setTemplateError(j.error || tr("无法读取模板")); return; }
       setTemplateError("");
       setMyTemplates(j.templates as StockDataTemplate[]);
     } catch {
-      setTemplateError("网络异常，模板未加载");
+      setTemplateError(tr("网络异常，模板未加载"));
     }
-  }, []);
+  }, [tr]);
   useEffect(() => { if (leftTab === "templates" && myTemplates == null) void loadTemplates(); }, [leftTab, myTemplates, loadTemplates]);
 
   // ---------- 股票 ----------
@@ -187,22 +189,22 @@ export function StockDataWorkspace() {
     const overflow = fresh.length - added.length;
     if (added.length) setDraft((d) => ({ ...d, stocks: [...d.stocks, ...added] }));
     const parts: string[] = [];
-    if (added.length) parts.push(`已加入 ${added.length} 只`);
-    else if (!overflow && !rejected.length) parts.push("已在表格中");
-    if (overflow) parts.push(`超出 ${MAX_SYMBOLS} 只上限，${overflow} 只未加入`);
-    if (rejected.length) parts.push(`已忽略 ${rejected.length} 只非美股标的`);
+    if (added.length) parts.push(tr("已加入 {length} 只", { length: added.length }));
+    else if (!overflow && !rejected.length) parts.push(tr("已在表格中"));
+    if (overflow) parts.push(tr("超出 {MAX_SYMBOLS} 只上限，{overflow} 只未加入", { MAX_SYMBOLS, overflow }));
+    if (rejected.length) parts.push(tr("已忽略 {length} 只非美股标的", { length: rejected.length }));
     showToast(parts.join("；"), added.length > 0);
   };
 
   // ---------- 列 ----------
   const insertColumns = (defs: IndicatorDef[], params: ColumnParams, multi?: MultiPeriod) => {
     const room = MAX_COLUMNS - draft.columns.length;
-    if (room <= 0) { showToast(`单次最多 ${MAX_COLUMNS} 列，请先删除部分列`); return; }
+    if (room <= 0) { showToast(tr("单次最多 {MAX_COLUMNS} 列，请先删除部分列", { MAX_COLUMNS })); return; }
     const all = defs.flatMap((d) => buildColumns(d, params, multi, newKey));
     const cols = all.slice(0, room);
     setDraft((d) => ({ ...d, columns: [...d.columns, ...cols] }));
     const skipped = all.length - cols.length;
-    showToast(`已加入第 ${draft.columns.length + 1}${cols.length > 1 ? `–${draft.columns.length + cols.length}` : ""} 列${skipped ? `；超出上限，${skipped} 列未加入` : ""}`, true);
+    showToast(tr("已加入第 {v0}{v1} 列{v2}", { v0: draft.columns.length + 1, v1: cols.length > 1 ? `–${draft.columns.length + cols.length}` : "", v2: skipped ? tr("；超出上限，{skipped} 列未加入", { skipped }) : "" }), true);
   };
 
   const addIndicators = (defs: IndicatorDef[]) => {
@@ -282,7 +284,7 @@ export function StockDataWorkspace() {
   const numericColumns = useMemo(
     () => draft.columns.filter((c) => {
       const u = getIndicator(c.indicatorId)?.unit;
-      return u === "money" || u === "pct" || u === "multiple" || u === "perShare" || u === "shares";
+      return u === "money" || u === "pct" || u === "multiple" || u === "number" || u === "perShare" || u === "shares";
     }),
     [draft.columns],
   );
@@ -291,7 +293,7 @@ export function StockDataWorkspace() {
     return computeGroupStats(rows, gicsColumnKey, groupValueKey);
   }, [rows, gicsColumnKey, groupValueKey]);
 
-  const fileStem = () => `股票数据-${new Date().toISOString().slice(0, 10)}`;
+  const fileStem = () => tr("股票数据-{v0}", { v0: new Date().toISOString().slice(0, 10) });
   const exportCsv = () => downloadBlob(new Blob([buildCsv(rows, draft.columns)], { type: "text/csv;charset=utf-8" }), `${fileStem()}.csv`);
   const exportXlsx = async () => {
     try {
@@ -306,11 +308,11 @@ export function StockDataWorkspace() {
       }
       ws["!cols"] = aoa[0]!.map((_, i) => ({ wch: i < 2 ? 12 : 18 }));
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "股票数据");
+      XLSX.utils.book_append_sheet(wb, ws, tr("股票数据"));
       const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
       downloadBlob(new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${fileStem()}.xlsx`);
     } catch {
-      showToast("导出失败，请改用 CSV");
+      showToast(tr("导出失败，请改用 CSV"));
     }
   };
 
@@ -330,24 +332,24 @@ export function StockDataWorkspace() {
     setDraft((d) => ({ columns, stocks: stocks ?? d.stocks }));
     setSort(null);
     setSelectedCols(new Set());
-    showToast(`已应用「${t.name}」：${columns.length} 列${stocks ? `、${stocks.length} 只股票` : ""}，点「提取数据」刷新`, true);
+    showToast(tr("已应用「{name}」：{length} 列{v2}，点「提取数据」刷新", { name: t.name, length: columns.length, v2: stocks ? tr("、{length} 只股票", { length: stocks.length }) : "" }), true);
   };
 
   const deleteTemplate = async (t: StockDataTemplate) => {
     try {
       const r = await fetch(`/api/equity/stock-data/templates?id=${encodeURIComponent(t.id)}`, { method: "DELETE" });
-      if (!r.ok) { showToast((await r.json()).error || "删除失败"); return; }
+      if (!r.ok) { showToast((await r.json()).error || tr("删除失败")); return; }
       setMyTemplates((list) => list?.filter((x) => x.id !== t.id) ?? null);
-      showToast(`已删除「${t.name}」`);
+      showToast(tr("已删除「{name}」", { name: t.name }));
     } catch {
-      showToast("网络异常，删除失败");
+      showToast(tr("网络异常，删除失败"));
     }
   };
 
   const saveTemplate = async () => {
     if (!saving) return;
     const name = saving.name.trim();
-    if (!name) { setSaving({ ...saving, error: "请填写模板名称" }); return; }
+    if (!name) { setSaving({ ...saving, error: tr("请填写模板名称") }); return; }
     setSaving({ ...saving, busy: true, error: "" });
     try {
       const r = await fetch("/api/equity/stock-data/templates", {
@@ -356,12 +358,12 @@ export function StockDataWorkspace() {
         body: JSON.stringify({ name, columns: draft.columns, symbols: saving.withStocks ? draft.stocks.map((s) => s.symbol) : null }),
       });
       const j = await r.json();
-      if (!r.ok) { setSaving({ ...saving, busy: false, error: j.error || "保存失败" }); return; }
+      if (!r.ok) { setSaving({ ...saving, busy: false, error: j.error || tr("保存失败") }); return; }
       setSaving(null);
       setMyTemplates(null);
-      showToast(j.overwritten ? `已覆盖模板「${name}」` : `已保存模板「${name}」`);
+      showToast(j.overwritten ? tr("已覆盖模板「{name}」", { name }) : tr("已保存模板「{name}」", { name }));
     } catch {
-      setSaving({ ...saving, busy: false, error: "网络异常，保存失败" });
+      setSaving({ ...saving, busy: false, error: tr("网络异常，保存失败") });
     }
   };
 
@@ -369,13 +371,13 @@ export function StockDataWorkspace() {
   const canExport = !!result && !stale && rows.length > 0;
 
   const actions = [
-    { label: "修改参数", run: () => setEditor({ mode: "edit", keys: editableSelected.map((c) => c.key) }), disabled: !editableSelected.length },
-    { label: "删除列", run: deleteColumns, disabled: !selectedCols.size },
-    { label: "删除行", run: deleteRows, disabled: !selectedRows.size },
-    { label: "清空股票", run: clearAll, disabled: !draft.stocks.length },
-    { label: "保存模板", run: () => setSaving({ name: "", withStocks: false, busy: false, error: "" }), disabled: !draft.columns.length },
-    { label: "导出 Excel", run: () => void exportXlsx(), disabled: !canExport },
-    { label: "导出 CSV", run: exportCsv, disabled: !canExport },
+    { label: tr("修改参数"), run: () => setEditor({ mode: "edit", keys: editableSelected.map((c) => c.key) }), disabled: !editableSelected.length },
+    { label: tr("删除列"), run: deleteColumns, disabled: !selectedCols.size },
+    { label: tr("删除行"), run: deleteRows, disabled: !selectedRows.size },
+    { label: tr("清空股票"), run: clearAll, disabled: !draft.stocks.length },
+    { label: tr("保存模板"), run: () => setSaving({ name: "", withStocks: false, busy: false, error: "" }), disabled: !draft.columns.length },
+    { label: tr("导出 Excel"), run: () => void exportXlsx(), disabled: !canExport },
+    { label: tr("导出 CSV"), run: exportCsv, disabled: !canExport },
   ];
 
   const tableArea = (
@@ -383,78 +385,94 @@ export function StockDataWorkspace() {
       {error ? (
         <div role="alert" className="m-3 rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 md:py-1 text-sm md:text-xs">
           {error.text}
-          {error.needsPro ? <Link href="/pricing" className="ml-3 text-fs-accent">了解 Pro 会员</Link> : null}
+          {error.needsPro ? <Link href="/pricing" className="ml-3 text-fs-accent">{tr("了解 Pro 会员")}</Link> : null}
         </div>
       ) : null}
       {notice ? (
         <div role="status" className="mx-3 mt-3 flex items-start gap-3 rounded-lg border border-fs-border bg-fs-elevated px-3 py-2 md:py-1 text-sm md:text-xs text-fs-muted">
           <span className="min-w-0 flex-1">{notice}</span>
-          <button type="button" onClick={() => setNotice("")} aria-label="关闭提示" className="shrink-0">✕</button>
+          <button type="button" onClick={() => setNotice("")} aria-label={tr("关闭提示")} className="shrink-0">✕</button>
+        </div>
+      ) : null}
+      {stale ? (
+        <div
+          role="status"
+          className="mx-3 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-fs-accent/40 bg-fs-accent-soft px-3 py-2 text-sm md:text-xs"
+        >
+          <span className="min-w-0 flex-1 font-medium text-fs-text">{tr("有未刷新的改动：股票或列已变化，表格仍是上次提取的结果。")}</span>
+          <button
+            type="button"
+            disabled={!canFetch}
+            onClick={() => { void fetchData(draft); setMobileTab("table"); }}
+            className="min-h-9 md:min-h-7 shrink-0 rounded-lg bg-fs-accent px-3 text-white disabled:opacity-40"
+          >
+            {loading ? tr("提取中…") : tr("提取数据")}
+          </button>
         </div>
       ) : null}
       {result && draft.columns.length ? (
-        <div className="mx-3 mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-fs-muted">结果过滤</span>
-          <select
-            className="min-h-8 rounded border border-fs-border bg-fs-bg px-2"
-            value={filterDraft.columnKey}
-            onChange={(e) => setFilterDraft((f) => ({ ...f, columnKey: e.target.value }))}
-            aria-label="过滤列"
-          >
-            <option value="$symbol">代码</option>
-            <option value="$name">简称</option>
-            {draft.columns.map((c) => (
-              <option key={c.key} value={c.key}>{getIndicator(c.indicatorId)?.label ?? c.indicatorId}</option>
-            ))}
-          </select>
-          <select
-            className="min-h-8 rounded border border-fs-border bg-fs-bg px-2"
-            value={filterDraft.op}
-            onChange={(e) => setFilterDraft((f) => ({ ...f, op: e.target.value as FilterOp }))}
-            aria-label="过滤条件"
-          >
-            {(Object.keys(FILTER_OP_LABELS) as FilterOp[]).map((op) => (
-              <option key={op} value={op}>{FILTER_OP_LABELS[op]}</option>
-            ))}
-          </select>
-          <input
-            className="min-h-8 w-28 rounded border border-fs-border bg-fs-bg px-2"
-            value={filterDraft.value}
-            onChange={(e) => setFilterDraft((f) => ({ ...f, value: e.target.value }))}
-            placeholder="值"
-            aria-label="过滤值"
-          />
-          <button
-            type="button"
-            className="min-h-8 rounded-lg bg-fs-elevated px-3 hover:bg-fs-accent-soft disabled:opacity-40"
-            disabled={!filterDraft.value.trim()}
-            onClick={() => {
-              setActiveFilters((list) => [...list, { ...filterDraft, value: filterDraft.value.trim() }]);
-              setFilterDraft((f) => ({ ...f, value: "" }));
-            }}
-          >
-            添加
-          </button>
-          {activeFilters.length ? (
-            <button type="button" className="min-h-8 text-fs-muted hover:text-fs-text" onClick={() => setActiveFilters([])}>
-              清除过滤（{activeFilters.length}）
-            </button>
-          ) : null}
+        <div className="mx-3 mt-2 flex flex-col gap-2 text-xs md:flex-row md:flex-wrap md:items-center">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-fs-muted">{tr("结果过滤")}</span>
+            <select
+              className="min-h-8 min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 md:flex-none"
+              value={filterDraft.columnKey}
+              onChange={(e) => setFilterDraft((f) => ({ ...f, columnKey: e.target.value }))}
+              aria-label={tr("过滤列")}
+            >
+              <option value="$symbol">{tr("代码")}</option>
+              <option value="$name">{tr("简称")}</option>
+              {draft.columns.map((c) => (
+                <option key={c.key} value={c.key}>{getIndicator(c.indicatorId)?.label ?? c.indicatorId}</option>
+              ))}
+            </select>
+            <select
+              className="min-h-8 rounded border border-fs-border bg-fs-bg px-2"
+              value={filterDraft.op}
+              onChange={(e) => setFilterDraft((f) => ({ ...f, op: e.target.value as FilterOp }))}
+              aria-label={tr("过滤条件")}
+            >
+              {(Object.keys(FILTER_OP_LABELS) as FilterOp[]).map((op) => (
+                <option key={op} value={op}>{FILTER_OP_LABELS[op]}</option>
+              ))}
+            </select>
+            <input
+              className="min-h-8 w-24 min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-2 md:w-28 md:flex-none"
+              value={filterDraft.value}
+              onChange={(e) => setFilterDraft((f) => ({ ...f, value: e.target.value }))}
+              placeholder={tr("值")}
+              aria-label={tr("过滤值")}
+            />
+            <button
+              type="button"
+              className="min-h-8 rounded-lg bg-fs-elevated px-3 hover:bg-fs-accent-soft disabled:opacity-40"
+              disabled={!filterDraft.value.trim()}
+              onClick={() => {
+                setActiveFilters((list) => [...list, { ...filterDraft, value: filterDraft.value.trim() }]);
+                setFilterDraft((f) => ({ ...f, value: "" }));
+              }}
+            >{tr("添加")}</button>
+            {activeFilters.length ? (
+              <button type="button" className="min-h-8 text-fs-muted hover:text-fs-text" onClick={() => setActiveFilters([])}>
+                {tr("清除过滤（{length}）", { length: activeFilters.length })}
+              </button>
+            ) : null}
+          </div>
           {gicsColumnKey && numericColumns.length ? (
-            <>
-              <span className="ml-2 text-fs-muted">GICS 分组</span>
+            <div className="hidden flex-wrap items-center gap-2 md:flex">
+              <span className="text-fs-muted">{tr("GICS 分组")}</span>
               <select
                 className="min-h-8 rounded border border-fs-border bg-fs-bg px-2"
                 value={groupValueKey}
                 onChange={(e) => setGroupValueKey(e.target.value)}
-                aria-label="分组统计数值列"
+                aria-label={tr("分组统计数值列")}
               >
-                <option value="">选择数值列</option>
+                <option value="">{tr("选择数值列")}</option>
                 {numericColumns.map((c) => (
                   <option key={c.key} value={c.key}>{getIndicator(c.indicatorId)?.label ?? c.indicatorId}</option>
                 ))}
               </select>
-            </>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -466,7 +484,7 @@ export function StockDataWorkspace() {
             const median = g.median == null ? "—" : formatCellValue(unit, { v: g.median, s: "ok" }).text;
             return (
               <span key={g.group} className="mr-3 inline-block whitespace-nowrap">
-                {g.group}（{g.count}）：均值 {mean} · 中位 {median}
+                {tr("{group}（{count}）：均值 {mean} · 中位 {median}", { group: g.group, count: g.count, mean, median })}
               </span>
             );
           })}
@@ -474,11 +492,11 @@ export function StockDataWorkspace() {
       ) : null}
       {!draft.stocks.length || !draft.columns.length ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm md:text-xs text-fs-muted">
-          <p className="text-base md:text-sm text-fs-text">{!draft.stocks.length ? "先选股票" : "再选指标"}</p>
-          <p>{!draft.stocks.length ? "从自选股、系统股票池或搜索框加入美股，最多 50 只。" : "在指标目录里双击，或拖到这里，最多 50 列。"}</p>
+          <p className="text-base md:text-sm text-fs-text">{!draft.stocks.length ? tr("先选股票") : tr("再选指标")}</p>
+          <p>{!draft.stocks.length ? tr("从自选股、系统股票池或搜索框加入美股，最多 50 只。") : tr("在指标目录里双击，或拖到这里，最多 50 列。")}</p>
           <div className="mt-2 flex gap-2 md:hidden">
             <button type="button" onClick={() => setMobileTab(!draft.stocks.length ? "stocks" : "indicators")} className="min-h-10 md:min-h-8 rounded-lg bg-fs-accent px-4 text-white">
-              {!draft.stocks.length ? "去选股票" : "去选指标"}
+              {!draft.stocks.length ? tr("去选股票") : tr("去选指标")}
             </button>
           </div>
         </div>
@@ -507,14 +525,14 @@ export function StockDataWorkspace() {
     <div className="flex min-h-[560px] flex-1 flex-col text-fs-text">
       {/* 工具条 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-fs-border px-3 py-2 md:py-1 md:px-4">
-        <h1 className="mr-2 text-base md:text-sm font-semibold">股票数据</h1>
+        <h1 className="mr-2 text-base md:text-sm font-semibold">{tr("股票数据")}</h1>
         <button
           type="button"
           onClick={() => { void fetchData(draft); setMobileTab("table"); }}
           disabled={!canFetch}
           className="min-h-9 md:min-h-7 rounded-lg bg-fs-accent px-4 text-sm md:text-xs text-white disabled:opacity-40"
         >
-          {loading ? "提取中…" : "提取数据"}
+          {loading ? tr("提取中…") : tr("提取数据")}
         </button>
         <div className="hidden flex-wrap items-center gap-1 md:flex">
           {actions.map((a) => (
@@ -524,7 +542,7 @@ export function StockDataWorkspace() {
           ))}
         </div>
         <details className="relative md:hidden">
-          <summary className="flex min-h-9 md:min-h-7 cursor-pointer list-none items-center rounded-lg border border-fs-border px-3 text-sm md:text-xs" aria-label="更多操作">⋯</summary>
+          <summary className="flex min-h-9 md:min-h-7 cursor-pointer list-none items-center rounded-lg border border-fs-border px-3 text-sm md:text-xs" aria-label={tr("更多操作")}>⋯</summary>
           <div className="absolute left-0 top-full z-40 mt-1 w-40 rounded-lg border border-fs-border bg-fs-bg py-1 shadow-lg">
             {actions.map((a) => (
               <button
@@ -540,16 +558,20 @@ export function StockDataWorkspace() {
           </div>
         </details>
         <span className="ml-auto text-xs text-fs-muted">
-          {draft.stocks.length}/{MAX_SYMBOLS} 只 · {draft.columns.length}/{MAX_COLUMNS} 列
-          {activeFilters.length ? <span className="ml-2">显示 {rows.length} 行</span> : null}
-          {stale ? <span className="ml-2 text-fs-accent">有未刷新的改动</span> : null}
-          {loading && result ? <span className="ml-2">刷新中…</span> : null}
+          {tr("{stocks}/{maxStocks} 只 · {cols}/{maxCols} 列", {
+            stocks: draft.stocks.length,
+            maxStocks: MAX_SYMBOLS,
+            cols: draft.columns.length,
+            maxCols: MAX_COLUMNS,
+          })}
+          {activeFilters.length ? <span className="ml-2">{tr("显示 {length} 行", { length: rows.length })}</span> : null}
+          {loading && result ? <span className="ml-2">{tr("刷新中…")}</span> : null}
         </span>
       </div>
 
       {/* 手机：三个标签 */}
-      <div role="tablist" aria-label="股票数据视图" className="flex border-b border-fs-border md:hidden">
-        {([["stocks", `股票 ${draft.stocks.length}`], ["indicators", `指标 ${draft.columns.length}`], ["table", "表格"]] as [MobileTab, string][]).map(([id, label]) => (
+      <div role="tablist" aria-label={tr("股票数据视图")} className="flex border-b border-fs-border md:hidden">
+        {([["stocks", tr("股票 {length}", { length: draft.stocks.length })], ["indicators", tr("指标 {length}", { length: draft.columns.length })], ["table", tr("表格")]] as [MobileTab, string][]).map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -567,8 +589,8 @@ export function StockDataWorkspace() {
         {/* 电脑：左栏上下两块；手机：按标签只显示其一 */}
         <aside className={`min-h-0 w-full flex-col border-fs-border md:flex md:w-[248px] md:shrink-0 md:border-r ${mobileTab === "table" ? "hidden" : "flex"}`}>
           <div className={`min-h-0 flex-col md:flex md:flex-[3] md:border-b md:border-fs-border ${mobileTab === "indicators" ? "flex flex-1" : "hidden"}`}>
-            <div role="tablist" aria-label="指标与模板" className="flex border-b border-fs-border">
-              {([["indicators", "指标库"], ["templates", "模板"]] as [LeftTab, string][]).map(([id, label]) => (
+            <div role="tablist" aria-label={tr("指标与模板")} className="flex border-b border-fs-border">
+              {([["indicators", tr("指标库")], ["templates", tr("模板")]] as [LeftTab, string][]).map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
@@ -588,14 +610,12 @@ export function StockDataWorkspace() {
             )}
           </div>
           <div className={`min-h-0 flex-col md:flex md:flex-[2] ${mobileTab === "stocks" ? "flex flex-1" : "hidden"}`}>
-            <StockPoolPanel inTable={inTable} onAdd={addStocks} />
+            <StockPoolPanel inTable={inTable} onAdd={addStocks} remainingSlots={MAX_SYMBOLS - draft.stocks.length} />
           </div>
         </aside>
-        <section aria-label="数据表格" className={`min-h-0 min-w-0 flex-1 flex-col md:flex ${mobileTab === "table" ? "flex" : "hidden"}`}>
+        <section aria-label={tr("数据表格")} className={`min-h-0 min-w-0 flex-1 flex-col md:flex ${mobileTab === "table" ? "flex" : "hidden"}`}>
           {tableArea}
-          <p className="border-t border-fs-border px-3 py-1.5 text-xs text-fs-muted">
-            财务数据来自上市公司公开披露的定期报告，取最新修订值；报告期按公司财年。估值只用截止日之前已披露的财报。悬停单元格可看实际报告期或交易日；点击格子可看时序。
-          </p>
+          <p className="border-t border-fs-border px-3 py-1.5 text-xs text-fs-muted">{tr("财务数据来自上市公司公开披露的定期报告，取最新修订值；报告期按公司财年。估值只用截止日之前已披露的财报。悬停单元格可看实际报告期或交易日；点击格子可看时序。")}</p>
         </section>
       </div>
 
@@ -603,7 +623,7 @@ export function StockDataWorkspace() {
         <div role="status" className="fixed inset-x-4 bottom-4 z-[150] mx-auto flex max-w-md items-center gap-3 rounded-lg bg-fs-text px-4 py-3 text-sm md:text-xs text-white shadow-lg">
           <span className="min-w-0 flex-1">{toast.text}</span>
           {toast.goTable && mobileTab !== "table" ? (
-            <button type="button" onClick={() => { setMobileTab("table"); setToast(null); }} className="shrink-0 font-semibold text-white underline md:hidden">去表格</button>
+            <button type="button" onClick={() => { setMobileTab("table"); setToast(null); }} className="shrink-0 font-semibold text-white underline md:hidden">{tr("去表格")}</button>
           ) : null}
         </div>
       ) : null}
@@ -613,31 +633,31 @@ export function StockDataWorkspace() {
           <form
             role="dialog"
             aria-modal="true"
-            aria-label="保存模板"
+            aria-label={tr("保存模板")}
             onClick={(e) => e.stopPropagation()}
             onSubmit={(e) => { e.preventDefault(); void saveTemplate(); }}
             onKeyDown={(e) => { if (e.key === "Escape" && !saving.busy) setSaving(null); }}
             className="w-full rounded-t-2xl border border-fs-border bg-fs-bg p-4 shadow-xl md:w-[400px] md:rounded-xl"
           >
-            <h2 className="text-base md:text-sm font-semibold">保存模板</h2>
-            <p className="mt-1 text-xs text-fs-muted">保存当前的 {draft.columns.length} 列及其参数；同名模板会被覆盖。</p>
+            <h2 className="text-base md:text-sm font-semibold">{tr("保存模板")}</h2>
+            <p className="mt-1 text-xs text-fs-muted">{tr("保存当前的")} {draft.columns.length} {tr("列及其参数；同名模板会被覆盖。")}</p>
             <input
               autoFocus
               maxLength={60}
               value={saving.name}
               onChange={(e) => setSaving({ ...saving, name: e.target.value })}
-              placeholder="模板名称"
-              aria-label="模板名称"
+              placeholder={tr("模板名称")}
+              aria-label={tr("模板名称")}
               className="mt-3 min-h-10 md:min-h-8 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm md:text-xs"
             />
             <label className="mt-3 flex min-h-9 md:min-h-7 items-center gap-2 text-sm md:text-xs">
               <input type="checkbox" checked={saving.withStocks} disabled={!draft.stocks.length} onChange={(e) => setSaving({ ...saving, withStocks: e.target.checked })} />
-              连同当前 {draft.stocks.length} 只股票一起保存
+              {tr("连同当前 {length} 只股票一起保存", { length: draft.stocks.length })}
             </label>
             {saving.error ? <p role="alert" className="mt-2 text-sm md:text-xs text-fs-accent">{saving.error}</p> : null}
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" disabled={saving.busy} onClick={() => setSaving(null)} className="min-h-10 md:min-h-8 rounded-lg border border-fs-border px-4 text-sm md:text-xs">取消</button>
-              <button type="submit" disabled={saving.busy} className="min-h-10 md:min-h-8 rounded-lg bg-fs-accent px-4 text-sm md:text-xs text-white disabled:opacity-40">{saving.busy ? "保存中…" : "保存"}</button>
+              <button type="button" disabled={saving.busy} onClick={() => setSaving(null)} className="min-h-10 md:min-h-8 rounded-lg border border-fs-border px-4 text-sm md:text-xs">{tr("取消")}</button>
+              <button type="submit" disabled={saving.busy} className="min-h-10 md:min-h-8 rounded-lg bg-fs-accent px-4 text-sm md:text-xs text-white disabled:opacity-40">{saving.busy ? tr("保存中…") : tr("保存")}</button>
             </div>
           </form>
         </div>
@@ -645,7 +665,7 @@ export function StockDataWorkspace() {
 
       {editor ? (
         <ParamEditor
-          title={editor.mode === "add" ? `加入 ${editorDefs.length} 列` : `修改 ${editorDefs.length} 列的参数`}
+          title={editor.mode === "add" ? tr("加入 {length} 列", { length: editorDefs.length }) : tr("修改 {length} 列的参数", { length: editorDefs.length })}
           indicators={editorDefs}
           initial={editorInitial}
           initialMulti={editorFirst?.multi}

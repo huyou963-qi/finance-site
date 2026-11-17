@@ -58,7 +58,7 @@ export type ColumnSpec = {
   multi?: MultiPeriod;
 };
 
-export type IndicatorUnit = "money" | "pct" | "perShare" | "shares" | "multiple" | "text" | "date";
+export type IndicatorUnit = "money" | "pct" | "perShare" | "shares" | "multiple" | "number" | "text" | "date";
 
 export type ParamKind = "period" | "basis" | "asOf" | "range" | "adjust";
 

@@ -3,8 +3,22 @@
 import { useMemo, useState } from "react";
 import { buildIndicatorTree, type IndicatorTreeNode } from "@/lib/equity/stockData/indicatorRegistry";
 import type { IndicatorDef } from "@/lib/equity/stockData/types";
+import { useTr } from "@/i18n/TextProvider";
 
 export const INDICATOR_DRAG_TYPE = "application/x-stock-data-indicators";
+
+/** 常用别名：搜「毛利率」等也能命中报表科目，避免重复登记 ratio.* */
+const SEARCH_ALIASES: Record<string, string[]> = {
+  "fs.grossMargin": ["毛利率", "gross margin", "gm"],
+  "fs.opMargin": ["营业利润率", "operating margin", "opm"],
+  "fs.netMargin": ["净利率", "net margin"],
+  "fs.ebitda": ["息税折旧摊销前利润", "ebitda"],
+  "fs.fcf": ["自由现金流", "free cash flow"],
+  "ratio.currentRatio": ["流动比率", "current ratio"],
+  "ratio.interestCoverage": ["利息保障", "interest coverage"],
+  "ratio.roeTtm": ["净资产收益率", "roe"],
+  "ratio.roaTtm": ["总资产收益率", "roa"],
+};
 
 type Props = {
   indicators: readonly IndicatorDef[];
@@ -17,9 +31,10 @@ type Props = {
  * 有搜索词时改为平铺结果并显示所在路径。
  */
 export function IndicatorPanel({ indicators, onAdd }: Props) {
+  const tr = useTr();
   const tree = useMemo(() => buildIndicatorTree(indicators), [indicators]);
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<Set<string>>(() => new Set(["证券信息", "财务报表", "财务指标"]));
+  const [open, setOpen] = useState<Set<string>>(() => new Set([tr("证券信息"), tr("财务报表"), tr("财务指标")]));
   const [selected, setSelected] = useState<string[]>([]);
   /** 触屏没有 Ctrl 键：打开后单击即多选 */
   const [multi, setMulti] = useState(false);
@@ -27,7 +42,18 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
 
   const q = query.trim().toLowerCase();
   const matches = useMemo(
-    () => (q ? indicators.filter((d) => d.label.toLowerCase().includes(q) || d.id.toLowerCase().includes(q) || d.path.join(" ").toLowerCase().includes(q)) : []),
+    () =>
+      q
+        ? indicators.filter((d) => {
+            const aliases = SEARCH_ALIASES[d.id] ?? [];
+            return (
+              d.label.toLowerCase().includes(q) ||
+              d.id.toLowerCase().includes(q) ||
+              d.path.join(" ").toLowerCase().includes(q) ||
+              aliases.some((a) => a.toLowerCase().includes(q) || q.includes(a.toLowerCase()))
+            );
+          })
+        : [],
     [indicators, q],
   );
 
@@ -95,38 +121,35 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
   };
 
   return (
-    <section aria-label="指标" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label={tr("指标")} className="flex min-h-0 flex-1 flex-col">
       <div className="px-3 pt-2">
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索指标，如 营业收入、ROE"
-          title="双击指标或拖到表格即可加列"
-          aria-label="搜索指标"
+          placeholder={tr("搜索指标，如 营业收入、ROE")}
+          title={tr("双击指标或拖到表格即可加列")}
+          aria-label={tr("搜索指标")}
           className="min-h-9 md:min-h-7 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm md:text-xs"
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 md:py-1">
         {q ? (
-          matches.length ? <ul>{matches.map((d) => leaf(d, true))}</ul> : <p className="px-2 py-6 text-center text-sm md:text-xs text-fs-muted">没有匹配的指标</p>
+          matches.length ? <ul>{matches.map((d) => leaf(d, true))}</ul> : <p className="px-2 py-6 text-center text-sm md:text-xs text-fs-muted">{tr("没有匹配的指标")}</p>
         ) : (
           <ul>{tree.children.map((c) => branch(c, c.label, 0))}</ul>
         )}
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-fs-border px-3 py-2 md:py-1">
         <label className="flex min-h-9 md:min-h-7 items-center gap-1.5 text-xs text-fs-muted">
-          <input type="checkbox" checked={multi} onChange={(e) => { setMulti(e.target.checked); if (!e.target.checked) setSelected((p) => p.slice(-1)); }} />
-          多选{selected.length ? ` · 已选 ${selected.length} 个` : ""}
+          <input type="checkbox" checked={multi} onChange={(e) => { setMulti(e.target.checked); if (!e.target.checked) setSelected((p) => p.slice(-1)); }} />{tr("多选")}{selected.length ? tr(" · 已选 {length} 个", { length: selected.length }) : ""}
         </label>
         <button
           type="button"
           disabled={!selected.length}
           onClick={() => addIds(selected)}
           className="min-h-9 md:min-h-7 rounded-lg bg-fs-accent px-3 text-sm md:text-xs text-white disabled:opacity-40"
-        >
-          加入表格
-        </button>
+        >{tr("加入表格")}</button>
       </div>
     </section>
   );

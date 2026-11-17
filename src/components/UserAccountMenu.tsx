@@ -114,6 +114,8 @@ function UserMenu({
   const adminUsersActive = pathname === "/admin/users" || pathname.startsWith("/admin/users/");
   const adminErrorsActive =
     pathname === "/admin/error-reports" || pathname.startsWith("/admin/error-reports/");
+  const adminEquityCoverageActive =
+    pathname === "/admin/equity-coverage" || pathname.startsWith("/admin/equity-coverage/");
   const adminAnnouncementActive =
     pathname === "/admin/site-announcement" || pathname.startsWith("/admin/site-announcement/");
 
@@ -192,6 +194,12 @@ function UserMenu({
             label={t("adminFeedback")}
             href="/admin/error-reports"
             active={adminErrorsActive}
+            onClick={onClose}
+          /> : null}
+          {isAdmin ? <MenuRow
+            label={t("adminEquityCoverage")}
+            href="/admin/equity-coverage"
+            active={adminEquityCoverageActive}
             onClick={onClose}
           /> : null}
         </>

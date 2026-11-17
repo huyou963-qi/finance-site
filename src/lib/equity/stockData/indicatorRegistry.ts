@@ -35,7 +35,7 @@ export type SecurityField =
 export type RatioField =
   | "roeTtm" | "roaTtm" | "netMarginTtm" | "assetTurnoverTtm" | "equityMultiplier" | "debtRatio"
   | "netDebt" | "payoutRatioTtm" | "buybackRate" | "bvps" | "fcfPerShareTtm" | "epsTtm" | "ffoPerShareTtm"
-  | "ocfToNetIncome" | "accrualsToAssets";
+  | "ocfToNetIncome" | "accrualsToAssets" | "currentRatio" | "interestCoverage";
 
 export type GrowthField = "revenueYoY" | "epsYoY" | "revenueAccel";
 
@@ -157,6 +157,8 @@ export const INDICATORS: readonly RegisteredIndicator[] = [
   ratio("营运与杠杆", "netDebt", "净债务", "money", "期末长期债务 − 现金"),
   ratio("盈余质量", "ocfToNetIncome", "现金含量（TTM）", "multiple", "滚动 4 季经营现金流 / 滚动 4 季净利润；净利≤0 时无法计算"),
   ratio("盈余质量", "accrualsToAssets", "应计比率（TTM）", "pct", "（滚动 4 季净利 − 滚动 4 季经营现金流）/ 平均总资产；越高盈余质量越差"),
+  ratio("营运与杠杆", "currentRatio", "流动比率", "multiple", "期末流动资产 / 流动负债；缺披露时无法计算"),
+  ratio("营运与杠杆", "interestCoverage", "利息保障倍数（TTM）", "multiple", "滚动 4 季营业利润 / 滚动 4 季利息费用绝对值；缺披露或利息为 0 时无法计算"),
   ratio("股东回报", "payoutRatioTtm", "派息率（TTM）", "pct", "滚动 4 季分红 / 滚动 4 季净利润"),
   ratio("股东回报", "buybackRate", "近 4 季净回购率", "pct", "（4 季前股本 − 期末股本）/ 4 季前股本"),
   ratio("每股指标", "epsTtm", "EPS（TTM）", "perShare", "滚动 4 季稀释 EPS 之和"),
@@ -195,18 +197,18 @@ export const INDICATORS: readonly RegisteredIndicator[] = [
   technical("sma20", "20 日均线", "perShare", "截止日前 20 个交易日收盘均价"),
   technical("sma60", "60 日均线", "perShare", "截止日前 60 个交易日收盘均价"),
   technical("smaBias20", "20 日均线偏离", "pct", "收盘价 / 20 日均线 − 1"),
-  technical("rsi14", "RSI（14）", "multiple", "Wilder 平滑 14 日相对强弱，0–100"),
+  technical("rsi14", "RSI（14）", "number", "Wilder 平滑 14 日相对强弱，0–100"),
   technical("macdDif", "MACD DIF", "perShare", "EMA12 − EMA26"),
   technical("macdDea", "MACD DEA", "perShare", "DIF 的 9 日 EMA"),
   technical("macdHist", "MACD 柱", "perShare", "DIF − DEA"),
 
   insider("netBuyRatio", "内部人净买入比例", "multiple", "近 6 个月 (买入股数−卖出股数)/(买+卖)；只计公开市场 P/S，不足 3 笔不出值"),
-  insider("buyBreadth", "内部人买入广度", "multiple", "近 6 个月含公开市场买入的申报份数"),
+  insider("buyBreadth", "内部人买入广度", "number", "近 6 个月含公开市场买入的申报份数"),
   insider("buyShares", "内部人买入股数", "shares", "近 6 个月公开市场买入（P）股数合计"),
   insider("sellShares", "内部人卖出股数", "shares", "近 6 个月公开市场卖出（S）股数合计"),
   insider("netShares", "内部人净买入股数", "shares", "近 6 个月买入股数 − 卖出股数"),
-  insider("buyTxns", "内部人买入笔数", "multiple", "近 6 个月公开市场买入笔数"),
-  insider("sellTxns", "内部人卖出笔数", "multiple", "近 6 个月公开市场卖出笔数"),
+  insider("buyTxns", "内部人买入笔数", "number", "近 6 个月公开市场买入笔数"),
+  insider("sellTxns", "内部人卖出笔数", "number", "近 6 个月公开市场卖出笔数"),
 ];
 
 const BY_ID = new Map(INDICATORS.map((d) => [d.id, d]));
@@ -287,6 +289,7 @@ export const UNIT_LABELS: Record<IndicatorUnit, string> = {
   perShare: "美元/股",
   shares: "股",
   multiple: "倍",
+  number: "",
   text: "",
   date: "",
 };
