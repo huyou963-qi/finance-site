@@ -23,22 +23,66 @@ type Item = { id: string; params?: ColumnParams; multi?: MultiPeriod };
 
 const THIS_YEAR = new Date().getFullYear();
 const threeYears: MultiPeriod = { fromYear: THIS_YEAR - 3, toYear: THIS_YEAR - 1, slots: ["FY"] };
+const latestQ = { period: { kind: "latestQ" as const } };
 
 const SYSTEM: { id: string; name: string; items: Item[] }[] = [
   {
     id: "sys:valuation",
     name: "估值快照",
-    items: ["sec.gicsSector", "val.marketCap", "val.pe", "val.pb", "val.ps", "val.evToOcf", "val.dividendYield", "val.fcfYield"].map((id) => ({ id })),
+    items: [
+      "sec.gicsSector",
+      "val.marketCap",
+      "val.pe",
+      "val.pb",
+      "val.ps",
+      "val.evToOcf",
+      "val.earningsYield",
+      "val.dividendYield",
+      "val.fcfYield",
+    ].map((id) => ({ id })),
   },
   {
     id: "sys:income3y",
     name: "三年利润表",
-    items: ["fs.revenue", "fs.grossProfit", "fs.operatingIncome", "fs.netIncome", "fs.eps"].map((id) => ({ id, multi: threeYears })),
+    items: ["fs.revenue", "fs.grossProfit", "fs.operatingIncome", "fs.ebitda", "fs.netIncome", "fs.eps"].map((id) => ({
+      id,
+      multi: threeYears,
+    })),
   },
   {
     id: "sys:quality",
     name: "质量与回报",
-    items: ["ratio.roeTtm", "ratio.roaTtm", "ratio.netMarginTtm", "ratio.debtRatio", "ratio.payoutRatioTtm", "ratio.buybackRate", "growth.revenueYoY", "growth.epsYoY"].map((id) => ({ id, params: { period: { kind: "latestQ" } } })),
+    items: [
+      "ratio.roeTtm",
+      "ratio.roaTtm",
+      "ratio.netMarginTtm",
+      "fs.grossMargin",
+      "fs.opMargin",
+      "ratio.debtRatio",
+      "ratio.currentRatio",
+      "ratio.ocfToNetIncome",
+      "ratio.accrualsToAssets",
+      "ratio.payoutRatioTtm",
+      "ratio.buybackRate",
+      "growth.revenueYoY",
+      "growth.epsYoY",
+      "growth.revenueAccel",
+    ].map((id) => ({ id, params: latestQ })),
+  },
+  {
+    id: "sys:growth",
+    name: "成长快照",
+    items: [
+      { id: "sec.gicsSector" },
+      { id: "fs.revenue", params: latestQ },
+      { id: "fs.netIncome", params: latestQ },
+      { id: "fs.eps", params: latestQ },
+      { id: "growth.revenueYoY", params: latestQ },
+      { id: "growth.epsYoY", params: latestQ },
+      { id: "growth.revenueAccel", params: latestQ },
+      { id: "trend.ret12m" },
+      { id: "trend.mom12_1" },
+    ],
   },
   {
     id: "sys:trend",
@@ -46,7 +90,32 @@ const SYSTEM: { id: string; name: string; items: Item[] }[] = [
     items: [
       { id: "px.close" },
       { id: "px.rangeReturn", params: { range: { kind: "preset", preset: "ytd" } } },
-      ...["trend.ret1m", "trend.ret3m", "trend.ret12m", "trend.mom12_1", "trend.dist52wHigh", "trend.vol60d", "trend.beta252d", "trend.maxDrawdown12m"].map((id) => ({ id })),
+      ...[
+        "trend.ret1m",
+        "trend.ret3m",
+        "trend.ret12m",
+        "trend.mom12_1",
+        "trend.dist52wHigh",
+        "trend.vol60d",
+        "trend.beta252d",
+        "trend.maxDrawdown12m",
+      ].map((id) => ({ id })),
+    ],
+  },
+  {
+    id: "sys:technical",
+    name: "技术常用",
+    items: [
+      { id: "px.close" },
+      { id: "tech.sma20" },
+      { id: "tech.sma60" },
+      { id: "tech.smaBias20" },
+      { id: "tech.rsi14" },
+      { id: "tech.macdDif" },
+      { id: "tech.macdDea" },
+      { id: "tech.macdHist" },
+      { id: "trend.ret1m" },
+      { id: "trend.ret3m" },
     ],
   },
 ];

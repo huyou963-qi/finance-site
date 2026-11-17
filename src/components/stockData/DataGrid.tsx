@@ -6,6 +6,7 @@ import { columnHeader, formatCellValue, type SortState } from "@/lib/equity/stoc
 import { getIndicator } from "@/lib/equity/stockData/indicatorRegistry";
 import type { ColumnSpec, StockDataRow } from "@/lib/equity/stockData/types";
 import { INDICATOR_DRAG_TYPE } from "./IndicatorPanel";
+import { useTr } from "@/i18n/TextProvider";
 
 type Props = {
   rows: StockDataRow[];
@@ -36,6 +37,7 @@ export function DataGrid({
   rows, columns, sort, onSort, selectedCols, selectedRows, onSelectCol, onSelectRow, onEditCol, onDropIndicators,
   loading, linkMarkets, linkStock, onCellClick,
 }: Props) {
+  const tr = useTr();
   const [dragOver, setDragOver] = useState(false);
   const th = "border-b border-r border-fs-border bg-fs-elevated px-1.5 py-1 text-left align-top font-normal";
   const td = "border-b border-r border-fs-border px-1.5 py-0.5";
@@ -61,12 +63,12 @@ export function DataGrid({
       <table className="border-separate border-spacing-0 text-xs">
         <thead className="sticky top-0 z-20">
           <tr>
-            <th className={`${th} left-0 z-30 w-8 min-w-8 max-w-8 text-center max-md:static md:sticky`}>序号</th>
+            <th className={`${th} left-0 z-30 w-8 min-w-8 max-w-8 text-center max-md:static md:sticky`}>{tr("序号")}</th>
             <th className={`${th} sticky left-0 z-30 w-16 min-w-16 max-w-16 md:left-8`}>
-              <button type="button" onClick={() => onSort("$symbol")} className="flex items-center gap-1">代码 <span className="text-xs text-fs-muted">{sortMark(sort, "$symbol")}</span></button>
+              <button type="button" onClick={() => onSort("$symbol")} className="flex items-center gap-1">{tr("代码")} <span className="text-xs text-fs-muted">{sortMark(sort, "$symbol")}</span></button>
             </th>
             <th className={`${th} z-30 min-w-28 max-md:static md:sticky md:left-24`}>
-              <button type="button" onClick={() => onSort("$name")} className="flex items-center gap-1">简称 <span className="text-xs text-fs-muted">{sortMark(sort, "$name")}</span></button>
+              <button type="button" onClick={() => onSort("$name")} className="flex items-center gap-1">{tr("简称")} <span className="text-xs text-fs-muted">{sortMark(sort, "$name")}</span></button>
             </th>
             {columns.map((c) => {
               const h = columnHeader(c);
@@ -86,7 +88,7 @@ export function DataGrid({
                       {h.params ? <span className="block text-[11px] leading-tight text-fs-muted">{h.params}</span> : null}
                       {h.unit ? <span className="block text-[11px] leading-tight text-fs-muted">{h.unit}</span> : null}
                     </button>
-                    <button type="button" aria-label={`按 ${h.label} 排序`} onClick={() => onSort(c.key)} className="shrink-0 px-1 text-xs text-fs-muted hover:text-fs-text">
+                    <button type="button" aria-label={tr("按 {label} 排序", { label: h.label })} onClick={() => onSort(c.key)} className="shrink-0 px-1 text-xs text-fs-muted hover:text-fs-text">
                       {sortMark(sort, c.key)}
                     </button>
                   </div>
@@ -104,24 +106,24 @@ export function DataGrid({
             return (
               <tr key={r.symbol}>
                 <td className={`${td} ${bg} left-0 z-10 w-8 min-w-8 max-w-8 text-center text-fs-muted max-md:static md:sticky`}>
-                  <button type="button" onClick={(e) => onSelectRow(r.symbol, e.ctrlKey || e.metaKey || e.shiftKey)} aria-pressed={rowActive} aria-label={`选中 ${r.symbol}`} className="w-full">
+                  <button type="button" onClick={(e) => onSelectRow(r.symbol, e.ctrlKey || e.metaKey || e.shiftKey)} aria-pressed={rowActive} aria-label={tr("选中 {symbol}", { symbol: r.symbol })} className="w-full">
                     {i + 1}
                   </button>
                 </td>
                 <td className={`${td} ${bg} sticky left-0 z-10 w-16 min-w-16 max-w-16 truncate font-medium md:left-8`}>
                   {linkMarkets ? (
-                    <Link href={marketsHref} className="text-fs-accent hover:underline" title="打开行情">
+                    <Link href={marketsHref} className="text-fs-accent hover:underline" title={tr("打开行情")}>
                       {r.symbol}
                     </Link>
                   ) : linkStock ? (
-                    <Link href={stockHref} className="text-fs-accent hover:underline" title="打开个股">
+                    <Link href={stockHref} className="text-fs-accent hover:underline" title={tr("打开个股")}>
                       {r.symbol}
                     </Link>
                   ) : r.symbol}
                 </td>
                 <td className={`${td} ${bg} z-10 max-w-40 truncate max-md:static md:sticky md:left-24`} title={r.name}>
                   {linkStock ? (
-                    <Link href={stockHref} className="hover:underline" title="打开个股">
+                    <Link href={stockHref} className="hover:underline" title={tr("打开个股")}>
                       {r.name}
                     </Link>
                   ) : r.name}
@@ -132,8 +134,8 @@ export function DataGrid({
                   const { text, muted } = loading && !cell ? { text: "", muted: true } : formatCellValue(unit, cell, c.params.scale);
                   const numeric = cell?.s === "ok" && typeof cell.v === "number";
                   const tipParts = [
-                    cell?.p ? `${cell.p}${cell.d ? `（截至 ${cell.d}）` : ""}` : "",
-                    onCellClick ? "点击查看时序" : "",
+                    cell?.p ? `${cell.p}${cell.d ? tr("（截至 {d}）", { d: cell.d }) : ""}` : "",
+                    onCellClick ? tr("点击查看时序") : "",
                   ].filter(Boolean);
                   return (
                     <td

@@ -11,6 +11,7 @@ import { applyResultFilters } from "./resultFilter";
 import { computeGroupStats } from "./groupStats";
 import { computeTechnicalPoint } from "./technicalResolve";
 import { buildHistoryColumns } from "./seriesQuery";
+import { systemTemplates } from "./templates";
 import { MAX_COLUMNS, MAX_SYMBOLS, type ColumnSpec, type StockDataRow } from "./types";
 
 // ---------- 指标目录 ----------
@@ -28,7 +29,24 @@ test("indicator tree keeps registration order", () => {
   assert.ok(getIndicator("ratio.accrualsToAssets"));
   assert.ok(getIndicator("growth.revenueAccel"));
   assert.ok(getIndicator("tech.rsi14"));
+  assert.equal(getIndicator("tech.rsi14")!.unit, "number");
   assert.ok(getIndicator("insider.netBuyRatio"));
+  assert.ok(getIndicator("ratio.currentRatio"));
+  assert.ok(getIndicator("ratio.interestCoverage"));
+  assert.ok(getIndicator("fs.grossMargin"));
+  assert.ok(getIndicator("fs.opMargin"));
+  assert.ok(getIndicator("fs.ebitda"));
+});
+
+test("system templates cover valuation / quality / growth / technical presets", () => {
+  const templates = systemTemplates(() => "k");
+  const byId = new Map(templates.map((t) => [t.id, t]));
+  for (const id of ["sys:valuation", "sys:quality", "sys:growth", "sys:trend", "sys:technical", "sys:income3y"]) {
+    assert.ok(byId.get(id)?.columns.length, id);
+  }
+  assert.ok(byId.get("sys:quality")!.columns.some((c) => c.indicatorId === "fs.grossMargin"));
+  assert.ok(byId.get("sys:technical")!.columns.some((c) => c.indicatorId === "tech.rsi14"));
+  assert.ok(byId.get("sys:income3y")!.columns.some((c) => c.indicatorId === "fs.ebitda"));
 });
 
 test("normalizeParams adds defaults and drops params an indicator does not take", () => {
@@ -135,6 +153,7 @@ test("resolveRow picks fiscal years, quarters and TTM windows", () => {
     col("cash", "ratio.ocfToNetIncome", { period: { kind: "latestFY" } }),
     col("accrual", "ratio.accrualsToAssets", { period: { kind: "latestFY" } }),
     col("accel", "growth.revenueAccel", { period: { kind: "latestFY" } }),
+    col("gm", "fs.grossMargin", { period: { kind: "latestQ" } }),
   ]);
   const c = row.cells;
   assert.deepEqual(c.fy, { v: 430, s: "ok", p: "FY2025", d: "2025-09-27" });
@@ -155,6 +174,28 @@ test("resolveRow picks fiscal years, quarters and TTM windows", () => {
   assert.ok(typeof c.accrual!.v === "number");
   // FY2025 YoY − FY2024 YoY；FY2024 无前一年 → FY 加速度 null
   assert.equal(c.accel!.s, "na");
+  assert.equal(c.gm!.v, 0.4);
+});
+
+test("currentRatio and interestCoverage read statement lines", () => {
+  const withLines = QUARTERS.map((q, i) => ({
+    ...q,
+    lines: {
+      ...q.lines,
+      currentAssets: 200,
+      currentLiabilities: 100,
+      operatingIncome: 25,
+      interestExpense: 5,
+      ...(i === QUARTERS.length - 1 ? { currentAssets: 300, currentLiabilities: 100 } : {}),
+    },
+  }));
+  const input: SymbolInput = { symbol: "TEST", isFund: false, security: SECURITY, quarters: withLines };
+  const row = resolveRow(input, [
+    col("cr", "ratio.currentRatio", { period: { kind: "latestQ" } }),
+    col("ic", "ratio.interestCoverage", { period: { kind: "latestQ" } }),
+  ]);
+  assert.equal(row.cells.cr!.v, 3);
+  assert.equal(row.cells.ic!.v, 5); // TTM OI 100 / TTM |IE| 20
 });
 
 test("uncovered stocks and funds get explicit statuses instead of blanks", () => {
@@ -179,6 +220,7 @@ test("earliestYearNeeded reaches back far enough for TTM and YoY", () => {
 test("cells show statuses as words and values in compact form", () => {
   assert.deepEqual(formatCellValue("money", { v: 4.3e11, s: "ok" }), { text: "430.00B", muted: false });
   assert.deepEqual(formatCellValue("pct", { v: 0.1234, s: "ok" }), { text: "12.34%", muted: false });
+  assert.deepEqual(formatCellValue("number", { v: 57.18, s: "ok" }), { text: "57.18", muted: false });
   assert.deepEqual(formatCellValue("money", { v: null, s: "uncovered" }), { text: "未覆盖", muted: true });
 });
 

@@ -28,6 +28,7 @@ export function formatCellValue(unit: IndicatorUnit, cell: Cell | undefined, sca
     case "pct": return { text: formatPct(v, 2), muted: false };
     case "perShare": return { text: formatEps(v), muted: false };
     case "multiple": return { text: formatMultiplier(v, 2), muted: false };
+    case "number": return { text: v.toLocaleString("en-US", { maximumFractionDigits: 2 }), muted: false };
     default: return { text: String(v), muted: false };
   }
 }

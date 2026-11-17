@@ -16,6 +16,7 @@ import {
   type RangeSpec,
   type Scale,
 } from "@/lib/equity/stockData/types";
+import { useTr } from "@/i18n/TextProvider";
 
 type Props = {
   title: string;
@@ -43,6 +44,7 @@ const yearAgo = () => `${THIS_YEAR - 1}${today().slice(4)}`;
  * 只显示所选指标用得到的参数；电脑上是居中弹窗，手机上从底部弹出。
  */
 export function ParamEditor({ title, indicators, initial, initialMulti, totalColumnsFor, onConfirm, onCancel }: Props) {
+  const tr = useTr();
   const p0 = initial.period ?? { kind: "latestFY" as const };
   const [kind, setKind] = useState<PeriodKind>(initialMulti ? "multi" : p0.kind);
   const [year, setYear] = useState(p0.kind === "FY" || p0.kind === "FQ" ? p0.year : THIS_YEAR - 1);
@@ -66,11 +68,11 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
   const activeMulti = has("period") && isMulti ? multi : undefined;
   const total = totalColumnsFor(activeMulti);
   const problems: string[] = [];
-  if (isMulti && !multi.slots.length) problems.push("至少勾选一个期次");
-  if (isMulti && multi.fromYear > multi.toYear) problems.push("起始财年不能晚于结束财年");
-  if (total > MAX_COLUMNS) problems.push(`确定后共 ${total} 列，超过 ${MAX_COLUMNS} 列上限`);
-  if (has("asOf") && asOfKind === "date" && !asOfDate) problems.push("请选择截止日");
-  if (has("range") && rangeChoice === "custom" && (!rangeFrom || !rangeTo || rangeFrom > rangeTo)) problems.push("区间开始日不能晚于结束日");
+  if (isMulti && !multi.slots.length) problems.push(tr("至少勾选一个期次"));
+  if (isMulti && multi.fromYear > multi.toYear) problems.push(tr("起始财年不能晚于结束财年"));
+  if (total > MAX_COLUMNS) problems.push(tr("确定后共 {total} 列，超过 {MAX_COLUMNS} 列上限", { total, MAX_COLUMNS }));
+  if (has("asOf") && asOfKind === "date" && !asOfDate) problems.push(tr("请选择截止日"));
+  if (has("range") && rangeChoice === "custom" && (!rangeFrom || !rangeTo || rangeFrom > rangeTo)) problems.push(tr("区间开始日不能晚于结束日"));
 
   const confirm = () => {
     if (problems.length) return;
@@ -115,20 +117,20 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
 
         {has("period") ? (
           <fieldset className="mt-4">
-            <legend className="text-sm font-medium">报告期</legend>
-            <p className="mb-2 text-xs text-fs-muted">按公司自己的财年；财年不按日历年结束的公司（如 9 月年结），FY2025 指截至 2025 年内的那个财年。</p>
+            <legend className="text-sm font-medium">{tr("报告期")}</legend>
+            <p className="mb-2 text-xs text-fs-muted">{tr("按公司自己的财年；财年不按日历年结束的公司（如 9 月年结），FY2025 指截至 2025 年内的那个财年。")}</p>
             <div className="grid grid-cols-2 gap-x-4">
-              {radio("period-kind", kind === "latestFY", () => setKind("latestFY"), "最新年报")}
-              {radio("period-kind", kind === "latestQ", () => setKind("latestQ"), "最新一期")}
-              {radio("period-kind", kind === "FY", () => setKind("FY"), "指定年报")}
-              {radio("period-kind", kind === "FQ", () => setKind("FQ"), "指定季报")}
-              {radio("period-kind", isMulti, () => setKind("multi"), "多个报告期")}
+              {radio("period-kind", kind === "latestFY", () => setKind("latestFY"), tr("最新年报"))}
+              {radio("period-kind", kind === "latestQ", () => setKind("latestQ"), tr("最新一期"))}
+              {radio("period-kind", kind === "FY", () => setKind("FY"), tr("指定年报"))}
+              {radio("period-kind", kind === "FQ", () => setKind("FQ"), tr("指定季报"))}
+              {radio("period-kind", isMulti, () => setKind("multi"), tr("多个报告期"))}
             </div>
             {kind === "FY" || kind === "FQ" ? (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                {yearSelect("财年", year, setYear)}
+                {yearSelect(tr("财年"), year, setYear)}
                 {kind === "FQ" ? (
-                  <select aria-label="财季" className={select} value={q} onChange={(e) => setQ(Number(e.target.value) as 1 | 2 | 3 | 4)}>
+                  <select aria-label={tr("财季")} className={select} value={q} onChange={(e) => setQ(Number(e.target.value) as 1 | 2 | 3 | 4)}>
                     {[1, 2, 3, 4].map((n) => <option key={n} value={n}>Q{n}</option>)}
                   </select>
                 ) : null}
@@ -137,9 +139,9 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
             {isMulti ? (
               <div className="mt-2 space-y-2 rounded-lg border border-fs-border p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  {yearSelect("起始财年", multi.fromYear, (y) => setMulti((m) => ({ ...m, fromYear: y })))}
-                  <span className="text-fs-muted">至</span>
-                  {yearSelect("结束财年", multi.toYear, (y) => setMulti((m) => ({ ...m, toYear: y })))}
+                  {yearSelect(tr("起始财年"), multi.fromYear, (y) => setMulti((m) => ({ ...m, fromYear: y })))}
+                  <span className="text-fs-muted">{tr("至")}</span>
+                  {yearSelect(tr("结束财年"), multi.toYear, (y) => setMulti((m) => ({ ...m, toYear: y })))}
                 </div>
                 <div className="flex flex-wrap gap-x-4">
                   {SLOTS.map((s) => (
@@ -153,7 +155,7 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-fs-muted">每个指标按期次各生成一列，这几列算一组，之后修改参数会整组生效。</p>
+                <p className="text-xs text-fs-muted">{tr("每个指标按期次各生成一列，这几列算一组，之后修改参数会整组生效。")}</p>
               </div>
             ) : null}
           </fieldset>
@@ -161,74 +163,74 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
 
         {has("basis") && quarterly ? (
           <fieldset className="mt-4">
-            <legend className="text-sm font-medium">季度口径</legend>
+            <legend className="text-sm font-medium">{tr("季度口径")}</legend>
             <div className="flex gap-4">
-              {radio("basis", basis === "single", () => setBasis("single"), "单季")}
-              {radio("basis", basis === "ttm", () => setBasis("ttm"), "TTM（滚动 4 季）")}
+              {radio("basis", basis === "single", () => setBasis("single"), tr("单季"))}
+              {radio("basis", basis === "ttm", () => setBasis("ttm"), tr("TTM（滚动 4 季）"))}
             </div>
-            <p className="text-xs text-fs-muted">期末余额类科目（如总资产）不受口径影响；年报列始终是全年。</p>
+            <p className="text-xs text-fs-muted">{tr("期末余额类科目（如总资产）不受口径影响；年报列始终是全年。")}</p>
           </fieldset>
         ) : null}
 
         {has("asOf") ? (
           <fieldset className="mt-4">
-            <legend className="text-sm font-medium">截止日</legend>
+            <legend className="text-sm font-medium">{tr("截止日")}</legend>
             <div className="flex flex-wrap items-center gap-x-4">
-              {radio("as-of", asOfKind === "latest", () => setAsOfKind("latest"), "最近交易日")}
-              {radio("as-of", asOfKind === "date", () => setAsOfKind("date"), "指定日期")}
+              {radio("as-of", asOfKind === "latest", () => setAsOfKind("latest"), tr("最近交易日"))}
+              {radio("as-of", asOfKind === "date", () => setAsOfKind("date"), tr("指定日期"))}
               {asOfKind === "date" ? (
-                <input type="date" aria-label="截止日" className={dateInput} value={asOfDate} min="1995-01-01" max={today()} onChange={(e) => setAsOfDate(e.target.value)} />
+                <input type="date" aria-label={tr("截止日")} className={dateInput} value={asOfDate} min="1995-01-01" max={today()} onChange={(e) => setAsOfDate(e.target.value)} />
               ) : null}
             </div>
-            <p className="text-xs text-fs-muted">非交易日取之前最近一个交易日；估值只用截止日之前已披露的财报。</p>
+            <p className="text-xs text-fs-muted">{tr("非交易日取之前最近一个交易日；估值只用截止日之前已披露的财报。")}</p>
           </fieldset>
         ) : null}
 
         {has("range") ? (
           <fieldset className="mt-4">
-            <legend className="text-sm font-medium">区间</legend>
+            <legend className="text-sm font-medium">{tr("区间")}</legend>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <select aria-label="区间" className={select} value={rangeChoice} onChange={(e) => setRangeChoice(e.target.value as RangePreset | "custom")}>
+              <select aria-label={tr("区间")} className={select} value={rangeChoice} onChange={(e) => setRangeChoice(e.target.value as RangePreset | "custom")}>
                 {RANGE_PRESETS.map((p) => <option key={p} value={p}>{RANGE_PRESET_LABELS[p]}</option>)}
-                <option value="custom">自定义</option>
+                <option value="custom">{tr("自定义")}</option>
               </select>
               {rangeChoice === "custom" ? (
                 <>
-                  <input type="date" aria-label="区间开始日" className={dateInput} value={rangeFrom} min="1995-01-01" max={today()} onChange={(e) => setRangeFrom(e.target.value)} />
-                  <span className="text-fs-muted">至</span>
-                  <input type="date" aria-label="区间结束日" className={dateInput} value={rangeTo} min="1995-01-01" max={today()} onChange={(e) => setRangeTo(e.target.value)} />
+                  <input type="date" aria-label={tr("区间开始日")} className={dateInput} value={rangeFrom} min="1995-01-01" max={today()} onChange={(e) => setRangeFrom(e.target.value)} />
+                  <span className="text-fs-muted">{tr("至")}</span>
+                  <input type="date" aria-label={tr("区间结束日")} className={dateInput} value={rangeTo} min="1995-01-01" max={today()} onChange={(e) => setRangeTo(e.target.value)} />
                 </>
               ) : null}
             </div>
-            <p className="text-xs text-fs-muted">预设区间截止到最近交易日；自定义区间最长 10 年。</p>
+            <p className="text-xs text-fs-muted">{tr("预设区间截止到最近交易日；自定义区间最长 10 年。")}</p>
           </fieldset>
         ) : null}
 
         {has("adjust") ? (
           <fieldset className="mt-4">
-            <legend className="text-sm font-medium">复权</legend>
+            <legend className="text-sm font-medium">{tr("复权")}</legend>
             <div className="flex gap-4">
-              {radio("adjust", adjust === "forward", () => setAdjust("forward"), "前复权（含分红）")}
-              {radio("adjust", adjust === "none", () => setAdjust("none"), "不复权")}
+              {radio("adjust", adjust === "forward", () => setAdjust("forward"), tr("前复权（含分红）"))}
+              {radio("adjust", adjust === "none", () => setAdjust("none"), tr("不复权"))}
             </div>
           </fieldset>
         ) : null}
 
         {showScale ? (
           <fieldset className="mt-4">
-            <legend className="text-sm font-medium">显示单位</legend>
-            <select aria-label="显示单位" className={select} value={scale} onChange={(e) => setScale(e.target.value as Scale)}>
+            <legend className="text-sm font-medium">{tr("显示单位")}</legend>
+            <select aria-label={tr("显示单位")} className={select} value={scale} onChange={(e) => setScale(e.target.value as Scale)}>
               {(Object.keys(SCALE_LABELS) as Scale[]).map((s) => <option key={s} value={s}>{SCALE_LABELS[s]}</option>)}
             </select>
-            <p className="mt-1 text-xs text-fs-muted">只影响显示和导出；「自动」按数值大小缩写。</p>
+            <p className="mt-1 text-xs text-fs-muted">{tr("只影响显示和导出；「自动」按数值大小缩写。")}</p>
           </fieldset>
         ) : null}
 
         {problems.length ? <p role="alert" className="mt-4 text-sm text-fs-accent">{problems[0]}</p> : null}
         <div className="mt-5 flex items-center justify-end gap-2">
-          {isMulti && has("period") ? <span className="mr-auto text-xs text-fs-muted">确定后共 {total} 列</span> : null}
-          <button type="button" onClick={onCancel} className="min-h-10 rounded-lg border border-fs-border px-4 text-sm">取消</button>
-          <button type="button" onClick={confirm} disabled={problems.length > 0} autoFocus className="min-h-10 rounded-lg bg-fs-accent px-4 text-sm text-white disabled:opacity-40">确定</button>
+          {isMulti && has("period") ? <span className="mr-auto text-xs text-fs-muted">{tr("确定后共 {total} 列", { total })}</span> : null}
+          <button type="button" onClick={onCancel} className="min-h-10 rounded-lg border border-fs-border px-4 text-sm">{tr("取消")}</button>
+          <button type="button" onClick={confirm} disabled={problems.length > 0} autoFocus className="min-h-10 rounded-lg bg-fs-accent px-4 text-sm text-white disabled:opacity-40">{tr("确定")}</button>
         </div>
       </div>
     </div>
