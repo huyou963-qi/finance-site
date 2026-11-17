@@ -2,23 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { buildIndicatorTree, type IndicatorTreeNode } from "@/lib/equity/stockData/indicatorRegistry";
+import { filterIndicators } from "@/lib/equity/stockData/indicatorSearch";
 import type { IndicatorDef } from "@/lib/equity/stockData/types";
 import { useTr } from "@/i18n/TextProvider";
 
 export const INDICATOR_DRAG_TYPE = "application/x-stock-data-indicators";
-
-/** 常用别名：搜「毛利率」等也能命中报表科目，避免重复登记 ratio.* */
-const SEARCH_ALIASES: Record<string, string[]> = {
-  "fs.grossMargin": ["毛利率", "gross margin", "gm"],
-  "fs.opMargin": ["营业利润率", "operating margin", "opm"],
-  "fs.netMargin": ["净利率", "net margin"],
-  "fs.ebitda": ["息税折旧摊销前利润", "ebitda"],
-  "fs.fcf": ["自由现金流", "free cash flow"],
-  "ratio.currentRatio": ["流动比率", "current ratio"],
-  "ratio.interestCoverage": ["利息保障", "interest coverage"],
-  "ratio.roeTtm": ["净资产收益率", "roe"],
-  "ratio.roaTtm": ["总资产收益率", "roa"],
-};
 
 type Props = {
   indicators: readonly IndicatorDef[];
@@ -31,7 +19,7 @@ const DEFAULT_OPEN_FOLDERS = ["证券信息", "财务报表", "财务指标"] as
 
 /**
  * 左上：指标目录。单击选中（Ctrl/⌘ 多选），双击或点「加入表格」加列，也可以把指标拖到表格上。
- * 有搜索词时改为平铺结果并显示所在路径。
+ * 有搜索词时改为平铺结果并显示所在路径；支持中文、英文、拼音全拼/首字母。
  */
 export function IndicatorPanel({ indicators, onAdd }: Props) {
   const tr = useTr();
@@ -43,22 +31,8 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
   const [multi, setMulti] = useState(false);
   const byId = useMemo(() => new Map(indicators.map((d) => [d.id, d])), [indicators]);
 
-  const q = query.trim().toLowerCase();
-  const matches = useMemo(
-    () =>
-      q
-        ? indicators.filter((d) => {
-            const aliases = SEARCH_ALIASES[d.id] ?? [];
-            return (
-              d.label.toLowerCase().includes(q) ||
-              d.id.toLowerCase().includes(q) ||
-              d.path.join(" ").toLowerCase().includes(q) ||
-              aliases.some((a) => a.toLowerCase().includes(q) || q.includes(a.toLowerCase()))
-            );
-          })
-        : [],
-    [indicators, q],
-  );
+  const q = query.trim();
+  const matches = useMemo(() => (q ? filterIndicators(indicators, q) : []), [indicators, q]);
 
   const select = (id: string, multi: boolean) =>
     setSelected((prev) => (multi ? (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]) : [id]));
@@ -134,8 +108,8 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={tr("搜索指标，如 营业收入、ROE")}
-          title={tr("双击指标或拖到表格即可加列")}
+          placeholder={tr("搜索指标，如 营业收入、ROE、yysr")}
+          title={tr("支持中文、英文与拼音；双击或拖到表格即可加列")}
           aria-label={tr("搜索指标")}
           className="min-h-9 md:min-h-7 w-full rounded-lg border border-fs-border bg-fs-elevated px-3 text-sm md:text-xs"
         />

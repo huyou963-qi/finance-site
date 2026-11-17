@@ -17,6 +17,11 @@ export type StockDataTemplate = {
   symbols: string[] | null;
   updatedAt?: string;
   system?: boolean;
+  /**
+   * 系统模板可选默认股票池：点「连同股票应用」时按市值取前 limit 只。
+   * 不把成分写死进模板，避免过期；运行时走 /api/equity/stock-data/pools。
+   */
+  defaultPool?: { id: string; limit: number; label: string } | null;
 };
 
 type Item = { id: string; params?: ColumnParams; multi?: MultiPeriod };
@@ -24,11 +29,14 @@ type Item = { id: string; params?: ColumnParams; multi?: MultiPeriod };
 const THIS_YEAR = new Date().getFullYear();
 const threeYears: MultiPeriod = { fromYear: THIS_YEAR - 3, toYear: THIS_YEAR - 1, slots: ["FY"] };
 const latestQ = { period: { kind: "latestQ" as const } };
+/** 标普 500 按市值前 50（与单次上限一致） */
+const SP500_TOP50 = { id: "sp500", limit: 50, label: "标普 500 前 50" } as const;
 
-const SYSTEM: { id: string; name: string; items: Item[] }[] = [
+const SYSTEM: { id: string; name: string; items: Item[]; defaultPool?: { id: string; limit: number; label: string } }[] = [
   {
     id: "sys:valuation",
     name: "估值快照",
+    defaultPool: SP500_TOP50,
     items: [
       "sec.gicsSector",
       "val.marketCap",
@@ -52,6 +60,7 @@ const SYSTEM: { id: string; name: string; items: Item[] }[] = [
   {
     id: "sys:quality",
     name: "质量与回报",
+    defaultPool: SP500_TOP50,
     items: [
       "ratio.roeTtm",
       "ratio.roaTtm",
@@ -72,6 +81,7 @@ const SYSTEM: { id: string; name: string; items: Item[] }[] = [
   {
     id: "sys:growth",
     name: "成长快照",
+    defaultPool: SP500_TOP50,
     items: [
       { id: "sec.gicsSector" },
       { id: "fs.revenue", params: latestQ },
@@ -87,6 +97,7 @@ const SYSTEM: { id: string; name: string; items: Item[] }[] = [
   {
     id: "sys:trend",
     name: "趋势与风险",
+    defaultPool: SP500_TOP50,
     items: [
       { id: "px.close" },
       { id: "px.rangeReturn", params: { range: { kind: "preset", preset: "ytd" } } },
@@ -127,6 +138,7 @@ export function systemTemplates(newKey: () => string): StockDataTemplate[] {
     name: t.name,
     system: true,
     symbols: null,
+    defaultPool: t.defaultPool ?? null,
     columns: t.items.flatMap((it) => {
       const def = getIndicator(it.id);
       return def ? buildColumns(publicIndicator(def), it.params ?? {}, it.multi, newKey) : [];

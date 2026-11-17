@@ -444,6 +444,7 @@
     "nodemailer": "^8.0.6",
     "pdfjs-dist": "^5.4.149",
     "pg": "^8.20.0",
+    "pinyin-pro": "^3.29.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
