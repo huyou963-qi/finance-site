@@ -8,6 +8,10 @@ import { resolveGlobalCatalogPlacement } from "../../globalCatalogTaxonomy";
 import { placeConsumerPressureKeys } from "./layout";
 import { RELEASE_PACKAGE_CATALOG, instrumentMatchesPackageMember } from "../releasePackageCatalog";
 import { fredBootstrapObservationStart } from "../adapters/fredAdapter";
+import { US_MONEY_CREDIT_SERIES } from "../usMoneyCreditCatalog";
+import { SEED_CATALOG_REGISTRY, VERIFY_CATALOG_REGISTRY } from "../seedCatalogRegistry";
+import { resolveUsCatalogPlacement } from "../../usCatalogTaxonomy";
+import { fredDisplayLabel } from "../../fredCatalog";
 
 function workbook() {
   const wb = XLSX.utils.book_new();
@@ -87,4 +91,18 @@ test("pre-1950 FRED history survives empty-store bootstrap without changing ordi
   assert.equal(fredBootstrapObservationStart("2020-01-01", meta), "2020-01-01");
   assert.equal(fredBootstrapObservationStart("1950-01-01", { observationStartDate: "1945-02-30" }), "1950-01-01");
   assert.equal(fredBootstrapObservationStart("1950-01-01", { observationStartDate: "1987-10-01" }), "1950-01-01");
+});
+test("consumer pressure and H.6/H.8 catalogs coexist after merging their shared registrations", () => {
+  for (const name of ["consumer-pressure", "us-money-credit"]) {
+    assert.ok(SEED_CATALOG_REGISTRY[name]);
+    assert.ok(VERIFY_CATALOG_REGISTRY[name]);
+  }
+  for (const row of [...US_MONEY_CREDIT_SERIES, ...CONSUMER_PRESSURE_FRED]) {
+    const subgroup = "subgroup" in row ? row.subgroup : row.group;
+    assert.equal(resolveUsCatalogPlacement({ key: `fred:${row.fredId}` }).subgroup, subgroup, row.fredId);
+    assert.match(fredDisplayLabel(row.fredId), /[\u4e00-\u9fff]/, row.fredId);
+    const packages = RELEASE_PACKAGE_CATALOG.filter(p => instrumentMatchesPackageMember({ code: `sched_fred_${row.fredId}`, fredSeriesId: row.fredId }, p.members));
+    assert.equal(packages.length, 1, row.fredId);
+    assert.equal(packages[0].id, "packageId" in row ? row.packageId : row.releasePackageId, row.fredId);
+  }
 });

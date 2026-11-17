@@ -1,3 +1,4 @@
+import { H6_MONEY_IDS, H8_CORE_IDS } from "./usMoneyCreditCatalog";
 import { CP_FRED_SERIES, CP_WEEKLY_PACKAGE, FINANCING_PROBE_HOURS } from "./usFinancing/catalog";
 import type { DataGranularity } from "@prisma/client";
 import { BOJ_SERIES } from "./boj/catalog";
@@ -849,7 +850,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       fredSeriesIds: ["CSUSHPINSA"],
     },
   }),
-  pkg("us.fed.m2", "美国 M2 货币供应", {
+  pkg("us.fed.m2", "美国 H.6 货币供应量与准备金", {
     granularity: "MONTHLY",
     sortOrder: 160,
     calendar: {
@@ -857,7 +858,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
       keywords: ["m2 money supply"],
     },
     members: {
-      fredSeriesIds: ["M2SL"],
+      fredSeriesIds: H6_MONEY_IDS,
     },
   }),
 
@@ -1040,10 +1041,10 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   }),
   probePkg("us.frb.h8_bank_assets", "美国 H.8 商业银行资产负债", {
     labelEn: "H.8 Assets and Liabilities of Commercial Banks in the United States",
-    granularity: "MONTHLY",
-    intervalHours: 72,
+    granularity: "WEEKLY",
+    intervalHours: 24,
     sortOrder: 208,
-    members: { fredSeriesIds: ["BUSLOANS"] },
+    members: { fredSeriesIds: ["BUSLOANS", ...H8_CORE_IDS] },
   }),
   probePkg("us.freddiemac.pmms", "Freddie Mac 抵押利率（PMMS）", {
     labelEn: "Primary Mortgage Market Survey",
