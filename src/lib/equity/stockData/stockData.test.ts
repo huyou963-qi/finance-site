@@ -64,6 +64,11 @@ test("indicator search matches Chinese, English, aliases and pinyin", async () =
   assert.ok(matchesIndicatorQuery(revenue, "yingye"));
   assert.ok(matchesIndicatorQuery(getIndicator("ratio.roeTtm")!, "roe"));
   assert.ok(filterIndicators(INDICATORS, "ebitda").some((d) => d.id === "fs.ebitda"));
+  // 短别名只精确/正向包含，避免 pe⊂price、ps⊂eps 误伤
+  assert.ok(matchesIndicatorQuery(getIndicator("val.pe")!, "pe"));
+  assert.equal(matchesIndicatorQuery(getIndicator("val.pe")!, "price"), false);
+  assert.equal(matchesIndicatorQuery(getIndicator("val.ps")!, "eps"), false);
+  assert.ok(matchesIndicatorQuery(getIndicator("fs.eps")!, "eps"));
 });
 
 test("normalizeParams adds defaults and drops params an indicator does not take", () => {

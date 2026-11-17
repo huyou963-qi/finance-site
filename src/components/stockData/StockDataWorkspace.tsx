@@ -120,6 +120,9 @@ export function StockDataWorkspace() {
   });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leftResize = useRef<{ startX: number; startW: number } | null>(null);
+  const applySeq = useRef(0);
+  const applyAbort = useRef<AbortController | null>(null);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
 
   const draftKey = fetchSignature(draft.stocks.map((s) => s.symbol), draft.columns);
   const stale = !!result && fetchedKey !== draftKey;
@@ -363,6 +366,11 @@ export function StockDataWorkspace() {
 
   // ---------- 模板 ----------
   const applyTemplate = async (t: StockDataTemplate, withStocks: boolean) => {
+    const seq = ++applySeq.current;
+    applyAbort.current?.abort();
+    const ac = new AbortController();
+    applyAbort.current = ac;
+    setApplyingTemplate(true);
     // 换新的列标识和组标识，避免和当前的排序、选中状态串号
     const regroup = new Map<string, string>();
     const columns = t.columns.slice(0, MAX_COLUMNS).map((c) => {
@@ -374,36 +382,46 @@ export function StockDataWorkspace() {
       return { ...c, key: newKey(), ...(groupId ? { groupId } : {}) };
     });
     let stocks: PickedStock[] | null = null;
-    if (withStocks) {
-      if (t.symbols?.length) {
-        stocks = t.symbols.slice(0, MAX_SYMBOLS).map((symbol) => ({ symbol, name: symbol }));
-      } else if (t.defaultPool) {
-        try {
-          const r = await fetch(`/api/equity/stock-data/pools?id=${encodeURIComponent(t.defaultPool.id)}`);
-          const j = await r.json();
-          if (!r.ok) {
-            showToast(j.error || tr("无法读取默认股票池"));
+    try {
+      if (withStocks) {
+        if (t.symbols?.length) {
+          stocks = t.symbols.slice(0, MAX_SYMBOLS).map((symbol) => ({ symbol, name: symbol }));
+        } else if (t.defaultPool) {
+          try {
+            const r = await fetch(`/api/equity/stock-data/pools?id=${encodeURIComponent(t.defaultPool.id)}`, {
+              signal: ac.signal,
+            });
+            if (seq !== applySeq.current) return;
+            const j = await r.json();
+            if (seq !== applySeq.current) return;
+            if (!r.ok) {
+              showToast(j.error || tr("无法读取默认股票池"));
+              return;
+            }
+            const members = (j.members as { symbol: string; name: string }[] | undefined) ?? [];
+            stocks = members.slice(0, Math.min(t.defaultPool.limit, MAX_SYMBOLS)).map((m) => ({
+              symbol: m.symbol,
+              name: m.name || m.symbol,
+            }));
+            if (!stocks.length) {
+              showToast(tr("默认股票池暂无成分"));
+              return;
+            }
+          } catch (e) {
+            if (ac.signal.aborted || seq !== applySeq.current) return;
+            showToast(tr("网络异常，未能加载股票池"));
             return;
           }
-          const members = (j.members as { symbol: string; name: string }[] | undefined) ?? [];
-          stocks = members.slice(0, Math.min(t.defaultPool.limit, MAX_SYMBOLS)).map((m) => ({
-            symbol: m.symbol,
-            name: m.name || m.symbol,
-          }));
-          if (!stocks.length) {
-            showToast(tr("默认股票池暂无成分"));
-            return;
-          }
-        } catch {
-          showToast(tr("网络异常，未能加载股票池"));
-          return;
         }
       }
+      if (seq !== applySeq.current) return;
+      setDraft((d) => ({ columns, stocks: stocks ?? d.stocks }));
+      setSort(null);
+      setSelectedCols(new Set());
+      showToast(tr("已应用「{name}」：{length} 列{v2}，点「提取数据」刷新", { name: t.name, length: columns.length, v2: stocks ? tr("、{length} 只股票", { length: stocks.length }) : "" }), true);
+    } finally {
+      if (seq === applySeq.current) setApplyingTemplate(false);
     }
-    setDraft((d) => ({ columns, stocks: stocks ?? d.stocks }));
-    setSort(null);
-    setSelectedCols(new Set());
-    showToast(tr("已应用「{name}」：{length} 列{v2}，点「提取数据」刷新", { name: t.name, length: columns.length, v2: stocks ? tr("、{length} 只股票", { length: stocks.length }) : "" }), true);
   };
 
   const deleteTemplate = async (t: StockDataTemplate) => {
@@ -688,7 +706,7 @@ export function StockDataWorkspace() {
             {leftTab === "indicators" ? (
               <IndicatorPanel indicators={PUBLIC_INDICATORS} onAdd={addIndicators} />
             ) : (
-              <TemplatePanel system={SYSTEM_TEMPLATES} mine={myTemplates} loadError={templateError} onApply={(t, w) => void applyTemplate(t, w)} onDelete={(t) => void deleteTemplate(t)} />
+                <TemplatePanel system={SYSTEM_TEMPLATES} mine={myTemplates} loadError={templateError} applying={applyingTemplate} onApply={(t, w) => void applyTemplate(t, w)} onDelete={(t) => void deleteTemplate(t)} />
             )}
           </div>
           <div className={`min-h-0 flex-col md:flex md:flex-[2] ${mobileTab === "stocks" ? "flex flex-1" : "hidden"}`}>

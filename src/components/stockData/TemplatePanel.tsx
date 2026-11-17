@@ -9,6 +9,8 @@ type Props = {
   system: StockDataTemplate[];
   mine: StockDataTemplate[] | null;
   loadError: string;
+  /** 正在拉取默认股票池时禁用应用按钮，避免并发覆盖 */
+  applying?: boolean;
   /** withStocks：模板里存了股票或系统默认池时，连同股票一起替换 */
   onApply: (t: StockDataTemplate, withStocks: boolean) => void;
   onDelete: (t: StockDataTemplate) => void;
@@ -19,7 +21,7 @@ function canApplyWithStocks(t: StockDataTemplate): boolean {
 }
 
 /** 左上「模板」标签：系统模板与我的模板。应用模板会替换当前所有列 */
-export function TemplatePanel({ system, mine, loadError, onApply, onDelete }: Props) {
+export function TemplatePanel({ system, mine, loadError, applying = false, onApply, onDelete }: Props) {
   const tr = useTr();
   const [open, setOpen] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -60,9 +62,9 @@ export function TemplatePanel({ system, mine, loadError, onApply, onDelete }: Pr
           <div className="space-y-2 px-3 pb-3 text-xs">
             <p className="text-fs-muted">{summary.get(t.id)}</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => onApply(t, false)} className="min-h-9 md:min-h-7 rounded-lg bg-fs-accent px-3 text-white">{tr("应用列")}</button>
+              <button type="button" disabled={applying} onClick={() => onApply(t, false)} className="min-h-9 md:min-h-7 rounded-lg bg-fs-accent px-3 text-white disabled:opacity-40">{applying ? tr("应用中…") : tr("应用列")}</button>
               {withStocks ? (
-                <button type="button" onClick={() => onApply(t, true)} className="min-h-9 md:min-h-7 rounded-lg border border-fs-border px-3">{withStocksLabel}</button>
+                <button type="button" disabled={applying} onClick={() => onApply(t, true)} className="min-h-9 md:min-h-7 rounded-lg border border-fs-border px-3 disabled:opacity-40">{applying ? tr("应用中…") : withStocksLabel}</button>
               ) : null}
               {!t.system ? (
                 confirmDelete === t.id ? (

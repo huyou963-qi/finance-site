@@ -50,14 +50,12 @@ export function pinyinTokens(text: string): string[] {
 }
 
 function haystack(d: IndicatorDef): string[] {
-  const aliases = INDICATOR_SEARCH_ALIASES[d.id] ?? [];
   return [
     d.id,
     d.label,
     ...d.path,
     enOf(d.label),
     ...d.path.map(enOf),
-    ...aliases,
     ...pinyinTokens(d.label),
     ...d.path.flatMap(pinyinTokens),
   ]
@@ -65,11 +63,17 @@ function haystack(d: IndicatorDef): string[] {
     .filter(Boolean);
 }
 
-/** 查询串是否命中该指标（大小写不敏感；空串视为全匹配） */
+/**
+ * 查询串是否命中该指标（大小写不敏感；空串视为全匹配）。
+ * 只做「字段包含查询串」；别名额外允许精确相等，避免 pe/ps 等短码被
+ * 「查询串包含别名」误伤（如 eps⊃ps、price⊃pe）。
+ */
 export function matchesIndicatorQuery(d: IndicatorDef, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return haystack(d).some((h) => h.includes(q) || q.includes(h));
+  if (haystack(d).some((h) => h.includes(q))) return true;
+  const aliases = (INDICATOR_SEARCH_ALIASES[d.id] ?? []).map((a) => a.toLowerCase());
+  return aliases.some((a) => a === q || a.includes(q));
 }
 
 export function filterIndicators(indicators: readonly IndicatorDef[], query: string): IndicatorDef[] {
