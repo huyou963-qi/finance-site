@@ -374,33 +374,33 @@ export function HistoricalSectorRotation() {
                 <article className="h-full rounded-lg bg-fs-bg/45 p-3 sm:p-4">
                   <div className="border-l-2 border-fs-accent/60 pl-3">
                     <p className="text-base font-bold text-fs-text">{tr("宏观主线")}</p>
-                    <p className="mt-1 text-sm leading-6 text-fs-text">{period.macro}</p>
+                    <p className="mt-1 text-sm leading-6 text-fs-text">{tr(period.macro)}</p>
                   </div>
                   <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 rounded-lg border border-fs-border bg-fs-elevated/30 p-3 text-xs">
-                    <div><dt className="text-fs-muted">{tr("增长")}</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.growth}</dd></div>
-                    <div><dt className="text-fs-muted">{tr("通胀")}</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.inflation}</dd></div>
-                    <div><dt className="text-fs-muted">{tr("政策")}</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.policy}</dd></div>
-                    <div><dt className="text-fs-muted">{tr("信用")}</dt><dd className="mt-1 font-medium text-fs-text">{period.regime.credit}</dd></div>
+                    <div><dt className="text-fs-muted">{tr("增长")}</dt><dd className="mt-1 font-medium text-fs-text">{tr(period.regime.growth)}</dd></div>
+                    <div><dt className="text-fs-muted">{tr("通胀")}</dt><dd className="mt-1 font-medium text-fs-text">{tr(period.regime.inflation)}</dd></div>
+                    <div><dt className="text-fs-muted">{tr("政策")}</dt><dd className="mt-1 font-medium text-fs-text">{tr(period.regime.policy)}</dd></div>
+                    <div><dt className="text-fs-muted">{tr("信用")}</dt><dd className="mt-1 font-medium text-fs-text">{tr(period.regime.credit)}</dd></div>
                   </dl>
                   <div className="mt-4">
                     <h3 className="text-xs font-medium text-fs-text">{tr("关键事件与影响")}</h3>
                     <ol className="mt-2 space-y-2.5">
-                      {period.events.map((event) => <li key={`${event.date}-${event.title}`} className="grid grid-cols-[5.5rem_1fr] gap-2 text-xs leading-5"><span className="tabular-nums text-fs-muted">{event.date}</span><span className="text-fs-text"><strong className="font-medium">{tr(event.title)}</strong><span className="text-fs-muted"> · {event.impact}</span></span></li>)}
+                      {period.events.map((event) => <li key={`${event.date}-${event.title}`} className="grid grid-cols-[5.5rem_1fr] gap-2 text-xs leading-5"><span className="tabular-nums text-fs-muted">{event.date}</span><span className="text-fs-text"><strong className="font-medium">{tr(event.title)}</strong><span className="text-fs-muted"> · {tr(event.impact)}</span></span></li>)}
                     </ol>
                   </div>
                   <div className="mt-4 rounded-lg border border-fs-border bg-fs-elevated/25 p-3">
                     <p className="text-[11px] font-bold text-fs-text">{tr("行业传导机制：为什么会强 / 弱")}</p>
-                    <p className="mt-1 text-xs leading-5 text-fs-text">{period.mechanism}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-1"><span className="mr-1 text-[10px] text-fs-muted">{tr("理论受益")}</span>{period.expectedLeaders.map((leader) => <span key={leader} className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[10px] text-fs-accent-text">{leader}</span>)}</div>
+                    <p className="mt-1 text-xs leading-5 text-fs-text">{tr(period.mechanism)}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1"><span className="mr-1 text-[10px] text-fs-muted">{tr("理论受益")}</span>{period.expectedLeaders.map((leader) => <span key={leader} className="rounded bg-fs-accent-soft px-1.5 py-0.5 text-[10px] text-fs-accent-text">{tr(leader)}</span>)}</div>
                   </div>
-                  {period.caveat ? <p className="mt-2 text-[10px] leading-4 text-amber-800">{tr("注：")}{period.caveat}</p> : null}
+                  {period.caveat ? <p className="mt-2 text-[10px] leading-4 text-amber-800">{tr("注：")}{tr(period.caveat)}</p> : null}
                 </article>
 
                 <article className="flex h-full flex-col rounded-lg bg-fs-bg/45 p-3">
                   <div className="overflow-hidden rounded-lg border border-fs-border">
                     <div className={`grid ${RANK_ROW_COLS} items-center bg-fs-elevated/65 px-2.5 py-2 text-[10px] text-fs-muted`}><span>{tr("排名")}</span><span>{tr("大类资产 / 行业指数")}</span><span className="text-right">{tr("收益")}</span><span className="text-right">{tr("超额")}</span></div>
                     <p className="border-t border-fs-border/70 bg-fs-bg/30 px-2.5 py-1 text-[10px] text-fs-muted">{tr("大类资产 · 阶段一阶影响先落在利率、信用、实物与汇率上")}</p>
-                    <ol>{data.assets.map((row) => <li key={row.id} title={`${row.nameZh} · ${row.proxyZh}`} className={`grid ${RANK_ROW_COLS} items-center border-t border-fs-border/55 px-2.5 py-1.5 text-xs`}><span className="truncate text-[9px] text-fs-muted">{row.groupNameZh ?? ""}</span><span className="truncate text-fs-text">{tr(row.nameZh)} <span className="text-fs-muted">{row.symbol}</span></span><span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span><span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span></li>)}</ol>
+                    <ol>{data.assets.map((row) => <li key={row.id} title={`${tr(row.nameZh)} · ${tr(row.proxyZh)}`} className={`grid ${RANK_ROW_COLS} items-center border-t border-fs-border/55 px-2.5 py-1.5 text-xs`}><span className="truncate text-[9px] text-fs-muted">{tr(row.groupNameZh ?? "")}</span><span className="truncate text-fs-text">{tr(row.nameZh)} <span className="text-fs-muted">{row.symbol}</span></span><span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span><span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span></li>)}</ol>
                     <p className="border-t border-fs-border/70 bg-fs-bg/30 px-2.5 py-1 text-[10px] text-fs-muted">{tr("美股 · 基准与 11 个行业")}</p>
                     <div className={`grid ${RANK_ROW_COLS} items-center border-t border-fs-border/70 px-2.5 py-2 text-xs`}><span className="text-fs-muted">—</span><span className="text-fs-text">{tr("标普 500")} <span className="text-fs-muted">SPY</span></span><span className={`text-right font-medium tabular-nums ${valueClass(data.spyReturn)}`}>{pct(data.spyReturn)}</span><span className="text-right text-fs-muted">{tr("基准")}</span></div>
                     <ol>{data.sectors.map((row, rank) => <li key={row.sector} className={`grid ${RANK_ROW_COLS} items-center border-t border-fs-border/55 px-2.5 py-1.5 text-xs`}><span className="tabular-nums text-fs-muted">{row.absoluteReturn == null ? "—" : rank + 1}</span><span className="truncate text-fs-text">{tr(row.nameZh)} <span className="text-fs-muted">{row.etf}</span></span><span className={`text-right tabular-nums ${valueClass(row.absoluteReturn)}`}>{pct(row.absoluteReturn)}</span><span className={`text-right tabular-nums ${valueClass(row.excessVsSpy)}`}>{pct(row.excessVsSpy)}</span></li>)}</ol>

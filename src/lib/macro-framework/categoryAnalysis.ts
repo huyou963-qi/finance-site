@@ -1,3 +1,5 @@
+import type { Tr } from "@/i18n/text";
+import { identityTr } from "@/i18n/text";
 import type { MatrixCategory } from "./matrixCategories";
 import { MATRIX_CATEGORY_LABEL } from "./matrixCategories";
 import type { MacroIndicator } from "./types";
@@ -56,9 +58,9 @@ function pickHighlights(items: MacroIndicator[], n = 2): MacroIndicator[] {
     .slice(0, n);
 }
 
-function fmtHighlight(ind: MacroIndicator): string {
+function fmtHighlight(ind: MacroIndicator, tr: Tr, pickName: (ind: MacroIndicator) => string): string {
   const chg = changeArrow(ind.value, ind.prevValue);
-  return `${ind.nameZh} ${formatValue(ind.value, ind.unit)}${chg}`;
+  return `${pickName(ind)} ${formatValue(ind.value, tr(ind.unit))}${chg}`;
 }
 
 function groupRatio(items: MacroIndicator[]): number {
@@ -78,13 +80,15 @@ const CATEGORY_OPEN: Record<MatrixCategory, string> = {
   policy: "政策立场",
 };
 
-/** 根据当前指标快照生成 2–3 句中文近况分析 */
+/** 根据当前指标快照生成 2–3 句近况分析（中文原文即键，英文站经 tr 翻译） */
 export function generateCategoryBrief(
   category: MatrixCategory,
   indicators: MacroIndicator[],
+  tr: Tr = identityTr,
+  pickName: (ind: MacroIndicator) => string = (ind) => ind.nameZh,
 ): string {
   if (indicators.length === 0) {
-    return `${MATRIX_CATEGORY_LABEL[category]}暂无可观测指标。`;
+    return tr("{label}暂无可观测指标。", { label: tr(MATRIX_CATEGORY_LABEL[category]) });
   }
 
   const leading = indicators.filter((i) => i.timing === "leading");
@@ -98,40 +102,47 @@ export function generateCategoryBrief(
   const parts: string[] = [];
 
   parts.push(
-    `${CATEGORY_OPEN[category]}${toneLabel(leadR)}：领先指标 ${Math.round(leadR * 100)}% 方向向好。`,
+    tr("{open}{tone}：领先指标 {pct}% 方向向好。", {
+      open: tr(CATEGORY_OPEN[category]),
+      tone: tr(toneLabel(leadR)),
+      pct: Math.round(leadR * 100),
+    }),
   );
 
   if (leading.length > 0) {
-    const hl = pickHighlights(leading, 2).map(fmtHighlight).join("；");
-    parts.push(`关注 ${hl}。`);
+    const hl = pickHighlights(leading, 2).map((ind) => fmtHighlight(ind, tr, pickName)).join(tr("；"));
+    parts.push(tr("关注 {hl}。", { hl }));
   }
 
   if (coincident.length > 0) {
-    const syncTone = toneLabel(coinR);
+    const syncTone = tr(toneLabel(coinR));
     if (Math.abs(coinR - leadR) < 0.25) {
-      parts.push(`同步指标${syncTone}，与领先信号基本一致。`);
+      parts.push(tr("同步指标{tone}，与领先信号基本一致。", { tone: syncTone }));
     } else if (coinR > leadR) {
-      parts.push(`同步端表现${syncTone}，硬数据优于软数据预期。`);
+      parts.push(tr("同步端表现{tone}，硬数据优于软数据预期。", { tone: syncTone }));
     } else {
-      parts.push(`同步端${syncTone}，软数据与硬数据出现一定背离。`);
+      parts.push(tr("同步端{tone}，软数据与硬数据出现一定背离。", { tone: syncTone }));
     }
   }
 
   if (lagging.length > 0) {
-    const lagHl = pickHighlights(lagging, 1).map(fmtHighlight).join("；");
-    const lagTone = toneLabel(lagR);
-    parts.push(`滞后指标${lagTone}，${lagHl}。`);
+    const lagHl = pickHighlights(lagging, 1).map((ind) => fmtHighlight(ind, tr, pickName)).join(tr("；"));
+    const lagTone = tr(toneLabel(lagR));
+    parts.push(tr("滞后指标{tone}，{hl}。", { tone: lagTone, hl: lagHl }));
   }
 
-  return parts.join("");
+  // 先用空格拼英文句；中文句末「。」后的空格再去掉，保持中文紧凑。
+  return parts.join(" ").replace(/。 +/g, "。");
 }
 
 export function generateAllCategoryBriefs(
   grouped: Record<MatrixCategory, MacroIndicator[]>,
+  tr: Tr = identityTr,
+  pickName: (ind: MacroIndicator) => string = (ind) => ind.nameZh,
 ): Record<MatrixCategory, string> {
   const out = {} as Record<MatrixCategory, string>;
   for (const cat of Object.keys(grouped) as MatrixCategory[]) {
-    out[cat] = generateCategoryBrief(cat, grouped[cat] ?? []);
+    out[cat] = generateCategoryBrief(cat, grouped[cat] ?? [], tr, pickName);
   }
   return out;
 }

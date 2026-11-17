@@ -20,6 +20,18 @@ test("词典：displayName 优先，其次 name", () => {
   ]);
 });
 
+test("词典：精确匹配失败时按「 · / ：」分段翻译；仍含汉字则跳过", () => {
+  const u = updatesFromDictionary(
+    [
+      { code: "d", name: "中国：经常账户", nameEn: null },
+      { code: "e", name: "未登记指标名", nameEn: null },
+      { code: "f", name: "中国：未登记分项", nameEn: null },
+    ],
+    { 中国: "China", 经常账户: "Current account" },
+  );
+  assert.deepEqual(u, [{ code: "d", nameEn: "China：Current account", source: "dictionary" }]);
+});
+
 test("导入：默认不覆盖、忽略未知代码与空值", () => {
   const imported = { a: " Unemployment ", c: "New", zzz: "x", b: "  " };
   assert.deepEqual(updatesFromImport(rows, imported).map((u) => [u.code, u.nameEn]), [["a", "Unemployment"]]);

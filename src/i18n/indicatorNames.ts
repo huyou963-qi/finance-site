@@ -1,6 +1,7 @@
 /**
  * 指标英文名（Instrument.nameEn）回填的纯逻辑（有单测）。脚本见 scripts/i18n/indicator-names.ts。
  */
+import { translateComposite } from "@/i18n/dataLabels";
 
 export type IndicatorNameRow = { code: string; name: string; displayName?: string | null; nameEn?: string | null };
 
@@ -11,12 +12,31 @@ export function rowsMissingEnglish(rows: IndicatorNameRow[]): IndicatorNameRow[]
 
 export type NameUpdate = { code: string; nameEn: string; source: "dictionary" | "import" };
 
-/** 用词典精确匹配中文名（优先 displayName，再 name） */
+const CJK = /[㐀-鿿]/;
+
+/**
+ * 用词典回填英文名：先精确匹配 displayName / name，再对组合名（「 · 」「：」）分段翻译。
+ * 分段结果若仍含汉字则跳过，避免把中英夹杂写进 nameEn。
+ */
 export function updatesFromDictionary(rows: IndicatorNameRow[], dict: Readonly<Record<string, string>>): NameUpdate[] {
+  const translate = (zh: string) => dict[zh] ?? zh;
   const out: NameUpdate[] = [];
   for (const r of rowsMissingEnglish(rows)) {
-    const hit = [r.displayName?.trim(), r.name.trim()].map((k) => (k ? dict[k] : undefined)).find((v) => v?.trim());
-    if (hit) out.push({ code: r.code, nameEn: hit.trim(), source: "dictionary" });
+    const candidates = [r.displayName?.trim(), r.name.trim()].filter((k): k is string => Boolean(k));
+    let nameEn: string | undefined;
+    for (const key of candidates) {
+      const exact = dict[key]?.trim();
+      if (exact && !CJK.test(exact)) {
+        nameEn = exact;
+        break;
+      }
+      const composite = translateComposite(key, translate).trim();
+      if (composite && composite !== key && !CJK.test(composite)) {
+        nameEn = composite;
+        break;
+      }
+    }
+    if (nameEn) out.push({ code: r.code, nameEn, source: "dictionary" });
   }
   return out;
 }

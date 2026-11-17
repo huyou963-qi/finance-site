@@ -46,8 +46,11 @@ test("图表序列名按语言替换", () => {
   assert.equal(p.series[0].key, "mds:1");
 });
 
-test("组合名按「 · 」分段翻译", () => {
-  const pick = makePickLabel("en", (zh) => ({ 美国: "United States", "实际 GDP": "Real GDP" })[zh] ?? zh);
+test("组合名按「 · 」与「：」分段翻译", () => {
+  const pick = makePickLabel("en", (zh) =>
+    ({ 美国: "United States", "实际 GDP": "Real GDP", 中国: "China", 经常账户: "Current account" })[zh] ?? zh,
+  );
   assert.equal(pick("美国 · 实际 GDP"), "United States · Real GDP");
   assert.equal(pick("美国 · 未登记"), "United States · 未登记");
+  assert.equal(pick("中国：经常账户"), "China：Current account");
 });
