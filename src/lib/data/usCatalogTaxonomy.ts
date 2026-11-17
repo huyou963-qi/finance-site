@@ -1,3 +1,4 @@
+import { US_MONEY_CREDIT_SERIES } from "./scheduler/usMoneyCreditCatalog";
 import { CP_FRED_IDS } from "./scheduler/usFinancing/catalog";
 /**
  * 美国宏观指标目录 — 权威分类（大类 + 子类）
@@ -27,9 +28,9 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
   国民经济: ["核算", "工业", "消费与国内需求", "景气综合", "物流与出行"],
   通胀与价格: ["CPI", "PCE与PPI", "二手车批发价格", "通胀预期与能源", "黄金与贵金属"],
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
-  货币政策与流动性: ["政策利率", "联储资产负债表", "财政部账户与货币市场"],
+  货币政策与流动性: ["政策利率", "货币供应量", "基础货币与准备金", "联储资产负债表", "财政部账户与货币市场"],
   利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场", "商业票据发行与余额", "美股风格因子", "美股市场广度"],
-  金融条件与银行: ["金融条件指数", "银行信贷", "资产质量"],
+  金融条件与银行: ["金融条件指数", "银行信贷", "银行存款", "资产质量"],
   财政与公共债务: [
     "MTS现金流量",
     "融资与现金",
@@ -145,7 +146,7 @@ const FRED_POLICY_RATES = new Set([
   "RRPONTSYAWARD",
   "SRFTSYD",
 ]);
-const FRED_FED_BS = new Set(["WALCL", "WRESBAL", "TREAST", "WLRRAL", "M2SL"]);
+const FRED_FED_BS = new Set(["WALCL", "WRESBAL", "TREAST", "WLRRAL"]);
 const FRED_MONEY_MARKET = new Set(["WTREGEN", "RRPONTSYD"]);
 const FRED_REPO_OPERATIONS = new Set([
   "RPONTTLD",
@@ -239,6 +240,8 @@ const FRED_LOGISTICS = new Set([
 ]);
 
 function placementFromFredId(fredId: string): UsCatalogPlacement | null {
+  const money = US_MONEY_CREDIT_SERIES.find(r => r.fredId === fredId.toUpperCase());
+  if (money) return p(money.category as UsCatalogTopLevel, money.group);
   const id = fredId.toUpperCase();
   if (CP_FRED_IDS.has(id)) return p("利率与信用市场", "商业票据发行与余额");
   if (FRED_LOGISTICS.has(id)) return p("国民经济", "物流与出行");

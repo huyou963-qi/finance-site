@@ -7,6 +7,7 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "us-money-credit": { script: "seed-us-money-credit", labelZh: "美国H.6货币供应量与H.8银行信用" },
   "us-financing": { script: "seed-us-financing", labelZh: "美国商业票据周度余额" },
   // Alphabetically last: legacy corrections must survive older catalog seeds.
   "zzz-audited-definitions": { script: "seed-audited-definitions", labelZh: "官方源审计：旧指标定义与单位校正（不改观测）" },
@@ -152,6 +153,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "us-money-credit": { script: "verify-us-money-credit", labelZh: "美国货币供应量与银行信用自检", verifyNeedsDb: true },
   "us-financing": { script: "verify-us-financing", labelZh: "美国商业票据周度余额自检", verifyNeedsDb: true },
   "market-internals": { script: "verify-market-internals", labelZh: "美股日频广度与风格因子自检", verifyNeedsDb: true },
   "jp-housing-population": { script: "verify-jp-housing-population", labelZh: "日本住房与人口核心自检", verifyNeedsDb: true },

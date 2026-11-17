@@ -97,6 +97,8 @@
     "data:sync-catalog-layout": "dotenv -e .env.local -- tsx scripts/data-worker/sync-catalog-layout-new-items.ts",
     "data:rebuild-us-catalog-layout": "dotenv -e .env.local -- tsx scripts/data-worker/rebuild-us-catalog-layout.ts",
     "data:rebuild-global-catalog-layout": "dotenv -e .env.local -- tsx scripts/data-worker/rebuild-global-catalog-layout.ts",
+    "data:seed-us-money-credit": "dotenv -e .env.local -- tsx scripts/data-worker/seed-us-money-credit.ts",
+    "data:verify-us-money-credit": "dotenv -e .env.local -- tsx scripts/data-worker/verify-us-money-credit.ts",
     "data:seed-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/seed-monetary.ts",
     "data:verify-monetary": "dotenv -e .env.local -- tsx scripts/data-worker/verify-monetary.ts",
     "data:seed-standing-repo": "dotenv -e .env.local -- tsx scripts/data-worker/seed-standing-repo.ts",
