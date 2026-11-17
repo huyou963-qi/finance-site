@@ -70,3 +70,17 @@ it("checks before the oldest Monday for weekly history", async (t) => {
   assert.equal(page.hasMoreOlder, true);
   assert.equal(lookup.mock.calls[0]!.arguments[0]!.where.date.lt.toISOString(), "2025-03-17T00:00:00.000Z");
 });
+
+it("aggregates daily bars into monthly candles and checks before month start", async (t) => {
+  const { yahooKlineProvider } = await import("./yahooKlineProvider");
+  // 40 calendar days from 2025-03-21 → March + April buckets
+  const lookup = stubDb(t, rows(40), true);
+  const page = await yahooKlineProvider.fetch({
+    symbol: "GC=F", interval: "1M", limit: 400, adjustment: "none", window: {},
+  });
+  assert.equal(page.candles.length, 2);
+  assert.equal(page.candles[0]!.time, Date.UTC(2025, 2, 1) / 1000);
+  assert.equal(page.candles[1]!.time, Date.UTC(2025, 3, 1) / 1000);
+  assert.equal(page.hasMoreOlder, true);
+  assert.equal(lookup.mock.calls[0]!.arguments[0]!.where.date.lt.toISOString(), "2025-03-01T00:00:00.000Z");
+});

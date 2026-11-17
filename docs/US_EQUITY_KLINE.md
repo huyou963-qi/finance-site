@@ -8,8 +8,8 @@
 浏览器
   → GET /api/data/klines?symbol=AAPL&interval=1d&adjust=forward|backward|none
   → yahooKlineProvider (src/lib/data/providers/yahooKlineProvider.ts)
-      · 1d/1w：equityPriceStore db-first（查 mds.equity_daily_bar）→ 缺口回补 Yahoo → 服务端精确复权
-      · 15m/1h：实时取 Yahoo（不落库；历史窗口受限 60/730 天）；4h 由 1h 聚合；1w 由日线聚合
+      · 1d/1w/1M：equityPriceStore db-first（查 mds.equity_daily_bar）→ 缺口回补 Yahoo → 服务端精确复权
+      · 15m/1h：实时取 Yahoo（不落库；历史窗口受限 60/730 天）；4h 由 1h 聚合；1w/1M 由日线聚合
   → StockChartWorkspace（Lightweight Charts；客户端不再复权）
 ```
 
@@ -63,7 +63,7 @@ npm run equity:sync-prices -- --full           # 强制重拉全量历史（含�
 | EURUSD、USDJPY | EURUSD=X、USDJPY=X |
 | BTCUSD / BTC/USD、ETHUSD / ETH/USD | BTC-USD、ETH-USD |
 
-新增的 US1M/US3M/US6M/US1Y/US2Y/US3Y/US7Y/US20Y 使用 **已有宏观底座**：`loadFredObservationMapsDbFirst` → `MacroObservation`，缺失才使用既有 FRED adapter 回退。只新增只读 chart provider；没有新事实表、writer 或抓取器。收益率是官方日度观测（%），以折线显示，仅支持日/周，周线保留每周最后一个真实观测日期；没有盘中 OHLC、成交量或复权。自选报价也读取相同系列，显示实际观测日期。历史 ^TNX/^FVX/^TYX 自选记录保持有效。
+新增的 US1M/US3M/US6M/US1Y/US2Y/US3Y/US7Y/US20Y 使用 **已有宏观底座**：`loadFredObservationMapsDbFirst` → `MacroObservation`，缺失才使用既有 FRED adapter 回退。只新增只读 chart provider；没有新事实表、writer 或抓取器。收益率是官方日度观测（%），以折线显示，仅支持日/周/月；周线保留每周最后一个真实观测日期，月线保留每月最后一个真实观测日期；没有盘中 OHLC、成交量或复权。自选报价也读取相同系列，显示实际观测日期。历史 ^TNX/^FVX/^TYX 自选记录保持有效。
 
 扩充目录时，同时补 `inputAliases`（无歧义代码）与 `aliases`（中文/英文关键词）。`tickerSymbolNormalize.test.ts` 遍历全部可输入代码，检查冲突和解析一致性；`usEquitySearch.test.ts` 验证搜索路径；`macroYieldKlineProvider.test.ts` 验证收益率口径、历史分页与零值保留。
 
