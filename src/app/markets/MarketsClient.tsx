@@ -2,6 +2,7 @@
 import { migrateLocalEventPreferences } from "@/lib/chart/localEventPreferenceMigration";
 import { useChartEvents } from "@/lib/chart/useChartEvents";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usrecSeriesToBands, type NberRecessionBand } from "@/lib/data/nberRecessionBands";
 import type { MacroPayload } from "@/lib/data/types";
@@ -79,6 +80,8 @@ function displayNameForSymbol(sym: string): string | undefined {
 
 export function MarketsClient() {
   const tr = useTr();
+  const searchParams = useSearchParams();
+  const urlSymbolParam = searchParams.get("symbol") ?? "";
   const [detailEvent, setDetailEvent] = useState<MarketEventDto | null>(null);
   const [detailOpenVersion, setDetailOpenVersion] = useState(0);
   const openEventDetail = useCallback((event: MarketEventDto) => {
@@ -537,14 +540,18 @@ export function MarketsClient() {
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
-  const commitSymbol = (raw: string, name?: string) => {
+  const commitSymbol = useCallback((raw: string, name?: string) => {
     const s = normalizeTickerSymbol(raw);
     if (!s) return;
-    if (findMarketInstrument(s)?.fredSeriesId && !isKlineDateInterval(interval)) setKlineInterval("1d");
+    setKlineInterval((prev) =>
+      findMarketInstrument(s)?.fredSeriesId && !isKlineDateInterval(prev) ? "1d" : prev,
+    );
     // 丢弃仍在路上的 symbol-search 响应，否则会再次 setOpen(true) + 空列表 →「无匹配」盖住图表
     reqIdRef.current += 1;
-    if (s !== symbol) setLoadedSymbol("");
-    setSymbol(s);
+    setSymbol((prev) => {
+      if (s !== prev) setLoadedSymbol("");
+      return s;
+    });
     setQuery(marketSymbolLabel(s));
     const fallbackName = displayNameForSymbol(s);
     setPickedName(name ?? (fallbackName ? tr(fallbackName) : undefined));
@@ -552,7 +559,15 @@ export function MarketsClient() {
     setHits([]);
     setSearchError(null);
     setSearchLoading(false);
-  };
+  }, [tr]);
+
+  // 股票数据 / 个股页等深链：/markets?symbol=APA → 自动选中并拉 K 线
+  // 只跟 URL 参数走：用户在页内另选代码时不要被旧 ?symbol= 盖回去
+  useEffect(() => {
+    const s = normalizeTickerSymbol(urlSymbolParam);
+    if (!s) return;
+    commitSymbol(urlSymbolParam);
+  }, [urlSymbolParam, commitSymbol]);
 
   useEffect(() => {
     if (!symbol.trim()) setDataHint(null);
