@@ -88,6 +88,9 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
 
 /** Maps every country's source category into the same top-level taxonomy as the US. */
 export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement {
+  if (item.countryCode === "US" && item.key.startsWith("mds:nyfed_hhdc_")) return p("金融条件与银行", "居民消费信贷");
+  if (item.countryCode === "US" && /^fred:BOGZ1FL1930(20005|30205|34005)Q$/.test(item.key)) return p("金融条件与银行", "居民流动性资产");
+  if (item.countryCode === "US" && item.key.startsWith("fred:RCCCBACTIVEUTILPCT")) return p("金融条件与银行", "居民消费信贷");
   if (item.countryCode === "US" && item.key.startsWith("mds:style_proxy_us_")) return p("利率与信用市场", "美股日更风格代理");
   if (item.countryCode === "US" && item.key.startsWith("mds:ff_us_")) return p("利率与信用市场", "美股风格因子");
   if (item.countryCode === "US" && item.key.startsWith("mds:breadth_us_sp500_")) return p("利率与信用市场", "美股市场广度");

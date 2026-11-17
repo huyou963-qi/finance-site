@@ -309,6 +309,8 @@ npm run events:import-ingest -- <file.json>
 - 无合规来源（条款禁止抓取、需授权而未购买、需绕过访问控制）的指标不入库，宁缺勿滥。
 - 已退役指标登记在 `src/lib/data/retiredIndicators.ts`，由 `data:seed -- --catalog=retired-indicators` 随部署幂等清理并把模板引用替换为标准指标/指标运算；`data:verify -- --catalog=retired-indicators` 断言库内无复合订阅与派生标记。
 
+美国居民消费压力十项核心输入：`data:seed-consumer-pressure` / `data:sync-consumer-pressure` / `data:verify-consumer-pressure`；三条家庭流动性资产分项、费城联储信用卡使用率百分位及纽约联储余额/额度/逾期，详见 [docs/US_CONSUMER_PRESSURE_DATA.md](./docs/US_CONSUMER_PRESSURE_DATA.md)。流动性资产合计和总余额/总额度走图表运算；纽约联储新转入逾期为官方四季滚动合计，不当作单季值。新适配器部署前用 `--stage-nyfed` 登记、`--backfill-staged` 回填，不提前启用生产订阅。
+
 ## 系统模板（强制）
 
 宏观页的系统模板**只有一份：HK 生产库 `SystemMacroChartPrefs`，只能由 admin 在线上界面（gekkotech.cn/macro 模板库）编辑**。所有人（含未登录访客）读的都是这一份。

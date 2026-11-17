@@ -1150,7 +1150,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     },
     // 消费域追加：实际 PCE 耐用品/服务 + 储蓄率（同 BEA 月报）
     members: {
-      fredSeriesIds: ["W875RX1", "DSPIC96", "PCEDGC96", "PCESC96", "PSAVERT"],
+      fredSeriesIds: ["W875RX1", "DSPIC96", "PCEC96", "PCEDGC96", "PCESC96", "PSAVERT"],
     },
   }),
   probePkg("us.frb.g19_consumer_credit", "美国 G.19 消费信贷", {
@@ -1165,7 +1165,17 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "QUARTERLY",
     intervalHours: 168,
     sortOrder: 227,
-    members: { fredSeriesIds: ["TNWBSHNO"] },
+    members: { fredSeriesIds: ["TNWBSHNO", "BOGZ1FL193020005Q", "BOGZ1FL193030205Q", "BOGZ1FL193034005Q"] },
+  }),
+  probePkg("us.philadelphiafed.consumer_credit", "美国大型银行信用卡额度使用率", {
+    labelEn: "Philadelphia Fed Large Bank Consumer Credit",
+    granularity: "QUARTERLY", intervalHours: 168, sortOrder: 227,
+    members: { fredSeriesIds: ["RCCCBACTIVEUTILPCT50", "RCCCBACTIVEUTILPCT75", "RCCCBACTIVEUTILPCT90"] },
+  }),
+  probePkg("us.nyfed.household_credit", "美国居民债务与信贷（纽约联储）", {
+    labelEn: "NY Fed Household Debt and Credit", agencyId: "us-nyfed",
+    granularity: "QUARTERLY", intervalHours: 168, sortOrder: 227,
+    members: { instrumentCodePatterns: ["nyfed_hhdc_*"] },
   }),
   probePkg("us.frb.household_dsr", "美国家庭偿债比率", {
     labelEn: "Household Debt Service Ratios",
