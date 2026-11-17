@@ -1,3 +1,4 @@
+import { US_MONEY_CREDIT_SERIES } from "./scheduler/usMoneyCreditCatalog";
 import { CP_FRED_SERIES } from "./scheduler/usFinancing/catalog";
 /**
  * 统一宏观指标目录：
@@ -127,6 +128,7 @@ type FredDef = {
 };
 
 const FRED_US_ITEMS: readonly FredDef[] = [
+  ...US_MONEY_CREDIT_SERIES.filter(r => r.fredId !== "M2SL").map(r => ({ id: r.fredId, label: r.name, category: r.category, frequency: r.freqLabel })),
   ...CP_FRED_SERIES.map((row) => ({ id: row.fredId, label: row.displayName, category: "利率与债券", frequency: "周" as const })),
   { id: "GDPC1", label: "实际 GDP（季调，十亿美元）", category: "国民经济核算", frequency: "季度" },
   { id: "GDP", label: "名义 GDP（季调，十亿美元）", category: "国民经济核算", frequency: "季度" },
