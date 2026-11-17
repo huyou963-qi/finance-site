@@ -131,7 +131,8 @@ export function generateCategoryBrief(
     parts.push(tr("滞后指标{tone}，{hl}。", { tone: lagTone, hl: lagHl }));
   }
 
-  return parts.join("");
+  // 先用空格拼英文句；中文句末「。」后的空格再去掉，保持中文紧凑。
+  return parts.join(" ").replace(/。 +/g, "。");
 }
 
 export function generateAllCategoryBriefs(

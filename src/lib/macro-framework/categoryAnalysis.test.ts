@@ -43,5 +43,22 @@ test("有指标时保留数值占位并翻译语气", () => {
   });
   const out = generateCategoryBrief("activity", [{ ...base }], tr, (ind) => ind.nameEn);
   assert.match(out, /Real activity firm: 100% of leading indicators are improving\./);
-  assert.match(out, /Watch ISM Manufacturing PMI/);
+  assert.match(out, /improving\. Watch ISM Manufacturing PMI/);
+});
+
+test("中文近况分析句间不加空格，英文句间有空格", () => {
+  const zh = generateCategoryBrief("activity", [{ ...base }]);
+  assert.match(zh, /方向向好。关注/);
+  assert.doesNotMatch(zh, /方向向好。 关注/);
+
+  const tr = makeTr({
+    "{open}{tone}：领先指标 {pct}% 方向向好。": "{open} {tone}: {pct}% of leading indicators are improving.",
+    实体生产链: "Real activity",
+    偏强: "firm",
+    "关注 {hl}。": "Watch {hl}.",
+    "；": "; ",
+    指数: "index",
+  });
+  const en = generateCategoryBrief("activity", [{ ...base }], tr, (ind) => ind.nameEn);
+  assert.match(en, /\. Watch /);
 });

@@ -38,7 +38,7 @@ function MatrixColumnHeader({ timing, withDivider }: { timing: IndicatorTiming; 
     >
       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent }} />
       <span className="text-sm font-semibold tracking-wide" style={{ color: accent }}>
-        {tr(TIMING_LABEL[timing])}{tr("指标")}</span>
+        {tr(`${TIMING_LABEL[timing]}指标`)}</span>
     </div>
   );
 }
