@@ -1,10 +1,13 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 import { randomUUID } from "@/lib/randomId";
 import { buildColumns, columnCountAfterEdit, editColumns, expandToGroups, multiPeriodCount } from "@/lib/equity/stockData/columns";
-import { buildCsv, buildSheetData, sortRows, type SortState } from "@/lib/equity/stockData/display";
+import { buildCsv, buildSheetData, formatCellValue, sortRows, type SortState } from "@/lib/equity/stockData/display";
+import { computeGroupStats } from "@/lib/equity/stockData/groupStats";
+import { applyResultFilters, FILTER_OP_LABELS, type FilterOp, type ResultFilter } from "@/lib/equity/stockData/resultFilter";
 import { systemTemplates, type StockDataTemplate } from "@/lib/equity/stockData/templates";
 import { getIndicator, INDICATORS, normalizeParams, publicIndicator } from "@/lib/equity/stockData/indicatorRegistry";
 import { normalizeUsTicker } from "@/lib/equity/stockData/request";
@@ -18,6 +21,7 @@ import {
   type StockDataResponse,
   type StockDataRow,
 } from "@/lib/equity/stockData/types";
+import { CellSeriesPanel } from "./CellSeriesPanel";
 import { DataGrid } from "./DataGrid";
 import { IndicatorPanel } from "./IndicatorPanel";
 import { ParamEditor } from "./ParamEditor";
@@ -78,6 +82,7 @@ function writeDraft(d: Draft) {
 }
 
 export function StockDataWorkspace() {
+  const features = useVisibleFeatures();
   const [draft, setDraft] = useState<Draft>({ stocks: [], columns: [] });
   const [restored, setRestored] = useState(false);
   const [result, setResult] = useState<StockDataResponse | null>(null);
@@ -95,6 +100,10 @@ export function StockDataWorkspace() {
   const [myTemplates, setMyTemplates] = useState<StockDataTemplate[] | null>(null);
   const [templateError, setTemplateError] = useState("");
   const [saving, setSaving] = useState<{ name: string; withStocks: boolean; busy: boolean; error: string } | null>(null);
+  const [filterDraft, setFilterDraft] = useState<ResultFilter>({ columnKey: "$symbol", op: "contains", value: "" });
+  const [activeFilters, setActiveFilters] = useState<ResultFilter[]>([]);
+  const [seriesTarget, setSeriesTarget] = useState<{ symbol: string; name: string; column: ColumnSpec } | null>(null);
+  const [groupValueKey, setGroupValueKey] = useState("");
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const draftKey = fetchSignature(draft.stocks.map((s) => s.symbol), draft.columns);
@@ -259,12 +268,28 @@ export function StockDataWorkspace() {
   const onSort = (key: string) =>
     setSort((s) => (s?.key !== key ? { key, dir: key.startsWith("$") ? "asc" : "desc" } : s.dir === "desc" ? { key, dir: "asc" } : s.dir === "asc" && key.startsWith("$") ? { key, dir: "desc" } : null));
 
-  // 表格行：按草稿顺序，取回的结果按代码对应；尚未取数的新股票先显示空行
+  // 表格行：按草稿顺序，取回的结果按代码对应；尚未取数的新股票先显示空行；再套结果过滤
   const byResult = useMemo(() => new Map((result?.rows ?? []).map((r) => [r.symbol, r])), [result]);
-  const rows: StockDataRow[] = useMemo(
-    () => sortRows(draft.stocks.map((s) => byResult.get(s.symbol) ?? { symbol: s.symbol, name: s.name, cells: {} }), sort),
-    [draft.stocks, byResult, sort],
+  const rows: StockDataRow[] = useMemo(() => {
+    const base = draft.stocks.map((s) => byResult.get(s.symbol) ?? { symbol: s.symbol, name: s.name, cells: {} });
+    return sortRows(applyResultFilters(base, activeFilters), sort);
+  }, [draft.stocks, byResult, sort, activeFilters]);
+
+  const gicsColumnKey = useMemo(
+    () => draft.columns.find((c) => c.indicatorId === "sec.gicsSector")?.key ?? "",
+    [draft.columns],
   );
+  const numericColumns = useMemo(
+    () => draft.columns.filter((c) => {
+      const u = getIndicator(c.indicatorId)?.unit;
+      return u === "money" || u === "pct" || u === "multiple" || u === "perShare" || u === "shares";
+    }),
+    [draft.columns],
+  );
+  const groupStats = useMemo(() => {
+    if (!gicsColumnKey || !groupValueKey) return [];
+    return computeGroupStats(rows, gicsColumnKey, groupValueKey);
+  }, [rows, gicsColumnKey, groupValueKey]);
 
   const fileStem = () => `股票数据-${new Date().toISOString().slice(0, 10)}`;
   const exportCsv = () => downloadBlob(new Blob([buildCsv(rows, draft.columns)], { type: "text/csv;charset=utf-8" }), `${fileStem()}.csv`);
@@ -367,6 +392,86 @@ export function StockDataWorkspace() {
           <button type="button" onClick={() => setNotice("")} aria-label="关闭提示" className="shrink-0">✕</button>
         </div>
       ) : null}
+      {result && draft.columns.length ? (
+        <div className="mx-3 mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-fs-muted">结果过滤</span>
+          <select
+            className="min-h-8 rounded border border-fs-border bg-fs-bg px-2"
+            value={filterDraft.columnKey}
+            onChange={(e) => setFilterDraft((f) => ({ ...f, columnKey: e.target.value }))}
+            aria-label="过滤列"
+          >
+            <option value="$symbol">代码</option>
+            <option value="$name">简称</option>
+            {draft.columns.map((c) => (
+              <option key={c.key} value={c.key}>{getIndicator(c.indicatorId)?.label ?? c.indicatorId}</option>
+            ))}
+          </select>
+          <select
+            className="min-h-8 rounded border border-fs-border bg-fs-bg px-2"
+            value={filterDraft.op}
+            onChange={(e) => setFilterDraft((f) => ({ ...f, op: e.target.value as FilterOp }))}
+            aria-label="过滤条件"
+          >
+            {(Object.keys(FILTER_OP_LABELS) as FilterOp[]).map((op) => (
+              <option key={op} value={op}>{FILTER_OP_LABELS[op]}</option>
+            ))}
+          </select>
+          <input
+            className="min-h-8 w-28 rounded border border-fs-border bg-fs-bg px-2"
+            value={filterDraft.value}
+            onChange={(e) => setFilterDraft((f) => ({ ...f, value: e.target.value }))}
+            placeholder="值"
+            aria-label="过滤值"
+          />
+          <button
+            type="button"
+            className="min-h-8 rounded-lg bg-fs-elevated px-3 hover:bg-fs-accent-soft disabled:opacity-40"
+            disabled={!filterDraft.value.trim()}
+            onClick={() => {
+              setActiveFilters((list) => [...list, { ...filterDraft, value: filterDraft.value.trim() }]);
+              setFilterDraft((f) => ({ ...f, value: "" }));
+            }}
+          >
+            添加
+          </button>
+          {activeFilters.length ? (
+            <button type="button" className="min-h-8 text-fs-muted hover:text-fs-text" onClick={() => setActiveFilters([])}>
+              清除过滤（{activeFilters.length}）
+            </button>
+          ) : null}
+          {gicsColumnKey && numericColumns.length ? (
+            <>
+              <span className="ml-2 text-fs-muted">GICS 分组</span>
+              <select
+                className="min-h-8 rounded border border-fs-border bg-fs-bg px-2"
+                value={groupValueKey}
+                onChange={(e) => setGroupValueKey(e.target.value)}
+                aria-label="分组统计数值列"
+              >
+                <option value="">选择数值列</option>
+                {numericColumns.map((c) => (
+                  <option key={c.key} value={c.key}>{getIndicator(c.indicatorId)?.label ?? c.indicatorId}</option>
+                ))}
+              </select>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      {groupStats.length ? (
+        <div className="mx-3 mt-1 max-h-24 overflow-auto rounded border border-fs-border bg-fs-elevated px-2 py-1 text-[11px] text-fs-muted">
+          {groupStats.map((g) => {
+            const unit = getIndicator(draft.columns.find((c) => c.key === groupValueKey)?.indicatorId ?? "")?.unit ?? "text";
+            const mean = g.mean == null ? "—" : formatCellValue(unit, { v: g.mean, s: "ok" }).text;
+            const median = g.median == null ? "—" : formatCellValue(unit, { v: g.median, s: "ok" }).text;
+            return (
+              <span key={g.group} className="mr-3 inline-block whitespace-nowrap">
+                {g.group}（{g.count}）：均值 {mean} · 中位 {median}
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
       {!draft.stocks.length || !draft.columns.length ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm md:text-xs text-fs-muted">
           <p className="text-base md:text-sm text-fs-text">{!draft.stocks.length ? "先选股票" : "再选指标"}</p>
@@ -389,7 +494,10 @@ export function StockDataWorkspace() {
           onSelectRow={(sym, multi) => setSelectedRows((s) => toggleIn(s, sym, multi))}
           onEditCol={(k) => setEditor({ mode: "edit", keys: selectedCols.has(k) && editableSelected.length > 1 ? editableSelected.map((c) => c.key) : [k] })}
           onDropIndicators={addIndicatorIds}
-          loading={loading || !result || stale}
+          loading={loading && !result}
+          linkMarkets={features.can("markets")}
+          linkStock={features.can("markets")}
+          onCellClick={(symbol, name, column) => setSeriesTarget({ symbol, name, column })}
         />
       )}
     </div>
@@ -433,7 +541,9 @@ export function StockDataWorkspace() {
         </details>
         <span className="ml-auto text-xs text-fs-muted">
           {draft.stocks.length}/{MAX_SYMBOLS} 只 · {draft.columns.length}/{MAX_COLUMNS} 列
+          {activeFilters.length ? <span className="ml-2">显示 {rows.length} 行</span> : null}
           {stale ? <span className="ml-2 text-fs-accent">有未刷新的改动</span> : null}
+          {loading && result ? <span className="ml-2">刷新中…</span> : null}
         </span>
       </div>
 
@@ -484,7 +594,7 @@ export function StockDataWorkspace() {
         <section aria-label="数据表格" className={`min-h-0 min-w-0 flex-1 flex-col md:flex ${mobileTab === "table" ? "flex" : "hidden"}`}>
           {tableArea}
           <p className="border-t border-fs-border px-3 py-1.5 text-xs text-fs-muted">
-            财务数据来自上市公司公开披露的定期报告，取最新修订值；报告期按公司财年。估值只用截止日之前已披露的财报。悬停单元格可看实际报告期或交易日。
+            财务数据来自上市公司公开披露的定期报告，取最新修订值；报告期按公司财年。估值只用截止日之前已披露的财报。悬停单元格可看实际报告期或交易日；点击格子可看时序。
           </p>
         </section>
       </div>
@@ -542,6 +652,15 @@ export function StockDataWorkspace() {
           totalColumnsFor={totalColumnsFor}
           onConfirm={confirmEditor}
           onCancel={() => setEditor(null)}
+        />
+      ) : null}
+
+      {seriesTarget ? (
+        <CellSeriesPanel
+          symbol={seriesTarget.symbol}
+          name={seriesTarget.name}
+          column={seriesTarget.column}
+          onClose={() => setSeriesTarget(null)}
         />
       ) : null}
     </div>

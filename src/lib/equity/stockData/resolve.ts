@@ -19,9 +19,11 @@ import {
   type StatementLine,
 } from "@/lib/equity/statementTemplate";
 import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
-import { getIndicator, normalizeParams, type RatioField, type SecurityField } from "./indicatorRegistry";
+import { getIndicator, normalizeParams, type GrowthField, type RatioField, type SecurityField } from "./indicatorRegistry";
 import type { MarketResolver } from "./marketResolve";
 import type { Cell, ColumnSpec, PeriodSpec, StockDataRow } from "./types";
+
+const DAY_MS = 86_400_000;
 
 export type SecurityInfo = {
   name: string | null;
@@ -167,10 +169,31 @@ function ratioCell(p: Prepared, field: RatioField, period: PeriodSpec): Cell {
   return valueCell(finite(v), label);
 }
 
-function growthCell(p: Prepared, field: "revenueYoY" | "epsYoY", period: PeriodSpec): Cell {
+function revenueAccelAt(p: Prepared, loc: Located): number | null {
+  if (loc.type === "FY") {
+    const i = p.fiscalYears.findIndex((fy) => fy.period === loc.fy.period);
+    if (i < 1) return null;
+    const curr = p.fiscalYears[i]!.revenueYoY;
+    const prev = p.fiscalYears[i - 1]!.revenueYoY;
+    return curr != null && prev != null ? curr - prev : null;
+  }
+  const i = loc.index;
+  if (i < 1) return null;
+  const curr = p.quarters[i]!;
+  const prev = p.quarters[i - 1]!;
+  const gap =
+    (Date.parse(`${curr.fiscalDate}T00:00:00Z`) - Date.parse(`${prev.fiscalDate}T00:00:00Z`)) / DAY_MS;
+  if (gap < 45 || gap > 130) return null;
+  const currYoY = finite(curr.revenueYoY);
+  const prevYoY = finite(prev.revenueYoY);
+  return currYoY != null && prevYoY != null ? currYoY - prevYoY : null;
+}
+
+function growthCell(p: Prepared, field: GrowthField, period: PeriodSpec): Cell {
   const loc = locate(p, period);
   if (!loc) return { v: null, s: "noPeriod" };
   const label = labelOf(p, loc);
+  if (field === "revenueAccel") return valueCell(revenueAccelAt(p, loc), label);
   const row = loc.type === "FY" ? loc.fy : p.quarters[loc.index]!;
   return valueCell(finite(row[field]), label);
 }
@@ -217,7 +240,7 @@ export function resolveRow(input: SymbolInput, columns: readonly ColumnSpec[], m
       cells[col.key] = securityCell(input, src.field === "statementProfile" || src.field.startsWith("latest") ? getPrepared() : null, src.field);
       continue;
     }
-    if (src.kind === "price" || src.kind === "trend" || src.kind === "valuation") {
+    if (src.kind === "price" || src.kind === "trend" || src.kind === "valuation" || src.kind === "technical") {
       const params = normalizeParams(def, col.params);
       cells[col.key] = !market
         ? { v: null, s: "noPrice" }
@@ -225,7 +248,14 @@ export function resolveRow(input: SymbolInput, columns: readonly ColumnSpec[], m
           ? market.priceCell(src.field, params)
           : src.kind === "trend"
             ? market.trend(src.key, params)
-            : market.valuation(src.field, params);
+            : src.kind === "technical"
+              ? market.technical(src.field, params)
+              : market.valuation(src.field, params);
+      continue;
+    }
+    if (src.kind === "insider") {
+      const params = normalizeParams(def, col.params);
+      cells[col.key] = !market ? { v: null, s: "noValue" } : market.insider(src.field, params);
       continue;
     }
     if (input.isFund) { cells[col.key] = { v: null, s: "notApplicable" }; continue; }

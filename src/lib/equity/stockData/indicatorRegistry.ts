@@ -2,7 +2,7 @@
  * 「股票数据」页的指标目录（浏览器可用：只有 ID、名称、树路径、单位和参数，不含取数规则）。
  *
  * 每个经济口径只登记一次，全部复用现有底座：
- * - 三张报表科目直接由 STATEMENT_LINES 生成（143 个标准化科目 + FCF）；
+ * - 三张报表科目直接由 STATEMENT_LINES 生成（标准化科目 + FCF）；
  * - 财务指标取 fundamentalRatios.computeQuarterRatios 的口径；
  * - 证券信息取 equity_security 与上市目录。
  * 取数实现在 resolve.ts（纯函数）与 query.ts（服务端）。
@@ -34,9 +34,10 @@ export type SecurityField =
 
 export type RatioField =
   | "roeTtm" | "roaTtm" | "netMarginTtm" | "assetTurnoverTtm" | "equityMultiplier" | "debtRatio"
-  | "netDebt" | "payoutRatioTtm" | "buybackRate" | "bvps" | "fcfPerShareTtm" | "epsTtm" | "ffoPerShareTtm";
+  | "netDebt" | "payoutRatioTtm" | "buybackRate" | "bvps" | "fcfPerShareTtm" | "epsTtm" | "ffoPerShareTtm"
+  | "ocfToNetIncome" | "accrualsToAssets";
 
-export type GrowthField = "revenueYoY" | "epsYoY";
+export type GrowthField = "revenueYoY" | "epsYoY" | "revenueAccel";
 
 /** 估值：全部由 factorCompute.computeFundamentalFactors 的收益率口径换算，市值取截止日 */
 export type ValuationField =
@@ -50,6 +51,13 @@ export type TrendFactorKey =
   | "ret1m" | "ret3m" | "ret6m" | "ret12m" | "mom12_1" | "dist52wHigh"
   | "vol60d" | "beta252d" | "maxDrawdown12m";
 
+/** 技术指标：日线现场计算，不入库 */
+export type TechnicalField = "sma20" | "sma60" | "smaBias20" | "rsi14" | "macdDif" | "macdDea" | "macdHist";
+
+/** 内部人：DERA Tier B，强制 P/S、anomaly is null；用股数口径（金额校验覆盖不足） */
+export type InsiderField =
+  | "netBuyRatio" | "buyBreadth" | "buyShares" | "sellShares" | "netShares" | "buyTxns" | "sellTxns";
+
 /** 服务端用来分派取数的来源（随定义一起登记，客户端忽略） */
 export type IndicatorSource =
   | { kind: "security"; field: SecurityField }
@@ -58,7 +66,9 @@ export type IndicatorSource =
   | { kind: "growth"; field: GrowthField }
   | { kind: "valuation"; field: ValuationField }
   | { kind: "price"; field: PriceField }
-  | { kind: "trend"; key: TrendFactorKey };
+  | { kind: "trend"; key: TrendFactorKey }
+  | { kind: "technical"; field: TechnicalField }
+  | { kind: "insider"; field: InsiderField };
 
 export type RegisteredIndicator = IndicatorDef & { source: IndicatorSource };
 
@@ -68,6 +78,8 @@ const ROOT_FA = "财务指标";
 const ROOT_VAL = "估值指标";
 const ROOT_PX = "行情指标";
 const ROOT_TREND = "趋势与风险";
+const ROOT_TECH = "技术指标";
+const ROOT_INSIDER = "内部人";
 
 function unitOfLine(kind: StatementLineKind): IndicatorUnit {
   if (kind === "ratio") return "pct";
@@ -105,6 +117,14 @@ const trend = (group: string, key: TrendFactorKey, label: string, unit: Indicato
   id: `trend.${key}`, label, path: [ROOT_TREND, group], unit, params: ["asOf"], note, source: { kind: "trend", key },
 });
 
+const technical = (field: TechnicalField, label: string, unit: IndicatorUnit, note: string): RegisteredIndicator => ({
+  id: `tech.${field}`, label, path: [ROOT_TECH], unit, params: ["asOf", "adjust"], note, source: { kind: "technical", field },
+});
+
+const insider = (field: InsiderField, label: string, unit: IndicatorUnit, note: string): RegisteredIndicator => ({
+  id: `insider.${field}`, label, path: [ROOT_INSIDER], unit, params: ["asOf"], note, source: { kind: "insider", field },
+});
+
 export const INDICATORS: readonly RegisteredIndicator[] = [
   security("name", "证券名称", "text"),
   security("exchange", "上市交易所", "text"),
@@ -135,6 +155,8 @@ export const INDICATORS: readonly RegisteredIndicator[] = [
   ratio("营运与杠杆", "equityMultiplier", "权益乘数", "multiple", "平均总资产 / 平均股东权益"),
   ratio("营运与杠杆", "debtRatio", "资产负债率", "pct", "期末总负债 / 总资产"),
   ratio("营运与杠杆", "netDebt", "净债务", "money", "期末长期债务 − 现金"),
+  ratio("盈余质量", "ocfToNetIncome", "现金含量（TTM）", "multiple", "滚动 4 季经营现金流 / 滚动 4 季净利润；净利≤0 时无法计算"),
+  ratio("盈余质量", "accrualsToAssets", "应计比率（TTM）", "pct", "（滚动 4 季净利 − 滚动 4 季经营现金流）/ 平均总资产；越高盈余质量越差"),
   ratio("股东回报", "payoutRatioTtm", "派息率（TTM）", "pct", "滚动 4 季分红 / 滚动 4 季净利润"),
   ratio("股东回报", "buybackRate", "近 4 季净回购率", "pct", "（4 季前股本 − 期末股本）/ 4 季前股本"),
   ratio("每股指标", "epsTtm", "EPS（TTM）", "perShare", "滚动 4 季稀释 EPS 之和"),
@@ -143,6 +165,7 @@ export const INDICATORS: readonly RegisteredIndicator[] = [
   ratio("每股指标", "ffoPerShareTtm", "每股 FFO（TTM）", "perShare", "REIT 常用：滚动 4 季（净利润 + 折旧摊销 − 投资损益）/ 流通股本"),
   growth("revenueYoY", "营收同比", "年报：比上一财年；季报：比上年同季"),
   growth("epsYoY", "EPS 同比", "年报：比上一财年；季报：比上年同季"),
+  growth("revenueAccel", "营收加速度", "本期营收同比 − 上期营收同比；季报要求相邻季间隔 45–130 天"),
 
   valuation("marketCap", "总市值（截止日）", "money", "截止日收盘价 × 截止日前已披露的最新股本"),
   valuation("pe", "市盈率 PE（TTM）", "multiple", "截止日市值 / 截止日前已披露的滚动 4 季净利润；亏损为负"),
@@ -168,6 +191,22 @@ export const INDICATORS: readonly RegisteredIndicator[] = [
   trend("风险", "vol60d", "60 日年化波动率", "pct", "60 个日对数收益的标准差 × √252"),
   trend("风险", "beta252d", "Beta（252 日）", "multiple", "对标普 500 指数基金日收益回归的斜率，至少需要 200 个重叠交易日"),
   trend("风险", "maxDrawdown12m", "12 月最大回撤", "pct", "252 个交易日内收盘价相对此前最高点的最大跌幅"),
+
+  technical("sma20", "20 日均线", "perShare", "截止日前 20 个交易日收盘均价"),
+  technical("sma60", "60 日均线", "perShare", "截止日前 60 个交易日收盘均价"),
+  technical("smaBias20", "20 日均线偏离", "pct", "收盘价 / 20 日均线 − 1"),
+  technical("rsi14", "RSI（14）", "multiple", "Wilder 平滑 14 日相对强弱，0–100"),
+  technical("macdDif", "MACD DIF", "perShare", "EMA12 − EMA26"),
+  technical("macdDea", "MACD DEA", "perShare", "DIF 的 9 日 EMA"),
+  technical("macdHist", "MACD 柱", "perShare", "DIF − DEA"),
+
+  insider("netBuyRatio", "内部人净买入比例", "multiple", "近 6 个月 (买入股数−卖出股数)/(买+卖)；只计公开市场 P/S，不足 3 笔不出值"),
+  insider("buyBreadth", "内部人买入广度", "multiple", "近 6 个月含公开市场买入的申报份数"),
+  insider("buyShares", "内部人买入股数", "shares", "近 6 个月公开市场买入（P）股数合计"),
+  insider("sellShares", "内部人卖出股数", "shares", "近 6 个月公开市场卖出（S）股数合计"),
+  insider("netShares", "内部人净买入股数", "shares", "近 6 个月买入股数 − 卖出股数"),
+  insider("buyTxns", "内部人买入笔数", "multiple", "近 6 个月公开市场买入笔数"),
+  insider("sellTxns", "内部人卖出笔数", "multiple", "近 6 个月公开市场卖出笔数"),
 ];
 
 const BY_ID = new Map(INDICATORS.map((d) => [d.id, d]));

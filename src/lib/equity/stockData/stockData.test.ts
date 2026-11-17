@@ -7,6 +7,10 @@ import { normalizeUsTicker, parseColumns, parseSymbols, StockDataRequestError } 
 import { earliestYearNeeded, quarterPositions, resolveRow, type SymbolInput } from "./resolve";
 import { aggregateFiscalYears } from "@/lib/equity/fundamentalRatios";
 import { buildCsv, formatCellValue, sortRows } from "./display";
+import { applyResultFilters } from "./resultFilter";
+import { computeGroupStats } from "./groupStats";
+import { computeTechnicalPoint } from "./technicalResolve";
+import { buildHistoryColumns } from "./seriesQuery";
 import { MAX_COLUMNS, MAX_SYMBOLS, type ColumnSpec, type StockDataRow } from "./types";
 
 // ---------- 指标目录 ----------
@@ -18,8 +22,13 @@ test("indicator ids are unique and cover every statement line", () => {
 
 test("indicator tree keeps registration order", () => {
   const tree = buildIndicatorTree(INDICATORS);
-  assert.deepEqual(tree.children.map((c) => c.label), ["证券信息", "财务报表", "财务指标", "估值指标", "行情指标", "趋势与风险"]);
+  assert.deepEqual(tree.children.map((c) => c.label), ["证券信息", "财务报表", "财务指标", "估值指标", "行情指标", "趋势与风险", "技术指标", "内部人"]);
   assert.deepEqual(tree.children[1]!.children.map((c) => c.label), ["利润表", "资产负债表", "现金流量表"]);
+  assert.ok(getIndicator("ratio.ocfToNetIncome"));
+  assert.ok(getIndicator("ratio.accrualsToAssets"));
+  assert.ok(getIndicator("growth.revenueAccel"));
+  assert.ok(getIndicator("tech.rsi14"));
+  assert.ok(getIndicator("insider.netBuyRatio"));
 });
 
 test("normalizeParams adds defaults and drops params an indicator does not take", () => {
@@ -123,6 +132,9 @@ test("resolveRow picks fiscal years, quarters and TTM windows", () => {
     col("reported", "sec.latestReportedAt"),
     col("growth", "growth.revenueYoY", { period: { kind: "latestFY" } }),
     col("debt", "ratio.debtRatio", { period: { kind: "latestFY" } }),
+    col("cash", "ratio.ocfToNetIncome", { period: { kind: "latestFY" } }),
+    col("accrual", "ratio.accrualsToAssets", { period: { kind: "latestFY" } }),
+    col("accel", "growth.revenueAccel", { period: { kind: "latestFY" } }),
   ]);
   const c = row.cells;
   assert.deepEqual(c.fy, { v: 430, s: "ok", p: "FY2025", d: "2025-09-27" });
@@ -138,6 +150,11 @@ test("resolveRow picks fiscal years, quarters and TTM windows", () => {
   assert.equal(c.reported!.v, "2026-01-30");
   assert.ok(Math.abs((c.growth!.v as number) - (430 / 400 - 1)) < 1e-12);
   assert.equal(c.debt!.v, 0.5);
+  // FY2025 末季 index=7：TTM OCF=80，TTM NI=40 → 2；应计=(40-80)/avgAssets
+  assert.equal(c.cash!.v, 2);
+  assert.ok(typeof c.accrual!.v === "number");
+  // FY2025 YoY − FY2024 YoY；FY2024 无前一年 → FY 加速度 null
+  assert.equal(c.accel!.s, "na");
 });
 
 test("uncovered stocks and funds get explicit statuses instead of blanks", () => {
@@ -189,4 +206,40 @@ test("CSV exports raw numbers, percent as percent, and status words", () => {
   const [head, row] = csv.replace("﻿", "").trim().split("\r\n");
   assert.equal(head, "代码,名称,毛利率 [最新年报] (%),营业收入 [最新年报] (美元),存货 [最新年报] (美元)");
   assert.equal(row, 'AAPL,"Apple, Inc.",25,430000000000,未披露');
+});
+
+test("result filters keep AND semantics and skip non-ok cells", () => {
+  const filtered = applyResultFilters(ROWS, [{ columnKey: "r", op: "gte", value: "2" }]);
+  assert.deepEqual(filtered.map((r) => r.symbol), ["B", "C"]);
+  assert.deepEqual(applyResultFilters(ROWS, [{ columnKey: "$symbol", op: "contains", value: "a" }]).map((r) => r.symbol), ["A"]);
+});
+
+test("GICS group stats report mean and median", () => {
+  const stats = computeGroupStats(
+    [
+      { symbol: "A", name: "a", cells: { g: { v: "科技", s: "ok" }, v: { v: 10, s: "ok" } } },
+      { symbol: "B", name: "b", cells: { g: { v: "科技", s: "ok" }, v: { v: 20, s: "ok" } } },
+      { symbol: "C", name: "c", cells: { g: { v: "金融", s: "ok" }, v: { v: 5, s: "ok" } } },
+    ],
+    "g",
+    "v",
+  );
+  assert.equal(stats.find((s) => s.group === "科技")?.mean, 15);
+  assert.equal(stats.find((s) => s.group === "科技")?.median, 15);
+  assert.equal(stats.find((s) => s.group === "金融")?.count, 1);
+});
+
+test("technical point computes SMA / RSI / MACD at series end", () => {
+  const closes = Array.from({ length: 80 }, (_, i) => 100 + i * 0.5);
+  const p = computeTechnicalPoint(closes);
+  assert.ok(p.sma20 != null && Math.abs(p.sma20 - closes.slice(-20).reduce((a, b) => a + b, 0) / 20) < 1e-9);
+  assert.ok(p.rsi14 != null && p.rsi14 > 50);
+  assert.ok(p.macdDif != null);
+});
+
+test("history columns expand FY years for statement indicators", () => {
+  const cols = buildHistoryColumns("fs.revenue", { years: 3, asOfToday: "2026-11-17" });
+  assert.ok(cols);
+  assert.equal(cols!.length, 4);
+  assert.equal(cols![0]!.params.period?.kind, "FY");
 });

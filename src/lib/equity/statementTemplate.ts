@@ -76,6 +76,7 @@ export const STATEMENT_LINES: StatementLine[] = [
   ]),
   ...IS("利润", [
     { code: "operatingIncome", label: "营业利润", kind: "flow", total: true },
+    { code: "ebitda", label: "EBITDA", kind: "flow", total: true },
     { code: "interestExpense", label: "利息费用", kind: "flow" },
     { code: "interestIncomeNonoperating", label: "利息收入（营业外）", kind: "flow" },
     { code: "equityMethodIncome", label: "权益法投资收益", kind: "flow" },

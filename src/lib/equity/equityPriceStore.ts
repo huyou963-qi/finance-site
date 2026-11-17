@@ -264,15 +264,30 @@ async function readSplits(symbols: string[]): Promise<Map<string, SplitEvent[]>>
   return out;
 }
 
+export type EnsureDailyBarsOptions = {
+  /** 并行回补并发数，默认 1（保持原串行行为） */
+  concurrency?: number;
+  /** 软超时：超过后跳过剩余远端回补，已完成的仍生效；默认不限制 */
+  budgetMs?: number;
+};
+
 /**
  * 确保 symbols 的日线已回填至最新（缺口拼接），返回确实无数据的标的。
  */
-export async function ensureDailyBars(symbols: string[]): Promise<{ missing: string[] }> {
+export async function ensureDailyBars(
+  symbols: string[],
+  opts: EnsureDailyBarsOptions = {},
+): Promise<{ missing: string[] }> {
   const unique = [...new Set(symbols.map(normalizeSymbol).filter(Boolean))];
   const nowMs = Date.now();
   const coverage = await readCoverage(unique);
   const missing: string[] = [];
+  const concurrency = Math.max(1, opts.concurrency ?? 1);
+  const budgetMs = opts.budgetMs;
+  const started = Date.now();
 
+  type Job = { sym: string; action: "full" | "tail"; sinceSec?: number };
+  const jobs: Job[] = [];
   for (const sym of unique) {
     const cov = coverage.get(sym);
     const action = needsRemote(cov, null, nowMs);
@@ -280,17 +295,32 @@ export async function ensureDailyBars(symbols: string[]): Promise<{ missing: str
       if (cov?.notFound) missing.push(sym);
       continue;
     }
-    const sinceSec =
-      action === "tail" && cov?.lastDate
-        ? Math.floor(cov.lastDate.getTime() / 1000)
-        : undefined;
-    const res = await syncSymbolFromRemote(sym, {
-      full: action === "full",
-      sinceSec,
+    jobs.push({
+      sym,
+      action,
+      sinceSec:
+        action === "tail" && cov?.lastDate
+          ? Math.floor(cov.lastDate.getTime() / 1000)
+          : undefined,
     });
-    if (!res) missing.push(sym);
-    await sleep(BATCH_DELAY_MS);
   }
+
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(concurrency, jobs.length) }, async () => {
+    while (cursor < jobs.length) {
+      if (budgetMs != null && Date.now() - started >= budgetMs) break;
+      const i = cursor++;
+      const job = jobs[i];
+      if (!job) break;
+      const res = await syncSymbolFromRemote(job.sym, {
+        full: job.action === "full",
+        sinceSec: job.sinceSec,
+      });
+      if (!res) missing.push(job.sym);
+      if (concurrency === 1) await sleep(BATCH_DELAY_MS);
+    }
+  });
+  await Promise.all(workers);
 
   return { missing };
 }

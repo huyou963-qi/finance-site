@@ -34,6 +34,10 @@ export type QuarterRatioPoint = {
   fcfPerShareTtm: number | null;
   /** TTM EPS（滚动 4 季求和） */
   epsTtm: number | null;
+  /** 现金含量 = TTM 经营现金流 / TTM 净利（净利>0 才给值；与 factorCompute.ocfToNetIncome 同口径） */
+  ocfToNetIncome: number | null;
+  /** 应计比率 = (TTM 净利 − TTM 经营现金流) / 平均总资产（与 factorCompute.accrualsToAssets 同口径） */
+  accrualsToAssets: number | null;
 };
 
 function ratio(num: number | null, den: number | null): number | null {
@@ -111,6 +115,12 @@ export function computeQuarterRatios(quarters: QuarterFundamentalRow[]): Quarter
           ? ratio(fcfTtm, r.sharesOutstanding)
           : null,
       epsTtm: sumWindow(rows, i, (x) => x.eps),
+      ocfToNetIncome:
+        niTtm != null && niTtm > 0 && ocfTtm != null ? ocfTtm / niTtm : null,
+      accrualsToAssets:
+        niTtm != null && ocfTtm != null && avgAssets != null && avgAssets > 0
+          ? (niTtm - ocfTtm) / avgAssets
+          : null,
     };
   });
 }

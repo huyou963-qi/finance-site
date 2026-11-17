@@ -61,6 +61,9 @@ test("computeQuarterRatios：TTM ROE 用平均权益，杜邦三分解可乘回 
   assert.equal(ratios[0]!.roeTtm, null);
   assert.equal(ratios[2]!.epsTtm, null);
   assert.equal(ratios[3]!.epsTtm, 4);
+  // 现金含量 / 应计：TTM OCF=80、TTM NI=40、平均资产=(440+400)/2=420
+  assert.ok(Math.abs(last.ocfToNetIncome! - 80 / 40) < 1e-9);
+  assert.ok(Math.abs(last.accrualsToAssets! - (40 - 80) / 420) < 1e-9);
 });
 
 test("aggregateFiscalYears：4 季一组求和/期末，YoY 跨组", () => {
