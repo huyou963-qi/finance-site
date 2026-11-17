@@ -93,6 +93,22 @@ test("daily before paging bounds the upstream date and strictly excludes the cut
   assert.equal(result.pricePrecision, 3);
 });
 
+test("monthly requests use eastmoney klt=103 and keep date-only bars", async t => {
+  let calledUrl = "";
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    calledUrl = String(url);
+    return new Response(JSON.stringify({ rc: 0, data: { name: "腾讯", klines: [
+      "2026-09-01,10,12,13,9,20", "2026-10-01,12,14,15,11,30",
+    ] } }));
+  });
+  const result = await eastmoneyKlineProvider.fetch({
+    symbol: "00700.HK", interval: "1M", limit: 300, adjustment: "none", window: {},
+  });
+  assert.equal(new URL(calledUrl).searchParams.get("klt"), "103");
+  assert.equal(result.candles.length, 2);
+  assert.equal(result.candles[0]!.time, Date.parse("2026-09-01T00:00:00Z") / 1000);
+});
+
 test("explicit range filters intraday history and missing instruments are errors", async t => {
   t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({ rc: 0, data: { name: "腾讯", klines: [
     "2026-10-09 10:00,10,12,13,9,20", "2026-10-09 11:00,12,13,14,11,30",

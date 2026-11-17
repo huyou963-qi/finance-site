@@ -44,6 +44,7 @@ it("keeps unfinished daily/4h/weekly bars short-lived, historical adjusted data 
   assert.equal(klineCachePolicy({ ...req, interval: "1d" }, start).freshMs, 120000);
   const currentWeek = { ...req, interval: "1w", window: { toTimeSec: start / 1000 - 3 * 86400 } };
   assert.equal(klineCachePolicy(currentWeek, start).freshMs, 120000);
+  assert.equal(klineCachePolicy({ ...req, interval: "1M" }, start).freshMs, 120000);
   const history = { ...req, window: { beforeTimeSec: start / 1000 - 30 * 86400 } };
   assert.equal(klineCachePolicy(history, start).freshMs, 3600000);
   assert.equal(klineCachePolicy({ ...history, adjustment: "none" }, start).freshMs, 21600000);

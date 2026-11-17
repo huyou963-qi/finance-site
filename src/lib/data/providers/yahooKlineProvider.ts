@@ -31,10 +31,11 @@ const YAHOO_INTERVAL: Record<string, string | null> = {
   "4h": null, // 由 1h 聚合
   "1d": "1d", // 走本地库
   "1w": null, // 由日线聚合
+  "1M": null, // 由日线聚合
 };
 
 function isDailyBacked(interval: string): boolean {
-  return interval === "1d" || interval === "1w";
+  return interval === "1d" || interval === "1w" || interval === "1M";
 }
 
 // ------------------------------------------------------------ 聚合
@@ -94,6 +95,12 @@ function weekStartSec(timeSec: number): number {
   const dow = new Date(day * 1000).getUTCDay(); // 0=周日
   const offset = dow === 0 ? 6 : dow - 1;
   return day - offset * DAY_SEC;
+}
+
+/** 月线桶：所在月 1 日 UTC 零点 */
+function monthStartSec(timeSec: number): number {
+  const d = new Date(timeSec * 1000);
+  return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000);
 }
 
 /** 4 小时桶（按 UTC 对齐） */
@@ -199,17 +206,23 @@ export const yahooKlineProvider: KlineMarketDataProvider = {
 
     try {
       if (isDailyBacked(req.interval)) {
-        // 日线/周线：按窗口/分页在 DB 裁剪后再复权（后复权仅额外取最早一根作锚点）
+        // 日/周/月线：按窗口/分页在 DB 裁剪后再复权（后复权仅额外取最早一根作锚点）
         const pageLimit = req.limit > 0 ? req.limit : KLINE_PAGE_SIZE;
         const isWeek = req.interval === "1w";
-        const dailyLimit = isWeek ? pageLimit * 8 + 7 : pageLimit;
+        const isMonth = req.interval === "1M";
+        const dailyLimit = isMonth
+          ? pageLimit * 32 + 31
+          : isWeek
+            ? pageLimit * 8 + 7
+            : pageLimit;
         const { beforeTimeSec, fromTimeSec, toTimeSec } = req.window;
 
         const barQuery: Parameters<typeof getAdjustedDailyBars>[1] = {
           mode: req.adjustment,
         };
         if (fromTimeSec != null && toTimeSec != null) {
-          barQuery.fromSec = isWeek ? fromTimeSec - 7 * DAY_SEC : fromTimeSec;
+          const padDays = isMonth ? 31 : isWeek ? 7 : 0;
+          barQuery.fromSec = fromTimeSec - padDays * DAY_SEC;
           barQuery.toSec = toTimeSec;
           // 显式超长区间也加硬顶，防止一次请求拖数十年全日线
           const spanDays = Math.ceil((toTimeSec - (barQuery.fromSec ?? fromTimeSec)) / DAY_SEC);
@@ -224,11 +237,15 @@ export const yahooKlineProvider: KlineMarketDataProvider = {
         const { bars, found, source } = await getAdjustedDailyBars(symbol, barQuery);
         if (!found) throw new YahooSymbolNotFoundError(symbol);
 
-        const series = isWeek ? aggregate(bars, weekStartSec) : bars;
+        const series = isMonth
+          ? aggregate(bars, monthStartSec)
+          : isWeek
+            ? aggregate(bars, weekStartSec)
+            : bars;
         const { page } = sliceWindow(series, req);
         const { candles, volumes } = toCandles(page);
         // Yahoo 节假日零价行会被清洗掉，短页仍可能有历史。
-        // 周线使用最早周的周一作边界，避免把同一周的日线当成更早一周。
+        // 周/月线用桶起点作边界，避免同桶内更早日线被当成上一周期。
         const hasMoreOlder = candles.length > 0 &&
           await hasEarlierDailyBars(symbol, candles[0]!.time as number);
 
