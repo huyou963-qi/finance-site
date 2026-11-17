@@ -239,6 +239,8 @@ const FRED_LOGISTICS = new Set([
 ]);
 
 function placementFromFredId(fredId: string): UsCatalogPlacement | null {
+  if (["BOGZ1FL193020005Q", "BOGZ1FL193030205Q", "BOGZ1FL193034005Q"].includes(fredId)) return p("金融条件与银行", "居民流动性资产");
+  if (fredId.startsWith("RCCCBACTIVEUTILPCT")) return p("金融条件与银行", "居民消费信贷");
   const id = fredId.toUpperCase();
   if (CP_FRED_IDS.has(id)) return p("利率与信用市场", "商业票据发行与余额");
   if (FRED_LOGISTICS.has(id)) return p("国民经济", "物流与出行");
@@ -294,6 +296,7 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
 }
 
 function placementFromMdsCode(code: string): UsCatalogPlacement | null {
+  if (code.startsWith("nyfed_hhdc_")) return p("金融条件与银行", "居民消费信贷");
   if (code.startsWith("ff_us_")) return p("利率与信用市场", "美股风格因子");
   if (code.startsWith("breadth_us_sp500_")) return p("利率与信用市场", "美股市场广度");
   if (code.startsWith("quant_regime_")) return p("国民经济", "景气综合");

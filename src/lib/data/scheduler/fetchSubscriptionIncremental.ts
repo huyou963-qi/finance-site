@@ -1,6 +1,6 @@
 import { SourceAdapterKind, type DataSource } from "@prisma/client";
 import { fetchBisIncremental } from "./adapters/bisAdapter";
-import { fetchFredIncremental } from "./adapters/fredAdapter";
+import { fetchFredIncremental, fredBootstrapObservationStart } from "./adapters/fredAdapter";
 import {
   fetchOverviewIncremental,
   overviewTemplateForInstrument,
@@ -73,7 +73,7 @@ export async function fetchSubscriptionIncremental(
     if (composite) {
       return fetchFredCompositeIncremental(composite, apiKey, fetchStart, readPublication, readReleaseIdentity);
     }
-    const fred = await fetchFredIncremental(sub.sourceSeriesKey, apiKey, fetchStart, undefined, readPublication, readReleaseIdentity);
+    const fred = await fetchFredIncremental(sub.sourceSeriesKey, apiKey, fredBootstrapObservationStart(fetchStart, sub.instrument.metadata), undefined, readPublication, readReleaseIdentity);
     // H.15 / TIPS / VIX 等：原发布机构当天就公布同一组数字，补上 FRED 还没转载的最新几天
     const fastChannel = fredFastChannelFor(sub.sourceSeriesKey);
     return fastChannel
@@ -235,6 +235,10 @@ export async function fetchSubscriptionIncremental(
           sub.instrument.code,
           fetchStart,
         );
+      }
+      if (scrapeObj.provider === "nyfed_hhdc") {
+        const { fetchNyFedHhdcIncremental } = await import("./adapters/nyFedHhdcAdapter");
+        return fetchNyFedHhdcIncremental(sub.instrument.code);
       }
       if (scrapeObj.provider === "nyfed_gscpi") {
         const { fetchNyFedGscpiIncremental } = await import(

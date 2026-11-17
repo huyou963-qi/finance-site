@@ -127,6 +127,12 @@ type FredDef = {
 };
 
 const FRED_US_ITEMS: readonly FredDef[] = [
+  { id: "BOGZ1FL193020005Q", label: "家庭活期存款与现金（家庭部门）", category: "金融条件与银行", frequency: "季度" },
+  { id: "BOGZ1FL193030205Q", label: "家庭其他存款（含定期与储蓄存款，IMA）", category: "金融条件与银行", frequency: "季度" },
+  { id: "BOGZ1FL193034005Q", label: "家庭货币市场基金份额（家庭部门）", category: "金融条件与银行", frequency: "季度" },
+  { id: "RCCCBACTIVEUTILPCT50", label: "大型银行信用卡额度使用率（活跃账户，第50百分位）", category: "金融条件与银行", frequency: "季度" },
+  { id: "RCCCBACTIVEUTILPCT75", label: "大型银行信用卡额度使用率（活跃账户，第75百分位）", category: "金融条件与银行", frequency: "季度" },
+  { id: "RCCCBACTIVEUTILPCT90", label: "大型银行信用卡额度使用率（活跃账户，第90百分位）", category: "金融条件与银行", frequency: "季度" },
   ...CP_FRED_SERIES.map((row) => ({ id: row.fredId, label: row.displayName, category: "利率与债券", frequency: "周" as const })),
   { id: "GDPC1", label: "实际 GDP（季调，十亿美元）", category: "国民经济核算", frequency: "季度" },
   { id: "GDP", label: "名义 GDP（季调，十亿美元）", category: "国民经济核算", frequency: "季度" },

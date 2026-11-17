@@ -5,6 +5,15 @@ import { getFredRateLimiter, type FredRateLimiter } from "../fredRateLimiter";
 const FRED_OBSERVATIONS_URL = "https://api.stlouisfed.org/fred/series/observations";
 const FRED_MAX_PAGE_SIZE = 100_000;
 
+/** The legacy empty-store default is 1950. A source may explicitly document older history. */
+export function fredBootstrapObservationStart(fetchStart: string, metadata: unknown): string {
+  if (fetchStart !== "1950-01-01" || !metadata || typeof metadata !== "object") return fetchStart;
+  const configured = (metadata as Record<string, unknown>).observationStartDate;
+  if (typeof configured !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(configured) || configured >= fetchStart) return fetchStart;
+  const date = new Date(`${configured}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === configured ? configured : fetchStart;
+}
+
 /** FRED timestamps carry a numeric UTC offset (including daylight saving). */
 export function parseFredLastUpdated(raw: unknown): Date | null {
   if (typeof raw !== "string" || !/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d[+-]\d\d(?::?\d\d)?$/.test(raw)) return null;

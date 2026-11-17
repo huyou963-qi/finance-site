@@ -425,7 +425,10 @@
     "test:l3-api": "tsx scripts/test/l3/api-contracts.integration.ts",
     "test:l3-prepare-e2e": "tsx scripts/test/l3/prepare-e2e-db.ts",
     "test:l3-e2e": "playwright test",
-    "test:l3": "npm run test:l3-db && npm run test:l3-api"
+    "test:l3": "npm run test:l3-db && npm run test:l3-api",
+    "data:seed-consumer-pressure": "dotenv -e .env.local -- tsx scripts/data-worker/seed-consumer-pressure.ts",
+    "data:sync-consumer-pressure": "dotenv -e .env.local -- tsx scripts/data-worker/sync-consumer-pressure.ts",
+    "data:verify-consumer-pressure": "dotenv -e .env.local -- tsx scripts/data-worker/verify-consumer-pressure.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
