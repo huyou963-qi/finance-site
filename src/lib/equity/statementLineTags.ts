@@ -38,6 +38,12 @@ export const STATEMENT_LINE_TAGS: Record<string, readonly string[]> = {
   costsAndExpenses: ["CostsAndExpenses", "BenefitsLossesAndExpenses"],
   // 利润表 · 利润
   operatingIncome: ["OperatingIncomeLoss"],
+  // 仅收发行人直接披露的 EBITDA 标签；不由营业利润+折旧推算（二次指标不入库）
+  ebitda: [
+    "EarningsBeforeInterestTaxesDepreciationAndAmortization",
+    "EBITDA",
+    "EarningsBeforeInterestTaxDepreciationAndAmortization",
+  ],
   interestExpense: ["InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt"],
   interestIncomeNonoperating: ["InvestmentIncomeInterest", "InvestmentIncomeInterestAndDividend"],
   equityMethodIncome: ["IncomeLossFromEquityMethodInvestments"],

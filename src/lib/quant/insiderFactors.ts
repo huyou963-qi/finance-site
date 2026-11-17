@@ -80,30 +80,59 @@ function windowStart(asOf: string): string {
   return d.toISOString().slice(0, 7) + "-01";
 }
 
+/** 近 6 个月窗口内的原始合计（未过笔数门槛时也返回，供股票数据页展示笔数/股数） */
+export type InsiderWindowStats = {
+  buyShares: number;
+  sellShares: number;
+  netShares: number;
+  buyFilings: number;
+  buyTxns: number;
+  sellTxns: number;
+  txns: number;
+};
+
+/**
+ * 按 filedAt 归月、只取整月已过去的桶，汇总近 INSIDER_WINDOW_MONTHS 个月。
+ * 无月份命中时返回 null。
+ */
+export function aggregateInsiderWindow(months: InsiderMonthAgg[], asOf: string): InsiderWindowStats | null {
+  const lo = windowStart(asOf);
+  // 整月已过去才计入：月末 ≤ asOf。asOf 为月末时当月完整可用，非月末时保守剔除当月。
+  const win = months.filter((x) => x.month >= lo && monthEnd(x.month) <= asOf);
+  if (!win.length) return null;
+
+  let buyShares = 0, sellShares = 0, buyFilings = 0, buyTxns = 0, sellTxns = 0;
+  for (const x of win) {
+    buyShares += x.buyShares;
+    sellShares += x.sellShares;
+    buyFilings += x.buyFilings;
+    buyTxns += x.buyTxns;
+    sellTxns += x.sellTxns;
+  }
+  return {
+    buyShares,
+    sellShares,
+    netShares: buyShares - sellShares,
+    buyFilings,
+    buyTxns,
+    sellTxns,
+    txns: buyTxns + sellTxns,
+  };
+}
+
 /**
  * @param months 该标的按 filedAt 归月的聚合，顺序不限
  * @param asOf   因子截面日
  */
 export function computeInsiderFactors(months: InsiderMonthAgg[], asOf: string): Record<string, number> {
-  const lo = windowStart(asOf);
-  // 整月已过去才计入：月末 ≤ asOf。asOf 为月末时当月完整可用，非月末时保守剔除当月。
-  const win = months.filter((x) => x.month >= lo && monthEnd(x.month) <= asOf);
-  if (!win.length) return {};
-
-  let buyShares = 0, sellShares = 0, buyFilings = 0, txns = 0;
-  for (const x of win) {
-    buyShares += x.buyShares;
-    sellShares += x.sellShares;
-    buyFilings += x.buyFilings;
-    txns += x.buyTxns + x.sellTxns;
-  }
-  if (txns < MIN_INSIDER_TRANSACTIONS) return {};
+  const stats = aggregateInsiderWindow(months, asOf);
+  if (!stats || stats.txns < MIN_INSIDER_TRANSACTIONS) return {};
 
   const out: Record<string, number> = {};
-  const gross = buyShares + sellShares;
+  const gross = stats.buyShares + stats.sellShares;
   // 净买入比例 ∈ [−1,1]：+1 为窗口内只买、−1 为只卖。用比例而非净额，避免被公司规模主导。
-  if (gross > 0) out.insiderNetBuyRatio = (buyShares - sellShares) / gross;
+  if (gross > 0) out.insiderNetBuyRatio = (stats.buyShares - stats.sellShares) / gross;
   // 买入广度：有多少份申报报告了公开市场买入。买入比卖出信息量高（卖出常出于分散/流动性需要）。
-  out.insiderBuyBreadth = buyFilings;
+  out.insiderBuyBreadth = stats.buyFilings;
   return out;
 }

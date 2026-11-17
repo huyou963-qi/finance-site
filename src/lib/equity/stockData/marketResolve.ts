@@ -16,7 +16,10 @@ import {
   type TechSeries,
 } from "@/lib/quant/factorCompute";
 import type { PitEquityRow } from "@/lib/quant/pitCrossSection";
-import type { PriceField, TrendFactorKey, ValuationField } from "./indicatorRegistry";
+import type { InsiderMonthAgg } from "@/lib/quant/insiderFactors";
+import { MIN_INSIDER_TRANSACTIONS, aggregateInsiderWindow } from "@/lib/quant/insiderFactors";
+import type { InsiderField, PriceField, TechnicalField, TrendFactorKey, ValuationField } from "./indicatorRegistry";
+import { TECHNICAL_LOOKBACK_DAYS, computeTechnicalPoint } from "./technicalResolve";
 import type { AsOfSpec, Cell, ColumnParams, RangeSpec } from "./types";
 
 const DAY_SEC = 86_400;
@@ -27,6 +30,7 @@ export const PRICE_STALE_DAYS = 7;
 export const TREND_LOOKBACK_DAYS = 400;
 /** 区间涨跌要取区间开始前一个交易日，多读几天跨过长假 */
 export const RANGE_BASE_LOOKBACK_DAYS = 14;
+export { TECHNICAL_LOOKBACK_DAYS };
 
 const isoToSec = (d: string) => Date.parse(`${d}T00:00:00Z`) / 1000;
 const secToIso = (s: number) => new Date(s * 1000).toISOString().slice(0, 10);
@@ -64,13 +68,19 @@ export function resolveRangeDates(r: RangeSpec | undefined, today: string): { fr
 }
 
 /** 需要读取的日线区间（含回看），供服务端合并后批量读取 */
-export function barWindowFor(kind: "close" | "range" | "trend", params: ColumnParams, today: string): { from: string; to: string } {
+export function barWindowFor(
+  kind: "close" | "range" | "trend" | "technical",
+  params: ColumnParams,
+  today: string,
+): { from: string; to: string } {
   if (kind === "range") {
     const { from, to } = resolveRangeDates(params.range, today);
     return { from: shiftDays(from, -RANGE_BASE_LOOKBACK_DAYS), to };
   }
   const asOf = resolveAsOfDate(params.asOf, today);
-  return { from: shiftDays(asOf, kind === "trend" ? -TREND_LOOKBACK_DAYS : -PRICE_STALE_DAYS - 7), to: asOf };
+  const lookback =
+    kind === "trend" ? TREND_LOOKBACK_DAYS : kind === "technical" ? TECHNICAL_LOOKBACK_DAYS : PRICE_STALE_DAYS + 7;
+  return { from: shiftDays(asOf, -lookback), to: asOf };
 }
 
 /** 把若干区间合并成互不重叠的读取窗口（相邻 30 天内的并成一个） */
@@ -112,6 +122,8 @@ export type MarketInput = {
   /** 截止日 → 该日可见的基本面与市值（buildPitRows 的输出） */
   pitByDate: ReadonlyMap<string, PitEquityRow>;
   isFund: boolean;
+  /** 按 filedAt 归月的内部人聚合；无 DERA 数据时为空数组 */
+  insiderMonths?: readonly InsiderMonthAgg[];
 };
 
 export type MarketContext = { today: string; benchmark: Map<number, number> | null };
@@ -215,7 +227,47 @@ export function createMarketResolver(input: MarketInput, ctx: MarketContext) {
     }
   }
 
-  return { trend, priceCell, valuation };
+  function technical(field: TechnicalField, params: ColumnParams): Cell {
+    const asOf = resolveAsOfDate(params.asOf, ctx.today);
+    const end = freshIndex(asOf);
+    if (end < 0) return { v: null, s: "noPrice", p: asOf };
+    const slice = bars.slice(0, end + 1);
+    const px = params.adjust === "none"
+      ? adjustDailyBars(slice, input.splits, "none").map((b) => b.close)
+      : slice.map((b) => b.adjClose);
+    const point = computeTechnicalPoint(px);
+    const label = secToIso(bars[end]!.time);
+    const v = point[field];
+    return v == null ? { v: null, s: "noValue", p: label } : ok(v, label);
+  }
+
+  function insider(field: InsiderField, params: ColumnParams): Cell {
+    if (input.isFund) return { v: null, s: "notApplicable" };
+    const asOf = resolveAsOfDate(params.asOf, ctx.today);
+    const months = input.insiderMonths ?? [];
+    if (!months.length) return { v: null, s: "uncovered", p: asOf };
+    const stats = aggregateInsiderWindow([...months], asOf);
+    if (!stats) return { v: null, s: "noValue", p: asOf };
+    // 比例/广度与因子一致：不足笔数门槛不出值，避免单笔极值
+    if ((field === "netBuyRatio" || field === "buyBreadth") && stats.txns < MIN_INSIDER_TRANSACTIONS) {
+      return { v: null, s: "noValue", p: asOf };
+    }
+    const map: Record<InsiderField, number> = {
+      netBuyRatio: stats.buyShares + stats.sellShares > 0
+        ? (stats.buyShares - stats.sellShares) / (stats.buyShares + stats.sellShares)
+        : NaN,
+      buyBreadth: stats.buyFilings,
+      buyShares: stats.buyShares,
+      sellShares: stats.sellShares,
+      netShares: stats.netShares,
+      buyTxns: stats.buyTxns,
+      sellTxns: stats.sellTxns,
+    };
+    const v = map[field];
+    return Number.isFinite(v) ? ok(v, asOf) : { v: null, s: "noValue", p: asOf };
+  }
+
+  return { trend, priceCell, valuation, technical, insider };
 }
 
 export type MarketResolver = ReturnType<typeof createMarketResolver>;

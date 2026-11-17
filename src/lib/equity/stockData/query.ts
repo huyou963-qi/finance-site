@@ -5,9 +5,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { getQuarterlyFundamentalsBatch, type QuarterSnapshotRow } from "@/lib/equity/equityFundamentalsStore";
-import { getRawDailyBarWindowsDbOnly } from "@/lib/equity/equityPriceStore";
+import { ensureDailyBars, getRawDailyBarWindowsDbOnly } from "@/lib/equity/equityPriceStore";
 import { loadNasdaqSymbolDirectory } from "@/lib/equity/nasdaqSymbolDirectory";
 import type { RawDailyBar, SplitEvent } from "@/lib/equity/priceAdjustment";
+import type { InsiderMonthAgg } from "@/lib/quant/insiderFactors";
+import { loadInsiderMonths } from "@/lib/quant/insiderFactorsData";
 import { buildPitRows, type PitEquityRow } from "@/lib/quant/pitCrossSection";
 import { getIndicator, normalizeParams } from "./indicatorRegistry";
 import {
@@ -17,9 +19,14 @@ import {
   mergeWindows,
   resolveAsOfDate,
   resolveRangeDates,
+  shiftMonths,
 } from "./marketResolve";
 import { earliestYearNeeded, resolveRow, type SymbolInput } from "./resolve";
 import type { ColumnSpec, StockDataResponse } from "./types";
+
+/** 股票数据页取数时远端回补日线的软预算（毫秒） */
+const ENSURE_BARS_BUDGET_MS = 8_000;
+const ENSURE_BARS_CONCURRENCY = 4;
 
 /** Beta 的基准：标普 500 指数基金，与月度因子快照一致 */
 const BENCHMARK_SYMBOL = "SPY";
@@ -34,28 +41,48 @@ type MarketPlan = {
   /** 需要截止日可见基本面（估值、换手率）的日期 */
   pitDates: string[];
   needsBenchmark: boolean;
+  /** 是否需要读日线（含技术指标） */
+  needsBars: boolean;
+  /** 内部人指标的截止日 */
+  insiderDates: string[];
 };
 
-/** 行情、估值、趋势类列要读哪些日线窗口、哪些日期的可见基本面 */
+/** 行情、估值、趋势、技术、内部人列要读哪些日线窗口、哪些日期的可见基本面 */
 export function planMarketData(columns: readonly ColumnSpec[], today: string): MarketPlan | null {
   const windows: { from: string; to: string }[] = [];
   const pitDates = new Set<string>();
+  const insiderDates = new Set<string>();
   let needsBenchmark = false;
+  let needsBars = false;
   for (const col of columns) {
     const def = getIndicator(col.indicatorId);
     const src = def?.source;
-    if (!def || !src || (src.kind !== "price" && src.kind !== "trend" && src.kind !== "valuation")) continue;
+    if (!def || !src) continue;
+    if (src.kind === "insider") {
+      const params = normalizeParams(def, col.params);
+      insiderDates.add(resolveAsOfDate(params.asOf, today));
+      continue;
+    }
+    if (src.kind !== "price" && src.kind !== "trend" && src.kind !== "valuation" && src.kind !== "technical") continue;
     const params = normalizeParams(def, col.params);
-    if (src.kind === "valuation") { pitDates.add(resolveAsOfDate(params.asOf, today)); continue; }
-    if (src.kind === "trend") { needsBenchmark = true; windows.push(barWindowFor("trend", params, today)); continue; }
+    if (src.kind === "valuation") { pitDates.add(resolveAsOfDate(params.asOf, today)); needsBars = true; continue; }
+    if (src.kind === "trend") { needsBenchmark = true; needsBars = true; windows.push(barWindowFor("trend", params, today)); continue; }
+    if (src.kind === "technical") { needsBars = true; windows.push(barWindowFor("technical", params, today)); continue; }
+    needsBars = true;
     if (src.field === "close") windows.push(barWindowFor("close", params, today));
     else {
       windows.push(barWindowFor("range", params, today));
       if (src.field === "rangeTurnover") pitDates.add(resolveRangeDates(params.range, today).to);
     }
   }
-  if (!windows.length && !pitDates.size) return null;
-  return { windows: mergeWindows(windows), pitDates: [...pitDates], needsBenchmark };
+  if (!windows.length && !pitDates.size && !insiderDates.size) return null;
+  return {
+    windows: mergeWindows(windows),
+    pitDates: [...pitDates],
+    needsBenchmark,
+    needsBars: needsBars || windows.length > 0 || pitDates.size > 0,
+    insiderDates: [...insiderDates],
+  };
 }
 
 type MarketData = {
@@ -63,15 +90,31 @@ type MarketData = {
   splits: Map<string, SplitEvent[]>;
   pit: Map<string, Map<string, PitEquityRow>>;
   benchmark: Map<number, number> | null;
+  insider: Map<string, InsiderMonthAgg[]>;
 };
 
 async function loadMarketData(plan: MarketPlan, lookup: string[]): Promise<MarketData> {
   const barSymbols = plan.needsBenchmark ? [...new Set([...lookup, BENCHMARK_SYMBOL])] : lookup;
-  const [barSets, pitSets] = await Promise.all([
-    Promise.all(plan.windows.map((w) => getRawDailyBarWindowsDbOnly({
-      symbols: barSymbols, from: new Date(`${w.from}T00:00:00.000Z`), to: new Date(`${w.to}T00:00:00.000Z`),
-    }))),
+  // 估值/行情/技术列：先尽量补齐日线缺口，再只读库；软超时后仍用已有数据继续
+  if (plan.needsBars) {
+    await ensureDailyBars(barSymbols, {
+      concurrency: ENSURE_BARS_CONCURRENCY,
+      budgetMs: ENSURE_BARS_BUDGET_MS,
+    }).catch(() => ({ missing: [] as string[] }));
+  }
+  const insiderMinMonth = plan.insiderDates.length
+    ? shiftMonths([...plan.insiderDates].sort().at(-1)!, -8).slice(0, 7) + "-01"
+    : null;
+  const [barSets, pitSets, insiderMap] = await Promise.all([
+    plan.windows.length
+      ? Promise.all(plan.windows.map((w) => getRawDailyBarWindowsDbOnly({
+          symbols: barSymbols, from: new Date(`${w.from}T00:00:00.000Z`), to: new Date(`${w.to}T00:00:00.000Z`),
+        })))
+      : Promise.resolve([] as Awaited<ReturnType<typeof getRawDailyBarWindowsDbOnly>>[]),
     Promise.all(plan.pitDates.map((d) => buildPitRows(lookup, d, { minPlausibleMarketCap: MIN_MARKET_CAP }))),
+    plan.insiderDates.length
+      ? loadInsiderMonths(lookup, insiderMinMonth ?? undefined)
+      : Promise.resolve(new Map<string, InsiderMonthAgg[]>()),
   ]);
   const bars = new Map<string, RawDailyBar[]>();
   let splits = new Map<string, SplitEvent[]>();
@@ -89,7 +132,13 @@ async function loadMarketData(plan: MarketPlan, lookup: string[]): Promise<Marke
       pit.set(row.symbol, byDate);
     }
   });
-  return { bars, splits, pit, benchmark: plan.needsBenchmark ? benchmarkReturns(bars.get(BENCHMARK_SYMBOL)) : null };
+  return {
+    bars,
+    splits,
+    pit,
+    benchmark: plan.needsBenchmark ? benchmarkReturns(bars.get(BENCHMARK_SYMBOL)) : null,
+    insider: insiderMap,
+  };
 }
 
 const CACHE_TTL_MS = 10 * 60_000;
@@ -180,9 +229,16 @@ export async function queryStockData(
     // 美股判定：在证券主表、上市目录、基本面库或行情库任一处出现（目录没加载到时不据此剔除）
     if (!sec && !dir && !quarters.length && !bars.length && !hasPitQuarters && directoryReady) { ignored.push(symbol); continue; }
     const isFund = dir?.type === "ETF" && !quarters.length && !hasPitQuarters;
+    const insiderMonths = pick(market?.insider, symbol, (x) => x.length > 0) ?? [];
     const resolver = market
       ? createMarketResolver(
-          { bars, splits: pick(market.splits, symbol, (x) => x.length > 0) ?? [], pitByDate, isFund },
+          {
+            bars,
+            splits: pick(market.splits, symbol, (x) => x.length > 0) ?? [],
+            pitByDate,
+            isFund,
+            insiderMonths,
+          },
           { today, benchmark: market.benchmark },
         )
       : undefined;

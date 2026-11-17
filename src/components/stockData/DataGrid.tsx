@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Link } from "@/i18n/navigation";
 import { columnHeader, formatCellValue, type SortState } from "@/lib/equity/stockData/display";
 import { getIndicator } from "@/lib/equity/stockData/indicatorRegistry";
 import type { ColumnSpec, StockDataRow } from "@/lib/equity/stockData/types";
@@ -17,17 +18,24 @@ type Props = {
   onSelectRow: (symbol: string, multi: boolean) => void;
   onEditCol: (key: string) => void;
   onDropIndicators: (ids: string[]) => void;
-  /** 结果尚未取回时，单元格显示空白而不是状态文字 */
+  /** 首次取数尚未返回时，单元格显示空白而不是状态文字；刷新时保留旧值 */
   loading: boolean;
+  /** 是否可链到行情页 / 个股页（经功能权限过滤） */
+  linkMarkets?: boolean;
+  linkStock?: boolean;
+  onCellClick?: (symbol: string, name: string, column: ColumnSpec) => void;
 };
 
 const sortMark = (sort: SortState, key: string) => (sort?.key === key ? (sort.dir === "asc" ? "↑" : "↓") : "↕");
 
 /**
  * 右侧表格：行=股票，列=指标+参数。冻结序号/代码/简称三列（手机只冻结代码），表头三行写指标名、报告期与口径、单位。
- * 点表头选中列（Ctrl/⌘ 多选），双击改参数，点 ↕ 排序；点序号选中行。
+ * 点表头选中列（Ctrl/⌘ 多选），双击改参数，点 ↕ 排序；点序号选中行；点格子看时序。
  */
-export function DataGrid({ rows, columns, sort, onSort, selectedCols, selectedRows, onSelectCol, onSelectRow, onEditCol, onDropIndicators, loading }: Props) {
+export function DataGrid({
+  rows, columns, sort, onSort, selectedCols, selectedRows, onSelectCol, onSelectRow, onEditCol, onDropIndicators,
+  loading, linkMarkets, linkStock, onCellClick,
+}: Props) {
   const [dragOver, setDragOver] = useState(false);
   const th = "border-b border-r border-fs-border bg-fs-elevated px-1.5 py-1 text-left align-top font-normal";
   const td = "border-b border-r border-fs-border px-1.5 py-0.5";
@@ -91,6 +99,8 @@ export function DataGrid({ rows, columns, sort, onSort, selectedCols, selectedRo
           {rows.map((r, i) => {
             const rowActive = selectedRows.has(r.symbol);
             const bg = rowActive ? "bg-fs-accent-soft" : "bg-fs-bg";
+            const stockHref = `/equity/stocks/${encodeURIComponent(r.symbol)}`;
+            const marketsHref = `/markets?symbol=${encodeURIComponent(r.symbol)}`;
             return (
               <tr key={r.symbol}>
                 <td className={`${td} ${bg} left-0 z-10 w-8 min-w-8 max-w-8 text-center text-fs-muted max-md:static md:sticky`}>
@@ -98,16 +108,40 @@ export function DataGrid({ rows, columns, sort, onSort, selectedCols, selectedRo
                     {i + 1}
                   </button>
                 </td>
-                <td className={`${td} ${bg} sticky left-0 z-10 w-16 min-w-16 max-w-16 truncate font-medium md:left-8`}>{r.symbol}</td>
-                <td className={`${td} ${bg} z-10 max-w-40 truncate max-md:static md:sticky md:left-24`} title={r.name}>{r.name}</td>
+                <td className={`${td} ${bg} sticky left-0 z-10 w-16 min-w-16 max-w-16 truncate font-medium md:left-8`}>
+                  {linkMarkets ? (
+                    <Link href={marketsHref} className="text-fs-accent hover:underline" title="打开行情">
+                      {r.symbol}
+                    </Link>
+                  ) : linkStock ? (
+                    <Link href={stockHref} className="text-fs-accent hover:underline" title="打开个股">
+                      {r.symbol}
+                    </Link>
+                  ) : r.symbol}
+                </td>
+                <td className={`${td} ${bg} z-10 max-w-40 truncate max-md:static md:sticky md:left-24`} title={r.name}>
+                  {linkStock ? (
+                    <Link href={stockHref} className="hover:underline" title="打开个股">
+                      {r.name}
+                    </Link>
+                  ) : r.name}
+                </td>
                 {columns.map((c) => {
                   const unit = getIndicator(c.indicatorId)?.unit ?? "text";
                   const cell = r.cells[c.key];
                   const { text, muted } = loading && !cell ? { text: "", muted: true } : formatCellValue(unit, cell, c.params.scale);
                   const numeric = cell?.s === "ok" && typeof cell.v === "number";
-                  const title = cell?.p ? `${cell.p}${cell.d ? `（截至 ${cell.d}）` : ""}` : undefined;
+                  const tipParts = [
+                    cell?.p ? `${cell.p}${cell.d ? `（截至 ${cell.d}）` : ""}` : "",
+                    onCellClick ? "点击查看时序" : "",
+                  ].filter(Boolean);
                   return (
-                    <td key={c.key} title={title} className={`${td} max-w-44 truncate ${selectedCols.has(c.key) ? "bg-fs-accent-soft/50" : rowActive ? "bg-fs-accent-soft" : ""} ${numeric ? "text-right tabular-nums" : ""} ${muted ? "text-fs-muted" : ""}`}>
+                    <td
+                      key={c.key}
+                      title={tipParts.join(" · ") || undefined}
+                      className={`${td} max-w-44 truncate ${selectedCols.has(c.key) ? "bg-fs-accent-soft/50" : rowActive ? "bg-fs-accent-soft" : ""} ${numeric ? "text-right tabular-nums" : ""} ${muted ? "text-fs-muted" : ""} ${onCellClick ? "cursor-pointer hover:bg-fs-elevated" : ""}`}
+                      onClick={() => onCellClick?.(r.symbol, r.name, c)}
+                    >
                       {text}
                     </td>
                   );
