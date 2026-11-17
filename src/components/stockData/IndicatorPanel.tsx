@@ -26,6 +26,9 @@ type Props = {
   onAdd: (defs: IndicatorDef[]) => void;
 };
 
+/** 默认展开的一级目录：与注册表 path[0] 原文一致，作 open 键；界面显示再 tr */
+const DEFAULT_OPEN_FOLDERS = ["证券信息", "财务报表", "财务指标"] as const;
+
 /**
  * 左上：指标目录。单击选中（Ctrl/⌘ 多选），双击或点「加入表格」加列，也可以把指标拖到表格上。
  * 有搜索词时改为平铺结果并显示所在路径。
@@ -34,7 +37,7 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
   const tr = useTr();
   const tree = useMemo(() => buildIndicatorTree(indicators), [indicators]);
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<Set<string>>(() => new Set([tr("证券信息"), tr("财务报表"), tr("财务指标")]));
+  const [open, setOpen] = useState<Set<string>>(() => new Set(DEFAULT_OPEN_FOLDERS));
   const [selected, setSelected] = useState<string[]>([]);
   /** 触屏没有 Ctrl 键：打开后单击即多选 */
   const [multi, setMulti] = useState(false);
@@ -89,8 +92,12 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
           aria-pressed={active}
           className={`flex min-h-8 md:min-h-6 w-full items-center gap-2 rounded px-2 text-left text-sm md:text-xs ${active ? "bg-fs-accent text-white" : "hover:bg-fs-elevated"}`}
         >
-          <span className="truncate">{d.label}</span>
-          {showPath ? <span className={`ml-auto shrink-0 truncate text-xs ${active ? "text-white/80" : "text-fs-muted"}`}>{d.path.slice(1).join(" › ") || d.path[0]}</span> : null}
+          <span className="truncate">{tr(d.label)}</span>
+          {showPath ? (
+            <span className={`ml-auto shrink-0 truncate text-xs ${active ? "text-white/80" : "text-fs-muted"}`}>
+              {(d.path.slice(1).length ? d.path.slice(1) : d.path.slice(0, 1)).map((p) => tr(p)).join(" › ")}
+            </span>
+          ) : null}
         </button>
       </li>
     );
@@ -108,7 +115,7 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
           style={{ fontWeight: depth === 0 ? 600 : 500 }}
         >
           <span aria-hidden className="inline-block w-4 text-center text-xs text-fs-muted">{isOpen ? "▾" : "▸"}</span>
-          {node.label}
+          {tr(node.label)}
         </button>
         {isOpen ? (
           <ul className="ml-4 border-l border-fs-border pl-1">

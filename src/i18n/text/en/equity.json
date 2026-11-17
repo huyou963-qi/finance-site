@@ -1617,5 +1617,19 @@
   "趋势与风险": "Trend & risk",
   "技术常用": "Technical kit",
   "、{length} 只股票": ", {length} stocks",
-  "；超出上限，{skipped} 列未加入": "; {skipped} columns not added (over limit)"
+  "；超出上限，{skipped} 列未加入": "; {skipped} columns not added (over limit)",
+  "估值指标": "Valuation",
+  "行情指标": "Market",
+  "技术指标": "Technicals",
+  "内部人": "Insiders",
+  "利润表": "Income statement",
+  "资产负债表": "Balance sheet",
+  "现金流量表": "Cash flow",
+  "盈利能力": "Profitability",
+  "营运与杠杆": "Operations & leverage",
+  "盈余质量": "Earnings quality",
+  "股东回报": "Shareholder returns",
+  "每股指标": "Per share",
+  "成长能力": "Growth",
+  "风险": "Risk"
 }

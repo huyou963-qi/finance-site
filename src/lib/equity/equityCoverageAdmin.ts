@@ -73,13 +73,16 @@ export async function loadEquityCoverageReport(db: PrismaClient): Promise<Equity
     }
   }
 
+  // 先取每家最新一季，再看该季是否有 ebitda（勿在 DISTINCT 前过滤，否则会退化成「历史上有过」）
   const ebitdaLatest = universe.length
     ? await db.$queryRaw<{ symbol: string }[]>`
-        select distinct on (symbol) symbol
-        from mds.equity_fundamental_snapshot
-        where period_type = 'Q' and symbol = any(${universe})
-          and lines ? 'ebitda'
-        order by symbol, fiscal_date desc`
+        with latest as (
+          select distinct on (symbol) symbol, lines
+          from mds.equity_fundamental_snapshot
+          where period_type = 'Q' and symbol = any(${universe})
+          order by symbol, fiscal_date desc
+        )
+        select symbol from latest where lines ? 'ebitda'`
     : [];
   const ebitdaAny = universe.length
     ? await db.$queryRaw<{ symbol: string }[]>`
