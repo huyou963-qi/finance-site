@@ -47,3 +47,20 @@ test("weekly observations retain the last published date and intraday requests f
   assert.equal(bounded.candles.at(-1)?.close, 4.07);
   await assert.rejects(provider.fetch({ ...request, interval: "1h" }), /不支持盘中周期/);
 });
+
+test("monthly observations retain the last published date in each calendar month", async () => {
+  const result = await provider.fetch({ ...request, interval: "1M" });
+  assert.equal(result.candles.length, 2);
+  assert.equal(result.candles[0]?.time, Date.UTC(2025, 0, 31) / 1000);
+  assert.equal(result.candles[1]?.time, rows.at(-1)!.obsDate.getTime() / 1000);
+  assert.match(result.attribution ?? "", /每月最后观测值/);
+  const toTimeSec = Date.UTC(2025, 0, 15) / 1000;
+  const bounded = await provider.fetch({
+    ...request,
+    interval: "1M",
+    window: { fromTimeSec: Date.UTC(2025, 0, 1) / 1000, toTimeSec },
+  });
+  assert.equal(bounded.candles.length, 1);
+  assert.equal(bounded.candles[0]?.time, toTimeSec);
+  assert.equal(bounded.candles[0]?.close, 4.14);
+});

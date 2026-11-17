@@ -68,11 +68,11 @@ export const eastmoneyKlineProvider: KlineMarketDataProvider = {
     const instrument = resolveEastmoneyInstrument(req.symbol);
     if (!instrument) throw new Error("东方财富不支持该标的，请输入现货黄金或完整沪深京港代码");
     if (!isKlineInterval(req.interval)) throw new Error(`不支持的周期：${req.interval}`);
-    const intraday = !["1d", "1w"].includes(req.interval);
+    const intraday = !["1d", "1w", "1M"].includes(req.interval);
     const gold = instrument.market === "GOLD";
     const adjustment = gold ? "none" : req.adjustment;
     const limit = clampKlineLimit(req.limit);
-    const klt = { "15m": "15", "1h": "60", "4h": "60", "1d": "101", "1w": "102" }[req.interval];
+    const klt = { "15m": "15", "1h": "60", "4h": "60", "1d": "101", "1w": "102", "1M": "103" }[req.interval];
     const { beforeTimeSec: before, fromTimeSec: from, toTimeSec: to } = req.window;
     const url = new URL("https://push2his.eastmoney.com/api/qt/stock/kline/get");
     // Fetch the available intraday window intact; do not mistake an old request for new history.

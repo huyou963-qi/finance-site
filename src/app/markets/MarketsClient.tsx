@@ -8,7 +8,9 @@ import type { MacroPayload } from "@/lib/data/types";
 import { StockChartWorkspace } from "@/components/StockChartWorkspace";
 import { MarketsWatchlist } from "@/components/MarketsWatchlist";
 import {
+  isKlineDateInterval,
   isKlineInterval,
+  KLINE_DATE_INTERVALS,
   KLINE_INTERVALS,
   type KlineInterval,
 } from "@/lib/data/klineShared";
@@ -62,6 +64,7 @@ const INTERVAL_LABEL: Record<KlineInterval, string> = {
   "4h": "4小时",
   "1d": "日K",
   "1w": "周K",
+  "1M": "月K",
 };
 
 function displayNameForSymbol(sym: string): string | undefined {
@@ -96,7 +99,7 @@ export function MarketsClient() {
     useState<PriceAdjustmentMode>("forward");
   const effectiveAdjustment = regionalInstrument?.market === "GOLD" || yieldInstrument ? "none" : priceAdjustment;
   useEffect(() => {
-    if (yieldInstrument && interval !== "1d" && interval !== "1w") setKlineInterval("1d");
+    if (yieldInstrument && !isKlineDateInterval(interval)) setKlineInterval("1d");
   }, [yieldInstrument, interval]);
   const [hits, setHits] = useState<SymbolHit[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -537,7 +540,7 @@ export function MarketsClient() {
   const commitSymbol = (raw: string, name?: string) => {
     const s = normalizeTickerSymbol(raw);
     if (!s) return;
-    if (findMarketInstrument(s)?.fredSeriesId && interval !== "1d" && interval !== "1w") setKlineInterval("1d");
+    if (findMarketInstrument(s)?.fredSeriesId && !isKlineDateInterval(interval)) setKlineInterval("1d");
     // 丢弃仍在路上的 symbol-search 响应，否则会再次 setOpen(true) + 空列表 →「无匹配」盖住图表
     reqIdRef.current += 1;
     if (s !== symbol) setLoadedSymbol("");
@@ -722,7 +725,7 @@ export function MarketsClient() {
             aria-label={tr("K 线周期")}
             className="h-7 min-w-[3.75rem] md:h-[22px] md:min-w-[4.25rem] cursor-pointer rounded border border-amber-600/50 bg-fs-elevated px-1.5 py-0 text-[10px] font-medium leading-none text-fs-text shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           >
-            {KLINE_INTERVALS.filter(iv => !findMarketInstrument(symbol)?.fredSeriesId || iv === "1d" || iv === "1w").map((iv) => (
+            {KLINE_INTERVALS.filter(iv => !findMarketInstrument(symbol)?.fredSeriesId || (KLINE_DATE_INTERVALS as readonly string[]).includes(iv)).map((iv) => (
               <option key={iv} value={iv}>
                 {tr(INTERVAL_LABEL[iv])}
               </option>

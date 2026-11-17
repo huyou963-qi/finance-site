@@ -1,9 +1,16 @@
 /** 全站 K 线周期（各数据源映射到此集合） */
-export const KLINE_INTERVALS = ["15m", "1h", "4h", "1d", "1w"] as const;
+export const KLINE_INTERVALS = ["15m", "1h", "4h", "1d", "1w", "1M"] as const;
 export type KlineInterval = (typeof KLINE_INTERVALS)[number];
+
+/** 日/周/月：横轴只显示日期；国债收益率仅支持这些周期 */
+export const KLINE_DATE_INTERVALS: readonly KlineInterval[] = ["1d", "1w", "1M"];
 
 export function isKlineInterval(s: string): s is KlineInterval {
   return (KLINE_INTERVALS as readonly string[]).includes(s);
+}
+
+export function isKlineDateInterval(s: string): boolean {
+  return (KLINE_DATE_INTERVALS as readonly string[]).includes(s);
 }
 
 export function clampKlineLimit(n: number): number {
@@ -25,6 +32,8 @@ export function barMsForInterval(i: KlineInterval): number {
       return 24 * 60 * 60 * 1000;
     case "1w":
       return 7 * 24 * 60 * 60 * 1000;
+    case "1M":
+      return 30 * 24 * 60 * 60 * 1000;
     default:
       return 24 * 60 * 60 * 1000;
   }
@@ -55,8 +64,8 @@ export function klineExclusiveCutBeforeOldest(
     );
     return Math.floor(dayStart / 1000) + 86_400;
   }
-  if (interval === "1w") {
-    return oldestBarSec + Math.floor(barMsForInterval("1w") / 1000);
+  if (interval === "1w" || interval === "1M") {
+    return oldestBarSec + Math.floor(barMsForInterval(interval) / 1000);
   }
   return oldestBarSec;
 }

@@ -67,7 +67,7 @@ export function klineCachePolicy(req: KlineFetchRequest, nowMs: number, empty = 
   const historical = endSec != null && endSec * 1000 + barMs + 2 * 86400000 < nowMs;
   const freshMs = empty ? 30_000 : historical
     ? (req.adjustment === "none" ? 6 * 3600000 : 3600000)
-    : (["1d", "1w"].includes(req.interval) ? 120_000 : 60_000);
+    : (["1d", "1w", "1M"].includes(req.interval) ? 120_000 : 60_000);
   return { freshMs, hardMs: empty ? 60_000 : historical ? 86400000 : 15 * 60000 };
 }
 

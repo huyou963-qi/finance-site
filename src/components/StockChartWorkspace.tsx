@@ -119,6 +119,7 @@ import { floorBarIndexForTime } from "@/lib/pageSyncChannel";
 import type { PriceAdjustmentMode } from "@/lib/equity/priceAdjustment";
 import {
   barMsForInterval,
+  isKlineDateInterval,
   isKlineInterval,
   KLINE_PAGE_SIZE,
   klineExclusiveCutBeforeOldest,
@@ -2277,14 +2278,14 @@ export function StockChartWorkspace({
         textColor: KLINE_CHART_TEXT_COLOR,
       },
       timeScale: {
-        tickMarkFormatter: source === "eastmoney" && interval !== "1d" && interval !== "1w"
+        tickMarkFormatter: source === "eastmoney" && !isKlineDateInterval(interval)
           ? (t: Time, kind: number) => {
             const label = formatBarTimeLabel(t, interval, 8 * 3600);
             return kind >= 3 ? label.slice(-5) : label.slice(0, 10);
           } : undefined,
         borderColor: KLINE.border,
         visible: true,
-        timeVisible: interval !== "1d" && interval !== "1w",
+        timeVisible: !isKlineDateInterval(interval),
         secondsVisible: false,
         /**
          * 勿设 fixLeftEdge：在「整段数据一屏能放下」时库会收紧 min/maxRightOffset，
