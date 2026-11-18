@@ -1,0 +1,122 @@
+/** Coverage-aligned, resumable earnings guidance backfill. Dry-run by default. */
+import fs from "node:fs";
+import path from "node:path";
+import { Prisma } from "@prisma/client";
+import { prisma } from "../../src/lib/prisma";
+import { discoverSecFilings, fetchSecReleaseEvidenceByIndex } from "../../src/lib/equity/secEdgar";
+import { writeSecFilingIndex } from "../../src/lib/equity/secFilingSync";
+import { companyFactsCikCandidates } from "../../src/lib/equity/dailyDisclosurePolicy";
+import { loadFundamentalsCoverage } from "../../src/lib/equity/fundamentalsCoverage";
+import { readReleaseAttachments } from "../../src/lib/equity/stockDisclosures";
+import { extractManagementGuidance, GUIDANCE_PARSER_VERSION } from "../../src/lib/equity/managementGuidance";
+import { earningsItem, guidanceBackfillReady, guidanceHistoryStart } from "../../src/lib/equity/managementGuidanceBackfill";
+
+const arg = (name: string) => process.argv.slice(2).find(a => a.startsWith(`${name}=`))?.slice(name.length + 1);
+const has = (name: string) => process.argv.includes(name);
+type Issuer = { cik: string; symbol: string; symbols: string[]; from: string };
+async function main() {
+  const symbols = arg("--symbols")?.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+  const allCovered = has("--all-covered"), apply = has("--apply"), discover = has("--discover"), fetchMissing = has("--fetch-missing");
+  if ((!allCovered && !symbols?.length) || (allCovered && symbols) || symbols?.some(s => !/^[A-Z0-9.-]{1,16}$/.test(s))) throw new Error("指定 --all-covered 或 --symbols=NVDA,AAPL，不能同时使用");
+  const limit = arg("--limit") ? Number(arg("--limit")) : allCovered ? Infinity : 20;
+  if (limit !== Infinity && (!Number.isInteger(limit) || limit < 1 || limit > 100_000)) throw new Error("--limit 必须为 1–100000");
+  const explicitFrom = arg("--from");
+  if (explicitFrom) guidanceHistoryStart(explicitFrom, null);
+  const report = path.resolve(arg("--report") ?? ".data/guidance-backfill/run.jsonl");
+  fs.mkdirSync(path.dirname(report), { recursive: true });
+  const checkpoints = new Set<string>();
+  if (fs.existsSync(report)) for (const line of fs.readFileSync(report, "utf8").split("\n")) {
+    try { const e = JSON.parse(line); if (e.phase === "discovery" && e.status === "complete") checkpoints.add(`${e.cik}:${e.from}`); } catch { /* Retry incomplete final line. */ }
+  }
+  const log = (entry: Record<string, unknown>) => fs.appendFileSync(report, JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n");
+  const covered = allCovered ? await loadFundamentalsCoverage(prisma) : new Set(symbols!);
+  if (!covered.size) throw new Error("覆盖名单为空，未执行回填；请确认数据库");
+  const [securities, starts] = await Promise.all([
+    prisma.equitySecurity.findMany({ where: { symbol: { in: [...covered] } }, select: { symbol: true, cik: true }, orderBy: [{ marketCap: "desc" }, { symbol: "asc" }] }),
+    prisma.equityFundamentalSnapshot.groupBy({ by: ["symbol"], where: { symbol: { in: [...covered] }, periodType: "Q" }, _min: { fiscalDate: true } }),
+  ]);
+  const oldest = new Map(starts.map(s => [s.symbol, s._min.fiscalDate]));
+  const issuers = new Map<string, Issuer>();
+  const missingCik = [...covered].filter(s => !securities.some(row => row.symbol === s));
+  for (const security of securities) {
+    if (!security.cik || !/^\d{1,10}$/.test(security.cik)) { missingCik.push(security.symbol); continue; }
+    const cik = security.cik.padStart(10, "0"), from = guidanceHistoryStart(explicitFrom, oldest.get(security.symbol) ?? null);
+    const existing = issuers.get(cik);
+    if (existing) { existing.symbols.push(security.symbol); if (from < existing.from) existing.from = from; }
+    else issuers.set(cik, { cik, symbol: security.symbol, symbols: [security.symbol], from });
+  }
+  const stats = { coveredSymbols: covered.size, eligibleIssuers: issuers.size, missingCik: [...new Set(missingCik)].sort(), issuersDone: 0,
+    discovered: 0, visited: 0, changed: 0, ready: 0, pending: 0, noEligibleAttachment: 0, legacyTruncated: 0, records: 0, failed: 0,
+    apply, discover, fetchMissing, limited: limit !== Infinity, parserVersion: GUIDANCE_PARSER_VERSION, startedAt: new Date().toISOString() };
+  function snapshot(phase: string) {
+    fs.writeFileSync(`${report}.summary.tmp`, JSON.stringify({ ...stats, phase, updatedAt: new Date().toISOString() }, null, 2));
+    fs.renameSync(`${report}.summary.tmp`, `${report}.summary.json`);
+  }
+  snapshot("running"); console.log(JSON.stringify({ event: "start", ...stats }));
+  for (const issuer of issuers.values()) {
+    if (stats.visited >= limit) break;
+    if (discover && !checkpoints.has(`${issuer.cik}:${issuer.from}`)) {
+      try {
+        const rows = await discoverSecFilings(issuer.cik, issuer.from, true);
+        const earnings = rows.filter(r => ["8-K", "8-K/A"].includes(r.form) && earningsItem(r.items));
+        if (apply) for (const row of earnings) await writeSecFilingIndex(issuer.cik, issuer.symbol, row);
+        stats.discovered += earnings.length;
+        log({ phase: "discovery", cik: issuer.cik, from: issuer.from, status: apply ? "complete" : "dry-run", matched: earnings.length });
+      } catch (e) { stats.failed++; log({ phase: "discovery", cik: issuer.cik, from: issuer.from, status: "error", error: e instanceof Error ? e.message : String(e) }); }
+    }
+    let cursor: string | undefined;
+    for (;;) {
+      const rows = await prisma.secFiling.findMany({
+        where: { cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" }, ...(explicitFrom ? { filedAt: { gte: new Date(explicitFrom) } } : {}) },
+        orderBy: { id: "asc" }, take: Math.min(25, limit - stats.visited), ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: { id: true, accession: true, filedAt: true, earningsRelease: true, items: true },
+      });
+      if (!rows.length) break;
+      for (const filing of rows) {
+        if (!earningsItem(filing.items)) continue;
+        stats.visited++;
+        if (guidanceBackfillReady(filing.earningsRelease)) { stats.ready++; continue; }
+        try {
+          let release = filing.earningsRelease && typeof filing.earningsRelease === "object" && !Array.isArray(filing.earningsRelease) ? filing.earningsRelease : {};
+          let attachments = readReleaseAttachments(release), fetched = false;
+          let truncated = attachments.some(a => a.text.length === 20_000);
+          if (fetchMissing && (!attachments.length || truncated)) {
+            let evidence: Awaited<ReturnType<typeof fetchSecReleaseEvidenceByIndex>> | undefined;
+            let lastError: unknown;
+            for (const candidate of companyFactsCikCandidates(issuer.cik, filing.accession)) {
+              try { evidence = await fetchSecReleaseEvidenceByIndex(candidate, filing.accession, filing.filedAt.toISOString().slice(0, 10)); break; }
+              catch (error) { lastError = error; }
+            }
+            if (!evidence) throw lastError ?? new Error("公告附件不可用");
+            release = { ...release, attachments: evidence.attachments, publication: evidence.publication };
+            attachments = evidence.attachments; fetched = true; truncated = false;
+          }
+          if (!attachments.length && !fetched) { stats.pending++; continue; }
+          const parsed = extractManagementGuidance(attachments);
+          stats.records += parsed.length;
+          if (!attachments.length) stats.noEligibleAttachment++;
+          if (truncated) stats.legacyTruncated++;
+          if (apply) {
+            const result = await prisma.secFiling.updateMany({ where: { id: filing.id, earningsRelease: { equals: filing.earningsRelease ?? Prisma.DbNull } }, data: {
+              earningsRelease: { ...release, managementGuidance: { parserVersion: GUIDANCE_PARSER_VERSION, records: parsed,
+                checkedAt: new Date().toISOString(), sourceStatus: truncated ? "legacy_truncated" : attachments.length ? "available" : "no_eligible_attachment" } },
+            } });
+            if (!result.count) throw new Error("公告被其他任务更新，请重跑");
+            stats.changed++;
+          }
+          log({ phase: "filing", cik: issuer.cik, accession: filing.accession, status: apply ? "complete" : "dry-run", records: parsed.length, attachments: attachments.length, truncated });
+        } catch (e) { stats.failed++; log({ phase: "filing", cik: issuer.cik, accession: filing.accession, status: "error", error: e instanceof Error ? e.message : String(e) }); }
+        if (stats.visited % 25 === 0) snapshot("running");
+      }
+      cursor = rows[rows.length - 1].id;
+      if (stats.visited >= limit || rows.length < 25) break;
+    }
+    stats.issuersDone++;
+    console.log(JSON.stringify({ event: "issuer", symbol: issuer.symbol, done: stats.issuersDone, total: issuers.size, visited: stats.visited, changed: stats.changed, ready: stats.ready, failed: stats.failed }));
+    snapshot("running");
+  }
+  snapshot(stats.failed ? "errors" : stats.pending || stats.legacyTruncated ? "pending_sources" : stats.limited && stats.visited >= limit ? "limited" : "complete");
+  console.log(JSON.stringify(stats));
+  if (stats.failed || stats.pending || stats.legacyTruncated) process.exitCode = 1;
+}
+main().catch(error => { console.error(error); process.exitCode = 1; }).finally(() => prisma.$disconnect());

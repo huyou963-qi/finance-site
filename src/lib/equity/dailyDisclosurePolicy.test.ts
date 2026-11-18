@@ -51,3 +51,10 @@ test("earnings attachments retain evidence links and readable text, excluding sc
   assert.match(attachments[0].text, /Revenue & growth\nNext quarter/);
   assert.doesNotMatch(attachments[0].text, /secret|<script>/);
 });
+
+test("earnings attachment retains outlook beyond the legacy 20k boundary", () => {
+  const source = `<DOCUMENT>\n<TYPE>EX-99.1\n<FILENAME>earnings.htm\n<TEXT><p>${"Historical financial results. ".repeat(900)}</p><h2>Q3 FY2027 Outlook</h2><p>Revenue is expected to be $30 billion.</p></TEXT>\n</DOCUMENT>`;
+  const [attachment] = parseSecReleaseAttachments(source, "0000320193", "0000320193-26-000001");
+  assert.ok(attachment.text.length > 20_000);
+  assert.match(attachment.text, /Q3 FY2027 Outlook/);
+});
