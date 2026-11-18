@@ -30,12 +30,12 @@ export type EquityCoverageReport = {
     note: string;
   };
   prices: {
+    universe: number;
     coverageRows: number;
     fullHistory: number;
-    notFound: number;
-    /** lastDate 距今超过 STALE_PRICE_DAYS，或根本没有 coverage 行 */
-    staleOrMissingInUniverse: number;
-    sampleStaleOrMissing: string[];
+    noBars: { count: number; samples: string[] };
+    stale: { count: number; samples: string[] };
+    notFound: { count: number; samples: string[] };
   };
 };
 
@@ -96,18 +96,32 @@ export async function loadEquityCoverageReport(db: PrismaClient): Promise<Equity
   const samplePresent = [...withLatest].sort().slice(0, 20);
   const sampleMissing = universe.filter((s) => !withLatest.has(s)).slice(0, 20);
 
-  const priceRows = await db.equityPriceCoverage.findMany({
-    select: { symbol: true, lastDate: true, fullHistory: true, notFound: true },
-  });
+  const [priceRows, latestBars] = await Promise.all([
+    db.equityPriceCoverage.findMany({ select: { symbol: true, fullHistory: true, notFound: true } }),
+    universe.length ? db.$queryRaw<{ symbol: string; date: Date }[]>`
+      select u.symbol, bar.date
+      from unnest(${universe}::text[]) as u(symbol)
+      join lateral (
+        select date from mds.equity_daily_bar
+        where symbol = upper(u.symbol)
+        order by date desc
+        limit 1
+      ) bar on true` : [],
+  ]);
   const byPrice = new Map(priceRows.map((r) => [r.symbol.toUpperCase(), r]));
-  const stalePrice: string[] = [];
+  const barDates = new Map(latestBars.map(({ symbol, date }) => [symbol, date]));
+  const notFound: string[] = [];
+  const noBars: string[] = [];
+  const staleBars: string[] = [];
   for (const symbol of universe) {
-    const row = byPrice.get(symbol.toUpperCase());
-    if (!row || row.notFound || !row.lastDate) {
-      stalePrice.push(symbol);
-      continue;
+    const latest = barDates.get(symbol);
+    if (byPrice.get(symbol.toUpperCase())?.notFound) {
+      notFound.push(symbol);
+    } else if (!latest) {
+      noBars.push(symbol);
+    } else if ((today - latest.getTime()) / 86_400_000 > STALE_PRICE_DAYS) {
+      staleBars.push(`${symbol}(${isoDate(latest)})`);
     }
-    if ((today - row.lastDate.getTime()) / 86_400_000 > STALE_PRICE_DAYS) stalePrice.push(symbol);
   }
 
   return {
@@ -129,11 +143,12 @@ export async function loadEquityCoverageReport(db: PrismaClient): Promise<Equity
       note: "EBITDA 仅在发行人公开披露对应 XBRL 标签时入库。SEC frames 对白名单标签近年无发行人数据，库内为 0 通常是源端未打标，不是页面或 sync 故障；禁止用营业利润+折旧推算入库。",
     },
     prices: {
+      universe: universe.length,
       coverageRows: priceRows.length,
       fullHistory: priceRows.filter((r) => r.fullHistory).length,
-      notFound: priceRows.filter((r) => r.notFound).length,
-      staleOrMissingInUniverse: stalePrice.length,
-      sampleStaleOrMissing: stalePrice.slice(0, 20),
+      noBars: { count: noBars.length, samples: noBars.slice(0, 20) },
+      stale: { count: staleBars.length, samples: staleBars.slice(0, 20) },
+      notFound: { count: notFound.length, samples: notFound.slice(0, 20) },
     },
   };
 }
