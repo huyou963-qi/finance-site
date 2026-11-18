@@ -231,7 +231,6 @@
     "builtin-us-macro-regime": "folder-builtin-us-cycle-risk",
     "builtin-us-cpi-cost-push": "folder-builtin-us-cpi",
     "builtin-us-cpi-structure": "folder-builtin-us-cpi",
-    "builtin-us-econ-overview": "folder-builtin-us-economy",
     "builtin-us-labor-drivers": "folder-builtin-us-labor",
     "builtin-cn-fiscal-revenue": "folder-builtin-cn-fiscal",
     "builtin-us-labor-overview": "folder-builtin-us-labor",
@@ -1440,65 +1439,196 @@
     },
     "builtin-us-econ-demand": {
       "name": "经济 Overview · 支出法结构",
-      "layoutMode": 4,
-      "description": "【第二步 · 按需】按 GDP 支出法看图 1→4：消费、投资、净出口（进出口增速）、政府（赤字/GDP + 政府消费）。与模板 ① 合并；**不重复** GDP/工业/失业。ISM → 目录自选。",
-      "derivedCalcs": [],
+      "introText": "图1看结构：消费、私人投资、政府和净出口占名义GDP的比重，合计约100%，净出口保留负值。体量大不代表当季拉动最大，可拉长时间区间观察长期变化。\n图2看动力：四项正负柱表示对实际GDP环比折年增长的拉动百分点，折线为GDP增速；柱之和与折线因四舍五入可能略有差异。季度数据没有插值成月度贡献。\n图3—6跟踪消费、非住宅投资及住宅链、进出口和财政背景。它们是辅助走势，不可直接相加为GDP贡献；进口增速更高也不必然意味着净出口拖累更大。",
+      "layoutMode": 6,
+      "description": "先看四项支出占GDP的体量，再看对当季实际GDP增长的拉动，最后用消费、投资、外贸与财政指标跟踪方向。占比用名义金额；增长拉动用官方季度贡献百分点。",
+      "derivedCalcs": [
+        {
+          "id": "us-gdp-share-c",
+          "op": "div",
+          "name": "C 消费占比",
+          "scale": 100,
+          "leftKey": "fred:PCEC",
+          "rightKey": "fred:GDP",
+          "unitLabel": "%"
+        },
+        {
+          "id": "us-gdp-share-i",
+          "op": "div",
+          "name": "I 私人投资占比",
+          "scale": 100,
+          "leftKey": "fred:GPDI",
+          "rightKey": "fred:GDP",
+          "unitLabel": "%"
+        },
+        {
+          "id": "us-gdp-share-g",
+          "op": "div",
+          "name": "G 政府占比",
+          "scale": 100,
+          "leftKey": "fred:GCE",
+          "rightKey": "fred:GDP",
+          "unitLabel": "%"
+        },
+        {
+          "id": "us-gdp-share-nx",
+          "op": "div",
+          "name": "NX 净出口占比",
+          "scale": 100,
+          "leftKey": "fred:NETEXP",
+          "rightKey": "fred:GDP",
+          "unitLabel": "%"
+        }
+      ],
       "selectedKeys": [
+        "calc:us-gdp-share-c",
+        "calc:us-gdp-share-i",
+        "calc:us-gdp-share-g",
+        "calc:us-gdp-share-nx",
+        "fred:DPCERY2Q224SBEA",
+        "fred:A006RY2Q224SBEA",
+        "fred:A822RY2Q224SBEA",
+        "fred:A019RY2Q224SBEA",
+        "fred:A191RL1Q225SBEA",
         "fred:PCEC96::yoy",
         "fred:RSAFS::yoy",
-        "fred:PNFIC1::yoy",
+        "fred:PNFIC1",
         "fred:HOUST",
         "fred:EXPGSC1::yoy",
         "fred:IMPGSC1::yoy",
         "fred:FYFSGDA188S",
-        "fred:GCEC1::yoy"
+        "fred:GCEC1",
+        "fred:PCEC",
+        "fred:GPDI",
+        "fred:GCE",
+        "fred:NETEXP",
+        "fred:GDP"
       ],
-      "updatedAtIso": "2026-09-11T10:57:53.736Z",
+      "updatedAtIso": "2026-11-17T12:47:56.184Z",
       "displayConfig": {
         "lineWidth": 1.6,
+        "slotModes": {
+          "0": "timeSeries",
+          "1": "timeSeries",
+          "2": "timeSeries",
+          "3": "timeSeries",
+          "4": "timeSeries",
+          "5": "timeSeries"
+        },
         "lineSmooth": false,
         "showLegend": true,
+        "slotHidden": {},
         "slotTitles": {
-          "0": "L2C 消费：PCE vs 零售",
-          "1": "L2I 投资：私人固投 vs 新屋开工",
-          "2": "L2X 外部：出口 vs 进口",
-          "3": "L2G 政府：赤字/GDP vs 政府消费"
+          "0": "GDP支出结构：C / I / G / NX占比（%）",
+          "1": "实际GDP增长拉动（百分点，折年）",
+          "2": "消费跟踪：实际PCE与名义零售同比",
+          "3": "投资跟踪：非住宅固投与新屋开工",
+          "4": "外贸跟踪：实际出口与进口同比",
+          "5": "财政背景：年度赤字比率与政府支出同比"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
-        "barMaxWidth": 14,
+        "barMaxWidth": 16,
         "showSymbols": false,
         "showTooltip": true,
         "xLabelRotate": 24,
         "showGridLines": true,
         "legendPosition": "bottom",
+        "slotAxisRanges": {},
+        "slotShowTitles": {
+          "0": true,
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true
+        },
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "0": [
+            "calc:us-gdp-share-c",
+            "calc:us-gdp-share-i",
+            "calc:us-gdp-share-g",
+            "calc:us-gdp-share-nx"
+          ],
+          "1": [
+            "fred:DPCERY2Q224SBEA",
+            "fred:A006RY2Q224SBEA",
+            "fred:A822RY2Q224SBEA",
+            "fred:A019RY2Q224SBEA",
+            "fred:A191RL1Q225SBEA"
+          ],
+          "2": [
+            "fred:PCEC96::yoy",
+            "fred:RSAFS::yoy"
+          ],
+          "3": [
+            "fred:PNFIC1",
+            "fred:HOUST"
+          ],
+          "4": [
+            "fred:EXPGSC1::yoy",
+            "fred:IMPGSC1::yoy"
+          ],
+          "5": [
+            "fred:FYFSGDA188S",
+            "fred:GCEC1"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:HOUST": 1,
-        "fred:GCEC1::yoy": 3,
-        "fred:RSAFS::yoy": 0,
-        "fred:FYFSGDA188S": 3,
-        "fred:PCEC96::yoy": 0,
-        "fred:PNFIC1::yoy": 1,
-        "fred:EXPGSC1::yoy": 2,
-        "fred:IMPGSC1::yoy": 2
+        "fred:GCE": null,
+        "fred:GDP": null,
+        "fred:GPDI": null,
+        "fred:PCEC": null,
+        "fred:GCEC1": 5,
+        "fred:HOUST": 3,
+        "fred:NETEXP": null,
+        "fred:PNFIC1": 3,
+        "fred:RSAFS::yoy": 2,
+        "fred:FYFSGDA188S": 5,
+        "fred:PCEC96::yoy": 2,
+        "fred:EXPGSC1::yoy": 4,
+        "fred:IMPGSC1::yoy": 4,
+        "calc:us-gdp-share-c": 0,
+        "calc:us-gdp-share-g": 0,
+        "calc:us-gdp-share-i": 0,
+        "calc:us-gdp-share-nx": 0,
+        "fred:A006RY2Q224SBEA": 1,
+        "fred:A019RY2Q224SBEA": 1,
+        "fred:A191RL1Q225SBEA": 1,
+        "fred:A822RY2Q224SBEA": 1,
+        "fred:DPCERY2Q224SBEA": 1
+      },
+      "chartIntroNotes": {
+        "0": "四项名义支出除以同季度名义GDP。投资含住宅、非住宅和库存变动；政府含联邦及州和地方消费与总投资。合计约100%，净出口可为负。拖动时间区间观察长期结构。",
+        "1": "四项官方季度增长贡献（百分点，季调折年）用正负堆叠柱呈现；GDP环比折年增速为折线。看谁拉动、谁拖累；占比不是增长贡献。",
+        "2": "实际PCE覆盖商品和服务；零售为名义金额、以商品为主，两者口径不同。月度指标跟踪消费方向，不是对GDP增长的直接拉动。",
+        "3": "PNFIC1仅为实际私人非住宅固定投资，新屋开工跟踪住宅链。两者均不能替代包含住宅和库存的完整私人投资；完整投资拉动见图2。",
+        "4": "实际出口和进口同比用于跟踪外贸。增速还需结合规模与价格，不能只凭两条增速的高低判断净出口增长拉动；官方净出口贡献见图2。",
+        "5": "年度联邦赤字/GDP仅作财政背景，不能替代GDP支出法中的G，也不能据此直接判断财政拉动。实际政府消费与总投资同比反映广义政府购买走势。"
       },
       "seriesVisualMap": {
+        "fred:GCEC1": {
+          "axis": "right",
+          "color": "#6f84c0",
+          "chartType": "dashedLine",
+          "showEndLabel": true
+        },
         "fred:HOUST": {
           "axis": "right",
           "color": "#6ccad1",
           "chartType": "dashedLine",
           "showEndLabel": true
         },
-        "fred:GCEC1::yoy": {
-          "axis": "right",
-          "color": "#6f84c0",
-          "chartType": "dashedLine",
+        "fred:PNFIC1": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
           "showEndLabel": true
         },
         "fred:RSAFS::yoy": {
@@ -1519,12 +1649,6 @@
           "chartType": "line",
           "showEndLabel": true
         },
-        "fred:PNFIC1::yoy": {
-          "axis": "left",
-          "color": "#5f76b8",
-          "chartType": "line",
-          "showEndLabel": true
-        },
         "fred:EXPGSC1::yoy": {
           "axis": "left",
           "color": "#56b6c2",
@@ -1536,9 +1660,104 @@
           "color": "#ef6461",
           "chartType": "line",
           "showEndLabel": true
+        },
+        "calc:us-gdp-share-c": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:us-gdp-share-g": {
+          "axis": "left",
+          "color": "#9ea68b",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:us-gdp-share-i": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "calc:us-gdp-share-nx": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "line",
+          "showEndLabel": true
+        },
+        "fred:A006RY2Q224SBEA": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "stackBar",
+          "stackGroup": "us-gdp-growth-contribution",
+          "showEndLabel": false
+        },
+        "fred:A019RY2Q224SBEA": {
+          "axis": "left",
+          "color": "#56b6c2",
+          "chartType": "stackBar",
+          "stackGroup": "us-gdp-growth-contribution",
+          "showEndLabel": false
+        },
+        "fred:A191RL1Q225SBEA": {
+          "axis": "left",
+          "color": "#26344c",
+          "chartType": "line",
+          "lineWidth": 2.2,
+          "showEndLabel": true
+        },
+        "fred:A822RY2Q224SBEA": {
+          "axis": "left",
+          "color": "#9ea68b",
+          "chartType": "stackBar",
+          "stackGroup": "us-gdp-growth-contribution",
+          "showEndLabel": false
+        },
+        "fred:DPCERY2Q224SBEA": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "stackBar",
+          "stackGroup": "us-gdp-growth-contribution",
+          "showEndLabel": false
         }
       },
       "selectedListItems": [
+        {
+          "key": "calc:us-gdp-share-c",
+          "type": "series"
+        },
+        {
+          "key": "calc:us-gdp-share-i",
+          "type": "series"
+        },
+        {
+          "key": "calc:us-gdp-share-g",
+          "type": "series"
+        },
+        {
+          "key": "calc:us-gdp-share-nx",
+          "type": "series"
+        },
+        {
+          "key": "fred:DPCERY2Q224SBEA",
+          "type": "series"
+        },
+        {
+          "key": "fred:A006RY2Q224SBEA",
+          "type": "series"
+        },
+        {
+          "key": "fred:A822RY2Q224SBEA",
+          "type": "series"
+        },
+        {
+          "key": "fred:A019RY2Q224SBEA",
+          "type": "series"
+        },
+        {
+          "key": "fred:A191RL1Q225SBEA",
+          "type": "series"
+        },
         {
           "key": "fred:PCEC96::yoy",
           "type": "series"
@@ -1548,7 +1767,7 @@
           "type": "series"
         },
         {
-          "key": "fred:PNFIC1::yoy",
+          "key": "fred:PNFIC1",
           "type": "series"
         },
         {
@@ -1568,21 +1787,77 @@
           "type": "series"
         },
         {
-          "key": "fred:GCEC1::yoy",
+          "key": "fred:GCEC1",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCEC",
+          "type": "series"
+        },
+        {
+          "key": "fred:GPDI",
+          "type": "series"
+        },
+        {
+          "key": "fred:GCE",
+          "type": "series"
+        },
+        {
+          "key": "fred:NETEXP",
+          "type": "series"
+        },
+        {
+          "key": "fred:GDP",
           "type": "series"
         }
       ],
       "seriesCalcConfigMap": {
+        "fred:GCE": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:GDP": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:GPDI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:PCEC": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:GCEC1": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
         "fred:HOUST": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
           "resampleMethod": "avg"
         },
-        "fred:GCEC1::yoy": {
+        "fred:NETEXP": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:PNFIC1": {
           "op": "yoy",
           "unit": "keep",
-          "frequency": "month",
+          "frequency": "keep",
           "resampleMethod": "end"
         },
         "fred:RSAFS::yoy": {
@@ -1603,22 +1878,51 @@
           "frequency": "month",
           "resampleMethod": "end"
         },
-        "fred:PNFIC1::yoy": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
         "fred:EXPGSC1::yoy": {
           "op": "yoy",
           "unit": "keep",
-          "frequency": "month",
+          "frequency": "keep",
           "resampleMethod": "end"
         },
         "fred:IMPGSC1::yoy": {
           "op": "yoy",
           "unit": "keep",
-          "frequency": "month",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:A006RY2Q224SBEA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "unitLabel": "百分点",
+          "resampleMethod": "end"
+        },
+        "fred:A019RY2Q224SBEA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "unitLabel": "百分点",
+          "resampleMethod": "end"
+        },
+        "fred:A191RL1Q225SBEA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "unitLabel": "%",
+          "resampleMethod": "end"
+        },
+        "fred:A822RY2Q224SBEA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "unitLabel": "百分点",
+          "resampleMethod": "end"
+        },
+        "fred:DPCERY2Q224SBEA": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "unitLabel": "百分点",
           "resampleMethod": "end"
         }
       }
@@ -1930,218 +2234,6 @@
         }
       ],
       "seriesCalcConfigMap": {}
-    },
-    "builtin-us-econ-overview": {
-      "name": "经济 Overview · 四支柱快照",
-      "introHtml": "<p></p><span style=\"font-size:16px\"><span style=\"font-size:12px\"><p>【第一步 · 通常够用】按图 1→4 看总量增长、就业、通胀锚与政策/曲线。写清 1–2 条主因即可。若需拆分消费/投w · 支出法结构」。ISM 调查从目录自选</p><p></p></span></span><p><br /></p>",
-      "layoutMode": 4,
-      "description": "【第一步 · 通常够用】按图 1→4 看总量增长、就业、通胀锚与政策/曲线。写清 1–2 条主因即可。若需拆分消费/投w · 支出法结构」。ISM 调查从目录自选",
-      "derivedCalcs": [],
-      "selectedKeys": [
-        "fred:A191RL1Q225SBEA",
-        "fred:INDPRO::yoy",
-        "fred:UNRATE",
-        "fred:PAYEMS::diff",
-        "fred:CPIAUCSL::yoy",
-        "fred:PCEPILFE::yoy",
-        "fred:DFEDTARU",
-        "fred:T10Y2Y::avg",
-        "fred:DGS10",
-        "fred:DFII10"
-      ],
-      "updatedAtIso": "2026-10-22T12:17:46.608Z",
-      "displayConfig": {
-        "lineWidth": 1.6,
-        "lineSmooth": false,
-        "showLegend": true,
-        "slotTitles": {
-          "0": "L1 增长：GDP vs 工业",
-          "1": "L3 就业：失业 vs 非农",
-          "2": "L4 通胀锚：CPI vs 核心 PCE",
-          "3": "L5 政策：目标利率 vs 曲线"
-        },
-        "symbolSize": 7,
-        "areaOpacity": 0.22,
-        "barMaxWidth": 14,
-        "showSymbols": false,
-        "showTooltip": true,
-        "xLabelRotate": 24,
-        "showGridLines": true,
-        "legendPosition": "bottom",
-        "xLabelFontSize": 10,
-        "yLabelFontSize": 10,
-        "slotSeriesOrder": {
-          "3": [
-            "fred:DFEDTARU",
-            "fred:DGS10",
-            "fred:T10Y2Y::avg",
-            "fred:DFII10"
-          ]
-        },
-        "endLabelDecimals": 2,
-        "showRegimeShading": false,
-        "showRecessionShading": false
-      },
-      "slotAssignment": {
-        "fred:DGS10": 3,
-        "fred:DFII10": 3,
-        "fred:UNRATE": 1,
-        "fred:DFEDTARU": 3,
-        "fred:INDPRO::yoy": 0,
-        "fred:T10Y2Y::avg": 3,
-        "fred:PAYEMS::diff": 1,
-        "fred:CPIAUCSL::yoy": 2,
-        "fred:PCEPILFE::yoy": 2,
-        "fred:A191RL1Q225SBEA": 0
-      },
-      "chartIntroNotes": {
-        "0": "GDP 环比折年率 + 工业生产 YoY：周期锚。若走弱 → 加载模板 ② 定位是 C/I/G/X 哪一侧拖累。",
-        "1": "失业率 + 新增非农（PAYEMS 月差分）：劳动力松紧。工资细节 → 就业/ CPI 模板。",
-        "2": "CPI YoY vs 核心 PCE YoY：相对 2% 偏离。分项结构 → CPI 模板。",
-        "3": "联邦基金目标 + 10Y-2Y 利差：政策立场与衰退预警。"
-      },
-      "seriesVisualMap": {
-        "fred:UNRATE": {
-          "axis": "right",
-          "color": "#f2cf67",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:DFEDTARU": {
-          "axis": "left",
-          "color": "#6f84c0",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:INDPRO::yoy": {
-          "axis": "left",
-          "color": "#56b6c2",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:T10Y2Y::avg": {
-          "axis": "right",
-          "color": "#d75a68",
-          "chartType": "dashedLine",
-          "showEndLabel": true
-        },
-        "fred:PAYEMS::diff": {
-          "axis": "left",
-          "color": "#9ea68b",
-          "chartType": "bar",
-          "showEndLabel": true
-        },
-        "fred:CPIAUCSL::yoy": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:PCEPILFE::yoy": {
-          "axis": "left",
-          "color": "#7fc8c5",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:A191RL1Q225SBEA": {
-          "axis": "left",
-          "color": "#f1cd57",
-          "chartType": "line",
-          "showEndLabel": true
-        }
-      },
-      "selectedListItems": [
-        {
-          "key": "fred:A191RL1Q225SBEA",
-          "type": "series"
-        },
-        {
-          "key": "fred:INDPRO::yoy",
-          "type": "series"
-        },
-        {
-          "key": "fred:UNRATE",
-          "type": "series"
-        },
-        {
-          "key": "fred:PAYEMS::diff",
-          "type": "series"
-        },
-        {
-          "key": "fred:CPIAUCSL::yoy",
-          "type": "series"
-        },
-        {
-          "key": "fred:PCEPILFE::yoy",
-          "type": "series"
-        },
-        {
-          "key": "fred:DFEDTARU",
-          "type": "series"
-        },
-        {
-          "key": "fred:T10Y2Y::avg",
-          "type": "series"
-        },
-        {
-          "key": "fred:DGS10",
-          "type": "series"
-        },
-        {
-          "key": "fred:DFII10",
-          "type": "series"
-        }
-      ],
-      "seriesCalcConfigMap": {
-        "fred:UNRATE": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
-        },
-        "fred:DFEDTARU": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:INDPRO::yoy": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "fred:T10Y2Y::avg": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "avg"
-        },
-        "fred:PAYEMS::diff": {
-          "op": "diff",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "fred:CPIAUCSL::yoy": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "fred:PCEPILFE::yoy": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "fred:A191RL1Q225SBEA": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
-        }
-      }
     },
     "builtin-us-labor-drivers": {
       "name": "就业驱动 · 流动与领先",
@@ -8135,6 +8227,7 @@
     }
   },
   "hiddenBuiltinTemplateIds": [
-    "builtin-china-overview"
+    "builtin-china-overview",
+    "builtin-us-econ-overview"
   ]
 }
