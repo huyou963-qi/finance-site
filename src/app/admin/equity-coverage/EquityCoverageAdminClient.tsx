@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { EquityCoverageReport } from "@/lib/equity/equityCoverageAdmin";
+import type { DisclosureBatchHistory as BatchHistory } from "@/lib/equity/disclosureBatchAdmin";
+import { DisclosureBatchHistory } from "./DisclosureBatchHistory";
+
+type CoveragePayload = EquityCoverageReport & { disclosureHistory: BatchHistory | null };
 
 function pct(n: number, d: number): string {
   if (!d) return "—";
@@ -19,7 +23,7 @@ function SampleList({ title, items }: { title: string; items: string[] }) {
 }
 
 export function EquityCoverageAdminClient() {
-  const [report, setReport] = useState<EquityCoverageReport | null>(null);
+  const [report, setReport] = useState<CoveragePayload | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +32,7 @@ export function EquityCoverageAdminClient() {
     setHint(null);
     try {
       const res = await fetch("/api/admin/equity-coverage", { cache: "no-store" });
-      const payload = (await res.json()) as EquityCoverageReport & { error?: string };
+      const payload = (await res.json()) as CoveragePayload & { error?: string };
       if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
       setReport(payload);
     } catch (e) {
@@ -49,7 +53,7 @@ export function EquityCoverageAdminClient() {
         <div>
           <h1 className="text-xl font-semibold text-fs-text">美股覆盖率</h1>
           <p className="mt-1 text-sm text-fs-muted">
-            日线回补状态、基本面宇宙缺口与 EBITDA 披露抽查。仅管理员可见，供运维告警对照。
+            SEC 公告日批、基本面覆盖、EBITDA 披露与日线回补状态。仅管理员可见。
           </p>
         </div>
         <button
@@ -75,6 +79,8 @@ export function EquityCoverageAdminClient() {
           <p className="text-xs text-fs-muted">
             统计时刻（UTC）：{report.asOf.replace("T", " ").replace(/\.\d+Z$/, "Z")}
           </p>
+
+          <DisclosureBatchHistory history={report.disclosureHistory} />
 
           <section className="rounded-xl border border-fs-border bg-fs-elevated p-4">
             <h2 className="text-base font-semibold">基本面宇宙</h2>
@@ -136,25 +142,36 @@ export function EquityCoverageAdminClient() {
 
           <section className="rounded-xl border border-fs-border bg-fs-elevated p-4">
             <h2 className="text-base font-semibold">日线回补</h2>
-            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+            <p className="mt-1 text-sm text-fs-muted">
+              按基本面名单内 {report.prices.universe} 个标的统计。数据源查不到的标的单列，可能仍保有历史日线。
+            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
               <div>
-                <dt className="text-fs-muted">覆盖行数</dt>
+                <dt className="text-fs-muted">尚无日线</dt>
+                <dd className="text-lg font-medium">{report.prices.noBars.count}</dd>
+              </div>
+              <div>
+                <dt className="text-fs-muted">已有日线但滞后（&gt;7 天）</dt>
+                <dd className="text-lg font-medium">{report.prices.stale.count}</dd>
+              </div>
+              <div>
+                <dt className="text-fs-muted">数据源查不到代码</dt>
+                <dd className="text-lg font-medium">{report.prices.notFound.count}</dd>
+              </div>
+            </dl>
+            <SampleList title="尚无日线样本" items={report.prices.noBars.samples} />
+            <SampleList title="滞后样本（最后交易日）" items={report.prices.stale.samples} />
+            <SampleList title="数据源查不到代码的样本" items={report.prices.notFound.samples} />
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-fs-border pt-3 text-sm">
+              <div>
+                <dt className="text-fs-muted">全库回补状态记录</dt>
                 <dd className="text-lg font-medium">{report.prices.coverageRows}</dd>
               </div>
               <div>
-                <dt className="text-fs-muted">已全量历史</dt>
+                <dt className="text-fs-muted">全库已抓取全历史</dt>
                 <dd className="text-lg font-medium">{report.prices.fullHistory}</dd>
               </div>
-              <div>
-                <dt className="text-fs-muted">远端无此标的</dt>
-                <dd className="text-lg font-medium">{report.prices.notFound}</dd>
-              </div>
-              <div>
-                <dt className="text-fs-muted">宇宙内滞后/缺失（&gt;7 天）</dt>
-                <dd className="text-lg font-medium">{report.prices.staleOrMissingInUniverse}</dd>
-              </div>
             </dl>
-            <SampleList title="滞后或缺失样本" items={report.prices.sampleStaleOrMissing} />
           </section>
         </>
       ) : null}
