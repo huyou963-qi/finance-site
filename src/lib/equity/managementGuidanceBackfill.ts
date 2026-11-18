@@ -1,4 +1,5 @@
 import { GUIDANCE_PARSER_VERSION } from "./managementGuidance";
+import { disclosureDays } from "./dailyDisclosurePolicy";
 export function earningsItem(items: string | null): boolean {
   return Boolean(items?.split(",").some(item => item.trim() === "2.02"));
 }
@@ -15,4 +16,10 @@ export function guidanceHistoryStart(explicit: string | undefined, oldest: Date 
     return explicit;
   }
   return oldest?.toISOString().slice(0, 10) ?? "2005-01-01";
+}
+export function guidanceHistoryThrough(explicit?: string, now = new Date()): string {
+  const completed = disclosureDays(now, 1)[0];
+  const day = explicit ? guidanceHistoryStart(explicit, null) : completed;
+  if (day > completed) throw new Error("--through 必须为已结束的美东日期");
+  return day;
 }

@@ -69,6 +69,12 @@ test("only same target and accounting basis have adjustment deltas", () => {
   assert.ok(Math.abs(series[0].change!.delta - 6.89655) < .001);
   assert.equal(buildGuidanceSeries([previous, version("We expect GAAP revenue of $32 billion for Q4 FY2026.")]).length, 2);
   assert.equal(buildGuidanceSeries([previous, version("We expect non-GAAP revenue of $32 billion for Q3 FY2026.")]).length, 2);
+  const oldEps = version("We expect GAAP diluted EPS of $10 for Q3 FY2026.", "2026-05-05");
+  const newEps = version("We expect GAAP diluted EPS of $1 for Q3 FY2026.");
+  assert.equal(buildGuidanceSeries([oldEps, newEps])[0].change, null, "unverified share-split basis is not an earnings downgrade");
+  const oldFcf = version("We expect free cash flow of $12 billion for fiscal 2026.", "2026-05-05");
+  const newFcf = version("We expect free cash flow of $15 billion for fiscal 2026.");
+  assert.equal(buildGuidanceSeries([oldFcf, newFcf])[0].change, null, "company-defined measures need a verified matching definition");
 });
 test("unparsed newer update supersedes old value, withdrawals deactivate earlier bases", () => {
   const prior = version("We expect GAAP revenue of $30 billion for Q3 FY2026.", "2026-05-05");
@@ -76,6 +82,8 @@ test("unparsed newer update supersedes old value, withdrawals deactivate earlier
   assert.equal(buildGuidanceSeries([prior, unknown])[0].latest.status, "unparsed");
   const withdrawal = version("We withdraw our revenue guidance for Q3 FY2026.");
   assert.ok(buildGuidanceSeries([prior, withdrawal]).every(g => g.latest.status === "withdrawn"));
+  const resumed = version("We expect GAAP revenue of $32 billion for Q3 FY2026.", "2026-09-05");
+  assert.equal(buildGuidanceSeries([prior, unknown, resumed])[0].change, null, "do not skip an intervening unknown revision to claim an increase");
 });
 test("conflicting numbers in same filing never arbitrarily select a numeric value", () => {
   const a = version("We expect GAAP revenue of $30 billion for Q3 FY2026.");
@@ -96,6 +104,7 @@ test("a repeated centre table and incomplete same-announcement row do not erase 
   const series = buildGuidanceSeries(versions);
   assert.equal(series[0].latest.status, "active");
   assert.equal(series[0].latest.value?.qualifier, "range");
+  assert.equal(series[0].history.length, 1, "multiple exhibits and table rows are one announcement version");
   const later = { ...versions[2], accession: "later", disclosedOn: "2026-06-05" };
   assert.equal(buildGuidanceSeries([...versions, later])[0].latest.status, "unparsed");
 });
