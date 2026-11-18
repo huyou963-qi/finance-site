@@ -70,3 +70,4 @@ __pycache__/
 
 # 本地周报草稿（已在库中的历史周目录不受影响）
 /.codex/weekly-reports/
+/.codex-artifacts/

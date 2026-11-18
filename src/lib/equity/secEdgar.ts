@@ -109,7 +109,7 @@ export function parseSecReleaseAttachments(source: string, cik: string, accessio
     }).replace(/&(nbsp|amp|lt|gt|quot|apos);/gi, (_, name: string) =>
       ({ nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[name.toLowerCase()] ?? _))
       .replace(/[ \t]+/g, " ").replace(/\n\s*\n/g, "\n").trim();
-    attachments.push({ filename, url: secDocumentUrl(cik, accession, filename), text: plain.slice(0, 20_000) });
+    attachments.push({ filename, url: secDocumentUrl(cik, accession, filename), text: plain.slice(0, 160_000) });
     if (attachments.length === 5) break;
   }
   return attachments;
@@ -211,4 +211,33 @@ export async function fetchSecFilingHeader(cik: string, accession: string) {
 export async function fetchSecReleaseEvidence(cik: string, accession: string, filedAt = new Date().toISOString().slice(0, 10)) {
   const url = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${accession}.txt`;
   return parseSecReleaseEvidence(await fetchSecText(url, 60_000), cik, accession, filedAt);
+}
+
+/** Historic earnings backfill: fetch typed exhibits instead of the full submission (often embeds large images/PDFs). */
+export function releaseExhibitsFromIndex(source: string, cik: string, accession: string): { type: string; filename: string; url: string }[] {
+  const base = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/`;
+  const exhibits: { type: string; filename: string; url: string }[] = [];
+  for (const row of source.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const type = row[1].match(/<td\b[^>]*>\s*(EX-99(?:\.\d+)?)\s*<\/td>/i)?.[1];
+    if (!type) continue;
+    const href = row[1].match(/<a\b[^>]*href=["']([^"']+)["']/i)?.[1];
+    if (!href) continue;
+    const url = new URL(href.replace(/&amp;/g, "&"), base);
+    const filename = url.pathname.slice(base.replace("https://www.sec.gov", "").length);
+    if (!url.href.startsWith(base) || !/^[\w.-]+\.html?$/i.test(filename) || url.search || url.hash) continue;
+    exhibits.push({ type, filename, url: url.href });
+  }
+  return [...new Map(exhibits.map(e => [e.url, e])).values()].slice(0, 5);
+}
+export async function fetchSecReleaseEvidenceByIndex(cik: string, accession: string, filedAt: string) {
+  const indexUrl = secDocumentUrl(cik, accession, `${accession}-index.html`);
+  const source = await fetchSecText(indexUrl, 60_000);
+  if (!/Document\s+Format\s+Files|tableFile/i.test(source)) throw new Error("SEC filing index 格式异常");
+  const exhibits = releaseExhibitsFromIndex(source, cik, accession);
+  const documents: string[] = [];
+  for (const exhibit of exhibits) {
+    const body = await fetchSecText(exhibit.url, 60_000);
+    documents.push(`<DOCUMENT>\n<TYPE>${exhibit.type}\n<FILENAME>${exhibit.filename}\n<TEXT>${body}</TEXT>\n</DOCUMENT>`);
+  }
+  return parseSecReleaseEvidence(documents.join("\n"), cik, accession, filedAt);
 }

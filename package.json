@@ -332,6 +332,8 @@
     "verify:quick": "npm run test && npm run test:schema && npm run lint",
     "verify:commit": "npm run verify:quick && npm run build",
     "test:equity": "tsx --test src/lib/equity/*.test.ts",
+    "equity:backfill-guidance": "dotenv -e .env.local -- tsx scripts/equity/backfill-management-guidance.ts",
+    "equity:verify-guidance": "dotenv -e .env.local -- tsx scripts/equity/verify-management-guidance.ts",
     "test:quant": "tsx --test src/lib/quant/*.test.ts",
     "test:ism-official": "tsx --test src/lib/data/scheduler/ismOfficial/parseIsmOfficial.test.ts",
     "test:nbs-official-calendar": "tsx --test src/lib/data/scheduler/nbsOfficialCalendar/parseCalendar.test.ts",

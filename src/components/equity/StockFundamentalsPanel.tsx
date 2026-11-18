@@ -25,6 +25,8 @@ import {
   type StatementProfile,
 } from "@/lib/equity/statementTemplate";
 import { buildOverviewDimensions, sliceOverviewDimensions } from "@/lib/equity/overviewDimensions";
+import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
+import { StockManagementGuidance } from "./StockManagementGuidance";
 
 // ---------------------------------------------------------------------------
 // 类型（与 /api/equity/stocks/[symbol]/fundamentals、/peers 响应对齐）
@@ -151,6 +153,8 @@ type PeerSortKey = keyof Pick<
 >;
 
 export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
+  const features = useVisibleFeatures();
+  const canViewGuidance = features.can("equity-guidance");
   const [data, setData] = useState<FundamentalsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -481,8 +485,9 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
       ) : loading ? (
         <div className="flex h-32 items-center justify-center text-sm text-fs-muted">加载中…</div>
       ) : !data || data.quarters.length === 0 ? (
-        <div className="flex h-32 items-center justify-center text-sm text-fs-muted">
-          暂无季度财报数据（可运行 equity:sync-fundamentals -- --period-type=Q 回补）
+        <div className="space-y-3 p-3">
+          {canViewGuidance && tab !== "peers" ? <StockManagementGuidance key={symbol} symbol={symbol} compact={tab === "overview"} locked={features.locked("equity-guidance")} onDetails={() => setTab("statements")} /> : null}
+          <div className="flex h-32 items-center justify-center text-sm text-fs-muted">暂无季度财报数据</div>
         </div>
       ) : (
         <div className="flex flex-col gap-4 px-3 py-3">
@@ -501,6 +506,8 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
               ))}
             </div>
           ) : null}
+
+          {canViewGuidance && tab !== "peers" ? <StockManagementGuidance key={symbol} symbol={symbol} compact={tab === "overview"} locked={features.locked("equity-guidance")} onDetails={() => setTab("statements")} /> : null}
 
           {tab === "overview" ? (
             <>

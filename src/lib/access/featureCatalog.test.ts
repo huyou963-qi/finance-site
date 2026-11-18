@@ -19,6 +19,13 @@ const PRO: FeatureViewer = { role: "user", hasProAccess: true };
 const STANDARD: FeatureViewer = { role: "user", hasProAccess: false, trialEnded: true };
 const VISITOR: FeatureViewer = { role: null, hasProAccess: false };
 
+test("management guidance is hidden by default without hiding the stock page", () => {
+  const policy = defaultFeatureAccessPolicy();
+  for (const viewer of [VISITOR, STANDARD, PRO]) assert.equal(resolveFeatureAccess(policy, "equity-guidance", viewer), "hidden");
+  assert.equal(resolveFeatureAccess(policy, "equity-guidance", ADMIN), "allowed");
+  assert.equal(featureIdForPath("/equity/stocks/NVDA"), "markets");
+});
+
 test("industry financials and renamed history have independent feature entries", () => {
   assert.equal(featureIdForPath("/equity/industries"), "equity-industries");
   assert.equal(featureIdForPath("/equity/sectors"), "equity-sectors");
@@ -44,7 +51,7 @@ test("catalog ids are unique and groups are declared", () => {
   assert.equal(new Set(ids).size, ids.length);
   for (const f of FEATURE_CATALOG) {
     assert.ok(FEATURE_GROUP_ORDER.includes(f.group), `未登记的分组: ${f.group}`);
-    assert.ok(f.paths.length > 0);
+    assert.ok(f.embedded ? f.paths.length === 0 : f.paths.length > 0, f.id);
     for (const p of f.paths) assert.ok(p.startsWith("/"), p);
     if (f.adminOnly) assert.equal(f.defaults.status, "development", f.id);
   }
