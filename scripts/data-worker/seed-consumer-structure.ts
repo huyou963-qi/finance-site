@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { CONSUMER_STRUCTURE_PACKAGE, CONSUMER_STRUCTURE_SERIES } from "../../src/lib/data/scheduler/consumerStructureCatalog";
 import { defaultEconomicCalendarRule } from "../../src/lib/data/scheduler/releaseRule";
 import { P0_DATA_SOURCE_FRED } from "../../src/lib/data/scheduler/p0SeedCatalog";
+import { consumerStructureReusePatch } from "../../src/lib/data/scheduler/consumerStructureReuse";
 loadEnvConfig(process.cwd());
 const db = new PrismaClient();
 async function main() {
@@ -14,13 +15,18 @@ async function main() {
     const existing = await db.instrument.findUnique({ where: { fredSeriesId: row.fredId }, include: { dataSubscription: true } });
     const excluded = await db.macroCatalogExcludedKey.findMany({ where: { catalogKey: { in: [`fred:${row.fredId}`, `mds:sched_fred_${row.fredId}`] } } });
     // Only restore the PCE total withdrawn by this task. Never resurrect an administrator deletion.
-    if (excluded.some(x => row.fredId !== "PCE" || !x.deletedBy?.startsWith("consumer-monitor"))) {
+    if (excluded.some(x => row.fredId !== "PCE" || x.deletedBy !== "consumer-monitor-scope-correction")) {
       throw new Error(`${row.fredId}: 存在目录排除记录，请先核实原删除原因`);
     }
     if (existing?.dataSubscription?.enabled) {
-      if (existing.dataSubscription.sourceId !== "fred" || existing.dataSubscription.sourceSeriesKey !== row.fredId ||
-        (existing.dataSubscription.releasePackageId && existing.dataSubscription.releasePackageId !== CONSUMER_STRUCTURE_PACKAGE)) throw new Error(`${row.fredId}: existing owner conflict`);
-      console.log(`[reuse] ${row.fredId}`); continue;
+      const patch = consumerStructureReusePatch(row.fredId, existing.dataSubscription, pkg);
+      await db.$transaction(async tx => {
+        await tx.dataSubscription.update({ where: { instrumentId: existing.id }, data: patch });
+        if (pkg) await tx.releasePackageMember.upsert({ where: { instrumentId: existing.id },
+          create: { instrumentId: existing.id, packageId: pkg.id }, update: { packageId: pkg.id } });
+        if (excluded.length) await tx.macroCatalogExcludedKey.deleteMany({ where: { catalogKey: { in: excluded.map(x => x.catalogKey) } } });
+      });
+      console.log(`[reuse-reconciled] ${row.fredId}`); continue;
     }
     const metadata = {
       countryCode: "US", countryNameZh: "美国", catalogKey: `fred:${row.fredId}`,
