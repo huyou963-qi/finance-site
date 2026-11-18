@@ -10,6 +10,16 @@ const TRANSIENT_CODES = new Set([
 ]);
 let tail: Promise<unknown> = Promise.resolve();
 let lastRequest = 0;
+let backfillActive = 0;
+const backfillWaiting: (() => void)[] = [];
+async function backfillSlot<T>(run: () => Promise<T>, concurrency: number): Promise<T> {
+  await new Promise<void>(resolve => {
+    if (backfillActive < concurrency) { backfillActive++; resolve(); }
+    else backfillWaiting.push(resolve);
+  });
+  try { return await run(); }
+  finally { const next = backfillWaiting.shift(); if (next) next(); else backfillActive--; }
+}
 
 /** 连接被重置要重试；读正文超时只再试一次。404 和其它 HTTP 错误不重试。 */
 export function secTransportFailure(error: unknown): { retry: boolean; timeout: boolean; message: string } {
@@ -25,10 +35,13 @@ export function secTransportFailure(error: unknown): { retry: boolean; timeout: 
 export async function fetchSecText(url: string, timeoutMs = 30000, fetchImpl: typeof fetch = fetch): Promise<string> {
   const u = new URL(url);
   if (u.protocol !== "https:" || !["www.sec.gov", "data.sec.gov"].includes(u.hostname)) throw new Error("非法 SEC 地址");
-  const run = tail.catch(() => {}).then(async () => {
+  const concurrency = Math.max(1, Math.min(3, Math.floor(Number(process.env.SEC_BACKFILL_CONCURRENCY) || 1)));
+  const execute = async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
-      await new Promise(r => setTimeout(r, Math.max(0, 250 - (Date.now() - lastRequest))));
-      lastRequest = Date.now();
+      // Reserve starts synchronously: overlapping responses must never increase the 4 requests/sec budget.
+      const start = Math.max(Date.now(), lastRequest + 250);
+      lastRequest = start;
+      await new Promise(r => setTimeout(r, Math.max(0, start - Date.now())));
       let retryAfterMs = Math.min(10_000, 1000 * 2 ** attempt);
       try {
         const response = await fetchImpl(url, { headers: {
@@ -48,8 +61,9 @@ export async function fetchSecText(url: string, timeoutMs = 30000, fetchImpl: ty
       await new Promise(r => setTimeout(r, retryAfterMs));
     }
     throw new Error("SEC 重试失败");
-  });
-  tail = run;
+  };
+  const run = concurrency === 1 ? tail.catch(() => {}).then(execute) : backfillSlot(execute, concurrency);
+  if (concurrency === 1) tail = run;
   return run;
 }
 export async function fetchSecJson<T>(url: string, timeoutMs?: number): Promise<T> {

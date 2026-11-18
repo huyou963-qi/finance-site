@@ -18,6 +18,7 @@ import { prisma } from "../../src/lib/prisma";
 // 静态导入：相对本文件解析，与 process.cwd() 无关（apply-all 通过 spawn 调用，cwd 不保证是项目根）。
 // 与 seed-sp500 导入 sp500-snapshot.json 是同一已在生产验证的模式（见 china-server-blocked-sources 教训②）。
 import snapshotJson from "../../src/lib/equity/data/us-equity-universe.json";
+import { SECURITY_IDENTITY_SUPPLEMENTS } from "../../src/lib/equity/securityIdentitySupplements";
 
 const SNAPSHOT_WRITE_PATH = join(process.cwd(), "src/lib/equity/data/us-equity-universe.json");
 const SEC_UA =
@@ -83,7 +84,13 @@ async function main() {
   const refresh = process.argv.includes("--refresh");
   console.log(`[seed-us-universe] START cwd=${process.cwd()} mode=${refresh ? "refresh" : "offline"}`);
 
-  const rows = refresh ? await fetchFromSec() : loadSnapshot();
+  const base = refresh ? await fetchFromSec() : loadSnapshot();
+  const merged = new Map(base.map(row => [row.symbol, row]));
+  for (const row of SECURITY_IDENTITY_SUPPLEMENTS) if (!merged.has(row.symbol)) merged.set(row.symbol, row);
+  const only = process.argv.find(a => a.startsWith("--symbols="))?.slice("--symbols=".length).split(",").map(s => s.trim().toUpperCase());
+  if (only?.some(s => !/^[A-Z0-9.-]{1,16}$/.test(s))) throw new Error("--symbols 格式错误");
+  const rows = [...merged.values()].filter(row => !only || only.includes(row.symbol));
+  if (only && rows.length !== new Set(only).size) throw new Error("指定证券未在官方宇宙或已核验补充中登记");
   console.log(`[seed-us-universe] 快照/抓取 ${rows.length} 行`);
 
   const before = await prisma.equitySecurity.count();
@@ -98,6 +105,8 @@ async function main() {
       symbol: r.symbol,
       name: r.name || r.symbol,
       cik: r.cik,
+      ...(SECURITY_IDENTITY_SUPPLEMENTS.find(s => s.symbol === r.symbol && s.cik === r.cik)
+        ? { metadata: { identityEvidence: SECURITY_IDENTITY_SUPPLEMENTS.find(s => s.symbol === r.symbol)! } } : {}),
     }));
     const res = await prisma.equitySecurity.createMany({ data: batch, skipDuplicates: true });
     inserted += res.count;

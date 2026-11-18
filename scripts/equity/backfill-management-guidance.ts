@@ -9,7 +9,7 @@ import { companyFactsCikCandidates } from "../../src/lib/equity/dailyDisclosureP
 import { loadFundamentalsCoverage } from "../../src/lib/equity/fundamentalsCoverage";
 import { readReleaseAttachments } from "../../src/lib/equity/stockDisclosures";
 import { extractManagementGuidance, GUIDANCE_PARSER_VERSION } from "../../src/lib/equity/managementGuidance";
-import { earningsItem, guidanceBackfillReady, guidanceHistoryStart } from "../../src/lib/equity/managementGuidanceBackfill";
+import { earningsItem, guidanceBackfillReady, guidanceHistoryStart, guidanceHistoryThrough } from "../../src/lib/equity/managementGuidanceBackfill";
 
 const arg = (name: string) => process.argv.slice(2).find(a => a.startsWith(`${name}=`))?.slice(name.length + 1);
 const has = (name: string) => process.argv.includes(name);
@@ -20,13 +20,22 @@ async function main() {
   if ((!allCovered && !symbols?.length) || (allCovered && symbols) || symbols?.some(s => !/^[A-Z0-9.-]{1,16}$/.test(s))) throw new Error("指定 --all-covered 或 --symbols=NVDA,AAPL，不能同时使用");
   const limit = arg("--limit") ? Number(arg("--limit")) : allCovered ? Infinity : 20;
   if (limit !== Infinity && (!Number.isInteger(limit) || limit < 1 || limit > 100_000)) throw new Error("--limit 必须为 1–100000");
+  const requestedConcurrency = Number(arg("--concurrency") ?? 1);
+  if (!Number.isInteger(requestedConcurrency) || requestedConcurrency < 1 || requestedConcurrency > 3) throw new Error("--concurrency 必须为 1–3");
+  const concurrency = limit === Infinity ? requestedConcurrency : 1;
+  process.env.SEC_BACKFILL_CONCURRENCY = String(concurrency);
   const explicitFrom = arg("--from");
+  const through = guidanceHistoryThrough(arg("--through"));
   if (explicitFrom) guidanceHistoryStart(explicitFrom, null);
   const report = path.resolve(arg("--report") ?? ".data/guidance-backfill/run.jsonl");
   fs.mkdirSync(path.dirname(report), { recursive: true });
-  const checkpoints = new Set<string>();
+  const checkpoints = new Map<string, string>();
   if (fs.existsSync(report)) for (const line of fs.readFileSync(report, "utf8").split("\n")) {
-    try { const e = JSON.parse(line); if (e.phase === "discovery" && e.status === "complete") checkpoints.add(`${e.cik}:${e.from}`); } catch { /* Retry incomplete final line. */ }
+    try {
+      const e = JSON.parse(line);
+      if (e.phase === "discovery" && e.status === "complete" && typeof e.through === "string" && e.through >= through && typeof e.cik === "string" && typeof e.from === "string"
+        && (!checkpoints.has(e.cik) || e.from < checkpoints.get(e.cik)!)) checkpoints.set(e.cik, e.from);
+    } catch { /* Retry incomplete final line. */ }
   }
   const log = (entry: Record<string, unknown>) => fs.appendFileSync(report, JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n");
   const covered = allCovered ? await loadFundamentalsCoverage(prisma) : new Set(symbols!);
@@ -36,38 +45,46 @@ async function main() {
     prisma.equityFundamentalSnapshot.groupBy({ by: ["symbol"], where: { symbol: { in: [...covered] }, periodType: "Q" }, _min: { fiscalDate: true } }),
   ]);
   const oldest = new Map(starts.map(s => [s.symbol, s._min.fiscalDate]));
+  const oldestByCik = new Map<string, Date>();
+  for (const security of securities) {
+    const date = oldest.get(security.symbol);
+    if (security.cik && date) {
+      const cik = security.cik.padStart(10, "0");
+      if (!oldestByCik.has(cik) || date < oldestByCik.get(cik)!) oldestByCik.set(cik, date);
+    }
+  }
   const issuers = new Map<string, Issuer>();
   const missingCik = [...covered].filter(s => !securities.some(row => row.symbol === s));
   for (const security of securities) {
     if (!security.cik || !/^\d{1,10}$/.test(security.cik)) { missingCik.push(security.symbol); continue; }
-    const cik = security.cik.padStart(10, "0"), from = guidanceHistoryStart(explicitFrom, oldest.get(security.symbol) ?? null);
+    const cik = security.cik.padStart(10, "0"), from = guidanceHistoryStart(explicitFrom, oldestByCik.get(cik) ?? null);
     const existing = issuers.get(cik);
     if (existing) { existing.symbols.push(security.symbol); if (from < existing.from) existing.from = from; }
     else issuers.set(cik, { cik, symbol: security.symbol, symbols: [security.symbol], from });
   }
   const stats = { coveredSymbols: covered.size, eligibleIssuers: issuers.size, missingCik: [...new Set(missingCik)].sort(), issuersDone: 0,
     discovered: 0, visited: 0, changed: 0, ready: 0, pending: 0, noEligibleAttachment: 0, legacyTruncated: 0, records: 0, failed: 0,
-    apply, discover, fetchMissing, limited: limit !== Infinity, parserVersion: GUIDANCE_PARSER_VERSION, startedAt: new Date().toISOString() };
+    apply, discover, fetchMissing, concurrency, through, limited: limit !== Infinity, parserVersion: GUIDANCE_PARSER_VERSION, startedAt: new Date().toISOString() };
   function snapshot(phase: string) {
     fs.writeFileSync(`${report}.summary.tmp`, JSON.stringify({ ...stats, phase, updatedAt: new Date().toISOString() }, null, 2));
     fs.renameSync(`${report}.summary.tmp`, `${report}.summary.json`);
   }
   snapshot("running"); console.log(JSON.stringify({ event: "start", ...stats }));
-  for (const issuer of issuers.values()) {
-    if (stats.visited >= limit) break;
-    if (discover && !checkpoints.has(`${issuer.cik}:${issuer.from}`)) {
+  const processIssuer = async (issuer: Issuer) => {
+    if (stats.visited >= limit) return;
+    if (discover && (!checkpoints.has(issuer.cik) || checkpoints.get(issuer.cik)! > issuer.from)) {
       try {
         const rows = await discoverSecFilings(issuer.cik, issuer.from, true);
-        const earnings = rows.filter(r => ["8-K", "8-K/A"].includes(r.form) && earningsItem(r.items));
+        const earnings = rows.filter(r => r.filedAt <= through && ["8-K", "8-K/A"].includes(r.form) && earningsItem(r.items));
         if (apply) for (const row of earnings) await writeSecFilingIndex(issuer.cik, issuer.symbol, row);
         stats.discovered += earnings.length;
-        log({ phase: "discovery", cik: issuer.cik, from: issuer.from, status: apply ? "complete" : "dry-run", matched: earnings.length });
+        log({ phase: "discovery", cik: issuer.cik, from: issuer.from, through, status: apply ? "complete" : "dry-run", matched: earnings.length });
       } catch (e) { stats.failed++; log({ phase: "discovery", cik: issuer.cik, from: issuer.from, status: "error", error: e instanceof Error ? e.message : String(e) }); }
     }
     let cursor: string | undefined;
     for (;;) {
       const rows = await prisma.secFiling.findMany({
-        where: { cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" }, ...(explicitFrom ? { filedAt: { gte: new Date(explicitFrom) } } : {}) },
+        where: { cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" }, filedAt: { lte: new Date(through), ...(explicitFrom ? { gte: new Date(explicitFrom) } : {}) } },
         orderBy: { id: "asc" }, take: Math.min(25, limit - stats.visited), ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         select: { id: true, accession: true, filedAt: true, earningsRelease: true, items: true },
       });
@@ -114,7 +131,11 @@ async function main() {
     stats.issuersDone++;
     console.log(JSON.stringify({ event: "issuer", symbol: issuer.symbol, done: stats.issuersDone, total: issuers.size, visited: stats.visited, changed: stats.changed, ready: stats.ready, failed: stats.failed }));
     snapshot("running");
-  }
+  };
+  const queue = issuers.values();
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    for (;;) { const next = queue.next(); if (next.done) return; await processIssuer(next.value); }
+  }));
   snapshot(stats.failed ? "errors" : stats.pending || stats.legacyTruncated ? "pending_sources" : stats.limited && stats.visited >= limit ? "limited" : "complete");
   console.log(JSON.stringify(stats));
   if (stats.failed || stats.pending || stats.legacyTruncated) process.exitCode = 1;

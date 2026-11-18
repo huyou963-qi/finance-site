@@ -178,19 +178,27 @@ function compatibleValues(a: GuidanceValue, b: GuidanceValue): boolean {
 export function buildGuidanceSeries(versions: GuidanceVersion[]): GuidanceSeries[] {
   const groups = new Map<string, GuidanceVersion[]>();
   for (const record of versions) { const key = guidanceKey(record); groups.set(key, [...(groups.get(key) ?? []), record]); }
-  return [...groups.values()].map(history => {
-    history.sort((a, b) => b.disclosedOn.localeCompare(a.disclosedOn) || b.accession.localeCompare(a.accession) || valueRank(a) - valueRank(b));
+  return [...groups.values()].map(rawHistory => {
+    const announcements = new Map<string, GuidanceVersion[]>();
+    for (const record of rawHistory) announcements.set(record.accession, [...(announcements.get(record.accession) ?? []), record]);
+    const history = [...announcements.values()].map(records => {
+      records.sort((a, b) => valueRank(a) - valueRank(b));
+      const representative = records[0];
+      const conflict = representative.value && records.some(r => r.value && !compatibleValues(representative.value!, r.value));
+      return conflict ? { ...representative, value: null, status: "unparsed" as const } : representative;
+    }).sort((a, b) => b.disclosedOn.localeCompare(a.disclosedOn) || b.accession.localeCompare(a.accession));
     // Conflicting statements from one announcement are retained as evidence, never arbitrarily selected.
     const original = history[0];
     const withdrawal = versions.find(v => v.status === "withdrawn" && v.metric === original.metric && v.target.key === original.target.key && v.target.endDate === original.target.endDate && (v.basis === original.basis || v.basis === "unspecified") && v.disclosedOn >= original.disclosedOn);
     const latest = withdrawal ? { ...original, status: "withdrawn" as const, value: null, evidence: withdrawal.evidence, sourceUrl: withdrawal.sourceUrl, disclosedOn: withdrawal.disclosedOn, dateBasis: withdrawal.dateBasis, accession: withdrawal.accession, id: withdrawal.id } : original;
     const conflict = latest.value != null && history.some(h => h.disclosedOn === latest.disclosedOn && h.value != null && !compatibleValues(h.value, latest.value!));
-    const prior = history.find(h => h.disclosedOn < latest.disclosedOn && h.status === "active");
+    const prior = history.find(h => h.disclosedOn < latest.disclosedOn);
     const curr = latest.value && guidanceMidpoint(latest.value), prev = prior?.value && guidanceMidpoint(prior.value);
-    const comparable = !conflict && latest.status === "active" && curr != null && prev != null && latest.basis !== "unspecified";
+    const comparable = !conflict && latest.status === "active" && prior?.status === "active" && curr != null && prev != null
+      && latest.basis !== "unspecified" && latest.basis !== "company" && latest.metric !== "eps";
     const change = comparable ? { delta: latest.value!.unit === "percent" ? curr - prev : prev > 0 ? (curr / prev - 1) * 100 : curr - prev,
       kind: latest.value!.unit === "percent" ? "pp" as const : prev > 0 ? "percent" as const : "absolute" as const } : null;
-    const completeHistory = withdrawal && !history.some(h => h.id === withdrawal.id) ? [withdrawal, ...history] : history;
+    const completeHistory = withdrawal ? [withdrawal, ...history.filter(h => h.accession !== withdrawal.accession)] : history;
     return { latest: conflict && latest.status !== "withdrawn" ? { ...latest, value: null, status: "unparsed" as const } : latest, history: completeHistory, change };
   }).sort((a, b) => b.latest.disclosedOn.localeCompare(a.latest.disclosedOn) || a.latest.metric.localeCompare(b.latest.metric));
 }
