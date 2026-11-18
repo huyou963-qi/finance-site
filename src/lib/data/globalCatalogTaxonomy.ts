@@ -3,7 +3,7 @@ import { randomUUID } from "@/lib/randomId";
 import { buildUsCatalogLayoutCountry } from "./buildUsCatalogLayout";
 import type { CatalogLayoutCategory, CatalogLayoutCountry } from "./catalogLayout";
 import type { UnifiedCatalogCountry, UnifiedCatalogItem } from "./fredCatalog";
-import { US_CATALOG_TOP_LEVEL, type UsCatalogTopLevel } from "./usCatalogTaxonomy";
+import { US_CATALOG_TOP_LEVEL, resolveUsCatalogPlacement, type UsCatalogTopLevel } from "./usCatalogTaxonomy";
 import { BOJ_SERIES } from "./scheduler/boj/catalog";
 import { JP_BOJ_BOP_SERIES } from "./scheduler/bojExternal/catalog";
 import { JP_BOJ_CORE_SERIES } from "./scheduler/bojCore/catalog";
@@ -88,6 +88,10 @@ function chinaPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement | null
 
 /** Maps every country's source category into the same top-level taxonomy as the US. */
 export function resolveGlobalCatalogPlacement(item: UnifiedCatalogItem): GlobalCatalogPlacement {
+  if (item.countryCode === "US") {
+    const known = resolveUsCatalogPlacement({ key: item.key, label: item.label, legacyCategory: item.categoryName });
+    if (known.category !== "未分配" && known.subgroup) return { category: known.category, subgroup: known.subgroup };
+  }
   if (item.countryCode === "US" && item.key.startsWith("mds:nyfed_hhdc_")) return p("金融条件与银行", "居民消费信贷");
   if (item.countryCode === "US" && /^fred:BOGZ1FL1930(20005|30205|34005)Q$/.test(item.key)) return p("金融条件与银行", "居民流动性资产");
   if (item.countryCode === "US" && item.key.startsWith("fred:RCCCBACTIVEUTILPCT")) return p("金融条件与银行", "居民消费信贷");

@@ -30,7 +30,7 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
   劳动力市场: ["失业率与参与", "就业与工资", "JOLTS", "周度申领", "就业结构"],
   货币政策与流动性: ["政策利率", "货币供应量", "基础货币与准备金", "联储资产负债表", "财政部账户与货币市场"],
   利率与信用市场: ["国债收益率", "利差与期限结构", "TIPS", "信用利差", "市场情绪", "股权风险溢价", "公司债市场", "商业票据发行与余额", "美股风格因子", "美股市场广度"],
-  金融条件与银行: ["金融条件指数", "银行信贷", "银行存款", "资产质量"],
+  金融条件与银行: ["金融条件指数", "银行信贷", "银行存款", "资产质量", "居民流动性资产", "居民资产负债与偿债", "居民消费信贷"],
   财政与公共债务: [
     "MTS现金流量",
     "融资与现金",
@@ -114,7 +114,14 @@ const FRED_INDUSTRIAL = new Set([
   "AMTMTI",
   "MCUMFN",
 ]);
-const FRED_CONSUMPTION = new Set(["RSAFS", "PCEC96", "BUSINV", "ISRATIO", "MNFCTRIRSA"]);
+const FRED_CONSUMPTION = new Set([
+  "RSAFS", "RSXFS", "PCE", "PCEDG", "PCEND", "PCES", "PCEC96", "PCEDGC96", "PCESC96", "PSAVERT", "DSPIC96",
+  // Existing Census retail seed. Exact identities avoid the word "trade"
+  // incorrectly routing retail sales to the external-trade directory.
+  "RSFSXMV", "MARTSSM44Z72USS", "MARTSSM44W72USS", "RSMVPD", "RSFHFS", "RSEAS", "RSBMGESD",
+  "RSDBS", "RSHPCS", "RSGASS", "RSCCAS", "RSSGHBMS", "RSGMS", "RSMSR", "RSNSR", "RSFSDP", "RSGCS", "RSAOMV",
+  "BUSINV", "ISRATIO", "MNFCTRIRSA",
+]);
 const FRED_SENTIMENT = new Set(["UMCSENT", "CFNAI", "WEI", "USREC"]);
 
 const FRED_LABOR_UNEMP = new Set([
@@ -245,6 +252,9 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   const money = US_MONEY_CREDIT_SERIES.find(r => r.fredId === fredId.toUpperCase());
   if (money) return p(money.category as UsCatalogTopLevel, money.group);
   const id = fredId.toUpperCase();
+  if (id === "TNWBSHNO" || id === "TDSP") return p("金融条件与银行", "居民资产负债与偿债");
+  if (id === "TOTALSL" || id === "REVOLSL") return p("金融条件与银行", "居民消费信贷");
+  if (id === "CORCCACBS") return p("金融条件与银行", "资产质量");
   if (CP_FRED_IDS.has(id)) return p("利率与信用市场", "商业票据发行与余额");
   if (FRED_LOGISTICS.has(id)) return p("国民经济", "物流与出行");
   if (FRED_CPI.has(id)) return p("通胀与价格", "CPI");

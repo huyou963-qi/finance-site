@@ -1150,7 +1150,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     },
     // 消费域追加：实际 PCE 耐用品/服务 + 储蓄率（同 BEA 月报）
     members: {
-      fredSeriesIds: ["W875RX1", "DSPIC96", "PCEC96", "PCEDGC96", "PCESC96", "PSAVERT"],
+      fredSeriesIds: ["W875RX1", "DSPIC96", "PCEC96", "PCEDGC96", "PCESC96", "PSAVERT", "PCE", "PCEDG", "PCEND", "PCES"],
     },
   }),
   probePkg("us.frb.g19_consumer_credit", "美国 G.19 消费信贷", {
