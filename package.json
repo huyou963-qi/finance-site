@@ -430,7 +430,11 @@
     "test:l3": "npm run test:l3-db && npm run test:l3-api",
     "data:seed-consumer-pressure": "dotenv -e .env.local -- tsx scripts/data-worker/seed-consumer-pressure.ts",
     "data:sync-consumer-pressure": "dotenv -e .env.local -- tsx scripts/data-worker/sync-consumer-pressure.ts",
-    "data:verify-consumer-pressure": "dotenv -e .env.local -- tsx scripts/data-worker/verify-consumer-pressure.ts"
+    "data:verify-consumer-pressure": "dotenv -e .env.local -- tsx scripts/data-worker/verify-consumer-pressure.ts",
+    "data:seed-consumer-structure": "dotenv -e .env.local -- tsx scripts/data-worker/seed-consumer-structure.ts",
+    "data:sync-consumer-structure": "dotenv -e .env.local -- tsx scripts/data-worker/sync-consumer-structure.ts",
+    "data:verify-consumer-structure": "dotenv -e .env.local -- tsx scripts/data-worker/verify-consumer-structure.ts",
+    "data:layout-consumer-structure": "dotenv -e .env.local -- tsx scripts/data-worker/layout-consumer-structure.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

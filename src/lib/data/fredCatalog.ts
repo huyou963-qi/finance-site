@@ -1,3 +1,4 @@
+import { CONSUMER_STRUCTURE_SERIES } from "./scheduler/consumerStructureCatalog";
 import { US_MONEY_CREDIT_SERIES } from "./scheduler/usMoneyCreditCatalog";
 import { CP_FRED_SERIES } from "./scheduler/usFinancing/catalog";
 /**
@@ -128,6 +129,7 @@ type FredDef = {
 };
 
 const FRED_US_ITEMS: readonly FredDef[] = [
+  ...CONSUMER_STRUCTURE_SERIES.map(row => ({ id: row.fredId, label: row.name, category: "国内贸易与消费", frequency: "月" as const })),
   { id: "BOGZ1FL193020005Q", label: "家庭活期存款与现金（家庭部门）", category: "金融条件与银行", frequency: "季度" },
   { id: "BOGZ1FL193030205Q", label: "家庭其他存款（含定期与储蓄存款，IMA）", category: "金融条件与银行", frequency: "季度" },
   { id: "BOGZ1FL193034005Q", label: "家庭货币市场基金份额（家庭部门）", category: "金融条件与银行", frequency: "季度" },

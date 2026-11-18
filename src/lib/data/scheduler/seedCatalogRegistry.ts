@@ -7,6 +7,7 @@ export type SeedCatalogEntry = {
 };
 
 export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "consumer-structure": { script: "seed-consumer-structure", labelZh: "美国消费结构：四条月度名义PCE" },
   "consumer-pressure": { script: "seed-consumer-pressure", labelZh: "美国居民消费现金流与信用压力" },
   "us-money-credit": { script: "seed-us-money-credit", labelZh: "美国H.6货币供应量与H.8银行信用" },
   "us-financing": { script: "seed-us-financing", labelZh: "美国商业票据周度余额" },
@@ -154,6 +155,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
 };
 
 export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
+  "consumer-structure": { script: "verify-consumer-structure", labelZh: "美国消费结构：四条月度名义PCE", verifyNeedsDb: true },
   "consumer-pressure": { script: "verify-consumer-pressure", labelZh: "美国居民消费压力核心指标", verifyNeedsDb: true },
   "us-money-credit": { script: "verify-us-money-credit", labelZh: "美国货币供应量与银行信用自检", verifyNeedsDb: true },
   "us-financing": { script: "verify-us-financing", labelZh: "美国商业票据周度余额自检", verifyNeedsDb: true },
