@@ -8,7 +8,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ symbol: str
   const headers = { "Cache-Control": "private, no-store" };
   try {
     const [policy, viewer] = await Promise.all([loadFeatureAccessPolicy(), getViewerFromRequest(req)]);
-    const state = resolveFeatureAccess(policy, "equity-guidance", viewer);
+    // The stock detail page uses the same markets gate.
+    const state = resolveFeatureAccess(policy, "markets", viewer);
     if (state !== "allowed") return NextResponse.json({ error: state === "hidden" ? "功能开发中" : "当前账户暂不可访问" }, { status: state === "hidden" ? 404 : 403, headers });
     const stock = await loadStockContext((await ctx.params).symbol);
     if (!stock) return NextResponse.json({ error: "未知标的" }, { status: 404, headers });

@@ -48,8 +48,6 @@ export type FeatureDefinition = {
   kind?: "page" | "setting";
   /** 覆盖的路由：精确路径或前缀（`/x` 命中 `/x` 与 `/x/...`） */
   paths: readonly string[];
-  /** 页面内嵌功能：入口和 API 按 id 检查，不接管父页面路由 */
-  embedded?: boolean;
   description: string;
   /** 锁定为管理员专属：永远是「开发中、对任何非管理员不可见」，管理页不可编辑 */
   adminOnly?: boolean;
@@ -63,15 +61,6 @@ const RELEASED_PRO: FeatureRule = { status: "released", proOnly: true, preview: 
 const IN_DEVELOPMENT: FeatureRule = { status: "development", proOnly: false, preview: NO_PREVIEW };
 
 export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
-  {
-    id: "equity-guidance",
-    label: "个股 · 管理层指引",
-    group: "美股",
-    paths: [],
-    embedded: true,
-    description: "基本面概览与报表内的公司指引、调整历史和兑现对照",
-    defaults: IN_DEVELOPMENT,
-  },
   {
     id: "macro",
     label: "宏观数据",

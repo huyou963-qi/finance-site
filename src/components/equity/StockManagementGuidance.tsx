@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { formatGuidanceValue, GUIDANCE_BASIS_NAMES, GUIDANCE_GROUPS, GUIDANCE_NAMES, type GuidanceSeries, type GuidanceVersion } from "@/lib/equity/managementGuidance";
 import type { ManagementGuidancePayload } from "@/lib/equity/managementGuidanceStore";
 
@@ -34,21 +33,20 @@ function Evidence({ series }: { series: GuidanceSeries }) {
   </details>;
 }
 
-export function StockManagementGuidance({ symbol, compact, onDetails, locked = false }: { symbol: string; compact: boolean; onDetails: () => void; locked?: boolean }) {
+export function StockManagementGuidance({ symbol, compact, onDetails }: { symbol: string; compact: boolean; onDetails: () => void }) {
   const [data, setData] = useState<ManagementGuidancePayload | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [section, setSection] = useState<"guidance" | "delivery">("guidance");
   const [target, setTarget] = useState("latest");
   useEffect(() => {
-    if (locked) return;
     const controller = new AbortController();
     setData(null); setError(false);
     fetch(`/api/equity/stocks/${encodeURIComponent(symbol)}/guidance`, { cache: "no-store", signal: controller.signal })
       .then(async r => { if (!r.ok) throw new Error(); return r.json() as Promise<ManagementGuidancePayload>; })
       .then(setData).catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
-  }, [symbol, retry, locked]);
+  }, [symbol, retry]);
   const today = data?.asOf.slice(0, 10) ?? "";
   const latestDay = data?.series[0]?.latest.disclosedOn;
   const priority = ["revenue", "grossMargin", "eps", "fcf", "ocf", "capex", "operatingIncome", "operatingExpenses", "netLeverage"];
@@ -61,9 +59,9 @@ export function StockManagementGuidance({ symbol, compact, onDetails, locked = f
   return <section className="min-w-0 rounded-md border border-fs-border bg-fs-elevated/20 p-3" aria-label="管理层指引">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><h3 className="text-sm font-medium">管理层未来指引</h3><p className="mt-1 text-xs text-fs-muted">公司披露的未来目标 · 与已实现业绩及市场一致预期分别展示</p></div>
-      {compact && !locked ? <button type="button" className={`${button} text-fs-accent-text`} onClick={onDetails}>全部指引与兑现 →</button> : null}
+      {compact ? <button type="button" className={`${button} text-fs-accent-text`} onClick={onDetails}>全部指引与兑现 →</button> : null}
     </div>
-    {locked ? <p className="mt-3 text-xs text-fs-muted">此功能为 Pro 专属。<Link href="/pricing" className="ml-2 text-fs-accent-text underline">查看会员权益</Link></p> : error ? <div className="mt-3 flex items-center gap-3 text-xs text-fs-muted">暂时无法加载指引<button type="button" className={button} onClick={() => setRetry(n => n + 1)}>重试</button></div> : !data ? <p className="mt-3 text-xs text-fs-muted" role="status">正在加载指引…</p> : <>
+    {error ? <div className="mt-3 flex items-center gap-3 text-xs text-fs-muted">暂时无法加载指引<button type="button" className={button} onClick={() => setRetry(n => n + 1)}>重试</button></div> : !data ? <p className="mt-3 text-xs text-fs-muted" role="status">正在加载指引…</p> : <>
       {!compact ? <>
         <div className="mt-3 flex flex-wrap gap-1" role="group" aria-label="指引内容">
           {([['guidance', '指引与历史'], ['delivery', '指引兑现']] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={section === id} onClick={() => setSection(id)} className={`${button} ${section === id ? "bg-fs-accent/20 text-fs-accent-text" : "text-fs-muted"}`}>{label}</button>)}
