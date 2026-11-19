@@ -231,6 +231,7 @@
     "builtin-us-macro-regime": "folder-builtin-us-cycle-risk",
     "builtin-us-cpi-cost-push": "folder-builtin-us-cpi",
     "builtin-us-cpi-structure": "folder-builtin-us-cpi",
+    "builtin-us-econ-overview": "folder-builtin-us-economy",
     "builtin-us-labor-drivers": "folder-builtin-us-labor",
     "builtin-cn-fiscal-revenue": "folder-builtin-cn-fiscal",
     "builtin-us-labor-overview": "folder-builtin-us-labor",
@@ -1481,10 +1482,6 @@
         }
       ],
       "selectedKeys": [
-        "calc:us-gdp-share-c",
-        "calc:us-gdp-share-i",
-        "calc:us-gdp-share-g",
-        "calc:us-gdp-share-nx",
         "fred:DPCERY2Q224SBEA",
         "fred:A006RY2Q224SBEA",
         "fred:A822RY2Q224SBEA",
@@ -1504,7 +1501,7 @@
         "fred:NETEXP",
         "fred:GDP"
       ],
-      "updatedAtIso": "2026-11-17T12:47:56.184Z",
+      "updatedAtIso": "2026-11-18T04:27:31.740Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "slotModes": {
@@ -1664,25 +1661,25 @@
         "calc:us-gdp-share-c": {
           "axis": "left",
           "color": "#d89b4e",
-          "chartType": "line",
+          "chartType": "stackBar",
           "showEndLabel": true
         },
         "calc:us-gdp-share-g": {
           "axis": "left",
           "color": "#9ea68b",
-          "chartType": "line",
+          "chartType": "stackBar",
           "showEndLabel": true
         },
         "calc:us-gdp-share-i": {
           "axis": "left",
           "color": "#5f76b8",
-          "chartType": "line",
+          "chartType": "stackBar",
           "showEndLabel": true
         },
         "calc:us-gdp-share-nx": {
           "axis": "left",
           "color": "#56b6c2",
-          "chartType": "line",
+          "chartType": "stackBar",
           "showEndLabel": true
         },
         "fred:A006RY2Q224SBEA": {
@@ -1722,22 +1719,6 @@
         }
       },
       "selectedListItems": [
-        {
-          "key": "calc:us-gdp-share-c",
-          "type": "series"
-        },
-        {
-          "key": "calc:us-gdp-share-i",
-          "type": "series"
-        },
-        {
-          "key": "calc:us-gdp-share-g",
-          "type": "series"
-        },
-        {
-          "key": "calc:us-gdp-share-nx",
-          "type": "series"
-        },
         {
           "key": "fred:DPCERY2Q224SBEA",
           "type": "series"
@@ -1809,6 +1790,22 @@
         {
           "key": "fred:GDP",
           "type": "series"
+        },
+        {
+          "key": "calc:us-gdp-share-c",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-gdp-share-i",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-gdp-share-g",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-gdp-share-nx",
+          "type": "derived"
         }
       ],
       "seriesCalcConfigMap": {
