@@ -4,7 +4,7 @@ import { parseSecPeriodicInstance, mergeSecPeriodicInstance, primaryCashFlowLabe
 import { statementSupplementFlows } from "./secStatementSupplement";
 import { extractQuarterlyFundamentals } from "./secFundamentals";
 
-const filing = { accession: "0000906345-26-000002", form: "10-Q", filedAt: "2026-08-01", primaryDocument: "report-20260630.htm", reportDate: "2026-06-30" };
+const filing = { accession: "0000906345-26-000002", form: "10-Q", filedAt: "2026-08-01", primaryDocument: "report-20260630.htm", reportDate: "2026-06-30", items: null, description: null };
 function fixture(cik = 906345, q1 = false, includeOther = false) {
   const end = q1 ? "2026-03-31" : "2026-06-30", tag = cik === 879101 ? "PaymentsForImprovementsToOperatingRealEstate" : "PaymentsToDevelopRealEstateAssets";
   const label = cik === 879101 ? "Improvements to operating real estate" : "Development and capital improvements, including land";
@@ -97,7 +97,7 @@ test("CPT and KIM accept a reported combined capital line only when the complete
     assert.equal(t.calls.length, 5);
     assert.equal(statementSupplementFlows(enriched).capex[0]?.val, 100);
     const direct = enriched.statementSupplement!.find(p => (p as {tag: string}).tag === (cik === 906345 ? 'PaymentsToDevelopRealEstateAssets' : 'PaymentsForImprovementsToOperatingRealEstate')) as Record<string, unknown>;
-    const archive = { ...direct, source: 'https://www.sec.gov/files/dera/data/financial-statement-data-sets/2026q3.zip', sha256: 'a'.repeat(64) };
+    const archive: Record<string, unknown> = { ...direct, source: 'https://www.sec.gov/files/dera/data/financial-statement-data-sets/2026q3.zip', sha256: 'a'.repeat(64) };
     delete archive.sourceType; delete archive.concept;
     enriched.statementSupplement!.unshift(archive);
     assert.equal(statementSupplementFlows(enriched).capex[0]?.val, 100, 'an equal DERA fact cannot hide the stronger original presentation proof');

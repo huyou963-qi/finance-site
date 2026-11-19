@@ -26,6 +26,7 @@ import {
 } from "@/lib/equity/statementTemplate";
 import { buildOverviewDimensions, sliceOverviewDimensions } from "@/lib/equity/overviewDimensions";
 import { useTr } from "@/i18n/TextProvider";
+import { StockManagementGuidance } from "./StockManagementGuidance";
 
 // ---------------------------------------------------------------------------
 // 类型（与 /api/equity/stocks/[symbol]/fundamentals、/peers 响应对齐）
@@ -483,7 +484,10 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
       ) : loading ? (
         <div className="flex h-32 items-center justify-center text-sm text-fs-muted">{tr("加载中…")}</div>
       ) : !data || data.quarters.length === 0 ? (
-        <div className="flex h-32 items-center justify-center text-sm text-fs-muted">{tr("暂无季度财报数据（可运行 equity:sync-fundamentals -- --period-type=Q 回补）")}</div>
+        <div className="space-y-3 p-3">
+          {tab !== "peers" ? <StockManagementGuidance key={symbol} symbol={symbol} compact={tab === "overview"} onDetails={() => setTab("statements")} /> : null}
+          <div className="flex h-32 items-center justify-center text-sm text-fs-muted">{tr("暂无季度财报数据")}</div>
+        </div>
       ) : (
         <div className="flex flex-col gap-4 px-3 py-3">
           {/* KPI 条（各 tab 常驻） */}
@@ -501,6 +505,8 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
               ))}
             </div>
           ) : null}
+
+          {tab !== "peers" ? <StockManagementGuidance key={symbol} symbol={symbol} compact={tab === "overview"} onDetails={() => setTab("statements")} /> : null}
 
           {tab === "overview" ? (
             <>

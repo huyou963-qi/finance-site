@@ -9,6 +9,7 @@ import { buildSecFundamentalVintages, listSecPeriodicFilings, upsertFundamentalV
 import { upsertQuarterlyFundamentals } from "./equityFundamentalsStore";
 import { supplementSecPeriodicFilingPair } from "./secFilingFacts";
 import { loadFundamentalsCoverage } from "./fundamentalsCoverage";
+import { extractManagementGuidance, GUIDANCE_PARSER_VERSION } from "./managementGuidance";
 
 /** Already-indexed financial filings (e.g. from sync-sec) stay null forever unless re-queued beyond the 7-day discovery window. */
 export const ORPHAN_FINANCIAL_BACKLOG_DAYS = 120;
@@ -310,7 +311,9 @@ export async function syncDailyDisclosures(options: DailyDisclosureOptions = {},
           }
           if (!evidence) throw lastReleaseError ?? new Error("业绩附件不可用");
           await prisma.secFiling.update({ where: { id: filing.id }, data: {
-            earningsRelease: { attachments: evidence.attachments, publication: evidence.publication },
+            earningsRelease: { attachments: evidence.attachments, publication: evidence.publication,
+              managementGuidance: { parserVersion: GUIDANCE_PARSER_VERSION, records: extractManagementGuidance(evidence.attachments),
+                checkedAt: processedAt.toISOString(), sourceStatus: evidence.attachments.length ? "available" : "no_eligible_attachment" } },
             ...(evidence.acceptedAt ? { acceptedAt: evidence.acceptedAt, acceptedAtSource: evidence.acceptedAtSource } : {}),
             ...(evidence.publication ? { publishedAt: evidence.publication.at ? new Date(evidence.publication.at) : null,
               publishedOn: new Date(evidence.publication.date), publicationSource: evidence.publication.sourceUrl } : {}),

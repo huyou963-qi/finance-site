@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { isNonStockHolding } from "./securityIdentitySupplements";
 
 /**
  * Symbols the daily SEC batch covers: filing index, Company Facts download, quarterly snapshot and
@@ -19,5 +20,5 @@ export async function loadFundamentalsCoverage(db: PrismaClient): Promise<Set<st
     where: { OR: latestByIndex.flatMap(row => row._max.asOfDate ? [{ indexCode: row.indexCode, asOfDate: row._max.asOfDate }] : []) },
     select: { symbol: true },
   }) : [];
-  return new Set([...withFundamentals, ...classified, ...constituents].map(row => row.symbol.toUpperCase()));
+  return new Set([...withFundamentals, ...classified, ...constituents].map(row => row.symbol.toUpperCase()).filter(symbol => !isNonStockHolding(symbol)));
 }
