@@ -93,9 +93,11 @@ async function main() {
           cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" },
           ...(accessions ? { accession: { in: accessions } } : {}),
           ...(retryUnavailable ? { earningsRelease: { path: ["managementGuidance", "sourceStatus"], equals: "no_eligible_attachment" } } : {}),
+          // The previous row can leave the filtered set when it gains an attachment.
+          ...(cursor ? { id: { gt: cursor } } : {}),
           filedAt: { lte: new Date(through), ...(explicitFrom ? { gte: new Date(explicitFrom) } : {}) },
         },
-        orderBy: { id: "asc" }, take: Math.min(25, limit - stats.visited), ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        orderBy: { id: "asc" }, take: Math.min(25, limit - stats.visited),
         select: { id: true, accession: true, filedAt: true, earningsRelease: true, items: true },
       });
       if (!rows.length) break;
