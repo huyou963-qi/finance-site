@@ -1,5 +1,5 @@
 /** Company-issued outlook only. Pure parser/projections; never analyst consensus or model estimates. */
-export const GUIDANCE_PARSER_VERSION = 3;
+export const GUIDANCE_PARSER_VERSION = 4;
 export type GuidanceMetric = "revenue" | "grossMargin" | "eps" | "operatingExpenses" | "operatingIncome" | "capex" | "ocf" | "fcf" | "netLeverage";
 export type GuidanceBasis = "gaap" | "nonGaap" | "company" | "unspecified";
 export type GuidanceTarget = {
@@ -39,6 +39,15 @@ const FORWARD = /\b(?:expect(?:s|ed)?|outlook|guidance|forecast|anticipate[sd]?|
 const WITHDRAW = /\b(?:withdraw(?:s|n|ing)?|suspend(?:s|ed|ing)?|no\s+longer\s+(?:providing|provide))\b/i;
 const FORECAST_NOUN = /\b(?:guidance|outlook|forecast)\b/i;
 const ACCOUNTING_PREFIX = /\b(?:non[- ]GAAP|GAAP|adjusted)\s*$/i;
+const TABLE_UNITS = /^\(in (millions|billions)(?:, except [^)]+)?\)$/i;
+
+function tableMetric(label: string): GuidanceMetric | undefined {
+  return METRICS.find(([, pattern]) => {
+    const match = pattern.exec(label);
+    return match && (!match.index || ACCOUNTING_PREFIX.test(label.slice(0, match.index)))
+      && /^[\s%*]*$/.test(label.slice(match.index + match[0].length));
+  })?.[0];
+}
 const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 function endDate(text: string): string | null {
   const hit = text.match(/\b(?:quarter|year)\s+end(?:ing|ed|s)?\s+(?:(20\d{2}-\d{2}-\d{2})|([A-Za-z]+)\s+(\d{1,2}),?\s+(20\d{2}))/i);
@@ -167,7 +176,10 @@ export function extractManagementGuidance(attachments: { text: string; url: stri
     let scope: GuidanceTarget | null = null;
     let inOutlook = false;
     let tableUsdScale: number | undefined;
-    for (const raw of attachment.text.split(/\n+|(?<=[.!?])\s+(?=[A-Z])/)) {
+    // Existing HTML snapshots can have a line break inside a table cell.
+    const text = attachment.text.replace(/^([^\n|]+)\n(?=[ \t]*\|[ \t]*[^|\s])/gm,
+      (whole, label: string) => TABLE_UNITS.test(label.trim()) || tableMetric(label.trim()) ? label + " " : whole);
+    for (const raw of text.split(/\n+|(?<=[.!?])\s+(?=[A-Z])/)) {
       const evidence = raw.replace(/\s+/g, " ").trim();
       const line = evidence.replace(/\s*\|\s*/g, " ").replace(/\s+/g, " ");
       if (!line || line.length > 1800) continue;
@@ -187,18 +199,14 @@ export function extractManagementGuidance(attachments: { text: string; url: stri
       const ownTarget = parseGuidanceTarget(line);
       const cells = evidence.split("|").map(cell => cell.trim()).filter(Boolean);
       if (inOutlook && scope && cells.length >= 2) {
-        const units = cells[0].match(/^\(in (millions|billions)(?:, except [^)]+)?\)$/i);
+        const units = cells[0].match(TABLE_UNITS);
         const headerYear = cells[1].match(/^(?:FY\s*)?(20\d{2})\s+(?:financial\s+)?guidance\*?$/i)?.[1];
         if (units && headerYear && scope.horizon === "year" && scope.key.endsWith(headerYear)) {
           tableUsdScale = scale(units[1].slice(0, -1));
           continue;
         }
         if (tableUsdScale) {
-          const metric = METRICS.find(([, pattern]) => {
-            const match = pattern.exec(cells[0]);
-            return match && (!match.index || ACCOUNTING_PREFIX.test(cells[0].slice(0, match.index)))
-              && /^[\s%*]*$/.test(cells[0].slice(match.index + match[0].length));
-          })?.[0];
+          const metric = tableMetric(cells[0]);
           if (metric && /^[\s$\d,.%–—-]+$/.test(cells[1])) {
             const value = parseGuidanceValue(cells[1], metric, tableUsdScale);
             if (value) records.push({ metric, basis: basisOf(cells[0], metric), target: scope, value, status: "active", sourceUrl: attachment.url, evidence });

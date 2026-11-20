@@ -117,7 +117,7 @@ test("multi-metric outlook attributes separately quoted amounts and accounting b
 });
 
 test("annual guidance table assigns declared USD scale and leaves historical segment results out", () => {
-  const rows = parse("We revised full-year 2026 financial guidance.\nFinancial and Operational Highlights\nThe segment delivered revenue of $114.1 million in the second quarter of 2026.\nBelow is a table summarizing full-year 2026 financial guidance:\n(in millions, except percentages) | 2026 Guidance | FY 2026 Comments\nRevenue | $770 - $790 | Revised to reflect Q2 results.\nAdjusted Gross Margin %** | 66% - 67% | Gross margins may fluctuate.");
+  const rows = parse("We revised full-year 2026 financial guidance.\nFinancial and Operational Highlights\nThe segment delivered revenue of $114.1 million in the second quarter of 2026.\nBelow is a table summarizing full-year 2026 financial guidance*:\n | | |\n(in millions, except percentages)\n | 2026 Guidance\n | | FY 2026 Comments |\nRevenue | $770 - $790 | Revised to reflect Q2 results.\nAdjusted Gross Margin %**\n | 66% - 67% | Gross margins may fluctuate.");
   assert.deepEqual(rows.map(r => [r.metric, r.target.key, r.basis, r.value?.low, r.value?.high]), [
     ["revenue", "Y2026", "unspecified", 770e6, 790e6], ["grossMargin", "Y2026", "nonGaap", 66, 67],
   ]);
