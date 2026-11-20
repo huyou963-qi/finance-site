@@ -1,5 +1,5 @@
 /** Company-issued outlook only. Pure parser/projections; never analyst consensus or model estimates. */
-export const GUIDANCE_PARSER_VERSION = 2;
+export const GUIDANCE_PARSER_VERSION = 4;
 export type GuidanceMetric = "revenue" | "grossMargin" | "eps" | "operatingExpenses" | "operatingIncome" | "capex" | "ocf" | "fcf" | "netLeverage";
 export type GuidanceBasis = "gaap" | "nonGaap" | "company" | "unspecified";
 export type GuidanceTarget = {
@@ -37,6 +37,17 @@ const METRICS: [GuidanceMetric, RegExp][] = [
 ];
 const FORWARD = /\b(?:expect(?:s|ed)?|outlook|guidance|forecast|anticipate[sd]?|project(?:s|ed)?|target(?:s|ing)?|plan(?:s|ned)?)\b/i;
 const WITHDRAW = /\b(?:withdraw(?:s|n|ing)?|suspend(?:s|ed|ing)?|no\s+longer\s+(?:providing|provide))\b/i;
+const FORECAST_NOUN = /\b(?:guidance|outlook|forecast)\b/i;
+const ACCOUNTING_PREFIX = /\b(?:non[- ]GAAP|GAAP|adjusted)\s*$/i;
+const TABLE_UNITS = /^\(in (millions|billions)(?:, except [^)]+)?\)$/i;
+
+function tableMetric(label: string): GuidanceMetric | undefined {
+  return METRICS.find(([, pattern]) => {
+    const match = pattern.exec(label);
+    return match && (!match.index || ACCOUNTING_PREFIX.test(label.slice(0, match.index)))
+      && /^[\s%*]*$/.test(label.slice(match.index + match[0].length));
+  })?.[0];
+}
 const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 function endDate(text: string): string | null {
   const hit = text.match(/\b(?:quarter|year)\s+end(?:ing|ed|s)?\s+(?:(20\d{2}-\d{2}-\d{2})|([A-Za-z]+)\s+(\d{1,2}),?\s+(20\d{2}))/i);
@@ -49,16 +60,19 @@ function endDate(text: string): string | null {
 export function parseGuidanceTarget(text: string): GuidanceTarget | null {
   const end = endDate(text);
   const q = text.match(/\b(first|second|third|fourth|[1-4](?:st|nd|rd|th))\s+quarter\s+(?:of\s+)?(?:(fiscal|calendar)\s+(?:year\s+)?)?(20\d{2})\b/i)
+    ?? text.match(/\b(first|second|third|fourth|[1-4](?:st|nd|rd|th))\s+(fiscal|calendar)\s+quarter\s+(?:of\s+)?(20\d{2})\b/i)
     ?? text.match(/\bQ([1-4])\s*(FY|CY)?\s*(20\d{2})\b/i);
   if (q) {
     const number = ({ first: "1", second: "2", third: "3", fourth: "4" } as Record<string, string>)[q[1].toLowerCase()] ?? q[1][0];
     const basis = /^(?:fiscal|FY)$/i.test(q[2] ?? "") ? "FY" : /^(?:calendar|CY)$/i.test(q[2] ?? "") ? "CY" : "Y";
     return { key: `${basis}${q[3]}Q${number}`, label: `${basis === "Y" ? "" : basis}${q[3]} Q${number}`, horizon: "quarter", endDate: end };
   }
-  const year = text.match(/\b(fiscal\s+(?:year\s+)?|FY\s*|calendar\s+year\s+|full[- ]year\s+)(20\d{2})\b/i);
+  const year = text.match(/\b(fiscal\s+(?:year\s+)?|FY\s*|calendar\s+year\s+|full[- ]year\s+)(20\d{2})\b/i)
+    ?? text.match(/\b(FY)\s*(\d{2})\b/i);
   if (year && !/\bquarter\b|\bQ[1-4]\b/i.test(text)) {
     const basis = /fiscal|FY/i.test(year[1]) ? "FY" : /calendar/i.test(year[1]) ? "CY" : "Y";
-    return { key: `${basis}${year[2]}`, label: `${basis === "Y" ? "" : basis}${year[2]} 全年`, horizon: "year", endDate: end };
+    const number = year[2].length === 2 ? `20${year[2]}` : year[2];
+    return { key: `${basis}${number}`, label: `${basis === "Y" ? "" : basis}${number} 全年`, horizon: "year", endDate: end };
   }
   if (end) return { key: `${/\bquarter\b/i.test(text) ? "Q" : "FY"}:${end}`, label: `截至 ${end} 的${/\bquarter\b/i.test(text) ? "季度" : "全年"}`, endDate: end, horizon: /\bquarter\b/i.test(text) ? "quarter" : "year" };
   return null;
@@ -72,7 +86,7 @@ const NUM = "(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d+)?";
 const MONEY = new RegExp(`^\\$?\\s*(${NUM})\\s*(billion|million|bn|[BM])?\\b`, "i");
 const scale = (unit?: string) => /^(billion|bn|b)$/i.test(unit ?? "") ? 1e9 : /^(million|m)$/i.test(unit ?? "") ? 1e6 : 1;
 /** Deliberately narrow grammar. Ambiguous growth, currencies, multiple metrics or negative EPS remain quotes. */
-export function parseGuidanceValue(after: string, metric: GuidanceMetric): GuidanceValue | null {
+export function parseGuidanceValue(after: string, metric: GuidanceMetric, tableUsdScale?: number): GuidanceValue | null {
   if (/growth|increase|decrease|decline|versus|compared|respectively|€|£|\b(?:EUR|GBP|CAD|AUD)\b/i.test(after)) return null;
   let text = after.replace(/^\s*(?:\|\s*)?/, "").replace(/^(?:(?:is|are|will\s+be)\s+)?(?:(?:now\s+)?(?:expected|anticipated|forecast|projected)\s+(?:to\s+be\s+|at\s+)?)?(?:in\s+the\s+range\s+of\s+|between\s+|of\s+|to\s+be\s+|to\s+)?/i, "").trim();
   const qualifierMatch = text.match(/^(approximately|about|around|at\s+least|at\s+most|no\s+more\s+than|exceed|above|over|below|under)\s+/i);
@@ -85,14 +99,15 @@ export function parseGuidanceValue(after: string, metric: GuidanceMetric): Guida
   const rest = text.slice(first[0].length);
   const range = rest.match(new RegExp(`^\\s*(?:%|x|times)?\\s*(?:to|and|[-–—])\\s*\\$?\\s*(${NUM})\\s*(billion|million|bn|[BM])?`, "i"));
   const number = Number(first[1].replace(/,/g, ""));
-  const low = number * (unit === "USD" ? scale(first[2] ?? range?.[2]) : 1);
-  if (unit === "USD" && !first[2] && !range?.[2]) return null;
+  const moneyScale = first[2] ?? range?.[2];
+  const low = number * (unit === "USD" ? moneyScale ? scale(moneyScale) : tableUsdScale ?? 1 : 1);
+  if (unit === "USD" && !moneyScale && tableUsdScale == null) return null;
   if (unit === "USD/share" && !/^\$/.test(text)) return null;
   if (unit === "percent" && !/%/.test(text.slice(0, first[0].length + (range?.[0].length ?? 0) + 3))) return null;
   if (unit === "multiple" && !/\b(?:x|times)\b/.test(text)) return null;
   if (!Number.isFinite(low)) return null;
   if (range) {
-    const high = Number(range[1].replace(/,/g, "")) * (unit === "USD" ? scale(range[2] ?? first[2]) : 1);
+    const high = Number(range[1].replace(/,/g, "")) * (unit === "USD" ? moneyScale ? scale(range[2] ?? first[2]) : tableUsdScale ?? 1 : 1);
     if (!Number.isFinite(high) || high < low || qualifier !== "point") return null;
     return { low, high, point: null, unit, qualifier: "range" };
   }
@@ -108,33 +123,122 @@ export function parseGuidanceValue(after: string, metric: GuidanceMetric): Guida
     point: ["point", "approximate"].includes(qualifier) ? low : null, qualifier, unit };
 }
 
+/** Use the grammatical object of the withdrawal, excluding neighboring disclosures. */
+function withdrawalScope(line: string): string | null {
+  const action = WITHDRAW.exec(line);
+  if (!action) return null;
+  const before = line.slice(0, action.index);
+  if (/\b(?:not|never|if|whether|may|might|could|previously|consider(?:s|ed|ing)?)\b/i.test(before)) return null;
+  const after = line.slice(action.index + action[0].length);
+  if (/^\s+(?:from|to)\b/i.test(after)) return null;
+  const object = after.split(/;\s+|,\s+(?=which|because|while|but)\b|\s+and\s+(?:(?:is|are|will be)\s+)?(?:provid\w*|updat\w*|reaffirm\w*|maintain\w*|replac\w*)\b/i)[0];
+  if (/\b(?:except|exception|other than|unless)\b/i.test(after)) return null;
+  const noun = FORECAST_NOUN.exec(object);
+  if (noun && !/\b(?:which|because|that|resulting|resulted|due to)\b/i.test(object.slice(0, noun.index))) {
+    const end = noun.index + noun[0].length;
+    const suffix = object.slice(end);
+    // Permit a trailing period or an explicitly enumerated list, not incidental metrics.
+    return /^\s*[, ]?\s*including\b/i.test(suffix) ? object : object.slice(0, end) + (parseGuidanceTarget(suffix) ? suffix.replace(/\s*\b(?:and|while|but)\b.*$/i, "") : "");
+  }
+  // Passive voice and table rows, e.g. "FY2020 EPS guidance: withdrawn".
+  if (/^\s*[.!?\s]*$/.test(after) && FORECAST_NOUN.test(before)) return before;
+  return null;
+}
+
+/** Partition a coordinated forecast only when each metric has its own value. */
+function coordinatedValues(line: string, target: GuidanceTarget): Pick<GuidanceRecord, "metric" | "basis" | "value">[] {
+  if (target.horizon === "unknown") return [];
+  const lead = line.match(/\b(?:we|the company)\s+(?:expect|expects|anticipate|anticipates|forecast|forecasts)\s+/i);
+  if (!lead || /\b(?:not|if|would|could|unless)\b/i.test(line)) return [];
+  const body = line.slice(lead.index! + lead[0].length)
+    .replace(/,\s*(?:up|down)\s+[\d.]+%?\s+and\s+[\d.]+\s*(?:%|percent)\s+year[- ]over[- ]year,?\s+respectively[.!?"”]*$/i, "");
+  if (/\b(?:quarter|fiscal|full[- ]year|Q[1-4]|FY\d{2,4}|prior|previous|reported|actual)\b/i.test(body)) return [];
+  const metrics = METRICS.flatMap(([metric, pattern]) => {
+    const match = pattern.exec(body);
+    if (!match) return [];
+    const prefix = ACCOUNTING_PREFIX.exec(body.slice(0, match.index));
+    return [{ metric, start: prefix?.index ?? match.index, end: match.index + match[0].length, basis: basisOf(prefix?.[0] ?? "", metric) }];
+  }).sort((a, b) => a.start - b.start);
+  if (metrics.length < 2 || body.slice(0, metrics[0].start).trim()) return [];
+  const values = metrics.map(({ metric, basis, end }, i) => {
+    const next = metrics[i + 1];
+    const span = body.slice(end, next?.start);
+    if (next && !/(?:,|\band|\bwith)\s*$/i.test(span)) return { metric, basis, value: null };
+    return { metric, basis, value: parseGuidanceValue(span.replace(/(?:,|\band|\bwith)[\s,]*$/i, ""), metric) };
+  });
+  return values.every(row => row.value !== null) ? values : [];
+}
+
 export function extractManagementGuidance(attachments: { text: string; url: string }[]): GuidanceRecord[] {
   const records: GuidanceRecord[] = [];
   for (const attachment of attachments) {
     if (!/^https:\/\/www\.sec\.gov\/Archives\//.test(attachment.url)) continue;
     let scope: GuidanceTarget | null = null;
     let inOutlook = false;
-    for (const raw of attachment.text.split(/\n+|(?<=[.!?])\s+(?=[A-Z])/)) {
+    let tableUsdScale: number | undefined;
+    // Existing HTML snapshots can have a line break inside a table cell.
+    const text = attachment.text.replace(/^([^\n|]+)\n(?=[ \t]*\|[ \t]*[^|\s])/gm,
+      (whole, label: string) => TABLE_UNITS.test(label.trim()) || tableMetric(label.trim()) ? label + " " : whole);
+    for (const raw of text.split(/\n+|(?<=[.!?])\s+(?=[A-Z])/)) {
       const evidence = raw.replace(/\s+/g, " ").trim();
       const line = evidence.replace(/\s*\|\s*/g, " ").replace(/\s+/g, " ");
       if (!line || line.length > 1800) continue;
-      if (/forward[- ]looking\s+statements|safe\s+harbor|reconciliation|consolidated\s+(?:statements|balance)|results\s+of\s+operations/i.test(line) || /^(?:highlights|business highlights|CFO commentary|conference call|non[- ]GAAP measures|about\s)/i.test(line)) { scope = null; inOutlook = false; continue; }
+      if (/forward[- ]looking\s+statements|safe\s+harbor|reconciliation|consolidated\s+(?:statements|balance)|results\s+of\s+operations/i.test(line) || /^(?:highlights|(?:business|financial(?: and operational)?) highlights|CFO commentary|conference call|non[- ]GAAP measures|about\s)/i.test(line)) { scope = null; inOutlook = false; tableUsdScale = undefined; continue; }
+      if (WITHDRAW.test(line)) {
+        const object = withdrawalScope(line);
+        if (!object) continue;
+        const target = parseGuidanceTarget(object) ?? (inOutlook && !/\b(?:20\d{2}|FY\s*\d{2,4}|(?:prior|last|next|previous|full)[ -](?:quarter|year))\b/i.test(object) ? scope : null);
+        const metrics = METRICS.filter(([, pattern]) => pattern.test(object));
+        // A withdrawal must identify both the covered metric(s) and period to affect a version.
+        if (metrics.length !== 1 && /non[- ]GAAP|adjusted|\bGAAP\b/i.test(object)) continue;
+        if (target) for (const [metric] of metrics) {
+          records.push({ metric, basis: basisOf(object, metric), target, value: null, status: "withdrawn", sourceUrl: attachment.url, evidence });
+        }
+        continue;
+      }
       const ownTarget = parseGuidanceTarget(line);
+      const cells = evidence.split("|").map(cell => cell.trim()).filter(Boolean);
+      if (inOutlook && scope && cells.length >= 2) {
+        const units = cells[0].match(TABLE_UNITS);
+        const headerYear = cells[1].match(/^(?:FY\s*)?(20\d{2})\s+(?:financial\s+)?guidance\*?$/i)?.[1];
+        if (units && headerYear && scope.horizon === "year" && scope.key.endsWith(headerYear)) {
+          tableUsdScale = scale(units[1].slice(0, -1));
+          continue;
+        }
+        if (tableUsdScale) {
+          const metric = tableMetric(cells[0]);
+          if (metric && /^[\s$\d,.%–—-]+$/.test(cells[1])) {
+            const value = parseGuidanceValue(cells[1], metric, tableUsdScale);
+            if (value) records.push({ metric, basis: basisOf(cells[0], metric), target: scope, value, status: "active", sourceUrl: attachment.url, evidence });
+            if (value) continue;
+          }
+          tableUsdScale = undefined;
+        }
+      } else if (!evidence.startsWith("|")) {
+        tableUsdScale = undefined;
+      }
       const heading = /outlook|guidance|forecast/i.test(line) && line.length < 220 && (ownTarget || !METRICS.some(([, pattern]) => pattern.test(line)));
       if (heading) { scope = ownTarget; inOutlook = true; }
       const hits = METRICS.map(([metric, pattern]) => ({ metric, hit: line.match(pattern) })).filter(x => x.hit);
-      if (!hits.length || !(inOutlook || FORWARD.test(line) || WITHDRAW.test(line))) continue;
+      if (!hits.length || !(inOutlook || FORWARD.test(line))) continue;
       if (/\bassum(?:e[sd]?|ing|ptions?)\b/i.test(line) && !/\b(?:expect|expects|expected|guidance|forecast|target)\b/i.test(line)) continue;
-      if (!FORWARD.test(line) && !WITHDRAW.test(line) && /\b(?:was|were|reported|increased|grew)\b/i.test(line)) continue;
+      if (!FORWARD.test(line) && /\b(?:was|were|reported|delivered|generated|recorded|increased|grew|decreased)\b/i.test(line)) continue;
       // A new explicit period wins; never carry a quarter into an explicit annual statement.
       const unresolved = { key: "unresolved", label: "目标财期待确认", horizon: "unknown" as const, endDate: null };
       const ambiguousPeriod = /\b20\d{2}\b|\b(?:next|following|full|previous|last)[ -](?:quarter|year)\b|\bexit\s+(?:the\s+)?year\b/i.test(line) && !ownTarget;
       const target = ownTarget ?? (ambiguousPeriod ? unresolved : scope) ?? unresolved;
+      if (hits.length > 1) {
+        const values = coordinatedValues(line, target);
+        if (values.length) {
+          records.push(...values.map(value => ({ ...value, target, status: "active" as const, sourceUrl: attachment.url, evidence })));
+          continue;
+        }
+      }
       for (const { metric, hit } of hits) {
         const mixed = hits.length > 1 || /GAAP\s+and\s+non[- ]GAAP/i.test(line);
         const after = line.slice(hit!.index! + hit![0].length);
         const pair = hits.length === 1 && /\bGAAP\s+and\s+non[- ]GAAP/i.test(line) && after.match(/^(.*?)\band\b(.*?),?\s*respectively\b(.*)$/i);
-        if (pair && target.horizon !== "unknown" && !WITHDRAW.test(line)) {
+        if (pair && target.horizon !== "unknown") {
           for (const [basis, part] of [["gaap", pair[1]], ["nonGaap", pair[2]]] as const) {
             const prefix = basis === "nonGaap" && /approximately|about|around/i.test(pair[1]) ? "approximately " : "";
             const value = parseGuidanceValue(`${prefix}${part.trim()}${pair[3]}`, metric);
@@ -142,15 +246,14 @@ export function extractManagementGuidance(attachments: { text: string; url: stri
           }
           continue;
         }
-        if (hits.length === 1 && /\bGAAP\s+and\s+non[- ]GAAP/i.test(line) && !/\band\b|respectively/i.test(after) && target.horizon !== "unknown" && !WITHDRAW.test(line)) {
+        if (hits.length === 1 && /\bGAAP\s+and\s+non[- ]GAAP/i.test(line) && !/\band\b|respectively/i.test(after) && target.horizon !== "unknown") {
           const value = parseGuidanceValue(after, metric);
           for (const basis of ["gaap", "nonGaap"] as const) records.push({ metric, basis, target, value, status: value ? "active" : "unparsed", sourceUrl: attachment.url, evidence: evidence.slice(0, 1800) });
           continue;
         }
-        const withdrawn = WITHDRAW.test(line);
-        const value = withdrawn || mixed || target.horizon === "unknown" ? null : parseGuidanceValue(after, metric);
+        const value = mixed || target.horizon === "unknown" ? null : parseGuidanceValue(after, metric);
         records.push({ metric, basis: mixed ? "unspecified" : basisOf(line, metric), target, value,
-          status: withdrawn ? "withdrawn" : value ? "active" : "unparsed", sourceUrl: attachment.url, evidence: evidence.slice(0, 1800) });
+          status: value ? "active" : "unparsed", sourceUrl: attachment.url, evidence: evidence.slice(0, 1800) });
       }
     }
   }
