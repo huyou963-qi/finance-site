@@ -27,6 +27,17 @@ test("lightweight collection follows typed exhibits, refusing external hosts, tr
   assert.equal(files[0].filename, 'earnings.htm');
 });
 
+test("index accepts joint filer exhibits for the same accession and keeps the true SEC URL", () => {
+  const accession = "0000764622-26-000040";
+  const base = "/Archives/edgar/data/7286/000076462226000040/";
+  const row = (href: string, type: string) => `<tr><td>2</td><td>Exhibit</td><td><a href="${href}">source</a></td><td>${type}</td></tr>`;
+  const source = row(base + "press.htm", "EX-99.1") + row(base + "release.txt", "EX-99.A")
+    + row(base + "charter.htm", "EX-99.1 CHARTER") + row(base + "%2e%2e/other.htm", "EX-99.2")
+    + row(base.replace("000040", "000041") + "other.htm", "EX-99.3");
+  assert.deepEqual(releaseExhibitsFromIndex(source, "764622", accession).map(exhibit => exhibit.url),
+    ["https://www.sec.gov" + base + "press.htm", "https://www.sec.gov" + base + "release.txt"]);
+});
+
 test("overlapping backfill responses retain one shared 250ms request-start budget", async () => {
   const previous = process.env.SEC_BACKFILL_CONCURRENCY;
   process.env.SEC_BACKFILL_CONCURRENCY = "3";

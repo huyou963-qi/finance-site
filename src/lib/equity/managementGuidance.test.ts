@@ -92,6 +92,37 @@ test("conflicting numbers in same filing never arbitrarily select a numeric valu
   assert.equal(buildGuidanceSeries([a, { ...b, accession: "other", id: "other" }])[0].latest.status, "unparsed");
 });
 
+test("withdrawal must apply to the named metric and period", () => {
+  const outlook = "Outlook for fiscal year 2026\n";
+  for (const line of [
+    "Capital expenditures were reduced, and we suspended share repurchases.",
+    "We suspended shipments, which will reduce forecast revenue.",
+    "The company is suspending its previous full-year 2026 Adjusted EBITDA guidance and is providing full-year 2026 financial guidance only with respect to Revenue and Adjusted Gross Margin.",
+    "We are withdrawing our previously issued guidance for metrics other than revenue and operating expenses.",
+    "We are not withdrawing our FY2026 revenue guidance.",
+    "We may withdraw our FY2026 revenue guidance.",
+  ]) assert.equal(parse(outlook + line).length, 0, line);
+  const rows = parse("We are withdrawing our previously communicated full year revenue guidance for fiscal year 2020.");
+  assert.deepEqual(rows.map(r => [r.metric, r.target.key, r.status]), [["revenue", "FY2020", "withdrawn"]]);
+  const replacement = parse("The company is withdrawing its FY24 revenue and earnings outlook and updating its FY24 free cash flow guidance.");
+  assert.deepEqual(replacement.map(r => [r.metric, r.target.key, r.status]), [["revenue", "FY2024", "withdrawn"]]);
+});
+
+test("multi-metric outlook attributes separately quoted amounts and accounting basis", () => {
+  const rows = parse("Specifically, for the third fiscal quarter of 2017, we anticipate revenue of $890 million and non-GAAP diluted earnings per share of $1.52, up 18 and 23 percent year-over-year, respectively.");
+  assert.deepEqual(rows.map(r => [r.target.key, r.metric, r.basis, r.value?.point]), [
+    ["FY2017Q3", "revenue", "unspecified", 890e6], ["FY2017Q3", "eps", "nonGaap", 1.52],
+  ]);
+  assert.equal(parse("For Q3 FY2026, we expect revenue and EPS growth of 10% and 12%, respectively.").some(r => r.value), false);
+});
+
+test("annual guidance table assigns declared USD scale and leaves historical segment results out", () => {
+  const rows = parse("We revised full-year 2026 financial guidance.\nFinancial and Operational Highlights\nThe segment delivered revenue of $114.1 million in the second quarter of 2026.\nBelow is a table summarizing full-year 2026 financial guidance:\n(in millions, except percentages) | 2026 Guidance | FY 2026 Comments\nRevenue | $770 - $790 | Revised to reflect Q2 results.\nAdjusted Gross Margin %** | 66% - 67% | Gross margins may fluctuate.");
+  assert.deepEqual(rows.map(r => [r.metric, r.target.key, r.basis, r.value?.low, r.value?.high]), [
+    ["revenue", "Y2026", "unspecified", 770e6, 790e6], ["grossMargin", "Y2026", "nonGaap", 66, 67],
+  ]);
+});
+
 test("one paragraph can contain quarterly expense amounts followed by a separate annual growth target", () => {
   const records = parse("Outlook for the third quarter of fiscal 2026\nGAAP and non-GAAP operating expenses are expected to be approximately $5.9 billion and $4.2 billion, respectively. Full year fiscal 2026 operating expense growth is expected to be in the high-30% range.");
   assert.equal(records[0].target.key, "FY2026Q3");

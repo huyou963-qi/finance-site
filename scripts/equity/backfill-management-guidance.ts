@@ -16,8 +16,10 @@ const has = (name: string) => process.argv.includes(name);
 type Issuer = { cik: string; symbol: string; symbols: string[]; from: string };
 async function main() {
   const symbols = arg("--symbols")?.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+  const accessions = arg("--accessions")?.split(",").map(s => s.trim());
   const allCovered = has("--all-covered"), apply = has("--apply"), discover = has("--discover"), fetchMissing = has("--fetch-missing");
   if ((!allCovered && !symbols?.length) || (allCovered && symbols) || symbols?.some(s => !/^[A-Z0-9.-]{1,16}$/.test(s))) throw new Error("指定 --all-covered 或 --symbols=NVDA,AAPL，不能同时使用");
+  if (accessions && (allCovered || discover || accessions.some(a => !/^\d{10}-\d{2}-\d{6}$/.test(a)))) throw new Error("--accessions 仅用于指定股票的既有公告");
   const limit = arg("--limit") ? Number(arg("--limit")) : allCovered ? Infinity : 20;
   if (limit !== Infinity && (!Number.isInteger(limit) || limit < 1 || limit > 100_000)) throw new Error("--limit 必须为 1–100000");
   const requestedConcurrency = Number(arg("--concurrency") ?? 1);
@@ -84,7 +86,7 @@ async function main() {
     let cursor: string | undefined;
     for (;;) {
       const rows = await prisma.secFiling.findMany({
-        where: { cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" }, filedAt: { lte: new Date(through), ...(explicitFrom ? { gte: new Date(explicitFrom) } : {}) } },
+        where: { cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" }, ...(accessions ? { accession: { in: accessions } } : {}), filedAt: { lte: new Date(through), ...(explicitFrom ? { gte: new Date(explicitFrom) } : {}) } },
         orderBy: { id: "asc" }, take: Math.min(25, limit - stats.visited), ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         select: { id: true, accession: true, filedAt: true, earningsRelease: true, items: true },
       });
@@ -105,7 +107,7 @@ async function main() {
               catch (error) { lastError = error; }
             }
             if (!evidence) throw lastError ?? new Error("公告附件不可用");
-            release = { ...release, attachments: evidence.attachments, publication: evidence.publication };
+            release = { ...release, attachments: evidence.attachments, publication: evidence.publication ?? release.publication };
             attachments = evidence.attachments; fetched = true; truncated = false;
           }
           if (!attachments.length && !fetched) { stats.pending++; continue; }

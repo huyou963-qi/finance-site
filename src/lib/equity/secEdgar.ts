@@ -9,6 +9,7 @@ const TRANSIENT_CODES = new Set([
   "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET",
 ]);
 let tail: Promise<unknown> = Promise.resolve();
+let startTail: Promise<void> = Promise.resolve();
 let lastRequest = 0;
 let backfillActive = 0;
 const backfillWaiting: (() => void)[] = [];
@@ -38,16 +39,21 @@ export async function fetchSecText(url: string, timeoutMs = 30000, fetchImpl: ty
   const concurrency = Math.max(1, Math.min(3, Math.floor(Number(process.env.SEC_BACKFILL_CONCURRENCY) || 1)));
   const execute = async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
-      // Reserve starts synchronously: overlapping responses must never increase the 4 requests/sec budget.
-      const start = Math.max(Date.now(), lastRequest + 250);
-      lastRequest = start;
-      await new Promise(r => setTimeout(r, Math.max(0, start - Date.now())));
       let retryAfterMs = Math.min(10_000, 1000 * 2 ** attempt);
       try {
-        const response = await fetchImpl(url, { headers: {
-          "User-Agent": process.env.SEC_USER_AGENT?.trim() || "hblook.com ownership-research admin@hblook.com",
-          Accept: "application/json, application/xml, text/html",
-        }, signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
+        // Serialize actual starts, including delayed timers, while responses can overlap.
+        const start = startTail.then(async () => {
+          while (Date.now() < lastRequest + 250) {
+            await new Promise(r => setTimeout(r, Math.max(0, lastRequest + 250 - Date.now())));
+          }
+          lastRequest = Date.now();
+          return { response: fetchImpl(url, { headers: {
+            "User-Agent": process.env.SEC_USER_AGENT?.trim() || "hblook.com ownership-research admin@hblook.com",
+            Accept: "application/json, application/xml, text/html, text/plain",
+          }, signal: AbortSignal.timeout(timeoutMs), cache: "no-store" }) };
+        });
+        startTail = start.then(() => {}, () => {});
+        const response = await (await start).response;
         if (response.ok) return response.text();
         if (!RETRYABLE_HTTP.has(response.status) || attempt === 2) throw new Error(`SEC HTTP ${response.status}`);
         const retry = Number(response.headers.get("retry-after"));
@@ -105,6 +111,22 @@ export async function fetchSecDailyIndex(day: string) {
 }
 
 export type SecReleaseAttachment = { filename: string; url: string; text: string };
+const RELEASE_EXHIBIT_TYPE = /^EX-99(?:\.[A-Z0-9]+)?$/i;
+const RELEASE_EXHIBIT_FILE = /^[\w.-]+\.(?:html?|txt)$/i;
+
+function releaseAttachment(filename: string, url: string, body: string): SecReleaseAttachment {
+  if (/\.txt$/i.test(filename)) return { filename, url, text: body.trim().slice(0, 160_000) };
+  const plain = sanitizeHtml(body.replace(/<\/(?:td|th)>/gi, " | ")
+    .replace(/<\/(?:p|div|tr|h[1-6])>|<br\s*\/?\s*>/gi, "\n"), {
+    allowedTags: [], allowedAttributes: {},
+  }).replace(/&#(x[\da-f]+|\d+);/gi, (encoded, code: string) => {
+    const point = code[0].toLowerCase() === "x" ? parseInt(code.slice(1), 16) : Number(code);
+    return point <= 0x10ffff ? String.fromCodePoint(point) : encoded;
+  }).replace(/&(nbsp|amp|lt|gt|quot|apos);/gi, (_, name: string) =>
+    ({ nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[name.toLowerCase()] ?? _))
+    .replace(/[ \t]+/g, " ").replace(/\n\s*\n/g, "\n").trim();
+  return { filename, url, text: plain.slice(0, 160_000) };
+}
 /** Keep attachment evidence separate from standardized GAAP metrics. Never render source HTML. */
 export function parseSecReleaseAttachments(source: string, cik: string, accession: string): SecReleaseAttachment[] {
   const attachments: SecReleaseAttachment[] = [];
@@ -112,18 +134,9 @@ export function parseSecReleaseAttachments(source: string, cik: string, accessio
     const document = match[1];
     const type = document.match(/<TYPE>\s*([^\r\n<]+)/i)?.[1]?.trim();
     const filename = document.match(/<FILENAME>\s*([^\r\n<]+)/i)?.[1]?.trim();
-    if (!type?.match(/^EX-99(?:\.\d+)?$/i) || !filename || !/^[\w.-]+\.html?$/i.test(filename)) continue;
+    if (!type || !RELEASE_EXHIBIT_TYPE.test(type) || !filename || !RELEASE_EXHIBIT_FILE.test(filename)) continue;
     const body = document.match(/<TEXT>([\s\S]*?)(?:<\/TEXT>|$)/i)?.[1] ?? "";
-    const plain = sanitizeHtml(body.replace(/<\/(?:td|th)>/gi, " | ")
-      .replace(/<\/(?:p|div|tr|h[1-6])>|<br\s*\/?\s*>/gi, "\n"), {
-      allowedTags: [], allowedAttributes: {},
-    }).replace(/&#(x[\da-f]+|\d+);/gi, (encoded, code: string) => {
-      const point = code[0].toLowerCase() === "x" ? parseInt(code.slice(1), 16) : Number(code);
-      return point <= 0x10ffff ? String.fromCodePoint(point) : encoded;
-    }).replace(/&(nbsp|amp|lt|gt|quot|apos);/gi, (_, name: string) =>
-      ({ nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" }[name.toLowerCase()] ?? _))
-      .replace(/[ \t]+/g, " ").replace(/\n\s*\n/g, "\n").trim();
-    attachments.push({ filename, url: secDocumentUrl(cik, accession, filename), text: plain.slice(0, 160_000) });
+    attachments.push(releaseAttachment(filename, secDocumentUrl(cik, accession, filename), body));
     if (attachments.length === 5) break;
   }
   return attachments;
@@ -232,13 +245,20 @@ export function releaseExhibitsFromIndex(source: string, cik: string, accession:
   const base = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/`;
   const exhibits: { type: string; filename: string; url: string }[] = [];
   for (const row of source.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
-    const type = row[1].match(/<td\b[^>]*>\s*(EX-99(?:\.\d+)?)\s*<\/td>/i)?.[1];
-    if (!type) continue;
-    const href = row[1].match(/<a\b[^>]*href=["']([^"']+)["']/i)?.[1];
+    const cells = [...row[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)];
+    const type = cells[3]?.[1].trim();
+    if (!type || !RELEASE_EXHIBIT_TYPE.test(type) || /\bcharter\b/i.test(cells[1][1])) continue;
+    const href = cells[2][1].match(/<a\b[^>]*href=["']([^"']+)["']/i)?.[1];
     if (!href) continue;
-    const url = new URL(href.replace(/&amp;/g, "&"), base);
-    const filename = url.pathname.slice(base.replace("https://www.sec.gov", "").length);
-    if (!url.href.startsWith(base) || !/^[\w.-]+\.html?$/i.test(filename) || url.search || url.hash) continue;
+    // EDGAR can file exhibits under a joint filer's CIK. Trust only links from
+    // the SEC index with the exact accession directory, on the same SEC origin.
+    if (href.split(/[/?#]/).includes("..") || href.includes("\\") || /%/i.test(href)) continue;
+    let url: URL;
+    try { url = new URL(href, base); } catch { continue; }
+    const path = url.pathname.match(/^\/Archives\/edgar\/data\/\d{1,10}\/(\d{18})\/([^/]+)$/);
+    const filename = path?.[2];
+    if (url.origin !== "https://www.sec.gov" || url.username || url.password || url.search || url.hash
+      || path?.[1] !== accession.replace(/-/g, "") || !filename || !RELEASE_EXHIBIT_FILE.test(filename)) continue;
     exhibits.push({ type, filename, url: url.href });
   }
   return [...new Map(exhibits.map(e => [e.url, e])).values()].slice(0, 5);
@@ -248,10 +268,14 @@ export async function fetchSecReleaseEvidenceByIndex(cik: string, accession: str
   const source = await fetchSecText(indexUrl, 60_000);
   if (!/Document\s+Format\s+Files|tableFile/i.test(source)) throw new Error("SEC filing index 格式异常");
   const exhibits = releaseExhibitsFromIndex(source, cik, accession);
-  const documents: string[] = [];
+  const attachments: SecReleaseAttachment[] = [];
+  const publications: ReleasePublication[] = [];
   for (const exhibit of exhibits) {
     const body = await fetchSecText(exhibit.url, 60_000);
-    documents.push(`<DOCUMENT>\n<TYPE>${exhibit.type}\n<FILENAME>${exhibit.filename}\n<TEXT>${body}</TEXT>\n</DOCUMENT>`);
+    attachments.push(releaseAttachment(exhibit.filename, exhibit.url, body));
+    const publication = parseReleasePublication(body, exhibit.url, filedAt);
+    if (publication) publications.push(publication);
   }
-  return parseSecReleaseEvidence(documents.join("\n"), cik, accession, filedAt);
+  const unique = new Set(publications.map(publication => publication.at ?? publication.date));
+  return { attachments, publication: unique.size === 1 ? publications[0] : null };
 }
