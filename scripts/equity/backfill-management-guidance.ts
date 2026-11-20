@@ -18,8 +18,10 @@ async function main() {
   const symbols = arg("--symbols")?.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
   const accessions = arg("--accessions")?.split(",").map(s => s.trim());
   const allCovered = has("--all-covered"), apply = has("--apply"), discover = has("--discover"), fetchMissing = has("--fetch-missing");
+  const retryUnavailable = has("--retry-unavailable");
   if ((!allCovered && !symbols?.length) || (allCovered && symbols) || symbols?.some(s => !/^[A-Z0-9.-]{1,16}$/.test(s))) throw new Error("指定 --all-covered 或 --symbols=NVDA,AAPL，不能同时使用");
   if (accessions && (allCovered || discover || accessions.some(a => !/^\d{10}-\d{2}-\d{6}$/.test(a)))) throw new Error("--accessions 仅用于指定股票的既有公告");
+  if (retryUnavailable && (!fetchMissing || discover)) throw new Error("--retry-unavailable 需配合 --fetch-missing，只处理已登记公告");
   const limit = arg("--limit") ? Number(arg("--limit")) : allCovered ? Infinity : 20;
   if (limit !== Infinity && (!Number.isInteger(limit) || limit < 1 || limit > 100_000)) throw new Error("--limit 必须为 1–100000");
   const requestedConcurrency = Number(arg("--concurrency") ?? 1);
@@ -65,13 +67,14 @@ async function main() {
     else issuers.set(cik, { cik, symbol: security.symbol, symbols: [security.symbol], from });
   }
   const stats = { coveredSymbols: covered.size, eligibleIssuers: issuers.size, missingCik: [...new Set(missingCik)].sort(), issuersDone: 0,
-    discovered: 0, visited: 0, changed: 0, ready: 0, pending: 0, noEligibleAttachment: 0, legacyTruncated: 0, records: 0, failed: 0,
-    apply, discover, fetchMissing, concurrency, through, limited: limit !== Infinity, parserVersion: GUIDANCE_PARSER_VERSION, startedAt: new Date().toISOString() };
+    discovered: 0, visited: 0, changed: 0, ready: 0, pending: 0, recoveredAttachments: 0, noEligibleAttachment: 0, legacyTruncated: 0, records: 0, failed: 0,
+    apply, discover, fetchMissing, retryUnavailable, concurrency, through, limited: limit !== Infinity, parserVersion: GUIDANCE_PARSER_VERSION, startedAt: new Date().toISOString() };
   function snapshot(phase: string) {
     fs.writeFileSync(`${report}.summary.tmp`, JSON.stringify({ ...stats, phase, updatedAt: new Date().toISOString() }, null, 2));
     fs.renameSync(`${report}.summary.tmp`, `${report}.summary.json`);
   }
   snapshot("running"); console.log(JSON.stringify({ event: "start", ...stats }));
+  let accessDenied = false;
   const processIssuer = async (issuer: Issuer) => {
     if (stats.visited >= limit) return;
     if (discover && (!checkpoints.has(issuer.cik) || checkpoints.get(issuer.cik)! > issuer.from)) {
@@ -84,27 +87,37 @@ async function main() {
       } catch (e) { stats.failed++; log({ phase: "discovery", cik: issuer.cik, from: issuer.from, status: "error", error: e instanceof Error ? e.message : String(e) }); }
     }
     let cursor: string | undefined;
-    for (;;) {
+    while (!accessDenied) {
       const rows = await prisma.secFiling.findMany({
-        where: { cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" }, ...(accessions ? { accession: { in: accessions } } : {}), filedAt: { lte: new Date(through), ...(explicitFrom ? { gte: new Date(explicitFrom) } : {}) } },
+        where: {
+          cik: issuer.cik, form: { in: ["8-K", "8-K/A"] }, items: { contains: "2.02" },
+          ...(accessions ? { accession: { in: accessions } } : {}),
+          ...(retryUnavailable ? { earningsRelease: { path: ["managementGuidance", "sourceStatus"], equals: "no_eligible_attachment" } } : {}),
+          filedAt: { lte: new Date(through), ...(explicitFrom ? { gte: new Date(explicitFrom) } : {}) },
+        },
         orderBy: { id: "asc" }, take: Math.min(25, limit - stats.visited), ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         select: { id: true, accession: true, filedAt: true, earningsRelease: true, items: true },
       });
       if (!rows.length) break;
       for (const filing of rows) {
+        if (accessDenied) break;
         if (!earningsItem(filing.items)) continue;
         stats.visited++;
         if (guidanceBackfillReady(filing.earningsRelease)) { stats.ready++; continue; }
         try {
           let release = filing.earningsRelease && typeof filing.earningsRelease === "object" && !Array.isArray(filing.earningsRelease) ? filing.earningsRelease : {};
           let attachments = readReleaseAttachments(release), fetched = false;
+          const hadAttachments = attachments.length > 0;
           let truncated = attachments.some(a => a.text.length === 20_000);
           if (fetchMissing && (!attachments.length || truncated)) {
             let evidence: Awaited<ReturnType<typeof fetchSecReleaseEvidenceByIndex>> | undefined;
             let lastError: unknown;
             for (const candidate of companyFactsCikCandidates(issuer.cik, filing.accession)) {
               try { evidence = await fetchSecReleaseEvidenceByIndex(candidate, filing.accession, filing.filedAt.toISOString().slice(0, 10)); break; }
-              catch (error) { lastError = error; }
+              catch (error) {
+                if (error instanceof Error && error.message === "SEC HTTP 403") throw error;
+                lastError = error;
+              }
             }
             if (!evidence) throw lastError ?? new Error("公告附件不可用");
             release = { ...release, attachments: evidence.attachments, publication: evidence.publication ?? release.publication };
@@ -123,8 +136,14 @@ async function main() {
             if (!result.count) throw new Error("公告被其他任务更新，请重跑");
             stats.changed++;
           }
+          if (!hadAttachments && attachments.length) stats.recoveredAttachments++;
           log({ phase: "filing", cik: issuer.cik, accession: filing.accession, status: apply ? "complete" : "dry-run", records: parsed.length, attachments: attachments.length, truncated });
-        } catch (e) { stats.failed++; log({ phase: "filing", cik: issuer.cik, accession: filing.accession, status: "error", error: e instanceof Error ? e.message : String(e) }); }
+        } catch (e) {
+          const error = e instanceof Error ? e.message : String(e);
+          if (error === "SEC HTTP 403") accessDenied = true;
+          stats.failed++;
+          log({ phase: "filing", cik: issuer.cik, accession: filing.accession, status: "error", error });
+        }
         if (stats.visited % 25 === 0) snapshot("running");
       }
       cursor = rows[rows.length - 1].id;
@@ -136,7 +155,7 @@ async function main() {
   };
   const queue = issuers.values();
   await Promise.all(Array.from({ length: concurrency }, async () => {
-    for (;;) { const next = queue.next(); if (next.done) return; await processIssuer(next.value); }
+    while (!accessDenied) { const next = queue.next(); if (next.done) return; await processIssuer(next.value); }
   }));
   snapshot(stats.failed ? "errors" : stats.pending || stats.legacyTruncated ? "pending_sources" : stats.limited && stats.visited >= limit ? "limited" : "complete");
   console.log(JSON.stringify(stats));

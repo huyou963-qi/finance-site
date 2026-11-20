@@ -66,7 +66,7 @@ npm run equity:verify-guidance -- --strict --through=2026-11-17 --discovery-repo
 
 `--concurrency=1–3` 可并行等待不同公司响应，所有请求（含重试）仍共用 250ms 启动间隔，不提高每进程每秒最多 4 次的请求预算。显式设置 `--limit` 时强制单工，避免并行越过数量上限；日常网站任务默认仍为原串行模式。
 
-历史采集从 SEC filing index 请求 EX-99 系列 HTML 或 TXT 附件。联合申报方目录中的链接必须指向同一 accession，并保留 SEC 索引给出的真实附件 URL。采集器记录 `no_eligible_attachment` 表示当前规则未找到适用的附件。仅补已有原文时无需外部请求。`--fetch-missing` 可重试旧解析版本的无附件记录。指定股票时可搭配 `--accessions` 定点重跑库内公告。
+历史采集从 SEC filing index 请求 EX-99 系列 HTML 或 TXT 附件。联合申报方目录中的链接必须指向同一 accession，并保留 SEC 索引给出的真实附件 URL。采集器记录 `no_eligible_attachment` 表示当前规则未找到适用的附件。仅补已有原文时无需外部请求。`--retry-unavailable --fetch-missing` 专项重试旧解析版本的无附件记录。指定股票时可搭配 `--accessions` 定点重跑库内公告。
 
 解析器 v4 只将明确指向指标和财期的财务指引撤回写入版本链。例外或范围无法确定的语句仍保留在附件原文。多个指标分别报价的句子可拆分解析，明确标注年度和金额单位的指引表可按该单位换算。页面按当前解析器读取附件，库内抽取版本可按批次刷新。
 
