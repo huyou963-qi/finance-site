@@ -4103,7 +4103,6 @@
       ],
       "selectedKeys": [
         "mds:usov_c11_effr",
-        "fred:EFFR",
         "fred:RRPONTSYAWARD",
         "fred:SOFR",
         "fred:IORB",
@@ -4120,7 +4119,7 @@
         "mds:treasury_dts_tga_balance",
         "fred:RRPONTSYD"
       ],
-      "updatedAtIso": "2026-10-17T13:09:21.679Z",
+      "updatedAtIso": "2026-11-19T13:56:50.722Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -4177,7 +4176,6 @@
       },
       "slotAssignment": {
         "fred:DGS2": 0,
-        "fred:EFFR": null,
         "fred:IORB": 0,
         "fred:SOFR": 0,
         "fred:DGS10": 1,
@@ -4217,10 +4215,6 @@
       "selectedListItems": [
         {
           "key": "mds:usov_c11_effr",
-          "type": "series"
-        },
-        {
-          "key": "fred:EFFR",
           "type": "series"
         },
         {
@@ -6791,33 +6785,77 @@
     },
     "builtin-us-consumer-balance-spending": {
       "name": "消费 · 支出与景气",
-      "layoutMode": 4,
-      "description": "【第一步 · 支出】按图 1→4 看消费动能：零售贸易 → PCE 耐用品/服务结构 → 密歇根信心 → 储蓄率。判断支出冷热与缓冲 → 加载「居民 · 资产负债与信用」。",
-      "derivedCalcs": [],
+      "layoutMode": 6,
+      "description": "先看消费结构如何变化，再比较名义与实际支出、分项需求和价格。零售与信心用于交叉验证。",
+      "derivedCalcs": [
+        {
+          "id": "us-consumer-share-pcedg",
+          "op": "ratio",
+          "name": "耐用品占比",
+          "scale": 100,
+          "leftKey": "fred:PCEDG",
+          "rightKey": "fred:PCE",
+          "unitLabel": "%"
+        },
+        {
+          "id": "us-consumer-share-pcend",
+          "op": "ratio",
+          "name": "非耐用品占比",
+          "scale": 100,
+          "leftKey": "fred:PCEND",
+          "rightKey": "fred:PCE",
+          "unitLabel": "%"
+        },
+        {
+          "id": "us-consumer-share-pces",
+          "op": "ratio",
+          "name": "服务占比",
+          "scale": 100,
+          "leftKey": "fred:PCES",
+          "rightKey": "fred:PCE",
+          "unitLabel": "%"
+        }
+      ],
       "selectedKeys": [
-        "fred:RSXFS::yoy",
+        "fred:PCE::yoy",
+        "fred:PCEC96::yoy",
         "fred:PCEDGC96::yoy",
         "fred:PCESC96::yoy",
+        "fred:PCEPI::yoy",
+        "fred:PCEPILFE::yoy",
+        "fred:RSAFS::yoy",
+        "fred:RSXFS::yoy",
         "fred:UMCSENT",
-        "fred:PSAVERT"
+        "fred:PCEDG",
+        "fred:PCE",
+        "fred:PCEND",
+        "fred:PCES"
       ],
-      "updatedAtIso": "2026-09-22T03:05:20.204Z",
+      "updatedAtIso": "2026-11-19T11:52:32.554Z",
       "displayConfig": {
         "lineWidth": 1.6,
+        "slotModes": {
+          "0": "timeSeries"
+        },
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
-          "0": "L1 高频：零售贸易",
-          "1": "L2 PCE 结构：耐用品 vs 服务",
-          "2": "L3 信心：密歇根",
-          "3": "L4 储蓄缓冲"
+          "0": "名义 PCE 结构",
+          "1": "名义与实际消费增速",
+          "2": "实际耐用品与服务需求",
+          "3": "PCE 通胀",
+          "4": "零售与餐饮",
+          "5": "消费者信心"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
-        "xLabelRotate": 24,
+        "slotPieYears": {
+          "0": "2025"
+        },
+        "xLabelRotate": 0,
         "showGridLines": true,
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
@@ -6827,47 +6865,124 @@
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:PSAVERT": 3,
-        "fred:UMCSENT": 2,
-        "fred:RSXFS::yoy": 0,
-        "fred:PCESC96::yoy": 1,
-        "fred:PCEDGC96::yoy": 1
+        "fred:PCE": null,
+        "fred:PCES": null,
+        "fred:PCEDG": null,
+        "fred:PCEND": null,
+        "fred:UMCSENT": 5,
+        "fred:PCE::yoy": 1,
+        "fred:PCEPI::yoy": 3,
+        "fred:RSAFS::yoy": 4,
+        "fred:RSXFS::yoy": 4,
+        "fred:PCEC96::yoy": 1,
+        "fred:PCESC96::yoy": 2,
+        "fred:PCEDGC96::yoy": 2,
+        "fred:PCEPILFE::yoy": 3,
+        "calc:us-consumer-share-pces": 0,
+        "calc:us-consumer-share-pcedg": 0,
+        "calc:us-consumer-share-pcend": 0
+      },
+      "chartIntroNotes": {
+        "0": "各类别除以同月名义 PCE 总额。三类合计约为 100%，小幅差异来自公布值舍入。",
+        "1": "两条都是同比。名义值与实际值之间的差距可辅助观察价格影响，精确价格变化参看 PCE 价格图。",
+        "2": "比较两大类实际支出同比。链式金额不直接加总，非耐用品未纳入本图。",
+        "3": "总项与核心价格指数同比。核心剔除食品与能源，详细分项参看「美国通胀分析」。",
+        "4": "比较含餐饮总额与不含餐饮的零售贸易同比。两条都是名义金额，覆盖范围与 PCE 不同。",
+        "5": "密歇根消费者信心为调查指数。用零售及实际消费判断情绪变化是否伴随支出变化。"
       },
       "seriesVisualMap": {
-        "fred:PSAVERT": {
-          "axis": "left",
-          "color": "#3e4d83",
-          "chartType": "line",
-          "showEndLabel": true
-        },
         "fred:UMCSENT": {
           "axis": "left",
-          "color": "#6ccad1",
+          "color": "#345da7",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
+        },
+        "fred:PCE::yoy": {
+          "axis": "left",
+          "color": "#345da7",
+          "chartType": "line",
+          "showEndLabel": false
+        },
+        "fred:PCEPI::yoy": {
+          "axis": "left",
+          "color": "#345da7",
+          "chartType": "line",
+          "showEndLabel": false
+        },
+        "fred:RSAFS::yoy": {
+          "axis": "left",
+          "color": "#345da7",
+          "chartType": "line",
+          "showEndLabel": false
         },
         "fred:RSXFS::yoy": {
           "axis": "left",
-          "color": "#ef6461",
+          "color": "#bd6541",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
+        },
+        "fred:PCEC96::yoy": {
+          "axis": "left",
+          "color": "#bd6541",
+          "chartType": "line",
+          "showEndLabel": false
         },
         "fred:PCESC96::yoy": {
           "axis": "left",
-          "color": "#d89b4e",
+          "color": "#bd6541",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:PCEDGC96::yoy": {
           "axis": "left",
-          "color": "#5f76b8",
+          "color": "#345da7",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
+        },
+        "fred:PCEPILFE::yoy": {
+          "axis": "left",
+          "color": "#bd6541",
+          "chartType": "line",
+          "showEndLabel": false
+        },
+        "calc:us-consumer-share-pces": {
+          "axis": "left",
+          "color": "#288576",
+          "chartType": "stackBar",
+          "showEndLabel": false
+        },
+        "calc:us-consumer-share-pcedg": {
+          "axis": "left",
+          "color": "#345da7",
+          "chartType": "stackBar",
+          "showEndLabel": false
+        },
+        "calc:us-consumer-share-pcend": {
+          "axis": "left",
+          "color": "#bd6541",
+          "chartType": "stackBar",
+          "showEndLabel": false
         }
       },
       "selectedListItems": [
         {
-          "key": "fred:RSXFS::yoy",
+          "key": "calc:us-consumer-share-pcedg",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-consumer-share-pcend",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-consumer-share-pces",
+          "type": "derived"
+        },
+        {
+          "key": "fred:PCE::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCEC96::yoy",
           "type": "series"
         },
         {
@@ -6879,28 +6994,74 @@
           "type": "series"
         },
         {
+          "key": "fred:PCEPI::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCEPILFE::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:RSAFS::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:RSXFS::yoy",
+          "type": "series"
+        },
+        {
           "key": "fred:UMCSENT",
           "type": "series"
         },
         {
-          "key": "fred:PSAVERT",
+          "key": "fred:PCEDG",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCE",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCEND",
+          "type": "series"
+        },
+        {
+          "key": "fred:PCES",
           "type": "series"
         }
       ],
       "seriesCalcConfigMap": {
-        "fred:PSAVERT": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
-        },
         "fred:UMCSENT": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
-          "resampleMethod": "avg"
+          "resampleMethod": "end"
+        },
+        "fred:PCE::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:PCEPI::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:RSAFS::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
         },
         "fred:RSXFS::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:PCEC96::yoy": {
           "op": "yoy",
           "unit": "keep",
           "frequency": "month",
@@ -6913,6 +7074,12 @@
           "resampleMethod": "end"
         },
         "fred:PCEDGC96::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:PCEPILFE::yoy": {
           "op": "yoy",
           "unit": "keep",
           "frequency": "month",
@@ -8093,33 +8260,41 @@
     },
     "builtin-us-consumer-balance-balance-sheet": {
       "name": "居民 · 资产负债与信用",
-      "layoutMode": 4,
-      "description": "【第二步 · 资产负债表】按图 1→4 看财务与信用：家庭净财富 → 偿债比率 → 消费信贷增速 → 信用卡核销。回答财富效应与信用风险。",
+      "layoutMode": 6,
+      "description": "先看收入和就业是否支撑支出，再观察净财富、偿债、信贷扩张及信用质量。",
       "derivedCalcs": [],
       "selectedKeys": [
+        "fred:DSPIC96::yoy",
+        "fred:PSAVERT",
+        "fred:PAYEMS::yoy",
+        "fred:CES0500000003::yoy",
+        "fred:AWHNONAG::yoy",
         "fred:TNWBSHNO::yoy",
         "fred:TDSP",
         "fred:TOTALSL::yoy",
         "fred:REVOLSL::yoy",
+        "fred:DRCCLACBS",
         "fred:CORCCACBS"
       ],
-      "updatedAtIso": "2026-09-22T03:05:32.788Z",
+      "updatedAtIso": "2026-11-19T11:54:34.684Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
-          "0": "L5 净财富",
-          "1": "L6 偿债压力",
-          "2": "L7 消费信贷：总量 vs 循环",
-          "3": "L8 信用质量：信用卡核销"
+          "0": "收入与储蓄",
+          "1": "就业、时薪与工时",
+          "2": "居民净财富",
+          "3": "居民偿债负担",
+          "4": "消费信贷增速",
+          "5": "信用卡拖欠与净核销"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
-        "xLabelRotate": 24,
+        "xLabelRotate": 0,
         "showGridLines": true,
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
@@ -8129,45 +8304,115 @@
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:TDSP": 1,
-        "fred:CORCCACBS": 3,
-        "fred:REVOLSL::yoy": 2,
-        "fred:TOTALSL::yoy": 2,
-        "fred:TNWBSHNO::yoy": 0
+        "fred:TDSP": 3,
+        "fred:PSAVERT": 0,
+        "fred:CORCCACBS": 5,
+        "fred:DRCCLACBS": 5,
+        "fred:PAYEMS::yoy": 1,
+        "fred:DSPIC96::yoy": 0,
+        "fred:REVOLSL::yoy": 4,
+        "fred:TOTALSL::yoy": 4,
+        "fred:AWHNONAG::yoy": 1,
+        "fred:TNWBSHNO::yoy": 2,
+        "fred:CES0500000003::yoy": 1
+      },
+      "chartIntroNotes": {
+        "0": "实际可支配收入取同比，储蓄率保留原值（右轴）。对照实际消费增速判断支出能否获得收入支持。",
+        "1": "均为同比。时薪覆盖私营部门全体雇员，工时覆盖生产与非监督人员。三条用于交叉验证，不合成为工资总额。",
+        "2": "保留季度频率计算同比。净财富包含资产估值变化，也受负债影响。",
+        "3": "保留季度公布值，观察偿债支出占可支配收入比例。",
+        "4": "比较总消费信贷和循环信贷同比。循环信贷包含在总量之中。",
+        "5": "按季度并列银行口径的拖欠率与净核销率。两条各自保留原单位，用于观察信用压力是否同时体现于拖欠与损失。"
       },
       "seriesVisualMap": {
         "fred:TDSP": {
           "axis": "left",
-          "color": "#5f76b8",
+          "color": "#345da7",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
+        },
+        "fred:PSAVERT": {
+          "axis": "right",
+          "color": "#bd6541",
+          "chartType": "line",
+          "showEndLabel": false
         },
         "fred:CORCCACBS": {
           "axis": "left",
-          "color": "#3e4d83",
+          "color": "#bd6541",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
+        },
+        "fred:DRCCLACBS": {
+          "axis": "left",
+          "color": "#345da7",
+          "chartType": "line",
+          "showEndLabel": false
+        },
+        "fred:PAYEMS::yoy": {
+          "axis": "left",
+          "color": "#345da7",
+          "chartType": "line",
+          "showEndLabel": false
+        },
+        "fred:DSPIC96::yoy": {
+          "axis": "left",
+          "color": "#345da7",
+          "chartType": "line",
+          "showEndLabel": false
         },
         "fred:REVOLSL::yoy": {
           "axis": "left",
-          "color": "#6ccad1",
+          "color": "#bd6541",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:TOTALSL::yoy": {
           "axis": "left",
-          "color": "#d89b4e",
+          "color": "#345da7",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
+        },
+        "fred:AWHNONAG::yoy": {
+          "axis": "left",
+          "color": "#288576",
+          "chartType": "line",
+          "showEndLabel": false
         },
         "fred:TNWBSHNO::yoy": {
           "axis": "left",
-          "color": "#ef6461",
+          "color": "#345da7",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
+        },
+        "fred:CES0500000003::yoy": {
+          "axis": "left",
+          "color": "#bd6541",
+          "chartType": "line",
+          "showEndLabel": false
         }
       },
       "selectedListItems": [
+        {
+          "key": "fred:DSPIC96::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:PSAVERT",
+          "type": "series"
+        },
+        {
+          "key": "fred:PAYEMS::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:CES0500000003::yoy",
+          "type": "series"
+        },
+        {
+          "key": "fred:AWHNONAG::yoy",
+          "type": "series"
+        },
         {
           "key": "fred:TNWBSHNO::yoy",
           "type": "series"
@@ -8185,6 +8430,10 @@
           "type": "series"
         },
         {
+          "key": "fred:DRCCLACBS",
+          "type": "series"
+        },
+        {
           "key": "fred:CORCCACBS",
           "type": "series"
         }
@@ -8194,13 +8443,37 @@
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
-          "resampleMethod": "avg"
+          "resampleMethod": "end"
+        },
+        "fred:PSAVERT": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
         },
         "fred:CORCCACBS": {
           "op": "none",
           "unit": "keep",
           "frequency": "keep",
-          "resampleMethod": "avg"
+          "resampleMethod": "end"
+        },
+        "fred:DRCCLACBS": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "keep",
+          "resampleMethod": "end"
+        },
+        "fred:PAYEMS::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
+        "fred:DSPIC96::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
         },
         "fred:REVOLSL::yoy": {
           "op": "yoy",
@@ -8214,7 +8487,19 @@
           "frequency": "month",
           "resampleMethod": "end"
         },
+        "fred:AWHNONAG::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "month",
+          "resampleMethod": "end"
+        },
         "fred:TNWBSHNO::yoy": {
+          "op": "yoy",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:CES0500000003::yoy": {
           "op": "yoy",
           "unit": "keep",
           "frequency": "month",
