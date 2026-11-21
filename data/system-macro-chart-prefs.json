@@ -4128,6 +4128,7 @@
         "fred:DFII10",
         "fred:T10YIE",
         "fred:TEDRATE",
+        "fred:BAMLC0A0CM",
         "fred:BAMLH0A0HYM2",
         "fred:WRESBAL",
         "fred:TREAST",
@@ -4135,7 +4136,7 @@
         "mds:treasury_dts_tga_balance",
         "fred:RRPONTSYD"
       ],
-      "updatedAtIso": "2026-11-19T13:56:50.722Z",
+      "updatedAtIso": "2026-11-21T14:47:51.594Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -4171,7 +4172,8 @@
           "1": [
             "fred:DGS10",
             "fred:T10YIE",
-            "fred:DFII10"
+            "fred:DFII10",
+            "fred:T10Y2Y"
           ],
           "2": [
             "fred:WALCL",
@@ -4179,10 +4181,11 @@
             "fred:WRESBAL",
             "mds:treasury_dts_tga_balance",
             "calc:d-mvcejp9k-kuzcf",
-            "fred:RRPONTSYD"
+            "fred:T10Y2Y"
           ],
           "3": [
             "fred:T10Y2Y",
+            "fred:BAMLC0A0CM",
             "fred:BAMLH0A0HYM2"
           ]
         },
@@ -4197,12 +4200,13 @@
         "fred:DGS10": 1,
         "fred:WALCL": 2,
         "fred:DFII10": 1,
-        "fred:T10Y2Y": 3,
+        "fred:T10Y2Y": 1,
         "fred:T10YIE": 1,
         "fred:TREAST": 2,
         "fred:TEDRATE": 0,
         "fred:WRESBAL": 2,
         "fred:RRPONTSYD": null,
+        "fred:BAMLC0A0CM": 3,
         "fred:BAMLH0A0HYM2": 3,
         "mds:usov_c11_effr": 0,
         "fred:RRPONTSYAWARD": 0,
@@ -4217,9 +4221,15 @@
         "3": "10Y名义收益率与10Y−3M利差分轴看水平和期限结构。利差上升要辨别短端下降还是长端上行；曲线变化本身不是衰退确认。"
       },
       "seriesVisualMap": {
+        "fred:T10Y2Y": {
+          "axis": "right"
+        },
         "fred:TEDRATE": {
           "axis": "right",
           "color": "#a13a4a"
+        },
+        "fred:BAMLC0A0CM": {
+          "axis": "left"
         },
         "fred:BAMLH0A0HYM2": {
           "axis": "right"
@@ -4279,6 +4289,10 @@
         },
         {
           "key": "fred:TEDRATE",
+          "type": "series"
+        },
+        {
+          "key": "fred:BAMLC0A0CM",
           "type": "series"
         },
         {
