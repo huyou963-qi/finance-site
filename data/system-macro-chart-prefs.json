@@ -291,7 +291,7 @@
         "mds:usov_c24_fed_treasuries",
         "mds:usov_c23_fed_assets"
       ],
-      "updatedAtIso": "2026-10-24T05:19:33.274Z",
+      "updatedAtIso": "2026-11-20T11:16:47.433Z",
       "displayConfig": {
         "lineWidth": 1.8,
         "lineSmooth": true,
@@ -354,6 +354,13 @@
         },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
+        "slotShowEndLabels": {
+          "0": false,
+          "1": false,
+          "3": false,
+          "4": false,
+          "5": false
+        },
         "showRecessionShading": true
       },
       "slotAssignment": {
@@ -1440,6 +1447,7 @@
     },
     "builtin-us-econ-demand": {
       "name": "经济 Overview · 支出法结构",
+      "introHtml": "<p></p><span style=\"font-size:16px\"><p></p><span style=\"font-size:16px\"><p>先看四项支出占GDP的体量，再看对当季实际GDP增长的拉动，最后用消费、投资、外贸与财政指标跟踪方向。占比用名义金额；增长拉动用官方季度贡献百分点。</p><p>图1看结构：消费、私人投资、政府和净出口占名义GDP的比重，合计约100%，净出口保留负值。体量大不代表当季拉动最大，可拉长时间区间观察长期变化。<br />图2看动力：四项正负柱表示对实际GDP环比折年增长的拉动百分点，折线为GDP增速；柱之和与折线因四舍五入可能略有差异。季度数据没有插值成月度贡献。<br />图3—6跟踪消费、非住宅投资及住宅链、进出口和财政背景。它们是辅助走势，不可直接相加为GDP贡献；进口增速更高也不必然意味着净出口拖累更大。</p></span><p></p></span><p></p>",
       "introText": "图1看结构：消费、私人投资、政府和净出口占名义GDP的比重，合计约100%，净出口保留负值。体量大不代表当季拉动最大，可拉长时间区间观察长期变化。\n图2看动力：四项正负柱表示对实际GDP环比折年增长的拉动百分点，折线为GDP增速；柱之和与折线因四舍五入可能略有差异。季度数据没有插值成月度贡献。\n图3—6跟踪消费、非住宅投资及住宅链、进出口和财政背景。它们是辅助走势，不可直接相加为GDP贡献；进口增速更高也不必然意味着净出口拖累更大。",
       "layoutMode": 6,
       "description": "先看四项支出占GDP的体量，再看对当季实际GDP增长的拉动，最后用消费、投资、外贸与财政指标跟踪方向。占比用名义金额；增长拉动用官方季度贡献百分点。",
@@ -1501,7 +1509,7 @@
         "fred:NETEXP",
         "fred:GDP"
       ],
-      "updatedAtIso": "2026-11-18T04:27:31.740Z",
+      "updatedAtIso": "2026-11-20T04:28:20.012Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "slotModes": {
@@ -3172,6 +3180,7 @@
     },
     "builtin-us-fiscal-highfreq": {
       "name": "高频跟踪 · 现金流与融资",
+      "introHtml": "<p></p><span style=\"font-size:16px\"><p>五图依次看MTS月赤字、月收入与支出、TGA余额、DTS日净现金流，以及Debt to the Penny周净发债。月度现金制、日度资金流和周度债务变化口径不同，不能直接相加。</p><p>图 1 · F5a MTS 月赤字（现金）<br />MTS 月赤字柱：单月噪声大，结合图 2 收/支水平看趋势。发布月（约每月第 8–12 个工作日）更新。</p><p>图 2 · F5a MTS 月收入 vs 支出（水平）<br />MTS 月收入 vs 支出（现金水平）：对照图 0 赤字；收入走弱或支出走强 → 回视图 B 分项。</p><p>图 3 · F5b TGA 余额<br />TGA 日余额（百万美元）：财政部在联储账户。快速下降 + 债务上限博弈 → 五问 ⑤ 流动性/政治尾部。</p><p>图 4 · F5b DTS 日净现金流<br />DTS 日净现金流 = Total Deposits − Total Withdrawals（Table II 汇总）。负值日多 → 现金压力；**非** 权责赤字。</p><p>图 5 · F5c 周净发债<br />公共债务周净增发（Debt to the Penny 周差分）：融资脉冲。与视图 A 债务存量、视图 B 净利息对照。</p></span><p></p>",
       "layoutMode": 5,
       "description": "五图依次看MTS月赤字、月收入与支出、TGA余额、DTS日净现金流，以及Debt to the Penny周净发债。月度现金制、日度资金流和周度债务变化口径不同，不能直接相加。",
       "derivedCalcs": [],
@@ -3183,7 +3192,7 @@
         "mds:treasury_dts_daily_net_cash",
         "mds:treasury_debt_penny_net_weekly"
       ],
-      "updatedAtIso": "2026-09-24T09:47:13.305Z",
+      "updatedAtIso": "2026-11-20T04:28:52.176Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -3234,6 +3243,13 @@
         "mds:treasury_mts_m01_receipts": 1,
         "mds:treasury_dts_daily_net_cash": 3,
         "mds:treasury_debt_penny_net_weekly": 4
+      },
+      "chartIntroNotes": {
+        "0": "MTS 月赤字柱：单月噪声大，结合图 2 收/支水平看趋势。发布月（约每月第 8–12 个工作日）更新。",
+        "1": "MTS 月收入 vs 支出（现金水平）：对照图 0 赤字；收入走弱或支出走强 → 回视图 B 分项。",
+        "2": "TGA 日余额（百万美元）：财政部在联储账户。快速下降 + 债务上限博弈 → 五问 ⑤ 流动性/政治尾部。",
+        "3": "DTS 日净现金流 = Total Deposits − Total Withdrawals（Table II 汇总）。负值日多 → 现金压力；**非** 权责赤字。",
+        "4": "公共债务周净增发（Debt to the Penny 周差分）：融资脉冲。与视图 A 债务存量、视图 B 净利息对照。"
       },
       "seriesVisualMap": {
         "mds:treasury_dts_tga_balance": {
@@ -6355,90 +6371,79 @@
       }
     },
     "builtin-us-external-dollar-balance": {
-      "name": "对外 · 外部均衡与贸易条件",
-      "layoutMode": 4,
-      "description": "【第二步 · 均衡与价格】按图 1→4：经常账户 → 净国际头寸 → 进出口价格同比 → 贸易条件。回答外部融资需求与相对价格冲击。",
+      "name": "对外 · 进出口价格与贸易条件",
+      "introHtml": "<p><strong></strong></p><span style=\"font-size:16px\"><p><strong>分析顺序</strong></p><p>先比较月度商品出口和进口价格的变化，再用季度贸易条件指数跟踪美国出口相对进口的购买力。</p><p><strong>图1｜进出口价格谁涨得更快？</strong></p><p>比较商品出口与进口价格指数的月度同比。进口价格涨得更快时，应结合能源、汇率和进口结构解释，再判断可能的成本传导。同比差还受基数影响。</p><p><strong>图2｜出口相对进口的购买力改善了吗？</strong></p><p>季度贸易条件指数衡量出口价格相对进口价格，指数上升表示同量出口对应的进口购买力改善。该指数和上图月度商品价格的口径与频率不同，直接相减月度同比不能得到这条指数。贸易条件改善也不能单独说明贸易逆差缩小，仍需观察贸易金额与数量。</p><p><strong>相关模板</strong></p><p>经常账户缺口、外部融资及净国际投资头寸请参看「美国国际收支」。对照时留意月度贸易数据与季度国际收支的频率差异。</p></span><p></p>",
+      "introText": "分析顺序\n先比较月度商品出口和进口价格的变化，再用季度贸易条件指数跟踪美国出口相对进口的购买力。\n\n图1｜进出口价格谁涨得更快？\n比较商品出口与进口价格指数的月度同比。进口价格涨得更快时，应结合能源、汇率和进口结构解释，再判断可能的成本传导。同比差还受基数影响。\n\n图2｜出口相对进口的购买力改善了吗？\n季度贸易条件指数衡量出口价格相对进口价格，指数上升表示同量出口对应的进口购买力改善。该指数和上图月度商品价格的口径与频率不同，直接相减月度同比不能得到这条指数。贸易条件改善也不能单独说明贸易逆差缩小，仍需观察贸易金额与数量。\n\n相关模板\n经常账户缺口、外部融资及净国际投资头寸请参看「美国国际收支」。对照时留意月度贸易数据与季度国际收支的频率差异。",
+      "layoutMode": 2,
+      "description": "先比较月度商品出口和进口价格的变化，再用季度贸易条件指数跟踪美国出口相对进口的购买力。",
       "derivedCalcs": [],
       "selectedKeys": [
-        "fred:IEABC",
-        "fred:IIPUSNETIQ",
         "fred:IQ::yoy",
         "fred:IR::yoy",
         "fred:W369RG3Q066SBEA"
       ],
-      "updatedAtIso": "2026-09-22T03:07:41.716Z",
+      "updatedAtIso": "2026-11-20T04:19:28.135Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
-          "0": "L5 经常账户",
-          "1": "L6 净国际投资头寸",
-          "2": "L7 贸易价格：出口 vs 进口",
-          "3": "L8 贸易条件"
+          "0": "进出口价格谁涨得更快？",
+          "1": "出口相对进口的购买力改善了吗？"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
-        "xLabelRotate": 24,
+        "xLabelRotate": 0,
         "showGridLines": true,
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "0": [
+            "fred:IQ::yoy",
+            "fred:IR::yoy"
+          ],
+          "1": [
+            "fred:W369RG3Q066SBEA"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:IEABC": 0,
-        "fred:IQ::yoy": 2,
-        "fred:IR::yoy": 2,
-        "fred:IIPUSNETIQ": 1,
-        "fred:W369RG3Q066SBEA": 3
+        "fred:IQ::yoy": 0,
+        "fred:IR::yoy": 0,
+        "fred:W369RG3Q066SBEA": 1
+      },
+      "chartIntroNotes": {
+        "0": "比较商品出口与进口价格指数的月度同比。进口价格涨得更快时，应结合能源、汇率和进口结构解释，再判断可能的成本传导。同比差还受基数影响。",
+        "1": "季度贸易条件指数衡量出口价格相对进口价格，指数上升表示同量出口对应的进口购买力改善。该指数和上图月度商品价格的口径与频率不同，直接相减月度同比不能得到这条指数。贸易条件改善也不能单独说明贸易逆差缩小，仍需观察贸易金额与数量。"
       },
       "seriesVisualMap": {
-        "fred:IEABC": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "line",
-          "showEndLabel": true
-        },
         "fred:IQ::yoy": {
           "axis": "left",
           "color": "#d89b4e",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:IR::yoy": {
           "axis": "left",
           "color": "#6ccad1",
           "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:IIPUSNETIQ": {
-          "axis": "left",
-          "color": "#5f76b8",
-          "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:W369RG3Q066SBEA": {
           "axis": "left",
           "color": "#3e4d83",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         }
       },
       "selectedListItems": [
-        {
-          "key": "fred:IEABC",
-          "type": "series"
-        },
-        {
-          "key": "fred:IIPUSNETIQ",
-          "type": "series"
-        },
         {
           "key": "fred:IQ::yoy",
           "type": "series"
@@ -6453,12 +6458,6 @@
         }
       ],
       "seriesCalcConfigMap": {
-        "fred:IEABC": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
-        },
         "fred:IQ::yoy": {
           "op": "yoy",
           "unit": "keep",
@@ -6471,24 +6470,20 @@
           "frequency": "month",
           "resampleMethod": "end"
         },
-        "fred:IIPUSNETIQ": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
-        },
         "fred:W369RG3Q066SBEA": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
+          "frequency": "quarter",
+          "resampleMethod": "end"
         }
       }
     },
     "builtin-us-external-dollar-overview": {
       "name": "对外 · 美元与贸易流量",
-      "layoutMode": 4,
-      "description": "【第一步 · 汇率与流量】按图 1→4：广义美元 → 发达/新兴结构 → 贸易差额 → 进出口同比。判断美元周期与贸易动能 → 加载「对外 · 外部均衡与贸易条件」。",
+      "introHtml": "<p><strong></strong></p><span style=\"font-size:12px\"><span style=\"font-size:16px\"><span style=\"font-size:16px\"><p><strong>分析顺序</strong></p><p>先看美元走强或走弱的范围，再看美国月度货物与服务贸易差额如何变化，最后比较名义出口与进口的同比动能。</p><p><strong>图1｜美元走强是普遍现象吗？</strong></p><p>三条线是广义美元、对发达经济体美元指数和对新兴经济体美元指数，均取月均。指数上升表示美元相对对应货币篮子升值。先看广义趋势，再看两个篮子的走势是否分化。三条线都反映相对于各自基期的变化。</p><p><strong>图2｜月度贸易逆差在扩大吗？</strong></p><p>美国货物和服务出口减进口，月度季调，单位为十亿美元。零以下为逆差，向下表示逆差扩大。该图用于跟踪贸易缺口，和下一图的进出口同比联读。</p><p><strong>图3｜出口与进口哪一端在变化？</strong></p><p>对照货物和服务名义出口、进口的月度同比，并与上图差额核对。两端存在金额基数差异，同比快慢无法直接给出逆差变化。名义金额同时反映价格和数量，判断实际贸易动能需结合价格或实际进出口指标。</p><p><strong>相关模板</strong></p><p>经常账户缺口、外部融资及净国际投资头寸请参看「美国国际收支」。对照时留意月度贸易数据与季度国际收支的频率差异。</p></span></span></span><p></p>",
+      "introText": "分析顺序\n先看美元走强或走弱的范围，再看美国月度货物与服务贸易差额如何变化，最后比较名义出口与进口的同比动能。\n\n图1｜美元走强是普遍现象吗？\n三条线是广义美元、对发达经济体美元指数和对新兴经济体美元指数，均取月均。指数上升表示美元相对对应货币篮子升值。先看广义趋势，再看两个篮子的走势是否分化。三条线都反映相对于各自基期的变化。\n\n图2｜月度贸易逆差在扩大吗？\n美国货物和服务出口减进口，月度季调，单位为十亿美元。零以下为逆差，向下表示逆差扩大。该图用于跟踪贸易缺口，和下一图的进出口同比联读。\n\n图3｜出口与进口哪一端在变化？\n对照货物和服务名义出口、进口的月度同比，并与上图差额核对。两端存在金额基数差异，同比快慢无法直接给出逆差变化。名义金额同时反映价格和数量，判断实际贸易动能需结合价格或实际进出口指标。\n\n相关模板\n经常账户缺口、外部融资及净国际投资头寸请参看「美国国际收支」。对照时留意月度贸易数据与季度国际收支的频率差异。",
+      "layoutMode": 3,
+      "description": "先看美元走强或走弱的范围，再看美国月度货物与服务贸易差额如何变化，最后比较名义出口与进口的同比动能。",
       "derivedCalcs": [],
       "selectedKeys": [
         "fred:DTWEXBGS::avg",
@@ -6498,75 +6493,93 @@
         "fred:BOPTEXP::yoy",
         "fred:BOPTIMP::yoy"
       ],
-      "updatedAtIso": "2026-09-22T03:07:29.138Z",
+      "updatedAtIso": "2026-11-20T04:18:43.832Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
         "showLegend": true,
         "slotTitles": {
-          "0": "L1 美元广义：贸易加权",
-          "1": "L2 美元结构：发达 vs 新兴",
-          "2": "L3 贸易差额：商品与服务",
-          "3": "L4 贸易流量：出口 vs 进口"
+          "0": "美元走强是普遍现象吗？",
+          "1": "月度贸易逆差在扩大吗？",
+          "2": "出口与进口哪一端在变化？"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
-        "xLabelRotate": 24,
+        "xLabelRotate": 0,
         "showGridLines": true,
         "legendPosition": "bottom",
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "0": [
+            "fred:DTWEXBGS::avg",
+            "fred:DTWEXAFEGS::avg",
+            "fred:DTWEXEMEGS::avg"
+          ],
+          "1": [
+            "fred:BOPGSTB"
+          ],
+          "2": [
+            "fred:BOPTEXP::yoy",
+            "fred:BOPTIMP::yoy"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:BOPGSTB": 2,
-        "fred:BOPTEXP::yoy": 3,
-        "fred:BOPTIMP::yoy": 3,
+        "fred:BOPGSTB": 1,
+        "fred:BOPTEXP::yoy": 2,
+        "fred:BOPTIMP::yoy": 2,
         "fred:DTWEXBGS::avg": 0,
-        "fred:DTWEXAFEGS::avg": 1,
-        "fred:DTWEXEMEGS::avg": 1
+        "fred:DTWEXAFEGS::avg": 0,
+        "fred:DTWEXEMEGS::avg": 0
+      },
+      "chartIntroNotes": {
+        "0": "三条线是广义美元、对发达经济体美元指数和对新兴经济体美元指数，均取月均。指数上升表示美元相对对应货币篮子升值。先看广义趋势，再看两个篮子的走势是否分化。三条线都反映相对于各自基期的变化。",
+        "1": "美国货物和服务出口减进口，月度季调，单位为十亿美元。零以下为逆差，向下表示逆差扩大。该图用于跟踪贸易缺口，和下一图的进出口同比联读。",
+        "2": "对照货物和服务名义出口、进口的月度同比，并与上图差额核对。两端存在金额基数差异，同比快慢无法直接给出逆差变化。名义金额同时反映价格和数量，判断实际贸易动能需结合价格或实际进出口指标。"
       },
       "seriesVisualMap": {
         "fred:BOPGSTB": {
           "axis": "left",
           "color": "#6ccad1",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:BOPTEXP::yoy": {
           "axis": "left",
           "color": "#3e4d83",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:BOPTIMP::yoy": {
           "axis": "left",
           "color": "#8f9bab",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:DTWEXBGS::avg": {
           "axis": "left",
           "color": "#ef6461",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:DTWEXAFEGS::avg": {
           "axis": "left",
           "color": "#5f76b8",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         },
         "fred:DTWEXEMEGS::avg": {
           "axis": "left",
           "color": "#d89b4e",
           "chartType": "line",
-          "showEndLabel": true
+          "showEndLabel": false
         }
       },
       "selectedListItems": [
@@ -6599,8 +6612,10 @@
         "fred:BOPGSTB": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "avg"
+          "scale": 0.001,
+          "frequency": "month",
+          "unitLabel": "十亿美元",
+          "resampleMethod": "end"
         },
         "fred:BOPTEXP::yoy": {
           "op": "yoy",
@@ -7089,6 +7104,7 @@
     },
     "builtin-us-industry-inventory-orders": {
       "name": "制造业 · 景气与订单",
+      "introHtml": "<p></p><span style=\"font-size:16px\"><p>【第一步 · 订单链】ISM 软景气 → Census 硬订单 → 核心资本品 → 积压/ISM 库存。判断制造需求是领先扩张还是假信号。说不清时加载「产出库存与产能」。</p><p>图 1 · L1 软景气：ISM PMI vs 新订单<br />ISM PMI / 新订单：&gt;50 扩张、&lt;50 收缩。新订单领先产出约 1–3 月；与硬订单同向才确认周期转折。</p><p>图 2 · L2 硬订单：耐用品 vs 除运输<br />DGORDER 含运输（飞机）噪音；ADXTNO 除运输更稳。硬订单同比转正且与 ISM 共振 → 制造需求实扩张。</p><p>图 3 · L3 资本品：核心资本品新订单<br />NEWORDER（非国防资本品除飞机）是设备投资领先指标，对利率敏感。持续同比扩张通常对应企业 capex 上行。</p><p>图 4 · L4 积压：未完成订单 vs ISM 库存<br />AMDMUO 同比↑ = 积压加深；ISM 库存↑ + 新订单↓ = 被动积压、去库将至。左右轴对照硬积压与软库存。</p></span><p></p>",
       "layoutMode": 4,
       "description": "【第一步 · 订单链】ISM 软景气 → Census 硬订单 → 核心资本品 → 积压/ISM 库存。判断制造需求是领先扩张还是假信号。说不清时加载「产出库存与产能」。",
       "derivedCalcs": [],
@@ -7101,7 +7117,7 @@
         "fred:AMDMUO::yoy",
         "mds:ism_us_ism_inventories"
       ],
-      "updatedAtIso": "2026-09-22T03:06:22.988Z",
+      "updatedAtIso": "2026-11-20T04:27:30.393Z",
       "displayConfig": {
         "lineWidth": 1.6,
         "lineSmooth": false,
@@ -7134,6 +7150,12 @@
         "mds:ism_us_ism_headline": 0,
         "mds:ism_us_ism_new_orders": 0,
         "mds:ism_us_ism_inventories": 3
+      },
+      "chartIntroNotes": {
+        "0": "ISM PMI / 新订单：>50 扩张、<50 收缩。新订单领先产出约 1–3 月；与硬订单同向才确认周期转折。",
+        "1": "DGORDER 含运输（飞机）噪音；ADXTNO 除运输更稳。硬订单同比转正且与 ISM 共振 → 制造需求实扩张。",
+        "2": "NEWORDER（非国防资本品除飞机）是设备投资领先指标，对利率敏感。持续同比扩张通常对应企业 capex 上行。",
+        "3": "AMDMUO 同比↑ = 积压加深；ISM 库存↑ + 新订单↓ = 被动积压、去库将至。左右轴对照硬积压与软库存。"
       },
       "seriesVisualMap": {
         "fred:ADXTNO::yoy": {
@@ -7996,144 +8018,833 @@
     },
     "builtin-us-balance-of-payments-overview": {
       "name": "国际收支 · 经常账户结构与外部融资",
-      "layoutMode": 4,
-      "description": "从经常账户的非货物缓冲、跨境资金的资产负债两端、外部融资的工具结构和外部负债存量四步，判断美国对外融资依赖的来源、稳定性与潜在脆弱点。",
-      "derivedCalcs": [],
+      "introHtml": "<p style=\"font-size:16px;line-height:1.75\"><strong>分析目标：美国的外部缺口如何形成，又如何获得融资？</strong></p><p style=\"font-size:14px;line-height:1.75\">本模板围绕六个问题展开：美国对外收支的缺口来自哪里？净融资由外国增持美国资产，还是美国居民减少对外投资推动？外资主要配置股权、债券还是其他工具？净对外负债相对经济规模有多大？收入逆差来自收入减少还是支付增加？历史融资最终沉淀为怎样的负债存量？</p><p style=\"font-size:14px;line-height:1.75\">阅读顺序是“收支缺口 → 资金两端 → 融资工具 → 净头寸 → 收益收支 → 负债结构”。先明确当期发生了什么，再分析哪一项推动变化，最后评估结构与潜在脆弱性。六图共同提供判断线索，不能由某一根柱子直接推断美元、股票或债券下一步涨跌。</p><p style=\"font-size:16px;line-height:1.75\"><strong>先分清三组概念</strong></p><p style=\"font-size:14px;line-height:1.75\">流量与存量：经常账户和金融账户记录一个季度内的交易；国际投资头寸记录季度末的资产负债价值。流量看当期变化，存量看累积暴露。二者不能直接相加，也不能把存量上涨全部解释为新增交易。</p><p style=\"font-size:14px;line-height:1.75\">本金与收益：外国居民购买美国股票、债券等，记录在金融账户；相关股息、利息和投资利润等，记录在初次收入。投资收益还可能包括再投资收益，因此国际收支记录不等同于银行账户里当期实际划转的现金。</p><p style=\"font-size:14px;line-height:1.75\">金融负债与债务：外国居民持有的美国股票、基金份额、直接投资股权也属于美国对外金融负债，但并非都有固定还本付息义务。统计按居民身份区分，不按国籍区分。</p><p style=\"font-size:16px;line-height:1.75\"><strong>图1｜外部缺口来自哪里？</strong></p><p style=\"font-size:14px;line-height:1.75\">要解决的问题：美国经常账户逆差主要由货物贸易、投资等收入，还是经常转移造成？服务顺差抵消了多少缺口？</p><p style=\"font-size:14px;line-height:1.75\">怎么看：四类差额用正负堆叠柱展示，经常账户总差额用折线展示。经常账户差额＝货物差额＋服务差额＋初次收入差额＋二次收入差额；正值为顺差，负值为逆差。单位为十亿美元，季度流量、季调；公布值舍入可能带来微小差异。</p><p style=\"font-size:14px;line-height:1.75\">怎么解释：服务顺差扩大是在缓冲外部缺口，但若货物逆差或收入逆差扩张得更快，总缺口仍可能扩大。初次收入包括投资收益和雇员报酬；二次收入包括个人汇款、经常援助等经常转移。判断改善与否，要同时看总额和各分项对变化的贡献。</p><p style=\"font-size:14px;line-height:1.75\">判断边界：服务顺差扩大不等于整个经常账户转为顺差。经常账户也不包含购买股票、债券等投资本金交易。</p><p style=\"font-size:16px;line-height:1.75\"><strong>图2｜净流入增加，由哪一端推动？</strong></p><p style=\"font-size:14px;line-height:1.75\">要解决的问题：对外净融资增加，是外国居民更积极配置美国资产，还是美国居民减少配置海外资产，或两者共同作用？</p><p style=\"font-size:14px;line-height:1.75\">怎么看：本图按资金方向统一符号。“外国增持美国资产”通常在零轴上方；“美国对外投资”按流出方向取负显示；“对外净融资”折线为正表示净流入、为负表示净流出。两根柱都已在各自一端扣除出售或偿还，不是未经轧差的总买入和总卖出。单位为十亿美元，季度流量、季调。</p><p style=\"font-size:14px;line-height:1.75\">怎么解释：净流入扩大时，先比较外国增持是否上升，再看美国对外投资是否减少。如果流入端下降，但流出端降得更多，净流入仍可增加；这与外国居民加速增持的含义不同。</p><p style=\"font-size:14px;line-height:1.75\">判断边界：官方金融账户口径为“资产净取得－负债净发生＋衍生品净交易”，正值净贷出、负值净借入。本图净融资线将该官方指标取反，因此流入为正。两柱不含衍生品，故两柱之和未必等于折线；也不能要求净融资与经常账户逆差逐季完全相等，还需考虑资本账户及统计误差等调节项。</p><p style=\"font-size:16px;line-height:1.75\"><strong>图3｜外资主要配置股权还是债务？</strong></p><p style=\"font-size:14px;line-height:1.75\">要解决的问题：外国居民净增持美国资产，主要通过直接投资、证券股权与基金、债务证券，还是其他投资实现？</p><p style=\"font-size:14px;line-height:1.75\">怎么看：四类负债端净流入用正负堆叠柱展示，合计对应不含衍生品的对外负债净发生。正值表示净增持，负值表示净出售、撤资或偿还。单位为十亿美元，季度流量、季调。证券股权与债务证券分开展示，避免把买股票和提供债务融资混为一谈。</p><p style=\"font-size:14px;line-height:1.75\">怎么解释：股权类流入变化，可作为风险资产配置变化的线索；债务证券流入变化，需要结合利率、期限和债券类别分析；其他投资包括存款、贷款、贸易信贷等，可提示银行及融资渠道变化。直接投资常涉及较长期经营关系，但也包含关联企业债务。</p><p style=\"font-size:14px;line-height:1.75\">判断边界：证券流入增加不自动等于融资风险上升，直接投资不保证稳定，其他投资也不全是短期资金。本图没有完整区分期限、发行主体和投资者性质，不能单凭类别判定融资可持续性。净流入接近零或正负抵消时，也不宜机械计算融资占比。</p><p style=\"font-size:16px;line-height:1.75\"><strong>图4｜净对外负债相对经济规模多大？</strong></p><p style=\"font-size:14px;line-height:1.75\">要解决的问题：美国的外部净负债相对于本国经济规模，是扩大还是缩小？</p><p style=\"font-size:14px;line-height:1.75\">怎么看：净国际投资头寸＝季末对外资产－季末对外负债。图中展示净头寸占同季度名义GDP折年值的百分比，金额单位先统一；负值表示净对外负债，越负表示净负债相对于经济规模越大。原始净头寸金额可在指标运算输入中查看。</p><p style=\"font-size:14px;line-height:1.75\">怎么解释：该比率可以减少只看名义金额长期增长带来的误判。但比率变化既可能来自净头寸，也可能来自GDP分母变化；需要结合资金流和市场价格理解。美国资产相对海外资产上涨，还可能增加外国持有美国资产的市值，使净头寸恶化，即使当期净融资变化并不大。</p><p style=\"font-size:14px;line-height:1.75\">判断边界：这是存量与年度化经济规模的比较，不是偿债率，也没有适用于所有时期的固定危机阈值。净头寸恶化不等于即将发生融资危机，更不能简单等同于美元即将下跌。</p><p style=\"font-size:16px;line-height:1.75\"><strong>图5｜收入逆差来自收入减少还是支付增加？</strong></p><p style=\"font-size:14px;line-height:1.75\">要解决的问题：初次收入净额转弱，是美国从海外取得的收入下降，还是向海外支付的收入上升？</p><p style=\"font-size:14px;line-height:1.75\">怎么看：两根柱分别为初次收入收入与支付，均按正值比较；折线为收入减支付。支付柱为正只是金额展示方式，不表示资金流入。单位为十亿美元，季度流量、季调；差额与两柱相减可能存在公布值舍入差异。</p><p style=\"font-size:14px;line-height:1.75\">怎么解释：如果收入基本稳定而支付增加，逆差扩大主要由支付端推动；若支付稳定而收入下降，则主要由收入端推动。两端也可能同时上升，但增速不同。初次收入包括投资收益与雇员报酬，进一步归因应下钻直接投资、证券投资和其他投资收益等明细。</p><p style=\"font-size:14px;line-height:1.75\">判断边界：净额转负只说明总支付超过总收入，不能直接证明美国海外投资回报率优势消失。资产负债规模、投资结构和收益率都能影响净额。若分析收益率，需要使用匹配的投资收益及平均资产负债存量，不能直接用初次收入净额替代收益率。</p><p style=\"font-size:16px;line-height:1.75\"><strong>图6｜负债存量沉淀在哪些工具？</strong></p><p style=\"font-size:14px;line-height:1.75\">要解决的问题：外国居民对美国的金融资产持有，主要集中在直接投资、证券投资还是其他投资？历史交易与市场变化形成了怎样的结构？</p><p style=\"font-size:14px;line-height:1.75\">怎么看：堆叠面积展示三类季末负债存量，单位为万亿美元、未季调；直接投资按市场价值计。三类合计不含衍生品，因此不是全部对外负债。该图反映负债一端，应结合图4的净头寸理解，而不能替代对外资产负债全貌。</p><p style=\"font-size:14px;line-height:1.75\">怎么解释：证券投资存量较大，意味着市场价格变化对负债估值更重要，但该大类同时包含股权和债务；其他投资变化可提示存贷款等渠道的暴露变化，仍需期限和主体明细才能判断流动性风险。</p><p style=\"font-size:14px;line-height:1.75\">判断边界：存量变化＝金融交易＋价格变化＋汇率变化＋其他调整。外国持有美股升值不等于同额新增外资流入。本图尚未提供四项精确归因，不能把未季调头寸差分减去季调交易流量的残差直接命名为估值变化；存量也不能按四季求和。</p><p style=\"font-size:16px;line-height:1.75\"><strong>每期如何形成分析结论</strong></p><p style=\"font-size:14px;line-height:1.75\">第一步，说明经常账户缺口扩大还是缩小，并指出主要分项。第二步，说明净融资变化由负债端增持、资产端对外投资，还是两端共同推动。第三步，指出融资工具的主导项，区分股权和债务。第四步，观察净头寸相对于GDP的变化。第五步，区分收入端与支付端对收入净额的影响。第六步，将存量变化与当期交易对照，保留对估值、汇率及其他调整的解释空间。</p><p style=\"font-size:14px;line-height:1.75\">采用“观察事实—分项解释—待验证原因”的写法。例如：服务顺差扩大，但货物逆差扩张更多，所以经常账户缺口仍扩大；或净流入增加，但主要因为美国居民减少对外投资，尚不能据此认定外国居民更看好美国资产。</p><p style=\"font-size:14px;line-height:1.75\">季度数据容易受大额交易和季节调整影响，结论应结合多个季度观察；需要平滑时，流量可另看过去四季合计，存量使用季末值。本模板当前展示季度流量和季末存量。各图应比较同一观测期，缺失值不当作零；单期数据和历史数值可能修订，后续更新可能改变原有判断。</p>",
+      "introText": "分析目标：美国的外部缺口如何形成，又如何获得融资？\n本模板围绕六个问题展开：美国对外收支的缺口来自哪里？净融资由外国增持美国资产，还是美国居民减少对外投资推动？外资主要配置股权、债券还是其他工具？净对外负债相对经济规模有多大？收入逆差来自收入减少还是支付增加？历史融资最终沉淀为怎样的负债存量？\n阅读顺序是“收支缺口 → 资金两端 → 融资工具 → 净头寸 → 收益收支 → 负债结构”。先明确当期发生了什么，再分析哪一项推动变化，最后评估结构与潜在脆弱性。六图共同提供判断线索，不能由某一根柱子直接推断美元、股票或债券下一步涨跌。\n\n先分清三组概念\n流量与存量：经常账户和金融账户记录一个季度内的交易；国际投资头寸记录季度末的资产负债价值。流量看当期变化，存量看累积暴露。二者不能直接相加，也不能把存量上涨全部解释为新增交易。\n本金与收益：外国居民购买美国股票、债券等，记录在金融账户；相关股息、利息和投资利润等，记录在初次收入。投资收益还可能包括再投资收益，因此国际收支记录不等同于银行账户里当期实际划转的现金。\n金融负债与债务：外国居民持有的美国股票、基金份额、直接投资股权也属于美国对外金融负债，但并非都有固定还本付息义务。统计按居民身份区分，不按国籍区分。\n\n图1｜外部缺口来自哪里？\n要解决的问题：美国经常账户逆差主要由货物贸易、投资等收入，还是经常转移造成？服务顺差抵消了多少缺口？\n怎么看：四类差额用正负堆叠柱展示，经常账户总差额用折线展示。经常账户差额＝货物差额＋服务差额＋初次收入差额＋二次收入差额；正值为顺差，负值为逆差。单位为十亿美元，季度流量、季调；公布值舍入可能带来微小差异。\n怎么解释：服务顺差扩大是在缓冲外部缺口，但若货物逆差或收入逆差扩张得更快，总缺口仍可能扩大。初次收入包括投资收益和雇员报酬；二次收入包括个人汇款、经常援助等经常转移。判断改善与否，要同时看总额和各分项对变化的贡献。\n判断边界：服务顺差扩大不等于整个经常账户转为顺差。经常账户也不包含购买股票、债券等投资本金交易。\n\n图2｜净流入增加，由哪一端推动？\n要解决的问题：对外净融资增加，是外国居民更积极配置美国资产，还是美国居民减少配置海外资产，或两者共同作用？\n怎么看：本图按资金方向统一符号。“外国增持美国资产”通常在零轴上方；“美国对外投资”按流出方向取负显示；“对外净融资”折线为正表示净流入、为负表示净流出。两根柱都已在各自一端扣除出售或偿还，不是未经轧差的总买入和总卖出。单位为十亿美元，季度流量、季调。\n怎么解释：净流入扩大时，先比较外国增持是否上升，再看美国对外投资是否减少。如果流入端下降，但流出端降得更多，净流入仍可增加；这与外国居民加速增持的含义不同。\n判断边界：官方金融账户口径为“资产净取得－负债净发生＋衍生品净交易”，正值净贷出、负值净借入。本图净融资线将该官方指标取反，因此流入为正。两柱不含衍生品，故两柱之和未必等于折线；也不能要求净融资与经常账户逆差逐季完全相等，还需考虑资本账户及统计误差等调节项。\n\n图3｜外资主要配置股权还是债务？\n要解决的问题：外国居民净增持美国资产，主要通过直接投资、证券股权与基金、债务证券，还是其他投资实现？\n怎么看：四类负债端净流入用正负堆叠柱展示，合计对应不含衍生品的对外负债净发生。正值表示净增持，负值表示净出售、撤资或偿还。单位为十亿美元，季度流量、季调。证券股权与债务证券分开展示，避免把买股票和提供债务融资混为一谈。\n怎么解释：股权类流入变化，可作为风险资产配置变化的线索；债务证券流入变化，需要结合利率、期限和债券类别分析；其他投资包括存款、贷款、贸易信贷等，可提示银行及融资渠道变化。直接投资常涉及较长期经营关系，但也包含关联企业债务。\n判断边界：证券流入增加不自动等于融资风险上升，直接投资不保证稳定，其他投资也不全是短期资金。本图没有完整区分期限、发行主体和投资者性质，不能单凭类别判定融资可持续性。净流入接近零或正负抵消时，也不宜机械计算融资占比。\n\n图4｜净对外负债相对经济规模多大？\n要解决的问题：美国的外部净负债相对于本国经济规模，是扩大还是缩小？\n怎么看：净国际投资头寸＝季末对外资产－季末对外负债。图中展示净头寸占同季度名义GDP折年值的百分比，金额单位先统一；负值表示净对外负债，越负表示净负债相对于经济规模越大。原始净头寸金额可在指标运算输入中查看。\n怎么解释：该比率可以减少只看名义金额长期增长带来的误判。但比率变化既可能来自净头寸，也可能来自GDP分母变化；需要结合资金流和市场价格理解。美国资产相对海外资产上涨，还可能增加外国持有美国资产的市值，使净头寸恶化，即使当期净融资变化并不大。\n判断边界：这是存量与年度化经济规模的比较，不是偿债率，也没有适用于所有时期的固定危机阈值。净头寸恶化不等于即将发生融资危机，更不能简单等同于美元即将下跌。\n\n图5｜收入逆差来自收入减少还是支付增加？\n要解决的问题：初次收入净额转弱，是美国从海外取得的收入下降，还是向海外支付的收入上升？\n怎么看：两根柱分别为初次收入收入与支付，均按正值比较；折线为收入减支付。支付柱为正只是金额展示方式，不表示资金流入。单位为十亿美元，季度流量、季调；差额与两柱相减可能存在公布值舍入差异。\n怎么解释：如果收入基本稳定而支付增加，逆差扩大主要由支付端推动；若支付稳定而收入下降，则主要由收入端推动。两端也可能同时上升，但增速不同。初次收入包括投资收益与雇员报酬，进一步归因应下钻直接投资、证券投资和其他投资收益等明细。\n判断边界：净额转负只说明总支付超过总收入，不能直接证明美国海外投资回报率优势消失。资产负债规模、投资结构和收益率都能影响净额。若分析收益率，需要使用匹配的投资收益及平均资产负债存量，不能直接用初次收入净额替代收益率。\n\n图6｜负债存量沉淀在哪些工具？\n要解决的问题：外国居民对美国的金融资产持有，主要集中在直接投资、证券投资还是其他投资？历史交易与市场变化形成了怎样的结构？\n怎么看：堆叠面积展示三类季末负债存量，单位为万亿美元、未季调；直接投资按市场价值计。三类合计不含衍生品，因此不是全部对外负债。该图反映负债一端，应结合图4的净头寸理解，而不能替代对外资产负债全貌。\n怎么解释：证券投资存量较大，意味着市场价格变化对负债估值更重要，但该大类同时包含股权和债务；其他投资变化可提示存贷款等渠道的暴露变化，仍需期限和主体明细才能判断流动性风险。\n判断边界：存量变化＝金融交易＋价格变化＋汇率变化＋其他调整。外国持有美股升值不等于同额新增外资流入。本图尚未提供四项精确归因，不能把未季调头寸差分减去季调交易流量的残差直接命名为估值变化；存量也不能按四季求和。\n\n每期如何形成分析结论\n第一步，说明经常账户缺口扩大还是缩小，并指出主要分项。第二步，说明净融资变化由负债端增持、资产端对外投资，还是两端共同推动。第三步，指出融资工具的主导项，区分股权和债务。第四步，观察净头寸相对于GDP的变化。第五步，区分收入端与支付端对收入净额的影响。第六步，将存量变化与当期交易对照，保留对估值、汇率及其他调整的解释空间。\n采用“观察事实—分项解释—待验证原因”的写法。例如：服务顺差扩大，但货物逆差扩张更多，所以经常账户缺口仍扩大；或净流入增加，但主要因为美国居民减少对外投资，尚不能据此认定外国居民更看好美国资产。\n季度数据容易受大额交易和季节调整影响，结论应结合多个季度观察；需要平滑时，流量可另看过去四季合计，存量使用季末值。本模板当前展示季度流量和季末存量。各图应比较同一观测期，缺失值不当作零；单期数据和历史数值可能修订，后续更新可能改变原有判断。",
+      "layoutMode": 6,
+      "description": "围绕外部缺口、跨境资金两端、股权与债务融资、净对外头寸、收入收支和负债存量六个问题，判断美国外部失衡的来源与融资结构。",
+      "derivedCalcs": [
+        {
+          "id": "us-bop-0-ieabcg",
+          "op": "add",
+          "name": "货物差额",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEABCG"
+          },
+          "leftKey": "fred:IEABCG",
+          "rightKey": "fred:IEABCG",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-0-ieabcs",
+          "op": "add",
+          "name": "服务差额",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEABCS"
+          },
+          "leftKey": "fred:IEABCS",
+          "rightKey": "fred:IEABCS",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-0-ieabcpi",
+          "op": "add",
+          "name": "初次收入差额",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEABCPI"
+          },
+          "leftKey": "fred:IEABCPI",
+          "rightKey": "fred:IEABCPI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-0-ieabcsi",
+          "op": "add",
+          "name": "二次收入差额",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEABCSI"
+          },
+          "leftKey": "fred:IEABCSI",
+          "rightKey": "fred:IEABCSI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-0-ieabc",
+          "op": "add",
+          "name": "经常账户差额",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEABC"
+          },
+          "leftKey": "fred:IEABC",
+          "rightKey": "fred:IEABC",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-1-ieai",
+          "op": "add",
+          "name": "外国增持美国资产",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAI"
+          },
+          "leftKey": "fred:IEAI",
+          "rightKey": "fred:IEAI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-1-ieaa",
+          "op": "add",
+          "name": "美国对外投资（流出为负）",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": -0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAA"
+          },
+          "leftKey": "fred:IEAA",
+          "rightKey": "fred:IEAA",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-1-ieanlf",
+          "op": "add",
+          "name": "对外净融资（流入为正）",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": -0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEANLF"
+          },
+          "leftKey": "fred:IEANLF",
+          "rightKey": "fred:IEANLF",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-2-ieaidi",
+          "op": "add",
+          "name": "直接投资",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAIDI"
+          },
+          "leftKey": "fred:IEAIDI",
+          "rightKey": "fred:IEAIDI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-2-ieaipie",
+          "op": "add",
+          "name": "证券股权及基金",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAIPIE"
+          },
+          "leftKey": "fred:IEAIPIE",
+          "rightKey": "fred:IEAIPIE",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-2-ieaipid",
+          "op": "add",
+          "name": "债务证券",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAIPID"
+          },
+          "leftKey": "fred:IEAIPID",
+          "rightKey": "fred:IEAIPID",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-2-ieaioi",
+          "op": "add",
+          "name": "其他投资",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAIOI"
+          },
+          "leftKey": "fred:IEAIOI",
+          "rightKey": "fred:IEAIOI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-niip-gdp",
+          "op": "ratio",
+          "name": "净头寸占GDP",
+          "scale": 0.1,
+          "leftKey": "fred:IIPUSNETIQ",
+          "rightKey": "fred:GDP",
+          "unitLabel": "%"
+        },
+        {
+          "id": "us-bop-4-ieaxi",
+          "op": "add",
+          "name": "从海外取得的初次收入",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAXI"
+          },
+          "leftKey": "fred:IEAXI",
+          "rightKey": "fred:IEAXI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-4-ieami",
+          "op": "add",
+          "name": "向海外支付的初次收入",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEAMI"
+          },
+          "leftKey": "fred:IEAMI",
+          "rightKey": "fred:IEAMI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-4-ieabcpi",
+          "op": "add",
+          "name": "初次收入净额",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.001,
+                "unitLabel": "十亿美元"
+              }
+            ],
+            "inputKey": "fred:IEABCPI"
+          },
+          "leftKey": "fred:IEABCPI",
+          "rightKey": "fred:IEABCPI",
+          "unitLabel": "十亿美元"
+        },
+        {
+          "id": "us-bop-5-iipdirelmvq",
+          "op": "add",
+          "name": "直接投资负债",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.000001,
+                "unitLabel": "万亿美元"
+              }
+            ],
+            "inputKey": "fred:IIPDIRELMVQ"
+          },
+          "leftKey": "fred:IIPDIRELMVQ",
+          "rightKey": "fred:IIPDIRELMVQ",
+          "unitLabel": "万亿美元"
+        },
+        {
+          "id": "us-bop-5-iipportlq",
+          "op": "add",
+          "name": "证券投资负债",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.000001,
+                "unitLabel": "万亿美元"
+              }
+            ],
+            "inputKey": "fred:IIPPORTLQ"
+          },
+          "leftKey": "fred:IIPPORTLQ",
+          "rightKey": "fred:IIPPORTLQ",
+          "unitLabel": "万亿美元"
+        },
+        {
+          "id": "us-bop-5-iipothelq",
+          "op": "add",
+          "name": "其他投资负债",
+          "single": {
+            "steps": [
+              {
+                "id": "quarter",
+                "type": "resample",
+                "method": "end",
+                "frequency": "quarter"
+              },
+              {
+                "id": "scale",
+                "type": "scale",
+                "factor": 0.000001,
+                "unitLabel": "万亿美元"
+              }
+            ],
+            "inputKey": "fred:IIPOTHELQ"
+          },
+          "leftKey": "fred:IIPOTHELQ",
+          "rightKey": "fred:IIPOTHELQ",
+          "unitLabel": "万亿美元"
+        }
+      ],
       "selectedKeys": [
+        "fred:GDP",
+        "fred:IEABCG",
         "fred:IEABCS",
         "fred:IEABCPI",
         "fred:IEABCSI",
-        "fred:IEAA",
+        "fred:IEABC",
         "fred:IEAI",
+        "fred:IEAA",
         "fred:IEANLF",
         "fred:IEAIDI",
-        "fred:IEAIPI",
+        "fred:IEAIPIE",
+        "fred:IEAIPID",
         "fred:IEAIOI",
+        "fred:IIPUSNETIQ",
+        "fred:IEAXI",
+        "fred:IEAMI",
         "fred:IIPDIRELMVQ",
         "fred:IIPPORTLQ",
         "fred:IIPOTHELQ"
       ],
-      "updatedAtIso": "2026-09-22T03:07:54.282Z",
+      "updatedAtIso": "2026-11-20T04:08:43.213Z",
       "displayConfig": {
         "lineWidth": 1.6,
+        "slotModes": {},
         "lineSmooth": false,
         "showLegend": true,
+        "slotHidden": {},
         "slotTitles": {
-          "0": "经常账户非货物项：服务、初次收入与二次收入",
-          "1": "跨境资金两端：资产取得、负债发生与净借贷",
-          "2": "外部融资流量结构：直接、证券与其他投资",
-          "3": "外部负债存量结构：直接、证券与其他投资"
+          "0": "外部缺口来自哪里？",
+          "1": "净流入增加，由哪一端推动？",
+          "2": "外资主要配置股权还是债务？",
+          "3": "净对外负债相对经济规模多大？",
+          "4": "收入逆差来自收入减少还是支付增加？",
+          "5": "负债存量沉淀在哪些工具？"
         },
         "symbolSize": 7,
-        "areaOpacity": 0.28,
+        "areaOpacity": 0.2,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
-        "xLabelRotate": 24,
+        "xLabelRotate": 0,
         "showGridLines": true,
         "legendPosition": "bottom",
+        "slotAxisRanges": {},
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotSeriesOrder": {
+          "0": [
+            "calc:us-bop-0-ieabc",
+            "calc:us-bop-0-ieabcg",
+            "calc:us-bop-0-ieabcs",
+            "calc:us-bop-0-ieabcpi",
+            "calc:us-bop-0-ieabcsi"
+          ],
+          "1": [
+            "calc:us-bop-1-ieai",
+            "calc:us-bop-1-ieaa",
+            "calc:us-bop-1-ieanlf"
+          ],
+          "2": [
+            "calc:us-bop-2-ieaidi",
+            "calc:us-bop-2-ieaipie",
+            "calc:us-bop-2-ieaipid",
+            "calc:us-bop-2-ieaioi"
+          ],
+          "3": [
+            "calc:us-bop-niip-gdp"
+          ],
+          "4": [
+            "calc:us-bop-4-ieaxi",
+            "calc:us-bop-4-ieami",
+            "calc:us-bop-4-ieabcpi"
+          ],
+          "5": [
+            "calc:us-bop-5-iipdirelmvq",
+            "calc:us-bop-5-iipportlq",
+            "calc:us-bop-5-iipothelq"
+          ]
+        },
         "endLabelDecimals": 2,
         "showRegimeShading": false,
+        "slotShowEndLabels": {
+          "0": false,
+          "1": false,
+          "2": false,
+          "3": false,
+          "4": false,
+          "5": false
+        },
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:IEAA": 1,
-        "fred:IEAI": 1,
-        "fred:IEABCS": 0,
-        "fred:IEAIDI": 2,
-        "fred:IEAIOI": 2,
-        "fred:IEAIPI": 2,
-        "fred:IEANLF": 1,
-        "fred:IEABCPI": 0,
-        "fred:IEABCSI": 0,
-        "fred:IIPOTHELQ": 3,
-        "fred:IIPPORTLQ": 3,
-        "fred:IIPDIRELMVQ": 3
+        "fred:GDP": null,
+        "fred:IEAA": null,
+        "fred:IEAI": null,
+        "fred:IEABC": null,
+        "fred:IEAMI": null,
+        "fred:IEAXI": null,
+        "fred:IEABCG": null,
+        "fred:IEABCS": null,
+        "fred:IEAIDI": null,
+        "fred:IEAIOI": null,
+        "fred:IEANLF": null,
+        "fred:IEABCPI": null,
+        "fred:IEABCSI": null,
+        "fred:IEAIPID": null,
+        "fred:IEAIPIE": null,
+        "fred:IIPOTHELQ": null,
+        "fred:IIPPORTLQ": null,
+        "fred:IIPUSNETIQ": null,
+        "fred:IIPDIRELMVQ": null,
+        "calc:us-bop-1-ieaa": 1,
+        "calc:us-bop-1-ieai": 1,
+        "calc:us-bop-0-ieabc": 0,
+        "calc:us-bop-4-ieami": 4,
+        "calc:us-bop-4-ieaxi": 4,
+        "calc:us-bop-0-ieabcg": 0,
+        "calc:us-bop-0-ieabcs": 0,
+        "calc:us-bop-1-ieanlf": 1,
+        "calc:us-bop-2-ieaidi": 2,
+        "calc:us-bop-2-ieaioi": 2,
+        "calc:us-bop-niip-gdp": 3,
+        "calc:us-bop-0-ieabcpi": 0,
+        "calc:us-bop-0-ieabcsi": 0,
+        "calc:us-bop-2-ieaipid": 2,
+        "calc:us-bop-2-ieaipie": 2,
+        "calc:us-bop-4-ieabcpi": 4,
+        "calc:us-bop-5-iipothelq": 5,
+        "calc:us-bop-5-iipportlq": 5,
+        "calc:us-bop-5-iipdirelmvq": 5
+      },
+      "chartIntroNotes": {
+        "0": "季度流量、季调，单位：十亿美元。正值为顺差、负值为逆差；四类差额共同构成经常账户，公布值舍入可能带来微小差异。先看总缺口，再看服务顺差能否抵消货物逆差、收入与转移支出。",
+        "1": "季度流量、季调，单位：十亿美元；本图统一以流入为正、流出为负。负债端为外国居民净增持美国资产；资产端为美国居民净增持海外资产，按流出方向显示。净流入线为官方净贷出／净借入指标取反，含衍生品；两根柱不含衍生品，因此柱之和与折线可以存在差额。各端均已扣除出售或偿还，并非未经轧差的总资金流量。",
+        "2": "季度流量、季调，单位：十亿美元。正值为负债端净流入，负值为净撤资或偿还。证券投资拆为股权与基金份额、债务证券；直接投资本身也包含股权和关联企业债务，其他投资包含存款、贷款、贸易信贷等。四项合计对应不含衍生品的负债净发生；不能仅凭类别判定期限或融资稳定性，股票类负债也不是固定还本付息的债务。",
+        "3": "净国际投资头寸为季末对外资产减对外负债，负值表示净负债。本图为占同季名义GDP折年值的百分比，分子与分母先统一金额单位，原始金额保留在指标运算输入中。该比率是规模参照，不是偿债率；净头寸变化同时受金融交易、价格、汇率及其他调整影响，不能直接等同于净资金流出入。",
+        "4": "季度流量、季调，单位：十亿美元。收入和支付均以正值比较，差额为收入减支付；支付柱为正不表示资金流入。初次收入包括投资收益和雇员报酬。差额转负只说明总支付超过总收入，还受资产负债规模、投资结构及收益率共同影响，不能据此认定海外投资回报率优势消失。",
+        "5": "季末存量、未季调，单位：万亿美元。展示直接投资（市场价值）、证券投资和其他投资三类对外负债，不含衍生品，不是全部对外负债。存量增长既可来自新增交易，也可来自价格、汇率和其他调整；美股上涨导致外国持仓升值不代表同额外资流入。不能用本图存量差分减去季调交易流量，冒充精确估值归因。"
       },
       "seriesVisualMap": {
-        "fred:IEAA": {
+        "calc:us-bop-1-ieaa": {
           "axis": "left",
-          "color": "#6ccad1",
-          "chartType": "bar",
-          "showEndLabel": false
-        },
-        "fred:IEAI": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "bar",
-          "showEndLabel": false
-        },
-        "fred:IEABCS": {
-          "axis": "left",
-          "color": "#5f76b8",
-          "chartType": "bar",
-          "showEndLabel": false
-        },
-        "fred:IEAIDI": {
-          "axis": "left",
-          "color": "#6ccad1",
+          "color": "#45a9af",
           "chartType": "stackBar",
-          "stackGroup": "us-bop-liability-flow",
+          "stackGroup": "bop-1",
           "showEndLabel": false
         },
-        "fred:IEAIOI": {
+        "calc:us-bop-1-ieai": {
           "axis": "left",
-          "color": "#d89b4e",
+          "color": "#d66b5e",
           "chartType": "stackBar",
-          "stackGroup": "us-bop-liability-flow",
+          "stackGroup": "bop-1",
           "showEndLabel": false
         },
-        "fred:IEAIPI": {
+        "calc:us-bop-0-ieabc": {
           "axis": "left",
-          "color": "#5f76b8",
-          "chartType": "stackBar",
-          "stackGroup": "us-bop-liability-flow",
-          "showEndLabel": false
-        },
-        "fred:IEANLF": {
-          "axis": "left",
-          "color": "#3e4d83",
+          "color": "#263d66",
           "chartType": "line",
-          "lineWidth": 2.4,
-          "showEndLabel": true
-        },
-        "fred:IEABCPI": {
-          "axis": "left",
-          "color": "#6ccad1",
-          "chartType": "bar",
+          "lineWidth": 2.2,
           "showEndLabel": false
         },
-        "fred:IEABCSI": {
+        "calc:us-bop-4-ieami": {
           "axis": "left",
           "color": "#d89b4e",
           "chartType": "bar",
           "showEndLabel": false
         },
-        "fred:IIPOTHELQ": {
+        "calc:us-bop-4-ieaxi": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "bar",
+          "showEndLabel": false
+        },
+        "calc:us-bop-0-ieabcg": {
+          "axis": "left",
+          "color": "#d66b5e",
+          "chartType": "stackBar",
+          "stackGroup": "bop-0",
+          "showEndLabel": false
+        },
+        "calc:us-bop-0-ieabcs": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "stackBar",
+          "stackGroup": "bop-0",
+          "showEndLabel": false
+        },
+        "calc:us-bop-1-ieanlf": {
+          "axis": "left",
+          "color": "#263d66",
+          "chartType": "line",
+          "lineWidth": 2.2,
+          "showEndLabel": false
+        },
+        "calc:us-bop-2-ieaidi": {
+          "axis": "left",
+          "color": "#45a9af",
+          "chartType": "stackBar",
+          "stackGroup": "bop-2",
+          "showEndLabel": false
+        },
+        "calc:us-bop-2-ieaioi": {
+          "axis": "left",
+          "color": "#9674ac",
+          "chartType": "stackBar",
+          "stackGroup": "bop-2",
+          "showEndLabel": false
+        },
+        "calc:us-bop-niip-gdp": {
+          "axis": "left",
+          "color": "#263d66",
+          "chartType": "line",
+          "lineWidth": 2.2,
+          "showEndLabel": false
+        },
+        "calc:us-bop-0-ieabcpi": {
+          "axis": "left",
+          "color": "#45a9af",
+          "chartType": "stackBar",
+          "stackGroup": "bop-0",
+          "showEndLabel": false
+        },
+        "calc:us-bop-0-ieabcsi": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "stackBar",
+          "stackGroup": "bop-0",
+          "showEndLabel": false
+        },
+        "calc:us-bop-2-ieaipid": {
+          "axis": "left",
+          "color": "#d89b4e",
+          "chartType": "stackBar",
+          "stackGroup": "bop-2",
+          "showEndLabel": false
+        },
+        "calc:us-bop-2-ieaipie": {
+          "axis": "left",
+          "color": "#5f76b8",
+          "chartType": "stackBar",
+          "stackGroup": "bop-2",
+          "showEndLabel": false
+        },
+        "calc:us-bop-4-ieabcpi": {
+          "axis": "left",
+          "color": "#263d66",
+          "chartType": "line",
+          "lineWidth": 2.2,
+          "showEndLabel": false
+        },
+        "calc:us-bop-5-iipothelq": {
           "axis": "left",
           "color": "#d89b4e",
           "chartType": "stackArea",
-          "stackGroup": "us-bop-liability-stock",
+          "stackGroup": "bop-5",
           "showEndLabel": false
         },
-        "fred:IIPPORTLQ": {
+        "calc:us-bop-5-iipportlq": {
           "axis": "left",
           "color": "#5f76b8",
           "chartType": "stackArea",
-          "stackGroup": "us-bop-liability-stock",
+          "stackGroup": "bop-5",
           "showEndLabel": false
         },
-        "fred:IIPDIRELMVQ": {
+        "calc:us-bop-5-iipdirelmvq": {
           "axis": "left",
-          "color": "#6ccad1",
+          "color": "#45a9af",
           "chartType": "stackArea",
-          "stackGroup": "us-bop-liability-stock",
+          "stackGroup": "bop-5",
           "showEndLabel": false
         }
       },
       "selectedListItems": [
+        {
+          "key": "calc:us-bop-0-ieabcg",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-0-ieabcs",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-0-ieabcpi",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-0-ieabcsi",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-0-ieabc",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-1-ieai",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-1-ieaa",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-1-ieanlf",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-2-ieaidi",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-2-ieaipie",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-2-ieaipid",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-2-ieaioi",
+          "type": "derived"
+        },
+        {
+          "key": "fred:GDP",
+          "type": "series"
+        },
+        {
+          "key": "calc:us-bop-niip-gdp",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-4-ieaxi",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-4-ieami",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-4-ieabcpi",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-5-iipdirelmvq",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-5-iipportlq",
+          "type": "derived"
+        },
+        {
+          "key": "calc:us-bop-5-iipothelq",
+          "type": "derived"
+        },
+        {
+          "id": "div-mwogk7m1-ga6s",
+          "type": "divider"
+        },
+        {
+          "key": "fred:IEABCG",
+          "type": "series"
+        },
         {
           "key": "fred:IEABCS",
           "type": "series"
@@ -8147,11 +8858,15 @@
           "type": "series"
         },
         {
-          "key": "fred:IEAA",
+          "key": "fred:IEABC",
           "type": "series"
         },
         {
           "key": "fred:IEAI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAA",
           "type": "series"
         },
         {
@@ -8163,11 +8878,27 @@
           "type": "series"
         },
         {
-          "key": "fred:IEAIPI",
+          "key": "fred:IEAIPIE",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAIPID",
           "type": "series"
         },
         {
           "key": "fred:IEAIOI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IIPUSNETIQ",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAXI",
+          "type": "series"
+        },
+        {
+          "key": "fred:IEAMI",
           "type": "series"
         },
         {
@@ -8184,76 +8915,118 @@
         }
       ],
       "seriesCalcConfigMap": {
+        "fred:GDP": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
         "fred:IEAA": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IEAI": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:IEABC": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:IEAMI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:IEAXI": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:IEABCG": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IEABCS": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IEAIDI": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IEAIOI": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "fred:IEAIPI": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IEANLF": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IEABCPI": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IEABCSI": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:IEAIPID": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:IEAIPIE": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IIPOTHELQ": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IIPPORTLQ": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
+          "resampleMethod": "end"
+        },
+        "fred:IIPUSNETIQ": {
+          "op": "none",
+          "unit": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         },
         "fred:IIPDIRELMVQ": {
           "op": "none",
           "unit": "keep",
-          "frequency": "keep",
+          "frequency": "quarter",
           "resampleMethod": "end"
         }
       }
