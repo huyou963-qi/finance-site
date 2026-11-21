@@ -50,7 +50,7 @@ async function main() {
       const inst = await prisma.instrument.upsert({where:{code:existing?.code ?? row.code},create:{code:row.code,kind:row.raw ? InstrumentKind.OTHER : InstrumentKind.MACRO_SERIES,...data},update:data});
       const def=RELEASE_PACKAGE_CATALOG.find(p=>p.id===row.packageId)!;
       await prisma.dataSubscription.upsert({where:{instrumentId:inst.id},create:{instrumentId:inst.id,sourceId:row.sourceId,sourceSeriesKey:row.key,granularity:row.granularity,fetchMethod:DataFetchMethod.API,enabled:true,priority:48,releaseRule:def.release as object,releasePackageId:row.packageId,revisionLookback:row.raw ? 36 : 24,nextRunAt:new Date()},
-        update:{sourceId:row.sourceId,sourceSeriesKey:row.key,granularity:row.granularity,enabled:true,releaseRule:def.release as object,releasePackageId:row.packageId,revisionLookback:row.raw ? 36 : 24}});
+        update:{sourceId:row.sourceId,sourceSeriesKey:row.key,granularity:row.granularity,...(row.raw?{}:{enabled:true}),releaseRule:def.release as object,releasePackageId:row.packageId,revisionLookback:row.raw ? 36 : 24}});
       await prisma.releasePackageMember.upsert({where:{instrumentId:inst.id},create:{instrumentId:inst.id,packageId:row.packageId},update:{packageId:row.packageId}});
       console.log(`[seed-fiscal] ${inst.code} → ${row.packageId}`);
     }
