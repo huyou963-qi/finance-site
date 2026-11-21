@@ -2,6 +2,8 @@
 
 本文档与宏观页内置模板、`fiscalAnalysisLayout.ts`、`.cursor/prompts/us-fiscal-analysis-framework.md` 保持一致。
 
+> 三模板拟重构为债务/收支/融资的18图方案；所需原始指标、开发库核查、目录及订阅接入见 [US_FISCAL_DATA_FOUNDATION.md](./US_FISCAL_DATA_FOUNDATION.md)。以下为当前尚未替换的已存模板布局；本次数据接入不自动发布新版模板。
+
 ## 初学者阅读顺序
 
 1. 概念：联邦 vs 州/地方、流量 vs 存量、FY 财年（10/1–9/30）、现金 MTS/DTS vs 权责 NIPA  

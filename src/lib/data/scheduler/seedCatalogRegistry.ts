@@ -48,7 +48,7 @@ export const SEED_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   ppi: { script: "seed-ppi", labelZh: "美国 PPI（最终需求）订阅" },
   labor: { script: "seed-labor", labelZh: "美国就业订阅" },
   overview: { script: "seed-overview", labelZh: "美国 Overview FRED" },
-  fiscal: { script: "seed-fiscal", labelZh: "美国财政数据" },
+  fiscal: { script: "seed-fiscal", labelZh: "美国财政原始数据（含持有人、融资及逐券明细）" },
   cot: { script: "seed-cot", labelZh: "CFTC COT" },
   "gold-market": { script: "seed-gold-market", labelZh: "黄金分析已确认原始市场口径" },
   monetary: { script: "seed-monetary", labelZh: "美国货币政策与金融条件" },
@@ -194,7 +194,7 @@ export const VERIFY_CATALOG_REGISTRY: Record<string, SeedCatalogEntry> = {
   ppi: { script: "verify-ppi", labelZh: "PPI（最终需求）自检", verifyNeedsDb: true },
   labor: { script: "verify-labor", labelZh: "就业自检" },
   overview: { script: "verify-overview", labelZh: "Overview 自检" },
-  fiscal: { script: "verify-fiscal", labelZh: "财政自检" },
+  fiscal: { script: "verify-fiscal", labelZh: "财政原始数据与18图依赖自检", verifyNeedsDb: true },
   cot: { script: "verify-cot", labelZh: "COT 自检" },
   monetary: { script: "verify-monetary", labelZh: "货币政策与金融条件自检", verifyNeedsDb: true },
   "standing-repo": {

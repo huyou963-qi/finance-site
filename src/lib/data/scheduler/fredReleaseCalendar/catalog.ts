@@ -141,6 +141,7 @@ export const FRED_RELEASE_IDS_BY_PACKAGE: Readonly<Record<string, readonly numbe
   "us.stlouisfed.sahm": [456],
   /** Treasury Bulletin + Debt to Gross Domestic Product Ratios (release:80:2, 263:1) */
   "us.treasury.debt_levels": [80, 263],
+  "us.treasury.holders": [80],
   /** Surveys of Consumers (release:91:1) */
   "us.umich.sentiment": [91],
 };

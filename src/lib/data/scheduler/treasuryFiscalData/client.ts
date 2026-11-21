@@ -40,6 +40,7 @@ export async function fetchTreasuryRows(
     apiFilters?: string;
     pageSize?: number;
     maxPages?: number;
+    fields?: readonly string[];
   },
 ): Promise<TreasuryRow[]> {
   const pageSize = opts?.pageSize ?? 1000;
@@ -65,11 +66,9 @@ export async function fetchTreasuryRows(
     params.set("page[size]", String(pageSize));
     params.set("page[number]", String(page));
     params.set("sort", "record_date");
+    if (opts?.fields) params.set("fields", opts.fields.join(","));
     if (opts?.apiFilters) {
-      for (const part of opts.apiFilters.split(",")) {
-        const trimmed = part.trim();
-        if (trimmed) params.append("filter", trimmed);
-      }
+      params.set("filter", opts.apiFilters);
     }
 
     const url = `${TREASURY_FISCAL_BASE}/${endpoint}?${params.toString()}`;
@@ -88,33 +87,34 @@ export async function fetchTreasuryRows(
 
     const totalPages = json.meta?.["total-pages"] ?? page;
     if (page >= totalPages || batch.length < pageSize) break;
+    if (page === maxPages) throw new Error(`Treasury 响应超过分页上限（${maxPages}），拒绝保存截断历史`);
   }
 
   return out;
 }
 
 export function parseTreasuryAmount(raw: string | null | undefined): number | null {
-  if (raw == null || raw === "null" || raw === "") return null;
-  const v = Number.parseFloat(raw);
+  if (raw == null || raw === "null" || raw.trim() === "") return null;
+  const v = Number(raw);
   return Number.isFinite(v) ? v : null;
 }
 
 export function selectMts1FyMonthRow(rows: TreasuryRow[], recordDate: string): TreasuryRow | null {
   const fy = String(fiscalYearForCalendarDate(recordDate));
   const month = calendarMonthName(recordDate);
+  const parents = rows.filter(r => r.record_date === recordDate && r.classification_desc === `FY ${fy}` && r.record_type_cd === "SL" && r.data_type_cd === "S");
+  if(parents.length !== 1 || !parents[0]!.classification_id) throw new Error(`MTS 月度财年父行不唯一：${recordDate}`);
   const matches = rows.filter(
     (r) =>
       r.record_date === recordDate &&
       r.record_type_cd === "MTH" &&
       r.data_type_cd === "D" &&
       r.record_fiscal_year === fy &&
+      r.parent_id === parents[0]!.classification_id &&
       r.classification_desc === month,
   );
   if (matches.length === 1) return matches[0]!;
-  if (matches.length === 0) return null;
-  return matches.sort((a, b) =>
-    String(a.line_code_nbr ?? "").localeCompare(String(b.line_code_nbr ?? "")),
-  )[matches.length - 1]!;
+  throw new Error(`MTS 当月行缺失或重复：${recordDate}`);
 }
 
 /** Original report FYTD subtotal, not a sum of older monthly report vintages. */

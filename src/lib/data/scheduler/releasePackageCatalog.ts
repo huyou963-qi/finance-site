@@ -40,6 +40,7 @@ import { ECB_CORE_SERIES, ECB_KEY_RATE_PROBE_HOURS, EUROSTAT_CORE_SERIES, EUROST
 import { MANHEIM_MUVVI_CODE, MANHEIM_MUVVI_PACKAGE_ID } from "./manheimMuvvi/catalog";
 import { EIA_WPSR_PACKAGE_ID, EIA_WPSR_SERIES } from "./eiaWpsr/catalog";
 import { ZILLOW_ZORI_PROBE_HOURS } from "./zillowZori/catalog";
+import { FISCAL_NATIVE_TREASURY, FISCAL_HOLDER_FRED } from "./usFiscalFoundation/catalog";
 
 function ecRule(granularity: DataGranularity) {
   return defaultEconomicCalendarRule(granularity);
@@ -1063,10 +1064,11 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
   probePkg("us.treasury.mts", "美国财政部 MTS 月报", {
     labelEn: "Monthly Treasury Statement",
     granularity: "MONTHLY",
-    intervalHours: 72,
+    intervalHours: 24,
     sortOrder: 214,
     members: {
       instrumentCodes: [
+        ...FISCAL_NATIVE_TREASURY.filter(r => r.packageId === "us.treasury.mts").map(r => r.code),
         "treasury_mts_m01_receipts",
         "treasury_mts_m01_outlays",
         "treasury_mts_m01_deficit",
@@ -1096,7 +1098,7 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     intervalHours: 24,
     sortOrder: 215,
     members: {
-      instrumentCodes: ["treasury_dts_tga_balance", "treasury_dts_daily_net_cash"],
+      instrumentCodes: FISCAL_NATIVE_TREASURY.filter(r => r.packageId === "us.treasury.dts").map(r => r.code),
     },
   }),
   probePkg("us.treasury.debt", "美国公共债务（Debt to the Penny）", {
@@ -1120,7 +1122,23 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
     granularity: "QUARTERLY",
     intervalHours: 168,
     sortOrder: 217,
-    members: { fredSeriesIds: ["GFDEBTN", "FYGFDPUN", "GFDEGDQ188S"] },
+    members: { fredSeriesIds: ["GFDEBTN", "FYGFDPUN", "GFDEGDQ188S", "FYGFGDQ188S"] },
+  }),
+  probePkg("us.treasury.holders", "美国国债持有人（Treasury Bulletin）", {
+    agencyId: "us-treasury", granularity: "QUARTERLY", intervalHours: 168, sortOrder: 219,
+    members: { fredSeriesIds: FISCAL_HOLDER_FRED.map(r => r.fredId) },
+  }),
+  probePkg("us.treasury.mspd", "美国月度公共债务及逐券明细", {
+    agencyId: "us-treasury", granularity: "MONTHLY", intervalHours: 24, sortOrder: 219,
+    members: { instrumentCodes: [...FISCAL_NATIVE_TREASURY.filter(r => r.packageId === "us.treasury.mspd").map(r => r.code), "treasury_raw_mspd"] },
+  }),
+  probePkg("us.treasury.interest_rates", "美国存量国债平均利率", {
+    agencyId: "us-treasury", granularity: "MONTHLY", intervalHours: 24, sortOrder: 219,
+    members: { instrumentCodes: FISCAL_NATIVE_TREASURY.filter(r => r.packageId === "us.treasury.interest_rates").map(r => r.code) },
+  }),
+  probePkg("us.treasury.auctions", "美国国债官方拍卖记录", {
+    agencyId: "us-treasury", granularity: "DAILY", intervalHours: 6, sortOrder: 219,
+    members: { instrumentCodes: ["treasury_raw_auctions"] },
   }),
   probePkg("us.omb.fiscal_ratios", "美国 OMB 财政/GDP 比率", {
     labelEn: "Debt to Gross Domestic Product Ratios",
@@ -1134,8 +1152,6 @@ export const RELEASE_PACKAGE_CATALOG: readonly ReleasePackageDef[] = [
         "GFDGDPA188S",
         "FYFRGDA188S",
         "FYONGDA188S",
-        "FYGFGDQ188S",
-        "GFDEGDQ188S",
       ],
     },
   }),

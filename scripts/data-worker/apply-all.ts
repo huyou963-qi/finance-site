@@ -133,7 +133,7 @@ function buildPlan(flags: Flags): Step[] {
       `--catalog=${name}`,
       ...(isLongHistoricalSeed ? ["--latest-only"] : []),
       ...(isCot ? ["--skip-bulk"] : []),
-      ...(flags.skipBackfill && name === "mof-budget-accounts" ? ["--definitions-only"] : []),
+      ...(flags.skipBackfill && ["mof-budget-accounts", "fiscal"].includes(name) ? ["--definitions-only"] : []),
     ];
     steps.push({
       label: `seed:${name}`,

@@ -906,6 +906,23 @@ model MacroObservation {
   @@schema("mds")
 }
 
+/// 财政部原始逐券/拍卖记录。相同业务键的修订按内容哈希追加；首次捕获时间不是历史首发时间。
+model TreasurySourceSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  dataset     String   @db.VarChar(32)
+  recordKey   String   @map("record_key") @db.VarChar(128)
+  asOfDate    DateTime @map("as_of_date") @db.Date
+  contentHash String   @map("content_hash") @db.VarChar(64)
+  payload     Json
+  sourceUrl   String   @map("source_url") @db.Text
+  capturedAt  DateTime @default(now()) @map("captured_at")
+
+  @@unique([dataset, recordKey, contentHash])
+  @@index([dataset, asOfDate])
+  @@map("treasury_source_snapshot")
+  @@schema("mds")
+}
+
 /// 宏观观测的可见版本账本。MacroObservation 仍是“最新值”快表；本表只追加、不覆盖，
 /// availableAt 表示该版本最早被系统/官方 vintage 证明可见的时点。ALFRED 行带
 /// realtimeStart/realtimeEnd；非 FRED 源从数据 worker 首次捕获变更起保留版本。
