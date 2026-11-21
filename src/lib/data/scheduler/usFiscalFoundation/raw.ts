@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { fetchTreasuryRows, parseTreasuryAmount } from "../treasuryFiscalData/client";
-import type { FetchIncrementalResult } from "../types";
+import type { FetchIncrementalResult, TreasurySnapshotBatch } from "../types";
 
 export type TreasuryRow = Record<string, string | null>;
 const BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/";
@@ -16,29 +16,45 @@ function isoDate(value: string | null | undefined): string {
   return value;
 }
 function snapshot(dataset: string, recordKey: string, date: string, payload: TreasuryRow[], endpoint: string) {
-  const ordered = payload.map(r => Object.fromEntries(Object.entries(r).sort(([a],[b]) => a.localeCompare(b))))
-    .sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const ordered = payload.map(r => {
+    const row=Object.fromEntries(Object.entries(r).sort(([a],[b]) => a.localeCompare(b)));
+    return {row,serialized:JSON.stringify(row)};
+  }).sort((a,b) => a.serialized.localeCompare(b.serialized)).map(r=>r.row);
   return { dataset, recordKey, asOfDate: new Date(`${isoDate(date)}T00:00:00Z`),
     contentHash: createHash("sha256").update(JSON.stringify(ordered)).digest("hex"), payload: ordered,
     sourceUrl: `${BASE}${endpoint}` };
 }
 
-export async function fetchFiscalRawIncremental(key: string, observationStart: string): Promise<FetchIncrementalResult> {
+export function fiscalRawWindows(key: string, observationStart: string, today: string): Array<{start:string;end:string}> {
+  if(key!=="raw:mspd"&&key!=="raw:auctions")throw new Error(`未知财政明细订阅：${key}`);
+  isoDate(observationStart);isoDate(today);
+  const monthly=key==="raw:mspd",floor=monthly?"2001-01-01":"1979-01-01";
+  let start=observationStart>floor?observationStart:floor;
+  // Auction records can describe announced future issuance. Include its year;
+  // the chart reader continues to exclude issue dates after the cutoff.
+  const limit=monthly?today:new Date(new Date(`${today}T00:00:00Z`).getTime()+90*86400000).toISOString().slice(0,10);
+  const windows:Array<{start:string;end:string}>=[];
+  while(start<=limit){
+    const date=new Date(`${start}T00:00:00Z`);
+    const end=new Date(Date.UTC(date.getUTCFullYear()+(monthly?0:1),monthly?date.getUTCMonth()+1:0,1)).toISOString().slice(0,10);
+    windows.push({start,end});start=end;
+  }
+  return windows;
+}
+
+async function fetchFiscalRawWindow(key: string, start: string, end: string): Promise<TreasurySnapshotBatch> {
   const mspd = key === "raw:mspd";
-  if (!mspd && key !== "raw:auctions") throw new Error(`未知财政明细订阅：${key}`);
-  const floor = mspd ? "2001-01-01" : "1979-01-01";
-  const start = observationStart > floor ? observationStart : floor;
   const endpoint = mspd ? MSPD_DETAIL_ENDPOINT : AUCTIONS_ENDPOINT;
-  let rows = await fetchTreasuryRows(endpoint, { apiFilters: `record_date:gte:${start}`,
-    pageSize: 10000, maxPages: 100, fields: mspd ? undefined : AUCTION_FIELDS });
+  const apiFilters=`record_date:gte:${start},record_date:lt:${end}`;
+  const rows = await fetchTreasuryRows(endpoint, { apiFilters,
+    pageSize: 1000, maxPages: 20, fields: mspd ? undefined : AUCTION_FIELDS });
   const legacyKeys=new Set<string>();
   if(!mspd){
     // 新版仅提供近期记录，旧版仍保存长期历史。保留各自原始字段，重叠业务键以新版为准。
-    const legacy=await fetchTreasuryRows(LEGACY_AUCTIONS_ENDPOINT,{apiFilters:`record_date:gte:${start}`,pageSize:10000,maxPages:100,fields:LEGACY_AUCTION_FIELDS});
+    const legacy=await fetchTreasuryRows(LEGACY_AUCTIONS_ENDPOINT,{apiFilters,pageSize:1000,maxPages:20,fields:LEGACY_AUCTION_FIELDS});
     const currentKeys=new Set(rows.map(r=>`${r.cusip}|${r.issue_date}`));
     for(const row of legacy){const key=`${row.cusip}|${row.issue_date}`;if(!currentKeys.has(key)){rows.push(row);legacyKeys.add(key);}}
   }
-  if (!rows.length) throw new Error(`财政原始明细为空：${key}`);
   const grouped = new Map<string, TreasuryRow[]>();
   for (const row of rows) {
     const date = isoDate(row.record_date);
@@ -56,15 +72,45 @@ export async function fetchFiscalRawIncremental(key: string, observationStart: s
   // 拍卖记录可含尚未发行的已公告债券；不把未来issue_date当作已实现观测。
   const today = new Date().toISOString().slice(0,10);
   const dates = rows.map(r => r.record_date!).filter(d => d <= today).sort();
-  return { points: [], treasurySnapshots, sourceLatestObsDate: dates.length ? new Date(`${dates.at(-1)}T00:00:00Z`) : null,
-    skippedInvalid: 0, sourceMetadata: { rawDataset: mspd ? "mspd" : "auctions", nativeRows: rows.length,
-      snapshotCount: treasurySnapshots.length, vintageMeaning: "first_system_capture_not_historical_first_release" } };
+  return {snapshots:treasurySnapshots,sourceLatestObsDate:dates.length?new Date(`${dates.at(-1)}T00:00:00Z`):null,nativeRows:rows.length};
+}
+
+export async function fetchFiscalRawIncremental(key: string, observationStart: string): Promise<FetchIncrementalResult> {
+  const windows=fiscalRawWindows(key,observationStart,new Date().toISOString().slice(0,10));
+  async function* batches(){
+    let count=0;
+    for(const window of windows){
+      const batch=await fetchFiscalRawWindow(key,window.start,window.end);
+      count+=batch.snapshots.length;
+      yield batch;
+    }
+    if(!count)throw new Error(`财政原始明细为空：${key}`);
+  }
+  return {points:[],treasurySnapshotBatches:batches(),sourceLatestObsDate:null,skippedInvalid:0,
+    sourceMetadata:{rawDataset:key.slice(4),window: key==="raw:mspd"?"month":"year",vintageMeaning:"first_system_capture_not_historical_first_release"}};
+}
+
+export async function persistFiscalRawResult(prisma:PrismaClient,result:FetchIncrementalResult):Promise<{inserted:number;fetched:number}> {
+  let inserted=0,fetched=0,nativeRows=0;
+  if(result.treasurySnapshotBatches){
+    for await(const batch of result.treasurySnapshotBatches){
+      inserted+=await persistTreasurySnapshots(prisma,batch.snapshots);
+      fetched+=batch.snapshots.length;nativeRows+=batch.nativeRows;
+      if(batch.sourceLatestObsDate&&(!result.sourceLatestObsDate||batch.sourceLatestObsDate>result.sourceLatestObsDate))result.sourceLatestObsDate=batch.sourceLatestObsDate;
+    }
+    result.sourceMetadata={...result.sourceMetadata,nativeRows,snapshotCount:fetched};
+  }else if(result.treasurySnapshots){
+    inserted=await persistTreasurySnapshots(prisma,result.treasurySnapshots);fetched=result.treasurySnapshots.length;
+  }
+  return {inserted,fetched};
 }
 
 export async function persistTreasurySnapshots(prisma: PrismaClient, snapshots: NonNullable<FetchIncrementalResult["treasurySnapshots"]>): Promise<number> {
   let inserted = 0;
-  for (let index=0; index<snapshots.length; index+=100) {
-    const result = await prisma.treasurySourceSnapshot.createMany({ data: snapshots.slice(index,index+100), skipDuplicates: true });
+  // A monthly MSPD payload contains hundreds of full security rows. Serialize
+  // one report at a time so Prisma does not copy 100 reports into one request.
+  for (const snapshot of snapshots) {
+    const result = await prisma.treasurySourceSnapshot.createMany({ data: [snapshot], skipDuplicates: true });
     inserted += result.count;
   }
   return inserted;

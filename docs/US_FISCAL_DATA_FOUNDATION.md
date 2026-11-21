@@ -138,6 +138,14 @@ npm run data:verify-fiscal -- --db --report=.data/fiscal-onboard/final-audit.jso
 
 原始明细完整性检查包括分页上限拒绝静默截断、逐券发行批次余额不重复、混月拒绝、拍卖业务键唯一。旧版MSPD会给每个续发行批次分别列余额，新版常在一条记录列合计、其余为空；读取层兼容两种格式，绝不将issued_amt叠加到outstanding_amt上。数据库检查包括原始观测覆盖、目录位置、启用订阅、发布包唯一性、月收入分项合计、融资表勾稽、赤字/融资衔接与MSPD券种总额。
 
+### 原始明细回填的资源限制
+
+原始明细使用流式窗口：MSPD每次只读一个月、拍卖每次只读一年；当前窗口逐份写入完成才读取下一窗口。哈希排序缓存每行JSON，避免比较时反复序列化。单次Prisma请求只提交一份快照，幂等键和修订追加规则保持不变。中途失败保留已提交批次，整个订阅运行仍记失败。
+
+生产首次回填用 `bash scripts/ops/backfill-us-fiscal-raw.sh mspd`，成功后再运行 `bash scripts/ops/backfill-us-fiscal-raw.sh auctions`。脚本创建独立systemd服务，MemoryHigh=384MB、MemoryMax=512MB、禁用该服务swap、CPUQuota=25%、最长30分钟，并使用常规worker锁。资源超限只终止该任务。可带第二参数起始日期；应先核对缺口，不要直接按最后日期跳过历史缺月。
+
+维护脚本可显式执行暂停中的订阅，但不会开启其自动更新。用 `systemctl show finance-fiscal-backfill-mspd -p Result -p MemoryPeak -p CPUUsageNSec` 和 `journalctl -u finance-fiscal-backfill-mspd` 检查结果；两条原始明细订阅在维护期间保持暂停，seed对已有原始明细订阅保留其启用状态。完整核验通过后再恢复两条订阅。
+
 ### 本次开发库实查结果
 
 - 60条原始数值序列，62,550条观测；62条启用订阅归入8个发布包。旧版`treasury_dts_daily_net_cash`二次序列不再seed，改为官方存入/支取两条原始输入。

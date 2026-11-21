@@ -196,13 +196,15 @@ export async function runDataSubscription(
     if (fetchResult.sourceMetadata?.appendOnlyRoundedFallback === true && storedLastObsDate) {
       fetchResult = { ...fetchResult, points: fetchResult.points.filter(p => p.obsDate > storedLastObsDate) };
     }
-    const rawInserted = fetchResult.treasurySnapshots
-      ? await (await import("./usFiscalFoundation/raw")).persistTreasurySnapshots(prisma, fetchResult.treasurySnapshots)
-      : 0;
+    const isRawResult=Boolean(fetchResult.treasurySnapshots||fetchResult.treasurySnapshotBatches);
+    const rawResult = isRawResult
+      ? await (await import("./usFiscalFoundation/raw")).persistFiscalRawResult(prisma, fetchResult)
+      : {inserted:0,fetched:0};
+    const rawInserted=rawResult.inserted;
     const { upserted, skipped, inserted, changed, latestObsDate, latestValue } =
       await upsertMacroObservations(prisma, sub.instrumentId, fetchResult.points);
 
-    const newMax = fetchResult.treasurySnapshots ? fetchResult.sourceLatestObsDate : maxObsDate(fetchResult.points);
+    const newMax = isRawResult ? fetchResult.sourceLatestObsDate : maxObsDate(fetchResult.points);
     const lastObs =
       newMax && storedLastObsDate && newMax <= storedLastObsDate
         ? storedLastObsDate
@@ -369,11 +371,11 @@ export async function runDataSubscription(
           fetchStart,
           persistStart,
           fetched: fetchResult.points.length,
-          ...(fetchResult.treasurySnapshots ? { rawSnapshotsInserted: rawInserted, rawSnapshotsFetched: fetchResult.treasurySnapshots.length } : {}),
+          ...(isRawResult ? { rawSnapshotsInserted: rawInserted, rawSnapshotsFetched: rawResult.fetched } : {}),
           ...(fetchResult.sourceMetadata ? { sourceMetadata: fetchResult.sourceMetadata } : {}),
           inserted,
           changed,
-          latestObs: (fetchResult.treasurySnapshots ? lastObs : latestObsDate)?.toISOString().slice(0, 10) ?? null,
+          latestObs: (isRawResult ? lastObs : latestObsDate)?.toISOString().slice(0, 10) ?? null,
           latestValue,
         },
       },
@@ -422,7 +424,7 @@ export async function runDataSubscription(
       sourceLagDays,
       inserted: inserted + rawInserted,
       changed,
-      latestObsDate: (fetchResult.treasurySnapshots ? lastObs : latestObsDate)?.toISOString().slice(0, 10) ?? null,
+      latestObsDate: (isRawResult ? lastObs : latestObsDate)?.toISOString().slice(0, 10) ?? null,
       latestValue,
     };
   } catch (e) {

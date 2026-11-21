@@ -5,12 +5,21 @@ export type ObservationPoint = {
   value: number;
 };
 
+export type TreasurySnapshot = {
+  dataset: string; recordKey: string; asOfDate: Date; contentHash: string;
+  payload: Prisma.InputJsonValue; sourceUrl: string;
+};
+export type TreasurySnapshotBatch = {
+  snapshots: TreasurySnapshot[];
+  sourceLatestObsDate: Date | null;
+  nativeRows: number;
+};
+
 export type FetchIncrementalResult = {
   /** 原始财政明细，单独保存；不把期限桶/拍卖月度合计作为宏观事实写库。 */
-  treasurySnapshots?: {
-    dataset: string; recordKey: string; asOfDate: Date; contentHash: string;
-    payload: Prisma.InputJsonValue; sourceUrl: string;
-  }[];
+  treasurySnapshots?: TreasurySnapshot[];
+  /** Pull and persist each bounded window before fetching the next one. */
+  treasurySnapshotBatches?: AsyncIterable<TreasurySnapshotBatch>;
   /** Source publication time, read BEFORE observations; never the fetch time. */
   sourcePublishedAt?: Date | null;
   sourcePublications?: { releaseId: number; publishedAt: string }[];
