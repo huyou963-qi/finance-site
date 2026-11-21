@@ -33,6 +33,9 @@ export const US_CATALOG_SUBGROUPS: Record<UsCatalogTopLevel, readonly string[]> 
   金融条件与银行: ["金融条件指数", "银行信贷", "银行存款", "资产质量", "居民流动性资产", "居民资产负债与偿债", "居民消费信贷"],
   财政与公共债务: [
     "MTS现金流量",
+    "财政收入结构", "财政支出结构", "赤字融资衔接",
+    "债务持有人", "债务券种结构", "国债发行与偿还", "债务利息成本",
+    "国债逐券明细", "国债拍卖明细",
     "融资与现金",
     "债务存量",
     "可持续性比率",
@@ -174,8 +177,9 @@ const FRED_BANK_CREDIT = new Set(["BUSLOANS", "DRTSCILM"]);
 const FRED_ASSET_QUALITY = new Set(["DRCCLACBS", "DRBLACBS"]);
 
 const FRED_FISCAL_MTS_PROXY = new Set(["FYFSGDA188S"]);
-const FRED_DEBT_STOCK = new Set(["GFDEBTN", "FYGFDPUN", "GFDEGDQ188S"]);
+const FRED_DEBT_STOCK = new Set(["GFDEBTN", "FYGFDPUN"]);
 const FRED_FISCAL_RATIOS = new Set([
+  "GFDEGDQ188S",
   "GFDGDPA188S",
   "FYGFGDQ188S",
   "FYFRGDA188S",
@@ -286,6 +290,7 @@ function placementFromFredId(fredId: string): UsCatalogPlacement | null {
   if (FRED_FINANCIAL_CONDITIONS.has(id)) return p("金融条件与银行", "金融条件指数");
   if (FRED_BANK_CREDIT.has(id)) return p("金融条件与银行", "银行信贷");
   if (FRED_ASSET_QUALITY.has(id)) return p("金融条件与银行", "资产质量");
+  if (["FDHBFRBN", "FDHBFIN", "FDHBPIN"].includes(id)) return p("财政与公共债务", "债务持有人");
   if (FRED_FISCAL_MTS_PROXY.has(id)) return p("财政与公共债务", "可持续性比率");
   if (FRED_DEBT_STOCK.has(id)) return p("财政与公共债务", "债务存量");
   if (FRED_FISCAL_RATIOS.has(id)) return p("财政与公共债务", "可持续性比率");
@@ -313,6 +318,15 @@ function placementFromMdsCode(code: string): UsCatalogPlacement | null {
   if (code.startsWith("ff_us_")) return p("利率与信用市场", "美股风格因子");
   if (code.startsWith("breadth_us_sp500_")) return p("利率与信用市场", "美股市场广度");
   if (code.startsWith("quant_regime_")) return p("国民经济", "景气综合");
+  if (code.startsWith("treasury_mts_m09_rcpt_")) return p("财政与公共债务", "财政收入结构");
+  if (code.startsWith("treasury_mts_m09_outlay_")) return p("财政与公共债务", "财政支出结构");
+  if (code.startsWith("treasury_mts_m06_")) return p("财政与公共债务", "赤字融资衔接");
+  if (code.startsWith("treasury_mspd_")) return p("财政与公共债务", "债务券种结构");
+  if (code.startsWith("treasury_avg_rate_")) return p("财政与公共债务", "债务利息成本");
+  if (/^treasury_dts_(issue|redeem)_/.test(code)) return p("财政与公共债务", "国债发行与偿还");
+  if (code === "treasury_raw_mspd") return p("财政与公共债务", "国债逐券明细");
+  if (code === "treasury_raw_auctions") return p("财政与公共债务", "国债拍卖明细");
+  if (code.startsWith("treasury_debt_penny_") && code.endsWith("_daily")) return p("财政与公共债务", "债务存量");
   if (code.startsWith("treasury_mts_")) return p("财政与公共债务", "MTS现金流量");
   if (code.startsWith("treasury_dts_") || code.startsWith("treasury_debt_")) {
     return p("财政与公共债务", "融资与现金");

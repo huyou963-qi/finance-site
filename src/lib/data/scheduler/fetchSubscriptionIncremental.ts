@@ -433,6 +433,10 @@ export async function fetchSubscriptionIncremental(
       return fetchEStatIncremental(sub.sourceSeriesKey, fetchStart, sub.instrument.metadata);
     }
     if (sub.sourceId === "treasury-fiscal-data") {
+      if (sub.sourceSeriesKey.startsWith("raw:")) {
+        const { fetchFiscalRawIncremental } = await import("./usFiscalFoundation/raw");
+        return fetchFiscalRawIncremental(sub.sourceSeriesKey, fetchStart);
+      }
       const { fiscalTreasuryCompositeSpec, fetchTreasuryCompositeIncremental } = await import(
         "./fiscalTreasuryComposite"
       );

@@ -166,7 +166,11 @@ export async function runDataSubscription(
         : "none";
     // Seeds/backfills can populate observations without updating this cache.
     // Null cache must not force a full bootstrap against an unavailable API.
-    const storedLastObsDate = await readStoredLastObservationDate(prisma, sub.instrumentId);
+    const rawDataset = sub.sourceId === "treasury-fiscal-data" && sub.sourceSeriesKey.startsWith("raw:")
+      ? sub.sourceSeriesKey.slice(4) : null;
+    const storedLastObsDate = rawDataset
+      ? (await prisma.treasurySourceSnapshot.findFirst({where:{dataset:rawDataset,asOfDate:{lte:now}},orderBy:{asOfDate:"desc"},select:{asOfDate:true}}))?.asOfDate ?? null
+      : await readStoredLastObservationDate(prisma, sub.instrumentId);
     const { fetchStart, persistStart } = observationWindowForFetch(
       storedLastObsDate,
       sub.revisionLookback,
@@ -192,10 +196,13 @@ export async function runDataSubscription(
     if (fetchResult.sourceMetadata?.appendOnlyRoundedFallback === true && storedLastObsDate) {
       fetchResult = { ...fetchResult, points: fetchResult.points.filter(p => p.obsDate > storedLastObsDate) };
     }
+    const rawInserted = fetchResult.treasurySnapshots
+      ? await (await import("./usFiscalFoundation/raw")).persistTreasurySnapshots(prisma, fetchResult.treasurySnapshots)
+      : 0;
     const { upserted, skipped, inserted, changed, latestObsDate, latestValue } =
       await upsertMacroObservations(prisma, sub.instrumentId, fetchResult.points);
 
-    const newMax = maxObsDate(fetchResult.points);
+    const newMax = fetchResult.treasurySnapshots ? fetchResult.sourceLatestObsDate : maxObsDate(fetchResult.points);
     const lastObs =
       newMax && storedLastObsDate && newMax <= storedLastObsDate
         ? storedLastObsDate
@@ -209,9 +216,9 @@ export async function runDataSubscription(
     // 只有真正写库（新增或修订）才算 SUCCESS；拉到了数据但值全部与库内一致（源端没发新值）
     // 记为 SKIPPED（无新数据），避免「+N success」掩盖实际没更新的情况。
     const status =
-      upserted > 0 ? FetchRunStatus.SUCCESS : FetchRunStatus.SKIPPED;
+      upserted + rawInserted > 0 ? FetchRunStatus.SUCCESS : FetchRunStatus.SKIPPED;
 
-    const hadNewData = upserted > 0;
+    const hadNewData = upserted + rawInserted > 0;
     const sourceCaughtUp =
       sourceLagDays != null &&
       sourceLagDays <= 0 &&
@@ -352,7 +359,7 @@ export async function runDataSubscription(
       data: {
         finishedAt: new Date(),
         status,
-        rowsUpserted: upserted,
+        rowsUpserted: upserted + rawInserted,
         rowsSkipped: skipped + fetchResult.skippedInvalid,
         sourceLagDays,
         metadata: {
@@ -362,10 +369,11 @@ export async function runDataSubscription(
           fetchStart,
           persistStart,
           fetched: fetchResult.points.length,
+          ...(fetchResult.treasurySnapshots ? { rawSnapshotsInserted: rawInserted, rawSnapshotsFetched: fetchResult.treasurySnapshots.length } : {}),
           ...(fetchResult.sourceMetadata ? { sourceMetadata: fetchResult.sourceMetadata } : {}),
           inserted,
           changed,
-          latestObs: latestObsDate?.toISOString().slice(0, 10) ?? null,
+          latestObs: (fetchResult.treasurySnapshots ? lastObs : latestObsDate)?.toISOString().slice(0, 10) ?? null,
           latestValue,
         },
       },
@@ -409,12 +417,12 @@ export async function runDataSubscription(
           : status === FetchRunStatus.SKIPPED
             ? "skipped"
             : "partial",
-      rowsUpserted: upserted,
+      rowsUpserted: upserted + rawInserted,
       rowsSkipped: skipped + fetchResult.skippedInvalid,
       sourceLagDays,
-      inserted,
+      inserted: inserted + rawInserted,
       changed,
-      latestObsDate: latestObsDate?.toISOString().slice(0, 10) ?? null,
+      latestObsDate: (fetchResult.treasurySnapshots ? lastObs : latestObsDate)?.toISOString().slice(0, 10) ?? null,
       latestValue,
     };
   } catch (e) {

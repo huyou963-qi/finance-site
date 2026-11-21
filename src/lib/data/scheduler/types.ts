@@ -6,6 +6,11 @@ export type ObservationPoint = {
 };
 
 export type FetchIncrementalResult = {
+  /** 原始财政明细，单独保存；不把期限桶/拍卖月度合计作为宏观事实写库。 */
+  treasurySnapshots?: {
+    dataset: string; recordKey: string; asOfDate: Date; contentHash: string;
+    payload: Prisma.InputJsonValue; sourceUrl: string;
+  }[];
   /** Source publication time, read BEFORE observations; never the fetch time. */
   sourcePublishedAt?: Date | null;
   sourcePublications?: { releaseId: number; publishedAt: string }[];

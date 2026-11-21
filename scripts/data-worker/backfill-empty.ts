@@ -54,6 +54,16 @@ async function main() {
     select: { instrumentId: true },
   });
   const hasObs = new Set(withObs.map((o) => o.instrumentId));
+  // 财政明细有独立事实表，不能因不生成单值宏观观测而每次部署都被当作空库重拉。
+  const rawSubs = subs.filter(s => s.sourceId === "treasury-fiscal-data" && s.sourceSeriesKey.startsWith("raw:"));
+  if (rawSubs.length) {
+    const stored = await prisma.treasurySourceSnapshot.findMany({
+      where: { dataset: { in: rawSubs.map(s => s.sourceSeriesKey.slice(4)) } },
+      distinct: ["dataset"], select: { dataset: true },
+    });
+    const datasets = new Set(stored.map(r => r.dataset));
+    for (const sub of rawSubs) if (datasets.has(sub.sourceSeriesKey.slice(4))) hasObs.add(sub.instrument.id);
+  }
 
   // 零观测 + 获取方式 ready（排除 MANUAL/未确认，force 也拉不动它们）
   const candidates = subs.filter((sub) => {

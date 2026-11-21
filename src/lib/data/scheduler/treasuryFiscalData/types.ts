@@ -1,11 +1,13 @@
 /** Treasury Fiscal Data API 序列规格 */
 export type TreasuryRowSelector =
+  | "fields"
   | "mts1_fy_month"
   | "mts1_fytd_cumulative"
   | "classification_desc"
   | "account_type"
   | "mts9_sum"
   | "dts_tga_net"
+  | "dts_tga_balance"
   | "debt_penny_daily"
   | "debt_penny_weekly";
 
@@ -34,6 +36,7 @@ export const MTS9_DISCRETIONARY_PROXY_CLASSES = [
 ] as const;
 
 export type TreasurySourceSpec = {
+  match?: Record<string, string>;
   endpoint: string;
   valueField: string;
   rowSelector: TreasuryRowSelector;
@@ -51,19 +54,16 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
   "mts1:receipts": {
     endpoint: "v1/accounting/mts/mts_table_1",
     rowSelector: "mts1_fy_month",
-    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
     valueField: "current_month_gross_rcpt_amt",
   },
   "mts1:outlays": {
     endpoint: "v1/accounting/mts/mts_table_1",
     rowSelector: "mts1_fy_month",
-    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
     valueField: "current_month_gross_outly_amt",
   },
   "mts1:deficit": {
     endpoint: "v1/accounting/mts/mts_table_1",
     rowSelector: "mts1_fy_month",
-    apiFilters: "record_type_cd:eq:MTH,data_type_cd:eq:D",
     valueField: "current_month_dfct_sur_amt",
   },
   "mts1:receipts_fytd": {
@@ -139,9 +139,10 @@ export const TREASURY_SOURCE_SPEC_BY_KEY: Record<string, TreasurySourceSpec> = {
   },
   "dts:tga_close": {
     endpoint: "v1/accounting/dts/operating_cash_balance",
-    rowSelector: "account_type",
+    rowSelector: "dts_tga_balance",
     valueField: "open_today_bal",
     accountType: "Treasury General Account (TGA) Closing Balance",
+    fetchStartFloor: "2005-10-03",
   },
   "dts:daily_net_cash": {
     endpoint: "v1/accounting/dts/operating_cash_balance",

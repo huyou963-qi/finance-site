@@ -7,6 +7,7 @@ import {
   selectMts1FytdRow,
 } from "../treasuryFiscalData/client";
 import { parseTreasurySourceSpec } from "../treasuryFiscalData/types";
+import { FISCAL_NATIVE_TREASURY } from "../usFiscalFoundation/catalog";
 
 function filterFromStart(points: ObservationPoint[], observationStart: string): ObservationPoint[] {
   const start = parseTreasuryDate(observationStart);
@@ -154,21 +155,61 @@ function rowsToPointsDebtPennyDaily(rows: TreasuryRow[], valueField: string): Ob
 
 type TreasuryRow = Record<string, string | null>;
 
+/** 官方日报2021/2022改名、2022年表格改版；均读取原始收盘值，不以开盘值代替。 */
+export function rowsToTgaClosingBalance(rows: TreasuryRow[]): ObservationPoint[] {
+  const byDate = new Map<string,number>();
+  for(const row of rows){
+    if(!row.record_date)continue;
+    const field=row.account_type==="Treasury General Account (TGA) Closing Balance" ? "open_today_bal" : "close_today_bal";
+    const value=parseTreasuryAmount(row[field]);
+    if(value==null)continue;
+    if(byDate.has(row.record_date))throw new Error(`TGA收盘余额重复：${row.record_date}`);
+    byDate.set(row.record_date,value);
+  }
+  return [...byDate].sort(([a],[b])=>a.localeCompare(b)).map(([date,value])=>({obsDate:parseTreasuryDate(date),value}));
+}
+
 export async function fetchTreasuryFiscalIncremental(
   sourceSeriesKey: string,
   observationStart: string,
 ): Promise<FetchIncrementalResult> {
-  const spec = parseTreasurySourceSpec(sourceSeriesKey);
+  const spec = FISCAL_NATIVE_TREASURY.find(r => r.code === sourceSeriesKey)?.spec ?? parseTreasurySourceSpec(sourceSeriesKey);
   const fetchStart = effectiveFetchStart(observationStart, spec.fetchStartFloor);
-  const apiFilters = fetchStart
-    ? `record_date:gte:${fetchStart}${spec.apiFilters ? `,${spec.apiFilters}` : ""}`
-    : spec.apiFilters;
+  // 对含逗号的业务标签仅在本地匹配；其他精确条件同时下推，避免日频大表全表拉取。
+  const rowMatch = { ...(spec.match ?? {}),
+    ...(spec.accountType && spec.rowSelector !== "dts_tga_balance" ? { account_type: spec.accountType } : {}),
+    ...(spec.classificationDesc ? { classification_desc: spec.classificationDesc } : {}),
+    ...(spec.recordTypeCd ? { record_type_cd: spec.recordTypeCd } : {}) };
+  const matches = Object.entries(rowMatch).filter(([,v]) => !v.includes(",")).map(([k,v]) => `${k}:eq:${v}`);
+  const apiFilters = [fetchStart ? `record_date:gte:${fetchStart}` : "", spec.apiFilters, ...matches].filter(Boolean).join(",");
 
-  const rows = await fetchTreasuryRows(spec.endpoint, { apiFilters });
+  const rows = spec.rowSelector === "dts_tga_balance"
+    ? (await Promise.all(["Federal Reserve Account", "Treasury General Account (TGA)", "Treasury General Account (TGA) Closing Balance"].map(account =>
+      fetchTreasuryRows(spec.endpoint,{apiFilters:`${apiFilters},account_type:eq:${account}`,pageSize:10000})))).flat()
+    : spec.rowSelector === "dts_tga_net"
+    ? (await Promise.all(["Total TGA Deposits (Table II)", "Total TGA Withdrawals (Table II) (-)"].map(account =>
+      fetchTreasuryRows(spec.endpoint, { apiFilters: `${apiFilters},account_type:eq:${account}`, pageSize:10000 })))).flat()
+    : await fetchTreasuryRows(spec.endpoint, { apiFilters, pageSize:10000 });
 
   let allPoints: ObservationPoint[] = [];
+  let missingValues = 0;
 
-  if (spec.rowSelector === "mts1_fy_month") {
+  if (spec.rowSelector === "fields") {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (!Object.entries(spec.match ?? {}).every(([key,value]) => row[key] === value)) continue;
+      if (!row.record_date) throw new Error("Treasury 原始行缺少日期");
+      if (seen.has(row.record_date)) throw new Error(`Treasury 原始行重复：${sourceSeriesKey} ${row.record_date}`);
+      seen.add(row.record_date);
+      const value = parseTreasuryAmount(row[spec.valueField]);
+      if (!(spec.valueField in row)) throw new Error(`Treasury响应缺少字段：${spec.valueField}`);
+      if (value == null) { missingValues++; continue; } // 官方空值不补零，也不丢弃其余有效历史。
+      allPoints.push({ obsDate: parseTreasuryDate(row.record_date), value });
+    }
+    allPoints.sort((a,b) => a.obsDate.getTime() - b.obsDate.getTime());
+  } else if (spec.rowSelector === "dts_tga_balance") {
+    allPoints=rowsToTgaClosingBalance(rows);
+  } else if (spec.rowSelector === "mts1_fy_month") {
     allPoints = rowsToPointsMts1FyMonth(rows, spec.valueField);
   } else if (spec.rowSelector === "mts1_fytd_cumulative") {
     allPoints = rowsToPointsMts1FytdCumulative(rows, spec.valueField);
@@ -223,7 +264,7 @@ export async function fetchTreasuryFiscalIncremental(
   }
 
   const points = filterFromStart(allPoints, observationStart);
-  const skippedInvalid = allPoints.length - points.length;
+  const skippedInvalid = allPoints.length - points.length + missingValues;
   const sourceLatestObsDate =
     allPoints.length > 0 ? allPoints[allPoints.length - 1]!.obsDate : null;
 
