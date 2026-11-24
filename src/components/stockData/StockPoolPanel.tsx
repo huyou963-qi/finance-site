@@ -194,7 +194,7 @@ export function StockPoolPanel({ inTable, onAdd, remainingSlots = 50 }: Props) {
           </select>
         ) : (
           <select aria-label={tr("系统股票池")} className={select} value={poolId} onChange={(e) => setPoolId(e.target.value)} disabled={!pools}>
-            {(pools ?? []).map((p) => <option key={p.id} value={p.id}>{p.label}（{p.count}）</option>)}
+            {(pools ?? []).map((p) => <option key={p.id} value={p.id}>{tr(p.label)}（{p.count}）</option>)}
           </select>
         )}
         <button

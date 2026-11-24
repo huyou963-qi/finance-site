@@ -560,7 +560,7 @@ export function SectorStageTransmissionPanel({
                   <div
                     key={point.date}
                     className={`min-w-1 flex-1 rounded-sm ${meta.className}`}
-                    title={`${point.date} · ${meta.label}`}
+                    title={`${point.date} · ${tr(meta.label)}`}
                   />
                 );
               })

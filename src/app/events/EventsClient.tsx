@@ -359,7 +359,7 @@ export function EventsClient() {
                     }
                     className={mobileChipClass(mobileFilters.importances.includes(k))}
                   >
-                    {EVENT_IMPORTANCE_LABELS[k]}
+                    {tr(EVENT_IMPORTANCE_LABELS[k])}
                   </button>
                 ))}
               </div>
@@ -493,7 +493,7 @@ export function EventsClient() {
             <option value="">{tr("全部")}</option>
             {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
               <option key={k} value={k}>
-                {EVENT_IMPORTANCE_LABELS[k]}
+                {tr(EVENT_IMPORTANCE_LABELS[k])}
               </option>
             ))}
           </select>

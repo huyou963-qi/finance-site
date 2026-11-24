@@ -50,7 +50,7 @@ export function EventFilterSummary({ filters, onChange, compact = false }: Pick<
     key: "company", label: tr("公司细类：{v0}", { v0: filters.companyKinds.length ? filters.companyKinds.map(k => COMPANY_KIND_FILTER_LABELS[k as CompanyKindFilter]).join("、") : tr("未选") }),
     remove: () => patch({ companyKinds: undefined }),
   });
-  if (filters.minImportance !== "LOW") chips.push({ key: "importance", label: tr("重要度：{v0}及以上", { v0: EVENT_IMPORTANCE_LABELS[filters.minImportance] }), remove: () => patch({ minImportance: "LOW" }) });
+  if (filters.minImportance !== "LOW") chips.push({ key: "importance", label: tr("重要度：{v0}及以上", { v0: tr(EVENT_IMPORTANCE_LABELS[filters.minImportance]) }), remove: () => patch({ minImportance: "LOW" }) });
   if (filters.largeSurpriseOnly) chips.push({ key: "surprise", label: tr("仅宏观大预期差"), remove: () => patch({ largeSurpriseOnly: false }) });
   for (const [key, label] of tagFields) for (const value of filters[key]) chips.push({
     key: `${key}:${value}`, label: tr("{label}：{value}", { label: tr(label), value: key === "industries" ? formatIndustryTagLabel(value) : value }),
@@ -93,7 +93,7 @@ export function EventPanelFilters({ filters, onChange, onResetToSymbolDefault, c
       <input type="search" value={filters.searchQ} onChange={e => patch({ searchQ: e.target.value })} placeholder={tr("搜索标题或内容…")} aria-label={tr("搜索事件")} className={`${control} ${floating ? "w-36 shrink-0" : "min-w-0 basis-full flex-1 sm:basis-auto sm:max-w-56"}`} />
       <button type="button" className={control} aria-expanded={typesOpen} onClick={() => setTypesOpen(!typesOpen)}>{tr("类型：")}{isAllTypeFamiliesSelected(filters.typeFamilies) ? tr("全部") : filters.typeFamilies.length ? tr("已选 {length} 类", { length: filters.typeFamilies.length }) : tr("未选")} {typesOpen ? "▴" : "▾"}</button>
       <label className="flex items-center gap-1 text-xs text-fs-muted">{tr("重要度")}<select aria-label={tr("最低重要度")} value={filters.minImportance} onChange={e => patch({ minImportance: e.target.value as EventImportance })} className={control}>
-          {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map(k => <option key={k} value={k}>{k === "LOW" ? tr("不限") : tr("{v0}及以上", { v0: EVENT_IMPORTANCE_LABELS[k] })}</option>)}
+          {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map(k => <option key={k} value={k}>{k === "LOW" ? tr("不限") : tr("{v0}及以上", { v0: tr(EVENT_IMPORTANCE_LABELS[k]) })}</option>)}
         </select>
       </label>
       <button type="button" className={control} aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>{tr("更多筛选")}{advancedCount ? `（${advancedCount}）` : ""} {moreOpen ? "▴" : "▾"}</button>
@@ -109,7 +109,7 @@ export function EventPanelFilters({ filters, onChange, onResetToSymbolDefault, c
       {!filters.typeFamilies.length && <p className="text-xs text-fs-muted">{tr("未选择任何类型，结果为空；选择一种类型或点击“全部类型”。")}</p>}
       {filters.typeFamilies.includes("company") && <div className="flex flex-wrap items-center gap-1">
         <span className="text-xs text-fs-muted">{tr("公司细类")}</span>
-        {COMPANY_KIND_FILTERS.map(k => <button key={k} type="button" aria-pressed={companyKinds.includes(k)} className={`${control} ${companyKinds.includes(k) ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => setCompanyKinds(companyKinds.includes(k) ? companyKinds.filter(v => v !== k) : [...companyKinds, k])}>{COMPANY_KIND_FILTER_LABELS[k]}</button>)}
+        {COMPANY_KIND_FILTERS.map(k => <button key={k} type="button" aria-pressed={companyKinds.includes(k)} className={`${control} ${companyKinds.includes(k) ? "border-fs-accent bg-fs-accent-soft text-fs-accent-text" : ""}`} onClick={() => setCompanyKinds(companyKinds.includes(k) ? companyKinds.filter(v => v !== k) : [...companyKinds, k])}>{tr(COMPANY_KIND_FILTER_LABELS[k])}</button>)}
       </div>}
     </div>}
     {moreOpen && <div ref={morePanel} popover={floating ? "auto" : undefined} onToggle={e => { if (floating && !e.currentTarget.matches(":popover-open")) setMoreOpen(false); }} className={panelClass}>

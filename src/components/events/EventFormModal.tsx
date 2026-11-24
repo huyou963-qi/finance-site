@@ -23,6 +23,7 @@ import {
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
 import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
 
 export type EventFormValues = {
   title: string;
@@ -126,8 +127,8 @@ export function formValuesToPayload(form: EventFormValues) {
 
 const COUNTRY_SUGGESTIONS = MACRO_COUNTRIES.map((c) => c.code);
 
-function typeDisplay(t: string): string {
-  if (t in EVENT_TYPE_LABELS) return `${EVENT_TYPE_LABELS[t as EventTypeCode]} (${t})`;
+function typeDisplay(t: string, tr: Tr): string {
+  if (t in EVENT_TYPE_LABELS) return `${tr(EVENT_TYPE_LABELS[t as EventTypeCode])} (${t})`;
   return t;
 }
 
@@ -234,7 +235,7 @@ export function EventFormModal({
               >
                 {(Object.keys(EVENT_IMPORTANCE_LABELS) as EventImportance[]).map((k) => (
                   <option key={k} value={k}>
-                    {EVENT_IMPORTANCE_LABELS[k]}
+                    {tr(EVENT_IMPORTANCE_LABELS[k])}
                   </option>
                 ))}
               </select>
@@ -264,7 +265,7 @@ export function EventFormModal({
                 >
                   {EVENT_SCOPES.map((s) => (
                     <option key={s} value={s}>
-                      {EVENT_SCOPE_LABELS[s]}
+                      {tr(EVENT_SCOPE_LABELS[s])}
                     </option>
                   ))}
                 </select>
@@ -280,7 +281,7 @@ export function EventFormModal({
                 <option value="">—</option>
                 {EVENT_TYPE_SUGGESTIONS.map((t) => (
                   <option key={t} value={t}>
-                    {typeDisplay(t)}
+                    {typeDisplay(t, tr)}
                   </option>
                 ))}
               </select>
@@ -301,7 +302,7 @@ export function EventFormModal({
               >
                 {EVENT_SCOPES.map((s) => (
                   <option key={s} value={s}>
-                    {EVENT_SCOPE_LABELS[s]}
+                    {tr(EVENT_SCOPE_LABELS[s])}
                   </option>
                 ))}
               </select>

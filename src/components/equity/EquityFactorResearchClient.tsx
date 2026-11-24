@@ -475,7 +475,7 @@ export function EquityFactorResearchClient() {
                                 className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle"
                                 style={{ background: REGIME_COLOR[rk] }}
                               />
-                              <span className="align-middle text-fs-text">{REGIME_LABEL[rk]}</span>
+                              <span className="align-middle text-fs-text">{tr(REGIME_LABEL[rk])}</span>
                             </td>
                             <td className={`py-1.5 text-right tabular-nums ${icClass(s.meanIC)}`}>
                               {num(s.meanIC, 4)}

@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { IconClose } from "@/components/mobile/mobileIcons";
+import { useTr } from "@/i18n/TextProvider";
 
 export type MobileSheetProps = {
   open: boolean;
@@ -19,6 +20,7 @@ export type MobileSheetProps = {
  * 只会在用户操作后打开，因此不会参与服务端渲染。
  */
 export function MobileSheet({ open, onClose, title, children, footer, size = "auto" }: MobileSheetProps) {
+  const tr = useTr();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -41,7 +43,7 @@ export function MobileSheet({ open, onClose, title, children, footer, size = "au
     <div className="fixed inset-0 z-[10000]">
       <button
         type="button"
-        aria-label="关闭"
+        aria-label={tr("关闭")}
         className="absolute inset-0 bg-black/45"
         onClick={onClose}
       />
@@ -63,7 +65,7 @@ export function MobileSheet({ open, onClose, title, children, footer, size = "au
             <button
               type="button"
               onClick={onClose}
-              aria-label="关闭"
+              aria-label={tr("关闭")}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-fs-secondary active:bg-fs-elevated"
             >
               <IconClose size={22} />

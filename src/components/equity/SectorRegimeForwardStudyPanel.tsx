@@ -253,7 +253,7 @@ export function SectorRegimeForwardStudyPanel({ variant = "research", embedded =
                   <h3 className="text-sm font-medium text-fs-text">{tr("当前模型会怎样排序")}</h3>
                   <span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-800">{data.current.statusLabel}</span>
                 </div>
-                <p className="mt-0.5 text-[10px] text-fs-muted">{data.current.signalDate} · {REGIME_LABEL[data.current.regime]}{tr("。总体验证未通过，排序仅用于观察模型假设。")}</p>
+                <p className="mt-0.5 text-[10px] text-fs-muted">{data.current.signalDate} · {tr(REGIME_LABEL[data.current.regime])}{tr("。总体验证未通过，排序仅用于观察模型假设。")}</p>
               </div>
               <div className="flex items-center gap-1" aria-label={tr("当前排序前瞻期")}>
                 {data.current.horizons.map((item) => (

@@ -27,7 +27,7 @@ export function EventImportResultDialog({ receipt, packs, symbol, filters, from,
       <button className="min-h-10 rounded border border-fs-border px-2" onClick={onManage}>{tr("管理事件包")}</button>
       <ul className="space-y-2">{batch.rows.map(({ event, reasons, visible }) => <li key={event.id} className="space-y-1 rounded border border-fs-border p-2">
         <p><time>{event.occurredAt.slice(0, 10)}</time> · {tr(event.title)}</p>
-        <p className={visible ? "text-fs-accent-text" : "text-fs-muted"}>{visible ? tr("可见 · {v0}", { v0: projection[event.id] ? chartStatus[projection[event.id].status] : tr("等待事件集合更新") }) : tr("未显示：{v0}", { v0: reasons.join("；") })}</p>
+        <p className={visible ? "text-fs-accent-text" : "text-fs-muted"}>{visible ? tr("可见 · {v0}", { v0: projection[event.id] ? chartStatus[projection[event.id].status] : tr("等待事件集合更新") }) : tr("未显示：{v0}", { v0: reasons.map((r) => tr(r)).join("; ") })}</p>
         {onDetail && <button className="min-h-9 text-fs-accent-text" onClick={() => onDetail(event)}>{tr("查看事件详情")}</button>}
       </li>)}</ul>
     </div>

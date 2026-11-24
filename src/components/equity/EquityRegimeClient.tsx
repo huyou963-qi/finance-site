@@ -170,13 +170,13 @@ export function EquityRegimeClient() {
                     style={{ background: REGIME_COLOR[currentRegime] }}
                   />
                   <span className="text-xl font-semibold text-fs-text">
-                    {REGIME_LABEL[currentRegime]}
+                    {tr(REGIME_LABEL[currentRegime])}
                   </span>
                   {!currentOfficial && data.current?.recession === 1 ? (
                     <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-xs text-red-400">{tr("NBER 衰退")}</span>
                   ) : null}
                 </div>
-                <div className="mt-1 text-sm text-fs-muted">{REGIME_DESC[currentRegime]}</div>
+                <div className="mt-1 text-sm text-fs-muted">{tr(REGIME_DESC[currentRegime])}</div>
                 {currentOfficial ? (
                   <div className="mt-1 text-xs text-fs-muted">{tr("请求时按最新官方月度输入重算；历史时间线仍使用已落库快照。")}</div>
                 ) : null}
@@ -203,8 +203,8 @@ export function EquityRegimeClient() {
                       className="inline-block h-3 w-3 shrink-0 rounded-sm"
                       style={{ background: REGIME_COLOR[rk] }}
                     />
-                    <span className="text-fs-text">{REGIME_LABEL[rk]}</span>
-                    <span className="text-xs text-fs-muted">{REGIME_DESC[rk]}</span>
+                    <span className="text-fs-text">{tr(REGIME_LABEL[rk])}</span>
+                    <span className="text-xs text-fs-muted">{tr(REGIME_DESC[rk])}</span>
                   </div>
                 ))}
               </div>
@@ -234,7 +234,7 @@ export function EquityRegimeClient() {
                           className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle"
                           style={{ background: REGIME_COLOR[rk] }}
                         />
-                        {REGIME_LABEL[rk]}
+                        {tr(REGIME_LABEL[rk])}
                       </th>
                     ))}
                   </tr>
@@ -251,7 +251,7 @@ export function EquityRegimeClient() {
                             key={rk}
                             className="px-2 py-1 text-center tabular-nums"
                             style={{ background: divergingColor(v, sectorScale), color: onColorInk(v, sectorScale) }}
-                            title={tr("{s} · {v1}：{v2}（{v3} 期）", { s, v1: REGIME_LABEL[rk], v2: pct(v), v3: cell?.periods ?? 0 })}
+                            title={tr("{s} · {v1}：{v2}（{v3} 期）", { s, v1: tr(REGIME_LABEL[rk]), v2: pct(v), v3: cell?.periods ?? 0 })}
                           >
                             {pct(v)}
                           </td>

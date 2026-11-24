@@ -362,7 +362,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                 >
                   {FUND_METRICS.map((m) => (
                     <option key={m} value={m}>
-                      {FUNDAMENTAL_METRIC_LABEL[m]}
+                      {tr(FUNDAMENTAL_METRIC_LABEL[m])}
                     </option>
                   ))}
                 </select>
