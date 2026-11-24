@@ -669,8 +669,5 @@
   "图{slot}财政分析内容": "Fiscal analysis for chart {slot}",
   "财政图表暂不可用，请稍后重试": "Fiscal charts are temporarily unavailable. Please try again later.",
   "财政分析图使用固定口径与单位，可使用图内缩放及数据表": "Fiscal analysis uses fixed definitions and units. Use the chart zoom and data table.",
-  "正在更新美国财政模板…": "Updating US fiscal templates…",
-  "应用三套美国财政模板": "Apply three US fiscal templates",
-  "美国财政模板更新失败，请重试": "Unable to update US fiscal templates. Please try again.",
   "模板说明": "Template guide"
 }

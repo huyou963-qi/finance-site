@@ -33,7 +33,6 @@ import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
 import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
 import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
-import { ApplyUsFiscalTemplates } from "@/components/macro/ApplyUsFiscalTemplates";
 import { sanitizeMacroIntroHtml, templateIntroSnapshot } from "@/lib/data/macroIntroHtml";
 import type {
   MacroDrawing,
@@ -3642,9 +3641,6 @@ export function MacroSection() {
               </div>
   );
 
-  const fiscalTemplatesApply = isAdmin && ["builtin-us-fiscal-overview", "builtin-us-fiscal-structure", "builtin-us-fiscal-highfreq"].some(id =>
-    builtinTemplateOverrides[id]?.displayConfig?.slotModes?.[0] !== "usFiscal") ? <ApplyUsFiscalTemplates /> : null;
-
   const templatesPanel = (
             <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
               <div className="rounded-xl border border-fs-border/80 bg-fs-elevated/40 p-4">
@@ -3672,7 +3668,6 @@ export function MacroSection() {
                     </div>
                   )}
                 />
-                {fiscalTemplatesApply}
                 {hiddenBuiltinRestore}
               </div>
 
@@ -3985,7 +3980,7 @@ export function MacroSection() {
               activeTemplateId={activeTemplateId}
               onLoad={applyTemplateAndExtract}
               onDelete={isAdmin ? deleteSystemTemplate : undefined}
-              adminExtra={<>{fiscalTemplatesApply}{hiddenBuiltinRestore}</>}
+              adminExtra={hiddenBuiltinRestore}
               userPanel={userTemplatesPanel}
             />
           }
