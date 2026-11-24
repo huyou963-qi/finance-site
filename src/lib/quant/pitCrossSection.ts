@@ -16,6 +16,7 @@
  * 装配逻辑参考 scripts/verify-phase0-pit.ts；无前视性质由 firstReportedAt 过滤天然保证。
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { SP500_INDEX_CODE } from "@/lib/equity/equitySecurities";
 import type { QuarterFundamentalRow } from "@/lib/equity/ttm";
@@ -89,9 +90,10 @@ export async function listUniverseDates(): Promise<string[]> {
 export async function loadClosesAsOf(
   symbols: string[],
   t: string,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<Map<string, { close: number; date: string }>> {
   if (!symbols.length) return new Map();
-  const rows = await prisma.$queryRaw<{ symbol: string; close: number; date: Date }[]>`
+  const rows = await db.$queryRaw<{ symbol: string; close: number; date: Date }[]>`
     SELECT DISTINCT ON (symbol) symbol, close, date
     FROM mds.equity_daily_bar
     WHERE symbol = ANY(${symbols}) AND date <= ${new Date(`${t}T00:00:00.000Z`)}::date AND close > 0
@@ -136,12 +138,13 @@ export async function buildPitRows(
   symbols: string[],
   t: string,
   opts: BuildPitCrossSectionOptions = {},
+  db: Prisma.TransactionClient = prisma,
 ): Promise<PitEquityRow[]> {
   const staleDays = opts.staleDays ?? 7;
   const minMarketCap = opts.minPlausibleMarketCap ?? MIN_PLAUSIBLE_MARKET_CAP;
   const tDate = new Date(`${t}T00:00:00.000Z`);
   const [snaps, closes] = await Promise.all([
-    prisma.equityFundamentalSnapshot.findMany({
+    db.equityFundamentalSnapshot.findMany({
       where: {
         symbol: { in: symbols },
         periodType: "Q",
@@ -172,7 +175,7 @@ export async function buildPitRows(
         epsYoY: true,
       },
     }),
-    opts.closes ?? loadClosesAsOf(symbols, t),
+    opts.closes ?? loadClosesAsOf(symbols, t, db),
   ]);
 
   // 股本刻度的「拆股滞后」修正（KLA 2026-06 的 10:1 实证）：
@@ -184,13 +187,13 @@ export async function buildPitRows(
   // 注：锚点季取该股**全部**季度里的最新一条（含 T 之后），这只是单位换算不是信息——
   // 价格与股本同乘一个常数，市值不变，故不构成前视。
   const [anchors, splits] = await Promise.all([
-    prisma.equityFundamentalSnapshot.findMany({
+    db.equityFundamentalSnapshot.findMany({
       where: { symbol: { in: symbols }, periodType: "Q", sharesOutstanding: { not: null } },
       orderBy: [{ symbol: "asc" }, { fiscalDate: "desc" }],
       distinct: ["symbol"],
       select: { symbol: true, fiscalDate: true, firstReportedAt: true },
     }),
-    prisma.equitySplit.findMany({
+    db.equitySplit.findMany({
       where: { symbol: { in: symbols } },
       select: { symbol: true, exDate: true, ratio: true },
     }),

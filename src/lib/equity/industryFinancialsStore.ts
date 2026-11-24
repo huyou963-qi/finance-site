@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { GICS_SECTOR_DEFS } from "./gicsCatalog";
 import { latestCompletedQuarter } from "./fundamentalsAgg";
@@ -14,20 +15,20 @@ const MAX_SECURITIES = 1000;
 const MAX_HOLDINGS = 600;
 const iso = (date: Date) => date.toISOString().slice(0, 10);
 
-async function readIndustryFinancials(options: IndustryFinancialOptions) {
+async function readIndustryFinancials(options: IndustryFinancialOptions, db: Prisma.TransactionClient) {
   const def = GICS_SECTOR_DEFS.find(row => row.etf === options.etf)!;
   const now = new Date();
   const latestPeriod = latestCompletedQuarter(now);
   const periods = Array.from({ length: options.quarters }, (_, index) => shiftFinancialQuarter(latestPeriod, index - options.quarters + 1));
   const factPeriods = Array.from({ length: options.quarters + 7 }, (_, index) => shiftFinancialQuarter(latestPeriod, index - options.quarters - 6));
-  const latestHolding = await prisma.sectorEtfHolding.findFirst({
+  const latestHolding = await db.sectorEtfHolding.findFirst({
     where: { etf: options.etf, asOfDate: { lte: now } }, orderBy: { asOfDate: "desc" }, select: { asOfDate: true },
   });
   const datesByPeriod = new Map<string, string>();
   if (options.membership === "historical") {
     const earliest = new Date(`${financialQuarterEnd(periods[0]!)}T00:00:00Z`);
     earliest.setUTCDate(earliest.getUTCDate() - 7);
-    const dates = await prisma.sectorEtfHolding.groupBy({
+    const dates = await db.sectorEtfHolding.groupBy({
       by: ["asOfDate"], where: { etf: options.etf, asOfDate: { gte: earliest, lte: new Date(`${financialQuarterEnd(latestPeriod)}T00:00:00Z`) } },
       orderBy: { asOfDate: "asc" }, take: 4001,
     });
@@ -40,7 +41,7 @@ async function readIndustryFinancials(options: IndustryFinancialOptions) {
   const requestedDates = [...new Set([
     ...(latestHolding ? [iso(latestHolding.asOfDate)] : []), ...datesByPeriod.values(),
   ])];
-  const holdings = requestedDates.length ? await prisma.sectorEtfHolding.findMany({
+  const holdings = requestedDates.length ? await db.sectorEtfHolding.findMany({
     where: { etf: options.etf, asOfDate: { in: requestedDates.map(date => new Date(`${date}T00:00:00Z`)) }, weight: { gt: 0 } },
     select: { asOfDate: true, symbol: true, cusip: true, name: true, weight: true },
     orderBy: [{ asOfDate: "asc" }, { weight: "desc" }], take: requestedDates.length * MAX_HOLDINGS + 1,
@@ -57,12 +58,12 @@ async function readIndustryFinancials(options: IndustryFinancialOptions) {
   const symbols = [...new Set(holdings.flatMap(row => row.symbol ? [row.symbol] : []))];
   const cusips = [...new Set(holdings.flatMap(row => row.cusip ? [row.cusip] : []))];
   const securitySelect = { symbol: true, cik: true, cusip: true, name: true } as const;
-  let securities = symbols.length ? await prisma.equitySecurity.findMany({
+  let securities = symbols.length ? await db.equitySecurity.findMany({
     where: { OR: [{ symbol: { in: symbols } }, { cusip: { in: cusips } }] }, select: securitySelect, take: MAX_SECURITIES + 1,
   }) : [];
   const ciks = [...new Set(securities.flatMap(row => row.cik ? [row.cik, row.cik.replace(/^0+/, ""), row.cik.padStart(10, "0")] : []))];
   if (ciks.length) {
-    const aliases = await prisma.equitySecurity.findMany({ where: { cik: { in: ciks } }, select: securitySelect, take: MAX_SECURITIES + 1 });
+    const aliases = await db.equitySecurity.findMany({ where: { cik: { in: ciks } }, select: securitySelect, take: MAX_SECURITIES + 1 });
     securities = [...new Map([...securities, ...aliases].map(row => [row.symbol, row])).values()];
   }
   if (securities.length > MAX_SECURITIES) throw new Error("ETF 公司数超出本页查询范围");
@@ -76,7 +77,7 @@ async function readIndustryFinancials(options: IndustryFinancialOptions) {
   // 40 个代码一批，串行查询；不触发个股读取层的外部懒回补。
   for (let index = 0; index < securities.length; index += 40) {
     const batch = securities.slice(index, index + 40);
-    const rows = await prisma.equityFundamentalSnapshot.findMany({
+    const rows = await db.equityFundamentalSnapshot.findMany({
       where: { symbol: { in: batch.map(row => row.symbol) }, OR: [
         { periodType: "Q", period: { in: factPeriods } },
         { periodType: "FY12", asOf: { gte: annualStart, lte: annualEnd }, fiscalDate: { not: null } },
@@ -101,7 +102,7 @@ async function readIndustryFinancials(options: IndustryFinancialOptions) {
     if (universe) historical.set(period, universe);
   }
   const history = buildIndustryFinancialHistory({ periods, membership: options.membership, current, historical, securities, snapshots, annualSnapshots });
-  const batch = await prisma.equityDisclosureBatch.findFirst({
+  const batch = await db.equityDisclosureBatch.findFirst({
     where: { symbols: { isEmpty: true } }, orderBy: [{ startedAt: "desc" }],
     select: { status: true, throughDay: true, finishedAt: true, pending: true, failed: true, remaining: true, missingIndexes: true },
   });
@@ -121,14 +122,20 @@ const pending = new Map<string, Promise<CachedHistory>>();
 let queue: Promise<unknown> = Promise.resolve();
 
 /** 11 项 / 16 MiB 上限、5 分钟 TTL、同键合并、跨键串行，保护混部服务器。 */
-export function loadIndustryFinancials(options: IndustryFinancialOptions): Promise<CachedHistory> {
+export function loadIndustryFinancials(options: IndustryFinancialOptions, { bounded = false } = {}): Promise<CachedHistory> {
   const key = `${options.etf}:${options.quarters}:${options.membership}`;
   const hit = cache.get(key);
   if (hit && hit.expiresAt > Date.now()) return Promise.resolve(hit.value);
   const running = pending.get(key);
   if (running) return running;
   const work = queue.catch(() => undefined).then(async () => {
-    const value = await readIndustryFinancials(options);
+    const value = bounded
+      ? await prisma.$transaction(async tx => {
+          await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+          await tx.$executeRaw`SET LOCAL statement_timeout = '8000'`;
+          return readIndustryFinancials(options, tx);
+        }, { maxWait: 2000, timeout: 15000 })
+      : await readIndustryFinancials(options, prisma);
     const bytes = Buffer.byteLength(JSON.stringify(value));
     for (const [entryKey, entry] of cache) if (entry.expiresAt <= Date.now()) cache.delete(entryKey);
     cache.delete(key);

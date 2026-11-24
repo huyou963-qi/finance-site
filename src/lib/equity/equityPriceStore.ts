@@ -248,9 +248,9 @@ function rowToRaw(r: DbBarRow): RawDailyBar {
   };
 }
 
-async function readSplits(symbols: string[]): Promise<Map<string, SplitEvent[]>> {
+async function readSplits(symbols: string[], db: Prisma.TransactionClient = prisma): Promise<Map<string, SplitEvent[]>> {
   if (symbols.length === 0) return new Map();
-  const rows = await prisma.equitySplit.findMany({
+  const rows = await db.equitySplit.findMany({
     where: { symbol: { in: symbols } },
     orderBy: [{ symbol: "asc" }, { exDate: "asc" }],
     select: { symbol: true, exDate: true, ratio: true },
@@ -602,16 +602,16 @@ export async function getRawDailyBarWindowsDbOnly(options: {
   symbols: readonly string[];
   from: Date;
   to: Date;
-}): Promise<{ bars: Map<string, RawDailyBar[]>; splits: Map<string, SplitEvent[]> }> {
+}, db: Prisma.TransactionClient = prisma): Promise<{ bars: Map<string, RawDailyBar[]>; splits: Map<string, SplitEvent[]> }> {
   const symbols = [...new Set(options.symbols.map(normalizeSymbol).filter(Boolean))];
   if (symbols.length === 0 || options.from > options.to) return { bars: new Map(), splits: new Map() };
   const [rows, splits] = await Promise.all([
-    prisma.equityDailyBar.findMany({
+    db.equityDailyBar.findMany({
       where: { symbol: { in: symbols }, date: { gte: options.from, lte: options.to } },
       orderBy: [{ symbol: "asc" }, { date: "asc" }],
       select: { symbol: true, ...BAR_SELECT },
     }),
-    readSplits(symbols),
+    readSplits(symbols, db),
   ]);
   const bars = new Map<string, RawDailyBar[]>();
   for (const r of rows) {

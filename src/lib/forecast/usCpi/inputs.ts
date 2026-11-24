@@ -165,12 +165,12 @@ function latestDate(obs: Map<string, number | null>): string | null {
   return latest;
 }
 
-export async function loadUsCpiNowcastInputs(): Promise<LoadedInputs> {
+export async function loadUsCpiNowcastInputs(opts: { dbOnly?: boolean } = {}): Promise<LoadedInputs> {
   const fredIds = [
     ...Object.values(LEVEL_FRED_IDS),
     ...Object.values(HF_SOURCES).flatMap((s) => (s.kind === "fred" ? [s.id] : [])),
   ];
-  const { maps } = await loadFredObservationMapsDbFirst(fredIds);
+  const { maps } = await loadFredObservationMapsDbFirst(fredIds, opts);
   const get = (id: string) => maps.get(id) ?? new Map<string, number | null>();
 
   // 目标月只在全部 CPI 输入都到齐后推进：发布日各分项分批入库，若只看总体 CPI，

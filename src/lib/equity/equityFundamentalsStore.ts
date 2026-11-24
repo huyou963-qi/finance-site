@@ -221,10 +221,11 @@ export async function getQuarterlyFundamentalsDbFirst(
 export async function getQuarterlyFundamentalsBatch(
   symbols: readonly string[],
   opts: { since?: string } = {},
+  db: Prisma.TransactionClient = prisma,
 ): Promise<Map<string, QuarterSnapshotRow[]>> {
   const out = new Map<string, QuarterSnapshotRow[]>();
   if (!symbols.length) return out;
-  const rows = await prisma.equityFundamentalSnapshot.findMany({
+  const rows = await db.equityFundamentalSnapshot.findMany({
     where: {
       symbol: { in: [...symbols] },
       periodType: "Q",

@@ -20,8 +20,8 @@ export function parseScopes(raw: string): ArticleScope[] {
   return scopes as ArticleScope[];
 }
 /** Explicit public-client registration. Never fetch arbitrary client metadata URLs. */
-export function registeredClient(id: string, redirectUri?: string) {
-  const clients = JSON.parse(process.env.ARTICLE_OAUTH_CLIENTS ?? "[]") as { clientId: string; name: string; redirectUris: string[] }[];
+export function registeredClient(id: string, redirectUri?: string, configuredClients = process.env.ARTICLE_OAUTH_CLIENTS) {
+  const clients = JSON.parse(configuredClients ?? "[]") as { clientId: string; name: string; redirectUris: string[] }[];
   const client = clients.find(c => c.clientId === id);
   if (!client) throw new OAuthError("invalid_client", "OAuth 客户端未登记", 401);
   if (redirectUri !== undefined) {

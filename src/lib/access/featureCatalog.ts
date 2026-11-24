@@ -191,6 +191,14 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     defaults: RELEASED,
   },
   {
+    id: "research-mcp",
+    label: "AI 数据连接",
+    group: "工具",
+    paths: ["/ai-connections"],
+    description: "有效 Pro 会员的宏观与股票研究数据连接",
+    defaults: { ...IN_DEVELOPMENT, proOnly: true },
+  },
+  {
     id: "weekly",
     label: "AI周度观察",
     group: "内容",

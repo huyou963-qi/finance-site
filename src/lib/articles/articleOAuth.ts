@@ -42,11 +42,28 @@ export function requireArticleScope(principal: ArticlePrincipal, scope: ArticleS
   if (!principal.scopes.includes(scope)) throw new OAuthError("insufficient_scope", `缺少权限 ${scope}`, 403);
 }
 
-/** Opaque credentials, one-time codes, rotated refresh tokens, bound client + resource. */
+export type OAuthTokenPolicy = {
+  resource: () => string;
+  registeredClient: (id: string, redirectUri?: string) => unknown;
+  checkUser: (id: string) => Promise<unknown>;
+};
+
 export async function exchangeArticleToken(form: URLSearchParams) {
+  return exchangeOAuthToken(form, {
+    resource: articleResource,
+    registeredClient,
+    async checkUser(id) {
+      const user = await getUserAccessRecord(id);
+      if (!user || user.role !== "admin") throw new OAuthError("access_denied", "管理员权限已失效", 403);
+    },
+  });
+}
+
+/** Opaque credentials, one-time codes, rotated refresh tokens, bound client + resource. */
+export async function exchangeOAuthToken(form: URLSearchParams, policy: OAuthTokenPolicy) {
   const clientId = form.get("client_id") ?? "";
-  registeredClient(clientId);
-  if (form.get("resource") !== articleResource()) throw new OAuthError("invalid_target", "resource 必须是文章 MCP 地址");
+  policy.registeredClient(clientId);
+  if (form.get("resource") !== policy.resource()) throw new OAuthError("invalid_target", "resource 与 MCP 地址不匹配");
   const kind = form.get("grant_type");
   if (kind !== "authorization_code" && kind !== "refresh_token") throw new OAuthError("unsupported_grant_type", "不支持该授权方式");
   const raw = form.get(kind === "authorization_code" ? "code" : "refresh_token") ?? "";
@@ -54,15 +71,14 @@ export async function exchangeArticleToken(form: URLSearchParams) {
   const saved = await prisma.weeklyOAuthCredential.findUnique({ where: { hash }, include: { grant: true } });
   const now = new Date();
   if (!saved || saved.kind !== (kind === "authorization_code" ? "code" : "refresh") || saved.grant.clientId !== clientId ||
-      saved.grant.resource !== articleResource() || saved.grant.revokedAt || saved.expiresAt <= now || saved.grant.expiresAt <= now) {
+      saved.grant.resource !== policy.resource() || saved.grant.revokedAt || saved.expiresAt <= now || saved.grant.expiresAt <= now) {
     throw new OAuthError("invalid_grant", "授权凭证无效或已过期");
   }
   if (saved.consumedAt) {
     await prisma.weeklyOAuthGrant.update({ where: { id: saved.grantId }, data: { revokedAt: now } });
     throw new OAuthError("invalid_grant", "检测到凭证重用，请重新授权");
   }
-  const user = await getUserAccessRecord(saved.grant.userId);
-  if (!user || user.role !== "admin") throw new OAuthError("access_denied", "管理员权限已失效", 403);
+  await policy.checkUser(saved.grant.userId);
   if (kind === "authorization_code" && (saved.redirectUri !== form.get("redirect_uri") || !verifyPkce(form.get("code_verifier") ?? "", saved.codeChallenge ?? ""))) {
     throw new OAuthError("invalid_grant", "回调地址或 PKCE 校验失败");
   }
