@@ -6,7 +6,8 @@ import { buildIndicatorTree, columnParamLabel, getIndicator, INDICATORS, normali
 import { normalizeUsTicker, parseColumns, parseSymbols, StockDataRequestError } from "./request";
 import { earliestYearNeeded, quarterPositions, resolveRow, type SymbolInput } from "./resolve";
 import { aggregateFiscalYears } from "@/lib/equity/fundamentalRatios";
-import { buildCsv, formatCellValue, sortRows } from "./display";
+import { makeTr } from "@/i18n/text";
+import { buildCsv, columnHeader, formatCellValue, sortRows } from "./display";
 import { applyResultFilters } from "./resultFilter";
 import { computeGroupStats } from "./groupStats";
 import { computeTechnicalPoint } from "./technicalResolve";
@@ -244,6 +245,20 @@ test("cells show statuses as words and values in compact form", () => {
   assert.deepEqual(formatCellValue("pct", { v: 0.1234, s: "ok" }), { text: "12.34%", muted: false });
   assert.deepEqual(formatCellValue("number", { v: 57.18, s: "ok" }), { text: "57.18", muted: false });
   assert.deepEqual(formatCellValue("money", { v: null, s: "uncovered" }), { text: "未覆盖", muted: true });
+});
+
+test("columnHeader translates share units without a leading space", () => {
+  const tr = makeTr({
+    股: "shares",
+    千股: "K shares",
+    百万股: "M shares",
+    十亿股: "B shares",
+  });
+  const base: ColumnSpec = { key: "s", indicatorId: "insider.buyShares", params: { asOf: { kind: "latest" } } };
+  assert.equal(columnHeader(base, tr).unit, "shares");
+  assert.equal(columnHeader({ ...base, params: { ...base.params, scale: "k" } }, tr).unit, "K shares");
+  assert.equal(columnHeader({ ...base, params: { ...base.params, scale: "m" } }, tr).unit, "M shares");
+  assert.equal(columnHeader({ ...base, params: { ...base.params, scale: "b" } }, tr).unit, "B shares");
 });
 
 const ROWS: StockDataRow[] = [

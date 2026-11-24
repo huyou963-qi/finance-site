@@ -1132,7 +1132,7 @@
   "美股历史 →": "US Market History →",
   "美股行业": "US Industries",
   "美股行业 — 行业 ETF 历史财务与成分公司 — GekkoTech": "US Industries — sector ETF financial history and constituents — GekkoTech",
-  "股": " shares",
+  "股": "shares",
   "股 · 披露上限": " shares · disclosure cap",
   "股息率": "Dividend yield",
   "股数": "Shares",
@@ -1829,5 +1829,8 @@
   "GICS · 信息技术": "GICS · Information Technology",
   "GICS · 通信服务": "GICS · Communication Services",
   "GICS · 公用事业": "GICS · Utilities",
-  "GICS · 房地产": "GICS · Real Estate"
+  "GICS · 房地产": "GICS · Real Estate",
+  "千股": "K shares",
+  "百万股": "M shares",
+  "十亿股": "B shares"
 }
