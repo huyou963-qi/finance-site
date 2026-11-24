@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  PRODUCT_USAGE_AUDIENCES,
   USAGE_EVENT_RETENTION_DAYS,
   type UsageAudience,
 } from "@/lib/analytics/usageTypes";
@@ -18,6 +19,10 @@ function actorKey(userId: string | null, guestId: string | null): ActorKey | nul
   return null;
 }
 
+function isProductAudience(audience: string): boolean {
+  return (PRODUCT_USAGE_AUDIENCES as readonly string[]).includes(audience);
+}
+
 type Bucket = {
   actors: Set<ActorKey>;
   sessions: Set<string>;
@@ -31,7 +36,7 @@ function emptyBucket(): Bucket {
 
 /**
  * 将某一上海日历日的 UsageEvent 聚合成 UsageDailyAgg（按 audience × featureId）。
- * featureId="" 为全站汇总；returningUv 仅写在全站行。
+ * featureId="" 为全站汇总；另写 audience=`all` 去重合计（仅产品受众）。
  */
 export async function rollupUsageDay(dateStr: string): Promise<{ rows: number }> {
   const { start, end } = shanghaiDayBounds(dateStr);
@@ -61,6 +66,7 @@ export async function rollupUsageDay(dateStr: string): Promise<{ rows: number }>
   ]);
 
   const prevActorsByAudience = new Map<string, Set<ActorKey>>();
+  const prevAll = new Set<ActorKey>();
   for (const e of prevEvents) {
     const key = actorKey(e.userId, e.guestId);
     if (!key) continue;
@@ -70,7 +76,9 @@ export async function rollupUsageDay(dateStr: string): Promise<{ rows: number }>
       prevActorsByAudience.set(e.audience, set);
     }
     set.add(key);
+    if (isProductAudience(e.audience)) prevAll.add(key);
   }
+  prevActorsByAudience.set("all", prevAll);
 
   /** key = `${audience}\0${featureId}`；featureId 用 "" 表示全站 */
   const buckets = new Map<string, Bucket>();
@@ -92,6 +100,14 @@ export async function rollupUsageDay(dateStr: string): Promise<{ rows: number }>
     site.sessions.add(e.sessionId);
     if (e.kind === "page_view") site.pv += 1;
     if (e.activeMs > 0) site.activeMsSum += e.activeMs;
+
+    if (isProductAudience(e.audience)) {
+      const allSite = touch("all", "");
+      if (actor) allSite.actors.add(actor);
+      allSite.sessions.add(e.sessionId);
+      if (e.kind === "page_view") allSite.pv += 1;
+      if (e.activeMs > 0) allSite.activeMsSum += e.activeMs;
+    }
 
     if (e.featureId) {
       const feat = touch(e.audience, e.featureId);

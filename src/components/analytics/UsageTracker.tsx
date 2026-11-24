@@ -18,6 +18,8 @@ type PendingEvent = {
   activeMs: number;
 };
 
+type FlushActive = (kind: "heartbeat" | "session_end", preferBeacon: boolean) => void;
+
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -62,7 +64,7 @@ function sendEvents(events: PendingEvent[], preferBeacon: boolean) {
 }
 
 /**
- * 产品使用埋点：路由 PV + 可见时 30s 心跳 + 隐藏/离开时 session_end。
+ * 产品使用埋点：路由 PV + 可见时 30s 心跳 + 隐藏/离开/换页时冲刷时长。
  * 不采集 /admin、/api；失败静默。
  */
 export function UsageTracker() {
@@ -73,12 +75,13 @@ export function UsageTracker() {
   const pathRef = useRef<string>("/");
   const activeStartedAt = useRef<number | null>(null);
   const pendingMs = useRef(0);
+  const flushActiveRef = useRef<FlushActive | null>(null);
 
   useEffect(() => {
     sessionIdRef.current = ensureSessionId();
     guestIdRef.current = ensureGuestId();
 
-    const flushActive = (kind: "heartbeat" | "session_end", preferBeacon: boolean) => {
+    const flushActive: FlushActive = (kind, preferBeacon) => {
       const path = pathRef.current;
       if (!isTrackedPath(path)) {
         activeStartedAt.current = null;
@@ -105,6 +108,7 @@ export function UsageTracker() {
         preferBeacon,
       );
     };
+    flushActiveRef.current = flushActive;
 
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
@@ -132,11 +136,18 @@ export function UsageTracker() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);
       flushActive("session_end", true);
+      flushActiveRef.current = null;
     };
   }, []);
 
   useEffect(() => {
     if (!pathname || pathname === lastPath.current) return;
+
+    // 换页前先把上一页已累计的可见时长冲刷出去，避免短于 30s 的停留丢失
+    if (lastPath.current != null) {
+      flushActiveRef.current?.("heartbeat", false);
+    }
+
     lastPath.current = pathname;
     pathRef.current = pathname;
     if (!isTrackedPath(pathname)) return;

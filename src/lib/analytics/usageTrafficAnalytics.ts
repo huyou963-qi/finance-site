@@ -56,6 +56,14 @@ type AudienceBreakdown = {
   all: AudienceMetrics;
 };
 
+type DayAudienceRow = {
+  uv: number;
+  pv: number;
+  sessionCount: number;
+  activeMsSum: number;
+  returningUv: number;
+};
+
 function emptyMetrics(audience: UsageAudience | "all"): AudienceMetrics {
   return {
     audience,
@@ -76,20 +84,9 @@ function finalize(m: AudienceMetrics): AudienceMetrics {
   };
 }
 
-function sumMetrics(rows: AudienceMetrics[]): AudienceMetrics {
-  const all = emptyMetrics("all");
-  for (const r of rows) {
-    all.dau += r.dau;
-    all.sessions += r.sessions;
-    all.pv += r.pv;
-    all.activeMsSum += r.activeMsSum;
-  }
-  return finalize(all);
-}
-
-async function siteAggForDates(dateStrs: string[]): Promise<Map<string, Map<string, { uv: number; pv: number; sessionCount: number; activeMsSum: number; returningUv: number }>>> {
-  /** date → audience → metrics */
-  const out = new Map<string, Map<string, { uv: number; pv: number; sessionCount: number; activeMsSum: number; returningUv: number }>>();
+async function siteAggForDates(dateStrs: string[]): Promise<Map<string, Map<string, DayAudienceRow>>> {
+  /** date → audience → metrics（含 all） */
+  const out = new Map<string, Map<string, DayAudienceRow>>();
   if (!dateStrs.length) return out;
 
   const today = shanghaiDateString();
@@ -100,12 +97,11 @@ async function siteAggForDates(dateStrs: string[]): Promise<Map<string, Map<stri
     const rows = await prisma.usageDailyAgg.findMany({
       where: {
         featureId: "",
-        audience: { in: [...PRODUCT_USAGE_AUDIENCES] },
+        audience: { in: [...PRODUCT_USAGE_AUDIENCES, "all"] },
         date: { in: historical.map(dateOnlyUtc) },
       },
     });
     for (const row of rows) {
-      // @db.Date 存为 UTC 午夜，ISO 日期部分即上海日历日字符串
       const key = row.date.toISOString().slice(0, 10);
       let byAud = out.get(key);
       if (!byAud) {
@@ -131,10 +127,11 @@ async function siteAggForDates(dateStrs: string[]): Promise<Map<string, Map<stri
 }
 
 function breakdownFromDateMap(
-  dateMap: Map<string, Map<string, { uv: number; pv: number; sessionCount: number; activeMsSum: number; returningUv: number }>>,
+  dateMap: Map<string, Map<string, DayAudienceRow>>,
   dates: string[],
 ): AudienceBreakdown {
   const dayCount = Math.max(dates.length, 1);
+
   const byAudience: AudienceMetrics[] = PRODUCT_USAGE_AUDIENCES.map((audience) => {
     const m = emptyMetrics(audience);
     for (const d of dates) {
@@ -145,7 +142,6 @@ function breakdownFromDateMap(
       m.pv += row.pv;
       m.activeMsSum += row.activeMsSum;
     }
-    // 多日窗口：dau 取日均 UV；单日即为当日 DAU
     if (dates.length > 1) {
       m.dau = Math.round(m.dau / dayCount);
       m.sessions = Math.round(m.sessions / dayCount);
@@ -154,7 +150,36 @@ function breakdownFromDateMap(
     }
     return finalize(m);
   });
-  return { byAudience, all: sumMetrics(byAudience) };
+
+  // 合计用 audience=all 去重行，避免同一用户当日 standard→pro 被加两次
+  const all = emptyMetrics("all");
+  for (const d of dates) {
+    const row = dateMap.get(d)?.get("all");
+    if (row) {
+      all.dau += row.uv;
+      all.sessions += row.sessionCount;
+      all.pv += row.pv;
+      all.activeMsSum += row.activeMsSum;
+      continue;
+    }
+    // 旧聚合无 all 行时退化为分受众相加（可能略高估）
+    for (const audience of PRODUCT_USAGE_AUDIENCES) {
+      const part = dateMap.get(d)?.get(audience);
+      if (!part) continue;
+      all.dau += part.uv;
+      all.sessions += part.sessionCount;
+      all.pv += part.pv;
+      all.activeMsSum += part.activeMsSum;
+    }
+  }
+  if (dates.length > 1) {
+    all.dau = Math.round(all.dau / dayCount);
+    all.sessions = Math.round(all.sessions / dayCount);
+    all.pv = Math.round(all.pv / dayCount);
+    all.activeMsSum = Math.round(all.activeMsSum / dayCount);
+  }
+
+  return { byAudience, all: finalize(all) };
 }
 
 export async function getUsageTrafficAnalytics(now = new Date()): Promise<UsageTrafficAnalytics> {
@@ -162,15 +187,12 @@ export async function getUsageTrafficAnalytics(now = new Date()): Promise<UsageT
   const last7 = Array.from({ length: 7 }, (_, i) => addShanghaiDays(today, -i));
   const last30 = Array.from({ length: 30 }, (_, i) => addShanghaiDays(today, -i));
 
-  // Ensure today (and yesterday) rollup-friendly: live path for today; historical from agg
   const dateMap = await siteAggForDates(last30);
 
   const todayBreakdown = breakdownFromDateMap(dateMap, [today]);
-  // Recompute today per-audience with true unique (already unique in live/agg for one day)
   const d7Breakdown = breakdownFromDateMap(dateMap, last7);
   const d30Breakdown = breakdownFromDateMap(dateMap, last30);
 
-  // Unique WAU / MAU from raw events (within retention)
   const weekBounds = shanghaiDayBounds(addShanghaiDays(today, -6));
   const monthBounds = shanghaiDayBounds(addShanghaiDays(today, -29));
   const todayEnd = shanghaiDayBounds(today).end;
@@ -180,7 +202,6 @@ export async function getUsageTrafficAnalytics(now = new Date()): Promise<UsageT
     actorDistinctFromEvents(monthBounds.start, todayEnd),
   ]);
 
-  // Feature ranking: last 7 days (agg + today live)
   const featureTotals = new Map<string, { pv: number; uv: number; activeMsSum: number }>();
   const histFeatureRows = await prisma.usageDailyAgg.findMany({
     where: {
@@ -198,7 +219,8 @@ export async function getUsageTrafficAnalytics(now = new Date()): Promise<UsageT
   }
   const todayLive = await liveAggregateDay(today);
   for (const [featureId, byAud] of todayLive.featureByAudience) {
-    for (const row of byAud.values()) {
+    for (const [audience, row] of byAud) {
+      if (audience === "all") continue;
       const cur = featureTotals.get(featureId) ?? { pv: 0, uv: 0, activeMsSum: 0 };
       cur.pv += row.pv;
       cur.uv += row.uv;
@@ -222,6 +244,16 @@ export async function getUsageTrafficAnalytics(now = new Date()): Promise<UsageT
     .slice()
     .reverse()
     .map((date) => {
+      const allRow = dateMap.get(date)?.get("all");
+      if (allRow) {
+        return {
+          date,
+          dau: allRow.uv,
+          sessions: allRow.sessionCount,
+          avgSessionMs: allRow.sessionCount > 0 ? Math.round(allRow.activeMsSum / allRow.sessionCount) : 0,
+          returningRate: allRow.uv > 0 ? allRow.returningUv / allRow.uv : null,
+        };
+      }
       let dau = 0;
       let sessions = 0;
       let activeMsSum = 0;
