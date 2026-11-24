@@ -1,4 +1,5 @@
 "use client";
+import { US_FISCAL_VIEW_IDS, US_FISCAL_VIEW_LABELS, type UsFiscalViewId } from "@/lib/data/usFiscalViewTypes";
 
 import { useState, type DragEvent } from "react";
 import { unifiedSeriesDisplayName } from "@/lib/data/macroCatalog";
@@ -299,6 +300,7 @@ export function MacroChartIndicatorAssignment({
   }
 
   function slotModeHint(mode: MacroChartSlotMode, count: number): string | null {
+    if (mode === "usFiscal") return tr("自动读取美国财政官方数据；选择分析图，无需拖入指标");
     if (mode === "cpiMomMatrix") return tr("此模式使用固定 CPI 分项目录，无需拖入指标");
     if (mode === "cotReport") return tr("此模式使用 CFTC 管理基金持仓报告，无需拖入指标");
     if (mode === "waterfall" && count < 2) return tr("瀑布图至少 2 个指标（首项起点，末项合计）");
@@ -653,7 +655,9 @@ export function MacroChartIndicatorAssignment({
                 <option value="radar">{tr("雷达图")}</option>
                 <option value="cpiMomMatrix">{tr("CPI 环比表")}</option>
                 <option value="cotReport">{tr("期货持仓表")}</option>
+                <option value="usFiscal">{tr("美国财政分析")}</option>
               </select>
+              {slotMode(slot)==="usFiscal"?<select aria-label={tr("图{slot}财政分析内容",{slot:slot+1})} className={`${ctrlSelect} max-w-44`} value={displayConfig.slotFiscalViews?.[slot]??"A1"} onChange={e=>onUpdateDisplayConfig({slotFiscalViews:{...displayConfig.slotFiscalViews,[slot]:e.target.value as UsFiscalViewId}})}>{US_FISCAL_VIEW_IDS.map(id=><option key={id} value={id}>{id} {US_FISCAL_VIEW_LABELS[id]}</option>)}</select>:null}
               {slotMode(slot) === "seasonal" ? (
                 <label className="flex shrink-0 items-center gap-0.5 text-[10px] text-fs-muted" title={tr("展示近几年")}>{tr("近")}<input
                     type="number"

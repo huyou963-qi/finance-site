@@ -11,6 +11,7 @@ import {
   type SystemMacroChartPrefsPayload,
 } from "@/lib/data/macroChartPrefs";
 import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
+import usFiscalTemplates from "@/lib/data/usFiscalTemplateUpdates.json";
 
 /**
  * 系统模板（admin 在 HK 库里维护的唯一一份）对所有人可读，未登录访客也返回；
@@ -48,12 +49,22 @@ export async function PUT(req: NextRequest) {
       prefs?: unknown;
       builtinTemplateOverrides?: Record<string, BuiltinTemplateOverride> | SystemMacroChartPrefsPayload;
       systemMacroChartPrefs?: Partial<SystemMacroChartPrefsPayload>;
+      applyUsFiscalTemplates?: boolean;
     };
 
     let systemMacroChartPrefs = await loadSystemMacroChartPrefs();
 
     if (user.role === "admin" || String(user.role).trim().toLowerCase() === "admin") {
-      if (body.systemMacroChartPrefs !== undefined) {
+      if (body.applyUsFiscalTemplates === true) {
+        if (body.prefs !== undefined || body.systemMacroChartPrefs !== undefined || body.builtinTemplateOverrides !== undefined) {
+          return NextResponse.json({ error: "财政模板更新须单独提交" }, { status: 400 });
+        }
+        const updatedAtIso = new Date().toISOString();
+        const updates = Object.fromEntries(Object.entries(usFiscalTemplates).map(([id, template]) => [id, { ...template, updatedAtIso }]));
+        systemMacroChartPrefs = await saveSystemMacroChartPrefs({
+          builtinTemplateOverrides: { ...systemMacroChartPrefs.builtinTemplateOverrides, ...updates } as Record<string, BuiltinTemplateOverride>,
+        });
+      } else if (body.systemMacroChartPrefs !== undefined) {
         systemMacroChartPrefs = await saveSystemMacroChartPrefs(body.systemMacroChartPrefs);
       } else if (body.builtinTemplateOverrides !== undefined) {
         const payload =
@@ -64,7 +75,7 @@ export async function PUT(req: NextRequest) {
             : { version: 1 as const, builtinTemplateOverrides: body.builtinTemplateOverrides };
         systemMacroChartPrefs = await saveSystemMacroChartPrefs(payload);
       }
-    } else if (body.systemMacroChartPrefs !== undefined || body.builtinTemplateOverrides !== undefined) {
+    } else if (body.applyUsFiscalTemplates === true || body.systemMacroChartPrefs !== undefined || body.builtinTemplateOverrides !== undefined) {
       return NextResponse.json({ error: "仅管理员可修改系统模板配置" }, { status: 403 });
     }
 

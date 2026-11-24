@@ -832,7 +832,7 @@ export function MacroMultiChartGrid({
               key={`${gridLayout}-slot-${i}`}
               className={
                 stacked
-                  ? "h-[300px] min-w-0 shrink-0 overflow-hidden"
+                  ? mode === "usFiscal" ? "min-w-0 shrink-0" : "h-[300px] min-w-0 shrink-0 overflow-hidden"
                   : "min-h-0 min-w-0 overflow-hidden"
               }
             >
@@ -849,7 +849,7 @@ export function MacroMultiChartGrid({
                 waterfallYear={waterfallYearForSlot(i)}
                 radarYear={radarYearForSlot(i)}
                 seasonalYearCount={seasonalYearCountForSlot(i)}
-                className="h-full min-h-0"
+                className={stacked && mode === "usFiscal" ? "min-h-0" : "h-full min-h-0"}
                 drawTool={isAlt ? "cursor" : drawTool}
                 drawStyle={drawStyle}
                 drawings={isAlt ? [] : (drawingsBySlot[i] ?? [])}

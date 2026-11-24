@@ -13,6 +13,7 @@ import {
 } from "@/lib/data/macroRegimeBands";
 import { formatMacroDisplayNumber, formatMacroDisplayValue, normalizeMacroAxisExtent } from "@/lib/formatMacroValue";
 import { CHART, SITE } from "@/lib/siteTheme";
+import type { UsFiscalViewId } from "@/lib/data/usFiscalViewTypes";
 
 export type MacroChartSlice = Pick<MacroPayload, "categories" | "series"> & {
   title?: string;
@@ -80,11 +81,12 @@ export type MacroChartSlotMode =
   | "boxplot"
   | "radar"
   | "cpiMomMatrix"
-  | "cotReport";
+  | "cotReport"
+  | "usFiscal";
 
 /** 自带数据源的表格槽位（CPI 环比表 / 期货持仓表）：不需要拖入指标 */
 export function isSelfFetchingSlotMode(mode: MacroChartSlotMode | undefined): boolean {
-  return mode === "cpiMomMatrix" || mode === "cotReport";
+  return mode === "cpiMomMatrix" || mode === "cotReport" || mode === "usFiscal";
 }
 
 export const DEFAULT_SEASONAL_YEAR_COUNT = 5;
@@ -128,6 +130,7 @@ export type MacroChartDisplayConfig = {
   showRegimeShading?: boolean;
   /** 各图槽展示模式，默认时序图 */
   slotModes?: Partial<Record<number, MacroChartSlotMode>>;
+  slotFiscalViews?: Partial<Record<number, UsFiscalViewId>>;
   /** 饼图各槽使用的年份（如 "2024"） */
   slotPieYears?: Partial<Record<number, string>>;
   /** 瀑布图各槽使用的年份 */

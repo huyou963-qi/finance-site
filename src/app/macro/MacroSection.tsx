@@ -1481,6 +1481,18 @@ export function MacroSection() {
         selectedKeys: templateKeys,
       });
 
+      if (resolvedTpl.displayConfig?.slotModes?.[0] === "usFiscal" &&
+        Array.from({ length: resolvedTpl.layoutMode }, (_, index) => resolvedTpl.displayConfig?.slotModes?.[index]).every(mode => mode === "usFiscal")) {
+        setError(null);
+        setPayload(null);
+        setRequestedQuery(null);
+        setRequestedMdsInstruments(null);
+        setExtractedSet(new Set());
+        setLoading(false);
+        setMainTab("charts");
+        return;
+      }
+
       const query = buildExtractQueryFromKeys(templateKeys, catalogAllowlist);
       if (!query) {
         const isCpiMomMatrixTpl =
@@ -3775,6 +3787,12 @@ export function MacroSection() {
 
     const mobileChartsPanel = (
       <div className="flex flex-col pb-4">
+        {displayConfig.slotModes?.[0] === "usFiscal" && introTemplateMeta.introHtml ? (
+          <details className="mx-3 my-2 rounded-lg border border-fs-border px-3 py-2 text-sm">
+            <summary className="cursor-pointer font-medium">{tx("模板说明")}</summary>
+            <MacroTemplateIntroPanel templateName={introTemplateMeta.name} introHtml={introTemplateMeta.introHtml} indicators={[]} notes={{}} />
+          </details>
+        ) : null}
         <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {chartDateRange?.from && chartDateRange.to ? (
             <button
