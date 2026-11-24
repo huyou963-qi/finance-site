@@ -661,12 +661,15 @@ model UsageEvent {
   sessionId String   @map("session_id") @db.VarChar(64)
   path      String   @db.VarChar(512)
   featureId String?  @map("feature_id") @db.VarChar(64)
+  /// 专题文章详情页 slug（仅 /articles/{slug}）
+  articleSlug String? @map("article_slug") @db.VarChar(128)
   /// 心跳 / 会话结束累计的活跃毫秒
   activeMs  Int      @default(0) @map("active_ms")
 
   @@index([createdAt])
   @@index([audience, createdAt])
   @@index([featureId, createdAt])
+  @@index([articleSlug, createdAt])
   @@index([userId, createdAt])
   @@index([guestId, createdAt])
   @@index([sessionId, createdAt])
@@ -693,6 +696,26 @@ model UsageDailyAgg {
   @@unique([date, audience, featureId])
   @@index([date])
   @@map("usage_daily_agg")
+  @@schema("public")
+}
+
+/// 专题文章阅读日聚合（按 slug；长期保留）
+model UsageArticleDailyAgg {
+  id           String   @id @default(cuid())
+  date         DateTime @db.Date
+  /// guest | standard | pro | all
+  audience     String   @db.VarChar(16)
+  articleSlug  String   @map("article_slug") @db.VarChar(128)
+  uv           Int      @default(0)
+  pv           Int      @default(0)
+  sessionCount Int      @default(0) @map("session_count")
+  activeMsSum  BigInt   @default(0) @map("active_ms_sum")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([date, audience, articleSlug])
+  @@index([date])
+  @@index([articleSlug, date])
+  @@map("usage_article_daily_agg")
   @@schema("public")
 }
 

@@ -64,10 +64,11 @@
 | 近 7/30 日卡片 | 各日指标的日均值；顶部 WAU/MAU 为区间去重活跃 |
 | 时长 | 页面可见时每 30 秒心跳累计 `activeMs`；隐藏或离开发 `session_end` |
 | 功能排行 | 路径映射到 `featureCatalog` 的 `featureId`；近 7 日 PV / 人日 UV / 总停留 |
+| 文章阅读 | 仅 `/articles/{slug}` 详情页；按 slug 排行近 7 日 PV / 人日 UV / 停留；日聚合 `usage_article_daily_agg` |
 | 次日回访占比 | 当日 UV 中前一日也活跃的比例（日聚合 `returningUv / uv`） |
-| 明细保留 | `usage_event` 默认 30 天；日聚合长期保留 |
+| 明细保留 | `usage_event` 默认 30 天；功能/文章日聚合长期保留 |
 | 不采集 | `/admin`、`/api`、静态资源；不做逐 API 打点 |
 
-部署：应用 `20261124093000_usage_analytics` 迁移（`npm run db:migrate`）。建议 cron 每日跑 `npm run analytics:rollup-daily`（默认回填近 3 个上海日并清理过期明细）。广告拦截或关闭 JS 会导致低估。
+部署：应用 `20261124093000_usage_analytics` 与 `20261124120000_usage_article_stats` 迁移（`npm run db:migrate`）。建议 cron 每日跑 `npm run analytics:rollup-daily`（默认回填近 3 个上海日并清理过期明细）。广告拦截或关闭 JS 会导致低估。
 
 部署前先应用 `20261003090000_user_management_p1_p2` 迁移（添加用户标签及 GIN 索引），再启动新代码。上线后分别用四种后台岗位验证桌面与手机入口、只读限制、TOTP、会员操作、订单确认、批量预览和 CSV 导出。

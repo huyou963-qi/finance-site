@@ -1,5 +1,5 @@
 import { USAGE_EVENT_KINDS, MAX_USAGE_ACTIVE_MS, MAX_USAGE_EVENTS_PER_REQUEST, MAX_USAGE_GUEST_ID_LEN, MAX_USAGE_SESSION_ID_LEN, type UsageEventKind } from "@/lib/analytics/usageTypes";
-import { normalizeUsagePath, usageFeatureIdForPath } from "@/lib/analytics/usagePath";
+import { extractArticleSlug, normalizeUsagePath, usageFeatureIdForPath } from "@/lib/analytics/usagePath";
 
 export type IncomingUsageEvent = {
   kind: UsageEventKind;
@@ -7,6 +7,7 @@ export type IncomingUsageEvent = {
   guestId: string | null;
   path: string;
   featureId: string | null;
+  articleSlug: string | null;
   activeMs: number;
 };
 
@@ -68,6 +69,7 @@ export function parseUsageCollectBody(body: unknown): IncomingUsageEvent[] {
       guestId,
       path,
       featureId: usageFeatureIdForPath(path),
+      articleSlug: extractArticleSlug(path),
       activeMs,
     });
   }
