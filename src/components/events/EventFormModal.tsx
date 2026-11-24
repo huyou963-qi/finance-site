@@ -23,6 +23,7 @@ import {
 import { MACRO_COUNTRIES } from "@/lib/data/macroCatalog";
 import { TagInput } from "@/components/events/TagInput";
 import { useTr } from "@/i18n/TextProvider";
+import type { Tr } from "@/i18n/text";
 
 export type EventFormValues = {
   title: string;
@@ -126,7 +127,7 @@ export function formValuesToPayload(form: EventFormValues) {
 
 const COUNTRY_SUGGESTIONS = MACRO_COUNTRIES.map((c) => c.code);
 
-function typeDisplay(t: string): string {
+function typeDisplay(t: string, tr: Tr): string {
   if (t in EVENT_TYPE_LABELS) return `${tr(EVENT_TYPE_LABELS[t as EventTypeCode])} (${t})`;
   return t;
 }
@@ -280,7 +281,7 @@ export function EventFormModal({
                 <option value="">—</option>
                 {EVENT_TYPE_SUGGESTIONS.map((t) => (
                   <option key={t} value={t}>
-                    {typeDisplay(t)}
+                    {typeDisplay(t, tr)}
                   </option>
                 ))}
               </select>
