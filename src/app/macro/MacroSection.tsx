@@ -33,6 +33,7 @@ import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
 import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
 import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
+import { ApplyUsFiscalTemplates } from "@/components/macro/ApplyUsFiscalTemplates";
 import { sanitizeMacroIntroHtml, templateIntroSnapshot } from "@/lib/data/macroIntroHtml";
 import type {
   MacroDrawing,
@@ -1480,6 +1481,18 @@ export function MacroSection() {
         ...resolvedTpl,
         selectedKeys: templateKeys,
       });
+
+      if (resolvedTpl.displayConfig?.slotModes?.[0] === "usFiscal" &&
+        Array.from({ length: resolvedTpl.layoutMode }, (_, index) => resolvedTpl.displayConfig?.slotModes?.[index]).every(mode => mode === "usFiscal")) {
+        setError(null);
+        setPayload(null);
+        setRequestedQuery(null);
+        setRequestedMdsInstruments(null);
+        setExtractedSet(new Set());
+        setLoading(false);
+        setMainTab("charts");
+        return;
+      }
 
       const query = buildExtractQueryFromKeys(templateKeys, catalogAllowlist);
       if (!query) {
@@ -3629,6 +3642,9 @@ export function MacroSection() {
               </div>
   );
 
+  const fiscalTemplatesApply = isAdmin && ["builtin-us-fiscal-overview", "builtin-us-fiscal-structure", "builtin-us-fiscal-highfreq"].some(id =>
+    builtinTemplateOverrides[id]?.displayConfig?.slotModes?.[0] !== "usFiscal") ? <ApplyUsFiscalTemplates /> : null;
+
   const templatesPanel = (
             <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
               <div className="rounded-xl border border-fs-border/80 bg-fs-elevated/40 p-4">
@@ -3656,6 +3672,7 @@ export function MacroSection() {
                     </div>
                   )}
                 />
+                {fiscalTemplatesApply}
                 {hiddenBuiltinRestore}
               </div>
 
@@ -3775,6 +3792,12 @@ export function MacroSection() {
 
     const mobileChartsPanel = (
       <div className="flex flex-col pb-4">
+        {displayConfig.slotModes?.[0] === "usFiscal" && introTemplateMeta.introHtml ? (
+          <details className="mx-3 my-2 rounded-lg border border-fs-border px-3 py-2 text-sm">
+            <summary className="cursor-pointer font-medium">{tx("模板说明")}</summary>
+            <MacroTemplateIntroPanel templateName={introTemplateMeta.name} introHtml={introTemplateMeta.introHtml} indicators={[]} notes={{}} />
+          </details>
+        ) : null}
         <div className="flex flex-nowrap items-center gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {chartDateRange?.from && chartDateRange.to ? (
             <button
@@ -3962,7 +3985,7 @@ export function MacroSection() {
               activeTemplateId={activeTemplateId}
               onLoad={applyTemplateAndExtract}
               onDelete={isAdmin ? deleteSystemTemplate : undefined}
-              adminExtra={hiddenBuiltinRestore}
+              adminExtra={<>{fiscalTemplatesApply}{hiddenBuiltinRestore}</>}
               userPanel={userTemplatesPanel}
             />
           }
