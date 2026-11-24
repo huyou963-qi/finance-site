@@ -3334,7 +3334,7 @@ export function StockChartWorkspace({
         >
           {KLINE_CANDLE_COLOR_MODES.map((mode) => (
             <option key={mode} value={mode}>
-              {KLINE_CANDLE_COLOR_MODE_LABEL[mode]}
+              {tx(KLINE_CANDLE_COLOR_MODE_LABEL[mode])}
             </option>
           ))}
         </select>

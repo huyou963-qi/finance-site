@@ -86,7 +86,7 @@ export function SectorRegimeLiveLedgerPanel() {
 
   const latest = data.snapshots[0] ?? null;
   const regimeLabel = latest
-    ? REGIME_LABEL[latest.regime as keyof typeof REGIME_LABEL] ?? latest.regime
+    ? tr(REGIME_LABEL[latest.regime as keyof typeof REGIME_LABEL] ?? latest.regime)
     : "—";
 
   return (

@@ -58,7 +58,7 @@ export function EventDiagnosticsDialog({ source, result, packs, error, loading, 
       <div className="flex flex-wrap gap-2"><button className={button} onClick={onClear}>{tr("清除本类内容条件")}</button><button className={button} onClick={onManage}>{tr("检查来源与包范围")}</button>{excluded.some(e => e.reasons.includes("hidden")) && <button className={button} onClick={onRestoreHidden}>{tr("恢复本类隐藏事件")}</button>}{source === "system" && <button className={button} onClick={onRetry}>{tr("重新加载系统事件")}</button>}</div>
       <div className="rounded border border-fs-border p-2">
         <p>{tr("排除原因（每条记录按首个原因计数，互不重复；单条说明列出全部原因）")}</p>
-        {Object.entries(stats.reasons).map(([reason, count]) => <p key={reason}>{EVENT_EXCLUSION_LABELS[reason as keyof typeof EVENT_EXCLUSION_LABELS]}：{count}</p>)}
+        {Object.entries(stats.reasons).map(([reason, count]) => <p key={reason}>{tr(EVENT_EXCLUSION_LABELS[reason as keyof typeof EVENT_EXCLUSION_LABELS])}：{count}</p>)}
         {!excluded.length && <p className="text-fs-muted">{tr("当前已加载集合中无排除记录。")}</p>}
       </div>
       {initial && <section aria-label={tr("当前事件说明")} className="space-y-2 rounded border border-fs-accent p-2"><strong>{initial.title || initial.markerLabel}</strong>{renderEvent(initial)}</section>}

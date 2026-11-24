@@ -1,5 +1,8 @@
+"use client";
+
 import type { EventImportance } from "@/lib/data/marketEvents";
 import { EVENT_IMPORTANCE_LABELS } from "@/lib/data/marketEvents";
+import { useTr } from "@/i18n/TextProvider";
 
 const STYLE: Record<EventImportance, string> = {
   LOW: "border-fs-border/80 bg-fs-elevated text-fs-muted",
@@ -15,11 +18,12 @@ export function EventImportanceBadge({
   importance: EventImportance;
   className?: string;
 }) {
+  const tr = useTr();
   return (
     <span
       className={`inline-flex shrink-0 rounded border px-1.5 py-0 text-[10px] font-medium ${STYLE[importance]} ${className}`}
     >
-      {EVENT_IMPORTANCE_LABELS[importance]}
+      {tr(EVENT_IMPORTANCE_LABELS[importance])}
     </span>
   );
 }

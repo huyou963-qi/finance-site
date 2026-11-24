@@ -23,11 +23,11 @@ const CONFIDENCE_LABEL: Record<RegimeNowcastConfidence, string> = {
 };
 
 function regimeLabel(value: string | null | undefined, tr: Tr = identityTr): string {
-  return value && value in REGIME_LABEL ? REGIME_LABEL[value as RegimeKey] : tr("尚未形成");
+  return value && value in REGIME_LABEL ? tr(REGIME_LABEL[value as RegimeKey]) : tr("尚未形成");
 }
 
 function regimeDescription(value: string | null | undefined, tr: Tr = identityTr): string {
-  return value && value in REGIME_DESC ? REGIME_DESC[value as RegimeKey] : tr("方向证据不足");
+  return value && value in REGIME_DESC ? tr(REGIME_DESC[value as RegimeKey]) : tr("方向证据不足");
 }
 
 const MARKET_BACKGROUND_DESC: Record<RegimeKey, string> = {

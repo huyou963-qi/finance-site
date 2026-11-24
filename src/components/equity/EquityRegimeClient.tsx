@@ -170,7 +170,7 @@ export function EquityRegimeClient() {
                     style={{ background: REGIME_COLOR[currentRegime] }}
                   />
                   <span className="text-xl font-semibold text-fs-text">
-                    {REGIME_LABEL[currentRegime]}
+                    {tr(REGIME_LABEL[currentRegime])}
                   </span>
                   {!currentOfficial && data.current?.recession === 1 ? (
                     <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-xs text-red-400">{tr("NBER 衰退")}</span>
@@ -203,7 +203,7 @@ export function EquityRegimeClient() {
                       className="inline-block h-3 w-3 shrink-0 rounded-sm"
                       style={{ background: REGIME_COLOR[rk] }}
                     />
-                    <span className="text-fs-text">{REGIME_LABEL[rk]}</span>
+                    <span className="text-fs-text">{tr(REGIME_LABEL[rk])}</span>
                     <span className="text-xs text-fs-muted">{REGIME_DESC[rk]}</span>
                   </div>
                 ))}
@@ -234,7 +234,7 @@ export function EquityRegimeClient() {
                           className="mr-1 inline-block h-2.5 w-2.5 rounded-sm align-middle"
                           style={{ background: REGIME_COLOR[rk] }}
                         />
-                        {REGIME_LABEL[rk]}
+                        {tr(REGIME_LABEL[rk])}
                       </th>
                     ))}
                   </tr>

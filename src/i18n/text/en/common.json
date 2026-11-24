@@ -1,1 +1,27 @@
-{}
+{
+  "常用链接": "Bookmarks",
+  "我的收藏夹": "My bookmarks",
+  "管理": "Manage",
+  "新建链接": "New link",
+  "+ 链接": "+ Link",
+  "+ 文件夹": "+ Folder",
+  "编辑链接": "Edit link",
+  "重命名文件夹": "Rename folder",
+  "链接标题": "Link title",
+  "https:// 或 /macro": "https:// or /macro",
+  "请填写链接标题": "Please enter a link title",
+  "请填写有效网址": "Please enter a valid URL",
+  "请填写文件夹名称": "Please enter a folder name",
+  "暂无链接，点击下方添加。": "No links yet. Add one below.",
+  "在此文件夹添加链接": "Add a link in this folder",
+  "登录后可保存个人常用链接，并按文件夹归类。": "Sign in to save personal bookmarks in folders.",
+  "去登录 →": "Sign in →",
+  "删": "Del",
+  "改": "Edit",
+  "删除文件夹": "Delete folder",
+  "（空）": "(empty)",
+  "红涨绿跌": "Red up / green down",
+  "红跌绿涨": "Red down / green up",
+  "保存失败": "Save failed",
+  "加载失败": "Load failed"
+}

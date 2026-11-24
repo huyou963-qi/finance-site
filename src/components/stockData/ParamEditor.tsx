@@ -151,7 +151,7 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
                         checked={multi.slots.includes(s)}
                         onChange={(e) => setMulti((m) => ({ ...m, slots: e.target.checked ? [...m.slots, s] : m.slots.filter((x) => x !== s) }))}
                       />
-                      {SLOT_LABELS[s]}
+                      {tr(SLOT_LABELS[s])}
                     </label>
                   ))}
                 </div>
@@ -191,7 +191,7 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
             <legend className="text-sm font-medium">{tr("区间")}</legend>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <select aria-label={tr("区间")} className={select} value={rangeChoice} onChange={(e) => setRangeChoice(e.target.value as RangePreset | "custom")}>
-                {RANGE_PRESETS.map((p) => <option key={p} value={p}>{RANGE_PRESET_LABELS[p]}</option>)}
+                {RANGE_PRESETS.map((p) => <option key={p} value={p}>{tr(RANGE_PRESET_LABELS[p])}</option>)}
                 <option value="custom">{tr("自定义")}</option>
               </select>
               {rangeChoice === "custom" ? (
@@ -220,7 +220,7 @@ export function ParamEditor({ title, indicators, initial, initialMulti, totalCol
           <fieldset className="mt-4">
             <legend className="text-sm font-medium">{tr("显示单位")}</legend>
             <select aria-label={tr("显示单位")} className={select} value={scale} onChange={(e) => setScale(e.target.value as Scale)}>
-              {(Object.keys(SCALE_LABELS) as Scale[]).map((s) => <option key={s} value={s}>{SCALE_LABELS[s]}</option>)}
+              {(Object.keys(SCALE_LABELS) as Scale[]).map((s) => <option key={s} value={s}>{tr(SCALE_LABELS[s])}</option>)}
             </select>
             <p className="mt-1 text-xs text-fs-muted">{tr("只影响显示和导出；「自动」按数值大小缩写。")}</p>
           </fieldset>

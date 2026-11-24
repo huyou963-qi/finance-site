@@ -285,7 +285,7 @@ export function MobileEventTimeline({ events, onSelect }: MobileEventTimelinePro
                         <span
                           className={`inline-flex rounded border px-1.5 text-[11px] font-medium ${IMPORTANCE_STYLE[event.importance]}`}
                         >
-                          {EVENT_IMPORTANCE_LABELS[event.importance]}
+                          {tr(EVENT_IMPORTANCE_LABELS[event.importance])}
                         </span>
                         {event.eventType ? (
                           <span className="text-[11px] text-fs-muted">{event.eventType}</span>

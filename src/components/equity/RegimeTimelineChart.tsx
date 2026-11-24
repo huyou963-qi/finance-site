@@ -130,7 +130,7 @@ export function RegimeTimelineChart({ points }: { points: RegimePoint[] }) {
             (a) => `${a.marker}${a.seriesName}: ${a.value == null ? "—" : a.value.toFixed(2)}`,
           );
           const regimeLine = p
-            ? `<div style="margin-top:4px">regime: <b>${REGIME_LABEL[p.regime]}</b>${p.recession === 1 ? tr(" · NBER 衰退") : ""}</div>`
+            ? `<div style="margin-top:4px">regime: <b>${tr(REGIME_LABEL[p.regime])}</b>${p.recession === 1 ? tr(" · NBER 衰退") : ""}</div>`
             : "";
           return `<div>${date}</div>${lines.join("<br/>")}${regimeLine}`;
         },

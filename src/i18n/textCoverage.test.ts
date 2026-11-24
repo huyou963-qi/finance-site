@@ -61,6 +61,9 @@ export const TRANSLATED_FEATURE_PATHS = [
   "src/components/articles",
   "src/app/tools",
   "src/app/markets-tools",
+  "src/components/CommonLinksMenu.tsx",
+  "src/components/mobile/MobileSheet.tsx",
+  "src/components/events/EventImportanceBadge.tsx",
 ];
 
 /** 用 --thread-helpers 处理过的模块：组件外辅助函数也必须带 tr（其余模块的辅助函数在显示处翻译） */

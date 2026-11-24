@@ -527,7 +527,7 @@ export function StockDataWorkspace() {
               aria-label={tr("过滤条件")}
             >
               {(Object.keys(FILTER_OP_LABELS) as FilterOp[]).map((op) => (
-                <option key={op} value={op}>{FILTER_OP_LABELS[op]}</option>
+                <option key={op} value={op}>{tr(FILTER_OP_LABELS[op])}</option>
               ))}
             </select>
             <input
