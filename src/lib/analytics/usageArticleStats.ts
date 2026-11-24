@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { PRODUCT_USAGE_AUDIENCES } from "@/lib/analytics/usageTypes";
-import { extractArticleSlug } from "@/lib/analytics/usagePath";
+import { resolveArticleSlug } from "@/lib/analytics/usagePath";
 import {
   addShanghaiDays,
   dateOnlyUtc,
@@ -45,7 +45,7 @@ async function liveArticleTotals(dateStr: string): Promise<Map<string, { pv: num
 
   const bySlug = new Map<string, { actors: Set<string>; pv: number; activeMsSum: number }>();
   for (const e of events) {
-    const slug = e.articleSlug ?? extractArticleSlug(e.path);
+    const slug = resolveArticleSlug(e.articleSlug, e.path);
     if (!slug) continue;
     let b = bySlug.get(slug);
     if (!b) {

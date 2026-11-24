@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseUsageCollectBody } from "./usageCollect";
 import { resolveUsageAudience } from "./usageAudience";
-import { extractArticleSlug, normalizeUsagePath } from "./usagePath";
+import { extractArticleSlug, normalizeArticleSlug, normalizeUsagePath, resolveArticleSlug } from "./usagePath";
 import { addShanghaiDays, shanghaiDateString, shanghaiDayBounds } from "./usageShanghaiDate";
 
 test("normalizeUsagePath 去语言前缀并排除后台", () => {
@@ -20,6 +20,10 @@ test("extractArticleSlug 只认详情页", () => {
   assert.equal(extractArticleSlug("/articles/preview/abc"), null);
   assert.equal(extractArticleSlug("/articles/charts/1"), null);
   assert.equal(extractArticleSlug("/articles/connections"), null);
+  assert.equal(extractArticleSlug(`/articles/${"x".repeat(129)}`), null);
+  assert.equal(normalizeArticleSlug("bad.slug"), null);
+  assert.equal(resolveArticleSlug("editor", "/articles/ok-slug"), "ok-slug");
+  assert.equal(resolveArticleSlug("ok-slug", "/articles/other"), "ok-slug");
 });
 
 test("parseUsageCollectBody 校验与规范化", () => {

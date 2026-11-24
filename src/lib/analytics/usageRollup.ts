@@ -4,7 +4,7 @@ import {
   USAGE_EVENT_RETENTION_DAYS,
   type UsageAudience,
 } from "@/lib/analytics/usageTypes";
-import { extractArticleSlug } from "@/lib/analytics/usagePath";
+import { resolveArticleSlug } from "@/lib/analytics/usagePath";
 import {
   addShanghaiDays,
   dateOnlyUtc,
@@ -198,7 +198,7 @@ async function rollupArticleDay(dateStr: string, events: EventRow[]): Promise<nu
 
   for (const e of events) {
     if (!isProductAudience(e.audience)) continue;
-    const slug = e.articleSlug ?? extractArticleSlug(e.path);
+    const slug = resolveArticleSlug(e.articleSlug, e.path);
     if (!slug) continue;
     const actor = actorKey(e.userId, e.guestId);
 

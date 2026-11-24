@@ -28,9 +28,11 @@ CREATE INDEX "usage_article_daily_agg_article_slug_date_idx" ON "public"."usage_
 -- CreateIndex
 CREATE UNIQUE INDEX "usage_article_daily_agg_date_audience_article_slug_key" ON "public"."usage_article_daily_agg"("date", "audience", "article_slug");
 
--- Backfill article_slug from path for existing detail-page events
+-- Backfill article_slug from path（与 extractArticleSlug 同口径：长度≤128、字符集、排除保留段）
 UPDATE "public"."usage_event"
 SET "article_slug" = substring(path from '^/articles/([^/]+)$')
 WHERE "article_slug" IS NULL
   AND path ~ '^/articles/[^/]+$'
+  AND char_length(substring(path from '^/articles/([^/]+)$')) BETWEEN 1 AND 128
+  AND substring(path from '^/articles/([^/]+)$') ~ '^[A-Za-z0-9][A-Za-z0-9_-]*$'
   AND substring(path from '^/articles/([^/]+)$') NOT IN ('editor', 'preview', 'charts', 'connections');
