@@ -1,13 +1,43 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { CandlestickData, IChartApi, UTCTimestamp } from "lightweight-charts";
-import { computeKlineRangeStats, computeRangeOverlayPx, rangeBarIndexAtPixel } from "./klineRangeStats";
+import type { CandlestickData, IChartApi, Time, UTCTimestamp } from "lightweight-charts";
+import { computeKlineRangeStats, computeRangeOverlayPx, computeVisibleRangeExtrema, rangeBarIndexAtPixel } from "./klineRangeStats";
 import { computeLayerRangeStats } from "./layerRangeStats";
 
 const candles: CandlestickData[] = [1, 2, 4, 5].map((day) => ({
   time: (Date.UTC(2026, 8, day) / 1000) as UTCTimestamp,
   open: day * 10, high: day * 10 + 2, low: day * 10 - 1, close: day * 10 + 1,
 }));
+
+test("visible extrema follow main-asset dates after panning and zooming a shared overlay timeline", () => {
+  const day = (d: number) => (Date.UTC(2026, 8, d) / 1000) as UTCTimestamp;
+  let range: { from: Time; to: Time } | null = { from: day(1), to: day(4) };
+  const chart = {
+    timeScale: () => ({
+      // Overlay history adds hundreds of earlier logical indices.
+      getVisibleLogicalRange: () => ({ from: 500, to: 503 }),
+      getVisibleRange: () => range,
+    }),
+  } as unknown as IChartApi;
+  const expected = (high: number, low: number) => ({
+    high: { time: day(high), price: high * 10 + 2 },
+    low: { time: day(low), price: low * 10 - 1 },
+  });
+  assert.deepEqual(computeVisibleRangeExtrema(candles, chart), expected(4, 1));
+  range = { from: day(2), to: day(5) };
+  assert.deepEqual(computeVisibleRangeExtrema(candles, chart), expected(5, 2));
+  range = { from: day(2), to: day(2) };
+  assert.deepEqual(computeVisibleRangeExtrema(candles, chart), expected(2, 2));
+  range = { from: day(3), to: day(3) }; // Only the overlay trades here.
+  assert.equal(computeVisibleRangeExtrema(candles, chart), null);
+  range = { from: day(6), to: day(8) };
+  assert.equal(computeVisibleRangeExtrema(candles, chart), null);
+  range = { from: "2026-09-02", to: { year: 2026, month: 9, day: 4 } };
+  assert.deepEqual(computeVisibleRangeExtrema(candles, chart), expected(4, 2));
+  range = null;
+  assert.equal(computeVisibleRangeExtrema(candles, chart), null);
+  assert.equal(computeVisibleRangeExtrema([], chart), null);
+});
 
 // Overlay history starts earlier and includes a date absent from the main asset.
 function fixture(leftWidth = 60, spacing = 20, overlay = true) {

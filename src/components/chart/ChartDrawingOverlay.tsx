@@ -91,7 +91,8 @@ export function ChartDrawingOverlay({ chart, candleSeries, shapes, width, height
    if (points.length >= pointCount(preview.tool)) draft = createDrawing(preview.tool, points, "draft");
    else draft = createDrawing("trend", points, "draft");
  }
- return <svg className="pointer-events-none absolute left-0 top-0 z-10 overflow-hidden" width={width} height={height}>
+ // Chart coordinates start after the left price axis, inside the plot area.
+ return <svg className="pointer-events-none absolute top-0 z-10 overflow-hidden" style={{ left: chart.priceScale("left").width() }} width={width} height={height}>
   {shapes.map(d => draw(d))}{draft && draw(draft, true)}
   {preview?.placed.map((p, i) => { const pt = project(p.t, p.p); return pt ? <circle key={`anchor-${i}`} cx={pt.x} cy={pt.y} r={4} fill="#38bdf8" /> : null; })}
   {visibleExtrema && ["high", "low"].map(k => { const kind = k as "high" | "low", point = visibleExtrema[kind], pt = project(point.t, point.price); return pt ? renderExtremaMarker(pt, point.text, kind, height, null) : null; })}
