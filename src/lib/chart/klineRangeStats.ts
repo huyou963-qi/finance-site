@@ -25,16 +25,8 @@ function visibleBarIndexBounds(
   const n = candles.length;
   if (!n) return null;
 
-  const lr = chart.timeScale().getVisibleLogicalRange();
-  if (lr) {
-    let i0 = Math.ceil(lr.from);
-    let i1 = Math.floor(lr.to);
-    i0 = Math.max(0, Math.min(n - 1, i0));
-    i1 = Math.max(0, Math.min(n - 1, i1));
-    if (i0 > i1) return null;
-    return { i0, i1 };
-  }
-
+  // Logical indices belong to the union of all series' dates, not candles[].
+  // Overlay assets can start earlier or trade on dates absent from the main asset.
   const vr = chart.timeScale().getVisibleRange();
   if (!vr) return null;
   const fromSec = horzTimeToUnixSec(vr.from);
