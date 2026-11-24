@@ -4,6 +4,7 @@ import {
   USAGE_EVENT_RETENTION_DAYS,
   type UsageAudience,
 } from "@/lib/analytics/usageTypes";
+import { extractArticleSlug } from "@/lib/analytics/usagePath";
 import {
   addShanghaiDays,
   dateOnlyUtc,
@@ -53,6 +54,8 @@ export async function rollupUsageDay(dateStr: string): Promise<{ rows: number }>
         guestId: true,
         sessionId: true,
         featureId: true,
+        path: true,
+        articleSlug: true,
         activeMs: true,
       },
     }),
@@ -162,7 +165,85 @@ export async function rollupUsageDay(dateStr: string): Promise<{ rows: number }>
     await prisma.usageDailyAgg.deleteMany({ where: { date } });
   }
 
-  return { rows };
+  const articleRows = await rollupArticleDay(dateStr, events);
+  return { rows: rows + articleRows };
+}
+
+type EventRow = {
+  kind: string;
+  audience: string;
+  userId: string | null;
+  guestId: string | null;
+  sessionId: string;
+  path: string;
+  articleSlug: string | null;
+  activeMs: number;
+};
+
+/** 按文章 slug 写入 UsageArticleDailyAgg（产品受众 + all）。 */
+async function rollupArticleDay(dateStr: string, events: EventRow[]): Promise<number> {
+  const date = dateOnlyUtc(dateStr);
+  /** key = `${audience}\0${slug}` */
+  const buckets = new Map<string, Bucket>();
+
+  const touch = (audience: string, slug: string): Bucket => {
+    const k = `${audience}\0${slug}`;
+    let b = buckets.get(k);
+    if (!b) {
+      b = emptyBucket();
+      buckets.set(k, b);
+    }
+    return b;
+  };
+
+  for (const e of events) {
+    if (!isProductAudience(e.audience)) continue;
+    const slug = e.articleSlug ?? extractArticleSlug(e.path);
+    if (!slug) continue;
+    const actor = actorKey(e.userId, e.guestId);
+
+    for (const audience of [e.audience, "all"] as const) {
+      const b = touch(audience, slug);
+      if (actor) b.actors.add(actor);
+      b.sessions.add(e.sessionId);
+      if (e.kind === "page_view") b.pv += 1;
+      if (e.activeMs > 0) b.activeMsSum += e.activeMs;
+    }
+  }
+
+  let rows = 0;
+  for (const [key, bucket] of buckets) {
+    const sep = key.indexOf("\0");
+    const audience = key.slice(0, sep);
+    const articleSlug = key.slice(sep + 1);
+    await prisma.usageArticleDailyAgg.upsert({
+      where: {
+        date_audience_articleSlug: { date, audience, articleSlug },
+      },
+      create: {
+        date,
+        audience,
+        articleSlug,
+        uv: bucket.actors.size,
+        pv: bucket.pv,
+        sessionCount: bucket.sessions.size,
+        activeMsSum: BigInt(bucket.activeMsSum),
+      },
+      update: {
+        uv: bucket.actors.size,
+        pv: bucket.pv,
+        sessionCount: bucket.sessions.size,
+        activeMsSum: BigInt(bucket.activeMsSum),
+      },
+    });
+    rows += 1;
+  }
+
+  if (buckets.size === 0) {
+    await prisma.usageArticleDailyAgg.deleteMany({ where: { date } });
+  }
+
+  return rows;
 }
 
 export async function cleanupExpiredUsageEvents(

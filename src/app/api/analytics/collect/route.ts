@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
           sessionId: e.sessionId,
           path: e.path,
           featureId: e.featureId,
+          articleSlug: e.articleSlug,
           activeMs: e.activeMs,
         };
       })

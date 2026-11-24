@@ -8,6 +8,7 @@ import {
   shanghaiDayBounds,
 } from "@/lib/analytics/usageShanghaiDate";
 import { actorDistinctFromEvents, liveAggregateDay } from "@/lib/analytics/usageLiveAgg";
+import { getArticleReadRanking, type ArticleReadRow } from "@/lib/analytics/usageArticleStats";
 
 const FEATURE_LABEL = new Map(FEATURE_CATALOG.map((f) => [f.id, f.label]));
 
@@ -48,6 +49,8 @@ export type UsageTrafficAnalytics = {
   wau: number;
   mau: number;
   features: FeatureRankRow[];
+  /** 近 7 日专题文章阅读排行（按 PV） */
+  articles: ArticleReadRow[];
   trend: TrendRow[];
 };
 
@@ -197,9 +200,10 @@ export async function getUsageTrafficAnalytics(now = new Date()): Promise<UsageT
   const monthBounds = shanghaiDayBounds(addShanghaiDays(today, -29));
   const todayEnd = shanghaiDayBounds(today).end;
 
-  const [wauActors, mauActors] = await Promise.all([
+  const [wauActors, mauActors, articles] = await Promise.all([
     actorDistinctFromEvents(weekBounds.start, todayEnd),
     actorDistinctFromEvents(monthBounds.start, todayEnd),
+    getArticleReadRanking(7, now),
   ]);
 
   const featureTotals = new Map<string, { pv: number; uv: number; activeMsSum: number }>();
@@ -286,6 +290,7 @@ export async function getUsageTrafficAnalytics(now = new Date()): Promise<UsageT
     wau: wauActors,
     mau: mauActors,
     features,
+    articles,
     trend,
   };
 }

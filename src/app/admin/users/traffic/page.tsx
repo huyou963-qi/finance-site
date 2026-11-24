@@ -51,7 +51,7 @@ export default function UserTrafficPage() {
         </div>
         <h1 className="mt-3 text-2xl font-semibold text-fs-text">使用流量</h1>
         <p className="mt-1 text-sm text-fs-muted">
-          按页面访问与可见时长统计游客 / 普通用户 / Pro。后台人员默认不计入。今日实时汇总；历史读日聚合。近 7/30 日卡片为日均值；WAU/MAU 为去重活跃。时区 Asia/Shanghai。
+          按页面访问与可见时长统计游客 / 普通用户 / Pro，并单独列出专题文章阅读。后台人员默认不计入。今日实时汇总；历史读日聚合。近 7/30 日卡片为日均值；WAU/MAU 为去重活跃。时区 Asia/Shanghai。
         </p>
       </div>
 
@@ -172,6 +172,56 @@ export default function UserTrafficPage() {
               ))}
             </div>
             {!data.features.length ? <p className="py-4 text-sm text-fs-muted">暂无功能访问数据</p> : null}
+          </section>
+
+          <section className="rounded-lg border border-fs-border p-4">
+            <h2 className="font-semibold text-fs-text">文章阅读（近 7 日）</h2>
+            <p className="mt-1 text-xs text-fs-muted">
+              按专题文章详情页统计（路径形如 /articles/文章slug）；不含列表与编辑器。UV 为各日 UV 之和（人日）。
+            </p>
+            <div className="mt-4 hidden overflow-x-auto sm:block">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-fs-border text-fs-muted">
+                    <th className="py-2">文章</th>
+                    <th>状态</th>
+                    <th>PV</th>
+                    <th>UV（人日）</th>
+                    <th>总停留</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.articles ?? []).map((row) => (
+                    <tr key={row.slug} className="border-b border-fs-border/70 text-fs-text">
+                      <td className="py-3">
+                        <Link href={row.href} className="text-fs-accent-text hover:underline">
+                          {row.title}
+                        </Link>
+                        <div className="text-xs text-fs-muted">{row.slug}</div>
+                      </td>
+                      <td>{row.status === "published" ? "已发布" : row.status === "draft" ? "草稿" : "未知"}</td>
+                      <td>{row.pv.toLocaleString()}</td>
+                      <td>{row.uv.toLocaleString()}</td>
+                      <td>{formatMs(row.activeMsSum)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 space-y-2 sm:hidden">
+              {(data.articles ?? []).map((row) => (
+                <article key={row.slug} className="rounded-md border border-fs-border p-3 text-sm">
+                  <Link href={row.href} className="font-medium text-fs-accent-text hover:underline">
+                    {row.title}
+                  </Link>
+                  <p className="mt-1 text-fs-secondary">
+                    {row.status === "published" ? "已发布" : row.status === "draft" ? "草稿" : "未知"} · PV {row.pv} · UV{" "}
+                    {row.uv} · 停留 {formatMs(row.activeMsSum)}
+                  </p>
+                </article>
+              ))}
+            </div>
+            {!(data.articles ?? []).length ? <p className="py-4 text-sm text-fs-muted">暂无文章阅读数据</p> : null}
           </section>
 
           <section className="rounded-lg border border-fs-border p-4">
