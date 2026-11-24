@@ -3278,9 +3278,14 @@ export function StockChartWorkspace({
       <div
         className={
           fillHeight
-            ? "flex min-h-[50dvh] flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-fs-border bg-fs-elevated px-6 text-center"
-            : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-fs-border bg-fs-elevated px-6 text-center"
+            ? "flex min-h-[50dvh] flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-fs-border px-6 text-center"
+            : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-fs-border px-6 text-center"
         }
+        style={{
+          backgroundColor: KLINE.background,
+          backgroundImage: `linear-gradient(to right, ${KLINE.grid} 1px, transparent 1px), linear-gradient(to bottom, ${KLINE.grid} 1px, transparent 1px)`,
+          backgroundSize: "80px 48px",
+        }}
       >
         <p className="text-sm text-fs-muted">尚未选择标的</p>
         <p className="max-w-md text-xs leading-relaxed text-fs-secondary">
