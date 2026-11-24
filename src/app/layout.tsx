@@ -6,6 +6,7 @@ import { SiteHeaderShell } from "@/components/SiteHeaderShell";
 import { GlobalErrorListeners } from "@/components/errors/GlobalErrorListeners";
 import { BaiduPageView } from "@/components/analytics/BaiduPageView";
 import { BaiduTongjiScript } from "@/components/analytics/BaiduTongjiScript";
+import { UsageTracker } from "@/components/analytics/UsageTracker";
 import { CANONICAL_SITE_URL, DEFAULT_OG_IMAGE } from "@/lib/seo/siteUrl";
 import { HTML_LANG, localizeHref } from "@/i18n/locales";
 import { getRequestLocale, isEnglishPublic } from "@/i18n/server";
@@ -89,6 +90,7 @@ export default async function RootLayout({
         <GlobalErrorListeners />
         <BaiduPageView />
         <BaiduTongjiScript />
+        <UsageTracker />
       </body>
     </html>
   );

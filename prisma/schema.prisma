@@ -648,6 +648,54 @@ model ErrorReport {
   @@schema("public")
 }
 
+/// 产品使用埋点明细（短保留，默认 30 天；管理端「使用流量」）
+model UsageEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  /// page_view | heartbeat | session_end
+  kind      String   @db.VarChar(16)
+  /// guest | standard | pro | admin
+  audience  String   @db.VarChar(16)
+  userId    String?  @map("user_id")
+  guestId   String?  @map("guest_id") @db.VarChar(64)
+  sessionId String   @map("session_id") @db.VarChar(64)
+  path      String   @db.VarChar(512)
+  featureId String?  @map("feature_id") @db.VarChar(64)
+  /// 心跳 / 会话结束累计的活跃毫秒
+  activeMs  Int      @default(0) @map("active_ms")
+
+  @@index([createdAt])
+  @@index([audience, createdAt])
+  @@index([featureId, createdAt])
+  @@index([userId, createdAt])
+  @@index([guestId, createdAt])
+  @@index([sessionId, createdAt])
+  @@map("usage_event")
+  @@schema("public")
+}
+
+/// 使用流量日聚合（长期保留；管理端主读此表）
+model UsageDailyAgg {
+  id           String   @id @default(cuid())
+  /// Asia/Shanghai 日历日
+  date         DateTime @db.Date
+  audience     String   @db.VarChar(16)
+  /// 空串 = 全站会话汇总行
+  featureId    String   @default("") @map("feature_id") @db.VarChar(64)
+  uv           Int      @default(0)
+  pv           Int      @default(0)
+  sessionCount Int      @default(0) @map("session_count")
+  activeMsSum  BigInt   @default(0) @map("active_ms_sum")
+  /// 当日 UV 中前一日也活跃的人数（次日回访分子）
+  returningUv  Int      @default(0) @map("returning_uv")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([date, audience, featureId])
+  @@index([date])
+  @@map("usage_daily_agg")
+  @@schema("public")
+}
+
 
 enum EventImportance {
   LOW

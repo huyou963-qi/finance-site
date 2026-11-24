@@ -23,8 +23,14 @@ export default function UserAnalyticsPage() {
     ["试用中", data.totals.trial], ["试用已结束", data.totals.trialExpired], ["当前 Pro", data.totals.paid], ["曾付费", data.totals.paidEver], ["14 天内到期", data.totals.expiring14], ["曾付费但当前非 Pro", data.totals.formerPaid],
   ] as const : [];
   return <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 lg:px-6">
-    <div><Link href="/admin/users" className="text-sm text-fs-accent-text">← 返回用户管理</Link><h1 className="mt-3 text-2xl font-semibold text-fs-text">用户生命周期</h1>
-      <p className="mt-1 text-sm text-fs-muted">按当前数据库实时汇总。排除后台人员及已关闭账户；近 12 个注册月份展示转化。</p></div>
+    <div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <Link href="/admin/users" className="text-fs-accent-text">← 返回用户管理</Link>
+        <Link href="/admin/users/traffic" className="text-fs-accent-text">使用流量</Link>
+      </div>
+      <h1 className="mt-3 text-2xl font-semibold text-fs-text">用户生命周期</h1>
+      <p className="mt-1 text-sm text-fs-muted">按当前数据库实时汇总。排除后台人员及已关闭账户；近 12 个注册月份展示转化。</p>
+    </div>
     {error ? <p role="alert" className="text-red-700">{error}</p> : null}
     {!data && !error ? <p className="text-fs-muted">加载中…</p> : null}
     {data ? <>

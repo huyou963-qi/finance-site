@@ -121,7 +121,12 @@ export function AdminUsersClient() {
       <div>
         <h1 className="text-2xl font-semibold text-fs-text">用户管理</h1>
         <p className="mt-1 text-sm text-fs-muted">查找账户、查看权益与订单、处置账号。列表中的联系方式已遮盖。</p>
-        {myRole === "admin" || myRole === "admin_support" || myRole === "admin_membership" ? <Link className="mt-2 inline-block text-sm text-fs-accent-text hover:underline" href="/admin/users/analytics">查看用户生命周期统计 →</Link> : null}
+        {myRole === "admin" || myRole === "admin_support" || myRole === "admin_membership" ? (
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <Link className="text-fs-accent-text hover:underline" href="/admin/users/analytics">查看用户生命周期统计 →</Link>
+            <Link className="text-fs-accent-text hover:underline" href="/admin/users/traffic">查看使用流量 →</Link>
+          </div>
+        ) : null}
       </div>
 
       <form className="grid gap-3 rounded-lg border border-fs-border bg-fs-elevated/40 p-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(event) => { event.preventDefault(); setPage(1); setFilters({ ...draft }); }}>

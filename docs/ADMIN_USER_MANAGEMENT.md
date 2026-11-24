@@ -53,4 +53,21 @@
 
 标签分群展示每个标签当前命中人数，点击可跳到带标签筛选的用户列表。统计不推断试用历史：付费开通会清除当前 `trialEndsAt`，因此“试用已结束”不是历史全部试用人次。手工 Pro 也不计入付费转化或曾付费。
 
+## 使用流量（频率 + 时长）
+
+入口 `/admin/users/traffic`（权限同 `analytics:read`）。采集客户端页面 PV 与可见时长心跳，写入 `usage_event`；日聚合写入 `usage_daily_agg`。
+
+| 口径 | 说明 |
+|---|---|
+| 受众 | `guest` / `standard` / `pro`；后台人员记为 `admin`，产品指标默认排除 |
+| DAU | 上海日历日内去重身份（登录用 `userId`，游客用 `guest_analytics_id` cookie） |
+| 近 7/30 日卡片 | 各日指标的日均值；顶部 WAU/MAU 为区间去重活跃 |
+| 时长 | 页面可见时每 30 秒心跳累计 `activeMs`；隐藏或离开发 `session_end` |
+| 功能排行 | 路径映射到 `featureCatalog` 的 `featureId`；近 7 日 PV / 人日 UV / 总停留 |
+| 次日回访占比 | 当日 UV 中前一日也活跃的比例（日聚合 `returningUv / uv`） |
+| 明细保留 | `usage_event` 默认 30 天；日聚合长期保留 |
+| 不采集 | `/admin`、`/api`、静态资源；不做逐 API 打点 |
+
+部署：应用 `20261124093000_usage_analytics` 迁移（`npm run db:migrate`）。建议 cron 每日跑 `npm run analytics:rollup-daily`（默认回填近 3 个上海日并清理过期明细）。广告拦截或关闭 JS 会导致低估。
+
 部署前先应用 `20261003090000_user_management_p1_p2` 迁移（添加用户标签及 GIN 索引），再启动新代码。上线后分别用四种后台岗位验证桌面与手机入口、只读限制、TOTP、会员操作、订单确认、批量预览和 CSV 导出。

@@ -14,6 +14,8 @@
     "db:migrate": "dotenv -e .env.local -- prisma migrate deploy",
     "db:ensure-owner": "dotenv -e .env.local -- node scripts/db-ensure-app-owner.mjs",
     "db:migrate:dev": "dotenv -e .env.local -- prisma migrate dev",
+    "analytics:rollup-daily": "dotenv -e .env.local -- tsx scripts/analytics/rollup-daily.ts",
+    "test:usage-analytics": "tsx --test src/lib/analytics/usageCollect.test.ts src/lib/analytics/baiduTongji.test.ts",
     "db:migrate-from-json": "tsx scripts/migrate-json-to-db.ts",
     "db:seed-market-events": "dotenv -e .env.local -- tsx scripts/seed-market-events.ts",
     "db:patch-market-events-era": "dotenv -e .env.local -- tsx scripts/patch-market-events-era.ts",
