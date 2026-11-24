@@ -2199,3 +2199,25 @@ model BillingConfigurationAudit {
   @@map("billing_configuration_audit")
   @@schema("public")
 }
+
+model ResearchMcpUsage {
+  userId String   @map("user_id")
+  month  DateTime @db.Date
+  used   Int
+
+  @@id([userId, month])
+  @@map("research_mcp_usage")
+  @@schema("public")
+}
+
+model ResearchMcpCall {
+  id         String   @id @db.Uuid
+  userId     String   @map("user_id")
+  startedAt  DateTime @map("started_at") @db.Timestamptz(3)
+  leaseUntil DateTime @map("lease_until") @db.Timestamptz(3)
+
+  @@index([startedAt])
+  @@index([userId, startedAt])
+  @@map("research_mcp_call")
+  @@schema("public")
+}

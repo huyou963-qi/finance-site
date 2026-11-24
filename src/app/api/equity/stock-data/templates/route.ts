@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { proErrorResponse, requireProUser } from "@/lib/auth/requirePro";
 import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 import { StockDataRequestError } from "@/lib/equity/stockData/request";
-import { MAX_TEMPLATES, parseTemplateInput, readStoredColumns, type StockDataTemplate } from "@/lib/equity/stockData/templates";
+import { parseTemplateInput } from "@/lib/equity/stockData/templates";
+import { listStockDataTemplates, saveStockDataTemplate, TemplateStoreError } from "@/lib/equity/stockData/templateStore";
 
 const headers = { "Cache-Control": "private, no-store" };
 
@@ -28,23 +28,12 @@ async function guard(req: NextRequest, write: boolean): Promise<Guard> {
   }
 }
 
-function toTemplate(r: { id: string; name: string; columns: unknown; symbols: unknown; updatedAt: Date }): StockDataTemplate {
-  return {
-    id: r.id,
-    name: r.name,
-    columns: readStoredColumns(r.columns),
-    symbols: Array.isArray(r.symbols) ? r.symbols.filter((s): s is string => typeof s === "string") : null,
-    updatedAt: r.updatedAt.toISOString(),
-  };
-}
-
 /** GET 当前用户的模板（按最近修改排序）。系统模板在前端代码里，不走接口 */
 export async function GET(req: NextRequest) {
   const g = await guard(req, false);
   if ("res" in g) return g.res;
   try {
-    const rows = await prisma.userStockDataTemplate.findMany({ where: { userId: g.userId }, orderBy: { updatedAt: "desc" } });
-    return NextResponse.json({ templates: rows.map(toTemplate) }, { headers });
+    return NextResponse.json({ templates: await listStockDataTemplates(g.userId) }, { headers });
   } catch (e) {
     console.error("[stock-data] list templates failed", e);
     return NextResponse.json({ error: "无法读取模板，请稍后重试" }, { status: 500, headers });
@@ -63,21 +52,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 400, headers });
   }
   try {
-    const existing = await prisma.userStockDataTemplate.findUnique({ where: { userId_name: { userId: g.userId, name: input.name } }, select: { id: true } });
-    if (!existing && (await prisma.userStockDataTemplate.count({ where: { userId: g.userId } })) >= MAX_TEMPLATES) {
-      return NextResponse.json({ error: `最多保存 ${MAX_TEMPLATES} 个模板，请先删除不用的模板` }, { status: 400, headers });
-    }
-    const data = {
-      columns: input.columns as unknown as Prisma.InputJsonValue,
-      symbols: input.symbols ? (input.symbols as Prisma.InputJsonValue) : Prisma.DbNull,
-    };
-    const row = await prisma.userStockDataTemplate.upsert({
-      where: { userId_name: { userId: g.userId, name: input.name } },
-      create: { userId: g.userId, name: input.name, ...data },
-      update: data,
-    });
-    return NextResponse.json({ template: toTemplate(row), overwritten: !!existing }, { headers });
+    const { template, overwritten } = await saveStockDataTemplate(g.userId, input, "upsert");
+    return NextResponse.json({ template, overwritten }, { headers });
   } catch (e) {
+    if (e instanceof TemplateStoreError) return NextResponse.json({ error: e.message }, { status: 400, headers });
     console.error("[stock-data] save template failed", e);
     return NextResponse.json({ error: "保存失败，请稍后重试" }, { status: 500, headers });
   }

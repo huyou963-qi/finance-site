@@ -187,11 +187,11 @@ function runForCutoff(loaded: LoadedInputs, cutoffDay: number, reuse: boolean): 
   return run;
 }
 
-export async function computeUsCpiNowcast(now = new Date()): Promise<UsCpiNowcastPayload> {
+export async function computeUsCpiNowcast(now = new Date(), opts: { dbOnly?: boolean } = {}): Promise<UsCpiNowcastPayload> {
   const [loaded, cleveland, clevelandYoy] = await Promise.all([
-    loadUsCpiNowcastInputs(),
-    loadClevelandNowcast("mom"),
-    loadClevelandNowcast("yoy"),
+    loadUsCpiNowcastInputs(opts),
+    opts.dbOnly ? null : loadClevelandNowcast("mom"),
+    opts.dbOnly ? null : loadClevelandNowcast("yoy"),
   ]);
   const { cutoffDay, observedThrough } = observedCutoffDay(
     loaded.targetMonth,

@@ -211,8 +211,8 @@ function spfComparison(
   };
 }
 
-export async function computeUsNfpNowcast(now = new Date()): Promise<UsNfpNowcastPayload> {
-  const [loaded, spf] = await Promise.all([loadUsNfpNowcastInputs(), loadSpfEmp()]);
+export async function computeUsNfpNowcast(now = new Date(), opts: { dbOnly?: boolean } = {}): Promise<UsNfpNowcastPayload> {
+  const [loaded, spf] = await Promise.all([loadUsNfpNowcastInputs(opts), opts.dbOnly ? null : loadSpfEmp()]);
   const target = loaded.targetMonth;
   const today = now.toISOString().slice(0, 10);
   const offsetDays = Math.max(0, Math.round((toDay(today) - toDay(target)) / 86_400_000));

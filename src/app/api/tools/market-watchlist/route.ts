@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { orderWatchlistStocks, validateWatchlistStockOrder, normalizeWatchlistTabOrder, validateWatchlistTabOrder, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol } from "@/lib/data/marketWatchlist";
+import { validateWatchlistStockOrder, validateWatchlistTabOrder, parseWatchlistGroupId, parseWatchlistGroupName, parseWatchlistItem, parseWatchlistSymbol } from "@/lib/data/marketWatchlist";
+import { listMarketWatchlist } from "@/lib/data/marketWatchlistStore";
 import { requireSameOrigin, sameOriginErrorResponse } from "@/lib/http/sameOrigin";
 
 const headers = { "Cache-Control": "private, no-store" };
 
-async function list(userId: string) {
-  const [stocks, groups, user] = await Promise.all([prisma.userMarketWatchlistItem.findMany({
-    where: { userId },
-    select: { symbol: true, name: true, exchange: true, groupId: true },
-    orderBy: [{ createdAt: "asc" }, { symbol: "asc" }],
-  }), prisma.userMarketWatchlistGroup.findMany({ where: { userId }, select: { id: true, name: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }), prisma.user.findUnique({ where: { id: userId }, select: { marketWatchlistTabOrder: true, marketWatchlistStockOrder: true } })]);
-  return { stocks: orderWatchlistStocks(stocks, user?.marketWatchlistStockOrder), groups, tabOrder: normalizeWatchlistTabOrder(groups, user?.marketWatchlistTabOrder) };
-}
-
 export async function GET(req: NextRequest) {
   try {
     const user = await getUserByRequest(req);
-    return NextResponse.json({ userId: user?.id ?? null, ...(user ? await list(user.id) : { stocks: [], groups: [] }) }, { headers });
+    return NextResponse.json({ userId: user?.id ?? null, ...(user ? await listMarketWatchlist(user.id) : { stocks: [], groups: [] }) }, { headers });
   } catch (error) {
     console.error("[market-watchlist] load failed", error);
     return NextResponse.json({ error: "无法加载自选股，请稍后重试" }, { status: 500, headers });
@@ -62,7 +54,7 @@ async function mutate(req: NextRequest, remove: boolean) {
         await tx.$executeRaw`UPDATE "public"."User" SET "marketWatchlistStockOrder" = array_remove("marketWatchlistStockOrder", ${symbol}) WHERE "id" = ${user.id}`;
       });
     }
-    return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
+    return NextResponse.json({ userId: user.id, ...await listMarketWatchlist(user.id) }, { headers });
   } catch (error) {
     const originErr = sameOriginErrorResponse(error);
     if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status, headers });
@@ -94,7 +86,7 @@ export async function PATCH(req: NextRequest) {
         if (error instanceof Error && error.message.startsWith("自选股顺序")) return NextResponse.json({ error: error.message }, { status: 400, headers });
         throw error;
       }
-      return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
+      return NextResponse.json({ userId: user.id, ...await listMarketWatchlist(user.id) }, { headers });
     }
     if (action === "reorderGroups") {
       const groups = await prisma.userMarketWatchlistGroup.findMany({ where: { userId: user.id }, select: { id: true, name: true } });
@@ -102,7 +94,7 @@ export async function PATCH(req: NextRequest) {
       try { order = validateWatchlistTabOrder(groups, body.order); }
       catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "分组顺序不正确" }, { status: 400, headers }); }
       await prisma.user.update({ where: { id: user.id }, data: { marketWatchlistTabOrder: order } });
-      return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
+      return NextResponse.json({ userId: user.id, ...await listMarketWatchlist(user.id) }, { headers });
     }
     let groupId: string | null;
     let name: string | undefined;
@@ -130,7 +122,7 @@ export async function PATCH(req: NextRequest) {
       const result = await prisma.userMarketWatchlistItem.updateMany({ where: { userId: user.id, symbol }, data: { groupId } });
       if (!result.count) return NextResponse.json({ error: "自选股不存在，请重新加载" }, { status: 404, headers });
     }
-    return NextResponse.json({ userId: user.id, ...await list(user.id) }, { headers });
+    return NextResponse.json({ userId: user.id, ...await listMarketWatchlist(user.id) }, { headers });
   } catch (error) {
     const originErr = sameOriginErrorResponse(error);
     if (originErr) return NextResponse.json({ error: originErr.error }, { status: originErr.status, headers });

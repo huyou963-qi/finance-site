@@ -37,12 +37,12 @@ function rawKeys(chart: CatalogChart) {
   for (const d of chart.template.derivedCalcs ?? []) if (chart.keys.includes(`calc:${d.id}`)) keys.push(d.leftKey, d.rightKey);
   return [...new Set(keys.map(k => k.split("::")[0]!))];
 }
-export async function searchCharts(raw: unknown) {
+export async function searchCharts(raw: unknown, opts: { includeIndicatorCoverage?: boolean } = {}) {
   const p = searchChartsSchema.parse(raw), terms = [p.query, ...p.tags].join(" ").toLowerCase().split(/[\s,，]+/).filter(Boolean);
   const charts = await chartCatalog();
   const ranked = charts.map(c => ({ c, score: terms.reduce((n, term) => n + (`${c.title} ${c.description} ${c.keys.join(" ")} ${c.template.name}`.toLowerCase().includes(term) || (c.template.id.includes("oil-diesel") && ["oil", "energy", "原油", "柴油", "brent", "wti"].includes(term)) ? 1 : 0), 0) })).filter(x => !terms.length || x.score > 0).sort((a, b) => b.score - a.score);
   return { charts: await Promise.all(ranked.slice(0, p.limit).map(async ({ c }) => {
-    const indicators = await Promise.all(rawKeys(c).map(async key => { try { const r = await resolveIndicator(key); return { indicatorId: r.id, ...await indicatorCoverage(r.id) }; } catch { return { indicatorId: key, availableFrom: null, availableTo: null, unavailable: true }; } }));
+    const indicators = opts.includeIndicatorCoverage === false ? [] : await Promise.all(rawKeys(c).map(async key => { try { const r = await resolveIndicator(key); return { indicatorId: r.id, ...await indicatorCoverage(r.id) }; } catch { return { indicatorId: key, availableFrom: null, availableTo: null, unavailable: true }; } }));
     return { chartId: c.chartId, title: c.title, description: c.description, page: c.page, indicatorIds: indicators.map(i => i.indicatorId), indicators,
       chartType: c.template.displayConfig?.slotModes?.[c.slot] ?? "timeseries", supportsEmbed: c.supportsEmbed, supportsInteraction: c.supportsEmbed, access: "macro feature policy; system templates only", previewUrl: absoluteUrl(`/articles/charts/${encodeURIComponent(c.chartId)}`), lastUpdatedAt: null, dataUpdateNote: "获取 get_chart / 渲染结果中的各指标数据更新时间；模板更新时间不等于数据更新时间" };
   })), truncated: ranked.length > p.limit };

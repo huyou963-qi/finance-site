@@ -68,11 +68,11 @@ function weekly(map: Map<string, number | null> | undefined): WeeklyObs {
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
-export async function loadUsNfpNowcastInputs(): Promise<LoadedNfpInputs> {
+export async function loadUsNfpNowcastInputs(opts: { dbOnly?: boolean } = {}): Promise<LoadedNfpInputs> {
   const [payems, adp, fred] = await Promise.all([
     loadLedger(PAYEMS_CODE),
     loadLedger(ADP_CODE),
-    loadFredObservationMapsDbFirst(["ICSA", "CCSA"]),
+    loadFredObservationMapsDbFirst(["ICSA", "CCSA"], opts),
   ]);
   if (!payems.latest) throw new Error("非农 PAYEMS 无观测");
   const icsa = weekly(fred.maps.get("ICSA"));

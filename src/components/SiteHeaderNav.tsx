@@ -22,6 +22,7 @@ const linkSize = {
 } as const;
 
 const TOOL_LINKS = [
+  { href: "/ai-connections", labelKey: "aiConnections", featureId: "research-mcp" },
   { href: "/markets-tools", labelKey: "toolKlineRange", featureId: "tools-kline-range" },
   {
     href: "/tools/statistical-analysis",

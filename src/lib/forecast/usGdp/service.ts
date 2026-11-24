@@ -200,9 +200,9 @@ function curveRow(
   };
 }
 
-export async function computeUsGdpNowcast(now = new Date()): Promise<UsGdpNowcastPayload> {
+export async function computeUsGdpNowcast(now = new Date(), opts: { dbOnly?: boolean } = {}): Promise<UsGdpNowcastPayload> {
   const today = now.toISOString().slice(0, 10);
-  const [loaded, gdpNow] = await Promise.all([loadUsGdpNowcastInputs(today), loadGdpNow()]);
+  const [loaded, gdpNow] = await Promise.all([loadUsGdpNowcastInputs(today), opts.dbOnly ? null : loadGdpNow()]);
   const target = loaded.targetQuarter;
   const offsetDays = Math.max(0, Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${target}T00:00:00Z`)) / DAY_MS));
   const liveRule: AsOfRule = (q, rel) => minIso(addDays(q, offsetDays), addDays(rel, -1));

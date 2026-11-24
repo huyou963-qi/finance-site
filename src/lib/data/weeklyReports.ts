@@ -117,11 +117,17 @@ function toListItem(row: {
 export async function listWeeklyReports(opts?: {
   limit?: number;
   offset?: number;
+  query?: string;
 }): Promise<{ reports: WeeklyReportListItem[]; total: number }> {
   const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
   const offset = Math.max(opts?.offset ?? 0, 0);
+  const query = opts?.query?.trim();
+  const where = query ? { OR: ["title", "summaryOneLiner", "scope"].map(key => ({
+    meta: { path: [key], string_contains: query },
+  })) } : undefined;
   const [rows, total] = await Promise.all([
     prisma.weeklyReport.findMany({
+      where,
       orderBy: { weekEnding: "desc" },
       take: limit,
       skip: offset,
@@ -133,7 +139,7 @@ export async function listWeeklyReports(opts?: {
         updatedAt: true,
       },
     }),
-    prisma.weeklyReport.count(),
+    prisma.weeklyReport.count({ where }),
   ]);
   return {
     reports: rows.map(toListItem),

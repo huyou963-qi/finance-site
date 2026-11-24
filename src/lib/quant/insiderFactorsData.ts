@@ -9,6 +9,7 @@
  * 经截面 zscore 放大到 1e-8，使 verify-factors 的「增量 == 全量」逐行比对失败。
  * 故 SQL 显式 ORDER BY，JS 侧也按月份升序累加。
  */
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { InsiderMonthAgg } from "./insiderFactors";
 
@@ -33,6 +34,7 @@ const num = (v: bigint | number | null | undefined) => (v == null ? 0 : Number(v
 export async function loadInsiderMonths(
   symbols: string[],
   minMonthIso?: string,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<Map<string, InsiderMonthAgg[]>> {
   const uniq = [...new Set(symbols)];
   const result = new Map<string, InsiderMonthAgg[]>();
@@ -41,7 +43,7 @@ export async function loadInsiderMonths(
     const batch = uniq.slice(i, i + SYMBOL_BATCH);
     // anomaly 非空的是申报人客观填错（日期倒挂、股数不可能等），已在摄入端标记；
     // A/F/M 是薪酬机制的机械产物不含主观判断，只取 P/S（AGENTS.md 实测口径）。
-    const rows = await prisma.$queryRawUnsafe<Row[]>(
+    const rows = await db.$queryRawUnsafe<Row[]>(
       `SELECT t.issuer_symbol AS symbol,
               to_char(date_trunc('month', t.filed_at), 'YYYY-MM-01') AS month,
               sum(t.shares) FILTER (WHERE t.transaction_code = 'P') AS buy_shares,

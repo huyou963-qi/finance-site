@@ -3,6 +3,7 @@
  * 结果不落库，进程内缓存 10 分钟。
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getQuarterlyFundamentalsBatch, type QuarterSnapshotRow } from "@/lib/equity/equityFundamentalsStore";
 import { ensureDailyBars, getRawDailyBarWindowsDbOnly } from "@/lib/equity/equityPriceStore";
@@ -93,10 +94,10 @@ type MarketData = {
   insider: Map<string, InsiderMonthAgg[]>;
 };
 
-async function loadMarketData(plan: MarketPlan, lookup: string[]): Promise<MarketData> {
+async function loadMarketData(plan: MarketPlan, lookup: string[], dbOnly: boolean, db: Prisma.TransactionClient): Promise<MarketData> {
   const barSymbols = plan.needsBenchmark ? [...new Set([...lookup, BENCHMARK_SYMBOL])] : lookup;
   // 估值/行情/技术列：先尽量补齐日线缺口，再只读库；软超时后仍用已有数据继续
-  if (plan.needsBars) {
+  if (plan.needsBars && !dbOnly) {
     await ensureDailyBars(barSymbols, {
       concurrency: ENSURE_BARS_CONCURRENCY,
       budgetMs: ENSURE_BARS_BUDGET_MS,
@@ -109,11 +110,11 @@ async function loadMarketData(plan: MarketPlan, lookup: string[]): Promise<Marke
     plan.windows.length
       ? Promise.all(plan.windows.map((w) => getRawDailyBarWindowsDbOnly({
           symbols: barSymbols, from: new Date(`${w.from}T00:00:00.000Z`), to: new Date(`${w.to}T00:00:00.000Z`),
-        })))
+        }, db)))
       : Promise.resolve([] as Awaited<ReturnType<typeof getRawDailyBarWindowsDbOnly>>[]),
-    Promise.all(plan.pitDates.map((d) => buildPitRows(lookup, d, { minPlausibleMarketCap: MIN_MARKET_CAP }))),
+    Promise.all(plan.pitDates.map((d) => buildPitRows(lookup, d, { minPlausibleMarketCap: MIN_MARKET_CAP }, db))),
     plan.insiderDates.length
-      ? loadInsiderMonths(lookup, insiderMinMonth ?? undefined)
+      ? loadInsiderMonths(lookup, insiderMinMonth ?? undefined, db)
       : Promise.resolve(new Map<string, InsiderMonthAgg[]>()),
   ]);
   const bars = new Map<string, RawDailyBar[]>();
@@ -174,11 +175,31 @@ export async function queryStockData(
   symbols: readonly string[],
   columns: readonly ColumnSpec[],
   preIgnored: readonly string[] = [],
+  options: { dbOnly?: boolean } = {},
 ): Promise<StockDataResponse> {
-  const key = JSON.stringify([symbols, columns]);
+  const dbOnly = options.dbOnly === true;
+  const key = JSON.stringify([dbOnly, symbols, columns]);
   const cached = cacheGet(key);
   if (cached) return { ...cached, ignored: [...preIgnored, ...cached.ignored] };
 
+  const read = (db: Prisma.TransactionClient) => readStockData(symbols, columns, dbOnly, db);
+  const { value, cacheable } = dbOnly
+    ? await prisma.$transaction(async tx => {
+        await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+        await tx.$executeRaw`SET LOCAL statement_timeout = '8000'`;
+        return read(tx);
+      }, { maxWait: 2000, timeout: 15000 })
+    : await read(prisma);
+  if (cacheable) cacheSet(key, value);
+  return { ...value, ignored: [...preIgnored, ...value.ignored] };
+}
+
+async function readStockData(
+  symbols: readonly string[],
+  columns: readonly ColumnSpec[],
+  dbOnly: boolean,
+  db: Prisma.TransactionClient,
+) {
   const lookup = [...new Set(symbols.flatMap(variants))];
   const since = `${earliestYearNeeded(columns, new Date().getUTCFullYear())}-01-01`;
   const today = new Date().toISOString().slice(0, 10);
@@ -190,16 +211,16 @@ export async function queryStockData(
   });
   const plan = planMarketData(columns, today);
   const [securities, directory, fundamentalsRaw, market] = await Promise.all([
-    prisma.equitySecurity.findMany({
+    db.equitySecurity.findMany({
       where: { symbol: { in: lookup } },
       select: {
         symbol: true, name: true, gicsSector: true, gicsIndustryGroup: true, gicsIndustry: true,
         gicsSubIndustry: true, marketCap: true, website: true,
       },
     }),
-    directoryWithin(DIRECTORY_WAIT_MS),
-    needsFundamentals ? getQuarterlyFundamentalsBatch(lookup, { since }) : Promise.resolve(new Map<string, QuarterSnapshotRow[]>()),
-    plan ? loadMarketData(plan, lookup) : Promise.resolve(null),
+    dbOnly ? Promise.resolve(null) : directoryWithin(DIRECTORY_WAIT_MS),
+    needsFundamentals ? getQuarterlyFundamentalsBatch(lookup, { since }, db) : Promise.resolve(new Map<string, QuarterSnapshotRow[]>()),
+    plan ? loadMarketData(plan, lookup, dbOnly, db) : Promise.resolve(null),
   ]);
   const norm = (s: string) => s.toUpperCase().replace(".", "-");
   const secBy = new Map(securities.map((s) => [norm(s.symbol), s]));
@@ -227,7 +248,7 @@ export async function queryStockData(
     const pitByDate = pick(market?.pit, symbol, (m) => [...m.values()].some((r) => r.quarters.length > 0)) ?? new Map();
     const hasPitQuarters = [...pitByDate.values()].some((r) => r.quarters.length > 0);
     // 美股判定：在证券主表、上市目录、基本面库或行情库任一处出现（目录没加载到时不据此剔除）
-    if (!sec && !dir && !quarters.length && !bars.length && !hasPitQuarters && directoryReady) { ignored.push(symbol); continue; }
+    if (!sec && !dir && !quarters.length && !bars.length && !hasPitQuarters && (directoryReady || dbOnly)) { ignored.push(symbol); continue; }
     const isFund = dir?.type === "ETF" && !quarters.length && !hasPitQuarters;
     const insiderMonths = pick(market?.insider, symbol, (x) => x.length > 0) ?? [];
     const resolver = market
@@ -262,6 +283,5 @@ export async function queryStockData(
 
   const value: StockDataResponse = { rows, ignored, generatedAt: new Date().toISOString() };
   // 目录没加载到时交易所、ETF 判定不完整，不缓存，下次重算
-  if (directoryReady) cacheSet(key, value);
-  return { ...value, ignored: [...preIgnored, ...ignored] };
+  return { value, cacheable: directoryReady || dbOnly };
 }

@@ -8,17 +8,18 @@ export type ManagementGuidancePayload = {
   coverage: { announcements: number; withAttachments: number; truncated: boolean };
 };
 /** Read only. Legacy announcements are projected using the same parser, with no per-visit network or writes. */
-export async function loadManagementGuidance(symbol: string, cik: string | null): Promise<ManagementGuidancePayload> {
+export async function loadManagementGuidance(symbol: string, cik: string | null, opts: { maxFilings?: number; includeDelivery?: boolean } = {}): Promise<ManagementGuidancePayload> {
   const now = new Date();
+  const maxFilings = opts.maxFilings ?? 200;
   const identity = cik ? { cik: cik.replace(/\D/g, "").padStart(10, "0") } : { symbol };
   const filings = await prisma.secFiling.findMany({
     where: { ...identity, form: { in: ["8-K", "8-K/A", "6-K", "6-K/A"] }, filedAt: { lte: now }, earningsRelease: { not: Prisma.DbNull } },
-    orderBy: [{ filedAt: "desc" }, { accession: "desc" }], take: 201,
+    orderBy: [{ filedAt: "desc" }, { accession: "desc" }], take: maxFilings + 1,
     select: { accession: true, filedAt: true, publishedOn: true, earningsRelease: true },
   });
   const versions: GuidanceVersion[] = [];
   let withAttachments = 0;
-  for (const filing of filings.slice(0, 200)) {
+  for (const filing of filings.slice(0, maxFilings)) {
     const attachments = readReleaseAttachments(filing.earningsRelease);
     if (attachments.length) withAttachments++;
     const publication = filing.publishedOn && filing.publishedOn <= filing.filedAt ? filing.publishedOn : null;
@@ -30,7 +31,7 @@ export async function loadManagementGuidance(symbol: string, cik: string | null)
   const series = buildGuidanceSeries(versions);
   const dates = [...new Set(versions.map(v => v.target.endDate).filter((v): v is string => Boolean(v)))];
   const actuals: GuidanceActual[] = [];
-  if (dates.length) {
+  if (opts.includeDelivery !== false && dates.length) {
     const vintages = await prisma.equityFundamentalVintage.findMany({
       where: { symbol, periodType: "Q", fiscalDate: { in: dates.map(d => new Date(d)) }, filedAt: { lte: now }, isAmendment: false },
       orderBy: [{ filedAt: "asc" }, { accession: "asc" }],
@@ -53,5 +54,5 @@ export async function loadManagementGuidance(symbol: string, cik: string | null)
     }
   }
   const delivery = buildGuidanceDeliveries(versions, actuals);
-  return { series, delivery, asOf: now.toISOString(), coverage: { announcements: Math.min(filings.length, 200), withAttachments, truncated: filings.length > 200 } };
+  return { series, delivery, asOf: now.toISOString(), coverage: { announcements: Math.min(filings.length, maxFilings), withAttachments, truncated: filings.length > maxFilings } };
 }

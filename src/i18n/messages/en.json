@@ -1,4 +1,20 @@
 {
+  "aiConnections": {
+    "title": "AI Data Connection",
+    "howTo": "Enter this address in an MCP client and authorize it with your GekkoTech account.",
+    "usage": "{used} of {limit} points used this month",
+    "reset": "Quota resets at {date} (UTC)",
+    "proRequired": "An active Pro subscription is required.",
+    "unavailable": "The AI data connection is currently unavailable.",
+    "viewPlans": "View Pro plans",
+    "authorizedClients": "Authorized clients",
+    "researchRead": "Read research data",
+    "personalRead": "Read personal watchlists and stock templates",
+    "personalWrite": "Add watchlist stocks and save stock templates",
+    "noConnections": "No active connections.",
+    "expires": "Expires at {date} (UTC)",
+    "revoke": "Revoke access"
+  },
   "meta": {
     "title": "GekkoTech — Macro & Market Research",
     "description": "Macro dashboards, multi-asset markets and AI weekly insights"
@@ -18,6 +34,7 @@
     "articles": "Articles",
     "publishArticle": "Publish Article",
     "tools": "Tools",
+    "aiConnections": "AI Data Connection",
     "toolKlineRange": "Price Range Stats",
     "toolStatisticalAnalysis": "Statistical Analysis",
     "pro": "Pro",
@@ -94,6 +111,7 @@
     "equity-industries": "US Industries",
     "equity-sectors": "US Market History",
     "equity-ownership": "Insider Monitor",
+    "research-mcp": "AI Data Connection",
     "equity-stock-data": "Stock Data",
     "markets": "Markets",
     "investments": "Investments",

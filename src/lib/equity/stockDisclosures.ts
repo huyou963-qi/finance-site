@@ -4,7 +4,7 @@ import type { SecReleaseAttachment } from "./secEdgar";
 
 /** Read-only projection: frontend visits never trigger SEC requests here. */
 export async function loadStockDisclosures(symbol: string, cik?: string | null) {
-  const identity = cik ? { cik: cik.replace(/\D/g, "").padStart(10, "0") } : { symbol };
+  const identity = filingIdentity(symbol, cik);
   const recent = await prisma.secFiling.findMany({
     where: { ...identity, form: { in: [...DAILY_DISCLOSURE_FORMS] } },
     orderBy: [{ filedAt: "desc" }, { accession: "desc" }], take: 5,
@@ -41,4 +41,24 @@ export function readReleaseAttachments(value: unknown): SecReleaseAttachment[] {
     return typeof candidate.filename === "string" && typeof candidate.text === "string" &&
       typeof candidate.url === "string" && candidate.url.startsWith("https://www.sec.gov/Archives/");
   }).slice(0, 5);
+}
+
+function filingIdentity(symbol: string, cik?: string | null) {
+  return cik ? { cik: cik.replace(/\D/g, "").padStart(10, "0") } : { symbol };
+}
+
+/** Each result is a filing citation. Trade interpretation remains with the ownership monitor. */
+export async function loadStockInsiderFilings(symbol: string, cik: string | null, limit: number) {
+  const filings = await prisma.secFiling.findMany({
+    where: { ...filingIdentity(symbol, cik), form: { in: ["4", "4/A"] } },
+    orderBy: [{ filedAt: "desc" }, { accession: "desc" }],
+    take: limit + 1,
+    select: { accession: true, form: true, filedAt: true, url: true },
+  });
+  return {
+    truncated: filings.length > limit,
+    filings: filings.slice(0, limit).map(row => ({
+      accession: row.accession, form: row.form, date: row.filedAt.toISOString().slice(0, 10), url: row.url,
+    })),
+  };
 }

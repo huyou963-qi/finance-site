@@ -25,6 +25,7 @@ export type FredDbFirstResult = {
 
 export async function loadFredObservationMapsDbFirst(
   idsRaw: string[],
+  opts: { dbOnly?: boolean } = {},
 ): Promise<FredDbFirstResult> {
   const ids = [
     ...new Set(idsRaw.map((s) => s.trim().toUpperCase()).filter(Boolean)),
@@ -72,7 +73,7 @@ export async function loadFredObservationMapsDbFirst(
 
   // 2) 库中无观测的序列 → 实时回退（保持与纯实时相同的错误语义）
   const missing = ids.filter((id) => !maps.has(id));
-  if (missing.length > 0) {
+  if (missing.length > 0 && !opts.dbOnly) {
     const apiKey = process.env.FRED_API_KEY?.trim();
     if (!apiKey) {
       throw new Error(
