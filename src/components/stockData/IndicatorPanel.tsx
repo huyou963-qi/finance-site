@@ -62,7 +62,7 @@ export function IndicatorPanel({ indicators, onAdd }: Props) {
           }}
           onClick={(e) => select(d.id, multi || e.ctrlKey || e.metaKey)}
           onDoubleClick={() => addIds(active && selected.length > 1 ? selected : [d.id])}
-          title={d.note}
+          title={d.note ? tr(d.note) : undefined}
           aria-pressed={active}
           className={`flex min-h-8 md:min-h-6 w-full items-center gap-2 rounded px-2 text-left text-sm md:text-xs ${active ? "bg-fs-accent text-white" : "hover:bg-fs-elevated"}`}
         >

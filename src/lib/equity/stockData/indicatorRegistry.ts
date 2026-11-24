@@ -27,6 +27,7 @@ import type {
   RangeSpec,
   Scale,
 } from "./types";
+import { identityTr, type Tr } from "@/i18n/text";
 
 export type SecurityField =
   | "name" | "exchange" | "gicsSector" | "gicsIndustryGroup" | "gicsIndustry" | "gicsSubIndustry"
@@ -245,17 +246,17 @@ export function normalizeParams(def: IndicatorDef, params: ColumnParams): Column
   return out;
 }
 
-export function periodLabel(p: PeriodSpec): string {
+export function periodLabel(p: PeriodSpec, tr: Tr = identityTr): string {
   switch (p.kind) {
-    case "latestFY": return "最新年报";
-    case "latestQ": return "最新一期";
-    case "FY": return `FY${p.year} 年报`;
+    case "latestFY": return tr("最新年报");
+    case "latestQ": return tr("最新一期");
+    case "FY": return tr("FY{year} 年报", { year: p.year });
     case "FQ": return `FY${p.year} Q${p.q}`;
   }
 }
 
-export function basisLabel(b: Basis): string {
-  return b === "ttm" ? "TTM" : "单季";
+export function basisLabel(b: Basis, tr: Tr = identityTr): string {
+  return b === "ttm" ? "TTM" : tr("单季");
 }
 
 export const RANGE_PRESET_LABELS: Record<RangePreset, string> = {
@@ -264,22 +265,22 @@ export const RANGE_PRESET_LABELS: Record<RangePreset, string> = {
 
 export const SCALE_LABELS: Record<Scale, string> = { auto: "自动", raw: "原值", k: "千", m: "百万", b: "十亿" };
 
-export function asOfLabel(a: AsOfSpec): string {
-  return a.kind === "latest" ? "最新" : `截至 ${a.date}`;
+export function asOfLabel(a: AsOfSpec, tr: Tr = identityTr): string {
+  return a.kind === "latest" ? tr("最新") : tr("截至 {date}", { date: a.date });
 }
 
-export function rangeLabel(r: RangeSpec): string {
-  return r.kind === "preset" ? RANGE_PRESET_LABELS[r.preset] : `${r.from} 至 ${r.to}`;
+export function rangeLabel(r: RangeSpec, tr: Tr = identityTr): string {
+  return r.kind === "preset" ? tr(RANGE_PRESET_LABELS[r.preset]) : tr("{from} 至 {to}", { from: r.from, to: r.to });
 }
 
 /** 列头第二行：报告期 · 口径 · 截止日 / 区间 · 复权 */
-export function columnParamLabel(params: ColumnParams): string {
+export function columnParamLabel(params: ColumnParams, tr: Tr = identityTr): string {
   const parts: string[] = [];
-  if (params.period) parts.push(periodLabel(params.period));
-  if (params.basis) parts.push(basisLabel(params.basis));
-  if (params.asOf) parts.push(asOfLabel(params.asOf));
-  if (params.range) parts.push(rangeLabel(params.range));
-  if (params.adjust) parts.push(params.adjust === "none" ? "不复权" : "前复权");
+  if (params.period) parts.push(periodLabel(params.period, tr));
+  if (params.basis) parts.push(basisLabel(params.basis, tr));
+  if (params.asOf) parts.push(asOfLabel(params.asOf, tr));
+  if (params.range) parts.push(rangeLabel(params.range, tr));
+  if (params.adjust) parts.push(params.adjust === "none" ? tr("不复权") : tr("前复权"));
   return parts.join(" · ");
 }
 

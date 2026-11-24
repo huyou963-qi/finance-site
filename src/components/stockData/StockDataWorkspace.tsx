@@ -517,7 +517,7 @@ export function StockDataWorkspace() {
               <option value="$symbol">{tr("代码")}</option>
               <option value="$name">{tr("简称")}</option>
               {draft.columns.map((c) => (
-                <option key={c.key} value={c.key}>{getIndicator(c.indicatorId)?.label ?? c.indicatorId}</option>
+                <option key={c.key} value={c.key}>{tr(getIndicator(c.indicatorId)?.label ?? c.indicatorId)}</option>
               ))}
             </select>
             <select
@@ -563,7 +563,7 @@ export function StockDataWorkspace() {
               >
                 <option value="">{tr("选择数值列")}</option>
                 {numericColumns.map((c) => (
-                  <option key={c.key} value={c.key}>{getIndicator(c.indicatorId)?.label ?? c.indicatorId}</option>
+                  <option key={c.key} value={c.key}>{tr(getIndicator(c.indicatorId)?.label ?? c.indicatorId)}</option>
                 ))}
               </select>
             </div>

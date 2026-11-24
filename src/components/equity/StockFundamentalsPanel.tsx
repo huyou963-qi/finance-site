@@ -560,7 +560,7 @@ export function StockFundamentalsPanel({ symbol }: { symbol: string }) {
               ) : null}
 
               {profile !== "general" ? (
-                <p className="text-[11px] text-fs-muted">{tr("按「")}{STATEMENT_PROFILE_NAMES[profile]}{tr("」披露格式选取指标；不良率、资本充足率、出租率等不在财报科目内，未展示。")}</p>
+                <p className="text-[11px] text-fs-muted">{tr("按「")}{tr(STATEMENT_PROFILE_NAMES[profile])}{tr("」披露格式选取指标；不良率、资本充足率、出租率等不在财报科目内，未展示。")}</p>
               ) : null}
 
               <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">

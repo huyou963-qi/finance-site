@@ -51,6 +51,7 @@ export const TRANSLATED_FEATURE_PATHS = [
   "src/app/events/EventsClient.tsx",
   "src/app/events/page.tsx",
   "src/app/events/layout.tsx",
+  "src/app/events/timeline-preview",
   "src/app/weekly",
   "src/components/weekly",
   "src/app/articles/page.tsx",

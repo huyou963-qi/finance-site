@@ -122,17 +122,17 @@ export function StockStatementsTable({ rows, valueMode, yoyLag, visibleRange }: 
               statement === code ? "bg-fs-accent/20 text-fs-accent-text" : "text-fs-muted hover:text-fs-text"
             }`}
           >
-            {STATEMENT_NAMES[code]}
+            {tr(STATEMENT_NAMES[code])}
             <span className="ml-1 hidden text-[10px] opacity-70 sm:inline">{counts[code]}</span>
           </button>
         ))}
       </div>
-      <span className="text-[11px] text-fs-muted" title={tr("按本公司披露的报表科目自动判定")}>{tr("报表格式：")}{STATEMENT_PROFILE_NAMES[profile]}
+      <span className="text-[11px] text-fs-muted" title={tr("按本公司披露的报表科目自动判定")}>{tr("报表格式：")}{tr(STATEMENT_PROFILE_NAMES[profile])}
       </span>
       </div>
 
       {visible.length === 0 ? (
-        <div className="flex h-24 items-center justify-center rounded-md border border-fs-border/60 text-sm text-fs-muted">{tr("所选期间暂无")}{STATEMENT_NAMES[statement]}{tr("数据")}</div>
+        <div className="flex h-24 items-center justify-center rounded-md border border-fs-border/60 text-sm text-fs-muted">{tr("所选期间暂无")}{tr(STATEMENT_NAMES[statement])}{tr("数据")}</div>
       ) : (
         <div className="overflow-x-auto rounded-md border border-fs-border/60">
           <table className="min-w-full text-left text-sm">

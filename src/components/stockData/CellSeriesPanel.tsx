@@ -64,8 +64,8 @@ export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
         }
         const next = historyCols.map((c) => {
           const cell = row.cells[c.key];
-          const h = columnHeader(c);
-          const formatted = formatCellValue(def?.unit ?? "text", cell, c.params.scale);
+          const h = columnHeader(c, tr);
+          const formatted = formatCellValue(def?.unit ?? "text", cell, c.params.scale, tr);
           return {
             label: h.params || h.label,
             value: cell?.s === "ok" && typeof cell.v === "number" ? cell.v : null,
@@ -108,7 +108,7 @@ export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
           const pt = i >= 0 ? points[i] : null;
           if (!pt) return String(first.axisValue ?? "");
           if (pt.value == null) return `${pt.label}<br/>${pt.muted || "—"}`;
-          const { text } = formatCellValue(unit ?? "text", { v: pt.value, s: "ok" });
+          const { text } = formatCellValue(unit ?? "text", { v: pt.value, s: "ok" }, undefined, tr);
           return `${pt.label}<br/>${text}`;
         },
       },
@@ -119,7 +119,7 @@ export function CellSeriesPanel({ symbol, name, column, onClose }: Props) {
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(el);
     return () => { ro.disconnect(); chart.dispose(); };
-  }, [loading, error, points, def?.unit]);
+  }, [loading, error, points, def?.unit, tr]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-6" role="dialog" aria-modal="true" aria-label={tr("指标时序")}>

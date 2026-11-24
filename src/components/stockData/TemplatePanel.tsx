@@ -29,7 +29,7 @@ export function TemplatePanel({ system, mine, loadError, applying = false, onApp
   const summary = useMemo(() => {
     const m = new Map<string, string>();
     for (const t of [...system, ...(mine ?? [])]) {
-      const names = [...new Set(t.columns.map((c) => columnHeader(c).label))];
+      const names = [...new Set(t.columns.map((c) => columnHeader(c, tr).label))];
       const poolHint = t.defaultPool ? tr(" · 默认股票：{label}", { label: tr(t.defaultPool.label) }) : "";
       m.set(
         t.id,

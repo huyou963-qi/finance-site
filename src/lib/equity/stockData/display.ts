@@ -6,17 +6,23 @@ import {
   formatMultiplier,
   formatPct,
 } from "@/lib/equity/formatFundamentalsDisplay";
+import { identityTr, type Tr } from "@/i18n/text";
 import { columnParamLabel, getIndicator, UNIT_LABELS } from "./indicatorRegistry";
 import { CELL_STATUS_LABELS, type Cell, type ColumnSpec, type IndicatorUnit, type Scale, type StockDataRow } from "./types";
 
 const SCALE_DIVISOR: Record<Exclude<Scale, "auto">, number> = { raw: 1, k: 1e3, m: 1e6, b: 1e9 };
 const SCALE_PREFIX: Record<Exclude<Scale, "auto">, string> = { raw: "", k: "千", m: "百万", b: "十亿" };
 
-export function formatCellValue(unit: IndicatorUnit, cell: Cell | undefined, scale?: Scale): { text: string; muted: boolean } {
+export function formatCellValue(
+  unit: IndicatorUnit,
+  cell: Cell | undefined,
+  scale?: Scale,
+  tr: Tr = identityTr,
+): { text: string; muted: boolean } {
   if (!cell) return { text: "", muted: true };
-  if (cell.s !== "ok") return { text: CELL_STATUS_LABELS[cell.s], muted: true };
+  if (cell.s !== "ok") return { text: tr(CELL_STATUS_LABELS[cell.s]), muted: true };
   const v = cell.v;
-  if (typeof v === "string") return { text: v, muted: false };
+  if (typeof v === "string") return { text: tr(v), muted: false };
   if (v == null) return { text: "—", muted: true };
   if ((unit === "money" || unit === "shares") && scale && scale !== "auto") {
     const x = v / SCALE_DIVISOR[scale];
@@ -33,14 +39,16 @@ export function formatCellValue(unit: IndicatorUnit, cell: Cell | undefined, sca
   }
 }
 
-export function columnHeader(col: ColumnSpec): { label: string; params: string; unit: string } {
+export function columnHeader(col: ColumnSpec, tr: Tr = identityTr): { label: string; params: string; unit: string } {
   const def = getIndicator(col.indicatorId);
   const scale = col.params.scale;
   const prefix = scale && scale !== "auto" ? SCALE_PREFIX[scale] : "";
+  const unitBase = def ? UNIT_LABELS[def.unit] : "";
+  const unitRaw = def ? `${prefix}${unitBase}` : "";
   return {
-    label: def?.label ?? col.indicatorId,
-    params: columnParamLabel(col.params),
-    unit: def ? `${prefix}${UNIT_LABELS[def.unit]}` : "",
+    label: tr(def?.label ?? col.indicatorId),
+    params: columnParamLabel(col.params, tr),
+    unit: unitRaw ? tr(unitRaw) : "",
   };
 }
 
@@ -60,8 +68,8 @@ export function exportValue(col: ColumnSpec, cell: Cell | undefined, pctAsPercen
 }
 
 /** 列头一行文字：指标名 [参数] (单位) */
-export function columnHeaderText(col: ColumnSpec): string {
-  const h = columnHeader(col);
+export function columnHeaderText(col: ColumnSpec, tr: Tr = identityTr): string {
+  const h = columnHeader(col, tr);
   return [h.label, h.params && `[${h.params}]`, h.unit && `(${h.unit})`].filter(Boolean).join(" ");
 }
 
@@ -97,7 +105,7 @@ function appendFootnotes(aoa: (string | number)[][], columns: readonly ColumnSpe
 
 /** XLSX 用的二维数组：第一行列头，之后每只股票一行；末尾脚注；pctColumns 是需要设百分比格式的列下标 */
 export function buildSheetData(rows: readonly StockDataRow[], columns: readonly ColumnSpec[]): { aoa: (string | number)[][]; pctColumns: number[] } {
-  const aoa: (string | number)[][] = [["代码", "名称", ...columns.map(columnHeaderText)]];
+  const aoa: (string | number)[][] = [["代码", "名称", ...columns.map((c) => columnHeaderText(c))]];
   for (const r of rows) aoa.push([r.symbol, r.name, ...columns.map((c) => exportValue(c, r.cells[c.key], false))]);
   appendFootnotes(aoa, columns);
   const pctColumns = columns.flatMap((c, i) => (getIndicator(c.indicatorId)?.unit === "pct" ? [i + 2] : []));
@@ -133,7 +141,7 @@ function csvEscape(s: string): string {
 
 /** 导出原始数值（不缩写）；百分比导出为百分数，没有值的格子写状态文字；末尾附参数脚注 */
 export function buildCsv(rows: readonly StockDataRow[], columns: readonly ColumnSpec[]): string {
-  const header = ["代码", "名称", ...columns.map(columnHeaderText)];
+  const header = ["代码", "名称", ...columns.map((c) => columnHeaderText(c))];
   const lines = [header.map(csvEscape).join(",")];
   for (const r of rows) {
     const cells = columns.map((c) => exportValue(c, r.cells[c.key], true));

@@ -122,7 +122,7 @@ export function DataGrid({
               <button type="button" onClick={() => onSort("$name")} className="flex items-center gap-1">{tr("简称")} <span className="text-xs text-fs-muted">{sortMark(sort, "$name")}</span></button>
             </th>
             {columns.map((c) => {
-              const h = columnHeader(c);
+              const h = columnHeader(c, tr);
               const active = selectedCols.has(c.key);
               const def = getIndicator(c.indicatorId);
               const w = widthOf(c.indicatorId);
@@ -138,7 +138,7 @@ export function DataGrid({
                       type="button"
                       onClick={(e) => onSelectCol(c.key, e.ctrlKey || e.metaKey || e.shiftKey)}
                       onDoubleClick={() => def?.params.length && onEditCol(c.key)}
-                      title={def?.note ? `${h.label}：${def.note}` : h.label}
+                      title={def?.note ? `${h.label}：${tr(def.note)}` : h.label}
                       className="min-w-0 flex-1 text-left"
                     >
                       <span className="block font-semibold leading-tight">{h.label}</span>
@@ -207,7 +207,7 @@ export function DataGrid({
                 {columns.map((c) => {
                   const unit = getIndicator(c.indicatorId)?.unit ?? "text";
                   const cell = r.cells[c.key];
-                  const { text, muted } = loading && !cell ? { text: "", muted: true } : formatCellValue(unit, cell, c.params.scale);
+                  const { text, muted } = loading && !cell ? { text: "", muted: true } : formatCellValue(unit, cell, c.params.scale, tr);
                   const numeric = cell?.s === "ok" && typeof cell.v === "number";
                   const tipParts = [
                     cell?.p ? `${cell.p}${cell.d ? tr("（截至 {d}）", { d: cell.d }) : ""}` : "",

@@ -30,7 +30,7 @@ export function EventDiagnosticsDialog({ source, result, packs, error, loading, 
     return <div className="space-y-1 break-words text-xs">
       <p>{tr("原始发生时间：")}{event.occurredAt}（{event.datePrecision === "DATE" ? tr("仅日期") : tr("精确时刻")}）</p>
       <p>{tr("查询命中依据：")}{event.matchReasons?.join("、") || tr("当前查询返回的事件；未提供更细的关联依据")}</p>
-      <p>{tr("内容状态：")}{reasons.length ? reasons.map(r => EVENT_EXCLUSION_LABELS[r]).join("；") : tr("符合当前来源的全部内容条件")}</p>
+      <p>{tr("内容状态：")}{reasons.length ? reasons.map(r => tr(EVENT_EXCLUSION_LABELS[r])).join("; ") : tr("符合当前来源的全部内容条件")}</p>
       {projection && <p>{tr("图表状态：")}{tr(projectionLabels[projection.status])}</p>}
       {related.length > 1 && <div className="flex flex-wrap items-center gap-1"><span>{tr("同一事实的记录：")}</span>{related.map(e => <button key={e.id} className={button} onClick={() => onSelect(e)}>{eventSourceGroup(e) === "system" ? tr("系统") : tr("用户")} · {e.title || e.markerLabel}{e.id === projection?.representativeId ? tr("（主图代表）") : ""}</button>)}</div>}
     </div>;
