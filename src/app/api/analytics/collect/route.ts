@@ -4,14 +4,24 @@ import { prisma } from "@/lib/prisma";
 import { allowRateLimit } from "@/lib/errorReports/rateLimit";
 import { resolveUsageAudience } from "@/lib/analytics/usageAudience";
 import { parseUsageCollectBody } from "@/lib/analytics/usageCollect";
+import { isAllowedAnalyticsOrigin } from "@/lib/http/sameOrigin";
 import { REQUEST_ID_HEADER, resolveRequestId } from "@/lib/observability/requestId";
 
 export const runtime = "nodejs";
 
+/**
+ * 取边缘看到的客户端 IP：优先 nginx `X-Real-IP`；
+ * `X-Forwarded-For` 取最右侧（由本站反代追加，左侧可被伪造）。
+ */
 function clientIp(req: NextRequest): string {
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
   const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0]?.trim() || "unknown";
-  return req.headers.get("x-real-ip")?.trim() || "unknown";
+  if (xf) {
+    const parts = xf.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length) return parts[parts.length - 1]!;
+  }
+  return "unknown";
 }
 
 export async function POST(req: NextRequest) {
@@ -19,8 +29,14 @@ export async function POST(req: NextRequest) {
   const headers = new Headers({ "Cache-Control": "no-store", [REQUEST_ID_HEADER]: requestId });
 
   try {
+    // 公开写入口：必须同源（或本站 Referer），避免跨站刷埋点
+    if (!isAllowedAnalyticsOrigin(req)) {
+      return NextResponse.json({ ok: true, dropped: true }, { status: 202, headers });
+    }
+
     const ip = clientIp(req);
-    if (!allowRateLimit(`usage:${ip}`, 120, 60_000)) {
+    // 按请求次数限流（不依赖可伪造的 guestId）
+    if (!allowRateLimit(`usage:req:${ip}`, 60, 60_000)) {
       return NextResponse.json({ ok: true, dropped: true }, { status: 202, headers });
     }
 
@@ -63,7 +79,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, inserted: 0 }, { headers });
     }
 
-    if (!allowRateLimit(`usage:id:${userId ?? rows[0]!.guestId}`, 180, 60_000)) {
+    // 按行数限流：单 IP + 进程全局预算（不单独信任客户端 guestId）
+    if (!allowRateLimit(`usage:rows:${ip}`, 240, 60_000, rows.length)) {
+      return NextResponse.json({ ok: true, dropped: true }, { status: 202, headers });
+    }
+    if (!allowRateLimit("usage:global:rows", 3000, 60_000, rows.length)) {
       return NextResponse.json({ ok: true, dropped: true }, { status: 202, headers });
     }
 
