@@ -3201,119 +3201,220 @@
       }
     },
     "builtin-us-fiscal-highfreq": {
-      "name": "高频跟踪 · 现金流与融资",
-      "introHtml": "<p></p><span style=\"font-size:16px\"><p>五图依次看MTS月赤字、月收入与支出、TGA余额、DTS日净现金流，以及Debt to the Penny周净发债。月度现金制、日度资金流和周度债务变化口径不同，不能直接相加。</p><p>图 1 · F5a MTS 月赤字（现金）<br />MTS 月赤字柱：单月噪声大，结合图 2 收/支水平看趋势。发布月（约每月第 8–12 个工作日）更新。</p><p>图 2 · F5a MTS 月收入 vs 支出（水平）<br />MTS 月收入 vs 支出（现金水平）：对照图 0 赤字；收入走弱或支出走强 → 回视图 B 分项。</p><p>图 3 · F5b TGA 余额<br />TGA 日余额（百万美元）：财政部在联储账户。快速下降 + 债务上限博弈 → 五问 ⑤ 流动性/政治尾部。</p><p>图 4 · F5b DTS 日净现金流<br />DTS 日净现金流 = Total Deposits − Total Withdrawals（Table II 汇总）。负值日多 → 现金压力；**非** 权责赤字。</p><p>图 5 · F5c 周净发债<br />公共债务周净增发（Debt to the Penny 周差分）：融资脉冲。与视图 A 债务存量、视图 B 净利息对照。</p></span><p></p>",
-      "layoutMode": 5,
-      "description": "五图依次看MTS月赤字、月收入与支出、TGA余额、DTS日净现金流，以及Debt to the Penny周净发债。月度现金制、日度资金流和周度债务变化口径不同，不能直接相加。",
+      "name": "发债融资与偿债压力",
+      "introHtml": "<p><strong>发债融资与偿债压力</strong></p><p>回答财政如何发债融资、短债与中长债如何配置、未来一年何时到期，以及现金赤字、借款、TGA和利息负担如何衔接。区分DTS面值交易、拍卖实际获配和MTS现金融资口径。</p><p>阅读顺序：发行/偿还 → 券类净发行 → 五券种实际拍卖发行 → 未来12月到期 → 赤字融资衔接 → 利息负担。发行量、净发行、债务余额变化和预算赤字不互相替代。</p><p><strong>图1｜发行、偿还与净发行</strong><br />DTS常规Bills、现金管理Bills、Notes、Bonds发行及三类偿还分别汇总到完整自然月，再计算净发行＝发行－偿还。单位十亿美元；排除FFB和单列通胀本金调整，是面值交易而非现金借款。</p><p><strong>图2｜短债与中长债净发行</strong><br />分别看Bills、DTS Notes分类和DTS Bonds分类的发行减偿还，保留负值。Notes/Bonds分类包含相应TIPS、浮息债交易，不把它们误称为完整的五券种净现金融资。</p><p><strong>图3｜五券种拍卖发行结构</strong><br />最近五年按实际发行日归月，拆分Bills、固定利率Notes、固定利率Bonds、TIPS和FRN的实际获配面值。只展示完整月份；尚未发行不计入，结果缺失整月留空，不用计划发行量替代。拍卖总获配可含外部配售，与公众现金借款口径不同。</p><p><strong>图4｜未来12个月到期分布</strong><br />以最新月末逐券报告为截面，按到期日分到未来12个自然月。合并同CUSIP的原表非空余额，不把发行额再加到余额；排除FFB和已到期待兑付。到期占比分母为同范围未到期五类余额，TIPS不预测未来通胀本金，也不假定未来新增发行。</p><p><strong>图5｜赤字与融资衔接</strong><br />用MTS同月数据将公众净借款、现金账户减少与其他资产负债及表外调整衔接到融资总额。融资总额＝负债净变化－资产净变化＋未计预算交易。保留赤字与融资源表差额；TGA日余额及当日存入、支取、净现金流单独标注日期，不能与月度现金赤字强行对齐。</p><p><strong>图6｜利息负担与存量成本</strong><br />左轴为净利息TTM/财政收入TTM，右轴为官方存量平均利率。表格保留净利息、收入金额及各券类平均利率。官方总平均和可交易债平均排除TIPS/FRN，TIPS分项是实际票息，不当作名义总融资成本。</p><p>数据口径：美国联邦财政；不同频率与不同截止日期不强行拼接，缺失值不补零。</p>",
+      "introText": "回答财政如何发债融资、短债与中长债如何配置、未来一年何时到期，以及现金赤字、借款、TGA和利息负担如何衔接。区分DTS面值交易、拍卖实际获配和MTS现金融资口径。\n\n阅读顺序：发行/偿还 → 券类净发行 → 五券种实际拍卖发行 → 未来12月到期 → 赤字融资衔接 → 利息负担。发行量、净发行、债务余额变化和预算赤字不互相替代。\n\n图1｜发行、偿还与净发行\nDTS常规Bills、现金管理Bills、Notes、Bonds发行及三类偿还分别汇总到完整自然月，再计算净发行＝发行－偿还。单位十亿美元；排除FFB和单列通胀本金调整，是面值交易而非现金借款。\n\n图2｜短债与中长债净发行\n分别看Bills、DTS Notes分类和DTS Bonds分类的发行减偿还，保留负值。Notes/Bonds分类包含相应TIPS、浮息债交易，不把它们误称为完整的五券种净现金融资。\n\n图3｜五券种拍卖发行结构\n最近五年按实际发行日归月，拆分Bills、固定利率Notes、固定利率Bonds、TIPS和FRN的实际获配面值。只展示完整月份；尚未发行不计入，结果缺失整月留空，不用计划发行量替代。拍卖总获配可含外部配售，与公众现金借款口径不同。\n\n图4｜未来12个月到期分布\n以最新月末逐券报告为截面，按到期日分到未来12个自然月。合并同CUSIP的原表非空余额，不把发行额再加到余额；排除FFB和已到期待兑付。到期占比分母为同范围未到期五类余额，TIPS不预测未来通胀本金，也不假定未来新增发行。\n\n图5｜赤字与融资衔接\n用MTS同月数据将公众净借款、现金账户减少与其他资产负债及表外调整衔接到融资总额。融资总额＝负债净变化－资产净变化＋未计预算交易。保留赤字与融资源表差额；TGA日余额及当日存入、支取、净现金流单独标注日期，不能与月度现金赤字强行对齐。\n\n图6｜利息负担与存量成本\n左轴为净利息TTM/财政收入TTM，右轴为官方存量平均利率。表格保留净利息、收入金额及各券类平均利率。官方总平均和可交易债平均排除TIPS/FRN，TIPS分项是实际票息，不当作名义总融资成本。\n\n数据口径：均为美国联邦财政。各图按自身日/月/季度频率和可得日期展示，缺失值保持为空；派生合计、增量和占比用于分析，不代表新的官方独立发布序列。",
+      "layoutMode": 6,
+      "description": "回答财政如何发债融资、短债与中长债如何配置、未来一年何时到期，以及现金赤字、借款、TGA和利息负担如何衔接。区分DTS面值交易、拍卖实际获配和MTS现金融资口径。",
       "derivedCalcs": [],
       "selectedKeys": [
-        "mds:treasury_mts_m01_deficit",
+        "mds:treasury_dts_issue_bills_regular",
+        "mds:treasury_dts_issue_bills_cash",
+        "mds:treasury_dts_issue_notes",
+        "mds:treasury_dts_issue_bonds",
+        "mds:treasury_dts_redeem_bills",
+        "mds:treasury_dts_redeem_notes",
+        "mds:treasury_dts_redeem_bonds",
+        "mds:treasury_mts_m06_borrowing_public",
+        "mds:treasury_mts_m06_treasury_public",
+        "mds:treasury_mts_m06_cash_change",
+        "mds:treasury_mts_m06_total_liabilities",
+        "mds:treasury_mts_m06_total_assets",
+        "mds:treasury_mts_m06_other_budget",
+        "mds:treasury_mts_m06_financing_total",
+        "mds:treasury_avg_rate_bills",
+        "mds:treasury_avg_rate_notes",
+        "mds:treasury_avg_rate_bonds",
+        "mds:treasury_avg_rate_tips",
+        "mds:treasury_avg_rate_frn",
+        "mds:treasury_avg_rate_marketable",
+        "mds:treasury_avg_rate_total",
         "mds:treasury_mts_m01_receipts",
-        "mds:treasury_mts_m01_outlays",
+        "mds:treasury_mts_m01_deficit",
+        "mds:treasury_mts_m09_outlay_interest",
         "mds:treasury_dts_tga_balance",
-        "mds:treasury_dts_daily_net_cash",
-        "mds:treasury_debt_penny_net_weekly"
+        "mds:treasury_dts_tga_deposits",
+        "mds:treasury_dts_tga_withdrawals",
+        "mds:treasury_mspd_marketable_outstanding"
       ],
-      "updatedAtIso": "2026-11-20T04:28:52.176Z",
+      "updatedAtIso": "2026-11-24T07:32:04.658Z",
       "displayConfig": {
         "lineWidth": 1.6,
+        "slotModes": {
+          "0": "usFiscal",
+          "1": "usFiscal",
+          "2": "usFiscal",
+          "3": "usFiscal",
+          "4": "usFiscal",
+          "5": "usFiscal"
+        },
         "lineSmooth": false,
         "showLegend": true,
+        "slotHidden": {},
         "slotTitles": {
-          "0": "F5a MTS 月赤字（现金）",
-          "1": "F5a MTS 月收入 vs 支出（水平）",
-          "2": "F5b TGA 余额",
-          "3": "F5b DTS 日净现金流",
-          "4": "F5c 周净发债"
+          "0": "发行、偿还与净发行",
+          "1": "短债与中长债净发行",
+          "2": "五券种拍卖发行结构",
+          "3": "未来12个月到期分布",
+          "4": "赤字与融资衔接",
+          "5": "利息负担与存量成本"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
+        "slotPieYears": {},
         "xLabelRotate": 24,
         "showGridLines": true,
         "legendPosition": "bottom",
+        "slotRadarYears": {},
+        "slotShowTitles": {
+          "0": true,
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true
+        },
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
-        "slotSeriesOrder": {
-          "0": [
-            "mds:treasury_mts_m01_deficit"
-          ],
-          "1": [
-            "mds:treasury_mts_m01_receipts",
-            "mds:treasury_mts_m01_outlays"
-          ],
-          "2": [
-            "mds:treasury_dts_tga_balance"
-          ],
-          "3": [
-            "mds:treasury_dts_daily_net_cash"
-          ],
-          "4": [
-            "mds:treasury_debt_penny_net_weekly"
-          ]
+        "slotFiscalViews": {
+          "0": "C1",
+          "1": "C2",
+          "2": "C3",
+          "3": "C4",
+          "4": "C5",
+          "5": "C6"
         },
+        "slotSeriesOrder": {},
         "endLabelDecimals": 2,
         "showRegimeShading": false,
+        "slotWaterfallYears": {},
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "mds:treasury_dts_tga_balance": 2,
-        "mds:treasury_mts_m01_deficit": 0,
-        "mds:treasury_mts_m01_outlays": 1,
-        "mds:treasury_mts_m01_receipts": 1,
-        "mds:treasury_dts_daily_net_cash": 3,
-        "mds:treasury_debt_penny_net_weekly": 4
+        "mds:treasury_avg_rate_frn": null,
+        "mds:treasury_avg_rate_tips": null,
+        "mds:treasury_avg_rate_bills": null,
+        "mds:treasury_avg_rate_bonds": null,
+        "mds:treasury_avg_rate_notes": null,
+        "mds:treasury_avg_rate_total": null,
+        "mds:treasury_dts_issue_bonds": null,
+        "mds:treasury_dts_issue_notes": null,
+        "mds:treasury_dts_tga_balance": null,
+        "mds:treasury_mts_m01_deficit": null,
+        "mds:treasury_dts_redeem_bills": null,
+        "mds:treasury_dts_redeem_bonds": null,
+        "mds:treasury_dts_redeem_notes": null,
+        "mds:treasury_dts_tga_deposits": null,
+        "mds:treasury_mts_m01_receipts": null,
+        "mds:treasury_avg_rate_marketable": null,
+        "mds:treasury_dts_tga_withdrawals": null,
+        "mds:treasury_mts_m06_cash_change": null,
+        "mds:treasury_dts_issue_bills_cash": null,
+        "mds:treasury_mts_m06_other_budget": null,
+        "mds:treasury_mts_m06_total_assets": null,
+        "mds:treasury_dts_issue_bills_regular": null,
+        "mds:treasury_mts_m06_financing_total": null,
+        "mds:treasury_mts_m06_treasury_public": null,
+        "mds:treasury_mts_m09_outlay_interest": null,
+        "mds:treasury_mts_m06_borrowing_public": null,
+        "mds:treasury_mts_m06_total_liabilities": null,
+        "mds:treasury_mspd_marketable_outstanding": null
       },
       "chartIntroNotes": {
-        "0": "MTS 月赤字柱：单月噪声大，结合图 2 收/支水平看趋势。发布月（约每月第 8–12 个工作日）更新。",
-        "1": "MTS 月收入 vs 支出（现金水平）：对照图 0 赤字；收入走弱或支出走强 → 回视图 B 分项。",
-        "2": "TGA 日余额（百万美元）：财政部在联储账户。快速下降 + 债务上限博弈 → 五问 ⑤ 流动性/政治尾部。",
-        "3": "DTS 日净现金流 = Total Deposits − Total Withdrawals（Table II 汇总）。负值日多 → 现金压力；**非** 权责赤字。",
-        "4": "公共债务周净增发（Debt to the Penny 周差分）：融资脉冲。与视图 A 债务存量、视图 B 净利息对照。"
+        "0": "DTS常规Bills、现金管理Bills、Notes、Bonds发行及三类偿还分别汇总到完整自然月，再计算净发行＝发行－偿还。单位十亿美元；排除FFB和单列通胀本金调整，是面值交易而非现金借款。",
+        "1": "分别看Bills、DTS Notes分类和DTS Bonds分类的发行减偿还，保留负值。Notes/Bonds分类包含相应TIPS、浮息债交易，不把它们误称为完整的五券种净现金融资。",
+        "2": "最近五年按实际发行日归月，拆分Bills、固定利率Notes、固定利率Bonds、TIPS和FRN的实际获配面值。只展示完整月份；尚未发行不计入，结果缺失整月留空，不用计划发行量替代。拍卖总获配可含外部配售，与公众现金借款口径不同。",
+        "3": "以最新月末逐券报告为截面，按到期日分到未来12个自然月。合并同CUSIP的原表非空余额，不把发行额再加到余额；排除FFB和已到期待兑付。到期占比分母为同范围未到期五类余额，TIPS不预测未来通胀本金，也不假定未来新增发行。",
+        "4": "用MTS同月数据将公众净借款、现金账户减少与其他资产负债及表外调整衔接到融资总额。融资总额＝负债净变化－资产净变化＋未计预算交易。保留赤字与融资源表差额；TGA日余额及当日存入、支取、净现金流单独标注日期，不能与月度现金赤字强行对齐。",
+        "5": "左轴为净利息TTM/财政收入TTM，右轴为官方存量平均利率。表格保留净利息、收入金额及各券类平均利率。官方总平均和可交易债平均排除TIPS/FRN，TIPS分项是实际票息，不当作名义总融资成本。"
       },
-      "seriesVisualMap": {
-        "mds:treasury_dts_tga_balance": {
-          "axis": "left",
-          "color": "#6ccad1",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_deficit": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "bar",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_outlays": {
-          "axis": "right",
-          "color": "#ef6461",
-          "chartType": "dashedLine",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_receipts": {
-          "axis": "left",
-          "color": "#56b6c2",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:treasury_dts_daily_net_cash": {
-          "axis": "left",
-          "color": "#9ea68b",
-          "chartType": "bar",
-          "showEndLabel": true
-        },
-        "mds:treasury_debt_penny_net_weekly": {
-          "axis": "left",
-          "color": "#6f84c0",
-          "chartType": "line",
-          "showEndLabel": true
-        }
-      },
+      "seriesVisualMap": {},
       "selectedListItems": [
         {
-          "key": "mds:treasury_mts_m01_deficit",
+          "key": "mds:treasury_dts_issue_bills_regular",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_issue_bills_cash",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_issue_notes",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_issue_bonds",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_redeem_bills",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_redeem_notes",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_dts_redeem_bonds",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m06_borrowing_public",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m06_treasury_public",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m06_cash_change",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m06_total_liabilities",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m06_total_assets",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m06_other_budget",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m06_financing_total",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_avg_rate_bills",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_avg_rate_notes",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_avg_rate_bonds",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_avg_rate_tips",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_avg_rate_frn",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_avg_rate_marketable",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_avg_rate_total",
           "type": "series"
         },
         {
@@ -3321,7 +3422,11 @@
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m01_outlays",
+          "key": "mds:treasury_mts_m01_deficit",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_outlay_interest",
           "type": "series"
         },
         {
@@ -3329,151 +3434,110 @@
           "type": "series"
         },
         {
-          "key": "mds:treasury_dts_daily_net_cash",
+          "key": "mds:treasury_dts_tga_deposits",
           "type": "series"
         },
         {
-          "key": "mds:treasury_debt_penny_net_weekly",
+          "key": "mds:treasury_dts_tga_withdrawals",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mspd_marketable_outstanding",
           "type": "series"
         }
       ],
-      "seriesCalcConfigMap": {
-        "mds:treasury_dts_tga_balance": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_deficit": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_outlays": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_receipts": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_dts_daily_net_cash": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_debt_penny_net_weekly": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        }
-      }
+      "seriesCalcConfigMap": {}
     },
     "builtin-us-fiscal-overview": {
-      "name": "财政总览 · 存量与流量",
-      "layoutMode": 4,
-      "description": "四图优先看最新官方观测：Debt to the Penny 每日公共债务存量、MTS 每月财年累计赤字与收支、MTS 月度净利息。债务是存量，MTS 是现金流；FYTD 每年 10 月重置。这里不把现金赤字冒充年度赤字/GDP，也不以日度债务除以滞后的季度 GDP。",
+      "name": "债务存量与持有人",
+      "introHtml": "<p><strong>债务存量与持有人</strong></p><p>回答美国联邦债务有多大、增加多快、相对GDP是否加重，以及谁持有、谁在增减持。先看每日债务余额和月末变化，再看官方季度债务率与共同季度的持有人结构。</p><p>阅读顺序：存量 → 月度增量 → 债务率 → 政府内外结构 → 公众持有人 → 四季度增减持。债务余额变化与发行融资分开分析；季度持有人不与最新日债务强行拼成同一时点。</p><p><strong>图1｜公共债务存量</strong><br />每日总债务与公众持有债务共用十亿美元轴。观察总量趋势和两者差额；两线差额主要对应政府内部持有。面值余额不等于市场价值。</p><p><strong>图2｜债务余额变化</strong><br />先取完整自然月的月末可得余额，再分别减上月末和上年同月末。区分短期月增量与过去一年累计增加；当前未结束月份不参与月度比较。这是余额变化，不是发行额。</p><p><strong>图3｜官方债务率</strong><br />直接使用官方季度总债务/GDP和公众持有债务/GDP。关注债务增长是否快于经济名义规模；不将最新日债务除以滞后的季度GDP。</p><p><strong>图4｜公众与政府内部持有</strong><br />展示两类持有占比，表格保留最新同日金额。政府内部持有＝总债务－公众持有；它与私人投资者、美联储、境外持有人并不是同一分类层级。</p><p><strong>图5｜公众持有人构成</strong><br />取三条原始序列共同可用季度，拆为美联储、境外及国际投资者、国内其他投资者。国内其他＝私人投资者－境外，避免把已含境外的私人持有再重复相加。表中比例以三类合计为分母。</p><p><strong>图6｜谁在增持或减持</strong><br />各部门同季度余额减上年同季度余额，单位十亿美元。用以识别主要承接部门变化；余额变化不是交易净资金流，也不能排除估值、重分类等影响。</p><p>数据口径：美国联邦财政；不同频率与不同截止日期不强行拼接，缺失值不补零。</p>",
+      "introText": "回答美国联邦债务有多大、增加多快、相对GDP是否加重，以及谁持有、谁在增减持。先看每日债务余额和月末变化，再看官方季度债务率与共同季度的持有人结构。\n\n阅读顺序：存量 → 月度增量 → 债务率 → 政府内外结构 → 公众持有人 → 四季度增减持。债务余额变化与发行融资分开分析；季度持有人不与最新日债务强行拼成同一时点。\n\n图1｜公共债务存量\n每日总债务与公众持有债务共用十亿美元轴。观察总量趋势和两者差额；两线差额主要对应政府内部持有。面值余额不等于市场价值。\n\n图2｜债务余额变化\n先取完整自然月的月末可得余额，再分别减上月末和上年同月末。区分短期月增量与过去一年累计增加；当前未结束月份不参与月度比较。这是余额变化，不是发行额。\n\n图3｜官方债务率\n直接使用官方季度总债务/GDP和公众持有债务/GDP。关注债务增长是否快于经济名义规模；不将最新日债务除以滞后的季度GDP。\n\n图4｜公众与政府内部持有\n展示两类持有占比，表格保留最新同日金额。政府内部持有＝总债务－公众持有；它与私人投资者、美联储、境外持有人并不是同一分类层级。\n\n图5｜公众持有人构成\n取三条原始序列共同可用季度，拆为美联储、境外及国际投资者、国内其他投资者。国内其他＝私人投资者－境外，避免把已含境外的私人持有再重复相加。表中比例以三类合计为分母。\n\n图6｜谁在增持或减持\n各部门同季度余额减上年同季度余额，单位十亿美元。用以识别主要承接部门变化；余额变化不是交易净资金流，也不能排除估值、重分类等影响。\n\n数据口径：均为美国联邦财政。各图按自身日/月/季度频率和可得日期展示，缺失值保持为空；派生合计、增量和占比用于分析，不代表新的官方独立发布序列。",
+      "layoutMode": 6,
+      "description": "回答美国联邦债务有多大、增加多快、相对GDP是否加重，以及谁持有、谁在增减持。先看每日债务余额和月末变化，再看官方季度债务率与共同季度的持有人结构。",
       "derivedCalcs": [],
       "selectedKeys": [
         "mds:treasury_debt_penny_total_daily",
         "mds:treasury_debt_penny_held_public_daily",
-        "mds:treasury_mts_m01_deficit_fytd",
-        "mds:treasury_mts_m01_receipts_fytd",
-        "mds:treasury_mts_m01_outlays_fytd",
-        "mds:treasury_mts_m09_outlay_interest",
-        "mds:treasury_mts_m01_deficit"
+        "fred:GFDEGDQ188S",
+        "fred:FYGFGDQ188S",
+        "fred:FDHBFRBN",
+        "fred:FDHBFIN",
+        "fred:FDHBPIN"
       ],
-      "updatedAtIso": "2026-09-24T10:41:27.906Z",
+      "updatedAtIso": "2026-11-24T07:32:04.658Z",
       "displayConfig": {
         "lineWidth": 1.6,
+        "slotModes": {
+          "0": "usFiscal",
+          "1": "usFiscal",
+          "2": "usFiscal",
+          "3": "usFiscal",
+          "4": "usFiscal",
+          "5": "usFiscal"
+        },
         "lineSmooth": false,
         "showLegend": true,
+        "slotHidden": {},
         "slotTitles": {
-          "0": "债务存量：总额与公众持有（日）",
-          "1": "当期缺口：MTS 财年累计赤字（月）",
-          "2": "收支两端：MTS 财年累计收入与支出（月）",
-          "3": "利息压力：月度净利息与月赤字（月）"
+          "0": "公共债务存量",
+          "1": "债务余额变化",
+          "2": "官方债务率",
+          "3": "公众与政府内部持有",
+          "4": "公众持有人构成",
+          "5": "谁在增持或减持"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
+        "slotPieYears": {},
         "xLabelRotate": 24,
         "showGridLines": true,
         "legendPosition": "bottom",
+        "slotRadarYears": {},
+        "slotShowTitles": {
+          "0": true,
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true
+        },
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotFiscalViews": {
+          "0": "A1",
+          "1": "A2",
+          "2": "A3",
+          "3": "A4",
+          "4": "A5",
+          "5": "A6"
+        },
+        "slotSeriesOrder": {},
         "endLabelDecimals": 2,
         "showRegimeShading": false,
+        "slotWaterfallYears": {},
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "mds:treasury_mts_m01_deficit": 3,
-        "mds:treasury_mts_m01_deficit_fytd": 1,
-        "mds:treasury_mts_m01_outlays_fytd": 2,
-        "mds:treasury_mts_m01_receipts_fytd": 2,
-        "mds:treasury_debt_penny_total_daily": 0,
-        "mds:treasury_mts_m09_outlay_interest": 3,
-        "mds:treasury_debt_penny_held_public_daily": 0
+        "fred:FDHBFIN": null,
+        "fred:FDHBPIN": null,
+        "fred:FDHBFRBN": null,
+        "fred:FYGFGDQ188S": null,
+        "fred:GFDEGDQ188S": null,
+        "mds:treasury_debt_penny_total_daily": null,
+        "mds:treasury_debt_penny_held_public_daily": null
       },
       "chartIntroNotes": {
-        "0": "Debt to the Penny 每个工作日公布总债务及公众持有债务，两条线均为美元面值、共用左轴。两者的差额主要对应政府内部持有；绝对额上升不等于债务/GDP 同步上升。",
-        "1": "MTS 财年累计现金赤字按每年 10 月至次年 9 月累加，正值表示赤字。比较不同年份时要对齐相同财年月份；10 月重置不是财政状况突然改善。",
-        "2": "MTS 财年累计收入和支出共用同一美元轴；两线距离对应图 2 的累计赤字。收入变化可受报税季影响，先比较同一财年月份，再到财政结构模板看税种和支出分项。",
-        "3": "MTS 月度净利息支出与月赤字均为现金流、共用美元轴。观察利息是否持续上升，以及赤字波动是否由利息以外的收支推动；月赤字可受缴税时点影响，不能用单月外推全年。"
+        "0": "每日总债务与公众持有债务共用十亿美元轴。观察总量趋势和两者差额；两线差额主要对应政府内部持有。面值余额不等于市场价值。",
+        "1": "先取完整自然月的月末可得余额，再分别减上月末和上年同月末。区分短期月增量与过去一年累计增加；当前未结束月份不参与月度比较。这是余额变化，不是发行额。",
+        "2": "直接使用官方季度总债务/GDP和公众持有债务/GDP。关注债务增长是否快于经济名义规模；不将最新日债务除以滞后的季度GDP。",
+        "3": "展示两类持有占比，表格保留最新同日金额。政府内部持有＝总债务－公众持有；它与私人投资者、美联储、境外持有人并不是同一分类层级。",
+        "4": "取三条原始序列共同可用季度，拆为美联储、境外及国际投资者、国内其他投资者。国内其他＝私人投资者－境外，避免把已含境外的私人持有再重复相加。表中比例以三类合计为分母。",
+        "5": "各部门同季度余额减上年同季度余额，单位十亿美元。用以识别主要承接部门变化；余额变化不是交易净资金流，也不能排除估值、重分类等影响。"
       },
-      "seriesVisualMap": {
-        "mds:treasury_mts_m01_deficit": {
-          "axis": "left",
-          "color": "#d89b4e",
-          "chartType": "bar",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_deficit_fytd": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "bar",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_outlays_fytd": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "dashedLine",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_receipts_fytd": {
-          "axis": "left",
-          "color": "#56b6c2",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:treasury_debt_penny_total_daily": {
-          "axis": "left",
-          "color": "#6f84c0",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m09_outlay_interest": {
-          "axis": "left",
-          "color": "#d75a68",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:treasury_debt_penny_held_public_daily": {
-          "axis": "left",
-          "color": "#5f76b8",
-          "chartType": "dashedLine",
-          "showEndLabel": true
-        }
-      },
+      "seriesVisualMap": {},
       "selectedListItems": [
         {
           "key": "mds:treasury_debt_penny_total_daily",
@@ -3484,70 +3548,27 @@
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m01_deficit_fytd",
+          "key": "fred:GFDEGDQ188S",
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m01_receipts_fytd",
+          "key": "fred:FYGFGDQ188S",
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m01_outlays_fytd",
+          "key": "fred:FDHBFRBN",
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m09_outlay_interest",
+          "key": "fred:FDHBFIN",
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m01_deficit",
+          "key": "fred:FDHBPIN",
           "type": "series"
         }
       ],
-      "seriesCalcConfigMap": {
-        "mds:treasury_mts_m01_deficit": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_deficit_fytd": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_outlays_fytd": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_receipts_fytd": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_debt_penny_total_daily": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m09_outlay_interest": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_debt_penny_held_public_daily": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        }
-      }
+      "seriesCalcConfigMap": {}
     },
     "builtin-us-cpi-expectations": {
       "name": "CPI 驱动 · 预期与劳动力",
@@ -3724,128 +3745,146 @@
       }
     },
     "builtin-us-fiscal-structure": {
-      "name": "财政结构 · 收支拆解",
-      "layoutMode": 4,
-      "description": "【第二步 · 解释为什么】图 1–2 为 Treasury **现金制** MTS Table 9；mandatory/discretionary 为 **功能分类代理**，图表须标注 ≠ CBO 法定口径。图 3–4 对照总收/总支与 NIPA 政府侧。与视图 A **不重复** 债务/GDP、赤字/GDP。",
+      "name": "财政收支与结构",
+      "introHtml": "<p><strong>财政收支与结构</strong></p><p>回答收入与支出规模、增长变化、赤字来源、本财年进度，以及税收和支出构成。趋势与结构以连续12个月合计为主，财年进度单独按10月至次年9月对齐。</p><p>阅读顺序：收支规模 → 收支增速 → 初级赤字和利息 → 本财年同期比较 → 收入结构 → 支出结构。金额、增速和占比分开解释，避免缴税季节性或份额变化造成误判。</p><p><strong>图1｜财政收入与支出</strong><br />收入和支出均为联邦现金制原始月值的连续12个月合计，单位十亿美元。两线差距观察财政缺口；任一月份缺失时对应窗口留空，不补零。</p><p><strong>图2｜收支趋势变化</strong><br />比较本期与上年同期的过去12个月合计，得到收入TTM同比、支出TTM同比。观察缺口扩大来自收入减速还是支出加速；不对财年累计值计算环比。</p><p><strong>图3｜赤字、初级赤字与净利息</strong><br />总赤字TTM拆为初级赤字TTM与净利息TTM，正数为赤字、负数为盈余。初级赤字＝总赤字－净利息，用于判断除利息以外的收支压力；堆叠分项与总赤字线同时保留。</p><p><strong>图4｜本财年进展</strong><br />直接读取官方财年累计收入、支出、赤字，与上财年相同财年月份比较。财政年度从10月开始；图中未公布月份留空。10月累计值重置不是财政突然改善，表中同步显示同期金额和同比。</p><p><strong>图5｜财政收入结构</strong><br />按连续12个月合计展示个人所得税、企业所得税、社保与退休税、消费税、遗产与赠与税、关税和其他收入份额；社保与退休税包含就业退休税、失业保险、其他退休税。数据表保留金额和份额，份额上升不代表金额必然增加。</p><p><strong>图6｜财政支出结构</strong><br />按连续12个月合计展示社会保障、Medicare、其他医疗卫生、国防、净利息及其他。其他为总支出减已列项目，保留负的抵销；其他医疗卫生不等于Medicaid单项，也不把功能分类称为法定强制/自主支出。</p><p>数据口径：美国联邦财政；不同频率与不同截止日期不强行拼接，缺失值不补零。</p>",
+      "introText": "回答收入与支出规模、增长变化、赤字来源、本财年进度，以及税收和支出构成。趋势与结构以连续12个月合计为主，财年进度单独按10月至次年9月对齐。\n\n阅读顺序：收支规模 → 收支增速 → 初级赤字和利息 → 本财年同期比较 → 收入结构 → 支出结构。金额、增速和占比分开解释，避免缴税季节性或份额变化造成误判。\n\n图1｜财政收入与支出\n收入和支出均为联邦现金制原始月值的连续12个月合计，单位十亿美元。两线差距观察财政缺口；任一月份缺失时对应窗口留空，不补零。\n\n图2｜收支趋势变化\n比较本期与上年同期的过去12个月合计，得到收入TTM同比、支出TTM同比。观察缺口扩大来自收入减速还是支出加速；不对财年累计值计算环比。\n\n图3｜赤字、初级赤字与净利息\n总赤字TTM拆为初级赤字TTM与净利息TTM，正数为赤字、负数为盈余。初级赤字＝总赤字－净利息，用于判断除利息以外的收支压力；堆叠分项与总赤字线同时保留。\n\n图4｜本财年进展\n直接读取官方财年累计收入、支出、赤字，与上财年相同财年月份比较。财政年度从10月开始；图中未公布月份留空。10月累计值重置不是财政突然改善，表中同步显示同期金额和同比。\n\n图5｜财政收入结构\n按连续12个月合计展示个人所得税、企业所得税、社保与退休税、消费税、遗产与赠与税、关税和其他收入份额；社保与退休税包含就业退休税、失业保险、其他退休税。数据表保留金额和份额，份额上升不代表金额必然增加。\n\n图6｜财政支出结构\n按连续12个月合计展示社会保障、Medicare、其他医疗卫生、国防、净利息及其他。其他为总支出减已列项目，保留负的抵销；其他医疗卫生不等于Medicaid单项，也不把功能分类称为法定强制/自主支出。\n\n数据口径：均为美国联邦财政。各图按自身日/月/季度频率和可得日期展示，缺失值保持为空；派生合计、增量和占比用于分析，不代表新的官方独立发布序列。",
+      "layoutMode": 6,
+      "description": "回答收入与支出规模、增长变化、赤字来源、本财年进度，以及税收和支出构成。趋势与结构以连续12个月合计为主，财年进度单独按10月至次年9月对齐。",
       "derivedCalcs": [],
       "selectedKeys": [
+        "mds:treasury_mts_m01_receipts",
+        "mds:treasury_mts_m01_receipts_fytd",
+        "mds:treasury_mts_m01_outlays",
+        "mds:treasury_mts_m01_outlays_fytd",
+        "mds:treasury_mts_m01_deficit",
+        "mds:treasury_mts_m01_deficit_fytd",
         "mds:treasury_mts_m09_rcpt_individual",
         "mds:treasury_mts_m09_rcpt_corporate",
         "mds:treasury_mts_m09_rcpt_payroll",
-        "mds:treasury_mts_m09_mandatory_proxy",
-        "mds:treasury_mts_m09_discretionary_proxy",
-        "mds:treasury_mts_m09_outlay_interest",
-        "mds:treasury_mts_m01_receipts",
-        "mds:treasury_mts_m01_outlays",
-        "fred:GCEC1::yoy",
-        "fred:FGCEC1::yoy"
+        "mds:treasury_mts_m09_rcpt_unemployment",
+        "mds:treasury_mts_m09_rcpt_other_retirement",
+        "mds:treasury_mts_m09_rcpt_excise",
+        "mds:treasury_mts_m09_rcpt_estate_gift",
+        "mds:treasury_mts_m09_rcpt_customs",
+        "mds:treasury_mts_m09_rcpt_misc",
+        "mds:treasury_mts_m09_outlay_social_security",
+        "mds:treasury_mts_m09_outlay_medicare",
+        "mds:treasury_mts_m09_outlay_health",
+        "mds:treasury_mts_m09_outlay_defense",
+        "mds:treasury_mts_m09_outlay_interest"
       ],
-      "updatedAtIso": "2026-09-22T03:09:38.717Z",
+      "updatedAtIso": "2026-11-24T07:32:04.658Z",
       "displayConfig": {
         "lineWidth": 1.6,
+        "slotModes": {
+          "0": "usFiscal",
+          "1": "usFiscal",
+          "2": "usFiscal",
+          "3": "usFiscal",
+          "4": "usFiscal",
+          "5": "usFiscal"
+        },
         "lineSmooth": false,
         "showLegend": true,
+        "slotHidden": {},
         "slotTitles": {
-          "0": "F3b 收入分项（MTS Table 9 现金）",
-          "1": "F4b 支出结构（MTS 代理；≠ CBO 法定口径）",
-          "2": "F3a/F4a MTS 总收/总支 YoY",
-          "3": "F4c 政府消费 vs 联邦消费+投资 YoY"
+          "0": "财政收入与支出",
+          "1": "收支趋势变化",
+          "2": "赤字、初级赤字与净利息",
+          "3": "本财年进展",
+          "4": "财政收入结构",
+          "5": "财政支出结构"
         },
         "symbolSize": 7,
         "areaOpacity": 0.22,
         "barMaxWidth": 14,
         "showSymbols": false,
         "showTooltip": true,
+        "slotPieYears": {},
         "xLabelRotate": 24,
         "showGridLines": true,
         "legendPosition": "bottom",
+        "slotRadarYears": {},
+        "slotShowTitles": {
+          "0": true,
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true
+        },
         "xLabelFontSize": 10,
         "yLabelFontSize": 10,
+        "slotFiscalViews": {
+          "0": "B1",
+          "1": "B2",
+          "2": "B3",
+          "3": "B4",
+          "4": "B5",
+          "5": "B6"
+        },
+        "slotSeriesOrder": {},
         "endLabelDecimals": 2,
         "showRegimeShading": false,
+        "slotWaterfallYears": {},
         "showRecessionShading": false
       },
       "slotAssignment": {
-        "fred:GCEC1::yoy": 3,
-        "fred:FGCEC1::yoy": 3,
-        "mds:treasury_mts_m01_outlays": 2,
-        "mds:treasury_mts_m01_receipts": 2,
-        "mds:treasury_mts_m09_rcpt_payroll": 0,
-        "mds:treasury_mts_m09_rcpt_corporate": 0,
-        "mds:treasury_mts_m09_mandatory_proxy": 1,
-        "mds:treasury_mts_m09_outlay_interest": 1,
-        "mds:treasury_mts_m09_rcpt_individual": 0,
-        "mds:treasury_mts_m09_discretionary_proxy": 1
+        "mds:treasury_mts_m01_deficit": null,
+        "mds:treasury_mts_m01_outlays": null,
+        "mds:treasury_mts_m01_receipts": null,
+        "mds:treasury_mts_m09_rcpt_misc": null,
+        "mds:treasury_mts_m09_rcpt_excise": null,
+        "mds:treasury_mts_m01_deficit_fytd": null,
+        "mds:treasury_mts_m01_outlays_fytd": null,
+        "mds:treasury_mts_m09_rcpt_customs": null,
+        "mds:treasury_mts_m09_rcpt_payroll": null,
+        "mds:treasury_mts_m01_receipts_fytd": null,
+        "mds:treasury_mts_m09_outlay_health": null,
+        "mds:treasury_mts_m09_outlay_defense": null,
+        "mds:treasury_mts_m09_rcpt_corporate": null,
+        "mds:treasury_mts_m09_outlay_interest": null,
+        "mds:treasury_mts_m09_outlay_medicare": null,
+        "mds:treasury_mts_m09_rcpt_individual": null,
+        "mds:treasury_mts_m09_rcpt_estate_gift": null,
+        "mds:treasury_mts_m09_rcpt_unemployment": null,
+        "mds:treasury_mts_m09_rcpt_other_retirement": null,
+        "mds:treasury_mts_m09_outlay_social_security": null
       },
-      "seriesVisualMap": {
-        "fred:GCEC1::yoy": {
-          "axis": "left",
-          "color": "#6f84c0",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "fred:FGCEC1::yoy": {
-          "axis": "right",
-          "color": "#5f76b8",
-          "chartType": "dashedLine",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_outlays": {
-          "axis": "left",
-          "color": "#ef6461",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m01_receipts": {
-          "axis": "left",
-          "color": "#56b6c2",
-          "chartType": "line",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m09_rcpt_payroll": {
-          "axis": "left",
-          "color": "#d89b4e",
-          "chartType": "stackBar",
-          "stackGroup": "fiscal-rcpt",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m09_rcpt_corporate": {
-          "axis": "left",
-          "color": "#7fc8c5",
-          "chartType": "stackBar",
-          "stackGroup": "fiscal-rcpt",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m09_mandatory_proxy": {
-          "axis": "left",
-          "color": "#c97b84",
-          "chartType": "stackBar",
-          "stackGroup": "fiscal-outlay",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m09_outlay_interest": {
-          "axis": "left",
-          "color": "#d75a68",
-          "chartType": "stackBar",
-          "stackGroup": "fiscal-outlay",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m09_rcpt_individual": {
-          "axis": "left",
-          "color": "#56b6c2",
-          "chartType": "stackBar",
-          "stackGroup": "fiscal-rcpt",
-          "showEndLabel": true
-        },
-        "mds:treasury_mts_m09_discretionary_proxy": {
-          "axis": "left",
-          "color": "#f4b165",
-          "chartType": "stackBar",
-          "stackGroup": "fiscal-outlay",
-          "showEndLabel": true
-        }
+      "chartIntroNotes": {
+        "0": "收入和支出均为联邦现金制原始月值的连续12个月合计，单位十亿美元。两线差距观察财政缺口；任一月份缺失时对应窗口留空，不补零。",
+        "1": "比较本期与上年同期的过去12个月合计，得到收入TTM同比、支出TTM同比。观察缺口扩大来自收入减速还是支出加速；不对财年累计值计算环比。",
+        "2": "总赤字TTM拆为初级赤字TTM与净利息TTM，正数为赤字、负数为盈余。初级赤字＝总赤字－净利息，用于判断除利息以外的收支压力；堆叠分项与总赤字线同时保留。",
+        "3": "直接读取官方财年累计收入、支出、赤字，与上财年相同财年月份比较。财政年度从10月开始；图中未公布月份留空。10月累计值重置不是财政突然改善，表中同步显示同期金额和同比。",
+        "4": "按连续12个月合计展示个人所得税、企业所得税、社保与退休税、消费税、遗产与赠与税、关税和其他收入份额；社保与退休税包含就业退休税、失业保险、其他退休税。数据表保留金额和份额，份额上升不代表金额必然增加。",
+        "5": "按连续12个月合计展示社会保障、Medicare、其他医疗卫生、国防、净利息及其他。其他为总支出减已列项目，保留负的抵销；其他医疗卫生不等于Medicaid单项，也不把功能分类称为法定强制/自主支出。"
       },
+      "seriesVisualMap": {},
       "selectedListItems": [
+        {
+          "key": "mds:treasury_mts_m01_receipts",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_receipts_fytd",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_outlays",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_outlays_fytd",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_deficit",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m01_deficit_fytd",
+          "type": "series"
+        },
         {
           "key": "mds:treasury_mts_m09_rcpt_individual",
           "type": "series"
@@ -3859,96 +3898,51 @@
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m09_mandatory_proxy",
+          "key": "mds:treasury_mts_m09_rcpt_unemployment",
           "type": "series"
         },
         {
-          "key": "mds:treasury_mts_m09_discretionary_proxy",
+          "key": "mds:treasury_mts_m09_rcpt_other_retirement",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_rcpt_excise",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_rcpt_estate_gift",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_rcpt_customs",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_rcpt_misc",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_outlay_social_security",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_outlay_medicare",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_outlay_health",
+          "type": "series"
+        },
+        {
+          "key": "mds:treasury_mts_m09_outlay_defense",
           "type": "series"
         },
         {
           "key": "mds:treasury_mts_m09_outlay_interest",
           "type": "series"
-        },
-        {
-          "key": "mds:treasury_mts_m01_receipts",
-          "type": "series"
-        },
-        {
-          "key": "mds:treasury_mts_m01_outlays",
-          "type": "series"
-        },
-        {
-          "key": "fred:GCEC1::yoy",
-          "type": "series"
-        },
-        {
-          "key": "fred:FGCEC1::yoy",
-          "type": "series"
         }
       ],
-      "seriesCalcConfigMap": {
-        "fred:GCEC1::yoy": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "fred:FGCEC1::yoy": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_outlays": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m01_receipts": {
-          "op": "yoy",
-          "unit": "keep",
-          "frequency": "month",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m09_rcpt_payroll": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m09_rcpt_corporate": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m09_mandatory_proxy": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m09_outlay_interest": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m09_rcpt_individual": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        },
-        "mds:treasury_mts_m09_discretionary_proxy": {
-          "op": "none",
-          "unit": "keep",
-          "frequency": "keep",
-          "resampleMethod": "end"
-        }
-      }
+      "seriesCalcConfigMap": {}
     },
     "builtin-us-housing-activity": {
       "name": "住房 · 供需与景气",
