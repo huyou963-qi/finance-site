@@ -106,7 +106,7 @@ test("profit growth uses matched issuers, absolute loss base and leaves zero bas
   assert.equal(history([before, now]).Q.netIncomeYoY.value, null);
 });
 
-test("cash flow lines use the same sample and missing values remain null", () => {
+test("cash flow retains paired totals and independently covered source metrics", () => {
   const a = snapshot("A", "2026Q3", 100);
   const b = snapshot("B", "2026Q3", 200); b.capex = null;
   const point = history([a, b]).Q;
@@ -165,4 +165,16 @@ test("zero is a valid cash flow and negative profit is retained", () => {
   const point = history([row]).Q;
   assert.equal(point.fcf.value, -10);
   assert.equal(point.netMargin.value, -0.05);
+});
+
+test("N-PORT holdings resolve by CUSIP and retain unmapped equity in the coverage denominator", () => {
+  const point = history([snapshot("A", "2026Q3", 100)], { current: { date: "2026-09-30", holdings: [
+    { symbol: null, cusip: "A", equityHoldingKey: "A", name: "Company A", weight: 0.6 },
+    { symbol: null, cusip: null, equityHoldingKey: "ISIN:IE00B8KQN827", name: "Unmapped", weight: 0.4 },
+    { symbol: null, cusip: null, name: "US Dollar", weight: 0.1 },
+  ] } }).Q;
+  assert.equal(point.universeCount, 2);
+  assert.equal(point.unresolvedCount, 1);
+  assert.equal(point.fcf.sampleCount, 1);
+  assert.equal(point.fcf.weightCoverage, 0.6);
 });

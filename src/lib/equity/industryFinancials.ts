@@ -3,7 +3,7 @@ import { computeTtm, type QuarterFundamentalRow } from "./ttm";
 
 export type FinancialBasis = "Q" | "TTM";
 export type MembershipBasis = "current" | "historical";
-export type FinancialHolding = { symbol: string | null; cusip: string | null; name: string; weight: number };
+export type FinancialHolding = { equityHoldingKey?: string; symbol: string | null; cusip: string | null; name: string; weight: number };
 export type FinancialSecurity = { symbol: string; cik: string | null; cusip: string | null; name: string };
 export type FinancialSnapshot = {
   symbol: string; period: string; fiscalDate: string;
@@ -30,7 +30,7 @@ export type FinancialPeriod = {
   universeCount: number; unresolvedCount: number; equityWeight: number;
   revenue: FinancialMetric; revenueYoY: FinancialMetric; netIncome: FinancialMetric; netIncomeYoY: FinancialMetric;
   netMargin: FinancialMetric; ocf: FinancialMetric; capex: FinancialMetric; fcf: FinancialMetric;
-  /** 单项原始覆盖率；曲线仍使用两项均齐全的共同样本。 */
+  /** 经营现金流和资本开支各自使用有披露的样本，供独立曲线展示。 */
   cashSourceCoverage: { ocf: FinancialMetric; capex: FinancialMetric };
   members: FinancialMember[];
 };
@@ -64,7 +64,11 @@ const finite = (value: number | null): value is number => value != null && Numbe
 
 function issuers(holdings: FinancialHolding[], securities: FinancialSecurity[]): Issuer[] {
   const bySymbol = new Map(securities.map(row => [row.symbol, row]));
-  const byCusip = new Map(securities.filter(row => row.cusip).map(row => [row.cusip!, row]));
+  const byCusip = new Map<string, FinancialSecurity | null>();
+  for (const row of securities) {
+    if (!row.cusip) continue;
+    byCusip.set(row.cusip, byCusip.has(row.cusip) ? null : row);
+  }
   const cikKey = (value: string | null) => value?.replace(/^0+/, "") || null;
   const byCik = new Map<string, string[]>();
   for (const row of securities) {
@@ -73,17 +77,18 @@ function issuers(holdings: FinancialHolding[], securities: FinancialSecurity[]):
   }
   const grouped = new Map<string, Issuer>();
   for (const holding of holdings) {
-    if (!holding.symbol || /^(USD|CASH|US DOLLAR)$/i.test(holding.symbol)) continue;
-    const security = bySymbol.get(holding.symbol) ?? (holding.cusip ? byCusip.get(holding.cusip) : undefined);
+    if (holding.symbol ? /^(USD|CASH|US DOLLAR)$/i.test(holding.symbol) : !holding.equityHoldingKey) continue;
+    const security = (holding.symbol ? bySymbol.get(holding.symbol) : undefined) ?? (holding.cusip ? byCusip.get(holding.cusip) : undefined);
     const cik = cikKey(security?.cik ?? null);
-    const key = cik ? `cik:${cik}` : `symbol:${security?.symbol ?? holding.symbol}`;
+    const symbol = security?.symbol ?? holding.symbol;
+    const key = cik ? `cik:${cik}` : symbol ? `symbol:${symbol}` : `holding:${holding.equityHoldingKey}`;
     const existing = grouped.get(key);
     if (existing) {
       existing.weight += holding.weight;
       continue;
     }
     grouped.set(key, {
-      symbol: security?.symbol ?? holding.symbol,
+      symbol: symbol ?? holding.equityHoldingKey!,
       name: security?.name ?? holding.name,
       aliases: security ? [security.symbol, ...(cik ? byCik.get(cik)!.filter(symbol => symbol !== security.symbol) : [])] : [],
       weight: holding.weight,

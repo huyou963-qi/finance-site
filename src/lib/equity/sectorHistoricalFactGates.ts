@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { SEC_NPORT_HOLDINGS_SOURCE } from "./sectorEtfHoldings";
 import { GICS_SECTOR_DEFS, type GicsSector } from "@/lib/equity/gicsCatalog";
 
 export type FactLayerEndpoint = {
@@ -105,6 +106,7 @@ async function loadEndpoint(
     SELECT DISTINCT ON (etf) etf, as_of_date AS "asOfDate"
     FROM mds.sector_etf_holding
     WHERE etf = ANY(${etfs}) AND as_of_date <= ${boundary}::date
+      AND source <> ${SEC_NPORT_HOLDINGS_SOURCE}
     ORDER BY etf, as_of_date DESC
   `;
   const latestByEtf = new Map(latestSnapshots.map((row) => [row.etf, row.asOfDate]));
