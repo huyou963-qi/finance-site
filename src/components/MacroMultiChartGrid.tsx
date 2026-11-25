@@ -32,6 +32,8 @@ import type { MacroRegimeBand } from "@/lib/data/macroRegimeBands";
 import { indicesFromDataZoomPct } from "@/lib/timeRangeSlice";
 import { dataIndexFromConvert } from "@/lib/timeCursor";
 import { useTr } from "@/i18n/TextProvider";
+import type { UsFiscalView } from "@/lib/data/usFiscalViewTypes";
+import { fiscalChartSlice } from "@/lib/data/usFiscalChartAdapter";
 
 export type MacroMultiChartGridProps = {
   payload: MacroPayload;
@@ -39,6 +41,7 @@ export type MacroMultiChartGridProps = {
   slotAssignment: MacroSlotAssignment;
   seriesVisualMap?: MacroSeriesVisualConfigMap;
   displayConfig?: MacroChartDisplayConfig;
+  fiscalViewsBySlot?: Partial<Record<number, UsFiscalView>>;
   recessionBands?: readonly NberRecessionBand[];
   regimeBands?: readonly MacroRegimeBand[];
   pageSyncEnabled?: boolean;
@@ -206,6 +209,7 @@ export function MacroMultiChartGrid({
   slotAssignment,
   seriesVisualMap,
   displayConfig,
+  fiscalViewsBySlot,
   recessionBands,
   regimeBands,
   pageSyncEnabled = false,
@@ -403,6 +407,12 @@ export function MacroMultiChartGrid({
 
   const sliceForSlot = useCallback(
     (index: number): MacroChartSlice | null => {
+      if (slotModeFor(index) === "usFiscal") {
+        const view = fiscalViewsBySlot?.[index];
+        if (!view) return null;
+        const slice = fiscalChartSlice(view, visibleCategories[0], visibleCategories.at(-1));
+        return { ...slice, title: resolveMacroSlotTitle(index, layoutMode, displayConfig, { seriesLabel: view.title }) };
+      }
       const series = buckets[index] ?? [];
       if (series.length === 0) return null;
       const slotTitle = resolveMacroSlotTitle(index, layoutMode, displayConfig, {
@@ -429,6 +439,7 @@ export function MacroMultiChartGrid({
     [
       buckets,
       displayConfig,
+      fiscalViewsBySlot,
       i0,
       i1,
       layoutMode,
@@ -735,10 +746,11 @@ export function MacroMultiChartGrid({
 
   if (gridLayout === 1) {
     const only = visibleSlots[0];
-    const hideNavigator = isSelfFetchingSlotMode(slotModeFor(only));
+    const mode = slotModeFor(only);
+    const hideNavigator = !payload.categories.length || (mode !== "usFiscal" && isSelfFetchingSlotMode(mode));
     // 手机端会传入固定图高，并在外层页面负责滚动。此时不能继续让单图容器
     // flex-grow / h-full，否则它会占满标签页剩余高度，把时间导航条推到屏幕底部。
-    const fixedHeightLayout = Boolean(singleChartHeight && !hideNavigator);
+    const fixedHeightLayout = Boolean(singleChartHeight && (!hideNavigator || mode === "usFiscal"));
     return (
       <div
         className={`flex min-h-0 w-full min-w-0 flex-col gap-1 ${
@@ -757,7 +769,7 @@ export function MacroMultiChartGrid({
             displayConfig={displayConfig}
             recessionBands={recessionBands}
             regimeBands={regimeBands}
-            slotMode={slotModeFor(only)}
+            slotMode={mode === "usFiscal" ? "timeSeries" : mode}
             slotIndex={only}
             pieYear={pieYearForSlot(only)}
             waterfallYear={waterfallYearForSlot(only)}
@@ -765,7 +777,7 @@ export function MacroMultiChartGrid({
             seasonalYearCount={seasonalYearCountForSlot(only)}
             chartAreaHeight={
               // CPI 分项矩阵是表格：手机端固定高度会只露出几行，改为随内容自然撑开
-              hideNavigator && singleChartHeight ? undefined : (singleChartHeight ?? "100%")
+              hideNavigator && mode !== "usFiscal" && singleChartHeight ? undefined : (singleChartHeight ?? "100%")
             }
             className={`${fixedHeightLayout ? "" : "h-full"} min-h-0 w-full`}
             drawTool={isAltSlotMode(only) ? "cursor" : drawTool}
@@ -832,7 +844,7 @@ export function MacroMultiChartGrid({
               key={`${gridLayout}-slot-${i}`}
               className={
                 stacked
-                  ? mode === "usFiscal" ? "min-w-0 shrink-0" : "h-[300px] min-w-0 shrink-0 overflow-hidden"
+                  ? "h-[300px] min-w-0 shrink-0 overflow-hidden"
                   : "min-h-0 min-w-0 overflow-hidden"
               }
             >
@@ -843,13 +855,13 @@ export function MacroMultiChartGrid({
                 displayConfig={displayConfig}
                 recessionBands={recessionBands}
                 regimeBands={regimeBands}
-                slotMode={mode}
+                slotMode={mode === "usFiscal" ? "timeSeries" : mode}
                 slotIndex={i}
                 pieYear={pieYearForSlot(i)}
                 waterfallYear={waterfallYearForSlot(i)}
                 radarYear={radarYearForSlot(i)}
                 seasonalYearCount={seasonalYearCountForSlot(i)}
-                className={stacked && mode === "usFiscal" ? "min-h-0" : "h-full min-h-0"}
+                className="h-full min-h-0"
                 drawTool={isAlt ? "cursor" : drawTool}
                 drawStyle={drawStyle}
                 drawings={isAlt ? [] : (drawingsBySlot[i] ?? [])}
@@ -878,7 +890,7 @@ export function MacroMultiChartGrid({
           );
         })}
       </div>
-      {navigator}
+      {payload.categories.length ? navigator : null}
     </div>
   );
 }

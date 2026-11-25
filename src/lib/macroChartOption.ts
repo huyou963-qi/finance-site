@@ -38,6 +38,8 @@ export type MacroSeriesVisualConfig = {
   color?: string;
   showEndLabel?: boolean;
   stackGroup?: string;
+  /** Keep missing observations visibly discontinuous when the source requires it. */
+  connectNulls?: boolean;
   smooth?: boolean;
   showSymbol?: boolean;
   lineWidth?: number;
@@ -1911,7 +1913,7 @@ export function macroPayloadToChartOption(
           type: "line",
           yAxisIndex,
           smooth,
-          connectNulls: true,
+          connectNulls: cfg.connectNulls ?? true,
           showSymbol,
           symbolSize,
           lineStyle: {
@@ -1932,7 +1934,7 @@ export function macroPayloadToChartOption(
         type: "line",
         yAxisIndex,
         smooth,
-        connectNulls: true,
+        connectNulls: cfg.connectNulls ?? true,
         showSymbol,
         symbolSize,
         lineStyle: { color: seriesColor, width: lineWidth, opacity },
