@@ -51,7 +51,6 @@ import {
 import { randomUUID } from "@/lib/randomId";
 import { CpiMomMatrixTable } from "@/components/macro/CpiMomMatrixTable";
 import { CotReportTable } from "@/components/macro/CotReportTable";
-import { UsFiscalAnalysisView } from "@/components/macro/UsFiscalAnalysisView";
 import { useTr } from "@/i18n/TextProvider";
 
 export type MacroChartPanelProps = {
@@ -162,7 +161,6 @@ export function MacroChartPanel({
 
   const isCpiMomMatrix = slotMode === "cpiMomMatrix";
   const isCotReport = slotMode === "cotReport";
-  const isUsFiscal = slotMode === "usFiscal";
   const isPie = slotMode === "pie" && Boolean(pieYear);
   const isSeasonal = slotMode === "seasonal";
   const isWaterfall = slotMode === "waterfall" && Boolean(waterfallYear);
@@ -178,7 +176,7 @@ export function MacroChartPanel({
   );
 
   const baseOpt = useMemo(() => {
-    if (isCpiMomMatrix || isCotReport || isUsFiscal) return null;
+    if (isCpiMomMatrix || isCotReport) return null;
     if (!slice?.series?.length) return null;
     if (isPie && pieYear) {
       return macroSliceToPieChartOption(slice, pieYear, {
@@ -255,7 +253,6 @@ export function MacroChartPanel({
     regimeBands,
     isCpiMomMatrix,
     isCotReport,
-    isUsFiscal,
     isPie,
     pieYear,
     isSeasonal,
@@ -523,7 +520,7 @@ export function MacroChartPanel({
     return () => ro.disconnect();
   }, [refreshGraphics, opt]);
 
-  if (isCpiMomMatrix || isCotReport || isUsFiscal) {
+  if (isCpiMomMatrix || isCotReport) {
     return (
       <div
         className={`flex min-h-0 min-w-0 flex-col overflow-hidden ${className ?? ""}`}
@@ -534,7 +531,7 @@ export function MacroChartPanel({
         }
       >
         <div className="min-h-0 flex-1 overflow-auto px-1 py-1">
-          {isUsFiscal ? <UsFiscalAnalysisView viewId={displayConfig?.slotFiscalViews?.[slotIndex]??"A1"}/> : isCotReport ? <CotReportTable /> : <CpiMomMatrixTable />}
+          {isCotReport ? <CotReportTable /> : <CpiMomMatrixTable />}
         </div>
       </div>
     );

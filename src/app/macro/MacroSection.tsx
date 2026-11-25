@@ -33,6 +33,9 @@ import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
 import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
 import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
+import { useUsFiscalViews, UsFiscalDataTables } from "@/components/macro/UsFiscalAnalysisView";
+import { fiscalChartTimeline, fiscalChartVisuals } from "@/lib/data/usFiscalChartAdapter";
+import type { UsFiscalView } from "@/lib/data/usFiscalViewTypes";
 import { sanitizeMacroIntroHtml, templateIntroSnapshot } from "@/lib/data/macroIntroHtml";
 import type {
   MacroDrawing,
@@ -216,7 +219,7 @@ type ChartRangeCache = {
   range: { start: number; end: number };
 };
 
-type ChartSidePanelTab = "settings" | "events" | "intro";
+type ChartSidePanelTab = "settings" | "events" | "intro" | "tables";
 
 const INTRO_WORKSPACE_TEMPLATE_ID = "__workspace__";
 
@@ -2388,7 +2391,30 @@ export function MacroSection() {
     return false;
   }, [displayConfig.slotModes, layoutMode]);
 
-  const chartGridPayload = displayPayload ?? (chartsAllowEmptyPayload ? EMPTY_MACRO_PAYLOAD : null);
+  const hasFiscalCharts = Array.from({ length: layoutMode }, (_, slot) => displayConfig.slotModes?.[slot]).includes("usFiscal");
+  const { payload: fiscalPayload, failed: fiscalFailed, retry: retryFiscal } = useUsFiscalViews(hasFiscalCharts);
+  const fiscalViewsBySlot = useMemo(() => {
+    const views: Partial<Record<number, UsFiscalView>> = {};
+    if (!fiscalPayload) return views;
+    for (let slot = 0; slot < layoutMode; slot++) {
+      if (displayConfig.slotModes?.[slot] !== "usFiscal") continue;
+      const view = fiscalPayload.views[displayConfig.slotFiscalViews?.[slot] ?? "A1"];
+      if (view) views[slot] = view;
+    }
+    return views;
+  }, [displayConfig.slotModes, displayConfig.slotFiscalViews, fiscalPayload, layoutMode]);
+  const fiscalViews = useMemo(() => Object.values(fiscalViewsBySlot).filter((view): view is UsFiscalView => view !== undefined), [fiscalViewsBySlot]);
+  const fiscalTimeline = useMemo(() => fiscalChartTimeline(fiscalViews), [fiscalViews]);
+  const chartGridVisualMap = useMemo(() => Object.assign(
+    {}, ...fiscalViews.map(fiscalChartVisuals), effectiveSeriesVisualMap,
+  ) as MacroSeriesVisualConfigMap, [effectiveSeriesVisualMap, fiscalViews]);
+  const allFiscalCharts = hasFiscalCharts && Array.from({ length: layoutMode }, (_, slot) => displayConfig.slotModes?.[slot]).every(mode => mode === "usFiscal");
+  const chartGridPayload = (allFiscalCharts ? fiscalTimeline : displayPayload ?? fiscalTimeline) ??
+    (chartsAllowEmptyPayload ? EMPTY_MACRO_PAYLOAD : null);
+
+  useEffect(() => {
+    if (!hasFiscalCharts) setChartSidePanelTab(tab => tab === "tables" ? "settings" : tab);
+  }, [hasFiscalCharts]);
 
   /** 用已显示的序列与完整时间轴构成身份：同一图切回工作区时恢复范围，换图即不再命中缓存。 */
   const chartRangeDatasetKey = useMemo(() => {
@@ -2634,7 +2660,7 @@ export function MacroSection() {
    */
   const autoExtractedQueryRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!isMobile || mainTab !== "charts" || loading) return;
+    if (!isMobile || mainTab !== "charts" || loading || allFiscalCharts) return;
     if (!seriesQuery || requestedMdsInstruments) return;
     const requested = new Set(
       (requestedQuery ?? "")
@@ -2654,7 +2680,7 @@ export function MacroSection() {
     setExtractedSet(new Set(keys));
     setRequestedQuery(seriesQuery);
     setExtractNonce((n) => n + 1);
-  }, [isMobile, loading, mainTab, requestedMdsInstruments, requestedQuery, seriesQuery]);
+  }, [allFiscalCharts, isMobile, loading, mainTab, requestedMdsInstruments, requestedQuery, seriesQuery]);
 
   function locateIndicatorInSidebar(key: string) {
     if (key.startsWith("calc:")) return;
@@ -3467,7 +3493,21 @@ export function MacroSection() {
                       <p className="px-3 py-6 text-center text-xs text-fs-muted">{tx("点击「提取数据」后，各指标数值将显示在此处。")}</p>
                     );
 
-  const chartSidePanelBody = chartSidePanelTab === "events" ? (
+  const chartSidePanelTabs: { id: ChartSidePanelTab; label: string }[] = [
+    { id: "settings", label: tx("图形设置") },
+    { id: "events", label: tx("事件记录") },
+    { id: "intro", label: tx("模板介绍") },
+    ...(hasFiscalCharts ? [{ id: "tables" as const, label: tx("数据表") }] : []),
+  ];
+  const fiscalChartStatus = hasFiscalCharts && !fiscalViews.length ? (
+    <div className="shrink-0 px-2 py-1 text-xs text-fs-muted" role={fiscalFailed ? "alert" : "status"}>
+      {fiscalFailed ? tx("财政图表暂不可用，请稍后重试") : tx("正在读取财政图表…")}
+      {fiscalFailed ? <button type="button" onClick={retryFiscal} className="ml-2 text-fs-accent-text">{tx("重试")}</button> : null}
+    </div>
+  ) : null;
+  const chartSidePanelBody = chartSidePanelTab === "tables" ? (
+    <UsFiscalDataTables views={fiscalViews} attribution={fiscalPayload?.attribution} />
+  ) : chartSidePanelTab === "events" ? (
                               <EventChartSidePanel
                                 variant="embedded"
                                 rangeFrom={macroEventRangeFrom}
@@ -3860,12 +3900,14 @@ export function MacroSection() {
                 {error}
               </div>
             ) : null}
+            {fiscalChartStatus}
             <MacroMultiChartGrid
               key={`macro-grid-mobile-${layoutMode}`}
               payload={chartGridPayload}
               layoutMode={layoutMode}
               slotAssignment={extractedAssignment}
-              seriesVisualMap={effectiveSeriesVisualMap}
+              seriesVisualMap={chartGridVisualMap}
+              fiscalViewsBySlot={fiscalViewsBySlot}
               displayConfig={effectiveDisplayConfig}
               recessionBands={displayConfig.showRecessionShading ? recessionBands : undefined}
               regimeBands={regimeShadingEnabled ? regimeBands : undefined}
@@ -4005,13 +4047,7 @@ export function MacroSection() {
         >
           <div className="sticky top-0 z-10 flex flex-col gap-2 border-b border-fs-border bg-fs-bg px-3 py-2.5">
             <div className="flex gap-0.5 rounded-lg border border-fs-border bg-fs-elevated p-0.5">
-              {(
-                [
-                  ["settings", tx("图形设置")],
-                  ["events", tx("事件记录")],
-                  ["intro", tx("模板介绍")],
-                ] as const
-              ).map(([id, label]) => (
+              {chartSidePanelTabs.map(({ id, label }) => (
                 <button
                   key={id}
                   type="button"
@@ -4400,12 +4436,14 @@ export function MacroSection() {
                       ref={chartCaptureRef}
                       className="flex min-h-0 min-w-0 flex-1 flex-col"
                     >
+                      {fiscalChartStatus}
                       <MacroMultiChartGrid
                         key={`macro-grid-${layoutMode}`}
                         payload={chartGridPayload}
                         layoutMode={layoutMode}
                         slotAssignment={extractedAssignment}
-                        seriesVisualMap={effectiveSeriesVisualMap}
+                        seriesVisualMap={chartGridVisualMap}
+                        fiscalViewsBySlot={fiscalViewsBySlot}
                         displayConfig={effectiveDisplayConfig}
                         recessionBands={
                           displayConfig.showRecessionShading ? recessionBands : undefined
@@ -4459,13 +4497,7 @@ export function MacroSection() {
                           <div className="flex shrink-0 flex-col gap-2 border-b border-fs-border px-2 py-1.5">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex min-w-0 flex-1 gap-0.5 rounded-md border border-fs-border/90 bg-fs-elevated p-0.5">
-                                {(
-                                  [
-                                    { id: "settings" as const, label: tx("图形设置") },
-                                    { id: "events" as const, label: tx("事件记录") },
-                                    { id: "intro" as const, label: tx("模板介绍") },
-                                  ] as const
-                                ).map(({ id, label }) => (
+                                {chartSidePanelTabs.map(({ id, label }) => (
                                   <button
                                     key={id}
                                     type="button"
