@@ -273,6 +273,7 @@
     "equity:sync-daily-disclosures": "dotenv -e .env.local -- tsx scripts/equity/sync-daily-disclosures.ts",
     "equity:sync-fundamental-vintages": "dotenv -e .env.local -- tsx scripts/equity/sync-fundamental-vintages.ts",
     "equity:sync-sector-etf-holdings": "dotenv -e .env.local -- tsx scripts/equity/sync-sector-etf-holdings.ts",
+    "db:backfill-sector-nport-holdings": "dotenv -e .env.local -- tsx scripts/equity/backfill-sector-nport-holdings.ts",
     "equity:import-sector-etf-holdings": "dotenv -e .env.local -- tsx scripts/equity/import-sector-etf-holdings.ts",
     "equity:import-sector-classifications": "dotenv -e .env.local -- tsx scripts/equity/import-sector-classification-history.ts",
     "equity:snapshot-current-classifications": "dotenv -e .env.local -- tsx scripts/equity/snapshot-current-sector-classifications.ts",

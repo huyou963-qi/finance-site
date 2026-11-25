@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { GICS_SECTOR_DEFS } from "./gicsCatalog";
 import { latestCompletedQuarter } from "./fundamentalsAgg";
 import { calendarQuarterLabel } from "./secFundamentals";
+import { SEC_NPORT_HOLDINGS_SOURCE } from "./sectorEtfHoldings";
 import {
   buildIndustryFinancialHistory, financialQuarterEnd, selectFinancialHoldingsDate, shiftFinancialQuarter,
   type FinancialHistoryPoint, type FinancialUniverse, type MembershipBasis,
@@ -43,7 +44,7 @@ async function readIndustryFinancials(options: IndustryFinancialOptions, db: Pri
   ])];
   const holdings = requestedDates.length ? await db.sectorEtfHolding.findMany({
     where: { etf: options.etf, asOfDate: { in: requestedDates.map(date => new Date(`${date}T00:00:00Z`)) }, weight: { gt: 0 } },
-    select: { asOfDate: true, symbol: true, cusip: true, name: true, weight: true },
+    select: { asOfDate: true, symbol: true, cusip: true, name: true, weight: true, source: true, holdingKey: true },
     orderBy: [{ asOfDate: "asc" }, { weight: "desc" }], take: requestedDates.length * MAX_HOLDINGS + 1,
   }) : [];
   const universes = new Map<string, FinancialUniverse>();
@@ -51,14 +52,14 @@ async function readIndustryFinancials(options: IndustryFinancialOptions, db: Pri
     const date = iso(holding.asOfDate);
     if (!universes.has(date)) universes.set(date, { date, holdings: [] });
     const universe = universes.get(date)!;
-    universe.holdings.push(holding);
+    universe.holdings.push({ ...holding, equityHoldingKey: holding.source === SEC_NPORT_HOLDINGS_SOURCE ? holding.holdingKey : undefined });
     if (universe.holdings.length > MAX_HOLDINGS) throw new Error("ETF 成分超出本页查询范围");
   }
   if (holdings.length > requestedDates.length * MAX_HOLDINGS) throw new Error("ETF 成分超出本页查询范围");
   const symbols = [...new Set(holdings.flatMap(row => row.symbol ? [row.symbol] : []))];
   const cusips = [...new Set(holdings.flatMap(row => row.cusip ? [row.cusip] : []))];
   const securitySelect = { symbol: true, cik: true, cusip: true, name: true } as const;
-  let securities = symbols.length ? await db.equitySecurity.findMany({
+  let securities = symbols.length || cusips.length ? await db.equitySecurity.findMany({
     where: { OR: [{ symbol: { in: symbols } }, { cusip: { in: cusips } }] }, select: securitySelect, take: MAX_SECURITIES + 1,
   }) : [];
   const ciks = [...new Set(securities.flatMap(row => row.cik ? [row.cik, row.cik.replace(/^0+/, ""), row.cik.padStart(10, "0")] : []))];

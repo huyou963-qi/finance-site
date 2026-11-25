@@ -1,6 +1,8 @@
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
 
+export const SEC_NPORT_HOLDINGS_SOURCE = "SEC Form N-PORT";
+
 export type EtfHoldingSnapshotRow = {
   etf: string;
   asOfDate: string;
@@ -126,12 +128,15 @@ export async function replaceEtfHoldingSnapshot(
   snapshot: ParsedEtfHoldingSnapshot,
   source = "State Street daily holdings",
   sourceUrl = ssgaDailyHoldingsUrl(snapshot.etf),
+  options: { preserveExisting?: boolean } = {},
 ): Promise<number> {
   validateEtfHoldingSnapshot(snapshot.rows);
   const asOfDate = new Date(`${snapshot.asOfDate}T00:00:00.000Z`);
-  await prisma.$transaction([
-    prisma.sectorEtfHolding.deleteMany({ where: { etf: snapshot.etf, asOfDate } }),
-    prisma.sectorEtfHolding.createMany({
+  const where = { etf: snapshot.etf, asOfDate };
+  return prisma.$transaction(async tx => {
+    if (options.preserveExisting && await tx.sectorEtfHolding.findFirst({ where, select: { id: true } })) return 0;
+    if (!options.preserveExisting) await tx.sectorEtfHolding.deleteMany({ where });
+    const created = await tx.sectorEtfHolding.createMany({
       data: snapshot.rows.map((row) => ({
         etf: row.etf,
         asOfDate,
@@ -143,9 +148,9 @@ export async function replaceEtfHoldingSnapshot(
         shares: row.shares,
         source,
         sourceUrl,
-        metadata: { originalWeightUnit: "percent", parser: "ssga-daily-v1" },
+        metadata: { originalWeightUnit: "percent", parser: source === SEC_NPORT_HOLDINGS_SOURCE ? "sec-nport-v1" : "ssga-daily-v1" },
       })),
-    }),
-  ]);
-  return snapshot.rows.length;
+    });
+    return created.count;
+  }, options.preserveExisting ? { isolationLevel: "Serializable" } : undefined);
 }

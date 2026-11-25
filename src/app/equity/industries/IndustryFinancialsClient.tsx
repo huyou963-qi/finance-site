@@ -75,8 +75,8 @@ export function IndustryFinancialsClient() {
     { title: tr("净利润规模"), metric: "netIncome" as const, percent: false, series: [{ name: tr("净利润"), color: SITE.accent, metrics: views.map(row => row.netIncome) }, { name: tr("净利润同比"), color: "#a56a17", dashed: true, percent: true, metrics: views.map(row => row.netIncomeYoY) }] },
     { title: tr("净利率"), metric: "netMargin" as const, percent: true, series: [{ name: tr("净利率"), color: SITE.accent, metrics: views.map(row => row.netMargin) }] },
     { title: tr("现金流与资本开支"), metric: "fcf" as const, percent: false, series: [
-      { name: tr("经营现金流"), color: SITE.accent, metrics: views.map(row => row.ocf) },
-      { name: tr("资本开支"), color: "#a56a17", dashed: true, metrics: views.map(row => row.capex) },
+      { name: tr("经营现金流"), color: SITE.accent, metrics: views.map(row => row.cashSourceCoverage.ocf) },
+      { name: tr("资本开支"), color: "#a56a17", dashed: true, metrics: views.map(row => row.cashSourceCoverage.capex) },
       { name: tr("自由现金流"), color: "#16805b", metrics: views.map(row => row.fcf) },
     ] },
   ], [views, tr]);
@@ -119,8 +119,7 @@ export function IndustryFinancialsClient() {
 
       <section className="border-t border-fs-border pt-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-fs-text">{tr("行业主要财务指标的历史变化")}</h2><span className="text-xs text-fs-muted">{tr("空心点：权重覆盖不足80%，不连入趋势线 · 点击图表选择报告期")}</span></div><div className="mt-4 grid min-w-0 gap-x-8 gap-y-5 md:grid-cols-2">
         {charts.map(chart => <section key={chart.metric} className="min-w-0"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium text-fs-text">{tr(chart.title)}</h3><span className="text-sm tabular-nums text-fs-text">{chart.percent ? pct(view[chart.metric].value) : amount(view[chart.metric].value)}</span></div><div className="mt-1 flex flex-wrap justify-between gap-1"><span className="text-xs text-fs-muted">{chart.percent ? "%" : tr("十亿美元")}</span><Coverage metric={view[chart.metric]} /></div><Chart periods={periods} series={chart.series} selectedPeriod={selectedPeriod} percent={chart.percent} onSelect={selectPeriod} />{(chart.metric === "revenue" || chart.metric === "netIncome") && <p className="mt-2 text-xs leading-relaxed text-fs-muted">{tr("同比使用本期与去年同期均有数据的同样本，覆盖率独立统计。")}{chart.metric === "netIncome" && tr("净利润同比 =（本期−上年同期）/ |上年同期|，上年合计为零时不显示。")}</p>}</section>)}
-      </div><p className="mt-3 text-xs leading-6 text-fs-muted">{tr("现金流三条线使用经营现金流与资本开支均齐全的共同样本，确保自由现金流 = 经营现金流 − 资本开支。")}{view.cashSourceCoverage ? tr(" {mode}单项数据权重覆盖：经营现金流 {v1}；资本开支 {v2}。单项有值但另一项缺失的公司不计入这三条曲线。", { mode, v1: pct(view.cashSourceCoverage.ocf.weightCoverage), v2: pct(view.cashSourceCoverage.capex.weightCoverage) }) : ""}
-      </p></section>
+      </div><p className="mt-3 text-xs leading-6 text-fs-muted">{tr("经营现金流和资本开支各自使用有披露的公司。自由现金流只在两项齐全的公司内计算，各条线的覆盖率可在图中查看。")}</p></section>
 
       <section className="border-t border-fs-border pt-5" aria-busy={loading}>
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-fs-text">{tr("行业公司速览")}</h2><span className="text-xs text-fs-muted">{selectedPeriod} · {mode} {tr("· FCF单位：十亿美元")}</span></div><p className="mt-1 text-xs text-fs-muted">{tr("按持仓权重排序；同一公司多股类合并。点击公司进入财务基本面。")}</p>
@@ -136,7 +135,7 @@ export function IndustryFinancialsClient() {
           })}
         </>}
       </section>
-      <details className="border-t border-fs-border pt-3 text-xs leading-6 text-fs-muted"><summary className="min-h-11 cursor-pointer py-2 text-fs-accent-text">{tr("统计口径与数据说明")}</summary><p>{tr("分类对应11只 Select Sector SPDR ETF。成分来自官方持仓归档，不以证券主档的行业标签替代。公司按 CIK 去重，权重合并；未识别持仓仍计入覆盖分母。")}</p><p>{tr("营收同比采用本期与上年同期都有值的同一批公司；净利率使用营收和净利润同时有效的公司。现金流三条线采用相同子样本。TTM 在财年末优先使用已核实的完整年报；其他季度须有连续四季，缺季留空。年报不补单季，也不延用到其他季度。覆盖不足时，数值仅代表已覆盖样本，不能视为完整行业。")}</p><p>{tr("金额为已有 SEC 标准化美元数据，展示单位为十亿美元。自然季度按公司实际财季末归组，不代表所有公司起止日期完全一致。当前重述值不等于当时已知值；历史持仓口径也不是 PIT 财务回测。")}</p><p>{tr("金融及房地产行业的现金流指标可比性有限，未补齐行业专属科目前不据此评价经营优劣。页面只读取数据库，不触发全行业外部抓取；入库后最多约5分钟缓存更新。")}</p></details>
+      <details className="border-t border-fs-border pt-3 text-xs leading-6 text-fs-muted"><summary className="min-h-11 cursor-pointer py-2 text-fs-accent-text">{tr("统计口径与数据说明")}</summary><p>{tr("分类对应11只 Select Sector SPDR ETF。成分来自官方持仓归档，不以证券主档的行业标签替代。公司按 CIK 去重，权重合并；未识别持仓仍计入覆盖分母。")}</p><p>{tr("营收同比采用本期与上年同期都有值的同一批公司；净利率使用营收和净利润同时有效的公司。经营现金流与资本开支分别统计，自由现金流使用两项齐全的公司。TTM 在财年末优先使用已核实的完整年报；其他季度须有连续四季，缺季留空。年报不补单季，也不延用到其他季度。覆盖不足时，数值仅代表已覆盖样本，不能视为完整行业。")}</p><p>{tr("金额为已有 SEC 标准化美元数据，展示单位为十亿美元。自然季度按公司实际财季末归组，不代表所有公司起止日期完全一致。当前重述值不等于当时已知值；历史持仓口径也不是 PIT 财务回测。")}</p><p>{tr("金融及房地产行业的现金流指标可比性有限，未补齐行业专属科目前不据此评价经营优劣。页面只读取数据库，不触发全行业外部抓取；入库后最多约5分钟缓存更新。")}</p></details>
     </> : null}
   </div>;
 }
