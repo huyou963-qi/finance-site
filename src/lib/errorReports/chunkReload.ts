@@ -102,7 +102,13 @@ function navigateHard(): void {
 
 function bustCachedAssetThenReload(input?: unknown, filename?: string): void {
   const asset = extractFailedStaticAssetUrl(input, filename);
-  const go = () => navigateHard();
+  // 超时兜底与 fetch 完成可能先后发生；同一次恢复只能跳转一次。
+  let navigated = false;
+  const go = () => {
+    if (navigated) return;
+    navigated = true;
+    navigateHard();
+  };
   if (!asset) {
     go();
     return;

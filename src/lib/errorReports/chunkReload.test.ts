@@ -163,3 +163,27 @@ test("bfcache 还原且刚因过期资源刷新过时再次强制跳转", async 
   await Promise.resolve();
   assert.equal(replaces.length, 1);
 });
+
+
+test("chunk 9930 missing 报错可恢复并保留当前路径及参数", async () => {
+  fakeWindow.location.href = "https://gekkotech.cn/forecast/us-cpi?view=history";
+  const message = "ChunkLoadError: Loading chunk 9930 failed.\n(missing: https://gekkotech.cn/_next/static/chunks/9930-15930c5d44209e83.js)";
+  assert.equal(recoverStaleClientAsset(new Error(message)), true);
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(fetches.length, 1);
+  assert.equal(new URL(replaces[0]!).pathname, "/forecast/us-cpi");
+  assert.equal(new URL(replaces[0]!).searchParams.get("view"), "history");
+});
+
+test("资源请求超过刷新兜底时间后完成，不会重复导航", async () => {
+  let finish!: (response: Response) => void;
+  fetchImpl = () => new Promise((resolve) => { finish = resolve; });
+  assert.equal(recoverStaleClientAsset(chunkError()), true);
+  await new Promise((resolve) => setTimeout(resolve, 550));
+  assert.equal(replaces.length, 1);
+  finish(new Response(null, { status: 200 }));
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(replaces.length, 1);
+});
