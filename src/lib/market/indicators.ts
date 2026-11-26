@@ -26,6 +26,7 @@ const COUNTRY_PREFIXES: [string, RegExp][] = [
   ["US", /^(?:美国|(?:united states|usa|us)(?=\s|\p{Script=Han}|$))/u],
   ["CN", /^(?:中国|(?:china|cn)(?=\s|\p{Script=Han}|$))/u],
   ["JP", /^(?:日本|(?:japan|jp)(?=\s|\p{Script=Han}|$))/u],
+  ["DE", /^(?:德国|(?:germany|de)(?=\s|\p{Script=Han}|$))/u],
   ["EA", /^(?:欧元区|(?:euro area|eurozone|ea)(?=\s|\p{Script=Han}|$))/u],
 ];
 const SEARCH_QUALIFIERS: Record<string, string[]> = {
