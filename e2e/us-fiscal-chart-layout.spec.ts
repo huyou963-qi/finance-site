@@ -48,7 +48,7 @@ test("the three fiscal templates use the standard macro grid on desktop and mobi
     route.fulfill({ json: { views, attribution: "测试数据" } }),
   );
 
-  for (const [index, entry] of Object.entries(templates).entries()) {
+  for (const entry of Object.entries(templates)) {
     active = entry;
     await page.goto("/macro");
     await (
@@ -76,17 +76,12 @@ test("the three fiscal templates use the standard macro grid on desktop and mobi
       expect(second.x).toBeGreaterThan(first.x);
     }
 
-    if (index === 0) {
-      await (
-        mobile
-          ? page.getByRole("button", { name: "设置", exact: true })
-          : page.getByTitle("展开图形设置")
-      ).click();
-      await page.getByRole("button", { name: "数据表", exact: true }).click();
-      await page.locator("summary").filter({ hasText: "公共债务存量" }).click();
-      await expect(
-        page.getByRole("table", { name: "公共债务存量" }).getByText("2025-12"),
-      ).toBeVisible();
-    }
+    await (
+      mobile
+        ? page.getByRole("button", { name: "设置", exact: true })
+        : page.getByTitle("展开图形设置")
+    ).click();
+    await expect(page.getByRole("button", { name: "模板介绍", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "数据表", exact: true })).toHaveCount(0);
   }
 });
