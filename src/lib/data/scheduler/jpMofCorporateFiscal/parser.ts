@@ -182,7 +182,7 @@ export function parseJpMofDebtWorkbook(buffer: Buffer): ObservationPoint[] {
   const workbook = XLSX.read(buffer, { type: "buffer", raw: false });
   if (workbook.SheetNames.length !== 1) throw new Error("MOF central debt workbook sheets changed");
   const table = rows(workbook, workbook.SheetNames[0]);
-  const header = table.find((row) => row.some((cell) => /2021 September/.test(String(cell))));
+  const header = table.find((row) => row.some((cell) => /20\d{2}\s+(?:March|June|September|December)/.test(String(cell))));
   if (!header || !table.flat().some((cell) => /Unit: 100 million yen/.test(String(cell)))) {
     throw new Error("MOF central debt header changed");
   }
@@ -196,7 +196,7 @@ export function parseJpMofDebtWorkbook(buffer: Buffer): ObservationPoint[] {
     const month = { March: 2, June: 5, September: 8, December: 11 }[match[2] as "March" | "June" | "September" | "December"];
     points.push({ obsDate: new Date(Date.UTC(Number(match[1]), month, 1)), value: numeric(debtRow[column], "General Bonds") });
   }
-  if (points.length < 20 || points[0]?.obsDate.toISOString().slice(0, 10) !== "2021-09-01") {
+  if (points.length < 20) {
     throw new Error("MOF General Bonds history changed");
   }
   for (let index = 1; index < points.length; index++) {

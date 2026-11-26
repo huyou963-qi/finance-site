@@ -32,15 +32,27 @@ export async function fetchShillerCapePage(opts?: {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.html;
 
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        process.env.SHILLER_CAPE_USER_AGENT?.trim() ||
-        "finance-site-data-scheduler/1.0",
-      Accept: "text/html,*/*",
-    },
-    signal: AbortSignal.timeout(30_000),
-  });
+  // Retry transient transport failures; never cache an unsuccessful response.
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      res = await fetch(url, {
+        headers: {
+          "User-Agent":
+            process.env.SHILLER_CAPE_USER_AGENT?.trim() ||
+            "finance-site-data-scheduler/1.0",
+          Accept: "text/html,*/*",
+        },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (res.ok || (res.status !== 429 && res.status < 500) || attempt === 2) break;
+      await res.body?.cancel();
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+  }
+  if (!res) throw new Error(`multpl request failed: ${url}`);
   if (!res.ok) {
     throw new Error(`Shiller CAPE 抓取 HTTP ${res.status}: ${url}`);
   }

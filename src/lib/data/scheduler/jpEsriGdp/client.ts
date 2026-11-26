@@ -5,7 +5,7 @@ import { JP_ESRI_GDP_MENU_URL, JP_ESRI_GDP_TABLES, type EsriTable } from "./cata
 
 export function discoverEsriRelease(menu: string): string {
   const links = [...menu.matchAll(/href=["']([^"']+gdemenuja\.html)["']/g)].map((m) => new URL(m[1], JP_ESRI_GDP_MENU_URL).href);
-  const release = links.find((url) => /^https:\/\/www\.esri\.cao\.go\.jp\/jp\/sna\/data\/data_list\/sokuhou\/files\/\d{4}\/qe\d{3}_[12]\/gdemenuja\.html$/.test(url));
+  const release = links.find((url) => /^https:\/\/www\.esri\.cao\.go\.jp\/jp\/sna\/data\/data_list\/sokuhou\/files\/\d{4}\/qe\d{3}(?:_[12])?\/gdemenuja\.html$/.test(url));
   if (!release) throw new Error("ESRI latest release link missing");
   return release;
 }

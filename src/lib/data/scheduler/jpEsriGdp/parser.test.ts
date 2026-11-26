@@ -42,3 +42,12 @@ test("fail closed for changed units/base, missing header, invalid values and dat
   assert.throws(() => parseEsriGdpCsv(nominal.replace("1994/", "1995/"), "gaku-mk", asOf), /full-history/);
   assert.throws(() => parseEsriGdpCsv(nominal, "gaku-mk", new Date("2026-06-15")), /incomplete/);
 });
+
+// November 2026 first estimate uses qe263/ without a revision suffix.
+test("release discovery accepts official first-estimate and revised directories", () => {
+  for (const directory of ["qe263", "qe263_1", "qe263_2"]) {
+    const url = `https://www.esri.cao.go.jp/jp/sna/data/data_list/sokuhou/files/2026/${directory}/gdemenuja.html`;
+    assert.equal(discoverEsriRelease(`<a href="${url}">統計表一覧</a>`), url);
+  }
+  assert.throws(() => discoverEsriRelease('<a href="https://foreign.example/2026/qe263/gdemenuja.html">file</a>'), /missing/);
+});
