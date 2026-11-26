@@ -33,7 +33,7 @@ import { EventChartSidePanel } from "@/components/events/EventChartSidePanel";
 import { MacroMainToolbar } from "@/components/macro/MacroMainToolbar";
 import { MacroSystemTemplateBrowser } from "@/components/macro/MacroSystemTemplateBrowser";
 import { MacroTemplateIntroPanel } from "@/components/macro/MacroTemplateIntroPanel";
-import { useUsFiscalViews, UsFiscalDataTables } from "@/components/macro/UsFiscalAnalysisView";
+import { useUsFiscalViews } from "@/components/macro/UsFiscalAnalysisView";
 import { fiscalChartTimeline, fiscalChartVisuals } from "@/lib/data/usFiscalChartAdapter";
 import type { UsFiscalView } from "@/lib/data/usFiscalViewTypes";
 import { sanitizeMacroIntroHtml, templateIntroSnapshot } from "@/lib/data/macroIntroHtml";
@@ -219,7 +219,7 @@ type ChartRangeCache = {
   range: { start: number; end: number };
 };
 
-type ChartSidePanelTab = "settings" | "events" | "intro" | "tables";
+type ChartSidePanelTab = "settings" | "events" | "intro";
 
 const INTRO_WORKSPACE_TEMPLATE_ID = "__workspace__";
 
@@ -2412,10 +2412,6 @@ export function MacroSection() {
   const chartGridPayload = (allFiscalCharts ? fiscalTimeline : displayPayload ?? fiscalTimeline) ??
     (chartsAllowEmptyPayload ? EMPTY_MACRO_PAYLOAD : null);
 
-  useEffect(() => {
-    if (!hasFiscalCharts) setChartSidePanelTab(tab => tab === "tables" ? "settings" : tab);
-  }, [hasFiscalCharts]);
-
   /** 用已显示的序列与完整时间轴构成身份：同一图切回工作区时恢复范围，换图即不再命中缓存。 */
   const chartRangeDatasetKey = useMemo(() => {
     if (!chartGridPayload) return null;
@@ -3497,7 +3493,6 @@ export function MacroSection() {
     { id: "settings", label: tx("图形设置") },
     { id: "events", label: tx("事件记录") },
     { id: "intro", label: tx("模板介绍") },
-    ...(hasFiscalCharts ? [{ id: "tables" as const, label: tx("数据表") }] : []),
   ];
   const fiscalChartStatus = hasFiscalCharts && !fiscalViews.length ? (
     <div className="shrink-0 px-2 py-1 text-xs text-fs-muted" role={fiscalFailed ? "alert" : "status"}>
@@ -3505,9 +3500,7 @@ export function MacroSection() {
       {fiscalFailed ? <button type="button" onClick={retryFiscal} className="ml-2 text-fs-accent-text">{tx("重试")}</button> : null}
     </div>
   ) : null;
-  const chartSidePanelBody = chartSidePanelTab === "tables" ? (
-    <UsFiscalDataTables views={fiscalViews} attribution={fiscalPayload?.attribution} />
-  ) : chartSidePanelTab === "events" ? (
+  const chartSidePanelBody = chartSidePanelTab === "events" ? (
                               <EventChartSidePanel
                                 variant="embedded"
                                 rangeFrom={macroEventRangeFrom}

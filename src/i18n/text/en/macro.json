@@ -665,10 +665,9 @@
   "数据截至": "Data through",
   "（右轴）": " (right axis)",
   "查看数据表": "View data table",
-  "数据表": "Data tables",
   "自动读取美国财政官方数据；选择分析图，无需拖入指标": "Uses official US fiscal data. Select an analysis chart; no indicators need to be dragged in.",
   "图{slot}财政分析内容": "Fiscal analysis for chart {slot}",
   "财政图表暂不可用，请稍后重试": "Fiscal charts are temporarily unavailable. Please try again later.",
-  "财政分析图使用固定口径与单位，可在数据表中查看明细": "Fiscal analysis uses fixed definitions and units. Details are available in the data tables.",
+  "财政分析图使用固定口径与单位": "Fiscal analysis uses fixed definitions and units.",
   "模板说明": "Template guide"
 }
