@@ -158,7 +158,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     input => ({ cost: 1, run: async () => {
       const data = await searchMarketIndicators({ ...input, limit: Math.min(input.limit, 10) });
       return { truncated: data.truncated, indicators: data.indicators.map(i => ({
-        ...publicMacro(i), availableFrom: i.availableFrom, availableTo: i.availableTo, observations: i.observations,
+          ...publicMacro(i), basis: i.basis, availableFrom: i.availableFrom, availableTo: i.availableTo, observations: i.observations,
       })) };
     } }));
 
