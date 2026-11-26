@@ -1,5 +1,6 @@
 import type { Instrument, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { inferInstrumentCountryCode } from "@/lib/data/instrumentCountry";
 import { MarketError, searchIndicatorsSchema } from "./schema";
 
 // Verified identities supplement (never replace) the database's own metadata.
@@ -76,7 +77,7 @@ export function describeIndicator(row: Instrument) {
     originalIndicatorId: row.fredSeriesId ?? scrape.seriesId ?? source.seriesKey ?? row.code,
     frequency: nativeFrequency(row.freqLabel), nativeFrequencyLabel: row.freqLabel,
     unit: known?.unit ?? row.unit, nativeUnit: row.unit, currency: known?.currency ?? m.currency ?? null,
-    market: m.countryCode ?? null, location: known?.location ?? m.location ?? m.countryNameZh ?? null,
+    market: inferInstrumentCountryCode(row), location: known?.location ?? m.location ?? m.countryNameZh ?? null,
     instrumentType, basis, aliases: known?.aliases ?? WPSR_ALIASES[row.code] ?? [],
     contractMonth: null,
     continuousContractRule: instrumentType === "futures" ? (row.code === "nymex_wti_futures" ? "Yahoo CL=F 连续合约；供应商未公开可核实的逐日换月表，不视为固定月份合约" : "未知，不自动推断换月或复权规则") : null,
@@ -129,7 +130,6 @@ export async function searchMarketIndicators(raw: unknown) {
   const rows = await prisma.instrument.findMany({
     where: {
       kind: "MACRO_SERIES",
-      ...(country ? { metadata: { path: ["countryCode"], equals: country[0] } } : {}),
       OR: alternatives,
     },
     orderBy: { code: "asc" },

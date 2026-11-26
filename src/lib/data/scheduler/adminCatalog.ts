@@ -30,6 +30,7 @@ import {
 } from "./releasePackageStore";
 import { sortByCatalogCountryCode } from "@/lib/data/catalogCountryOrder";
 import { readOnboardingStatus } from "@/lib/data/indicatorOnboarding";
+import { inferInstrumentCountryCode } from "@/lib/data/instrumentCountry";
 
 export type AdminCatalogIndicator = {
   key: string;
@@ -225,25 +226,7 @@ function resolveInstrumentForKey(
 }
 
 function inferCountryCodeForInstrument(inst: InstRow): string {
-  const md =
-    inst.metadata && typeof inst.metadata === "object"
-      ? (inst.metadata as Record<string, unknown>)
-      : null;
-  const fromMeta = md?.countryCode ?? md?.country;
-  if (typeof fromMeta === "string" && fromMeta.trim()) {
-    return fromMeta.trim().toUpperCase().slice(0, 2);
-  }
-  if (inst.code.startsWith("chov_")) return "CN";
-  if (inst.code.startsWith("jpov_")) return "JP";
-  if (
-    inst.code.startsWith("ism_") ||
-    inst.code.startsWith("sched_fred_") ||
-    inst.code.startsWith("usov_") ||
-    inst.code.startsWith("debtcap_")
-  ) {
-    return "US";
-  }
-  return "OT";
+  return inferInstrumentCountryCode(inst) ?? "OT";
 }
 
 function syntheticCatalogItemFrequency(inst: InstRow) {

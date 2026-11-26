@@ -37,14 +37,14 @@ test("indicator search ranks exact matches and respects country and explicit ser
   const [m] = await market;
   const us = { countryCode: "US" };
   const exportSeries = { ...wti, code: "a_us_exports", fredSeriesId: null, name: "出口：Canada", description: "美国货物出口", metadata: us };
-  const foreignCpi = { ...wti, code: "a_jp_cpi", fredSeriesId: null, name: "CPI：全国：总项", metadata: { countryCode: "JP" } };
-  const headline = { ...wti, code: "sched_fred_CPIAUCSL", fredSeriesId: "CPIAUCSL", name: "CPI（全部城市消费者）", metadata: us };
+  const foreignCpi = { ...wti, code: "jpov_cpi", fredSeriesId: null, name: "CPI：全国：总项", metadata: {} };
+  const headline = { ...wti, code: "sched_fred_CPIAUCSL", fredSeriesId: "CPIAUCSL", name: "CPI（全部城市消费者）", metadata: {} };
   const core = { ...headline, code: "sched_fred_CPILFESL", fredSeriesId: "CPILFESL", name: "核心 CPI（剔除食物与能源）" };
   const unadjusted = { ...core, code: "sched_fred_CPILFENS", fredSeriesId: "CPILFENS", name: "核心 CPI（未季调）" };
   const positions = { ...wti, code: "cot_mm_wti_cme_long", fredSeriesId: null, name: "COT管理基金多头:WTI Crude (CME)", description: null, metadata: us };
   const futures = { ...wti, code: "nymex_wti_futures", fredSeriesId: null, name: "WTI 原油期货", description: null };
   const rows = [foreignCpi, exportSeries, positions, futures, ...Array.from({ length: 201 }, (_, index) => ({
-    ...headline, code: `a_cpi_${index}`, fredSeriesId: null, name: "CPI 分项",
+    ...headline, code: `a_cpi_${index}`, fredSeriesId: null, name: "CPI 分项", metadata: us,
   })), core, unadjusted, headline, wti, { ...brent, metadata: { countryCode: "EA" } }];
   t.mock.method(prisma.instrument, "findMany", async ({ take }: { take?: number }) => rows.slice(0, take));
   for (const query of ["美国CPI", "美国 CPI", "US CPI", "U.S. ＣＰＩ", "美国消费者物价指数", "CPIAUCSL", "fred:cpiaucsl"]) {
@@ -61,6 +61,8 @@ test("indicator search ranks exact matches and respects country and explicit ser
     assert.equal((await m.searchMarketIndicators({ query, limit: 1 })).indicators[0]?.code, code, query);
   }
   assert.deepEqual((await m.searchMarketIndicators({ query: "美国CPI", limit: 40 })).indicators.map(i => i.market), Array(40).fill("US"));
+  assert.equal((await m.searchMarketIndicators({ query: "日本CPI" })).indicators[0]?.code, foreignCpi.code);
+  assert.equal((await m.searchMarketIndicators({ query: "美国WTI现货" })).indicators[0]?.code, wti.code);
   assert.deepEqual((await m.searchMarketIndicators({ query: "美国Brent现货" })).indicators, []);
   assert.deepEqual((await m.searchMarketIndicators({ query: "WTI持仓" })).indicators.map(i => i.basis), [{ type: "positioning" }]);
 });
