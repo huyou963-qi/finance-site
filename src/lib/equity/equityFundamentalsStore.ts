@@ -216,20 +216,25 @@ export async function getQuarterlyFundamentalsDbFirst(
 
 /**
  * 多只股票一次读取季度序列（只读库，不现场回补）。返回 symbol → 升序季度；库内无数据的
- * symbol 不出现在结果里。since 限定期末日下界，避免把全部深历史读出来。
+ * symbol 不出现在结果里。periodEndRange 优先按实际财季末筛选，兼容只有 asOf 的旧记录。
  */
 export async function getQuarterlyFundamentalsBatch(
   symbols: readonly string[],
-  opts: { since?: string } = {},
+  opts: { since?: string; periodEndRange?: { startDate: string; endDate: string } } = {},
   db: Prisma.TransactionClient = prisma,
 ): Promise<Map<string, QuarterSnapshotRow[]>> {
   const out = new Map<string, QuarterSnapshotRow[]>();
   if (!symbols.length) return out;
+  const range = opts.periodEndRange && {
+    gte: new Date(`${opts.periodEndRange.startDate}T00:00:00.000Z`),
+    lte: new Date(`${opts.periodEndRange.endDate}T00:00:00.000Z`),
+  };
   const rows = await db.equityFundamentalSnapshot.findMany({
     where: {
       symbol: { in: [...symbols] },
       periodType: "Q",
-      ...(opts.since ? { asOf: { gte: new Date(`${opts.since}T00:00:00.000Z`) } } : {}),
+      ...(range ? { OR: [{ fiscalDate: range }, { fiscalDate: null, asOf: range }] }
+        : opts.since ? { asOf: { gte: new Date(`${opts.since}T00:00:00.000Z`) } } : {}),
     },
   });
   for (const r of rows) {

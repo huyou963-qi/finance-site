@@ -18,10 +18,12 @@ import { saveStockDataTemplate, TemplateStoreError } from "@/lib/equity/stockDat
 import { WatchlistStoreError } from "@/lib/data/marketWatchlistStore";
 import { addMyWatchlistStocks, getMyTemplate, getMyWatchlist, listMyTemplates, stockDataUrl } from "./personal";
 import { personalReadScope, personalWriteScope, researchScope, researchScopeChallenge, type ResearchScope, type ResearchFeature, type ResearchPrincipal } from "./oauth";
-import { getResearchUsage, withResearchBudget } from "./usage";
+import { getResearchUsage, ResearchBudgetError, withResearchBudget } from "./usage";
+import { fiscalAlignmentInput, prepareFiscalAlignment } from "./quarterAlignment";
 import {
   compareIndustries, getStockDisclosures, getStockGuidance, getStockInsiderFilings, industryComparison,
-  insiderFilingInput, listScreenerFactors, prepareScreener, screenStocks, stockEvidence,
+  disclosureArchiveInput, getStockDisclosureArchive, insiderFilingInput, listScreenerFactors, prepareQuarterlyFinancials,
+  prepareScreener, quarterlyFinancialsInput, screenStocks, stockEvidence,
 } from "./equity";
 import { contentFeatures, getResearchContent, searchResearchContent, type ResearchContent } from "./content";
 import { forecastFeatures, getForecastSummary } from "./forecasts";
@@ -137,6 +139,9 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
         const job = prepare(input);
         return result(await withResearchBudget(user.id, job.cost, job.run));
       } catch (error) {
+        if (error instanceof ResearchBudgetError) {
+          return result({ success: false, error: { code: error.code, message: error.message, ...error.details } }, true);
+        }
         if (error instanceof MarketError || error instanceof WatchlistStoreError || error instanceof TemplateStoreError) {
           return result({ success: false, error: { code: error.code, message: error.message } }, true);
         }
@@ -226,8 +231,16 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
       } };
     });
 
-  register("get_stock_disclosures", "查看一只美股近期公告及最新财报申报。返回日期及官方披露链接。", stockEvidence, "markets",
+  register("query_stock_quarterly_financials", "按实际财季末日期范围一次读取一只美股多项单季财务报表指标。包含财季末和缺失状态。", quarterlyFinancialsInput, "equity-stock-data",
+    prepareQuarterlyFinancials);
+  if (user.enabledFeatures.includes("macro")) {
+    register("compare_stock_macro_quarters", "将原生周频或月频宏观指标对齐到公司实际财季，返回同比或水平、宏观领先期、配对数和相关系数。", fiscalAlignmentInput, "equity-stock-data",
+      prepareFiscalAlignment);
+  }
+  register("get_stock_disclosures", "查看一只美股近期公告及最新财报申报。返回可用于查询归档的公告编号和附件名称。", stockEvidence, "markets",
     ({ symbol }) => ({ cost: 2, run: () => getStockDisclosures(symbol) }));
+  register("get_stock_disclosure_archive", "按证券、公告编号和附件名称读取站内归档的公告文字。使用 nextOffset 翻页；缺少归档时明确返回状态。", disclosureArchiveInput, "markets",
+    input => ({ cost: 2, run: () => getStockDisclosureArchive(input) }));
   register("get_stock_guidance", "读取近期公司已披露的管理层指引、目标报告期、口径和原文证据。", stockEvidence, "markets",
     ({ symbol }) => ({ cost: 5, run: () => getStockGuidance(symbol) }));
   register("get_stock_insider_filings", "获取一只股票的近期 Form 4 内部人申报引用。", insiderFilingInput, "equity-ownership",

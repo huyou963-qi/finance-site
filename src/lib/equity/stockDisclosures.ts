@@ -43,7 +43,7 @@ export function readReleaseAttachments(value: unknown): SecReleaseAttachment[] {
   }).slice(0, 5);
 }
 
-function filingIdentity(symbol: string, cik?: string | null) {
+export function filingIdentity(symbol: string, cik?: string | null) {
   return cik ? { cik: cik.replace(/\D/g, "").padStart(10, "0") } : { symbol };
 }
 

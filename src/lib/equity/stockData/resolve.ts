@@ -58,7 +58,7 @@ type Prepared = {
 const SECTOR_ZH = new Map(GICS_SECTOR_DEFS.map((d) => [d.sector as string, d.nameZh]));
 
 /** 无法按财年分组时的兜底：用财季位置推出财年末所在年份，或退化为日历季度 */
-function fallbackPosition(row: QuarterSnapshotRow): FiscalPos {
+export function quarterPositionFromDate(row: QuarterSnapshotRow): FiscalPos {
   const y = Number(row.fiscalDate.slice(0, 4));
   const m = Number(row.fiscalDate.slice(5, 7));
   const fq = row.fiscalQuarter;
@@ -89,7 +89,7 @@ export function quarterPositions(quarters: readonly QuarterSnapshotRow[], fiscal
   for (let i = 0; i < quarters.length; i++) {
     if (pos[i]) continue;
     const n = i - lastEnd;
-    pos[i] = lastEnd >= 0 && n >= 1 && n <= 3 ? { year: lastYear + 1, q: n } : fallbackPosition(quarters[i]!);
+    pos[i] = lastEnd >= 0 && n >= 1 && n <= 3 ? { year: lastYear + 1, q: n } : quarterPositionFromDate(quarters[i]!);
   }
   return pos;
 }
@@ -139,6 +139,12 @@ function lineValue(row: object & { lines?: Record<string, number> }, line: State
   const v = finite(raw);
   if (v == null) return null;
   return line.outflow && v !== 0 ? -v : v;
+}
+
+/** Same single-quarter statement values as the stock data table. */
+export function quarterStatementValues(row: QuarterSnapshotRow, lines: readonly StatementLine[]): (number | null)[] {
+  const statement = withStatementDerived(row);
+  return lines.map(line => lineValue(statement, line));
 }
 
 function valueCell(v: number | null, label: { p: string; d: string }): Cell {
