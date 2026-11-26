@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { reportClientError } from "@/lib/errorReports/clientReport";
-import { isExtensionScriptError, isPageExitAbort } from "@/lib/errorReports/browserNoise";
+import { isEmptyAdResponse, isExtensionScriptError, isPageExitAbort } from "@/lib/errorReports/browserNoise";
 import { describeRejection } from "@/lib/errorReports/rejectionReason";
 import {
   recoverIfBfCacheAfterStaleReload,
@@ -66,6 +66,7 @@ export function GlobalErrorListeners() {
 
     const onRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
+      if (isEmptyAdResponse(reason)) return;
       if (isPageExitAbort(reason, pageExiting)) return;
       if (reason instanceof Error && isExtensionScriptError(undefined, reason.stack)) return;
       if (recoverStaleClientAsset(reason)) return;
