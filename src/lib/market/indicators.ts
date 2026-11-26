@@ -105,6 +105,14 @@ export async function searchMarketIndicators(raw: unknown) {
     .split(/[\s,]+/).filter(Boolean))];
   const qualifiers = tokens.filter(token => Object.hasOwn(SEARCH_QUALIFIERS, token));
   const keywords = tokens.filter(token => !qualifiers.includes(token));
+  const keywordMatchers = keywords.map(keyword => {
+    // Latin prefixes support partial codes such as CPIAUC without matching inside GSCPI.
+    if (/^[a-z0-9]+$/.test(keyword)) {
+      const prefix = new RegExp(`(?:^|[^a-z0-9])${keyword}`);
+      return (value: string) => prefix.test(value);
+    }
+    return (value: string) => value.includes(keyword);
+  });
   const matchesAlias = (aliases: string[]) => aliases.some(alias => {
     const normalized = normalizeSearch(alias);
     return normalized === subject || tokens.some(token => normalized.includes(token));
@@ -157,7 +165,7 @@ export async function searchMarketIndicators(raw: unknown) {
       if (cpiBasis && (term === "季调" || term === "未季调")) return cpiBasis.seasonalAdjustment === (term === "季调" ? "adjusted" : "unadjusted");
       return names.some(name => Array.from(name.matchAll(QUALIFIER_PATTERN)).some(([alias]) => QUALIFIER_BY_ALIAS.get(alias) === term));
     });
-    const matched = keywords.filter(term => searchable.some(value => value.includes(term))).length;
+    const matched = keywordMatchers.filter(matches => searchable.some(matches)).length;
     if (!exactId && (!qualifies || (!exactName && (keywords.length ? matched === 0 : !qualifiers.length)))) return [];
     const complete = exactId || exactName || matched === keywords.length;
     if (!complete && (country || qualifiers.length)) return [];
