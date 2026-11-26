@@ -32,6 +32,38 @@ test("Chinese WTI/Brent aliases preserve stable identities, sources and basis", 
     assert.ok(found.indicators.every(i => i.instrumentType === "spot" && i.unit === "USD/bbl" && i.sourceUrl?.startsWith("https://")));
   }
 });
+test("indicator search ranks exact matches and respects country and explicit series basis", async t => {
+  fixture(t);
+  const [m] = await market;
+  const us = { countryCode: "US" };
+  const exportSeries = { ...wti, code: "a_us_exports", fredSeriesId: null, name: "出口：Canada", description: "美国货物出口", metadata: us };
+  const foreignCpi = { ...wti, code: "a_jp_cpi", fredSeriesId: null, name: "CPI：全国：总项", metadata: { countryCode: "JP" } };
+  const headline = { ...wti, code: "sched_fred_CPIAUCSL", fredSeriesId: "CPIAUCSL", name: "CPI（全部城市消费者）", metadata: us };
+  const core = { ...headline, code: "sched_fred_CPILFESL", fredSeriesId: "CPILFESL", name: "核心 CPI（剔除食物与能源）" };
+  const unadjusted = { ...core, code: "sched_fred_CPILFENS", fredSeriesId: "CPILFENS", name: "核心 CPI（未季调）" };
+  const positions = { ...wti, code: "cot_mm_wti_cme_long", fredSeriesId: null, name: "COT管理基金多头:WTI Crude (CME)", description: null, metadata: us };
+  const futures = { ...wti, code: "nymex_wti_futures", fredSeriesId: null, name: "WTI 原油期货", description: null };
+  const rows = [foreignCpi, exportSeries, positions, futures, ...Array.from({ length: 201 }, (_, index) => ({
+    ...headline, code: `a_cpi_${index}`, fredSeriesId: null, name: "CPI 分项",
+  })), core, unadjusted, headline, wti, { ...brent, metadata: { countryCode: "EA" } }];
+  t.mock.method(prisma.instrument, "findMany", async ({ take }: { take?: number }) => rows.slice(0, take));
+  for (const query of ["美国CPI", "美国 CPI", "US CPI", "U.S. ＣＰＩ", "美国消费者物价指数", "CPIAUCSL", "fred:cpiaucsl"]) {
+    const result = await m.searchMarketIndicators({ query, limit: 3 });
+    assert.equal(result.indicators[0]?.symbol, "CPIAUCSL", query);
+    assert.deepEqual(result.indicators[0]?.basis, { type: "price_index", scope: "headline", seasonalAdjustment: "adjusted" });
+    assert.ok(result.indicators.every(indicator => indicator.code !== exportSeries.code), query);
+  }
+  for (const [query, code] of [
+    ["美国核心CPI", core.code], ["US core CPI not seasonally adjusted", unadjusted.code],
+    ["美国核心CPI季调", core.code], ["WTI", wti.code], ["WTI现货", wti.code],
+    ["WTI持仓", positions.code], ["WTI futures", futures.code],
+  ]) {
+    assert.equal((await m.searchMarketIndicators({ query, limit: 1 })).indicators[0]?.code, code, query);
+  }
+  assert.deepEqual((await m.searchMarketIndicators({ query: "美国CPI", limit: 40 })).indicators.map(i => i.market), Array(40).fill("US"));
+  assert.deepEqual((await m.searchMarketIndicators({ query: "美国Brent现货" })).indicators, []);
+  assert.deepEqual((await m.searchMarketIndicators({ query: "WTI持仓" })).indicators.map(i => i.basis), [{ type: "positioning" }]);
+});
 test("two-series query marks unmatched dates missing, retains source metadata, and never interpolates", async t => {
   fixture(t); const [, m] = await market;
   const r = await m.queryMarketData({ indicatorIds: [wti.id, brent.id], startDate: "2026-10-01", endDate: "2026-10-28", frequency: "daily" });
