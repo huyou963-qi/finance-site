@@ -542,17 +542,21 @@ test("Pro compares DHI peers and event windows, and receives a real PNG over MCP
     pack: { id: "dhi-test", name: "DHI research test", color: "#13579B" },
     events: [
       { ...researchEvent, externalId: "in-range" },
+      { ...researchEvent, externalId: "crosses-utc-date", occurredAt: "2026-10-29T23:30:00-04:00" },
       { ...researchEvent, externalId: "outside", occurredAt: "2026-10-27", datePrecision: "DATE" },
     ],
   };
   const eventChart = await call("render_stock_event_pack_chart", { ...input, eventPack });
   assert.equal(eventChart.isError, false, JSON.stringify(eventChart.structuredContent));
   const { researchEvents, plottedEventCount, eventPackDownloadUrl } = eventChart.structuredContent;
-  assert.equal(plottedEventCount, 1);
+  assert.equal(plottedEventCount, 2);
   assert.deepEqual(researchEvents.map((row: { externalId: string; number: number | null; status: string; candleDate: string | null }) =>
     [row.externalId, row.number, row.status, row.candleDate]), [
-    ["outside", null, "out_of_range", null], ["in-range", 1, "plotted", "2026-11-02"],
+    ["outside", null, "out_of_range", null],
+    ["crosses-utc-date", 1, "plotted", "2026-10-30"],
+    ["in-range", 2, "plotted", "2026-11-02"],
   ]);
+  assert.equal(researchEvents[1].occurredAt, "2026-10-29T23:30:00-04:00");
   assert.equal(researchEvents[1].color, "#13579B");
   assert.deepEqual(researchEvents[1].evidenceUrls, [evidence.url]);
   assert.equal(eventChart.content[1].mimeType, "image/png");
@@ -572,11 +576,11 @@ test("Pro compares DHI peers and event windows, and receives a real PNG over MCP
   assert.deepEqual(eventDocument.pack.symbols, ["DHI"]);
   assert.deepEqual(eventDocument.events[1].sources, [evidence]);
   assert.equal(eventDocument.events[1].sourceUrl, evidence.url);
-  assert.equal(eventDocument.events[1].occurredAt, researchEvent.occurredAt);
+  assert.equal(eventDocument.events[2].occurredAt, researchEvent.occurredAt);
   const { parseMilestoneIngestJson } = await import("@/lib/equity/companyMilestones");
   const reparsed = parseMilestoneIngestJson(eventDocument);
   assert.deepEqual(reparsed.errors, []);
-  assert.equal(reparsed.milestones.length, 2);
+  assert.equal(reparsed.milestones.length, 3);
   const { validateIngestRun } = await import("@/lib/data/marketEventsIngest");
   assert.equal(validateIngestRun(eventDocument).ok, true);
   const expiry = t.mock.method(Date, "now", () => Date.parse(eventChart.structuredContent.eventPackExpiresAt) + 1000);
@@ -586,7 +590,8 @@ test("Pro compares DHI peers and event windows, and receives a real PNG over MCP
     expiry.mock.restore();
   }
   const weekly = await call("render_stock_event_pack_chart", { ...input, interval: "1w", eventPack });
-  assert.equal(weekly.structuredContent.researchEvents[1].candleDate, "2026-11-02");
+  assert.equal(weekly.structuredContent.researchEvents[1].candleDate, "2026-10-26");
+  assert.equal(weekly.structuredContent.researchEvents[2].candleDate, "2026-11-02");
   const invalidScope = await call("render_stock_event_pack_chart", {
     ...input, eventPack: { ...eventPack, pack: { ...eventPack.pack, symbols: ["LEN"] } },
   });
