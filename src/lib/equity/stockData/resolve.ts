@@ -21,7 +21,7 @@ import {
 import { GICS_SECTOR_DEFS } from "@/lib/equity/gicsCatalog";
 import { getIndicator, normalizeParams, type GrowthField, type RatioField, type SecurityField } from "./indicatorRegistry";
 import type { MarketResolver } from "./marketResolve";
-import type { Cell, ColumnSpec, PeriodSpec, StockDataRow } from "./types";
+import type { Cell, ColumnSpec, GrossMarginSource, PeriodSpec, StockDataRow } from "./types";
 
 const DAY_MS = 86_400_000;
 
@@ -141,7 +141,22 @@ function lineValue(row: object & { lines?: Record<string, number> }, line: State
   return line.outflow && v !== 0 ? -v : v;
 }
 
-/** Same single-quarter statement values as the stock data table. */
+export function resolveQuarterlyGrossMargin(quarter: QuarterSnapshotRow): { value: number; source: GrossMarginSource } | null {
+  if (quarter.grossMargin != null && Number.isFinite(quarter.grossMargin)) {
+    return { value: quarter.grossMargin, source: "stored" };
+  }
+  const revenue = quarter.revenue, grossProfit = quarter.lines?.grossProfit, cost = quarter.lines?.costOfRevenue;
+  if (revenue == null || !Number.isFinite(revenue) || revenue <= 0) return null;
+  if (grossProfit != null && Number.isFinite(grossProfit) && Number.isFinite(grossProfit / revenue)) {
+    return { value: grossProfit / revenue, source: "gross_profit_over_revenue" };
+  }
+  if (cost != null && Number.isFinite(cost) && cost >= 0 && Number.isFinite(cost / revenue)) {
+    return { value: (revenue - cost) / revenue, source: "revenue_less_cost_over_revenue" };
+  }
+  return null;
+}
+
+/** Read single-quarter statement values. */
 export function quarterStatementValues(row: QuarterSnapshotRow, lines: readonly StatementLine[]): (number | null)[] {
   const statement = withStatementDerived(row);
   return lines.map(line => lineValue(statement, line));
@@ -162,7 +177,12 @@ function statementCell(p: Prepared, line: StatementLine, period: PeriodSpec, bas
     if (!ttm) return { v: null, s: "noPeriod", ...label };
     return valueCell(lineValue(withStatementDerived(ttm), line), label);
   }
-  return valueCell(lineValue(withStatementDerived(p.quarters[loc.index]!), line), label);
+  const quarter = p.quarters[loc.index]!;
+  if (line.code === "grossMargin") {
+    const margin = resolveQuarterlyGrossMargin(quarter);
+    return { ...valueCell(margin?.value ?? null, label), grossMarginSource: margin?.source ?? null };
+  }
+  return valueCell(lineValue(withStatementDerived(quarter), line), label);
 }
 
 /** 流动比率、利息保障倍数读报表明细科目；其余走 computeQuarterRatios */

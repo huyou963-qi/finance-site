@@ -9,7 +9,7 @@ import { parseMacroDateLabelToUtcMs, sortMacroPeriodLabels } from "@/lib/macroPe
 import { buildMacroSeriesCalcSuffix, decorateMacroSeriesDisplayName, effectiveMacroSeriesUnit } from "@/lib/macroSeriesDisplayName";
 import { absoluteUrl } from "@/lib/seo/siteUrl";
 import { queryMarketData } from "./data";
-import { describeIndicator, indicatorCoverage, resolveIndicator } from "./indicators";
+import { describeIndicator, housingIndicatorBasis, indicatorCoverage, resolveIndicator } from "./indicators";
 import { getChartSchema, MarketError, searchChartsSchema } from "./schema";
 
 function isTemplate(value: unknown): value is MacroChartTemplate {
@@ -44,13 +44,18 @@ export async function searchCharts(raw: unknown, opts: { includeIndicatorCoverag
   const charts = await chartCatalog();
   const ranked = charts.map(c => {
     const aliases = c.template.id.includes("oil-diesel") ? "oil energy 原油 柴油 brent wti"
-      : c.template.id.startsWith("builtin-us-housing-") ? "美国房地产 住宅 housing residential" : "";
+      : c.template.id.startsWith("builtin-us-housing-") ? "美国住房 美国住房市场 美国住宅市场 美国房地产 美国楼市 住宅 US housing residential" : "";
     const text = [c.title, c.description, c.template.name, c.chartId, ...c.keys, aliases].join(" ").toLowerCase();
-    return { c, score: terms.filter(term => text.includes(term)).length };
-  }).filter(x => !terms.length || x.score > 0).sort((a, b) => b.score - a.score);
+    const score = terms.filter(term => text.includes(term)).length;
+    return { c, score, activityOverview: c.chartId === "builtin-us-housing-activity:0" };
+  }).filter(x => !terms.length || x.score > 0).sort((a, b) => b.score - a.score || (terms.length ? Number(b.activityOverview) - Number(a.activityOverview) : 0));
   return { charts: await Promise.all(ranked.slice(0, p.limit).map(async ({ c }) => {
     const indicators = opts.includeIndicatorCoverage === false ? [] : await Promise.all(rawKeys(c).map(async key => { try { const r = await resolveIndicator(key); return { indicatorId: r.id, ...await indicatorCoverage(r.id) }; } catch { return { indicatorId: key, availableFrom: null, availableTo: null, unavailable: true }; } }));
-    return { chartId: c.chartId, title: c.title, description: c.description, page: c.page, indicatorIds: indicators.map(i => i.indicatorId), indicators,
+    const indicatorBasis = rawKeys(c).flatMap(key => {
+      const basis = housingIndicatorBasis(key);
+      return basis ? [{ catalogKey: key, ...basis }] : [];
+    });
+    return { chartId: c.chartId, title: c.title, description: c.description, page: c.page, indicatorIds: indicators.map(i => i.indicatorId), indicators, indicatorBasis,
       chartType: c.template.displayConfig?.slotModes?.[c.slot] ?? "timeseries", supportsEmbed: c.supportsEmbed, supportsInteraction: c.supportsEmbed, supportsData: c.supportsEmbed && rawKeys(c).length <= 8, access: "macro feature policy; system templates only", previewUrl: absoluteUrl(`/articles/charts/${encodeURIComponent(c.chartId)}`), lastUpdatedAt: null, dataUpdateNote: "获取 get_chart / 渲染结果中的各指标数据更新时间；模板更新时间不等于数据更新时间" };
   })), truncated: ranked.length > p.limit };
 }

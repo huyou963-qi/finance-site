@@ -22,6 +22,29 @@ const CPI_BASIS: Record<string, { scope: "headline" | "core"; seasonalAdjustment
   CPILFESL: { scope: "core", seasonalAdjustment: "adjusted" },
   CPILFENS: { scope: "core", seasonalAdjustment: "unadjusted" },
 };
+const HOUSING_ACTIVITY = [
+  { id: "PERMIT", measure: "permits", scope: "total", label: "住宅建筑许可总量", aliases: ["建筑许可", "住宅建筑许可总量", "住房建筑许可总量", "building permits", "total building permits"] },
+  { id: "PERMIT1F", measure: "permits", scope: "single_family", label: "单户住宅建筑许可", aliases: ["单户住宅建筑许可", "单户建筑许可", "单户许可", "single-family building permits", "single-family permits"] },
+  { id: "HOUST", measure: "starts", scope: "total", label: "新屋开工总量", aliases: ["新屋开工总量", "住宅开工总量", "total housing starts"] },
+  { id: "HOUST1F", measure: "starts", scope: "single_family", label: "单户新屋开工", aliases: ["单户新屋开工", "单户住宅开工", "单户开工", "single-family housing starts"] },
+] as const;
+
+export function housingIndicatorBasis(key: string) {
+  const seriesId = key.replace(/^fred:/i, "").toUpperCase();
+  const item = HOUSING_ACTIVITY.find(series => series.id === seriesId);
+  return item ? { type: "housing_activity" as const, measure: item.measure, scope: item.scope, label: item.label } : null;
+}
+
+function requestedHousingBasis(subject: string) {
+  const identified = housingIndicatorBasis(subject);
+  if (identified) return identified;
+  const compact = subject.replace(/[\s-]+/g, "");
+  const scope = /单户|singlefamily/.test(compact) ? "single_family" : /总量|^total/.test(compact) ? "total" : null;
+  const measure = /许可|permits?/.test(compact) ? "permits" : /开工|(?:housing|home)starts/.test(compact) ? "starts" : null;
+  const requested = HOUSING_ACTIVITY.find(item => item.scope === scope && item.measure === measure);
+  return requested ? housingIndicatorBasis(requested.id) : null;
+}
+
 const COUNTRY_PREFIXES: [string, RegExp][] = [
   ["US", /^(?:美国|(?:united states|usa|us)(?=\s|\p{Script=Han}|$))/u],
   ["CN", /^(?:中国|(?:china|cn)(?=\s|\p{Script=Han}|$))/u],
@@ -68,8 +91,9 @@ export function describeIndicator(row: Instrument) {
   const text = `${row.name} ${row.description ?? ""}`;
   const instrumentType = known?.instrumentType ?? (row.code === "nymex_wti_futures" || /期货|futures/i.test(text) ? "futures" : /库存|stocks/i.test(text) ? "inventory" : /指数|index/i.test(text) ? "index" : "unknown");
   const cpiBasis = CPI_BASIS[row.fredSeriesId ?? ""];
+  const housing = HOUSING_ACTIVITY.find(item => item.id === row.fredSeriesId);
   const basis = cpiBasis ? { type: "price_index" as const, ...cpiBasis }
-    : row.code.startsWith("cot_") ? { type: "positioning" as const } : null;
+    : row.code.startsWith("cot_") ? { type: "positioning" as const } : housingIndicatorBasis(row.fredSeriesId ?? "");
   return {
     indicatorId: row.id, catalogKey: row.fredSeriesId ? `fred:${row.fredSeriesId}` : `mds:${row.code}`, code: row.code,
     name: String(m.displayName ?? row.shortName ?? row.name), nameEn: row.nameEn, description: row.description,
@@ -79,7 +103,7 @@ export function describeIndicator(row: Instrument) {
     frequency: nativeFrequency(row.freqLabel), nativeFrequencyLabel: row.freqLabel,
     unit: known?.unit ?? row.unit, nativeUnit: row.unit, currency: known?.currency ?? m.currency ?? null,
     market: inferInstrumentCountryCode(row), location: known?.location ?? m.location ?? m.countryNameZh ?? null,
-    instrumentType, basis, aliases: known?.aliases ?? WPSR_ALIASES[row.code] ?? [],
+    instrumentType, basis, aliases: known?.aliases ?? WPSR_ALIASES[row.code] ?? housing?.aliases ?? [],
     contractMonth: null,
     continuousContractRule: instrumentType === "futures" ? (row.code === "nymex_wti_futures" ? "Yahoo CL=F 连续合约；供应商未公开可核实的逐日换月表，不视为固定月份合约" : "未知，不自动推断换月或复权规则") : null,
     metadataUpdatedAt: row.updatedAt.toISOString(), lastUpdatedAt: typeof m.dataLastSyncedAtIso === "string" ? m.dataLastSyncedAtIso : null,
@@ -99,6 +123,7 @@ export async function searchMarketIndicators(raw: unknown) {
   const query = normalizeSearch(p.query).replace(/^u\.s\.(?=\s|\p{Script=Han}|$)/u, "us");
   const country = COUNTRY_PREFIXES.find(([, prefix]) => prefix.test(query));
   const subject = normalizeSearch(country ? query.replace(country[1], "") : query);
+  const housingRequest = !country || country[0] === "US" ? requestedHousingBasis(subject) : null;
   const tokens = [...new Set(subject
     .replace(CPI_LABEL_PATTERN, " cpi ")
     .replace(QUALIFIER_PATTERN, alias => ` ${QUALIFIER_BY_ALIAS.get(alias)} `)
@@ -120,6 +145,7 @@ export async function searchMarketIndicators(raw: unknown) {
   const ids = Object.entries(ENERGY_IDENTITIES).filter(([, x]) => matchesAlias(x.aliases)).map(([id]) => id);
   const codes = Object.entries(WPSR_ALIASES).filter(([, aliases]) => matchesAlias(aliases)).map(([code]) => code);
   if (tokens.includes("cpi")) ids.push(...Object.keys(CPI_BASIS));
+  ids.push(...HOUSING_ACTIVITY.filter(item => item.measure === housingRequest?.measure || matchesAlias([...item.aliases])).map(item => item.id));
   const lookupTerms = keywords.length ? keywords.flatMap(term => term === "cpi" ? [term, ...CPI_LABELS] : [term])
     : qualifiers.flatMap(term => SEARCH_QUALIFIERS[term]!);
   const alternatives: Prisma.InstrumentWhereInput[] = [...new Set([subject, ...lookupTerms])]
@@ -155,6 +181,9 @@ export async function searchMarketIndicators(raw: unknown) {
       : !JSON.stringify(objectMetadata(row.metadata).catalogCategory ?? "").includes(p.category))) return [];
     const exactId = identifiers.includes(subject);
     const exactName = names.includes(subject);
+    const exactHousing = !!housingRequest && indicator.basis?.type === "housing_activity"
+      && indicator.basis.measure === housingRequest.measure && indicator.basis.scope === housingRequest.scope;
+    if (housingRequest && !exactId && !exactHousing) return [];
     const cpiBasis = indicator.basis?.type === "price_index" ? indicator.basis : null;
     const qualifies = qualifiers.every(term => {
       if (term === "现货") return indicator.instrumentType === "spot" || names.some(name => /现货|\bspot\b/.test(name));
@@ -166,16 +195,24 @@ export async function searchMarketIndicators(raw: unknown) {
       return names.some(name => Array.from(name.matchAll(QUALIFIER_PATTERN)).some(([alias]) => QUALIFIER_BY_ALIAS.get(alias) === term));
     });
     const matched = keywordMatchers.filter(matches => searchable.some(matches)).length;
-    if (!exactId && (!qualifies || (!exactName && (keywords.length ? matched === 0 : !qualifiers.length)))) return [];
-    const complete = exactId || exactName || matched === keywords.length;
+    if (!exactId && (!qualifies || (!exactHousing && !exactName && (keywords.length ? matched === 0 : !qualifiers.length)))) return [];
+    const complete = exactId || exactName || exactHousing || matched === keywords.length;
     if (!complete && (country || qualifiers.length)) return [];
     const preferredCpi = country?.[0] === "US" && keywords.length === 1 && keywords[0] === "cpi"
       && cpiBasis?.scope === (qualifiers.includes("核心") ? "core" : "headline")
       && cpiBasis.seasonalAdjustment === (qualifiers.includes("未季调") ? "unadjusted" : "adjusted");
-    const score = exactId ? 4 : preferredCpi ? 3 : exactName ? 2 : complete ? 1 : 0;
+    const score = exactId ? 4 : preferredCpi || exactHousing ? 3 : exactName ? 2 : complete ? 1 : 0;
     return [{ indicator, score, matched }];
   }).sort((a, b) => b.score - a.score || b.matched - a.matched);
+  const alternative = housingRequest && !ranked.length
+    ? HOUSING_ACTIVITY.find(item => item.measure === housingRequest.measure && item.scope !== housingRequest.scope &&
+      rows.some(row => row.fredSeriesId === item.id)) : null;
   return {
+    ...(housingRequest && !ranked.length && {
+      scopeNote: `站内未找到符合「${housingRequest.label}」口径的指标。${alternative
+        ? `可另查 ${alternative.id}（${alternative.label}）作为不同口径的参考，结果中须说明差异。`
+        : ""}`,
+    }),
     indicators: await Promise.all(ranked.slice(0, p.limit).map(async ({ indicator }) => ({ ...indicator, ...await indicatorCoverage(indicator.indicatorId) }))),
     truncated: ranked.length > p.limit,
     note: "只返回数据库已登记的宏观序列；不将现货替换为期货。未知字段为 null。",

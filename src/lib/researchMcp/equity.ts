@@ -2,12 +2,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { absoluteUrl } from "@/lib/seo/siteUrl";
 import { day, MarketError } from "@/lib/market/schema";
-import { filingIdentity, loadStockDisclosures, loadStockInsiderFilings, readReleaseAttachments } from "@/lib/equity/stockDisclosures";
+import { filingIdentity, loadStockDisclosures, loadStockInsiderFilings, readReleaseAttachments, stockInsiderFilingCoverage } from "@/lib/equity/stockDisclosures";
 import { getQuarterlyFundamentalsBatch, type QuarterSnapshotRow } from "@/lib/equity/equityFundamentalsStore";
 import { loadManagementGuidance } from "@/lib/equity/managementGuidanceStore";
 import { getIndicator } from "@/lib/equity/stockData/indicatorRegistry";
 import { normalizeUsTicker } from "@/lib/equity/stockData/request";
-import { quarterPositionFromDate, quarterStatementValues } from "@/lib/equity/stockData/resolve";
+import { quarterPositionFromDate, quarterStatementValues, resolveQuarterlyGrossMargin } from "@/lib/equity/stockData/resolve";
 import { GICS_SECTOR_DEFS, GICS_SECTORS } from "@/lib/equity/gicsCatalog";
 import { loadIndustryFinancials, industryFinancialResponse } from "@/lib/equity/industryFinancialsStore";
 import { FACTOR_DEFS, FACTOR_MAP } from "@/lib/quant/factorRegistry";
@@ -61,21 +61,6 @@ export function quarterlyStatementFields(ids: string[]) {
     }
     return { id, label: def.label, unit: def.unit, line: def.source.line };
   });
-}
-
-export function resolveQuarterlyGrossMargin(quarter: QuarterSnapshotRow) {
-  if (quarter.grossMargin != null && Number.isFinite(quarter.grossMargin)) {
-    return { value: quarter.grossMargin, source: "stored" as const };
-  }
-  const revenue = quarter.revenue, grossProfit = quarter.lines?.grossProfit, cost = quarter.lines?.costOfRevenue;
-  if (revenue == null || !Number.isFinite(revenue) || revenue <= 0) return null;
-  if (grossProfit != null && Number.isFinite(grossProfit) && Number.isFinite(grossProfit / revenue)) {
-    return { value: grossProfit / revenue, source: "gross_profit_over_revenue" as const };
-  }
-  if (cost != null && Number.isFinite(cost) && cost >= 0 && Number.isFinite(cost / revenue)) {
-    return { value: (revenue - cost) / revenue, source: "revenue_less_cost_over_revenue" as const };
-  }
-  return null;
 }
 
 export function quarterlyValues(quarter: QuarterSnapshotRow, fields: ReturnType<typeof quarterlyStatementFields>) {
@@ -209,6 +194,14 @@ export async function getStockInsiderFilings(symbol: string, limit: number) {
   };
 }
 
+function ownershipResultSummary(section: "transactions" | "plans", matchedCount: number, returnedCount: number, coverageStatus: "complete" | "incomplete" | "unknown") {
+  const subject = section === "plans" ? "10b5-1 计划" : "P/S 买卖交易";
+  const coverageLabel = { complete: "同步覆盖满足请求区间", incomplete: "覆盖不完整", unknown: "覆盖未确认" }[coverageStatus];
+  const result = matchedCount ? `检出 ${matchedCount} 条已核实${subject}，本页 ${returnedCount} 条` : `未检出已核实${subject}`;
+  const caveat = coverageStatus !== "complete" ? "；当前结果仅反映站内已核实的记录" : "";
+  return { coverageStatus, matchedCount, returnedCount, message: `${coverageLabel}，${result}${caveat}。` };
+}
+
 export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorInput>) {
   const today = new Date().toISOString().slice(0, 10);
   const asOf = input.asOf ?? today;
@@ -219,8 +212,23 @@ export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorI
   }
   return { cost: 8 + Math.ceil(days / 90), run: async () => {
     const stock = await security(input.symbol);
-    const monitor = await loadOwnershipMonitor(stock.symbol, asOf, from);
+    const [monitor, form4Coverage] = await Promise.all([
+      loadOwnershipMonitor(stock.symbol, asOf, from),
+      stockInsiderFilingCoverage(stock.symbol, stock.cik, from, asOf),
+    ]);
     if (!monitor) throw new MarketError("NOT_FOUND", "站内未找到该标的");
+    const coverage = monitor.coverage;
+    const form4Gap = input.section === "transactions" && form4Coverage.readable < form4Coverage.indexed;
+    const buySellTransactions = input.section === "transactions" ? monitor.transactions.filter(trade =>
+      !trade.evidence?.derivative && (
+        (trade.transactionCode === "P" && trade.acquiredDisposedCode === "A") ||
+        (trade.transactionCode === "S" && trade.acquiredDisposedCode === "D")
+      )) : [];
+    const pendingTrades = buySellTransactions.some(trade => trade.status === "pending");
+    const coverageStatus = monitor.truncated || form4Gap || pendingTrades ||
+      (coverage && (!coverage.complete || coverage.since > from || coverage.through < asOf))
+      ? "incomplete"
+      : coverage ? "complete" : "unknown";
     const common = {
       symbol: monitor.symbol, name: monitor.name, asOf, from,
       coverage: monitor.coverage && {
@@ -228,9 +236,13 @@ export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorI
         checkedAt: monitor.coverage.checkedAt,
       },
       truncated: monitor.truncated,
+      form4Coverage: {
+        ...form4Coverage,
+        note: "按请求区间内的申报日期统计 Form 4/4-A；已结构化申报可能只含非 P/S 变动。计划另依据定期报告，申报数不代表交易或计划笔数。",
+      },
       supply: monitor.supply.slice(0, 20).map(row => ({
         security: row.security, sells90: row.sells90, buys90: row.buys90, netSells90: row.netSells90,
-        complete90: row.complete90, floatShares: row.floatShares, floatDate: row.floatDate,
+        complete90: row.complete90, pending90: row.pending, floatShares: row.floatShares, floatDate: row.floatDate,
         netSellingToFloat90: row.supplyRatio90, sellingToAdv30: row.sellingAdv30, coverageNote: row.reason,
       })),
       supplyTruncated: monitor.supply.length > 20,
@@ -242,7 +254,8 @@ export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorI
       const plans = monitor.plans.filter(plan => plan.verified && plan.rule10b51 === true &&
         (plan.filedAt >= from || plan.state === "可能执行中" || plan.state === "待执行窗口"))
         .sort((a, b) => b.filedAt.localeCompare(a.filedAt) || a.id.localeCompare(b.id));
-      return { ...common, section, plans: plans.slice(offset, offset + limit).map(plan => ({
+      const page = plans.slice(offset, offset + limit);
+      return { ...common, section, resultSummary: ownershipResultSummary(section, plans.length, page.length, coverageStatus), plans: page.map(plan => ({
         id: plan.id, owner: plan.ownerName, security: plan.security, status: plan.state,
         disclosedOn: plan.filedAt, adoptedOn: plan.adopted, start: plan.start, end: plan.end, terminatedOn: plan.terminated,
         maximumShares: plan.adjustedMaximum, linkedExecutedShares: plan.linkedExecuted,
@@ -250,11 +263,10 @@ export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorI
         sourceUrl: safeFilingUrl(plan.sourceUrl),
       })), nextOffset: plans.length > offset + limit ? offset + limit : null };
     }
-    const trades = monitor.transactions.filter(trade => trade.status === "included" &&
-      ((trade.transactionCode === "P" && trade.acquiredDisposedCode === "A") ||
-        (trade.transactionCode === "S" && trade.acquiredDisposedCode === "D")))
+    const trades = buySellTransactions.filter(trade => trade.status === "included")
       .sort((a, b) => b.transactionDate.localeCompare(a.transactionDate) || b.filedAt.localeCompare(a.filedAt) || a.id.localeCompare(b.id));
-    return { ...common, section, transactions: trades.slice(offset, offset + limit).map(trade => ({
+    const page = trades.slice(offset, offset + limit);
+    return { ...common, section, resultSummary: ownershipResultSummary(section, trades.length, page.length, coverageStatus), transactions: page.map(trade => ({
       accession: trade.accession, security: trade.security, filer: trade.filerName, transactionDate: trade.transactionDate,
       filedOn: trade.filedAt, side: trade.transactionCode === "P" ? "buy" : "sell",
       reportedShares: trade.shares, adjustedShares: trade.adjustedShares, reportedPricePerShare: trade.pricePerShare,

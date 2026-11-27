@@ -295,12 +295,19 @@ test("ownership MCP exposes confirmed sales and verified plans with incomplete c
     end: "2026-12-31", terminated: null, maxShares: 300, security: "Common Stock", account: "direct:2",
     status: "adopted", rule10b51: true, conditions: "", sourceUrl: url, filedAt: "2026-07-02", evidence: "test", verified: true };
   t.mock.method(prisma.equitySecurity, "findFirst", async () => ({ cik: "882184", symbol: "DHI" }));
+  let synchronized = false;
   t.mock.method(prisma.equitySecurity, "findUnique", async () => ({ name: "D.R. Horton", metadata: { ownershipCoverage: {
-    since: "2026-01-01", through: asOf, checkedAt: asOf, complete: false, error: "internal upstream details",
+    since: "2026-01-01", through: asOf, checkedAt: asOf, complete: synchronized, error: "internal upstream details",
   } } }));
-  t.mock.method(prisma, "$queryRaw", async () => [{ filedAt: new Date("2026-07-02"), ownershipData: {
-    version: 2, holdings: [], plans: [plan, { ...plan, id: "unverified", verified: false }],
-  } }]);
+  t.mock.method(prisma, "$queryRaw", async (sql: TemplateStringsArray, ...args: unknown[]) => {
+    if (sql.join("").includes("AS indexed")) {
+      assert.deepEqual(args.slice(-2), [new Date("2026-06-08"), new Date(asOf)]);
+      return [synchronized ? { indexed: 20, parsed: 20, readable: 20 } : { indexed: 20, parsed: 17, readable: 16 }];
+    }
+    return [{ filedAt: new Date("2026-07-02"), ownershipData: {
+      version: 2, holdings: [], plans: [plan, { ...plan, id: "unverified", verified: false }],
+    } }];
+  });
   t.mock.method(prisma.ownershipReview, "findMany", async () => []);
   t.mock.method(prisma.equityDailyBar, "findMany", async () => []);
   t.mock.method(prisma.equitySplit, "findMany", async () => []);
@@ -312,10 +319,12 @@ test("ownership MCP exposes confirmed sales and verified plans with incomplete c
     evidence: { security: "Common Stock", ownership: "D", owners: [{ cik: "2", name: "Jane" }], footnotes: [],
       documentType: "4", derivative: false, plan: false },
   };
-  t.mock.method(prisma.insiderTransaction, "findMany", async () => [trade, { ...trade, lineIndex: 2, evidence: null }]);
+  const pendingTrade = { ...trade, lineIndex: 2, evidence: null };
+  let rows = [trade, pendingTrade];
+  t.mock.method(prisma.insiderTransaction, "findMany", async () => rows);
   const user: ResearchPrincipal = { ...paid, enabledFeatures: ["equity-ownership"] };
-  const call = async (section: string) => (await send("tools/call", {
-    name: "get_stock_ownership_monitor", arguments: { symbol: "DHI", asOf, section, limit: 1 },
+  const call = async (section: string, offset = 0) => (await send("tools/call", {
+    name: "get_stock_ownership_monitor", arguments: { symbol: "DHI", asOf, section, limit: 1, offset },
   }, user)).result.structuredContent;
   const summary = await call("transactions");
   assert.deepEqual(summary.transactions.map((row: { reportedShares: number }) => row.reportedShares), [100]);
@@ -323,10 +332,33 @@ test("ownership MCP exposes confirmed sales and verified plans with incomplete c
   assert.equal(summary.supply[0].netSellingToFloat90, null);
   assert.equal(summary.coverage.error, undefined);
   assert.equal(summary.nextOffset, null);
+  assert.equal(summary.resultSummary.coverageStatus, "incomplete");
+  assert.equal(summary.resultSummary.matchedCount, 1);
+  assert.equal(summary.form4Coverage.withoutStructuredDocument, 3);
+  assert.equal(summary.form4Coverage.parsedOutsideMonitorSymbol, 1);
+  const pastLastPage = await call("transactions", 1);
+  assert.equal(pastLastPage.resultSummary.matchedCount, 1);
+  assert.equal(pastLastPage.resultSummary.returnedCount, 0);
   const plans = await call("plans");
   assert.equal(plans.plans[0].id, plan.id);
   assert.equal(plans.plans[0].remainingUpperBoundShares, null);
   assert.equal(plans.nextOffset, null);
+  rows = [];
+  const empty = await call("transactions");
+  assert.deepEqual(empty.transactions, []);
+  assert.equal(empty.resultSummary.matchedCount, 0);
+  assert.match(empty.resultSummary.message, /覆盖不完整，未检出已核实/);
+
+  synchronized = true;
+  rows = [
+    { ...trade, lineIndex: 3, evidence: { ...trade.evidence, derivative: true } },
+    { ...pendingTrade, lineIndex: 4, transactionCode: "M" },
+  ];
+  const complete = await call("transactions");
+  assert.deepEqual(complete.transactions, []);
+  assert.equal(complete.resultSummary.coverageStatus, "complete");
+  rows.push(pendingTrade);
+  assert.equal((await call("transactions")).resultSummary.coverageStatus, "incomplete");
 });
 
 test("Pro can read 28 single quarters in one call and page an issuer's archived announcement", async t => {
@@ -336,7 +368,8 @@ test("Pro can read 28 single quarters in one call and page an issuer's archived 
       symbol: "DHI", period: fiscalDate.toISOString().slice(0, 10), fiscalDate,
       fiscalQuarter: index === 1 ? null : index % 4 + 1,
       asOf: fiscalDate, firstReportedAt: new Date(Date.UTC(2020, index * 3, 29)),
-      revenue: (index + 1) * 1000, netIncome: null, lines: { costOfRevenue: 500 },
+      revenue: (index + 1) * 1000, netIncome: null, grossMargin: index === 27 ? 0 : null,
+      lines: { costOfRevenue: 500, ...(index === 26 ? { grossProfit: 9000 } : {}) },
     };
   });
   t.mock.method(prisma.equitySecurity, "findFirst", async () => ({ symbol: "DHI", cik: "882184" }));
@@ -363,6 +396,9 @@ test("Pro can read 28 single quarters in one call and page an issuer's archived 
     };
   });
   const budget = {
+    $executeRaw: async () => 0,
+    equitySecurity: { findMany: async () => [{ symbol: "DHI", name: "D.R. Horton" }] },
+    equityFundamentalSnapshot: { findMany: async () => quarterRows },
     $queryRaw: async (strings: TemplateStringsArray) => strings[0]?.includes("pg_try_advisory")
       ? [{ locked: true }] : [{ now: new Date("2026-11-26") }],
     researchMcpCall: { deleteMany: async () => ({}), count: async () => 0, groupBy: async () => [], create: async () => ({}) },
@@ -386,6 +422,22 @@ test("Pro can read 28 single quarters in one call and page an issuer's archived 
   const margins = (await call("query_stock_quarterly_financials", { ...qArgs, indicatorIds: ["fs.grossMargin"] })).structuredContent;
   assert.equal(margins.quarters[0].values["fs.grossMargin"], 0.5);
   assert.equal(margins.quarters[0].grossMarginSource, "revenue_less_cost_over_revenue");
+  const batch = (await call("query_stock_data", {
+    symbols: ["DHI"], columns: [
+      { indicatorId: "fs.grossMargin", params: { period: { kind: "FQ", year: 2020, q: 1 } } },
+      { indicatorId: "fs.grossMargin", params: { period: { kind: "FQ", year: 2026, q: 3 } } },
+      { indicatorId: "fs.grossMargin", params: { period: { kind: "latestQ" } } },
+    ],
+  })).structuredContent;
+  const cells = Object.values(batch.rows[0].cells) as { v: number; s: string; d: string; grossMarginSource: string }[];
+  assert.deepEqual(cells.map(cell => cell.grossMarginSource), ["revenue_less_cost_over_revenue", "gross_profit_over_revenue", "stored"]);
+  for (const cell of cells) {
+    const quarter = margins.quarters.find((row: { periodEnd: string }) => row.periodEnd === cell.d);
+    assert.equal(cell.s, "ok");
+    assert.equal(cell.v, quarter.values["fs.grossMargin"]);
+    assert.equal(cell.grossMarginSource, quarter.grossMarginSource);
+  }
+  assert.equal(cells.at(-1)?.v, 0);
   assert.equal((await call("query_stock_quarterly_financials", { ...qArgs, indicatorIds: ["px.close"] })).isError, true);
   assert.equal((await call("query_stock_quarterly_financials", { ...qArgs, startDate: "2000-01-01" })).isError, true);
   const archive = { symbol: "DHI", accession };

@@ -81,6 +81,8 @@ export type IndicatorDef = {
  */
 export type CellStatus = "ok" | "na" | "noPeriod" | "uncovered" | "notApplicable" | "noPrice" | "noValue";
 
+export type GrossMarginSource = "stored" | "gross_profit_over_revenue" | "revenue_less_cost_over_revenue";
+
 export type Cell = {
   v: number | string | null;
   s: CellStatus;
@@ -88,6 +90,8 @@ export type Cell = {
   p?: string;
   /** 该期的财报截止日 YYYY-MM-DD */
   d?: string;
+  /** 同一财季毛利率的入库或复算依据。 */
+  grossMarginSource?: GrossMarginSource | null;
 };
 
 export type StockDataRow = { symbol: string; name: string; cells: Record<string, Cell> };

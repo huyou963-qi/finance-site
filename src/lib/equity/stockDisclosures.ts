@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { DAILY_DISCLOSURE_FORMS } from "./dailyDisclosurePolicy";
 import type { SecReleaseAttachment } from "./secEdgar";
@@ -45,6 +46,25 @@ export function readReleaseAttachments(value: unknown): SecReleaseAttachment[] {
 
 export function filingIdentity(symbol: string, cik?: string | null) {
   return cik ? { cik: cik.replace(/\D/g, "").padStart(10, "0") } : { symbol };
+}
+
+/** Compare the citation index with the structured documents readable by the monitor. */
+export async function stockInsiderFilingCoverage(symbol: string, cik: string | null, from: string, asOf: string) {
+  const identity = filingIdentity(symbol, cik);
+  const issuer = identity.cik ? Prisma.sql`cik = ${identity.cik}` : Prisma.sql`symbol = ${symbol}`;
+  const [counts] = await prisma.$queryRaw<{ indexed: number; parsed: number; readable: number }[]>`
+    SELECT count(*)::int AS indexed,
+      (count(*) FILTER (WHERE ownership_parsed_at IS NOT NULL AND ownership_data->'version' = '2'::jsonb))::int AS parsed,
+      (count(*) FILTER (WHERE ownership_parsed_at IS NOT NULL AND ownership_data->'version' = '2'::jsonb
+        AND symbol = ${symbol}))::int AS readable
+    FROM mds.sec_filing
+    WHERE ${issuer} AND form IN ('4', '4/A') AND filed_at BETWEEN ${new Date(from)} AND ${new Date(asOf)}
+  `;
+  return {
+    indexed: counts.indexed, parsed: counts.parsed, readable: counts.readable,
+    withoutStructuredDocument: counts.indexed - counts.parsed,
+    parsedOutsideMonitorSymbol: counts.parsed - counts.readable,
+  };
 }
 
 /** Each result is a filing citation. Trade interpretation remains with the ownership monitor. */
