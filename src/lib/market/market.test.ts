@@ -128,6 +128,45 @@ test("exact-date Brent–WTI calculation, unit conversion and mixed-basis refusa
   assert.equal(calc.calculateSeries({ ...p, leftConversion: "usd_per_gallon_to_usd_per_barrel" }, { ...r.series[0]!, indicator: { ...r.series[0]!.indicator, unit: "USD/gal" } }, r.series[1]!).points[0]!.value, 73 * 42 - 70);
   await assert.rejects(tools.runMarketTool("query_market_data", {}, { ...principal, scopes: [] }), /缺少权限/);
 });
+test("同比自动读取上年基期，输出只含请求区间并区分基期缺失与零", async t => {
+  fixture(t);
+  const [, , calc] = await market;
+  const monthly = { ...wti, id: "a57797d3-1091-45a9-acab-52e6999bed1d", freqLabel: "月" };
+  t.mock.method(prisma.instrument, "findFirst", async () => monthly);
+  const reads: [string, string][] = [];
+  const observations = [
+    ["2025-08-01", 100], ["2025-10-01", 0],
+    ["2026-08-31", 120], ["2026-09-30", 90], ["2026-10-31", 5],
+  ] as const;
+  t.mock.method(prisma.macroObservation, "findMany", async ({ where }: { where: { obsDate: { gte: Date; lte: Date } } }) => {
+    const { gte, lte } = where.obsDate;
+    reads.push([gte.toISOString().slice(0, 10), lte.toISOString().slice(0, 10)]);
+    return observations.map(([date, value]) => ({ obsDate: new Date(date), value }))
+      .filter(row => row.obsDate >= gte && row.obsDate <= lte);
+  });
+  const input = { leftIndicatorId: monthly.id, startDate: "2026-08-01", endDate: "2026-10-31" };
+  const result = await calc.calculateMarketSeries({ ...input, operation: "yoy" });
+  assert.deepEqual(reads, [["2026-08-01", "2026-10-31"], ["2025-08-01", "2025-10-31"]]);
+  assert.deepEqual(result.points, [
+    { date: "2026-08-31", value: 20 }, { date: "2026-09-30", value: null }, { date: "2026-10-31", value: null },
+  ]);
+  assert.equal(result.validSamples, 1);
+  assert.equal(result.missingSamples, 2);
+  assert.ok("yoyCoverage" in result);
+  assert.deepEqual(result.yoyCoverage, { baseAlignment: "same_month", missingBaseDates: ["2026-09-30"], zeroBaseDates: ["2026-10-31"] });
+  assert.match(result.lookback?.revisionFingerprint ?? "", /^[0-9a-f]{64}$/);
+  const change = await calc.calculateMarketSeries({ ...input, operation: "pct_change" });
+  assert.equal(change.points[0]!.value, null);
+  assert.equal(Object.hasOwn(change, "lookback"), false);
+
+  const daily = { ...monthly, id: "b57797d3-1091-45a9-acab-52e6999bed1d", freqLabel: "日" };
+  t.mock.method(prisma.instrument, "findFirst", async () => daily);
+  const exact = await calc.calculateMarketSeries({ ...input, leftIndicatorId: daily.id, operation: "yoy" });
+  assert.ok("yoyCoverage" in exact);
+  assert.equal(exact.validSamples, 0);
+  assert.deepEqual(exact.yoyCoverage?.missingBaseDates, ["2026-08-31", "2026-09-30", "2026-10-31"]);
+});
+
 test("existing oil chart discovery and details reuse template; price chart has exact-date nulls", async t => {
   fixture(t); const [, , , charts] = await market;
   const found = await charts.searchCharts({ query: "原油 Brent WTI", tags: ["oil"] });
@@ -141,7 +180,7 @@ test("existing oil chart discovery and details reuse template; price chart has e
   await assert.rejects(charts.getChart({ chartId: "private-user-template:0" }), /不存在/);
 });
 test("housing chart uses prior-year observations and reports transformed units", async t => {
-  fixture(t); const [, , , charts] = await market;
+  fixture(t); const [indicators, , calc, charts] = await market;
   const permit = { ...wti, code: "sched_fred_PERMIT", fredSeriesId: "PERMIT", name: "建筑许可", unit: "千套", freqLabel: "月" };
   const starts = { ...brent, code: "sched_fred_HOUST1F", fredSeriesId: "HOUST1F", name: "单户新屋开工", unit: "千套", freqLabel: "月" };
   t.mock.method(prisma.instrument, "findFirst", async ({ where }: { where: { OR: Record<string, unknown>[] } }) =>
@@ -150,11 +189,30 @@ test("housing chart uses prior-year observations and reports transformed units",
     [{ obsDate: new Date("2025-10-01"), value: 100 }, { obsDate: new Date("2026-10-01"), value: 110 }]
       .filter(row => row.obsDate >= where.obsDate.gte && row.obsDate <= where.obsDate.lte));
   const chart = await charts.getChart({ chartId: "builtin-us-housing-activity:0" });
-  const found = await charts.searchCharts({ query: "房地产" }, { includeIndicatorCoverage: false });
-  assert.ok(found.charts.some(item => item.chartId === chart.chartId && item.supportsData));
+  for (const query of ["房地产", "美国住房", "美国住房市场", "美国住房 开工"]) {
+    const found = await charts.searchCharts({ query, limit: 1 }, { includeIndicatorCoverage: false });
+    assert.equal(found.charts[0]?.chartId, chart.chartId, query);
+    assert.equal(found.charts[0]?.supportsData, true);
+    assert.deepEqual(found.charts[0]?.indicatorBasis.map(i => [i.catalogKey, i.scope]), [
+      ["fred:PERMIT", "total"], ["fred:HOUST1F", "single_family"],
+    ]);
+  }
+  t.mock.method(prisma.instrument, "findMany", async () => [permit, starts]);
+  for (const [query, scope] of [["美国建筑许可总量", "total"], ["美国单户住宅开工", "single_family"]]) {
+    const basis = (await indicators.searchMarketIndicators({ query })).indicators[0]?.basis;
+    assert.equal(basis?.type, "housing_activity");
+    assert.equal(basis.scope, scope);
+  }
+  for (const query of ["美国单户建筑许可", "single-family building permits", "PERMIT1F"]) {
+    const missing = await indicators.searchMarketIndicators({ query });
+    assert.deepEqual(missing.indicators, [], query);
+    assert.match(missing.scopeNote ?? "", /PERMIT（住宅建筑许可总量）作为不同口径/);
+  }
   const data = await charts.renderChartData(chart, "2026-10-01", "2026-10-31", undefined, { includeYearOverYearLookback: true });
   assert.deepEqual(data.categories, ["2026-10-01"]);
   assert.deepEqual(data.series.map(series => [series.unit, series.data[0]]), [["%", 10], ["%", 10]]);
+  const yoy = await calc.calculateMarketSeries({ operation: "yoy", leftIndicatorId: "fred:PERMIT", startDate: "2026-10-01", endDate: "2026-10-31" });
+  assert.deepEqual(yoy.points, data.categories.map((date, i) => ({ date, value: data.series[0]!.data[i] })));
 });
 test("attach after heading is atomic, optimistic, audited, idempotent and draft-only", async t => {
   fixture(t); const [, , , , attach] = await market;

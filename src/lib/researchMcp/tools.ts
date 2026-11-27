@@ -113,7 +113,7 @@ function prepareStockQuery(input: z.infer<typeof stockQuery>) {
 function publicMacro(i: ReturnType<typeof describeIndicator>) {
   return {
     indicatorId: i.indicatorId, name: i.name, nameEn: i.nameEn, frequency: i.frequency,
-    unit: i.unit, currency: i.currency, instrumentType: i.instrumentType, location: i.location,
+    unit: i.unit, currency: i.currency, instrumentType: i.instrumentType, location: i.location, basis: i.basis,
     lastUpdatedAt: i.lastUpdatedAt, websiteUrl: absoluteUrl("/macro"),
   };
 }
@@ -184,8 +184,8 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
   register("search_market_indicators", "搜索宏观指标。返回查询所需的指标 ID、频率、单位和覆盖范围。", searchIndicatorsSchema, "macro",
     input => ({ cost: 1, run: async () => {
       const data = await searchMarketIndicators({ ...input, limit: Math.min(input.limit, 10) });
-      return { truncated: data.truncated, indicators: data.indicators.map(i => ({
-          ...publicMacro(i), basis: i.basis, availableFrom: i.availableFrom, availableTo: i.availableTo, observations: i.observations,
+      return { truncated: data.truncated, scopeNote: data.scopeNote, indicators: data.indicators.map(i => ({
+          ...publicMacro(i), availableFrom: i.availableFrom, availableTo: i.availableTo, observations: i.observations,
       })) };
     } }));
 
@@ -198,7 +198,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
       },
     }));
 
-  register("calculate_macro_series", "计算价差、比值、变化、均值、同比环比、分位数和相关性。按同日对齐并检查单位与口径。", calculateMarketSchema, "macro",
+  register("calculate_macro_series", "计算价差、比值、变化、均值、同比环比、分位数和相关性。同比自动补读上年基期，仅返回请求区间；核对单位与口径。", calculateMarketSchema, "macro",
     input => ({
       cost: 4 + Number(Boolean(input.rightIndicatorId)) + Math.ceil(Math.max(0, Date.parse(input.endDate) - Date.parse(input.startDate)) / (5 * 365 * 86_400_000)),
       run: async () => {
@@ -211,7 +211,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     input => ({ cost: 1, run: async () => {
       const data = await searchCharts(input, { includeIndicatorCoverage: false });
       return { truncated: data.truncated, charts: data.charts.map(c => ({
-        chartId: c.chartId, title: c.title, chartType: c.chartType, supportsData: c.supportsData,
+        chartId: c.chartId, title: c.title, chartType: c.chartType, supportsData: c.supportsData, indicatorBasis: c.indicatorBasis,
         websiteUrl: c.supportsInteraction ? c.previewUrl : absoluteUrl("/macro"),
       })) };
     } }));
@@ -256,7 +256,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
       }) };
     } }));
 
-  register("query_stock_data", "查询最多 10 只股票、20 列指标。财报按公司财年选择；估值和收益可指定截止日或区间。缺失时返回状态。", stockQuery, "equity-stock-data",
+  register("query_stock_data", "查询最多 10 只股票、20 列指标。财报按公司财年选择；单季毛利率包含取值来源。估值和收益可指定截止日或区间。缺失时返回状态。", stockQuery, "equity-stock-data",
     input => {
       const { symbols, columns, cost } = prepareStockQuery(input);
       return { cost, run: async () => {
@@ -296,7 +296,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     ({ symbol }) => ({ cost: 5, run: () => getStockGuidance(symbol) }));
   register("get_stock_insider_filings", "获取一只股票的近期 Form 4 内部人申报引用。", insiderFilingInput, "equity-ownership",
     ({ symbol, limit }) => ({ cost: 2, run: () => getStockInsiderFilings(symbol, limit) }));
-  register("get_stock_ownership_monitor", "读取一只美股已核实的内部人买卖和近 90 日净卖出统计；section=plans 可分页读取已核实的 10b5-1 计划。", ownershipMonitorInput, "equity-ownership",
+  register("get_stock_ownership_monitor", "读取美股已核实的内部人买卖、90 日净卖出统计和 Form 4 结构化覆盖。先读 resultSummary 区分覆盖缺口与空结果；section=plans 可分页读取已核实的 10b5-1 计划。", ownershipMonitorInput, "equity-ownership",
     prepareOwnershipMonitor);
 
   register("compare_industries", "比较最多三个美股板块 ETF 的成分财务汇总。返回现金流、利润、增速和样本覆盖率；可选当前成分或历史持仓。", industryComparison, "equity-industries",
