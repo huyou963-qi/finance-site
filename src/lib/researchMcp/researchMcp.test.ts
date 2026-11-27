@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, utimes } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
@@ -524,11 +524,14 @@ test("Pro compares DHI peers and event windows, and receives a real PNG over MCP
   const download = await request(downloadUrl);
   assert.equal(download.headers.get("content-disposition"), 'attachment; filename="DHI-chart.png"');
   assert.deepEqual(Buffer.from(await download.arrayBuffer()), png);
-  assert.equal((await request(imageUrl, "../../.env.local")).status, 404);
+  assert.equal((await request(imageUrl, "../../not-an-image.txt")).status, 404);
   assert.equal((await request(imageUrl, name.replace("DHI", "LEN"))).status, 404);
-  const expired = new Date(Date.now() - 25 * 60 * 60 * 1000);
-  await utimes(join(imageRoot, ".data", "research-chart-images", name), expired, expired);
-  assert.equal((await request(imageUrl)).status, 404);
+  const expiryClock = t.mock.method(Date, "now", () => Date.parse(imageExpiresAt) + 1000);
+  try {
+    assert.equal((await request(imageUrl)).status, 404);
+  } finally {
+    expiryClock.mock.restore();
+  }
   const denied = await send("tools/call", { name: "render_stock_chart_png", arguments: input }, paid);
   assert.equal(denied.result.isError, true);
 });
