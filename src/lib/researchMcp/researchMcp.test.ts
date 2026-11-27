@@ -1,13 +1,31 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { NextRequest } from "next/server";
 import type { PrismaClient } from "@prisma/client";
 import type { ResearchPrincipal } from "./oauth";
 
 const prisma = {
-  equitySecurity: { findFirst() {} },
+  equitySecurity: { findFirst() {}, findUnique() {}, findMany() {} },
   equityFundamentalSnapshot: { findMany() {} },
-  secFiling: { findFirst() {} },
+  secFiling: { findFirst() {}, findMany() {} },
+  equitySplit: { findMany() {} },
+  equityDailyBar: { findMany() {} },
+  equityPriceCoverage: { findUnique() {} },
+  userMacroChartPrefs: { findUnique() {} },
+  strategyDefinition: { findFirst() {}, findMany() {} },
+  macroRegime: { findMany() {} },
+  factorSnapshot: { findMany() {} },
+  backtestRun: { findMany() {}, findUnique() {} },
+  backtestNav: { findMany() {} },
+  robustnessRun: { findMany() {}, findUnique() {} },
+  insiderTransaction: { findMany() {} },
+  ownershipReview: { findMany() {} },
+  session: { findUnique() {} },
+  user: { findUnique() {} },
+  featureAccessPolicy: { findUnique() {} },
+  weeklyOAuthConsent: { deleteMany() {}, create() {}, findUnique() {} },
+  $queryRaw() {},
   researchMcpCall: { updateMany() {} },
   $transaction() {},
 };
@@ -30,6 +48,55 @@ test("AI access uses the current subscription, independent of trial and backtest
   assert.throws(() => requireResearchEntitlement(null), { code: "invalid_token" });
 });
 
+test("workspace consent is an unchecked option and only an explicit selection grants it", async t => {
+  const [{ workspaceReadScope, researchScope, researchResource }] = await modules;
+  const { GET, POST } = await import("@/app/api/mcp/oauth/authorize/route");
+  const previousClients = process.env.RESEARCH_MCP_OAUTH_CLIENTS;
+  const redirectUri = "https://client.example/callback";
+  process.env.RESEARCH_MCP_OAUTH_CLIENTS = JSON.stringify([{ clientId: "p1-client", name: "MCP Test", redirectUris: [redirectUri] }]);
+  t.after(() => {
+    if (previousClients === undefined) delete process.env.RESEARCH_MCP_OAUTH_CLIENTS;
+    else process.env.RESEARCH_MCP_OAUTH_CLIENTS = previousClients;
+  });
+  t.mock.method(prisma.session, "findUnique", async () => ({ userId: paid.id, expiresAt: new Date("2099-01-01") }));
+  t.mock.method(prisma.user, "findUnique", async () => ({ ...paid, status: "active" }));
+  t.mock.method(prisma.featureAccessPolicy, "findUnique", async () => ({ policy: { features: { "research-mcp": { status: "released" } } } }));
+  t.mock.method(prisma.weeklyOAuthConsent, "deleteMany", async () => ({ count: 0 }));
+  let consent: Record<string, unknown> = {};
+  const grants: string[] = [];
+  t.mock.method(prisma.weeklyOAuthConsent, "create", async ({ data }: { data: Record<string, unknown> }) => { consent = data; });
+  t.mock.method(prisma.weeklyOAuthConsent, "findUnique", async ({ where }: { where: { nonceHash: string } }) =>
+    consent.nonceHash === where.nonceHash ? consent : null);
+  const tx = {
+    weeklyOAuthConsent: { deleteMany: async () => ({ count: 1 }) },
+    weeklyOAuthGrant: { create: async ({ data }: { data: { scope: string } }) => { grants.push(data.scope); } },
+  };
+  t.mock.method(prisma, "$transaction", async (work: (transaction: typeof tx) => unknown) => work(tx));
+  const origin = new URL(researchResource()).origin;
+  const endpoint = `${origin}/api/mcp/oauth/authorize`;
+  const request = new URL(endpoint);
+  request.search = new URLSearchParams({
+    client_id: "p1-client", redirect_uri: redirectUri, scope: `${researchScope} ${workspaceReadScope}`,
+    response_type: "code", code_challenge_method: "S256", code_challenge: "a".repeat(43), resource: researchResource(),
+  }).toString();
+  const headers = { cookie: "finance_sid=mock-session", origin };
+  for (const allowWorkspace of [false, true]) {
+    const page = await GET(new NextRequest(request, { headers }));
+    const html = await page.text();
+    assert.equal(page.status, 200, html);
+    assert.match(html, /name="viewport" content="width=device-width,initial-scale=1"/);
+    const choice = html.match(/<input type="checkbox" name="include_scope" value="research:workspace:read"[^>]*>/)?.[0];
+    assert.ok(choice);
+    assert.doesNotMatch(choice, /\bchecked\b/);
+    const nonce = html.match(/name="nonce" value="([^"]+)"/)?.[1];
+    assert.ok(nonce);
+    const form = new URLSearchParams({ nonce, decision: "allow" });
+    if (allowWorkspace) form.set("include_scope", workspaceReadScope);
+    assert.equal((await POST(new NextRequest(endpoint, { method: "POST", headers, body: form }))).status, 303);
+  }
+  assert.deepEqual(grants, [researchScope, `${researchScope} ${workspaceReadScope}`]);
+});
+
 async function send(method: string, params?: unknown, user = paid) {
   const [, { createResearchMcpServer }] = await modules;
   const server = createResearchMcpServer(user);
@@ -49,18 +116,19 @@ async function send(method: string, params?: unknown, user = paid) {
 }
 
 test("SDK discovery exposes separate personal scopes and enforces them before queries", async () => {
-  const [{ parseResearchScopes, personalReadScope, personalWriteScope, researchScope }] = await modules;
+  const [{ parseResearchScopes, personalReadScope, personalWriteScope, researchScope, workspaceReadScope }] = await modules;
   const { result } = await send("tools/list");
   assert.deepEqual(result.tools.map((tool: { name: string }) => tool.name), [
     "get_usage", "search_market_indicators", "query_macro_data", "calculate_macro_series",
-    "search_system_charts", "search_securities", "search_stock_indicators", "query_stock_data",
+    "search_system_charts", "get_system_chart_data", "search_securities", "search_stock_indicators", "query_stock_data",
     "query_stock_quarterly_financials", "compare_stock_macro_quarters",
-    "list_my_stock_templates", "get_my_stock_template", "save_my_stock_template",
+    "list_my_stock_templates", "get_my_stock_template", "get_my_macro_templates", "save_my_stock_template",
   ]);
   for (const tool of result.tools) {
     const write = tool.name === "save_my_stock_template";
-    const personal = tool.name.endsWith("my_stock_templates") || tool.name.endsWith("my_stock_template");
-    const scopes = personal ? [researchScope, write ? personalWriteScope : personalReadScope] : [researchScope];
+    const personal = /^(get|list|save)_my_/.test(tool.name);
+    const extraScope = tool.name === "get_my_macro_templates" ? workspaceReadScope : write ? personalWriteScope : personalReadScope;
+    const scopes = personal ? [researchScope, extraScope] : [researchScope];
     assert.deepEqual(tool.securitySchemes, [{ type: "oauth2", scopes }]);
     assert.equal(tool.annotations.readOnlyHint, !write);
   }
@@ -77,9 +145,11 @@ test("SDK discovery exposes separate personal scopes and enforces them before qu
   ] };
   const next = await send("tools/list", undefined, phaseTwo);
   assert.deepEqual(next.result.tools.map((tool: { name: string }) => tool.name), [
-    "get_usage", "get_stock_disclosures", "get_stock_disclosure_archive", "get_stock_guidance", "get_stock_insider_filings",
+    "get_usage", "get_stock_disclosures", "get_stock_disclosure_archive",
+    "compare_stock_peers", "get_stock_event_returns", "render_stock_chart_png",
+    "get_stock_guidance", "get_stock_insider_filings", "get_stock_ownership_monitor",
     "compare_industries", "list_screener_factors", "screen_stocks", "search_research", "get_research", "get_forecast_summary",
-    "get_my_watchlist", "add_to_my_watchlist",
+    "get_my_watchlist", "get_my_screener_strategies", "add_to_my_watchlist",
   ]);
   const deniedInputs = [
     { name: "get_research", arguments: { kind: "article", id: "draft" } },
@@ -100,6 +170,160 @@ test("SDK discovery exposes separate personal scopes and enforces them before qu
   assert.equal(legacy.result.structuredContent.error.code, "insufficient_scope");
   assert.deepEqual(parseResearchScopes(null), [researchScope]);
   assert.throws(() => parseResearchScopes(`${researchScope} articles:write`), { code: "invalid_scope" });
+});
+
+function allowResearchBudget(t: TestContext) {
+  const budget = {
+    $queryRaw: async (strings: TemplateStringsArray) => strings[0]?.includes("pg_try_advisory")
+      ? [{ locked: true }] : [{ now: new Date("2026-11-26") }],
+    researchMcpCall: { deleteMany: async () => ({}), count: async () => 0, groupBy: async () => [], create: async () => ({}) },
+    researchMcpUsage: { findUnique: async () => null, upsert: async () => ({}) },
+  };
+  t.mock.method(prisma, "$transaction", async (work: (tx: typeof budget) => unknown) => work(budget));
+  t.mock.method(prisma.researchMcpCall, "updateMany", async () => ({ count: 1 }));
+}
+
+test("personal P1 tools require consent, enforce report ownership and completion, and page stored results", async t => {
+  allowResearchBudget(t);
+  const id = "10000000-0000-4000-8000-000000000001";
+  const otherId = "10000000-0000-4000-8000-000000000002";
+  const queuedId = "10000000-0000-4000-8000-000000000003";
+  const anonymousId = "10000000-0000-4000-8000-000000000004";
+  const date = new Date("2026-09-30");
+  const own = { id, name: "My run", userId: paid.id, status: "done", createdAt: date, finishedAt: date,
+    metrics: { sharpe: 1.4 }, params: { weighting: "equal" },
+    summary: { periods: [{ date: "2026-09-30", execDate: "2026-10-01", dalioRegime: "reflation" }] } };
+  const runs = [own, { ...own, id: otherId, userId: "another-user" }, { ...own, id: queuedId, status: "queued" }, { ...own, id: anonymousId, userId: null }];
+  t.mock.method(prisma.backtestRun, "findMany", async ({ where }: { where: { userId: string; status: string } }) =>
+    runs.filter(row => row.userId === where.userId && row.status === where.status));
+  t.mock.method(prisma.backtestRun, "findUnique", async ({ where }: { where: { id: string; userId: string; status: string } }) =>
+    runs.find(row => row.id === where.id && row.userId === where.userId && row.status === where.status) ?? null);
+  t.mock.method(prisma.backtestNav, "findMany", async ({ skip, take }: { skip: number; take: number }) =>
+    [{ date, nav: 1.1, benchNav: 1.05 }, { date: new Date("2026-10-01"), nav: 1.12, benchNav: 1.05 }].slice(skip, skip + take));
+  t.mock.method(prisma.robustnessRun, "findUnique", async ({ where }: { where: { id: string; userId: string; status: string } }) =>
+    where.id === id && where.userId === paid.id && where.status === "done"
+      ? { ...own, mode: "walkforward", result: { walkforward: { folds: [{ index: 0, testStart: "2026-01-31" }],
+        stitchedNav: [{ date: "2026-01-31", nav: 1.1 }], fixedStrategy: true, overallMetrics: { sharpe: 1 } } } } : null);
+  const template = { id: "housing", name: "My housing", selectedKeys: ["fred:HOUST1F::yoy"], slotAssignment: { "fred:HOUST1F::yoy": 0 } };
+  t.mock.method(prisma.userMacroChartPrefs, "findUnique", async ({ where }: { where: { userId: string } }) => {
+    assert.equal(where.userId, paid.id);
+    return { prefs: { templates: [template, { ...template, id: "system", builtIn: true }] } };
+  });
+  t.mock.method(prisma.strategyDefinition, "findFirst", async ({ where }: { where: { id: string; userId: string } }) =>
+    where.id === id && where.userId === paid.id ? { id, name: "My strategy", config: { conditions: [] }, createdAt: date, updatedAt: date } : null);
+  t.mock.method(prisma.strategyDefinition, "findMany", async ({ where }: { where: { userId: string } }) =>
+    where.userId === paid.id ? [{ id, name: "My strategy", createdAt: date, updatedAt: date }] : []);
+  const baseline: ResearchPrincipal = { ...paid, enabledFeatures: ["macro", "quant-screener", "quant-backtest"] };
+  const authorized: ResearchPrincipal = { ...baseline, enabledFeatures: [...baseline.enabledFeatures, "quant-robustness"],
+    scopes: ["research:read", "research:workspace:read"] };
+  const call = async (name: string, args: Record<string, unknown>, user = authorized) =>
+    (await send("tools/call", { name, arguments: args }, user)).result.structuredContent;
+  for (const [tool, args] of [["get_my_macro_templates", {}], ["get_my_screener_strategies", {}], ["list_my_quant_reports", { kind: "backtest" }]] as const) {
+    assert.equal((await call(tool, args, baseline)).error.code, "insufficient_scope");
+  }
+  const legacyGrant: ResearchPrincipal = { ...baseline, scopes: ["research:read", "research:personal:read"] };
+  const legacy = await send("tools/call", { name: "list_my_quant_reports", arguments: { kind: "backtest" } }, legacyGrant);
+  assert.equal(legacy.result.structuredContent.error.code, "insufficient_scope");
+  assert.match(legacy.result._meta["mcp/www_authenticate"][0], /research:workspace:read/);
+  const hidden = await send("tools/call", { name: "get_my_quant_report", arguments: { id, kind: "robustness" } },
+    { ...baseline, scopes: authorized.scopes });
+  assert.equal(hidden.result.isError, true);
+  const listed = await call("list_my_quant_reports", { kind: "backtest" });
+  assert.deepEqual(listed.reports.map((run: { id: string }) => run.id), [id]);
+  for (const deniedId of [otherId, queuedId, anonymousId]) {
+    assert.equal((await call("get_my_quant_report", { kind: "backtest", id: deniedId })).error.code, "NOT_FOUND");
+  }
+  const nav = await call("get_my_quant_report", { kind: "backtest", id, section: "nav", limit: 1 });
+  assert.equal(nav.rows[0].nav, 1.1);
+  assert.equal(nav.nextOffset, 1);
+  const periods = await call("get_my_quant_report", { kind: "backtest", id, section: "regime_periods" });
+  assert.equal(periods.rows[0].dalioRegime, "reflation");
+  const checks = await call("get_my_quant_report", { kind: "robustness", id, section: "details" });
+  assert.equal(checks.rows[0].testStart, "2026-01-31");
+  assert.equal(checks.report.walkforward.overallMetrics.sharpe, 1);
+  const templates = await call("get_my_macro_templates", {});
+  assert.deepEqual(templates.templates.map((t: { id: string }) => t.id), ["housing"]);
+  assert.deepEqual((await call("get_my_macro_templates", { id: "housing" })).queryMacroIndicatorIds, ["fred:HOUST1F"]);
+  assert.equal((await call("get_my_screener_strategies", {})).strategies[0].id, id);
+  assert.equal((await call("get_my_screener_strategies", { id })).strategy.name, "My strategy");
+  assert.equal((await call("get_my_screener_strategies", { id: otherId })).error.code, "NOT_FOUND");
+});
+
+test("factor and regime tools reuse stored samples and respect missing and excessive coverage", async t => {
+  allowResearchBudget(t);
+  const factorKey = "grossMargin", dates = [new Date("2026-01-31"), new Date("2026-02-28")];
+  t.mock.method(prisma, "$queryRaw", async (strings: TemplateStringsArray) => strings[0]?.includes("DISTINCT")
+    ? dates.map(date => ({ date })) : dates.flatMap((date, period) => [
+      { symbol: "DHI", date, adj_close: 100 + 10 * period }, { symbol: "LEN", date, adj_close: 100 - 10 * period },
+    ]));
+  const snapshots = dates.flatMap(date => [
+    { date, factorKey, symbol: "DHI", zscore: 1, sectorZscore: 1 },
+    { date, factorKey, symbol: "LEN", zscore: -1, sectorZscore: -1 },
+  ]);
+  let panelLimit: number | undefined;
+  t.mock.method(prisma.factorSnapshot, "findMany", async ({ take }: { take: number }) => {
+    panelLimit = take;
+    return snapshots;
+  });
+  t.mock.method(prisma.macroRegime, "findMany", async () => [{
+    date: dates[0], regime: "recovery", dalioRegime: "reflation", growthState: "above", growthDirection: "rising",
+    inflationState: "rising", recession: -1, inputs: { internal: true },
+  }]);
+  const user: ResearchPrincipal = { ...paid, enabledFeatures: ["quant-regime", "quant-factor-research"] };
+  const call = async (name: string, args: Record<string, unknown>) =>
+    (await send("tools/call", { name, arguments: args }, user)).result.structuredContent;
+  const range = { startDate: "2026-01-01", endDate: "2026-03-01" };
+  const regime = await call("get_macro_regime", range);
+  assert.equal(regime.observations[0].dalioRegime, "reflation");
+  assert.equal(regime.observations[0].recession, null);
+  assert.equal(regime.observations[0].inputs, undefined);
+  const report = await call("get_factor_research_summary", { ...range, factorKeys: [factorKey], quantiles: 2 });
+  assert.equal(report.factors[0].ic.meanIC, 1);
+  assert.equal(report.factors[0].icByRegime.stagflation, null);
+  assert.equal(panelLimit, 300001);
+  assert.equal((await call("get_factor_research_summary", { ...range, startDate: "2010-01-01", factorKeys: [factorKey] })).error.code, "INVALID_INPUT");
+});
+
+test("ownership MCP exposes confirmed sales and verified plans with incomplete coverage", async t => {
+  allowResearchBudget(t);
+  const asOf = "2026-09-05";
+  const url = "https://www.sec.gov/Archives/edgar/data/882184/000088218426000119/results.htm";
+  const plan = { id: "jane:2026-07-01", ownerName: "Jane", ownerCik: "2", adopted: "2026-07-01", start: "2026-08-01",
+    end: "2026-12-31", terminated: null, maxShares: 300, security: "Common Stock", account: "direct:2",
+    status: "adopted", rule10b51: true, conditions: "", sourceUrl: url, filedAt: "2026-07-02", evidence: "test", verified: true };
+  t.mock.method(prisma.equitySecurity, "findFirst", async () => ({ cik: "882184", symbol: "DHI" }));
+  t.mock.method(prisma.equitySecurity, "findUnique", async () => ({ name: "D.R. Horton", metadata: { ownershipCoverage: {
+    since: "2026-01-01", through: asOf, checkedAt: asOf, complete: false, error: "internal upstream details",
+  } } }));
+  t.mock.method(prisma, "$queryRaw", async () => [{ filedAt: new Date("2026-07-02"), ownershipData: {
+    version: 2, holdings: [], plans: [plan, { ...plan, id: "unverified", verified: false }],
+  } }]);
+  t.mock.method(prisma.ownershipReview, "findMany", async () => []);
+  t.mock.method(prisma.equityDailyBar, "findMany", async () => []);
+  t.mock.method(prisma.equitySplit, "findMany", async () => []);
+  t.mock.method(prisma.equityPriceCoverage, "findUnique", async () => null);
+  const trade = {
+    cik: "882184", accession: "0000882184-26-000119", filerCik: "2", filerName: "Jane", lineIndex: 1,
+    transactionDate: new Date("2026-08-05"), filedAt: new Date("2026-08-06"),
+    transactionCode: "S", acquiredDisposedCode: "D", shares: 100, pricePerShare: 120, sharesOwnedAfter: 1000,
+    evidence: { security: "Common Stock", ownership: "D", owners: [{ cik: "2", name: "Jane" }], footnotes: [],
+      documentType: "4", derivative: false, plan: false },
+  };
+  t.mock.method(prisma.insiderTransaction, "findMany", async () => [trade, { ...trade, lineIndex: 2, evidence: null }]);
+  const user: ResearchPrincipal = { ...paid, enabledFeatures: ["equity-ownership"] };
+  const call = async (section: string) => (await send("tools/call", {
+    name: "get_stock_ownership_monitor", arguments: { symbol: "DHI", asOf, section, limit: 1 },
+  }, user)).result.structuredContent;
+  const summary = await call("transactions");
+  assert.deepEqual(summary.transactions.map((row: { reportedShares: number }) => row.reportedShares), [100]);
+  assert.equal(summary.supply[0].netSells90, 100);
+  assert.equal(summary.supply[0].netSellingToFloat90, null);
+  assert.equal(summary.coverage.error, undefined);
+  assert.equal(summary.nextOffset, null);
+  const plans = await call("plans");
+  assert.equal(plans.plans[0].id, plan.id);
+  assert.equal(plans.plans[0].remainingUpperBoundShares, null);
+  assert.equal(plans.nextOffset, null);
 });
 
 test("Pro can read 28 single quarters in one call and page an issuer's archived announcement", async t => {
@@ -213,6 +437,80 @@ test("MCP rate, concurrency and quota denials include distinct retry guidance", 
       assert.equal(error.retryAt, "2026-12-01T00:00:00.000Z");
     }
   }
+});
+
+test("Pro compares DHI peers and event windows, and receives a real PNG over MCP", async t => {
+  const company = {
+    symbol: "DHI", name: "D.R. Horton", cik: "882184", marketCap: 50e9,
+    gicsSector: "Consumer Discretionary", gicsIndustryCode: "252010", gicsSubIndustry: "Homebuilding",
+  };
+  const peers = [
+    company, { ...company, symbol: "WHR", gicsSubIndustry: "Household Appliances" },
+    { ...company, symbol: "LEN", name: "Lennar" }, { ...company, symbol: "PHM", name: "PulteGroup" },
+  ];
+  t.mock.method(prisma.equitySecurity, "findUnique", async () => company);
+  t.mock.method(prisma.equitySecurity, "findMany", async ({ where }: { where: { symbol?: { in: string[] } } }) =>
+    peers.filter(row => where.symbol?.in.includes(row.symbol) ?? true));
+  t.mock.method(prisma.equityFundamentalSnapshot, "findMany", async () => []);
+  t.mock.method(prisma.equitySplit, "findMany", async () => []);
+  t.mock.method(prisma.equityPriceCoverage, "findUnique", async () => null);
+  t.mock.method(prisma.secFiling, "findMany", async () => [{
+    accession: "0000882184-26-000119", form: "8-K", items: "2.02,9.01",
+    filedAt: new Date("2026-10-29"), publishedAt: new Date("2026-10-29T12:00Z"),
+    url: "https://www.sec.gov/Archives/edgar/data/882184/results.htm",
+  }]);
+  const dates = ["2026-10-28", "2026-10-29", "2026-10-30", "2026-11-02"];
+  const returns = { DHI: 10, SPY: 1, LEN: 4, PHM: 8 };
+  t.mock.method(prisma.equityDailyBar, "findMany", async ({ where }: { where: {
+    symbol: string | { in: (keyof typeof returns)[] }; date: { gte: Date; lte: Date };
+  } }) => {
+    const tickers = typeof where.symbol === "string" ? [where.symbol as keyof typeof returns] : where.symbol.in;
+    return tickers.flatMap(symbol => dates.flatMap((date, index) => {
+      if (symbol === "PHM" && index === 2) return [];
+      const close = 100 + (index === 3 ? returns[symbol] : index);
+      return [{ symbol, date: new Date(date), close, adjClose: close, open: close - 1, high: close + 1, low: close - 2, volume: 12345 }];
+    })).filter(row => row.date >= where.date.gte && row.date <= where.date.lte);
+  });
+  t.mock.method(prisma, "$queryRaw", async () => peers.map(row => ({ symbol: row.symbol, close: 100 })));
+  const budget = {
+    $queryRaw: async (strings: TemplateStringsArray) => strings[0]?.includes("pg_try_advisory")
+      ? [{ locked: true }] : [{ now: new Date("2026-11-26") }],
+    researchMcpCall: { deleteMany: async () => ({}), count: async () => 0, groupBy: async () => [], create: async () => ({}) },
+    researchMcpUsage: { findUnique: async () => null, upsert: async () => ({}) },
+  };
+  t.mock.method(prisma, "$transaction", async (work: (tx: typeof budget) => unknown) => work(budget));
+  t.mock.method(prisma.researchMcpCall, "updateMany", async () => ({ count: 1 }));
+  const user: ResearchPrincipal = { ...paid, enabledFeatures: ["markets"] };
+  const call = async (name: string, args: Record<string, unknown>) =>
+    (await send("tools/call", { name, arguments: args }, user)).result;
+  const input = { symbol: "DHI", startDate: dates[1], endDate: dates[3] };
+  const comparison = (await call("compare_stock_peers", input)).structuredContent;
+  assert.equal(comparison.peerClassification.name, "Homebuilding");
+  assert.deepEqual(comparison.peerReturns.map((row: { symbol: string }) => row.symbol), ["LEN", "PHM"]);
+  assert.equal(comparison.baselineDate, dates[0]);
+  assert.ok(Math.abs(comparison.excessVsPeers - 0.04) < 1e-12);
+  const [event] = (await call("get_stock_event_returns", input)).structuredContent.events;
+  assert.deepEqual(event.tradingDates, dates.slice(1));
+  assert.equal(event.windowBasis, "same_session_before_open");
+  assert.ok(Math.abs(event.excessVsPeers - 0.06) < 1e-12);
+  assert.equal(event.peerReturns[1].return, null);
+  const image = await call("render_stock_chart_png", input);
+  assert.equal(image.isError, false);
+  assert.equal(image.structuredContent.bars, 3);
+  assert.equal(image.structuredContent.events[0].date, dates[1]);
+  assert.equal(Object.hasOwn(image.structuredContent, "image"), false);
+  assert.equal(image.content[1].mimeType, "image/png");
+  assert.equal(Buffer.from(image.content[1].data, "base64").subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  const denied = await send("tools/call", { name: "render_stock_chart_png", arguments: input }, paid);
+  assert.equal(denied.result.isError, true);
+});
+
+test("date-only earnings windows skip the holiday and keep the same baseline for all securities", async () => {
+  const { stockEventWindow } = await import("./stockMarket");
+  const window = stockEventWindow({ date: "2026-11-25" }, 2, []);
+  assert.deepEqual(window.dates, ["2026-11-25", "2026-11-27", "2026-11-30"]);
+  assert.equal(window.session, "unknown");
+  assert.equal(window.windowBasis, "sessions_strictly_after_event_date");
 });
 
 test("fiscal windows respect actual boundaries and leave sparse series empty", async () => {

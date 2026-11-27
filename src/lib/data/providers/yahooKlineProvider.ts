@@ -38,6 +38,12 @@ function isDailyBacked(interval: string): boolean {
   return interval === "1d" || interval === "1w" || interval === "1M";
 }
 
+export function aggregateDailyBars(bars: AdjustedBar[], interval: "1d" | "1w" | "1M") {
+  if (interval === "1w") return aggregate(bars, weekStartSec);
+  if (interval === "1M") return aggregate(bars, monthStartSec);
+  return bars;
+}
+
 // ------------------------------------------------------------ 聚合
 
 type Bucketed = { bar: AdjustedBar; volume: number | null };
@@ -237,11 +243,7 @@ export const yahooKlineProvider: KlineMarketDataProvider = {
         const { bars, found, source } = await getAdjustedDailyBars(symbol, barQuery);
         if (!found) throw new YahooSymbolNotFoundError(symbol);
 
-        const series = isMonth
-          ? aggregate(bars, monthStartSec)
-          : isWeek
-            ? aggregate(bars, weekStartSec)
-            : bars;
+        const series = aggregateDailyBars(bars, isMonth ? "1M" : isWeek ? "1w" : "1d");
         const { page } = sliceWindow(series, req);
         const { candles, volumes } = toCandles(page);
         // Yahoo 节假日零价行会被清洗掉，短页仍可能有历史。

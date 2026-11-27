@@ -222,11 +222,12 @@ export type RunListItem = {
 };
 
 /** run 列表（元信息 + 关键 metrics，不含逐日 NAV）。userId=null → 全部（CLI/管理）。 */
-export async function listRuns(userId: string | null): Promise<RunListItem[]> {
+export async function listRuns(userId: string | null, page?: { completedOnly: boolean; offset: number; limit: number }): Promise<RunListItem[]> {
   const runs = await prisma.backtestRun.findMany({
-    where: userId ? { userId } : {},
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    where: { ...(userId ? { userId } : {}), ...(page?.completedOnly ? { status: "done" } : {}) },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: page?.offset,
+    take: page?.limit ?? 100,
   });
   return runs.map((r) => {
     const m = (r.metrics ?? null) as { cagr?: number; sharpe?: number; maxDrawdown?: number } | null;
@@ -278,27 +279,28 @@ export async function getRunDetail(
   runId: string,
   requesterId: string | null,
   includeResults: boolean,
+  { ownCompleted = false }: { ownCompleted?: boolean } = {},
 ): Promise<RunDetail | null> {
-  const run = await prisma.backtestRun.findUnique({ where: { id: runId } });
+  if (ownCompleted && !requesterId) return null;
+  const run = await prisma.backtestRun.findUnique({
+    where: { id: runId, ...(ownCompleted ? { userId: requesterId, status: "done" } : {}) },
+  });
   if (!run) return null;
   if (run.userId && run.userId !== requesterId) return null;
+  if (ownCompleted && (run.userId !== requesterId || run.status !== "done")) return null;
 
   let nav: RunDetail["nav"] = [];
   let positions: RunDetail["positions"] = [];
   if (includeResults && run.status === "done") {
     const [navRows, posRows] = await Promise.all([
-      prisma.backtestNav.findMany({
-        where: { runId },
-        orderBy: { date: "asc" },
-        select: { date: true, nav: true, benchNav: true },
-      }),
+      listBacktestNav(runId),
       prisma.backtestPosition.findMany({
         where: { runId },
         orderBy: [{ rebalanceDate: "asc" }, { weight: "desc" }],
         select: { rebalanceDate: true, symbol: true, weight: true, entryPrice: true, exitReason: true },
       }),
     ]);
-    nav = navRows.map((n) => ({ date: iso(n.date), nav: n.nav, benchNav: n.benchNav }));
+    nav = navRows;
     positions = posRows.map((p) => ({
       rebalanceDate: iso(p.rebalanceDate),
       symbol: p.symbol,
@@ -322,6 +324,17 @@ export async function getRunDetail(
     nav,
     positions,
   };
+}
+
+export async function listBacktestNav(runId: string, page?: { offset: number; limit: number }): Promise<RunDetail["nav"]> {
+  const rows = await prisma.backtestNav.findMany({
+    where: { runId },
+    orderBy: { date: "asc" },
+    skip: page?.offset,
+    take: page?.limit,
+    select: { date: true, nav: true, benchNav: true },
+  });
+  return rows.map(row => ({ date: iso(row.date), nav: row.nav, benchNav: row.benchNav }));
 }
 
 /** 删除 run（级联 nav/position）。归属校验同 getRunDetail。返回是否删除。 */

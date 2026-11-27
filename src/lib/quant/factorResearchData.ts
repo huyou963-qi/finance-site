@@ -57,6 +57,7 @@ type FactorPanel = Map<string, Map<string, Map<string, { zscore: number | null; 
 async function loadFactorPanel(
   factorKeys: readonly string[],
   dates: readonly string[],
+  maxPanelRows?: number,
 ): Promise<FactorPanel> {
   const panel: FactorPanel = new Map();
   for (const d of dates) panel.set(d, new Map(factorKeys.map((k) => [k, new Map()])));
@@ -64,7 +65,11 @@ async function loadFactorPanel(
   const rows = await prisma.factorSnapshot.findMany({
     where: { factorKey: { in: [...factorKeys] }, date: { in: dateObjs } },
     select: { symbol: true, date: true, factorKey: true, zscore: true, sectorZscore: true },
+    take: maxPanelRows === undefined ? undefined : maxPanelRows + 1,
   });
+  if (maxPanelRows !== undefined && rows.length > maxPanelRows) {
+    throw new FactorResearchDataError("RANGE_TOO_LARGE", "因子截面样本过多，请缩短日期区间或减少因子");
+  }
   for (const r of rows) {
     const iso = r.date.toISOString().slice(0, 10);
     const byFactor = panel.get(iso);
@@ -302,7 +307,12 @@ export type FactorResearchOptions = {
   start?: string | null;
   end?: string | null;
   quantiles?: number;
+  maxPanelRows?: number;
 };
+
+export class FactorResearchDataError extends Error {
+  constructor(public code: "RANGE_TOO_LARGE" | "DATA_UNAVAILABLE", message: string) { super(message); }
+}
 
 export type FactorResearchReport = {
   start: string;
@@ -358,10 +368,10 @@ export async function runFactorResearch(
 
   const gridDates = await listResearchGrid({ start: opts.start, end: opts.end });
   if (gridDates.length < 2) {
-    throw new Error(`研究区间内网格期数不足（${gridDates.length}），无法算前向收益`);
+    throw new FactorResearchDataError("DATA_UNAVAILABLE", `研究区间内网格期数不足（${gridDates.length}），无法算前向收益`);
   }
 
-  const panel = await loadFactorPanel(factorKeys, gridDates);
+  const panel = await loadFactorPanel(factorKeys, gridDates, opts.maxPanelRows);
   const symbols = await symbolsInPanel(panel);
   const closes = await loadGridCloses(symbols, gridDates);
   const fwdReturns = buildForwardReturns(closes, gridDates);

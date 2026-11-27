@@ -9,7 +9,8 @@ import { absoluteUrl } from "@/lib/seo/siteUrl";
 export const researchScope = "research:read";
 export const personalReadScope = "research:personal:read";
 export const personalWriteScope = "research:personal:write";
-export const researchScopes = [researchScope, personalReadScope, personalWriteScope] as const;
+export const workspaceReadScope = "research:workspace:read";
+export const researchScopes = [researchScope, personalReadScope, personalWriteScope, workspaceReadScope] as const;
 export type ResearchScope = typeof researchScopes[number];
 
 export function parseResearchScopes(raw: string | null): ResearchScope[] {
@@ -33,6 +34,7 @@ type User = NonNullable<Awaited<ReturnType<typeof getUserAccessRecord>>>;
 const researchFeatures = [
   "macro", "equity-stock-data", "markets", "equity-ownership", "equity-industries",
   "articles", "weekly", "events", "quant-screener", "forecast-us-cpi", "forecast-us-nfp", "forecast-us-gdp",
+  "quant-regime", "quant-backtest", "quant-factor-research", "quant-robustness",
 ] as const;
 export type ResearchFeature = typeof researchFeatures[number];
 export type ResearchPrincipal = User & { enabledFeatures: ResearchFeature[]; scopes: ResearchScope[] };

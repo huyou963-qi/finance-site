@@ -53,7 +53,7 @@ async function cachedRead(p: ReturnType<typeof queryMarketSchema.parse>, id: str
   cache.set(key, { expires: Date.now() + 30000, result });
   return result;
 }
-export async function queryMarketData(raw: unknown) {
+export async function queryMarketData(raw: unknown, options?: { alignDates?: boolean }) {
   const p = queryMarketSchema.parse(raw);
   const ids = [...new Set(p.indicatorIds)];
   const effectiveMaxPoints = Math.min(p.maxPoints, Math.floor(2000 / ids.length));
@@ -66,7 +66,8 @@ export async function queryMarketData(raw: unknown) {
   const dates = allDates.filter(date => !nextCursor || date <= nextCursor);
   return { series: series.map(s => {
     const nativePoints = s.points.filter(point => !nextCursor || point.date <= nextCursor);
-    const points = dates.map(date => nativePoints.find(point => point.date === date) ?? { date, value: null, unit: s.indicator.unit, missing: true, publishedAt: null, availableAt: null, lastUpdatedAt: null, revised: null, revisionCoverage: "unknown" });
+    const points = options?.alignDates === false ? nativePoints
+      : dates.map(date => nativePoints.find(point => point.date === date) ?? { date, value: null, unit: s.indicator.unit, missing: true, publishedAt: null, availableAt: null, lastUpdatedAt: null, revised: null, revisionCoverage: "unknown" });
     return { ...s, points, coverage: { from: nativePoints[0]?.date ?? null, to: nativePoints.at(-1)?.date ?? null, count: nativePoints.length, truncated: Boolean(nextCursor), nextCursor }, revisionFingerprint: createHash("sha256").update(JSON.stringify(points)).digest("hex") };
   }), nextCursor, truncated: Boolean(nextCursor), effectiveMaxPoints, maxTotalPoints: 2000, asOfRequested: p.dataCutoff ?? null, retrievedAt: new Date().toISOString() };
 }

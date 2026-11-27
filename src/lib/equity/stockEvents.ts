@@ -33,6 +33,7 @@ export type StockEvent = {
   date: string;
   titleZh: string;
   form: string | null;
+  accession?: string;
   /** 8-K item 编号（去掉伴随项 9.01） */
   items: string[];
   importance: StockEventImportance;
@@ -130,6 +131,8 @@ export async function loadStockEvents(
     from?: string;
     to?: string;
     includeDisclosure?: boolean;
+    dbOnly?: boolean;
+    earningsReleasesOnly?: boolean;
   } = {},
 ): Promise<StockEvent[]> {
   const limit = Math.min(200, Math.max(1, opts.limit ?? 80));
@@ -146,6 +149,19 @@ export async function loadStockEvents(
       ...(toDay ? { lte: new Date(`${toDay}T23:59:59.999Z`) } : {}),
     };
   }
+  if (opts.earningsReleasesOnly) {
+    filingWhere.form = "8-K";
+    filingWhere.items = { contains: "2.02" };
+  }
+  if (opts.dbOnly && filingWhere.filedAt) {
+    const range = filingWhere.filedAt;
+    delete filingWhere.filedAt;
+    const timestampRange = {
+      ...(fromDay ? { gte: new Date(`${fromDay}T00:00:00.000Z`) } : {}),
+      ...(toDay ? { lte: new Date(Date.parse(toDay) + 2 * 86_400_000 - 1) } : {}),
+    };
+    filingWhere.OR = [{ filedAt: range }, { publishedOn: range }, { publishedAt: timestampRange }, { acceptedAt: timestampRange }];
+  }
 
   const filingSelect = {
     accession: true, reportPeriodEnd: true, form: true, filedAt: true, url: true, items: true,
@@ -160,7 +176,7 @@ export async function loadStockEvents(
     take: 300,
     select: filingSelect,
   });
-  if (!filings.length && opts.cik && !opts.includeDisclosure) {
+  if (!filings.length && opts.cik && !opts.includeDisclosure && !opts.dbOnly) {
     try {
       await ingestSecFilingsForSymbol(symbol, opts.cik);
       filings = await prisma.secFiling.findMany({
@@ -302,6 +318,7 @@ export async function loadStockEvents(
           (metrics ? ` ${metrics.period}` : "") +
           (f.form.endsWith("/A") ? "（修订）" : ""),
         form: f.form,
+        accession: f.accession,
         items: [],
         importance: "high",
         url: f.url,
@@ -320,6 +337,7 @@ export async function loadStockEvents(
         date: dateIso,
         titleZh: title8k(items) + (f.form.endsWith("/A") ? "（修订）" : ""),
         form: f.form,
+        accession: f.accession,
         items,
         importance: importanceOf8k(items),
         url: f.url,
@@ -363,7 +381,7 @@ export async function loadStockEvents(
     }
   }
   return events
-    .filter((e) => !typeFilter || typeFilter.has(e.type))
+    .filter((e) => opts.earningsReleasesOnly ? e.form === "8-K" && e.items.includes("2.02") : !typeFilter || typeFilter.has(e.type))
     .filter(e => (!fromDay || e.date >= fromDay) && (!toDay || e.date <= toDay))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);

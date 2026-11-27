@@ -13,10 +13,18 @@ import { loadIndustryFinancials, industryFinancialResponse } from "@/lib/equity/
 import { FACTOR_DEFS, FACTOR_MAP } from "@/lib/quant/factorRegistry";
 import { runScreenerQuery } from "@/lib/quant/screenerData";
 import { validateScreenerConfig, type ScreenerConfig } from "@/lib/quant/screener";
+import { loadOwnershipMonitor } from "@/lib/equity/ownershipMonitor";
 
 const symbolInput = z.string().trim().max(24).refine(value => normalizeUsTicker(value) !== null, "美股代码无效");
 export const stockEvidence = z.object({ symbol: symbolInput }).strict();
 export const insiderFilingInput = stockEvidence.extend({ limit: z.number().int().min(1).max(20).default(10) });
+export const ownershipMonitorInput = stockEvidence.extend({
+  asOf: day.optional(),
+  from: day.optional().describe("默认截至日前 90 个自然日，最多回看 2 年。"),
+  section: z.enum(["transactions", "plans"]).default("transactions"),
+  offset: z.number().int().min(0).max(10_000).default(0),
+  limit: z.number().int().min(1).max(30).default(15),
+});
 const maxQuarterHistoryDays = 15 * 366;
 export const quarterlyFinancialsInput = stockEvidence.extend({
   startDate: day.describe("按实际财季末筛选，包含起始日期。"),
@@ -199,6 +207,62 @@ export async function getStockInsiderFilings(symbol: string, limit: number) {
     coverageNote: "Form 4 及其修订的申报引用，申报本身不代表公开市场买卖。",
     websiteUrl: absoluteUrl("/equity/ownership"),
   };
+}
+
+export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorInput>) {
+  const today = new Date().toISOString().slice(0, 10);
+  const asOf = input.asOf ?? today;
+  const from = input.from ?? new Date(Date.parse(asOf) - 89 * 86_400_000).toISOString().slice(0, 10);
+  const days = (Date.parse(asOf) - Date.parse(from)) / 86_400_000;
+  if (asOf > today || from < "1990-01-01" || days < 0 || days > 2 * 366) {
+    throw new MarketError("INVALID_INPUT", "请提供有效的历史查询区间，最多回看 2 年");
+  }
+  return { cost: 8 + Math.ceil(days / 90), run: async () => {
+    const stock = await security(input.symbol);
+    const monitor = await loadOwnershipMonitor(stock.symbol, asOf, from);
+    if (!monitor) throw new MarketError("NOT_FOUND", "站内未找到该标的");
+    const common = {
+      symbol: monitor.symbol, name: monitor.name, asOf, from,
+      coverage: monitor.coverage && {
+        since: monitor.coverage.since, through: monitor.coverage.through, complete: monitor.coverage.complete,
+        checkedAt: monitor.coverage.checkedAt,
+      },
+      truncated: monitor.truncated,
+      supply: monitor.supply.slice(0, 20).map(row => ({
+        security: row.security, sells90: row.sells90, buys90: row.buys90, netSells90: row.netSells90,
+        complete90: row.complete90, floatShares: row.floatShares, floatDate: row.floatDate,
+        netSellingToFloat90: row.supplyRatio90, sellingToAdv30: row.sellingAdv30, coverageNote: row.reason,
+      })),
+      supplyTruncated: monitor.supply.length > 20,
+      coverageNote: "按截至日已披露资料及当前核实结果重建。P/S 可包括私下成交。计划剩余量为有证据支持的条件性上限。",
+      websiteUrl: absoluteUrl(`/equity/ownership?symbol=${encodeURIComponent(stock.symbol)}`),
+    };
+    const { offset, limit, section } = input;
+    if (section === "plans") {
+      const plans = monitor.plans.filter(plan => plan.verified && plan.rule10b51 === true &&
+        (plan.filedAt >= from || plan.state === "可能执行中" || plan.state === "待执行窗口"))
+        .sort((a, b) => b.filedAt.localeCompare(a.filedAt) || a.id.localeCompare(b.id));
+      return { ...common, section, plans: plans.slice(offset, offset + limit).map(plan => ({
+        id: plan.id, owner: plan.ownerName, security: plan.security, status: plan.state,
+        disclosedOn: plan.filedAt, adoptedOn: plan.adopted, start: plan.start, end: plan.end, terminatedOn: plan.terminated,
+        maximumShares: plan.adjustedMaximum, linkedExecutedShares: plan.linkedExecuted,
+        remainingUpperBoundShares: plan.remainingUpperBound, note: plan.calculationNote,
+        sourceUrl: safeFilingUrl(plan.sourceUrl),
+      })), nextOffset: plans.length > offset + limit ? offset + limit : null };
+    }
+    const trades = monitor.transactions.filter(trade => trade.status === "included" &&
+      ((trade.transactionCode === "P" && trade.acquiredDisposedCode === "A") ||
+        (trade.transactionCode === "S" && trade.acquiredDisposedCode === "D")))
+      .sort((a, b) => b.transactionDate.localeCompare(a.transactionDate) || b.filedAt.localeCompare(a.filedAt) || a.id.localeCompare(b.id));
+    return { ...common, section, transactions: trades.slice(offset, offset + limit).map(trade => ({
+      accession: trade.accession, security: trade.security, filer: trade.filerName, transactionDate: trade.transactionDate,
+      filedOn: trade.filedAt, side: trade.transactionCode === "P" ? "buy" : "sell",
+      reportedShares: trade.shares, adjustedShares: trade.adjustedShares, reportedPricePerShare: trade.pricePerShare,
+      planStatus: trade.planStatus,
+      sourceUrl: /^\d+$/.test(trade.cik) && /^\d{10}-\d{2}-\d{6}$/.test(trade.accession)
+        ? `https://www.sec.gov/Archives/edgar/data/${trade.cik.replace(/^0+/, "")}/${trade.accession.replace(/-/g, "")}/` : null,
+    })), nextOffset: trades.length > offset + limit ? offset + limit : null };
+  } };
 }
 
 export const industryComparison = z.object({
