@@ -9,11 +9,13 @@ import { loadStockEvents, type StockEvent } from "@/lib/equity/stockEvents";
 import { loadStockPeers } from "@/lib/equity/stockPeers";
 import { day, MarketError } from "@/lib/market/schema";
 import { stockEvidence } from "./equity";
-import { renderStockChartPng } from "./stockChartPng";
-import { saveStockChartImage } from "./stockChartArtifacts";
+import { isCompleteChartBar, renderStockChartPng } from "./stockChartPng";
+import { saveStockChartImage, saveStockEventPack } from "./stockChartArtifacts";
+import { prepareResearchEventPack, researchEventPackInput } from "./stockEventPack";
 
 const dayMs = 86_400_000;
 const dateKey = (date: Date) => date.toISOString().slice(0, 10);
+const dayOfBar = (time: number) => dateKey(new Date(time * 1000));
 const shift = (value: string, days: number) => dateKey(new Date(Date.parse(value) + days * dayMs));
 const stockUrl = (symbol: string) => absoluteUrl(`/equity/stocks/${encodeURIComponent(symbol)}`);
 const priceWindow = { startDate: day, endDate: day };
@@ -31,6 +33,11 @@ export const stockChartInput = stockEvidence.extend({
   interval: z.enum(["1d", "1w", "1M"]).default("1d"),
   adjustment: z.enum(["forward", "backward", "none"]).default("forward"),
   showEarnings: z.boolean().default(true),
+});
+
+export const stockEventPackChartInput = stockChartInput.extend({
+  showEarnings: z.boolean().default(false),
+  eventPack: researchEventPackInput,
 });
 
 function rangeDays(input: { startDate: string; endDate: string }, maxDays: number) {
@@ -193,10 +200,18 @@ function eventSummary(event: StockEvent) {
   };
 }
 
-export function prepareStockChart(input: z.output<typeof stockChartInput>) {
+export function prepareStockEventPackChart(input: z.output<typeof stockEventPackChartInput>) {
+  return prepareStockChart(input, input.eventPack);
+}
+
+export function prepareStockChart(
+  input: z.output<typeof stockChartInput>,
+  eventPack?: z.output<typeof researchEventPackInput>,
+) {
   const days = rangeDays(input, input.interval === "1d" ? 366 : 5 * 366);
   return { cost: 6 + Math.ceil(days / 366) * 2, run: async () => {
     const stock = await stockContext(input.symbol);
+    const research = eventPack && prepareResearchEventPack(eventPack, stock.symbol);
     const cutoff = completedSessionCutoff();
     const endDate = input.endDate < cutoff ? input.endDate : cutoff;
     if (input.startDate > endDate) throw new MarketError("DATA_UNAVAILABLE", "所选区间还没有已完成的交易日");
@@ -215,14 +230,45 @@ export function prepareStockChart(input: z.output<typeof stockChartInput>) {
     const lastBar = prices.bars.at(-1);
     const lastTradingDate = lastBar ? dateKey(new Date(lastBar.time * 1000)) : null;
     const markers = earnings.filter(event => firstTradingDate && lastTradingDate && event.date >= firstTradingDate && event.date <= lastTradingDate);
-    const png = await renderStockChartPng(stock.symbol, bars, markers.map(event => event.date), input);
+    const candleDates = new Set(bars.filter(isCompleteChartBar).map(bar => dayOfBar(bar.time)));
+    // Use the eligible daily market session first, then locate its weekly or monthly candle.
+    const sessions = input.interval === "1d" ? prices.bars.filter(isCompleteChartBar) : prices.bars;
+    let markerNumber = 0;
+    const researchEvents = research?.events.map(event => {
+      const eventDate = event.occurredAt.slice(0, 10);
+      const inRange = eventDate >= input.startDate && eventDate <= input.endDate;
+      const session = inRange ? sessions.find(bar => dayOfBar(bar.time) >= eventDate) : undefined;
+      const candle = session && aggregateDailyBars([session], input.interval)[0];
+      const candleDate = candle && dayOfBar(candle.time);
+      const plotted = candleDate !== undefined && candleDates.has(candleDate);
+      return {
+        externalId: event.externalId, title: event.title, markerLabel: event.markerLabel,
+        occurredAt: event.occurredAt, eventType: event.eventType, color: event.color,
+        evidenceUrls: eventPack?.events.find(row => row.externalId === event.externalId)?.sources.map(source => source.url) ?? [],
+        status: plotted ? "plotted" : inRange ? "no_trading_candle" : "out_of_range",
+        number: plotted ? ++markerNumber : null,
+        tradingDate: plotted && session ? dayOfBar(session.time) : null,
+        candleDate: plotted ? candleDate : null,
+      };
+    });
+    const researchMarkers = researchEvents?.flatMap(event => event.number !== null && event.candleDate
+      ? [{ number: event.number, candleDate: event.candleDate, color: event.color }] : []);
+    const png = await renderStockChartPng(stock.symbol, bars, markers.map(event => event.date), input, researchMarkers);
     const delivery = await saveStockChartImage(stock.symbol, png.image).catch(error => {
       console.error("[research-mcp] chart image delivery failed", error);
       return { imageDeliveryNote: "浏览器预览与下载链接暂不可用，原始 PNG 仍在工具的图片响应中。" };
     });
+    const researchDelivery = research && await saveStockEventPack(stock.symbol, research.document).catch(error => {
+      console.error("[research-mcp] event pack delivery failed", error);
+      return { eventPack: research.document, eventPackDeliveryNote: "下载链接暂不可用，可将 eventPack 对象直接保存为 JSON。" };
+    });
     return {
       image: png.image, symbol: stock.symbol, interval: input.interval, adjustment: input.adjustment,
       ...delivery,
+      ...(research && {
+        ...researchDelivery, researchEvents, plottedEventCount: markerNumber,
+        eventCoverageNote: "按事件当地日期对齐当天或区间内下一根已完成交易日，再归入对应 K 线。外部 AI 提供的证据链接随事件包保留，站内校验格式与显示范围。",
+      }),
       startDate: input.startDate, endDate: input.endDate,
       firstTradingDate, lastTradingDate,
       bars: png.candleCount, events: earnings, earningsTruncated: events.length > 60,

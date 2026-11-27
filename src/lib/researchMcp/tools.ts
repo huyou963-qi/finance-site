@@ -23,8 +23,8 @@ import { personalReadScope, personalWriteScope, researchScope, researchScopeChal
 import { getResearchUsage, ResearchBudgetError, withResearchBudget } from "./usage";
 import { fiscalAlignmentInput, prepareFiscalAlignment } from "./quarterAlignment";
 import {
-  prepareStockChart, prepareStockEventReturns, prepareStockPeers,
-  stockChartInput, stockEventReturnsInput, stockPeersInput,
+  prepareStockChart, prepareStockEventPackChart, prepareStockEventReturns, prepareStockPeers,
+  stockChartInput, stockEventPackChartInput, stockEventReturnsInput, stockPeersInput,
 } from "./stockMarket";
 import {
   compareIndustries, getStockDisclosures, getStockGuidance, getStockInsiderFilings, industryComparison,
@@ -123,10 +123,14 @@ function result(payload: Record<string, unknown>, isError = false, image?: Buffe
   const chartLink = image && typeof payload.imageUrl === "string" && typeof payload.imageFilename === "string"
     ? [{ type: "resource_link" as const, uri: payload.imageUrl, name: payload.imageFilename, mimeType: "image/png", size: image.byteLength }]
     : [];
+  const eventPackLink = typeof payload.eventPackDownloadUrl === "string" && typeof payload.eventPackFilename === "string"
+    ? [{ type: "resource_link" as const, uri: payload.eventPackDownloadUrl, name: payload.eventPackFilename, mimeType: "application/json" }]
+    : [];
   return { isError, content: [
     { type: "text" as const, text },
     ...(image ? [{ type: "image" as const, data: image.toString("base64"), mimeType: "image/png" }] : []),
     ...chartLink,
+    ...eventPackLink,
   ], structuredContent: JSON.parse(text) };
 }
 
@@ -286,6 +290,8 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     prepareStockEventReturns);
   register("render_stock_chart_png", "用站内行情绘制一只美股指定区间的 K 线和成交量 PNG，可叠加财报业绩公告标记。支持日、周、月和复权选择。使用返回的 imageUrl 展示原图，并将 downloadUrl 提供给用户下载。链接 24 小时内有效。", stockChartInput, "markets",
     prepareStockChart);
+  register("render_stock_event_pack_chart", "把外部 AI 已查证的公开事件直接叠加到站内美股 K 线并生成 PNG 和行情页可导入的 v2 事件 JSON，用户无需操作行情页。先用客户端搜索核实事件与日期，提供原始公开来源，不确定的事件放入 skipped。工具在服务端临时预览事件包，按编号标注并返回编号对应事件及未上图原因；用 imageUrl 展示 PNG、downloadUrl 下载 PNG、eventPackDownloadUrl 下载事件包，链接 24 小时内有效。", stockEventPackChartInput, "markets",
+    prepareStockEventPackChart);
   register("get_stock_guidance", "读取近期公司已披露的管理层指引、目标报告期、口径和原文证据。", stockEvidence, "markets",
     ({ symbol }) => ({ cost: 5, run: () => getStockGuidance(symbol) }));
   register("get_stock_insider_filings", "获取一只股票的近期 Form 4 内部人申报引用。", insiderFilingInput, "equity-ownership",
