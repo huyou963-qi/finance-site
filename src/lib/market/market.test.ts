@@ -140,6 +140,22 @@ test("existing oil chart discovery and details reuse template; price chart has e
   assert.ok(data.series.some(s => s.data[1] === null));
   await assert.rejects(charts.getChart({ chartId: "private-user-template:0" }), /不存在/);
 });
+test("housing chart uses prior-year observations and reports transformed units", async t => {
+  fixture(t); const [, , , charts] = await market;
+  const permit = { ...wti, code: "sched_fred_PERMIT", fredSeriesId: "PERMIT", name: "建筑许可", unit: "千套", freqLabel: "月" };
+  const starts = { ...brent, code: "sched_fred_HOUST1F", fredSeriesId: "HOUST1F", name: "单户新屋开工", unit: "千套", freqLabel: "月" };
+  t.mock.method(prisma.instrument, "findFirst", async ({ where }: { where: { OR: Record<string, unknown>[] } }) =>
+    [permit, starts].find(row => where.OR.some(c => c.id === row.id || c.fredSeriesId === row.fredSeriesId)) ?? null);
+  t.mock.method(prisma.macroObservation, "findMany", async ({ where }: { where: { obsDate: { gte: Date; lte: Date } } }) =>
+    [{ obsDate: new Date("2025-10-01"), value: 100 }, { obsDate: new Date("2026-10-01"), value: 110 }]
+      .filter(row => row.obsDate >= where.obsDate.gte && row.obsDate <= where.obsDate.lte));
+  const chart = await charts.getChart({ chartId: "builtin-us-housing-activity:0" });
+  const found = await charts.searchCharts({ query: "房地产" }, { includeIndicatorCoverage: false });
+  assert.ok(found.charts.some(item => item.chartId === chart.chartId && item.supportsData));
+  const data = await charts.renderChartData(chart, "2026-10-01", "2026-10-31", undefined, { includeYearOverYearLookback: true });
+  assert.deepEqual(data.categories, ["2026-10-01"]);
+  assert.deepEqual(data.series.map(series => [series.unit, series.data[0]]), [["%", 10], ["%", 10]]);
+});
 test("attach after heading is atomic, optimistic, audited, idempotent and draft-only", async t => {
   fixture(t); const [, , , , attach] = await market;
   let row = { id: articleId, authorId: "owner", title: "测试草稿", slug: "test-draft", summary: "测试", category: "energy", tags: [], bodyMarkdown: "## 一、原油背离\n\n正文", sourceManifest: [], status: "draft", dataCutoff: null, createdAt: new Date(), updatedAt: new Date("2026-10-01"), publishedAt: null, coverImageUrl: null, author: { username: "owner" }, assets: [] };

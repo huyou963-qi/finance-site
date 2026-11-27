@@ -190,11 +190,12 @@ export type RunListItem = {
 };
 
 /** run 列表（元信息 + summary，不含完整 result）。userId=null → 全部（CLI/管理）。 */
-export async function listRuns(userId: string | null): Promise<RunListItem[]> {
+export async function listRuns(userId: string | null, page?: { completedOnly: boolean; offset: number; limit: number }): Promise<RunListItem[]> {
   const runs = await prisma.robustnessRun.findMany({
-    where: userId ? { userId } : {},
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    where: { ...(userId ? { userId } : {}), ...(page?.completedOnly ? { status: "done" } : {}) },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: page?.offset,
+    take: page?.limit ?? 100,
     select: {
       id: true,
       name: true,
@@ -242,9 +243,11 @@ export async function getRunDetail(
   runId: string,
   requesterId: string | null,
   includeResult: boolean,
+  { ownCompleted = false }: { ownCompleted?: boolean } = {},
 ): Promise<RunDetail | null> {
+  if (ownCompleted && !requesterId) return null;
   const run = await prisma.robustnessRun.findUnique({
-    where: { id: runId },
+    where: { id: runId, ...(ownCompleted ? { userId: requesterId, status: "done" } : {}) },
     select: {
       id: true,
       userId: true,
@@ -263,6 +266,7 @@ export async function getRunDetail(
   });
   if (!run) return null;
   if (run.userId && run.userId !== requesterId) return null;
+  if (ownCompleted && (run.userId !== requesterId || run.status !== "done")) return null;
   return {
     id: run.id,
     name: run.name,

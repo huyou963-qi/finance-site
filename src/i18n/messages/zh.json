@@ -11,6 +11,7 @@
     "researchRead": "研究数据读取",
     "personalRead": "个人自选与股票模板读取",
     "personalWrite": "添加自选与另存股票模板",
+    "workspaceRead": "读取宏观模板、选股策略和已完成的量化报告",
     "noConnections": "暂无有效授权。",
     "expires": "到期时间为 {date}（UTC）",
     "revoke": "撤销授权"

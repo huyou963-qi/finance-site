@@ -400,10 +400,13 @@ async function fetchRawDailyBarRows(
 export async function getAdjustedDailyBars(
   symbol: string,
   query: DailyBarsQuery = {},
+  options: { dbOnly?: boolean } = {},
 ): Promise<{ bars: AdjustedBar[]; source: string | null; found: boolean }> {
   const sym = normalizeSymbol(symbol);
-  const { missing } = await ensureDailyBars([sym]);
-  if (missing.includes(sym)) return { bars: [], source: null, found: false };
+  if (!options.dbOnly) {
+    const { missing } = await ensureDailyBars([sym]);
+    if (missing.includes(sym)) return { bars: [], source: null, found: false };
+  }
 
   const mode = query.mode ?? "forward";
   const bounded =

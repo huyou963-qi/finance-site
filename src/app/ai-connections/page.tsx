@@ -6,7 +6,7 @@ import { getAccessUserByToken, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { normalizeFeatureAccessPolicy } from "@/lib/access/featureCatalog";
 import { isPaidProActive } from "@/lib/billing/access";
 import { prisma } from "@/lib/prisma";
-import { personalReadScope, personalWriteScope, researchResource, researchScope } from "@/lib/researchMcp/oauth";
+import { personalReadScope, personalWriteScope, researchResource, researchScope, workspaceReadScope } from "@/lib/researchMcp/oauth";
 import { getResearchUsage } from "@/lib/researchMcp/usage";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,12 @@ export default async function AiConnections() {
   const usage = canConnect ? await getResearchUsage(user.id) : null;
   const dateTime = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 
-  const scopeLabel = { [researchScope]: t("researchRead"), [personalReadScope]: t("personalRead"), [personalWriteScope]: t("personalWrite") };
+  const scopeLabel = {
+    [researchScope]: t("researchRead"),
+    [personalReadScope]: t("personalRead"),
+    [personalWriteScope]: t("personalWrite"),
+    [workspaceReadScope]: t("workspaceRead"),
+  };
 
   return <section aria-labelledby="ai-connections-title" className="mx-auto max-w-3xl space-y-6 px-4 py-8">
     <h1 id="ai-connections-title" className="text-2xl font-semibold">{t("title")}</h1>

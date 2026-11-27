@@ -6,8 +6,8 @@ import { absoluteUrl } from "@/lib/seo/siteUrl";
 import { searchMarketIndicators, type describeIndicator } from "@/lib/market/indicators";
 import { calculateMarketSeries } from "@/lib/market/calculate";
 import { queryMarketData } from "@/lib/market/data";
-import { searchCharts } from "@/lib/market/charts";
-import { calculateMarketSchema, day, MarketError, queryMarketSchema, searchChartsSchema, searchIndicatorsSchema } from "@/lib/market/schema";
+import { getChart, renderChartData, searchCharts } from "@/lib/market/charts";
+import { calculateMarketSchema, day, getChartSchema, MarketError, queryMarketSchema, searchChartsSchema, searchIndicatorsSchema } from "@/lib/market/schema";
 import { INDICATORS, getIndicator } from "@/lib/equity/stockData/indicatorRegistry";
 import { filterIndicators } from "@/lib/equity/stockData/indicatorSearch";
 import { parseColumns, parseSymbols, StockDataRequestError } from "@/lib/equity/stockData/request";
@@ -16,15 +16,27 @@ import { MAX_COLUMNS, MAX_SYMBOLS, RANGE_PRESETS } from "@/lib/equity/stockData/
 import { parseTemplateInput, MAX_TEMPLATE_NAME } from "@/lib/equity/stockData/templates";
 import { saveStockDataTemplate, TemplateStoreError } from "@/lib/equity/stockData/templateStore";
 import { WatchlistStoreError } from "@/lib/data/marketWatchlistStore";
-import { addMyWatchlistStocks, getMyTemplate, getMyWatchlist, listMyTemplates, stockDataUrl } from "./personal";
-import { personalReadScope, personalWriteScope, researchScope, researchScopeChallenge, type ResearchScope, type ResearchFeature, type ResearchPrincipal } from "./oauth";
-import { getResearchUsage, withResearchBudget } from "./usage";
+import {
+  addMyWatchlistStocks, getMyMacroTemplates, getMyScreenerStrategies, getMyTemplate, getMyWatchlist, listMyTemplates, stockDataUrl,
+} from "./personal";
+import { personalReadScope, personalWriteScope, researchScope, researchScopeChallenge, workspaceReadScope, type ResearchScope, type ResearchFeature, type ResearchPrincipal } from "./oauth";
+import { getResearchUsage, ResearchBudgetError, withResearchBudget } from "./usage";
+import { fiscalAlignmentInput, prepareFiscalAlignment } from "./quarterAlignment";
+import {
+  prepareStockChart, prepareStockEventReturns, prepareStockPeers,
+  stockChartInput, stockEventReturnsInput, stockPeersInput,
+} from "./stockMarket";
 import {
   compareIndustries, getStockDisclosures, getStockGuidance, getStockInsiderFilings, industryComparison,
-  insiderFilingInput, listScreenerFactors, prepareScreener, screenStocks, stockEvidence,
+  disclosureArchiveInput, getStockDisclosureArchive, insiderFilingInput, listScreenerFactors, prepareQuarterlyFinancials,
+  ownershipMonitorInput, prepareOwnershipMonitor, prepareScreener, quarterlyFinancialsInput, screenStocks, stockEvidence,
 } from "./equity";
 import { contentFeatures, getResearchContent, searchResearchContent, type ResearchContent } from "./content";
 import { forecastFeatures, getForecastSummary } from "./forecasts";
+import {
+  factorResearchInput, getMyQuantReport, listMyQuantReports, prepareFactorResearch, prepareRegime, quantReportFeatures,
+  quantReportPage, quantReportSection, regimeInput, validateQuantReportSection, type QuantReportKind,
+} from "./quant";
 
 const search = z.object({
   query: z.string().trim().min(1).max(100),
@@ -106,9 +118,12 @@ function publicMacro(i: ReturnType<typeof describeIndicator>) {
   };
 }
 
-function result(payload: Record<string, unknown>, isError = false) {
+function result(payload: Record<string, unknown>, isError = false, image?: Buffer) {
   const text = JSON.stringify(payload);
-  return { isError, content: [{ type: "text" as const, text }], structuredContent: JSON.parse(text) };
+  return { isError, content: [
+    { type: "text" as const, text },
+    ...(image ? [{ type: "image" as const, data: image.toString("base64"), mimeType: "image/png" }] : []),
+  ], structuredContent: JSON.parse(text) };
 }
 
 export function createResearchMcpServer(user: ResearchPrincipal) {
@@ -116,7 +131,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
   const descriptors: Record<string, unknown>[] = [];
 
   function register<S extends z.ZodObject>(name: string, description: string, schema: S, feature: ResearchFeature | undefined,
-    prepare: (input: z.output<S>) => { cost: number; run: () => Promise<Record<string, unknown>> },
+    prepare: (input: z.output<S>) => { cost: number; run: () => Promise<Record<string, unknown> & { image?: Buffer }> },
     scope: ResearchScope = researchScope) {
     if (feature && !user.enabledFeatures.includes(feature)) return;
     const write = scope === personalWriteScope;
@@ -135,8 +150,12 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
       try {
         const input = schema.parse(args);
         const job = prepare(input);
-        return result(await withResearchBudget(user.id, job.cost, job.run));
+        const { image, ...payload } = await withResearchBudget(user.id, job.cost, job.run);
+        return result(payload, false, image);
       } catch (error) {
+        if (error instanceof ResearchBudgetError) {
+          return result({ success: false, error: { code: error.code, message: error.message, ...error.details } }, true);
+        }
         if (error instanceof MarketError || error instanceof WatchlistStoreError || error instanceof TemplateStoreError) {
           return result({ success: false, error: { code: error.code, message: error.message } }, true);
         }
@@ -184,10 +203,31 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     input => ({ cost: 1, run: async () => {
       const data = await searchCharts(input, { includeIndicatorCoverage: false });
       return { truncated: data.truncated, charts: data.charts.map(c => ({
-        chartId: c.chartId, title: c.title, chartType: c.chartType,
+        chartId: c.chartId, title: c.title, chartType: c.chartType, supportsData: c.supportsData,
         websiteUrl: c.supportsInteraction ? c.previewUrl : absoluteUrl("/macro"),
       })) };
     } }));
+
+  register("get_system_chart_data", "按 search_system_charts 返回的图表 ID，读取站内系统宏观图表的变换后序列、单位、日期和来源。仅支持目录中 supportsData 的图表。", getChartSchema.extend({
+    startDate: day, endDate: day, dataCutoff: z.string().datetime({ offset: true }).optional(),
+  }), "macro", input => {
+    const days = (Date.parse(input.endDate) - Date.parse(input.startDate)) / 86_400_000;
+    if (days < 0 || days > 30 * 366 || (input.dataCutoff && Date.parse(input.dataCutoff) > Date.now())) {
+      throw new MarketError("INVALID_INPUT", "图表日期区间须按升序且不超过 30 年，可见截止时间不能在未来");
+    }
+    return { cost: 5 + Math.ceil(days / 366) + Number(Boolean(input.dataCutoff)), run: async () => {
+      const chart = await getChart({ chartId: input.chartId });
+      const data = await renderChartData(chart, input.startDate, input.endDate, input.dataCutoff, { includeYearOverYearLookback: true });
+      return {
+        chartId: data.chartId, title: data.title, dates: data.categories, series: data.series.map(({ name, unit, data }) => ({ name, unit, values: data })),
+        sources: data.sources.map(publicMacro), revisionFingerprints: data.revisionFingerprints,
+        dataCutoff: data.dataCutoff, displayedStartDate: data.displayStartDate, displayedEndDate: data.displayEndDate,
+        lastUpdatedAt: data.lastUpdatedAt, retrievedAt: data.retrievedAt,
+        coverageNote: "同比计算会读取所需的上年数据。不同序列按实际日期对齐，缺口按图表既有配置处理。",
+        websiteUrl: absoluteUrl(chart.page),
+      };
+    } };
+  });
 
   register("search_securities", "从站内证券目录按美股代码或公司名称搜索。", search, "equity-stock-data",
     input => ({ cost: 1, run: async () => {
@@ -226,12 +266,28 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
       } };
     });
 
-  register("get_stock_disclosures", "查看一只美股近期公告及最新财报申报。返回日期及官方披露链接。", stockEvidence, "markets",
+  register("query_stock_quarterly_financials", "按实际财季末日期范围一次读取一只美股多项单季财务报表指标。包含财季末和缺失状态。", quarterlyFinancialsInput, "equity-stock-data",
+    prepareQuarterlyFinancials);
+  if (user.enabledFeatures.includes("macro")) {
+    register("compare_stock_macro_quarters", "将原生周频或月频宏观指标对齐到公司实际财季，返回同比或水平、宏观领先期、配对数和相关系数。", fiscalAlignmentInput, "equity-stock-data",
+      prepareFiscalAlignment);
+  }
+  register("get_stock_disclosures", "查看一只美股近期公告及最新财报申报。返回可用于查询归档的公告编号和附件名称。", stockEvidence, "markets",
     ({ symbol }) => ({ cost: 2, run: () => getStockDisclosures(symbol) }));
+  register("get_stock_disclosure_archive", "按证券、公告编号和附件名称读取站内归档的公告文字。使用 nextOffset 翻页；缺少归档时明确返回状态。", disclosureArchiveInput, "markets",
+    input => ({ cost: 2, run: () => getStockDisclosureArchive(input) }));
+  register("compare_stock_peers", "自动查找一只美股的站内同业，比较最新估值、利润率和指定期间的前复权收益，并返回相对同业及 SPY 的表现。", stockPeersInput, "markets",
+    prepareStockPeers);
+  register("get_stock_event_returns", "按财报业绩公告、申报、8-K 或拆股事件比较后续交易日的前复权收益，返回公告来源、窗口及相对同业和 SPY 的表现。", stockEventReturnsInput, "markets",
+    prepareStockEventReturns);
+  register("render_stock_chart_png", "用站内行情绘制一只美股指定区间的 K 线和成交量 PNG，可叠加财报业绩公告标记。支持日、周、月和复权选择。", stockChartInput, "markets",
+    prepareStockChart);
   register("get_stock_guidance", "读取近期公司已披露的管理层指引、目标报告期、口径和原文证据。", stockEvidence, "markets",
     ({ symbol }) => ({ cost: 5, run: () => getStockGuidance(symbol) }));
   register("get_stock_insider_filings", "获取一只股票的近期 Form 4 内部人申报引用。", insiderFilingInput, "equity-ownership",
     ({ symbol, limit }) => ({ cost: 2, run: () => getStockInsiderFilings(symbol, limit) }));
+  register("get_stock_ownership_monitor", "读取一只美股已核实的内部人买卖和近 90 日净卖出统计；section=plans 可分页读取已核实的 10b5-1 计划。", ownershipMonitorInput, "equity-ownership",
+    prepareOwnershipMonitor);
 
   register("compare_industries", "比较最多三个美股板块 ETF 的成分财务汇总。返回现金流、利润、增速和样本覆盖率；可选当前成分或历史持仓。", industryComparison, "equity-industries",
     input => ({ cost: 4 + new Set(input.etfs).size * (input.membership === "historical" ? 14 : 8), run: () => compareIndustries(input) }));
@@ -240,6 +296,24 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     () => ({ cost: 1, run: async () => listScreenerFactors() }));
   register("screen_stocks", "在一个已入库的美股因子截面上筛选。最多 5 个条件、1 个排序因子和 30 条结果。", screenStocks, "quant-screener",
     prepareScreener);
+  register("get_macro_regime", "读取站内当前增长与通胀环境和市场定价摘要；提供起止日期时读取已保存的月度环境记录。", regimeInput, "quant-regime",
+    prepareRegime);
+  register("get_factor_research_summary", "使用站内历史截面研究最多 4 个因子的 IC、分层收益、IC 衰减、宏观环境分组和因子相关性。", factorResearchInput, "quant-factor-research",
+    prepareFactorResearch);
+
+  const reportKinds = (Object.keys(quantReportFeatures) as QuantReportKind[])
+    .filter(kind => user.enabledFeatures.includes(quantReportFeatures[kind]));
+  if (reportKinds.length) {
+    const kind = z.enum(reportKinds);
+    register("list_my_quant_reports", "分页列出你自己已完成的回测或稳健性报告，返回报告 ID。", z.object({ kind, ...quantReportPage }).strict(), undefined,
+      input => ({ cost: 1, run: () => listMyQuantReports(user.id, input.kind, input.offset, input.limit) }), workspaceReadScope);
+    register("get_my_quant_report", "读取你自己已完成的量化报告。回测支持净值及调仓时的宏观状态；稳健性报告支持参数扫描或分段详情及已保存的净值。", z.object({
+      kind, id: z.uuid(), section: quantReportSection.default("summary"), ...quantReportPage,
+    }).strict(), undefined, input => {
+      validateQuantReportSection(input.kind, input.section);
+      return { cost: 2, run: () => getMyQuantReport(user.id, input.kind, input.id, input.section, input.offset, input.limit) };
+    }, workspaceReadScope);
+  }
 
   const contentKinds = (Object.keys(contentFeatures) as ResearchContent[])
     .filter(kind => user.enabledFeatures.includes(contentFeatures[kind]));
@@ -267,6 +341,12 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     () => ({ cost: 1, run: () => listMyTemplates(user.id) }), personalReadScope);
   register("get_my_stock_template", "读取自己的股票数据模板、股票列表和可用于取数的列参数。", z.object({ id: z.string().min(1).max(64) }).strict(), "equity-stock-data",
     ({ id }) => ({ cost: 1, run: () => getMyTemplate(user.id, id) }), personalReadScope);
+  register("get_my_macro_templates", "列出你自己的宏观模板；提供模板 ID 时返回图表分组、指标和计算配置。", z.object({
+    id: z.string().min(1).max(128).optional(),
+  }).strict(), "macro", ({ id }) => ({ cost: 1, run: () => getMyMacroTemplates(user.id, id) }), workspaceReadScope);
+  register("get_my_screener_strategies", "分页列出你自己已保存的选股策略；提供策略 ID 时返回该策略的筛选条件和排序配置。", z.object({
+    id: z.uuid().optional(), ...quantReportPage,
+  }).strict(), "quant-screener", input => ({ cost: 1, run: () => getMyScreenerStrategies(user.id, input) }), workspaceReadScope);
 
   register("add_to_my_watchlist", "仅在用户明确要求时，将最多 10 只站内美股加入其自选分组。已有标的保留原分组。", watchlistWrite, "markets",
     input => ({ cost: 2, run: () => addMyWatchlistStocks(user.id, input.symbols, input.groupId) }), personalWriteScope);

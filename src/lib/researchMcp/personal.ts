@@ -4,6 +4,8 @@ import { MarketError } from "@/lib/market/schema";
 import { addMarketWatchlistItems, listMarketWatchlist } from "@/lib/data/marketWatchlistStore";
 import { normalizeUsTicker } from "@/lib/equity/stockData/request";
 import { listStockDataTemplates, getStockDataTemplate } from "@/lib/equity/stockData/templateStore";
+import { loadMacroChartPrefsForUser } from "@/lib/data/macroChartPrefs";
+import { toStrategyRow } from "@/lib/quant/screenerStrategies";
 
 const marketsUrl = () => absoluteUrl("/markets");
 export const stockDataUrl = () => absoluteUrl("/equity/data");
@@ -61,4 +63,61 @@ export async function getMyTemplate(userId: string, id: string) {
     return { indicatorId: c.indicatorId, params: queryParams };
   });
   return { template, queryColumns, websiteUrl: stockDataUrl() };
+}
+
+export async function getMyMacroTemplates(userId: string, id?: string) {
+  const prefs = await loadMacroChartPrefsForUser(userId);
+  const templates = (prefs?.templates ?? []).filter(template => !template.builtIn);
+  const websiteUrl = absoluteUrl("/macro");
+  if (!id) {
+    return {
+      templates: templates.map(template => ({
+        id: template.id, name: template.name, folderId: template.folderId ?? null,
+        chartCount: template.layoutMode, indicatorCount: template.selectedKeys.length,
+      })),
+      folders: prefs?.templateFolders?.filter(folder => folder.scope === "user").map(({ id, name }) => ({ id, name })) ?? [],
+      websiteUrl,
+    };
+  }
+  const template = templates.find(item => item.id === id);
+  if (!template) throw new MarketError("NOT_FOUND", "未找到属于你的宏观模板");
+  const allKeys = [...new Set([...template.selectedKeys, ...(template.derivedCalcs ?? []).map(calc => `calc:${calc.id}`)])];
+  const keys = allKeys.slice(0, 100);
+  const derived = (template.derivedCalcs ?? []).filter(calc => keys.includes(`calc:${calc.id}`));
+  const inputs = [...new Set([...keys, ...derived.flatMap(calc => [calc.leftKey, calc.rightKey])])];
+  const directIds = inputs.map(key => key.split("::")[0]!).filter(key => /^(fred:|mds:)/.test(key));
+  return {
+    template: {
+      id: template.id, name: template.name, description: template.description?.slice(0, 1500) ?? null,
+      charts: Array.from({ length: template.layoutMode }, (_, slot) => ({
+        slot, title: template.displayConfig?.slotTitles?.[slot] ?? null,
+        indicatorKeys: keys.filter(key => template.slotAssignment[key] === slot),
+      })),
+      seriesTransforms: Object.fromEntries(Object.entries(template.seriesCalcConfigMap ?? {}).filter(([key]) => inputs.includes(key))),
+      derivedSeries: derived,
+    },
+    truncated: allKeys.length > keys.length,
+    queryMacroIndicatorIds: [...new Set(directIds)],
+    websiteUrl,
+  };
+}
+
+export async function getMyScreenerStrategies(userId: string, input: { id?: string; offset: number; limit: number }) {
+  const websiteUrl = absoluteUrl("/quant/screener");
+  if (input.id) {
+    const row = await prisma.strategyDefinition.findFirst({ where: { id: input.id, userId } });
+    if (!row) throw new MarketError("NOT_FOUND", "未找到属于你的选股策略");
+    return { strategy: toStrategyRow(row), websiteUrl };
+  }
+  const { offset, limit } = input;
+  const rows = await prisma.strategyDefinition.findMany({
+    where: { userId }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    skip: offset, take: limit + 1,
+    select: { id: true, name: true, createdAt: true, updatedAt: true },
+  });
+  return {
+    strategies: rows.slice(0, limit).map(row => ({ ...row, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() })),
+    nextOffset: rows.length > limit ? offset + limit : null,
+    websiteUrl,
+  };
 }

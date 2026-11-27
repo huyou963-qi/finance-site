@@ -35,6 +35,8 @@ export type StockContext = {
   industrySlug: string | null;
   /** 同 Industry 成分（含自身，按市值降序）；无 Industry 归属时为空 */
   peerSymbols: string[];
+  /** 同一 GICS 子行业成分，沿用行业成分市值顺序。 */
+  subIndustryPeerSymbols: string[];
 };
 
 export function normalizeSymbolParam(raw: string): string | null {
@@ -79,6 +81,9 @@ export async function loadStockContext(symbolRaw: string): Promise<StockContext 
     industry,
     industrySlug: industry ? industrySlug(industry.nameEn) : null,
     peerSymbols: peers.map((p) => p.symbol),
+    subIndustryPeerSymbols: row.gicsSubIndustry
+      ? peers.filter(p => p.gicsSubIndustry === row.gicsSubIndustry).map(p => p.symbol)
+      : [],
   };
 }
 

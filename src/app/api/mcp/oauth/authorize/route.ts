@@ -1,6 +1,6 @@
 import { OAuthError } from "@/lib/articles/articleOAuth";
 import { createConsentHandlers } from "@/lib/articles/oauthConsent";
-import { parseResearchScopes, personalReadScope, personalWriteScope, researchClient, researchIssuer, researchResource, researchUserBySession } from "@/lib/researchMcp/oauth";
+import { parseResearchScopes, personalReadScope, personalWriteScope, researchClient, researchIssuer, researchResource, researchUserBySession, workspaceReadScope } from "@/lib/researchMcp/oauth";
 
 export const dynamic = "force-dynamic";
 export const { GET, POST } = createConsentHandlers({
@@ -14,6 +14,7 @@ export const { GET, POST } = createConsentHandlers({
   optionalScopes: [
     { scope: personalReadScope, label: "读取你的自选股及股票数据模板" },
     { scope: personalWriteScope, label: "添加自选股或另存新的股票数据模板" },
+    { scope: workspaceReadScope, label: "读取你的宏观模板、选股策略和已完成的量化报告" },
   ],
   links: '<p><a href="/ai-connections">管理 AI 数据授权</a></p>',
   denied(error) {

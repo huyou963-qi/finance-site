@@ -11,6 +11,7 @@
     "researchRead": "Read research data",
     "personalRead": "Read personal watchlists and stock templates",
     "personalWrite": "Add watchlist stocks and save stock templates",
+    "workspaceRead": "Read macro templates, screening strategies, and completed quantitative reports",
     "noConnections": "No active connections.",
     "expires": "Expires at {date} (UTC)",
     "revoke": "Revoke access"
