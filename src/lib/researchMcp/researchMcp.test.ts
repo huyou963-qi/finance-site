@@ -149,7 +149,7 @@ test("SDK discovery exposes separate personal scopes and enforces them before qu
   const next = await send("tools/list", undefined, phaseTwo);
   assert.deepEqual(next.result.tools.map((tool: { name: string }) => tool.name), [
     "get_usage", "get_stock_disclosures", "get_stock_disclosure_archive",
-    "compare_stock_peers", "get_stock_event_returns", "render_stock_chart_png",
+    "compare_stock_peers", "get_stock_event_returns", "render_stock_chart_png", "render_stock_event_pack_chart",
     "get_stock_guidance", "get_stock_insider_filings", "get_stock_ownership_monitor",
     "compare_industries", "list_screener_factors", "screen_stocks", "search_research", "get_research", "get_forecast_summary",
     "get_my_watchlist", "get_my_screener_strategies", "add_to_my_watchlist",
@@ -532,6 +532,74 @@ test("Pro compares DHI peers and event windows, and receives a real PNG over MCP
   } finally {
     expiryClock.mock.restore();
   }
+  const evidence = { url: "https://example.org/official-release", note: "Primary source" };
+  const researchEvent = {
+    title: "Research catalyst", content: "Verified public announcement", occurredAt: "2026-10-31T11:30:00-04:00",
+    datePrecision: "DATETIME", eventType: "company.product", markerLabel: "Launch", sources: [evidence],
+    payload: { impact: { summary: "Potential demand change", channels: ["demand"] } },
+  };
+  const eventPack = {
+    pack: { id: "dhi-test", name: "DHI research test", color: "#13579B" },
+    events: [
+      { ...researchEvent, externalId: "in-range" },
+      { ...researchEvent, externalId: "outside", occurredAt: "2026-10-27", datePrecision: "DATE" },
+    ],
+  };
+  const eventChart = await call("render_stock_event_pack_chart", { ...input, eventPack });
+  assert.equal(eventChart.isError, false, JSON.stringify(eventChart.structuredContent));
+  const { researchEvents, plottedEventCount, eventPackDownloadUrl } = eventChart.structuredContent;
+  assert.equal(plottedEventCount, 1);
+  assert.deepEqual(researchEvents.map((row: { externalId: string; number: number | null; status: string; candleDate: string | null }) =>
+    [row.externalId, row.number, row.status, row.candleDate]), [
+    ["outside", null, "out_of_range", null], ["in-range", 1, "plotted", "2026-11-02"],
+  ]);
+  assert.equal(researchEvents[1].color, "#13579B");
+  assert.deepEqual(researchEvents[1].evidenceUrls, [evidence.url]);
+  assert.equal(eventChart.content[1].mimeType, "image/png");
+  assert.equal(eventChart.content[3].uri, eventPackDownloadUrl);
+  assert.equal(eventChart.content[3].mimeType, "application/json");
+  const eventPng = Buffer.from(eventChart.content[1].data, "base64");
+  assert.equal(eventPng.readUInt32BE(16), 1200);
+  assert.equal(eventPng.readUInt32BE(20), 640);
+  const unmarked = await call("render_stock_chart_png", { ...input, showEarnings: false });
+  assert.notDeepEqual(eventPng, Buffer.from(unmarked.content[1].data, "base64"));
+  const eventFile = await request(eventPackDownloadUrl, new URL(eventPackDownloadUrl).pathname.split("/").at(-1));
+  assert.equal(eventFile.status, 200);
+  assert.equal(eventFile.headers.get("content-type"), "application/json");
+  assert.equal(eventFile.headers.get("content-disposition"), 'attachment; filename="DHI-events.json"');
+  const eventDocument = await eventFile.json();
+  assert.equal(eventDocument.schemaVersion, 2);
+  assert.deepEqual(eventDocument.pack.symbols, ["DHI"]);
+  assert.deepEqual(eventDocument.events[1].sources, [evidence]);
+  assert.equal(eventDocument.events[1].sourceUrl, evidence.url);
+  assert.equal(eventDocument.events[1].occurredAt, researchEvent.occurredAt);
+  const { parseMilestoneIngestJson } = await import("@/lib/equity/companyMilestones");
+  const reparsed = parseMilestoneIngestJson(eventDocument);
+  assert.deepEqual(reparsed.errors, []);
+  assert.equal(reparsed.milestones.length, 2);
+  const { validateIngestRun } = await import("@/lib/data/marketEventsIngest");
+  assert.equal(validateIngestRun(eventDocument).ok, true);
+  const expiry = t.mock.method(Date, "now", () => Date.parse(eventChart.structuredContent.eventPackExpiresAt) + 1000);
+  try {
+    assert.equal((await request(eventPackDownloadUrl, new URL(eventPackDownloadUrl).pathname.split("/").at(-1))).status, 404);
+  } finally {
+    expiry.mock.restore();
+  }
+  const weekly = await call("render_stock_event_pack_chart", { ...input, interval: "1w", eventPack });
+  assert.equal(weekly.structuredContent.researchEvents[1].candleDate, "2026-11-02");
+  const invalidScope = await call("render_stock_event_pack_chart", {
+    ...input, eventPack: { ...eventPack, pack: { ...eventPack.pack, symbols: ["LEN"] } },
+  });
+  assert.equal(invalidScope.isError, true);
+  assert.match(invalidScope.structuredContent.error.message, /显示范围未包含当前标的/);
+  const duplicate = await call("render_stock_event_pack_chart", {
+    ...input, eventPack: { ...eventPack, events: [eventPack.events[0], eventPack.events[0]] },
+  });
+  assert.equal(duplicate.structuredContent.error.code, "INVALID_INPUT");
+  assert.match(duplicate.structuredContent.error.message, /externalId 重复/);
+  const deniedChart = await send("tools/call", { name: "render_stock_event_pack_chart", arguments: { ...input, eventPack } }, paid);
+  assert.equal(deniedChart.result.isError, true);
+
   const denied = await send("tools/call", { name: "render_stock_chart_png", arguments: input }, paid);
   assert.equal(denied.result.isError, true);
 });

@@ -5,7 +5,7 @@ import { absoluteUrl } from "@/lib/seo/siteUrl";
 
 const lifetimeMs = 24 * 60 * 60 * 1000;
 const cleanupIntervalMs = 10 * 60 * 1000;
-const assetName = /^([A-Z0-9.\-]{1,16})~[A-Za-z0-9_-]{43}\.png$/;
+const assetName = /^([A-Z0-9.\-]{1,16})~[A-Za-z0-9_-]{43}\.(png|json)$/;
 let nextCleanupAt = 0;
 
 function imageDirectory() {
@@ -27,13 +27,13 @@ async function removeExpiredImages(directory: string, now: number) {
   }
 }
 
-export async function saveStockChartImage(symbol: string, image: Buffer) {
-  const name = `${symbol}~${randomBytes(32).toString("base64url")}.png`;
+async function saveArtifact(symbol: string, bytes: Buffer, extension: "png" | "json") {
+  const name = `${symbol}~${randomBytes(32).toString("base64url")}.${extension}`;
   if (!assetName.test(name)) throw new Error("Invalid stock chart image name");
   const directory = imageDirectory();
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const path = join(directory, name);
-  await writeFile(path, image, { flag: "wx", mode: 0o600 });
+  await writeFile(path, bytes, { flag: "wx", mode: 0o600 });
   const now = Date.now();
   const { mtimeMs } = await stat(path);
   if (now >= nextCleanupAt) {
@@ -44,16 +44,25 @@ export async function saveStockChartImage(symbol: string, image: Buffer) {
       console.error("[research-mcp] chart image cleanup failed", error);
     }
   }
-  const imageUrl = absoluteUrl(`/api/mcp/chart-images/${name}`);
+  return { url: absoluteUrl(`/api/mcp/chart-images/${name}`), expiresAt: new Date(mtimeMs + lifetimeMs).toISOString() };
+}
+
+export async function saveStockChartImage(symbol: string, image: Buffer) {
+  const { url, expiresAt } = await saveArtifact(symbol, image, "png");
   return {
-    imageUrl,
-    downloadUrl: `${imageUrl}?download=1`,
-    imageExpiresAt: new Date(mtimeMs + lifetimeMs).toISOString(),
+    imageUrl: url,
+    downloadUrl: `${url}?download=1`,
+    imageExpiresAt: expiresAt,
     imageFilename: `${symbol}-chart.png`,
   };
 }
 
-export async function readStockChartImage(name: string) {
+export async function saveStockEventPack(symbol: string, document: Record<string, unknown>) {
+  const { url, expiresAt } = await saveArtifact(symbol, Buffer.from(JSON.stringify(document, null, 2)), "json");
+  return { eventPackDownloadUrl: url, eventPackExpiresAt: expiresAt, eventPackFilename: `${symbol}-events.json` };
+}
+
+export async function readStockChartArtifact(name: string) {
   const match = assetName.exec(name);
   if (!match || match[0] !== name) return null;
   const path = join(imageDirectory(), name);
@@ -61,7 +70,9 @@ export async function readStockChartImage(name: string) {
     const info = await stat(path);
     if (!info.isFile() || info.mtimeMs + lifetimeMs <= Date.now()) return null;
     const bytes = await readFile(path);
-    return { bytes, filename: `${match[1]}-chart.png` };
+    return match[2] === "png"
+      ? { bytes, filename: `${match[1]}-chart.png`, mimeType: "image/png" }
+      : { bytes, filename: `${match[1]}-events.json`, mimeType: "application/json" };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
