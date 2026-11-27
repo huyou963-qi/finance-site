@@ -234,8 +234,14 @@ export function prepareStockChart(
     // Use the eligible daily market session first, then locate its weekly or monthly candle.
     const sessions = input.interval === "1d" ? prices.bars.filter(isCompleteChartBar) : prices.bars;
     let markerNumber = 0;
-    const researchEvents = research?.events.map(event => {
-      const eventDate = event.occurredAt.slice(0, 10);
+    const datedEvents = research?.events.map(event => ({
+      event,
+      // Match the website's daily marker date for timezone-bearing timestamps.
+      eventDate: event.record?.datePrecision === "DATETIME"
+        ? dateKey(new Date(event.occurredAt))
+        : event.occurredAt.slice(0, 10),
+    })).sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+    const researchEvents = datedEvents?.map(({ event, eventDate }) => {
       const inRange = eventDate >= input.startDate && eventDate <= input.endDate;
       const session = inRange ? sessions.find(bar => dayOfBar(bar.time) >= eventDate) : undefined;
       const candle = session && aggregateDailyBars([session], input.interval)[0];
@@ -267,7 +273,7 @@ export function prepareStockChart(
       ...delivery,
       ...(research && {
         ...researchDelivery, researchEvents, plottedEventCount: markerNumber,
-        eventCoverageNote: "按事件当地日期对齐当天或区间内下一根已完成交易日，再归入对应 K 线。外部 AI 提供的证据链接随事件包保留，站内校验格式与显示范围。",
+        eventCoverageNote: "仅日期事件保留记录日期，带时区事件按 UTC 日对齐当天或区间内下一根已完成交易日，再归入对应 K 线。外部 AI 提供的证据链接随事件包保留，站内校验格式与显示范围。",
       }),
       startDate: input.startDate, endDate: input.endDate,
       firstTradingDate, lastTradingDate,
