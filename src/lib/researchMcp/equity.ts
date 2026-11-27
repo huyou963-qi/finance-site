@@ -219,7 +219,12 @@ export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorI
     if (!monitor) throw new MarketError("NOT_FOUND", "站内未找到该标的");
     const coverage = monitor.coverage;
     const form4Gap = input.section === "transactions" && form4Coverage.readable < form4Coverage.indexed;
-    const pendingTrades = input.section === "transactions" && monitor.transactions.some(trade => trade.status === "pending");
+    const buySellTransactions = input.section === "transactions" ? monitor.transactions.filter(trade =>
+      !trade.evidence?.derivative && (
+        (trade.transactionCode === "P" && trade.acquiredDisposedCode === "A") ||
+        (trade.transactionCode === "S" && trade.acquiredDisposedCode === "D")
+      )) : [];
+    const pendingTrades = buySellTransactions.some(trade => trade.status === "pending");
     const coverageStatus = monitor.truncated || form4Gap || pendingTrades ||
       (coverage && (!coverage.complete || coverage.since > from || coverage.through < asOf))
       ? "incomplete"
@@ -258,9 +263,7 @@ export function prepareOwnershipMonitor(input: z.output<typeof ownershipMonitorI
         sourceUrl: safeFilingUrl(plan.sourceUrl),
       })), nextOffset: plans.length > offset + limit ? offset + limit : null };
     }
-    const trades = monitor.transactions.filter(trade => trade.status === "included" &&
-      ((trade.transactionCode === "P" && trade.acquiredDisposedCode === "A") ||
-        (trade.transactionCode === "S" && trade.acquiredDisposedCode === "D")))
+    const trades = buySellTransactions.filter(trade => trade.status === "included")
       .sort((a, b) => b.transactionDate.localeCompare(a.transactionDate) || b.filedAt.localeCompare(a.filedAt) || a.id.localeCompare(b.id));
     const page = trades.slice(offset, offset + limit);
     return { ...common, section, resultSummary: ownershipResultSummary(section, trades.length, page.length, coverageStatus), transactions: page.map(trade => ({
