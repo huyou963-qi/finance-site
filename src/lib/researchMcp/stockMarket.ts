@@ -10,6 +10,7 @@ import { loadStockPeers } from "@/lib/equity/stockPeers";
 import { day, MarketError } from "@/lib/market/schema";
 import { stockEvidence } from "./equity";
 import { renderStockChartPng } from "./stockChartPng";
+import { saveStockChartImage } from "./stockChartArtifacts";
 
 const dayMs = 86_400_000;
 const dateKey = (date: Date) => date.toISOString().slice(0, 10);
@@ -215,8 +216,13 @@ export function prepareStockChart(input: z.output<typeof stockChartInput>) {
     const lastTradingDate = lastBar ? dateKey(new Date(lastBar.time * 1000)) : null;
     const markers = earnings.filter(event => firstTradingDate && lastTradingDate && event.date >= firstTradingDate && event.date <= lastTradingDate);
     const png = await renderStockChartPng(stock.symbol, bars, markers.map(event => event.date), input);
+    const delivery = await saveStockChartImage(stock.symbol, png.image).catch(error => {
+      console.error("[research-mcp] chart image delivery failed", error);
+      return { imageDeliveryNote: "浏览器预览与下载链接暂不可用，原始 PNG 仍在工具的图片响应中。" };
+    });
     return {
       image: png.image, symbol: stock.symbol, interval: input.interval, adjustment: input.adjustment,
+      ...delivery,
       startDate: input.startDate, endDate: input.endDate,
       firstTradingDate, lastTradingDate,
       bars: png.candleCount, events: earnings, earningsTruncated: events.length > 60,

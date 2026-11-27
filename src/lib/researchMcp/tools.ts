@@ -120,9 +120,13 @@ function publicMacro(i: ReturnType<typeof describeIndicator>) {
 
 function result(payload: Record<string, unknown>, isError = false, image?: Buffer) {
   const text = JSON.stringify(payload);
+  const chartLink = image && typeof payload.imageUrl === "string" && typeof payload.imageFilename === "string"
+    ? [{ type: "resource_link" as const, uri: payload.imageUrl, name: payload.imageFilename, mimeType: "image/png", size: image.byteLength }]
+    : [];
   return { isError, content: [
     { type: "text" as const, text },
     ...(image ? [{ type: "image" as const, data: image.toString("base64"), mimeType: "image/png" }] : []),
+    ...chartLink,
   ], structuredContent: JSON.parse(text) };
 }
 
@@ -280,7 +284,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     prepareStockPeers);
   register("get_stock_event_returns", "按财报业绩公告、申报、8-K 或拆股事件比较后续交易日的前复权收益，返回公告来源、窗口及相对同业和 SPY 的表现。", stockEventReturnsInput, "markets",
     prepareStockEventReturns);
-  register("render_stock_chart_png", "用站内行情绘制一只美股指定区间的 K 线和成交量 PNG，可叠加财报业绩公告标记。支持日、周、月和复权选择。", stockChartInput, "markets",
+  register("render_stock_chart_png", "用站内行情绘制一只美股指定区间的 K 线和成交量 PNG，可叠加财报业绩公告标记。支持日、周、月和复权选择。使用返回的 imageUrl 展示原图，并将 downloadUrl 提供给用户下载。链接 24 小时内有效。", stockChartInput, "markets",
     prepareStockChart);
   register("get_stock_guidance", "读取近期公司已披露的管理层指引、目标报告期、口径和原文证据。", stockEvidence, "markets",
     ({ symbol }) => ({ cost: 5, run: () => getStockGuidance(symbol) }));

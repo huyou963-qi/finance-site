@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { NextRequest } from "next/server";
@@ -440,6 +443,8 @@ test("MCP rate, concurrency and quota denials include distinct retry guidance", 
 });
 
 test("Pro compares DHI peers and event windows, and receives a real PNG over MCP", async t => {
+  const imageRoot = await mkdtemp(join(tmpdir(), "mcp-chart-delivery-"));
+  t.after(() => rm(imageRoot, { recursive: true }));
   const company = {
     symbol: "DHI", name: "D.R. Horton", cik: "882184", marketCap: 50e9,
     gicsSector: "Consumer Discretionary", gicsIndustryCode: "252010", gicsSubIndustry: "Homebuilding",
@@ -494,13 +499,39 @@ test("Pro compares DHI peers and event windows, and receives a real PNG over MCP
   assert.equal(event.windowBasis, "same_session_before_open");
   assert.ok(Math.abs(event.excessVsPeers - 0.06) < 1e-12);
   assert.equal(event.peerReturns[1].return, null);
+  t.mock.method(process, "cwd", () => imageRoot);
   const image = await call("render_stock_chart_png", input);
   assert.equal(image.isError, false);
   assert.equal(image.structuredContent.bars, 3);
   assert.equal(image.structuredContent.events[0].date, dates[1]);
   assert.equal(Object.hasOwn(image.structuredContent, "image"), false);
   assert.equal(image.content[1].mimeType, "image/png");
-  assert.equal(Buffer.from(image.content[1].data, "base64").subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  const png = Buffer.from(image.content[1].data, "base64");
+  assert.equal(png.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  const { imageUrl, downloadUrl, imageExpiresAt } = image.structuredContent;
+  assert.equal(image.content[2].type, "resource_link");
+  assert.equal(image.content[2].uri, imageUrl);
+  assert.ok(Date.parse(imageExpiresAt) > Date.now());
+  const name = new URL(imageUrl).pathname.split("/").at(-1)!;
+  const { GET } = await import("@/app/api/mcp/chart-images/[name]/route");
+  const request = (url: string, value = name) => GET(new Request(url), { params: Promise.resolve({ name: value }) });
+  const preview = await request(imageUrl);
+  assert.equal(preview.status, 200);
+  assert.equal(preview.headers.get("content-type"), "image/png");
+  assert.equal(preview.headers.get("content-disposition"), 'inline; filename="DHI-chart.png"');
+  assert.equal(preview.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(Buffer.from(await preview.arrayBuffer()), png);
+  const download = await request(downloadUrl);
+  assert.equal(download.headers.get("content-disposition"), 'attachment; filename="DHI-chart.png"');
+  assert.deepEqual(Buffer.from(await download.arrayBuffer()), png);
+  assert.equal((await request(imageUrl, "../../not-an-image.txt")).status, 404);
+  assert.equal((await request(imageUrl, name.replace("DHI", "LEN"))).status, 404);
+  const expiryClock = t.mock.method(Date, "now", () => Date.parse(imageExpiresAt) + 1000);
+  try {
+    assert.equal((await request(imageUrl)).status, 404);
+  } finally {
+    expiryClock.mock.restore();
+  }
   const denied = await send("tools/call", { name: "render_stock_chart_png", arguments: input }, paid);
   assert.equal(denied.result.isError, true);
 });
