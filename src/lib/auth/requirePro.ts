@@ -1,11 +1,13 @@
+import type { Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   getUserByRequest,
   getUserAccessRecord,
-  type Role,
 } from "@/lib/auth";
-import { userCanAccessProFeatures } from "@/lib/billing/access";
+import { prisma } from "@/lib/prisma";
+import { chargeMemberUsage } from "@/lib/billing/memberUsage";
+import { isPaidProActive, userCanAccessProFeatures } from "@/lib/billing/access";
 import { consumeBacktestCredit } from "@/lib/billing/orders";
 
 export async function requireProUser(req: NextRequest) {
@@ -37,38 +39,31 @@ export function proErrorResponse(e: unknown): {
   return { body: { error: msg, ...(code ? { code } : {}) }, status };
 }
 
-/**
- * 回测权限：Pro/试用免费；否则消耗 1 积分。
- */
-export async function requireBacktestAccess(req: NextRequest): Promise<{
-  id: string;
-  username: string;
-  role: Role;
-  usedCredit: boolean;
-}> {
-  const me = await getUserByRequest(req);
-  if (!me) {
-    const err = new Error("请先登录");
-    (err as Error & { status?: number }).status = 401;
-    throw err;
-  }
-  const access = await getUserAccessRecord(me.id);
-  if (!access) {
-    const err = new Error("请先登录");
-    (err as Error & { status?: number }).status = 401;
-    throw err;
-  }
-  if (userCanAccessProFeatures(access)) {
-    return { id: access.id, username: access.username, role: access.role, usedCredit: false };
-  }
-  if (access.creditBalance > 0) {
-    await consumeBacktestCredit(access.id);
-    return { id: access.id, username: access.username, role: access.role, usedCredit: true };
-  }
-  const err = new Error("回测需要 Pro 会员，或购买回测积分包");
-  (err as Error & { status?: number; code?: string }).status = 403;
-  (err as Error & { code?: string }).code = "NEEDS_PRO_OR_CREDITS";
-  throw err;
+/** Queue the job and charge its usage in the same transaction. */
+export async function createBacktestWithAccess<T>(
+  userId: string,
+  create: (tx: Prisma.TransactionClient, userId: string) => Promise<T>,
+): Promise<{ run: T; usedCredit: boolean }> {
+  return prisma.$transaction(async tx => {
+    const access = await getUserAccessRecord(userId, tx);
+    if (!access) throw Object.assign(new Error("请先登录"), { status: 401 });
+
+    const metered = access.role !== "admin" && isPaidProActive(access);
+    if (metered) {
+      const { charged } = await chargeMemberUsage(tx, access.id, 1);
+      if (charged) return { run: await create(tx, access.id), usedCredit: false };
+    } else if (userCanAccessProFeatures(access)) {
+      return { run: await create(tx, access.id), usedCredit: false };
+    }
+
+    if (access.creditBalance > 0 && await consumeBacktestCredit(tx, access.id)) {
+      return { run: await create(tx, access.id), usedCredit: true };
+    }
+    if (metered) {
+      throw Object.assign(new Error("本月会员额度已用完，下月重置"), { status: 429, code: "MEMBER_QUOTA_EXCEEDED" });
+    }
+    throw Object.assign(new Error("回测需要有效的 Pro 会员"), { status: 403, code: "NEEDS_PRO" });
+  });
 }
 
 export function needsProJson(message?: string) {

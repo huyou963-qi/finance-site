@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { updateUserAccount } from "@/lib/auth";
 import { hasAdminPermission, isStaffRole, type Role } from "@/lib/auth/types";
 import { isPaidProActive } from "@/lib/billing/access";
-import { defaultResearchMonthlyPoints, getResearchUsage } from "@/lib/researchMcp/usage";
+import { defaultMemberMonthlyPoints, getMemberUsage } from "@/lib/billing/memberUsage";
 import { adjustCredits, changeMembership, type MembershipChange } from "./adminMembership";
 
 type AdminActor = { id: string; username: string };
@@ -145,7 +145,7 @@ export async function getAdminUserDetail(userId: string, viewerRole: string = "a
     prisma.creditLedgerEntry.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.adminUserAudit.findMany({ where: { targetUserId: userId }, orderBy: { createdAt: "desc" }, take: 30 }),
     prisma.accountAuthEvent.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 20 }),
-    canManageMembership && user.status !== "closed" ? getResearchUsage(userId, user) : null,
+    canManageMembership && user.status !== "closed" ? getMemberUsage(userId, user) : null,
   ]);
   const creditOrderIds = credits.map((entry) => entry.orderId).filter((value): value is string => Boolean(value));
   const creditOrders = creditOrderIds.length ? await prisma.paymentOrder.findMany({ where: { id: { in: creditOrderIds } }, select: { id: true, orderNo: true } }) : [];
@@ -174,7 +174,7 @@ export async function getAdminUserDetail(userId: string, viewerRole: string = "a
     },
     researchQuota: usage ? {
       override: user.researchMcpMonthlyPoints,
-      defaultLimit: defaultResearchMonthlyPoints(),
+      defaultLimit: defaultMemberMonthlyPoints(),
       limit: usage.limit,
       used: usage.used,
       resetAt: usage.resetAt.toISOString(),
@@ -254,7 +254,7 @@ export function validateAdminUserChanges(actorRole: string, changes: AdminUserCh
   }
   if (researchMonthlyPoints != null && (!Number.isInteger(researchMonthlyPoints)
     || researchMonthlyPoints < 0 || researchMonthlyPoints > 2147483647)) {
-    throw new Error("AI 月度额度须为 0 至 2147483647 的整数");
+    throw new Error("会员月度额度须为 0 至 2147483647 的整数");
   }
 }
 
@@ -274,7 +274,7 @@ export async function saveAdminUserChanges(
     if (changes.researchMonthlyPoints !== undefined) {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user || user.status === "closed") throw new Error("用户不存在或已关闭");
-      if (actor.role !== "admin" && user.role !== "user") throw new Error("无权修改后台人员的 AI 额度");
+      if (actor.role !== "admin" && user.role !== "user") throw new Error("无权修改后台人员的会员额度");
       if (changes.researchMonthlyPoints !== null && !isPaidProActive(user)) {
         throw new Error("请先开通 Pro 或在本次提交中开通 Pro");
       }

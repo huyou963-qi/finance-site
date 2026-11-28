@@ -178,7 +178,7 @@ export function createResearchMcpServer(user: ResearchPrincipal) {
     });
   }
 
-  register("get_usage", "查看当前账号的 AI 查询积分、重置时间和限流。", z.object({}).strict(), undefined,
+  register("get_usage", "查看当前账号的会员月度额度、重置时间和 AI 调用限制。", z.object({}).strict(), undefined,
     () => ({ cost: 0, run: () => getResearchUsage(user.id) }));
 
   register("search_market_indicators", "搜索宏观指标。返回查询所需的指标 ID、频率、单位和覆盖范围。", searchIndicatorsSchema, "macro",

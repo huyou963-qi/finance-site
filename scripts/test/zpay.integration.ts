@@ -1,6 +1,6 @@
 /** Isolated PostgreSQL test database; never migrates or writes the configured application DB. */
 import assert from "node:assert/strict";
-import { randomUUID, scryptSync } from "node:crypto";
+import { randomInt, randomUUID, scryptSync } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -77,8 +77,15 @@ async function assertions() {
     const fields = { pid: data.pid, out_trade_no: data.out_trade_no, trade_no: data.trade_no, money: data.money, type: data.type, trade_status: "TRADE_SUCCESS", sign_type: "MD5", ...delta };
     return new NextRequest(`http://localhost:3000/api/billing/zpay/notify?${new URLSearchParams({ ...fields, sign: signZpay(fields, process.env.ZPAY_KEY!) })}`);
   }
-  async function fresh(productType: "pro_month" | "pro_year" | "credits" = "pro_month", method: "alipay" | "wxpay" = "alipay") {
+  async function fresh(productType: "pro_month" | "pro_year" = "pro_month", method: "alipay" | "wxpay" = "alipay") {
     return (await checkoutForUser(userId, { productType, method, idempotencyKey: randomUUID() })).order;
+  }
+  function legacyCreditOrder() {
+    return prisma.paymentOrder.create({ data: {
+      orderNo: `${Date.now()}${String(randomInt(1e9)).padStart(9, "0")}`, userId, productType: "credits", credits: 10, amountCny: 19,
+      channel: "zpay", paymentMethod: "alipay", merchantId: process.env.ZPAY_PID,
+      expiresAt: new Date(Date.now() + 300_000),
+    } });
   }
   try {
     for (const id of [userId, otherId]) await prisma.user.create({ data: { id, username: `billing-${id}`, role: "user", passHash: "test-disabled", passSalt: "test", trialEndsAt: id === userId ? trialEnd : null, createdAt: new Date() } });
@@ -131,11 +138,16 @@ async function assertions() {
     const before = (await user()).planExpiresAt!.getTime();
     await Promise.all([fulfillVerifiedOrder(monthly.id, evidence(monthly), "test"), fulfillVerifiedOrder(yearly.id, evidence(yearly), "test")]);
     assert.equal((await user()).planExpiresAt?.getTime(), before + 395 * 86400000, "concurrent purchases cannot lose renewal days");
-    const credits = await fresh("credits"); const creditProof = evidence(credits);
+    const newCreditInput = { productType: "credits", method: "alipay", idempotencyKey: randomUUID() };
+    assert.equal((await manualCheckout(req("/api/billing/orders", newCreditInput))).status, 400);
+    assert.equal((await checkout(req("/api/billing/zpay/checkout", newCreditInput))).status, 400);
+    const credits = await legacyCreditOrder();
+    assert.equal((await checkout(req("/api/billing/zpay/checkout", { orderId: credits.id }))).status, 400);
+    const creditProof = evidence(credits);
     await Promise.all(Array.from({ length: 6 }, () => fulfillVerifiedOrder(credits.id, creditProof, "test")));
     assert.equal((await user()).creditBalance, 10);
     assert.equal(await prisma.creditLedgerEntry.count({ where: { orderId: credits.id } }), 1);
-    const laterCredits = await fresh("credits");
+    const laterCredits = await legacyCreditOrder();
     await assert.rejects(fulfillVerifiedOrder(laterCredits.id, evidence(laterCredits, creditProof.trade_no), "test"));
     assert.equal((await user()).creditBalance, 10, "reused gateway transaction rolls back the credit ledger and balance");
     assert.equal(await prisma.creditLedgerEntry.count({ where: { orderId: laterCredits.id } }), 0);

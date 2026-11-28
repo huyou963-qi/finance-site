@@ -187,7 +187,10 @@ export function EquityBacktestClient() {
       const j = (await r.json()) as { id?: string; error?: string; code?: string };
       if (!r.ok || !j.id) {
         if (j.code === "NEEDS_PRO" || j.code === "NEEDS_PRO_OR_CREDITS") {
-          throw new Error(tr("{v0} — 前往 /pricing 升级或购买积分", { v0: j.error ?? tr("需要 Pro") }));
+          throw new Error(tr("开通 Pro 会员后可使用回测与稳健性分析"));
+        }
+        if (j.code === "MEMBER_QUOTA_EXCEEDED") {
+          throw new Error(tr("本月会员额度已用完，下月重置"));
         }
         throw new Error(j.error ?? tr("创建失败"));
       }
@@ -297,6 +300,7 @@ export function EquityBacktestClient() {
             <label className="text-xs text-fs-muted">{tr("结束（可空）")}</label>
             <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="rounded-md border border-fs-border bg-fs-elevated px-2 py-1" />
           </div>
+          <span className="text-xs text-fs-muted">{tr("Pro 会员每发起一次使用 1 点月度额度")}</span>
           <button
             type="button"
             onClick={() => void submit()}

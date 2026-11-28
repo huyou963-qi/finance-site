@@ -2,7 +2,7 @@
   "aiConnections": {
     "title": "AI Data Connection",
     "howTo": "Enter this address in an MCP client and authorize it with your GekkoTech account.",
-    "usage": "{used} of {limit} points used this month",
+    "usage": "Monthly member allowance: {used} of {limit} points used across AI, backtests, and robustness analyses.",
     "reset": "Quota resets at {date} (UTC)",
     "proRequired": "An active Pro subscription is required.",
     "unavailable": "The AI data connection is currently unavailable.",
@@ -236,7 +236,8 @@
     "title": "Your account",
     "subtitle": "Change your email, mobile number or password. Renew your membership on the pricing page.",
     "membershipStatus": "Membership: ",
-    "credits": "Backtest credits: {count}",
+    "credits": "Legacy backtest credits: {count}",
+    "memberUsage": "Monthly member allowance: {remaining} of {limit} points left. Resets on {date}.",
     "upgradeRenew": "Upgrade / renew Pro",
     "username": "Username",
     "membershipType": "Membership type",
@@ -356,9 +357,6 @@
     "creatingOrder": "Creating order…",
     "choose": "Choose {name}",
     "offerNote": "Log in to see offers that apply to you. Eligibility, offer dates and the final amount are confirmed when the order is created. Existing orders keep their original price.",
-    "creditPack": "Backtest credit pack",
-    "creditPackDetail": "{credits} backtests · {price} (lets non-Pro users run backtests)",
-    "buyCredits": "Buy credits",
     "loginToOrder": "<login>Log in</login> or <register>sign up</register> before ordering (sign-up includes a {days}-day trial).",
     "paymentGuide": "How to pay",
     "orderLine": "Order <no></no>, amount <amount></amount>",
@@ -410,7 +408,7 @@
         "0": "Full AI weekly reports",
         "1": "In-depth market event timeline",
         "2": "Save screener strategies",
-        "3": "Strategy backtests (no credits needed)",
+        "3": "Strategy backtests and robustness analysis (included in the monthly member allowance)",
         "4": "Factor research",
         "5": "Data export (as features roll out)"
       }

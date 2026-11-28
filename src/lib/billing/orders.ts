@@ -1,12 +1,10 @@
+import type { Prisma } from "@prisma/client";
 import { quoteForOrder } from "./configStore";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "node:crypto";
 import { grantOrderEntitlement, serializable } from "./fulfillment";
-import {
-  CREDIT_PACK_CREDITS,
-  periodForProduct,
-  type ProductType,
-} from "@/lib/billing/pricing";
+import { periodForProduct } from "@/lib/billing/pricing";
+import type { MembershipProduct } from "./config";
 
 const ORDER_TTL_HOURS = 48;
 
@@ -16,12 +14,11 @@ function randomOrderNo(): string {
 
 export async function createPaymentOrder(input: {
   userId: string;
-  productType: ProductType;
+  productType: MembershipProduct;
   channel?: string;
   manualNote?: string;
 }) {
   const period = periodForProduct(input.productType);
-  const credits = input.productType === "credits" ? CREDIT_PACK_CREDITS : 0;
   const expiresAt = new Date(Date.now() + ORDER_TTL_HOURS * 60 * 60 * 1000);
 
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -37,7 +34,6 @@ export async function createPaymentOrder(input: {
             period,
             amountCny: quote.amountCents / 100,
             pricingSnapshot: quote,
-            credits,
             status: "pending",
             channel: input.channel ?? "manual",
             manualNote: input.manualNote?.trim() || null,
@@ -103,31 +99,17 @@ export function serializeOrder(o: {
   };
 }
 
-async function grantCredits(userId: string, delta: number, reason: string, orderId?: string) {
-  return prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: userId } });
-    if (!user) throw new Error("用户不存在");
-    const updated = await tx.user.update({
-      where: { id: userId },
-      data: { creditBalance: { increment: delta } },
-    });
-    const balanceAfter = updated.creditBalance;
-    if (balanceAfter < 0) throw new Error("积分不足");
-    await tx.creditLedgerEntry.create({
-      data: {
-        userId,
-        reason,
-        delta,
-        balanceAfter,
-        orderId: orderId ?? null,
-      },
-    });
-    return balanceAfter;
+export async function consumeBacktestCredit(tx: Prisma.TransactionClient, userId: string): Promise<boolean> {
+  const updated = await tx.user.updateMany({
+    where: { id: userId, creditBalance: { gt: 0 } },
+    data: { creditBalance: { decrement: 1 } },
   });
-}
-
-export async function consumeBacktestCredit(userId: string): Promise<number> {
-  return grantCredits(userId, -1, "consume_backtest");
+  if (!updated.count) return false;
+  const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { creditBalance: true } });
+  await tx.creditLedgerEntry.create({
+    data: { userId, reason: "consume_backtest", delta: -1, balanceAfter: user.creditBalance },
+  });
+  return true;
 }
 
 export async function activatePaidOrder(orderId: string, actor: { id: string; username: string }, reason: string) {

@@ -163,7 +163,7 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     label: "量化 · 回测",
     group: "量化",
     paths: ["/quant/backtest", "/equity/backtest"],
-    description: "策略回测报告（非 Pro 运行消耗积分）",
+    description: "策略回测报告（使用会员月度额度）",
     defaults: RELEASED,
   },
   {

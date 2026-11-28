@@ -139,6 +139,48 @@ async function assertions(url: string): Promise<void> {
   assert.equal(freeBody.user.role, "user");
   assertNoLeak(JSON.stringify(freeBody));
 
+  const { prisma } = await import("../../../src/lib/prisma");
+  const { POST: backtest } = await import("../../../src/app/api/equity/backtest/route");
+  const { POST: robustness } = await import("../../../src/app/api/equity/robustness/route");
+  const { createBacktestWithAccess } = await import("../../../src/lib/auth/requirePro");
+  const { getMemberUsage } = await import("../../../src/lib/billing/memberUsage");
+  const { withResearchBudget } = await import("../../../src/lib/researchMcp/usage");
+  const { userId } = await prisma.session.findUniqueOrThrow({ where: { token: freeToken } });
+  await prisma.user.update({ where: { id: userId }, data: { plan: "pro", researchMcpMonthlyPoints: 2 } });
+
+  assert.equal((await backtest(req("/api/equity/backtest", { session: freeToken, body: { config: {} } }))).status, 400);
+  assert.equal((await robustness(req("/api/equity/robustness", { session: freeToken, body: { config: {}, spec: {} } }))).status, 400);
+  assert.equal((await getMemberUsage(userId)).used, 0, "invalid requests cannot spend the shared quota");
+
+  // Simulate downstream work after admission without launching background market-data jobs.
+  const queued = async () => "queued";
+  const [web, ai] = await Promise.all([
+    createBacktestWithAccess(userId, queued),
+    withResearchBudget(userId, 1, queued),
+  ]);
+  assert.equal(web.usedCredit, false);
+  assert.equal(ai, "queued");
+  assert.equal((await getMemberUsage(userId)).used, 2, "web and AI spend from the same account balance");
+  const memberProfile = await (await me(req("/api/auth/me", { session: freeToken }))).json();
+  assert.equal(memberProfile.user.memberUsage.remaining, 0);
+
+  await prisma.user.update({ where: { id: userId }, data: { researchMcpMonthlyPoints: 3 } });
+  const lastPoint = await Promise.allSettled([
+    createBacktestWithAccess(userId, queued),
+    withResearchBudget(userId, 1, queued),
+  ]);
+  assert.equal(lastPoint.filter(result => result.status === "fulfilled").length, 1, "only one request can spend the last point");
+  assert.equal((await getMemberUsage(userId)).used, 3);
+  await assert.rejects(createBacktestWithAccess(userId, queued), { code: "MEMBER_QUOTA_EXCEEDED" });
+  await assert.rejects(withResearchBudget(userId, 1, queued), { code: "QUOTA_EXCEEDED" });
+  await prisma.user.update({ where: { id: userId }, data: { creditBalance: 1 } });
+  await assert.rejects(createBacktestWithAccess(userId, async () => { throw new Error("failed to queue"); }), /failed to queue/);
+  assert.equal((await createBacktestWithAccess(userId, queued)).usedCredit, true);
+  assert.equal(await prisma.creditLedgerEntry.count({ where: { userId, reason: "consume_backtest", delta: -1 } }), 1);
+  await prisma.user.update({ where: { id: userId }, data: { plan: "standard", trialEndsAt: new Date(Date.now() + 60_000) } });
+  assert.equal((await createBacktestWithAccess(userId, queued)).usedCredit, false, "trial backtests stay included");
+  await prisma.user.update({ where: { id: userId }, data: { trialEndsAt: null } });
+
   assert.equal((await adminFeatureAccess(req("/api/admin/feature-access"))).status, 401);
   assert.equal(
     (await adminFeatureAccess(req("/api/admin/feature-access", { session: freeToken }))).status,

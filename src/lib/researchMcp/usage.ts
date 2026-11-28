@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { chargeMemberUsage, getMemberUsage } from "@/lib/billing/memberUsage";
 import { MarketError } from "@/lib/market/schema";
 
 const accountConcurrency = 2;
@@ -25,28 +26,11 @@ function positiveInt(raw: string | undefined, fallback: number) {
   const value = Number(raw);
   return Number.isSafeInteger(value) && value > 0 ? value : fallback;
 }
-export const defaultResearchMonthlyPoints = () => positiveInt(process.env.RESEARCH_MCP_MONTHLY_POINTS, 1000);
 const globalConcurrency = () => positiveInt(process.env.RESEARCH_MCP_GLOBAL_CONCURRENCY, 4);
 
-function billingPeriod(now: Date) {
-  const year = now.getUTCFullYear(), month = now.getUTCMonth();
-  return { start: new Date(Date.UTC(year, month, 1)), resetAt: new Date(Date.UTC(year, month + 1, 1)) };
-}
-
-type ResearchQuotaAccount = { researchMcpMonthlyPoints: number | null };
-
-function monthlyLimit(account: ResearchQuotaAccount | null) {
-  return account?.researchMcpMonthlyPoints ?? defaultResearchMonthlyPoints();
-}
-
-export async function getResearchUsage(userId: string, account?: ResearchQuotaAccount) {
-  const { start, resetAt } = billingPeriod(new Date());
-  const [row, quotaAccount] = await Promise.all([
-    prisma.researchMcpUsage.findUnique({ where: { userId_month: { userId, month: start } } }),
-    account ?? prisma.user.findUnique({ where: { id: userId }, select: { researchMcpMonthlyPoints: true } }),
-  ]);
-  const limit = monthlyLimit(quotaAccount), used = row?.used ?? 0;
-  return { used, limit, remaining: Math.max(0, limit - used), resetAt, accountConcurrency, callsPerMinute, rateWindowSeconds: 60 };
+export async function getResearchUsage(userId: string) {
+  const usage = await getMemberUsage(userId);
+  return { ...usage, accountConcurrency, callsPerMinute, rateWindowSeconds: 60 };
 }
 
 async function reserve(userId: string, cost: number) {
@@ -86,18 +70,13 @@ async function reserve(userId: string, cost: number) {
     }
 
     if (cost > 0) {
-      const { start, resetAt } = billingPeriod(now);
-      const where = { userId_month: { userId, month: start } };
-      const row = await tx.researchMcpUsage.findUnique({ where });
-      const quotaAccount = await tx.user.findUnique({ where: { id: userId }, select: { researchMcpMonthlyPoints: true } });
-      const limit = monthlyLimit(quotaAccount), used = row?.used ?? 0;
-      if (used + cost > limit) {
+      const { charged, usage: { used, limit, remaining, resetAt } } = await chargeMemberUsage(tx, userId, cost, now);
+      if (!charged) {
         throw new ResearchBudgetError("QUOTA_EXCEEDED", cost > limit ? "请求所需点数超过月额度，请缩小查询" : "本期额度不足，请缩小查询或等待重置", {
-          reason: "monthly_quota", used, limit, remaining: Math.max(0, limit - used), requestedPoints: cost,
+          reason: "monthly_quota", used, limit, remaining, requestedPoints: cost,
           resetAt: resetAt.toISOString(), ...retry(now, cost > limit ? null : resetAt.getTime()),
         });
       }
-      await tx.researchMcpUsage.upsert({ where, create: { userId, month: start, used: cost }, update: { used: { increment: cost } } });
     }
 
     const id = randomUUID();

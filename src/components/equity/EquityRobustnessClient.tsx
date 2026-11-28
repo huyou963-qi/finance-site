@@ -209,7 +209,10 @@ export function EquityRobustnessClient() {
       const j = (await r.json()) as { id?: string; error?: string; code?: string };
       if (!r.ok || !j.id) {
         if (j.code === "NEEDS_PRO" || j.code === "NEEDS_PRO_OR_CREDITS") {
-          throw new Error(tr("{v0} — 前往 /pricing 升级或购买积分", { v0: j.error ?? tr("需要 Pro") }));
+          throw new Error(tr("开通 Pro 会员后可使用回测与稳健性分析"));
+        }
+        if (j.code === "MEMBER_QUOTA_EXCEEDED") {
+          throw new Error(tr("本月会员额度已用完，下月重置"));
         }
         throw new Error(j.error ?? tr("创建失败"));
       }
@@ -361,7 +364,8 @@ export function EquityRobustnessClient() {
           <div className="mt-2 text-[11px] text-fs-muted">{tr("提示：网格别开太大（3×3=9、3×3×2=18 足够展示邻域）。空网格 = 固定策略（walk-forward 只测时间稳定性）。")}</div>
         </div>
 
-        <div className="mt-3 flex items-center">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-fs-muted">{tr("Pro 会员每发起一次使用 1 点月度额度")}</span>
           <button
             type="button"
             onClick={() => void submit()}
