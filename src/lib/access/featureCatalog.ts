@@ -60,6 +60,8 @@ const RELEASED: FeatureRule = { status: "released", proOnly: false, preview: NO_
 const RELEASED_PRO: FeatureRule = { status: "released", proOnly: true, preview: NO_PREVIEW };
 const IN_DEVELOPMENT: FeatureRule = { status: "development", proOnly: false, preview: NO_PREVIEW };
 
+export const MARKET_ADVANCED_OVERLAYS_FEATURE_ID = "market-advanced-overlays";
+
 export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
   {
     id: "macro",
@@ -132,6 +134,15 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     paths: ["/markets", "/equity/stocks"],
     description: "K 线行情与个股下钻",
     defaults: RELEASED,
+  },
+  {
+    id: MARKET_ADVANCED_OVERLAYS_FEATURE_ID,
+    label: "行情叠加运算",
+    kind: "setting",
+    group: "美股",
+    paths: [],
+    description: "行情、宏观和基本面叠加，支持跨数据源公式、滚动统计与独立副图",
+    defaults: IN_DEVELOPMENT,
   },
   {
     id: "investments",

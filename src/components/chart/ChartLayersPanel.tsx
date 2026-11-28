@@ -5,11 +5,13 @@ import {
   CHART_LAYER_MAX,
   FUNDAMENTAL_METRIC_LABEL,
   LAYER_COLORS,
+  isAdvancedLayerSource,
   type AxisBinding,
   type ChartLayer,
   type FundamentalMetric,
   type LayerTransform,
 } from "@/lib/chart/chartLayers";
+import { AdvancedChartLayerEditor } from "./AdvancedChartLayerEditor";
 import { LayerSymbolInput } from "./LayerSymbolInput";
 import { requireExactLayerSymbols } from "@/lib/chart/layerSymbolSearch";
 import { parseLayerExpression } from "@/lib/chart/layerExpression";
@@ -21,6 +23,7 @@ const FUND_METRICS = Object.keys(FUNDAMENTAL_METRIC_LABEL) as FundamentalMetric[
 function axisToSelect(axis: AxisBinding): string {
   if (axis.mode === "right") return "right";
   if (axis.mode === "left") return "left";
+  if (axis.mode === "subpane") return "subpane";
   if (axis.mode === "scale") return `scale:${axis.scaleId}`;
   return `pane:${axis.paneSlot}`;
 }
@@ -42,11 +45,13 @@ type Props = {
   layersApi: UseChartLayersReturn;
   className?: string;
   inlinePanel?: boolean;
+  allowAdvanced?: boolean;
 };
 
-export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePanel = false }: Props) {
+export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePanel = false, allowAdvanced = false }: Props) {
   const tr = useTr();
   const [open, setOpen] = useState(false);
+  const [editor, setEditor] = useState<{ mode: "series" | "calculation"; layerId?: string } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [addMode, setAddMode] = useState<"price" | "expr" | "fund">("price");
   const [priceSym, setPriceSym] = useState("");
@@ -80,6 +85,8 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
     canAdd,
     derived,
     layerErrors,
+    advancedErrors,
+    primaryUnit,
     loadingExtra,
     addLayer,
     updateLayer,
@@ -87,6 +94,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
     setCompareMode,
   } = layersApi;
 
+  const editing = editor?.layerId ? layers.find(layer => layer.id === editor.layerId) : undefined;
   const summary =
     layers.filter((l) => l.visible).length > 0
       ? tr("{length} 层", { length: layers.filter((l) => l.visible).length })
@@ -195,6 +203,8 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
             <ul className="mb-2 space-y-2">
               {layers.map((layer) => {
                 const d = derived.find((x) => x.layerId === layer.id);
+                const advanced = isAdvancedLayerSource(layer.source);
+                const layerAxis = d?.axis ?? layer.axis;
                 return (
                   <li
                     key={layer.id}
@@ -226,13 +236,22 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                         }
                         className="min-w-0 flex-1 rounded border border-fs-border bg-fs-bg px-1 py-0.5 text-[11px] text-fs-text"
                       />
+                      {advanced && allowAdvanced ? <button type="button" className="text-xs text-fs-secondary hover:underline"
+                        aria-label={tr("编辑 {label}", { label: layer.label })}
+                        onClick={() => setEditor({ mode: layer.source.kind === "calculation" ? "calculation" : "series", layerId: layer.id })}>
+                        {tr("编辑")}
+                      </button> : null}
                       <button
                         type="button"
                         className="text-[10px] text-fs-muted hover:text-red-400"
-                        onClick={() => removeLayer(layer.id)}
+                        onClick={() => { removeLayer(layer.id); if (editor?.layerId === layer.id) setEditor(null); }}
                       >{tr("删除")}</button>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                      {advanced ? <span className="text-fs-muted">
+                        {tr(layerAxis.mode === "left" ? "主图左轴" : layerAxis.mode === "right" ? "主图右轴" : "独立副图")}
+                        {d?.unit ? ` · ${tr(d.unit)}` : ""}
+                      </span> : <>
                       <label className="flex items-center gap-1 text-fs-muted">{tr("轴")}<select
                           value={axisToSelect(layer.axis)}
                           onChange={(e) =>
@@ -264,12 +283,21 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
                           <option value="pctChange">{tr("涨跌幅%")}</option>
                         </select>
                       </label>
+                      </>}
                       {d?.lastValue != null ? (
                         <span className="font-mono text-fs-secondary">{tr("最新")}{" "}{d.lastValue.toPrecision(4)}
                         </span>
                       ) : null}
                       {d?.error ? (
-                        <span className="text-amber-500">{d.error}</span>
+                        <span className="text-amber-500">{tr(d.error)}</span>
+                      ) : null}
+                      {d?.axisAdjusted ? <span className="text-amber-500">{tr("单位冲突，已显示在独立副图")}</span> : null}
+                      {d?.timingEstimated ? <span className="text-fs-muted">{tr("含估算发布日期或修订值")}</span> : null}
+                      {d?.sampleCount != null && layer.source.kind === "calculation" && layer.source.calculation.operation !== "formula" ? (
+                        <span className="text-fs-muted">{tr("{count}/{window} 组有效样本", { count: d.sampleCount, window: layer.source.calculation.window })}</span>
+                      ) : null}
+                      {d && d.alignedCount > 0 && layer.source.kind === "calculation" && layer.source.calculation.operation === "formula" ? (
+                        <span className="text-fs-muted">{tr("{count} 组对齐数据", { count: d.alignedCount })}</span>
                       ) : null}
                       {d && d.alignedCount > 0 && layer.source.kind === "expr" ? (
                         <span className="text-fs-muted">{tr("对齐")}{" "}{d.alignedCount}{" "}{tr("日")}</span>
@@ -287,7 +315,27 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
             ))}
           </datalist>
 
-          <div className="border-t border-fs-border pt-2">
+          {allowAdvanced ? <div className="border-t border-fs-border pt-2">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={!canAdd} onClick={() => setEditor({ mode: "series" })}
+                className="rounded bg-fs-elevated px-2 py-2 text-xs hover:bg-fs-border disabled:opacity-40">{tr("添加数据")}</button>
+              <button type="button" disabled={!canAdd} onClick={() => setEditor({ mode: "calculation" })}
+                className="rounded bg-fs-elevated px-2 py-2 text-xs hover:bg-fs-border disabled:opacity-40">{tr("添加运算")}</button>
+              {editor ? <button type="button" onClick={() => setEditor(null)} className="ml-auto px-2 text-xs text-fs-muted">{tr("收起")}</button> : null}
+            </div>
+            {editor ? <AdvancedChartLayerEditor key={`${primarySymbol}:${editor.mode}:${editor.layerId ?? "new"}`}
+              primarySymbol={primarySymbol} primaryUnit={primaryUnit} compareMode={compareMode} layers={layers}
+              mode={editor.mode} editing={editing} onSave={(source, options) => {
+                if (editing) updateLayer(editing.id, { source, ...options });
+                else addLayer(source, options);
+                setEditor(null);
+              }} /> : null}
+            {advancedErrors.length ? <p role="status" className="mt-1 text-xs text-amber-500">
+              {tr("叠加数据暂时无法加载")} · {advancedErrors.slice(0, 3).join(" / ")}
+            </p> : null}
+            {layerErrors.length ? <p role="status" className="mt-1 text-xs text-amber-500">{layerErrors.slice(0, 2).join("；")}</p> : null}
+            {loadingExtra ? <p role="status" className="mt-1 text-xs text-fs-muted">{tr("加载叠加数据…")}</p> : null}
+          </div> : <div className="border-t border-fs-border pt-2">
             <div className="mb-1 flex gap-1 text-[10px]">
               {(
                 [
@@ -389,7 +437,7 @@ export function ChartLayersPanel({ primarySymbol, layersApi, className, inlinePa
             >
               {validating ? tr("校验资产…") : tr("添加")}
             </button>
-          </div>
+          </div>}
         </div>
       ) : null}
     </div>

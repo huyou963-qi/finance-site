@@ -4,6 +4,7 @@
  */
 
 import { randomUUID } from "@/lib/randomId";
+import { layerCalculationUnit, layerSeriesUnit, sanitizeLayerCalculation, sanitizeSeriesRef, type LayerCalculation, type LayerSeriesRef } from "./layerCalculation";
 
 export const CHART_LAYER_MAX = 5;
 export const CHART_LAYERS_STORAGE_PREFIX = "markets:chartLayers:v1:";
@@ -41,12 +42,15 @@ export const FUNDAMENTAL_METRIC_LABEL: Record<FundamentalMetric, string> = {
 export type ChartLayerSource =
   | { kind: "price"; symbol: string; field: "close" | "ohlc" }
   | { kind: "expr"; expr: string }
-  | { kind: "fundamental"; symbol: string; metric: FundamentalMetric };
+  | { kind: "fundamental"; symbol: string; metric: FundamentalMetric }
+  | { kind: "series"; series: LayerSeriesRef }
+  | { kind: "calculation"; calculation: LayerCalculation };
 
 export type AxisBinding =
   | { mode: "right" }
   | { mode: "left" }
   | { mode: "scale"; scaleId: string }
+  | { mode: "subpane" }
   | { mode: "pane"; paneSlot: "sub1" | "sub2" | "overlayPane" };
 
 export type LayerTransform = "raw" | "index100" | "pctChange";
@@ -109,6 +113,8 @@ export function defaultAxisForSource(source: ChartLayerSource): AxisBinding {
     }
     return { mode: "left" };
   }
+  if (source.kind === "series") return { mode: "left" };
+  if (source.kind === "calculation") return { mode: "subpane" };
   const m = source.metric;
   if (m === "ttmPe" || m === "forwardPe" || m === "pb") {
     return { mode: "scale", scaleId: `fund_${m}` };
@@ -129,6 +135,8 @@ export function defaultStyleForSource(source: ChartLayerSource): LayerStyle {
 export function defaultLabelForSource(source: ChartLayerSource): string {
   if (source.kind === "price") return source.symbol.toUpperCase();
   if (source.kind === "expr") return source.expr.trim();
+  if (source.kind === "series") return source.series.kind === "macro" ? source.series.label : source.series.symbol;
+  if (source.kind === "calculation") return source.calculation.formula || source.calculation.operation;
   const sym = source.symbol.toUpperCase();
   return `${sym} ${FUNDAMENTAL_METRIC_LABEL[source.metric]}`;
 }
@@ -152,7 +160,12 @@ export function createChartLayer(
   };
 }
 
+export function isAdvancedLayerSource(source: ChartLayerSource): boolean {
+  return source.kind === "series" || source.kind === "calculation";
+}
+
 function normalizeSource(source: ChartLayerSource): ChartLayerSource {
+  if (source.kind === "series" || source.kind === "calculation") return source;
   if (source.kind === "price") {
     return {
       kind: "price",
@@ -173,7 +186,7 @@ function normalizeSource(source: ChartLayerSource): ChartLayerSource {
 function sanitizeAxis(raw: unknown, fallback: AxisBinding): AxisBinding {
   if (!raw || typeof raw !== "object") return fallback;
   const a = raw as Record<string, unknown>;
-  if (a.mode === "right" || a.mode === "left") return { mode: a.mode };
+  if (a.mode === "right" || a.mode === "left" || a.mode === "subpane") return { mode: a.mode };
   if (a.mode === "scale" && typeof a.scaleId === "string" && a.scaleId.trim()) {
     return { mode: "scale", scaleId: a.scaleId.trim().slice(0, 48) };
   }
@@ -189,6 +202,14 @@ function sanitizeAxis(raw: unknown, fallback: AxisBinding): AxisBinding {
 function sanitizeSource(raw: unknown): ChartLayerSource | null {
   if (!raw || typeof raw !== "object") return null;
   const s = raw as Record<string, unknown>;
+  if (s.kind === "series") {
+    const series = sanitizeSeriesRef(s.series);
+    return series ? { kind: "series", series } : null;
+  }
+  if (s.kind === "calculation") {
+    const calculation = sanitizeLayerCalculation(s.calculation);
+    return calculation ? { kind: "calculation", calculation } : null;
+  }
   if (s.kind === "price" && typeof s.symbol === "string" && s.symbol.trim()) {
     return {
       kind: "price",
@@ -304,12 +325,7 @@ export function saveChartLayersPrefs(
 /** 结构指纹：仅影响序列条数/轴/样式的字段（数据刷新不应触发重建） */
 export function chartLayersStructKey(prefs: ChartLayersPrefs): string {
   const parts = prefs.layers.map((l) => {
-    const src =
-      l.source.kind === "price"
-        ? `p:${l.source.symbol}:${l.source.field}`
-        : l.source.kind === "expr"
-          ? `e:${l.source.expr}`
-          : `f:${l.source.symbol}:${l.source.metric}`;
+    const src = JSON.stringify(l.source);
     const axis =
       l.axis.mode === "scale"
         ? `s:${l.axis.scaleId}`
@@ -433,6 +449,7 @@ export function resolvePriceScaleId(axis: AxisBinding): string {
   if (axis.mode === "right") return "right";
   if (axis.mode === "left") return "left";
   if (axis.mode === "scale") return axis.scaleId;
+  if (axis.mode === "subpane") return "right";
   if (axis.paneSlot === "overlayPane") return `overlay_${axis.paneSlot}`;
   return `pane_layer_${axis.paneSlot}`;
 }
@@ -445,8 +462,33 @@ export function effectiveTransform(
   layer: ChartLayer,
   compareMode: boolean,
 ): LayerTransform {
-  if (compareMode && layer.source.kind === "price" && layer.transform === "raw") {
+  if (compareMode && layer.transform === "raw" && (layer.source.kind === "price" ||
+    (layer.source.kind === "series" && layer.source.series.kind === "market" && layer.source.series.field !== "volume"))) {
     return "index100";
   }
   return layer.transform;
+}
+
+export function chartLayerUnit(layer: Pick<ChartLayer, "source" | "transform">, primaryUnit?: string, primarySymbol?: string): string | undefined {
+  if (layer.transform === "index100") return "基期 100";
+  if (layer.transform === "pctChange") return "%";
+  const { source } = layer;
+  if (source.kind === "series") return layerSeriesUnit(source.series);
+  if (source.kind === "calculation") return layerCalculationUnit(source.calculation);
+  if (source.kind === "fundamental") return layerSeriesUnit({ kind: "financial", symbol: source.symbol, metric: source.metric });
+  if (source.kind === "price" && source.symbol === primarySymbol) return primaryUnit;
+  return undefined;
+}
+
+export function layerAxisConflict(
+  layer: Pick<ChartLayer, "axis" | "source" | "transform"> & { id?: string },
+  peers: ChartLayer[],
+  primaryUnit?: string,
+  primarySymbol?: string,
+): "right" | "left" | null {
+  if (!isAdvancedLayerSource(layer.source) || (layer.axis.mode !== "left" && layer.axis.mode !== "right")) return null;
+  const unit = chartLayerUnit(layer, primaryUnit, primarySymbol);
+  if (layer.axis.mode === "right") return unit && unit === primaryUnit ? null : "right";
+  return peers.some(peer => peer.visible && peer.id !== layer.id && peer.axis.mode === "left" &&
+    (!unit || chartLayerUnit(peer, primaryUnit, primarySymbol) !== unit)) ? "left" : null;
 }

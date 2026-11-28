@@ -9,6 +9,7 @@ import {
   collectFundamentalRequests,
   collectPriceSymbolsFromLayers,
   createChartLayer,
+  isAdvancedLayerSource,
   loadChartLayersPrefs,
   saveChartLayersPrefs,
   type ChartLayer,
@@ -29,6 +30,8 @@ import {
   forwardPeFromCloses,
   type ForwardEpsPoint,
 } from "@/lib/data/forwardPeSeries";
+import { useAdvancedChartLayerData } from "./useAdvancedChartLayerData";
+import { marketLayerUnit } from "@/lib/chart/layerCalculation";
 import type { CandlestickData } from "lightweight-charts";
 
 function candleToCloses(candles: CandlestickData[]): PriceClosePoint[] {
@@ -83,6 +86,7 @@ export function useChartLayers(opts: {
   fetchLimit?: number;
   /** 指数化相对可见区左缘 */
   indexFromSec?: number | null;
+  allowAdvanced?: boolean;
 }) {
   const {
     primarySymbol,
@@ -91,13 +95,14 @@ export function useChartLayers(opts: {
     primaryCandles,
     fetchLimit = 500,
     indexFromSec = null,
+    allowAdvanced = false,
   } = opts;
 
   const [prefs, setPrefs] = useState<ChartLayersPrefs>({
     layers: [],
     compareMode: false,
   });
-  const [hydrated, setHydrated] = useState(false);
+  const [prefsOwner, setPrefsOwner] = useState<string | null>(null);
   const [priceBySymbol, setPriceBySymbol] = useState<
     Record<string, PriceClosePoint[]>
   >({});
@@ -109,13 +114,13 @@ export function useChartLayers(opts: {
 
   useEffect(() => {
     setPrefs(loadChartLayersPrefs(primarySymbol));
-    setHydrated(true);
+    setPrefsOwner(primarySymbol);
   }, [primarySymbol]);
 
   useEffect(() => {
-    if (!hydrated || !primarySymbol.trim()) return;
+    if (prefsOwner !== primarySymbol || !primarySymbol.trim()) return;
     saveChartLayersPrefs(primarySymbol, prefs);
-  }, [prefs, primarySymbol, hydrated]);
+  }, [prefs, primarySymbol, prefsOwner]);
 
   const primaryCloses = useMemo(
     () => candleToCloses(primaryCandles),
@@ -280,18 +285,27 @@ export function useChartLayers(opts: {
     primaryCloses,
   ]);
 
+  const activePrefs = useMemo(() => {
+    if (prefsOwner !== primarySymbol) return { ...prefs, layers: [] };
+    return allowAdvanced ? prefs : { ...prefs, layers: prefs.layers.filter(layer => !isAdvancedLayerSource(layer.source)) };
+  }, [prefs, allowAdvanced, prefsOwner, primarySymbol]);
+  const advanced = useAdvancedChartLayerData(activePrefs.layers, interval, priceAdjustment, primaryCloses[0]?.time ?? null);
+  const primaryUnit = marketLayerUnit(primarySymbol);
   const derived = useMemo(
     () =>
-      deriveLayerSeries(prefs, {
+      deriveLayerSeries(activePrefs, {
         primaryCloses,
         priceBySymbol,
         fundamentalsBySymbol,
         indexFromSec,
+        seriesByKey: advanced.data,
+        primaryUnit,
+        primarySymbol,
       }),
-    [prefs, primaryCloses, priceBySymbol, fundamentalsBySymbol, indexFromSec],
+    [activePrefs, primaryCloses, priceBySymbol, fundamentalsBySymbol, indexFromSec, advanced.data, primaryUnit, primarySymbol],
   );
 
-  const structKey = useMemo(() => chartLayersStructKey(prefs), [prefs]);
+  const structKey = useMemo(() => chartLayersStructKey(activePrefs), [activePrefs]);
 
   const setLayers = useCallback((updater: (prev: ChartLayer[]) => ChartLayer[]) => {
     setPrefs((p) => ({ ...p, layers: updater(p.layers).slice(0, CHART_LAYER_MAX) }));
@@ -345,13 +359,15 @@ export function useChartLayers(opts: {
   const canAdd = prefs.layers.length < CHART_LAYER_MAX;
 
   return {
-    prefs,
-    layers: prefs.layers,
+    prefs: activePrefs,
+    layers: activePrefs.layers,
+    primaryUnit,
     compareMode: prefs.compareMode,
     derived: derived as DerivedLayerSeries[],
     structKey,
     layerErrors,
-    loadingExtra,
+    advancedErrors: advanced.errors,
+    loadingExtra: loadingExtra || advanced.loading,
     canAdd,
     addLayer,
     updateLayer,
