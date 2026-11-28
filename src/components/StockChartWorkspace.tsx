@@ -36,6 +36,7 @@ import { MarketDrawingToolbar } from "@/components/chart/MarketDrawingToolbar";
 import { createDrawing, pointCount, updateDrawingPoint, type DrawingTool, type MarketDrawing } from "@/lib/chart/marketDrawings";
 import { useChartLayers } from "@/hooks/useChartLayers";
 import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
+import { MARKET_ADVANCED_OVERLAYS_FEATURE_ID } from "@/lib/access/featureCatalog";
 import {
   resolvePriceScaleId,
   type AxisBinding,
@@ -1268,7 +1269,7 @@ export function StockChartWorkspace({
 
   const [visibleFromSec, setVisibleFromSec] = useState<number | null>(null);
   const overlayFeatures = useVisibleFeatures();
-  const allowAdvancedLayers = overlayFeatures.can("market-advanced-overlays") && !overlayFeatures.locked("market-advanced-overlays");
+  const allowAdvancedLayers = overlayFeatures.can(MARKET_ADVANCED_OVERLAYS_FEATURE_ID) && !overlayFeatures.locked(MARKET_ADVANCED_OVERLAYS_FEATURE_ID);
   const layersApi = useChartLayers({
     allowAdvanced: allowAdvancedLayers,
     primarySymbol: symbol,

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { checkFeatureAccess } from "@/lib/access/featureAccess";
+import { MARKET_ADVANCED_OVERLAYS_FEATURE_ID } from "@/lib/access/featureCatalog";
 import { DEFAULT_LAG_DAYS, periodEnd, resolveLagDays } from "@/lib/data/macroAsOf";
 
 function parseDay(s: string): Date {
@@ -20,6 +22,9 @@ export async function GET(request: NextRequest) {
   }
 
   const includeAvailability = url.searchParams.get("timing") === "available";
+  if (includeAvailability && !(await checkFeatureAccess(MARKET_ADVANCED_OVERLAYS_FEATURE_ID)).allowed) {
+    return NextResponse.json({ error: "当前账号无法使用高级行情叠加" }, { status: 403 });
+  }
   if (includeAvailability && !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(instrumentId)) {
     return NextResponse.json({ error: "未找到标的" }, { status: 404 });
   }

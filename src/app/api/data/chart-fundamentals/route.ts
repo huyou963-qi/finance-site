@@ -5,6 +5,8 @@ import { computeQuarterRatios } from "@/lib/equity/fundamentalRatios";
 import { loadStockContext } from "@/lib/equity/stockDetail";
 import { computeValuationHistory } from "@/lib/equity/valuationHistory";
 import { prisma } from "@/lib/prisma";
+import { checkFeatureAccess } from "@/lib/access/featureAccess";
+import { MARKET_ADVANCED_OVERLAYS_FEATURE_ID } from "@/lib/access/featureCatalog";
 import type { FundamentalMetric } from "@/lib/chart/chartLayers";
 
 const ALL_METRICS: FundamentalMetric[] = [
@@ -47,6 +49,9 @@ export async function GET(req: NextRequest) {
   );
   wanted.delete("forwardPe");
   const includeAvailability = req.nextUrl.searchParams.get("timing") === "available";
+  if (includeAvailability && !(await checkFeatureAccess(MARKET_ADVANCED_OVERLAYS_FEATURE_ID)).allowed) {
+    return NextResponse.json({ error: "当前账号无法使用高级行情叠加" }, { status: 403 });
+  }
 
   try {
     const stock = await loadStockContext(symbolRaw);
