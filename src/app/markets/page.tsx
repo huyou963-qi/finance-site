@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { getViewerFromCookies } from "@/lib/access/featureAccess";
 import { FeatureGate } from "@/components/access/FeatureGate";
 import { getServerTr } from "@/i18n/serverText";
 import { MarketsClient } from "./MarketsClient";
@@ -15,12 +16,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function MarketsPage() {
-  const tr = await getServerTr();
+  const [tr, viewer] = await Promise.all([getServerTr(), getViewerFromCookies().catch(() => null)]);
   return (
     <FeatureGate featureId="markets">
       <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
         <Suspense fallback={<p className="px-4 py-12 text-sm text-fs-muted">{tr("加载中…")}</p>}>
-          <MarketsClient />
+          <MarketsClient formulaIndicatorsPreview={viewer?.role === "admin"} />
         </Suspense>
       </div>
     </FeatureGate>

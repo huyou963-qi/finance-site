@@ -78,7 +78,7 @@ function displayNameForSymbol(sym: string): string | undefined {
   return undefined;
 }
 
-export function MarketsClient() {
+export function MarketsClient({ formulaIndicatorsPreview }: { formulaIndicatorsPreview: boolean }) {
   const tr = useTr();
   const searchParams = useSearchParams();
   const urlSymbolParam = searchParams.get("symbol") ?? "";
@@ -806,6 +806,7 @@ export function MarketsClient() {
           source={chartSource}
           interval={interval}
           priceAdjustment={effectiveAdjustment}
+          formulaIndicatorsPreview={formulaIndicatorsPreview}
           fillHeight
           onAttributionChange={setDataHint}
           onKlineLoadSuccess={onKlineLoadSuccess}
