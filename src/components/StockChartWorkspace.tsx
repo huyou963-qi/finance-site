@@ -29,6 +29,19 @@ import {
 } from "lightweight-charts";
 import { ChartTimeRangeBrush } from "@/components/chart/ChartTimeRangeBrush";
 import { ChartEventMarkersToolbar } from "@/components/chart/ChartEventMarkersToolbar";
+import { FormulaIndicatorDialog } from "@/components/chart/FormulaIndicatorDialog";
+import { compileIndicatorFormula, type IndicatorProgram } from "@/lib/chart/indicatorFormula";
+import {
+  FORMULA_PRESETS,
+  formulaOutputColor,
+  formulaOutputData,
+  formulaVolumes,
+  isFormulaIndicator,
+  loadSavedFormulas,
+  saveFormulas,
+  type FormulaIndicatorId,
+  type SavedFormula,
+} from "@/lib/chart/formulaIndicators";
 import { ChartLayersPanel } from "@/components/chart/ChartLayersPanel";
 import { drawingPointAtPixel, drawingDragPixel, pauseDrawingNavigation } from "@/lib/chart/drawingPointer";
 import { useMarketDrawings } from "@/hooks/useMarketDrawings";
@@ -155,6 +168,7 @@ function horzTimeToUnixSec(t: Time): number | null {
 const LOGICAL_PREFETCH_EDGE = 240;
 
 export type StockChartWorkspaceProps = {
+  formulaIndicatorsPreview?: boolean;
   symbol: string;
   interval: string;
   recessionBands?: readonly NberRecessionBand[];
@@ -231,7 +245,32 @@ export type StockChartWorkspaceProps = {
 };
 
 /** 单个副图：成交量或振荡指标之一 */
-type SubPaneContent = "volume" | "kdj" | "macd" | "rsi" | "ttmpe";
+type SubPaneContent = "volume" | "kdj" | "macd" | "rsi" | "ttmpe" | FormulaIndicatorId;
+type SubPaneState = { visible: boolean; content: SubPaneContent };
+type SubPaneSlot = 1 | 2;
+type SubPaneHandles = { content: SubPaneContent; program?: IndicatorProgram; series: SubPaneSeriesApi[] };
+const FORMULA_PANE_PREFS_KEY = "market-formula-pane-selection-v1";
+const DEFAULT_SUB_PANES: Record<SubPaneSlot, SubPaneState> = {
+  1: { visible: false, content: "volume" },
+  2: { visible: false, content: "kdj" },
+};
+const emptySubPanes = (): Record<SubPaneSlot, SubPaneHandles | undefined> => ({ 1: undefined, 2: undefined });
+
+function readPanePreference(slot: SubPaneSlot, formulas: SavedFormula[]): SubPaneState {
+  try {
+    const raw = localStorage.getItem(FORMULA_PANE_PREFS_KEY + slot);
+    if (raw) {
+      const { content, visible } = JSON.parse(raw) as Partial<SubPaneState>;
+      if (typeof visible === "boolean" && content && (
+        ["volume", "kdj", "macd", "rsi", "ttmpe"].includes(content) ||
+        FORMULA_PRESETS.some(item => item.id === content) || formulas.some(item => item.id === content)
+      )) return { content, visible };
+    }
+  } catch {
+    /* preferences unavailable */
+  }
+  return DEFAULT_SUB_PANES[slot];
+}
 
 /** 副图指标参数（KDJ / MACD / RSI 由用户设置面板调节） */
 type SubPaneIndicatorParams = Pick<IndicatorSettings, "kdj" | "macd" | "rsi">;
@@ -387,11 +426,6 @@ function applySubPaneToolbarScaleMargins(
 
 type SubPaneSeriesApi = ISeriesApi<"Line" | "Histogram", Time>;
 
-function subPaneSeriesCount(content: SubPaneContent): number {
-  if (content === "kdj" || content === "macd") return 3;
-  return 1;
-}
-
 function appendSubPaneSeries(
   chart: IChartApi,
   candles: CandlestickData[],
@@ -402,8 +436,25 @@ function appendSubPaneSeries(
   ttmPeLine: LineData[],
   params: SubPaneIndicatorParams,
   candleColors: KlineCandleColors,
+  program: IndicatorProgram | undefined,
+  actualVolumes: readonly number[] | undefined,
 ): SubPaneSeriesApi[] {
   if (!candles.length) return [];
+  if (program) {
+    const points = formulaOutputData(program, candles, actualVolumes, candleColors);
+    return program.outputs.map((output, i) => {
+      const options = {
+        color: formulaOutputColor(output, i),
+        title: output.name,
+        priceLineVisible: false,
+      };
+      const series = output.plot === "line"
+        ? chart.addSeries(LineSeries, { ...options, lineWidth: 1 }, paneIndex)
+        : chart.addSeries(HistogramSeries, options, paneIndex);
+      series.setData(points[i]!);
+      return series;
+    });
+  }
   if (content === "volume") {
     const histData = candles.map((c, i) => ({
       time: c.time,
@@ -503,19 +554,28 @@ function appendSubPaneSeries(
     if (ttmPeLine.length) rs.setData(ttmPeLine);
     return [rs];
   }
-  return [];
+  // 保持公式切换与数据可用性变化中的窗格顺序。
+  return [chart.addSeries(LineSeries, { priceLineVisible: false }, paneIndex)];
 }
 
 function updateSubPaneSeriesData(
-  apis: SubPaneSeriesApi[],
+  handles: SubPaneHandles | undefined,
   content: SubPaneContent,
   candles: CandlestickData[],
   volumes: number[],
   ttmPeLine: LineData[],
   params: SubPaneIndicatorParams,
   candleColors: KlineCandleColors,
+  program: IndicatorProgram | undefined,
+  actualVolumes: readonly number[] | undefined,
 ): void {
-  if (!apis.length || !candles.length) return;
+  if (!handles || handles.content !== content || handles.program !== program || !candles.length) return;
+  const apis = handles.series;
+  if (program) {
+    const points = formulaOutputData(program, candles, actualVolumes, candleColors);
+    apis.forEach((api, i) => api.setData(points[i]!));
+    return;
+  }
   if (content === "volume" && apis[0]) {
     const histData = candles.map((c, i) => ({
       time: c.time,
@@ -883,6 +943,7 @@ export function StockChartWorkspace({
   forceHideSubPanes = false,
   seekToTimeSec = null,
   seekToTimeVersion = 0,
+  formulaIndicatorsPreview = false,
 }: StockChartWorkspaceProps) {
   const tx = useTr();
   const locale = useLocale();
@@ -949,15 +1010,15 @@ export function StockChartWorkspace({
       boll: ISeriesApi<"Line", Time>[];
       ma: ISeriesApi<"Line", Time>[];
     };
-    /** 副图序列（appendSubPaneSeries 顺序），用于追加历史后刷新指标 */
-    subPaneSeries: SubPaneSeriesApi[];
+    /** 槽位独立持有序列，允许同一公式在两块副图使用。 */
+    subPaneSeries: Record<SubPaneSlot, SubPaneHandles | undefined>;
     /** 多资产/基本面 Layer 折线（与 derived 顺序对齐） */
     layerSeries: { id: string; api: ISeriesApi<"Line", Time> }[];
   }>({
     userPriceLines: [],
     userTrendLines: [],
     overlayLines: { boll: [], ma: [] },
-    subPaneSeries: [],
+    subPaneSeries: emptySubPanes(),
     layerSeries: [],
   });
 
@@ -1023,14 +1084,43 @@ export function StockChartWorkspace({
     }));
   }, [maPeriodsInput]);
   /** 两个副图可独立选成交量/指标、可单独关闭 */
-  const [subPane1, setSubPane1] = useState<{
-    visible: boolean;
-    content: SubPaneContent;
-  }>({ visible: false, content: "volume" });
-  const [subPane2, setSubPane2] = useState<{
-    visible: boolean;
-    content: SubPaneContent;
-  }>({ visible: false, content: "kdj" });
+  const [subPane1, setSubPane1] = useState<SubPaneState>(DEFAULT_SUB_PANES[1]);
+  const [subPane2, setSubPane2] = useState<SubPaneState>(DEFAULT_SUB_PANES[2]);
+  const [savedFormulas, setSavedFormulas] = useState<SavedFormula[]>([]);
+  const [formulaDialogSlot, setFormulaDialogSlot] = useState<SubPaneSlot | null>(null);
+  useEffect(() => {
+    if (!formulaIndicatorsPreview) return;
+    const formulas = loadSavedFormulas();
+    setSavedFormulas(formulas);
+    setSubPane1(readPanePreference(1, formulas));
+    setSubPane2(readPanePreference(2, formulas));
+  }, [formulaIndicatorsPreview]);
+
+  function changeSubPane(slot: SubPaneSlot, pane: SubPaneState) {
+    (slot === 1 ? setSubPane1 : setSubPane2)(pane);
+    if (formulaIndicatorsPreview) {
+      try { localStorage.setItem(FORMULA_PANE_PREFS_KEY + slot, JSON.stringify(pane)); }
+      catch { /* preferences unavailable */ }
+    }
+  }
+
+  const activeFormula = (content: SubPaneContent) => isFormulaIndicator(content)
+    ? savedFormulas.find(item => item.id === content) ?? FORMULA_PRESETS.find(item => item.id === content)
+    : undefined;
+  const formula1 = activeFormula(subPane1.content);
+  const formula2 = activeFormula(subPane2.content);
+  const program1 = useMemo(() => {
+    if (!formula1 || !formulaIndicatorsPreview || payload?.observationOnly) return undefined;
+    const result = compileIndicatorFormula(formula1.source);
+    return result.ok ? result.program : undefined;
+  }, [formula1, formulaIndicatorsPreview, payload?.observationOnly]);
+  const program2 = useMemo(() => {
+    if (!formula2 || !formulaIndicatorsPreview || payload?.observationOnly) return undefined;
+    const result = compileIndicatorFormula(formula2.source);
+    return result.ok ? result.program : undefined;
+  }, [formula2, formulaIndicatorsPreview, payload?.observationOnly]);
+  const actualVolumes = formulaVolumes(payload);
+
   const savedSubVisibilityRef = useRef<{ v1: boolean; v2: boolean } | null>(
     null,
   );
@@ -1286,7 +1376,8 @@ export function StockChartWorkspace({
 
   useEffect(() => {
     const unavailable = (content: SubPaneContent) => (content === "volume" && payload?.volumeAvailable === false)
-      || (content === "ttmpe" && (source === "eastmoney" || payload?.observationOnly === true));
+      || (content === "ttmpe" && (source === "eastmoney" || payload?.observationOnly === true))
+      || (isFormulaIndicator(content) && payload?.observationOnly === true);
     setSubPane1(prev => unavailable(prev.content) ? { ...prev, content: "macd" } : prev);
     setSubPane2(prev => unavailable(prev.content) ? { ...prev, content: "rsi" } : prev);
   }, [payload?.volumeAvailable, payload?.observationOnly, source]);
@@ -1604,33 +1695,11 @@ export function StockChartWorkspace({
       });
     }
 
-    const subs = h.subPaneSeries;
-    let idx = 0;
-    const colors = candleColorsRef.current;
     if (subPane1.visible) {
-      const n = subPaneSeriesCount(subPane1.content);
-      updateSubPaneSeriesData(
-        subs.slice(idx, idx + n),
-        subPane1.content,
-        candles,
-        volumes,
-        ttmPeLine,
-        subParams,
-        colors,
-      );
-      idx += n;
+      updateSubPaneSeriesData(h.subPaneSeries[1], subPane1.content, candles, volumes, ttmPeLine, subParams, candleColors, program1, actualVolumes);
     }
     if (subPane2.visible) {
-      const n = subPaneSeriesCount(subPane2.content);
-      updateSubPaneSeriesData(
-        subs.slice(idx, idx + n),
-        subPane2.content,
-        candles,
-        volumes,
-        ttmPeLine,
-        subParams,
-        colors,
-      );
+      updateSubPaneSeriesData(h.subPaneSeries[2], subPane2.content, candles, volumes, ttmPeLine, subParams, candleColors, program2, actualVolumes);
     }
 
     // Layer 数据增量刷新（结构未变时不重建 chart）
@@ -1667,6 +1736,10 @@ export function StockChartWorkspace({
     subPane2.visible,
     subPane2.content,
     ttmPeLine,
+    candleColors,
+    program1,
+    program2,
+    actualVolumes,
     payload?.pricePrecision,
   ]);
 
@@ -1688,7 +1761,7 @@ export function StockChartWorkspace({
     }
   }, [loading, layersApi.derived]);
 
-  /** 切换涨跌配色：更新蜡烛与成交量柱，不重建整图 */
+  /** 切换涨跌配色：蜡烛样式就地更新，柱状序列随数据刷新。 */
   useEffect(() => {
     if (loading) return;
     const candle = candleRef.current;
@@ -1700,39 +1773,7 @@ export function StockChartWorkspace({
       wickUpColor: colors.up,
       wickDownColor: colors.down,
     });
-    const cList = candlesRef.current;
-    const vList = volumesRef.current;
-    if (!cList.length) return;
-    const h = nativeHandlesRef.current;
-    const subs = h.subPaneSeries;
-    let idx = 0;
-    const refresh = (visible: boolean, content: SubPaneContent) => {
-      if (!visible) return;
-      const n = subPaneSeriesCount(content);
-      updateSubPaneSeriesData(
-        subs.slice(idx, idx + n),
-        content,
-        cList,
-        vList,
-        ttmPeLine,
-        subParams,
-        colors,
-      );
-      idx += n;
-    };
-    refresh(subPane1.visible, subPane1.content);
-    refresh(subPane2.visible, subPane2.content);
-  }, [
-    loading,
-    candleColorMode,
-    candleColors,
-    subPane1.visible,
-    subPane1.content,
-    subPane2.visible,
-    subPane2.content,
-    subParams,
-    ttmPeLine,
-  ]);
+  }, [loading, candleColors]);
 
   const syncPaneLayoutMetrics = useCallback(() => {
     const area = chartAreaRef.current;
@@ -1825,20 +1866,19 @@ export function StockChartWorkspace({
     applySubPaneToolbarScaleMargins(chart, SUB_PANE_TOOLBAR_PX, subPane1, subPane2);
   }, [subPane1, subPane2]);
 
-  /**
-   * setStretchFactor 后 DOM 晚一帧才稳定，双 rAF 再量。
-   * 用递增 generation：拖动时连续调用不会丢最后一次（避免「排队中则跳过」导致副图2 顶栏不跟分界）。
-   */
-  const layoutMetricsGenRef = useRef(0);
+  // 等两帧再测量窗格，并让同一批 ResizeObserver 通知共用一次测量。
+  const syncPaneLayoutMetricsRef = useRef(syncPaneLayoutMetrics);
+  syncPaneLayoutMetricsRef.current = syncPaneLayoutMetrics;
+  const paneLayoutFrameRef = useRef<number | null>(null);
   const schedulePaneLayoutMetrics = useCallback(() => {
-    const gen = ++layoutMetricsGenRef.current;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (gen !== layoutMetricsGenRef.current) return;
-        syncPaneLayoutMetrics();
+    if (paneLayoutFrameRef.current != null) return;
+    paneLayoutFrameRef.current = requestAnimationFrame(() => {
+      paneLayoutFrameRef.current = requestAnimationFrame(() => {
+        paneLayoutFrameRef.current = null;
+        syncPaneLayoutMetricsRef.current();
       });
     });
-  }, [syncPaneLayoutMetrics]);
+  }, []);
 
   const clearAllRangeStats = useCallback(() => {
     setRangeEntries([]);
@@ -2360,7 +2400,7 @@ export function StockChartWorkspace({
     eventMarkersPluginRef.current = createSeriesMarkers(candle, []);
 
     nativeHandlesRef.current.overlayLines = { boll: [], ma: [] };
-    nativeHandlesRef.current.subPaneSeries = [];
+    nativeHandlesRef.current.subPaneSeries = emptySubPanes();
 
     const ind = indicatorsRef.current;
 
@@ -2411,40 +2451,18 @@ export function StockChartWorkspace({
       });
     }
 
-    const subPaneApis: SubPaneSeriesApi[] = [];
     let subPaneIdx = 1;
-    if (subPane1.visible) {
-      subPaneApis.push(
-        ...appendSubPaneSeries(
-          chart,
-          initialCandles,
-          initialVolumes,
-          subPaneIdx,
-          subPane1.content,
-          "a",
-          ttmPeLineRef.current,
-          subParams,
-          initColors,
-        ),
+    const initialActualVolumes = formulaVolumes(payloadRef.current);
+    const addSubPane = (slot: SubPaneSlot, visible: boolean, content: SubPaneContent, program?: IndicatorProgram) => {
+      if (!visible) return;
+      const series = appendSubPaneSeries(
+        chart, initialCandles, initialVolumes, subPaneIdx++, content, slot === 1 ? "a" : "b",
+        ttmPeLineRef.current, subParams, initColors, program, initialActualVolumes,
       );
-      subPaneIdx++;
-    }
-    if (subPane2.visible) {
-      subPaneApis.push(
-        ...appendSubPaneSeries(
-          chart,
-          initialCandles,
-          initialVolumes,
-          subPaneIdx,
-          subPane2.content,
-          "b",
-          ttmPeLineRef.current,
-          subParams,
-          initColors,
-        ),
-      );
-    }
-    nativeHandlesRef.current.subPaneSeries = subPaneApis;
+      nativeHandlesRef.current.subPaneSeries[slot] = { content, program, series };
+    };
+    addSubPane(1, subPane1.visible, subPane1.content, program1);
+    addSubPane(2, subPane2.visible, subPane2.content, program2);
 
     // 多资产 / 基本面 Layer（结构变才重建；数据走独立 setData effect）
     nativeHandlesRef.current.layerSeries = [];
@@ -2736,16 +2754,20 @@ export function StockChartWorkspace({
       }, 150);
     };
 
+    let lastVisibleFromSec: number | null = null;
+    let lastVisibleToSec: number | null = null;
     const visibleTimeRangeHandler = (
       tr: { from: Time; to: Time } | null,
     ) => {
-      schedulePrefetchOlderBars();
-      setOverlaySize((s) => ({ ...s }));
-      setOverlayLayoutTick((t) => t + 1);
-      if (!tr) return;
+      if (!tr) {
+        lastVisibleFromSec = lastVisibleToSec = null;
+        return;
+      }
       const fromSec = horzTimeToUnixSec(tr.from);
       const toSec = horzTimeToUnixSec(tr.to);
-      if (fromSec == null || toSec == null) return;
+      if (fromSec == null || toSec == null || (fromSec === lastVisibleFromSec && toSec === lastVisibleToSec)) return;
+      lastVisibleFromSec = fromSec;
+      lastVisibleToSec = toSec;
       setVisibleFromSec(fromSec);
       onVisibleTimeRangeChangeRef.current?.(fromSec, toSec);
       setMarkerRangeTick((t) => t + 1);
@@ -2768,7 +2790,10 @@ export function StockChartWorkspace({
     return () => {
       editingCleanup.current?.();
       if (prefetchOlderTimer != null) window.clearTimeout(prefetchOlderTimer);
-      layoutMetricsGenRef.current += 1;
+      if (paneLayoutFrameRef.current != null) {
+        cancelAnimationFrame(paneLayoutFrameRef.current);
+        paneLayoutFrameRef.current = null;
+      }
       setCrosshairOhlcv(null);
       setChartApi(null);
       chart.unsubscribeClick(clickHandler);
@@ -2790,11 +2815,11 @@ export function StockChartWorkspace({
         userPriceLines: [],
         userTrendLines: [],
         overlayLines: { boll: [], ma: [] },
-        subPaneSeries: [],
+        subPaneSeries: emptySubPanes(),
         layerSeries: [],
       };
       };
-  }, [loading, symbol, source, overlayStructKey, layersStructKey, subParams, subPane1.visible, subPane1.content, subPane2.visible, subPane2.content, interval, schedulePaneLayoutMetrics, forceHideSubPanes, payload?.pricePrecision, payload?.observationOnly, tx]);
+  }, [loading, symbol, source, overlayStructKey, layersStructKey, subParams, program1, program2, subPane1.visible, subPane1.content, subPane2.visible, subPane2.content, interval, schedulePaneLayoutMetrics, forceHideSubPanes, payload?.pricePrecision, payload?.observationOnly, tx]);
 
   /** 可见区间内拉取事件标记并打到主图蜡烛上 */
   const privateEventMarkers = useMemo(
@@ -3315,6 +3340,75 @@ export function StockChartWorkspace({
     );
   }
 
+  const libraryAvailable = formulaIndicatorsPreview && !payload.observationOnly;
+  function renderSubPaneControls(slot: SubPaneSlot, pane: SubPaneState, formula: SavedFormula | undefined) {
+    const libraryLabel = slot === 1 ? tx("副图 1 指标库") : tx("副图 2 指标库");
+    return (
+      <>
+        {libraryAvailable ? (
+          <button
+            type="button"
+            aria-label={libraryLabel}
+            title={formula?.name ?? libraryLabel}
+            onClick={() => setFormulaDialogSlot(slot)}
+            className={`max-w-[36%] shrink-0 truncate rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${formula ? "bg-indigo-950/90 text-indigo-100" : "bg-fs-accent-soft text-fs-accent-text"}`}
+          >{formula?.name ?? tx("指标库")}</button>
+        ) : null}
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
+          {subModeTabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={pane.content === item.id}
+              onClick={() => changeSubPane(slot, { ...pane, content: item.id })}
+              className={`shrink-0 rounded px-2 py-0.5 text-[10px] leading-none ${pane.content === item.id ? "bg-indigo-950/90 text-indigo-100" : "bg-fs-elevated text-fs-muted hover:bg-fs-border"}`}
+            >{item.label}</button>
+          ))}
+        </div>
+        <button
+          type="button"
+          title={pane.visible ? tx("隐藏此副图") : tx("显示此副图")}
+          onClick={() => changeSubPane(slot, { ...pane, visible: !pane.visible })}
+          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] leading-none ${pane.visible ? "border border-fs-border text-fs-muted hover:bg-fs-elevated" : "bg-fs-accent-soft text-fs-accent-text"}`}
+        >{pane.visible ? tx("隐藏") : tx("显示")}</button>
+        {pane.content === "ttmpe" && ttmPeError ? (
+          <span className="min-w-0 truncate text-[10px] text-amber-300/90" title={ttmPeError}>{ttmPeError}</span>
+        ) : null}
+        {pane.content === "ttmpe" && !ttmPeError && ttmPeSource ? (
+          <span className="shrink-0 text-[10px] text-fs-muted" title={tx("TTM PE 数据源")}>{ttmPeSource === "sec" ? "SEC" : "FMP"}</span>
+        ) : null}
+        {!actualVolumes && FORMULA_PRESETS.some(item => item.id === pane.content && item.needsVolume) ? (
+          <span className="min-w-0 truncate text-[10px] text-fs-muted" title={tx("当前标的缺少成交量")}>{tx("当前标的缺少成交量")}</span>
+        ) : null}
+      </>
+    );
+  }
+
+  function applyFormula(id: FormulaIndicatorId) {
+    if (formulaDialogSlot == null) return;
+    changeSubPane(formulaDialogSlot, { content: id, visible: true });
+    setFormulaDialogSlot(null);
+  }
+
+  function storeFormula(formula: SavedFormula) {
+    const items = savedFormulas.some(item => item.id === formula.id)
+      ? savedFormulas.map(item => item.id === formula.id ? formula : item)
+      : [...savedFormulas, formula];
+    if (!saveFormulas(items)) return false;
+    setSavedFormulas(items);
+    applyFormula(formula.id);
+    return true;
+  }
+
+  function removeFormula(id: FormulaIndicatorId) {
+    const items = savedFormulas.filter(item => item.id !== id);
+    if (!saveFormulas(items)) return false;
+    setSavedFormulas(items);
+    if (subPane1.content === id) changeSubPane(1, { ...subPane1, content: "macd" });
+    if (subPane2.content === id) changeSubPane(2, { ...subPane2, content: "rsi" });
+    return true;
+  }
+
   const overlaySummary = [
     indicators.maOn ? `MA(${indicators.maPeriods.join("/")})` : null,
     indicators.bollOn
@@ -3605,52 +3699,27 @@ export function StockChartWorkspace({
             ))}
           </div>
         ) : null}
+        {libraryAvailable && formulaDialogSlot != null ? (
+          <FormulaIndicatorDialog
+            selected={(formulaDialogSlot === 1 ? subPane1 : subPane2).content}
+            formulas={savedFormulas}
+            candles={candles}
+            volumes={actualVolumes}
+            onApply={applyFormula}
+            onSave={storeFormula}
+            onRemove={removeFormula}
+            onClose={() => setFormulaDialogSlot(null)}
+          />
+        ) : null}
         {subPaneToolbarGeom.slot1 ? (
           <div
-            className={`pointer-events-auto absolute left-0 right-0 z-[25] flex flex-wrap items-center gap-1 border-b border-fs-border bg-white/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
+            className={`pointer-events-auto absolute left-0 right-0 z-[25] flex items-center gap-1 border-b border-fs-border bg-white/95 px-2 backdrop-blur-[2px] ${subPane1.visible ? "" : "opacity-90"}`}
             style={{
               top: "var(--kline-sp1-top, 0px)",
               height: SUB_PANE_TOOLBAR_PX,
             }}
           >
-            {subModeTabs.map((x) => (
-              <button
-                key={`s1-${x.id}`}
-                type="button"
-                onClick={() => setSubPane1((s) => ({ ...s, content: x.id }))}
-                className={`rounded px-2 py-0.5 text-[10px] leading-none ${
-                  subPane1.content === x.id
-                    ? "bg-indigo-950/90 text-indigo-100"
-                    : "bg-fs-elevated text-fs-muted hover:bg-fs-border"
-                }`}
-              >
-                {tx(x.label)}
-              </button>
-            ))}
-            <button
-              type="button"
-              title={subPane1.visible ? tx("隐藏此副图") : tx("显示此副图")}
-              onClick={() =>
-                setSubPane1((s) => ({ ...s, visible: !s.visible }))
-              }
-              className={`rounded px-1.5 py-0.5 text-[10px] leading-none ${
-                subPane1.visible
-                  ? "border border-fs-border text-fs-muted hover:bg-fs-elevated"
-                  : "bg-fs-accent-soft text-fs-accent-text hover:bg-fs-accent-soft"
-              }`}
-            >
-              {subPane1.visible ? tx("隐藏") : tx("显示")}
-            </button>
-            {subPane1.content === "ttmpe" && ttmPeError ? (
-              <span className="truncate text-[10px] text-amber-300/90" title={ttmPeError}>
-                {ttmPeError}
-              </span>
-            ) : null}
-            {subPane1.content === "ttmpe" && !ttmPeError && ttmPeSource ? (
-              <span className="text-[10px] text-fs-muted" title={tx("TTM PE 数据源")}>
-                {ttmPeSource === "sec" ? "SEC" : "FMP"}
-              </span>
-            ) : null}
+            {renderSubPaneControls(1, subPane1, formula1)}
           </div>
         ) : null}
         {subPaneToolbarGeom.slot2 ? (
@@ -3671,48 +3740,8 @@ export function StockChartWorkspace({
                 onPointerDown={attachPaneSplitterDrag("12")}
               />
             ) : null}
-            <div className="flex min-h-0 flex-1 flex-wrap items-center gap-1 px-2 py-px">
-              {subModeTabs.map((x) => (
-                <button
-                  key={`s2-${x.id}`}
-                  type="button"
-                  onClick={() => setSubPane2((s) => ({ ...s, content: x.id }))}
-                  className={`rounded px-2 py-0.5 text-[10px] leading-none ${
-                    subPane2.content === x.id
-                      ? "bg-indigo-950/90 text-indigo-100"
-                      : "bg-fs-elevated text-fs-muted hover:bg-fs-border"
-                  }`}
-                >
-                  {tx(x.label)}
-                </button>
-              ))}
-              <button
-                type="button"
-                title={subPane2.visible ? tx("隐藏此副图") : tx("显示此副图")}
-                onClick={() =>
-                  setSubPane2((s) => ({ ...s, visible: !s.visible }))
-                }
-                className={`rounded px-1.5 py-0.5 text-[10px] leading-none ${
-                  subPane2.visible
-                    ? "border border-fs-border text-fs-muted hover:bg-fs-elevated"
-                    : "bg-fs-accent-soft text-fs-accent-text hover:bg-fs-accent-soft"
-                }`}
-              >
-                {subPane2.visible ? tx("隐藏") : tx("显示")}
-              </button>
-              {subPane2.content === "ttmpe" && ttmPeError ? (
-                <span
-                  className="truncate text-[10px] text-amber-300/90"
-                  title={ttmPeError}
-                >
-                  {ttmPeError}
-                </span>
-              ) : null}
-              {subPane2.content === "ttmpe" && !ttmPeError && ttmPeSource ? (
-                <span className="text-[10px] text-fs-muted" title={tx("TTM PE 数据源")}>
-                  {ttmPeSource === "sec" ? "SEC" : "FMP"}
-                </span>
-              ) : null}
+            <div className="flex min-h-0 flex-1 items-center gap-1 px-2 py-px">
+              {renderSubPaneControls(2, subPane2, formula2)}
             </div>
           </div>
         ) : null}

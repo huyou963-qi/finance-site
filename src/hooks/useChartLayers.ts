@@ -122,16 +122,6 @@ export function useChartLayers(opts: {
     [primaryCandles],
   );
 
-  // Keep primary closes in price cache
-  useEffect(() => {
-    const sym = primarySymbol.trim().toUpperCase();
-    if (!sym || !primaryCloses.length) return;
-    setPriceBySymbol((prev) => {
-      if (prev[sym] === primaryCloses) return prev;
-      return { ...prev, [sym]: primaryCloses };
-    });
-  }, [primarySymbol, primaryCloses]);
-
   const neededPriceSymbols = useMemo(() => {
     const syms = collectPriceSymbolsFromLayers(prefs.layers, listSymbolsInExpression);
     const primary = primarySymbol.trim().toUpperCase();
@@ -145,19 +135,16 @@ export function useChartLayers(opts: {
 
   const neededPriceKey = neededPriceSymbols.join(",");
   const fundReqsKey = useMemo(() => JSON.stringify(fundReqs), [fundReqs]);
+  const hasExtraLayers = neededPriceSymbols.length > 0 || fundReqs.length > 0;
 
   useEffect(() => {
+    if (!hasExtraLayers) return;
     let cancelled = false;
     const controller = new AbortController();
     const run = async () => {
-      if (!neededPriceSymbols.length && !fundReqs.length) {
-        setLayerErrors([]);
-        setLoadingExtra(false);
-        return;
-      }
       setLoadingExtra(true);
       setLayerErrors([]);
-      setPriceBySymbol(primaryCloses.length ? { [primarySymbol.trim().toUpperCase()]: primaryCloses } : {});
+      setPriceBySymbol({});
       setFundamentalsBySymbol({});
       const errors: string[] = [];
 
@@ -269,6 +256,7 @@ export function useChartLayers(opts: {
       controller.abort();
     };
   }, [
+    hasExtraLayers,
     neededPriceKey,
     fundReqsKey,
     neededPriceSymbols,
@@ -284,11 +272,13 @@ export function useChartLayers(opts: {
     () =>
       deriveLayerSeries(prefs, {
         primaryCloses,
-        priceBySymbol,
+        priceBySymbol: primarySymbol.trim()
+          ? { ...priceBySymbol, [primarySymbol.trim().toUpperCase()]: primaryCloses }
+          : priceBySymbol,
         fundamentalsBySymbol,
         indexFromSec,
       }),
-    [prefs, primaryCloses, priceBySymbol, fundamentalsBySymbol, indexFromSec],
+    [prefs, primarySymbol, primaryCloses, priceBySymbol, fundamentalsBySymbol, indexFromSec],
   );
 
   const structKey = useMemo(() => chartLayersStructKey(prefs), [prefs]);
@@ -350,8 +340,8 @@ export function useChartLayers(opts: {
     compareMode: prefs.compareMode,
     derived: derived as DerivedLayerSeries[],
     structKey,
-    layerErrors,
-    loadingExtra,
+    layerErrors: hasExtraLayers ? layerErrors : [],
+    loadingExtra: hasExtraLayers && loadingExtra,
     canAdd,
     addLayer,
     updateLayer,

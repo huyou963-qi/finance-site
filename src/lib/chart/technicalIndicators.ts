@@ -83,15 +83,13 @@ export function kdj(
   return { k: kOut, d: dOut, j: jOut };
 }
 
-function ema(values: number[], period: number): number[] {
+export function ema(values: ArrayLike<number>, period: number): number[] {
   const out: number[] = [];
   const k = 2 / (period + 1);
   for (let i = 0; i < values.length; i++) {
-    if (i === 0) {
-      out.push(values[0]);
-    } else {
-      out.push(values[i] * k + out[i - 1] * (1 - k));
-    }
+    const value = values[i]!;
+    const previous = out[i - 1] ?? NaN;
+    out.push(Number.isFinite(previous) ? value * k + previous * (1 - k) : value);
   }
   return out;
 }
