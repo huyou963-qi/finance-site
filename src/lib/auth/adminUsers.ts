@@ -1,7 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { updateUserAccount } from "@/lib/auth";
-import { isStaffRole, type Role } from "@/lib/auth/types";
+import { hasAdminPermission, isStaffRole, type Role } from "@/lib/auth/types";
+import { isPaidProActive } from "@/lib/billing/access";
+import { defaultResearchMonthlyPoints, getResearchUsage } from "@/lib/researchMcp/usage";
+import { adjustCredits, changeMembership, type MembershipChange } from "./adminMembership";
 
 type AdminActor = { id: string; username: string };
 
@@ -130,16 +133,19 @@ export async function getAdminUserDetail(userId: string, viewerRole: string = "a
       id: true, username: true, email: true, phone: true, emailVerifiedAt: true,
       wechatOpenId: true, role: true, tags: true, adminTotpSecret: true, status: true,
       suspendedAt: true, suspensionReason: true, plan: true, planExpiresAt: true,
-      trialEndsAt: true, creditBalance: true, createdAt: true, lastLoginAt: true,
+      trialEndsAt: true, creditBalance: true, researchMcpMonthlyPoints: true, createdAt: true, lastLoginAt: true,
     },
   });
   if (!user) throw new Error("用户不存在");
-  const [sessionCount, orders, credits, audits, authEvents] = await Promise.all([
+  const canManageMembership = hasAdminPermission(viewerRole, "membership:write")
+    && (viewerRole === "admin" || user.role === "user");
+  const [sessionCount, orders, credits, audits, authEvents, usage] = await Promise.all([
     prisma.session.count({ where: { userId, expiresAt: { gt: new Date() } } }),
     prisma.paymentOrder.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.creditLedgerEntry.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.adminUserAudit.findMany({ where: { targetUserId: userId }, orderBy: { createdAt: "desc" }, take: 30 }),
     prisma.accountAuthEvent.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 20 }),
+    canManageMembership && user.status !== "closed" ? getResearchUsage(userId, user) : null,
   ]);
   const creditOrderIds = credits.map((entry) => entry.orderId).filter((value): value is string => Boolean(value));
   const creditOrders = creditOrderIds.length ? await prisma.paymentOrder.findMany({ where: { id: { in: creditOrderIds } }, select: { id: true, orderNo: true } }) : [];
@@ -166,6 +172,14 @@ export async function getAdminUserDetail(userId: string, viewerRole: string = "a
       createdAt: user.createdAt.toISOString(),
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     },
+    researchQuota: usage ? {
+      override: user.researchMcpMonthlyPoints,
+      defaultLimit: defaultResearchMonthlyPoints(),
+      limit: usage.limit,
+      used: usage.used,
+      resetAt: usage.resetAt.toISOString(),
+      paidProActive: isPaidProActive(user),
+    } : null,
     orders: orders.map((order) => ({ orderNo: order.orderNo, productType: order.productType, status: order.status, amountCny: order.amountCny, paidAt: order.paidAt?.toISOString() ?? null, confirmedBy: order.confirmedBy, createdAt: order.createdAt.toISOString() })),
     credits: credits.map((entry) => ({ reason: entry.reason, delta: entry.delta, balanceAfter: entry.balanceAfter, orderNo: entry.orderId ? orderNoById.get(entry.orderId) ?? entry.orderId : null, note: entry.note, createdAt: entry.createdAt.toISOString() })),
     audits: audits.map((entry) => ({ action: entry.action, actorUsername: entry.actorUsername, reason: entry.reason, before: viewerRole === "admin" ? entry.before : null, after: viewerRole === "admin" ? entry.after : null, createdAt: entry.createdAt.toISOString() })),
@@ -179,15 +193,18 @@ async function protectAdmin(tx: Prisma.TransactionClient, userId: string, actorI
   if (count <= 1) throw new Error("不能停用或撤销最后一个有效管理员");
 }
 
+type ProfilePatch = { email?: string; phone?: string; role?: Role };
+
 export async function updateAdminUser(
   userId: string,
   actor: AdminActor,
-  patch: { email?: string; phone?: string; role?: Role },
+  patch: ProfilePatch,
   reason: string,
+  transaction?: Prisma.TransactionClient,
 ) {
   if (!reason.trim()) throw new Error("请填写修改原因");
   if (reason.trim().length > 500) throw new Error("修改原因不能超过 500 字");
-  return prisma.$transaction(async (tx) => {
+  const apply = async (tx: Prisma.TransactionClient) => {
     const before = await tx.user.findUnique({ where: { id: userId } });
     if (!before) throw new Error("用户不存在");
     if (before.status === "closed") throw new Error("已关闭账号不能修改");
@@ -208,6 +225,71 @@ export async function updateAdminUser(
       before: snapshot(before), after: snapshot(after),
     } });
     return { id: after.id };
+  };
+  return transaction ? apply(transaction) : prisma.$transaction(apply, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+export type AdminUserChanges = {
+  profile?: ProfilePatch;
+  membership?: MembershipChange;
+  creditDelta?: number;
+  researchMonthlyPoints?: number | null;
+};
+
+export function validateAdminUserChanges(actorRole: string, changes: AdminUserChanges) {
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) throw new Error("变更内容不正确");
+  const { profile, membership, creditDelta, researchMonthlyPoints } = changes;
+  const hasProfile = profile !== undefined;
+  const hasMembership = membership !== undefined || creditDelta !== undefined || researchMonthlyPoints !== undefined;
+  if (hasProfile && !hasAdminPermission(actorRole, "users:write")) throw new Error("无资料修改权限");
+  if (hasMembership && !hasAdminPermission(actorRole, "membership:write")) throw new Error("无会员管理权限");
+  if (!hasProfile && !hasMembership) throw new Error("请填写要提交的变更");
+  if (hasProfile && (!profile || typeof profile !== "object" || Array.isArray(profile)
+    || Object.entries(profile).some(([key, value]) => !["email", "phone", "role"].includes(key) || typeof value !== "string")
+    || ![profile.email, profile.phone, profile.role].some((value) => value !== undefined))) {
+    throw new Error("资料变更内容不正确");
+  }
+  if (membership !== undefined && (!membership || typeof membership !== "object" || Array.isArray(membership))) {
+    throw new Error("Pro 变更内容不正确");
+  }
+  if (researchMonthlyPoints != null && (!Number.isInteger(researchMonthlyPoints)
+    || researchMonthlyPoints < 0 || researchMonthlyPoints > 2147483647)) {
+    throw new Error("AI 月度额度须为 0 至 2147483647 的整数");
+  }
+}
+
+export async function saveAdminUserChanges(
+  userId: string,
+  actor: AdminActor & { role: string },
+  changes: AdminUserChanges,
+  reason: string,
+) {
+  if (typeof reason !== "string" || !reason.trim() || reason.trim().length > 500) {
+    throw new Error("请填写不超过 500 字的操作原因");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    if (changes.membership) await changeMembership(userId, actor, { ...changes.membership, reason }, tx);
+    if (changes.creditDelta !== undefined) await adjustCredits(userId, actor, { delta: changes.creditDelta, reason }, tx);
+    if (changes.researchMonthlyPoints !== undefined) {
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user || user.status === "closed") throw new Error("用户不存在或已关闭");
+      if (actor.role !== "admin" && user.role !== "user") throw new Error("无权修改后台人员的 AI 额度");
+      if (changes.researchMonthlyPoints !== null && !isPaidProActive(user)) {
+        throw new Error("请先开通 Pro 或在本次提交中开通 Pro");
+      }
+      if (changes.researchMonthlyPoints !== user.researchMcpMonthlyPoints) {
+        await tx.user.update({ where: { id: userId }, data: { researchMcpMonthlyPoints: changes.researchMonthlyPoints } });
+        await tx.adminUserAudit.create({ data: {
+          actorId: actor.id, actorUsername: actor.username, targetUserId: userId, targetUsername: user.username,
+          action: "research-quota-update", reason: reason.trim(),
+          before: { researchMcpMonthlyPoints: user.researchMcpMonthlyPoints },
+          after: { researchMcpMonthlyPoints: changes.researchMonthlyPoints },
+        } });
+      }
+    }
+    if (changes.profile) await updateAdminUser(userId, actor, changes.profile, reason, tx);
+    return { id: userId };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 

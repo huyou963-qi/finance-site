@@ -180,6 +180,7 @@ function allowResearchBudget(t: TestContext) {
     $queryRaw: async (strings: TemplateStringsArray) => strings[0]?.includes("pg_try_advisory")
       ? [{ locked: true }] : [{ now: new Date("2026-11-26") }],
     researchMcpCall: { deleteMany: async () => ({}), count: async () => 0, groupBy: async () => [], create: async () => ({}) },
+    user: { findUnique: async () => ({ researchMcpMonthlyPoints: null }) },
     researchMcpUsage: { findUnique: async () => null, upsert: async () => ({}) },
   };
   t.mock.method(prisma, "$transaction", async (work: (tx: typeof budget) => unknown) => work(budget));
@@ -402,6 +403,7 @@ test("Pro can read 28 single quarters in one call and page an issuer's archived 
     $queryRaw: async (strings: TemplateStringsArray) => strings[0]?.includes("pg_try_advisory")
       ? [{ locked: true }] : [{ now: new Date("2026-11-26") }],
     researchMcpCall: { deleteMany: async () => ({}), count: async () => 0, groupBy: async () => [], create: async () => ({}) },
+    user: { findUnique: async () => ({ researchMcpMonthlyPoints: null }) },
     researchMcpUsage: { findUnique: async () => null, upsert: async () => ({}) },
   };
   t.mock.method(prisma, "$transaction", async (work: (tx: typeof budget) => unknown) => work(budget));
@@ -467,7 +469,8 @@ test("MCP rate, concurrency and quota denials include distinct retry guidance", 
       groupBy: async () => block === "concurrent" ? [{ userId: paid.id, _count: { _all: 2 } }]
         : block === "service" ? [{ userId: "other", _count: { _all: 1000 } }] : [],
     },
-    researchMcpUsage: { findUnique: async () => ({ used: 100_000_000 }) },
+    user: { findUnique: async () => ({ researchMcpMonthlyPoints: block === "zero_quota" ? 0 : 10 }) },
+    researchMcpUsage: { findUnique: async () => ({ used: block === "zero_quota" ? 0 : 10 }) },
   };
   t.mock.method(prisma, "$transaction", async (work: (tx: typeof gate) => unknown) => work(gate));
   for (const [cause, code, reason, seconds] of [
@@ -476,6 +479,7 @@ test("MCP rate, concurrency and quota denials include distinct retry guidance", 
     ["concurrent", "ACCOUNT_BUSY", "account_concurrency", 2],
     ["service", "BUSY", "service_concurrency", 3],
     ["quota", "QUOTA_EXCEEDED", "monthly_quota", 432000],
+    ["zero_quota", "QUOTA_EXCEEDED", "monthly_quota", null],
   ] as const) {
     block = cause;
     const { result } = await send("tools/call", {
@@ -486,10 +490,11 @@ test("MCP rate, concurrency and quota denials include distinct retry guidance", 
     assert.equal(error.code, code);
     assert.equal(error.reason, reason);
     assert.equal(error.retryAfterSeconds, seconds);
-    if (cause === "quota") {
+    if (cause === "quota" || cause === "zero_quota") {
+      assert.equal(error.limit, cause === "quota" ? 10 : 0);
       assert.equal(error.remaining, 0);
       assert.equal(error.requestedPoints, 1);
-      assert.equal(error.retryAt, "2026-12-01T00:00:00.000Z");
+      assert.equal(error.retryAt, cause === "quota" ? "2026-12-01T00:00:00.000Z" : null);
     }
   }
 });
@@ -533,6 +538,7 @@ test("Pro compares DHI peers and event windows, and receives a real PNG over MCP
     $queryRaw: async (strings: TemplateStringsArray) => strings[0]?.includes("pg_try_advisory")
       ? [{ locked: true }] : [{ now: new Date("2026-11-26") }],
     researchMcpCall: { deleteMany: async () => ({}), count: async () => 0, groupBy: async () => [], create: async () => ({}) },
+    user: { findUnique: async () => ({ researchMcpMonthlyPoints: null }) },
     researchMcpUsage: { findUnique: async () => null, upsert: async () => ({}) },
   };
   t.mock.method(prisma, "$transaction", async (work: (tx: typeof budget) => unknown) => work(budget));
