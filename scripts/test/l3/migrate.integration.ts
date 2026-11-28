@@ -88,6 +88,8 @@ async function upgradeFromPenultimate(): Promise<void> {
     const db = new PrismaClient({ datasources: { db: { url: isolated.url } } });
     try {
       await db.user.create({
+        // The generated client includes columns that the baseline may not yet have.
+        select: { id: true },
         data: {
           id: sentinelId,
           username: `l3-upgrade-${sentinelId.slice(0, 8)}`,
