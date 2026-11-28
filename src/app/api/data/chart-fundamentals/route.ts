@@ -4,6 +4,7 @@ import { getQuarterlyFundamentalsDbFirst } from "@/lib/equity/equityFundamentals
 import { computeQuarterRatios } from "@/lib/equity/fundamentalRatios";
 import { loadStockContext } from "@/lib/equity/stockDetail";
 import { computeValuationHistory } from "@/lib/equity/valuationHistory";
+import { prisma } from "@/lib/prisma";
 import type { FundamentalMetric } from "@/lib/chart/chartLayers";
 
 const ALL_METRICS: FundamentalMetric[] = [
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
       : ALL_METRICS.filter((m) => m !== "forwardPe"),
   );
   wanted.delete("forwardPe");
+  const includeAvailability = req.nextUrl.searchParams.get("timing") === "available";
 
   try {
     const stock = await loadStockContext(symbolRaw);
@@ -121,8 +123,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const available: Partial<Record<FundamentalMetric, { time: number; value: number }[]>> = {};
+    if (includeAvailability && [...wanted].some(metric => !["ttmPe", "pb"].includes(metric))) {
+      const filed = await prisma.equityFundamentalVintage.findMany({
+        where: { symbol: stock.symbol, periodType: "Q", fiscalDate: { not: null } },
+        orderBy: [{ filedAt: "asc" }, { accession: "asc" }],
+        select: { fiscalDate: true, filedAt: true, eps: true, revenue: true, grossMargin: true, opMargin: true, netIncome: true },
+      });
+      const seen = new Set<string>();
+      for (const row of filed) {
+        const values = {
+          eps: row.eps, revenue: row.revenue, grossMargin: row.grossMargin, operatingMargin: row.opMargin,
+          netMargin: row.revenue && row.netIncome != null ? row.netIncome / row.revenue : null,
+        };
+        for (const metric of Object.keys(values) as (keyof typeof values)[]) {
+          const value = values[metric];
+          if (!wanted.has(metric) || value == null || !Number.isFinite(value)) continue;
+          const key = `${metric}:${row.fiscalDate!.getTime()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          // Filing records are day-precision, so use the next UTC day for chart calculations.
+          (available[metric] ??= []).push({ time: row.filedAt.getTime() / 1000 + 86400, value });
+        }
+      }
+    }
     return NextResponse.json({
       symbol: stock.symbol,
+      ...(includeAvailability ? { available } : {}),
       daily,
       quarterly,
       attribution: "SEC companyfacts → equity_fundamental_snapshot",

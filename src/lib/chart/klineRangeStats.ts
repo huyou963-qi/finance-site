@@ -1,6 +1,6 @@
 import type { CandlestickData, IChartApi, Time } from "lightweight-charts";
 
-function horzTimeToUnixSec(t: Time): number | null {
+export function horzTimeToUnixSec(t: Time): number | null {
   if (typeof t === "number" && Number.isFinite(t)) return t;
   if (typeof t === "string") {
     const ms = Date.parse(t);

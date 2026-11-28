@@ -134,6 +134,15 @@ export const FEATURE_CATALOG: readonly FeatureDefinition[] = [
     defaults: RELEASED,
   },
   {
+    id: "market-advanced-overlays",
+    label: "行情叠加运算",
+    kind: "setting",
+    group: "美股",
+    paths: [],
+    description: "行情、宏观和基本面叠加，支持跨数据源公式、滚动统计与独立副图",
+    defaults: IN_DEVELOPMENT,
+  },
+  {
     id: "investments",
     label: "投资记录",
     group: "美股",

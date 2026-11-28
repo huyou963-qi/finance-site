@@ -1,12 +1,10 @@
-import type { PriceClosePoint } from "./deriveLayerSeries";
-
 /** 按时间覆盖主图；单次 limit 会被服务端裁剪，不能用主图柱数代替时间边界。 */
-export async function loadLayerPriceHistory(
-  loadPage: (before?: number) => Promise<PriceClosePoint[]>,
+export async function loadLayerPriceHistory<T extends { time: number }>(
+  loadPage: (before?: number) => Promise<T[]>,
   fromSec: number | null,
   signal?: AbortSignal,
-): Promise<PriceClosePoint[]> {
-  const byTime = new Map<number, PriceClosePoint>();
+): Promise<T[]> {
+  const byTime = new Map<number, T>();
   let before: number | undefined;
   while (!signal?.aborted) {
     const page = await loadPage(before);

@@ -35,8 +35,8 @@ import { useMarketDrawings } from "@/hooks/useMarketDrawings";
 import { MarketDrawingToolbar } from "@/components/chart/MarketDrawingToolbar";
 import { createDrawing, pointCount, updateDrawingPoint, type DrawingTool, type MarketDrawing } from "@/lib/chart/marketDrawings";
 import { useChartLayers } from "@/hooks/useChartLayers";
+import { useVisibleFeatures } from "@/hooks/useVisibleFeatures";
 import {
-  layerNeedsLeftScale,
   resolvePriceScaleId,
   type AxisBinding,
 } from "@/lib/chart/chartLayers";
@@ -1267,7 +1267,10 @@ export function StockChartWorkspace({
   const candles = useMemo(() => payload?.candles ?? [], [payload?.candles]);
 
   const [visibleFromSec, setVisibleFromSec] = useState<number | null>(null);
+  const overlayFeatures = useVisibleFeatures();
+  const allowAdvancedLayers = overlayFeatures.can("market-advanced-overlays") && !overlayFeatures.locked("market-advanced-overlays");
   const layersApi = useChartLayers({
+    allowAdvanced: allowAdvancedLayers,
     primarySymbol: symbol,
     interval,
     priceAdjustment,
@@ -1278,8 +1281,6 @@ export function StockChartWorkspace({
   const layersStructKey = layersApi.structKey;
   const derivedLayersRef = useRef(layersApi.derived);
   derivedLayersRef.current = layersApi.derived;
-  const layersPrefsRef = useRef(layersApi.prefs);
-  layersPrefsRef.current = layersApi.prefs;
 
   const needsTtmPe = source !== "eastmoney" && !payload?.observationOnly &&
     (subPane1.content === "ttmpe" || subPane2.content === "ttmpe");
@@ -1639,7 +1640,7 @@ export function StockChartWorkspace({
       const handle = layerHandles.find((x) => x.id === d.layerId);
       if (!handle) continue;
       try {
-        handle.api.setData(d.points);
+        handle.api.setData(d.renderPoints ?? d.points);
       } catch {
         /* series may be detached mid-rebuild */
       }
@@ -1679,7 +1680,7 @@ export function StockChartWorkspace({
       const handle = handles.find((x) => x.id === d.layerId);
       if (!handle) continue;
       try {
-        handle.api.setData(d.points);
+        handle.api.setData(d.renderPoints ?? d.points);
         // 样式随 layerStructKey 重建时设置；这里只更新数据，避免在共用
         // 时间轴重新编号期间触发旧点的样式重算（LWC: Value is null）。
       } catch {
@@ -2273,7 +2274,7 @@ export function StockChartWorkspace({
         textColor: KLINE_CHART_TEXT_COLOR,
       },
       leftPriceScale: {
-        visible: layerNeedsLeftScale(layersPrefsRef.current.layers),
+        visible: derivedLayersRef.current.some(layer => layer.axis.mode === "left"),
         borderColor: KLINE.border,
         textColor: KLINE_CHART_TEXT_COLOR,
       },
@@ -2449,8 +2450,14 @@ export function StockChartWorkspace({
     // 多资产 / 基本面 Layer（结构变才重建；数据走独立 setData effect）
     nativeHandlesRef.current.layerSeries = [];
     const derivedSnapshot = derivedLayersRef.current;
+    let layerPaneIndex = nSub + 1;
+    const layerPaneCount = derivedSnapshot.filter(layer => layer.axis.mode === "subpane").length;
+    for (let i = 0; i < layerPaneCount; i++) {
+      const pane = chart.addPane();
+      pane.setStretchFactor(layerPaneCount > 2 ? 15 : 22);
+    }
     for (const d of derivedSnapshot) {
-      const place = resolveLayerPlacement(
+      const place = d.axis.mode === "subpane" ? { paneIndex: layerPaneIndex++, priceScaleId: "right" } : resolveLayerPlacement(
         d.axis,
         subPane1.visible,
         subPane2.visible,
@@ -2462,14 +2469,16 @@ export function StockChartWorkspace({
           lineWidth: d.lineWidth,
           priceLineVisible: false,
           lastValueVisible: true,
-          title: d.label,
+          title: d.unit ? `${d.label} · ${tx(d.unit)}` : d.label,
+          ...(d.fixedRange ? { autoscaleInfoProvider: () => ({ priceRange: d.fixedRange! }) } : {}),
+          ...(d.unit === "%" ? { priceFormat: { type: "percent" as const } } : {}),
           priceScaleId: place.priceScaleId,
           lineType:
             d.style === "step" ? LineType.WithSteps : LineType.Simple,
         },
         place.paneIndex,
       );
-      if (d.points.length) s.setData(d.points);
+      if (d.points.length) s.setData(d.renderPoints ?? d.points);
       nativeHandlesRef.current.layerSeries.push({ id: d.layerId, api: s });
       if (place.priceScaleId !== "right" && place.priceScaleId !== "left") {
         try {
@@ -3343,7 +3352,7 @@ export function StockChartWorkspace({
           ))}
         </select>
       </label>
-      <ChartLayersPanel primarySymbol={symbol} layersApi={layersApi} inlinePanel={Boolean(settingsPortalEl)} />
+      <ChartLayersPanel primarySymbol={symbol} layersApi={layersApi} inlinePanel={Boolean(settingsPortalEl)} allowAdvanced={allowAdvancedLayers} />
       <div ref={overlayMenuRef} className={`relative flex ${settingsPortalEl ? "w-full flex-col items-start" : "items-center"}`}>
         <button
           type="button"
