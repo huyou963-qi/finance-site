@@ -154,7 +154,7 @@ async function main() {
       granularity: DataGranularity.MONTHLY,
       releaseRule: RELEASE_RULE,
       enabled: true,
-      ...(nextRunAt ? { nextRunAt } : {}),
+      // Preserve the worker's next probe or retry when deployments rerun the seed.
     },
   });
 

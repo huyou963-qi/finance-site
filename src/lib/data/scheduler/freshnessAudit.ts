@@ -92,7 +92,10 @@ export function inspectFreshnessRow(row: FreshnessAuditRow, now: Date): Freshnes
     add("source_pending", late ? "critical" : "warning",
       `${late ? "源端补齐已超期" : `源端待补齐（宽限至 ${pendingUntil.toISOString().slice(0, 10)}）`}：${row.lastError!.slice(0, 160)}`);
   } else if (row.lastError || row.lastFetchStatus === "FAILED") {
-    add("fetch_error", "critical", (row.lastError ?? "最近一次抓取失败").slice(0, 180));
+    const detail = (row.lastError ?? "最近一次抓取失败").slice(0, 180);
+    const lastAttempt = row.lastFetchAt?.toISOString() ?? "无记录";
+    const nextAttempt = row.nextRunAt?.toISOString() ?? "未排期";
+    add("fetch_error", "critical", `${detail}（最近抓取 ${lastAttempt}，下次排期 ${nextAttempt}）`);
   }
   if (row.enabled && row.nextRunAt) {
     const graceHours = row.granularity === "DAILY" || row.granularity === "WEEKLY" ? 6 : 24;
