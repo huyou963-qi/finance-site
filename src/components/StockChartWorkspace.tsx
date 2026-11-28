@@ -3269,11 +3269,15 @@ export function StockChartWorkspace({
   if (!symbol.trim()) {
     return (
       <div
-        className={
-          fillHeight
-            ? "flex min-h-[50dvh] flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-fs-border bg-fs-elevated px-6 text-center"
-            : "flex h-[560px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-fs-border bg-fs-elevated px-6 text-center"
-        }
+        className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-fs-border px-6 text-center ${
+          fillHeight ? "min-h-[50dvh] flex-1" : "h-[560px]"
+        }`}
+        style={{
+          backgroundColor: KLINE.background,
+          backgroundImage: `linear-gradient(to right, ${KLINE.grid} 1px, transparent 1px), linear-gradient(to bottom, ${KLINE.grid} 1px, transparent 1px)`,
+          backgroundSize: "80px 64px",
+          backgroundPosition: "center",
+        }}
       >
         <p className="text-sm text-fs-muted">{tx("尚未选择标的")}</p>
         <p className="max-w-md text-xs leading-relaxed text-fs-secondary">{tx("在上方输入框输入代码或公司名称，从联想列表中选择；也可输入完整代码后按 Enter 加载 K 线。")}</p>
