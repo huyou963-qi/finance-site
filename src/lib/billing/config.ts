@@ -22,7 +22,11 @@ export const defaultBillingConfig: BillingConfig = {
   campaign: { name: "新会员专享", type: "percent", value: 20, target: "new", plan: "all", start: "", end: "", enabled: false },
 };
 export const membershipProducts = ["pro_month", "pro_quarter", "pro_year"] as const;
-export function quotePrice(config: BillingConfig, revision: number, product: ProductType, audience: "new" | "renew" | "guest", firstAvailable = true, now = new Date()) {
+export type MembershipProduct = typeof membershipProducts[number];
+export function isMembershipProduct(product: unknown): product is MembershipProduct {
+  return membershipProducts.some(value => value === product);
+}
+export function quotePrice<P extends ProductType>(config: BillingConfig, revision: number, product: P, audience: "new" | "renew" | "guest", firstAvailable = true, now = new Date()) {
   const index = membershipProducts.indexOf(product as typeof membershipProducts[number]);
   const p = config.plans[index];
   const baseCents = Math.round((p?.price ?? amountForProduct(product)) * 100);

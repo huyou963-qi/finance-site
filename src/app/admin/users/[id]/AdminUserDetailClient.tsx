@@ -57,7 +57,7 @@ const ACTION_LABELS: Record<string, string> = {
   create: "创建用户", update: "修改资料或权益", suspend: "停用账号",
   reactivate: "恢复账号", close: "关闭账号", "revoke-sessions": "撤销会话",
   "send-reset-link": "发送密码重置链接", "reset-admin-mfa": "重置管理员双重验证",
-  "research-quota-update": "调整 AI 月度额度",
+  "research-quota-update": "调整会员月度额度",
   "membership-set": "设置 Pro 到期日", "membership-extend": "延长 Pro", "membership-revoke": "撤销 Pro", "credit-adjust": "调整积分", "tag-add": "添加标签", "tag-remove": "移除标签", "order-confirm": "确认订单收款",
 };
 const ORDER_STATUS_LABELS: Record<string, string> = {
@@ -136,11 +136,11 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
     const delta = Number(membership.delta);
     if (delta) {
       changes.creditDelta = delta;
-      summary.push(delta > 0 ? `增加 ${delta} 积分` : `扣减 ${-delta} 积分`);
+      summary.push(delta > 0 ? `增加 ${delta} 旧回测积分` : `扣减 ${-delta} 旧回测积分`);
     }
     if (canEditQuota && quotaValue !== quota.override) {
       changes.researchMonthlyPoints = quotaValue;
-      summary.push(quotaValue === null ? `恢复默认 AI 月度额度（${quota.defaultLimit} 点）` : `设置 AI 月度额度为 ${quotaValue} 点`);
+      summary.push(quotaValue === null ? `恢复默认会员月度额度（${quota.defaultLimit} 点）` : `设置会员月度额度为 ${quotaValue} 点`);
     }
   }
 
@@ -211,7 +211,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
             <Info label="微信" value={detail.user.wechatBound ? "已绑定" : "未绑定"} />
             <Info label="账号状态" value={detail.user.status === "active" ? "正常" : `${detail.user.status === "closed" ? "已关闭" : "已停用"} · ${detail.user.suspensionReason ?? ""}`} />
             <Info label="会员" value={`${detail.user.plan === "pro" ? "Pro" : "普通"}${detail.user.planExpiresAt ? ` · 到期 ${localDate(detail.user.planExpiresAt)}` : ""}${detail.user.trialEndsAt ? ` · 试用至 ${localDate(detail.user.trialEndsAt)}` : ""}`} />
-            <Info label="积分" value={String(detail.user.creditBalance)} />
+            {detail.user.creditBalance > 0 && <Info label="旧回测积分" value={String(detail.user.creditBalance)} />}
             <Info label="有效会话" value={String(detail.user.sessionCount)} />
             <Info label="注册时间" value={localDateTime(detail.user.createdAt)} />
             <Info label="最近登录" value={detail.user.lastLoginAt ? localDateTime(detail.user.lastLoginAt) : "从未登录"} />
@@ -279,20 +279,17 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
                           </label>
                         )}
                       </div>
-                      <label className={labelClass}>积分增减
-                        <input type="number" min={-10000} max={10000} className={inputClass} value={membership.delta} placeholder="0" onChange={(event) => setMembership({ ...membership, delta: event.target.value })} />
-                        <span className="mt-1 block text-xs text-fs-muted">当前余额 {detail.user.creditBalance}。正数增加，负数扣减。</span>
-                      </label>
                     </div>
                     <div className="mt-5 border-t border-fs-border pt-4">
-                      <h3 className="text-sm font-semibold text-fs-text">Pro AI 调用额度</h3>
+                      <h3 className="text-sm font-semibold text-fs-text">Pro 月度额度</h3>
+                      <p className="mt-1 text-xs text-fs-muted">回测、稳健性分析与 AI 数据调用共用。</p>
                       <div className="mt-2 grid items-start gap-3 sm:grid-cols-2">
                         <label className={labelClass}>每月额度（点）
                           <input type="number" min={0} max={2147483647} className={inputClass}
                             value={membership.quota} disabled={!canEditQuota}
                             placeholder={String(quota.defaultLimit)} onChange={(event) => setMembership({ ...membership, quota: event.target.value })} />
                           <span className="mt-1 block text-xs text-fs-muted">
-                            {canEditQuota ? `留空使用全站默认额度（${quota.defaultLimit} 点），填 0 则暂停消耗点数的调用。`
+                            {canEditQuota ? `留空使用全站默认额度（${quota.defaultLimit} 点），填 0 则暂停会员额度的使用。`
                               : membership.action === "revoke" ? "撤销 Pro 后额度暂停生效。"
                               : "开通 Pro 后可设置额度，也可随本次开通一并提交。"}
                           </span>
@@ -303,6 +300,13 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
                         </div>
                       </div>
                     </div>
+                    <details className="mt-5 border-t border-fs-border pt-4">
+                      <summary className="cursor-pointer text-sm text-fs-secondary">旧回测积分</summary>
+                      <label className={`mt-2 block ${labelClass}`}>旧积分增减
+                        <input type="number" min={-10000} max={10000} className={inputClass} value={membership.delta} placeholder="0" onChange={(event) => setMembership({ ...membership, delta: event.target.value })} />
+                        <span className="mt-1 block text-xs text-fs-muted">当前余额 {detail.user.creditBalance}。仅用于历史积分处理。</span>
+                      </label>
+                    </details>
                   </section>
                 )}
                 <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:px-5">
@@ -331,7 +335,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
 
           <section className="grid gap-4 lg:grid-cols-2">
             <History title="最近订单" rows={detail.orders.map((item) => `${localDate(item.createdAt)} · ${item.orderNo} · ${PRODUCT_LABELS[item.productType] ?? item.productType} · ¥${item.amountCny} · ${ORDER_STATUS_LABELS[item.status] ?? item.status}${item.paidAt ? ` · 支付 ${localDate(item.paidAt)}` : ""}${item.confirmedBy ? ` · 确认人 ${item.confirmedBy}` : ""}`)} />
-            <History title="最近积分流水" rows={detail.credits.map((item) => `${localDate(item.createdAt)} · ${item.reason} · ${item.delta > 0 ? "+" : ""}${item.delta} · 余额 ${item.balanceAfter}${item.orderNo ? ` · 订单 ${item.orderNo}` : ""}${item.note ? ` · ${item.note}` : ""}`)} />
+            {detail.credits.length > 0 && <History title="旧回测积分流水" rows={detail.credits.map((item) => `${localDate(item.createdAt)} · ${item.reason} · ${item.delta > 0 ? "+" : ""}${item.delta} · 余额 ${item.balanceAfter}${item.orderNo ? ` · 订单 ${item.orderNo}` : ""}${item.note ? ` · ${item.note}` : ""}`)} />}
             <History title="最近账号事件" rows={detail.authEvents.map((item) => `${localDateTime(item.createdAt)} · ${{ password_login: "密码登录", wechat_login: "微信登录", recovery_code_login: "恢复码登录", admin_mfa_setup: "管理员双重验证绑定", password_reset: "密码重置" }[item.kind] ?? item.kind}`)} />
           </section>
           <section className="rounded-lg border border-fs-border p-4">

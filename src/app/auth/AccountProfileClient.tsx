@@ -21,6 +21,7 @@ type UserProfile = {
   planExpiresAt?: string | null;
   trialEndsAt?: string | null;
   creditBalance?: number;
+  memberUsage?: { remaining: number; limit: number; resetAt: string } | null;
   hasProAccess?: boolean;
   isTrial?: boolean;
   wechatBound?: boolean;
@@ -112,10 +113,11 @@ export function AccountProfileClient({
         error?: string;
       };
       if (!res.ok) throw new Error(payload.error ?? `HTTP ${res.status}`);
-      if (payload.user) {
-        setProfile(payload.user);
-        setEmail(payload.user.email);
-        setPhone(payload.user.phone);
+      const updated = payload.user;
+      if (updated) {
+        setProfile(current => ({ ...updated, memberUsage: current?.memberUsage }));
+        setEmail(updated.email);
+        setPhone(updated.phone);
       }
       setCurrentPassword("");
       setNewPassword("");
@@ -187,7 +189,14 @@ export function AccountProfileClient({
           {t("membershipStatus")}
           <span className="font-medium">{membershipLabel}</span>
         </p>
-        <p className="mt-1 text-xs text-fs-muted">{t("credits", { count: profile.creditBalance ?? 0 })}</p>
+        {profile.memberUsage && (
+          <p className="mt-1 text-xs text-fs-muted">{t("memberUsage", {
+            remaining: profile.memberUsage.remaining,
+            limit: profile.memberUsage.limit,
+            date: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "Asia/Shanghai" }).format(new Date(profile.memberUsage.resetAt)),
+          })}</p>
+        )}
+        {(profile.creditBalance ?? 0) > 0 && <p className="mt-1 text-xs text-fs-muted">{t("credits", { count: profile.creditBalance ?? 0 })}</p>}
         <Link
           href="/pricing"
           className="mt-2 inline-block text-sm font-medium text-fs-accent-text underline"

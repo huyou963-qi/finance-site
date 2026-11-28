@@ -1,6 +1,6 @@
 "use client";
 
-import type { quotePrice } from "@/lib/billing/config";
+import type { MembershipProduct, quotePrice } from "@/lib/billing/config";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
@@ -8,11 +8,11 @@ import { formatNumber } from "@/lib/i18n/format";
 import { randomUUID } from "@/lib/randomId";
 import { ZpayCheckout, usePaymentStatusLabel, type OnlineCheckout } from "@/components/billing/ZpayCheckout";
 import {
-  CREDIT_PACK_CNY,
-  CREDIT_PACK_CREDITS,
   PLAN_FEATURES,
   TRIAL_DAYS,
 } from "@/lib/billing/pricing";
+
+type MembershipOffer = ReturnType<typeof quotePrice<MembershipProduct>>;
 
 const PERIOD_DAYS = { month: 30, quarter: 90, year: 365 } as const;
 const TIERS = ["visitor", "standard", "pro"] as const;
@@ -43,9 +43,9 @@ export function PricingClient() {
   const statusLabel = usePaymentStatusLabel();
   const money = (yuan: number) => formatNumber(yuan, locale, { style: "currency", currency: "CNY" });
   // 套餐名与卖点由管理员用中文配置；英文界面按产品类型显示固定英文
-  const offerName = (o: ReturnType<typeof quotePrice>) =>
+  const offerName = (o: MembershipOffer) =>
     locale === "en" ? t(`offers.${o.productType}.name`) : o.name;
-  const offerTagline = (o: ReturnType<typeof quotePrice>) =>
+  const offerTagline = (o: MembershipOffer) =>
     locale === "en" ? t(`offers.${o.productType}.tagline`) : o.tagline;
   const campaignName = (name: string | undefined) => (locale === "en" ? t("promotion") : name);
   const [loggedIn, setLoggedIn] = useState(false);
@@ -57,7 +57,7 @@ export function PricingClient() {
     order: Order;
     payment: PaymentHints;
   } | null>(null);
-  const [offers, setOffers] = useState<ReturnType<typeof quotePrice>[]>([]);
+  const [offers, setOffers] = useState<MembershipOffer[]>([]);
   const [catalogReady, setCatalogReady] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [onlineMethods, setOnlineMethods] = useState<string[]>([]);
@@ -88,7 +88,7 @@ export function PricingClient() {
     try {
       const res = await fetch("/api/billing/orders", { cache: "no-store" });
       if (!res.ok) throw new Error(t("catalogFailed"));
-      const j = (await res.json()) as { orders?: Order[]; onlineMethods?: string[]; offers?: ReturnType<typeof quotePrice>[] };
+      const j = (await res.json()) as { orders?: Order[]; onlineMethods?: string[]; offers?: MembershipOffer[] };
       setOffers(j.offers ?? []); setCatalogReady(true);
       setOrders(j.orders ?? []);
       setOnlineMethods(j.onlineMethods ?? []);
@@ -115,7 +115,7 @@ export function PricingClient() {
     finally { setBusy(null); }
   }
 
-  const createOrder = async (productType: "pro_month" | "pro_quarter" | "pro_year" | "credits") => {
+  const createOrder = async (productType: MembershipProduct) => {
     setHint(null);
     if (!loggedIn) {
       setHint(t("loginFirst"));
@@ -193,25 +193,6 @@ export function PricingClient() {
         {offers.map(offer => <article key={offer.productType} className="rounded-xl border border-fs-border bg-fs-bg p-6"><h2 className="text-sm font-medium text-fs-text">{offerName(offer)}</h2><p className="mt-2 text-3xl font-semibold text-fs-text">{money(offer.amountCents / 100)}</p><p className="mt-2 text-xs text-fs-muted">{t("period", { days: PERIOD_DAYS[offer.period ?? "year"] })}</p>{offer.discountCents > 0 && <p className="mt-2 text-xs text-fs-accent-text"><del className="mr-2 text-fs-muted">{money(offer.baseCents / 100)}</del>{campaignName(offer.campaign?.name)} · {t("save", { amount: money(offer.discountCents / 100) })}</p>}<p className="mt-3 text-xs text-fs-muted">{offerTagline(offer)}</p><button disabled={busy !== null || !catalogReady} onClick={() => void createOrder(offer.productType)} className="mt-5 w-full rounded-lg bg-fs-accent px-4 py-2.5 text-sm text-white disabled:opacity-50">{busy === offer.productType ? t("creatingOrder") : t("choose", { name: offerName(offer) })}</button></article>)}
       </div>
       <p className="mt-3 text-xs text-fs-muted">{t("offerNote")}</p>
-
-      <div className="mt-4 rounded-xl border border-fs-border bg-white p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-fs-text">{t("creditPack")}</p>
-            <p className="mt-1 text-xs text-fs-muted">
-              {t("creditPackDetail", { credits: CREDIT_PACK_CREDITS, price: money(CREDIT_PACK_CNY) })}
-            </p>
-          </div>
-          <button
-            type="button"
-            disabled={busy !== null || !catalogReady}
-            onClick={() => void createOrder("credits")}
-            className="rounded-md border border-fs-border px-4 py-2 text-sm text-fs-text hover:bg-fs-elevated disabled:opacity-50"
-          >
-            {busy === "credits" ? t("creatingOrder") : t("buyCredits")}
-          </button>
-        </div>
-      </div>
 
       {!loggedIn ? (
         <p className="mt-4 text-sm text-fs-muted">
@@ -309,10 +290,10 @@ export function PricingClient() {
               >
                 <span className="font-mono text-fs-text">{o.orderNo}</span>
                 <span>
-                  {o.productType} · {money(o.amountCny)}
+                  {o.productType === "credits" ? t("offers.credits.name") : o.productType} · {money(o.amountCny)}
                 </span>
                 <span>{statusLabel(o.status)}</span>
-                {o.channel === "zpay" ? <div className="flex flex-wrap gap-2">{o.status === "pending" ? <button type="button" disabled={busy !== null} onClick={() => void resumeOrder(o.id)} className="rounded border border-fs-border px-2 py-2 disabled:opacity-50">{t("continuePayment")}</button> : null}<button type="button" onClick={() => { void fetch(`/api/billing/orders/${encodeURIComponent(o.id)}`, { method: "POST" }).then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.error); setOnlineCheckout({ order: data.order }); onPaid(); }).catch(() => setHint(t("checkFailed"))); }} className="rounded border border-fs-border px-2 py-2">{t("checkStatus")}</button></div> : null}
+                {o.channel === "zpay" ? <div className="flex flex-wrap gap-2">{o.status === "pending" && o.productType !== "credits" ? <button type="button" disabled={busy !== null} onClick={() => void resumeOrder(o.id)} className="rounded border border-fs-border px-2 py-2 disabled:opacity-50">{t("continuePayment")}</button> : null}<button type="button" onClick={() => { void fetch(`/api/billing/orders/${encodeURIComponent(o.id)}`, { method: "POST" }).then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.error); setOnlineCheckout({ order: data.order }); onPaid(); }).catch(() => setHint(t("checkFailed"))); }} className="rounded border border-fs-border px-2 py-2">{t("checkStatus")}</button></div> : null}
               </li>
             ))}
           </ul>

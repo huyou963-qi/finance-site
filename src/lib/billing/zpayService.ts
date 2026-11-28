@@ -2,7 +2,8 @@ import { quoteForOrder } from "./configStore";
 import { randomInt } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { CREDIT_PACK_CREDITS, periodForProduct, type ProductType } from "./pricing";
+import { isMembershipProduct } from "./config";
+import { periodForProduct, type ProductType } from "./pricing";
 import { grantOrderEntitlement, serializable } from "./fulfillment";
 import { checkoutMethods, PaymentError, isPaymentError, queryZpay, signedCheckout, validateGatewayOrder, verifyZpay, moneyInCents, zpayConfig, type GatewayOrder, type PaymentMethod } from "./zpay";
 
@@ -16,7 +17,7 @@ export async function checkoutForUser(userId: string, input: { orderId?: string;
     order = await prisma.paymentOrder.findFirst({ where: { id: input.orderId, userId, channel: "zpay" } });
     if (!order) throw new PaymentError("ORDER_NOT_FOUND", 404);
   } else {
-    if (!input.productType || !["pro_month", "pro_quarter", "pro_year", "credits"].includes(input.productType)) throw new PaymentError("INVALID_PRODUCT");
+    if (!isMembershipProduct(input.productType)) throw new PaymentError("INVALID_PRODUCT");
     if (!input.method || !config.methods.includes(input.method)) throw new PaymentError("CHANNEL_UNAVAILABLE", 503);
     if (typeof input.idempotencyKey !== "string" || !/^[a-zA-Z0-9-]{16,64}$/.test(input.idempotencyKey)) throw new PaymentError("INVALID_REQUEST");
     const { productType, method, idempotencyKey } = input;
@@ -31,12 +32,12 @@ export async function checkoutForUser(userId: string, input: { orderId?: string;
         if (recent >= 10) throw new PaymentError("TOO_MANY_ORDERS", 429);
         const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
         if (user.status !== "active") throw new PaymentError("ACCOUNT_REVIEW", 409);
-        if (productType !== "credits" && user.plan === "pro" && user.planExpiresAt === null) throw new PaymentError("PERMANENT_PRO", 409);
+        if (user.plan === "pro" && user.planExpiresAt === null) throw new PaymentError("PERMANENT_PRO", 409);
         const quote = await quoteForOrder(tx, userId, productType);
         return tx.paymentOrder.create({ data: {
           orderNo: `${Date.now()}${String(randomInt(1e9)).padStart(9, "0")}${String(randomInt(1e9)).padStart(9, "0")}`,
           userId, productType, period: periodForProduct(productType), amountCny: quote.amountCents / 100, pricingSnapshot: quote,
-          credits: productType === "credits" ? CREDIT_PACK_CREDITS : 0, channel: "zpay", paymentMethod: method,
+          channel: "zpay", paymentMethod: method,
           merchantId: config.pid, idempotencyKey, expiresAt: new Date(Date.now() + 30 * 60000), nextCheckAt: new Date(Date.now() + 60000),
           events: { create: { kind: "checkout_created", source: "user", code: "OK", details: { amountCny: quote.amountCents / 100, method, pricingSnapshot: quote } } },
         } });
@@ -48,6 +49,7 @@ export async function checkoutForUser(userId: string, input: { orderId?: string;
     }
     if (order.productType !== productType || order.paymentMethod !== method || order.channel !== "zpay") throw new PaymentError("IDEMPOTENCY_CONFLICT", 409);
   }
+  if (!isMembershipProduct(order.productType)) throw new PaymentError("INVALID_PRODUCT");
   if (order.merchantId !== config.pid || !config.methods.includes(order.paymentMethod as PaymentMethod)) throw new PaymentError("CHANNEL_UNAVAILABLE", 503);
   if (order.status !== "pending" || !order.expiresAt || order.expiresAt <= new Date()) throw new PaymentError("ORDER_NOT_PAYABLE", 409);
   return { order, checkout: signedCheckout(order, config, returnOrigin) };

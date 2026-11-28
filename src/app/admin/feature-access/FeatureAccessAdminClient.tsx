@@ -247,7 +247,7 @@ export function FeatureAccessAdminClient() {
         </div>
       </div>
       <p className="text-xs text-fs-muted">
-        本页只控制页面入口；周报全文、策略保存、回测积分等页面内部的 Pro 权益仍按原有规则。
+        本页只控制页面入口；周报全文、策略保存、会员月度额度等页面内部的 Pro 权益仍按原有规则。
       </p>
 
       <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 bg-fs-bg/95 px-1 py-2 backdrop-blur">

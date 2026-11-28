@@ -2,7 +2,7 @@
   "aiConnections": {
     "title": "AI 数据连接",
     "howTo": "在支持 MCP 的 AI 客户端填写此地址，使用你的 GekkoTech 账号授权。",
-    "usage": "当月已使用 {used} / {limit} 点",
+    "usage": "会员月度额度已使用 {used} / {limit} 点（与回测、稳健性分析共用）",
     "reset": "额度重置于 {date}（UTC）",
     "proRequired": "此功能需要有效的 Pro 订阅。",
     "unavailable": "AI 数据连接暂未开放。",
@@ -236,7 +236,8 @@
     "title": "个人账户",
     "subtitle": "修改邮箱、手机号或登录密码。会员续费请前往定价页。",
     "membershipStatus": "会员状态：",
-    "credits": "回测积分余额：{count}",
+    "credits": "旧回测积分余额：{count}",
+    "memberUsage": "本月会员额度剩余 {remaining} / {limit} 点，{date} 重置",
     "upgradeRenew": "升级 / 续费 Pro",
     "username": "用户名",
     "membershipType": "会员类型",
@@ -356,9 +357,6 @@
     "creatingOrder": "创建订单…",
     "choose": "选择{name}",
     "offerNote": "登录后展示适用优惠；优惠资格、活动有效期及最终金额在创建订单时由服务器确认。已生成订单保留原成交价格。",
-    "creditPack": "回测积分包",
-    "creditPackDetail": "{credits} 次回测 · {price}（非 Pro 可用积分抵扣回测）",
-    "buyCredits": "购买积分",
     "loginToOrder": "下单前请先 <login>登录</login> 或 <register>注册</register>（注册即送 {days} 天试用）。",
     "paymentGuide": "付款指引",
     "orderLine": "订单号 <no></no>，金额 <amount></amount>",
@@ -387,7 +385,7 @@
         "tagline": "长期陪伴，让研究积累价值"
       },
       "credits": {
-        "name": "积分包",
+        "name": "旧回测积分包",
         "tagline": ""
       }
     },
@@ -410,7 +408,7 @@
         "0": "AI 周报全文",
         "1": "市场事件时间线深度浏览",
         "2": "选股策略保存",
-        "3": "策略回测（不消耗积分）",
+        "3": "策略回测与稳健性分析（使用会员月度额度）",
         "4": "因子研究",
         "5": "数据导出能力（随功能开放）"
       }

@@ -80,11 +80,11 @@ export async function createRun(input: {
   config: ScreenerConfig;
   params: BacktestParams;
   spec: RobustnessSpec;
-}): Promise<{ id: string }> {
+}, db: Prisma.TransactionClient = prisma): Promise<{ id: string }> {
   validateScreenerConfig(input.config);
   validateBacktestParams(input.params);
   validateSpec(input.spec);
-  const run = await prisma.robustnessRun.create({
+  const run = await db.robustnessRun.create({
     data: {
       name: input.name.trim() || "未命名稳健性分析",
       userId: input.userId ?? null,

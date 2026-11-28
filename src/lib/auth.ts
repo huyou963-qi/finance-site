@@ -2,7 +2,8 @@ import crypto from "node:crypto";
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { accessSummary, userHasProAccess } from "@/lib/billing/access";
+import { getMemberUsage } from "@/lib/billing/memberUsage";
+import { accessSummary, isPaidProActive, userHasProAccess } from "@/lib/billing/access";
 import { TRIAL_DAYS } from "@/lib/billing/pricing";
 import { decryptTotpSecret, encryptTotpSecret, newTotpSecret, verifyTotp } from "@/lib/auth/adminMfa";
 import { checkLoginThrottle, clearLoginFailures, recordLoginFailure } from "@/lib/auth/loginThrottle";
@@ -830,6 +831,7 @@ export async function getUserProfile(userId: string) {
   await ensureAdminSeed();
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("用户不存在");
+  const memberUsage = isPaidProActive(user) ? await getMemberUsage(user.id, user) : null;
   return {
     id: user.id,
     username: user.username,
@@ -840,6 +842,7 @@ export async function getUserProfile(userId: string) {
     plan: parseUserPlan(user.plan),
     planExpiresAt: user.planExpiresAt ? user.planExpiresAt.toISOString() : null,
     trialEndsAt: user.trialEndsAt ? user.trialEndsAt.toISOString() : null,
+    memberUsage,
     creditBalance: user.creditBalance,
     ...accessSummary({
       role: user.role as Role,
@@ -992,8 +995,8 @@ export async function updateUserAccount(
   };
 }
 
-export async function getUserAccessRecord(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+export async function getUserAccessRecord(userId: string, db: Prisma.TransactionClient = prisma) {
+  const user = await db.user.findUnique({ where: { id: userId } });
   if (!user || user.status !== "active" || (isStaffRole(user.role) && !user.adminTotpSecret)) return null;
   return {
     id: user.id,

@@ -75,10 +75,10 @@ export async function createRun(input: {
   userId?: string | null;
   config: ScreenerConfig;
   params: BacktestParams;
-}): Promise<{ id: string }> {
+}, db: Prisma.TransactionClient = prisma): Promise<{ id: string }> {
   validateScreenerConfig(input.config);
   validateBacktestParams(input.params);
-  const run = await prisma.backtestRun.create({
+  const run = await db.backtestRun.create({
     data: {
       name: input.name.trim() || "未命名回测",
       userId: input.userId ?? null,
