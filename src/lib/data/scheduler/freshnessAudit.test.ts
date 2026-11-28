@@ -29,12 +29,15 @@ test("actual observations distinguish importer data from an empty series", () =>
 test("empty series and stale failed subscription are reported separately", () => {
   const findings = inspectFreshnessRow({
     ...base, actualLastObsDate: null, actualLastValue: null,
+    lastFetchAt: new Date("2026-09-30T22:00:00Z"), lastFetchStatus: "FAILED",
     nextRunAt: new Date("2026-10-01T00:00:00Z"), lastError: "HTTP 404",
   }, now);
   assert.deepEqual(
     new Set(findings.map((f) => f.code)),
     new Set(["no_observations", "fetch_error", "overdue"]),
   );
+  assert.equal(findings.find((f) => f.code === "fetch_error")?.detail,
+    "HTTP 404（最近抓取 2026-09-30T22:00:00.000Z，下次排期 2026-10-01T00:00:00.000Z）");
 });
 
 test("archives require explicit lifecycle, disabled subscription and stored history", () => {
