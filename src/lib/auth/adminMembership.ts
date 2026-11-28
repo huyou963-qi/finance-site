@@ -9,12 +9,18 @@ function validateReason(reason: unknown): string {
   return value;
 }
 
-export async function changeMembership(userId: string, actor: Actor, input: {
+export type MembershipChange = {
   action: "set" | "extend" | "revoke";
   expiresOn?: string;
   days?: number;
-  reason?: string;
-}) {
+};
+
+export async function changeMembership(
+  userId: string,
+  actor: Actor,
+  input: MembershipChange & { reason?: string },
+  transaction?: Prisma.TransactionClient,
+) {
   const reason = validateReason(input.reason);
   if (!["set", "extend", "revoke"].includes(input.action)) throw new Error("操作类型不正确");
   const now = new Date();
@@ -26,7 +32,7 @@ export async function changeMembership(userId: string, actor: Actor, input: {
     if (setExpiry.getTime() > now.getTime() + 5 * 366 * 86400000) throw new Error("到期日期不能超过五年");
   }
   if (input.action === "extend" && (!Number.isInteger(input.days) || input.days! < 1 || input.days! > 365)) throw new Error("延长天数须为 1–365");
-  return prisma.$transaction(async (tx) => {
+  const apply = async (tx: Prisma.TransactionClient) => {
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user || user.status === "closed") throw new Error("用户不存在或已关闭");
     if (actor.role !== "admin" && user.role !== "user") throw new Error("不能操作后台人员的权益");
@@ -46,14 +52,20 @@ export async function changeMembership(userId: string, actor: Actor, input: {
       after: { plan: after.plan, planExpiresAt: after.planExpiresAt?.toISOString() ?? null, trialEndsAt: after.trialEndsAt?.toISOString() ?? null },
     } });
     return { plan: after.plan, planExpiresAt: after.planExpiresAt?.toISOString() ?? null };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  };
+  return transaction ? apply(transaction) : prisma.$transaction(apply, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-export async function adjustCredits(userId: string, actor: Actor, input: { delta?: number; reason?: string }) {
+export async function adjustCredits(
+  userId: string,
+  actor: Actor,
+  input: { delta?: number; reason?: string },
+  transaction?: Prisma.TransactionClient,
+) {
   const reason = validateReason(input.reason);
   const delta = input.delta;
   if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta!) > 10000) throw new Error("单次积分调整须为 -10000 至 10000 的非零整数");
-  return prisma.$transaction(async (tx) => {
+  const apply = async (tx: Prisma.TransactionClient) => {
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user || user.status === "closed") throw new Error("用户不存在或已关闭");
     if (actor.role !== "admin" && user.role !== "user") throw new Error("不能操作后台人员的积分");
@@ -64,5 +76,6 @@ export async function adjustCredits(userId: string, actor: Actor, input: { delta
     await tx.adminUserAudit.create({ data: { actorId: actor.id, actorUsername: actor.username, targetUserId: userId,
       targetUsername: user.username, action: "credit-adjust", reason, before: { creditBalance: balanceAfter - delta! }, after: { creditBalance: balanceAfter, delta } } });
     return { creditBalance: balanceAfter };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  };
+  return transaction ? apply(transaction) : prisma.$transaction(apply, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

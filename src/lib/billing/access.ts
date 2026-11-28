@@ -31,7 +31,7 @@ export function isTrialActive(user: AccessUser, now = Date.now()): boolean {
   return Boolean(ends && ends.getTime() > now);
 }
 
-export function isPaidProActive(user: AccessUser, now = Date.now()): boolean {
+export function isPaidProActive(user: Pick<AccessUser, "plan" | "planExpiresAt">, now = Date.now()): boolean {
   if (parseUserPlan(user.plan) !== "pro") return false;
   const exp = asDate(user.planExpiresAt);
   if (!exp) return true;
